@@ -1,6 +1,6 @@
 # osrlib
 
-A Python library implementing the Old-School Essentials (OSE) SRD rules — a restatement of the 1981 B/X D&D rules — for turn-based, grid-based dungeon crawlers in the style of the original Bard's Tale. osrlib is the rules authority and game-state engine; the game supplies presentation, input, and content.
+A Python library implementing the classic 1981 B/X (Basic/Expert) fantasy adventure game rules for turn-based, grid-based dungeon crawlers in the style of the original Bard's Tale. The rules are sourced from the Old-School Essentials System Reference Document, an Open Game Content restatement of the B/X rules. osrlib is the rules authority and game-state engine; the game supplies presentation, input, and content.
 
 See [the specification](docs/spec.md) for the full design: architecture, contracts, rules scope, and the phased roadmap.
 
@@ -47,4 +47,6 @@ uv run ruff check
 This repository contains two kinds of material under two licenses:
 
 - **Library code** is licensed under the [MIT license](LICENSE).
-- **SRD-derived content** — the scraped OSE SRD text in `srd/` and, in later phases, the compiled game data — is Open Game Content used under the [Open Game License 1.0a](LICENSE-OGL.md), which includes the complete Section 15 copyright notice.
+- **SRD-derived content** — the scraped SRD text in `srd/` and, in later phases, the compiled game data — is Open Game Content used under the [Open Game License 1.0a](LICENSE-OGL.md), which includes the complete Section 15 copyright notice.
+
+osrlib is an independent project, not affiliated with or endorsed by Necrotic Gnome. "Old-School Essentials" is a trademark of Necrotic Gnome, used here only to identify the source document; no claim of compatibility is made.

@@ -12,9 +12,9 @@ obey:
   rolls hide in shadows and hear noise on the player's behalf. Front ends filter on it;
   an LLM referee sees everything.
 - Consumers must tolerate unknown event types and unknown fields: within a
-  `schema_version`, the event schema grows additively only. The base class pins
-  `extra="ignore"` so no subclass can silently break that guarantee with
-  `extra="forbid"`.
+  `schema_version`, the event schema grows additively only. The base class enforces
+  `extra="ignore"` and `frozen=True` on every subclass at class-definition time, so no
+  subclass can silently break that guarantee with `extra="forbid"` or a mutable config.
 
 Whether serialized events carry a type discriminator beyond `code` is deliberately
 deferred to the first real event emissions and the command/event envelope (Phase 2),
@@ -60,6 +60,18 @@ class Event(BaseModel):
 
     code: str
     visibility: Visibility
+
+    @classmethod
+    def __pydantic_init_subclass__(cls, **kwargs: object) -> None:
+        """Reject subclasses that weaken the emission contract via `model_config`."""
+        super().__pydantic_init_subclass__(**kwargs)
+        if cls.model_config.get("extra") != "ignore":
+            raise TypeError(
+                f"{cls.__name__} must keep extra='ignore': consumers ignore unknown fields, "
+                "and the event schema grows additively within a schema_version"
+            )
+        if not cls.model_config.get("frozen"):
+            raise TypeError(f"{cls.__name__} must stay frozen: events are immutable records of what happened")
 
     @field_validator("code")
     @classmethod

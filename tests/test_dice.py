@@ -30,7 +30,12 @@ ACCEPTED = [
     ("2D6", (2, 6, 0, 1)),
     ("1d20+5", (1, 20, 5, 1)),
     ("  3d6  ", (3, 6, 0, 1)),
+    ("\t2d6\n", (2, 6, 0, 1)),
     ("12d8-13", (12, 8, -13, 1)),
+    ("999d6", (999, 6, 0, 1)),
+    ("2d6+0", (2, 6, 0, 1)),
+    ("2d6+999999", (2, 6, 999999, 1)),
+    ("2d6×999999", (2, 6, 0, 999999)),
 ]
 
 REJECTED = [
@@ -54,6 +59,18 @@ REJECTED = [
     "2dd6",
     "d%%",
     "2d6×10×10",
+    "1000d6",  # dice count capped at 999
+    "2d6+1000000",  # modifier magnitude capped at 999999
+    "2d6×1000000",  # multiplier capped at 999999
+    "1d" + "9" * 5000,  # must reject, not hit CPython's int-conversion digit limit
+    "02d6",  # leading zeros are non-canonical
+    "2d06",
+    "2d6+01",
+    "2d6×01",
+    "３d６",  # numerals are ASCII digits only, though \d would match these
+    "٣d6",
+    "๓d6",
+    "2d6+١",
 ]
 
 
@@ -76,6 +93,11 @@ class TestGrammar:
     def test_non_string_raises_type_error(self, not_a_string):
         with pytest.raises(TypeError):
             parse(not_a_string)
+
+    @pytest.mark.parametrize("not_an_expression", [None, 6, ["3d6"]])
+    def test_roll_rejects_non_expression_types(self, not_an_expression):
+        with pytest.raises(TypeError):
+            roll(not_an_expression, RngStream.from_seed_material(42, "types"))
 
 
 class TestRoll:

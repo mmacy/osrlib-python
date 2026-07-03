@@ -1,9 +1,11 @@
 """Tests for osrlib.core.events and osrlib.versioning — the emission and stamping contracts."""
 
+import tomllib
 from importlib import metadata
+from pathlib import Path
 
 import pytest
-from pydantic import ValidationError
+from pydantic import ConfigDict, ValidationError
 
 import osrlib
 from osrlib.core.events import Event, Visibility
@@ -89,6 +91,20 @@ class TestEventContract:
         event = Event(code="combat.attack.hit", visibility=Visibility.REFEREE)
         assert event.model_dump()["visibility"] == "referee"
 
+    def test_subclass_cannot_forbid_unknown_fields(self):
+        # extra="forbid" would break the additive-schema guarantee; the base class
+        # rejects the subclass at definition time.
+        with pytest.raises(TypeError):
+
+            class HostileEvent(Event):
+                model_config = ConfigDict(extra="forbid")
+
+    def test_subclass_cannot_unfreeze(self):
+        with pytest.raises(TypeError):
+
+            class MutableEvent(Event):
+                model_config = ConfigDict(frozen=False)
+
 
 class TestVersioning:
     def test_schema_version(self):
@@ -101,3 +117,8 @@ class TestVersioning:
 
     def test_engine_version_matches_package_metadata(self):
         assert engine_version() == metadata.version("osrlib")
+
+    def test_engine_version_matches_pyproject(self):
+        # The non-tautological check: the installed metadata must reflect this checkout.
+        pyproject = tomllib.loads((Path(__file__).parent.parent / "pyproject.toml").read_text(encoding="utf-8"))
+        assert engine_version() == pyproject["project"]["version"]

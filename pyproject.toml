@@ -1,7 +1,7 @@
 [project]
 name = "osrlib"
 version = "0.1.0"
-description = "Old-School Essentials (B/X) rules engine for turn-based dungeon crawlers"
+description = "B/X (1981 Basic/Expert) tabletop RPG rules engine for turn-based dungeon crawlers"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]

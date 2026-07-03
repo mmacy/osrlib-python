@@ -5,7 +5,9 @@ multiplier (`x` and `*` accepted as ASCII aliases): `3d6`, `1d6+1`, `1d4-1`, `2d
 `N` defaults to 1, `d%` is an alias for `d100`, and die sizes are the closed set
 {2, 3, 4, 6, 8, 10, 12, 20, 100}. Parsing is case-insensitive, surrounding whitespace
 is stripped, internal whitespace is rejected, and component order is fixed: dice, then
-modifier, then multiplier. Anything else raises
+modifier, then multiplier. Numerals are canonical ASCII digits — no Unicode digits, no
+leading zeros — with the dice count in 1–999, the modifier magnitude at most 999999,
+and the multiplier in 1–999999. Anything else raises
 [`ContentValidationError`][osrlib.errors.ContentValidationError].
 
 Evaluation order is `(sum of dice + M) × K` — the modifier applies before the
@@ -37,13 +39,16 @@ __all__ = [
 ALLOWED_SIDES = frozenset({2, 3, 4, 6, 8, 10, 12, 20, 100})
 """The closed set of legal die sizes."""
 
+# Canonical ASCII digits only, no leading zeros, bounded lengths: the grammar freezes
+# with parse acceptance, so what \d would quietly admit (Unicode digits, 5000-digit
+# numerals) must be rejected here, not discovered as contract later.
 _EXPRESSION_PATTERN = re.compile(
     r"""
-    (?P<count>\d+)?
+    (?P<count>[1-9][0-9]{0,2})?
     d
-    (?P<sides>%|\d+)
-    (?:(?P<modifier>[+-]\d+))?
-    (?:[x×*](?P<multiplier>\d+))?
+    (?P<sides>%|[1-9][0-9]{0,2})
+    (?P<modifier>[+-](?:0|[1-9][0-9]{0,5}))?
+    (?:[x×*](?P<multiplier>[1-9][0-9]{0,5}))?
     """,
     re.IGNORECASE | re.VERBOSE,
 )
@@ -94,8 +99,8 @@ def parse(expression: str) -> DiceExpression:
 
     Raises:
         ContentValidationError: If the expression doesn't match the grammar: unknown die
-            size, zero dice, zero multiplier, internal whitespace, or components out of
-            the fixed dice-modifier-multiplier order.
+            size, zero dice, zero multiplier, non-canonical numerals, internal
+            whitespace, or components out of the fixed dice-modifier-multiplier order.
         TypeError: If `expression` is not a string.
     """
     if not isinstance(expression, str):
@@ -105,15 +110,11 @@ def parse(expression: str) -> DiceExpression:
     if match is None:
         raise ContentValidationError(f"invalid dice expression: {expression!r}")
     count = int(match["count"]) if match["count"] is not None else 1
-    if count < 1:
-        raise ContentValidationError(f"dice count must be at least 1: {expression!r}")
     sides = 100 if match["sides"] == "%" else int(match["sides"])
     if sides not in ALLOWED_SIDES:
         raise ContentValidationError(f"die size must be one of {sorted(ALLOWED_SIDES)}: {expression!r}")
     modifier = int(match["modifier"]) if match["modifier"] is not None else 0
     multiplier = int(match["multiplier"]) if match["multiplier"] is not None else 1
-    if multiplier < 1:
-        raise ContentValidationError(f"multiplier must be at least 1: {expression!r}")
     return DiceExpression(count=count, sides=sides, modifier=modifier, multiplier=multiplier)
 
 
@@ -133,9 +134,12 @@ def roll(expression: str | DiceExpression, stream: RngStream) -> RollResult:
 
     Raises:
         ContentValidationError: If a string expression doesn't match the grammar.
+        TypeError: If `expression` is neither a string nor a `DiceExpression`.
     """
     if isinstance(expression, str):
         expression = parse(expression)
+    elif not isinstance(expression, DiceExpression):
+        raise TypeError(f"expression must be a str or DiceExpression, got {type(expression).__name__}")
     rolls = tuple(stream.randbelow(expression.sides) + 1 for _ in range(expression.count))
     total = (sum(rolls) + expression.modifier) * expression.multiplier
     return RollResult(
