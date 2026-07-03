@@ -1,0 +1,51 @@
+[project]
+name = "osrlib"
+version = "0.1.0"
+description = "B/X (1981 Basic/Expert) tabletop RPG rules engine for turn-based dungeon crawlers"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Marsh Macy" }]
+requires-python = ">=3.14"
+dependencies = ["pydantic>=2"]
+
+[dependency-groups]
+dev = [
+    "hypothesis>=6",
+    "pytest>=8",
+    "ruff>=0.11",
+]
+
+[build-system]
+requires = ["uv_build>=0.8.22,<0.9.0"]
+build-backend = "uv_build"
+
+[tool.ruff]
+line-length = 120
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "B",   # bugbear
+    "D",   # pydocstyle
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+    "W",   # pycodestyle warnings
+]
+# House docstring style puts a blank line between a section header ("Examples:") and
+# its content; D412 forbids it.
+ignore = ["D412"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["osrlib"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
