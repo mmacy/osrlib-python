@@ -116,6 +116,7 @@ class TestDrainLevels:
         prose = "A person drained of all levels becomes a wight in 1d4 days."
         result = drain_levels(fighter, definition, xp_policy="halfway", stream=FixedStream([]), spawn_consequence=prose)
         assert result.slain and result.new_level == 0
+        assert result.levels_lost == 1  # the killing level counts (pinned)
         assert has_condition(fighter, Condition.DEAD)
         assert fighter.current_hp == 0 and fighter.xp == 0
         drained = result.events[0]
@@ -164,6 +165,7 @@ class TestMonsterDrain:
         events = drain_monster_hd(ghoul, levels=2, stream=FixedStream([4]))
         assert has_condition(ghoul, Condition.DEAD)
         assert events[0].code == "combat.drain.slain"
+        assert events[0].levels_lost == 2  # the killing Hit Die counts (pinned)
 
 
 class TestWiring:
