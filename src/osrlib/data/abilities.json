@@ -1,0 +1,307 @@
+{
+  "_meta": {
+    "generator": "tools/srd_compile",
+    "license": "Open Game Content under OGL 1.0a; see LICENSE-OGL.md in this directory",
+    "source_pages": [
+      "Ability_Scores.md"
+    ]
+  },
+  "charisma": [
+    {
+      "max_retainers": 1,
+      "max_score": 3,
+      "min_score": 3,
+      "npc_reactions": -2,
+      "retainer_loyalty": 4
+    },
+    {
+      "max_retainers": 2,
+      "max_score": 5,
+      "min_score": 4,
+      "npc_reactions": -1,
+      "retainer_loyalty": 5
+    },
+    {
+      "max_retainers": 3,
+      "max_score": 8,
+      "min_score": 6,
+      "npc_reactions": -1,
+      "retainer_loyalty": 6
+    },
+    {
+      "max_retainers": 4,
+      "max_score": 12,
+      "min_score": 9,
+      "npc_reactions": 0,
+      "retainer_loyalty": 7
+    },
+    {
+      "max_retainers": 5,
+      "max_score": 15,
+      "min_score": 13,
+      "npc_reactions": 1,
+      "retainer_loyalty": 8
+    },
+    {
+      "max_retainers": 6,
+      "max_score": 17,
+      "min_score": 16,
+      "npc_reactions": 1,
+      "retainer_loyalty": 9
+    },
+    {
+      "max_retainers": 7,
+      "max_score": 18,
+      "min_score": 18,
+      "npc_reactions": 2,
+      "retainer_loyalty": 10
+    }
+  ],
+  "constitution": [
+    {
+      "hit_points": -3,
+      "max_score": 3,
+      "min_score": 3
+    },
+    {
+      "hit_points": -2,
+      "max_score": 5,
+      "min_score": 4
+    },
+    {
+      "hit_points": -1,
+      "max_score": 8,
+      "min_score": 6
+    },
+    {
+      "hit_points": 0,
+      "max_score": 12,
+      "min_score": 9
+    },
+    {
+      "hit_points": 1,
+      "max_score": 15,
+      "min_score": 13
+    },
+    {
+      "hit_points": 2,
+      "max_score": 17,
+      "min_score": 16
+    },
+    {
+      "hit_points": 3,
+      "max_score": 18,
+      "min_score": 18
+    }
+  ],
+  "dexterity": [
+    {
+      "ac": -3,
+      "initiative": -2,
+      "max_score": 3,
+      "min_score": 3,
+      "missile": -3
+    },
+    {
+      "ac": -2,
+      "initiative": -1,
+      "max_score": 5,
+      "min_score": 4,
+      "missile": -2
+    },
+    {
+      "ac": -1,
+      "initiative": -1,
+      "max_score": 8,
+      "min_score": 6,
+      "missile": -1
+    },
+    {
+      "ac": 0,
+      "initiative": 0,
+      "max_score": 12,
+      "min_score": 9,
+      "missile": 0
+    },
+    {
+      "ac": 1,
+      "initiative": 1,
+      "max_score": 15,
+      "min_score": 13,
+      "missile": 1
+    },
+    {
+      "ac": 2,
+      "initiative": 1,
+      "max_score": 17,
+      "min_score": 16,
+      "missile": 2
+    },
+    {
+      "ac": 3,
+      "initiative": 2,
+      "max_score": 18,
+      "min_score": 18,
+      "missile": 3
+    }
+  ],
+  "intelligence": [
+    {
+      "additional_languages": 0,
+      "broken_speech": true,
+      "literacy": "illiterate",
+      "max_score": 3,
+      "min_score": 3
+    },
+    {
+      "additional_languages": 0,
+      "broken_speech": false,
+      "literacy": "illiterate",
+      "max_score": 5,
+      "min_score": 4
+    },
+    {
+      "additional_languages": 0,
+      "broken_speech": false,
+      "literacy": "basic",
+      "max_score": 8,
+      "min_score": 6
+    },
+    {
+      "additional_languages": 0,
+      "broken_speech": false,
+      "literacy": "literate",
+      "max_score": 12,
+      "min_score": 9
+    },
+    {
+      "additional_languages": 1,
+      "broken_speech": false,
+      "literacy": "literate",
+      "max_score": 15,
+      "min_score": 13
+    },
+    {
+      "additional_languages": 2,
+      "broken_speech": false,
+      "literacy": "literate",
+      "max_score": 17,
+      "min_score": 16
+    },
+    {
+      "additional_languages": 3,
+      "broken_speech": false,
+      "literacy": "literate",
+      "max_score": 18,
+      "min_score": 18
+    }
+  ],
+  "prime_requisite": [
+    {
+      "max_score": 5,
+      "min_score": 3,
+      "xp_modifier_pct": -20
+    },
+    {
+      "max_score": 8,
+      "min_score": 6,
+      "xp_modifier_pct": -10
+    },
+    {
+      "max_score": 12,
+      "min_score": 9,
+      "xp_modifier_pct": 0
+    },
+    {
+      "max_score": 15,
+      "min_score": 13,
+      "xp_modifier_pct": 5
+    },
+    {
+      "max_score": 18,
+      "min_score": 16,
+      "xp_modifier_pct": 10
+    }
+  ],
+  "strength": [
+    {
+      "max_score": 3,
+      "melee": -3,
+      "min_score": 3,
+      "open_doors": 1
+    },
+    {
+      "max_score": 5,
+      "melee": -2,
+      "min_score": 4,
+      "open_doors": 1
+    },
+    {
+      "max_score": 8,
+      "melee": -1,
+      "min_score": 6,
+      "open_doors": 1
+    },
+    {
+      "max_score": 12,
+      "melee": 0,
+      "min_score": 9,
+      "open_doors": 2
+    },
+    {
+      "max_score": 15,
+      "melee": 1,
+      "min_score": 13,
+      "open_doors": 3
+    },
+    {
+      "max_score": 17,
+      "melee": 2,
+      "min_score": 16,
+      "open_doors": 4
+    },
+    {
+      "max_score": 18,
+      "melee": 3,
+      "min_score": 18,
+      "open_doors": 5
+    }
+  ],
+  "wisdom": [
+    {
+      "magic_saves": -3,
+      "max_score": 3,
+      "min_score": 3
+    },
+    {
+      "magic_saves": -2,
+      "max_score": 5,
+      "min_score": 4
+    },
+    {
+      "magic_saves": -1,
+      "max_score": 8,
+      "min_score": 6
+    },
+    {
+      "magic_saves": 0,
+      "max_score": 12,
+      "min_score": 9
+    },
+    {
+      "magic_saves": 1,
+      "max_score": 15,
+      "min_score": 13
+    },
+    {
+      "magic_saves": 2,
+      "max_score": 17,
+      "min_score": 16
+    },
+    {
+      "magic_saves": 3,
+      "max_score": 18,
+      "min_score": 18
+    }
+  ]
+}

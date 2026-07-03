@@ -1,0 +1,23 @@
+[
+  {
+    "id": "elf",
+    "reason": "Multi-prime-requisite XP tiers are prose in the SRD, not a table: 'An elf with at least 13 INT and STR gains a 5% bonus to experience. An elf with an INT of at least 16 and a STR of at least 13 receives a +10% XP bonus.' Hand-authored here rather than brittle prose parsing. Per RAW these tiers carry no penalties: the standard table applies 'to characters with a single prime requisite' and the class description notes only bonuses.",
+    "set": {
+      "xp_tiers": [
+        { "modifier_pct": 10, "minimums": { "int": 16, "str": 13 } },
+        { "modifier_pct": 5, "minimums": { "int": 13, "str": 13 } }
+      ]
+    }
+  },
+  {
+    "id": "halfling",
+    "reason": "Multi-prime-requisite XP tiers are prose in the SRD, not a table: 'A halfling with at least 13 in one prime requisite gains a 5% bonus to experience. If both DEX and STR are 13 or higher, the halfling gets a +10% bonus.' The either-or +5% condition is expressed as two single-minimum tiers under best-first, first-match-wins evaluation. Per RAW these tiers carry no penalties.",
+    "set": {
+      "xp_tiers": [
+        { "modifier_pct": 10, "minimums": { "dex": 13, "str": 13 } },
+        { "modifier_pct": 5, "minimums": { "dex": 13 } },
+        { "modifier_pct": 5, "minimums": { "str": 13 } }
+      ]
+    }
+  }
+]

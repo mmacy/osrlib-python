@@ -6,7 +6,17 @@ See [the specification](docs/spec.md) for the full design: architecture, contrac
 
 ## Development status
 
-Early development — Phase 0 (scaffolding and contracts) is complete: deterministic named RNG streams, the dice expression grammar, the game clock, and the event-emission contract. No rules content ships yet; characters, combat, magic, and the dungeon crawl arrive in later phases.
+Early development — Phase 1 (characters) is complete: the SRD data pipeline for classes, ability tables, equipment, and languages; ability scores with the creation-time adjustment step; character creation with inventory and encumbrance; and XP awards with leveling. Phase 0 delivered the contracts underneath: deterministic named RNG streams, the dice expression grammar, the game clock, and the event-emission rules. Combat, magic, and the dungeon crawl arrive in later phases.
+
+## SRD data pipeline
+
+The game data in `src/osrlib/data/` is generated from the scraped SRD markdown in `srd/` and is never hand-edited. Regenerate it with:
+
+```sh
+uv run python -m tools.srd_compile
+```
+
+CI regenerates the data and fails on any diff, so `srd/`, the compiler, and the generated data cannot silently drift. Parser corrections belong in `tools/srd_compile/overrides/`, never in the output; every override carries a reason and is recorded in the output entry's `overrides_applied` provenance list. Pinned rules interpretations are registered in [docs/adaptations.md](docs/adaptations.md).
 
 ## Determinism
 

@@ -1,0 +1,2821 @@
+{
+  "_meta": {
+    "generator": "tools/srd_compile",
+    "license": "Open Game Content under OGL 1.0a; see LICENSE-OGL.md in this directory",
+    "source_pages": [
+      "Ability_Scores.md",
+      "Advancement.md",
+      "Cleric.md",
+      "Dwarf.md",
+      "Elf.md",
+      "Fighter.md",
+      "Halfling.md",
+      "Magic-User.md",
+      "Thief.md"
+    ]
+  },
+  "classes": [
+    {
+      "abilities": [
+        {
+          "manual": false,
+          "name": "Divine Magic",
+          "params": {},
+          "prose": "See Spells for full details on divine magic.\nHoly symbol: A cleric must carry a holy symbol (see Adventuring Gear).\nDeity disfavour: Clerics must be faithful to the tenets of their alignment, clergy, and religion. Clerics who fall from favour with their deity may incur penalties.\nMagical research: A cleric of any level may spend time and money on magical research. This allows them to create new spells or other magical effects associated with their deity. When a cleric reaches 9th level, they are also able to create magic items.\nSpell casting: Once a cleric has proven their faith (from 2nd level), the character may pray to receive spells. The level progression table (below) shows the number of spells a cleric may memorize, based on their experience level. The list of spells available to clerics is found in Cleric Spells.\nUsing magic items: As spell casters, clerics can use magic scrolls of spells on their spell list. They can also use items that may only be used by divine spell casters (e.g. some magic staves).",
+          "tag": "divine_magic"
+        },
+        {
+          "manual": false,
+          "name": "Turning the Undead",
+          "params": {},
+          "prose": "Clerics can invoke the power of their deity to repel undead monsters encountered. To turn the undead, the player rolls 2d6. The referee then consults the table below, comparing the roll against the HD of the type of undead monsters targeted.",
+          "tag": "turn_undead"
+        }
+      ],
+      "armour": {
+        "kind": "any",
+        "shields_allowed": true
+      },
+      "hit_die": 6,
+      "id": "cleric",
+      "languages": [
+        "common"
+      ],
+      "level_titles": [
+        "Acolyte",
+        "Adept",
+        "Priest(ess)",
+        "Vicar",
+        "Curate",
+        "Elder",
+        "Bishop",
+        "Lama",
+        "Matriarch (Patriarch)"
+      ],
+      "max_level": 14,
+      "may_not_lower": [],
+      "name": "Cleric",
+      "overrides_applied": [],
+      "prime_requisites": [
+        "wis"
+      ],
+      "progression": [
+        {
+          "attack_bonus": 0,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 1,
+            "die": 6
+          },
+          "level": 1,
+          "saves": {
+            "breath": 16,
+            "death": 11,
+            "paralysis": 14,
+            "spells": 15,
+            "wands": 12
+          },
+          "spell_slots": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "thac0": 19,
+          "xp": 0
+        },
+        {
+          "attack_bonus": 0,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 2,
+            "die": 6
+          },
+          "level": 2,
+          "saves": {
+            "breath": 16,
+            "death": 11,
+            "paralysis": 14,
+            "spells": 15,
+            "wands": 12
+          },
+          "spell_slots": [
+            1,
+            0,
+            0,
+            0,
+            0
+          ],
+          "thac0": 19,
+          "xp": 1500
+        },
+        {
+          "attack_bonus": 0,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 3,
+            "die": 6
+          },
+          "level": 3,
+          "saves": {
+            "breath": 16,
+            "death": 11,
+            "paralysis": 14,
+            "spells": 15,
+            "wands": 12
+          },
+          "spell_slots": [
+            2,
+            0,
+            0,
+            0,
+            0
+          ],
+          "thac0": 19,
+          "xp": 3000
+        },
+        {
+          "attack_bonus": 0,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 4,
+            "die": 6
+          },
+          "level": 4,
+          "saves": {
+            "breath": 16,
+            "death": 11,
+            "paralysis": 14,
+            "spells": 15,
+            "wands": 12
+          },
+          "spell_slots": [
+            2,
+            1,
+            0,
+            0,
+            0
+          ],
+          "thac0": 19,
+          "xp": 6000
+        },
+        {
+          "attack_bonus": 2,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 5,
+            "die": 6
+          },
+          "level": 5,
+          "saves": {
+            "breath": 14,
+            "death": 9,
+            "paralysis": 12,
+            "spells": 12,
+            "wands": 10
+          },
+          "spell_slots": [
+            2,
+            2,
+            0,
+            0,
+            0
+          ],
+          "thac0": 17,
+          "xp": 12000
+        },
+        {
+          "attack_bonus": 2,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 6,
+            "die": 6
+          },
+          "level": 6,
+          "saves": {
+            "breath": 14,
+            "death": 9,
+            "paralysis": 12,
+            "spells": 12,
+            "wands": 10
+          },
+          "spell_slots": [
+            2,
+            2,
+            1,
+            1,
+            0
+          ],
+          "thac0": 17,
+          "xp": 25000
+        },
+        {
+          "attack_bonus": 2,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 7,
+            "die": 6
+          },
+          "level": 7,
+          "saves": {
+            "breath": 14,
+            "death": 9,
+            "paralysis": 12,
+            "spells": 12,
+            "wands": 10
+          },
+          "spell_slots": [
+            2,
+            2,
+            2,
+            1,
+            1
+          ],
+          "thac0": 17,
+          "xp": 50000
+        },
+        {
+          "attack_bonus": 2,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 8,
+            "die": 6
+          },
+          "level": 8,
+          "saves": {
+            "breath": 14,
+            "death": 9,
+            "paralysis": 12,
+            "spells": 12,
+            "wands": 10
+          },
+          "spell_slots": [
+            3,
+            3,
+            2,
+            2,
+            1
+          ],
+          "thac0": 17,
+          "xp": 100000
+        },
+        {
+          "attack_bonus": 5,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 9,
+            "die": 6
+          },
+          "level": 9,
+          "saves": {
+            "breath": 11,
+            "death": 6,
+            "paralysis": 9,
+            "spells": 9,
+            "wands": 7
+          },
+          "spell_slots": [
+            3,
+            3,
+            3,
+            2,
+            2
+          ],
+          "thac0": 14,
+          "xp": 200000
+        },
+        {
+          "attack_bonus": 5,
+          "hit_dice": {
+            "bonus": 1,
+            "con_applies": false,
+            "count": 9,
+            "die": 6
+          },
+          "level": 10,
+          "saves": {
+            "breath": 11,
+            "death": 6,
+            "paralysis": 9,
+            "spells": 9,
+            "wands": 7
+          },
+          "spell_slots": [
+            4,
+            4,
+            3,
+            3,
+            2
+          ],
+          "thac0": 14,
+          "xp": 300000
+        },
+        {
+          "attack_bonus": 5,
+          "hit_dice": {
+            "bonus": 2,
+            "con_applies": false,
+            "count": 9,
+            "die": 6
+          },
+          "level": 11,
+          "saves": {
+            "breath": 11,
+            "death": 6,
+            "paralysis": 9,
+            "spells": 9,
+            "wands": 7
+          },
+          "spell_slots": [
+            4,
+            4,
+            4,
+            3,
+            3
+          ],
+          "thac0": 14,
+          "xp": 400000
+        },
+        {
+          "attack_bonus": 5,
+          "hit_dice": {
+            "bonus": 3,
+            "con_applies": false,
+            "count": 9,
+            "die": 6
+          },
+          "level": 12,
+          "saves": {
+            "breath": 11,
+            "death": 6,
+            "paralysis": 9,
+            "spells": 9,
+            "wands": 7
+          },
+          "spell_slots": [
+            5,
+            5,
+            4,
+            4,
+            3
+          ],
+          "thac0": 14,
+          "xp": 500000
+        },
+        {
+          "attack_bonus": 7,
+          "hit_dice": {
+            "bonus": 4,
+            "con_applies": false,
+            "count": 9,
+            "die": 6
+          },
+          "level": 13,
+          "saves": {
+            "breath": 8,
+            "death": 3,
+            "paralysis": 7,
+            "spells": 7,
+            "wands": 5
+          },
+          "spell_slots": [
+            5,
+            5,
+            5,
+            4,
+            4
+          ],
+          "thac0": 12,
+          "xp": 600000
+        },
+        {
+          "attack_bonus": 7,
+          "hit_dice": {
+            "bonus": 5,
+            "con_applies": false,
+            "count": 9,
+            "die": 6
+          },
+          "level": 14,
+          "saves": {
+            "breath": 8,
+            "death": 3,
+            "paralysis": 7,
+            "spells": 7,
+            "wands": 5
+          },
+          "spell_slots": [
+            6,
+            5,
+            5,
+            5,
+            4
+          ],
+          "thac0": 12,
+          "xp": 700000
+        }
+      ],
+      "race": "human",
+      "requirements": {},
+      "thief_skills": [],
+      "weapons": {
+        "kind": "allowed",
+        "manual_notes": [],
+        "weapon_ids": [
+          "club",
+          "mace",
+          "sling",
+          "staff",
+          "war_hammer"
+        ]
+      },
+      "xp_tiers": [
+        {
+          "minimums": {
+            "wis": 16
+          },
+          "modifier_pct": 10
+        },
+        {
+          "minimums": {
+            "wis": 13
+          },
+          "modifier_pct": 5
+        },
+        {
+          "minimums": {
+            "wis": 9
+          },
+          "modifier_pct": 0
+        },
+        {
+          "minimums": {
+            "wis": 6
+          },
+          "modifier_pct": -10
+        },
+        {
+          "minimums": {
+            "wis": 3
+          },
+          "modifier_pct": -20
+        }
+      ]
+    },
+    {
+      "abilities": [
+        {
+          "manual": false,
+          "name": "Detect Construction Tricks",
+          "params": {
+            "chance_in_six": 2
+          },
+          "prose": "As expert miners, dwarves have a 2-in-6 chance of being able to detect new construction, sliding walls, or sloping passages when searching.",
+          "tag": "detect_construction_tricks"
+        },
+        {
+          "manual": false,
+          "name": "Detect Room Traps",
+          "params": {
+            "chance_in_six": 2
+          },
+          "prose": "Due to their expertise with construction, dwarves have a 2-in-6 chance of detecting non-magical room traps when searching (see Dungeon Adventuring).",
+          "tag": "detect_room_traps"
+        },
+        {
+          "manual": false,
+          "name": "Infravision",
+          "params": {
+            "range_feet": 60
+          },
+          "prose": "Dwarves have infravision to 60’ (see Darkness under Hazards and Challenges).",
+          "tag": "infravision"
+        },
+        {
+          "manual": false,
+          "name": "Listening at Doors",
+          "params": {
+            "chance_in_six": 2
+          },
+          "prose": "Dwarves have a 2-in-6 chance of hearing noises (see Dungeon Adventuring).",
+          "tag": "listening_at_doors"
+        }
+      ],
+      "armour": {
+        "kind": "any",
+        "shields_allowed": true
+      },
+      "hit_die": 8,
+      "id": "dwarf",
+      "languages": [
+        "common",
+        "dwarvish",
+        "gnomish",
+        "goblin",
+        "kobold"
+      ],
+      "level_titles": [
+        "Dwarven Veteran",
+        "Dwarven Warrior",
+        "Dwarven Swordmaster",
+        "Dwarven Hero",
+        "Dwarven Swashbuckler",
+        "Dwarven Myrmidon",
+        "Dwarven Champion",
+        "Dwarven Superhero",
+        "Dwarven Lord (Lady)"
+      ],
+      "max_level": 12,
+      "may_not_lower": [],
+      "name": "Dwarf",
+      "overrides_applied": [],
+      "prime_requisites": [
+        "str"
+      ],
+      "progression": [
+        {
+          "attack_bonus": 0,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 1,
+            "die": 8
+          },
+          "level": 1,
+          "saves": {
+            "breath": 13,
+            "death": 8,
+            "paralysis": 10,
+            "spells": 12,
+            "wands": 9
+          },
+          "spell_slots": [],
+          "thac0": 19,
+          "xp": 0
+        },
+        {
+          "attack_bonus": 0,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 2,
+            "die": 8
+          },
+          "level": 2,
+          "saves": {
+            "breath": 13,
+            "death": 8,
+            "paralysis": 10,
+            "spells": 12,
+            "wands": 9
+          },
+          "spell_slots": [],
+          "thac0": 19,
+          "xp": 2200
+        },
+        {
+          "attack_bonus": 0,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 3,
+            "die": 8
+          },
+          "level": 3,
+          "saves": {
+            "breath": 13,
+            "death": 8,
+            "paralysis": 10,
+            "spells": 12,
+            "wands": 9
+          },
+          "spell_slots": [],
+          "thac0": 19,
+          "xp": 4400
+        },
+        {
+          "attack_bonus": 2,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 4,
+            "die": 8
+          },
+          "level": 4,
+          "saves": {
+            "breath": 10,
+            "death": 6,
+            "paralysis": 8,
+            "spells": 10,
+            "wands": 7
+          },
+          "spell_slots": [],
+          "thac0": 17,
+          "xp": 8800
+        },
+        {
+          "attack_bonus": 2,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 5,
+            "die": 8
+          },
+          "level": 5,
+          "saves": {
+            "breath": 10,
+            "death": 6,
+            "paralysis": 8,
+            "spells": 10,
+            "wands": 7
+          },
+          "spell_slots": [],
+          "thac0": 17,
+          "xp": 17000
+        },
+        {
+          "attack_bonus": 2,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 6,
+            "die": 8
+          },
+          "level": 6,
+          "saves": {
+            "breath": 10,
+            "death": 6,
+            "paralysis": 8,
+            "spells": 10,
+            "wands": 7
+          },
+          "spell_slots": [],
+          "thac0": 17,
+          "xp": 35000
+        },
+        {
+          "attack_bonus": 5,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 7,
+            "die": 8
+          },
+          "level": 7,
+          "saves": {
+            "breath": 7,
+            "death": 4,
+            "paralysis": 6,
+            "spells": 8,
+            "wands": 5
+          },
+          "spell_slots": [],
+          "thac0": 14,
+          "xp": 70000
+        },
+        {
+          "attack_bonus": 5,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 8,
+            "die": 8
+          },
+          "level": 8,
+          "saves": {
+            "breath": 7,
+            "death": 4,
+            "paralysis": 6,
+            "spells": 8,
+            "wands": 5
+          },
+          "spell_slots": [],
+          "thac0": 14,
+          "xp": 140000
+        },
+        {
+          "attack_bonus": 5,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 9,
+            "die": 8
+          },
+          "level": 9,
+          "saves": {
+            "breath": 7,
+            "death": 4,
+            "paralysis": 6,
+            "spells": 8,
+            "wands": 5
+          },
+          "spell_slots": [],
+          "thac0": 14,
+          "xp": 270000
+        },
+        {
+          "attack_bonus": 7,
+          "hit_dice": {
+            "bonus": 3,
+            "con_applies": false,
+            "count": 9,
+            "die": 8
+          },
+          "level": 10,
+          "saves": {
+            "breath": 4,
+            "death": 2,
+            "paralysis": 4,
+            "spells": 6,
+            "wands": 3
+          },
+          "spell_slots": [],
+          "thac0": 12,
+          "xp": 400000
+        },
+        {
+          "attack_bonus": 7,
+          "hit_dice": {
+            "bonus": 6,
+            "con_applies": false,
+            "count": 9,
+            "die": 8
+          },
+          "level": 11,
+          "saves": {
+            "breath": 4,
+            "death": 2,
+            "paralysis": 4,
+            "spells": 6,
+            "wands": 3
+          },
+          "spell_slots": [],
+          "thac0": 12,
+          "xp": 530000
+        },
+        {
+          "attack_bonus": 7,
+          "hit_dice": {
+            "bonus": 9,
+            "con_applies": false,
+            "count": 9,
+            "die": 8
+          },
+          "level": 12,
+          "saves": {
+            "breath": 4,
+            "death": 2,
+            "paralysis": 4,
+            "spells": 6,
+            "wands": 3
+          },
+          "spell_slots": [],
+          "thac0": 12,
+          "xp": 660000
+        }
+      ],
+      "race": "dwarf",
+      "requirements": {
+        "con": 9
+      },
+      "thief_skills": [],
+      "weapons": {
+        "kind": "forbidden",
+        "manual_notes": [
+          "Their stature means they can only use small or normal sized weapons."
+        ],
+        "weapon_ids": [
+          "long_bow",
+          "two_handed_sword"
+        ]
+      },
+      "xp_tiers": [
+        {
+          "minimums": {
+            "str": 16
+          },
+          "modifier_pct": 10
+        },
+        {
+          "minimums": {
+            "str": 13
+          },
+          "modifier_pct": 5
+        },
+        {
+          "minimums": {
+            "str": 9
+          },
+          "modifier_pct": 0
+        },
+        {
+          "minimums": {
+            "str": 6
+          },
+          "modifier_pct": -10
+        },
+        {
+          "minimums": {
+            "str": 3
+          },
+          "modifier_pct": -20
+        }
+      ]
+    },
+    {
+      "abilities": [
+        {
+          "manual": false,
+          "name": "Arcane Magic",
+          "params": {},
+          "prose": "See Spells for full details on arcane magic.\nMagical research: An elf of any level may spend time and money on magical research. This allows them to add new spells to their spell book and to research other magical effects. When an elf reaches 9th level, they are also able to create magic items.\nSpell casting: Elves carry spell books containing the formulae for arcane spells. The level progression table (below) shows both the number of spells in the elf’s spell book and the number they may memorize, determined by the character’s experience level. Thus, a 1st level elf has one spell in their spell book, selected by the referee (who may allow the player to choose). The list of spells available to elves is found in Magic-User Spells (elves have the same spell selection as magic-users).\nUsing magic items: As spell casters, elves are able to use magic scrolls of spells on their spell list. They can also use items that may only be used by arcane spell casters (e.g. magic wands).",
+          "tag": "arcane_magic"
+        },
+        {
+          "manual": false,
+          "name": "Detect Secret Doors",
+          "params": {
+            "chance_in_six": 2
+          },
+          "prose": "Elves have a 2-in-6 chance of locating secret or hidden doors when searching (see Dungeon Adventuring).",
+          "tag": "detect_secret_doors"
+        },
+        {
+          "manual": false,
+          "name": "Immunity to Ghoul Paralysis",
+          "params": {},
+          "prose": "Elves are immune to the paralysing effect of ghouls’ attacks.",
+          "tag": "ghoul_paralysis_immunity"
+        },
+        {
+          "manual": false,
+          "name": "Infravision",
+          "params": {
+            "range_feet": 60
+          },
+          "prose": "Elves have infravision to 60’ (see Darkness under Hazards and Challenges).",
+          "tag": "infravision"
+        },
+        {
+          "manual": false,
+          "name": "Listening at Doors",
+          "params": {
+            "chance_in_six": 2
+          },
+          "prose": "Elves have a 2-in-6 chance of hearing noises (see Dungeon Adventuring).",
+          "tag": "listening_at_doors"
+        }
+      ],
+      "armour": {
+        "kind": "any",
+        "shields_allowed": true
+      },
+      "hit_die": 6,
+      "id": "elf",
+      "languages": [
+        "common",
+        "elvish",
+        "gnoll",
+        "hobgoblin",
+        "orcish"
+      ],
+      "level_titles": [
+        "Medium/Veteran",
+        "Seer/Warrior",
+        "Conjurer/Swordmaster",
+        "Magician/Hero",
+        "Enchanter (Enchantress)/Swashbuckler",
+        "Warlock (Witch)/Myrmidon",
+        "Sorcerer (Sorceress)/Champion",
+        "Necromancer/Superhero",
+        "Wizard/Lord (Lady)"
+      ],
+      "max_level": 10,
+      "may_not_lower": [],
+      "name": "Elf",
+      "overrides_applied": [
+        "xp_tiers"
+      ],
+      "prime_requisites": [
+        "int",
+        "str"
+      ],
+      "progression": [
+        {
+          "attack_bonus": 0,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 1,
+            "die": 6
+          },
+          "level": 1,
+          "saves": {
+            "breath": 15,
+            "death": 12,
+            "paralysis": 13,
+            "spells": 15,
+            "wands": 13
+          },
+          "spell_slots": [
+            1,
+            0,
+            0,
+            0,
+            0
+          ],
+          "thac0": 19,
+          "xp": 0
+        },
+        {
+          "attack_bonus": 0,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 2,
+            "die": 6
+          },
+          "level": 2,
+          "saves": {
+            "breath": 15,
+            "death": 12,
+            "paralysis": 13,
+            "spells": 15,
+            "wands": 13
+          },
+          "spell_slots": [
+            2,
+            0,
+            0,
+            0,
+            0
+          ],
+          "thac0": 19,
+          "xp": 4000
+        },
+        {
+          "attack_bonus": 0,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 3,
+            "die": 6
+          },
+          "level": 3,
+          "saves": {
+            "breath": 15,
+            "death": 12,
+            "paralysis": 13,
+            "spells": 15,
+            "wands": 13
+          },
+          "spell_slots": [
+            2,
+            1,
+            0,
+            0,
+            0
+          ],
+          "thac0": 19,
+          "xp": 8000
+        },
+        {
+          "attack_bonus": 2,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 4,
+            "die": 6
+          },
+          "level": 4,
+          "saves": {
+            "breath": 13,
+            "death": 10,
+            "paralysis": 11,
+            "spells": 12,
+            "wands": 11
+          },
+          "spell_slots": [
+            2,
+            2,
+            0,
+            0,
+            0
+          ],
+          "thac0": 17,
+          "xp": 16000
+        },
+        {
+          "attack_bonus": 2,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 5,
+            "die": 6
+          },
+          "level": 5,
+          "saves": {
+            "breath": 13,
+            "death": 10,
+            "paralysis": 11,
+            "spells": 12,
+            "wands": 11
+          },
+          "spell_slots": [
+            2,
+            2,
+            1,
+            0,
+            0
+          ],
+          "thac0": 17,
+          "xp": 32000
+        },
+        {
+          "attack_bonus": 2,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 6,
+            "die": 6
+          },
+          "level": 6,
+          "saves": {
+            "breath": 13,
+            "death": 10,
+            "paralysis": 11,
+            "spells": 12,
+            "wands": 11
+          },
+          "spell_slots": [
+            2,
+            2,
+            2,
+            0,
+            0
+          ],
+          "thac0": 17,
+          "xp": 64000
+        },
+        {
+          "attack_bonus": 5,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 7,
+            "die": 6
+          },
+          "level": 7,
+          "saves": {
+            "breath": 10,
+            "death": 8,
+            "paralysis": 9,
+            "spells": 10,
+            "wands": 9
+          },
+          "spell_slots": [
+            3,
+            2,
+            2,
+            1,
+            0
+          ],
+          "thac0": 14,
+          "xp": 120000
+        },
+        {
+          "attack_bonus": 5,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 8,
+            "die": 6
+          },
+          "level": 8,
+          "saves": {
+            "breath": 10,
+            "death": 8,
+            "paralysis": 9,
+            "spells": 10,
+            "wands": 9
+          },
+          "spell_slots": [
+            3,
+            3,
+            2,
+            2,
+            0
+          ],
+          "thac0": 14,
+          "xp": 250000
+        },
+        {
+          "attack_bonus": 5,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 9,
+            "die": 6
+          },
+          "level": 9,
+          "saves": {
+            "breath": 10,
+            "death": 8,
+            "paralysis": 9,
+            "spells": 10,
+            "wands": 9
+          },
+          "spell_slots": [
+            3,
+            3,
+            3,
+            2,
+            1
+          ],
+          "thac0": 14,
+          "xp": 400000
+        },
+        {
+          "attack_bonus": 7,
+          "hit_dice": {
+            "bonus": 2,
+            "con_applies": false,
+            "count": 9,
+            "die": 6
+          },
+          "level": 10,
+          "saves": {
+            "breath": 8,
+            "death": 6,
+            "paralysis": 8,
+            "spells": 8,
+            "wands": 7
+          },
+          "spell_slots": [
+            3,
+            3,
+            3,
+            3,
+            2
+          ],
+          "thac0": 12,
+          "xp": 600000
+        }
+      ],
+      "race": "elf",
+      "requirements": {
+        "int": 9
+      },
+      "thief_skills": [],
+      "weapons": {
+        "kind": "any",
+        "manual_notes": [],
+        "weapon_ids": []
+      },
+      "xp_tiers": [
+        {
+          "minimums": {
+            "int": 16,
+            "str": 13
+          },
+          "modifier_pct": 10
+        },
+        {
+          "minimums": {
+            "int": 13,
+            "str": 13
+          },
+          "modifier_pct": 5
+        }
+      ]
+    },
+    {
+      "abilities": [],
+      "armour": {
+        "kind": "any",
+        "shields_allowed": true
+      },
+      "hit_die": 8,
+      "id": "fighter",
+      "languages": [
+        "common"
+      ],
+      "level_titles": [
+        "Veteran",
+        "Warrior",
+        "Swordmaster",
+        "Hero",
+        "Swashbuckler",
+        "Myrmidon",
+        "Champion",
+        "Superhero",
+        "Lord (Lady)"
+      ],
+      "max_level": 14,
+      "may_not_lower": [],
+      "name": "Fighter",
+      "overrides_applied": [],
+      "prime_requisites": [
+        "str"
+      ],
+      "progression": [
+        {
+          "attack_bonus": 0,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 1,
+            "die": 8
+          },
+          "level": 1,
+          "saves": {
+            "breath": 15,
+            "death": 12,
+            "paralysis": 14,
+            "spells": 16,
+            "wands": 13
+          },
+          "spell_slots": [],
+          "thac0": 19,
+          "xp": 0
+        },
+        {
+          "attack_bonus": 0,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 2,
+            "die": 8
+          },
+          "level": 2,
+          "saves": {
+            "breath": 15,
+            "death": 12,
+            "paralysis": 14,
+            "spells": 16,
+            "wands": 13
+          },
+          "spell_slots": [],
+          "thac0": 19,
+          "xp": 2000
+        },
+        {
+          "attack_bonus": 0,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 3,
+            "die": 8
+          },
+          "level": 3,
+          "saves": {
+            "breath": 15,
+            "death": 12,
+            "paralysis": 14,
+            "spells": 16,
+            "wands": 13
+          },
+          "spell_slots": [],
+          "thac0": 19,
+          "xp": 4000
+        },
+        {
+          "attack_bonus": 2,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 4,
+            "die": 8
+          },
+          "level": 4,
+          "saves": {
+            "breath": 13,
+            "death": 10,
+            "paralysis": 12,
+            "spells": 14,
+            "wands": 11
+          },
+          "spell_slots": [],
+          "thac0": 17,
+          "xp": 8000
+        },
+        {
+          "attack_bonus": 2,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 5,
+            "die": 8
+          },
+          "level": 5,
+          "saves": {
+            "breath": 13,
+            "death": 10,
+            "paralysis": 12,
+            "spells": 14,
+            "wands": 11
+          },
+          "spell_slots": [],
+          "thac0": 17,
+          "xp": 16000
+        },
+        {
+          "attack_bonus": 2,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 6,
+            "die": 8
+          },
+          "level": 6,
+          "saves": {
+            "breath": 13,
+            "death": 10,
+            "paralysis": 12,
+            "spells": 14,
+            "wands": 11
+          },
+          "spell_slots": [],
+          "thac0": 17,
+          "xp": 32000
+        },
+        {
+          "attack_bonus": 5,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 7,
+            "die": 8
+          },
+          "level": 7,
+          "saves": {
+            "breath": 10,
+            "death": 8,
+            "paralysis": 10,
+            "spells": 12,
+            "wands": 9
+          },
+          "spell_slots": [],
+          "thac0": 14,
+          "xp": 64000
+        },
+        {
+          "attack_bonus": 5,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 8,
+            "die": 8
+          },
+          "level": 8,
+          "saves": {
+            "breath": 10,
+            "death": 8,
+            "paralysis": 10,
+            "spells": 12,
+            "wands": 9
+          },
+          "spell_slots": [],
+          "thac0": 14,
+          "xp": 120000
+        },
+        {
+          "attack_bonus": 5,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 9,
+            "die": 8
+          },
+          "level": 9,
+          "saves": {
+            "breath": 10,
+            "death": 8,
+            "paralysis": 10,
+            "spells": 12,
+            "wands": 9
+          },
+          "spell_slots": [],
+          "thac0": 14,
+          "xp": 240000
+        },
+        {
+          "attack_bonus": 7,
+          "hit_dice": {
+            "bonus": 2,
+            "con_applies": false,
+            "count": 9,
+            "die": 8
+          },
+          "level": 10,
+          "saves": {
+            "breath": 8,
+            "death": 6,
+            "paralysis": 8,
+            "spells": 10,
+            "wands": 7
+          },
+          "spell_slots": [],
+          "thac0": 12,
+          "xp": 360000
+        },
+        {
+          "attack_bonus": 7,
+          "hit_dice": {
+            "bonus": 4,
+            "con_applies": false,
+            "count": 9,
+            "die": 8
+          },
+          "level": 11,
+          "saves": {
+            "breath": 8,
+            "death": 6,
+            "paralysis": 8,
+            "spells": 10,
+            "wands": 7
+          },
+          "spell_slots": [],
+          "thac0": 12,
+          "xp": 480000
+        },
+        {
+          "attack_bonus": 7,
+          "hit_dice": {
+            "bonus": 6,
+            "con_applies": false,
+            "count": 9,
+            "die": 8
+          },
+          "level": 12,
+          "saves": {
+            "breath": 8,
+            "death": 6,
+            "paralysis": 8,
+            "spells": 10,
+            "wands": 7
+          },
+          "spell_slots": [],
+          "thac0": 12,
+          "xp": 600000
+        },
+        {
+          "attack_bonus": 9,
+          "hit_dice": {
+            "bonus": 8,
+            "con_applies": false,
+            "count": 9,
+            "die": 8
+          },
+          "level": 13,
+          "saves": {
+            "breath": 5,
+            "death": 4,
+            "paralysis": 6,
+            "spells": 8,
+            "wands": 5
+          },
+          "spell_slots": [],
+          "thac0": 10,
+          "xp": 720000
+        },
+        {
+          "attack_bonus": 9,
+          "hit_dice": {
+            "bonus": 10,
+            "con_applies": false,
+            "count": 9,
+            "die": 8
+          },
+          "level": 14,
+          "saves": {
+            "breath": 5,
+            "death": 4,
+            "paralysis": 6,
+            "spells": 8,
+            "wands": 5
+          },
+          "spell_slots": [],
+          "thac0": 10,
+          "xp": 840000
+        }
+      ],
+      "race": "human",
+      "requirements": {},
+      "thief_skills": [],
+      "weapons": {
+        "kind": "any",
+        "manual_notes": [],
+        "weapon_ids": []
+      },
+      "xp_tiers": [
+        {
+          "minimums": {
+            "str": 16
+          },
+          "modifier_pct": 10
+        },
+        {
+          "minimums": {
+            "str": 13
+          },
+          "modifier_pct": 5
+        },
+        {
+          "minimums": {
+            "str": 9
+          },
+          "modifier_pct": 0
+        },
+        {
+          "minimums": {
+            "str": 6
+          },
+          "modifier_pct": -10
+        },
+        {
+          "minimums": {
+            "str": 3
+          },
+          "modifier_pct": -20
+        }
+      ]
+    },
+    {
+      "abilities": [
+        {
+          "manual": false,
+          "name": "Defensive Bonus",
+          "params": {
+            "ac_bonus": 2,
+            "versus": "large"
+          },
+          "prose": "Due to their small size, halflings gain a +2 bonus to Armour Class when attacked by large opponents (greater than human-sized).",
+          "tag": "defensive_bonus"
+        },
+        {
+          "manual": false,
+          "name": "Hiding",
+          "params": {
+            "dungeon_chance_in_six": 2,
+            "woods_pct": 90
+          },
+          "prose": "Halflings have the ability to avoid detection, apparently vanishing from sight:\nIn woods or undergrowth, a halfling can hide with a 90% chance of success.\nIn dungeons, a halfling can hide in normal lighting conditions with a 2-in-6 chance of success. There must be some form of cover (e.g. shadows) and the halfling must remain motionless and silent.",
+          "tag": "hiding"
+        },
+        {
+          "manual": false,
+          "name": "Initiative Bonus (Optional Rule)",
+          "params": {
+            "bonus": 1
+          },
+          "prose": "If using the optional rule for individual initiative (see Combat), halflings get a bonus of +1 to initiative rolls.",
+          "tag": "initiative_bonus"
+        },
+        {
+          "manual": false,
+          "name": "Listening at Doors",
+          "params": {
+            "chance_in_six": 2
+          },
+          "prose": "Halflings have a 2-in-6 chance of hearing noises (see Dungeon Adventuring).",
+          "tag": "listening_at_doors"
+        },
+        {
+          "manual": false,
+          "name": "Missile Attack Bonus",
+          "params": {
+            "bonus": 1
+          },
+          "prose": "Halflings’ accuracy grants them a +1 bonus to attack rolls with all missile weapons.",
+          "tag": "missile_attack_bonus"
+        }
+      ],
+      "armour": {
+        "kind": "any",
+        "shields_allowed": true
+      },
+      "hit_die": 6,
+      "id": "halfling",
+      "languages": [
+        "common",
+        "halfling"
+      ],
+      "level_titles": [
+        "Halfling Veteran",
+        "Halfling Warrior",
+        "Halfling Swordmaster",
+        "Halfling Hero",
+        "Halfling Swashbuckler",
+        "Halfling Myrmidon",
+        "Halfling Champion",
+        "Sheriff"
+      ],
+      "max_level": 8,
+      "may_not_lower": [],
+      "name": "Halfling",
+      "overrides_applied": [
+        "xp_tiers"
+      ],
+      "prime_requisites": [
+        "dex",
+        "str"
+      ],
+      "progression": [
+        {
+          "attack_bonus": 0,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 1,
+            "die": 6
+          },
+          "level": 1,
+          "saves": {
+            "breath": 13,
+            "death": 8,
+            "paralysis": 10,
+            "spells": 12,
+            "wands": 9
+          },
+          "spell_slots": [],
+          "thac0": 19,
+          "xp": 0
+        },
+        {
+          "attack_bonus": 0,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 2,
+            "die": 6
+          },
+          "level": 2,
+          "saves": {
+            "breath": 13,
+            "death": 8,
+            "paralysis": 10,
+            "spells": 12,
+            "wands": 9
+          },
+          "spell_slots": [],
+          "thac0": 19,
+          "xp": 2000
+        },
+        {
+          "attack_bonus": 0,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 3,
+            "die": 6
+          },
+          "level": 3,
+          "saves": {
+            "breath": 13,
+            "death": 8,
+            "paralysis": 10,
+            "spells": 12,
+            "wands": 9
+          },
+          "spell_slots": [],
+          "thac0": 19,
+          "xp": 4000
+        },
+        {
+          "attack_bonus": 2,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 4,
+            "die": 6
+          },
+          "level": 4,
+          "saves": {
+            "breath": 10,
+            "death": 6,
+            "paralysis": 8,
+            "spells": 10,
+            "wands": 7
+          },
+          "spell_slots": [],
+          "thac0": 17,
+          "xp": 8000
+        },
+        {
+          "attack_bonus": 2,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 5,
+            "die": 6
+          },
+          "level": 5,
+          "saves": {
+            "breath": 10,
+            "death": 6,
+            "paralysis": 8,
+            "spells": 10,
+            "wands": 7
+          },
+          "spell_slots": [],
+          "thac0": 17,
+          "xp": 16000
+        },
+        {
+          "attack_bonus": 2,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 6,
+            "die": 6
+          },
+          "level": 6,
+          "saves": {
+            "breath": 10,
+            "death": 6,
+            "paralysis": 8,
+            "spells": 10,
+            "wands": 7
+          },
+          "spell_slots": [],
+          "thac0": 17,
+          "xp": 32000
+        },
+        {
+          "attack_bonus": 5,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 7,
+            "die": 6
+          },
+          "level": 7,
+          "saves": {
+            "breath": 7,
+            "death": 4,
+            "paralysis": 6,
+            "spells": 8,
+            "wands": 5
+          },
+          "spell_slots": [],
+          "thac0": 14,
+          "xp": 64000
+        },
+        {
+          "attack_bonus": 5,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 8,
+            "die": 6
+          },
+          "level": 8,
+          "saves": {
+            "breath": 7,
+            "death": 4,
+            "paralysis": 6,
+            "spells": 8,
+            "wands": 5
+          },
+          "spell_slots": [],
+          "thac0": 14,
+          "xp": 120000
+        }
+      ],
+      "race": "halfling",
+      "requirements": {
+        "con": 9,
+        "dex": 9
+      },
+      "thief_skills": [],
+      "weapons": {
+        "kind": "forbidden",
+        "manual_notes": [
+          "Similarly, they can use any weapon appropriate to their stature (as determined by the referee)."
+        ],
+        "weapon_ids": [
+          "long_bow",
+          "two_handed_sword"
+        ]
+      },
+      "xp_tiers": [
+        {
+          "minimums": {
+            "dex": 13,
+            "str": 13
+          },
+          "modifier_pct": 10
+        },
+        {
+          "minimums": {
+            "dex": 13
+          },
+          "modifier_pct": 5
+        },
+        {
+          "minimums": {
+            "str": 13
+          },
+          "modifier_pct": 5
+        }
+      ]
+    },
+    {
+      "abilities": [
+        {
+          "manual": false,
+          "name": "Arcane Magic",
+          "params": {},
+          "prose": "See Spells for full details on arcane magic.\nMagical research: A magic-user of any level may spend time and money on magical research. This allows them to add new spells to their spell book and to research other magical effects. When a magic-user reaches 9th level, they are also able to create magic items.\nSpell casting: Magic-users own spell books containing the formulae for arcane spells. The level progression table (below) shows both the number of spells in the magic-user’s spell book and the number they may memorize, determined by the character’s experience level. Thus, a 1st level magic-user has one spell in their spell book, selected by the referee (who may allow the player to choose). The list of spells available to magic-users is found in Magic-User Spells.\nUsing magic items: As spell casters, magic-users are able to use magic scrolls of spells on their spell list. They can also use items that may only be used by arcane spell casters (e.g. magic wands).",
+          "tag": "arcane_magic"
+        }
+      ],
+      "armour": {
+        "kind": "none",
+        "shields_allowed": false
+      },
+      "hit_die": 4,
+      "id": "magic_user",
+      "languages": [
+        "common"
+      ],
+      "level_titles": [
+        "Medium",
+        "Seer",
+        "Conjurer",
+        "Magician",
+        "Enchanter (Enchantress)",
+        "Warlock (Witch)",
+        "Sorcerer (Sorceress)",
+        "Necromancer",
+        "Wizard"
+      ],
+      "max_level": 14,
+      "may_not_lower": [],
+      "name": "Magic-User",
+      "overrides_applied": [],
+      "prime_requisites": [
+        "int"
+      ],
+      "progression": [
+        {
+          "attack_bonus": 0,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 1,
+            "die": 4
+          },
+          "level": 1,
+          "saves": {
+            "breath": 16,
+            "death": 13,
+            "paralysis": 13,
+            "spells": 15,
+            "wands": 14
+          },
+          "spell_slots": [
+            1,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "thac0": 19,
+          "xp": 0
+        },
+        {
+          "attack_bonus": 0,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 2,
+            "die": 4
+          },
+          "level": 2,
+          "saves": {
+            "breath": 16,
+            "death": 13,
+            "paralysis": 13,
+            "spells": 15,
+            "wands": 14
+          },
+          "spell_slots": [
+            2,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "thac0": 19,
+          "xp": 2500
+        },
+        {
+          "attack_bonus": 0,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 3,
+            "die": 4
+          },
+          "level": 3,
+          "saves": {
+            "breath": 16,
+            "death": 13,
+            "paralysis": 13,
+            "spells": 15,
+            "wands": 14
+          },
+          "spell_slots": [
+            2,
+            1,
+            0,
+            0,
+            0,
+            0
+          ],
+          "thac0": 19,
+          "xp": 5000
+        },
+        {
+          "attack_bonus": 0,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 4,
+            "die": 4
+          },
+          "level": 4,
+          "saves": {
+            "breath": 16,
+            "death": 13,
+            "paralysis": 13,
+            "spells": 15,
+            "wands": 14
+          },
+          "spell_slots": [
+            2,
+            2,
+            0,
+            0,
+            0,
+            0
+          ],
+          "thac0": 19,
+          "xp": 10000
+        },
+        {
+          "attack_bonus": 0,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 5,
+            "die": 4
+          },
+          "level": 5,
+          "saves": {
+            "breath": 16,
+            "death": 13,
+            "paralysis": 13,
+            "spells": 15,
+            "wands": 14
+          },
+          "spell_slots": [
+            2,
+            2,
+            1,
+            0,
+            0,
+            0
+          ],
+          "thac0": 19,
+          "xp": 20000
+        },
+        {
+          "attack_bonus": 2,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 6,
+            "die": 4
+          },
+          "level": 6,
+          "saves": {
+            "breath": 14,
+            "death": 11,
+            "paralysis": 11,
+            "spells": 12,
+            "wands": 12
+          },
+          "spell_slots": [
+            2,
+            2,
+            2,
+            0,
+            0,
+            0
+          ],
+          "thac0": 17,
+          "xp": 40000
+        },
+        {
+          "attack_bonus": 2,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 7,
+            "die": 4
+          },
+          "level": 7,
+          "saves": {
+            "breath": 14,
+            "death": 11,
+            "paralysis": 11,
+            "spells": 12,
+            "wands": 12
+          },
+          "spell_slots": [
+            3,
+            2,
+            2,
+            1,
+            0,
+            0
+          ],
+          "thac0": 17,
+          "xp": 80000
+        },
+        {
+          "attack_bonus": 2,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 8,
+            "die": 4
+          },
+          "level": 8,
+          "saves": {
+            "breath": 14,
+            "death": 11,
+            "paralysis": 11,
+            "spells": 12,
+            "wands": 12
+          },
+          "spell_slots": [
+            3,
+            3,
+            2,
+            2,
+            0,
+            0
+          ],
+          "thac0": 17,
+          "xp": 150000
+        },
+        {
+          "attack_bonus": 2,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 9,
+            "die": 4
+          },
+          "level": 9,
+          "saves": {
+            "breath": 14,
+            "death": 11,
+            "paralysis": 11,
+            "spells": 12,
+            "wands": 12
+          },
+          "spell_slots": [
+            3,
+            3,
+            3,
+            2,
+            1,
+            0
+          ],
+          "thac0": 17,
+          "xp": 300000
+        },
+        {
+          "attack_bonus": 2,
+          "hit_dice": {
+            "bonus": 1,
+            "con_applies": false,
+            "count": 9,
+            "die": 4
+          },
+          "level": 10,
+          "saves": {
+            "breath": 14,
+            "death": 11,
+            "paralysis": 11,
+            "spells": 12,
+            "wands": 12
+          },
+          "spell_slots": [
+            3,
+            3,
+            3,
+            3,
+            2,
+            0
+          ],
+          "thac0": 17,
+          "xp": 450000
+        },
+        {
+          "attack_bonus": 5,
+          "hit_dice": {
+            "bonus": 2,
+            "con_applies": false,
+            "count": 9,
+            "die": 4
+          },
+          "level": 11,
+          "saves": {
+            "breath": 11,
+            "death": 8,
+            "paralysis": 8,
+            "spells": 8,
+            "wands": 9
+          },
+          "spell_slots": [
+            4,
+            3,
+            3,
+            3,
+            2,
+            1
+          ],
+          "thac0": 14,
+          "xp": 600000
+        },
+        {
+          "attack_bonus": 5,
+          "hit_dice": {
+            "bonus": 3,
+            "con_applies": false,
+            "count": 9,
+            "die": 4
+          },
+          "level": 12,
+          "saves": {
+            "breath": 11,
+            "death": 8,
+            "paralysis": 8,
+            "spells": 8,
+            "wands": 9
+          },
+          "spell_slots": [
+            4,
+            4,
+            3,
+            3,
+            3,
+            2
+          ],
+          "thac0": 14,
+          "xp": 750000
+        },
+        {
+          "attack_bonus": 5,
+          "hit_dice": {
+            "bonus": 4,
+            "con_applies": false,
+            "count": 9,
+            "die": 4
+          },
+          "level": 13,
+          "saves": {
+            "breath": 11,
+            "death": 8,
+            "paralysis": 8,
+            "spells": 8,
+            "wands": 9
+          },
+          "spell_slots": [
+            4,
+            4,
+            4,
+            3,
+            3,
+            3
+          ],
+          "thac0": 14,
+          "xp": 900000
+        },
+        {
+          "attack_bonus": 5,
+          "hit_dice": {
+            "bonus": 5,
+            "con_applies": false,
+            "count": 9,
+            "die": 4
+          },
+          "level": 14,
+          "saves": {
+            "breath": 11,
+            "death": 8,
+            "paralysis": 8,
+            "spells": 8,
+            "wands": 9
+          },
+          "spell_slots": [
+            4,
+            4,
+            4,
+            4,
+            3,
+            3
+          ],
+          "thac0": 14,
+          "xp": 1050000
+        }
+      ],
+      "race": "human",
+      "requirements": {},
+      "thief_skills": [],
+      "weapons": {
+        "kind": "allowed",
+        "manual_notes": [],
+        "weapon_ids": [
+          "dagger"
+        ]
+      },
+      "xp_tiers": [
+        {
+          "minimums": {
+            "int": 16
+          },
+          "modifier_pct": 10
+        },
+        {
+          "minimums": {
+            "int": 13
+          },
+          "modifier_pct": 5
+        },
+        {
+          "minimums": {
+            "int": 9
+          },
+          "modifier_pct": 0
+        },
+        {
+          "minimums": {
+            "int": 6
+          },
+          "modifier_pct": -10
+        },
+        {
+          "minimums": {
+            "int": 3
+          },
+          "modifier_pct": -20
+        }
+      ]
+    },
+    {
+      "abilities": [
+        {
+          "manual": false,
+          "name": "Back-stab",
+          "params": {
+            "attack_bonus": 4,
+            "damage_multiplier": 2
+          },
+          "prose": "When attacking an unaware opponent from behind, a thief receives a +4 bonus to hit and doubles any damage dealt.",
+          "tag": "back_stab"
+        },
+        {
+          "manual": false,
+          "name": "Read Languages",
+          "params": {
+            "min_level": 4,
+            "pct": 80
+          },
+          "prose": "A thief of 4th level or higher can read non-magical text in any language (including dead languages and basic codes) with 80% probability. If the roll fails, the thief may not try to read the same text again before gaining an experience level.",
+          "tag": "read_languages"
+        },
+        {
+          "manual": false,
+          "name": "Scroll Use",
+          "params": {
+            "error_pct": 10,
+            "min_level": 10
+          },
+          "prose": "A thief of 10th level or higher can cast arcane spells from scrolls. There is a 10% chance of error: an unusual or deleterious effect instead of the expected effect.",
+          "tag": "scroll_use"
+        }
+      ],
+      "armour": {
+        "kind": "leather_only",
+        "shields_allowed": false
+      },
+      "hit_die": 4,
+      "id": "thief",
+      "languages": [
+        "common"
+      ],
+      "level_titles": [
+        "Apprentice",
+        "Footpad",
+        "Robber",
+        "Burglar",
+        "Cutpurse",
+        "Sharper",
+        "Pilferer",
+        "Thief",
+        "Master Thief"
+      ],
+      "max_level": 14,
+      "may_not_lower": [
+        "str"
+      ],
+      "name": "Thief",
+      "overrides_applied": [],
+      "prime_requisites": [
+        "dex"
+      ],
+      "progression": [
+        {
+          "attack_bonus": 0,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 1,
+            "die": 4
+          },
+          "level": 1,
+          "saves": {
+            "breath": 16,
+            "death": 13,
+            "paralysis": 13,
+            "spells": 15,
+            "wands": 14
+          },
+          "spell_slots": [],
+          "thac0": 19,
+          "xp": 0
+        },
+        {
+          "attack_bonus": 0,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 2,
+            "die": 4
+          },
+          "level": 2,
+          "saves": {
+            "breath": 16,
+            "death": 13,
+            "paralysis": 13,
+            "spells": 15,
+            "wands": 14
+          },
+          "spell_slots": [],
+          "thac0": 19,
+          "xp": 1200
+        },
+        {
+          "attack_bonus": 0,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 3,
+            "die": 4
+          },
+          "level": 3,
+          "saves": {
+            "breath": 16,
+            "death": 13,
+            "paralysis": 13,
+            "spells": 15,
+            "wands": 14
+          },
+          "spell_slots": [],
+          "thac0": 19,
+          "xp": 2400
+        },
+        {
+          "attack_bonus": 0,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 4,
+            "die": 4
+          },
+          "level": 4,
+          "saves": {
+            "breath": 16,
+            "death": 13,
+            "paralysis": 13,
+            "spells": 15,
+            "wands": 14
+          },
+          "spell_slots": [],
+          "thac0": 19,
+          "xp": 4800
+        },
+        {
+          "attack_bonus": 2,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 5,
+            "die": 4
+          },
+          "level": 5,
+          "saves": {
+            "breath": 14,
+            "death": 12,
+            "paralysis": 11,
+            "spells": 13,
+            "wands": 13
+          },
+          "spell_slots": [],
+          "thac0": 17,
+          "xp": 9600
+        },
+        {
+          "attack_bonus": 2,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 6,
+            "die": 4
+          },
+          "level": 6,
+          "saves": {
+            "breath": 14,
+            "death": 12,
+            "paralysis": 11,
+            "spells": 13,
+            "wands": 13
+          },
+          "spell_slots": [],
+          "thac0": 17,
+          "xp": 20000
+        },
+        {
+          "attack_bonus": 2,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 7,
+            "die": 4
+          },
+          "level": 7,
+          "saves": {
+            "breath": 14,
+            "death": 12,
+            "paralysis": 11,
+            "spells": 13,
+            "wands": 13
+          },
+          "spell_slots": [],
+          "thac0": 17,
+          "xp": 40000
+        },
+        {
+          "attack_bonus": 2,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 8,
+            "die": 4
+          },
+          "level": 8,
+          "saves": {
+            "breath": 14,
+            "death": 12,
+            "paralysis": 11,
+            "spells": 13,
+            "wands": 13
+          },
+          "spell_slots": [],
+          "thac0": 17,
+          "xp": 80000
+        },
+        {
+          "attack_bonus": 5,
+          "hit_dice": {
+            "bonus": 0,
+            "con_applies": true,
+            "count": 9,
+            "die": 4
+          },
+          "level": 9,
+          "saves": {
+            "breath": 12,
+            "death": 10,
+            "paralysis": 9,
+            "spells": 10,
+            "wands": 11
+          },
+          "spell_slots": [],
+          "thac0": 14,
+          "xp": 160000
+        },
+        {
+          "attack_bonus": 5,
+          "hit_dice": {
+            "bonus": 2,
+            "con_applies": false,
+            "count": 9,
+            "die": 4
+          },
+          "level": 10,
+          "saves": {
+            "breath": 12,
+            "death": 10,
+            "paralysis": 9,
+            "spells": 10,
+            "wands": 11
+          },
+          "spell_slots": [],
+          "thac0": 14,
+          "xp": 280000
+        },
+        {
+          "attack_bonus": 5,
+          "hit_dice": {
+            "bonus": 4,
+            "con_applies": false,
+            "count": 9,
+            "die": 4
+          },
+          "level": 11,
+          "saves": {
+            "breath": 12,
+            "death": 10,
+            "paralysis": 9,
+            "spells": 10,
+            "wands": 11
+          },
+          "spell_slots": [],
+          "thac0": 14,
+          "xp": 400000
+        },
+        {
+          "attack_bonus": 5,
+          "hit_dice": {
+            "bonus": 6,
+            "con_applies": false,
+            "count": 9,
+            "die": 4
+          },
+          "level": 12,
+          "saves": {
+            "breath": 12,
+            "death": 10,
+            "paralysis": 9,
+            "spells": 10,
+            "wands": 11
+          },
+          "spell_slots": [],
+          "thac0": 14,
+          "xp": 520000
+        },
+        {
+          "attack_bonus": 7,
+          "hit_dice": {
+            "bonus": 8,
+            "con_applies": false,
+            "count": 9,
+            "die": 4
+          },
+          "level": 13,
+          "saves": {
+            "breath": 10,
+            "death": 8,
+            "paralysis": 7,
+            "spells": 8,
+            "wands": 9
+          },
+          "spell_slots": [],
+          "thac0": 12,
+          "xp": 640000
+        },
+        {
+          "attack_bonus": 7,
+          "hit_dice": {
+            "bonus": 10,
+            "con_applies": false,
+            "count": 9,
+            "die": 4
+          },
+          "level": 14,
+          "saves": {
+            "breath": 10,
+            "death": 8,
+            "paralysis": 7,
+            "spells": 8,
+            "wands": 9
+          },
+          "spell_slots": [],
+          "thac0": 12,
+          "xp": 760000
+        }
+      ],
+      "race": "human",
+      "requirements": {},
+      "thief_skills": [
+        {
+          "climb_sheer_surfaces": 87,
+          "find_remove_treasure_traps": 10,
+          "hear_noise": 2,
+          "hide_in_shadows": 10,
+          "level": 1,
+          "move_silently": 20,
+          "open_locks": 15,
+          "pick_pockets": 20
+        },
+        {
+          "climb_sheer_surfaces": 88,
+          "find_remove_treasure_traps": 15,
+          "hear_noise": 2,
+          "hide_in_shadows": 15,
+          "level": 2,
+          "move_silently": 25,
+          "open_locks": 20,
+          "pick_pockets": 25
+        },
+        {
+          "climb_sheer_surfaces": 89,
+          "find_remove_treasure_traps": 20,
+          "hear_noise": 3,
+          "hide_in_shadows": 20,
+          "level": 3,
+          "move_silently": 30,
+          "open_locks": 25,
+          "pick_pockets": 30
+        },
+        {
+          "climb_sheer_surfaces": 90,
+          "find_remove_treasure_traps": 25,
+          "hear_noise": 3,
+          "hide_in_shadows": 25,
+          "level": 4,
+          "move_silently": 35,
+          "open_locks": 30,
+          "pick_pockets": 35
+        },
+        {
+          "climb_sheer_surfaces": 91,
+          "find_remove_treasure_traps": 30,
+          "hear_noise": 3,
+          "hide_in_shadows": 30,
+          "level": 5,
+          "move_silently": 40,
+          "open_locks": 35,
+          "pick_pockets": 40
+        },
+        {
+          "climb_sheer_surfaces": 92,
+          "find_remove_treasure_traps": 40,
+          "hear_noise": 3,
+          "hide_in_shadows": 36,
+          "level": 6,
+          "move_silently": 45,
+          "open_locks": 45,
+          "pick_pockets": 45
+        },
+        {
+          "climb_sheer_surfaces": 93,
+          "find_remove_treasure_traps": 50,
+          "hear_noise": 4,
+          "hide_in_shadows": 45,
+          "level": 7,
+          "move_silently": 55,
+          "open_locks": 55,
+          "pick_pockets": 55
+        },
+        {
+          "climb_sheer_surfaces": 94,
+          "find_remove_treasure_traps": 60,
+          "hear_noise": 4,
+          "hide_in_shadows": 55,
+          "level": 8,
+          "move_silently": 65,
+          "open_locks": 65,
+          "pick_pockets": 65
+        },
+        {
+          "climb_sheer_surfaces": 95,
+          "find_remove_treasure_traps": 70,
+          "hear_noise": 4,
+          "hide_in_shadows": 65,
+          "level": 9,
+          "move_silently": 75,
+          "open_locks": 75,
+          "pick_pockets": 75
+        },
+        {
+          "climb_sheer_surfaces": 96,
+          "find_remove_treasure_traps": 80,
+          "hear_noise": 4,
+          "hide_in_shadows": 75,
+          "level": 10,
+          "move_silently": 85,
+          "open_locks": 85,
+          "pick_pockets": 85
+        },
+        {
+          "climb_sheer_surfaces": 97,
+          "find_remove_treasure_traps": 90,
+          "hear_noise": 5,
+          "hide_in_shadows": 85,
+          "level": 11,
+          "move_silently": 95,
+          "open_locks": 95,
+          "pick_pockets": 95
+        },
+        {
+          "climb_sheer_surfaces": 98,
+          "find_remove_treasure_traps": 95,
+          "hear_noise": 5,
+          "hide_in_shadows": 90,
+          "level": 12,
+          "move_silently": 96,
+          "open_locks": 96,
+          "pick_pockets": 105
+        },
+        {
+          "climb_sheer_surfaces": 99,
+          "find_remove_treasure_traps": 97,
+          "hear_noise": 5,
+          "hide_in_shadows": 95,
+          "level": 13,
+          "move_silently": 98,
+          "open_locks": 97,
+          "pick_pockets": 115
+        },
+        {
+          "climb_sheer_surfaces": 99,
+          "find_remove_treasure_traps": 99,
+          "hear_noise": 5,
+          "hide_in_shadows": 99,
+          "level": 14,
+          "move_silently": 99,
+          "open_locks": 99,
+          "pick_pockets": 125
+        }
+      ],
+      "weapons": {
+        "kind": "any",
+        "manual_notes": [],
+        "weapon_ids": []
+      },
+      "xp_tiers": [
+        {
+          "minimums": {
+            "dex": 16
+          },
+          "modifier_pct": 10
+        },
+        {
+          "minimums": {
+            "dex": 13
+          },
+          "modifier_pct": 5
+        },
+        {
+          "minimums": {
+            "dex": 9
+          },
+          "modifier_pct": 0
+        },
+        {
+          "minimums": {
+            "dex": 6
+          },
+          "modifier_pct": -10
+        },
+        {
+          "minimums": {
+            "dex": 3
+          },
+          "modifier_pct": -20
+        }
+      ]
+    }
+  ]
+}

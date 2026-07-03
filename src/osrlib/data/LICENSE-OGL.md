@@ -1,8 +1,8 @@
 # Open Game License
 
-The files under `srd/` are the scraped [Old-School Essentials System Reference Document](https://oldschoolessentials.necroticgnome.com/srd/) and are Open Game Content under the Open Game License 1.0a, reproduced below with its complete Section 15 copyright notice as published by Necrotic Gnome. The same license applies to `src/osrlib/data/`, the machine-readable content compiled from `srd/`, which ships its own copy of this license (with the osrlib Section 15 entry) inside the package.
+The JSON data files in this directory are machine-readable game content compiled from the [Old-School Essentials System Reference Document](https://oldschoolessentials.necroticgnome.com/srd/) and are Open Game Content under the Open Game License 1.0a, reproduced below with its complete Section 15 copyright notice as published by Necrotic Gnome, plus the osrlib entry for this compilation.
 
-The osrlib library code is separately licensed under the MIT license (see `LICENSE`) and is not Open Game Content.
+The osrlib library code is separately licensed under the MIT license and is not Open Game Content.
 
 DESIGNATION OF PRODUCT IDENTITY
 
@@ -93,5 +93,7 @@ Old-School Essentials Classic Fantasy: Treasures © 2018 Gavin Norman.
 Old-School Essentials Classic Fantasy: Rules Tome © 2019 Gavin Norman.
 
 Old-School Essentials System Reference Document © 2019 Gavin Norman. Author Gavin Norman.
+
+osrlib System Reference Document data compilation © 2026 Marsh Macy.
 
 END OF LICENSE

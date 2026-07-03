@@ -11,6 +11,7 @@ exception types it needs.
 __all__ = [
     "ContentValidationError",
     "OsrlibError",
+    "SaveVersionError",
 ]
 
 
@@ -22,6 +23,16 @@ class ContentValidationError(OsrlibError):
     """Raised when rules content is malformed.
 
     Covers content that fails validation at a library boundary, such as a dice
-    expression that doesn't match the grammar in [`parse`][osrlib.core.dice.parse]
-    or, in later phases, compiled SRD data that fails model validation.
+    expression that doesn't match the grammar in [`parse`][osrlib.core.dice.parse],
+    compiled SRD data that fails model validation, or a serialized document whose
+    structure or kind is not what the loader expects.
+    """
+
+
+class SaveVersionError(OsrlibError):
+    """Raised when a serialized document's `schema_version` is newer than the library understands.
+
+    Loading a document written by a newer library fails fast with this error rather
+    than silently misreading it; see
+    [`check_document`][osrlib.versioning.check_document].
     """

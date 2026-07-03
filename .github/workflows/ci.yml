@@ -29,3 +29,30 @@ jobs:
 
       - name: Test
         run: uv run pytest
+
+  srd-data:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Sync dependencies
+        run: uv sync --locked
+
+      - name: Regenerate SRD data
+        run: uv run python -m tools.srd_compile
+
+      # Any drift — modified files or brand-new untracked outputs, which a plain
+      # git diff misses — fails the build: srd/, the compiler, and osrlib/data/
+      # cannot silently diverge.
+      - name: Fail on drift
+        run: |
+          status=$(git status --porcelain -- src/osrlib/data)
+          if [ -n "$status" ]; then
+            echo "generated data is out of date; run: uv run python -m tools.srd_compile"
+            echo "$status"
+            git diff -- src/osrlib/data
+            exit 1
+          fi
