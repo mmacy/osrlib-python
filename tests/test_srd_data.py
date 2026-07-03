@@ -12,7 +12,14 @@ from osrlib.data import load_ability_tables, load_classes, load_equipment, load_
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = REPO_ROOT / "src" / "osrlib" / "data"
-DATA_FILES = ("abilities.json", "classes.json", "equipment.json", "languages.json")
+DATA_FILES = (
+    "abilities.json",
+    "classes.json",
+    "combat_tables.json",
+    "equipment.json",
+    "languages.json",
+    "monsters.json",
+)
 
 
 def run_compiler(out_dir: Path) -> None:

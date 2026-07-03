@@ -28,6 +28,8 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from osrlib.core.abilities import MAX_SCORE, MIN_SCORE, AbilityScore
 from osrlib.core.dice import ALLOWED_SIDES
+from osrlib.core.effects import kill
+from osrlib.core.events import Event, HitPointsReportedEvent, LevelDrainedEvent
 from osrlib.core.rng import RngStream
 
 if TYPE_CHECKING:
@@ -39,6 +41,7 @@ __all__ = [
     "ClassAbility",
     "ClassCatalog",
     "ClassDefinition",
+    "DrainResult",
     "HitDice",
     "LevelUpResult",
     "ProgressionRow",
@@ -50,6 +53,7 @@ __all__ = [
     "XpAwardResult",
     "XpTier",
     "apply_xp",
+    "drain_levels",
     "level_up",
     "xp_modifier_pct",
 ]
@@ -439,6 +443,158 @@ def level_up(character: Character, definition: ClassDefinition, stream: RngStrea
     character.max_hp += result.hp_gained
     character.current_hp += result.hp_gained
     return result
+
+
+class DrainResult(BaseModel):
+    """The outcome of energy drain.
+
+    `hp_rolls` are the raw hit dice rolled for the drained levels (empty above name
+    level, where the loss is the flat-bonus delta). `slain` marks the terminal case:
+    a person drained of all levels dies, and `spawn_consequence` carries the SRD's
+    spawn prose as a structured-but-manual field — the kernel kills, the game
+    narrates.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    levels_lost: int
+    new_level: int = Field(ge=0)
+    hp_rolls: tuple[int, ...] = ()
+    hp_lost: int
+    xp_after: int | None = None
+    slain: bool = False
+    events: tuple[Event, ...] = ()
+
+
+def drain_levels(
+    character: Character,
+    definition: ClassDefinition,
+    *,
+    levels: int = 1,
+    xp_policy: str,
+    stream: RngStream,
+    spawn_consequence: str | None = None,
+) -> DrainResult:
+    """Drain experience levels — the inverse of [`level_up`][osrlib.core.classes.level_up].
+
+    Saves, THAC0, and spell slots need no reversal because they derive from
+    [`row`][osrlib.core.classes.ClassDefinition.row]; only stored state reverses.
+    Per level drained, mirroring `level_up` exactly in reverse: above name level
+    subtract the flat-bonus delta (no roll, no CON); otherwise roll the class hit die
+    plus the CON modifier (minimum 1 per die) and subtract it from max and current
+    hit points — rolling the lost die is the RAW-faithful reading of "loses one Hit
+    Die of hit points" that keeps the model stateless (pinned).
+
+    Pinned floors: drain never reduces max HP below 1 or current HP below 1 while
+    the character retains a level — death by drain happens only by losing the last
+    level ("a person drained of all levels"), the terminal state. XP is set once
+    after all levels drain, by policy: `halfway` is the floored midpoint of the
+    former and new levels' thresholds (the wight); `level_minimum` is the new
+    level's threshold exactly (wraith, spectre, vampire).
+
+    Args:
+        character: The drained character; mutated in place.
+        definition: The character's class definition.
+        levels: How many levels the drain removes (the spectre and vampire drain
+            two, applying the procedure twice).
+        xp_policy: `"halfway"` or `"level_minimum"` — per-monster data from the
+            `energy_drain` tag.
+        stream: The RNG stream for the lost hit die rolls, conventionally
+            [`ADVANCEMENT_STREAM`][osrlib.core.character.ADVANCEMENT_STREAM] — the
+            same subsystem as the gains it reverses (pinned).
+        spawn_consequence: The monster's spawn prose, carried on the drain event.
+
+    Returns:
+        The drain outcome, including the terminal death when all levels are lost.
+
+    Raises:
+        ValueError: If the definition doesn't match the character's class, `levels`
+            is not positive, or the policy is unknown.
+    """
+    if definition.id != character.class_id:
+        raise ValueError(f"class definition {definition.id!r} does not match character class {character.class_id!r}")
+    if levels < 1:
+        raise ValueError(f"levels must be positive, got {levels}")
+    if xp_policy not in ("halfway", "level_minimum"):
+        raise ValueError(f"unknown xp policy {xp_policy!r}")
+    former_level = character.level
+    hp_rolls: list[int] = []
+    hp_lost = 0
+    slain = False
+    for _ in range(levels):
+        if character.level <= 1:
+            slain = True
+            break
+        old_dice = definition.row(character.level).hit_dice
+        new_dice = definition.row(character.level - 1).hit_dice
+        if old_dice.count > new_dice.count:
+            rolled = stream.randbelow(old_dice.die) + 1
+            con_modifier = character.hit_point_modifier if old_dice.con_applies else 0
+            lost = max(1, rolled + con_modifier)
+            hp_rolls.append(rolled)
+        else:
+            lost = old_dice.bonus - new_dice.bonus
+        character.level -= 1
+        character.current_hp = max(1, character.current_hp - lost)
+        character.max_hp = max(1, character.max_hp - lost)
+        hp_lost += lost
+    events: list[Event] = []
+    if slain:
+        # The killing level counts as lost: a level-1 victim loses 1 level, a
+        # spectre draining a level-2 fighter reports 2 (the model's level floor of 1
+        # stays — the character is dead, not level 0).
+        levels_lost = former_level - character.level + 1
+        character.xp = 0
+        events.append(
+            LevelDrainedEvent(
+                code="combat.drain.slain",
+                target_id=character.id or character.name,
+                levels_lost=levels_lost,
+                new_level=0,
+                hp_lost=hp_lost,
+                spawn_consequence=spawn_consequence,
+            )
+        )
+        events.extend(kill(character))
+        return DrainResult(
+            levels_lost=levels_lost,
+            new_level=0,
+            hp_rolls=tuple(hp_rolls),
+            hp_lost=hp_lost,
+            slain=True,
+            events=tuple(events),
+        )
+    new_threshold = definition.row(character.level).xp
+    if xp_policy == "halfway":
+        former_threshold = definition.row(former_level).xp
+        xp_after = (former_threshold + new_threshold) // 2
+    else:
+        xp_after = new_threshold
+    character.xp = xp_after
+    events.append(
+        LevelDrainedEvent(
+            code="combat.drain.drained",
+            target_id=character.id or character.name,
+            levels_lost=former_level - character.level,
+            new_level=character.level,
+            hp_lost=hp_lost,
+            xp_after=xp_after,
+            spawn_consequence=spawn_consequence,
+        )
+    )
+    events.append(
+        HitPointsReportedEvent(
+            target_id=character.id or character.name, current_hp=character.current_hp, max_hp=character.max_hp
+        )
+    )
+    return DrainResult(
+        levels_lost=former_level - character.level,
+        new_level=character.level,
+        hp_rolls=tuple(hp_rolls),
+        hp_lost=hp_lost,
+        xp_after=xp_after,
+        events=tuple(events),
+    )
 
 
 def apply_xp(character: Character, definition: ClassDefinition, award: int, stream: RngStream) -> XpAwardResult:

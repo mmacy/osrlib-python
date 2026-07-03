@@ -41,9 +41,38 @@ class Ruleset(BaseModel):
             more. Default off.
         encumbrance: Which encumbrance system tracks carried weight and drives
             movement rates. Default basic.
+        variable_weapon_damage: SRD optional rule, default on. Off means every weapon
+            *and gear combat facet* deals 1d6 (RAW: "PC attacks inflict 1d6 damage");
+            unarmed attacks stay 1d2 (the specific unarmed rule, not a weapon) and
+            monster damage is unaffected (monsters always "deal the damage indicated
+            in the description") — pinned.
+        individual_initiative: SRD optional rule, default off: 1d6 per participant,
+            DEX-modified for characters (plus the halfling's `initiative_bonus` tag);
+            monsters take a caller-supplied modifier (default 0), the RAW
+            referee-judgment surface.
+        thac0_arithmetic: SRD optional rule, default off: replaces the attack-matrix
+            lookup with unclamped `THAC0 − AC` subtraction. The ascending-AC attack
+            procedure is algebraically identical, so this one flag covers both
+            presentations; the matrix differs only through its 2..20 clamping.
+        weapon_reload: SRD optional rule, default off: a reload-quality weapon may
+            not fire two rounds running. The attack validator rejects when the
+            caller-supplied context says the weapon fired last round; round
+            bookkeeping is the Phase 4 battle machine's job — the kernel enforces the
+            rule given honest context (pinned).
+        hd5_counts_as_magical: SRD invulnerabilities optional rule, default off,
+            implemented *in full*: both a monster of 5+ HD and another invulnerable
+            monster bypass silver/magic-only gates. Pinned boundary from the rule's
+            own wording: the flag touches only weapon-material gates whose keys are a
+            subset of {silver, magic}, and "another invulnerable monster" means a
+            monster bearing such a gate.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     hp_reroll_at_first_level: bool = False
     encumbrance: EncumbranceMode = EncumbranceMode.BASIC
+    variable_weapon_damage: bool = True
+    individual_initiative: bool = False
+    thac0_arithmetic: bool = False
+    weapon_reload: bool = False
+    hd5_counts_as_magical: bool = False

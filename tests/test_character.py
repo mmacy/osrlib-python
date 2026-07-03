@@ -5,9 +5,9 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from osrlib.core.abilities import AbilityScore
+from osrlib.core.alignment import Alignment
 from osrlib.core.character import (
     ABILITY_ROLL_ORDER,
-    Alignment,
     Character,
     create_character,
     roll_ability_scores,

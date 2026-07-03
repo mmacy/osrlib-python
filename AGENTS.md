@@ -27,6 +27,7 @@ The same loop on branch `phase-N-impl`: implement to the plan with tests green, 
 ### The rubber-duck loop
 
 - Spawn a fresh subagent as a skeptical senior reviewer. Give it an ordered reading list — spec, prior plans, this file, the artifact under review, the relevant code, and the exact SRD pages touched — and require evidence: every finding must quote the spec, the SRD, or the artifact, be ranked blocking vs non-blocking, and the review must end in a verdict (SOLID or NEEDS REVISION) plus a verified-good list of claims it actively checked.
+- The reviewer's mandate covers design hygiene, not just rules and spec fidelity: it must hunt for the greenfield anti-patterns below (back-compat shims, dual import paths, deprecation scaffolding, dead accommodation code) and flag any it finds — precedent: the `Alignment` re-export that survived one review round was cut when the human reviewer caught it on PR #8.
 - Judge findings on the merits. Verify disputed rules readings against `srd/` yourself; push back on findings that are wrong instead of deferring to the duck. Address what survives and commit as `revise phase N plan per rubber-duck review` (or the address-findings message above).
 - Send the revision back to the same reviewer, context intact, for re-verification of each fix. Loop until SOLID. Fold in any sign-off notes.
 - Commits tell the honest story — draft, revision(s), sign-off tweaks — and the PR description summarizes the notable decisions plus the review provenance (what the duck found, what changed).
@@ -37,6 +38,17 @@ The same loop on branch `phase-N-impl`: implement to the plan with tests green, 
 - Format with `ruff format`, lint with `ruff check`, test with `pytest` (not unittest).
 - Type hints use built-in generics (`list[str]`, `dict[str, int]`). Do not import `List`/`Dict`/`Tuple` from `typing` and do not use `from __future__ import annotations`.
 - Docstrings are Google style, written in Markdown. Maximum line length 120.
+
+## Greenfield discipline
+
+osrlib is pre-1.0 with no external consumers: every call site lives in this repo. Code-level backward compatibility is an anti-pattern here, not a virtue. When a better factoring appears, refactor to it outright and update every call site — the tests and CI are the safety net. Specifically:
+
+- No re-exports, aliases, or shims whose purpose is keeping an old import path working. One home per symbol; move it and fix the imports. (Precedent: the `Alignment` re-export from `character.py` was cut in PR #8 review as exactly this.)
+- No deprecation paths, `_v2`-style parallel names, or code kept "just in case" a removed path is wanted back — git history is the archive.
+- No parameters, flags, or branches whose only purpose is preserving a behavior nothing in the repo still uses.
+- Prose that justifies a design by "so the old path still works" is the tell: if the sentence names no current consumer, the accommodation should not exist.
+
+Do not overcorrect into breaking the compatibility contracts that are real. Those are the spec's, not the code's: `schema_version` governs serialized artifacts (saves, commands, events — additive-only within a version), and the determinism contract governs draw sequences and golden files. Honor those two; everything else is freely refactorable.
 
 ## Invariants the spec imposes
 
