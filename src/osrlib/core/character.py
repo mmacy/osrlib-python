@@ -50,7 +50,6 @@ __all__ = [
     "ADVANCEMENT_STREAM",
     "CHARACTER_CREATION_STREAM",
     "AbilityScoreRolls",
-    "Alignment",
     "Character",
     "CharacterCreationResult",
     "HitPointRoll",

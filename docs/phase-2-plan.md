@@ -146,7 +146,7 @@ The shared shape spells, breath weapons, and thrown weapons resolve through, per
 
 ### 11. Character and items additions
 
-- `Character` gains `conditions` (additive, engine-written — work item 6) and the derived `thac0`/`attack_bonus`/`saves` properties. Amended: `Alignment` moves from `character.py` to a new `core/alignment.py` (still re-exported from `character.py`, so the Phase 1 import path stands) — the data loaders now import the monster models and `character.py` imports the loaders, so a module the loaders import cannot import `character`. No other model changes; damage and healing mutate `current_hp` in place through the combat functions, matching the `level_up` mutation precedent.
+- `Character` gains `conditions` (additive, engine-written — work item 6) and the derived `thac0`/`attack_bonus`/`saves` properties. Amended: `Alignment` moves from `character.py` to a new `core/alignment.py`, its single home (no re-export — greenfield, all call sites updated) — the data loaders now import the monster models and `character.py` imports the loaders, so a module the loaders import cannot import `character`. No other model changes; damage and healing mutate `current_hp` in place through the combat functions, matching the `level_up` mutation precedent.
 - `items.py`: the two-handed-versus-shield conflict Phase 1 explicitly deferred here — `validate_equip` gains the rule (wielding a two-handed weapon with a shield equipped, or equipping the second of the pair, rejects with `items.equip.two_handed_with_shield`), pinned at equip time rather than silently ignoring the shield at resolution.
 - `versioning.py`/`errors.py`: no changes anticipated — events serialize under the existing `SCHEMA_VERSION = 1` additively.
 

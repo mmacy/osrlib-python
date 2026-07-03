@@ -3,7 +3,8 @@
 import pytest
 
 from osrlib.core.abilities import AbilityScore
-from osrlib.core.character import Alignment, Character
+from osrlib.core.alignment import Alignment
+from osrlib.core.character import Character
 from osrlib.core.clock import GameClock, TimeUnit
 from osrlib.core.combat import (
     AttackContext,

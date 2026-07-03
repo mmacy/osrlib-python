@@ -3,7 +3,8 @@
 import pytest
 
 from osrlib.core.abilities import AbilityScore
-from osrlib.core.character import Alignment, Character
+from osrlib.core.alignment import Alignment
+from osrlib.core.character import Character
 from osrlib.core.classes import apply_xp, drain_levels
 from osrlib.core.combat import drain_monster_hd, resolve_energy_drain
 from osrlib.core.effects import Condition, has_condition

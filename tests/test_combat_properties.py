@@ -4,7 +4,8 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from osrlib.core.abilities import AbilityScore
-from osrlib.core.character import Alignment, Character
+from osrlib.core.alignment import Alignment
+from osrlib.core.character import Character
 from osrlib.core.combat import (
     AttackContext,
     apply_healing,

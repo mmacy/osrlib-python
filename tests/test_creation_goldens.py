@@ -21,8 +21,8 @@ import json
 from pathlib import Path
 
 from osrlib.core.abilities import AbilityAdjustment, AbilityScore
+from osrlib.core.alignment import Alignment
 from osrlib.core.character import (
-    Alignment,
     CharacterCreationResult,
     create_character,
     party_from_document,
