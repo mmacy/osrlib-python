@@ -312,3 +312,31 @@ class TestEquipMechanics:
     def test_unequip_requires_an_equipped_instance(self):
         with pytest.raises(ValueError):
             unequip(Inventory(), instance("sword"))
+
+
+class TestTwoHandedShieldConflict:
+    def test_two_handed_weapon_rejected_with_a_shield_equipped(self):
+        # Pinned at equip time rather than silently ignoring the shield at resolution.
+        fighter = load_classes().get("fighter")
+        inventory = Inventory(items=[instance("shield"), instance("two_handed_sword")])
+        equip(inventory, fighter, inventory.items[0])
+        rejections = validate_equip(fighter, inventory.items[0], inventory)
+        assert [rejection.code for rejection in rejections] == ["items.equip.two_handed_with_shield"]
+        with pytest.raises(ValueError):
+            equip(inventory, fighter, inventory.items[0])
+
+    def test_shield_rejected_with_a_two_handed_weapon_wielded(self):
+        fighter = load_classes().get("fighter")
+        inventory = Inventory(items=[instance("two_handed_sword"), instance("shield")])
+        equip(inventory, fighter, inventory.items[0])
+        rejections = validate_equip(fighter, inventory.items[0], inventory)
+        assert [rejection.code for rejection in rejections] == ["items.equip.two_handed_with_shield"]
+        with pytest.raises(ValueError):
+            equip(inventory, fighter, inventory.items[0])
+
+    def test_one_handed_weapon_with_shield_is_fine(self):
+        fighter = load_classes().get("fighter")
+        inventory = Inventory(items=[instance("shield"), instance("sword")])
+        equip(inventory, fighter, inventory.items[0])
+        equip(inventory, fighter, inventory.items[0])
+        assert inventory.shield is not None and inventory.wielded

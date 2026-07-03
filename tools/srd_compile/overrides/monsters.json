@@ -1,0 +1,142 @@
+[
+  {
+    "id": "bone_golem",
+    "reason": "The SRD prints '2 or 4 × weapon (1d6 or by weapon)'; a frozen template needs concrete routines, so the cell normalizes to two alternative routines (2 × weapon, or 4 × weapon).",
+    "set": {
+      "attacks": [
+        { "attacks": [{ "count": 2, "name": "weapon", "damage": "1d6", "by_weapon": true }] },
+        { "attacks": [{ "count": 4, "name": "weapon", "damage": "1d6", "by_weapon": true }] }
+      ]
+    }
+  },
+  {
+    "id": "minotaur",
+    "reason": "The SRD omits the bite's damage ('[1 × gore (1d6), 1 × bite] or ...'); OSE prints 1d6 for the minotaur's bite.",
+    "set": {
+      "attacks": [
+        {
+          "attacks": [
+            { "count": 1, "name": "gore", "damage": "1d6" },
+            { "count": 1, "name": "bite", "damage": "1d6" }
+          ]
+        },
+        { "attacks": [{ "count": 1, "name": "weapon", "damage": "1d6+2", "by_weapon": true, "by_weapon_modifier": 2 }] }
+      ]
+    }
+  },
+  {
+    "id": "gargoyle",
+    "reason": "No parseable 'enchanted' marker exists in the SRD text; hand-curated: gargoyles are magically animated stone creatures ('a kind of enchanted monster').",
+    "set": { "categories": ["enchanted"] }
+  },
+  {
+    "id": "amber_golem",
+    "reason": "Enchanted category hand-curated: golems are artificial beings constructed by magic.",
+    "set": { "categories": ["enchanted"] }
+  },
+  {
+    "id": "bone_golem",
+    "reason": "Enchanted category hand-curated: golems are artificial beings constructed by magic.",
+    "set": { "categories": ["enchanted"] }
+  },
+  {
+    "id": "bronze_golem",
+    "reason": "Enchanted category hand-curated: golems are artificial beings constructed by magic.",
+    "set": { "categories": ["enchanted"] }
+  },
+  {
+    "id": "wood_golem",
+    "reason": "Enchanted category hand-curated: golems are artificial beings constructed by magic.",
+    "set": { "categories": ["enchanted"] }
+  },
+  {
+    "id": "air_elemental_lesser",
+    "reason": "Enchanted category hand-curated: elementals are beings summoned from their plane of origin by magic.",
+    "set": { "categories": ["enchanted"] }
+  },
+  {
+    "id": "air_elemental_intermediate",
+    "reason": "Enchanted category hand-curated: elementals are beings summoned from their plane of origin by magic.",
+    "set": { "categories": ["enchanted"] }
+  },
+  {
+    "id": "air_elemental_greater",
+    "reason": "Enchanted category hand-curated: elementals are beings summoned from their plane of origin by magic.",
+    "set": { "categories": ["enchanted"] }
+  },
+  {
+    "id": "earth_elemental_lesser",
+    "reason": "Enchanted category hand-curated: elementals are beings summoned from their plane of origin by magic.",
+    "set": { "categories": ["enchanted"] }
+  },
+  {
+    "id": "earth_elemental_intermediate",
+    "reason": "Enchanted category hand-curated: elementals are beings summoned from their plane of origin by magic.",
+    "set": { "categories": ["enchanted"] }
+  },
+  {
+    "id": "earth_elemental_greater",
+    "reason": "Enchanted category hand-curated: elementals are beings summoned from their plane of origin by magic.",
+    "set": { "categories": ["enchanted"] }
+  },
+  {
+    "id": "fire_elemental_lesser",
+    "reason": "Enchanted category hand-curated: elementals are beings summoned from their plane of origin by magic.",
+    "set": { "categories": ["enchanted"] }
+  },
+  {
+    "id": "fire_elemental_intermediate",
+    "reason": "Enchanted category hand-curated: elementals are beings summoned from their plane of origin by magic.",
+    "set": { "categories": ["enchanted"] }
+  },
+  {
+    "id": "fire_elemental_greater",
+    "reason": "Enchanted category hand-curated: elementals are beings summoned from their plane of origin by magic.",
+    "set": { "categories": ["enchanted"] }
+  },
+  {
+    "id": "water_elemental_lesser",
+    "reason": "Enchanted category hand-curated: elementals are beings summoned from their plane of origin by magic.",
+    "set": { "categories": ["enchanted"] }
+  },
+  {
+    "id": "water_elemental_intermediate",
+    "reason": "Enchanted category hand-curated: elementals are beings summoned from their plane of origin by magic.",
+    "set": { "categories": ["enchanted"] }
+  },
+  {
+    "id": "water_elemental_greater",
+    "reason": "Enchanted category hand-curated: elementals are beings summoned from their plane of origin by magic.",
+    "set": { "categories": ["enchanted"] }
+  },
+  {
+    "id": "crystal_living_statue",
+    "reason": "Enchanted category hand-curated: living statues are magically animated constructs.",
+    "set": { "categories": ["enchanted"] }
+  },
+  {
+    "id": "iron_living_statue",
+    "reason": "Enchanted category hand-curated: living statues are magically animated constructs.",
+    "set": { "categories": ["enchanted"] }
+  },
+  {
+    "id": "rock_living_statue",
+    "reason": "Enchanted category hand-curated: living statues are magically animated constructs.",
+    "set": { "categories": ["enchanted"] }
+  },
+  {
+    "id": "djinni_lesser",
+    "reason": "Enchanted category hand-curated: djinn are beings from the elemental plane of air.",
+    "set": { "categories": ["enchanted"] }
+  },
+  {
+    "id": "efreeti_lesser",
+    "reason": "Enchanted category hand-curated: efreet are beings from the elemental plane of fire.",
+    "set": { "categories": ["enchanted"] }
+  },
+  {
+    "id": "invisible_stalker_monster",
+    "reason": "Enchanted category hand-curated: invisible stalkers are beings summoned by the invisible stalker spell.",
+    "set": { "categories": ["enchanted"] }
+  }
+]

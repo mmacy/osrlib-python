@@ -1,0 +1,4902 @@
+{
+  "events": [
+    {
+      "code": "effects.effect.attached",
+      "effect_id": "effect-0001",
+      "event_type": "effect_attached",
+      "expires_round": null,
+      "kind": "regeneration",
+      "target_ref": "monster-0001",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.effect.attached",
+      "effect_id": "effect-0002",
+      "event_type": "effect_attached",
+      "expires_round": null,
+      "kind": "regeneration",
+      "target_ref": "monster-0002",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.effect.attached",
+      "effect_id": "effect-0003",
+      "event_type": "effect_attached",
+      "expires_round": null,
+      "kind": "regeneration",
+      "target_ref": "monster-0003",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.effect.attached",
+      "effect_id": "effect-0004",
+      "event_type": "effect_attached",
+      "expires_round": null,
+      "kind": "regeneration",
+      "target_ref": "monster-0004",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.effect.attached",
+      "effect_id": "effect-0005",
+      "event_type": "effect_attached",
+      "expires_round": null,
+      "kind": "regeneration",
+      "target_ref": "monster-0005",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.effect.attached",
+      "effect_id": "effect-0006",
+      "event_type": "effect_attached",
+      "expires_round": null,
+      "kind": "regeneration",
+      "target_ref": "monster-0006",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.effect.attached",
+      "effect_id": "effect-0007",
+      "event_type": "effect_attached",
+      "expires_round": null,
+      "kind": "regeneration",
+      "target_ref": "monster-0007",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.effect.attached",
+      "effect_id": "effect-0008",
+      "event_type": "effect_attached",
+      "expires_round": null,
+      "kind": "regeneration",
+      "target_ref": "monster-0008",
+      "visibility": "referee"
+    },
+    {
+      "code": "combat.initiative.rolled",
+      "entries": [
+        {
+          "key": "party",
+          "modifier": 0,
+          "rolls": [
+            2
+          ],
+          "total": 2
+        },
+        {
+          "key": "trolls",
+          "modifier": 0,
+          "rolls": [
+            1
+          ],
+          "total": 1
+        }
+      ],
+      "event_type": "initiative_rolled",
+      "mode": "side",
+      "order": [
+        "party",
+        "trolls"
+      ],
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Mace",
+      "attacker_id": "pc-cleric",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": -2,
+      "natural": null,
+      "required": 15,
+      "roll": 3,
+      "total": 1,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "War hammer",
+      "attacker_id": "pc-dwarf",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 14,
+      "total": 14,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Sword",
+      "attacker_id": "pc-elf",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 13,
+      "total": 13,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Sword",
+      "attacker_id": "pc-fighter",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": 2,
+      "natural": null,
+      "required": 15,
+      "roll": 3,
+      "total": 5,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Dagger",
+      "attacker_id": "pc-thief",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": -1,
+      "natural": null,
+      "required": 15,
+      "roll": 12,
+      "total": 11,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "bite",
+      "attacker_id": "monster-0001",
+      "code": "combat.attack.missed",
+      "defender_ac": 7,
+      "defender_id": "pc-fighter",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 6,
+      "roll": 1,
+      "total": 1,
+      "visibility": "player"
+    },
+    {
+      "code": "combat.initiative.rolled",
+      "entries": [
+        {
+          "key": "party",
+          "modifier": 0,
+          "rolls": [
+            3
+          ],
+          "total": 3
+        },
+        {
+          "key": "trolls",
+          "modifier": 0,
+          "rolls": [
+            5
+          ],
+          "total": 5
+        }
+      ],
+      "event_type": "initiative_rolled",
+      "mode": "side",
+      "order": [
+        "trolls",
+        "party"
+      ],
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Mace",
+      "attacker_id": "pc-cleric",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": -2,
+      "natural": null,
+      "required": 15,
+      "roll": 16,
+      "total": 14,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "War hammer",
+      "attacker_id": "pc-dwarf",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 2,
+      "total": 2,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Sword",
+      "attacker_id": "pc-elf",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 14,
+      "total": 14,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Sword",
+      "attacker_id": "pc-fighter",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": 2,
+      "natural": null,
+      "required": 15,
+      "roll": 8,
+      "total": 10,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Dagger",
+      "attacker_id": "pc-thief",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": -1,
+      "natural": null,
+      "required": 15,
+      "roll": 1,
+      "total": 0,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "bite",
+      "attacker_id": "monster-0001",
+      "code": "combat.attack.hit",
+      "defender_ac": 7,
+      "defender_id": "pc-fighter",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 6,
+      "roll": 8,
+      "total": 8,
+      "visibility": "player"
+    },
+    {
+      "amount": 9,
+      "attacker_id": "monster-0001",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [],
+      "non_regenerable": false,
+      "rolls": [
+        9
+      ],
+      "target_id": "pc-fighter",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 0,
+      "event_type": "hit_points_reported",
+      "max_hp": 4,
+      "target_id": "pc-fighter",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.condition.gained",
+      "condition": "dead",
+      "effect_id": null,
+      "event_type": "condition_gained",
+      "target_id": "pc-fighter",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.death.died",
+      "event_type": "death",
+      "target_id": "pc-fighter",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 0,
+      "event_type": "hit_points_reported",
+      "max_hp": 4,
+      "target_id": "pc-fighter",
+      "visibility": "referee"
+    },
+    {
+      "code": "combat.initiative.rolled",
+      "entries": [
+        {
+          "key": "party",
+          "modifier": 0,
+          "rolls": [
+            3
+          ],
+          "total": 3
+        },
+        {
+          "key": "trolls",
+          "modifier": 0,
+          "rolls": [
+            4
+          ],
+          "total": 4
+        }
+      ],
+      "event_type": "initiative_rolled",
+      "mode": "side",
+      "order": [
+        "trolls",
+        "party"
+      ],
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Mace",
+      "attacker_id": "pc-cleric",
+      "code": "combat.attack.hit",
+      "defender_ac": 4,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": -2,
+      "natural": null,
+      "required": 15,
+      "roll": 19,
+      "total": 17,
+      "visibility": "player"
+    },
+    {
+      "amount": 1,
+      "attacker_id": "pc-cleric",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [],
+      "non_regenerable": false,
+      "rolls": [
+        3
+      ],
+      "target_id": "monster-0001",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 30,
+      "event_type": "hit_points_reported",
+      "max_hp": 31,
+      "target_id": "monster-0001",
+      "visibility": "referee"
+    },
+    {
+      "attack_name": "War hammer",
+      "attacker_id": "pc-dwarf",
+      "code": "combat.attack.hit",
+      "defender_ac": 4,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 20,
+      "total": 20,
+      "visibility": "player"
+    },
+    {
+      "amount": 5,
+      "attacker_id": "pc-dwarf",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [],
+      "non_regenerable": false,
+      "rolls": [
+        5
+      ],
+      "target_id": "monster-0001",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 25,
+      "event_type": "hit_points_reported",
+      "max_hp": 31,
+      "target_id": "monster-0001",
+      "visibility": "referee"
+    },
+    {
+      "attack_name": "Sword",
+      "attacker_id": "pc-elf",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 3,
+      "total": 3,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Dagger",
+      "attacker_id": "pc-thief",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": -1,
+      "natural": null,
+      "required": 15,
+      "roll": 11,
+      "total": 10,
+      "visibility": "player"
+    },
+    {
+      "code": "combat.initiative.rolled",
+      "entries": [
+        {
+          "key": "party",
+          "modifier": 0,
+          "rolls": [
+            4
+          ],
+          "total": 4
+        },
+        {
+          "key": "trolls",
+          "modifier": 0,
+          "rolls": [
+            5
+          ],
+          "total": 5
+        }
+      ],
+      "event_type": "initiative_rolled",
+      "mode": "side",
+      "order": [
+        "trolls",
+        "party"
+      ],
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Mace",
+      "attacker_id": "pc-cleric",
+      "code": "combat.attack.hit",
+      "defender_ac": 4,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": -2,
+      "natural": null,
+      "required": 15,
+      "roll": 18,
+      "total": 16,
+      "visibility": "player"
+    },
+    {
+      "amount": 3,
+      "attacker_id": "pc-cleric",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [],
+      "non_regenerable": false,
+      "rolls": [
+        5
+      ],
+      "target_id": "monster-0001",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 22,
+      "event_type": "hit_points_reported",
+      "max_hp": 31,
+      "target_id": "monster-0001",
+      "visibility": "referee"
+    },
+    {
+      "attack_name": "War hammer",
+      "attacker_id": "pc-dwarf",
+      "code": "combat.attack.hit",
+      "defender_ac": 4,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 18,
+      "total": 18,
+      "visibility": "player"
+    },
+    {
+      "amount": 4,
+      "attacker_id": "pc-dwarf",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [],
+      "non_regenerable": false,
+      "rolls": [
+        4
+      ],
+      "target_id": "monster-0001",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 18,
+      "event_type": "hit_points_reported",
+      "max_hp": 31,
+      "target_id": "monster-0001",
+      "visibility": "referee"
+    },
+    {
+      "attack_name": "Sword",
+      "attacker_id": "pc-elf",
+      "code": "combat.attack.hit",
+      "defender_ac": 4,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 16,
+      "total": 16,
+      "visibility": "player"
+    },
+    {
+      "amount": 4,
+      "attacker_id": "pc-elf",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [],
+      "non_regenerable": false,
+      "rolls": [
+        4
+      ],
+      "target_id": "monster-0001",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 14,
+      "event_type": "hit_points_reported",
+      "max_hp": 31,
+      "target_id": "monster-0001",
+      "visibility": "referee"
+    },
+    {
+      "attack_name": "Dagger",
+      "attacker_id": "pc-thief",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": -1,
+      "natural": null,
+      "required": 15,
+      "roll": 11,
+      "total": 10,
+      "visibility": "player"
+    },
+    {
+      "code": "combat.initiative.rolled",
+      "entries": [
+        {
+          "key": "party",
+          "modifier": 0,
+          "rolls": [
+            6
+          ],
+          "total": 6
+        },
+        {
+          "key": "trolls",
+          "modifier": 0,
+          "rolls": [
+            1
+          ],
+          "total": 1
+        }
+      ],
+      "event_type": "initiative_rolled",
+      "mode": "side",
+      "order": [
+        "party",
+        "trolls"
+      ],
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Mace",
+      "attacker_id": "pc-cleric",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": -2,
+      "natural": null,
+      "required": 15,
+      "roll": 15,
+      "total": 13,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "War hammer",
+      "attacker_id": "pc-dwarf",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 9,
+      "total": 9,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Sword",
+      "attacker_id": "pc-elf",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 5,
+      "total": 5,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Dagger",
+      "attacker_id": "pc-thief",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": -1,
+      "natural": null,
+      "required": 15,
+      "roll": 1,
+      "total": 0,
+      "visibility": "player"
+    },
+    {
+      "code": "combat.initiative.rolled",
+      "entries": [
+        {
+          "key": "party",
+          "modifier": 0,
+          "rolls": [
+            4,
+            6
+          ],
+          "total": 6
+        },
+        {
+          "key": "trolls",
+          "modifier": 0,
+          "rolls": [
+            4,
+            1
+          ],
+          "total": 1
+        }
+      ],
+      "event_type": "initiative_rolled",
+      "mode": "side",
+      "order": [
+        "party",
+        "trolls"
+      ],
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Mace",
+      "attacker_id": "pc-cleric",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": -2,
+      "natural": null,
+      "required": 15,
+      "roll": 8,
+      "total": 6,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "War hammer",
+      "attacker_id": "pc-dwarf",
+      "code": "combat.attack.hit",
+      "defender_ac": 4,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 18,
+      "total": 18,
+      "visibility": "player"
+    },
+    {
+      "amount": 6,
+      "attacker_id": "pc-dwarf",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [],
+      "non_regenerable": false,
+      "rolls": [
+        6
+      ],
+      "target_id": "monster-0001",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 8,
+      "event_type": "hit_points_reported",
+      "max_hp": 31,
+      "target_id": "monster-0001",
+      "visibility": "referee"
+    },
+    {
+      "attack_name": "Sword",
+      "attacker_id": "pc-elf",
+      "code": "combat.attack.hit",
+      "defender_ac": 4,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 19,
+      "total": 19,
+      "visibility": "player"
+    },
+    {
+      "amount": 4,
+      "attacker_id": "pc-elf",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [],
+      "non_regenerable": false,
+      "rolls": [
+        4
+      ],
+      "target_id": "monster-0001",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 4,
+      "event_type": "hit_points_reported",
+      "max_hp": 31,
+      "target_id": "monster-0001",
+      "visibility": "referee"
+    },
+    {
+      "attack_name": "Dagger",
+      "attacker_id": "pc-thief",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": -1,
+      "natural": null,
+      "required": 15,
+      "roll": 8,
+      "total": 7,
+      "visibility": "player"
+    },
+    {
+      "code": "combat.initiative.rolled",
+      "entries": [
+        {
+          "key": "party",
+          "modifier": 0,
+          "rolls": [
+            3
+          ],
+          "total": 3
+        },
+        {
+          "key": "trolls",
+          "modifier": 0,
+          "rolls": [
+            6
+          ],
+          "total": 6
+        }
+      ],
+      "event_type": "initiative_rolled",
+      "mode": "side",
+      "order": [
+        "trolls",
+        "party"
+      ],
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Mace",
+      "attacker_id": "pc-cleric",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": -2,
+      "natural": null,
+      "required": 15,
+      "roll": 4,
+      "total": 2,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "War hammer",
+      "attacker_id": "pc-dwarf",
+      "code": "combat.attack.hit",
+      "defender_ac": 4,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 16,
+      "total": 16,
+      "visibility": "player"
+    },
+    {
+      "amount": 3,
+      "attacker_id": "pc-dwarf",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [],
+      "non_regenerable": false,
+      "rolls": [
+        3
+      ],
+      "target_id": "monster-0001",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 1,
+      "event_type": "hit_points_reported",
+      "max_hp": 31,
+      "target_id": "monster-0001",
+      "visibility": "referee"
+    },
+    {
+      "attack_name": "Sword",
+      "attacker_id": "pc-elf",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 10,
+      "total": 10,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Dagger",
+      "attacker_id": "pc-thief",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": -1,
+      "natural": null,
+      "required": 15,
+      "roll": 3,
+      "total": 2,
+      "visibility": "player"
+    },
+    {
+      "code": "combat.initiative.rolled",
+      "entries": [
+        {
+          "key": "party",
+          "modifier": 0,
+          "rolls": [
+            6
+          ],
+          "total": 6
+        },
+        {
+          "key": "trolls",
+          "modifier": 0,
+          "rolls": [
+            3
+          ],
+          "total": 3
+        }
+      ],
+      "event_type": "initiative_rolled",
+      "mode": "side",
+      "order": [
+        "party",
+        "trolls"
+      ],
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Mace",
+      "attacker_id": "pc-cleric",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": -2,
+      "natural": null,
+      "required": 15,
+      "roll": 16,
+      "total": 14,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "War hammer",
+      "attacker_id": "pc-dwarf",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 13,
+      "total": 13,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Sword",
+      "attacker_id": "pc-elf",
+      "code": "combat.attack.hit",
+      "defender_ac": 4,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 16,
+      "total": 16,
+      "visibility": "player"
+    },
+    {
+      "amount": 3,
+      "attacker_id": "pc-elf",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [],
+      "non_regenerable": false,
+      "rolls": [
+        3
+      ],
+      "target_id": "monster-0001",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 0,
+      "event_type": "hit_points_reported",
+      "max_hp": 31,
+      "target_id": "monster-0001",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.condition.gained",
+      "condition": "dead",
+      "effect_id": null,
+      "event_type": "condition_gained",
+      "target_id": "monster-0001",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.death.died",
+      "event_type": "death",
+      "target_id": "monster-0001",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 0,
+      "event_type": "hit_points_reported",
+      "max_hp": 31,
+      "target_id": "monster-0001",
+      "visibility": "referee"
+    },
+    {
+      "code": "combat.morale.held",
+      "event_type": "morale_checked",
+      "modifier": 0,
+      "roll": 7,
+      "score": 8,
+      "subject": "trolls",
+      "visibility": "referee"
+    },
+    {
+      "code": "combat.initiative.rolled",
+      "entries": [
+        {
+          "key": "party",
+          "modifier": 0,
+          "rolls": [
+            6
+          ],
+          "total": 6
+        },
+        {
+          "key": "trolls",
+          "modifier": 0,
+          "rolls": [
+            4
+          ],
+          "total": 4
+        }
+      ],
+      "event_type": "initiative_rolled",
+      "mode": "side",
+      "order": [
+        "party",
+        "trolls"
+      ],
+      "visibility": "player"
+    },
+    {
+      "code": "combat.initiative.rolled",
+      "entries": [
+        {
+          "key": "party",
+          "modifier": 0,
+          "rolls": [
+            6
+          ],
+          "total": 6
+        },
+        {
+          "key": "trolls",
+          "modifier": 0,
+          "rolls": [
+            1
+          ],
+          "total": 1
+        }
+      ],
+      "event_type": "initiative_rolled",
+      "mode": "side",
+      "order": [
+        "party",
+        "trolls"
+      ],
+      "visibility": "player"
+    },
+    {
+      "code": "combat.initiative.rolled",
+      "entries": [
+        {
+          "key": "party",
+          "modifier": 0,
+          "rolls": [
+            1
+          ],
+          "total": 1
+        },
+        {
+          "key": "trolls",
+          "modifier": 0,
+          "rolls": [
+            3
+          ],
+          "total": 3
+        }
+      ],
+      "event_type": "initiative_rolled",
+      "mode": "side",
+      "order": [
+        "trolls",
+        "party"
+      ],
+      "visibility": "player"
+    },
+    {
+      "code": "combat.initiative.rolled",
+      "entries": [
+        {
+          "key": "party",
+          "modifier": 0,
+          "rolls": [
+            1
+          ],
+          "total": 1
+        },
+        {
+          "key": "trolls",
+          "modifier": 0,
+          "rolls": [
+            4
+          ],
+          "total": 4
+        }
+      ],
+      "event_type": "initiative_rolled",
+      "mode": "side",
+      "order": [
+        "trolls",
+        "party"
+      ],
+      "visibility": "player"
+    },
+    {
+      "code": "combat.initiative.rolled",
+      "entries": [
+        {
+          "key": "party",
+          "modifier": 0,
+          "rolls": [
+            3
+          ],
+          "total": 3
+        },
+        {
+          "key": "trolls",
+          "modifier": 0,
+          "rolls": [
+            5
+          ],
+          "total": 5
+        }
+      ],
+      "event_type": "initiative_rolled",
+      "mode": "side",
+      "order": [
+        "trolls",
+        "party"
+      ],
+      "visibility": "player"
+    },
+    {
+      "code": "combat.initiative.rolled",
+      "entries": [
+        {
+          "key": "party",
+          "modifier": 0,
+          "rolls": [
+            2
+          ],
+          "total": 2
+        },
+        {
+          "key": "trolls",
+          "modifier": 0,
+          "rolls": [
+            5
+          ],
+          "total": 5
+        }
+      ],
+      "event_type": "initiative_rolled",
+      "mode": "side",
+      "order": [
+        "trolls",
+        "party"
+      ],
+      "visibility": "player"
+    },
+    {
+      "code": "effects.condition.removed",
+      "condition": "dead",
+      "effect_id": null,
+      "event_type": "condition_removed",
+      "target_id": "monster-0001",
+      "visibility": "player"
+    },
+    {
+      "code": "effects.regeneration.revived",
+      "event_type": "monster_revived",
+      "target_id": "monster-0001",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 1,
+      "event_type": "hit_points_reported",
+      "max_hp": 31,
+      "target_id": "monster-0001",
+      "visibility": "referee"
+    },
+    {
+      "code": "combat.initiative.rolled",
+      "entries": [
+        {
+          "key": "party",
+          "modifier": 0,
+          "rolls": [
+            6
+          ],
+          "total": 6
+        },
+        {
+          "key": "trolls",
+          "modifier": 0,
+          "rolls": [
+            2
+          ],
+          "total": 2
+        }
+      ],
+      "event_type": "initiative_rolled",
+      "mode": "side",
+      "order": [
+        "party",
+        "trolls"
+      ],
+      "visibility": "player"
+    },
+    {
+      "code": "effects.effect.ticked",
+      "effect_id": "effect-0001",
+      "event_type": "effect_ticked",
+      "kind": "regeneration",
+      "round": 15,
+      "target_ref": "monster-0001",
+      "visibility": "referee"
+    },
+    {
+      "amount": 3,
+      "code": "combat.healing.applied",
+      "event_type": "healing_applied",
+      "source": "regeneration",
+      "target_id": "monster-0001",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 4,
+      "event_type": "hit_points_reported",
+      "max_hp": 31,
+      "target_id": "monster-0001",
+      "visibility": "referee"
+    },
+    {
+      "code": "combat.initiative.rolled",
+      "entries": [
+        {
+          "key": "party",
+          "modifier": 0,
+          "rolls": [
+            4,
+            6
+          ],
+          "total": 6
+        },
+        {
+          "key": "trolls",
+          "modifier": 0,
+          "rolls": [
+            4,
+            1
+          ],
+          "total": 1
+        }
+      ],
+      "event_type": "initiative_rolled",
+      "mode": "side",
+      "order": [
+        "party",
+        "trolls"
+      ],
+      "visibility": "player"
+    },
+    {
+      "code": "effects.effect.ticked",
+      "effect_id": "effect-0001",
+      "event_type": "effect_ticked",
+      "kind": "regeneration",
+      "round": 16,
+      "target_ref": "monster-0001",
+      "visibility": "referee"
+    },
+    {
+      "amount": 3,
+      "code": "combat.healing.applied",
+      "event_type": "healing_applied",
+      "source": "regeneration",
+      "target_id": "monster-0001",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 7,
+      "event_type": "hit_points_reported",
+      "max_hp": 31,
+      "target_id": "monster-0001",
+      "visibility": "referee"
+    },
+    {
+      "code": "combat.initiative.rolled",
+      "entries": [
+        {
+          "key": "party",
+          "modifier": 0,
+          "rolls": [
+            1
+          ],
+          "total": 1
+        },
+        {
+          "key": "trolls",
+          "modifier": 0,
+          "rolls": [
+            3
+          ],
+          "total": 3
+        }
+      ],
+      "event_type": "initiative_rolled",
+      "mode": "side",
+      "order": [
+        "trolls",
+        "party"
+      ],
+      "visibility": "player"
+    },
+    {
+      "code": "effects.effect.ticked",
+      "effect_id": "effect-0001",
+      "event_type": "effect_ticked",
+      "kind": "regeneration",
+      "round": 17,
+      "target_ref": "monster-0001",
+      "visibility": "referee"
+    },
+    {
+      "amount": 3,
+      "code": "combat.healing.applied",
+      "event_type": "healing_applied",
+      "source": "regeneration",
+      "target_id": "monster-0001",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 10,
+      "event_type": "hit_points_reported",
+      "max_hp": 31,
+      "target_id": "monster-0001",
+      "visibility": "referee"
+    },
+    {
+      "code": "combat.initiative.rolled",
+      "entries": [
+        {
+          "key": "party",
+          "modifier": 0,
+          "rolls": [
+            5
+          ],
+          "total": 5
+        },
+        {
+          "key": "trolls",
+          "modifier": 0,
+          "rolls": [
+            6
+          ],
+          "total": 6
+        }
+      ],
+      "event_type": "initiative_rolled",
+      "mode": "side",
+      "order": [
+        "trolls",
+        "party"
+      ],
+      "visibility": "player"
+    },
+    {
+      "code": "effects.effect.ticked",
+      "effect_id": "effect-0001",
+      "event_type": "effect_ticked",
+      "kind": "regeneration",
+      "round": 18,
+      "target_ref": "monster-0001",
+      "visibility": "referee"
+    },
+    {
+      "amount": 3,
+      "code": "combat.healing.applied",
+      "event_type": "healing_applied",
+      "source": "regeneration",
+      "target_id": "monster-0001",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 13,
+      "event_type": "hit_points_reported",
+      "max_hp": 31,
+      "target_id": "monster-0001",
+      "visibility": "referee"
+    },
+    {
+      "code": "combat.initiative.rolled",
+      "entries": [
+        {
+          "key": "party",
+          "modifier": 0,
+          "rolls": [
+            4
+          ],
+          "total": 4
+        },
+        {
+          "key": "trolls",
+          "modifier": 0,
+          "rolls": [
+            6
+          ],
+          "total": 6
+        }
+      ],
+      "event_type": "initiative_rolled",
+      "mode": "side",
+      "order": [
+        "trolls",
+        "party"
+      ],
+      "visibility": "player"
+    },
+    {
+      "code": "effects.effect.ticked",
+      "effect_id": "effect-0001",
+      "event_type": "effect_ticked",
+      "kind": "regeneration",
+      "round": 19,
+      "target_ref": "monster-0001",
+      "visibility": "referee"
+    },
+    {
+      "amount": 3,
+      "code": "combat.healing.applied",
+      "event_type": "healing_applied",
+      "source": "regeneration",
+      "target_id": "monster-0001",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 16,
+      "event_type": "hit_points_reported",
+      "max_hp": 31,
+      "target_id": "monster-0001",
+      "visibility": "referee"
+    },
+    {
+      "code": "combat.initiative.rolled",
+      "entries": [
+        {
+          "key": "party",
+          "modifier": 0,
+          "rolls": [
+            4
+          ],
+          "total": 4
+        },
+        {
+          "key": "trolls",
+          "modifier": 0,
+          "rolls": [
+            3
+          ],
+          "total": 3
+        }
+      ],
+      "event_type": "initiative_rolled",
+      "mode": "side",
+      "order": [
+        "party",
+        "trolls"
+      ],
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Oil (1 flask)",
+      "attacker_id": "pc-magic_user",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": 1,
+      "natural": null,
+      "required": 15,
+      "roll": 7,
+      "total": 8,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Oil (1 flask)",
+      "attacker_id": "pc-cleric",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 7,
+      "total": 7,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Oil (1 flask)",
+      "attacker_id": "pc-thief",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": 1,
+      "natural": null,
+      "required": 15,
+      "roll": 4,
+      "total": 5,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Oil (1 flask)",
+      "attacker_id": "pc-halfling",
+      "code": "combat.attack.hit",
+      "defender_ac": 4,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": 1,
+      "natural": null,
+      "required": 15,
+      "roll": 17,
+      "total": 18,
+      "visibility": "player"
+    },
+    {
+      "amount": 5,
+      "attacker_id": "pc-halfling",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "fire"
+      ],
+      "non_regenerable": true,
+      "rolls": [
+        5
+      ],
+      "target_id": "monster-0001",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 11,
+      "event_type": "hit_points_reported",
+      "max_hp": 31,
+      "target_id": "monster-0001",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.effect.attached",
+      "effect_id": "effect-0009",
+      "event_type": "effect_attached",
+      "expires_round": 20,
+      "kind": "splash_douse",
+      "target_ref": "monster-0001",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.effect.expired",
+      "effect_id": "effect-0009",
+      "event_type": "effect_expired",
+      "kind": "splash_douse",
+      "round": 20,
+      "target_ref": "monster-0001",
+      "visibility": "referee"
+    },
+    {
+      "amount": 2,
+      "attacker_id": null,
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "fire"
+      ],
+      "non_regenerable": true,
+      "rolls": [
+        2
+      ],
+      "target_id": "monster-0001",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 9,
+      "event_type": "hit_points_reported",
+      "max_hp": 31,
+      "target_id": "monster-0001",
+      "visibility": "referee"
+    },
+    {
+      "code": "combat.initiative.rolled",
+      "entries": [
+        {
+          "key": "party",
+          "modifier": 0,
+          "rolls": [
+            6
+          ],
+          "total": 6
+        },
+        {
+          "key": "trolls",
+          "modifier": 0,
+          "rolls": [
+            4
+          ],
+          "total": 4
+        }
+      ],
+      "event_type": "initiative_rolled",
+      "mode": "side",
+      "order": [
+        "party",
+        "trolls"
+      ],
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Oil (1 flask)",
+      "attacker_id": "pc-magic_user",
+      "code": "combat.attack.hit",
+      "defender_ac": 4,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": 1,
+      "natural": null,
+      "required": 15,
+      "roll": 15,
+      "total": 16,
+      "visibility": "player"
+    },
+    {
+      "amount": 4,
+      "attacker_id": "pc-magic_user",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "fire"
+      ],
+      "non_regenerable": true,
+      "rolls": [
+        4
+      ],
+      "target_id": "monster-0001",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 5,
+      "event_type": "hit_points_reported",
+      "max_hp": 31,
+      "target_id": "monster-0001",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.effect.attached",
+      "effect_id": "effect-0010",
+      "event_type": "effect_attached",
+      "expires_round": 21,
+      "kind": "splash_douse",
+      "target_ref": "monster-0001",
+      "visibility": "referee"
+    },
+    {
+      "attack_name": "Oil (1 flask)",
+      "attacker_id": "pc-cleric",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 1,
+      "total": 1,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Oil (1 flask)",
+      "attacker_id": "pc-thief",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": 1,
+      "natural": null,
+      "required": 15,
+      "roll": 1,
+      "total": 2,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Oil (1 flask)",
+      "attacker_id": "pc-halfling",
+      "code": "combat.attack.hit",
+      "defender_ac": 4,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": 1,
+      "natural": null,
+      "required": 15,
+      "roll": 14,
+      "total": 15,
+      "visibility": "player"
+    },
+    {
+      "amount": 5,
+      "attacker_id": "pc-halfling",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "fire"
+      ],
+      "non_regenerable": true,
+      "rolls": [
+        5
+      ],
+      "target_id": "monster-0001",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 0,
+      "event_type": "hit_points_reported",
+      "max_hp": 31,
+      "target_id": "monster-0001",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.condition.gained",
+      "condition": "dead",
+      "effect_id": null,
+      "event_type": "condition_gained",
+      "target_id": "monster-0001",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.death.died",
+      "event_type": "death",
+      "target_id": "monster-0001",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 0,
+      "event_type": "hit_points_reported",
+      "max_hp": 31,
+      "target_id": "monster-0001",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.effect.attached",
+      "effect_id": "effect-0011",
+      "event_type": "effect_attached",
+      "expires_round": 21,
+      "kind": "splash_douse",
+      "target_ref": "monster-0001",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.effect.expired",
+      "effect_id": "effect-0010",
+      "event_type": "effect_expired",
+      "kind": "splash_douse",
+      "round": 21,
+      "target_ref": "monster-0001",
+      "visibility": "referee"
+    },
+    {
+      "amount": 8,
+      "attacker_id": null,
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "fire"
+      ],
+      "non_regenerable": true,
+      "rolls": [
+        8
+      ],
+      "target_id": "monster-0001",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 0,
+      "event_type": "hit_points_reported",
+      "max_hp": 31,
+      "target_id": "monster-0001",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.effect.expired",
+      "effect_id": "effect-0011",
+      "event_type": "effect_expired",
+      "kind": "splash_douse",
+      "round": 21,
+      "target_ref": "monster-0001",
+      "visibility": "referee"
+    },
+    {
+      "amount": 3,
+      "attacker_id": null,
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "fire"
+      ],
+      "non_regenerable": true,
+      "rolls": [
+        3
+      ],
+      "target_id": "monster-0001",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 0,
+      "event_type": "hit_points_reported",
+      "max_hp": 31,
+      "target_id": "monster-0001",
+      "visibility": "referee"
+    },
+    {
+      "code": "combat.initiative.rolled",
+      "entries": [
+        {
+          "key": "party",
+          "modifier": 0,
+          "rolls": [
+            1
+          ],
+          "total": 1
+        },
+        {
+          "key": "trolls",
+          "modifier": 0,
+          "rolls": [
+            2
+          ],
+          "total": 2
+        }
+      ],
+      "event_type": "initiative_rolled",
+      "mode": "side",
+      "order": [
+        "trolls",
+        "party"
+      ],
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Oil (1 flask)",
+      "attacker_id": "pc-magic_user",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": 1,
+      "natural": null,
+      "required": 15,
+      "roll": 3,
+      "total": 4,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Oil (1 flask)",
+      "attacker_id": "pc-cleric",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 7,
+      "total": 7,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Oil (1 flask)",
+      "attacker_id": "pc-thief",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": 1,
+      "natural": null,
+      "required": 15,
+      "roll": 9,
+      "total": 10,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Oil (1 flask)",
+      "attacker_id": "pc-halfling",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": 1,
+      "natural": null,
+      "required": 15,
+      "roll": 7,
+      "total": 8,
+      "visibility": "player"
+    },
+    {
+      "code": "combat.initiative.rolled",
+      "entries": [
+        {
+          "key": "party",
+          "modifier": 0,
+          "rolls": [
+            2
+          ],
+          "total": 2
+        },
+        {
+          "key": "trolls",
+          "modifier": 0,
+          "rolls": [
+            5
+          ],
+          "total": 5
+        }
+      ],
+      "event_type": "initiative_rolled",
+      "mode": "side",
+      "order": [
+        "trolls",
+        "party"
+      ],
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Oil (1 flask)",
+      "attacker_id": "pc-magic_user",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": 1,
+      "natural": null,
+      "required": 15,
+      "roll": 5,
+      "total": 6,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Oil (1 flask)",
+      "attacker_id": "pc-cleric",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 5,
+      "total": 5,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Oil (1 flask)",
+      "attacker_id": "pc-thief",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": 1,
+      "natural": null,
+      "required": 15,
+      "roll": 5,
+      "total": 6,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Oil (1 flask)",
+      "attacker_id": "pc-halfling",
+      "code": "combat.attack.hit",
+      "defender_ac": 4,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": 1,
+      "natural": null,
+      "required": 15,
+      "roll": 17,
+      "total": 18,
+      "visibility": "player"
+    },
+    {
+      "amount": 4,
+      "attacker_id": "pc-halfling",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "fire"
+      ],
+      "non_regenerable": true,
+      "rolls": [
+        4
+      ],
+      "target_id": "monster-0001",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 0,
+      "event_type": "hit_points_reported",
+      "max_hp": 31,
+      "target_id": "monster-0001",
+      "visibility": "referee"
+    },
+    {
+      "code": "combat.death.permanent",
+      "event_type": "death",
+      "target_id": "monster-0001",
+      "visibility": "player"
+    },
+    {
+      "code": "effects.effect.attached",
+      "effect_id": "effect-0012",
+      "event_type": "effect_attached",
+      "expires_round": 23,
+      "kind": "splash_douse",
+      "target_ref": "monster-0001",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.effect.expired",
+      "effect_id": "effect-0012",
+      "event_type": "effect_expired",
+      "kind": "splash_douse",
+      "round": 23,
+      "target_ref": "monster-0001",
+      "visibility": "referee"
+    },
+    {
+      "amount": 2,
+      "attacker_id": null,
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "fire"
+      ],
+      "non_regenerable": true,
+      "rolls": [
+        2
+      ],
+      "target_id": "monster-0001",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 0,
+      "event_type": "hit_points_reported",
+      "max_hp": 31,
+      "target_id": "monster-0001",
+      "visibility": "referee"
+    },
+    {
+      "code": "combat.initiative.rolled",
+      "entries": [
+        {
+          "key": "party",
+          "modifier": 0,
+          "rolls": [
+            3
+          ],
+          "total": 3
+        },
+        {
+          "key": "trolls",
+          "modifier": 0,
+          "rolls": [
+            2
+          ],
+          "total": 2
+        }
+      ],
+      "event_type": "initiative_rolled",
+      "mode": "side",
+      "order": [
+        "party",
+        "trolls"
+      ],
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Mace",
+      "attacker_id": "pc-cleric",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0002",
+      "event_type": "attack_rolled",
+      "modifier": -2,
+      "natural": null,
+      "required": 15,
+      "roll": 11,
+      "total": 9,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "War hammer",
+      "attacker_id": "pc-dwarf",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0002",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 8,
+      "total": 8,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Sword",
+      "attacker_id": "pc-elf",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0002",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 13,
+      "total": 13,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Dagger",
+      "attacker_id": "pc-thief",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0002",
+      "event_type": "attack_rolled",
+      "modifier": -1,
+      "natural": null,
+      "required": 15,
+      "roll": 15,
+      "total": 14,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Oil (1 flask)",
+      "attacker_id": "pc-magic_user",
+      "code": "combat.attack.hit",
+      "defender_ac": 4,
+      "defender_id": "monster-0002",
+      "event_type": "attack_rolled",
+      "modifier": 1,
+      "natural": null,
+      "required": 15,
+      "roll": 18,
+      "total": 19,
+      "visibility": "player"
+    },
+    {
+      "amount": 2,
+      "attacker_id": "pc-magic_user",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "fire"
+      ],
+      "non_regenerable": true,
+      "rolls": [
+        2
+      ],
+      "target_id": "monster-0002",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 19,
+      "event_type": "hit_points_reported",
+      "max_hp": 21,
+      "target_id": "monster-0002",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.effect.attached",
+      "effect_id": "effect-0013",
+      "event_type": "effect_attached",
+      "expires_round": 24,
+      "kind": "splash_douse",
+      "target_ref": "monster-0002",
+      "visibility": "referee"
+    },
+    {
+      "attack_name": "Oil (1 flask)",
+      "attacker_id": "pc-cleric",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0002",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 14,
+      "total": 14,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Oil (1 flask)",
+      "attacker_id": "pc-thief",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0002",
+      "event_type": "attack_rolled",
+      "modifier": 1,
+      "natural": null,
+      "required": 15,
+      "roll": 10,
+      "total": 11,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Oil (1 flask)",
+      "attacker_id": "pc-halfling",
+      "code": "combat.attack.hit",
+      "defender_ac": 4,
+      "defender_id": "monster-0002",
+      "event_type": "attack_rolled",
+      "modifier": 1,
+      "natural": null,
+      "required": 15,
+      "roll": 14,
+      "total": 15,
+      "visibility": "player"
+    },
+    {
+      "amount": 6,
+      "attacker_id": "pc-halfling",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "fire"
+      ],
+      "non_regenerable": true,
+      "rolls": [
+        6
+      ],
+      "target_id": "monster-0002",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 13,
+      "event_type": "hit_points_reported",
+      "max_hp": 21,
+      "target_id": "monster-0002",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.effect.attached",
+      "effect_id": "effect-0014",
+      "event_type": "effect_attached",
+      "expires_round": 24,
+      "kind": "splash_douse",
+      "target_ref": "monster-0002",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.effect.expired",
+      "effect_id": "effect-0013",
+      "event_type": "effect_expired",
+      "kind": "splash_douse",
+      "round": 24,
+      "target_ref": "monster-0002",
+      "visibility": "referee"
+    },
+    {
+      "amount": 4,
+      "attacker_id": null,
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "fire"
+      ],
+      "non_regenerable": true,
+      "rolls": [
+        4
+      ],
+      "target_id": "monster-0002",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 9,
+      "event_type": "hit_points_reported",
+      "max_hp": 21,
+      "target_id": "monster-0002",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.effect.expired",
+      "effect_id": "effect-0014",
+      "event_type": "effect_expired",
+      "kind": "splash_douse",
+      "round": 24,
+      "target_ref": "monster-0002",
+      "visibility": "referee"
+    },
+    {
+      "amount": 5,
+      "attacker_id": null,
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "fire"
+      ],
+      "non_regenerable": true,
+      "rolls": [
+        5
+      ],
+      "target_id": "monster-0002",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 4,
+      "event_type": "hit_points_reported",
+      "max_hp": 21,
+      "target_id": "monster-0002",
+      "visibility": "referee"
+    },
+    {
+      "code": "combat.initiative.rolled",
+      "entries": [
+        {
+          "key": "party",
+          "modifier": 0,
+          "rolls": [
+            6
+          ],
+          "total": 6
+        },
+        {
+          "key": "trolls",
+          "modifier": 0,
+          "rolls": [
+            3
+          ],
+          "total": 3
+        }
+      ],
+      "event_type": "initiative_rolled",
+      "mode": "side",
+      "order": [
+        "party",
+        "trolls"
+      ],
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Mace",
+      "attacker_id": "pc-cleric",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0002",
+      "event_type": "attack_rolled",
+      "modifier": -2,
+      "natural": null,
+      "required": 15,
+      "roll": 5,
+      "total": 3,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "War hammer",
+      "attacker_id": "pc-dwarf",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0002",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 14,
+      "total": 14,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Sword",
+      "attacker_id": "pc-elf",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0002",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 4,
+      "total": 4,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Dagger",
+      "attacker_id": "pc-thief",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0002",
+      "event_type": "attack_rolled",
+      "modifier": -1,
+      "natural": null,
+      "required": 15,
+      "roll": 8,
+      "total": 7,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Oil (1 flask)",
+      "attacker_id": "pc-magic_user",
+      "code": "combat.attack.hit",
+      "defender_ac": 4,
+      "defender_id": "monster-0002",
+      "event_type": "attack_rolled",
+      "modifier": 1,
+      "natural": null,
+      "required": 15,
+      "roll": 18,
+      "total": 19,
+      "visibility": "player"
+    },
+    {
+      "amount": 3,
+      "attacker_id": "pc-magic_user",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "fire"
+      ],
+      "non_regenerable": true,
+      "rolls": [
+        3
+      ],
+      "target_id": "monster-0002",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 1,
+      "event_type": "hit_points_reported",
+      "max_hp": 21,
+      "target_id": "monster-0002",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.effect.attached",
+      "effect_id": "effect-0015",
+      "event_type": "effect_attached",
+      "expires_round": 25,
+      "kind": "splash_douse",
+      "target_ref": "monster-0002",
+      "visibility": "referee"
+    },
+    {
+      "attack_name": "Oil (1 flask)",
+      "attacker_id": "pc-cleric",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0002",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 5,
+      "total": 5,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Oil (1 flask)",
+      "attacker_id": "pc-thief",
+      "code": "combat.attack.hit",
+      "defender_ac": 4,
+      "defender_id": "monster-0002",
+      "event_type": "attack_rolled",
+      "modifier": 1,
+      "natural": null,
+      "required": 15,
+      "roll": 15,
+      "total": 16,
+      "visibility": "player"
+    },
+    {
+      "amount": 6,
+      "attacker_id": "pc-thief",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "fire"
+      ],
+      "non_regenerable": true,
+      "rolls": [
+        6
+      ],
+      "target_id": "monster-0002",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 0,
+      "event_type": "hit_points_reported",
+      "max_hp": 21,
+      "target_id": "monster-0002",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.condition.gained",
+      "condition": "dead",
+      "effect_id": null,
+      "event_type": "condition_gained",
+      "target_id": "monster-0002",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.death.permanent",
+      "event_type": "death",
+      "target_id": "monster-0002",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 0,
+      "event_type": "hit_points_reported",
+      "max_hp": 21,
+      "target_id": "monster-0002",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.effect.attached",
+      "effect_id": "effect-0016",
+      "event_type": "effect_attached",
+      "expires_round": 25,
+      "kind": "splash_douse",
+      "target_ref": "monster-0002",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.effect.expired",
+      "effect_id": "effect-0015",
+      "event_type": "effect_expired",
+      "kind": "splash_douse",
+      "round": 25,
+      "target_ref": "monster-0002",
+      "visibility": "referee"
+    },
+    {
+      "amount": 6,
+      "attacker_id": null,
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "fire"
+      ],
+      "non_regenerable": true,
+      "rolls": [
+        6
+      ],
+      "target_id": "monster-0002",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 0,
+      "event_type": "hit_points_reported",
+      "max_hp": 21,
+      "target_id": "monster-0002",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.effect.expired",
+      "effect_id": "effect-0016",
+      "event_type": "effect_expired",
+      "kind": "splash_douse",
+      "round": 25,
+      "target_ref": "monster-0002",
+      "visibility": "referee"
+    },
+    {
+      "amount": 1,
+      "attacker_id": null,
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "fire"
+      ],
+      "non_regenerable": true,
+      "rolls": [
+        1
+      ],
+      "target_id": "monster-0002",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 0,
+      "event_type": "hit_points_reported",
+      "max_hp": 21,
+      "target_id": "monster-0002",
+      "visibility": "referee"
+    },
+    {
+      "code": "combat.initiative.rolled",
+      "entries": [
+        {
+          "key": "party",
+          "modifier": 0,
+          "rolls": [
+            4
+          ],
+          "total": 4
+        },
+        {
+          "key": "trolls",
+          "modifier": 0,
+          "rolls": [
+            5
+          ],
+          "total": 5
+        }
+      ],
+      "event_type": "initiative_rolled",
+      "mode": "side",
+      "order": [
+        "trolls",
+        "party"
+      ],
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Mace",
+      "attacker_id": "pc-cleric",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0003",
+      "event_type": "attack_rolled",
+      "modifier": -2,
+      "natural": null,
+      "required": 15,
+      "roll": 2,
+      "total": 0,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "War hammer",
+      "attacker_id": "pc-dwarf",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0003",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 11,
+      "total": 11,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Sword",
+      "attacker_id": "pc-elf",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0003",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 5,
+      "total": 5,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Dagger",
+      "attacker_id": "pc-thief",
+      "code": "combat.attack.hit",
+      "defender_ac": 4,
+      "defender_id": "monster-0003",
+      "event_type": "attack_rolled",
+      "modifier": -1,
+      "natural": null,
+      "required": 15,
+      "roll": 20,
+      "total": 19,
+      "visibility": "player"
+    },
+    {
+      "amount": 3,
+      "attacker_id": "pc-thief",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [],
+      "non_regenerable": false,
+      "rolls": [
+        4
+      ],
+      "target_id": "monster-0003",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 25,
+      "event_type": "hit_points_reported",
+      "max_hp": 28,
+      "target_id": "monster-0003",
+      "visibility": "referee"
+    },
+    {
+      "attack_name": "Oil (1 flask)",
+      "attacker_id": "pc-magic_user",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0003",
+      "event_type": "attack_rolled",
+      "modifier": 1,
+      "natural": null,
+      "required": 15,
+      "roll": 5,
+      "total": 6,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Oil (1 flask)",
+      "attacker_id": "pc-cleric",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0003",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 1,
+      "total": 1,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Oil (1 flask)",
+      "attacker_id": "pc-thief",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0003",
+      "event_type": "attack_rolled",
+      "modifier": 1,
+      "natural": null,
+      "required": 15,
+      "roll": 9,
+      "total": 10,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Oil (1 flask)",
+      "attacker_id": "pc-halfling",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0003",
+      "event_type": "attack_rolled",
+      "modifier": 1,
+      "natural": null,
+      "required": 15,
+      "roll": 12,
+      "total": 13,
+      "visibility": "player"
+    },
+    {
+      "code": "combat.initiative.rolled",
+      "entries": [
+        {
+          "key": "party",
+          "modifier": 0,
+          "rolls": [
+            3
+          ],
+          "total": 3
+        },
+        {
+          "key": "trolls",
+          "modifier": 0,
+          "rolls": [
+            1
+          ],
+          "total": 1
+        }
+      ],
+      "event_type": "initiative_rolled",
+      "mode": "side",
+      "order": [
+        "party",
+        "trolls"
+      ],
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Mace",
+      "attacker_id": "pc-cleric",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0003",
+      "event_type": "attack_rolled",
+      "modifier": -2,
+      "natural": null,
+      "required": 15,
+      "roll": 7,
+      "total": 5,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "War hammer",
+      "attacker_id": "pc-dwarf",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0003",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 4,
+      "total": 4,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Sword",
+      "attacker_id": "pc-elf",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0003",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 10,
+      "total": 10,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Dagger",
+      "attacker_id": "pc-thief",
+      "code": "combat.attack.hit",
+      "defender_ac": 4,
+      "defender_id": "monster-0003",
+      "event_type": "attack_rolled",
+      "modifier": -1,
+      "natural": null,
+      "required": 15,
+      "roll": 17,
+      "total": 16,
+      "visibility": "player"
+    },
+    {
+      "amount": 3,
+      "attacker_id": "pc-thief",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [],
+      "non_regenerable": false,
+      "rolls": [
+        4
+      ],
+      "target_id": "monster-0003",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 22,
+      "event_type": "hit_points_reported",
+      "max_hp": 28,
+      "target_id": "monster-0003",
+      "visibility": "referee"
+    },
+    {
+      "attack_name": "Oil (1 flask)",
+      "attacker_id": "pc-magic_user",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0003",
+      "event_type": "attack_rolled",
+      "modifier": 1,
+      "natural": null,
+      "required": 15,
+      "roll": 3,
+      "total": 4,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Oil (1 flask)",
+      "attacker_id": "pc-cleric",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0003",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 14,
+      "total": 14,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Oil (1 flask)",
+      "attacker_id": "pc-thief",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0003",
+      "event_type": "attack_rolled",
+      "modifier": 1,
+      "natural": null,
+      "required": 15,
+      "roll": 5,
+      "total": 6,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Oil (1 flask)",
+      "attacker_id": "pc-halfling",
+      "code": "combat.attack.hit",
+      "defender_ac": 4,
+      "defender_id": "monster-0003",
+      "event_type": "attack_rolled",
+      "modifier": 1,
+      "natural": null,
+      "required": 15,
+      "roll": 20,
+      "total": 21,
+      "visibility": "player"
+    },
+    {
+      "amount": 6,
+      "attacker_id": "pc-halfling",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "fire"
+      ],
+      "non_regenerable": true,
+      "rolls": [
+        6
+      ],
+      "target_id": "monster-0003",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 16,
+      "event_type": "hit_points_reported",
+      "max_hp": 28,
+      "target_id": "monster-0003",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.effect.attached",
+      "effect_id": "effect-0017",
+      "event_type": "effect_attached",
+      "expires_round": 27,
+      "kind": "splash_douse",
+      "target_ref": "monster-0003",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.effect.expired",
+      "effect_id": "effect-0017",
+      "event_type": "effect_expired",
+      "kind": "splash_douse",
+      "round": 27,
+      "target_ref": "monster-0003",
+      "visibility": "referee"
+    },
+    {
+      "amount": 7,
+      "attacker_id": null,
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "fire"
+      ],
+      "non_regenerable": true,
+      "rolls": [
+        7
+      ],
+      "target_id": "monster-0003",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 9,
+      "event_type": "hit_points_reported",
+      "max_hp": 28,
+      "target_id": "monster-0003",
+      "visibility": "referee"
+    },
+    {
+      "code": "combat.initiative.rolled",
+      "entries": [
+        {
+          "key": "party",
+          "modifier": 0,
+          "rolls": [
+            6
+          ],
+          "total": 6
+        },
+        {
+          "key": "trolls",
+          "modifier": 0,
+          "rolls": [
+            2
+          ],
+          "total": 2
+        }
+      ],
+      "event_type": "initiative_rolled",
+      "mode": "side",
+      "order": [
+        "party",
+        "trolls"
+      ],
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Mace",
+      "attacker_id": "pc-cleric",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0003",
+      "event_type": "attack_rolled",
+      "modifier": -2,
+      "natural": null,
+      "required": 15,
+      "roll": 2,
+      "total": 0,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "War hammer",
+      "attacker_id": "pc-dwarf",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0003",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 8,
+      "total": 8,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Sword",
+      "attacker_id": "pc-elf",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0003",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 3,
+      "total": 3,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Dagger",
+      "attacker_id": "pc-thief",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0003",
+      "event_type": "attack_rolled",
+      "modifier": -1,
+      "natural": null,
+      "required": 15,
+      "roll": 6,
+      "total": 5,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Oil (1 flask)",
+      "attacker_id": "pc-magic_user",
+      "code": "combat.attack.hit",
+      "defender_ac": 4,
+      "defender_id": "monster-0003",
+      "event_type": "attack_rolled",
+      "modifier": 1,
+      "natural": null,
+      "required": 15,
+      "roll": 16,
+      "total": 17,
+      "visibility": "player"
+    },
+    {
+      "amount": 1,
+      "attacker_id": "pc-magic_user",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "fire"
+      ],
+      "non_regenerable": true,
+      "rolls": [
+        1
+      ],
+      "target_id": "monster-0003",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 8,
+      "event_type": "hit_points_reported",
+      "max_hp": 28,
+      "target_id": "monster-0003",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.effect.attached",
+      "effect_id": "effect-0018",
+      "event_type": "effect_attached",
+      "expires_round": 28,
+      "kind": "splash_douse",
+      "target_ref": "monster-0003",
+      "visibility": "referee"
+    },
+    {
+      "attack_name": "Oil (1 flask)",
+      "attacker_id": "pc-cleric",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0003",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 7,
+      "total": 7,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Oil (1 flask)",
+      "attacker_id": "pc-thief",
+      "code": "combat.attack.hit",
+      "defender_ac": 4,
+      "defender_id": "monster-0003",
+      "event_type": "attack_rolled",
+      "modifier": 1,
+      "natural": null,
+      "required": 15,
+      "roll": 18,
+      "total": 19,
+      "visibility": "player"
+    },
+    {
+      "amount": 1,
+      "attacker_id": "pc-thief",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "fire"
+      ],
+      "non_regenerable": true,
+      "rolls": [
+        1
+      ],
+      "target_id": "monster-0003",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 7,
+      "event_type": "hit_points_reported",
+      "max_hp": 28,
+      "target_id": "monster-0003",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.effect.attached",
+      "effect_id": "effect-0019",
+      "event_type": "effect_attached",
+      "expires_round": 28,
+      "kind": "splash_douse",
+      "target_ref": "monster-0003",
+      "visibility": "referee"
+    },
+    {
+      "attack_name": "Oil (1 flask)",
+      "attacker_id": "pc-halfling",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0003",
+      "event_type": "attack_rolled",
+      "modifier": 1,
+      "natural": null,
+      "required": 15,
+      "roll": 4,
+      "total": 5,
+      "visibility": "player"
+    },
+    {
+      "code": "effects.effect.expired",
+      "effect_id": "effect-0018",
+      "event_type": "effect_expired",
+      "kind": "splash_douse",
+      "round": 28,
+      "target_ref": "monster-0003",
+      "visibility": "referee"
+    },
+    {
+      "amount": 2,
+      "attacker_id": null,
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "fire"
+      ],
+      "non_regenerable": true,
+      "rolls": [
+        2
+      ],
+      "target_id": "monster-0003",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 5,
+      "event_type": "hit_points_reported",
+      "max_hp": 28,
+      "target_id": "monster-0003",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.effect.expired",
+      "effect_id": "effect-0019",
+      "event_type": "effect_expired",
+      "kind": "splash_douse",
+      "round": 28,
+      "target_ref": "monster-0003",
+      "visibility": "referee"
+    },
+    {
+      "amount": 4,
+      "attacker_id": null,
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "fire"
+      ],
+      "non_regenerable": true,
+      "rolls": [
+        4
+      ],
+      "target_id": "monster-0003",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 1,
+      "event_type": "hit_points_reported",
+      "max_hp": 28,
+      "target_id": "monster-0003",
+      "visibility": "referee"
+    },
+    {
+      "code": "combat.initiative.rolled",
+      "entries": [
+        {
+          "key": "party",
+          "modifier": 0,
+          "rolls": [
+            5
+          ],
+          "total": 5
+        },
+        {
+          "key": "trolls",
+          "modifier": 0,
+          "rolls": [
+            4
+          ],
+          "total": 4
+        }
+      ],
+      "event_type": "initiative_rolled",
+      "mode": "side",
+      "order": [
+        "party",
+        "trolls"
+      ],
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Mace",
+      "attacker_id": "pc-cleric",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0003",
+      "event_type": "attack_rolled",
+      "modifier": -2,
+      "natural": null,
+      "required": 15,
+      "roll": 15,
+      "total": 13,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "War hammer",
+      "attacker_id": "pc-dwarf",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0003",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 10,
+      "total": 10,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Sword",
+      "attacker_id": "pc-elf",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0003",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 10,
+      "total": 10,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Dagger",
+      "attacker_id": "pc-thief",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0003",
+      "event_type": "attack_rolled",
+      "modifier": -1,
+      "natural": null,
+      "required": 15,
+      "roll": 4,
+      "total": 3,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Oil (1 flask)",
+      "attacker_id": "pc-magic_user",
+      "code": "combat.attack.hit",
+      "defender_ac": 4,
+      "defender_id": "monster-0003",
+      "event_type": "attack_rolled",
+      "modifier": 1,
+      "natural": null,
+      "required": 15,
+      "roll": 17,
+      "total": 18,
+      "visibility": "player"
+    },
+    {
+      "amount": 2,
+      "attacker_id": "pc-magic_user",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "fire"
+      ],
+      "non_regenerable": true,
+      "rolls": [
+        2
+      ],
+      "target_id": "monster-0003",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 0,
+      "event_type": "hit_points_reported",
+      "max_hp": 28,
+      "target_id": "monster-0003",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.condition.gained",
+      "condition": "dead",
+      "effect_id": null,
+      "event_type": "condition_gained",
+      "target_id": "monster-0003",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.death.died",
+      "event_type": "death",
+      "target_id": "monster-0003",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 0,
+      "event_type": "hit_points_reported",
+      "max_hp": 28,
+      "target_id": "monster-0003",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.effect.attached",
+      "effect_id": "effect-0020",
+      "event_type": "effect_attached",
+      "expires_round": 29,
+      "kind": "splash_douse",
+      "target_ref": "monster-0003",
+      "visibility": "referee"
+    },
+    {
+      "attack_name": "Oil (1 flask)",
+      "attacker_id": "pc-cleric",
+      "code": "combat.attack.hit",
+      "defender_ac": 4,
+      "defender_id": "monster-0003",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 19,
+      "total": 19,
+      "visibility": "player"
+    },
+    {
+      "amount": 4,
+      "attacker_id": "pc-cleric",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "fire"
+      ],
+      "non_regenerable": true,
+      "rolls": [
+        4
+      ],
+      "target_id": "monster-0003",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 0,
+      "event_type": "hit_points_reported",
+      "max_hp": 28,
+      "target_id": "monster-0003",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.effect.attached",
+      "effect_id": "effect-0021",
+      "event_type": "effect_attached",
+      "expires_round": 29,
+      "kind": "splash_douse",
+      "target_ref": "monster-0003",
+      "visibility": "referee"
+    },
+    {
+      "attack_name": "Oil (1 flask)",
+      "attacker_id": "pc-thief",
+      "code": "combat.attack.hit",
+      "defender_ac": 4,
+      "defender_id": "monster-0003",
+      "event_type": "attack_rolled",
+      "modifier": 1,
+      "natural": null,
+      "required": 15,
+      "roll": 14,
+      "total": 15,
+      "visibility": "player"
+    },
+    {
+      "amount": 5,
+      "attacker_id": "pc-thief",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "fire"
+      ],
+      "non_regenerable": true,
+      "rolls": [
+        5
+      ],
+      "target_id": "monster-0003",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 0,
+      "event_type": "hit_points_reported",
+      "max_hp": 28,
+      "target_id": "monster-0003",
+      "visibility": "referee"
+    },
+    {
+      "code": "combat.death.permanent",
+      "event_type": "death",
+      "target_id": "monster-0003",
+      "visibility": "player"
+    },
+    {
+      "code": "effects.effect.attached",
+      "effect_id": "effect-0022",
+      "event_type": "effect_attached",
+      "expires_round": 29,
+      "kind": "splash_douse",
+      "target_ref": "monster-0003",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.effect.expired",
+      "effect_id": "effect-0020",
+      "event_type": "effect_expired",
+      "kind": "splash_douse",
+      "round": 29,
+      "target_ref": "monster-0003",
+      "visibility": "referee"
+    },
+    {
+      "amount": 7,
+      "attacker_id": null,
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "fire"
+      ],
+      "non_regenerable": true,
+      "rolls": [
+        7
+      ],
+      "target_id": "monster-0003",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 0,
+      "event_type": "hit_points_reported",
+      "max_hp": 28,
+      "target_id": "monster-0003",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.effect.expired",
+      "effect_id": "effect-0021",
+      "event_type": "effect_expired",
+      "kind": "splash_douse",
+      "round": 29,
+      "target_ref": "monster-0003",
+      "visibility": "referee"
+    },
+    {
+      "amount": 8,
+      "attacker_id": null,
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "fire"
+      ],
+      "non_regenerable": true,
+      "rolls": [
+        8
+      ],
+      "target_id": "monster-0003",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 0,
+      "event_type": "hit_points_reported",
+      "max_hp": 28,
+      "target_id": "monster-0003",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.effect.expired",
+      "effect_id": "effect-0022",
+      "event_type": "effect_expired",
+      "kind": "splash_douse",
+      "round": 29,
+      "target_ref": "monster-0003",
+      "visibility": "referee"
+    },
+    {
+      "amount": 2,
+      "attacker_id": null,
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "fire"
+      ],
+      "non_regenerable": true,
+      "rolls": [
+        2
+      ],
+      "target_id": "monster-0003",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 0,
+      "event_type": "hit_points_reported",
+      "max_hp": 28,
+      "target_id": "monster-0003",
+      "visibility": "referee"
+    },
+    {
+      "code": "combat.initiative.rolled",
+      "entries": [
+        {
+          "key": "party",
+          "modifier": 0,
+          "rolls": [
+            6,
+            6
+          ],
+          "total": 6
+        },
+        {
+          "key": "trolls",
+          "modifier": 0,
+          "rolls": [
+            6,
+            3
+          ],
+          "total": 3
+        }
+      ],
+      "event_type": "initiative_rolled",
+      "mode": "side",
+      "order": [
+        "party",
+        "trolls"
+      ],
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Mace",
+      "attacker_id": "pc-cleric",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0004",
+      "event_type": "attack_rolled",
+      "modifier": -2,
+      "natural": null,
+      "required": 15,
+      "roll": 6,
+      "total": 4,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "War hammer",
+      "attacker_id": "pc-dwarf",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0004",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 4,
+      "total": 4,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Sword",
+      "attacker_id": "pc-elf",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0004",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 5,
+      "total": 5,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Dagger",
+      "attacker_id": "pc-thief",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0004",
+      "event_type": "attack_rolled",
+      "modifier": -1,
+      "natural": null,
+      "required": 15,
+      "roll": 2,
+      "total": 1,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Oil (1 flask)",
+      "attacker_id": "pc-magic_user",
+      "code": "combat.attack.hit",
+      "defender_ac": 4,
+      "defender_id": "monster-0004",
+      "event_type": "attack_rolled",
+      "modifier": 1,
+      "natural": null,
+      "required": 15,
+      "roll": 18,
+      "total": 19,
+      "visibility": "player"
+    },
+    {
+      "amount": 6,
+      "attacker_id": "pc-magic_user",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "fire"
+      ],
+      "non_regenerable": true,
+      "rolls": [
+        6
+      ],
+      "target_id": "monster-0004",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 26,
+      "event_type": "hit_points_reported",
+      "max_hp": 32,
+      "target_id": "monster-0004",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.effect.attached",
+      "effect_id": "effect-0023",
+      "event_type": "effect_attached",
+      "expires_round": 30,
+      "kind": "splash_douse",
+      "target_ref": "monster-0004",
+      "visibility": "referee"
+    },
+    {
+      "attack_name": "Oil (1 flask)",
+      "attacker_id": "pc-cleric",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0004",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 10,
+      "total": 10,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Oil (1 flask)",
+      "attacker_id": "pc-thief",
+      "code": "combat.attack.hit",
+      "defender_ac": 4,
+      "defender_id": "monster-0004",
+      "event_type": "attack_rolled",
+      "modifier": 1,
+      "natural": null,
+      "required": 15,
+      "roll": 16,
+      "total": 17,
+      "visibility": "player"
+    },
+    {
+      "amount": 5,
+      "attacker_id": "pc-thief",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "fire"
+      ],
+      "non_regenerable": true,
+      "rolls": [
+        5
+      ],
+      "target_id": "monster-0004",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 21,
+      "event_type": "hit_points_reported",
+      "max_hp": 32,
+      "target_id": "monster-0004",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.effect.attached",
+      "effect_id": "effect-0024",
+      "event_type": "effect_attached",
+      "expires_round": 30,
+      "kind": "splash_douse",
+      "target_ref": "monster-0004",
+      "visibility": "referee"
+    },
+    {
+      "attack_name": "Oil (1 flask)",
+      "attacker_id": "pc-halfling",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0004",
+      "event_type": "attack_rolled",
+      "modifier": 1,
+      "natural": null,
+      "required": 15,
+      "roll": 9,
+      "total": 10,
+      "visibility": "player"
+    },
+    {
+      "code": "effects.effect.expired",
+      "effect_id": "effect-0023",
+      "event_type": "effect_expired",
+      "kind": "splash_douse",
+      "round": 30,
+      "target_ref": "monster-0004",
+      "visibility": "referee"
+    },
+    {
+      "amount": 8,
+      "attacker_id": null,
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "fire"
+      ],
+      "non_regenerable": true,
+      "rolls": [
+        8
+      ],
+      "target_id": "monster-0004",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 13,
+      "event_type": "hit_points_reported",
+      "max_hp": 32,
+      "target_id": "monster-0004",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.effect.expired",
+      "effect_id": "effect-0024",
+      "event_type": "effect_expired",
+      "kind": "splash_douse",
+      "round": 30,
+      "target_ref": "monster-0004",
+      "visibility": "referee"
+    },
+    {
+      "amount": 1,
+      "attacker_id": null,
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "fire"
+      ],
+      "non_regenerable": true,
+      "rolls": [
+        1
+      ],
+      "target_id": "monster-0004",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 12,
+      "event_type": "hit_points_reported",
+      "max_hp": 32,
+      "target_id": "monster-0004",
+      "visibility": "referee"
+    },
+    {
+      "code": "combat.initiative.rolled",
+      "entries": [
+        {
+          "key": "party",
+          "modifier": 0,
+          "rolls": [
+            2
+          ],
+          "total": 2
+        },
+        {
+          "key": "trolls",
+          "modifier": 0,
+          "rolls": [
+            1
+          ],
+          "total": 1
+        }
+      ],
+      "event_type": "initiative_rolled",
+      "mode": "side",
+      "order": [
+        "party",
+        "trolls"
+      ],
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Mace",
+      "attacker_id": "pc-cleric",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0004",
+      "event_type": "attack_rolled",
+      "modifier": -2,
+      "natural": null,
+      "required": 15,
+      "roll": 5,
+      "total": 3,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "War hammer",
+      "attacker_id": "pc-dwarf",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0004",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 14,
+      "total": 14,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Sword",
+      "attacker_id": "pc-elf",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0004",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 8,
+      "total": 8,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Dagger",
+      "attacker_id": "pc-thief",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0004",
+      "event_type": "attack_rolled",
+      "modifier": -1,
+      "natural": null,
+      "required": 15,
+      "roll": 12,
+      "total": 11,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Oil (1 flask)",
+      "attacker_id": "pc-magic_user",
+      "code": "combat.attack.hit",
+      "defender_ac": 4,
+      "defender_id": "monster-0004",
+      "event_type": "attack_rolled",
+      "modifier": 1,
+      "natural": null,
+      "required": 15,
+      "roll": 16,
+      "total": 17,
+      "visibility": "player"
+    },
+    {
+      "amount": 2,
+      "attacker_id": "pc-magic_user",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "fire"
+      ],
+      "non_regenerable": true,
+      "rolls": [
+        2
+      ],
+      "target_id": "monster-0004",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 10,
+      "event_type": "hit_points_reported",
+      "max_hp": 32,
+      "target_id": "monster-0004",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.effect.attached",
+      "effect_id": "effect-0025",
+      "event_type": "effect_attached",
+      "expires_round": 31,
+      "kind": "splash_douse",
+      "target_ref": "monster-0004",
+      "visibility": "referee"
+    },
+    {
+      "attack_name": "Oil (1 flask)",
+      "attacker_id": "pc-cleric",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0004",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 14,
+      "total": 14,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Oil (1 flask)",
+      "attacker_id": "pc-thief",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0004",
+      "event_type": "attack_rolled",
+      "modifier": 1,
+      "natural": null,
+      "required": 15,
+      "roll": 7,
+      "total": 8,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Oil (1 flask)",
+      "attacker_id": "pc-halfling",
+      "code": "combat.attack.hit",
+      "defender_ac": 4,
+      "defender_id": "monster-0004",
+      "event_type": "attack_rolled",
+      "modifier": 1,
+      "natural": null,
+      "required": 15,
+      "roll": 14,
+      "total": 15,
+      "visibility": "player"
+    },
+    {
+      "amount": 5,
+      "attacker_id": "pc-halfling",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "fire"
+      ],
+      "non_regenerable": true,
+      "rolls": [
+        5
+      ],
+      "target_id": "monster-0004",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 5,
+      "event_type": "hit_points_reported",
+      "max_hp": 32,
+      "target_id": "monster-0004",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.effect.attached",
+      "effect_id": "effect-0026",
+      "event_type": "effect_attached",
+      "expires_round": 31,
+      "kind": "splash_douse",
+      "target_ref": "monster-0004",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.effect.expired",
+      "effect_id": "effect-0025",
+      "event_type": "effect_expired",
+      "kind": "splash_douse",
+      "round": 31,
+      "target_ref": "monster-0004",
+      "visibility": "referee"
+    },
+    {
+      "amount": 5,
+      "attacker_id": null,
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "fire"
+      ],
+      "non_regenerable": true,
+      "rolls": [
+        5
+      ],
+      "target_id": "monster-0004",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 0,
+      "event_type": "hit_points_reported",
+      "max_hp": 32,
+      "target_id": "monster-0004",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.condition.gained",
+      "condition": "dead",
+      "effect_id": null,
+      "event_type": "condition_gained",
+      "target_id": "monster-0004",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.death.permanent",
+      "event_type": "death",
+      "target_id": "monster-0004",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 0,
+      "event_type": "hit_points_reported",
+      "max_hp": 32,
+      "target_id": "monster-0004",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.effect.expired",
+      "effect_id": "effect-0026",
+      "event_type": "effect_expired",
+      "kind": "splash_douse",
+      "round": 31,
+      "target_ref": "monster-0004",
+      "visibility": "referee"
+    },
+    {
+      "amount": 5,
+      "attacker_id": null,
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "fire"
+      ],
+      "non_regenerable": true,
+      "rolls": [
+        5
+      ],
+      "target_id": "monster-0004",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 0,
+      "event_type": "hit_points_reported",
+      "max_hp": 32,
+      "target_id": "monster-0004",
+      "visibility": "referee"
+    },
+    {
+      "code": "combat.initiative.rolled",
+      "entries": [
+        {
+          "key": "party",
+          "modifier": 0,
+          "rolls": [
+            5
+          ],
+          "total": 5
+        },
+        {
+          "key": "trolls",
+          "modifier": 0,
+          "rolls": [
+            2
+          ],
+          "total": 2
+        }
+      ],
+      "event_type": "initiative_rolled",
+      "mode": "side",
+      "order": [
+        "party",
+        "trolls"
+      ],
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Mace",
+      "attacker_id": "pc-cleric",
+      "code": "combat.attack.hit",
+      "defender_ac": 4,
+      "defender_id": "monster-0005",
+      "event_type": "attack_rolled",
+      "modifier": -2,
+      "natural": null,
+      "required": 15,
+      "roll": 20,
+      "total": 18,
+      "visibility": "player"
+    },
+    {
+      "amount": 3,
+      "attacker_id": "pc-cleric",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [],
+      "non_regenerable": false,
+      "rolls": [
+        5
+      ],
+      "target_id": "monster-0005",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 37,
+      "event_type": "hit_points_reported",
+      "max_hp": 40,
+      "target_id": "monster-0005",
+      "visibility": "referee"
+    },
+    {
+      "attack_name": "War hammer",
+      "attacker_id": "pc-dwarf",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0005",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 2,
+      "total": 2,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Sword",
+      "attacker_id": "pc-elf",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0005",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 10,
+      "total": 10,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Dagger",
+      "attacker_id": "pc-thief",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0005",
+      "event_type": "attack_rolled",
+      "modifier": -1,
+      "natural": null,
+      "required": 15,
+      "roll": 11,
+      "total": 10,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Oil (1 flask)",
+      "attacker_id": "pc-magic_user",
+      "code": "combat.attack.hit",
+      "defender_ac": 4,
+      "defender_id": "monster-0005",
+      "event_type": "attack_rolled",
+      "modifier": 1,
+      "natural": null,
+      "required": 15,
+      "roll": 18,
+      "total": 19,
+      "visibility": "player"
+    },
+    {
+      "amount": 5,
+      "attacker_id": "pc-magic_user",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "fire"
+      ],
+      "non_regenerable": true,
+      "rolls": [
+        5
+      ],
+      "target_id": "monster-0005",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 32,
+      "event_type": "hit_points_reported",
+      "max_hp": 40,
+      "target_id": "monster-0005",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.effect.attached",
+      "effect_id": "effect-0027",
+      "event_type": "effect_attached",
+      "expires_round": 32,
+      "kind": "splash_douse",
+      "target_ref": "monster-0005",
+      "visibility": "referee"
+    },
+    {
+      "attack_name": "Oil (1 flask)",
+      "attacker_id": "pc-cleric",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0005",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 14,
+      "total": 14,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Oil (1 flask)",
+      "attacker_id": "pc-thief",
+      "code": "combat.attack.hit",
+      "defender_ac": 4,
+      "defender_id": "monster-0005",
+      "event_type": "attack_rolled",
+      "modifier": 1,
+      "natural": null,
+      "required": 15,
+      "roll": 14,
+      "total": 15,
+      "visibility": "player"
+    },
+    {
+      "amount": 5,
+      "attacker_id": "pc-thief",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "fire"
+      ],
+      "non_regenerable": true,
+      "rolls": [
+        5
+      ],
+      "target_id": "monster-0005",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 27,
+      "event_type": "hit_points_reported",
+      "max_hp": 40,
+      "target_id": "monster-0005",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.effect.attached",
+      "effect_id": "effect-0028",
+      "event_type": "effect_attached",
+      "expires_round": 32,
+      "kind": "splash_douse",
+      "target_ref": "monster-0005",
+      "visibility": "referee"
+    },
+    {
+      "attack_name": "Oil (1 flask)",
+      "attacker_id": "pc-halfling",
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "monster-0005",
+      "event_type": "attack_rolled",
+      "modifier": 1,
+      "natural": null,
+      "required": 15,
+      "roll": 5,
+      "total": 6,
+      "visibility": "player"
+    },
+    {
+      "code": "combat.morale.held",
+      "event_type": "morale_checked",
+      "modifier": 0,
+      "roll": 8,
+      "score": 8,
+      "subject": "trolls",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.effect.expired",
+      "effect_id": "effect-0027",
+      "event_type": "effect_expired",
+      "kind": "splash_douse",
+      "round": 32,
+      "target_ref": "monster-0005",
+      "visibility": "referee"
+    },
+    {
+      "amount": 7,
+      "attacker_id": null,
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "fire"
+      ],
+      "non_regenerable": true,
+      "rolls": [
+        7
+      ],
+      "target_id": "monster-0005",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 20,
+      "event_type": "hit_points_reported",
+      "max_hp": 40,
+      "target_id": "monster-0005",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.effect.expired",
+      "effect_id": "effect-0028",
+      "event_type": "effect_expired",
+      "kind": "splash_douse",
+      "round": 32,
+      "target_ref": "monster-0005",
+      "visibility": "referee"
+    },
+    {
+      "amount": 1,
+      "attacker_id": null,
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "fire"
+      ],
+      "non_regenerable": true,
+      "rolls": [
+        1
+      ],
+      "target_id": "monster-0005",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 19,
+      "event_type": "hit_points_reported",
+      "max_hp": 40,
+      "target_id": "monster-0005",
+      "visibility": "referee"
+    }
+  ],
+  "master_seed": 6,
+  "morale_triggers": [
+    "first_death",
+    "half_incapacitated"
+  ],
+  "permanent_kill": true,
+  "revived": true,
+  "rounds": 32,
+  "transcript": [
+    "Effect effect-0001 (regeneration) attached to monster-0001.",
+    "Effect effect-0002 (regeneration) attached to monster-0002.",
+    "Effect effect-0003 (regeneration) attached to monster-0003.",
+    "Effect effect-0004 (regeneration) attached to monster-0004.",
+    "Effect effect-0005 (regeneration) attached to monster-0005.",
+    "Effect effect-0006 (regeneration) attached to monster-0006.",
+    "Effect effect-0007 (regeneration) attached to monster-0007.",
+    "Effect effect-0008 (regeneration) attached to monster-0008.",
+    "Initiative (side): party 2, trolls 1. Order: party, trolls.",
+    "pc-cleric misses monster-0001 with Mace: rolled 3-2 = 1, needing 15.",
+    "pc-dwarf misses monster-0001 with War hammer: rolled 14+0 = 14, needing 15.",
+    "pc-elf misses monster-0001 with Sword: rolled 13+0 = 13, needing 15.",
+    "pc-fighter misses monster-0001 with Sword: rolled 3+2 = 5, needing 15.",
+    "pc-thief misses monster-0001 with Dagger: rolled 12-1 = 11, needing 15.",
+    "monster-0001 misses pc-fighter with bite: rolled 1+0 = 1, needing 6.",
+    "Initiative (side): party 3, trolls 5. Order: trolls, party.",
+    "pc-cleric misses monster-0001 with Mace: rolled 16-2 = 14, needing 15.",
+    "pc-dwarf misses monster-0001 with War hammer: rolled 2+0 = 2, needing 15.",
+    "pc-elf misses monster-0001 with Sword: rolled 14+0 = 14, needing 15.",
+    "pc-fighter misses monster-0001 with Sword: rolled 8+2 = 10, needing 15.",
+    "pc-thief misses monster-0001 with Dagger: rolled 1-1 = 0, needing 15.",
+    "monster-0001 hits pc-fighter with bite: rolled 8+0 = 8, needing 6.",
+    "pc-fighter takes 9 damage from monster-0001.",
+    "pc-fighter is at 0/4 hit points.",
+    "pc-fighter is dead.",
+    "pc-fighter is killed.",
+    "pc-fighter is at 0/4 hit points.",
+    "Initiative (side): party 3, trolls 4. Order: trolls, party.",
+    "pc-cleric hits monster-0001 with Mace: rolled 19-2 = 17, needing 15.",
+    "monster-0001 takes 1 damage from pc-cleric.",
+    "monster-0001 is at 30/31 hit points.",
+    "pc-dwarf hits monster-0001 with War hammer: rolled 20+0 = 20, needing 15.",
+    "monster-0001 takes 5 damage from pc-dwarf.",
+    "monster-0001 is at 25/31 hit points.",
+    "pc-elf misses monster-0001 with Sword: rolled 3+0 = 3, needing 15.",
+    "pc-thief misses monster-0001 with Dagger: rolled 11-1 = 10, needing 15.",
+    "Initiative (side): party 4, trolls 5. Order: trolls, party.",
+    "pc-cleric hits monster-0001 with Mace: rolled 18-2 = 16, needing 15.",
+    "monster-0001 takes 3 damage from pc-cleric.",
+    "monster-0001 is at 22/31 hit points.",
+    "pc-dwarf hits monster-0001 with War hammer: rolled 18+0 = 18, needing 15.",
+    "monster-0001 takes 4 damage from pc-dwarf.",
+    "monster-0001 is at 18/31 hit points.",
+    "pc-elf hits monster-0001 with Sword: rolled 16+0 = 16, needing 15.",
+    "monster-0001 takes 4 damage from pc-elf.",
+    "monster-0001 is at 14/31 hit points.",
+    "pc-thief misses monster-0001 with Dagger: rolled 11-1 = 10, needing 15.",
+    "Initiative (side): party 6, trolls 1. Order: party, trolls.",
+    "pc-cleric misses monster-0001 with Mace: rolled 15-2 = 13, needing 15.",
+    "pc-dwarf misses monster-0001 with War hammer: rolled 9+0 = 9, needing 15.",
+    "pc-elf misses monster-0001 with Sword: rolled 5+0 = 5, needing 15.",
+    "pc-thief misses monster-0001 with Dagger: rolled 1-1 = 0, needing 15.",
+    "Initiative (side): party 6, trolls 1. Order: party, trolls.",
+    "pc-cleric misses monster-0001 with Mace: rolled 8-2 = 6, needing 15.",
+    "pc-dwarf hits monster-0001 with War hammer: rolled 18+0 = 18, needing 15.",
+    "monster-0001 takes 6 damage from pc-dwarf.",
+    "monster-0001 is at 8/31 hit points.",
+    "pc-elf hits monster-0001 with Sword: rolled 19+0 = 19, needing 15.",
+    "monster-0001 takes 4 damage from pc-elf.",
+    "monster-0001 is at 4/31 hit points.",
+    "pc-thief misses monster-0001 with Dagger: rolled 8-1 = 7, needing 15.",
+    "Initiative (side): party 3, trolls 6. Order: trolls, party.",
+    "pc-cleric misses monster-0001 with Mace: rolled 4-2 = 2, needing 15.",
+    "pc-dwarf hits monster-0001 with War hammer: rolled 16+0 = 16, needing 15.",
+    "monster-0001 takes 3 damage from pc-dwarf.",
+    "monster-0001 is at 1/31 hit points.",
+    "pc-elf misses monster-0001 with Sword: rolled 10+0 = 10, needing 15.",
+    "pc-thief misses monster-0001 with Dagger: rolled 3-1 = 2, needing 15.",
+    "Initiative (side): party 6, trolls 3. Order: party, trolls.",
+    "pc-cleric misses monster-0001 with Mace: rolled 16-2 = 14, needing 15.",
+    "pc-dwarf misses monster-0001 with War hammer: rolled 13+0 = 13, needing 15.",
+    "pc-elf hits monster-0001 with Sword: rolled 16+0 = 16, needing 15.",
+    "monster-0001 takes 3 damage from pc-elf.",
+    "monster-0001 is at 0/31 hit points.",
+    "monster-0001 is dead.",
+    "monster-0001 is killed.",
+    "monster-0001 is at 0/31 hit points.",
+    "Morale check for trolls (ML 8): rolled 7+0 — they fight on.",
+    "Initiative (side): party 6, trolls 4. Order: party, trolls.",
+    "Initiative (side): party 6, trolls 1. Order: party, trolls.",
+    "Initiative (side): party 1, trolls 3. Order: trolls, party.",
+    "Initiative (side): party 1, trolls 4. Order: trolls, party.",
+    "Initiative (side): party 3, trolls 5. Order: trolls, party.",
+    "Initiative (side): party 2, trolls 5. Order: trolls, party.",
+    "monster-0001 is no longer dead.",
+    "monster-0001 regenerates and rises to fight again!",
+    "monster-0001 is at 1/31 hit points.",
+    "Initiative (side): party 6, trolls 2. Order: party, trolls.",
+    "Effect effect-0001 (regeneration) ticks on monster-0001.",
+    "monster-0001 regains 3 hit points (regeneration).",
+    "monster-0001 is at 4/31 hit points.",
+    "Initiative (side): party 6, trolls 1. Order: party, trolls.",
+    "Effect effect-0001 (regeneration) ticks on monster-0001.",
+    "monster-0001 regains 3 hit points (regeneration).",
+    "monster-0001 is at 7/31 hit points.",
+    "Initiative (side): party 1, trolls 3. Order: trolls, party.",
+    "Effect effect-0001 (regeneration) ticks on monster-0001.",
+    "monster-0001 regains 3 hit points (regeneration).",
+    "monster-0001 is at 10/31 hit points.",
+    "Initiative (side): party 5, trolls 6. Order: trolls, party.",
+    "Effect effect-0001 (regeneration) ticks on monster-0001.",
+    "monster-0001 regains 3 hit points (regeneration).",
+    "monster-0001 is at 13/31 hit points.",
+    "Initiative (side): party 4, trolls 6. Order: trolls, party.",
+    "Effect effect-0001 (regeneration) ticks on monster-0001.",
+    "monster-0001 regains 3 hit points (regeneration).",
+    "monster-0001 is at 16/31 hit points.",
+    "Initiative (side): party 4, trolls 3. Order: party, trolls.",
+    "pc-magic_user misses monster-0001 with Oil (1 flask): rolled 7+1 = 8, needing 15.",
+    "pc-cleric misses monster-0001 with Oil (1 flask): rolled 7+0 = 7, needing 15.",
+    "pc-thief misses monster-0001 with Oil (1 flask): rolled 4+1 = 5, needing 15.",
+    "pc-halfling hits monster-0001 with Oil (1 flask): rolled 17+1 = 18, needing 15.",
+    "monster-0001 takes 5 damage from pc-halfling.",
+    "monster-0001 is at 11/31 hit points.",
+    "Effect effect-0009 (splash_douse) attached to monster-0001.",
+    "Effect effect-0009 (splash_douse) on monster-0001 expires.",
+    "monster-0001 takes 2 damage.",
+    "monster-0001 is at 9/31 hit points.",
+    "Initiative (side): party 6, trolls 4. Order: party, trolls.",
+    "pc-magic_user hits monster-0001 with Oil (1 flask): rolled 15+1 = 16, needing 15.",
+    "monster-0001 takes 4 damage from pc-magic_user.",
+    "monster-0001 is at 5/31 hit points.",
+    "Effect effect-0010 (splash_douse) attached to monster-0001.",
+    "pc-cleric misses monster-0001 with Oil (1 flask): rolled 1+0 = 1, needing 15.",
+    "pc-thief misses monster-0001 with Oil (1 flask): rolled 1+1 = 2, needing 15.",
+    "pc-halfling hits monster-0001 with Oil (1 flask): rolled 14+1 = 15, needing 15.",
+    "monster-0001 takes 5 damage from pc-halfling.",
+    "monster-0001 is at 0/31 hit points.",
+    "monster-0001 is dead.",
+    "monster-0001 is killed.",
+    "monster-0001 is at 0/31 hit points.",
+    "Effect effect-0011 (splash_douse) attached to monster-0001.",
+    "Effect effect-0010 (splash_douse) on monster-0001 expires.",
+    "monster-0001 takes 8 damage.",
+    "monster-0001 is at 0/31 hit points.",
+    "Effect effect-0011 (splash_douse) on monster-0001 expires.",
+    "monster-0001 takes 3 damage.",
+    "monster-0001 is at 0/31 hit points.",
+    "Initiative (side): party 1, trolls 2. Order: trolls, party.",
+    "pc-magic_user misses monster-0001 with Oil (1 flask): rolled 3+1 = 4, needing 15.",
+    "pc-cleric misses monster-0001 with Oil (1 flask): rolled 7+0 = 7, needing 15.",
+    "pc-thief misses monster-0001 with Oil (1 flask): rolled 9+1 = 10, needing 15.",
+    "pc-halfling misses monster-0001 with Oil (1 flask): rolled 7+1 = 8, needing 15.",
+    "Initiative (side): party 2, trolls 5. Order: trolls, party.",
+    "pc-magic_user misses monster-0001 with Oil (1 flask): rolled 5+1 = 6, needing 15.",
+    "pc-cleric misses monster-0001 with Oil (1 flask): rolled 5+0 = 5, needing 15.",
+    "pc-thief misses monster-0001 with Oil (1 flask): rolled 5+1 = 6, needing 15.",
+    "pc-halfling hits monster-0001 with Oil (1 flask): rolled 17+1 = 18, needing 15.",
+    "monster-0001 takes 4 damage from pc-halfling.",
+    "monster-0001 is at 0/31 hit points.",
+    "monster-0001 is permanently destroyed.",
+    "Effect effect-0012 (splash_douse) attached to monster-0001.",
+    "Effect effect-0012 (splash_douse) on monster-0001 expires.",
+    "monster-0001 takes 2 damage.",
+    "monster-0001 is at 0/31 hit points.",
+    "Initiative (side): party 3, trolls 2. Order: party, trolls.",
+    "pc-cleric misses monster-0002 with Mace: rolled 11-2 = 9, needing 15.",
+    "pc-dwarf misses monster-0002 with War hammer: rolled 8+0 = 8, needing 15.",
+    "pc-elf misses monster-0002 with Sword: rolled 13+0 = 13, needing 15.",
+    "pc-thief misses monster-0002 with Dagger: rolled 15-1 = 14, needing 15.",
+    "pc-magic_user hits monster-0002 with Oil (1 flask): rolled 18+1 = 19, needing 15.",
+    "monster-0002 takes 2 damage from pc-magic_user.",
+    "monster-0002 is at 19/21 hit points.",
+    "Effect effect-0013 (splash_douse) attached to monster-0002.",
+    "pc-cleric misses monster-0002 with Oil (1 flask): rolled 14+0 = 14, needing 15.",
+    "pc-thief misses monster-0002 with Oil (1 flask): rolled 10+1 = 11, needing 15.",
+    "pc-halfling hits monster-0002 with Oil (1 flask): rolled 14+1 = 15, needing 15.",
+    "monster-0002 takes 6 damage from pc-halfling.",
+    "monster-0002 is at 13/21 hit points.",
+    "Effect effect-0014 (splash_douse) attached to monster-0002.",
+    "Effect effect-0013 (splash_douse) on monster-0002 expires.",
+    "monster-0002 takes 4 damage.",
+    "monster-0002 is at 9/21 hit points.",
+    "Effect effect-0014 (splash_douse) on monster-0002 expires.",
+    "monster-0002 takes 5 damage.",
+    "monster-0002 is at 4/21 hit points.",
+    "Initiative (side): party 6, trolls 3. Order: party, trolls.",
+    "pc-cleric misses monster-0002 with Mace: rolled 5-2 = 3, needing 15.",
+    "pc-dwarf misses monster-0002 with War hammer: rolled 14+0 = 14, needing 15.",
+    "pc-elf misses monster-0002 with Sword: rolled 4+0 = 4, needing 15.",
+    "pc-thief misses monster-0002 with Dagger: rolled 8-1 = 7, needing 15.",
+    "pc-magic_user hits monster-0002 with Oil (1 flask): rolled 18+1 = 19, needing 15.",
+    "monster-0002 takes 3 damage from pc-magic_user.",
+    "monster-0002 is at 1/21 hit points.",
+    "Effect effect-0015 (splash_douse) attached to monster-0002.",
+    "pc-cleric misses monster-0002 with Oil (1 flask): rolled 5+0 = 5, needing 15.",
+    "pc-thief hits monster-0002 with Oil (1 flask): rolled 15+1 = 16, needing 15.",
+    "monster-0002 takes 6 damage from pc-thief.",
+    "monster-0002 is at 0/21 hit points.",
+    "monster-0002 is dead.",
+    "monster-0002 is permanently destroyed.",
+    "monster-0002 is at 0/21 hit points.",
+    "Effect effect-0016 (splash_douse) attached to monster-0002.",
+    "Effect effect-0015 (splash_douse) on monster-0002 expires.",
+    "monster-0002 takes 6 damage.",
+    "monster-0002 is at 0/21 hit points.",
+    "Effect effect-0016 (splash_douse) on monster-0002 expires.",
+    "monster-0002 takes 1 damage.",
+    "monster-0002 is at 0/21 hit points.",
+    "Initiative (side): party 4, trolls 5. Order: trolls, party.",
+    "pc-cleric misses monster-0003 with Mace: rolled 2-2 = 0, needing 15.",
+    "pc-dwarf misses monster-0003 with War hammer: rolled 11+0 = 11, needing 15.",
+    "pc-elf misses monster-0003 with Sword: rolled 5+0 = 5, needing 15.",
+    "pc-thief hits monster-0003 with Dagger: rolled 20-1 = 19, needing 15.",
+    "monster-0003 takes 3 damage from pc-thief.",
+    "monster-0003 is at 25/28 hit points.",
+    "pc-magic_user misses monster-0003 with Oil (1 flask): rolled 5+1 = 6, needing 15.",
+    "pc-cleric misses monster-0003 with Oil (1 flask): rolled 1+0 = 1, needing 15.",
+    "pc-thief misses monster-0003 with Oil (1 flask): rolled 9+1 = 10, needing 15.",
+    "pc-halfling misses monster-0003 with Oil (1 flask): rolled 12+1 = 13, needing 15.",
+    "Initiative (side): party 3, trolls 1. Order: party, trolls.",
+    "pc-cleric misses monster-0003 with Mace: rolled 7-2 = 5, needing 15.",
+    "pc-dwarf misses monster-0003 with War hammer: rolled 4+0 = 4, needing 15.",
+    "pc-elf misses monster-0003 with Sword: rolled 10+0 = 10, needing 15.",
+    "pc-thief hits monster-0003 with Dagger: rolled 17-1 = 16, needing 15.",
+    "monster-0003 takes 3 damage from pc-thief.",
+    "monster-0003 is at 22/28 hit points.",
+    "pc-magic_user misses monster-0003 with Oil (1 flask): rolled 3+1 = 4, needing 15.",
+    "pc-cleric misses monster-0003 with Oil (1 flask): rolled 14+0 = 14, needing 15.",
+    "pc-thief misses monster-0003 with Oil (1 flask): rolled 5+1 = 6, needing 15.",
+    "pc-halfling hits monster-0003 with Oil (1 flask): rolled 20+1 = 21, needing 15.",
+    "monster-0003 takes 6 damage from pc-halfling.",
+    "monster-0003 is at 16/28 hit points.",
+    "Effect effect-0017 (splash_douse) attached to monster-0003.",
+    "Effect effect-0017 (splash_douse) on monster-0003 expires.",
+    "monster-0003 takes 7 damage.",
+    "monster-0003 is at 9/28 hit points.",
+    "Initiative (side): party 6, trolls 2. Order: party, trolls.",
+    "pc-cleric misses monster-0003 with Mace: rolled 2-2 = 0, needing 15.",
+    "pc-dwarf misses monster-0003 with War hammer: rolled 8+0 = 8, needing 15.",
+    "pc-elf misses monster-0003 with Sword: rolled 3+0 = 3, needing 15.",
+    "pc-thief misses monster-0003 with Dagger: rolled 6-1 = 5, needing 15.",
+    "pc-magic_user hits monster-0003 with Oil (1 flask): rolled 16+1 = 17, needing 15.",
+    "monster-0003 takes 1 damage from pc-magic_user.",
+    "monster-0003 is at 8/28 hit points.",
+    "Effect effect-0018 (splash_douse) attached to monster-0003.",
+    "pc-cleric misses monster-0003 with Oil (1 flask): rolled 7+0 = 7, needing 15.",
+    "pc-thief hits monster-0003 with Oil (1 flask): rolled 18+1 = 19, needing 15.",
+    "monster-0003 takes 1 damage from pc-thief.",
+    "monster-0003 is at 7/28 hit points.",
+    "Effect effect-0019 (splash_douse) attached to monster-0003.",
+    "pc-halfling misses monster-0003 with Oil (1 flask): rolled 4+1 = 5, needing 15.",
+    "Effect effect-0018 (splash_douse) on monster-0003 expires.",
+    "monster-0003 takes 2 damage.",
+    "monster-0003 is at 5/28 hit points.",
+    "Effect effect-0019 (splash_douse) on monster-0003 expires.",
+    "monster-0003 takes 4 damage.",
+    "monster-0003 is at 1/28 hit points.",
+    "Initiative (side): party 5, trolls 4. Order: party, trolls.",
+    "pc-cleric misses monster-0003 with Mace: rolled 15-2 = 13, needing 15.",
+    "pc-dwarf misses monster-0003 with War hammer: rolled 10+0 = 10, needing 15.",
+    "pc-elf misses monster-0003 with Sword: rolled 10+0 = 10, needing 15.",
+    "pc-thief misses monster-0003 with Dagger: rolled 4-1 = 3, needing 15.",
+    "pc-magic_user hits monster-0003 with Oil (1 flask): rolled 17+1 = 18, needing 15.",
+    "monster-0003 takes 2 damage from pc-magic_user.",
+    "monster-0003 is at 0/28 hit points.",
+    "monster-0003 is dead.",
+    "monster-0003 is killed.",
+    "monster-0003 is at 0/28 hit points.",
+    "Effect effect-0020 (splash_douse) attached to monster-0003.",
+    "pc-cleric hits monster-0003 with Oil (1 flask): rolled 19+0 = 19, needing 15.",
+    "monster-0003 takes 4 damage from pc-cleric.",
+    "monster-0003 is at 0/28 hit points.",
+    "Effect effect-0021 (splash_douse) attached to monster-0003.",
+    "pc-thief hits monster-0003 with Oil (1 flask): rolled 14+1 = 15, needing 15.",
+    "monster-0003 takes 5 damage from pc-thief.",
+    "monster-0003 is at 0/28 hit points.",
+    "monster-0003 is permanently destroyed.",
+    "Effect effect-0022 (splash_douse) attached to monster-0003.",
+    "Effect effect-0020 (splash_douse) on monster-0003 expires.",
+    "monster-0003 takes 7 damage.",
+    "monster-0003 is at 0/28 hit points.",
+    "Effect effect-0021 (splash_douse) on monster-0003 expires.",
+    "monster-0003 takes 8 damage.",
+    "monster-0003 is at 0/28 hit points.",
+    "Effect effect-0022 (splash_douse) on monster-0003 expires.",
+    "monster-0003 takes 2 damage.",
+    "monster-0003 is at 0/28 hit points.",
+    "Initiative (side): party 6, trolls 3. Order: party, trolls.",
+    "pc-cleric misses monster-0004 with Mace: rolled 6-2 = 4, needing 15.",
+    "pc-dwarf misses monster-0004 with War hammer: rolled 4+0 = 4, needing 15.",
+    "pc-elf misses monster-0004 with Sword: rolled 5+0 = 5, needing 15.",
+    "pc-thief misses monster-0004 with Dagger: rolled 2-1 = 1, needing 15.",
+    "pc-magic_user hits monster-0004 with Oil (1 flask): rolled 18+1 = 19, needing 15.",
+    "monster-0004 takes 6 damage from pc-magic_user.",
+    "monster-0004 is at 26/32 hit points.",
+    "Effect effect-0023 (splash_douse) attached to monster-0004.",
+    "pc-cleric misses monster-0004 with Oil (1 flask): rolled 10+0 = 10, needing 15.",
+    "pc-thief hits monster-0004 with Oil (1 flask): rolled 16+1 = 17, needing 15.",
+    "monster-0004 takes 5 damage from pc-thief.",
+    "monster-0004 is at 21/32 hit points.",
+    "Effect effect-0024 (splash_douse) attached to monster-0004.",
+    "pc-halfling misses monster-0004 with Oil (1 flask): rolled 9+1 = 10, needing 15.",
+    "Effect effect-0023 (splash_douse) on monster-0004 expires.",
+    "monster-0004 takes 8 damage.",
+    "monster-0004 is at 13/32 hit points.",
+    "Effect effect-0024 (splash_douse) on monster-0004 expires.",
+    "monster-0004 takes 1 damage.",
+    "monster-0004 is at 12/32 hit points.",
+    "Initiative (side): party 2, trolls 1. Order: party, trolls.",
+    "pc-cleric misses monster-0004 with Mace: rolled 5-2 = 3, needing 15.",
+    "pc-dwarf misses monster-0004 with War hammer: rolled 14+0 = 14, needing 15.",
+    "pc-elf misses monster-0004 with Sword: rolled 8+0 = 8, needing 15.",
+    "pc-thief misses monster-0004 with Dagger: rolled 12-1 = 11, needing 15.",
+    "pc-magic_user hits monster-0004 with Oil (1 flask): rolled 16+1 = 17, needing 15.",
+    "monster-0004 takes 2 damage from pc-magic_user.",
+    "monster-0004 is at 10/32 hit points.",
+    "Effect effect-0025 (splash_douse) attached to monster-0004.",
+    "pc-cleric misses monster-0004 with Oil (1 flask): rolled 14+0 = 14, needing 15.",
+    "pc-thief misses monster-0004 with Oil (1 flask): rolled 7+1 = 8, needing 15.",
+    "pc-halfling hits monster-0004 with Oil (1 flask): rolled 14+1 = 15, needing 15.",
+    "monster-0004 takes 5 damage from pc-halfling.",
+    "monster-0004 is at 5/32 hit points.",
+    "Effect effect-0026 (splash_douse) attached to monster-0004.",
+    "Effect effect-0025 (splash_douse) on monster-0004 expires.",
+    "monster-0004 takes 5 damage.",
+    "monster-0004 is at 0/32 hit points.",
+    "monster-0004 is dead.",
+    "monster-0004 is permanently destroyed.",
+    "monster-0004 is at 0/32 hit points.",
+    "Effect effect-0026 (splash_douse) on monster-0004 expires.",
+    "monster-0004 takes 5 damage.",
+    "monster-0004 is at 0/32 hit points.",
+    "Initiative (side): party 5, trolls 2. Order: party, trolls.",
+    "pc-cleric hits monster-0005 with Mace: rolled 20-2 = 18, needing 15.",
+    "monster-0005 takes 3 damage from pc-cleric.",
+    "monster-0005 is at 37/40 hit points.",
+    "pc-dwarf misses monster-0005 with War hammer: rolled 2+0 = 2, needing 15.",
+    "pc-elf misses monster-0005 with Sword: rolled 10+0 = 10, needing 15.",
+    "pc-thief misses monster-0005 with Dagger: rolled 11-1 = 10, needing 15.",
+    "pc-magic_user hits monster-0005 with Oil (1 flask): rolled 18+1 = 19, needing 15.",
+    "monster-0005 takes 5 damage from pc-magic_user.",
+    "monster-0005 is at 32/40 hit points.",
+    "Effect effect-0027 (splash_douse) attached to monster-0005.",
+    "pc-cleric misses monster-0005 with Oil (1 flask): rolled 14+0 = 14, needing 15.",
+    "pc-thief hits monster-0005 with Oil (1 flask): rolled 14+1 = 15, needing 15.",
+    "monster-0005 takes 5 damage from pc-thief.",
+    "monster-0005 is at 27/40 hit points.",
+    "Effect effect-0028 (splash_douse) attached to monster-0005.",
+    "pc-halfling misses monster-0005 with Oil (1 flask): rolled 5+1 = 6, needing 15.",
+    "Morale check for trolls (ML 8): rolled 8+0 — they fight on.",
+    "Effect effect-0027 (splash_douse) on monster-0005 expires.",
+    "monster-0005 takes 7 damage.",
+    "monster-0005 is at 20/40 hit points.",
+    "Effect effect-0028 (splash_douse) on monster-0005 expires.",
+    "monster-0005 takes 1 damage.",
+    "monster-0005 is at 19/40 hit points."
+  ],
+  "troll_count": 8,
+  "troll_max_hp": [
+    31,
+    21,
+    28,
+    32,
+    40,
+    21,
+    34,
+    36
+  ]
+}

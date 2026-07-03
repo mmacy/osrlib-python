@@ -22,9 +22,11 @@ from pydantic import BaseModel
 from osrlib.core.abilities import AbilityTables
 from osrlib.core.classes import ClassCatalog
 from osrlib.core.items import EquipmentCatalog
+from osrlib.core.monsters import MonsterCatalog
+from osrlib.core.tables import CombatTables
 from osrlib.data import LanguageCatalog
 
-from . import abilities, classes, equipment, languages
+from . import abilities, classes, combat_tables, equipment, languages, monsters
 from .overrides import apply_overrides, load_overrides
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -73,6 +75,19 @@ def main() -> None:
     languages_data = languages.compile_languages(srd_dir)
     apply_overrides(languages_data["languages"], load_overrides("languages.json"))
     _write(out_dir, "languages.json", LanguageCatalog.model_validate(languages_data), (languages.SOURCE_PAGE,))
+
+    combat_tables_data = combat_tables.compile_combat_tables(srd_dir)
+    _write(
+        out_dir,
+        "combat_tables.json",
+        CombatTables.model_validate(combat_tables_data),
+        combat_tables.SOURCE_PAGES,
+    )
+
+    monsters_data = monsters.compile_monsters(srd_dir)
+    apply_overrides(monsters_data["monsters"], load_overrides("monsters.json"))
+    monsters.validate_xp(monsters_data["monsters"], combat_tables_data["xp_awards"])
+    _write(out_dir, "monsters.json", MonsterCatalog.model_validate(monsters_data), monsters.source_pages(srd_dir))
 
 
 if __name__ == "__main__":

@@ -589,7 +589,9 @@ def purchase(inventory: Inventory, template: ItemTemplate, lots: int = 1) -> Ite
     return instance
 
 
-def validate_equip(definition: ClassDefinition, instance: ItemInstance) -> list[Rejection]:
+def validate_equip(
+    definition: ClassDefinition, instance: ItemInstance, inventory: Inventory | None = None
+) -> list[Rejection]:
     """Validate equipping an item against the class's armour and weapon policies.
 
     Weapon policies govern the weapons list only: gear carrying a combat facet (torch,
@@ -597,9 +599,16 @@ def validate_equip(definition: ClassDefinition, instance: ItemInstance) -> list[
     `docs/adaptations.md`, including the magic-user consequence). Gear without a
     facet, and ammunition, is not equippable at all.
 
+    Wielding a two-handed weapon with a shield equipped — or equipping the second of
+    the pair — rejects with `items.equip.two_handed_with_shield`, pinned at equip
+    time rather than silently ignoring the shield at resolution. The check needs the
+    current equipped state, so pass `inventory` when one exists.
+
     Args:
         definition: The character's class definition.
         instance: The instance to equip.
+        inventory: The inventory whose equipped state the two-handed-versus-shield
+            conflict is checked against.
 
     Returns:
         Structured rejections; empty when equipping is legal.
@@ -609,6 +618,11 @@ def validate_equip(definition: ClassDefinition, instance: ItemInstance) -> list[
         if template.is_shield:
             if not definition.armour.shields_allowed:
                 return [Rejection(code="items.equip.shield_forbidden", params={"class": definition.id})]
+            if inventory is not None and any(
+                isinstance(wielded.template, WeaponTemplate) and WeaponQuality.TWO_HANDED in wielded.template.qualities
+                for wielded in inventory.wielded
+            ):
+                return [Rejection(code="items.equip.two_handed_with_shield", params={"class": definition.id})]
             return []
         if definition.armour.kind is ArmourPolicyKind.NONE:
             return [Rejection(code="items.equip.armour_forbidden", params={"class": definition.id})]
@@ -636,6 +650,8 @@ def validate_equip(definition: ClassDefinition, instance: ItemInstance) -> list[
                     params={"class": definition.id, "item": template.id},
                 )
             ]
+        if WeaponQuality.TWO_HANDED in template.qualities and inventory is not None and inventory.shield is not None:
+            return [Rejection(code="items.equip.two_handed_with_shield", params={"item": template.id})]
         return []
     if isinstance(template, GearTemplate) and template.combat is not None:
         return []
@@ -647,8 +663,9 @@ def equip(inventory: Inventory, definition: ClassDefinition, instance: ItemInsta
 
     Body armour goes to the worn-armour slot and the shield to the shield slot — a
     previous occupant returns to the item list. Weapons and combat-facet gear join the
-    wielded list. Slot-conflict rules (two-handed weapons versus shields) are Phase 2
-    combat's concern.
+    wielded list. Equipping a two-handed weapon with a shield equipped (or the shield
+    while a two-handed weapon is wielded) rejects — the conflict is enforced at equip
+    time, not silently ignored at resolution.
 
     Args:
         inventory: The inventory; mutated.
@@ -661,7 +678,7 @@ def equip(inventory: Inventory, definition: ClassDefinition, instance: ItemInsta
     """
     if not any(existing is instance for existing in inventory.items):
         raise ValueError("only an instance in the inventory's item list can be equipped")
-    rejections = validate_equip(definition, instance)
+    rejections = validate_equip(definition, instance, inventory)
     if rejections:
         raise ValueError(f"illegal equip: {[rejection.code for rejection in rejections]}")
     inventory.items.remove(instance)

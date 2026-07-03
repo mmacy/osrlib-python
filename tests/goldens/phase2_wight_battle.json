@@ -1,0 +1,459 @@
+{
+  "events": [
+    {
+      "attack_name": "Sword",
+      "attacker_id": "pc-fighter",
+      "code": "combat.attack.missed",
+      "defender_ac": 5,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": 2,
+      "natural": null,
+      "required": 14,
+      "roll": 8,
+      "total": 10,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Sword",
+      "attacker_id": "pc-fighter",
+      "code": "combat.attack.missed",
+      "defender_ac": 5,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": 2,
+      "natural": null,
+      "required": 14,
+      "roll": 4,
+      "total": 6,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Sword",
+      "attacker_id": "pc-fighter",
+      "code": "combat.attack.missed",
+      "defender_ac": 5,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": 2,
+      "natural": null,
+      "required": 14,
+      "roll": 3,
+      "total": 5,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Sword",
+      "attacker_id": "pc-fighter",
+      "code": "combat.attack.hit",
+      "defender_ac": 5,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": 2,
+      "natural": null,
+      "required": 14,
+      "roll": 14,
+      "total": 16,
+      "visibility": "player"
+    },
+    {
+      "attacker_id": "pc-fighter",
+      "code": "combat.damage.absorbed",
+      "event_type": "damage_absorbed",
+      "keys": [],
+      "target_id": "monster-0001",
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Silver dagger",
+      "attacker_id": "pc-fighter",
+      "code": "combat.attack.hit",
+      "defender_ac": 5,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": 2,
+      "natural": null,
+      "required": 14,
+      "roll": 13,
+      "total": 15,
+      "visibility": "player"
+    },
+    {
+      "amount": 3,
+      "attacker_id": "pc-fighter",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "silver"
+      ],
+      "non_regenerable": false,
+      "rolls": [
+        1
+      ],
+      "target_id": "monster-0001",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 21,
+      "event_type": "hit_points_reported",
+      "max_hp": 24,
+      "target_id": "monster-0001",
+      "visibility": "referee"
+    },
+    {
+      "attack_name": "touch",
+      "attacker_id": "monster-0001",
+      "code": "combat.attack.hit",
+      "defender_ac": 7,
+      "defender_id": "pc-fighter",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 10,
+      "roll": 12,
+      "total": 12,
+      "visibility": "player"
+    },
+    {
+      "code": "combat.drain.drained",
+      "event_type": "level_drained",
+      "hp_lost": 4,
+      "levels_lost": 1,
+      "new_level": 1,
+      "spawn_consequence": "A successfully hit target permanently loses one experience level (or Hit Die). This incurs a loss of one Hit Die of hit points, as well as all other benefits due to the drained level (e.g. spells, saving throws, etc.). A character’s XP is reduced to halfway between the former and new levels. A person drained of all levels becomes a wight in 1d4 days, under the control of the wight that killed them.",
+      "target_id": "pc-fighter",
+      "visibility": "player",
+      "xp_after": 1000
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 2,
+      "event_type": "hit_points_reported",
+      "max_hp": 2,
+      "target_id": "pc-fighter",
+      "visibility": "referee"
+    },
+    {
+      "attack_name": "Silver dagger",
+      "attacker_id": "pc-fighter",
+      "code": "combat.attack.missed",
+      "defender_ac": 5,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": 2,
+      "natural": null,
+      "required": 14,
+      "roll": 1,
+      "total": 3,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Silver dagger",
+      "attacker_id": "pc-fighter",
+      "code": "combat.attack.missed",
+      "defender_ac": 5,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": 2,
+      "natural": null,
+      "required": 14,
+      "roll": 11,
+      "total": 13,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Silver dagger",
+      "attacker_id": "pc-fighter",
+      "code": "combat.attack.hit",
+      "defender_ac": 5,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": 2,
+      "natural": null,
+      "required": 14,
+      "roll": 20,
+      "total": 22,
+      "visibility": "player"
+    },
+    {
+      "amount": 4,
+      "attacker_id": "pc-fighter",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "silver"
+      ],
+      "non_regenerable": false,
+      "rolls": [
+        2
+      ],
+      "target_id": "monster-0001",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 17,
+      "event_type": "hit_points_reported",
+      "max_hp": 24,
+      "target_id": "monster-0001",
+      "visibility": "referee"
+    },
+    {
+      "attack_name": "Silver dagger",
+      "attacker_id": "pc-fighter",
+      "code": "combat.attack.missed",
+      "defender_ac": 5,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": 2,
+      "natural": null,
+      "required": 14,
+      "roll": 2,
+      "total": 4,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Silver dagger",
+      "attacker_id": "pc-fighter",
+      "code": "combat.attack.hit",
+      "defender_ac": 5,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": 2,
+      "natural": null,
+      "required": 14,
+      "roll": 14,
+      "total": 16,
+      "visibility": "player"
+    },
+    {
+      "amount": 3,
+      "attacker_id": "pc-fighter",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "silver"
+      ],
+      "non_regenerable": false,
+      "rolls": [
+        1
+      ],
+      "target_id": "monster-0001",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 14,
+      "event_type": "hit_points_reported",
+      "max_hp": 24,
+      "target_id": "monster-0001",
+      "visibility": "referee"
+    },
+    {
+      "attack_name": "Silver dagger",
+      "attacker_id": "pc-fighter",
+      "code": "combat.attack.missed",
+      "defender_ac": 5,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": 2,
+      "natural": null,
+      "required": 14,
+      "roll": 1,
+      "total": 3,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Silver dagger",
+      "attacker_id": "pc-fighter",
+      "code": "combat.attack.missed",
+      "defender_ac": 5,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": 2,
+      "natural": null,
+      "required": 14,
+      "roll": 8,
+      "total": 10,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Silver dagger",
+      "attacker_id": "pc-fighter",
+      "code": "combat.attack.hit",
+      "defender_ac": 5,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": 2,
+      "natural": null,
+      "required": 14,
+      "roll": 17,
+      "total": 19,
+      "visibility": "player"
+    },
+    {
+      "amount": 4,
+      "attacker_id": "pc-fighter",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "silver"
+      ],
+      "non_regenerable": false,
+      "rolls": [
+        2
+      ],
+      "target_id": "monster-0001",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 10,
+      "event_type": "hit_points_reported",
+      "max_hp": 24,
+      "target_id": "monster-0001",
+      "visibility": "referee"
+    },
+    {
+      "attack_name": "Silver dagger",
+      "attacker_id": "pc-fighter",
+      "code": "combat.attack.hit",
+      "defender_ac": 5,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": 2,
+      "natural": null,
+      "required": 14,
+      "roll": 16,
+      "total": 18,
+      "visibility": "player"
+    },
+    {
+      "amount": 6,
+      "attacker_id": "pc-fighter",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "silver"
+      ],
+      "non_regenerable": false,
+      "rolls": [
+        4
+      ],
+      "target_id": "monster-0001",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 4,
+      "event_type": "hit_points_reported",
+      "max_hp": 24,
+      "target_id": "monster-0001",
+      "visibility": "referee"
+    },
+    {
+      "attack_name": "Silver dagger",
+      "attacker_id": "pc-fighter",
+      "code": "combat.attack.hit",
+      "defender_ac": 5,
+      "defender_id": "monster-0001",
+      "event_type": "attack_rolled",
+      "modifier": 2,
+      "natural": null,
+      "required": 14,
+      "roll": 19,
+      "total": 21,
+      "visibility": "player"
+    },
+    {
+      "amount": 6,
+      "attacker_id": "pc-fighter",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "silver"
+      ],
+      "non_regenerable": false,
+      "rolls": [
+        4
+      ],
+      "target_id": "monster-0001",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 0,
+      "event_type": "hit_points_reported",
+      "max_hp": 24,
+      "target_id": "monster-0001",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.condition.gained",
+      "condition": "dead",
+      "effect_id": null,
+      "event_type": "condition_gained",
+      "target_id": "monster-0001",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.death.died",
+      "event_type": "death",
+      "target_id": "monster-0001",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 0,
+      "event_type": "hit_points_reported",
+      "max_hp": 24,
+      "target_id": "monster-0001",
+      "visibility": "referee"
+    }
+  ],
+  "fighter_hp": [
+    2,
+    2
+  ],
+  "fighter_level": 1,
+  "fighter_xp": 1000,
+  "master_seed": 6,
+  "transcript": [
+    "pc-fighter misses monster-0001 with Sword: rolled 8+2 = 10, needing 14.",
+    "pc-fighter misses monster-0001 with Sword: rolled 4+2 = 6, needing 14.",
+    "pc-fighter misses monster-0001 with Sword: rolled 3+2 = 5, needing 14.",
+    "pc-fighter hits monster-0001 with Sword: rolled 14+2 = 16, needing 14.",
+    "pc-fighter's attack has no effect on monster-0001.",
+    "pc-fighter hits monster-0001 with Silver dagger: rolled 13+2 = 15, needing 14.",
+    "monster-0001 takes 3 damage from pc-fighter.",
+    "monster-0001 is at 21/24 hit points.",
+    "monster-0001 hits pc-fighter with touch: rolled 12+0 = 12, needing 10.",
+    "pc-fighter loses 1 level(s) (4 hit points), now level 1.",
+    "pc-fighter is at 2/2 hit points.",
+    "pc-fighter misses monster-0001 with Silver dagger: rolled 1+2 = 3, needing 14.",
+    "pc-fighter misses monster-0001 with Silver dagger: rolled 11+2 = 13, needing 14.",
+    "pc-fighter hits monster-0001 with Silver dagger: rolled 20+2 = 22, needing 14.",
+    "monster-0001 takes 4 damage from pc-fighter.",
+    "monster-0001 is at 17/24 hit points.",
+    "pc-fighter misses monster-0001 with Silver dagger: rolled 2+2 = 4, needing 14.",
+    "pc-fighter hits monster-0001 with Silver dagger: rolled 14+2 = 16, needing 14.",
+    "monster-0001 takes 3 damage from pc-fighter.",
+    "monster-0001 is at 14/24 hit points.",
+    "pc-fighter misses monster-0001 with Silver dagger: rolled 1+2 = 3, needing 14.",
+    "pc-fighter misses monster-0001 with Silver dagger: rolled 8+2 = 10, needing 14.",
+    "pc-fighter hits monster-0001 with Silver dagger: rolled 17+2 = 19, needing 14.",
+    "monster-0001 takes 4 damage from pc-fighter.",
+    "monster-0001 is at 10/24 hit points.",
+    "pc-fighter hits monster-0001 with Silver dagger: rolled 16+2 = 18, needing 14.",
+    "monster-0001 takes 6 damage from pc-fighter.",
+    "monster-0001 is at 4/24 hit points.",
+    "pc-fighter hits monster-0001 with Silver dagger: rolled 19+2 = 21, needing 14.",
+    "monster-0001 takes 6 damage from pc-fighter.",
+    "monster-0001 is at 0/24 hit points.",
+    "monster-0001 is dead.",
+    "monster-0001 is killed.",
+    "monster-0001 is at 0/24 hit points."
+  ],
+  "wight_max_hp": 24
+}

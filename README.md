@@ -6,7 +6,7 @@ See [the specification](docs/spec.md) for the full design: architecture, contrac
 
 ## Development status
 
-Early development — Phase 1 (characters) is complete: the SRD data pipeline for classes, ability tables, equipment, and languages; ability scores with the creation-time adjustment step; character creation with inventory and encumbrance; and XP awards with leveling. Phase 0 delivered the contracts underneath: deterministic named RNG streams, the dice expression grammar, the game clock, and the event-emission rules. Combat, magic, and the dungeon crawl arrive in later phases.
+Early development — Phase 2 (the combat kernel) is complete: the monster compiler (all 138 SRD monster pages, with packed-variant expansion, structured defenses, and ability tags), the combat tables as data (attack matrix, monster saving-throw bands, XP awards), attack resolution with weapon-material and graded-immunity damage, the effects engine with the core condition set (regeneration, poison, paralysis, petrification, mummy rot), initiative, morale, saving throws, energy drain, the shared targeting model, the first kernel events with the serialized type discriminator, and the default English message formatter. Phase 1 delivered characters (classes, ability scores, creation, inventory and encumbrance, XP and leveling) and Phase 0 the contracts underneath (deterministic named RNG streams, the dice grammar, the game clock, the event-emission rules). The battle state machine, magic, and the dungeon crawl arrive in later phases.
 
 ## SRD data pipeline
 

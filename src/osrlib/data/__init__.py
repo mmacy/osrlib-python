@@ -24,6 +24,8 @@ from pydantic import BaseModel, ConfigDict, ValidationError, model_validator
 from osrlib.core.abilities import AbilityTables
 from osrlib.core.classes import ClassCatalog
 from osrlib.core.items import EquipmentCatalog
+from osrlib.core.monsters import MonsterCatalog
+from osrlib.core.tables import CombatTables
 from osrlib.errors import ContentValidationError
 
 __all__ = [
@@ -31,8 +33,10 @@ __all__ = [
     "LanguageCatalog",
     "load_ability_tables",
     "load_classes",
+    "load_combat_tables",
     "load_equipment",
     "load_languages",
+    "load_monsters",
 ]
 
 
@@ -145,6 +149,40 @@ def load_equipment() -> EquipmentCatalog:
         return EquipmentCatalog.model_validate(data)
     except ValidationError as error:
         raise ContentValidationError(f"equipment.json failed validation: {error}") from error
+
+
+@cache
+def load_monsters() -> MonsterCatalog:
+    """Load the monster templates compiled from the SRD's monster pages.
+
+    Returns:
+        The frozen monster catalog.
+
+    Raises:
+        ContentValidationError: If the generated data is missing or fails validation.
+    """
+    data = _read("monsters.json")
+    try:
+        return MonsterCatalog.model_validate(data)
+    except ValidationError as error:
+        raise ContentValidationError(f"monsters.json failed validation: {error}") from error
+
+
+@cache
+def load_combat_tables() -> CombatTables:
+    """Load the attack matrix, monster saving-throw bands, and XP-awards table.
+
+    Returns:
+        The frozen combat tables.
+
+    Raises:
+        ContentValidationError: If the generated data is missing or fails validation.
+    """
+    data = _read("combat_tables.json")
+    try:
+        return CombatTables.model_validate(data)
+    except ValidationError as error:
+        raise ContentValidationError(f"combat_tables.json failed validation: {error}") from error
 
 
 @cache

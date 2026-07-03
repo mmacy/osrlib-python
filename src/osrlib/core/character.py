@@ -21,7 +21,6 @@ in-play advancement draws in a golden scenario.
 """
 
 from collections.abc import Mapping, Sequence
-from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -34,8 +33,10 @@ from osrlib.core.abilities import (
     Literacy,
     apply_adjustment,
 )
-from osrlib.core.classes import ClassDefinition, Race
+from osrlib.core.alignment import Alignment
+from osrlib.core.classes import ClassDefinition, Race, SavingThrows
 from osrlib.core.dice import RollResult, roll
+from osrlib.core.effects import ActiveCondition
 from osrlib.core.items import Inventory, equip, movement_rate_feet, purchase, validate_purchase
 from osrlib.core.rng import RngStream
 from osrlib.core.ruleset import Ruleset
@@ -80,18 +81,6 @@ ABILITY_ROLL_ORDER = (
 """The pinned draw order for rolling ability scores — the SRD's listing order."""
 
 
-class Alignment(StrEnum):
-    """The three alignments.
-
-    The wire values are lowercase — they serialize into characters and saves; changing
-    them is a `schema_version` bump.
-    """
-
-    LAWFUL = "lawful"
-    NEUTRAL = "neutral"
-    CHAOTIC = "chaotic"
-
-
 class Character(BaseModel):
     """A player character.
 
@@ -115,6 +104,7 @@ class Character(BaseModel):
     current_hp: int = Field(ge=0)
     inventory: Inventory = Field(default_factory=Inventory)
     carrying_treasure: bool = False
+    conditions: tuple[ActiveCondition, ...] = ()
 
     @field_validator("scores")
     @classmethod
@@ -140,6 +130,21 @@ class Character(BaseModel):
     def definition(self) -> ClassDefinition:
         """The character's class definition, from the loaded class catalog."""
         return load_classes().get(self.class_id)
+
+    @property
+    def thac0(self) -> int:
+        """THAC0 from the progression row for the current level — derived, never stored."""
+        return self.definition.row(self.level).thac0
+
+    @property
+    def attack_bonus(self) -> int:
+        """Ascending-AC attack bonus from the progression row — derived, never stored."""
+        return self.definition.row(self.level).attack_bonus
+
+    @property
+    def saves(self) -> SavingThrows:
+        """Saving throws from the progression row for the current level — derived, never stored."""
+        return self.definition.row(self.level).saves
 
     def _tables(self) -> AbilityTables:
         return load_ability_tables()
