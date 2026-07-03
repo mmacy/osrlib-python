@@ -1,0 +1,698 @@
+{
+  "engine_version": "0.1.0",
+  "kind": "party",
+  "payload": {
+    "characters": [
+      {
+        "alignment": "lawful",
+        "carrying_treasure": false,
+        "class_id": "cleric",
+        "current_hp": 2,
+        "extra_languages": [],
+        "id": null,
+        "inventory": {
+          "items": [
+            {
+              "quantity": 6,
+              "template": {
+                "capacity_coins": null,
+                "combat": {
+                  "damage": "1d4",
+                  "missile_ranges": null,
+                  "qualities": [
+                    "melee"
+                  ]
+                },
+                "cost_gp": 1,
+                "id": "torch",
+                "item_type": "gear",
+                "lot_size": 6,
+                "name": "Torches (6)",
+                "overrides_applied": []
+              }
+            }
+          ],
+          "purse": {
+            "cp": 0,
+            "ep": 0,
+            "gp": 94,
+            "pp": 0,
+            "sp": 0
+          },
+          "shield": null,
+          "wielded": [
+            {
+              "quantity": 1,
+              "template": {
+                "cost_gp": 5,
+                "damage": "1d6",
+                "id": "mace",
+                "item_type": "weapon",
+                "material": "standard",
+                "missile_ranges": null,
+                "name": "Mace",
+                "overrides_applied": [],
+                "qualities": [
+                  "blunt",
+                  "melee"
+                ],
+                "weight_coins": 30
+              }
+            }
+          ],
+          "worn_armour": {
+            "quantity": 1,
+            "template": {
+              "ac": 7,
+              "ac_ascending": 12,
+              "ac_bonus": null,
+              "category": "light",
+              "cost_gp": 20,
+              "id": "leather",
+              "item_type": "armour",
+              "name": "Leather",
+              "overrides_applied": [],
+              "weight_coins": 200
+            }
+          }
+        },
+        "level": 1,
+        "max_hp": 2,
+        "name": "Adelheid",
+        "race": "human",
+        "scores": {
+          "cha": 15,
+          "con": 8,
+          "dex": 12,
+          "int": 5,
+          "str": 4,
+          "wis": 12
+        },
+        "xp": 0
+      },
+      {
+        "alignment": "lawful",
+        "carrying_treasure": false,
+        "class_id": "dwarf",
+        "current_hp": 2,
+        "extra_languages": [],
+        "id": null,
+        "inventory": {
+          "items": [
+            {
+              "quantity": 12,
+              "template": {
+                "capacity_coins": null,
+                "combat": null,
+                "cost_gp": 1,
+                "id": "iron_spikes",
+                "item_type": "gear",
+                "lot_size": 12,
+                "name": "Iron spikes (12)",
+                "overrides_applied": []
+              }
+            },
+            {
+              "quantity": 6,
+              "template": {
+                "capacity_coins": null,
+                "combat": {
+                  "damage": "1d4",
+                  "missile_ranges": null,
+                  "qualities": [
+                    "melee"
+                  ]
+                },
+                "cost_gp": 1,
+                "id": "torch",
+                "item_type": "gear",
+                "lot_size": 6,
+                "name": "Torches (6)",
+                "overrides_applied": []
+              }
+            }
+          ],
+          "purse": {
+            "cp": 0,
+            "ep": 0,
+            "gp": 73,
+            "pp": 0,
+            "sp": 0
+          },
+          "shield": null,
+          "wielded": [
+            {
+              "quantity": 1,
+              "template": {
+                "cost_gp": 5,
+                "damage": "1d6",
+                "id": "war_hammer",
+                "item_type": "weapon",
+                "material": "standard",
+                "missile_ranges": null,
+                "name": "War hammer",
+                "overrides_applied": [],
+                "qualities": [
+                  "blunt",
+                  "melee"
+                ],
+                "weight_coins": 30
+              }
+            }
+          ],
+          "worn_armour": {
+            "quantity": 1,
+            "template": {
+              "ac": 7,
+              "ac_ascending": 12,
+              "ac_bonus": null,
+              "category": "light",
+              "cost_gp": 20,
+              "id": "leather",
+              "item_type": "armour",
+              "name": "Leather",
+              "overrides_applied": [],
+              "weight_coins": 200
+            }
+          }
+        },
+        "level": 1,
+        "max_hp": 2,
+        "name": "Borin",
+        "race": "dwarf",
+        "scores": {
+          "cha": 17,
+          "con": 14,
+          "dex": 9,
+          "int": 3,
+          "str": 11,
+          "wis": 11
+        },
+        "xp": 0
+      },
+      {
+        "alignment": "neutral",
+        "carrying_treasure": false,
+        "class_id": "elf",
+        "current_hp": 5,
+        "extra_languages": [],
+        "id": null,
+        "inventory": {
+          "items": [],
+          "purse": {
+            "cp": 0,
+            "ep": 0,
+            "gp": 40,
+            "pp": 0,
+            "sp": 0
+          },
+          "shield": null,
+          "wielded": [
+            {
+              "quantity": 1,
+              "template": {
+                "cost_gp": 10,
+                "damage": "1d8",
+                "id": "sword",
+                "item_type": "weapon",
+                "material": "standard",
+                "missile_ranges": null,
+                "name": "Sword",
+                "overrides_applied": [],
+                "qualities": [
+                  "melee"
+                ],
+                "weight_coins": 60
+              }
+            }
+          ],
+          "worn_armour": {
+            "quantity": 1,
+            "template": {
+              "ac": 7,
+              "ac_ascending": 12,
+              "ac_bonus": null,
+              "category": "light",
+              "cost_gp": 20,
+              "id": "leather",
+              "item_type": "armour",
+              "name": "Leather",
+              "overrides_applied": [],
+              "weight_coins": 200
+            }
+          }
+        },
+        "level": 1,
+        "max_hp": 5,
+        "name": "Cirdan",
+        "race": "elf",
+        "scores": {
+          "cha": 14,
+          "con": 10,
+          "dex": 13,
+          "int": 11,
+          "str": 10,
+          "wis": 11
+        },
+        "xp": 0
+      },
+      {
+        "alignment": "neutral",
+        "carrying_treasure": false,
+        "class_id": "fighter",
+        "current_hp": 4,
+        "extra_languages": [],
+        "id": null,
+        "inventory": {
+          "items": [],
+          "purse": {
+            "cp": 0,
+            "ep": 0,
+            "gp": 70,
+            "pp": 0,
+            "sp": 0
+          },
+          "shield": null,
+          "wielded": [
+            {
+              "quantity": 1,
+              "template": {
+                "cost_gp": 10,
+                "damage": "1d8",
+                "id": "sword",
+                "item_type": "weapon",
+                "material": "standard",
+                "missile_ranges": null,
+                "name": "Sword",
+                "overrides_applied": [],
+                "qualities": [
+                  "melee"
+                ],
+                "weight_coins": 60
+              }
+            }
+          ],
+          "worn_armour": {
+            "quantity": 1,
+            "template": {
+              "ac": 7,
+              "ac_ascending": 12,
+              "ac_bonus": null,
+              "category": "light",
+              "cost_gp": 20,
+              "id": "leather",
+              "item_type": "armour",
+              "name": "Leather",
+              "overrides_applied": [],
+              "weight_coins": 200
+            }
+          }
+        },
+        "level": 1,
+        "max_hp": 4,
+        "name": "Dagmar",
+        "race": "human",
+        "scores": {
+          "cha": 9,
+          "con": 9,
+          "dex": 11,
+          "int": 14,
+          "str": 17,
+          "wis": 8
+        },
+        "xp": 0
+      },
+      {
+        "alignment": "lawful",
+        "carrying_treasure": false,
+        "class_id": "halfling",
+        "current_hp": 2,
+        "extra_languages": [
+          "dragon",
+          "gnoll"
+        ],
+        "id": null,
+        "inventory": {
+          "items": [
+            {
+              "quantity": 1,
+              "template": {
+                "cost_gp": 0,
+                "id": "sling_stones",
+                "item_type": "ammunition",
+                "lot_size": 1,
+                "material": "standard",
+                "name": "Sling stones",
+                "overrides_applied": [],
+                "weight_coins": 0
+              }
+            },
+            {
+              "quantity": 7,
+              "template": {
+                "capacity_coins": null,
+                "combat": null,
+                "cost_gp": 5,
+                "id": "rations_standard",
+                "item_type": "gear",
+                "lot_size": 7,
+                "name": "Rations (standard, 7 days)",
+                "overrides_applied": []
+              }
+            }
+          ],
+          "purse": {
+            "cp": 0,
+            "ep": 0,
+            "gp": 83,
+            "pp": 0,
+            "sp": 0
+          },
+          "shield": null,
+          "wielded": [
+            {
+              "quantity": 1,
+              "template": {
+                "cost_gp": 2,
+                "damage": "1d4",
+                "id": "sling",
+                "item_type": "weapon",
+                "material": "standard",
+                "missile_ranges": {
+                  "long": {
+                    "max_feet": 160,
+                    "min_feet": 81
+                  },
+                  "medium": {
+                    "max_feet": 80,
+                    "min_feet": 41
+                  },
+                  "short": {
+                    "max_feet": 40,
+                    "min_feet": 5
+                  }
+                },
+                "name": "Sling",
+                "overrides_applied": [],
+                "qualities": [
+                  "blunt",
+                  "missile"
+                ],
+                "weight_coins": 20
+              }
+            }
+          ],
+          "worn_armour": {
+            "quantity": 1,
+            "template": {
+              "ac": 7,
+              "ac_ascending": 12,
+              "ac_bonus": null,
+              "category": "light",
+              "cost_gp": 20,
+              "id": "leather",
+              "item_type": "armour",
+              "name": "Leather",
+              "overrides_applied": [],
+              "weight_coins": 200
+            }
+          }
+        },
+        "level": 1,
+        "max_hp": 2,
+        "name": "Elderberry",
+        "race": "halfling",
+        "scores": {
+          "cha": 14,
+          "con": 11,
+          "dex": 11,
+          "int": 16,
+          "str": 6,
+          "wis": 10
+        },
+        "xp": 0
+      },
+      {
+        "alignment": "chaotic",
+        "carrying_treasure": false,
+        "class_id": "magic_user",
+        "current_hp": 3,
+        "extra_languages": [],
+        "id": null,
+        "inventory": {
+          "items": [
+            {
+              "quantity": 1,
+              "template": {
+                "capacity_coins": null,
+                "combat": {
+                  "damage": "1d8",
+                  "missile_ranges": {
+                    "long": {
+                      "max_feet": 50,
+                      "min_feet": 31
+                    },
+                    "medium": {
+                      "max_feet": 30,
+                      "min_feet": 11
+                    },
+                    "short": {
+                      "max_feet": 10,
+                      "min_feet": 5
+                    }
+                  },
+                  "qualities": [
+                    "missile",
+                    "splash"
+                  ]
+                },
+                "cost_gp": 2,
+                "id": "oil_flask",
+                "item_type": "gear",
+                "lot_size": 1,
+                "name": "Oil (1 flask)",
+                "overrides_applied": []
+              }
+            },
+            {
+              "quantity": 6,
+              "template": {
+                "capacity_coins": null,
+                "combat": {
+                  "damage": "1d4",
+                  "missile_ranges": null,
+                  "qualities": [
+                    "melee"
+                  ]
+                },
+                "cost_gp": 1,
+                "id": "torch",
+                "item_type": "gear",
+                "lot_size": 6,
+                "name": "Torches (6)",
+                "overrides_applied": []
+              }
+            },
+            {
+              "quantity": 7,
+              "template": {
+                "capacity_coins": null,
+                "combat": null,
+                "cost_gp": 5,
+                "id": "rations_standard",
+                "item_type": "gear",
+                "lot_size": 7,
+                "name": "Rations (standard, 7 days)",
+                "overrides_applied": []
+              }
+            },
+            {
+              "quantity": 1,
+              "template": {
+                "capacity_coins": null,
+                "combat": null,
+                "cost_gp": 1,
+                "id": "waterskin",
+                "item_type": "gear",
+                "lot_size": 1,
+                "name": "Waterskin",
+                "overrides_applied": []
+              }
+            }
+          ],
+          "purse": {
+            "cp": 0,
+            "ep": 0,
+            "gp": 88,
+            "pp": 0,
+            "sp": 0
+          },
+          "shield": null,
+          "wielded": [
+            {
+              "quantity": 1,
+              "template": {
+                "cost_gp": 3,
+                "damage": "1d4",
+                "id": "dagger",
+                "item_type": "weapon",
+                "material": "standard",
+                "missile_ranges": {
+                  "long": {
+                    "max_feet": 30,
+                    "min_feet": 21
+                  },
+                  "medium": {
+                    "max_feet": 20,
+                    "min_feet": 11
+                  },
+                  "short": {
+                    "max_feet": 10,
+                    "min_feet": 5
+                  }
+                },
+                "name": "Dagger",
+                "overrides_applied": [],
+                "qualities": [
+                  "melee",
+                  "missile"
+                ],
+                "weight_coins": 10
+              }
+            }
+          ],
+          "worn_armour": null
+        },
+        "level": 1,
+        "max_hp": 3,
+        "name": "Falk",
+        "race": "human",
+        "scores": {
+          "cha": 11,
+          "con": 9,
+          "dex": 13,
+          "int": 9,
+          "str": 13,
+          "wis": 7
+        },
+        "xp": 0
+      },
+      {
+        "alignment": "chaotic",
+        "carrying_treasure": false,
+        "class_id": "thief",
+        "current_hp": 1,
+        "extra_languages": [
+          "kobold"
+        ],
+        "id": null,
+        "inventory": {
+          "items": [
+            {
+              "quantity": 1,
+              "template": {
+                "capacity_coins": null,
+                "combat": null,
+                "cost_gp": 1,
+                "id": "rope",
+                "item_type": "gear",
+                "lot_size": 1,
+                "name": "Rope (50’)",
+                "overrides_applied": []
+              }
+            },
+            {
+              "quantity": 6,
+              "template": {
+                "capacity_coins": null,
+                "combat": {
+                  "damage": "1d4",
+                  "missile_ranges": null,
+                  "qualities": [
+                    "melee"
+                  ]
+                },
+                "cost_gp": 1,
+                "id": "torch",
+                "item_type": "gear",
+                "lot_size": 6,
+                "name": "Torches (6)",
+                "overrides_applied": []
+              }
+            }
+          ],
+          "purse": {
+            "cp": 0,
+            "ep": 0,
+            "gp": 145,
+            "pp": 0,
+            "sp": 0
+          },
+          "shield": null,
+          "wielded": [
+            {
+              "quantity": 1,
+              "template": {
+                "cost_gp": 3,
+                "damage": "1d4",
+                "id": "dagger",
+                "item_type": "weapon",
+                "material": "standard",
+                "missile_ranges": {
+                  "long": {
+                    "max_feet": 30,
+                    "min_feet": 21
+                  },
+                  "medium": {
+                    "max_feet": 20,
+                    "min_feet": 11
+                  },
+                  "short": {
+                    "max_feet": 10,
+                    "min_feet": 5
+                  }
+                },
+                "name": "Dagger",
+                "overrides_applied": [],
+                "qualities": [
+                  "melee",
+                  "missile"
+                ],
+                "weight_coins": 10
+              }
+            }
+          ],
+          "worn_armour": {
+            "quantity": 1,
+            "template": {
+              "ac": 7,
+              "ac_ascending": 12,
+              "ac_bonus": null,
+              "category": "light",
+              "cost_gp": 20,
+              "id": "leather",
+              "item_type": "armour",
+              "name": "Leather",
+              "overrides_applied": [],
+              "weight_coins": 200
+            }
+          }
+        },
+        "level": 1,
+        "max_hp": 1,
+        "name": "Grima",
+        "race": "human",
+        "scores": {
+          "cha": 10,
+          "con": 11,
+          "dex": 15,
+          "int": 15,
+          "str": 8,
+          "wis": 8
+        },
+        "xp": 0
+      }
+    ]
+  },
+  "schema_version": 1
+}

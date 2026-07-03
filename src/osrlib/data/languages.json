@@ -1,0 +1,116 @@
+{
+  "_meta": {
+    "generator": "tools/srd_compile",
+    "license": "Open Game Content under OGL 1.0a; see LICENSE-OGL.md in this directory",
+    "source_pages": [
+      "Languages.md"
+    ]
+  },
+  "languages": [
+    {
+      "choosable": true,
+      "id": "bugbear",
+      "name": "Bugbear"
+    },
+    {
+      "choosable": false,
+      "id": "common",
+      "name": "Common"
+    },
+    {
+      "choosable": true,
+      "id": "doppelganger",
+      "name": "Doppelgänger"
+    },
+    {
+      "choosable": true,
+      "id": "dragon",
+      "name": "Dragon"
+    },
+    {
+      "choosable": true,
+      "id": "dwarvish",
+      "name": "Dwarvish"
+    },
+    {
+      "choosable": true,
+      "id": "elvish",
+      "name": "Elvish"
+    },
+    {
+      "choosable": true,
+      "id": "gargoyle",
+      "name": "Gargoyle"
+    },
+    {
+      "choosable": true,
+      "id": "gnoll",
+      "name": "Gnoll"
+    },
+    {
+      "choosable": true,
+      "id": "gnomish",
+      "name": "Gnomish"
+    },
+    {
+      "choosable": true,
+      "id": "goblin",
+      "name": "Goblin"
+    },
+    {
+      "choosable": true,
+      "id": "halfling",
+      "name": "Halfling"
+    },
+    {
+      "choosable": true,
+      "id": "harpy",
+      "name": "Harpy"
+    },
+    {
+      "choosable": true,
+      "id": "hobgoblin",
+      "name": "Hobgoblin"
+    },
+    {
+      "choosable": true,
+      "id": "human_dialect",
+      "name": "Human dialect"
+    },
+    {
+      "choosable": true,
+      "id": "kobold",
+      "name": "Kobold"
+    },
+    {
+      "choosable": true,
+      "id": "lizard_man",
+      "name": "Lizard man"
+    },
+    {
+      "choosable": true,
+      "id": "medusa",
+      "name": "Medusa"
+    },
+    {
+      "choosable": true,
+      "id": "minotaur",
+      "name": "Minotaur"
+    },
+    {
+      "choosable": true,
+      "id": "ogre",
+      "name": "Ogre"
+    },
+    {
+      "choosable": true,
+      "id": "orcish",
+      "name": "Orcish"
+    },
+    {
+      "choosable": true,
+      "id": "pixie",
+      "name": "Pixie"
+    }
+  ]
+}

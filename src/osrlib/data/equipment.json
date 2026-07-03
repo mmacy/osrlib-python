@@ -1,0 +1,835 @@
+{
+  "_meta": {
+    "generator": "tools/srd_compile",
+    "license": "Open Game Content under OGL 1.0a; see LICENSE-OGL.md in this directory",
+    "source_pages": [
+      "Adventuring_Gear.md",
+      "Time%2C_Weight%2C_Movement.md",
+      "Weapons_and_Armour.md"
+    ]
+  },
+  "ammunition": [
+    {
+      "cost_gp": 5,
+      "id": "arrows",
+      "item_type": "ammunition",
+      "lot_size": 20,
+      "material": "standard",
+      "name": "Arrows (quiver of 20)",
+      "overrides_applied": [],
+      "weight_coins": 0
+    },
+    {
+      "cost_gp": 10,
+      "id": "crossbow_bolts",
+      "item_type": "ammunition",
+      "lot_size": 30,
+      "material": "standard",
+      "name": "Crossbow bolts (case of 30)",
+      "overrides_applied": [],
+      "weight_coins": 0
+    },
+    {
+      "cost_gp": 5,
+      "id": "silver_tipped_arrow",
+      "item_type": "ammunition",
+      "lot_size": 1,
+      "material": "silver",
+      "name": "Silver tipped arrow (1)",
+      "overrides_applied": [],
+      "weight_coins": 0
+    },
+    {
+      "cost_gp": 0,
+      "id": "sling_stones",
+      "item_type": "ammunition",
+      "lot_size": 1,
+      "material": "standard",
+      "name": "Sling stones",
+      "overrides_applied": [],
+      "weight_coins": 0
+    }
+  ],
+  "armour": [
+    {
+      "ac": 5,
+      "ac_ascending": 14,
+      "ac_bonus": null,
+      "category": "heavy",
+      "cost_gp": 40,
+      "id": "chainmail",
+      "item_type": "armour",
+      "name": "Chainmail",
+      "overrides_applied": [],
+      "weight_coins": 400
+    },
+    {
+      "ac": 7,
+      "ac_ascending": 12,
+      "ac_bonus": null,
+      "category": "light",
+      "cost_gp": 20,
+      "id": "leather",
+      "item_type": "armour",
+      "name": "Leather",
+      "overrides_applied": [],
+      "weight_coins": 200
+    },
+    {
+      "ac": 3,
+      "ac_ascending": 16,
+      "ac_bonus": null,
+      "category": "heavy",
+      "cost_gp": 60,
+      "id": "plate_mail",
+      "item_type": "armour",
+      "name": "Plate mail",
+      "overrides_applied": [],
+      "weight_coins": 500
+    },
+    {
+      "ac": null,
+      "ac_ascending": null,
+      "ac_bonus": 1,
+      "category": null,
+      "cost_gp": 10,
+      "id": "shield",
+      "item_type": "armour",
+      "name": "Shield",
+      "overrides_applied": [],
+      "weight_coins": 100
+    }
+  ],
+  "gear": [
+    {
+      "capacity_coins": 400,
+      "combat": null,
+      "cost_gp": 5,
+      "id": "backpack",
+      "item_type": "gear",
+      "lot_size": 1,
+      "name": "Backpack",
+      "overrides_applied": []
+    },
+    {
+      "capacity_coins": null,
+      "combat": null,
+      "cost_gp": 10,
+      "id": "crowbar",
+      "item_type": "gear",
+      "lot_size": 1,
+      "name": "Crowbar",
+      "overrides_applied": []
+    },
+    {
+      "capacity_coins": null,
+      "combat": null,
+      "cost_gp": 5,
+      "id": "garlic",
+      "item_type": "gear",
+      "lot_size": 1,
+      "name": "Garlic",
+      "overrides_applied": []
+    },
+    {
+      "capacity_coins": null,
+      "combat": null,
+      "cost_gp": 25,
+      "id": "grappling_hook",
+      "item_type": "gear",
+      "lot_size": 1,
+      "name": "Grappling hook",
+      "overrides_applied": []
+    },
+    {
+      "capacity_coins": null,
+      "combat": null,
+      "cost_gp": 2,
+      "id": "hammer",
+      "item_type": "gear",
+      "lot_size": 1,
+      "name": "Hammer (small)",
+      "overrides_applied": []
+    },
+    {
+      "capacity_coins": null,
+      "combat": null,
+      "cost_gp": 25,
+      "id": "holy_symbol",
+      "item_type": "gear",
+      "lot_size": 1,
+      "name": "Holy symbol",
+      "overrides_applied": []
+    },
+    {
+      "capacity_coins": null,
+      "combat": {
+        "damage": "1d8",
+        "missile_ranges": {
+          "long": {
+            "max_feet": 50,
+            "min_feet": 31
+          },
+          "medium": {
+            "max_feet": 30,
+            "min_feet": 11
+          },
+          "short": {
+            "max_feet": 10,
+            "min_feet": 5
+          }
+        },
+        "qualities": [
+          "missile",
+          "splash"
+        ]
+      },
+      "cost_gp": 25,
+      "id": "holy_water",
+      "item_type": "gear",
+      "lot_size": 1,
+      "name": "Holy water (vial)",
+      "overrides_applied": []
+    },
+    {
+      "capacity_coins": null,
+      "combat": null,
+      "cost_gp": 1,
+      "id": "iron_spikes",
+      "item_type": "gear",
+      "lot_size": 12,
+      "name": "Iron spikes (12)",
+      "overrides_applied": []
+    },
+    {
+      "capacity_coins": null,
+      "combat": null,
+      "cost_gp": 10,
+      "id": "lantern",
+      "item_type": "gear",
+      "lot_size": 1,
+      "name": "Lantern",
+      "overrides_applied": []
+    },
+    {
+      "capacity_coins": null,
+      "combat": null,
+      "cost_gp": 5,
+      "id": "mirror",
+      "item_type": "gear",
+      "lot_size": 1,
+      "name": "Mirror (hand-sized, steel)",
+      "overrides_applied": []
+    },
+    {
+      "capacity_coins": null,
+      "combat": {
+        "damage": "1d8",
+        "missile_ranges": {
+          "long": {
+            "max_feet": 50,
+            "min_feet": 31
+          },
+          "medium": {
+            "max_feet": 30,
+            "min_feet": 11
+          },
+          "short": {
+            "max_feet": 10,
+            "min_feet": 5
+          }
+        },
+        "qualities": [
+          "missile",
+          "splash"
+        ]
+      },
+      "cost_gp": 2,
+      "id": "oil_flask",
+      "item_type": "gear",
+      "lot_size": 1,
+      "name": "Oil (1 flask)",
+      "overrides_applied": []
+    },
+    {
+      "capacity_coins": null,
+      "combat": null,
+      "cost_gp": 1,
+      "id": "pole",
+      "item_type": "gear",
+      "lot_size": 1,
+      "name": "Pole (10’ long, wooden)",
+      "overrides_applied": []
+    },
+    {
+      "capacity_coins": null,
+      "combat": null,
+      "cost_gp": 15,
+      "id": "rations_iron",
+      "item_type": "gear",
+      "lot_size": 7,
+      "name": "Rations (iron, 7 days)",
+      "overrides_applied": []
+    },
+    {
+      "capacity_coins": null,
+      "combat": null,
+      "cost_gp": 5,
+      "id": "rations_standard",
+      "item_type": "gear",
+      "lot_size": 7,
+      "name": "Rations (standard, 7 days)",
+      "overrides_applied": []
+    },
+    {
+      "capacity_coins": null,
+      "combat": null,
+      "cost_gp": 1,
+      "id": "rope",
+      "item_type": "gear",
+      "lot_size": 1,
+      "name": "Rope (50’)",
+      "overrides_applied": []
+    },
+    {
+      "capacity_coins": 600,
+      "combat": null,
+      "cost_gp": 2,
+      "id": "sack_large",
+      "item_type": "gear",
+      "lot_size": 1,
+      "name": "Sack (large)",
+      "overrides_applied": []
+    },
+    {
+      "capacity_coins": 200,
+      "combat": null,
+      "cost_gp": 1,
+      "id": "sack_small",
+      "item_type": "gear",
+      "lot_size": 1,
+      "name": "Sack (small)",
+      "overrides_applied": []
+    },
+    {
+      "capacity_coins": null,
+      "combat": null,
+      "cost_gp": 3,
+      "id": "stakes_and_mallet",
+      "item_type": "gear",
+      "lot_size": 1,
+      "name": "Stakes (3) and mallet",
+      "overrides_applied": []
+    },
+    {
+      "capacity_coins": null,
+      "combat": null,
+      "cost_gp": 25,
+      "id": "thieves_tools",
+      "item_type": "gear",
+      "lot_size": 1,
+      "name": "Thieves’ tools",
+      "overrides_applied": []
+    },
+    {
+      "capacity_coins": null,
+      "combat": null,
+      "cost_gp": 3,
+      "id": "tinder_box",
+      "item_type": "gear",
+      "lot_size": 1,
+      "name": "Tinder box (flint & steel)",
+      "overrides_applied": []
+    },
+    {
+      "capacity_coins": null,
+      "combat": {
+        "damage": "1d4",
+        "missile_ranges": null,
+        "qualities": [
+          "melee"
+        ]
+      },
+      "cost_gp": 1,
+      "id": "torch",
+      "item_type": "gear",
+      "lot_size": 6,
+      "name": "Torches (6)",
+      "overrides_applied": []
+    },
+    {
+      "capacity_coins": null,
+      "combat": null,
+      "cost_gp": 1,
+      "id": "waterskin",
+      "item_type": "gear",
+      "lot_size": 1,
+      "name": "Waterskin",
+      "overrides_applied": []
+    },
+    {
+      "capacity_coins": null,
+      "combat": null,
+      "cost_gp": 1,
+      "id": "wine",
+      "item_type": "gear",
+      "lot_size": 2,
+      "name": "Wine (2 pints)",
+      "overrides_applied": []
+    },
+    {
+      "capacity_coins": null,
+      "combat": null,
+      "cost_gp": 10,
+      "id": "wolfsbane",
+      "item_type": "gear",
+      "lot_size": 1,
+      "name": "Wolfsbane (1 bunch)",
+      "overrides_applied": []
+    }
+  ],
+  "treasure_weights": [
+    {
+      "id": "coin",
+      "weight_coins": 1
+    },
+    {
+      "id": "gem",
+      "weight_coins": 1
+    },
+    {
+      "id": "jewellery",
+      "weight_coins": 10
+    },
+    {
+      "id": "potion",
+      "weight_coins": 10
+    },
+    {
+      "id": "rod",
+      "weight_coins": 20
+    },
+    {
+      "id": "scroll",
+      "weight_coins": 1
+    },
+    {
+      "id": "staff",
+      "weight_coins": 40
+    },
+    {
+      "id": "wand",
+      "weight_coins": 10
+    }
+  ],
+  "weapons": [
+    {
+      "cost_gp": 7,
+      "damage": "1d8",
+      "id": "battle_axe",
+      "item_type": "weapon",
+      "material": "standard",
+      "missile_ranges": null,
+      "name": "Battle axe",
+      "overrides_applied": [],
+      "qualities": [
+        "melee",
+        "slow",
+        "two_handed"
+      ],
+      "weight_coins": 50
+    },
+    {
+      "cost_gp": 3,
+      "damage": "1d4",
+      "id": "club",
+      "item_type": "weapon",
+      "material": "standard",
+      "missile_ranges": null,
+      "name": "Club",
+      "overrides_applied": [],
+      "qualities": [
+        "blunt",
+        "melee"
+      ],
+      "weight_coins": 50
+    },
+    {
+      "cost_gp": 30,
+      "damage": "1d6",
+      "id": "crossbow",
+      "item_type": "weapon",
+      "material": "standard",
+      "missile_ranges": {
+        "long": {
+          "max_feet": 240,
+          "min_feet": 161
+        },
+        "medium": {
+          "max_feet": 160,
+          "min_feet": 81
+        },
+        "short": {
+          "max_feet": 80,
+          "min_feet": 5
+        }
+      },
+      "name": "Crossbow",
+      "overrides_applied": [],
+      "qualities": [
+        "missile",
+        "reload",
+        "slow",
+        "two_handed"
+      ],
+      "weight_coins": 50
+    },
+    {
+      "cost_gp": 3,
+      "damage": "1d4",
+      "id": "dagger",
+      "item_type": "weapon",
+      "material": "standard",
+      "missile_ranges": {
+        "long": {
+          "max_feet": 30,
+          "min_feet": 21
+        },
+        "medium": {
+          "max_feet": 20,
+          "min_feet": 11
+        },
+        "short": {
+          "max_feet": 10,
+          "min_feet": 5
+        }
+      },
+      "name": "Dagger",
+      "overrides_applied": [],
+      "qualities": [
+        "melee",
+        "missile"
+      ],
+      "weight_coins": 10
+    },
+    {
+      "cost_gp": 4,
+      "damage": "1d6",
+      "id": "hand_axe",
+      "item_type": "weapon",
+      "material": "standard",
+      "missile_ranges": {
+        "long": {
+          "max_feet": 30,
+          "min_feet": 21
+        },
+        "medium": {
+          "max_feet": 20,
+          "min_feet": 11
+        },
+        "short": {
+          "max_feet": 10,
+          "min_feet": 5
+        }
+      },
+      "name": "Hand axe",
+      "overrides_applied": [],
+      "qualities": [
+        "melee",
+        "missile"
+      ],
+      "weight_coins": 30
+    },
+    {
+      "cost_gp": 1,
+      "damage": "1d4",
+      "id": "javelin",
+      "item_type": "weapon",
+      "material": "standard",
+      "missile_ranges": {
+        "long": {
+          "max_feet": 90,
+          "min_feet": 61
+        },
+        "medium": {
+          "max_feet": 60,
+          "min_feet": 31
+        },
+        "short": {
+          "max_feet": 30,
+          "min_feet": 5
+        }
+      },
+      "name": "Javelin",
+      "overrides_applied": [],
+      "qualities": [
+        "missile"
+      ],
+      "weight_coins": 20
+    },
+    {
+      "cost_gp": 5,
+      "damage": "1d6",
+      "id": "lance",
+      "item_type": "weapon",
+      "material": "standard",
+      "missile_ranges": null,
+      "name": "Lance",
+      "overrides_applied": [],
+      "qualities": [
+        "charge",
+        "melee"
+      ],
+      "weight_coins": 120
+    },
+    {
+      "cost_gp": 40,
+      "damage": "1d6",
+      "id": "long_bow",
+      "item_type": "weapon",
+      "material": "standard",
+      "missile_ranges": {
+        "long": {
+          "max_feet": 210,
+          "min_feet": 141
+        },
+        "medium": {
+          "max_feet": 140,
+          "min_feet": 71
+        },
+        "short": {
+          "max_feet": 70,
+          "min_feet": 5
+        }
+      },
+      "name": "Long bow",
+      "overrides_applied": [],
+      "qualities": [
+        "missile",
+        "two_handed"
+      ],
+      "weight_coins": 30
+    },
+    {
+      "cost_gp": 5,
+      "damage": "1d6",
+      "id": "mace",
+      "item_type": "weapon",
+      "material": "standard",
+      "missile_ranges": null,
+      "name": "Mace",
+      "overrides_applied": [],
+      "qualities": [
+        "blunt",
+        "melee"
+      ],
+      "weight_coins": 30
+    },
+    {
+      "cost_gp": 7,
+      "damage": "1d10",
+      "id": "pole_arm",
+      "item_type": "weapon",
+      "material": "standard",
+      "missile_ranges": null,
+      "name": "Pole arm",
+      "overrides_applied": [],
+      "qualities": [
+        "brace",
+        "melee",
+        "slow",
+        "two_handed"
+      ],
+      "weight_coins": 150
+    },
+    {
+      "cost_gp": 25,
+      "damage": "1d6",
+      "id": "short_bow",
+      "item_type": "weapon",
+      "material": "standard",
+      "missile_ranges": {
+        "long": {
+          "max_feet": 150,
+          "min_feet": 101
+        },
+        "medium": {
+          "max_feet": 100,
+          "min_feet": 51
+        },
+        "short": {
+          "max_feet": 50,
+          "min_feet": 5
+        }
+      },
+      "name": "Short bow",
+      "overrides_applied": [],
+      "qualities": [
+        "missile",
+        "two_handed"
+      ],
+      "weight_coins": 30
+    },
+    {
+      "cost_gp": 7,
+      "damage": "1d6",
+      "id": "short_sword",
+      "item_type": "weapon",
+      "material": "standard",
+      "missile_ranges": null,
+      "name": "Short sword",
+      "overrides_applied": [],
+      "qualities": [
+        "melee"
+      ],
+      "weight_coins": 30
+    },
+    {
+      "cost_gp": 30,
+      "damage": "1d4",
+      "id": "silver_dagger",
+      "item_type": "weapon",
+      "material": "silver",
+      "missile_ranges": {
+        "long": {
+          "max_feet": 30,
+          "min_feet": 21
+        },
+        "medium": {
+          "max_feet": 20,
+          "min_feet": 11
+        },
+        "short": {
+          "max_feet": 10,
+          "min_feet": 5
+        }
+      },
+      "name": "Silver dagger",
+      "overrides_applied": [],
+      "qualities": [
+        "melee",
+        "missile"
+      ],
+      "weight_coins": 10
+    },
+    {
+      "cost_gp": 2,
+      "damage": "1d4",
+      "id": "sling",
+      "item_type": "weapon",
+      "material": "standard",
+      "missile_ranges": {
+        "long": {
+          "max_feet": 160,
+          "min_feet": 81
+        },
+        "medium": {
+          "max_feet": 80,
+          "min_feet": 41
+        },
+        "short": {
+          "max_feet": 40,
+          "min_feet": 5
+        }
+      },
+      "name": "Sling",
+      "overrides_applied": [],
+      "qualities": [
+        "blunt",
+        "missile"
+      ],
+      "weight_coins": 20
+    },
+    {
+      "cost_gp": 3,
+      "damage": "1d6",
+      "id": "spear",
+      "item_type": "weapon",
+      "material": "standard",
+      "missile_ranges": {
+        "long": {
+          "max_feet": 60,
+          "min_feet": 41
+        },
+        "medium": {
+          "max_feet": 40,
+          "min_feet": 21
+        },
+        "short": {
+          "max_feet": 20,
+          "min_feet": 5
+        }
+      },
+      "name": "Spear",
+      "overrides_applied": [],
+      "qualities": [
+        "brace",
+        "melee",
+        "missile"
+      ],
+      "weight_coins": 30
+    },
+    {
+      "cost_gp": 2,
+      "damage": "1d4",
+      "id": "staff",
+      "item_type": "weapon",
+      "material": "standard",
+      "missile_ranges": null,
+      "name": "Staff",
+      "overrides_applied": [],
+      "qualities": [
+        "blunt",
+        "melee",
+        "slow",
+        "two_handed"
+      ],
+      "weight_coins": 40
+    },
+    {
+      "cost_gp": 10,
+      "damage": "1d8",
+      "id": "sword",
+      "item_type": "weapon",
+      "material": "standard",
+      "missile_ranges": null,
+      "name": "Sword",
+      "overrides_applied": [],
+      "qualities": [
+        "melee"
+      ],
+      "weight_coins": 60
+    },
+    {
+      "cost_gp": 15,
+      "damage": "1d10",
+      "id": "two_handed_sword",
+      "item_type": "weapon",
+      "material": "standard",
+      "missile_ranges": null,
+      "name": "Two-handed sword",
+      "overrides_applied": [],
+      "qualities": [
+        "melee",
+        "slow",
+        "two_handed"
+      ],
+      "weight_coins": 150
+    },
+    {
+      "cost_gp": 5,
+      "damage": "1d6",
+      "id": "war_hammer",
+      "item_type": "weapon",
+      "material": "standard",
+      "missile_ranges": null,
+      "name": "War hammer",
+      "overrides_applied": [],
+      "qualities": [
+        "blunt",
+        "melee"
+      ],
+      "weight_coins": 30
+    }
+  ]
+}
