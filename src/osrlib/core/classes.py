@@ -540,12 +540,16 @@ def drain_levels(
         hp_lost += lost
     events: list[Event] = []
     if slain:
+        # The killing level counts as lost: a level-1 victim loses 1 level, a
+        # spectre draining a level-2 fighter reports 2 (the model's level floor of 1
+        # stays — the character is dead, not level 0).
+        levels_lost = former_level - character.level + 1
         character.xp = 0
         events.append(
             LevelDrainedEvent(
                 code="combat.drain.slain",
                 target_id=character.id or character.name,
-                levels_lost=former_level - character.level,
+                levels_lost=levels_lost,
                 new_level=0,
                 hp_lost=hp_lost,
                 spawn_consequence=spawn_consequence,
@@ -553,7 +557,7 @@ def drain_levels(
         )
         events.extend(kill(character))
         return DrainResult(
-            levels_lost=former_level - character.level,
+            levels_lost=levels_lost,
             new_level=0,
             hp_rolls=tuple(hp_rolls),
             hp_lost=hp_lost,

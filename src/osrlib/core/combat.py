@@ -148,7 +148,8 @@ class DamageSource(BaseModel):
     `keys` are material/enchantment keys (`silver`, `magic`, `holy`); `element` is the
     energy element, if any; `kind` names the delivery (`weapon`, `unarmed`, `splash`,
     `breath`, `falling`, `effect`); `destructive` marks sources that destroy a
-    victim's equipment on death (dragon breath now, *lightning bolt* in Phase 3).
+    victim's equipment on death (every breath weapon now, *lightning bolt* in
+    Phase 3).
     """
 
     model_config = ConfigDict(frozen=True)
@@ -377,6 +378,20 @@ def damage_source_for(attacker: object, attack: Attack, context: AttackContext) 
             if attack.id == "torch" or (attack.id == "oil_flask" and context.lit):
                 element = "fire"
     return DamageSource(keys=tuple(keys), element=element, kind=kind)
+
+
+def _is_bladed(attack: Attack) -> bool:
+    """Return whether the attack is a bladed weapon, for the sleeping-kill hook.
+
+    Pinned: "bladed" means a weapon (not a gear facet, a monster's natural attack, or
+    an unarmed strike) with the melee quality and without the blunt quality — the
+    SRD's blunt list exists precisely to separate crushing weapons from edged ones.
+    """
+    return (
+        isinstance(attack, WeaponTemplate)
+        and WeaponQuality.MELEE in attack.qualities
+        and WeaponQuality.BLUNT not in attack.qualities
+    )
 
 
 def validate_attack(
@@ -788,6 +803,12 @@ def resolve_attack(
             DamageAbsorbedEvent(target_id=_entity_id(defender), attacker_id=_entity_id(attacker), keys=source.keys)
         )
         return AttackResult(attack_roll=rolled, absorbed=True, events=tuple(events))
+    if has_condition(defender, Condition.ASLEEP) and _is_bladed(attack) and not _is_missile_use(attack, context):
+        # The sleeping condition's dies-to-a-blade hook (pinned): "A single attack
+        # with a bladed weapon can kill" — the melee hit kills outright, no damage
+        # roll; the immunity gate above still applies first.
+        events.extend(kill(defender))
+        return AttackResult(attack_roll=rolled, events=tuple(events))
     damage = damage_roll(attacker, attack, context=context, ruleset=ruleset, stream=stream)
     if damage.total > 0:
         events.extend(
@@ -1129,16 +1150,20 @@ def saving_throw(
     return SaveResult(passed=passed, roll=rolled, modifier=modifier, required=required, events=(event,))
 
 
-def apply_healing(target: object, amount: int, *, source: str = "instantaneous") -> list[Event]:
+def apply_healing(target: object, amount: int, *, source: str = "magical") -> list[Event]:
     """Apply instantaneous healing, capped at max HP.
 
     Mummy rot blocks magical healing (pinned): a diseased target emits the blocked
-    event and heals nothing from a `magical` source. The dead cannot be healed.
+    event and heals nothing from a `magical` source. Instantaneous healing *is*
+    magical healing per the spec, so `magical` is the default — a Phase 3 cure spell
+    that forgets to name its source still respects the rot rule. The dead cannot be
+    healed.
 
     Args:
         target: The creature to heal; mutated.
         amount: The healing amount. Non-negative.
-        source: The healing kind: `magical`, `natural`, or `instantaneous`.
+        source: The healing kind: `magical` (the default), `natural`, or
+            `regeneration`.
 
     Returns:
         The healing and state events.
@@ -1239,11 +1264,12 @@ def drain_monster_hd(monster: object, *, levels: int = 1, stream: RngStream) -> 
         hp_lost += lost
     events: list[Event] = []
     if slain:
+        # The killing Hit Die counts as lost, mirroring character drain.
         events.append(
             LevelDrainedEvent(
                 code="combat.drain.slain",
                 target_id=monster_id,
-                levels_lost=former - monster.hit_dice_count,
+                levels_lost=former - monster.hit_dice_count + 1,
                 new_level=0,
                 hp_lost=hp_lost,
             )
@@ -1480,7 +1506,10 @@ def resolve_breath(
     if params.get("uses_per_day") is not None:
         monster.breath_uses_today += 1
     element = str(params.get("element")) if params.get("element") is not None else None
-    # Dragon breath is a destructive death: the victim's equipment is destroyed.
+    # Breath weapons are destructive deaths (pinned): the SRD's destruction-of-items
+    # examples ("a lightning bolt spell or a dragon's breath") illustrate energy
+    # deaths generally, so the hellhound's and chimera's fire kills destroy
+    # equipment too, not just the dragons'.
     source = DamageSource(element=element, kind="breath", destructive=True)
     events: list[Event] = []
     save_or_die = params.get("outcome") == "death"

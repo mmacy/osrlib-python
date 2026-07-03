@@ -215,15 +215,19 @@ class TestAttackRoll:
         assert result.total == 20 and result.required == 21 and not result.hit
 
     def test_arithmetic_hits_below_matrix_floor(self, streams, allocator):
-        # A modified 0 misses matrix-required-2 but arithmetic-required-≤1 hits on a
-        # natural 2+ (here the natural is 2 with −2 modifier → total 0).
-        attacker = make_character(level=9)  # fighter L9 THAC0 14
-        rat = make_monster("normal_rat", streams, allocator)  # AC 9 → matrix 5... use worse AC via modifier instead
-        context = AttackContext(situational_modifier=-2)
+        # The other plateau: a low modified total misses the matrix's clamped floor
+        # of 2 but hits the unclamped arithmetic requirement of 1. Fighter L13 has
+        # THAC0 10; against AC 9 the matrix requires clamp(10 - 9) = 2 while
+        # arithmetic requires 1. A natural 2 at -1 totals 1: matrix miss,
+        # arithmetic hit.
+        attacker = make_character(level=13)
+        assert attacker.thac0 == 10
+        rat = make_monster("normal_rat", streams, allocator)  # AC 9
+        context = AttackContext(situational_modifier=-1)
         result = attack_roll(
             attacker, rat, load_equipment().get("sword"), context=context, ruleset=Ruleset(), stream=FixedStream([1])
         )
-        assert result.total == 0 and not result.hit
+        assert result.total == 1 and result.required == 2 and not result.hit
         result = attack_roll(
             attacker,
             rat,
@@ -232,19 +236,25 @@ class TestAttackRoll:
             ruleset=Ruleset(thac0_arithmetic=True),
             stream=FixedStream([1]),
         )
-        assert result.total == 0 and result.required == 14 - 9 and not result.hit
+        assert result.total == 1 and result.required == 1 and result.hit
 
     def test_helpless_defender_auto_hit_consumes_no_draw(self, streams, allocator):
-        attacker = make_character()
-        defender = make_monster("troll", streams, allocator)
-        grant_condition(defender, Condition.PARALYSED, "effect-x")
-        stream = FixedStream([10])
-        result = attack_roll(
-            attacker, defender, load_equipment().get("sword"), context=AttackContext(), ruleset=Ruleset(), stream=stream
-        )
-        assert result.auto and result.hit and result.roll is None
-        assert stream.draws == 0
-        assert result.events[0].code == "combat.attack.auto_hit"
+        for condition in (Condition.PARALYSED, Condition.ASLEEP):
+            attacker = make_character()
+            defender = make_monster("troll", streams, allocator)
+            grant_condition(defender, condition, "effect-x")
+            stream = FixedStream([10])
+            result = attack_roll(
+                attacker,
+                defender,
+                load_equipment().get("mace"),
+                context=AttackContext(),
+                ruleset=Ruleset(),
+                stream=stream,
+            )
+            assert result.auto and result.hit and result.roll is None
+            assert stream.draws == 0
+            assert result.events[0].code == "combat.attack.auto_hit"
 
     def test_no_hit_roll_required_defender(self, streams, allocator):
         attacker = make_character()
@@ -484,6 +494,71 @@ class TestDamagePipeline:
         fighter = make_character()
         result = damage_roll(fighter, None, context=AttackContext(), ruleset=Ruleset(), stream=FixedStream([1]))
         assert result.rolls == (2,) and result.total == 2
+
+    def test_sleeping_defender_dies_to_a_blade(self, streams, allocator):
+        # "A single attack with a bladed weapon can kill a creature enchanted by
+        # this spell" — the melee hit kills outright, no damage roll. Pinned:
+        # bladed means a melee-quality weapon without the blunt quality.
+        attacker = make_character()
+        sleeper = make_monster("troll", streams, allocator)
+        grant_condition(sleeper, Condition.ASLEEP, "effect-x")
+        stream = FixedStream([])  # auto-hit, and the kill rolls no damage
+        result = resolve_attack(
+            attacker, sleeper, load_equipment().get("sword"), context=AttackContext(), ruleset=Ruleset(), stream=stream
+        )
+        assert result.attack_roll.auto and result.damage is None
+        assert has_condition(sleeper, Condition.DEAD)
+        assert stream.draws == 0
+        assert "combat.death.died" in [event.code for event in result.events]
+
+    def test_blunt_weapon_on_a_sleeper_deals_normal_damage(self, streams, allocator):
+        attacker = make_character()
+        sleeper = make_monster("troll", streams, allocator)
+        grant_condition(sleeper, Condition.ASLEEP, "effect-x")
+        result = resolve_attack(
+            attacker,
+            sleeper,
+            load_equipment().get("mace"),
+            context=AttackContext(),
+            ruleset=Ruleset(),
+            stream=FixedStream([3]),
+        )
+        assert result.damage == 4  # 1d6 shows 4; no outright kill
+        assert not has_condition(sleeper, Condition.DEAD)
+
+    def test_blade_kill_respects_the_immunity_gate(self, streams, allocator):
+        # A sleeping black pudding is still only harmed by fire: the sword is
+        # absorbed before the dies-to-a-blade hook can fire.
+        attacker = make_character()
+        pudding = make_monster("black_pudding", streams, allocator)
+        grant_condition(pudding, Condition.ASLEEP, "effect-x")
+        result = resolve_attack(
+            attacker,
+            pudding,
+            load_equipment().get("sword"),
+            context=AttackContext(),
+            ruleset=Ruleset(),
+            stream=FixedStream([]),
+        )
+        assert result.absorbed
+        assert not has_condition(pudding, Condition.DEAD)
+
+    def test_thrown_blade_does_not_kill_a_sleeper(self, streams, allocator):
+        # The hook is melee-only: a thrown dagger resolves as a normal missile
+        # attack (no helpless auto-hit, no outright kill).
+        attacker = make_character()
+        sleeper = make_monster("troll", streams, allocator)
+        grant_condition(sleeper, Condition.ASLEEP, "effect-x")
+        result = resolve_attack(
+            attacker,
+            sleeper,
+            load_equipment().get("dagger"),
+            context=AttackContext(distance_feet=15),
+            ruleset=Ruleset(),
+            stream=FixedStream([18, 2]),
+        )
+        assert not result.attack_roll.auto
+        assert not has_condition(sleeper, Condition.DEAD)
 
     def test_death_at_zero_emits(self, streams, allocator):
         rat = make_monster("normal_rat", streams, allocator)

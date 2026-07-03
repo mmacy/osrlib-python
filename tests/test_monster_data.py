@@ -2,7 +2,7 @@
 
 import pytest
 
-from osrlib.core.monsters import DamageKey, Element, MonsterHitDice
+from osrlib.core.monsters import DamageKey, Element, MonsterHitDice, spawn_monster
 from osrlib.core.tables import monster_xp, thac0_for_hd, to_hit_ac, xp_band_label
 from osrlib.data import load_combat_tables, load_monsters
 
@@ -261,6 +261,45 @@ class TestMonsterCatalog:
             assert dice.count > 0 or dice.fixed_hp is not None
             if template.attack_roll_required:
                 assert template.ac is not None and template.ac_ascending is not None
+
+
+class FixedStream:
+    def __init__(self, values):
+        self.values = list(values)
+        self.draws = 0
+
+    def randbelow(self, n):
+        self.draws += 1
+        return self.values.pop(0) % n
+
+
+class TestSpawnHitPoints:
+    def test_minimum_one_hit_point(self):
+        # The goblin's 1-1 rolling a 1 would total 0; spawn floors at 1 (pinned).
+        goblin = load_monsters().get("goblin")
+        instance = spawn_monster(goblin, id="m-1", stream=FixedStream([0]))
+        assert instance.max_hp == 1 and instance.current_hp == 1
+
+    def test_half_hd_rolls_1d4(self):
+        # ½ HD compiles as 1d4 (pinned): one draw, bounded by the d4.
+        human = load_monsters().get("normal_human")
+        stream = FixedStream([3])
+        instance = spawn_monster(human, id="m-2", stream=stream)
+        assert stream.draws == 1
+        assert instance.max_hp == 4  # randbelow(4) == 3 → die shows 4
+
+    def test_fixed_hp_forms_roll_nothing(self):
+        stream = FixedStream([])
+        bat = spawn_monster(load_monsters().get("normal_bat"), id="m-3", stream=stream)
+        assert bat.max_hp == 1
+        hydra = spawn_monster(load_monsters().get("hydra_7"), id="m-4", stream=stream)
+        assert hydra.max_hp == 56
+        assert stream.draws == 0
+
+    def test_modifier_applies_to_the_sum(self):
+        troll = load_monsters().get("troll")  # 6+3
+        instance = spawn_monster(troll, id="m-5", stream=FixedStream([0, 0, 0, 0, 0, 0]))
+        assert instance.max_hp == 6 + 3  # six 1s plus the +3 modifier
 
 
 class TestCombatTables:

@@ -148,11 +148,12 @@ below 1 while the character retains a level; death by drain happens only by losi
 the last level. XP policy is per-monster data: the wight sets XP to the floored
 midpoint of the former and new levels' thresholds; wraith, spectre, and vampire set
 it to the new level's threshold exactly. Two-level drains apply the procedure twice
-and set XP once. Draining a monster loses Hit Dice symmetrically: the instance
-re-derives THAC0 and saves from the reduced HD and loses a rolled d8; below 1 HD it
-dies. The spawn consequence (rises as a wight in 1d4 days) is a structured-but-manual
-field on the drain event — the kernel kills, the game narrates. Locked by
-`test_drain.py`.
+and set XP once. On the terminal drain the killing level counts in `levels_lost` (a
+level-1 victim loses 1 level; a spectre draining a level-2 fighter reports 2).
+Draining a monster loses Hit Dice symmetrically: the instance re-derives THAC0 and
+saves from the reduced HD and loses a rolled d8; below 1 HD it dies. The spawn
+consequence (rises as a wight in 1d4 days) is a structured-but-manual field on the
+drain event — the kernel kills, the game narrates. Locked by `test_drain.py`.
 
 ### The damage pipeline order
 
@@ -214,12 +215,15 @@ routes a torch or oil hit into the troll's non-regenerable ledger. Locked by
 
 ### Breath-weapon daily limits are per-monster data
 
-The three-per-day limit is the *dragons'* rule (and the dragon turtle's), pinned
-per-monster; the hellhound has none — its 2-in-6 per-round chance ships as data for
-Phase 4's action policy, and the kernel resolves the breath whenever invoked. Dragon
-breath is a destructive death: the victim's mundane equipment is destroyed. Dragons'
-energy immunity encodes as immune-to-nonmagical plus auto-save-versus-magical for the
-variant's breath element(s). Locked by `test_combat.py::TestBreathAndGaze`.
+The three-per-day limit is per-monster data (the dragons, the dragon turtle, and the
+chimera print it; the hellhound has none — its 2-in-6 per-round chance ships as data
+for Phase 4's action policy, and the kernel resolves the breath whenever invoked).
+Every breath weapon is a destructive death (pinned): the SRD's destruction-of-items
+examples ("a lightning bolt spell or a dragon's breath") illustrate energy deaths
+generally, so the hellhound's fire kill destroys the victim's mundane equipment too.
+Dragons' energy immunity encodes as immune-to-nonmagical plus
+auto-save-versus-magical for the variant's breath element(s). Locked by
+`test_combat.py::TestBreathAndGaze`.
 
 ### The HD-budget targeting mode consumes weakest-first
 
@@ -274,14 +278,23 @@ landed, with the revived troll rising at 1 hp. Locked by
 
 "Magical healing is ineffective; natural healing is ten times slower" — one 1d3
 recovery per ten consecutive full rest days, tracked on the effect; removal is Phase
-3 magic. Locked by `test_effects.py::TestMummyRot`.
+3 magic. `apply_healing` defaults its source to `magical` (instantaneous healing *is*
+magical healing per the spec), so a caller that forgets to name the source still
+respects the block. Locked by `test_effects.py::TestMummyRot`.
 
 ### Asleep grants auto-hit and dies-to-a-blade; dozing is a caller modifier
 
-The asleep condition's combat hook ships now (the *sleep* spell that inflicts it is
-Phase 3); the dragons' "may be attacked for one round with a +2 bonus" dozing is the
-caller-supplied situational modifier, not a condition. Locked by
-`test_combat.py::TestAttackRoll`.
+The asleep condition's combat hooks ship now (the *sleep* spell that inflicts it is
+Phase 3): a sleeping defender is hit automatically in melee, and "a single attack
+with a bladed weapon can kill" — the melee hit kills outright with no damage roll.
+Pinned: "bladed" means a weapon (not a gear facet, a monster's natural attack, or an
+unarmed strike) with the melee quality and without the blunt quality — the SRD's
+blunt list exists precisely to separate crushing weapons from edged ones; the hook is
+melee-use only, and the immunity gate still applies first (a sword absorbed by the
+black pudding's fire-only gate kills nothing). The dragons' "may be attacked for one
+round with a +2 bonus" dozing is the caller-supplied situational modifier, not a
+condition. Locked by `test_combat.py::TestDamagePipeline::test_sleeping_defender_dies_to_a_blade`
+and its neighbors.
 
 ### Falling damage floors per full 10 feet
 
@@ -306,7 +319,7 @@ than silently ignoring the shield at resolution. Locked by
 
 Spawned HP is the sum of the HD count in d8s (d4 for ½ HD) plus the signed modifier,
 minimum 1; `1hp` and the hydra's 8-hp-per-HD forms roll nothing. Locked by
-`test_monster_data.py` and `test_effects.py`.
+`test_monster_data.py::TestSpawnHitPoints`.
 
 ### Compiled monster data conventions
 
