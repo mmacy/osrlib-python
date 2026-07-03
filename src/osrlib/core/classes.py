@@ -237,7 +237,9 @@ class ClassDefinition(BaseModel):
 
     Frozen SRD data: play never mutates a class definition. `requirements` are minimum
     scores checked at class choice; `may_not_lower` carries adjustment-step
-    restrictions (the thief's STR). `level_titles[i]` is the title at level `i + 1`.
+    restrictions (the thief's STR). `level_titles[i]` is the title at level `i + 1`;
+    the SRD's title lists run only through name level, so they are shorter than the
+    progression and levels beyond them have no title entry.
     """
 
     model_config = ConfigDict(frozen=True)

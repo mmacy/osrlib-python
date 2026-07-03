@@ -230,6 +230,7 @@ class AmmunitionTemplate(BaseModel):
 
     Ammunition weight is 0 (pinned): the SRD's missile weapon weights already include
     the ammunition and its container, and the ammunition table has no weight column.
+    Sling stones' cost of `Free` compiles to cost 0 with lot size 1 (pinned).
     """
 
     model_config = ConfigDict(frozen=True)

@@ -121,14 +121,22 @@ class TestCreationGoldens:
     def test_party_document_matches_golden(self):
         results = build_golden_party(RngStreams(master_seed=MASTER_SEED))
         document = party_to_document([result.character for result in results])
-        rendered = json.dumps(document, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
-        assert rendered == GOLDEN_PATH.read_text(encoding="utf-8"), (
+        golden = json.loads(GOLDEN_PATH.read_text(encoding="utf-8"))
+        # The engine version stamp tracks the package version, so comparing it here
+        # would force a golden regeneration on every release with zero behavior
+        # change; the stamp itself is asserted in test_document_carries_version_stamps.
+        document.pop("engine_version")
+        golden.pop("engine_version")
+        rendered = json.dumps(document, ensure_ascii=False, indent=2, sort_keys=True)
+        expected = json.dumps(golden, ensure_ascii=False, indent=2, sort_keys=True)
+        assert rendered == expected, (
             "golden mismatch; if the change is intentional, regenerate with "
             "`uv run python tests/generate_creation_goldens.py` and explain why in the commit message"
         )
 
     def test_document_carries_version_stamps(self):
-        document = json.loads(GOLDEN_PATH.read_text(encoding="utf-8"))
+        results = build_golden_party(RngStreams(master_seed=MASTER_SEED))
+        document = party_to_document([result.character for result in results])
         assert document["kind"] == "party"
         assert document["schema_version"] == SCHEMA_VERSION
         assert document["engine_version"] == engine_version()

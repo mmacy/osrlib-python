@@ -373,9 +373,12 @@ def validate_class_choice(scores: dict[AbilityScore, int], definition: ClassDefi
     """Validate a class choice against the class's minimum score requirements.
 
     Args:
-        scores: The rolled scores (requirements are checked before adjustment; the
-            adjustment step can never break them, since only STR, INT, and WIS can be
-            lowered and never below 9).
+        scores: The rolled scores. Requirements are checked before adjustment,
+            mirroring the SRD's step order (choose class, then adjust). For Classic
+            data the adjustment step can never break them — every requirement minimum
+            is 9, only STR, INT, and WIS may be lowered, and never below 9 — but an
+            Advanced class with a higher minimum on a lowerable non-prime ability
+            would need a re-check after adjustment.
         definition: The chosen class.
 
     Returns:

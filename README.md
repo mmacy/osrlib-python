@@ -57,6 +57,6 @@ uv run ruff check
 This repository contains two kinds of material under two licenses:
 
 - **Library code** is licensed under the [MIT license](LICENSE).
-- **SRD-derived content** — the scraped SRD text in `srd/` and, in later phases, the compiled game data — is Open Game Content used under the [Open Game License 1.0a](LICENSE-OGL.md), which includes the complete Section 15 copyright notice.
+- **SRD-derived content** — the scraped SRD text in `srd/` and the compiled game data in `src/osrlib/data/` — is Open Game Content used under the [Open Game License 1.0a](LICENSE-OGL.md), which includes the complete Section 15 copyright notice. The data package ships its own copy of the license, with the osrlib Section 15 entry, inside the built wheel.
 
 osrlib is an independent project, not affiliated with or endorsed by Necrotic Gnome. "Old-School Essentials" is a trademark of Necrotic Gnome, used here only to identify the source document; no claim of compatibility is made.
