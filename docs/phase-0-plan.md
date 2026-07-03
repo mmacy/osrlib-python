@@ -73,7 +73,7 @@ The grammar from the spec, no more:
 - `NdS` with optional `+M`/`-M` modifier and optional `×K` multiplier (`x` and `*` accepted as ASCII aliases). `N` defaults to 1. `d%` is an alias for `d100`. Die sizes `S ∈ {2, 3, 4, 6, 8, 10, 12, 20, 100}` — a closed set; anything else raises `ContentValidationError`.
 - Grammar edges pinned here since the spec is silent, and `parse` acceptance is contract:
     - Parsing is case-insensitive (`2D6`, `1d6X10`); surrounding whitespace is stripped; internal whitespace is rejected.
-    - `N ≥ 1`, `K ≥ 1`, `M` any integer.
+    - `N ≥ 1`, `K ≥ 1`, `M` any integer. *Amended during implementation review:* numerals are canonical ASCII digits without leading zeros, bounded as `N ≤ 999`, `K ≤ 999999`, `|M| ≤ 999999` — unbounded numerals would admit Unicode digits via `\d`, absurd roll costs, and bare `ValueError` escapes from CPython's int-conversion digit limit.
     - The `%` alias composes like any die size: `Nd%` ≡ `Nd100`, with modifiers and multipliers allowed.
     - Component order is fixed: dice, then modifier, then multiplier. `2d6+1×10` parses; `2d6×10+1` raises `ContentValidationError`.
     - Evaluation order is `(sum of dice + M) × K`. This is *not* ordinary arithmetic precedence (`2d6+1×10` means `(2d6+1)×10`, not `2d6+10`) — the module docstring calls this out and a test asserts the value.
