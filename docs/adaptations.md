@@ -397,7 +397,8 @@ the charge. Locked by `test_casting.py::TestCuresAndRestoration`.
 `Cleric.md` states "A cleric must carry a holy symbol" as a class edict alongside
 deity faithfulness, not as a precondition on any procedure. The item ships in the
 Phase 1 gear data; games wanting the stricter reading check inventory themselves.
-Consequence chosen: a symbol-less cleric turns and casts unimpeded.
+Consequence chosen: a symbol-less cleric turns and casts unimpeded. Locked by
+`test_turning.py::TestProcedure::test_holy_symbol_is_not_a_gate`.
 
 ### Starting books hold exactly capacity; book capacity is per level; books never auto-shrink
 
@@ -524,20 +525,27 @@ Locked by `test_casting.py::TestSilenceWebDispelFeeblemind`.
 ### Raise dead: 0 days at level 7, a 14-elapsed-day weakness, and permanent undead destruction
 
 The time limit is 4 days per caster level above 7th — 0 days at level 7, RAW-faithful.
-Revival sets 1 hp and attaches the weakness (cannot attack, cannot cast, half
-movement), pinned to 14 elapsed days as the simplification of "two full weeks of bed
-rest" (rest tracking is Phase 4 procedure; games wanting strict bed-rest semantics
-extend or release via the ledger); magical healing doesn't shorten it. Only characters
-are raisable (all four Classic races are human or demihuman; monsters are not). The
-destroy-undead usage kills permanently on a failed save, matching turning's `D`.
-Locked by `test_casting.py::TestCuresAndRestoration`.
+Revival sets 1 hp and attaches the weakness, pinned to 14 elapsed days as the
+simplification of "two full weeks of bed rest" (rest tracking is Phase 4 procedure;
+games wanting strict bed-rest semantics extend or release via the ledger). While it
+runs, the subject cannot attack, cast, or turn undead (RAW bans "other class
+abilities" too), moves at half rate (a Phase 4 marker param), and healing from
+*every* source is blocked — RAW says the subject "has 1 hit point" until the
+recovery completes and no magical healing shortens it; the hit point returns to
+normal recovery when the weakness ends. Only characters are raisable (all four
+Classic races are human or demihuman; monsters are not). The destroy-undead usage
+kills permanently on a failed save, matching turning's `D`. Locked by
+`test_casting.py::TestCuresAndRestoration::test_raise_dead_level_seven_allows_zero_days`.
 
-### Neutralize poison's revival window is caller-attested
+### Neutralize poison's revival window is caller-attested, and only characters revive
 
-"A character who has died from poisoning can be revived, if *neutralize poison* is
-cast within ten rounds": the caller attests rounds-since-death until Phase 4's session
-owns the clock context; revival stands the subject up at 1 hp (pinned — RAW names no
-hit point total). Locked by `test_casting.py::TestCuresAndRestoration`.
+"A **character** who has died from poisoning can be revived, if *neutralize poison*
+is cast within ten rounds": the kernel has no cause-of-death model, so supplying
+`CastContext.rounds_since_death` *is* the caller's attestation that the target died
+of poison within that many rounds — omit it for any other death. Only a `Character`
+is revivable (the page's usage is titled "Characters"); revival stands the subject up
+at 1 hp (pinned — RAW names no hit point total). Locked by
+`test_casting.py::TestCuresAndRestoration`.
 
 ### Silence automates only the moving on-creature form
 

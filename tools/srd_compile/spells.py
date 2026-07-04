@@ -208,7 +208,9 @@ _PROTECTION_RADIUS_MODES = [
                 {"kind": "save_bonus", "value": 1, "versus_other_alignment": True},
                 {"kind": "attack_penalty_of_attackers", "value": -1, "versus_other_alignment": True},
             ],
-            "params": {"bars_melee_from": ("enchanted", "constructed", "summoned")},
+            # The ward covers the caster plus the supplied allies (the caster stands
+            # at the radius' center by definition); the 10' geometry is Phase 4's.
+            "params": {"bars_melee_from": ("enchanted", "constructed", "summoned"), "includes_caster": True},
         },
     ),
 ]
@@ -704,7 +706,11 @@ _SPELL_MECHANICS: dict[str, dict[str, list[dict[str, object]]]] = {
                     params={
                         "behaviour_dice": "2d6",
                         "behaviour_table": ("2-5:attack_caster_group", "6-8:no_action", "9-12:attack_own_group"),
-                        "resave_hd_min": 3,
+                        # "2+1 HD or greater" re-saves each round: HD count 3+, or
+                        # count 2 with a positive fixed modifier (the sleep pin's
+                        # count-plus-bonus vocabulary); "2 HD or lower" never saves.
+                        "resave_hd_min_count": 3,
+                        "resave_at_hd_count_2_with_bonus": True,
                         "resave_category": "spells",
                         "resave_interval": "round",
                     },

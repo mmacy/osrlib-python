@@ -1299,9 +1299,12 @@ def apply_healing(target: object, amount: int, *, source: str = "magical") -> li
 
     Mummy rot blocks magical healing (pinned): a diseased target emits the blocked
     event and heals nothing from a `magical` source. Instantaneous healing *is*
-    magical healing per the spec, so `magical` is the default — a Phase 3 cure spell
-    that forgets to name its source still respects the rot rule. The dead cannot be
-    healed.
+    magical healing per the spec, so `magical` is the default — a cure spell that
+    forgets to name its source still respects the rot rule. The raise-dead weakness
+    blocks healing from every source (pinned): RAW says the subject "has 1 hit
+    point" until the recovery completes and the period "may not be shortened by any
+    magical healing" — the hit point returns when the weakness effect ends. The dead
+    cannot be healed.
 
     Args:
         target: The creature to heal; mutated.
@@ -1317,7 +1320,7 @@ def apply_healing(target: object, amount: int, *, source: str = "magical") -> li
     target_id = _entity_id(target)
     if has_condition(target, Condition.DEAD):
         return []
-    if source == "magical" and has_condition(target, Condition.DISEASED):
+    if has_condition(target, Condition.WEAKENED) or (source == "magical" and has_condition(target, Condition.DISEASED)):
         return [HealingAppliedEvent(code="combat.healing.blocked", target_id=target_id, amount=0, source=source)]
     healed = min(amount, target.max_hp - target.current_hp)
     target.current_hp += healed

@@ -63,6 +63,7 @@ from osrlib.core.effects import (
     remove_condition,
 )
 from osrlib.core.events import (
+    DamageAbsorbedEvent,
     EffectTickedEvent,
     Event,
     HitPointsReportedEvent,
@@ -669,7 +670,9 @@ class CastContext(BaseModel):
     required" — the pinned inverse: no roll outside combat). `bound`/`gagged` are the
     `Combat.md` Freedom restraints the kernel has no model for. `rounds_since_death`
     and `days_since_death` are the caller's attestations for *neutralize poison* and
-    *raise dead* until Phase 4's session owns the clock context. `strength_tiers`
+    *raise dead* until Phase 4's session owns the clock context — the kernel has no
+    cause-of-death model, so supplying `rounds_since_death` *is* the attestation
+    that the target died of poison; omit it for any other death. `strength_tiers`
     maps entity ids to `"augmented"`/`"giant"` for *web*'s faster escape tiers
     (caller-asserted until such effects exist).
     """
@@ -749,7 +752,8 @@ def validate_cast(
     convention. Category and immunity gates are **resolution** outcomes, never
     validator rejections (pinned, extending the Phase 2 holy-water doctrine):
     casting *charm person* at a disguised doppelgänger must not be a zero-cost
-    detector.
+    detector. A cleric's holy symbol is not checked (pinned — `Cleric.md` states
+    carrying one as a class edict, not a mechanical gate on any procedure).
 
     Args:
         caster: The casting character.
@@ -1109,6 +1113,14 @@ def _select_cast_targets(
         return select_targets(
             TargetingMode.UP_TO_N, eligible, stream=stream, count=targeting.count, count_dice=targeting.count_dice
         )
+    # Area modes: every supplied candidate; a radius ward centered on the caster
+    # (*protection from evil 10' radius*) covers the caster too.
+    if (
+        mode.effect is not None
+        and mode.effect.params.get("includes_caster")
+        and all(target is not caster for target in eligible)
+    ):
+        return [caster, *eligible], []
     return list(eligible), []
 
 
@@ -1304,11 +1316,9 @@ def _resolve_effect(
     """Dispatch one automated mode's resolution — the casting interpreter."""
     kind = mode.effect.kind
     if kind == "damage":
-        _resolve_damage(
-            caster, spell, mode, selected, state, context, ledger=None, ruleset=ruleset, stream=stream, clock=clock
-        )
+        _resolve_damage(caster, spell, mode, selected, state, context, ruleset=ruleset, stream=stream, clock=clock)
     elif kind == "heal":
-        _resolve_heal(caster, mode, selected, state, stream)
+        _resolve_heal(mode, selected, state, stream)
     elif kind == "cure":
         _resolve_cure(caster, mode, selected, state, context, ledger, registry, stream)
     elif kind in ("condition", "modifiers", "attach_only"):
@@ -1357,7 +1367,6 @@ def _resolve_damage(
     state: _CastState,
     context: CastContext,
     *,
-    ledger: EffectsLedger | None,
     ruleset: Ruleset,
     stream: RngStream,
     clock: GameClock,
@@ -1437,15 +1446,11 @@ def _resolve_damage(
 
 
 def _absorbed_events(target: object, caster_id: str, source: DamageSource) -> list[Event]:
-    from osrlib.core.events import DamageAbsorbedEvent
-
     keys = source.keys if source.element is None else (*source.keys, source.element)
     return [DamageAbsorbedEvent(target_id=_target_ref(target), attacker_id=caster_id, keys=keys)]
 
 
-def _resolve_heal(
-    caster: object, mode: SpellMode, selected: list[object], state: _CastState, stream: RngStream
-) -> None:
+def _resolve_heal(mode: SpellMode, selected: list[object], state: _CastState, stream: RngStream) -> None:
     for target in selected:
         result = roll(str(mode.effect.params["dice"]), stream)
         events = apply_healing(target, result.total, source="magical")
@@ -1490,14 +1495,19 @@ def _resolve_cure(
             state.affect(target)
         if params.get("revives_poison_dead") and not isinstance(target, str):
             window = int(params.get("revive_window_rounds", 10))
+            # The page's revival usage is titled "Characters" — only a Character is
+            # revivable (pinned). The kernel has no cause-of-death model: supplying
+            # `rounds_since_death` IS the caller's attestation that the target died
+            # of poison within that many rounds (until Phase 4's session owns the
+            # clock context); omit it for any other death.
             if (
-                has_condition(target, Condition.DEAD)
+                getattr(target, "definition", None) is not None
+                and has_condition(target, Condition.DEAD)
                 and context.rounds_since_death is not None
                 and context.rounds_since_death <= window
             ):
-                # Revival, pinned: within the window the poison death is undone and
-                # the subject stands at 1 hp (the caller attests rounds-since-death
-                # until Phase 4's session owns the clock context).
+                # Revival, pinned: the poison death is undone and the subject
+                # stands at 1 hp (RAW names no hit point total).
                 state.events.extend(remove_condition(target, Condition.DEAD, None))
                 target.current_hp = 1
                 state.events.append(
@@ -1724,7 +1734,11 @@ def validate_turn_undead(cleric: object, definition: object) -> list[Rejection]:
     """Validate a turning attempt — the pure pre-phase.
 
     Turning is gated by the `turn_undead` class-ability tag; an incapacitated cleric
-    (dead, petrified, paralysed, asleep) cannot present the symbol.
+    (dead, petrified, paralysed, asleep) cannot present the symbol, and a `weakened`
+    one cannot turn — the raise-dead weakness bans class abilities ("cannot attack,
+    cast spells, or use other class abilities"). The holy symbol itself is *not* a
+    precondition (pinned): `Cleric.md` states carrying one as a class edict, not a
+    mechanical gate; games wanting the stricter reading check inventory themselves.
 
     Args:
         cleric: The turning character.
@@ -1735,7 +1749,8 @@ def validate_turn_undead(cleric: object, definition: object) -> list[Rejection]:
     """
     if not any(ability.tag == "turn_undead" for ability in getattr(definition, "abilities", ())):
         return [Rejection(code="magic.turning.not_a_turner", params={"class": definition.id})]
-    for condition in (Condition.DEAD, Condition.PETRIFIED, Condition.PARALYSED, Condition.ASLEEP):
+    incapacity = (Condition.DEAD, Condition.PETRIFIED, Condition.PARALYSED, Condition.ASLEEP, Condition.WEAKENED)
+    for condition in incapacity:
         if has_condition(cleric, condition):
             return [
                 Rejection(

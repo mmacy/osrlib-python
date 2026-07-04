@@ -9,6 +9,7 @@ from osrlib.core.clock import ROUNDS_PER_DAY, ROUNDS_PER_TURN, GameClock, TimeUn
 from osrlib.core.combat import (
     AttackContext,
     DamageSource,
+    SaveCategory,
     attack_roll,
     check_immunity,
     check_morale,
@@ -34,7 +35,6 @@ from osrlib.core.spells import (
     MAGIC_STREAM,
     CastContext,
     MemorizedSpell,
-    SaveCategory,
     cast_spell,
     disrupt_casting,
     pop_mirror_image,
@@ -685,6 +685,31 @@ class TestCuresAndRestoration:
             assert validate_attack(victim, cleric, None, AttackContext(), ruleset=harness.ruleset)
             victim.memorized_spells = (MemorizedSpell(spell_id="cure_light_wounds"),)
             assert validate_cast(victim, load_spells().get("cure_light_wounds"), "heal", targets=[victim])
+            # The weakness also bans other class abilities (turning) and pins the
+            # subject at 1 hp: healing from any source is blocked while it runs.
+            from osrlib.core.combat import apply_healing
+            from osrlib.core.spells import validate_turn_undead
+
+            blocked = apply_healing(victim, 5)
+            assert blocked[0].code == "combat.healing.blocked" and victim.current_hp == 1
+            weak_cleric = build_caster("cleric", 7, name="weak-cleric")
+            weak_cleric.conditions = victim.conditions
+            assert validate_turn_undead(weak_cleric, load_classes().get("cleric"))
+
+    def test_neutralize_poison_never_revives_monsters(self):
+        # The page's revival usage is titled "Characters" (pinned).
+        from osrlib.core.effects import kill as kill_creature
+
+        harness = Harness()
+        cleric = build_caster("cleric", 8, memorized=("neutralize_poison",))
+        goblin = harness.monster("goblin")
+        harness.add(cleric)
+        kill_creature(goblin)
+        result = harness.cast(
+            cleric, "neutralize_poison", "neutralize", targets=[goblin], context=CastContext(rounds_since_death=1)
+        )
+        assert result.no_effect
+        assert has_condition(goblin, Condition.DEAD)
 
     def test_raise_dead_never_raises_monsters(self):
         harness = Harness()
@@ -1040,6 +1065,16 @@ class TestBuffsAndWards:
                 goblin, id="monster-b", stream=harness.streams.get("monster_spawn"), alignment=Alignment.LAWFUL
             )
 
+    def test_protection_radius_covers_the_caster_plus_allies(self):
+        harness = Harness()
+        cleric = build_caster("cleric", 8, memorized=("protection_from_evil_10_radius_c",))
+        ally = build_caster("fighter", 1, name="ally")
+        harness.add(cleric, ally)
+        result = harness.cast(cleric, "protection_from_evil_10_radius_c", "ward", targets=[ally])
+        assert set(result.affected_ids) == {cleric.id, ally.id}
+        for warded in (cleric, ally):
+            assert any(m.kind == "attack_penalty_of_attackers" for m in warded.stat_modifiers)
+
     def test_protection_melee_ban_ships_as_data(self):
         ward = load_spells().get("protection_from_evil_c").mode("ward")
         assert ward.effect.params["bars_melee_from"] == ("enchanted", "constructed", "summoned")
@@ -1264,6 +1299,11 @@ class TestAttachOnlyCensus:
         confusion = catalog.get("confusion").mode("confuse")
         assert confusion.effect.params["behaviour_dice"] == "2d6"
         assert confusion.targeting.count_dice == "3d6"
+        # "2+1 HD or greater" re-saves: count 3+, or count 2 with a positive
+        # modifier — encoded so a 2+1 creature keeps its save under the
+        # bonuses-dropped HD convention.
+        assert confusion.effect.params["resave_hd_min_count"] == 3
+        assert confusion.effect.params["resave_at_hd_count_2_with_bonus"] is True
         infravision = catalog.get("infravision").mode("grant")
         assert infravision.effect.params["range_feet"] == 60
 

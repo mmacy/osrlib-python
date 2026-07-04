@@ -496,7 +496,7 @@ def validate_starting_spells(
     """
     profile = caster_profile(definition)
     if profile is None or profile.kind != "arcane":
-        if spell_ids or (profile is not None and profile.kind == "arcane"):
+        if spell_ids:
             return [Rejection(code="magic.book.not_arcane", params={"class": definition.id})]
         return []
     rejections: list[Rejection] = []

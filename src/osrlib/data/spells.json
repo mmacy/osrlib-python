@@ -649,8 +649,9 @@
                 "6-8:no_action",
                 "9-12:attack_own_group"
               ],
+              "resave_at_hd_count_2_with_bonus": true,
               "resave_category": "spells",
-              "resave_hd_min": 3,
+              "resave_hd_min_count": 3,
               "resave_interval": "round"
             }
           },
@@ -4360,7 +4361,8 @@
                 "enchanted",
                 "constructed",
                 "summoned"
-              ]
+              ],
+              "includes_caster": true
             }
           },
           "key": "ward",
@@ -4436,7 +4438,8 @@
                 "enchanted",
                 "constructed",
                 "summoned"
-              ]
+              ],
+              "includes_caster": true
             }
           },
           "key": "ward",

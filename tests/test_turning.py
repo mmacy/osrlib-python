@@ -102,10 +102,22 @@ class TestValidation:
     def test_incapacitated_cleric_cannot_turn(self):
         from osrlib.core.effects import ActiveCondition
 
-        cleric = build_cleric(3)
-        cleric.conditions = (ActiveCondition(condition=Condition.PARALYSED, effect_id=None),)
-        rejections = validate_turn_undead(cleric, load_classes().get("cleric"))
-        assert rejections[0].code == "magic.turning.caster_incapacitated"
+        for condition in (Condition.PARALYSED, Condition.WEAKENED):
+            cleric = build_cleric(3)
+            cleric.conditions = (ActiveCondition(condition=condition, effect_id=None),)
+            rejections = validate_turn_undead(cleric, load_classes().get("cleric"))
+            assert rejections[0].code == "magic.turning.caster_incapacitated"
+            assert rejections[0].params["condition"] == condition.value
+
+    def test_holy_symbol_is_not_a_gate(self):
+        # Pinned: Cleric.md's "must carry a holy symbol" is a class edict, not a
+        # mechanical precondition — a gear-less cleric turns (and casts) unimpeded.
+        harness = Harness()
+        cleric = build_cleric(4)
+        assert not cleric.inventory.items
+        skeleton = harness.monster("skeleton")
+        result = harness.turn(cleric, [skeleton])
+        assert result.events[0].code in ("magic.turning.turned", "magic.turning.destroyed")
 
     def test_turn_undead_raises_on_invalid(self):
         harness = Harness()
