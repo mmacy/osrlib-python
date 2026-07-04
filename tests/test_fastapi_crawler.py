@@ -378,6 +378,11 @@ class TestWireLeaks:
         # Referee-visibility outcomes never appear in command results.
         assert "exploration.detection.rolled" not in blob
         assert '"referee"' not in blob
+        # Unexplored geometry and monster HP ride the same guarantee: /view
+        # returns session.view(Visibility.PLAYER) verbatim, whose projection the
+        # leak property test (test_crawl_properties.test_the_player_view_never_leaks)
+        # fuzzes for exactly those two — this suite adds nothing to the projection,
+        # so its assertions compose with that one at the wire.
 
     def test_every_returned_event_is_player_visible(self, client):
         session_id = create_session(client)
