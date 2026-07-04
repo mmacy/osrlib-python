@@ -546,7 +546,11 @@ class PartyLocation(BaseModel):
 
 
 class DoorState(BaseModel):
-    """One door's mutable overlay: open, wedged, discovered, unlocked."""
+    """One door's mutable overlay: open, wedged, discovered, unlocked.
+
+    `opened_by_party` is the swing-shut rule's memory: only doors the party
+    opened (by whatever means) swing shut behind it; authored-open doors stay.
+    """
 
     model_config = ConfigDict(validate_assignment=True)
 
@@ -554,6 +558,7 @@ class DoorState(BaseModel):
     wedged: bool = False
     discovered: bool = False
     unlocked: bool = False
+    opened_by_party: bool = False
 
 
 class DroppedItem(BaseModel):
