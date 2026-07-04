@@ -17,7 +17,19 @@ from pydantic import BaseModel, ConfigDict
 __all__ = [
     "EncumbranceMode",
     "Ruleset",
+    "XpAwardTiming",
 ]
+
+
+class XpAwardTiming(StrEnum):
+    """When the XP award fires; see the Phase 5 award procedure.
+
+    The wire values are `"on_return"` and `"immediate"` — lowercase, serialized
+    into saves; changing them is a `schema_version` bump.
+    """
+
+    ON_RETURN = "on_return"
+    IMMEDIATE = "immediate"
 
 
 class EncumbranceMode(StrEnum):
@@ -82,6 +94,12 @@ class Ruleset(BaseModel):
             survivors land in a drop pile at the victim's cell instead of
             vanishing (pinned — surviving the blast but not the looting would be
             no survival at all).
+        xp_award_timing: `on_return` per RAW — XP for defeated monsters and
+            recovered treasure awards when the party survives and returns to
+            safety — or `immediate` for continuous CRPG play: monster XP at each
+            encounter end, treasure XP at each acquisition, nothing on the town
+            arrival, and drops never refund (registered — the arcade adaptation
+            trades exactness for immediacy).
         aoe_friendly_fire: Documented adaptation, default on: an area effect landing
             on a monster group at melee range catches engaged party members among
             its candidates (the Phase 4 footprint rule). Off means areas never
@@ -102,6 +120,7 @@ class Ruleset(BaseModel):
     weapon_reload: bool = False
     hd5_counts_as_magical: bool = False
     magic_item_death_save: bool = True
+    xp_award_timing: XpAwardTiming = XpAwardTiming.ON_RETURN
     deprivation_penalties: bool = False
     aoe_friendly_fire: bool = True
     formation_width_limit: bool = True

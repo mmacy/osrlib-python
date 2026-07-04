@@ -46,6 +46,14 @@ def command_strategy():
                 )
             )
             continue
+        if name == "SellTreasure":
+            samples.append(
+                st.builds(
+                    command_class,
+                    item_ids=st.lists(st.sampled_from(["valuable-0001", "torch"]), min_size=1, max_size=2).map(tuple),
+                )
+            )
+            continue
         if name == "SpawnNpcParty":
             samples.append(
                 st.builds(
@@ -99,6 +107,8 @@ def command_strategy():
                 fields[field_name] = st.builds(Coins, gp=st.integers(min_value=0, max_value=50))
             elif field_name in ("feature_id", "dungeon_id", "spell_id", "template_id", "key"):
                 fields[field_name] = st.sampled_from(["delve", "chest", "pile", "sleep", "goblin", "lever"])
+            elif field_name == "service":
+                fields[field_name] = st.sampled_from(["cure_light_wounds", "remove_curse", "raise_dead"])
             elif field_name == "kind" and "secret_doors" in annotation:
                 fields[field_name] = st.sampled_from(["secret_doors", "room_traps", "construction"])
             elif field_name == "kind":

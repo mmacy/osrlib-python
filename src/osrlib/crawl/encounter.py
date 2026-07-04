@@ -737,6 +737,14 @@ def end_encounter(session, outcome: str) -> list[Event]:
                 events.extend(session.ledger.release(effect.effect_id, session.registry()))
     if state.area_ref is not None and all_defeated:
         session.dungeon_state.resolved_encounters.append(state.area_ref)
+    from osrlib.core.ruleset import XpAwardTiming
+
+    if session.ruleset.xp_award_timing is XpAwardTiming.IMMEDIATE and session.defeated_monsters:
+        # Immediate mode: monster XP divides and applies at each encounter end,
+        # and the ledger clears with it (no return award will consume it).
+        pool = sum(record.xp for record in session.defeated_monsters)
+        session.defeated_monsters = []
+        events.extend(session.award_immediate_xp(pool))
     events.append(EncounterEndedEvent(outcome=outcome))
     boundary = -(-session.clock.rounds // ROUNDS_PER_TURN) * ROUNDS_PER_TURN
     target = max(boundary, state.started_round + ROUNDS_PER_TURN)

@@ -59,6 +59,7 @@ __all__ = [
     "PlaceParty",
     "PrepareSpells",
     "PurchaseEquipment",
+    "PurchaseHealing",
     "RemoveTreasureTrap",
     "ReorderParty",
     "ResolveBattleRound",
@@ -66,6 +67,7 @@ __all__ = [
     "Search",
     "SessionMode",
     "SetDoorState",
+    "SellTreasure",
     "SetFlag",
     "SpawnMonsters",
     "SpawnNpcParty",
@@ -416,6 +418,47 @@ class PurchaseEquipment(Command):
     item_ids: tuple[str, ...] = Field(min_length=1)
 
 
+class SellTreasure(Command):
+    """Sell valuables in town at full value (zero time).
+
+    Each entry names a carried valuable's instance id; the coins credit its
+    carrier's purse. Full `value_gp` is pinned and registered: the SRD prices
+    treasure but names no exchange spread, and full value keeps the 1-gp-1-XP
+    identity clean. Magic items reject with `town.sell.no_fixed_value` (RAW's own
+    words) and revealed curses stick.
+    """
+
+    allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.TOWN})
+
+    command_type: Literal["sell_treasure"] = "sell_treasure"
+    item_ids: tuple[str, ...] = Field(min_length=1)
+
+
+class PurchaseHealing(Command):
+    """Buy a temple healing service in town (zero time).
+
+    The service list and prices are invented and registered (the SRD's base-town
+    page is prose): *cure light wounds* 25 gp, *cure serious wounds* 100 gp,
+    *cure disease* 150 gp, *neutralize poison* 150 gp, *remove curse* 200 gp,
+    *raise dead* 1,500 gp. Each resolves through the kernel spell path with an
+    abstract temple cleric at the minimum level able to cast the spell; the named
+    character is the target and pays from their own purse.
+    """
+
+    allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.TOWN})
+
+    command_type: Literal["purchase_healing"] = "purchase_healing"
+    character_id: str
+    service: Literal[
+        "cure_light_wounds",
+        "cure_serious_wounds",
+        "cure_disease",
+        "neutralize_poison",
+        "remove_curse",
+        "raise_dead",
+    ]
+
+
 class Parley(Command):
     """Speak with the monsters: a fresh reaction roll with the speaker's CHA modifier."""
 
@@ -638,6 +681,8 @@ ALL_COMMAND_CLASSES: tuple[type[Command], ...] = (
     EnterDungeon,
     TravelToTown,
     PurchaseEquipment,
+    SellTreasure,
+    PurchaseHealing,
     Parley,
     Evade,
     EngageBattle,

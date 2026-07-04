@@ -81,6 +81,7 @@ def session_state(session: GameSession, *, include_event_log: bool = True) -> di
         "death_records": {key: record.model_dump(mode="json") for key, record in session.death_records.items()},
         "defeated_monsters": [record.model_dump(mode="json") for record in session.defeated_monsters],
         "deprivation": {key: state.model_dump(mode="json") for key, state in session.deprivation.items()},
+        "treasure_snapshot_cp": session.treasure_snapshot_cp,
         "exploration": {
             "odometer_thirds": session.odometer_thirds,
             "turns_since_rest": session.turns_since_rest,
@@ -195,6 +196,8 @@ def load_game(document: Mapping[str, object]) -> GameSession:
         session.deprivation = {
             key: DeprivationState.model_validate(value) for key, value in payload["deprivation"].items()
         }
+        snapshot = payload.get("treasure_snapshot_cp")
+        session.treasure_snapshot_cp = int(snapshot) if snapshot is not None else None
         exploration = payload["exploration"]
         session.odometer_thirds = int(exploration["odometer_thirds"])
         session.turns_since_rest = int(exploration["turns_since_rest"])

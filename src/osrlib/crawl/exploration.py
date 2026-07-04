@@ -70,10 +70,12 @@ from osrlib.crawl.commands import (
     PickLock,
     PrepareSpells,
     PurchaseEquipment,
+    PurchaseHealing,
     RemoveTreasureTrap,
     ReorderParty,
     Rest,
     Search,
+    SellTreasure,
     SessionMode,
     TakeTreasure,
     TravelToTown,
@@ -100,6 +102,7 @@ from osrlib.crawl.events import (
     DetectionRolledEvent,
     DoorEvent,
     FatigueEvent,
+    HealingPurchasedEvent,
     ItemAcquiredEvent,
     ItemIdentifiedEvent,
     ItemsDroppedEvent,
@@ -112,6 +115,7 @@ from osrlib.crawl.events import (
     RestedEvent,
     SearchCompletedEvent,
     TrapEvent,
+    TreasureSoldEvent,
     WanderingCheckEvent,
 )
 from osrlib.data import load_classes, load_encounter_tables, load_equipment, load_monsters, load_spells
@@ -908,6 +912,9 @@ def handle_enter_dungeon(session, command: EnterDungeon) -> tuple[list[Rejection
     entrance_level = next((level for level in dungeon.levels if level.entrance is not None), None)
     if entrance_level is None:
         return [Rejection(code="session.command.unknown_location", params={"dungeon": command.dungeon_id})], []
+    # The award values what the party actually brings back: each departure
+    # snapshots the valuation, and the return award is the delta (pinned).
+    session.snapshot_treasure()
     travel = session.adventure.town.travel_turns.get(command.dungeon_id, 0)
     events, _ = session.advance_turns(travel, field=False)
     session.mode = SessionMode.EXPLORING
@@ -927,6 +934,14 @@ def handle_travel_to_town(session, command: TravelToTown) -> tuple[list[Rejectio
     travel_events, _ = session.advance_turns(travel, field=False)
     events.extend(travel_events)
     events.append(LocationEnteredEvent(location_kind="town", location_id="town"))
+    from osrlib.core.ruleset import XpAwardTiming
+
+    if session.ruleset.xp_award_timing is XpAwardTiming.ON_RETURN:
+        events.extend(session.award_adventure_xp())
+    else:
+        # Immediate mode: town arrival awards nothing; the snapshot still resets.
+        session.defeated_monsters = []
+        session.treasure_snapshot_cp = None
     return [], events
 
 
@@ -1307,6 +1322,7 @@ def handle_take_treasure(session, command: TakeTreasure) -> tuple[list[Rejection
         events.append(
             ItemAcquiredEvent(character_id=taker.id, item_ids=tuple(item_ids), coins_gp_value=pile.coins.value_gp)
         )
+        events.extend(_immediate_treasure_award(session, pile.coins.value_cp, pile.valuables))
         turn_events, _ = _spend_turn(session)
         events.extend(turn_events)
         return [], events
@@ -1327,6 +1343,7 @@ def handle_take_treasure(session, command: TakeTreasure) -> tuple[list[Rejection
         coins_value = cache.coins.value_gp
         del state.generated_caches[command.feature_id]
         events.append(ItemAcquiredEvent(character_id=taker.id, item_ids=tuple(item_ids), coins_gp_value=coins_value))
+        events.extend(_immediate_treasure_award(session, cache.coins.value_cp, cache.valuables))
         turn_events, _ = _spend_turn(session)
         events.extend(turn_events)
         return [], events
@@ -1377,6 +1394,8 @@ def handle_take_treasure(session, command: TakeTreasure) -> tuple[list[Rejection
     events.append(
         ItemAcquiredEvent(character_id=taker.id, item_ids=tuple(item_ids), coins_gp_value=feature.coins.value_gp)
     )
+    taken_valuables = [valuable for valuable in taker.inventory.valuables if valuable.instance_id in item_ids]
+    events.extend(_immediate_treasure_award(session, feature.coins.value_cp, taken_valuables))
     turn_events, _ = _spend_turn(session)
     events.extend(turn_events)
     return [], events
@@ -1773,6 +1792,10 @@ def handle_cast_spell(session, command: CastSpell) -> tuple[list[Rejection], lis
     )
     events = list(result.events)
     events.extend(_stationary_silence(session, spell, result, targets))
+    if spell.id.startswith("remove_curse") and not command.reversed:
+        for target in targets:
+            if getattr(target, "definition", None) is not None:
+                events.extend(lift_curses(session, target))
     events.extend(session.advance_rounds(1))
     return [], events
 
@@ -1831,6 +1854,16 @@ def _stationary_silence(session, spell, result, targets) -> list[Event]:
 
 
 # ---------------------------------------------------------------------- treasure generation
+
+
+def _immediate_treasure_award(session, coins_cp: int, valuables) -> list:
+    """The `immediate` timing's treasure XP: the acquisition's value as the delta."""
+    from osrlib.core.ruleset import XpAwardTiming
+
+    if session.ruleset.xp_award_timing is not XpAwardTiming.IMMEDIATE:
+        return []
+    total_cp = coins_cp + sum(valuable.value_gp * 100 for valuable in valuables)
+    return session.award_immediate_xp(total_cp // 100)
 
 
 def treasure_tier(session) -> str:
@@ -2588,6 +2621,145 @@ def handle_use_item(session, command: UseItem) -> tuple[list[Rejection], list[Ev
     return [], events
 
 
+# ---------------------------------------------------------------------- town services
+
+HEALING_SERVICES: dict[str, tuple[str, int]] = {
+    "cure_light_wounds": ("cure_light_wounds", 25),
+    "cure_serious_wounds": ("cure_serious_wounds", 100),
+    "cure_disease": ("cure_disease", 150),
+    "neutralize_poison": ("neutralize_poison", 150),
+    "remove_curse": ("remove_curse_c", 200),
+    "raise_dead": ("raise_dead", 1500),
+}
+"""The temple's six services: spell id and price in gp (invented, registered).
+
+All services are always available in the 1.0 marker town (registered — town size
+and cleric availability are game territory).
+"""
+
+
+def lift_curses(session, member) -> list[Event]:
+    """*Remove curse* lifts the bearer's item curses: stuck items become discardable.
+
+    The item stays cursed and identified — the stuck marker clears — and item
+    curse effects (the Ring of Weakness's STR set, the cursed scroll's slow
+    healing) release.
+    """
+    events: list[Event] = []
+    for instance in member.inventory.all_instances():
+        if isinstance(instance, MagicItemInstance) and instance.cursed_revealed:
+            instance.cursed_revealed = False
+    for effect in list(session.ledger.active_on(member.id)):
+        if effect.definition.kind in ("ring_of_weakness", "ring_of_weakness_onset", "cursed_slow_healing"):
+            events.extend(session.ledger.release(effect.effect_id, session.registry()))
+    return events
+
+
+def handle_sell_treasure(session, command: SellTreasure) -> tuple[list[Rejection], list[Event]]:
+    sales: list[tuple[object, object]] = []  # (owner, valuable)
+    for item_id in command.item_ids:
+        found = None
+        for member in session.party.members:
+            if member.inventory.magic_item(item_id) is not None:
+                return [Rejection(code="town.sell.no_fixed_value", params={"item": item_id})], []
+            valuable = next(
+                (candidate for candidate in member.inventory.valuables if candidate.instance_id == item_id), None
+            )
+            if valuable is not None:
+                found = (member, valuable)
+                break
+        if found is None:
+            return [Rejection(code="exploration.item.not_carried", params={"item": item_id})], []
+        sales.append(found)
+    events: list[Event] = []
+    by_seller: dict[str, tuple[object, list]] = {}
+    for member, valuable in sales:
+        by_seller.setdefault(member.id, (member, []))[1].append(valuable)
+    for member, valuables in by_seller.values():
+        total = 0
+        for valuable in valuables:
+            member.inventory.valuables.remove(valuable)
+            total += valuable.value_gp
+        member.inventory.purse.gp += total
+        events.append(
+            TreasureSoldEvent(
+                character_id=member.id,
+                instance_ids=tuple(valuable.instance_id for valuable in valuables),
+                gp_value=total,
+            )
+        )
+    return [], events
+
+
+def handle_purchase_healing(session, command: PurchaseHealing) -> tuple[list[Rejection], list[Event]]:
+    try:
+        member = session.member(command.character_id)
+    except ValueError:
+        return [Rejection(code="session.command.unknown_member", params={"character": command.character_id})], []
+    spell_id, cost_gp = HEALING_SERVICES[command.service]
+    spell = load_spells().get(spell_id)
+    if not member.inventory.purse.can_afford(cost_gp):
+        return [
+            Rejection(code="items.purchase.insufficient_funds", params={"item": command.service, "cost_gp": cost_gp})
+        ], []
+    from osrlib.core.spells import validate_cast
+
+    temple_cleric = _temple_cleric(spell)
+    context = _cast_context(session, [member], in_combat=False)
+    cast_rejections = validate_cast(
+        temple_cleric, spell, spell.modes[0].key, targets=[member], context=context, ledger=session.ledger
+    )
+    if cast_rejections:
+        return cast_rejections, []
+    member.inventory.purse.spend(cost_gp)
+    events: list[Event] = [HealingPurchasedEvent(character_id=member.id, service=command.service, cost_gp=cost_gp)]
+    result = cast_spell(
+        temple_cleric,
+        spell,
+        spell.modes[0].key,
+        targets=[member],
+        context=context,
+        ledger=session.ledger,
+        clock=session.clock,
+        allocator=session.allocator,
+        registry=session.registry(),
+        ruleset=session.ruleset,
+        stream=session.streams.get(MAGIC_STREAM),
+        effects_stream=session.streams.get(EFFECTS_STREAM),
+    )
+    events.extend(result.events)
+    if command.service == "remove_curse":
+        events.extend(lift_curses(session, member))
+    return [], events
+
+
+def _temple_cleric(spell):
+    """An abstract temple cleric at the minimum level able to cast the service.
+
+    Built fresh per purchase — no draws, no registry entry; the magic and effects
+    streams the spell already owns carry the rolls.
+    """
+    from osrlib.core.abilities import AbilityScore
+    from osrlib.core.alignment import Alignment
+    from osrlib.core.character import Character
+    from osrlib.core.spells import MemorizedSpell, minimum_caster_level
+
+    level = minimum_caster_level(spell)
+    return Character(
+        id="town-cleric",
+        name="Temple cleric",
+        class_id="cleric",
+        race="human",
+        level=level,
+        xp=0,
+        scores={ability: 9 for ability in AbilityScore},
+        alignment=Alignment.LAWFUL,
+        max_hp=1,
+        current_hp=1,
+        memorized_spells=(MemorizedSpell(spell_id=spell.id),),
+    )
+
+
 HANDLERS = {
     MoveParty: handle_move_party,
     TurnParty: handle_turn_party,
@@ -2615,4 +2787,6 @@ HANDLERS = {
     EnterDungeon: handle_enter_dungeon,
     TravelToTown: handle_travel_to_town,
     PurchaseEquipment: handle_purchase_equipment,
+    SellTreasure: handle_sell_treasure,
+    PurchaseHealing: handle_purchase_healing,
 }

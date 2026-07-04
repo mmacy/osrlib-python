@@ -199,6 +199,7 @@ class GameSession:
         self.death_records: dict[str, DeathRecord] = {}
         self.defeated_monsters: list[DefeatedMonsterRecord] = []
         self.deprivation: dict[str, DeprivationState] = {}
+        self.treasure_snapshot_cp: int | None = None
         # Exploration bookkeeping (all serialized into saves).
         self.odometer_thirds = 0
         self.turns_since_rest = 0
@@ -498,6 +499,105 @@ class GameSession:
         return any(
             effect.target_ref == member.id and effect.definition.kind == "infravision" for effect in self.ledger.effects
         )
+
+    # ------------------------------------------------------------------ the XP award
+
+    def party_valuation_cp(self) -> int:
+        """The party's treasure valuation in copper pieces — the award's exact unit.
+
+        All members count, including the dead (their carried treasure that made it
+        back is the party's recovery): coin value in cp plus every valuable's
+        `value_gp`. Magic items and mundane equipment count zero — magical
+        treasure grants no XP per RAW, and mundane-gear salvage is below the
+        simulation floor (registered).
+        """
+        total = 0
+        for member in self.party.members:
+            total += member.inventory.purse.value_cp
+            total += sum(valuable.value_gp * 100 for valuable in member.inventory.valuables)
+        return total
+
+    def snapshot_treasure(self) -> None:
+        """Record the departure valuation — `EnterDungeon`'s bookkeeping."""
+        self.treasure_snapshot_cp = self.party_valuation_cp()
+
+    def award_adventure_xp(self) -> list[Event]:
+        """The end-of-adventure award: defeated monsters plus the valuation delta.
+
+        The treasure XP is the delta between the party's valuation now and the
+        departure snapshot — floored to gp once from the cp total, never negative
+        (clamped at zero: a party that lost money learned nothing monetarily,
+        pinned). The total divides evenly among living members (floor division,
+        remainder dropped — RAW divides evenly and B/X arithmetic is integer) and
+        applies through `apply_xp` directly (a command whose handler executed
+        further commands would double-log; `AwardXP` remains the referee and game
+        surface). Dead members' recovered treasure counts toward the pool; dead
+        members receive no share. A TPK never awards — no one returned. The
+        defeated-monsters ledger clears and the next departure snapshots anew.
+        """
+        from osrlib.crawl.events import AdventureXpAwardEvent
+
+        survivors = self.party.living_members()
+        events: list[Event] = []
+        monster_xp = sum(record.xp for record in self.defeated_monsters)
+        current = self.party_valuation_cp()
+        baseline = self.treasure_snapshot_cp if self.treasure_snapshot_cp is not None else current
+        treasure_xp = max(0, (current - baseline) // 100)
+        self.defeated_monsters = []
+        self.treasure_snapshot_cp = None
+        if not survivors:
+            return events
+        total = monster_xp + treasure_xp
+        if total <= 0:
+            return events
+        share = total // len(survivors)
+        events.append(
+            AdventureXpAwardEvent(
+                monster_xp=monster_xp,
+                treasure_xp=treasure_xp,
+                share=share,
+                survivors=tuple(member.id for member in survivors),
+            )
+        )
+        if share > 0:
+            for member in survivors:
+                definition = load_classes().get(member.class_id)
+                result = apply_xp(member, definition, share, self.streams.get(ADVANCEMENT_STREAM))
+                events.append(
+                    XpAwardedEvent(
+                        character_id=member.id,
+                        award=result.award,
+                        modified_award=result.modified_award,
+                        level_after=result.level_after,
+                    )
+                )
+        return events
+
+    def award_immediate_xp(self, amount: int) -> list[Event]:
+        """The `immediate` timing's division: apply one award pool now.
+
+        Same division and events as the return award: evenly among living
+        members, floor division, remainder dropped.
+        """
+        survivors = self.party.living_members()
+        if not survivors or amount <= 0:
+            return []
+        share = amount // len(survivors)
+        if share <= 0:
+            return []
+        events: list[Event] = []
+        for member in survivors:
+            definition = load_classes().get(member.class_id)
+            result = apply_xp(member, definition, share, self.streams.get(ADVANCEMENT_STREAM))
+            events.append(
+                XpAwardedEvent(
+                    character_id=member.id,
+                    award=result.award,
+                    modified_award=result.modified_award,
+                    level_after=result.level_after,
+                )
+            )
+        return events
 
     # ------------------------------------------------------------------ death records
 
