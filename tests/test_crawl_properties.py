@@ -191,10 +191,33 @@ def test_the_player_view_never_leaks(seed, commands):
     session = GameSession.new(build_party(), build_adventure(), seed=seed)
     session.execute(GrantItem(character_id="character-0001", item_id="torch", quantity=6))
     session.execute(GrantItem(character_id="character-0001", item_id="tinder_box"))
+    # Unidentified magic items ride along: the fuzz never uses these ids, so they
+    # must stay masked whatever the command sequence does.
+    from osrlib.core.items import MagicItemInstance
+
+    member = session.party.members[0]
+    member.inventory.items.append(
+        MagicItemInstance(instance_id="magic-item-9001", template_id="potion_of_giant_strength")
+    )
+    member.inventory.items.append(
+        MagicItemInstance(
+            instance_id="magic-item-9002",
+            template_id="wand_of_fire_balls",
+            charges_remaining=7,
+            state={"secret": 1},
+        )
+    )
     for command in commands:
         session.execute(command)
     view = session.view(Visibility.PLAYER)
     blob = view.model_dump_json()
+    # Unidentified items mask behind category display names: no true ids, no
+    # charges, no per-item state, no sentience — and no hoard not yet found.
+    assert "potion_of_giant_strength" not in blob
+    assert "wand_of_fire_balls" not in blob
+    assert "charges" not in blob
+    assert "sensory_powers" not in blob and "drains_remaining" not in blob and '"secret"' not in blob
+    assert "cache-" not in blob
     # The seed lives only in the save (13+ digit seeds can't collide with content).
     assert str(seed) not in blob
     # Session flags are referee-only: the view carries no flag store at all.

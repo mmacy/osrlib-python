@@ -16,6 +16,7 @@ save — neither view carries it).
 from pydantic import BaseModel, ConfigDict
 
 from osrlib.core.effects import Condition, has_condition
+from osrlib.core.items import MagicItemCategory, MagicItemInstance, magic_item_template
 from osrlib.crawl.dungeon import Direction, EdgeKind, PartyLocation, Position, cell_ref, edge_ref
 from osrlib.crawl.exploration import EXHAUSTED_KIND, FATIGUE_KIND
 
@@ -145,6 +146,86 @@ class RefereeView(BaseModel):
     state: dict
 
 
+_MASKED_CATEGORY_NAMES = {
+    MagicItemCategory.POTION: "a potion",
+    MagicItemCategory.SCROLL: "a scroll",
+    MagicItemCategory.RING: "a ring",
+    MagicItemCategory.WAND: "a wand",
+    MagicItemCategory.STAFF: "a staff",
+    MagicItemCategory.ROD: "a rod",
+    MagicItemCategory.MISC: "a curious device",
+}
+
+
+def _masked_magic_item(instance: MagicItemInstance) -> dict:
+    """One magic item as the player sees it — the identification mask, pinned.
+
+    An unidentified item shows only its category display name (an enchanted arm
+    shows its base — "a sword with a faint aura", the concession because *detect
+    magic* exists); an identified one shows its true name and id. Charges,
+    sentience, and per-item state never appear at any identification level (RAW:
+    charges are undiscoverable).
+    """
+    from osrlib.data import load_equipment
+
+    template = magic_item_template(instance)
+    if instance.identified:
+        return {
+            "instance_type": "magic_item",
+            "instance_id": instance.instance_id,
+            "template_id": instance.template_id,
+            "name": template.name,
+            "quantity": instance.quantity,
+            "identified": True,
+            "cursed": instance.cursed_revealed,
+        }
+    display = _MASKED_CATEGORY_NAMES.get(template.category)
+    if display is None:
+        base_id = instance.base_item_id or template.base_item_id
+        base_name = load_equipment().get(base_id).name.lower() if base_id is not None else "arm"
+        display = f"a {base_name} with a faint aura"
+    return {
+        "instance_type": "magic_item",
+        "instance_id": instance.instance_id,
+        "display": display,
+        "quantity": instance.quantity,
+        "identified": False,
+    }
+
+
+def _masked_instance(instance) -> dict:
+    if isinstance(instance, MagicItemInstance):
+        return _masked_magic_item(instance)
+    return instance.model_dump(mode="json")
+
+
+def _masked_inventory(member) -> dict:
+    """The inventory as the player sees it: valuables exact, magic items masked."""
+    inventory = member.inventory
+    return {
+        "items": [_masked_instance(instance) for instance in inventory.items],
+        "purse": inventory.purse.model_dump(mode="json"),
+        "valuables": [valuable.model_dump(mode="json") for valuable in inventory.valuables],
+        "worn_armour": _masked_instance(inventory.worn_armour) if inventory.worn_armour is not None else None,
+        "shield": _masked_instance(inventory.shield) if inventory.shield is not None else None,
+        "wielded": [_masked_instance(instance) for instance in inventory.wielded],
+        "rings": [_masked_instance(instance) for instance in inventory.rings],
+    }
+
+
+def _effect_remaining_rounds(session, effect) -> int | None:
+    """Remaining rounds for the member-effect view — potion durations stay hidden.
+
+    RAW: the referee rolls and tracks a potion's duration and does "not tell the
+    player how long the potion will last" (pinned).
+    """
+    if effect.definition.params.get("item_source") == "potion":
+        return None
+    if effect.expires_round is None:
+        return None
+    return max(0, effect.expires_round - session.clock.rounds)
+
+
 def build_player_view(session) -> PlayerView:
     """Build the player view from session state (never from the event log).
 
@@ -163,7 +244,7 @@ def build_player_view(session) -> PlayerView:
             current_hp=member.current_hp,
             max_hp=member.max_hp,
             conditions=tuple(active.condition.value for active in member.conditions),
-            inventory=member.inventory.model_dump(mode="json"),
+            inventory=_masked_inventory(member),
             memorized_spells=tuple(copy.model_dump(mode="json") for copy in member.memorized_spells),
         )
         for member in session.party.members
@@ -173,9 +254,7 @@ def build_player_view(session) -> PlayerView:
         MemberEffectView(
             character_id=effect.target_ref,
             kind=effect.definition.kind,
-            remaining_rounds=(
-                None if effect.expires_round is None else max(0, effect.expires_round - session.clock.rounds)
-            ),
+            remaining_rounds=_effect_remaining_rounds(session, effect),
         )
         for effect in session.ledger.effects
         if effect.target_ref in member_ids
@@ -184,7 +263,16 @@ def build_player_view(session) -> PlayerView:
     visible_refs = _visible_cell_refs(session)
     piles = {
         ref: PileView(
-            items=tuple(f"{entry.item_id}×{entry.quantity}" for entry in pile.items),
+            items=tuple(
+                (
+                    *(f"{entry.item_id}×{entry.quantity}" for entry in pile.items),
+                    *(
+                        str(_masked_magic_item(item).get("name", _masked_magic_item(item).get("display")))
+                        for item in pile.magic_items
+                    ),
+                    *(valuable.name or valuable.kind for valuable in pile.valuables),
+                )
+            ),
             coins_gp_value=pile.coins.value_gp,
         )
         for ref, pile in session.dungeon_state.piles.items()

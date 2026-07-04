@@ -425,8 +425,9 @@ def _consume_item(member, item_id: str, quantity: int = 1) -> bool:
 
 
 def _find_item(member, item_id: str):
+    """The mundane-item lookup — magic instances resolve by instance id instead."""
     for instance in member.inventory.all_instances():
-        if instance.template.id == item_id:
+        if not isinstance(instance, MagicItemInstance) and instance.template.id == item_id:
             return instance
     return None
 
