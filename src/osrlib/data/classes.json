@@ -20,7 +20,9 @@
         {
           "manual": false,
           "name": "Divine Magic",
-          "params": {},
+          "params": {
+            "spell_list": "cleric"
+          },
           "prose": "See Spells for full details on divine magic.\nHoly symbol: A cleric must carry a holy symbol (see Adventuring Gear).\nDeity disfavour: Clerics must be faithful to the tenets of their alignment, clergy, and religion. Clerics who fall from favour with their deity may incur penalties.\nMagical research: A cleric of any level may spend time and money on magical research. This allows them to create new spells or other magical effects associated with their deity. When a cleric reaches 9th level, they are also able to create magic items.\nSpell casting: Once a cleric has proven their faith (from 2nd level), the character may pray to receive spells. The level progression table (below) shows the number of spells a cleric may memorize, based on their experience level. The list of spells available to clerics is found in Cleric Spells.\nUsing magic items: As spell casters, clerics can use magic scrolls of spells on their spell list. They can also use items that may only be used by divine spell casters (e.g. some magic staves).",
           "tag": "divine_magic"
         },
@@ -837,7 +839,9 @@
         {
           "manual": false,
           "name": "Arcane Magic",
-          "params": {},
+          "params": {
+            "spell_list": "magic_user"
+          },
           "prose": "See Spells for full details on arcane magic.\nMagical research: An elf of any level may spend time and money on magical research. This allows them to add new spells to their spell book and to research other magical effects. When an elf reaches 9th level, they are also able to create magic items.\nSpell casting: Elves carry spell books containing the formulae for arcane spells. The level progression table (below) shows both the number of spells in the elf’s spell book and the number they may memorize, determined by the character’s experience level. Thus, a 1st level elf has one spell in their spell book, selected by the referee (who may allow the player to choose). The list of spells available to elves is found in Magic-User Spells (elves have the same spell selection as magic-users).\nUsing magic items: As spell casters, elves are able to use magic scrolls of spells on their spell list. They can also use items that may only be used by arcane spell casters (e.g. magic wands).",
           "tag": "arcane_magic"
         },
@@ -1836,7 +1840,9 @@
         {
           "manual": false,
           "name": "Arcane Magic",
-          "params": {},
+          "params": {
+            "spell_list": "magic_user"
+          },
           "prose": "See Spells for full details on arcane magic.\nMagical research: A magic-user of any level may spend time and money on magical research. This allows them to add new spells to their spell book and to research other magical effects. When a magic-user reaches 9th level, they are also able to create magic items.\nSpell casting: Magic-users own spell books containing the formulae for arcane spells. The level progression table (below) shows both the number of spells in the magic-user’s spell book and the number they may memorize, determined by the character’s experience level. Thus, a 1st level magic-user has one spell in their spell book, selected by the referee (who may allow the player to choose). The list of spells available to magic-users is found in Magic-User Spells.\nUsing magic items: As spell casters, magic-users are able to use magic scrolls of spells on their spell list. They can also use items that may only be used by arcane spell casters (e.g. magic wands).",
           "tag": "arcane_magic"
         }

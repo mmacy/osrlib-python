@@ -21,6 +21,9 @@ from osrlib.core.events import (
     InitiativeRolledEvent,
     MoraleCheckedEvent,
     SavingThrowRolledEvent,
+    SpellCastEvent,
+    SpellsMemorizedEvent,
+    UndeadTurnedEvent,
 )
 
 __all__ = [
@@ -74,6 +77,28 @@ def _morale(event: MoraleCheckedEvent, outcome: str) -> str:
     return f"Morale check for {event.subject} (ML {event.score}): rolled {event.roll}{event.modifier:+d} — {outcome}."
 
 
+def _memorized(event: SpellsMemorizedEvent) -> str:
+    prepared = ", ".join(f"{copy.spell_id} (reversed)" if copy.reversed else copy.spell_id for copy in event.prepared)
+    return f"{event.caster_id} memorizes: {prepared or 'nothing'}."
+
+
+def _cast(event: SpellCastEvent) -> str:
+    spell = f"{event.spell_id} (reversed)" if event.reversed else event.spell_id
+    at = f" at {', '.join(event.target_ids)}" if event.target_ids else ""
+    manual = " — the effect is narrated, not automated" if event.manual else ""
+    return f"{event.caster_id} casts {spell} [{event.mode}]{at}{manual}."
+
+
+def _cast_no_effect(event: SpellCastEvent) -> str:
+    spell = f"{event.spell_id} (reversed)" if event.reversed else event.spell_id
+    return f"{event.caster_id} casts {spell} [{event.mode}] — it has no effect."
+
+
+def _turning(event: UndeadTurnedEvent, outcome: str) -> str:
+    pool = f", {event.hd_pool} HD affected" if event.hd_pool is not None else ""
+    return f"{event.caster_id} presents the holy symbol (rolled {event.roll}{pool}) — {outcome}."
+
+
 _TEMPLATES: dict[str, Callable[[Event], str]] = {
     "combat.initiative.rolled": _initiative,
     "combat.attack.hit": _attack_hit,
@@ -113,6 +138,22 @@ _TEMPLATES: dict[str, Callable[[Event], str]] = {
     "effects.regeneration.revived": lambda event: f"{event.target_id} regenerates and rises to fight again!",
     "combat.state.hit_points": lambda event: f"{event.target_id} is at {event.current_hp}/{event.max_hp} hit points.",
     "combat.targeting.selected": lambda event: f"Targets ({event.mode}): {', '.join(event.target_ids) or 'none'}.",
+    "magic.memorize.prepared": _memorized,
+    "magic.cast.cast": _cast,
+    "magic.cast.no_effect": _cast_no_effect,
+    "magic.cast.disrupted": lambda event: (
+        f"{event.caster_id}'s casting of {event.spell_id} is disrupted — the spell is lost."
+    ),
+    "magic.memory.forgotten": lambda event: f"{event.caster_id} forgets {event.spell_id}.",
+    "magic.book.added": lambda event: f"{event.caster_id} adds {event.spell_id} to their spell book.",
+    "magic.turning.turned": lambda event: _turning(event, "the undead are turned"),
+    "magic.turning.destroyed": lambda event: _turning(event, "undead are destroyed"),
+    "magic.turning.failed": lambda event: _turning(event, "the turning fails"),
+    "magic.dispel.resolved": lambda event: (
+        f"{event.caster_id} dispels {len(event.released_effect_ids)} effect(s)"
+        + (f"; {len(event.surviving_effect_ids)} survive(s)" if event.surviving_effect_ids else "")
+        + "."
+    ),
 }
 
 

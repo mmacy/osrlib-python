@@ -71,7 +71,7 @@ _THAC0_PATTERN = re.compile(r"(\d+)\s*\[\+?(\d+)\]")
 # text stays the authority.
 _CLASS_ABILITIES: dict[str, tuple[tuple[str, str, dict[str, int | str], bool], ...]] = {
     "cleric": (
-        ("divine_magic", "Divine Magic", {}, False),
+        ("divine_magic", "Divine Magic", {"spell_list": "cleric"}, False),
         ("turn_undead", "Turning the Undead", {}, False),
     ),
     "dwarf": (
@@ -81,7 +81,7 @@ _CLASS_ABILITIES: dict[str, tuple[tuple[str, str, dict[str, int | str], bool], .
         ("listening_at_doors", "Listening at Doors", {"chance_in_six": 2}, False),
     ),
     "elf": (
-        ("arcane_magic", "Arcane Magic", {}, False),
+        ("arcane_magic", "Arcane Magic", {"spell_list": "magic_user"}, False),
         ("detect_secret_doors", "Detect Secret Doors", {"chance_in_six": 2}, False),
         ("ghoul_paralysis_immunity", "Immunity to Ghoul Paralysis", {}, False),
         ("infravision", "Infravision", {"range_feet": 60}, False),
@@ -95,7 +95,7 @@ _CLASS_ABILITIES: dict[str, tuple[tuple[str, str, dict[str, int | str], bool], .
         ("listening_at_doors", "Listening at Doors", {"chance_in_six": 2}, False),
         ("missile_attack_bonus", "Missile Attack Bonus", {"bonus": 1}, False),
     ),
-    "magic_user": (("arcane_magic", "Arcane Magic", {}, False),),
+    "magic_user": (("arcane_magic", "Arcane Magic", {"spell_list": "magic_user"}, False),),
     "thief": (
         ("back_stab", "Back-stab", {"attack_bonus": 4, "damage_multiplier": 2}, False),
         ("read_languages", "Read Languages", {"pct": 80, "min_level": 4}, False),

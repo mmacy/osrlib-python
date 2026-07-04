@@ -227,6 +227,7 @@ class TestCreateCharacter:
                 alignment=Alignment.NEUTRAL,
                 ruleset=Ruleset(),
                 stream=streams.get("character_creation"),
+                starting_spell_ids=["sleep"],
                 purchases=[("dagger", 1), ("oil_flask", 1)],
                 equip_ids=["dagger"],
             )
@@ -287,6 +288,7 @@ def test_any_legal_creation_yields_a_structurally_valid_character(seed: int, cla
         alignment=alignment,
         ruleset=Ruleset(),
         stream=streams.get("character_creation"),
+        starting_spell_ids=["magic_missile"] if class_id == "magic_user" else (),
         purchases=[("torch", 1)],
     )
     character = result.character

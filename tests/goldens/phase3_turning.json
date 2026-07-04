@@ -1,0 +1,402 @@
+{
+  "destroyed_ids": [
+    "monster-0006",
+    "monster-0007"
+  ],
+  "events": [
+    {
+      "affected_ids": [],
+      "caster_id": "pc-cleric",
+      "code": "magic.turning.failed",
+      "event_type": "undead_turned",
+      "hd_pool": null,
+      "roll": 6,
+      "types": [
+        {
+          "column": "4",
+          "outcome": "fail",
+          "template_id": "wraith",
+          "threshold": null
+        }
+      ],
+      "visibility": "player"
+    },
+    {
+      "affected_ids": [
+        "monster-0002",
+        "monster-0003",
+        "monster-0004",
+        "monster-0005"
+      ],
+      "caster_id": "pc-cleric",
+      "code": "magic.turning.turned",
+      "event_type": "undead_turned",
+      "hd_pool": 9,
+      "roll": 12,
+      "types": [
+        {
+          "column": "1",
+          "outcome": "turn",
+          "template_id": "skeleton",
+          "threshold": null
+        },
+        {
+          "column": "2",
+          "outcome": "turn",
+          "template_id": "zombie",
+          "threshold": 7
+        }
+      ],
+      "visibility": "player"
+    },
+    {
+      "code": "effects.effect.attached",
+      "effect_id": "effect-0001",
+      "event_type": "effect_attached",
+      "expires_round": null,
+      "kind": "turned",
+      "target_ref": "monster-0002",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.condition.gained",
+      "condition": "turned",
+      "effect_id": "effect-0001",
+      "event_type": "condition_gained",
+      "target_id": "monster-0002",
+      "visibility": "player"
+    },
+    {
+      "code": "effects.effect.attached",
+      "effect_id": "effect-0002",
+      "event_type": "effect_attached",
+      "expires_round": null,
+      "kind": "turned",
+      "target_ref": "monster-0003",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.condition.gained",
+      "condition": "turned",
+      "effect_id": "effect-0002",
+      "event_type": "condition_gained",
+      "target_id": "monster-0003",
+      "visibility": "player"
+    },
+    {
+      "code": "effects.effect.attached",
+      "effect_id": "effect-0003",
+      "event_type": "effect_attached",
+      "expires_round": null,
+      "kind": "turned",
+      "target_ref": "monster-0004",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.condition.gained",
+      "condition": "turned",
+      "effect_id": "effect-0003",
+      "event_type": "condition_gained",
+      "target_id": "monster-0004",
+      "visibility": "player"
+    },
+    {
+      "code": "effects.effect.attached",
+      "effect_id": "effect-0004",
+      "event_type": "effect_attached",
+      "expires_round": null,
+      "kind": "turned",
+      "target_ref": "monster-0005",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.condition.gained",
+      "condition": "turned",
+      "effect_id": "effect-0004",
+      "event_type": "condition_gained",
+      "target_id": "monster-0005",
+      "visibility": "player"
+    },
+    {
+      "affected_ids": [
+        "monster-0006",
+        "monster-0007"
+      ],
+      "caster_id": "pc-cleric",
+      "code": "magic.turning.destroyed",
+      "event_type": "undead_turned",
+      "hd_pool": 4,
+      "roll": 5,
+      "types": [
+        {
+          "column": "1",
+          "outcome": "destroy",
+          "template_id": "skeleton",
+          "threshold": null
+        },
+        {
+          "column": "2",
+          "outcome": "destroy",
+          "template_id": "zombie",
+          "threshold": null
+        }
+      ],
+      "visibility": "player"
+    },
+    {
+      "code": "effects.condition.gained",
+      "condition": "dead",
+      "effect_id": null,
+      "event_type": "condition_gained",
+      "target_id": "monster-0006",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.death.permanent",
+      "event_type": "death",
+      "target_id": "monster-0006",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 0,
+      "event_type": "hit_points_reported",
+      "max_hp": 5,
+      "target_id": "monster-0006",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.condition.gained",
+      "condition": "dead",
+      "effect_id": null,
+      "event_type": "condition_gained",
+      "target_id": "monster-0007",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.death.permanent",
+      "event_type": "death",
+      "target_id": "monster-0007",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 0,
+      "event_type": "hit_points_reported",
+      "max_hp": 12,
+      "target_id": "monster-0007",
+      "visibility": "referee"
+    },
+    {
+      "affected_ids": [
+        "monster-0008"
+      ],
+      "caster_id": "pc-cleric",
+      "code": "magic.turning.turned",
+      "event_type": "undead_turned",
+      "hd_pool": 6,
+      "roll": 12,
+      "types": [
+        {
+          "column": "6",
+          "outcome": "turn",
+          "template_id": "spectre",
+          "threshold": null
+        }
+      ],
+      "visibility": "player"
+    },
+    {
+      "code": "effects.effect.attached",
+      "effect_id": "effect-0005",
+      "event_type": "effect_attached",
+      "expires_round": null,
+      "kind": "turned",
+      "target_ref": "monster-0008",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.condition.gained",
+      "condition": "turned",
+      "effect_id": "effect-0005",
+      "event_type": "condition_gained",
+      "target_id": "monster-0008",
+      "visibility": "player"
+    },
+    {
+      "affected_ids": [
+        "monster-0010",
+        "monster-0011"
+      ],
+      "caster_id": "pc-cleric",
+      "code": "magic.turning.turned",
+      "event_type": "undead_turned",
+      "hd_pool": 12,
+      "roll": 12,
+      "types": [
+        {
+          "column": "6",
+          "outcome": "turn",
+          "template_id": "spectre",
+          "threshold": null
+        }
+      ],
+      "visibility": "player"
+    },
+    {
+      "code": "effects.effect.attached",
+      "effect_id": "effect-0006",
+      "event_type": "effect_attached",
+      "expires_round": null,
+      "kind": "turned",
+      "target_ref": "monster-0010",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.condition.gained",
+      "condition": "turned",
+      "effect_id": "effect-0006",
+      "event_type": "condition_gained",
+      "target_id": "monster-0010",
+      "visibility": "player"
+    },
+    {
+      "code": "effects.effect.attached",
+      "effect_id": "effect-0007",
+      "event_type": "effect_attached",
+      "expires_round": null,
+      "kind": "turned",
+      "target_ref": "monster-0011",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.condition.gained",
+      "condition": "turned",
+      "effect_id": "effect-0007",
+      "event_type": "condition_gained",
+      "target_id": "monster-0011",
+      "visibility": "player"
+    },
+    {
+      "affected_ids": [
+        "monster-0012"
+      ],
+      "caster_id": "pc-cleric",
+      "code": "magic.turning.turned",
+      "event_type": "undead_turned",
+      "hd_pool": 8,
+      "roll": 9,
+      "types": [
+        {
+          "column": "6",
+          "outcome": "turn",
+          "template_id": "spectre",
+          "threshold": null
+        }
+      ],
+      "visibility": "player"
+    },
+    {
+      "code": "effects.effect.attached",
+      "effect_id": "effect-0008",
+      "event_type": "effect_attached",
+      "expires_round": null,
+      "kind": "turned",
+      "target_ref": "monster-0012",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.condition.gained",
+      "condition": "turned",
+      "effect_id": "effect-0008",
+      "event_type": "condition_gained",
+      "target_id": "monster-0012",
+      "visibility": "player"
+    },
+    {
+      "affected_ids": [
+        "monster-0014"
+      ],
+      "caster_id": "pc-cleric",
+      "code": "magic.turning.turned",
+      "event_type": "undead_turned",
+      "hd_pool": 4,
+      "roll": 7,
+      "types": [
+        {
+          "column": "6",
+          "outcome": "turn",
+          "template_id": "spectre",
+          "threshold": null
+        }
+      ],
+      "visibility": "player"
+    },
+    {
+      "code": "effects.effect.attached",
+      "effect_id": "effect-0009",
+      "event_type": "effect_attached",
+      "expires_round": null,
+      "kind": "turned",
+      "target_ref": "monster-0014",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.condition.gained",
+      "condition": "turned",
+      "effect_id": "effect-0009",
+      "event_type": "condition_gained",
+      "target_id": "monster-0014",
+      "visibility": "player"
+    }
+  ],
+  "failed_roll": 6,
+  "master_seed": 20260703,
+  "minimum_affected": [
+    "monster-0014"
+  ],
+  "minimum_attempts": 4,
+  "minimum_pool": 4,
+  "mixed_affected": [
+    "monster-0002",
+    "monster-0003",
+    "monster-0004",
+    "monster-0005"
+  ],
+  "mixed_attempts": 1,
+  "mixed_pool": 9,
+  "mixed_roll": 12,
+  "transcript": [
+    "pc-cleric presents the holy symbol (rolled 6) — the turning fails.",
+    "pc-cleric presents the holy symbol (rolled 12, 9 HD affected) — the undead are turned.",
+    "Effect effect-0001 (turned) attached to monster-0002.",
+    "monster-0002 is turned.",
+    "Effect effect-0002 (turned) attached to monster-0003.",
+    "monster-0003 is turned.",
+    "Effect effect-0003 (turned) attached to monster-0004.",
+    "monster-0004 is turned.",
+    "Effect effect-0004 (turned) attached to monster-0005.",
+    "monster-0005 is turned.",
+    "pc-cleric presents the holy symbol (rolled 5, 4 HD affected) — undead are destroyed.",
+    "monster-0006 is dead.",
+    "monster-0006 is permanently destroyed.",
+    "monster-0006 is at 0/5 hit points.",
+    "monster-0007 is dead.",
+    "monster-0007 is permanently destroyed.",
+    "monster-0007 is at 0/12 hit points.",
+    "pc-cleric presents the holy symbol (rolled 12, 6 HD affected) — the undead are turned.",
+    "Effect effect-0005 (turned) attached to monster-0008.",
+    "monster-0008 is turned.",
+    "pc-cleric presents the holy symbol (rolled 12, 12 HD affected) — the undead are turned.",
+    "Effect effect-0006 (turned) attached to monster-0010.",
+    "monster-0010 is turned.",
+    "Effect effect-0007 (turned) attached to monster-0011.",
+    "monster-0011 is turned.",
+    "pc-cleric presents the holy symbol (rolled 9, 8 HD affected) — the undead are turned.",
+    "Effect effect-0008 (turned) attached to monster-0012.",
+    "monster-0012 is turned.",
+    "pc-cleric presents the holy symbol (rolled 7, 4 HD affected) — the undead are turned.",
+    "Effect effect-0009 (turned) attached to monster-0014.",
+    "monster-0014 is turned."
+  ]
+}

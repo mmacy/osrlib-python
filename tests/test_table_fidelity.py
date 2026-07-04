@@ -365,3 +365,63 @@ class TestAbilityTables:
             (-10, {"str": 6}),
             (-20, {"str": 3}),
         ]
+
+
+# The turning table, transcribed verbatim from Cleric.md: 11 cleric-level rows
+# (1-10, 11+) x 8 monster-HD columns (1, 2, 2*, 3, 4, 5, 6, 7-9).
+# fmt: off
+TURNING_TABLE = [
+    ("1",   "7", "9", "11", "—", "—", "—", "—", "—"),
+    ("2",   "T", "7", "9", "11", "—", "—", "—", "—"),
+    ("3",   "T", "T", "7", "9", "11", "—", "—", "—"),
+    ("4",   "D", "T", "T", "7", "9", "11", "—", "—"),
+    ("5",   "D", "D", "T", "T", "7", "9", "11", "—"),
+    ("6",   "D", "D", "D", "T", "T", "7", "9", "11"),
+    ("7",   "D", "D", "D", "D", "T", "T", "7", "9"),
+    ("8",   "D", "D", "D", "D", "D", "T", "T", "7"),
+    ("9",   "D", "D", "D", "D", "D", "D", "T", "T"),
+    ("10",  "D", "D", "D", "D", "D", "D", "D", "T"),
+    ("11+", "D", "D", "D", "D", "D", "D", "D", "D"),
+]
+# fmt: on
+
+
+class TestTurningTableFidelity:
+    def test_verbatim_against_cleric_page(self):
+        from osrlib.core.tables import TURNING_COLUMNS
+        from osrlib.data import load_combat_tables
+
+        turning = load_combat_tables().turning
+        assert len(turning.rows) == 11
+        for row, (label, *cells) in zip(turning.rows, TURNING_TABLE, strict=True):
+            assert row.label == label
+            assert tuple(row.cells[column] for column in TURNING_COLUMNS) == tuple(cells)
+
+    def test_legend_semantics(self):
+        from osrlib.data import load_combat_tables
+
+        turning = load_combat_tables().turning
+        assert turning.result(1, "1").outcome == "number" and turning.result(1, "1").threshold == 7
+        assert turning.result(1, "3").outcome == "fail"
+        assert turning.result(2, "1").outcome == "turn"
+        assert turning.result(4, "1").outcome == "destroy"
+        # Levels above 10 clamp to the 11+ row.
+        assert turning.result(11, "7-9").outcome == "destroy"
+        assert turning.result(14, "7-9").outcome == "destroy"
+
+
+class TestCasterTagParams:
+    def test_divine_and_arcane_tags_name_their_spell_lists(self):
+        classes = load_classes()
+        cleric = next(a for a in classes.get("cleric").abilities if a.tag == "divine_magic")
+        assert cleric.params == {"spell_list": "cleric"}
+        for class_id in ("magic_user", "elf"):
+            arcane = next(a for a in classes.get(class_id).abilities if a.tag == "arcane_magic")
+            assert arcane.params == {"spell_list": "magic_user"}
+
+    def test_cleric_level_1_has_no_casting(self):
+        # "Once a cleric has proven their faith (from 2nd level)": level 1 carries
+        # all-zero slots and level 2 exactly one first-level slot.
+        cleric = load_classes().get("cleric")
+        assert cleric.row(1).spell_slots == (0, 0, 0, 0, 0)
+        assert cleric.row(2).spell_slots == (1, 0, 0, 0, 0)

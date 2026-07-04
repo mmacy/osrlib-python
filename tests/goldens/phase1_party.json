@@ -79,6 +79,7 @@
         },
         "level": 1,
         "max_hp": 2,
+        "memorized_spells": [],
         "name": "Adelheid",
         "race": "human",
         "scores": {
@@ -89,6 +90,8 @@
           "str": 4,
           "wis": 12
         },
+        "spell_book": [],
+        "stat_modifiers": [],
         "xp": 0
       },
       {
@@ -180,6 +183,7 @@
         },
         "level": 1,
         "max_hp": 2,
+        "memorized_spells": [],
         "name": "Borin",
         "race": "dwarf",
         "scores": {
@@ -190,6 +194,8 @@
           "str": 11,
           "wis": 11
         },
+        "spell_book": [],
+        "stat_modifiers": [],
         "xp": 0
       },
       {
@@ -247,6 +253,7 @@
         },
         "level": 1,
         "max_hp": 5,
+        "memorized_spells": [],
         "name": "Cirdan",
         "race": "elf",
         "scores": {
@@ -257,6 +264,10 @@
           "str": 10,
           "wis": 11
         },
+        "spell_book": [
+          "magic_missile"
+        ],
+        "stat_modifiers": [],
         "xp": 0
       },
       {
@@ -314,6 +325,7 @@
         },
         "level": 1,
         "max_hp": 4,
+        "memorized_spells": [],
         "name": "Dagmar",
         "race": "human",
         "scores": {
@@ -324,6 +336,8 @@
           "str": 17,
           "wis": 8
         },
+        "spell_book": [],
+        "stat_modifiers": [],
         "xp": 0
       },
       {
@@ -425,6 +439,7 @@
         },
         "level": 1,
         "max_hp": 2,
+        "memorized_spells": [],
         "name": "Elderberry",
         "race": "halfling",
         "scores": {
@@ -435,6 +450,8 @@
           "str": 6,
           "wis": 10
         },
+        "spell_book": [],
+        "stat_modifiers": [],
         "xp": 0
       },
       {
@@ -571,6 +588,7 @@
         },
         "level": 1,
         "max_hp": 3,
+        "memorized_spells": [],
         "name": "Falk",
         "race": "human",
         "scores": {
@@ -581,6 +599,10 @@
           "str": 13,
           "wis": 7
         },
+        "spell_book": [
+          "sleep"
+        ],
+        "stat_modifiers": [],
         "xp": 0
       },
       {
@@ -687,6 +709,7 @@
         },
         "level": 1,
         "max_hp": 1,
+        "memorized_spells": [],
         "name": "Grima",
         "race": "human",
         "scores": {
@@ -697,6 +720,8 @@
           "str": 8,
           "wis": 8
         },
+        "spell_book": [],
+        "stat_modifiers": [],
         "xp": 0
       }
     ]

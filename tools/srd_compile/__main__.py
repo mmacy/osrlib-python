@@ -23,10 +23,11 @@ from osrlib.core.abilities import AbilityTables
 from osrlib.core.classes import ClassCatalog
 from osrlib.core.items import EquipmentCatalog
 from osrlib.core.monsters import MonsterCatalog
+from osrlib.core.spells import SpellCatalog
 from osrlib.core.tables import CombatTables
 from osrlib.data import LanguageCatalog
 
-from . import abilities, classes, combat_tables, equipment, languages, monsters
+from . import abilities, classes, combat_tables, equipment, languages, monsters, spells
 from .overrides import apply_overrides, load_overrides
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -88,6 +89,10 @@ def main() -> None:
     apply_overrides(monsters_data["monsters"], load_overrides("monsters.json"))
     monsters.validate_xp(monsters_data["monsters"], combat_tables_data["xp_awards"])
     _write(out_dir, "monsters.json", MonsterCatalog.model_validate(monsters_data), monsters.source_pages(srd_dir))
+
+    spells_data = spells.compile_spells(srd_dir, monsters_data["monsters"])
+    apply_overrides(spells_data["spells"], load_overrides("spells.json"))
+    _write(out_dir, "spells.json", SpellCatalog.model_validate(spells_data), spells.source_pages(srd_dir))
 
 
 if __name__ == "__main__":

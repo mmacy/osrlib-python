@@ -46,14 +46,21 @@ from osrlib.core.rng import RngStream
 
 __all__ = [
     "EFFECTS_STREAM",
+    "MODIFIER_KINDS",
     "ActiveCondition",
     "ActiveEffect",
+    "ActiveModifier",
     "Condition",
     "EffectDefinition",
     "EffectsLedger",
+    "ModifierSpec",
     "grant_condition",
     "has_condition",
+    "has_modifier",
     "kill",
+    "modifier_dice",
+    "modifier_total",
+    "modifier_values",
     "regeneration_definition",
     "remove_condition",
 ]
@@ -72,9 +79,12 @@ class Condition(StrEnum):
     """The named conditions.
 
     The wire values are lowercase — they serialize into creatures and saves; changing
-    them is a `schema_version` bump. Phase 2 implements combat hooks for the subset it
+    them is a `schema_version` bump. Combat hooks exist for the subset the kernel
     consumes (paralysed, asleep, blind, averted_eyes, petrified, poisoned, diseased,
-    dead); the rest are additive-safe vocabulary for the phases that inflict them.
+    dead; Phase 3 adds silenced/feebleminded/weakened casting gates, the weakened
+    attack gate, and the entangled movement predicate); the rest are additive-safe
+    vocabulary — `afraid`, `turned`, `confused`, and `invisible` are marker states
+    consumed by Phase 4's battle machine and by games.
     """
 
     PARALYSED = "paralysed"
@@ -88,6 +98,14 @@ class Condition(StrEnum):
     AVERTED_EYES = "averted_eyes"
     POISONED = "poisoned"
     DEAD = "dead"
+    SILENCED = "silenced"
+    ENTANGLED = "entangled"
+    AFRAID = "afraid"
+    FEEBLEMINDED = "feebleminded"
+    INVISIBLE = "invisible"
+    TURNED = "turned"
+    CONFUSED = "confused"
+    WEAKENED = "weakened"
 
 
 class ActiveCondition(BaseModel):
@@ -165,6 +183,23 @@ def remove_condition(target: object, condition: Condition, effect_id: str | None
     return [ConditionRemovedEvent(target_id=_entity_id(target), condition=condition.value, effect_id=effect_id)]
 
 
+def _grant_modifiers(target: object, specs: tuple[ModifierSpec, ...], effect_id: str) -> None:
+    """Grant an effect's stat modifiers — the single-writer mutation point."""
+    if not hasattr(target, "stat_modifiers"):
+        return
+    granted = tuple(ActiveModifier(**spec.model_dump(), effect_id=effect_id) for spec in specs)
+    target.stat_modifiers = (*target.stat_modifiers, *granted)
+
+
+def _remove_modifiers(target: object, effect_id: str) -> None:
+    """Remove the stat modifiers owned by `effect_id`."""
+    if not hasattr(target, "stat_modifiers"):
+        return
+    remaining = tuple(modifier for modifier in target.stat_modifiers if modifier.effect_id != effect_id)
+    if len(remaining) != len(target.stat_modifiers):
+        target.stat_modifiers = remaining
+
+
 def kill(target: object, *, permanent: bool = False) -> list[Event]:
     """Kill a creature: hit points to 0, the `dead` condition, and the death event.
 
@@ -192,6 +227,154 @@ def kill(target: object, *, permanent: bool = False) -> list[Event]:
     return events
 
 
+MODIFIER_KINDS = frozenset(
+    {
+        "attack_bonus",
+        "damage_bonus",
+        "morale_bonus",
+        "save_bonus",
+        "ac_set",
+        "ac_set_vs_missile",
+        "attack_penalty_of_attackers",
+        "damage_reduction_per_die",
+        "missile_immunity_nonmagical",
+        "weapon_damage_dice_bonus",
+        "counts_as_magical",
+    }
+)
+"""The closed vocabulary of stat-modifier kinds combat consults."""
+
+
+class ModifierSpec(BaseModel):
+    """One stat modifier an effect grants while active.
+
+    `value` is the signed adjustment (*bless*'s +1, *protection from evil*'s −1 to
+    attackers, *shield*'s AC-set values); `dice` carries dice-valued bonuses
+    (*striking*'s +1d6 weapon damage). Scopes: `element` restricts save bonuses and
+    per-die reductions to one element (*resist fire*), and `versus_other_alignment`
+    restricts save bonuses to attacks from creatures of another alignment
+    (*protection from evil*).
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    kind: str
+    value: int = 0
+    dice: str | None = None
+    element: str | None = None
+    versus_other_alignment: bool = False
+
+    @field_validator("kind")
+    @classmethod
+    def _kind_must_be_known(cls, value: str) -> str:
+        if value not in MODIFIER_KINDS:
+            raise ValueError(f"modifier kind must be one of {sorted(MODIFIER_KINDS)}, got {value!r}")
+        return value
+
+    @field_validator("dice")
+    @classmethod
+    def _dice_must_parse(cls, value: str | None) -> str | None:
+        if value is not None:
+            parse(value)
+        return value
+
+
+class ActiveModifier(ModifierSpec):
+    """A live stat modifier on a creature, with the effect that owns it.
+
+    Creatures carry a `stat_modifiers` tuple so a serialized creature is honest on
+    its own, mirroring conditions. **Only the effects engine writes it** (attach
+    grants, expiry and release remove) — the single-writer rule extends; combat
+    reads it locally through the `modifier_*` helpers below.
+    """
+
+    effect_id: str
+
+
+def modifier_values(
+    target: object, kind: str, *, element: str | None = None, versus_differs: bool = False
+) -> list[int]:
+    """Return the matching modifier values on a creature, scope-filtered.
+
+    Element-scoped modifiers match only their element; alignment-scoped modifiers
+    match only when the caller attests the source's alignment differs
+    (`versus_differs`).
+
+    Args:
+        target: A creature carrying a `stat_modifiers` tuple.
+        kind: The modifier kind to look for.
+        element: The damage or save element in play, if any.
+        versus_differs: True when the source creature's alignment differs from the
+            target's.
+
+    Returns:
+        The matching values, in attachment order.
+    """
+    return [
+        modifier.value
+        for modifier in getattr(target, "stat_modifiers", ())
+        if modifier.kind == kind
+        and (modifier.element is None or modifier.element == element)
+        and (not modifier.versus_other_alignment or versus_differs)
+    ]
+
+
+def modifier_total(target: object, kind: str, *, element: str | None = None, versus_differs: bool = False) -> int:
+    """Return a creature's cumulative modifier for one statistic.
+
+    The cumulative-effects rule, pinned from `Spells.md` ("Multiple spells affecting
+    the same game statistic do not combine"): only the single largest bonus and the
+    single largest penalty apply — a *bless* and a *blight* offset; two *blesses*
+    don't stack. Spell modifiers combine freely with non-spell modifiers (the RAW
+    carve-out for magic items, which arrive in Phase 5 outside this tuple).
+
+    Args:
+        target: A creature carrying a `stat_modifiers` tuple.
+        kind: The modifier kind to total.
+        element: The damage or save element in play, if any.
+        versus_differs: True when the source creature's alignment differs.
+
+    Returns:
+        The signed cumulative modifier.
+    """
+    values = modifier_values(target, kind, element=element, versus_differs=versus_differs)
+    bonus = max((value for value in values if value > 0), default=0)
+    penalty = min((value for value in values if value < 0), default=0)
+    return bonus + penalty
+
+
+def modifier_dice(target: object, kind: str) -> str | None:
+    """Return the dice of the first matching dice-valued modifier (*striking*'s +1d6).
+
+    First-only is the cumulative rule for dice bonuses: two *strikings* don't
+    combine.
+
+    Args:
+        target: A creature carrying a `stat_modifiers` tuple.
+        kind: The modifier kind to look for.
+
+    Returns:
+        The dice expression, or `None` when no matching modifier is active.
+    """
+    for modifier in getattr(target, "stat_modifiers", ()):
+        if modifier.kind == kind and modifier.dice is not None:
+            return modifier.dice
+    return None
+
+
+def has_modifier(target: object, kind: str) -> bool:
+    """Return whether a creature carries any modifier of `kind` (the flag kinds).
+
+    Args:
+        target: A creature carrying a `stat_modifiers` tuple.
+        kind: The modifier kind to look for.
+
+    Returns:
+        True when any active modifier matches.
+    """
+    return any(modifier.kind == kind for modifier in getattr(target, "stat_modifiers", ()))
+
+
 class EffectDefinition(BaseModel):
     """A frozen effect blueprint: duration, ticks, stacking, expiry, and condition.
 
@@ -201,7 +384,12 @@ class EffectDefinition(BaseModel):
     stone is not dead). `tick` names a periodic behavior the ledger executes every
     `tick_interval_rounds`; `expiry` names an outcome resolved when the duration runs
     out (`death` for delayed poison, `splash_damage` for the douse's second
-    application). `condition` is granted at attach and removed at expiry or release.
+    application). `condition` is granted at attach and removed at expiry or release;
+    `modifiers` are granted and removed the same way. `dispellable=True` marks
+    spell-attached effects *dispel magic* can end — pinned: every effect
+    [`cast_spell`][osrlib.core.spells.cast_spell] attaches is dispellable, including
+    permanent ones (`permanent=True` means "no duration expiry", not
+    "undispellable"), while monster-inflicted effects stay non-dispellable.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -216,6 +404,8 @@ class EffectDefinition(BaseModel):
     stacking: Literal["stack", "refresh", "ignore"] = "stack"
     expiry: str | None = None
     condition: Condition | None = None
+    modifiers: tuple[ModifierSpec, ...] = ()
+    dispellable: bool = False
     params: dict[str, int | str | bool | tuple[int | str, ...]] = {}
 
     @field_validator("duration_dice")
@@ -233,7 +423,8 @@ class ActiveEffect(BaseModel):
     a location now; cells arrive in Phase 4). `expires_round` is the absolute round
     the effect expires on (`None` for indefinite and permanent effects); petrification
     suspension pushes it forward. `state` is the effect's own bookkeeping (revival
-    round, counted rest days).
+    round, counted rest days). `caster_level` records the casting caster's level on
+    spell-attached effects — *dispel magic*'s survival roll compares against it.
     """
 
     model_config = ConfigDict(validate_assignment=True)
@@ -243,6 +434,7 @@ class ActiveEffect(BaseModel):
     target_ref: str
     attached_round: int = Field(ge=0)
     expires_round: int | None = None
+    caster_level: int | None = None
     state: dict[str, int] = {}
 
 
@@ -278,8 +470,9 @@ class EffectsLedger(BaseModel):
         allocator: object,
         registry: Mapping[str, object] | None = None,
         stream: RngStream | None = None,
+        caster_level: int | None = None,
     ) -> tuple[ActiveEffect | None, list[Event]]:
-        """Attach an effect, resolving stacking, duration dice, and the condition.
+        """Attach an effect, resolving stacking, duration dice, conditions, and modifiers.
 
         Args:
             definition: The effect blueprint.
@@ -287,10 +480,12 @@ class EffectsLedger(BaseModel):
             clock: The game clock (the attach round anchors the duration).
             allocator: The [`IdAllocator`][osrlib.core.monsters.IdAllocator] granting
                 effect ids.
-            registry: Live objects by entity id, for condition grants; a location
-                ref simply isn't in it.
+            registry: Live objects by entity id, for condition and modifier grants;
+                a location ref simply isn't in it.
             stream: The effects stream; required when the definition rolls duration
                 dice.
+            caster_level: The casting caster's level, recorded on spell-attached
+                effects for *dispel magic*'s survival roll.
 
         Returns:
             The attached effect and its events — or `(None, [])` when stacking says
@@ -315,6 +510,7 @@ class EffectsLedger(BaseModel):
             target_ref=target_ref,
             attached_round=clock.rounds,
             expires_round=self._expiry_round(definition, clock, stream),
+            caster_level=caster_level,
         )
         self.effects.append(effect)
         events: list[Event] = [
@@ -327,6 +523,8 @@ class EffectsLedger(BaseModel):
         ]
         if definition.condition is not None and target is not None:
             events.extend(grant_condition(target, definition.condition, effect.effect_id))
+        if definition.modifiers and target is not None:
+            _grant_modifiers(target, definition.modifiers, effect.effect_id)
         return effect, events
 
     def release(self, effect_id: str, registry: Mapping[str, object] | None = None) -> list[Event]:
@@ -352,6 +550,8 @@ class EffectsLedger(BaseModel):
         target = registry.get(effect.target_ref) if registry is not None else None
         if effect.definition.condition is not None and target is not None:
             events.extend(remove_condition(target, effect.definition.condition, effect.effect_id))
+        if target is not None:
+            _remove_modifiers(target, effect.effect_id)
         return events
 
     def advance(
@@ -451,6 +651,8 @@ class EffectsLedger(BaseModel):
         target = registry.get(effect.target_ref)
         if definition.condition is not None and target is not None:
             events.extend(remove_condition(target, definition.condition, effect.effect_id))
+        if target is not None:
+            _remove_modifiers(target, effect.effect_id)
         if target is None or definition.expiry is None:
             return events
         if definition.expiry == "death":
@@ -482,7 +684,39 @@ class EffectsLedger(BaseModel):
             return []
         if definition.tick == "regeneration":
             return self._tick_regeneration(effect, current_round, target, stream)
+        if definition.tick == "charm_resave":
+            return self._tick_charm_resave(effect, current_round, target, registry, stream)
         raise ValueError(f"unknown tick behavior {definition.tick!r} on effect kind {definition.kind!r}")
+
+    def _tick_charm_resave(
+        self,
+        effect: ActiveEffect,
+        current_round: int,
+        target: object,
+        registry: Mapping[str, object],
+        stream: RngStream,
+    ) -> list[Event]:
+        """The charm's periodic saving throw: a passed save releases the charm.
+
+        The re-save is a tick-time draw, so it comes from the effects stream per the
+        Phase 2 convention; the interval was fixed at attach from the subject's INT
+        band (`tick_interval_rounds`).
+        """
+        from osrlib.core.combat import SaveCategory, saving_throw
+
+        save = saving_throw(target, SaveCategory.SPELLS, magical=True, stream=stream)
+        events = list(save.events)
+        events.append(
+            EffectTickedEvent(
+                effect_id=effect.effect_id,
+                kind=effect.definition.kind,
+                target_ref=effect.target_ref,
+                round=current_round,
+            )
+        )
+        if save.passed:
+            events.extend(self.release(effect.effect_id, registry))
+        return events
 
     def _tick_regeneration(
         self, effect: ActiveEffect, current_round: int, target: object, stream: RngStream

@@ -19,6 +19,7 @@ DATA_FILES = (
     "equipment.json",
     "languages.json",
     "monsters.json",
+    "spells.json",
 )
 
 

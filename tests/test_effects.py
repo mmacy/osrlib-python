@@ -237,6 +237,41 @@ class TestLedger:
         assert_no_orphans()
         assert troll.conditions == ()
 
+    def test_single_writer_invariant_covers_stat_modifiers(self, streams, allocator):
+        # The Phase 3 extension: every stat modifier is owned by a live ledger effect;
+        # expiry and release never leave an orphan behind.
+        from osrlib.core.effects import ModifierSpec, modifier_total
+
+        troll = make_troll(streams, allocator)
+        ledger, clock = EffectsLedger(), GameClock()
+        registry = {troll.id: troll}
+        bless = EffectDefinition(
+            kind="bless",
+            duration_unit=TimeUnit.ROUND,
+            duration_amount=2,
+            modifiers=(ModifierSpec(kind="attack_bonus", value=1), ModifierSpec(kind="damage_bonus", value=1)),
+        )
+        ward = EffectDefinition(
+            kind="ward", modifiers=(ModifierSpec(kind="save_bonus", value=1, versus_other_alignment=True),)
+        )
+        ledger.attach(bless, troll.id, clock=clock, allocator=allocator, registry=registry)
+        ward_effect, _ = ledger.attach(ward, troll.id, clock=clock, allocator=allocator, registry=registry)
+
+        def assert_no_orphans():
+            live = {effect.effect_id for effect in ledger.effects}
+            for modifier in troll.stat_modifiers:
+                assert modifier.effect_id in live
+
+        assert len(troll.stat_modifiers) == 3
+        assert modifier_total(troll, "attack_bonus") == 1
+        assert_no_orphans()
+        ledger.advance(clock, 2, TimeUnit.ROUND, registry, stream=streams.get("effects"))
+        assert_no_orphans()
+        assert modifier_total(troll, "attack_bonus") == 0  # bless expired with its effect
+        ledger.release(ward_effect.effect_id, registry)
+        assert_no_orphans()
+        assert troll.stat_modifiers == ()
+
 
 class TestRegeneration:
     def test_troll_delay_and_rate(self, streams, allocator):

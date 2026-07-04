@@ -29,7 +29,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from osrlib.core.alignment import Alignment
 from osrlib.core.classes import SavingThrows
 from osrlib.core.dice import parse
-from osrlib.core.effects import ActiveCondition, Condition
+from osrlib.core.effects import ActiveCondition, ActiveModifier, Condition
 from osrlib.core.rng import RngStream
 
 __all__ = [
@@ -440,11 +440,14 @@ class MonsterInstance(BaseModel):
     """A mutable monster spawned from a frozen template.
 
     Exposes the same combatant surface as `Character` (THAC0, attack bonus, AC both
-    ways, saves, conditions), so combat functions take either. `nonregen_damage` is
-    the troll's non-regenerable damage ledger (fire and acid accrue here; regeneration
-    never heals it, and the troll is permanently dead only when this ledger alone
-    reaches max HP — pinned). `last_damaged_round` feeds regeneration's damage delay;
-    `breath_uses_today` tracks the dragons' three-per-day limit.
+    ways, saves, conditions, stat modifiers), so combat functions take either.
+    `nonregen_damage` is the troll's non-regenerable damage ledger (fire and acid
+    accrue here; regeneration never heals it, and the troll is permanently dead only
+    when this ledger alone reaches max HP — pinned). `last_damaged_round` feeds
+    regeneration's damage delay; `breath_uses_today` tracks the dragons'
+    three-per-day limit. `alignment` is the operative alignment resolved at spawn
+    (pinned — a multi-option `AlignmentSpec` can't answer *protection from evil*'s
+    ward gate); `None` means unresolved, which the ward treats as differing.
     """
 
     model_config = ConfigDict(validate_assignment=True)
@@ -454,6 +457,8 @@ class MonsterInstance(BaseModel):
     max_hp: int = Field(ge=1)
     current_hp: int = Field(ge=0)
     conditions: tuple[ActiveCondition, ...] = ()
+    stat_modifiers: tuple[ActiveModifier, ...] = ()
+    alignment: Alignment | None = None
     nonregen_damage: int = Field(default=0, ge=0)
     last_damaged_round: int | None = None
     breath_uses_today: int = Field(default=0, ge=0)
@@ -532,12 +537,17 @@ class MonsterInstance(BaseModel):
         return 0
 
 
-def spawn_monster(template: MonsterTemplate, *, id: str, stream: RngStream) -> MonsterInstance:
+def spawn_monster(
+    template: MonsterTemplate, *, id: str, stream: RngStream, alignment: Alignment | None = None
+) -> MonsterInstance:
     """Spawn a mutable instance, rolling hit points from the template's Hit Dice.
 
     HP is the sum of `count` rolls of the hit die (d8, or d4 for ½ HD) plus the
     signed modifier, minimum 1 (pinned); fixed-hp forms (`1hp`, the hydra's 8 hp per
-    HD) roll nothing and are exact.
+    HD) roll nothing and are exact. The operative alignment resolves at spawn
+    (pinned): the caller's choice wins, else the template's `usual`, else its sole
+    option; a multi-option template with no usual and no caller choice stays
+    unresolved, which alignment-gated wards treat as differing (erring protective).
 
     Args:
         template: The frozen template to spawn from.
@@ -545,17 +555,27 @@ def spawn_monster(template: MonsterTemplate, *, id: str, stream: RngStream) -> M
             [`IdAllocator`][osrlib.core.monsters.IdAllocator].
         stream: The RNG stream for the hit point rolls, conventionally
             [`MONSTER_SPAWN_STREAM`][osrlib.core.monsters.MONSTER_SPAWN_STREAM].
+        alignment: The encounter's or script's alignment choice; must be one of the
+            template's options.
 
     Returns:
         The spawned instance at full hit points.
+
+    Raises:
+        ValueError: If `alignment` is not among the template's options.
     """
+    if alignment is not None and alignment not in template.alignment.options:
+        raise ValueError(f"{template.id} alignment options are {template.alignment.options}, got {alignment}")
+    resolved = alignment or template.alignment.usual
+    if resolved is None and len(template.alignment.options) == 1:
+        resolved = template.alignment.options[0]
     dice = template.hit_dice
     if dice.fixed_hp is not None:
         hp = dice.fixed_hp
     else:
         rolls = [stream.randbelow(dice.die) + 1 for _ in range(dice.count)]
         hp = max(1, sum(rolls) + dice.modifier)
-    return MonsterInstance(id=id, template=template, max_hp=hp, current_hp=hp)
+    return MonsterInstance(id=id, template=template, max_hp=hp, current_hp=hp, alignment=resolved)
 
 
 class IdAllocator(BaseModel):
