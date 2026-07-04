@@ -48,7 +48,12 @@ nav:
       - LLM referees: front-ends/llm-referees.md
   - Reference:
       - API: reference/api/
+      - Commands: reference/commands/
+      - Events: reference/events/
+      - Rejection codes: reference/rejection-codes.md
+      - Message codes: reference/message-codes.md
       - RNG streams: reference/rng-streams.md
+      - Content ids: reference/content-ids/
       - Adaptations register: adaptations.md
   - Licensing: licensing.md
 
@@ -57,6 +62,10 @@ plugins:
   - gen-files:
       scripts:
         - tools/docs/gen_api_reference.py
+        - tools/docs/gen_schema_reference.py
+        - tools/docs/gen_rejection_codes.py
+        - tools/docs/gen_message_codes.py
+        - tools/docs/gen_content_ids.py
         - tools/docs/gen_licensing.py
   - literate-nav
   - mkdocstrings:
