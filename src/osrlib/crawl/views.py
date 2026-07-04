@@ -274,9 +274,9 @@ def _encounter_view(session) -> EncounterView | None:
     groups = []
     for group in state.groups:
         living = [
-            session.monsters[monster_id]
+            session.combatant(monster_id)
             for monster_id in group.monster_ids
-            if not has_condition(session.monsters[monster_id], Condition.DEAD)
+            if not has_condition(session.combatant(monster_id), Condition.DEAD)
         ]
         conditions = sorted({active.condition.value for monster in living for active in monster.conditions})
         groups.append(

@@ -59,6 +59,7 @@ from osrlib.crawl.commands import (
     SetDoorState,
     SetFlag,
     SpawnMonsters,
+    SpawnNpcParty,
 )
 from osrlib.crawl.dungeon import DungeonState, edge_ref
 from osrlib.crawl.events import (
@@ -623,6 +624,39 @@ def _handle_spawn_monsters(session: GameSession, command: SpawnMonsters) -> tupl
     return [], events
 
 
+def _handle_spawn_npc_party(session: GameSession, command: SpawnNpcParty) -> tuple[list[Rejection], list[Event]]:
+    from osrlib.core.dice import roll
+    from osrlib.crawl import encounter as encounter_module
+    from osrlib.crawl import exploration
+    from osrlib.data import load_encounter_tables
+
+    if session.encounter is not None or session.battle is not None:
+        return [Rejection(code="session.command.encounter_in_progress")], []
+    if session.dungeon_state.location.kind != "dungeon":
+        return [Rejection(code="session.command.not_in_dungeon")], []
+    if command.count_dice is not None:
+        count_dice = command.count_dice
+    else:
+        count_dice = next(
+            composition.count_dice
+            for composition in load_encounter_tables().npc_compositions
+            if composition.kind == command.party_kind
+        )
+    count = max(1, roll(count_dice, session.streams.get(ENCOUNTER_STREAM)).total)
+    party, bundle, events = exploration.field_npc_party(session, command.party_kind, count)
+    label = "Basic Adventurers" if command.party_kind == "basic" else "Expert Adventurers"
+    events.extend(
+        encounter_module.start_encounter(
+            session,
+            groups=[(label, party.members)],
+            kind="spawned",
+            distance_feet=command.distance_feet,
+        )
+    )
+    exploration._assign_carried(session, [({}, bundle)])
+    return [], events
+
+
 def _handle_identify_item(session: GameSession, command: IdentifyItem) -> tuple[list[Rejection], list[Event]]:
     from osrlib.crawl import exploration
 
@@ -714,6 +748,7 @@ _REFEREE_HANDLERS = {
     AwardXP: _handle_award_xp,
     SetFlag: _handle_set_flag,
     SpawnMonsters: _handle_spawn_monsters,
+    SpawnNpcParty: _handle_spawn_npc_party,
     SetDoorState: _handle_set_door_state,
     IdentifyItem: _handle_identify_item,
     PlaceParty: _handle_place_party,

@@ -25,9 +25,9 @@ import re
 from pathlib import Path
 
 from .overrides import apply_overrides, load_overrides
-from .pipetable import tables_after_heading
+from .pipetable import parse_range, section_prose, tables_after_heading
 
-SOURCE_PAGES = ("Dungeon_Encounters.md",)
+SOURCE_PAGES = ("Dungeon_Encounters.md", "Adventuring_Parties.md")
 
 # (table id, printed column header, min level, max level or None for the open band).
 _TABLES = (
@@ -161,13 +161,70 @@ _HYDRA_ENTRIES: dict[str, tuple[str, tuple[str, ...]]] = {
 _NPC_ENTRIES: dict[str, str] = {"Basic Adventurers": "basic", "Expert Adventurers": "expert"}
 
 
-def compile_encounter_tables(srd_dir: Path, monsters: list[dict[str, object]]) -> dict[str, object]:
+_NPC_CLASS_IDS = {
+    "Cleric": "cleric",
+    "Dwarf": "dwarf",
+    "Elf": "elf",
+    "Fighter": "fighter",
+    "Halfling": "halfling",
+    "Magic-User": "magic_user",
+    "Thief": "thief",
+}
+
+
+def _parse_npc_tables(page: str, classes: list[dict[str, object]]) -> dict[str, object]:
+    """Parse the NPC adventurer class/level, alignment, and composition tables.
+
+    The class/level table carries a two-row spanning header (`|  | | Level | |`
+    above the real one — the scroll spell-level treatment). Every printed Expert
+    level range is asserted against the class's own maximum at compile time (the
+    demi-human caps).
+    """
+    import re as _re
+
+    from .pipetable import parse_tables
+
+    tables = parse_tables(page)
+    class_table = next(table for table in tables if len(table[0]) == 4 and "Level" in table[0])
+    if class_table[1] != ["d8", "Class", "Basic", "Expert"]:
+        raise ValueError(f"unexpected NPC class table header {class_table[1]!r}")
+    caps = {str(definition["id"]): int(definition["max_level"]) for definition in classes}
+    rows = []
+    for roll_cell, class_name, basic_dice, expert_dice in class_table[2:]:
+        class_id = _NPC_CLASS_IDS[class_name]
+        parsed = _re.fullmatch(r"(\d*)d(\d+)(?:\+(\d+))?", expert_dice)
+        maximum = int(parsed[1] or 1) * int(parsed[2]) + int(parsed[3] or 0)
+        if maximum > caps[class_id]:
+            raise ValueError(f"NPC expert dice {expert_dice!r} exceed the {class_id} cap of {caps[class_id]}")
+        rows.append(
+            {"roll": int(roll_cell), "class_id": class_id, "basic_dice": basic_dice, "expert_dice": expert_dice}
+        )
+    alignment_table = next(table for table in tables if table[0] == ["d6", "Alignment"])
+    bands = []
+    for roll_cell, alignment in alignment_table[1:]:
+        low, high = parse_range(roll_cell)
+        bands.append({"roll_min": low, "roll_max": high, "alignment": alignment.lower()})
+    compositions = []
+    for kind, heading in (("basic", "Basic Adventurers"), ("expert", "Expert Adventurers")):
+        prose = section_prose(page, heading)
+        match = _re.search(r"Composition: (\d+d\d+\+\d+) characters", prose)
+        if match is None:
+            raise ValueError(f"cannot find the {kind} composition dice")
+        compositions.append({"kind": kind, "count_dice": match[1]})
+    return {"npc_class_levels": rows, "npc_alignment": bands, "npc_compositions": compositions}
+
+
+def compile_encounter_tables(
+    srd_dir: Path, monsters: list[dict[str, object]], classes: list[dict[str, object]]
+) -> dict[str, object]:
     """Compile the dungeon encounter tables into the `encounter_tables.json` structure.
 
     Args:
         srd_dir: The directory holding the scraped SRD markdown.
         monsters: The compiled monster entries, whose ids every reference must
             resolve against.
+        classes: The compiled class entries, whose level caps the NPC expert level
+            dice are asserted against.
 
     Returns:
         The raw dict (sans `_meta`) ready for `EncounterTables` validation.
@@ -208,7 +265,8 @@ def compile_encounter_tables(srd_dir: Path, monsters: list[dict[str, object]]) -
     for table in tables:
         for row in table["rows"]:
             row["entry"] = _resolve_entry(str(row["name"]), monster_ids)
-    return {"tables": tables}
+    parties_page = (srd_dir / "Adventuring_Parties.md").read_text(encoding="utf-8")
+    return {"tables": tables, **_parse_npc_tables(parties_page, classes)}
 
 
 def _columns(table: list[list[str]]) -> list[tuple[str, list[str]]]:

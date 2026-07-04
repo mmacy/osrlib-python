@@ -100,13 +100,16 @@ class BattleState(BaseModel):
 
 
 class MonsterAction(BaseModel):
-    """One monster's chosen action for the round."""
+    """One combatant's chosen action for the round (monster or NPC adventurer)."""
 
     model_config = ConfigDict(frozen=True)
 
     monster_id: str
-    kind: str  # close | breath | melee | hold
+    kind: str  # close | breath | melee | hold | npc_shoot | npc_cast | npc_drink
     target_id: str | None = None
+    spell_id: str | None = None
+    spell_mode: str | None = None
+    item_id: str | None = None
 
 
 class ActionPolicy(Protocol):
@@ -168,6 +171,134 @@ class ScriptedPolicy:
         return actions
 
 
+class NpcPartyPolicy:
+    """The default policy for NPC adventurer sides — invented tactics, registered.
+
+    Per living member each round, in a pinned priority: (1) a caster holding a
+    memorized cure spell heals the group's most-wounded member below half hp
+    (lowest hp ratio, ties by id); (1½) a member below half hp with no cure left
+    in the group drinks a carried healing potion — the one item-use the default
+    policy performs; (2) a caster holding a memorized wired offensive spell casts
+    it — highest spell level first, ties by spell id — at the party (areas through
+    the footprint rule, single-target picks uniform from the reachable rank);
+    (3) a member with a missile weapon and a gap beyond 5' shoots; (4) otherwise
+    close and melee, the monster default. Policy draws come only from the
+    `monster_action` stream; NPC casts post declarations and are disruptable
+    exactly like party casts (RAW's trigger doesn't care which side declares).
+    """
+
+    def choose(self, session, group, stream) -> list[MonsterAction]:
+        """Choose this round's actions (see [`ActionPolicy`][osrlib.crawl.battle.ActionPolicy])."""
+        from osrlib.data import load_spells
+
+        actions: list[MonsterAction] = []
+        living = _living_monsters(session, group)
+        pool = _party_target_pool(session)
+        catalog = load_spells()
+        cure_available = any(_npc_cure_spell(member, catalog) is not None for member in living)
+        for npc in living:
+            if incapacitated(npc) or has_condition(npc, Condition.CONFUSED):
+                continue
+            cure = _npc_cure_spell(npc, catalog)
+            wounded = [member for member in living if member.current_hp * 2 < member.max_hp]
+            if cure is not None and wounded:
+                target = min(wounded, key=lambda member: (member.current_hp / member.max_hp, member.id))
+                spell, mode = cure
+                actions.append(
+                    MonsterAction(
+                        monster_id=npc.id, kind="npc_cast", target_id=target.id, spell_id=spell.id, spell_mode=mode
+                    )
+                )
+                continue
+            if npc.current_hp * 2 < npc.max_hp and not cure_available:
+                potion = _npc_healing_potion(npc)
+                if potion is not None:
+                    actions.append(MonsterAction(monster_id=npc.id, kind="npc_drink", item_id=potion.instance_id))
+                    continue
+            offense = _npc_offensive_spell(npc, catalog)
+            if offense is not None:
+                spell, mode = offense
+                target_id = None
+                targeting = spell.mode(mode).targeting
+                if targeting is not None and targeting.mode is not TargetingMode.AREA and pool:
+                    target_id = pool[stream.randbelow(len(pool))].id
+                actions.append(
+                    MonsterAction(
+                        monster_id=npc.id, kind="npc_cast", target_id=target_id, spell_id=spell.id, spell_mode=mode
+                    )
+                )
+                continue
+            if group.distance_feet > MELEE_RANGE_FEET:
+                if _npc_wielded(npc, missile=True, distance_feet=group.distance_feet) is not None and pool:
+                    target = pool[stream.randbelow(len(pool))]
+                    actions.append(MonsterAction(monster_id=npc.id, kind="npc_shoot", target_id=target.id))
+                else:
+                    actions.append(MonsterAction(monster_id=npc.id, kind="close"))
+                continue
+            targets = _reachable_targets(session, npc, pool)
+            if not targets:
+                actions.append(MonsterAction(monster_id=npc.id, kind="hold"))
+                continue
+            target = targets[stream.randbelow(len(targets))]
+            actions.append(MonsterAction(monster_id=npc.id, kind="melee", target_id=target.id))
+        return actions
+
+
+def _npc_cure_spell(npc, catalog):
+    """The first memorized copy of a healing spell, with its healing mode."""
+    for copy in getattr(npc, "memorized_spells", ()):
+        spell = catalog.get(copy.spell_id)
+        if copy.reversed:
+            continue
+        for mode in spell.modes:
+            if not mode.manual and mode.effect is not None and mode.effect.kind == "heal":
+                return spell, mode.key
+    return None
+
+
+def _npc_offensive_spell(npc, catalog):
+    """The best memorized wired offensive spell: highest level first, ties by id."""
+    best = None
+    for copy in getattr(npc, "memorized_spells", ()):
+        if copy.reversed:
+            continue
+        spell = catalog.get(copy.spell_id)
+        for mode in spell.modes:
+            if mode.manual or mode.effect is None or mode.effect.kind != "damage":
+                continue
+            key = (-spell.level, spell.id)
+            if best is None or key < best[0]:
+                best = (key, spell, mode.key)
+            break
+    if best is None:
+        return None
+    return best[1], best[2]
+
+
+def _npc_healing_potion(npc):
+    for instance in npc.inventory.all_instances():
+        if isinstance(instance, MagicItemInstance):
+            template = magic_item_template(instance)
+            is_heal = template.effect is not None and template.effect.kind == "healing"
+            if is_heal and template.category.value == "potion":
+                return instance
+    return None
+
+
+def _npc_wielded(npc, *, missile: bool, distance_feet: int = MELEE_RANGE_FEET):
+    """The NPC's first wielded weapon fitting the range — template or magic instance."""
+    for instance in npc.inventory.wielded:
+        attack = instance if isinstance(instance, MagicItemInstance) else instance.template
+        facet = _declaration_facet(attack)
+        qualities = getattr(facet, "qualities", ())
+        if missile:
+            if WeaponQuality.MISSILE in qualities:
+                return attack
+        elif WeaponQuality.MELEE in qualities or WeaponQuality.MISSILE not in qualities:
+            return attack
+    return None
+
+
 def _breath_usable(monster: MonsterInstance, distance_feet: int) -> bool:
     if validate_breath(monster):
         return False
@@ -178,11 +309,12 @@ def _breath_usable(monster: MonsterInstance, distance_feet: int) -> bool:
     return True
 
 
-def _living_monsters(session, group) -> list[MonsterInstance]:
+def _living_monsters(session, group) -> list:
+    """The group's living combatants — monsters or NPC adventurers."""
     return [
-        session.monsters[monster_id]
+        session.combatant(monster_id)
         for monster_id in group.monster_ids
-        if not has_condition(session.monsters[monster_id], Condition.DEAD)
+        if not has_condition(session.combatant(monster_id), Condition.DEAD)
     ]
 
 
@@ -271,9 +403,17 @@ def _monster_pool(session, group) -> list[MonsterInstance]:
     return [monster for monster in _group_front_rank(session, group) if not has_condition(monster, Condition.INVISIBLE)]
 
 
+NPC_PARTY_MORALE = 9
+"""NPC adventurer groups check morale at ML 9 — the Veteran stat block's printed
+score, the SRD's own low-level-adventurer monster as the data anchor rather than an
+invented number (pinned, registered)."""
+
+
 def _group_morale_score(session, group) -> int | None:
-    monster = session.monsters[group.monster_ids[0]]
-    return monster.template.morale
+    combatant = session.combatant(group.monster_ids[0])
+    if getattr(combatant, "definition", None) is not None:
+        return NPC_PARTY_MORALE
+    return combatant.template.morale
 
 
 def _encounter_rate(member_or_monster, session) -> int:
@@ -839,13 +979,17 @@ def handle_resolve_battle_round(session, command: ResolveBattleRound) -> tuple[l
     events: list[Event] = [BattleRoundEvent(round=state.round)]
 
     # Declarations post: spells are table-visible per RAW.
-    pending_casters: dict[str, BattleDeclaration] = {}
+    pending_casters: dict[str, object] = {}
     for member, declaration in by_member.values():
         if declaration.action == "cast":
             pending_casters[member.id] = declaration
             events.append(
                 SpellDeclaredEvent(caster_id=member.id, spell_id=declaration.spell_id, reversed=declaration.reversed)
             )
+    # NPC sides choose at declaration time: their casts post and are disruptable
+    # exactly like the party's (pinned) — the policy draw moves to the top of the
+    # round, still on the monster_action stream.
+    npc_actions = _declare_npc_actions(session, state, pending_casters, events)
 
     # Initiative: side blocks, party versus the monster side.
     participants = []
@@ -897,6 +1041,9 @@ def handle_resolve_battle_round(session, command: ResolveBattleRound) -> tuple[l
             )
         )
         block.extend(_confused_party_overrides(session, by_member, fire_damaged_groups))
+        # Party hits and failed saves disrupt declared NPC casters too (the RAW
+        # trigger doesn't care which side declares).
+        _watch_disruption(block, pending_casters, disrupted, acted)
         return block
 
     def monster_block() -> list[Event]:
@@ -911,6 +1058,7 @@ def handle_resolve_battle_round(session, command: ResolveBattleRound) -> tuple[l
             acted=acted,
             fire_damaged=fire_damaged_groups,
             party_retreating=party_retreating,
+            npc_actions=npc_actions,
         )
 
     blocks = (party_block, monster_block) if party_first else (monster_block, party_block)
@@ -1277,7 +1425,7 @@ def _party_magic(session, by_member, pending_casters, disrupted, acted, state) -
             # Turning resolves in the magic phase but is never disruptable —
             # a class ability, not a spell (pinned).
             candidates = [
-                session.monsters[monster_id] for group in session.encounter.groups for monster_id in group.monster_ids
+                session.combatant(monster_id) for group in session.encounter.groups for monster_id in group.monster_ids
             ]
             result = turn_undead(
                 member,
@@ -1437,6 +1585,9 @@ def _policy_for(session, group) -> ActionPolicy:
     policies = getattr(session, "action_policies", None)
     if policies and group.id in policies:
         return policies[group.id]
+    first = session.combatant(group.monster_ids[0])
+    if getattr(first, "definition", None) is not None:
+        return NpcPartyPolicy()
     return ScriptedPolicy()
 
 
@@ -1449,6 +1600,7 @@ def _monster_block(
     acted: set | None = None,
     fire_damaged: set | None = None,
     party_retreating: bool = False,
+    npc_actions: dict[str, list[MonsterAction]] | None = None,
 ) -> list[Event]:
     from osrlib.crawl.session import MONSTER_ACTION_STREAM
 
@@ -1469,11 +1621,14 @@ def _monster_block(
             if group.distance_feet > FLEE_EXIT_FEET:
                 group.fled = True
             continue
-        actions = _policy_for(session, group).choose(session, group, session.streams.get(MONSTER_ACTION_STREAM))
+        if npc_actions is not None and group.id in npc_actions:
+            actions = npc_actions[group.id]
+        else:
+            actions = _policy_for(session, group).choose(session, group, session.streams.get(MONSTER_ACTION_STREAM))
         events.extend(_confused_overrides(session, group, actions))
         moved = False
         for action in actions:
-            monster = session.monsters[action.monster_id]
+            monster = session.combatant(action.monster_id)
             if has_condition(monster, Condition.DEAD) or has_condition(monster, Condition.CONFUSED):
                 continue
             if action.kind == "close" and not moved:
@@ -1492,9 +1647,129 @@ def _monster_block(
                 target = session.registry().get(action.target_id)
                 if target is None or has_condition(target, Condition.DEAD):
                     continue
-                events.extend(_resolve_monster_melee(session, monster, target, party_retreating=party_retreating))
+                if getattr(monster, "definition", None) is not None:
+                    events.extend(
+                        _resolve_npc_attack(session, monster, target, group, missile=False, retreating=party_retreating)
+                    )
+                else:
+                    events.extend(_resolve_monster_melee(session, monster, target, party_retreating=party_retreating))
                 _watch_disruption(events, pending_casters, disrupted, acted)
+            elif action.kind == "npc_shoot":
+                target = session.registry().get(action.target_id)
+                if target is None or has_condition(target, Condition.DEAD):
+                    continue
+                events.extend(
+                    _resolve_npc_attack(session, monster, target, group, missile=True, retreating=party_retreating)
+                )
+                _watch_disruption(events, pending_casters, disrupted, acted)
+            elif action.kind == "npc_cast":
+                events.extend(_resolve_npc_cast(session, monster, group, action, disrupted))
+                acted.add(monster.id)
+                _watch_disruption(events, pending_casters, disrupted, acted)
+            elif action.kind == "npc_drink":
+                from osrlib.crawl import exploration
+
+                instance = monster.inventory.magic_item(action.item_id) if action.item_id else None
+                if instance is not None:
+                    _, drink_events = exploration._use_potion(session, monster, instance, magic_item_template(instance))
+                    events.extend(drink_events)
     return events
+
+
+def _declare_npc_actions(session, state, pending_casters: dict, events: list[Event]) -> dict[str, list[MonsterAction]]:
+    """Choose NPC sides' actions at the top of the round and post their casts."""
+    from osrlib.crawl.session import MONSTER_ACTION_STREAM
+
+    chosen: dict[str, list[MonsterAction]] = {}
+    if state.monsters_hold_rounds > 0:
+        return chosen
+    for group in session.encounter.groups:
+        if group.fled or group.surrendered:
+            continue
+        first = session.combatant(group.monster_ids[0])
+        if getattr(first, "definition", None) is None:
+            continue
+        if not _living_monsters(session, group):
+            continue
+        actions = _policy_for(session, group).choose(session, group, session.streams.get(MONSTER_ACTION_STREAM))
+        chosen[group.id] = actions
+        for action in actions:
+            if action.kind == "npc_cast":
+                pending_casters[action.monster_id] = action
+                events.append(SpellDeclaredEvent(caster_id=action.monster_id, spell_id=action.spell_id))
+    return chosen
+
+
+def _resolve_npc_attack(session, npc, target, group, *, missile: bool, retreating: bool) -> list[Event]:
+    """An NPC adventurer's weapon attack — the party's own kernel path."""
+    weapon = _npc_wielded(npc, missile=missile, distance_feet=group.distance_feet)
+    events: list[Event] = []
+    if session.ledger.active_on(getattr(target, "id", ""), "mirror_image"):
+        events.extend(pop_mirror_image(session.ledger, target.id, registry=session.registry(), clock=session.clock))
+        return events
+    context = AttackContext(
+        distance_feet=group.distance_feet if missile else MELEE_RANGE_FEET,
+        defender_retreating=retreating,
+    )
+    result = resolve_attack(
+        npc,
+        target,
+        weapon,
+        context=context,
+        ruleset=session.ruleset,
+        stream=session.streams.get(COMBAT_STREAM),
+        clock=session.clock,
+    )
+    events.extend(result.events)
+    if isinstance(weapon, MagicItemInstance) and result.attack_roll.hit and not result.absorbed:
+        events.extend(_on_hit_drain(session, weapon, target))
+    return events
+
+
+def _party_area_candidates(session, shape: str | None, dimensions: dict, gap_feet: int) -> list:
+    """The footprint rule pointed at the party: front ranks covered by the span."""
+    span = _area_span_feet(shape, dimensions, gap_feet)
+    ranks = _party_ranks(session)
+    covered = math.ceil(span / 10) if span > 0 else 0
+    return [member for rank in ranks[:covered] for member in rank]
+
+
+def _resolve_npc_cast(session, npc, group, action: MonsterAction, disrupted: set) -> list[Event]:
+    """Resolve (or disrupt) an NPC's declared cast through the character kernel."""
+    from osrlib.core.spells import CastContext, cast_spell, validate_cast
+
+    if npc.id in disrupted:
+        return disrupt_casting(npc, action.spell_id, reversed=False)
+    spell = load_spells().get(action.spell_id)
+    mode = spell.mode(action.spell_mode)
+    targeting = mode.targeting
+    if targeting is not None and targeting.mode is TargetingMode.AREA:
+        targets = _party_area_candidates(session, targeting.shape, dict(targeting.dimensions), group.distance_feet)
+    elif action.target_id is not None:
+        target = session.registry().get(action.target_id)
+        if target is None or has_condition(target, Condition.DEAD):
+            return []
+        targets = [target]
+    else:
+        targets = []
+    context = CastContext(in_combat=True, distance_feet=group.distance_feet)
+    if validate_cast(npc, spell, action.spell_mode, targets=targets, context=context, ledger=session.ledger):
+        return []
+    result = cast_spell(
+        npc,
+        spell,
+        action.spell_mode,
+        targets=targets,
+        context=context,
+        ledger=session.ledger,
+        clock=session.clock,
+        allocator=session.allocator,
+        registry=session.registry(),
+        ruleset=session.ruleset,
+        stream=session.streams.get(MAGIC_STREAM),
+        effects_stream=session.streams.get(EFFECTS_STREAM),
+    )
+    return list(result.events)
 
 
 def _group_all_shaken(session, group) -> bool:
@@ -1505,8 +1780,11 @@ def _group_all_shaken(session, group) -> bool:
 
 
 def _pursuer_full_rate(session, group) -> int:
-    monster = session.monsters[group.monster_ids[0]]
-    modes = monster.template.movement
+    combatant = session.combatant(group.monster_ids[0])
+    if getattr(combatant, "definition", None) is not None:
+        living = _living_monsters(session, group)
+        return min(member.movement_rate(session.ruleset) for member in living) if living else 0
+    modes = combatant.template.movement
     base = next((mode for mode in modes if mode.descriptor is None), modes[0])
     return base.rate_feet
 
@@ -1522,7 +1800,7 @@ def _group_morale(session, group, fire_damaged) -> list[Event]:
     score = _group_morale_score(session, group)
     if score is None or group.fleeing:
         return []
-    members = [session.monsters[monster_id] for monster_id in group.monster_ids]
+    members = [session.combatant(monster_id) for monster_id in group.monster_ids]
     triggers = morale_triggers(members)
     acted = state.morale_acted.setdefault(group.id, [])
     events: list[Event] = []
@@ -1531,8 +1809,8 @@ def _group_morale(session, group, fire_damaged) -> list[Event]:
             continue
         acted.append(trigger)
         effective = score
-        first = session.monsters[group.monster_ids[0]]
-        for alternate in first.template.morale_alternates:
+        first = session.combatant(group.monster_ids[0])
+        for alternate in getattr(getattr(first, "template", None), "morale_alternates", ()):
             if "fire" in alternate.condition and group.id in fire_damaged:
                 effective = alternate.score
         modifier = morale_modifier(first)

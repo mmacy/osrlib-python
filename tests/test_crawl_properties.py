@@ -46,6 +46,16 @@ def command_strategy():
                 )
             )
             continue
+        if name == "SpawnNpcParty":
+            samples.append(
+                st.builds(
+                    command_class,
+                    party_kind=st.sampled_from(["basic", "expert"]),
+                    count_dice=st.sampled_from([None, "1d3"]),
+                    distance_feet=st.integers(min_value=0, max_value=90),
+                )
+            )
+            continue
         if name == "SpawnMonsters":
             samples.append(
                 st.builds(

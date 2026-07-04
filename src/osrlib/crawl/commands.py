@@ -68,6 +68,7 @@ __all__ = [
     "SetDoorState",
     "SetFlag",
     "SpawnMonsters",
+    "SpawnNpcParty",
     "TakeTreasure",
     "TravelToTown",
     "TurnParty",
@@ -560,6 +561,26 @@ class SpawnMonsters(Command):
         return self
 
 
+class SpawnNpcParty(Command):
+    """Referee: generate an NPC adventuring party and open an encounter.
+
+    `count_dice=None` rolls the compiled composition dice (Basic 1d4+4, Expert
+    1d6+3) — the surface for keyed content, quest listeners, and tests.
+    """
+
+    command_type: Literal["spawn_npc_party"] = "spawn_npc_party"
+    party_kind: Literal["basic", "expert"]
+    count_dice: str | None = None
+    distance_feet: int = Field(ge=0)
+
+    @field_validator("count_dice")
+    @classmethod
+    def _dice_must_parse(cls, value: str | None) -> str | None:
+        if value is not None:
+            parse(value)
+        return value
+
+
 class SetDoorState(Command):
     """Referee: rewrite a door's overlay anywhere (`None` fields stay unchanged)."""
 
@@ -628,6 +649,7 @@ ALL_COMMAND_CLASSES: tuple[type[Command], ...] = (
     AwardXP,
     SetFlag,
     SpawnMonsters,
+    SpawnNpcParty,
     SetDoorState,
     PlaceParty,
     AdvanceTime,

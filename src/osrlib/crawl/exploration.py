@@ -482,12 +482,26 @@ def wandering_check(session, *, resting: bool = False) -> tuple[list[Event], boo
         return events, False
     table = level.wandering.table or load_encounter_tables().for_level(level.number)
     row = table.rows[stream.randbelow(20)]
-    while row.entry.kind == "npc_party":
-        # NPC parties arrive in Phase 5; re-roll until a monster row, draws consumed.
-        row = table.rows[stream.randbelow(20)]
     count = row.count_fixed if row.count_fixed is not None else roll(row.count_dice, stream).total
     count = max(1, count)
     entry = row.entry
+    if entry.kind == "npc_party":
+        # The wandering re-roll ends: the row rolls its printed count dice on the
+        # wandering stream, generates the party, and the encounter procedure runs
+        # unchanged — surprise both ways, distance, reaction (NPC parties react on
+        # the table like anyone; parley works; keyed stances don't apply).
+        party, bundle, npc_events = field_npc_party(session, entry.party_kind, count)
+        events.extend(npc_events)
+        events.extend(
+            encounter_module.start_encounter(
+                session,
+                groups=[(row.name, party.members)],
+                kind="wandering",
+                monsters_roll_surprise=True,
+            )
+        )
+        _assign_carried(session, [({}, bundle)])
+        return events, True
     if entry.variant_dice is not None:
         # The hydra form: the printed HD dice select the template once.
         dice = roll(entry.variant_dice, stream)
@@ -1879,6 +1893,42 @@ def generate_carried_treasure(session, instances):
         if not bundle.empty:
             group_bundle = bundle
     return member_treasure, group_bundle
+
+
+def field_npc_party(session, kind: str, count: int):
+    """Generate an NPC party, register its members, and return them with the events.
+
+    Members register in `session.npcs` (allocator prefix `npc`); the referee-only
+    roster event carries classes and levels — the player-facing encounter event
+    names "adventurers" and the count.
+    """
+    from osrlib.core.npc import NPC_PARTY_STREAM, generate_npc_party
+    from osrlib.core.treasure import TREASURE_STREAM
+    from osrlib.crawl.dungeon import TreasureBundle
+    from osrlib.crawl.events import NpcPartySpawnedEvent
+
+    party = generate_npc_party(
+        kind,
+        count=count,
+        npc_stream=session.streams.get(NPC_PARTY_STREAM),
+        treasure_stream=session.streams.get(TREASURE_STREAM),
+        allocator=session.allocator,
+    )
+    for member in party.members:
+        session.npcs[member.id] = member
+    bundle = TreasureBundle(
+        coins=party.treasure.coins,
+        valuables=list(party.treasure.valuables),
+        magic_items=list(party.treasure.magic_items),
+    )
+    event = NpcPartySpawnedEvent(
+        party_kind=kind,
+        npc_ids=tuple(member.id for member in party.members),
+        class_ids=tuple(member.class_id for member in party.members),
+        levels=tuple(member.level for member in party.members),
+        alignment=party.alignment.value,
+    )
+    return party, (None if bundle.empty else bundle), [event]
 
 
 def _assign_carried(session, carried) -> None:

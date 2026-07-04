@@ -108,7 +108,9 @@ def main() -> None:
 
     # Encounter-table overrides apply inside the compiler (they normalize the printed
     # names entry resolution keys on), so no apply_overrides call here.
-    encounter_tables_data = encounter_tables.compile_encounter_tables(srd_dir, monsters_data["monsters"])
+    encounter_tables_data = encounter_tables.compile_encounter_tables(
+        srd_dir, monsters_data["monsters"], classes_data["classes"]
+    )
     _write(
         out_dir,
         "encounter_tables.json",

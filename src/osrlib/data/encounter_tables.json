@@ -3,9 +3,87 @@
     "generator": "tools/srd_compile",
     "license": "Open Game Content under OGL 1.0a; see LICENSE-OGL.md in this directory",
     "source_pages": [
+      "Adventuring_Parties.md",
       "Dungeon_Encounters.md"
     ]
   },
+  "npc_alignment": [
+    {
+      "alignment": "lawful",
+      "roll_max": 2,
+      "roll_min": 1
+    },
+    {
+      "alignment": "neutral",
+      "roll_max": 4,
+      "roll_min": 3
+    },
+    {
+      "alignment": "chaotic",
+      "roll_max": 6,
+      "roll_min": 5
+    }
+  ],
+  "npc_class_levels": [
+    {
+      "basic_dice": "1d3",
+      "class_id": "cleric",
+      "expert_dice": "1d6+3",
+      "roll": 1
+    },
+    {
+      "basic_dice": "1d3",
+      "class_id": "dwarf",
+      "expert_dice": "1d6+6",
+      "roll": 2
+    },
+    {
+      "basic_dice": "1d3",
+      "class_id": "elf",
+      "expert_dice": "1d6+2",
+      "roll": 3
+    },
+    {
+      "basic_dice": "1d3",
+      "class_id": "fighter",
+      "expert_dice": "1d6+3",
+      "roll": 4
+    },
+    {
+      "basic_dice": "1d3",
+      "class_id": "fighter",
+      "expert_dice": "1d6+5",
+      "roll": 5
+    },
+    {
+      "basic_dice": "1d3",
+      "class_id": "halfling",
+      "expert_dice": "1d6+2",
+      "roll": 6
+    },
+    {
+      "basic_dice": "1d3",
+      "class_id": "magic_user",
+      "expert_dice": "1d6+3",
+      "roll": 7
+    },
+    {
+      "basic_dice": "1d3",
+      "class_id": "thief",
+      "expert_dice": "1d6+4",
+      "roll": 8
+    }
+  ],
+  "npc_compositions": [
+    {
+      "count_dice": "1d4+4",
+      "kind": "basic"
+    },
+    {
+      "count_dice": "1d6+3",
+      "kind": "expert"
+    }
+  ],
   "tables": [
     {
       "id": "level_1",
