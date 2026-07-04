@@ -687,12 +687,15 @@ def _relocate(session, dungeon_id: str, level_number: int, position, facing) -> 
     state = session.dungeon_state
     old_location = state.location
     old_area = None
+    leave_events: list[Event] = []
     if (
         old_location.kind == "dungeon"
         and old_location.dungeon_id == dungeon_id
         and old_location.level_number == level_number
     ):
         old_area = _level(session).area_at(old_location.position)
+    elif old_location.kind == "dungeon":
+        leave_events = _swing_shut_on_leave(session)
     state.location = PartyLocation(
         kind="dungeon", dungeon_id=dungeon_id, level_number=level_number, position=position, facing=facing
     )
@@ -701,6 +704,7 @@ def _relocate(session, dungeon_id: str, level_number: int, position, facing) -> 
         events.append(LocationEnteredEvent(location_kind="dungeon", location_id=dungeon_id, level_number=level_number))
     elif old_location.level_number != level_number:
         events.append(LocationEnteredEvent(location_kind="level", location_id=dungeon_id, level_number=level_number))
+    events.extend(leave_events)
     state.mark_explored(dungeon_id, level_number, position)
     events.extend(_boundary_events(session, old_area, position))
     events.extend(_enter_hooks(session))
@@ -787,8 +791,13 @@ def handle_move_party(session, command: MoveParty) -> tuple[list[Rejection], lis
     return [], events
 
 
-def _swing_shut(session, *, previous) -> list[Event]:
-    """Doors the party opened swing shut behind it unless wedged (pinned always)."""
+def _swing_shut(session, *, previous, leaving_level: bool = False) -> list[Event]:
+    """Doors the party opened swing shut behind it unless wedged (pinned always).
+
+    With `leaving_level` (a transition or the trip to town), every party-opened
+    unwedged door on the departed level shuts — the party is gone from all of
+    them.
+    """
     location = _location(session)
     prefix = f"{location.dungeon_id}:{location.level_number}:"
     events: list[Event] = []
@@ -800,10 +809,15 @@ def _swing_shut(session, *, previous) -> list[Event]:
         # The canonical key names the edge from its south/east cell's north/west
         # side: the two adjoining cells are (x, y) and its north/west neighbour.
         neighbour = step((x, y), Direction.NORTH if side == "north" else Direction.WEST)
-        if location.position not in ((x, y), neighbour):
+        if leaving_level or location.position not in ((x, y), neighbour):
             state.open = False
             events.append(DoorEvent(code="exploration.door.swung_shut", x=x, y=y, direction=side))
     return events
+
+
+def _swing_shut_on_leave(session) -> list[Event]:
+    """Close every party-opened unwedged door on the level being left."""
+    return _swing_shut(session, previous=None, leaving_level=True)
 
 
 def handle_turn_party(session, command: TurnParty) -> tuple[list[Rejection], list[Event]]:
@@ -854,10 +868,12 @@ def handle_travel_to_town(session, command: TravelToTown) -> tuple[list[Rejectio
     level = _level(session)
     if level.entrance is None or location.position != level.entrance:
         return [Rejection(code="exploration.travel.not_at_entrance")], []
+    events = _swing_shut_on_leave(session)
     session.mode = SessionMode.TOWN
     session.dungeon_state.location = PartyLocation(kind="town")
     travel = session.adventure.town.travel_turns.get(location.dungeon_id, 0)
-    events, _ = session.advance_turns(travel, field=False)
+    travel_events, _ = session.advance_turns(travel, field=False)
+    events.extend(travel_events)
     events.append(LocationEnteredEvent(location_kind="town", location_id="town"))
     return [], events
 

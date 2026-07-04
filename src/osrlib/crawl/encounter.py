@@ -47,9 +47,6 @@ __all__ = [
 PURSUIT_ROUND_CAP = 30
 """Running exhaustion after 30 rounds; the pursuit's terminal escape valve (pinned)."""
 
-FLEE_EXIT_FEET = 120
-"""A fleeing group leaves the battle past 120' — the pursuit sight figure, symmetric."""
-
 
 class EncounterGroup(BaseModel):
     """One monster group in an encounter: its members and range-track distance."""
@@ -210,23 +207,35 @@ def start_encounter(
     if stance is ReactionResult.ATTACKS:
         from osrlib.crawl import battle as battle_module
 
-        events.extend(battle_module.start_battle(session, monsters_free_round=party_surprised and not both))
+        # A surprise advantage becomes a free battle round on either side: the
+        # monsters' pending skipped beat is the party's free round, and a
+        # surprised party grants the monsters theirs.
+        party_free = state.monsters_skip_rounds > 0
+        state.monsters_skip_rounds = 0
+        events.extend(
+            battle_module.start_battle(
+                session, party_free_round=party_free, monsters_free_round=party_surprised and not both
+            )
+        )
         return events
     if stance is ReactionResult.HOSTILE:
         state.hostile_deadline = 1 + state.monsters_skip_rounds
     if party_surprised and not both:
         # The surprised side cannot act that round: the monsters take one beat
-        # before the party's first command.
-        events.extend(end_of_round(session))
+        # before the party's first command — and a battle opening on that beat
+        # begins with their surprise round.
+        events.extend(end_of_round(session, party_lost_beat=True))
     return events
 
 
-def _stance_from(result: ReactionResult) -> str:
-    return result.value
+def end_of_round(session, *, party_lost_beat: bool = False) -> list[Event]:
+    """Close one encounter round beat: the clock ticks and the monsters act per stance.
 
-
-def end_of_round(session) -> list[Event]:
-    """Close one encounter round beat: the clock ticks and the monsters act per stance."""
+    Args:
+        session: The running session.
+        party_lost_beat: True when this beat is the surprised party's lost round —
+            a battle opening here starts with the monsters' free round.
+    """
     state = session.encounter
     if state is None or session.battle is not None:
         return []
@@ -239,10 +248,10 @@ def end_of_round(session) -> list[Event]:
     from osrlib.crawl.session import ENCOUNTER_STREAM
 
     if state.stance == ReactionResult.ATTACKS.value:
-        events.extend(battle_module.start_battle(session))
+        events.extend(battle_module.start_battle(session, monsters_free_round=party_lost_beat))
     elif state.stance == ReactionResult.HOSTILE.value:
         if not state.evading and state.hostile_deadline is not None and state.round >= state.hostile_deadline:
-            events.extend(battle_module.start_battle(session))
+            events.extend(battle_module.start_battle(session, monsters_free_round=party_lost_beat))
     elif state.stance == ReactionResult.UNCERTAIN.value:
         reaction = roll_reaction(stream=session.streams.get(ENCOUNTER_STREAM))
         events.extend(reaction.events)
@@ -250,7 +259,7 @@ def end_of_round(session) -> list[Event]:
             state.stance = reaction.result.value
             events.append(StanceChangedEvent(stance=state.stance))
             if reaction.result is ReactionResult.ATTACKS:
-                events.extend(battle_module.start_battle(session))
+                events.extend(battle_module.start_battle(session, monsters_free_round=party_lost_beat))
             elif reaction.result is ReactionResult.HOSTILE:
                 state.hostile_deadline = state.round + 1
     return events
@@ -555,8 +564,11 @@ def end_encounter(session, outcome: str) -> list[Event]:
     ledger; `turned` effects on routed undead release; remaining effects on the
     encounter's monsters release too — the fiction moves on (pinned, registered:
     a dead troll's pending revival is game narration after the battle). The clock
-    advances to the next turn boundary and at minimum one full turn from encounter
-    start (RAW's conclusion), with the wandering cadence still suspended.
+    advances to `max(next turn boundary, encounter start + one turn)` (RAW's
+    conclusion), with the wandering cadence still suspended — pinned: when the
+    encounter started mid-turn, the minimum-one-turn clause dominates and the
+    conclusion may itself land mid-turn (the boundary clause only guarantees the
+    boundary is reached).
     """
     from osrlib.core.clock import ROUNDS_PER_TURN
     from osrlib.crawl.session import DefeatedMonsterRecord

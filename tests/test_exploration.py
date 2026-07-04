@@ -224,26 +224,29 @@ class TestDoors:
         assert session.dungeon_state.doors["delve:1:2,1:north"].open
 
     def test_pick_lock_costs_a_turn_and_failure_locks_the_thief_out_until_level_gain(self):
-        session = quiet_session(seed=6)
-        entered(session)
-        place(session, (4, 1))
-        session.member("character-0002")
-        result = None
-        while True:
-            before_rounds = session.clock.rounds
-            result = session.execute(PickLock(direction=Direction.SOUTH, character_id="character-0002"))
-            if not result.accepted:
-                assert result.rejections[0].code == "exploration.lock.locked_out"
-                break
-            assert session.clock.rounds > before_rounds  # one turn spent
-            if any(event.code == "exploration.door.unlocked" for event in result.events):
-                pytest.skip("seed picked the lock before failing; lockout covered by the loop's other branch")
-        # A level gain re-opens the attempt.
+        # Deterministic seed scan: take the first seed whose opening d% fails —
+        # a level-1 thief's 15% chance fails on most seeds.
         from osrlib.crawl.commands import AwardXP
 
-        session.execute(AwardXP(character_id="character-0002", amount=1200))
-        result = session.execute(PickLock(direction=Direction.SOUTH, character_id="character-0002"))
-        assert result.accepted
+        for seed in range(30):
+            session = quiet_session(seed=seed)
+            entered(session)
+            place(session, (4, 1))
+            before_rounds = session.clock.rounds
+            result = session.execute(PickLock(direction=Direction.SOUTH, character_id="character-0002"))
+            assert result.accepted
+            assert session.clock.rounds > before_rounds  # one turn spent either way
+            if any(event.code == "exploration.door.unlocked" for event in result.events):
+                continue  # this seed picked it; try the next
+            # The failure locks this thief out of this lock until a level gain.
+            again = session.execute(PickLock(direction=Direction.SOUTH, character_id="character-0002"))
+            assert not again.accepted
+            assert again.rejections[0].code == "exploration.lock.locked_out"
+            session.execute(AwardXP(character_id="character-0002", amount=1200))
+            retry = session.execute(PickLock(direction=Direction.SOUTH, character_id="character-0002"))
+            assert retry.accepted
+            return
+        raise AssertionError("no seed produced a failed first pick in thirty tries")
 
     def test_locked_door_rejects_open_and_force(self):
         session = quiet_session()
@@ -781,3 +784,55 @@ class TestStairsAndTravel:
         result = session.execute(TravelToTown())
         assert result.accepted
         assert session.mode.value == "town"
+
+
+class TestStationarySilence:
+    def test_passed_save_anchors_the_area_to_the_cell_and_mutes_casts_there(self):
+        # A passed save leaves the stationary area at the party's cell (the
+        # Phase 3 registered gap, closed): scan seeds until the target saves.
+        from osrlib.core.spells import MemorizedSpell, memorize_spells
+        from osrlib.crawl.commands import AwardXP, CastSpell
+        from osrlib.data import load_classes, load_spells
+
+        for seed in range(40):
+            session = quiet_session(seed=seed)
+            entered(session)
+            for _ in range(3):  # cleric to level 4: a second-level slot
+                session.execute(AwardXP(character_id="character-0003", amount=200_000))
+            cleric = session.member("character-0003")
+            memorize_spells(
+                cleric,
+                load_classes().get("cleric"),
+                load_spells(),
+                [MemorizedSpell(spell_id="silence_15_radius"), MemorizedSpell(spell_id="cure_light_wounds")],
+            )
+            result = session.execute(
+                CastSpell(
+                    character_id="character-0003",
+                    spell_id="silence_15_radius",
+                    mode="creature",
+                    targets=("character-0001",),
+                )
+            )
+            assert result.accepted
+            saved = any(
+                event.code == "combat.save.passed" and event.target_id == "character-0001" for event in result.events
+            )
+            if not saved:
+                continue
+            x, y = session.dungeon_state.location.position
+            cell = f"cell:delve:1:{x},{y}"
+            assert session.ledger.active_on(cell, "silence")
+            # Nobody in the silenced cell can cast while there.
+            muted = session.execute(
+                CastSpell(
+                    character_id="character-0003",
+                    spell_id="cure_light_wounds",
+                    mode="heal",
+                    targets=("character-0001",),
+                )
+            )
+            assert not muted.accepted
+            assert muted.rejections[0].code == "magic.cast.silenced_area"
+            return
+        raise AssertionError("no seed passed the silence save in forty tries")

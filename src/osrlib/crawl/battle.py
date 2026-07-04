@@ -687,18 +687,18 @@ def _party_movement(session, by_member) -> list[Event]:
     """Consolidated formation movement, pinned precedence: retreat, withdrawal, close.
 
     The party moves as a formation (individual members cannot leave it — the
-    Bard's Tale convention, registered): every member retreating flees at the full
-    running rate; every member withdrawing backs off at half encounter rate; else
-    the first `close` declaration in marching order advances the formation on its
-    named group at encounter rate, stopping at 5'.
+    Bard's Tale convention, registered): every member retreating moves off at the
+    full encounter rate (Combat.md's "full encounter movement rate" — the running
+    pursuit begins when the battle converts); every member withdrawing backs off
+    at half encounter rate; else the first `close` declaration in marching order
+    advances the formation on its named group at encounter rate, stopping at 5'.
     """
     declarations = [declaration for _, declaration in by_member.values()]
     events: list[Event] = []
     multiplier = _party_move_multiplier(session)
     if declarations and all(d.action == "move" and d.move == "retreat" for d in declarations):
-        from osrlib.crawl import exploration
-
-        rate = exploration.exploration_rate(session) * multiplier
+        rates = [_encounter_rate(member, session) for member in session.party.living_members()]
+        rate = min(rates, default=0) * multiplier
         for group in session.encounter.groups:
             if group.fled or group.surrendered:
                 continue
@@ -794,18 +794,16 @@ def _resolve_party_attack(session, member, declaration, fired, fire_damaged) -> 
         )
         events.extend(result.events)
         _note_fire(result.events, group, fire_damaged)
+        if not missile:
+            # Engaging in melee breaks the *protection from evil* ban against the
+            # creature actually fought (RAW's own clause; the modifiers persist).
+            engagements = state.melee_engagements.setdefault(member.id, [])
+            if target.id not in engagements:
+                engagements.append(target.id)
     if missile and weapon is not None:
         facet = weapon.combat if getattr(weapon, "combat", None) is not None else weapon
         if WeaponQuality.RELOAD in getattr(facet, "qualities", ()):
             fired.append(member.id)
-    if not missile:
-        # Engaging in melee breaks the *protection from evil* ban against this
-        # creature (RAW's own clause; the ward's modifiers persist).
-        engagements = state.melee_engagements.setdefault(member.id, [])
-        target_ids = [monster.id for monster in _monster_pool(session, group)[:1]]
-        for target_id in target_ids:
-            if target_id not in engagements:
-                engagements.append(target_id)
     events.extend(_break_invisibility(session, member))
     return events
 
@@ -844,9 +842,11 @@ def _resolve_use_item(session, member, declaration, fire_damaged) -> list[Event]
 
 
 def _note_fire(events, group, fire_damaged) -> None:
+    from osrlib.core.events import DamageDealtEvent
+
     member_ids = set(group.monster_ids)
     for event in events:
-        if getattr(event, "keys", None) and "fire" in event.keys and getattr(event, "target_id", None) in member_ids:
+        if isinstance(event, DamageDealtEvent) and "fire" in event.keys and event.target_id in member_ids:
             fire_damaged.add(group.id)
 
 
@@ -910,6 +910,11 @@ def _party_magic(session, by_member, pending_casters, disrupted, acted, state) -
             effects_stream=session.streams.get(EFFECTS_STREAM),
         )
         events.extend(result.events)
+        from osrlib.crawl import exploration
+
+        # The stationary *silence* form anchors in battle too: the battle's
+        # location is the party's position (pinned).
+        events.extend(exploration._stationary_silence(session, spell, result, targets))
         _track_concentration(session, member.id, spell, result, state)
         acted.add(member.id)
     # Any other declared action releases the actor's concentration (pinned).
@@ -940,9 +945,11 @@ def _release_concentration(session, caster_id: str, state) -> list[Event]:
 def _confused_party_overrides(session, by_member, fire_damaged) -> list[Event]:
     """A confused party member's declaration is overridden by the behavior roll.
 
-    Mirroring the monster override (pinned): `attack_caster_group` sends them at
-    the nearest monster group's front rank when engaged (uniform pick, combat
-    stream); `attack_own_group` at a fellow party member; `no_action` babbles.
+    Mirroring the monster override (pinned): the above-2-HD re-save runs first on
+    the magic stream (characters count their level), then `attack_caster_group`
+    sends them at the nearest monster group's front rank when engaged (uniform
+    pick, combat stream); `attack_own_group` at a fellow party member;
+    `no_action` babbles.
     """
     events: list[Event] = []
     for member, _ in by_member.values():
@@ -955,7 +962,21 @@ def _confused_party_overrides(session, by_member, fire_damaged) -> list[Event]:
         ]
         if not confusion_effects:
             continue
-        params = confusion_effects[0].definition.params
+        effect = confusion_effects[0]
+        params = effect.definition.params
+        if member.level >= int(params.get("resave_hd_min_count", 3)):
+            from osrlib.core.combat import saving_throw
+
+            save = saving_throw(
+                member,
+                SaveCategory(str(params.get("resave_category", "spells"))),
+                magical=True,
+                stream=session.streams.get(MAGIC_STREAM),
+            )
+            events.extend(save.events)
+            if save.passed:
+                events.extend(session.ledger.release(effect.effect_id, session.registry()))
+                continue
         behaviour = roll(str(params.get("behaviour_dice", "2d6")), session.streams.get(COMBAT_STREAM)).total
         outcome = _behaviour_outcome(params, behaviour)
         if outcome == "attack_caster_group":

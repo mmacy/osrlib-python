@@ -212,3 +212,12 @@ docstrings and the `docs/adaptations.md` register:
 - The trap census expresses save-or-die as `kills` plus a save, pits as
   `fall_feet`, and the darts volley as one damage application whose `rolls` carry
   every dart's die.
+- Post-review amendments: the `exploration.party.blocked` event code from work
+  item 5's census is cut — work item 8's own pin makes a blocked move a
+  rejection, and the two clauses conflicted; a party `retreat` declaration moves
+  at the full *encounter* rate per Combat.md's "full encounter movement rate"
+  (the plan's "retreat at full" sentence sits inside the rate ÷ 3 context), the
+  running flight beginning when the battle converts to pursuit; opened unwedged
+  doors also swing shut when the party leaves the level (transitions and town
+  travel), not only on same-level moves; and the feature id `pile` is reserved
+  by `validate_adventure` for `TakeTreasure`'s drop-pile target.

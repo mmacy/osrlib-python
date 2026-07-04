@@ -697,22 +697,6 @@
       ]
     },
     {
-      "command_type": "move_party",
-      "direction": "north"
-    },
-    {
-      "command_type": "move_party",
-      "direction": "east"
-    },
-    {
-      "command_type": "move_party",
-      "direction": "east"
-    },
-    {
-      "command_type": "move_party",
-      "direction": "south"
-    },
-    {
       "command_type": "resolve_battle_round",
       "declarations": [
         {
@@ -723,7 +707,7 @@
           "reversed": false,
           "spell_id": null,
           "spell_mode": null,
-          "target_group_id": "group-0003",
+          "target_group_id": "group-0002",
           "targets": [],
           "weapon_id": null
         },
@@ -776,6 +760,22 @@
           "weapon_id": null
         }
       ]
+    },
+    {
+      "command_type": "move_party",
+      "direction": "north"
+    },
+    {
+      "command_type": "move_party",
+      "direction": "east"
+    },
+    {
+      "command_type": "move_party",
+      "direction": "east"
+    },
+    {
+      "command_type": "move_party",
+      "direction": "south"
     },
     {
       "command_type": "resolve_battle_round",
@@ -2565,9 +2565,16 @@
       "visibility": "player"
     },
     {
+      "code": "battle.group.moved",
+      "distance_feet": 70,
+      "event_type": "group_moved",
+      "group_id": "group-0002",
+      "visibility": "player"
+    },
+    {
       "code": "battle.round.started",
       "event_type": "battle_round",
-      "round": 1,
+      "round": 2,
       "visibility": "player"
     },
     {
@@ -2610,7 +2617,7 @@
     },
     {
       "code": "battle.group.moved",
-      "distance_feet": 70,
+      "distance_feet": 50,
       "event_type": "group_moved",
       "group_id": "group-0002",
       "visibility": "player"
@@ -2707,7 +2714,59 @@
     },
     {
       "code": "battle.group.moved",
-      "distance_feet": 130,
+      "distance_feet": 110,
+      "event_type": "group_moved",
+      "group_id": "group-0002",
+      "visibility": "player"
+    },
+    {
+      "code": "battle.round.started",
+      "event_type": "battle_round",
+      "round": 3,
+      "visibility": "player"
+    },
+    {
+      "code": "combat.initiative.rolled",
+      "entries": [
+        {
+          "key": "party",
+          "modifier": 0,
+          "rolls": [
+            4
+          ],
+          "total": 4
+        },
+        {
+          "key": "monsters",
+          "modifier": 0,
+          "rolls": [
+            3
+          ],
+          "total": 3
+        }
+      ],
+      "event_type": "initiative_rolled",
+      "mode": "side",
+      "order": [
+        "character-0005",
+        "character-0001",
+        "character-0002",
+        "character-0003",
+        "character-0004",
+        "group-0002"
+      ],
+      "visibility": "player"
+    },
+    {
+      "code": "battle.group.moved",
+      "distance_feet": 90,
+      "event_type": "group_moved",
+      "group_id": "group-0002",
+      "visibility": "player"
+    },
+    {
+      "code": "battle.group.moved",
+      "distance_feet": 150,
       "event_type": "group_moved",
       "group_id": "group-0002",
       "visibility": "player"
@@ -2912,53 +2971,8 @@
       "visibility": "player"
     },
     {
-      "code": "battle.round.started",
-      "event_type": "battle_round",
-      "round": 1,
-      "visibility": "player"
-    },
-    {
-      "code": "combat.initiative.rolled",
-      "entries": [
-        {
-          "key": "party",
-          "modifier": 0,
-          "rolls": [
-            4
-          ],
-          "total": 4
-        },
-        {
-          "key": "monsters",
-          "modifier": 0,
-          "rolls": [
-            3
-          ],
-          "total": 3
-        }
-      ],
-      "event_type": "initiative_rolled",
-      "mode": "side",
-      "order": [
-        "character-0005",
-        "character-0001",
-        "character-0002",
-        "character-0003",
-        "character-0004",
-        "group-0003"
-      ],
-      "visibility": "player"
-    },
-    {
       "code": "battle.group.moved",
       "distance_feet": 70,
-      "event_type": "group_moved",
-      "group_id": "group-0003",
-      "visibility": "player"
-    },
-    {
-      "code": "battle.group.moved",
-      "distance_feet": 50,
       "event_type": "group_moved",
       "group_id": "group-0003",
       "visibility": "player"
@@ -3003,14 +3017,14 @@
     },
     {
       "code": "battle.group.moved",
-      "distance_feet": 30,
+      "distance_feet": 50,
       "event_type": "group_moved",
       "group_id": "group-0003",
       "visibility": "player"
     },
     {
       "code": "battle.group.moved",
-      "distance_feet": 10,
+      "distance_feet": 30,
       "event_type": "group_moved",
       "group_id": "group-0003",
       "visibility": "player"
@@ -3055,7 +3069,7 @@
     },
     {
       "code": "battle.group.moved",
-      "distance_feet": 5,
+      "distance_feet": 10,
       "event_type": "group_moved",
       "group_id": "group-0003",
       "visibility": "player"
@@ -5716,9 +5730,10 @@
     "Encounter: 4 × Skeleton at 90' — the party is surprised.",
     "The monsters' bearing: hostile.",
     "Battle is joined!",
-    "Battle round 1 begins.",
-    "Initiative (side): party 6, monsters 5. Order: character-0005, character-0001, character-0002, character-0003, character-0004, group-0002.",
     "group-0002 is now 70' away.",
+    "Battle round 2 begins.",
+    "Initiative (side): party 6, monsters 5. Order: character-0005, character-0001, character-0002, character-0003, character-0004, group-0002.",
+    "group-0002 is now 50' away.",
     "character-0004 presents the holy symbol (rolled 7, 7 HD affected) — the undead are turned.",
     "Effect effect-0002 (turned) attached to monster-0007.",
     "monster-0007 is turned.",
@@ -5728,7 +5743,11 @@
     "monster-0009 is turned.",
     "Effect effect-0005 (turned) attached to monster-0010.",
     "monster-0010 is turned.",
-    "group-0002 is now 130' away.",
+    "group-0002 is now 110' away.",
+    "Battle round 3 begins.",
+    "Initiative (side): party 4, monsters 3. Order: character-0005, character-0001, character-0002, character-0003, character-0004, group-0002.",
+    "group-0002 is now 90' away.",
+    "group-0002 is now 150' away.",
     "The battle is won.",
     "monster-0007 (skeleton) is routed.",
     "monster-0008 (skeleton) is routed.",
@@ -5754,17 +5773,14 @@
     "Encounter: 3 × Goblin at 90' — the party is surprised.",
     "The monsters' bearing: hostile.",
     "Battle is joined!",
-    "Battle round 1 begins.",
-    "Initiative (side): party 4, monsters 3. Order: character-0005, character-0001, character-0002, character-0003, character-0004, group-0003.",
     "group-0003 is now 70' away.",
-    "group-0003 is now 50' away.",
     "Battle round 2 begins.",
     "Initiative (side): party 5, monsters 2. Order: character-0005, character-0001, character-0002, character-0003, character-0004, group-0003.",
+    "group-0003 is now 50' away.",
     "group-0003 is now 30' away.",
-    "group-0003 is now 10' away.",
     "Battle round 3 begins.",
     "Initiative (side): party 4, monsters 6. Order: group-0003, character-0005, character-0001, character-0002, character-0003, character-0004.",
-    "group-0003 is now 5' away.",
+    "group-0003 is now 10' away.",
     "group-0003 is now 5' away.",
     "Battle round 4 begins.",
     "character-0005 begins casting magic_missile.",

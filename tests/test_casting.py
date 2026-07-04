@@ -1180,7 +1180,7 @@ class TestSilenceWebDispelFeeblemind:
         rejections = validate_cast(victim, load_spells().get("sleep"), "hd_budget", targets=[victim])
         assert rejections[0].code == "magic.cast.caster_incapacitated"
 
-    def test_silence_passed_save_attaches_nothing(self):
+    def test_silence_passed_save_attaches_nothing_to_the_creature(self):
         def probe(seed):
             harness = Harness(seed)
             cleric = build_caster("cleric", 4, memorized=("silence_15_radius",))
@@ -1192,7 +1192,10 @@ class TestSilenceWebDispelFeeblemind:
             return None
 
         harness, victim = scan_seeds(probe)
-        assert not harness.ledger.active_on(victim.id)  # the stationary form is a registered Phase 4 gap
+        # The kernel alone attaches nothing to the creature on a passed save; the
+        # crawl session anchors the stationary area to the party's cell (Phase 4 —
+        # see test_exploration.py::TestStationarySilence).
+        assert not harness.ledger.active_on(victim.id)
 
     def test_web_escape_tiers(self):
         harness = Harness()

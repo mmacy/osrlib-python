@@ -122,6 +122,10 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
                 feature_ids.extend(feature.id for feature in area.features)
             if len(set(feature_ids)) != len(feature_ids):
                 errors.append(f"{owner}: feature ids are not unique")
+            if "pile" in feature_ids:
+                # `TakeTreasure(feature_id="pile")` targets the cell's drop pile;
+                # the name is reserved so authored content can never collide.
+                errors.append(f"{owner}: feature id 'pile' is reserved for drop piles")
             if level.entrance is not None and not level.in_bounds(level.entrance):
                 errors.append(f"{owner}: entrance {level.entrance} is out of bounds")
             area_ids = [area.id for area in level.areas]

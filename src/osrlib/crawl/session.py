@@ -27,13 +27,22 @@ from typing import TYPE_CHECKING, Protocol
 
 from pydantic import BaseModel, ConfigDict
 
+from osrlib.core.alignment import Alignment
 from osrlib.core.character import ADVANCEMENT_STREAM, Character
 from osrlib.core.classes import apply_xp
 from osrlib.core.clock import ROUNDS_PER_DAY, ROUNDS_PER_TURN, GameClock, TimeUnit
 from osrlib.core.effects import EFFECTS_STREAM, EffectsLedger
-from osrlib.core.events import DeathEvent, EffectExpiredEvent, Event, SavingThrowRolledEvent, Visibility
+from osrlib.core.events import (
+    DamageDealtEvent,
+    DeathEvent,
+    EffectExpiredEvent,
+    Event,
+    SavingThrowRolledEvent,
+    Visibility,
+)
 from osrlib.core.items import ItemInstance
 from osrlib.core.monsters import MONSTER_SPAWN_STREAM, IdAllocator, MonsterInstance, spawn_monster
+from osrlib.core.rng import RngStreams
 from osrlib.core.ruleset import Ruleset
 from osrlib.core.validation import Rejection
 from osrlib.crawl.adventure import Adventure, validate_adventure
@@ -174,16 +183,14 @@ class GameSession:
         party: Party,
         adventure: Adventure,
         ruleset: Ruleset,
-        streams: object,
+        streams: RngStreams,
         master_seed: int,
     ) -> None:
         """Internal constructor — use [`GameSession.new`][osrlib.crawl.session.GameSession.new] or `load_game`."""
-        from osrlib.core.rng import RngStreams
-
         self.party = party
         self.adventure = adventure
         self.ruleset = ruleset
-        self.streams: RngStreams = streams
+        self.streams = streams
         self.master_seed = master_seed
         self.allocator = IdAllocator()
         self.ledger = EffectsLedger()
@@ -212,6 +219,9 @@ class GameSession:
         self.encounter = None  # EncounterState | None (set by osrlib.crawl.encounter)
         self.battle = None  # BattleState | None (set by osrlib.crawl.battle)
         self._provisions_day = 0
+        # Runtime extension points, re-registered by the game like listeners —
+        # never serialized (policies are code).
+        self.action_policies: dict[str, object] = {}
 
     @classmethod
     def new(cls, party: Party, adventure: Adventure, *, seed: int, ruleset: Ruleset | None = None) -> GameSession:
@@ -233,8 +243,6 @@ class GameSession:
         Raises:
             ContentValidationError: If the adventure has dangling references.
         """
-        from osrlib.core.rng import RngStreams
-
         validate_adventure(adventure, load_monsters(), load_equipment())
         session = cls(
             party=party,
@@ -312,7 +320,7 @@ class GameSession:
         """Return the party member with `character_id` (see [`Party.member`][osrlib.crawl.party.Party.member])."""
         return self.party.member(character_id)
 
-    def spawn(self, template_id: str, count: int, *, alignment: object = None) -> list[MonsterInstance]:
+    def spawn(self, template_id: str, count: int, *, alignment: Alignment | None = None) -> list[MonsterInstance]:
         """Spawn `count` instances into the registry, ids from the session allocator.
 
         Args:
@@ -494,10 +502,11 @@ class GameSession:
         cause = "unknown"
         for event in events:
             if isinstance(event, SavingThrowRolledEvent) and event.category == "death":
-                cause = "poison"
+                if event.code == "combat.save.failed":
+                    cause = "poison"
             elif isinstance(event, EffectExpiredEvent) and "poison" in event.kind:
                 cause = "poison"
-            elif hasattr(event, "keys") and hasattr(event, "amount"):
+            elif isinstance(event, DamageDealtEvent):
                 cause = "damage"
             if isinstance(event, DeathEvent) and event.target_id in member_ids:
                 self.death_records[event.target_id] = DeathRecord(round=self.clock.rounds, cause=cause)

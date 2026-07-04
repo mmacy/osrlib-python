@@ -7,8 +7,10 @@ from osrlib.core.tables import ReactionResult
 from osrlib.crawl import encounter as encounter_module
 from osrlib.crawl import exploration
 from osrlib.crawl.commands import (
+    BattleDeclaration,
     EngageBattle,
     EnterDungeon,
+    EquipItem,
     Evade,
     GrantCoins,
     GrantItem,
@@ -16,6 +18,7 @@ from osrlib.crawl.commands import (
     MoveParty,
     Parley,
     PlaceParty,
+    ResolveBattleRound,
     TurnUndead,
     Wait,
 )
@@ -172,10 +175,14 @@ class TestEvasionAndPursuit:
         # treasure never does.
         session, _ = self.slow_party_session()
         session.execute(GrantCoins(character_id="character-0001", coins=Coins(gp=100)))
-        session.streams.get(ENCOUNTER_STREAM).export_state()
+        before = session.streams.get(ENCOUNTER_STREAM).export_state()
         result = session.execute(Evade(drop="treasure"))
         codes = [event.code for event in result.events]
-        assert "encounter.pursuit.distracted" not in codes  # bait mismatch: no roll
+        assert "encounter.pursuit.distracted" not in codes
+        # Bait mismatch means no distraction roll at all: the evade consumed no
+        # encounter draws beyond... the pursuit itself rolls nothing this round,
+        # so the stream moved only if a pursuit round drew (it doesn't).
+        assert session.streams.get(ENCOUNTER_STREAM).export_state() == before
 
     def test_distraction_by_food_can_stop_unintelligent_pursuers(self):
         outcomes = set()
@@ -328,3 +335,69 @@ class TestConclusion:
         # Evading leaves the keyed encounter unresolved: it re-triggers.
         session.execute(EngageBattle()) if session.mode.value == "encounter" else None
         assert session.mode.value == "battle"
+
+
+class TestSurpriseFreeRounds:
+    def test_surprised_monsters_grant_the_party_a_free_battle_round(self):
+        # Scan for a seed where the monsters roll surprised while the party
+        # (aware) never rolls; the attacks stance then opens battle with the
+        # party's free round: the monsters hold through round one. The party
+        # must be unlit — the lit-party rule skips the monsters' roll entirely.
+        for seed in range(60):
+            session = GameSession.new(build_party(), build_adventure(wandering_chance=0), seed=seed)
+            session.execute(GrantItem(character_id="character-0001", item_id="sword"))
+            session.execute(EquipItem(character_id="character-0001", item_id="sword"))
+            session.execute(EnterDungeon(dungeon_id="delve"))
+            instances = session.spawn("goblin", 2)
+            events = encounter_module.start_encounter(
+                session,
+                groups=[("goblin", instances)],
+                kind="spawned",
+                distance_feet=60,
+                pinned_stance=ReactionResult.ATTACKS,
+                party_aware=True,
+                monsters_aware=False,
+            )
+            surprise = next(event for event in events if getattr(event, "side", "") == "monsters")
+            if not surprise.surprised:
+                continue
+            assert session.mode.value == "battle"
+            assert session.battle.monsters_hold_rounds == 1
+            distance_before = session.encounter.groups[0].distance_feet
+            declarations = tuple(
+                BattleDeclaration(character_id=member.id, action="hold") for member in session.party.living_members()
+            )
+            result = session.execute(ResolveBattleRound(declarations=declarations))
+            assert result.accepted
+            # The surprised goblins lost the round: they never closed.
+            assert session.encounter.groups[0].distance_feet == distance_before
+            assert session.battle.monsters_hold_rounds == 0
+            return
+        raise AssertionError("no seed surprised the monsters in sixty tries")
+
+    def test_surprised_party_gives_hostile_monsters_their_surprise_round(self):
+        # An unlit party is surprised on 1-3; the hostile stance's deadline then
+        # fires on the party's lost beat and battle opens with the monsters'
+        # machine-run free round — they close before the party can act.
+        for seed in range(60):
+            session = GameSession.new(build_party(), build_adventure(wandering_chance=0), seed=seed)
+            session.execute(EnterDungeon(dungeon_id="delve"))
+            instances = session.spawn("goblin", 2)
+            events = encounter_module.start_encounter(
+                session,
+                groups=[("goblin", instances)],
+                kind="spawned",
+                distance_feet=60,
+                pinned_stance=ReactionResult.HOSTILE,
+                monsters_aware=True,
+            )
+            surprise = next(event for event in events if getattr(event, "side", "") == "party")
+            if not surprise.surprised:
+                continue
+            # Battle began without a single party command, and the goblins spent
+            # their surprise round closing.
+            assert session.mode.value == "battle"
+            assert session.battle.round == 1
+            assert session.encounter.groups[0].distance_feet == 40
+            return
+        raise AssertionError("no seed surprised the party in sixty tries")

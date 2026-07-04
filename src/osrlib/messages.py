@@ -158,7 +158,6 @@ _TEMPLATES: dict[str, Callable[[Event], str]] = {
         + "."
     ),
     "exploration.party.moved": lambda event: f"The party moves to ({event.x}, {event.y}), facing {event.facing}.",
-    "exploration.party.blocked": lambda event: f"The party is blocked at ({event.x}, {event.y}).",
     "exploration.party.turned": lambda event: f"The party turns to face {event.facing}.",
     "exploration.location.entered": lambda event: (
         f"The party enters {event.location_kind} {event.location_id}"

@@ -598,3 +598,37 @@ class TestDefaultPolicy:
         # monster CHOICES never touched the combat stream (asserted above); here
         # we just assert both runs completed deterministically.
         assert len(results) == 2
+
+
+class TestSilencedCellInBattle:
+    def test_a_silenced_cell_mutes_battle_casts(self):
+        # The party's own cell is checked during battle — the battle's location
+        # is the party's position (pinned).
+        from osrlib.core.spells import MemorizedSpell, memorize_spells
+        from osrlib.data import load_classes, load_spells
+
+        session = battle_session(distance=40, seed=9)
+        member = session.member("character-0004")
+        member.spell_book = ("magic_missile",)
+        memorize_spells(
+            member, load_classes().get("magic_user"), load_spells(), [MemorizedSpell(spell_id="magic_missile")]
+        )
+        position = session.dungeon_state.location.position
+        cell = f"cell:delve:1:{position[0]},{position[1]}"
+        session.ledger.attach(
+            EffectDefinition(kind="silence", params={"radius_feet": 15, "stationary": True}),
+            cell,
+            clock=session.clock,
+            allocator=session.allocator,
+            registry=session.registry(),
+        )
+        cast = BattleDeclaration(
+            character_id="character-0004",
+            action="cast",
+            spell_id="magic_missile",
+            spell_mode="missiles",
+            targets=(session.encounter.groups[0].monster_ids[0],),
+        )
+        result = session.execute(ResolveBattleRound(declarations=hold_all(session, extra=(cast,))))
+        assert not result.accepted
+        assert any(rejection.code == "magic.cast.silenced_area" for rejection in result.rejections)

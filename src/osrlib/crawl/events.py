@@ -63,11 +63,13 @@ __all__ = [
 
 
 class PartyMovedEvent(Event):
-    """The party moved or turned; `x`/`y`/`facing` are the resulting pose."""
+    """The party moved or turned; `x`/`y`/`facing` are the resulting pose.
 
-    allowed_codes: ClassVar[frozenset[str]] = frozenset(
-        {"exploration.party.moved", "exploration.party.blocked", "exploration.party.turned"}
-    )
+    A blocked move is a rejection (`exploration.move.blocked`), never an event —
+    moving into a wall is an in-fiction invalid command (pinned).
+    """
+
+    allowed_codes: ClassVar[frozenset[str]] = frozenset({"exploration.party.moved", "exploration.party.turned"})
 
     event_type: Literal["party_moved"] = "party_moved"
     visibility: Visibility = Visibility.PLAYER
