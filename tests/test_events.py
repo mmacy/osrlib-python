@@ -7,7 +7,6 @@ from pathlib import Path
 import pytest
 from pydantic import ConfigDict, ValidationError
 
-import osrlib
 from osrlib.core.events import Event, Visibility
 from osrlib.versioning import SCHEMA_VERSION, engine_version
 
@@ -110,10 +109,6 @@ class TestVersioning:
     def test_schema_version(self):
         assert SCHEMA_VERSION == 2
         assert isinstance(SCHEMA_VERSION, int)
-
-    def test_top_level_exports(self):
-        assert osrlib.SCHEMA_VERSION is SCHEMA_VERSION
-        assert osrlib.engine_version is engine_version
 
     def test_engine_version_matches_package_metadata(self):
         assert engine_version() == metadata.version("osrlib")

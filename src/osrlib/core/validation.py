@@ -3,7 +3,7 @@
 Kernel validators (class choice, the ability adjustment step, purchase and equip
 legality) return lists of [`Rejection`][osrlib.core.validation.Rejection] values rather
 than raising: an illegal *choice* is an in-fiction refusal, not a programmer error.
-Phase 4 command rejections carry these values verbatim in the `CommandResult` envelope.
+Session command rejections carry these values verbatim in the `CommandResult` envelope.
 
 Calling an apply-step with input its validator rejects — applying an illegal
 adjustment, equipping forbidden armour — is programmer misuse and raises stdlib

@@ -8,7 +8,7 @@ bonus, AC both ways, saves, hit points, and conditions), an
 situation (distance, cover-like situational modifiers, back-stab position — the RAW
 referee surface), the [`Ruleset`][osrlib.core.ruleset.Ruleset], and an RNG stream
 (conventionally [`COMBAT_STREAM`][osrlib.core.combat.COMBAT_STREAM]). They return
-frozen result models carrying an `events` tuple — the Phase 4 session appends
+frozen result models carrying an `events` tuple — the session appends
 `result.events` to its log; à la carte callers read the plain result fields.
 
 The damage pipeline order is pinned: (1) the immunity gate — if the defender's
@@ -19,15 +19,16 @@ half-from-silver, the mummy's half-everything), floored but never below 1; (4) a
 hit points floor at 0, fire and acid route into a regenerating monster's
 non-regenerable ledger, and death emits at 0.
 
-Validators mirror the Phase 1 convention: pure pre-phase functions returning
+Validators follow the house convention: pure pre-phase functions returning
 [`Rejection`][osrlib.core.validation.Rejection] lists — no RNG draws, no mutation.
 Rejections are free (no roll, no time, no log entry), which is why holy water against
 the living is *not* a rejection: it resolves normally and the damage pipeline reports
 no effect — a rejection would be a zero-cost undead detector (pinned).
 """
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from enum import StrEnum
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
@@ -78,12 +79,14 @@ from osrlib.core.tables import ReactionResult, reaction_result, to_hit_ac
 from osrlib.core.validation import Rejection
 
 __all__ = [
-    "COMBAT_STREAM",
+    "Attack",
     "AttackContext",
     "AttackResult",
     "AttackRollResult",
+    "COMBAT_STREAM",
     "DamageSource",
     "InitiativeResult",
+    "MELEE_REACH_FEET",
     "MoraleResult",
     "MoraleTracker",
     "Participant",
@@ -113,12 +116,12 @@ __all__ = [
     "natural_healing",
     "participant_modifier",
     "resolve_attack",
-    "roll_reaction",
     "resolve_breath",
     "resolve_energy_drain",
     "resolve_gaze",
     "resolve_splash_attack",
     "roll_initiative",
+    "roll_reaction",
     "saving_throw",
     "select_targets",
     "splash_douse_definition",
@@ -159,7 +162,7 @@ class AttackContext(BaseModel):
 
     Everything here is the RAW referee surface: the kernel checks the rules given
     honest context, and supplying the context (was the charge 60 feet? is the target
-    unaware?) is the caller's or Phase 4's job. `situational_modifier` is the RAW
+    unaware?) is the caller's or the crawl layer's job. `situational_modifier` is the RAW
     referee adjustment (cover −1 to −4, the dozing dragon's +2, and kin).
     `defender_ally_ac_bonus` is an ally-granted AC bonus the caller asserts — the
     Ring of Protection 5' Radius shielding the wearer's rank-mates; adjacency is
@@ -299,9 +302,9 @@ class SaveCategory(StrEnum):
 class TargetingMode(StrEnum):
     """The shared targeting model's modes.
 
-    Spells, breath weapons, and thrown weapons resolve through these. Phase 2
-    resolves against explicitly supplied candidate lists; geometry-to-target mapping
-    arrives with Phase 4's combat space.
+    Spells, breath weapons, and thrown weapons resolve through these. The kernel
+    resolves against explicitly supplied candidate lists; the battle machine maps
+    its range-track geometry onto them.
     """
 
     SELF = "self"
@@ -312,12 +315,17 @@ class TargetingMode(StrEnum):
     GAZE = "gaze"
 
 
-def _entity_id(combatant: object) -> str:
+def _int_param(params: Mapping[str, Any], key: str, default: int = 0) -> int:
+    """Read an integer param — schema-validated data whose union the checker can't key by name."""
+    return int(params.get(key, default))
+
+
+def _entity_id(combatant: Any) -> str:
     identifier = getattr(combatant, "id", None)
     return identifier if identifier is not None else getattr(combatant, "name", "unknown")
 
 
-def alignments_differ(source: object, target: object) -> bool:
+def alignments_differ(source: Any, target: Any) -> bool:
     """Return whether two combatants' operative alignments differ, for warding gates.
 
     Pinned: a combatant whose alignment is unresolved (`None` — a multi-option
@@ -338,7 +346,7 @@ def alignments_differ(source: object, target: object) -> bool:
     return source_alignment != target_alignment
 
 
-def _class_ability_params(combatant: object, tag: str) -> dict[str, int | str] | None:
+def _class_ability_params(combatant: Any, tag: str) -> dict[str, int | str] | None:
     definition = getattr(combatant, "definition", None)
     if definition is None:
         return None
@@ -348,7 +356,7 @@ def _class_ability_params(combatant: object, tag: str) -> dict[str, int | str] |
     return None
 
 
-def _monster_ability_params(combatant: object, tag: str) -> dict[str, object] | None:
+def _monster_ability_params(combatant: Any, tag: str) -> dict[str, Any] | None:
     template = getattr(combatant, "template", None)
     if template is None:
         return None
@@ -384,7 +392,7 @@ def _magic_base(attack: MagicItemInstance) -> WeaponTemplate | None:
     return base if isinstance(base, WeaponTemplate) else None
 
 
-def _magic_weapon_bonus(attack: Attack, defender: object | None) -> int:
+def _magic_weapon_bonus(attack: Attack, defender: Any | None) -> int:
     """Return an enchanted arm's effective bonus against a defender.
 
     The base bonus applies unless a versus clause matches the defender's template
@@ -432,7 +440,7 @@ def attack_facet(attack: Attack) -> WeaponTemplate | CombatFacet | None:
 
 
 def _item_modifier_total(
-    target: object,
+    target: Any,
     kind: str,
     *,
     element: str | None = None,
@@ -462,7 +470,7 @@ def _item_modifier_total(
     return total
 
 
-def _strength_set_value(combatant: object) -> int | None:
+def _strength_set_value(combatant: Any) -> int | None:
     """Return the operative `strength_set` value, or `None`.
 
     Pinned precedence: the first active stat modifier in attachment order wins
@@ -480,7 +488,7 @@ def _strength_set_value(combatant: object) -> int | None:
     return None
 
 
-def melee_modifier_for(combatant: object) -> int:
+def melee_modifier_for(combatant: Any) -> int:
     """Return a combatant's melee attack-and-damage modifier, `strength_set` aware.
 
     A `strength_set` modifier (Gauntlets of Ogre Power's 18, the Ring of
@@ -535,7 +543,7 @@ def _range_band_modifier(attack: Attack, context: AttackContext) -> int | None:
     return None
 
 
-def damage_source_for(attacker: object, attack: Attack, context: AttackContext) -> DamageSource:
+def damage_source_for(attacker: Any, attack: Attack, context: AttackContext) -> DamageSource:
     """Build the damage source an attack presents to the defender's defenses.
 
     Silver weapons present `silver`; holy water presents `holy`; torch and burning
@@ -566,8 +574,8 @@ def damage_source_for(attacker: object, attack: Attack, context: AttackContext) 
         kind = "monster"
         missile = context.monster_missile
     elif isinstance(attack, MagicItemInstance):
-        # An enchanted arm counts as magical for the graded-immunity checks —
-        # the Phase 2 seam's real source, cursed forms included (pinned).
+        # An enchanted arm counts as magical for the graded-immunity checks,
+        # cursed forms included (pinned).
         keys.append("magic")
         magical = True
         if _is_missile_use(attack, context):
@@ -608,7 +616,7 @@ def _is_bladed(attack: Attack) -> bool:
 
 
 def validate_attack(
-    attacker: object, defender: object, attack: Attack, context: AttackContext, *, ruleset: Ruleset
+    attacker: Any, defender: Any, attack: Attack, context: AttackContext, *, ruleset: Ruleset
 ) -> list[Rejection]:
     """Validate an attack — the pure pre-phase: no RNG draws, no mutation.
 
@@ -658,7 +666,7 @@ def validate_attack(
     return rejections
 
 
-def _defender_descending_ac(defender: object, context: AttackContext, *, missile: bool = False) -> int | None:
+def _defender_descending_ac(defender: Any, context: AttackContext, *, missile: bool = False) -> int | None:
     ac = getattr(defender, "armour_class", None)
     if ac is None:
         return None
@@ -686,8 +694,8 @@ def _defender_descending_ac(defender: object, context: AttackContext, *, missile
 
 
 def attack_roll(
-    attacker: object,
-    defender: object,
+    attacker: Any,
+    defender: Any,
     attack: Attack,
     *,
     context: AttackContext,
@@ -755,6 +763,8 @@ def attack_roll(
     modifier += _item_modifier_total(defender, "attack_penalty_of_attackers", melee=not missile)
 
     ac = _defender_descending_ac(defender, context, missile=missile)
+    if ac is None:
+        raise ValueError(f"{_entity_id(defender)} has no armour class to attack against")
     thac0 = attacker.thac0
     girdle = _item_effect_params(attacker, "giant_strength")
     if girdle is not None:
@@ -796,7 +806,7 @@ def attack_roll(
     )
 
 
-def check_immunity(defender: object, source: DamageSource, *, ruleset: Ruleset, attacker: object | None = None) -> bool:
+def check_immunity(defender: Any, source: DamageSource, *, ruleset: Ruleset, attacker: Any | None = None) -> bool:
     """Return True when the defender's defenses absorb the source: no damage is rolled.
 
     Pinned rules resolved here: the `holy` key is admitted through any
@@ -855,13 +865,13 @@ def check_immunity(defender: object, source: DamageSource, *, ruleset: Ruleset, 
 
 
 def damage_roll(
-    attacker: object,
+    attacker: Any,
     attack: Attack,
     *,
     context: AttackContext,
     ruleset: Ruleset,
     stream: RngStream,
-    defender: object | None = None,
+    defender: Any | None = None,
 ) -> RollResult:
     """Roll an attack's damage: dice, STR for melee, doublings, minimum 1.
 
@@ -910,6 +920,8 @@ def damage_roll(
         rolls, amount = result.rolls, result.total
     else:
         facet = _facet(attack)
+        if facet is None:
+            raise ValueError("attack carries no combat facet to roll damage from")
         dice = facet.damage if ruleset.variable_weapon_damage else "1d6"
         result = roll(dice, stream)
         rolls, amount = result.rolls, result.total
@@ -955,7 +967,7 @@ def damage_roll(
     return RollResult(rolls=rolls, modifier=0, multiplier=1, total=max(1, amount))
 
 
-def _item_effect_params(combatant: object, effect_kind: str) -> dict[str, object] | None:
+def _item_effect_params(combatant: Any, effect_kind: str) -> dict[str, Any] | None:
     """Return the params of an equipped always-active item effect of `effect_kind`."""
     inventory = getattr(combatant, "inventory", None)
     if inventory is None:
@@ -970,7 +982,7 @@ def _item_effect_params(combatant: object, effect_kind: str) -> dict[str, object
 
 
 def deal_damage(
-    target: object,
+    target: Any,
     amount: int,
     *,
     source: DamageSource,
@@ -1067,7 +1079,7 @@ _DEATH_SAVE_CATEGORIES = {"breath": SaveCategory.BREATH, "spell": SaveCategory.S
 
 
 def destroy_equipment(
-    target: object,
+    target: Any,
     *,
     source: DamageSource | None = None,
     ruleset: Ruleset | None = None,
@@ -1146,8 +1158,8 @@ def destroy_equipment(
 
 
 def resolve_attack(
-    attacker: object,
-    defender: object,
+    attacker: Any,
+    defender: Any,
     attack: Attack,
     *,
     context: AttackContext,
@@ -1224,6 +1236,8 @@ def splash_douse_definition(attack: Attack, source: DamageSource) -> EffectDefin
         The one-round douse effect definition.
     """
     facet = _facet(attack)
+    if facet is None:
+        raise ValueError("splash attack carries no combat facet")
     params: dict[str, int | str | bool | tuple[int | str, ...]] = {"dice": facet.damage, "keys": source.keys}
     if source.element is not None:
         params["element"] = source.element
@@ -1241,7 +1255,7 @@ def burning_oil_pool_definition() -> EffectDefinition:
 
     Unlit oil may be compiled into a 3-foot pool; once lit it burns 1 turn and deals
     1d8 to creatures passing through — who passes through is the caller's assertion
-    until Phase 4 owns space (the caller applies the damage with
+    (the caller applies the damage with
     [`deal_damage`][osrlib.core.combat.deal_damage]).
 
     Returns:
@@ -1256,8 +1270,8 @@ def burning_oil_pool_definition() -> EffectDefinition:
 
 
 def resolve_splash_attack(
-    attacker: object,
-    defender: object,
+    attacker: Any,
+    defender: Any,
     attack: GearTemplate,
     *,
     context: AttackContext,
@@ -1265,8 +1279,8 @@ def resolve_splash_attack(
     stream: RngStream,
     ledger: EffectsLedger,
     clock: GameClock,
-    allocator: object,
-    registry: dict[str, object],
+    allocator: Any,
+    registry: dict[str, Any],
 ) -> AttackResult:
     """Resolve a thrown splash weapon: the attack, the first application, the douse.
 
@@ -1310,7 +1324,7 @@ def resolve_splash_attack(
     return result
 
 
-def participant_modifier(combatant: object, *, monster_modifier: int = 0) -> int:
+def participant_modifier(combatant: Any, *, monster_modifier: int = 0) -> int:
     """Return a combatant's individual-initiative modifier.
 
     Characters get their DEX modifier plus the halfling's `initiative_bonus` class
@@ -1484,7 +1498,7 @@ class MoraleTracker(BaseModel):
         return result
 
 
-def incapacitated(combatant: object) -> bool:
+def incapacitated(combatant: Any) -> bool:
     """Return whether a combatant counts as incapacitated for morale triggers.
 
     Pinned: dead, paralysed, petrified, or asleep (RAW: "slain, paralysed, etc").
@@ -1498,12 +1512,11 @@ def incapacitated(combatant: object) -> bool:
     return any(has_condition(combatant, condition) for condition in _CANNOT_ACT)
 
 
-def cannot_move(combatant: object) -> bool:
+def cannot_move(combatant: Any) -> bool:
     """Return whether a combatant cannot move — the *web* entanglement hook.
 
-    Queryable now, consumed by Phase 4's movement rules: an entangled creature
-    "can't move" per the *web* page, and the incapacitated states cannot move
-    either.
+    Consumed by the movement rules: an entangled creature "can't move" per the
+    *web* page, and the incapacitated states cannot move either.
 
     Args:
         combatant: The combatant.
@@ -1514,7 +1527,7 @@ def cannot_move(combatant: object) -> bool:
     return incapacitated(combatant) or has_condition(combatant, Condition.ENTANGLED)
 
 
-def morale_modifier(combatant: object) -> int:
+def morale_modifier(combatant: Any) -> int:
     """Return a combatant's spell morale modifier (*bless*/*blight*), for `check_morale`.
 
     [`check_morale`][osrlib.core.combat.check_morale] receives a side key and score,
@@ -1536,7 +1549,7 @@ def morale_modifier(combatant: object) -> int:
 def morale_triggers(members: Sequence[object]) -> list[str]:
     """Return the morale triggers a side's current state raises.
 
-    Queryable by the milestone scripts now and the Phase 4 battle machine later:
+    Queryable à la carte and consumed by the battle machine's auto-invocation:
     `first_death` after the side's first death, `half_incapacitated` when half the
     side (or more) is dead, paralysed, petrified, or asleep.
 
@@ -1555,13 +1568,13 @@ def morale_triggers(members: Sequence[object]) -> list[str]:
 
 
 def saving_throw(
-    target: object,
+    target: Any,
     category: SaveCategory,
     *,
     modifier: int = 0,
     magical: bool = False,
     element: str | None = None,
-    source: object | None = None,
+    source: Any | None = None,
     stream: RngStream,
 ) -> SaveResult:
     """Roll a saving throw: 1d20 at or above the target's value for the category.
@@ -1622,7 +1635,7 @@ def saving_throw(
     return SaveResult(passed=passed, roll=rolled, modifier=modifier, required=required, events=(event,))
 
 
-def apply_healing(target: object, amount: int, *, source: str = "magical") -> list[Event]:
+def apply_healing(target: Any, amount: int, *, source: str = "magical") -> list[Event]:
     """Apply instantaneous healing, capped at max HP.
 
     Mummy rot blocks magical healing (pinned): a diseased target emits the blocked
@@ -1663,10 +1676,11 @@ def apply_healing(target: object, amount: int, *, source: str = "magical") -> li
     ]
 
 
-def natural_healing(target: object, stream: RngStream, *, ledger: EffectsLedger | None = None) -> list[Event]:
+def natural_healing(target: Any, stream: RngStream, *, ledger: EffectsLedger | None = None) -> list[Event]:
     """Apply one full day of complete rest: 1d3 hit points.
 
-    Callable by whoever can attest the rest was uninterrupted (Phase 4 automates).
+    Callable by whoever can attest the rest was uninterrupted (the crawl's rest
+    procedure automates the attestation).
     Slowed-healing effects stretch the cadence: under mummy rot, natural healing
     runs ten times slower (pinned), and an effect carrying a `healing_rest_days`
     param (*cause disease*'s and the cursed scroll's "twice the usual amount of
@@ -1693,7 +1707,7 @@ def natural_healing(target: object, stream: RngStream, *, ledger: EffectsLedger 
             if effect.definition.kind == "mummy_rot":
                 slowdowns.append((effect, 10))
             elif "healing_rest_days" in effect.definition.params:
-                slowdowns.append((effect, int(effect.definition.params["healing_rest_days"])))
+                slowdowns.append((effect, _int_param(effect.definition.params, "healing_rest_days")))
     if slowdowns:
         effect, cadence = max(slowdowns, key=lambda pair: pair[1])
         effect.state["rest_days"] = effect.state.get("rest_days", 0) + 1
@@ -1719,7 +1733,7 @@ def falling_damage(feet: int, stream: RngStream) -> RollResult | None:
     return roll(f"{dice}d6", stream)
 
 
-def drain_monster_hd(monster: object, *, levels: int = 1, stream: RngStream) -> list[Event]:
+def drain_monster_hd(monster: Any, *, levels: int = 1, stream: RngStream) -> list[Event]:
     """Drain a monster's Hit Dice — the SRD says "experience level (or Hit Die)".
 
     Symmetric with character drain (pinned): the instance re-derives THAC0 and saves
@@ -1777,7 +1791,7 @@ def drain_monster_hd(monster: object, *, levels: int = 1, stream: RngStream) -> 
     return events
 
 
-def resolve_energy_drain(attacker: object, target: object, *, stream: RngStream) -> list[Event]:
+def resolve_energy_drain(attacker: Any, target: Any, *, stream: RngStream) -> list[Event]:
     """Wire a drain-tagged monster's touch to the drain procedure.
 
     Reads the attacker's `energy_drain` tag (levels and XP policy are per-monster
@@ -1817,7 +1831,7 @@ def resolve_energy_drain(attacker: object, target: object, *, stream: RngStream)
     return drain_monster_hd(target, levels=levels, stream=stream)
 
 
-def effective_hd(combatant: object) -> int:
+def effective_hd(combatant: Any) -> int:
     """Return a combatant's effective Hit Dice for the HD-budget targeting mode.
 
     Pinned: sub-1 HD rounds up to 1 and fixed hit-point bonuses are dropped;
@@ -1848,11 +1862,11 @@ def select_targets(
 
     Modes: `self` and `single` take the (single) supplied candidate; `up_to_n` takes
     the first N (fixed `count` or rolled `count_dice` — *hold person*'s 1d4) in the
-    caller's order; `area` and `gaze` affect every candidate (geometry arrives with
-    Phase 4's combat space); `hd_budget` consumes candidates weakest-first by
-    effective HD, ties broken by stable input order — the budget spends whole
-    creatures, and a target whose HD exceed the remainder is skipped while selection
-    continues (pinned; *sleep*'s exact arithmetic lands with the spell in Phase 3).
+    caller's order; `area` and `gaze` affect every candidate (the battle machine
+    supplies the footprint's candidates); `hd_budget` consumes candidates
+    weakest-first by effective HD, ties broken by stable input order — the budget
+    spends whole creatures, and a target whose HD exceed the remainder is skipped
+    while selection continues (pinned; *sleep* is the arithmetic's consumer).
 
     Args:
         mode: The targeting mode.
@@ -1897,8 +1911,8 @@ def resolve_gaze(
     stream: RngStream,
     ledger: EffectsLedger,
     clock: GameClock,
-    allocator: object,
-    registry: dict[str, object],
+    allocator: Any,
+    registry: dict[str, Any],
 ) -> list[Event]:
     """Resolve one round of a petrifying gaze against the engaged combatants.
 
@@ -1934,7 +1948,7 @@ def resolve_gaze(
     return events
 
 
-def validate_breath(monster: object) -> list[Rejection]:
+def validate_breath(monster: Any) -> list[Rejection]:
     """Validate a breath weapon use against the per-monster daily limit.
 
     Args:
@@ -1958,7 +1972,7 @@ def validate_breath(monster: object) -> list[Rejection]:
 
 
 def resolve_breath(
-    monster: object,
+    monster: Any,
     targets: Sequence[object],
     *,
     ruleset: Ruleset,
@@ -1969,7 +1983,7 @@ def resolve_breath(
 
     Damage is the monster's current hit points with save-for-half (dragons, three
     uses per day tracked on the instance), dice (the hellhound's per-HD dice — no
-    daily limit; its 2-in-6 per-round gate is Phase 4 action-policy data), or
+    daily limit; its 2-in-6 per-round gate is action-policy data), or
     save-or-die (the sea dragon's spittle). Save-for-half halving floors (pinned).
 
     Args:
@@ -1991,6 +2005,8 @@ def resolve_breath(
     if rejections:
         raise ValueError(f"illegal breath: {[rejection.code for rejection in rejections]}")
     params = _monster_ability_params(monster, "breath_weapon")
+    if params is None:
+        raise ValueError(f"{_entity_id(monster)} has no breath_weapon ability")
     if params.get("uses_per_day") is not None:
         monster.breath_uses_today += 1
     element = str(params.get("element")) if params.get("element") is not None else None

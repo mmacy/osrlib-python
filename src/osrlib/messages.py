@@ -12,6 +12,7 @@ localize freely; this formatter exists so a bare kernel transcript is readable.
 """
 
 from collections.abc import Callable
+from typing import Any
 
 from osrlib.core.events import (
     AttackRolledEvent,
@@ -99,7 +100,9 @@ def _turning(event: UndeadTurnedEvent, outcome: str) -> str:
     return f"{event.caster_id} presents the holy symbol (rolled {event.roll}{pool}) — {outcome}."
 
 
-_TEMPLATES: dict[str, Callable[[Event], str]] = {
+# The registry dispatches on the event's `code`, so each template statically knows
+# its concrete event class — `Any` is the honest typing of code-keyed dispatch.
+_TEMPLATES: dict[str, Callable[[Any], str]] = {
     "combat.initiative.rolled": _initiative,
     "combat.attack.hit": _attack_hit,
     "combat.attack.missed": _attack_missed,

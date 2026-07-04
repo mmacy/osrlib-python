@@ -3,7 +3,7 @@
 An adventure is frozen game content — the session runs it, never mutates it. The
 base town anchors the XP rule's "survive and return to safety" and safe day-level
 rest; in 1.0 it is a marker offering safe rest and equipment purchase through the
-Phase 1 kernel, not a simulated town. Content prose lives in these models — events
+kernel, not a simulated town. Content prose lives in these models — events
 carry ids and front ends resolve prose against the adventure.
 
 [`validate_adventure`][osrlib.crawl.adventure.validate_adventure] is the fail-fast

@@ -37,9 +37,10 @@ from osrlib.crawl.events import (
 from osrlib.data import load_classes
 
 __all__ = [
-    "HANDLERS",
     "EncounterGroup",
     "EncounterState",
+    "HANDLERS",
+    "PURSUIT_ROUND_CAP",
     "PursuitState",
     "end_encounter",
     "start_encounter",
@@ -168,7 +169,8 @@ def start_encounter(
         )
 
     if distance_feet is None:
-        distance_feet = (stream.randbelow(6) + 1 + stream.randbelow(6) + 1) * 10
+        rolled_tens: int = stream.randbelow(6) + 1 + stream.randbelow(6) + 1
+        distance_feet = rolled_tens * 10
 
     group_models = [
         EncounterGroup(
@@ -232,11 +234,11 @@ def start_encounter(
         # The surprised side cannot act that round: the monsters take one beat
         # before the party's first command — and a battle opening on that beat
         # begins with their surprise round.
-        events.extend(end_of_round(session, party_lost_beat=True))
+        events.extend(_end_of_round(session, party_lost_beat=True))
     return events
 
 
-def end_of_round(session, *, party_lost_beat: bool = False) -> list[Event]:
+def _end_of_round(session, *, party_lost_beat: bool = False) -> list[Event]:
     """Close one encounter round beat: the clock ticks and the monsters act per stance.
 
     Args:
@@ -276,16 +278,16 @@ def end_of_round(session, *, party_lost_beat: bool = False) -> list[Event]:
 # ---------------------------------------------------------------------- command handlers
 
 
-def handle_wait(session, command: Wait) -> tuple[list[Rejection], list[Event]]:
+def _handle_wait(session, command: Wait) -> tuple[list[Rejection], list[Event]]:
     state = session.encounter
     if state is None:
         return [Rejection(code="encounter.none_active")], []
     if state.pursuit is not None:
-        return [], pursuit_round(session)
-    return [], end_of_round(session)
+        return [], _pursuit_round(session)
+    return [], _end_of_round(session)
 
 
-def handle_parley(session, command: Parley) -> tuple[list[Rejection], list[Event]]:
+def _handle_parley(session, command: Parley) -> tuple[list[Rejection], list[Event]]:
     from osrlib.crawl import exploration
     from osrlib.crawl.session import ENCOUNTER_STREAM
 
@@ -311,11 +313,11 @@ def handle_parley(session, command: Parley) -> tuple[list[Rejection], list[Event
 
         events.extend(battle_module.start_battle(session))
         return [], events
-    events.extend(end_of_round(session))
+    events.extend(_end_of_round(session))
     return [], events
 
 
-def handle_evade(session, command: Evade) -> tuple[list[Rejection], list[Event]]:
+def _handle_evade(session, command: Evade) -> tuple[list[Rejection], list[Event]]:
     from osrlib.crawl import exploration
 
     state = session.encounter
@@ -372,11 +374,11 @@ def handle_evade(session, command: Evade) -> tuple[list[Rejection], list[Event]]
         return [], events
     events.append(EvasionEvent(code="encounter.evasion.pursuit"))
     state.pursuit = PursuitState(gap_feet=min(group.distance_feet for group in pursuers))
-    events.extend(pursuit_round(session, dropped_kind=dropped_kind))
+    events.extend(_pursuit_round(session, dropped_kind=dropped_kind))
     return [], events
 
 
-def handle_engage_battle(session, command: EngageBattle) -> tuple[list[Rejection], list[Event]]:
+def _handle_engage_battle(session, command: EngageBattle) -> tuple[list[Rejection], list[Event]]:
     from osrlib.crawl import battle as battle_module
 
     state = session.encounter
@@ -394,7 +396,7 @@ def handle_engage_battle(session, command: EngageBattle) -> tuple[list[Rejection
     return [], battle_module.start_battle(session, party_free_round=party_free)
 
 
-def handle_turn_undead(session, command: TurnUndead) -> tuple[list[Rejection], list[Event]]:
+def _handle_turn_undead(session, command: TurnUndead) -> tuple[list[Rejection], list[Event]]:
     from osrlib.crawl import exploration
 
     state = session.encounter
@@ -439,7 +441,7 @@ def handle_turn_undead(session, command: TurnUndead) -> tuple[list[Rejection], l
     return [], events
 
 
-def handle_drop_during_encounter(session, command: DropItems) -> tuple[list[Rejection], list[Event]]:
+def _handle_drop_during_encounter(session, command: DropItems) -> tuple[list[Rejection], list[Event]]:
     from osrlib.crawl import exploration
 
     state = session.encounter
@@ -461,9 +463,9 @@ def handle_drop_during_encounter(session, command: DropItems) -> tuple[list[Reje
             dropped_kind = "treasure"
         elif any(item_id in ("rations_standard", "rations_iron") for item_id in command.item_ids):
             dropped_kind = "food"
-        events.extend(pursuit_round(session, dropped_kind=dropped_kind))
+        events.extend(_pursuit_round(session, dropped_kind=dropped_kind))
     else:
-        events.extend(end_of_round(session))
+        events.extend(_end_of_round(session))
     return [], events
 
 
@@ -518,7 +520,7 @@ def _group_intelligent(session, group: EncounterGroup) -> bool:
     return bool(combatant.template.treasure.letters)
 
 
-def pursuit_round(session, *, dropped_kind: str | None = None) -> list[Event]:
+def _pursuit_round(session, *, dropped_kind: str | None = None) -> list[Event]:
     """Run one pursuit round: distraction, the gap update, and the terminals."""
     from osrlib.crawl.session import ENCOUNTER_STREAM
 
@@ -758,9 +760,9 @@ def end_encounter(session, outcome: str) -> list[Event]:
 
 
 HANDLERS = {
-    Parley: handle_parley,
-    Evade: handle_evade,
-    EngageBattle: handle_engage_battle,
-    Wait: handle_wait,
-    TurnUndead: handle_turn_undead,
+    Parley: _handle_parley,
+    Evade: _handle_evade,
+    EngageBattle: _handle_engage_battle,
+    Wait: _handle_wait,
+    TurnUndead: _handle_turn_undead,
 }

@@ -22,21 +22,22 @@ rolls, cast-time forced saves, dispel survival rolls, and both turning rolls —
 from the [`MAGIC_STREAM`][osrlib.core.spells.MAGIC_STREAM] stream, so a combat-rules
 change never shifts spell goldens and vice versa. Effect-internal draws (rolled
 durations at attach, tick-time saves such as the charm re-save) stay on the
-`"effects"` stream per the Phase 2 convention.
+`"effects"` stream per the effects-engine convention.
 
-Import direction, mirroring the Phase 2 `alignment.py` lesson: the data loaders
+Import direction, mirroring the `alignment.py` lesson: the data loaders
 import these models and `character.py` imports the loaders, so this module never
 imports `character.py` — casting, memorization, and turning take caster objects
-duck-typed (the Phase 2 combatant convention), and `character.py` imports
+duck-typed (the combatant convention), and `character.py` imports
 [`MemorizedSpell`][osrlib.core.spells.MemorizedSpell] from here, never the reverse.
 """
 
-from collections.abc import Sequence
-from typing import Literal
+from collections.abc import Mapping, Sequence
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from osrlib.core.abilities import AbilityScore
+from osrlib.core.classes import ClassDefinition
 from osrlib.core.clock import ROUNDS_PER_DAY, GameClock, TimeUnit
 from osrlib.core.combat import (
     AttackContext,
@@ -84,11 +85,12 @@ from osrlib.core.tables import turning_column
 from osrlib.core.validation import Rejection
 
 __all__ = [
-    "MAGIC_STREAM",
     "CastContext",
     "CastResult",
     "CasterProfile",
     "DurationSpec",
+    "EFFECT_KINDS",
+    "MAGIC_STREAM",
     "MemorizationResult",
     "MemorizedSpell",
     "RangeSpec",
@@ -180,14 +182,14 @@ class RangeSpec(BaseModel):
 
 
 class TargetingSpec(BaseModel):
-    """One mode's targeting: the Phase 2 targeting mode plus its parameters.
+    """One mode's targeting: the shared combat targeting mode plus its parameters.
 
     `count`/`count_dice` size `up_to_n` modes (*hold person*'s group mode is 1d4);
     `hd_budget_dice` sizes `hd_budget` modes (*sleep*'s 2d8); `hd_cap` bounds
     eligibility by Hit Dice (*sleep* mode 2's "4 HD or less", *charm monster*'s
     "3 HD or less"); `hd_min` bounds it from below (*charm monster*'s single mode
     takes "more than 3 HD"). Area `shape` and `dimensions` ship as structured data
-    now; geometry-to-target mapping arrives with Phase 4's combat space.
+    now; the battle machine maps its range-track geometry onto candidates.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -214,7 +216,7 @@ class SaveSpec(BaseModel):
 
     `modifier` is the target's adjustment (*hold person*'s single-target −2,
     *feeblemind*'s −4). `on_save="negates"` means a passed save avoids the effect;
-    `"half"` halves damage (flooring, per the Phase 2 pin).
+    `"half"` halves damage (flooring, pinned).
     """
 
     model_config = ConfigDict(frozen=True)
@@ -437,7 +439,7 @@ class CasterProfile(BaseModel):
     spell_list: str
 
 
-def caster_profile(definition: object) -> CasterProfile | None:
+def caster_profile(definition: ClassDefinition) -> CasterProfile | None:
     """Return a class definition's casting profile, or `None` for non-casters.
 
     Args:
@@ -454,12 +456,12 @@ def caster_profile(definition: object) -> CasterProfile | None:
     return None
 
 
-def _entity_id(combatant: object) -> str:
+def _entity_id(combatant: Any) -> str:
     identifier = getattr(combatant, "id", None)
     return identifier if identifier is not None else getattr(combatant, "name", "unknown")
 
 
-def _target_ref(target: object) -> str:
+def _target_ref(target: Any) -> str:
     """An explicit string target is a location ref; anything else is an entity."""
     return target if isinstance(target, str) else _entity_id(target)
 
@@ -479,7 +481,7 @@ class MemorizationResult(BaseModel):
 
 
 def memorize_spells(
-    caster: object, definition: object, catalog: SpellCatalog, selections: Sequence[MemorizedSpell]
+    caster: Any, definition: ClassDefinition, catalog: SpellCatalog, selections: Sequence[MemorizedSpell]
 ) -> MemorizationResult:
     """Prepare a caster's daily spells — a full replacement of the memorized list.
 
@@ -490,7 +492,7 @@ def memorize_spells(
     their spell book and fix normal or reversed per copy at memorization. Duplicate
     selections are legal per RAW ("may opt to memorize the same spell twice"). The
     once-a-day/after-sleep/one-hour gates are exploration procedure owned by the
-    Phase 4 crawl layer — standalone users call this freely (pinned).
+    crawl layer — standalone users call this freely (pinned).
 
     Args:
         caster: The preparing character; its `memorized_spells` is replaced.
@@ -571,7 +573,9 @@ class SpellBookResult(BaseModel):
         return not self.rejections
 
 
-def add_spell_to_book(caster: object, definition: object, catalog: SpellCatalog, spell_id: str) -> SpellBookResult:
+def add_spell_to_book(
+    caster: Any, definition: ClassDefinition, catalog: SpellCatalog, spell_id: str
+) -> SpellBookResult:
     """Add a spell to an arcane caster's book — the referee-level growth surface.
 
     Covers mentoring and leveling; the fiction around it (the mentor's week, a lost
@@ -622,7 +626,7 @@ def add_spell_to_book(caster: object, definition: object, catalog: SpellCatalog,
     return SpellBookResult(events=(SpellBookUpdatedEvent(caster_id=_entity_id(caster), spell_id=spell_id),))
 
 
-def forget_excess_memorized(caster: object, definition: object, catalog: SpellCatalog) -> list[Event]:
+def forget_excess_memorized(caster: Any, definition: ClassDefinition, catalog: SpellCatalog) -> list[Event]:
     """Forget memorized copies in excess of the caster's (shrunk) slots.
 
     The drain interplay: after a level drop, for each spell level where the
@@ -675,7 +679,7 @@ class CastContext(BaseModel):
     required" — the pinned inverse: no roll outside combat). `bound`/`gagged` are the
     `Combat.md` Freedom restraints the kernel has no model for. `rounds_since_death`
     and `days_since_death` are the caller's attestations for *neutralize poison* and
-    *raise dead* until Phase 4's session owns the clock context — the kernel has no
+    *raise dead* (the session supplies them from its death records) — the kernel has no
     cause-of-death model, so supplying `rounds_since_death` *is* the attestation
     that the target died of poison; omit it for any other death. `strength_tiers`
     maps entity ids to `"augmented"`/`"giant"` for *web*'s faster escape tiers
@@ -704,11 +708,23 @@ _CANNOT_CAST_CONDITIONS = (
 )
 
 
+def _int_param(params: Mapping[str, Any], key: str, default: int = 0) -> int:
+    """Read an integer param — schema-validated data whose union the checker can't key by name."""
+    return int(params.get(key, default))
+
+
+def _mode_effect(mode: SpellMode) -> SpellEffect:
+    """The mode's effect — model-validated as present on every automated mode."""
+    if mode.effect is None:
+        raise ValueError(f"mode {mode.key!r} is manual and carries no effect")
+    return mode.effect
+
+
 def _missile_count(effect: SpellEffect, caster_level: int) -> int:
     params = effect.params
-    base = int(params.get("missiles_base", 1))
-    step = int(params.get("missiles_step", 0))
-    per = int(params.get("missiles_per_levels", 1))
+    base = _int_param(params, "missiles_base", 1)
+    step = _int_param(params, "missiles_step", 0)
+    per = _int_param(params, "missiles_per_levels", 1)
     return base + step * ((caster_level - 1) // per)
 
 
@@ -721,7 +737,7 @@ def _max_range_feet(spell: SpellTemplate, caster_level: int) -> int | None:
     return None
 
 
-def _memorized_index(caster: object, spell: SpellTemplate, reversed: bool, profile: CasterProfile) -> int | None:
+def _memorized_index(caster: Any, spell: SpellTemplate, reversed: bool, profile: CasterProfile) -> int | None:
     """Return the index of the first matching memorized copy (lowest index, pinned).
 
     Divine casters match any copy of the spell — the reversed flag is chosen freely
@@ -737,7 +753,7 @@ def _memorized_index(caster: object, spell: SpellTemplate, reversed: bool, profi
 
 
 def validate_cast(
-    caster: object,
+    caster: Any,
     spell: SpellTemplate,
     mode: str,
     *,
@@ -756,7 +772,7 @@ def validate_cast(
     (single takes one; *magic missile* takes exactly one target per missile), and
     range — only when the context supplies a distance, mirroring the combat
     convention. Category and immunity gates are **resolution** outcomes, never
-    validator rejections (pinned, extending the Phase 2 holy-water doctrine):
+    validator rejections (pinned, extending the holy-water doctrine):
     casting *charm person* at a disguised doppelgänger must not be a zero-cost
     detector. A cleric's holy symbol is not checked (pinned — `Cleric.md` states
     carrying one as a class edict, not a mechanical gate on any procedure).
@@ -880,14 +896,14 @@ class _CastState:
         self.events: list[Event] = []
         self.affected: list[str] = []
 
-    def affect(self, target: object) -> None:
+    def affect(self, target: Any) -> None:
         ref = _target_ref(target)
         if ref not in self.affected:
             self.affected.append(ref)
 
 
 def cast_spell(
-    caster: object,
+    caster: Any,
     spell: SpellTemplate,
     mode: str,
     *,
@@ -897,8 +913,8 @@ def cast_spell(
     context: CastContext | None = None,
     ledger: EffectsLedger,
     clock: GameClock,
-    allocator: object,
-    registry: dict[str, object],
+    allocator: Any,
+    registry: dict[str, Any],
     ruleset: Ruleset,
     stream: RngStream,
     effects_stream: RngStream,
@@ -917,8 +933,8 @@ def cast_spell(
     Spell-resolution draws (targeting dice, damage dice, touch-attack rolls,
     cast-time forced saves, dispel survival rolls) come from `stream` — the
     [`MAGIC_STREAM`][osrlib.core.spells.MAGIC_STREAM] convention; attach-time draws
-    (rolled durations, *web* escape dice) come from `effects_stream` per the Phase 2
-    convention, so the two subsystems never shift each other's goldens.
+    (rolled durations, *web* escape dice) come from `effects_stream` per the
+    effects-engine convention, so the two subsystems never shift each other's goldens.
 
     Args:
         caster: The casting character; its `memorized_spells` shrinks by one copy.
@@ -954,6 +970,8 @@ def cast_spell(
         raise ValueError(f"illegal cast: {[rejection.code for rejection in rejections]}")
     spell_mode = spell.mode(mode, reversed=reversed)
     index = _memorized_index(caster, spell, reversed, profile)
+    if index is None:
+        raise ValueError(f"{spell.id} is not memorized in the requested form")
     copies = list(caster.memorized_spells)
     del copies[index]
     caster.memorized_spells = tuple(copies)
@@ -975,7 +993,7 @@ def cast_spell(
 
 
 def _perform_cast(
-    caster: object,
+    caster: Any,
     spell: SpellTemplate,
     spell_mode: SpellMode,
     reversed: bool,
@@ -984,8 +1002,8 @@ def _perform_cast(
     context: CastContext,
     ledger: EffectsLedger,
     clock: GameClock,
-    allocator: object,
-    registry: dict[str, object],
+    allocator: Any,
+    registry: dict[str, Any],
     ruleset: Ruleset,
     stream: RngStream,
     effects_stream: RngStream,
@@ -1064,7 +1082,7 @@ class _ScrollReader:
 
     __slots__ = ("_level", "_reader")
 
-    def __init__(self, reader: object, level: int) -> None:
+    def __init__(self, reader: Any, level: int) -> None:
         object.__setattr__(self, "_reader", reader)
         object.__setattr__(self, "_level", level)
 
@@ -1112,7 +1130,7 @@ def minimum_caster_level(spell: SpellTemplate) -> int:
 
 
 def cast_from_scroll(
-    reader: object,
+    reader: Any,
     spell: SpellTemplate,
     mode: str,
     *,
@@ -1121,8 +1139,8 @@ def cast_from_scroll(
     context: CastContext | None = None,
     ledger: EffectsLedger,
     clock: GameClock,
-    allocator: object,
-    registry: dict[str, object],
+    allocator: Any,
+    registry: dict[str, Any],
     ruleset: Ruleset,
     stream: RngStream,
     effects_stream: RngStream,
@@ -1192,11 +1210,11 @@ def cast_from_scroll(
     )
 
 
-def disrupt_casting(caster: object, spell_id: str, *, reversed: bool = False) -> list[Event]:
+def disrupt_casting(caster: Any, spell_id: str, *, reversed: bool = False) -> list[Event]:
     """Disrupt a declared casting: the copy is lost "as if it had been cast".
 
     The trigger — lost initiative, then successfully attacked or failed a save
-    before acting — is detected by the Phase 4 battle machine; the kernel resolves a
+    before acting — is detected by the battle machine; the kernel resolves a
     disruption when told it happened. The exactly-matching copy is removed first;
     failing that, any copy of the spell (a divine caster's reversed declaration
     consumes a normal copy, mirroring the cast-time rule).
@@ -1226,12 +1244,12 @@ def disrupt_casting(caster: object, spell_id: str, *, reversed: bool = False) ->
     return [SpellDisruptedEvent(caster_id=_entity_id(caster), spell_id=spell_id, reversed=reversed)]
 
 
-def _is_undead(target: object) -> bool:
+def _is_undead(target: Any) -> bool:
     template = getattr(target, "template", None)
     return template is not None and "undead" in template.categories
 
 
-def _is_person(target: object) -> bool:
+def _is_person(target: Any) -> bool:
     """The *hold/charm person* gate, pinned: any character, or a `person` monster."""
     if getattr(target, "definition", None) is not None:
         return True
@@ -1239,17 +1257,21 @@ def _is_person(target: object) -> bool:
     return template is not None and "person" in template.categories
 
 
-def _is_arcane_caster(target: object) -> bool:
+def _is_arcane_caster(target: Any) -> bool:
     """The *feeblemind* gate, pinned: a target bearing the `arcane_magic` class tag."""
-    return (profile := caster_profile(getattr(target, "definition", None))) is not None and profile.kind == "arcane"
+    definition = getattr(target, "definition", None)
+    if definition is None:
+        return False
+    profile = caster_profile(definition)
+    return profile is not None and profile.kind == "arcane"
 
 
-def _monster_hit_dice(target: object) -> object | None:
+def _monster_hit_dice(target: Any) -> Any | None:
     template = getattr(target, "template", None)
     return template.hit_dice if template is not None else None
 
 
-def _eligible(target: object, mode: SpellMode) -> bool:
+def _eligible(target: Any, mode: SpellMode) -> bool:
     """Resolve a mode's eligibility gates — resolution outcomes, never rejections."""
     if isinstance(target, str):
         return True
@@ -1266,7 +1288,7 @@ def _eligible(target: object, mode: SpellMode) -> bool:
     if params.get("hd_bonus_required"):
         # *Sleep* mode 1: "a single creature with 4+1 Hit Dice" — pinned as a
         # monster with HD count `hd_count` and a positive fixed modifier.
-        if hit_dice is None or hit_dice.count != int(params.get("hd_count", 4)) or hit_dice.modifier <= 0:
+        if hit_dice is None or hit_dice.count != _int_param(params, "hd_count", 4) or hit_dice.modifier <= 0:
             return False
     if params.get("excludes_hd_4_plus") and hit_dice is not None and hit_dice.count == 4 and hit_dice.modifier > 0:
         return False
@@ -1280,7 +1302,7 @@ def _eligible(target: object, mode: SpellMode) -> bool:
 
 
 def _select_cast_targets(
-    caster: object, mode: SpellMode, targets: Sequence[object], stream: RngStream
+    caster: Any, mode: SpellMode, targets: Sequence[object], stream: RngStream
 ) -> tuple[list[object], list[Event]]:
     """Filter eligibility, then resolve the targeting mode over the survivors.
 
@@ -1315,15 +1337,17 @@ def _select_cast_targets(
 
 
 def _spell_save(
-    target: object, mode: SpellMode, caster: object, stream: RngStream, *, element: str | None = None
+    target: Any, mode: SpellMode, caster: Any, stream: RngStream, *, element: str | None = None
 ) -> tuple[bool, list[Event]]:
     """Roll a mode's saving throw; returns `(passed, events)`.
 
-    Spell saves always pass `magical=True` (the WIS modifier applies, per the
-    Phase 2 pin) and carry the mode's modifier and the effect's element (energy
+    Spell saves always pass `magical=True` (the WIS modifier applies, pinned) and
+    carry the mode's modifier and the effect's element (energy
     `auto_save` defenses resolve through the existing pipeline unchanged).
     """
     save = mode.save
+    if save is None:
+        raise ValueError(f"mode {mode.key!r} carries no saving throw")
     result = saving_throw(
         target,
         SaveCategory(save.category),
@@ -1337,7 +1361,7 @@ def _spell_save(
 
 
 def _touch_attack(
-    caster: object, target: object, spell: SpellTemplate, *, ruleset: Ruleset, stream: RngStream
+    caster: Any, target: Any, spell: SpellTemplate, *, ruleset: Ruleset, stream: RngStream
 ) -> tuple[bool, list[Event]]:
     """Roll the in-combat touch attack: a melee attack roll from the magic stream."""
     result = attack_roll(caster, target, None, context=AttackContext(), ruleset=ruleset, stream=stream)
@@ -1358,14 +1382,14 @@ def _per_level_dice(expression: str, caster_level: int) -> str:
 
 
 def _resolved_duration(
-    spell: SpellTemplate, reversed: bool, caster_level: int, params: dict[str, object]
-) -> dict[str, object]:
+    spell: SpellTemplate, reversed: bool, caster_level: int, params: Mapping[str, Any]
+) -> dict[str, Any]:
     """Build an effect definition's duration fields from the spell and overrides.
 
     Per-level durations are computed at cast (pinned): fixed amounts gain
     `per_level × caster level`, and dice durations fold the bonus into the dice
     modifier (`1d6 turns +1 per level` at level 3 attaches `1d6+3`), keeping the
-    Phase 2 rolled-at-attach behavior on the effects stream. Concentration
+    rolled-at-attach behavior on the effects stream. Concentration
     durations attach indefinite — concentration effects are released by the caller.
     Effect-param overrides win: `permanent`, `indefinite`, or explicit
     `duration_dice`/`duration_amount`/`duration_unit` (*cause disease*'s 2d12
@@ -1376,7 +1400,7 @@ def _resolved_duration(
     if params.get("indefinite"):
         return {}
     if "duration_dice" in params or "duration_amount" in params:
-        fields: dict[str, object] = {"duration_unit": TimeUnit(str(params["duration_unit"]))}
+        fields: dict[str, Any] = {"duration_unit": TimeUnit(str(params["duration_unit"]))}
         if "duration_dice" in params:
             fields["duration_dice"] = str(params["duration_dice"])
         else:
@@ -1399,7 +1423,7 @@ def _resolved_duration(
     return {"duration_unit": unit, "duration_amount": (spec.amount or 0) + bonus}
 
 
-def _charm_interval_rounds(target: object) -> int:
+def _charm_interval_rounds(target: Any) -> int:
     """The charm re-save interval by INT band, pinned: month = 30 days, week = 7.
 
     Monsters have no INT score and default to the middle weekly band
@@ -1419,7 +1443,7 @@ def _charm_interval_rounds(target: object) -> int:
     return days * ROUNDS_PER_DAY
 
 
-def _effect_params(params: dict[str, object]) -> dict[str, object]:
+def _effect_params(params: Mapping[str, Any]) -> dict[str, Any]:
     """The params carried onto the attached effect: the pinned data, minus consumed keys."""
     consumed = {
         "permanent",
@@ -1449,15 +1473,15 @@ def _condition_definition(
     spell: SpellTemplate,
     mode: SpellMode,
     reversed: bool,
-    caster: object,
-    target: object,
+    caster: Any,
+    target: Any,
     context: CastContext,
 ) -> EffectDefinition:
     """Build the per-cast effect definition for a condition-attaching mode."""
-    effect = mode.effect
-    params = dict(effect.params)
+    effect = _mode_effect(mode)
+    params: dict[str, Any] = dict(effect.params)
     duration = _resolved_duration(spell, reversed, caster.level, params)
-    fields: dict[str, object] = {
+    fields: dict[str, Any] = {
         "kind": str(params.get("effect_kind", spell.id)),
         "condition": effect.condition,
         "modifiers": effect.modifiers,
@@ -1472,7 +1496,7 @@ def _condition_definition(
         fields["expiry"] = str(params["expiry"])
     if "escape_dice" in params:
         if isinstance(target, str):
-            # A location-bound web (cast at a cell, Phase 4): the cell keeps the
+            # A location-bound web (cast at a cell): the cell keeps the
             # spell's own duration — the web sits there — and the escape params
             # ride the effect for the crawl's enter hook, which attaches the
             # per-creature entangled countdown on entry (pinned).
@@ -1502,24 +1526,24 @@ def _condition_definition(
 
 
 def _resolve_effect(
-    caster: object,
+    caster: Any,
     spell: SpellTemplate,
     mode: SpellMode,
     reversed: bool,
-    selected: list[object],
+    selected: list[Any],
     state: _CastState,
     *,
     context: CastContext,
     ledger: EffectsLedger,
     clock: GameClock,
-    allocator: object,
-    registry: dict[str, object],
+    allocator: Any,
+    registry: dict[str, Any],
     ruleset: Ruleset,
     stream: RngStream,
     effects_stream: RngStream,
 ) -> None:
     """Dispatch one automated mode's resolution — the casting interpreter."""
-    kind = mode.effect.kind
+    kind = _mode_effect(mode).kind
     if kind == "damage":
         _resolve_damage(caster, spell, mode, selected, state, context, ruleset=ruleset, stream=stream, clock=clock)
     elif kind == "heal":
@@ -1565,10 +1589,10 @@ def _resolve_effect(
 
 
 def _resolve_damage(
-    caster: object,
+    caster: Any,
     spell: SpellTemplate,
     mode: SpellMode,
-    selected: list[object],
+    selected: list[Any],
     state: _CastState,
     context: CastContext,
     *,
@@ -1576,7 +1600,7 @@ def _resolve_damage(
     stream: RngStream,
     clock: GameClock,
 ) -> None:
-    effect = mode.effect
+    effect = _mode_effect(mode)
     params = effect.params
     caster_id = _entity_id(caster)
     element = str(params["element"]) if "element" in params else None
@@ -1646,10 +1670,11 @@ def _resolve_damage(
             state.events.extend(_absorbed_events(target, caster_id, source))
             continue
         passed = False
-        if mode.save is not None:
+        save = mode.save
+        if save is not None:
             passed, save_events = _spell_save(target, mode, caster, stream, element=element)
             state.events.extend(save_events)
-            if passed and mode.save.on_save == "negates":
+            if passed and save.on_save == "negates":
                 continue
         dice = (
             _per_level_dice(str(params["dice_per_level"]), caster.level)
@@ -1658,7 +1683,7 @@ def _resolve_damage(
         )
         result = roll(dice, stream)
         amount = result.total
-        if passed and mode.save.on_save == "half":
+        if passed and save is not None and save.on_save == "half":
             amount //= 2  # halving floors (pinned)
         if amount < 1:
             continue
@@ -1677,14 +1702,14 @@ def _resolve_damage(
         state.affect(target)
 
 
-def _absorbed_events(target: object, caster_id: str, source: DamageSource) -> list[Event]:
+def _absorbed_events(target: Any, caster_id: str, source: DamageSource) -> list[Event]:
     keys = source.keys if source.element is None else (*source.keys, source.element)
     return [DamageAbsorbedEvent(target_id=_target_ref(target), attacker_id=caster_id, keys=keys)]
 
 
-def _resolve_heal(mode: SpellMode, selected: list[object], state: _CastState, stream: RngStream) -> None:
+def _resolve_heal(mode: SpellMode, selected: list[Any], state: _CastState, stream: RngStream) -> None:
     for target in selected:
-        result = roll(str(mode.effect.params["dice"]), stream)
+        result = roll(str(_mode_effect(mode).params["dice"]), stream)
         events = apply_healing(target, result.total, source="magical")
         state.events.extend(events)
         if any(event.code == "combat.healing.applied" for event in events):
@@ -1692,16 +1717,16 @@ def _resolve_heal(mode: SpellMode, selected: list[object], state: _CastState, st
 
 
 def _resolve_cure(
-    caster: object,
+    caster: Any,
     mode: SpellMode,
-    selected: list[object],
+    selected: list[Any],
     state: _CastState,
     context: CastContext,
     ledger: EffectsLedger,
-    registry: dict[str, object],
+    registry: dict[str, Any],
     stream: RngStream,
 ) -> None:
-    effect = mode.effect
+    effect = _mode_effect(mode)
     params = effect.params
     for target in selected:
         ref = _target_ref(target)
@@ -1716,7 +1741,7 @@ def _resolve_cure(
                 result = saving_throw(
                     target,
                     SaveCategory(str(params["magical_fear_save"])),
-                    modifier=int(params.get("save_bonus_per_level", 0)) * caster.level,
+                    modifier=_int_param(params, "save_bonus_per_level", 0) * caster.level,
                     magical=True,
                     stream=stream,
                 )
@@ -1726,12 +1751,12 @@ def _resolve_cure(
             state.events.extend(ledger.release(active.effect_id, registry))
             state.affect(target)
         if params.get("revives_poison_dead") and not isinstance(target, str):
-            window = int(params.get("revive_window_rounds", 10))
+            window = _int_param(params, "revive_window_rounds", 10)
             # The page's revival usage is titled "Characters" — only a Character is
             # revivable (pinned). The kernel has no cause-of-death model: supplying
             # `rounds_since_death` IS the caller's attestation that the target died
-            # of poison within that many rounds (until Phase 4's session owns the
-            # clock context); omit it for any other death.
+            # of poison within that many rounds (the session supplies it from its
+            # death records); omit it for any other death.
             if (
                 getattr(target, "definition", None) is not None
                 and has_condition(target, Condition.DEAD)
@@ -1749,23 +1774,23 @@ def _resolve_cure(
 
 
 def _resolve_attachment(
-    caster: object,
+    caster: Any,
     spell: SpellTemplate,
     mode: SpellMode,
     reversed: bool,
-    selected: list[object],
+    selected: list[Any],
     state: _CastState,
     *,
     context: CastContext,
     ledger: EffectsLedger,
     clock: GameClock,
-    allocator: object,
-    registry: dict[str, object],
+    allocator: Any,
+    registry: dict[str, Any],
     stream: RngStream,
     effects_stream: RngStream,
 ) -> None:
     """Attach a condition, modifier bundle, or structured attach-only effect per target."""
-    params = mode.effect.params
+    params = _mode_effect(mode).params
     for target in selected:
         if not _eligible(target, mode):
             continue
@@ -1789,20 +1814,20 @@ def _resolve_attachment(
             continue
         if "images_dice" in params:
             # *Mirror image*'s 1d4 images live in effect state — attach-time
-            # randomness, drawn from the effects stream per the Phase 2 convention.
+            # randomness, drawn from the effects stream per the convention.
             effect.state["images"] = roll(str(params["images_dice"]), effects_stream).total
         state.affect(target)
 
 
 def _resolve_kill(
-    caster: object,
+    caster: Any,
     mode: SpellMode,
-    selected: list[object],
+    selected: list[Any],
     state: _CastState,
     stream: RngStream,
     ruleset: Ruleset,
 ) -> None:
-    params = mode.effect.params
+    params = _mode_effect(mode).params
     for target in selected:
         if not _eligible(target, mode):
             continue
@@ -1822,12 +1847,12 @@ def _resolve_kill(
 
 
 def _resolve_dispel(
-    caster: object,
+    caster: Any,
     mode: SpellMode,
-    selected: list[object],
+    selected: list[Any],
     state: _CastState,
     ledger: EffectsLedger,
-    registry: dict[str, object],
+    registry: dict[str, Any],
     stream: RngStream,
 ) -> None:
     """*Dispel magic*: release dispellable effects; higher-level effects may survive.
@@ -1835,9 +1860,9 @@ def _resolve_dispel(
     Per effect, when the recorded caster level exceeds the dispelling caster's, the
     effect survives on a d100 roll at or under 5% per level of deficit (RAW: "a 5%
     chance per level difference of *not* being dispelled"). Monster-inflicted
-    effects are non-dispellable by construction; magic items are exempt (Phase 5).
+    effects are non-dispellable by construction; magic items are exempt (pinned).
     """
-    pct_per_level = int(mode.effect.params.get("survival_pct_per_level", 5))
+    pct_per_level = _int_param(_mode_effect(mode).params, "survival_pct_per_level", 5)
     released: list[str] = []
     survived: list[str] = []
     for target in selected:
@@ -1863,17 +1888,17 @@ def _resolve_dispel(
 
 
 def _resolve_restore_life(
-    caster: object,
+    caster: Any,
     spell: SpellTemplate,
     mode: SpellMode,
-    selected: list[object],
+    selected: list[Any],
     state: _CastState,
     *,
     context: CastContext,
     ledger: EffectsLedger,
     clock: GameClock,
-    allocator: object,
-    registry: dict[str, object],
+    allocator: Any,
+    registry: dict[str, Any],
     effects_stream: RngStream,
 ) -> None:
     """*Raise dead*'s restore-life usage.
@@ -1883,11 +1908,11 @@ def _resolve_restore_life(
     7), which is 0 days at level 7 (RAW-faithful). Revival sets 1 hp, removes
     `dead`, and attaches the weakness effect: cannot attack or cast, half movement,
     pinned to 14 elapsed days as the simplification of RAW's "two full weeks of bed
-    rest" (rest tracking is Phase 4 procedure; games wanting strict bed-rest
+    rest" (rest tracking is crawl procedure; games wanting strict bed-rest
     semantics extend or release via the ledger). Magical healing doesn't shorten it,
     per the page.
     """
-    params = mode.effect.params
+    params = _mode_effect(mode).params
     target = selected[0] if selected else None
     if target is None or isinstance(target, str):
         return
@@ -1895,7 +1920,7 @@ def _resolve_restore_life(
         return
     if not has_condition(target, Condition.DEAD):
         return
-    limit = 4 * max(0, caster.level - int(params.get("days_per_level_above", 7)))
+    limit = 4 * max(0, caster.level - _int_param(params, "days_per_level_above", 7))
     if context.days_since_death is None or context.days_since_death > limit:
         return
     state.events.extend(remove_condition(target, Condition.DEAD, None))
@@ -1907,7 +1932,7 @@ def _resolve_restore_life(
         kind="raise_dead_weakness",
         condition=Condition.WEAKENED,
         duration_unit=TimeUnit.DAY,
-        duration_amount=int(params.get("weakness_days", 14)),
+        duration_amount=_int_param(params, "weakness_days", 14),
         dispellable=True,
         params={"movement_multiplier_pct": 50, "cannot_carry_heavy": True},
     )
@@ -1925,7 +1950,7 @@ def _resolve_restore_life(
 
 
 def pop_mirror_image(
-    ledger: EffectsLedger, target_ref: str, *, registry: dict[str, object], clock: GameClock
+    ledger: EffectsLedger, target_ref: str, *, registry: dict[str, Any], clock: GameClock
 ) -> list[Event]:
     """Destroy one mirror image — called by the game or battle machine per incoming attack.
 
@@ -1968,7 +1993,7 @@ class TurnUndeadResult(BaseModel):
     events: tuple[Event, ...] = ()
 
 
-def validate_turn_undead(cleric: object, definition: object) -> list[Rejection]:
+def validate_turn_undead(cleric: Any, definition: ClassDefinition) -> list[Rejection]:
     """Validate a turning attempt — the pure pre-phase.
 
     Turning is gated by the `turn_undead` class-ability tag; an incapacitated cleric
@@ -2000,14 +2025,14 @@ def validate_turn_undead(cleric: object, definition: object) -> list[Rejection]:
 
 
 def turn_undead(
-    cleric: object,
-    definition: object,
-    candidates: Sequence[object],
+    cleric: Any,
+    definition: ClassDefinition,
+    candidates: Sequence[Any],
     *,
     ledger: EffectsLedger,
     clock: GameClock,
-    allocator: object,
-    registry: dict[str, object],
+    allocator: Any,
+    registry: dict[str, Any],
     stream: RngStream,
 ) -> TurnUndeadResult:
     """Turn undead — the full procedure, pinned end to end.
@@ -2023,8 +2048,8 @@ def turn_undead(
     when the pool rolls short (RAW minimum effect), pinned to the cheapest eligible
     monster. Affected monsters whose column says `D` die permanently ("instantly
     and permanently annihilated"); the rest gain the `turned` condition via an
-    indefinite, non-dispellable effect the encounter releases (flee behavior is the
-    Phase 4 battle machine's).
+    indefinite, non-dispellable effect the encounter releases (flee behavior is
+    the battle machine's).
 
     Only monsters bearing the `undead` category are candidates; non-undead in the
     list resolve as unaffected rather than rejecting (the no-leak doctrine).
@@ -2071,7 +2096,7 @@ def turn_undead(
             else:
                 cell = turning.result(cleric.level, column)
                 if cell.outcome == "number":
-                    succeeded = turn_roll >= cell.threshold
+                    succeeded = cell.threshold is not None and turn_roll >= cell.threshold
                     outcome = TurningTypeOutcome(
                         template_id=template.id,
                         column=column,
@@ -2099,7 +2124,7 @@ def turn_undead(
         and not has_condition(candidate, Condition.DEAD)
     ]
     ordered = sorted(enumerate(eligible), key=lambda pair: (effective_hd(pair[1]), pair[0]))
-    affected: list[object] = []
+    affected: list[Any] = []
     remaining = hd_pool
     for _, monster in ordered:
         cost = effective_hd(monster)

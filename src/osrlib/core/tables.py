@@ -352,9 +352,8 @@ class MonsterEncounterEntry(BaseModel):
 class NpcPartyEncounterEntry(BaseModel):
     """An NPC adventuring party cell (Basic/Expert Adventurers).
 
-    Compiled faithfully as structured entries; the parties themselves are built in
-    Phase 5 (they need treasure types and magic items) — until then the wandering
-    procedure re-rolls these rows, draws consumed.
+    Compiled faithfully as structured entries; the NPC generator builds the
+    parties these rows call for (see [`osrlib.core.npc`][osrlib.core.npc]).
     """
 
     model_config = ConfigDict(frozen=True)

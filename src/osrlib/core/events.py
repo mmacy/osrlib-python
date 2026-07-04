@@ -16,7 +16,7 @@ obey:
   `extra="ignore"` and `frozen=True` on every subclass at class-definition time, so no
   subclass can silently break that guarantee with `extra="forbid"` or a mutable config.
 
-The serialized type discriminator — the decision Phase 0 deferred — is pinned here:
+The serialized type discriminator is pinned here:
 every kernel event class declares a single-valued `event_type: Literal[...]` wire
 field (snake_case, schema-stable, additive-only). Pydantic discriminates the
 [`KernelEvent`][osrlib.core.events.KernelEvent] union on it, giving native tagged-union

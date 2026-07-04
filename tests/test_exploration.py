@@ -410,7 +410,7 @@ class TestTrapResolutionCensus:
         session = quiet_session(seed=seed)
         entered(session)
         member = session.party.living_members()[0]
-        events = exploration.resolve_trap(session, trap, triggerer=member)
+        events = exploration._resolve_trap(session, trap, triggerer=member)
         return session, member, events
 
     def test_falling_block_save_versus_petrification_negates(self):

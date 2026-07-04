@@ -24,7 +24,7 @@ with no re-roll, and rolled wearable or wieldable items are equipped when better
 than the kit piece (higher effective AC, or any enchantment over a mundane arm).
 """
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -208,7 +208,7 @@ def _maybe_equip_upgrade(member: Character, definition: ClassDefinition, instanc
 
 
 def _roll_expert_items(
-    member: Character, definition: ClassDefinition, kind: str, treasure_stream: RngStream, allocator: object
+    member: Character, definition: ClassDefinition, kind: str, treasure_stream: RngStream, allocator: Any
 ) -> None:
     """The Expert parties' magic items: 5% per level per suitable sub-table (RAW)."""
     if kind != "expert":
@@ -239,7 +239,7 @@ def generate_npc_party(
     count: int,
     npc_stream: RngStream,
     treasure_stream: RngStream,
-    allocator: object,
+    allocator: Any,
 ) -> NpcParty:
     """Generate an NPC adventuring party by the SRD procedure.
 

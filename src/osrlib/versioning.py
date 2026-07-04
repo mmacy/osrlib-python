@@ -8,7 +8,7 @@ semantic changes bump it. The engine version pins exact behavior: identical repl
 outcomes are guaranteed only under an identical engine version.
 
 The stamped-document helpers wrap a payload with both versions and a `kind` string, so
-serialized artifacts (Phase 1 characters and parties; Phase 4 saves) share one envelope
+serialized artifacts (characters, parties, saves) share one envelope
 that [`check_document`][osrlib.versioning.check_document] can vet before any payload
 field is trusted.
 """
@@ -28,11 +28,10 @@ __all__ = [
 SCHEMA_VERSION = 2
 """The current serialization schema version shared by saves, commands, and events.
 
-Version 2 (Phase 5): the recovered-treasure ledger left the save payload — the
+Version 2: the recovered-treasure ledger left the save payload — the
 end-of-adventure award's input is the departure-snapshot valuation delta, and a
 ledger kept "as a log" with no consumer is exactly the accommodation the project
-bans. The 1 → 2 migration drops the field; every other Phase 5 serialized change
-is additive.
+bans. The 1 → 2 migration drops the field.
 """
 
 
@@ -72,8 +71,8 @@ def check_document(document: Mapping[str, object], expected_kind: str) -> dict[s
     """Vet a stamped document's envelope and return its payload.
 
     Unknown extra keys in the envelope are ignored, per the additive-schema contract.
-    A `schema_version` older than the current one is accepted — ordered migrations
-    arrive with full persistence in Phase 4, and schema version 1 is the floor.
+    A `schema_version` older than the current one is accepted and migrated in order
+    (see [`osrlib.persistence`][osrlib.persistence]); schema version 1 is the floor.
 
     Args:
         document: A mapping previously produced by

@@ -5,7 +5,7 @@ rounds), and the day (144 turns). Internally the clock is a single integer count
 rounds — the finest unit — so arithmetic is exact and serialization is one field.
 
 Advancing the clock reports which turn and day boundaries were crossed, in order, so
-the effects engine (Phase 2) can resolve expirations and ticks at each boundary per the
+the effects engine can resolve expirations and ticks at each boundary per the
 canonical tick order. An advance that lands exactly on a boundary reports that
 boundary: a torch lit at turn 0 expires when the clock reaches turn 6, not turn 7.
 """

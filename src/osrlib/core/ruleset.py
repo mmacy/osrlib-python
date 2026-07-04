@@ -5,9 +5,8 @@ default. Flags are read at resolution time, so a `Ruleset` is fixed for the life
 session (it participates in saves and replays). The model is frozen and rejects unknown
 flags — a typo'd flag name errors instead of silently doing nothing.
 
-Phase 1 defines only the flags Phase 1 reads. The spec's remaining 1.0 flags are added
-by the phases that implement their behavior; shipping a flag whose behavior doesn't
-exist yet would be a lie in the API. Additive flag growth is schema-legal.
+Every flag here is read by an implemented behavior; shipping a flag whose behavior
+doesn't exist would be a lie in the API. Additive flag growth is schema-legal.
 """
 
 from enum import StrEnum
@@ -22,7 +21,7 @@ __all__ = [
 
 
 class XpAwardTiming(StrEnum):
-    """When the XP award fires; see the Phase 5 award procedure.
+    """When the XP award fires; see the adventure award procedure.
 
     The wire values are `"on_return"` and `"immediate"` — lowercase, serialized
     into saves; changing them is a `schema_version` bump.
@@ -69,8 +68,8 @@ class Ruleset(BaseModel):
         weapon_reload: SRD optional rule, default off: a reload-quality weapon may
             not fire two rounds running. The attack validator rejects when the
             caller-supplied context says the weapon fired last round; round
-            bookkeeping is the Phase 4 battle machine's job — the kernel enforces the
-            rule given honest context (pinned).
+            bookkeeping is the battle machine's job — the kernel enforces the rule
+            given honest context (pinned).
         hd5_counts_as_magical: SRD invulnerabilities optional rule, default off,
             implemented *in full*: both a monster of 5+ HD and another invulnerable
             monster bypass silver/magic-only gates. Pinned boundary from the rule's
@@ -102,7 +101,7 @@ class Ruleset(BaseModel):
             trades exactness for immediacy).
         aoe_friendly_fire: Documented adaptation, default on: an area effect landing
             on a monster group at melee range catches engaged party members among
-            its candidates (the Phase 4 footprint rule). Off means areas never
+            its candidates (the battle footprint rule). Off means areas never
             include party members among a monster group's candidates.
         formation_width_limit: Documented adaptation, default on: corridor width
             caps combatants fighting abreast — rank width 3 inside a keyed area and
