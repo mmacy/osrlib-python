@@ -157,6 +157,130 @@ _TEMPLATES: dict[str, Callable[[Event], str]] = {
         + (f"; {len(event.surviving_effect_ids)} survive(s)" if event.surviving_effect_ids else "")
         + "."
     ),
+    "exploration.party.moved": lambda event: f"The party moves to ({event.x}, {event.y}), facing {event.facing}.",
+    "exploration.party.blocked": lambda event: f"The party is blocked at ({event.x}, {event.y}).",
+    "exploration.party.turned": lambda event: f"The party turns to face {event.facing}.",
+    "exploration.location.entered": lambda event: (
+        f"The party enters {event.location_kind} {event.location_id}"
+        + (f" (level {event.level_number})" if event.level_number is not None else "")
+        + "."
+    ),
+    "exploration.door.opened": lambda event: f"The door {event.direction} of ({event.x}, {event.y}) opens.",
+    "exploration.door.closed": lambda event: f"The door {event.direction} of ({event.x}, {event.y}) closes.",
+    "exploration.door.forced": lambda event: (
+        f"{event.character_id} forces the door {event.direction} of ({event.x}, {event.y}) open."
+    ),
+    "exploration.door.stuck": lambda event: (
+        f"The door {event.direction} of ({event.x}, {event.y}) won't budge"
+        + (f" — {event.character_id} strains in vain" if event.character_id else "")
+        + "."
+    ),
+    "exploration.door.wedged": lambda event: (
+        f"An iron spike wedges the door {event.direction} of ({event.x}, {event.y})."
+    ),
+    "exploration.door.swung_shut": lambda event: (
+        f"The door {event.direction} of ({event.x}, {event.y}) swings shut behind the party."
+    ),
+    "exploration.door.unlocked": lambda event: (
+        f"{event.character_id} unlocks the door {event.direction} of ({event.x}, {event.y})."
+    ),
+    "exploration.listen.heard": lambda event: (
+        f"{event.character_id} hears something beyond the {event.direction} door."
+    ),
+    "exploration.listen.silent": lambda event: f"{event.character_id} hears nothing beyond the {event.direction} door.",
+    "exploration.detection.rolled": lambda event: (
+        f"Detection roll ({event.kind}"
+        + (f", {event.character_id}" if event.character_id else "")
+        + f"): {event.roll if event.roll is not None else 'no die'} vs {event.chance}-in-6 — "
+        + ("success." if event.passed else "failure.")
+    ),
+    "exploration.search.found": lambda event: (
+        f"{event.character_id} searches ({event.kind}) and finds: {', '.join(event.found)}."
+    ),
+    "exploration.search.nothing": lambda event: f"{event.character_id} searches ({event.kind}) and finds nothing.",
+    "exploration.trap.sprung": lambda event: (
+        f"A trap springs ({event.trap_ref})" + (f" on {event.character_id}" if event.character_id else "") + "!"
+    ),
+    "exploration.trap.safe": lambda event: f"The known trap ({event.trap_ref}) does not go off.",
+    "exploration.trap.found": lambda event: (event.character_id or "The party") + f" finds a trap ({event.trap_ref}).",
+    "exploration.trap.removed": lambda event: (
+        (event.character_id or "The party") + f" removes the trap ({event.trap_ref})."
+    ),
+    "exploration.item.acquired": lambda event: (
+        f"{event.character_id} acquires "
+        + (", ".join(event.item_ids) if event.item_ids else "")
+        + (" and " if event.item_ids and event.coins_gp_value else "")
+        + (f"{event.coins_gp_value} gp in coin" if event.coins_gp_value else "")
+        + "."
+    ),
+    "exploration.item.dropped": lambda event: (
+        f"{event.character_id} drops "
+        + (", ".join(event.item_ids) if event.item_ids else "")
+        + (" and " if event.item_ids and event.coins_gp_value else "")
+        + (f"{event.coins_gp_value} gp in coin" if event.coins_gp_value else "")
+        + "."
+    ),
+    "exploration.light.lit": lambda event: f"{event.character_id} lights a {event.source}.",
+    "exploration.light.extinguished": lambda event: f"{event.character_id} extinguishes the {event.source}.",
+    "exploration.light.failed": lambda event: f"{event.character_id} fumbles with the tinder box — no flame.",
+    "exploration.light.expired": lambda event: (
+        f"The {event.source}" + (f" carried by {event.character_id}" if event.character_id else "") + " gutters out."
+    ),
+    "exploration.rest.rested": lambda event: f"The party rests ({event.kind}).",
+    "exploration.rest.interrupted": lambda event: f"The party's {event.kind} rest is interrupted!",
+    "exploration.fatigue.gained": lambda event: "The party is fatigued: -1 to attack and damage until they rest.",
+    "exploration.fatigue.recovered": lambda event: "The party recovers from fatigue.",
+    "exploration.provisions.consumed": lambda event: f"{event.character_id} consumes the day's {event.kind}.",
+    "exploration.provisions.short": lambda event: f"{event.character_id} has no {event.kind} for the day.",
+    "exploration.wandering.checked": lambda event: (
+        f"Wandering check: {event.roll if event.roll is not None else 'skipped'} vs {event.chance}-in-6 — "
+        + ("an encounter!" if event.encounter else "nothing comes.")
+    ),
+    "encounter.started": lambda event: (
+        f"Encounter: {event.count} × {event.monster_name} at {event.distance_feet}'"
+        + (" — the party is surprised" if event.party_surprised else "")
+        + (" — the monsters are surprised" if event.monsters_surprised else "")
+        + "."
+    ),
+    "encounter.surprise.rolled": lambda event: (
+        f"Surprise ({event.side}): "
+        + (f"rolled {event.roll}" if event.roll is not None else "no roll")
+        + f", surprised on 1-{event.threshold} — "
+        + ("surprised." if event.surprised else "not surprised.")
+    ),
+    "encounter.stance.changed": lambda event: f"The monsters' bearing: {event.stance}.",
+    "encounter.evasion.succeeded": lambda event: "The party slips away — the encounter is evaded.",
+    "encounter.evasion.pursuit": lambda event: "The monsters give chase!",
+    "encounter.pursuit.round": lambda event: f"Pursuit round {event.round}: the gap is {event.gap_feet}'.",
+    "encounter.pursuit.distracted": lambda event: (
+        f"Pursuit round {event.round}: the monsters stop for the dropped bait."
+    ),
+    "encounter.pursuit.escaped": lambda event: f"Pursuit round {event.round}: the party escapes.",
+    "encounter.pursuit.caught": lambda event: f"Pursuit round {event.round}: the monsters catch the party!",
+    "encounter.exhaustion.gained": lambda event: "The party is exhausted from running: -2 to attacks, damage, and AC.",
+    "encounter.exhaustion.recovered": lambda event: "The party catches its breath — exhaustion fades.",
+    "encounter.ended": lambda event: f"The encounter ends ({event.outcome}).",
+    "battle.started": lambda event: "Battle is joined!",
+    "battle.round.started": lambda event: f"Battle round {event.round} begins.",
+    "battle.spell.declared": lambda event: (
+        f"{event.caster_id} begins casting {event.spell_id}" + (" (reversed)" if event.reversed else "") + "."
+    ),
+    "battle.group.moved": lambda event: f"{event.group_id} is now {event.distance_feet}' away.",
+    "battle.side.fled": lambda event: f"{event.group_id} flees the battle!",
+    "battle.side.surrendered": lambda event: f"{event.group_id} surrenders.",
+    "battle.monster.defeated": lambda event: f"{event.monster_id} ({event.template_id}) is {event.outcome}.",
+    "battle.ended.victory": lambda event: "The battle is won.",
+    "battle.ended.fled": lambda event: "The party flees the battle.",
+    "battle.ended.defeat": lambda event: "The party is defeated.",
+    "session.flag.set": lambda event: f"Flag {event.key} = {event.value!r}.",
+    "session.monsters.spawned": lambda event: (
+        f"Spawned {len(event.monster_ids)} × {event.template_id}: {', '.join(event.monster_ids)}."
+    ),
+    "session.xp.awarded": lambda event: (
+        f"{event.character_id} gains {event.modified_award} XP (base {event.award}), now level {event.level_after}."
+    ),
+    "session.time.advanced": lambda event: f"Time advances {event.n} {event.unit}(s), to round {event.rounds_total}.",
+    "session.game_over": lambda event: f"The game is over: {event.reason}.",
 }
 
 
