@@ -887,7 +887,9 @@ rendering as walls. `SetDoorState` emits referee-visibility door events;
 `PlaceParty` triggers no hooks, traps, or keyed encounters (a referee tool);
 referee `AdvanceTime` runs full bookkeeping but no wandering cadence (the referee
 controls encounters); `SpawnMonsters` rolls its count dice on the encounter stream
-and opens a standard encounter with both sides rolling surprise. Locked by
+and opens a standard encounter with both sides rolling surprise — in a dungeon
+only (the combat space needs a party cell), and never while an encounter is
+already running; `PlaceParty` likewise rejects mid-encounter. Locked by
 `test_session.py` and `test_crawl_properties.py`.
 
 ### Persistence and replay

@@ -1377,7 +1377,10 @@ def handle_light_source(session, command: LightSource) -> tuple[list[Rejection],
         return [Rejection(code="exploration.light.not_a_source", params={"item": command.item_id})], []
     in_pile = False
     if command.item_id == "oil_flask":
-        # Lighting oil ignites a dropped pool on the party's cell.
+        # Lighting oil ignites a dropped pool on the party's cell — there is no
+        # cell to pool on in town.
+        if _location(session).kind != "dungeon":
+            return [Rejection(code="exploration.item.not_carried", params={"item": "oil_flask"})], []
         pile = session.dungeon_state.piles.get(_cell_ref(session))
         in_pile = pile is not None and any(entry.item_id == "oil_flask" and entry.quantity > 0 for entry in pile.items)
         if not in_pile:

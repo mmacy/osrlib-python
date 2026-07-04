@@ -589,6 +589,10 @@ def _handle_spawn_monsters(session: GameSession, command: SpawnMonsters) -> tupl
         return [Rejection(code="session.command.unknown_monster", params={"template": command.template_id})], []
     if session.encounter is not None or session.battle is not None:
         return [Rejection(code="session.command.encounter_in_progress")], []
+    if session.dungeon_state.location.kind != "dungeon":
+        # Encounters live on the dungeon grid: the combat space, silence cells,
+        # and formation widths all need a party cell to stand on.
+        return [Rejection(code="session.command.not_in_dungeon")], []
     if command.count_fixed is not None:
         count = command.count_fixed
     else:
@@ -641,6 +645,8 @@ def _handle_set_door_state(session: GameSession, command: SetDoorState) -> tuple
 
 
 def _handle_place_party(session: GameSession, command: PlaceParty) -> tuple[list[Rejection], list[Event]]:
+    if session.encounter is not None or session.battle is not None:
+        return [Rejection(code="session.command.encounter_in_progress")], []
     location = command.location
     if location.kind == "dungeon":
         try:

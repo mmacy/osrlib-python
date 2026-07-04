@@ -15,6 +15,7 @@ from osrlib.crawl.commands import (
     LightSource,
     ReorderParty,
     ResolveBattleRound,
+    SessionMode,
 )
 from osrlib.crawl.dungeon import Direction
 from osrlib.crawl.session import GameSession
@@ -434,6 +435,10 @@ class TestFormationWidth:
 
         session = battle_session(engage=False)
         assert battle_module._formation_width(session) == 2  # entrance corridor
+        # Clear the pending encounter so the referee teleport is legal, then
+        # stand the party inside the keyed room.
+        session.encounter = None
+        session.mode = SessionMode("exploring")
         session.execute(
             PlaceParty(
                 location=PartyLocation(
@@ -632,3 +637,45 @@ class TestSilencedCellInBattle:
         result = session.execute(ResolveBattleRound(declarations=hold_all(session, extra=(cast,))))
         assert not result.accepted
         assert any(rejection.code == "magic.cast.silenced_area" for rejection in result.rejections)
+
+
+class TestConfusedPartyResave:
+    def test_confused_member_resaves_on_the_magic_stream_before_the_behavior_roll(self):
+        from osrlib.crawl.commands import AwardXP
+
+        session = battle_session(distance=40, seed=9, engage=False)
+        # Level the fighter to 3: characters count their level against the
+        # confusion re-save threshold.
+        session.execute(AwardXP(character_id="character-0001", amount=2500))
+        session.execute(AwardXP(character_id="character-0001", amount=2500))
+        assert session.member("character-0001").level == 3
+        session.execute(EngageBattle())
+        confusion = EffectDefinition(
+            kind="confusion",
+            condition=Condition.CONFUSED,
+            params={
+                "behaviour_dice": "2d6",
+                "behaviour_table": ("2-5:attack_caster_group", "6-8:no_action", "9-12:attack_own_group"),
+                "resave_category": "spells",
+                "resave_hd_min_count": 3,
+            },
+        )
+        session.ledger.attach(
+            confusion,
+            "character-0001",
+            clock=session.clock,
+            allocator=session.allocator,
+            registry=session.registry(),
+        )
+        result = session.execute(ResolveBattleRound(declarations=hold_all(session)))
+        assert result.accepted
+        saves = [
+            event
+            for event in result.events
+            if getattr(event, "category", None) == "spells" and getattr(event, "target_id", "") == "character-0001"
+        ]
+        assert saves, "the above-2-HD re-save never rolled"
+        if saves[0].code == "combat.save.passed":
+            assert not has_condition(session.member("character-0001"), Condition.CONFUSED)
+        else:
+            assert has_condition(session.member("character-0001"), Condition.CONFUSED)

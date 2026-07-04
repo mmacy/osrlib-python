@@ -370,3 +370,27 @@ class TestSpawnMonstersCommand:
 
         result = session.execute(SpawnMonsters(template_id="gazebo", count_fixed=1, distance_feet=30))
         assert not result.accepted
+
+
+class TestTownGuards:
+    def test_spawn_monsters_rejects_in_town(self):
+        # The fuzz contract caught this: an encounter needs a dungeon cell for
+        # the combat space, so a town spawn rejects instead of crashing.
+        session = make_session()
+        from osrlib.crawl.commands import SpawnMonsters
+
+        result = session.execute(SpawnMonsters(template_id="goblin", count_fixed=2, distance_feet=30))
+        assert not result.accepted
+        assert result.rejections[0].code == "session.command.not_in_dungeon"
+
+    def test_place_party_rejects_mid_encounter(self):
+        session = make_session()
+        outfit(session)
+        session.execute(EnterDungeon(dungeon_id="delve"))
+        from osrlib.crawl.commands import SpawnMonsters
+
+        session.execute(SpawnMonsters(template_id="goblin", count_fixed=2, distance_feet=30))
+        assert session.encounter is not None
+        result = session.execute(PlaceParty(location=PartyLocation(kind="town")))
+        assert not result.accepted
+        assert result.rejections[0].code == "session.command.encounter_in_progress"
