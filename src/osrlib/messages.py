@@ -290,7 +290,10 @@ _TEMPLATES: dict[str, Callable[[Event], str]] = {
     ),
     "encounter.npc_party.spawned": lambda event: (
         f"An NPC party ({event.party_kind}, {event.alignment}) takes the field: "
-        + ", ".join(f"{npc} ({cls} {level})" for npc, cls, level in zip(event.npc_ids, event.class_ids, event.levels))
+        + ", ".join(
+            f"{npc} ({cls} {level})"
+            for npc, cls, level in zip(event.npc_ids, event.class_ids, event.levels, strict=True)
+        )
         + "."
     ),
     "session.xp.adventure_award": lambda event: (
