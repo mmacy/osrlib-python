@@ -57,8 +57,12 @@ def _door(edges: dict, position, direction, **door_fields) -> None:
     edges[edge_key(position, direction)] = Edge(kind=EdgeKind.DOOR, door=DoorSpec(**door_fields))
 
 
-def build_adventure() -> Adventure:
-    """Build the shared two-level test adventure."""
+def build_adventure(wandering_chance: int = 1) -> Adventure:
+    """Build the shared two-level test adventure.
+
+    Args:
+        wandering_chance: The levels' wandering chance-in-six; 0 keeps tests quiet.
+    """
     edges_1: dict[str, Edge] = {}
     _open(edges_1, (0, 0), Direction.EAST)
     _open(edges_1, (1, 0), Direction.EAST)
@@ -69,6 +73,7 @@ def build_adventure() -> Adventure:
     _open(edges_1, (3, 1), Direction.SOUTH)
     _open(edges_1, (2, 2), Direction.EAST)
     _door(edges_1, (3, 1), Direction.EAST, kind="secret")  # to the stairs corridor
+    _door(edges_1, (4, 1), Direction.SOUTH, locked=True)  # a locked closet at (4,2)
 
     pit = TrapSpec(
         kind="room",
@@ -121,6 +126,7 @@ def build_adventure() -> Adventure:
             ),
         ),
         entrance=(0, 0),
+        wandering=WanderingSpec(chance_in_six=wandering_chance, interval_turns=2),
     )
 
     edges_2: dict[str, Edge] = {}
@@ -149,7 +155,7 @@ def build_adventure() -> Adventure:
                 to_facing=Direction.WEST,
             ),
         ),
-        wandering=WanderingSpec(chance_in_six=1, interval_turns=2),
+        wandering=WanderingSpec(chance_in_six=wandering_chance, interval_turns=2),
     )
 
     return Adventure(
@@ -175,6 +181,7 @@ def _member(name: str, class_id: str) -> Character:
         alignment="lawful",
         max_hp=6,
         current_hp=6,
+        spell_book=("sleep",) if class_id == "magic_user" else (),
     )
 
 
