@@ -1,0 +1,1507 @@
+{
+  "_meta": {
+    "generator": "tools/srd_compile",
+    "license": "Open Game Content under OGL 1.0a; see LICENSE-OGL.md in this directory",
+    "source_pages": [
+      "Designing_a_Dungeon.md",
+      "Gems_and_Jewellery.md",
+      "Magic_Items_%28General%29.md",
+      "Treasure_Types.md"
+    ]
+  },
+  "gems": {
+    "bands": [
+      {
+        "roll_max": 4,
+        "roll_min": 1,
+        "value_gp": 10
+      },
+      {
+        "roll_max": 9,
+        "roll_min": 5,
+        "value_gp": 50
+      },
+      {
+        "roll_max": 15,
+        "roll_min": 10,
+        "value_gp": 100
+      },
+      {
+        "roll_max": 19,
+        "roll_min": 16,
+        "value_gp": 500
+      },
+      {
+        "roll_max": 20,
+        "roll_min": 20,
+        "value_gp": 1000
+      }
+    ],
+    "jewellery_dice": "3d6×100",
+    "manual_notes": [
+      "Rough treatment of jewellery (e.g. crushing, intense heat or fire, lightning) can damage it, reducing its value by 50%.",
+      "When a treasure type indicates the presence of multiple gems or pieces of jewellery, the referee may combine the values, as desired. For example, a roll of five 50gp value gems may be placed as a single 250gp gem, a 100gp gem and three 50gp gems, or any other combination."
+    ]
+  },
+  "magic_item_types": {
+    "rows": [
+      {
+        "basic_max": 10,
+        "basic_min": 1,
+        "category": "armour",
+        "expert_max": 10,
+        "expert_min": 1
+      },
+      {
+        "basic_max": 15,
+        "basic_min": 11,
+        "category": "misc",
+        "expert_max": 15,
+        "expert_min": 11
+      },
+      {
+        "basic_max": 40,
+        "basic_min": 16,
+        "category": "potion",
+        "expert_max": 35,
+        "expert_min": 16
+      },
+      {
+        "basic_max": 45,
+        "basic_min": 41,
+        "category": "ring",
+        "expert_max": 40,
+        "expert_min": 36
+      },
+      {
+        "basic_max": 50,
+        "basic_min": 46,
+        "category": "rod_staff_wand",
+        "expert_max": 45,
+        "expert_min": 41
+      },
+      {
+        "basic_max": 70,
+        "basic_min": 51,
+        "category": "scroll",
+        "expert_max": 75,
+        "expert_min": 46
+      },
+      {
+        "basic_max": 90,
+        "basic_min": 71,
+        "category": "sword",
+        "expert_max": 95,
+        "expert_min": 76
+      },
+      {
+        "basic_max": 100,
+        "basic_min": 91,
+        "category": "weapon",
+        "expert_max": 100,
+        "expert_min": 96
+      }
+    ]
+  },
+  "stocking": {
+    "rows": [
+      {
+        "contents": "empty",
+        "roll_max": 2,
+        "roll_min": 1,
+        "treasure_chance_in_six": 1
+      },
+      {
+        "contents": "monster",
+        "roll_max": 4,
+        "roll_min": 3,
+        "treasure_chance_in_six": 3
+      },
+      {
+        "contents": "special",
+        "roll_max": 5,
+        "roll_min": 5,
+        "treasure_chance_in_six": 0
+      },
+      {
+        "contents": "trap",
+        "roll_max": 6,
+        "roll_min": 6,
+        "treasure_chance_in_six": 2
+      }
+    ]
+  },
+  "treasure_types": [
+    {
+      "average_gp": 18000.0,
+      "entries": [
+        {
+          "chance_pct": 25,
+          "coins": {
+            "denomination": "cp",
+            "dice": "1d6×1000"
+          },
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 30,
+          "coins": {
+            "denomination": "sp",
+            "dice": "1d6×1000"
+          },
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 20,
+          "coins": {
+            "denomination": "ep",
+            "dice": "1d4×1000"
+          },
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 35,
+          "coins": {
+            "denomination": "gp",
+            "dice": "2d6×1000"
+          },
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 25,
+          "coins": {
+            "denomination": "pp",
+            "dice": "1d2×1000"
+          },
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 50,
+          "coins": null,
+          "gems_dice": "6d6",
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 50,
+          "coins": null,
+          "gems_dice": null,
+          "jewellery_dice": "6d6",
+          "magic": []
+        },
+        {
+          "chance_pct": 30,
+          "coins": null,
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": [
+            {
+              "categories": [],
+              "count": 3,
+              "count_dice": null,
+              "exclude": [],
+              "kind": "any"
+            }
+          ]
+        }
+      ],
+      "kind": "hoard",
+      "letter": "A"
+    },
+    {
+      "average_gp": 2000.0,
+      "entries": [
+        {
+          "chance_pct": 50,
+          "coins": {
+            "denomination": "cp",
+            "dice": "1d8×1000"
+          },
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 25,
+          "coins": {
+            "denomination": "sp",
+            "dice": "1d6×1000"
+          },
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 25,
+          "coins": {
+            "denomination": "ep",
+            "dice": "1d4×1000"
+          },
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 25,
+          "coins": {
+            "denomination": "gp",
+            "dice": "1d3×1000"
+          },
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 25,
+          "coins": null,
+          "gems_dice": "1d6",
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 25,
+          "coins": null,
+          "gems_dice": null,
+          "jewellery_dice": "1d6",
+          "magic": []
+        },
+        {
+          "chance_pct": 10,
+          "coins": null,
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": [
+            {
+              "categories": [
+                "sword",
+                "armour",
+                "weapon"
+              ],
+              "count": 1,
+              "count_dice": null,
+              "exclude": [],
+              "kind": "pool"
+            }
+          ]
+        }
+      ],
+      "kind": "hoard",
+      "letter": "B"
+    },
+    {
+      "average_gp": 1000.0,
+      "entries": [
+        {
+          "chance_pct": 20,
+          "coins": {
+            "denomination": "cp",
+            "dice": "1d12×1000"
+          },
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 30,
+          "coins": {
+            "denomination": "sp",
+            "dice": "1d4×1000"
+          },
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 10,
+          "coins": {
+            "denomination": "ep",
+            "dice": "1d4×1000"
+          },
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 25,
+          "coins": null,
+          "gems_dice": "1d4",
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 25,
+          "coins": null,
+          "gems_dice": null,
+          "jewellery_dice": "1d4",
+          "magic": []
+        },
+        {
+          "chance_pct": 10,
+          "coins": null,
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": [
+            {
+              "categories": [],
+              "count": 2,
+              "count_dice": null,
+              "exclude": [],
+              "kind": "any"
+            }
+          ]
+        }
+      ],
+      "kind": "hoard",
+      "letter": "C"
+    },
+    {
+      "average_gp": 3900.0,
+      "entries": [
+        {
+          "chance_pct": 10,
+          "coins": {
+            "denomination": "cp",
+            "dice": "1d8×1000"
+          },
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 15,
+          "coins": {
+            "denomination": "sp",
+            "dice": "1d12×1000"
+          },
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 60,
+          "coins": {
+            "denomination": "gp",
+            "dice": "1d6×1000"
+          },
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 30,
+          "coins": null,
+          "gems_dice": "1d8",
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 30,
+          "coins": null,
+          "gems_dice": null,
+          "jewellery_dice": "1d8",
+          "magic": []
+        },
+        {
+          "chance_pct": 15,
+          "coins": null,
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": [
+            {
+              "categories": [],
+              "count": 2,
+              "count_dice": null,
+              "exclude": [],
+              "kind": "any"
+            },
+            {
+              "categories": [
+                "potion"
+              ],
+              "count": 1,
+              "count_dice": null,
+              "exclude": [],
+              "kind": "category"
+            }
+          ]
+        }
+      ],
+      "kind": "hoard",
+      "letter": "D"
+    },
+    {
+      "average_gp": 2300.0,
+      "entries": [
+        {
+          "chance_pct": 5,
+          "coins": {
+            "denomination": "cp",
+            "dice": "1d10×1000"
+          },
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 30,
+          "coins": {
+            "denomination": "sp",
+            "dice": "1d12×1000"
+          },
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 25,
+          "coins": {
+            "denomination": "ep",
+            "dice": "1d4×1000"
+          },
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 25,
+          "coins": {
+            "denomination": "gp",
+            "dice": "1d8×1000"
+          },
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 10,
+          "coins": null,
+          "gems_dice": "1d10",
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 10,
+          "coins": null,
+          "gems_dice": null,
+          "jewellery_dice": "1d10",
+          "magic": []
+        },
+        {
+          "chance_pct": 25,
+          "coins": null,
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": [
+            {
+              "categories": [],
+              "count": 3,
+              "count_dice": null,
+              "exclude": [],
+              "kind": "any"
+            },
+            {
+              "categories": [
+                "scroll"
+              ],
+              "count": 1,
+              "count_dice": null,
+              "exclude": [],
+              "kind": "category"
+            }
+          ]
+        }
+      ],
+      "kind": "hoard",
+      "letter": "E"
+    },
+    {
+      "average_gp": 7700.0,
+      "entries": [
+        {
+          "chance_pct": 10,
+          "coins": {
+            "denomination": "sp",
+            "dice": "2d10×1000"
+          },
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 20,
+          "coins": {
+            "denomination": "ep",
+            "dice": "1d8×1000"
+          },
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 45,
+          "coins": {
+            "denomination": "gp",
+            "dice": "1d12×1000"
+          },
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 30,
+          "coins": {
+            "denomination": "pp",
+            "dice": "1d3×1000"
+          },
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 20,
+          "coins": null,
+          "gems_dice": "2d12",
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 10,
+          "coins": null,
+          "gems_dice": null,
+          "jewellery_dice": "1d12",
+          "magic": []
+        },
+        {
+          "chance_pct": 30,
+          "coins": null,
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": [
+            {
+              "categories": [],
+              "count": 3,
+              "count_dice": null,
+              "exclude": [
+                "weapon"
+              ],
+              "kind": "any"
+            },
+            {
+              "categories": [
+                "potion"
+              ],
+              "count": 1,
+              "count_dice": null,
+              "exclude": [],
+              "kind": "category"
+            },
+            {
+              "categories": [
+                "scroll"
+              ],
+              "count": 1,
+              "count_dice": null,
+              "exclude": [],
+              "kind": "category"
+            }
+          ]
+        }
+      ],
+      "kind": "hoard",
+      "letter": "F"
+    },
+    {
+      "average_gp": 23000.0,
+      "entries": [
+        {
+          "chance_pct": 50,
+          "coins": {
+            "denomination": "gp",
+            "dice": "1d4×10000"
+          },
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 50,
+          "coins": {
+            "denomination": "pp",
+            "dice": "1d6×1000"
+          },
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 25,
+          "coins": null,
+          "gems_dice": "3d6",
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 25,
+          "coins": null,
+          "gems_dice": null,
+          "jewellery_dice": "1d10",
+          "magic": []
+        },
+        {
+          "chance_pct": 35,
+          "coins": null,
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": [
+            {
+              "categories": [],
+              "count": 4,
+              "count_dice": null,
+              "exclude": [],
+              "kind": "any"
+            },
+            {
+              "categories": [
+                "scroll"
+              ],
+              "count": 1,
+              "count_dice": null,
+              "exclude": [],
+              "kind": "category"
+            }
+          ]
+        }
+      ],
+      "kind": "hoard",
+      "letter": "G"
+    },
+    {
+      "average_gp": 60000.0,
+      "entries": [
+        {
+          "chance_pct": 25,
+          "coins": {
+            "denomination": "cp",
+            "dice": "3d8×1000"
+          },
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 50,
+          "coins": {
+            "denomination": "sp",
+            "dice": "1d100×1000"
+          },
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 50,
+          "coins": {
+            "denomination": "ep",
+            "dice": "1d4×10000"
+          },
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 50,
+          "coins": {
+            "denomination": "gp",
+            "dice": "1d6×10000"
+          },
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 25,
+          "coins": {
+            "denomination": "pp",
+            "dice": "5d4×1000"
+          },
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 50,
+          "coins": null,
+          "gems_dice": "1d100",
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 50,
+          "coins": null,
+          "gems_dice": null,
+          "jewellery_dice": "1d4×10",
+          "magic": []
+        },
+        {
+          "chance_pct": 15,
+          "coins": null,
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": [
+            {
+              "categories": [],
+              "count": 4,
+              "count_dice": null,
+              "exclude": [],
+              "kind": "any"
+            },
+            {
+              "categories": [
+                "potion"
+              ],
+              "count": 1,
+              "count_dice": null,
+              "exclude": [],
+              "kind": "category"
+            },
+            {
+              "categories": [
+                "scroll"
+              ],
+              "count": 1,
+              "count_dice": null,
+              "exclude": [],
+              "kind": "category"
+            }
+          ]
+        }
+      ],
+      "kind": "hoard",
+      "letter": "H"
+    },
+    {
+      "average_gp": 11000.0,
+      "entries": [
+        {
+          "chance_pct": 30,
+          "coins": {
+            "denomination": "pp",
+            "dice": "1d8×1000"
+          },
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 50,
+          "coins": null,
+          "gems_dice": "2d6",
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 50,
+          "coins": null,
+          "gems_dice": null,
+          "jewellery_dice": "2d6",
+          "magic": []
+        },
+        {
+          "chance_pct": 15,
+          "coins": null,
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": [
+            {
+              "categories": [],
+              "count": 1,
+              "count_dice": null,
+              "exclude": [],
+              "kind": "any"
+            }
+          ]
+        }
+      ],
+      "kind": "hoard",
+      "letter": "I"
+    },
+    {
+      "average_gp": 25.0,
+      "entries": [
+        {
+          "chance_pct": 25,
+          "coins": {
+            "denomination": "cp",
+            "dice": "1d4×1000"
+          },
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 10,
+          "coins": {
+            "denomination": "sp",
+            "dice": "1d3×1000"
+          },
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": []
+        }
+      ],
+      "kind": "hoard",
+      "letter": "J"
+    },
+    {
+      "average_gp": 180.0,
+      "entries": [
+        {
+          "chance_pct": 30,
+          "coins": {
+            "denomination": "sp",
+            "dice": "1d6×1000"
+          },
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 10,
+          "coins": {
+            "denomination": "ep",
+            "dice": "1d2×1000"
+          },
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": []
+        }
+      ],
+      "kind": "hoard",
+      "letter": "K"
+    },
+    {
+      "average_gp": 240.0,
+      "entries": [
+        {
+          "chance_pct": 50,
+          "coins": null,
+          "gems_dice": "1d4",
+          "jewellery_dice": null,
+          "magic": []
+        }
+      ],
+      "kind": "hoard",
+      "letter": "L"
+    },
+    {
+      "average_gp": 50000.0,
+      "entries": [
+        {
+          "chance_pct": 40,
+          "coins": {
+            "denomination": "gp",
+            "dice": "2d4×1000"
+          },
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 50,
+          "coins": {
+            "denomination": "pp",
+            "dice": "5d6×1000"
+          },
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 55,
+          "coins": null,
+          "gems_dice": "5d4",
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 45,
+          "coins": null,
+          "gems_dice": null,
+          "jewellery_dice": "2d6",
+          "magic": []
+        }
+      ],
+      "kind": "hoard",
+      "letter": "M"
+    },
+    {
+      "average_gp": 0.0,
+      "entries": [
+        {
+          "chance_pct": 40,
+          "coins": null,
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": [
+            {
+              "categories": [
+                "potion"
+              ],
+              "count": null,
+              "count_dice": "2d4",
+              "exclude": [],
+              "kind": "category"
+            }
+          ]
+        }
+      ],
+      "kind": "hoard",
+      "letter": "N"
+    },
+    {
+      "average_gp": 0.0,
+      "entries": [
+        {
+          "chance_pct": 50,
+          "coins": null,
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": [
+            {
+              "categories": [
+                "scroll"
+              ],
+              "count": null,
+              "count_dice": "1d4",
+              "exclude": [],
+              "kind": "category"
+            }
+          ]
+        }
+      ],
+      "kind": "hoard",
+      "letter": "O"
+    },
+    {
+      "average_gp": 0.1,
+      "entries": [
+        {
+          "chance_pct": 0,
+          "coins": {
+            "denomination": "cp",
+            "dice": "3d8"
+          },
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": []
+        }
+      ],
+      "kind": "individual",
+      "letter": "P"
+    },
+    {
+      "average_gp": 1.0,
+      "entries": [
+        {
+          "chance_pct": 0,
+          "coins": {
+            "denomination": "sp",
+            "dice": "3d6"
+          },
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": []
+        }
+      ],
+      "kind": "individual",
+      "letter": "Q"
+    },
+    {
+      "average_gp": 3.0,
+      "entries": [
+        {
+          "chance_pct": 0,
+          "coins": {
+            "denomination": "ep",
+            "dice": "2d6"
+          },
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": []
+        }
+      ],
+      "kind": "individual",
+      "letter": "R"
+    },
+    {
+      "average_gp": 5.0,
+      "entries": [
+        {
+          "chance_pct": 0,
+          "coins": {
+            "denomination": "gp",
+            "dice": "2d4"
+          },
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": []
+        }
+      ],
+      "kind": "individual",
+      "letter": "S"
+    },
+    {
+      "average_gp": 17.0,
+      "entries": [
+        {
+          "chance_pct": 0,
+          "coins": {
+            "denomination": "pp",
+            "dice": "1d6"
+          },
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": []
+        }
+      ],
+      "kind": "individual",
+      "letter": "T"
+    },
+    {
+      "average_gp": 160.0,
+      "entries": [
+        {
+          "chance_pct": 10,
+          "coins": {
+            "denomination": "cp",
+            "dice": "1d100"
+          },
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 10,
+          "coins": {
+            "denomination": "sp",
+            "dice": "1d100"
+          },
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 5,
+          "coins": {
+            "denomination": "gp",
+            "dice": "1d100"
+          },
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 5,
+          "coins": null,
+          "gems_dice": "1d4",
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 5,
+          "coins": null,
+          "gems_dice": null,
+          "jewellery_dice": "1d4",
+          "magic": []
+        },
+        {
+          "chance_pct": 2,
+          "coins": null,
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": [
+            {
+              "categories": [],
+              "count": 1,
+              "count_dice": null,
+              "exclude": [],
+              "kind": "any"
+            }
+          ]
+        }
+      ],
+      "kind": "group",
+      "letter": "U"
+    },
+    {
+      "average_gp": 330.0,
+      "entries": [
+        {
+          "chance_pct": 10,
+          "coins": {
+            "denomination": "sp",
+            "dice": "1d100"
+          },
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 5,
+          "coins": {
+            "denomination": "ep",
+            "dice": "1d100"
+          },
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 10,
+          "coins": {
+            "denomination": "gp",
+            "dice": "1d100"
+          },
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 5,
+          "coins": {
+            "denomination": "pp",
+            "dice": "1d100"
+          },
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 10,
+          "coins": null,
+          "gems_dice": "1d4",
+          "jewellery_dice": null,
+          "magic": []
+        },
+        {
+          "chance_pct": 10,
+          "coins": null,
+          "gems_dice": null,
+          "jewellery_dice": "1d4",
+          "magic": []
+        },
+        {
+          "chance_pct": 5,
+          "coins": null,
+          "gems_dice": null,
+          "jewellery_dice": null,
+          "magic": [
+            {
+              "categories": [],
+              "count": 1,
+              "count_dice": null,
+              "exclude": [],
+              "kind": "any"
+            }
+          ]
+        }
+      ],
+      "kind": "group",
+      "letter": "V"
+    }
+  ],
+  "unguarded": {
+    "bands": [
+      {
+        "entries": [
+          {
+            "chance_pct": 0,
+            "coins": {
+              "denomination": "sp",
+              "dice": "1d6×100"
+            },
+            "gems_dice": null,
+            "jewellery_dice": null,
+            "magic": []
+          },
+          {
+            "chance_pct": 50,
+            "coins": {
+              "denomination": "gp",
+              "dice": "1d6×10"
+            },
+            "gems_dice": null,
+            "jewellery_dice": null,
+            "magic": []
+          },
+          {
+            "chance_pct": 5,
+            "coins": null,
+            "gems_dice": "1d6",
+            "jewellery_dice": null,
+            "magic": []
+          },
+          {
+            "chance_pct": 2,
+            "coins": null,
+            "gems_dice": null,
+            "jewellery_dice": "1d6",
+            "magic": []
+          },
+          {
+            "chance_pct": 2,
+            "coins": null,
+            "gems_dice": null,
+            "jewellery_dice": null,
+            "magic": [
+              {
+                "categories": [],
+                "count": 1,
+                "count_dice": null,
+                "exclude": [],
+                "kind": "any"
+              }
+            ]
+          }
+        ],
+        "label": "Level 1",
+        "max_level": 1,
+        "min_level": 1
+      },
+      {
+        "entries": [
+          {
+            "chance_pct": 0,
+            "coins": {
+              "denomination": "sp",
+              "dice": "1d12×100"
+            },
+            "gems_dice": null,
+            "jewellery_dice": null,
+            "magic": []
+          },
+          {
+            "chance_pct": 50,
+            "coins": {
+              "denomination": "gp",
+              "dice": "1d6×100"
+            },
+            "gems_dice": null,
+            "jewellery_dice": null,
+            "magic": []
+          },
+          {
+            "chance_pct": 10,
+            "coins": null,
+            "gems_dice": "1d6",
+            "jewellery_dice": null,
+            "magic": []
+          },
+          {
+            "chance_pct": 5,
+            "coins": null,
+            "gems_dice": null,
+            "jewellery_dice": "1d6",
+            "magic": []
+          },
+          {
+            "chance_pct": 8,
+            "coins": null,
+            "gems_dice": null,
+            "jewellery_dice": null,
+            "magic": [
+              {
+                "categories": [],
+                "count": 1,
+                "count_dice": null,
+                "exclude": [],
+                "kind": "any"
+              }
+            ]
+          }
+        ],
+        "label": "Level 2–3",
+        "max_level": 3,
+        "min_level": 2
+      },
+      {
+        "entries": [
+          {
+            "chance_pct": 0,
+            "coins": {
+              "denomination": "sp",
+              "dice": "1d6×1000"
+            },
+            "gems_dice": null,
+            "jewellery_dice": null,
+            "magic": []
+          },
+          {
+            "chance_pct": 0,
+            "coins": {
+              "denomination": "gp",
+              "dice": "1d6×200"
+            },
+            "gems_dice": null,
+            "jewellery_dice": null,
+            "magic": []
+          },
+          {
+            "chance_pct": 20,
+            "coins": null,
+            "gems_dice": "1d6",
+            "jewellery_dice": null,
+            "magic": []
+          },
+          {
+            "chance_pct": 10,
+            "coins": null,
+            "gems_dice": null,
+            "jewellery_dice": "1d6",
+            "magic": []
+          },
+          {
+            "chance_pct": 10,
+            "coins": null,
+            "gems_dice": null,
+            "jewellery_dice": null,
+            "magic": [
+              {
+                "categories": [],
+                "count": 1,
+                "count_dice": null,
+                "exclude": [],
+                "kind": "any"
+              }
+            ]
+          }
+        ],
+        "label": "Level 4–5",
+        "max_level": 5,
+        "min_level": 4
+      },
+      {
+        "entries": [
+          {
+            "chance_pct": 0,
+            "coins": {
+              "denomination": "sp",
+              "dice": "1d6×2000"
+            },
+            "gems_dice": null,
+            "jewellery_dice": null,
+            "magic": []
+          },
+          {
+            "chance_pct": 0,
+            "coins": {
+              "denomination": "gp",
+              "dice": "1d6×500"
+            },
+            "gems_dice": null,
+            "jewellery_dice": null,
+            "magic": []
+          },
+          {
+            "chance_pct": 30,
+            "coins": null,
+            "gems_dice": "1d6",
+            "jewellery_dice": null,
+            "magic": []
+          },
+          {
+            "chance_pct": 15,
+            "coins": null,
+            "gems_dice": null,
+            "jewellery_dice": "1d6",
+            "magic": []
+          },
+          {
+            "chance_pct": 15,
+            "coins": null,
+            "gems_dice": null,
+            "jewellery_dice": null,
+            "magic": [
+              {
+                "categories": [],
+                "count": 1,
+                "count_dice": null,
+                "exclude": [],
+                "kind": "any"
+              }
+            ]
+          }
+        ],
+        "label": "Level 6–7",
+        "max_level": 7,
+        "min_level": 6
+      },
+      {
+        "entries": [
+          {
+            "chance_pct": 0,
+            "coins": {
+              "denomination": "sp",
+              "dice": "1d6×5000"
+            },
+            "gems_dice": null,
+            "jewellery_dice": null,
+            "magic": []
+          },
+          {
+            "chance_pct": 0,
+            "coins": {
+              "denomination": "gp",
+              "dice": "1d6×1000"
+            },
+            "gems_dice": null,
+            "jewellery_dice": null,
+            "magic": []
+          },
+          {
+            "chance_pct": 40,
+            "coins": null,
+            "gems_dice": "1d12",
+            "jewellery_dice": null,
+            "magic": []
+          },
+          {
+            "chance_pct": 20,
+            "coins": null,
+            "gems_dice": null,
+            "jewellery_dice": "1d12",
+            "magic": []
+          },
+          {
+            "chance_pct": 20,
+            "coins": null,
+            "gems_dice": null,
+            "jewellery_dice": null,
+            "magic": [
+              {
+                "categories": [],
+                "count": 1,
+                "count_dice": null,
+                "exclude": [],
+                "kind": "any"
+              }
+            ]
+          }
+        ],
+        "label": "Level 8–9",
+        "max_level": 9,
+        "min_level": 8
+      }
+    ]
+  }
+}

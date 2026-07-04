@@ -27,6 +27,7 @@ from osrlib.core.items import EquipmentCatalog
 from osrlib.core.monsters import MonsterCatalog
 from osrlib.core.spells import SpellCatalog
 from osrlib.core.tables import CombatTables, EncounterTables
+from osrlib.core.treasure import TreasureTables
 from osrlib.errors import ContentValidationError
 
 __all__ = [
@@ -40,6 +41,7 @@ __all__ = [
     "load_languages",
     "load_monsters",
     "load_spells",
+    "load_treasure_tables",
 ]
 
 
@@ -220,6 +222,23 @@ def load_spells() -> SpellCatalog:
         return SpellCatalog.model_validate(data)
     except ValidationError as error:
         raise ContentValidationError(f"spells.json failed validation: {error}") from error
+
+
+@cache
+def load_treasure_tables() -> TreasureTables:
+    """Load the treasure types, gem values, magic item type, stocking, and unguarded tables.
+
+    Returns:
+        The frozen treasure tables.
+
+    Raises:
+        ContentValidationError: If the generated data is missing or fails validation.
+    """
+    data = _read("treasure.json")
+    try:
+        return TreasureTables.model_validate(data)
+    except ValidationError as error:
+        raise ContentValidationError(f"treasure.json failed validation: {error}") from error
 
 
 @cache

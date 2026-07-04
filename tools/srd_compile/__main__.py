@@ -25,9 +25,10 @@ from osrlib.core.items import EquipmentCatalog
 from osrlib.core.monsters import MonsterCatalog
 from osrlib.core.spells import SpellCatalog
 from osrlib.core.tables import CombatTables, EncounterTables
+from osrlib.core.treasure import TreasureTables
 from osrlib.data import LanguageCatalog
 
-from . import abilities, classes, combat_tables, encounter_tables, equipment, languages, monsters, spells
+from . import abilities, classes, combat_tables, encounter_tables, equipment, languages, monsters, spells, treasure
 from .overrides import apply_overrides, load_overrides
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -103,6 +104,9 @@ def main() -> None:
         EncounterTables.model_validate(encounter_tables_data),
         encounter_tables.SOURCE_PAGES,
     )
+
+    treasure_data = treasure.compile_treasure(srd_dir)
+    _write(out_dir, "treasure.json", TreasureTables.model_validate(treasure_data), treasure.SOURCE_PAGES)
 
 
 if __name__ == "__main__":
