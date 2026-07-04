@@ -367,8 +367,9 @@ def _ally_protection_bonus(session, defender) -> int:
         for ally in rank:
             if ally is defender:
                 continue
-            if any(ring.template_id == "ring_of_protection_5_radius" for ring in ally.inventory.rings):
-                return 1
+            for ring in ally.inventory.rings:
+                if magic_item_template(ring).params.get("radius_rank"):
+                    return 1
         return 0
     return 0
 
