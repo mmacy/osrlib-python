@@ -143,7 +143,28 @@ class CommandResult(BaseModel):
 
 
 class MoveParty(Command):
-    """Move the party one cell; facing follows the movement direction."""
+    """Move the party one cell; facing follows the movement direction.
+
+    The party must already be inside a dungeon: a fresh session starts in town, and
+    [`EnterDungeon`][osrlib.crawl.commands.EnterDungeon] is what places the party at
+    the entrance and switches the session to `exploring`.
+
+    Modes:
+        `exploring`
+
+    Rejections:
+        - `session.command.wrong_mode` — the session is not exploring a dungeon.
+        - `exploration.move.cannot_move` — the party cannot move: it is overloaded,
+          or a living member is unable to walk.
+        - `exploration.move.blocked` — a wall, a closed or secret door, or the map
+          edge blocks that direction.
+
+    Events:
+        [`PartyMovedEvent`][osrlib.crawl.events.PartyMovedEvent] with the new position
+        and facing. Entering a new cell can also trigger area descriptions, keyed
+        encounters, traps, treasure discovery, wandering-monster checks, light
+        burn-down, and doors swinging shut, each reported by its own event.
+    """
 
     allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.EXPLORING})
 

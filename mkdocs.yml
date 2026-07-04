@@ -9,6 +9,11 @@ repo_name: mmacy/osrlib-python
 theme:
   name: material
 
+markdown_extensions:
+  # Explicit heading ids ({ #anchor }) — the generated reference pages carry them so
+  # docstrings can cross-reference the content-id indexes via autorefs.
+  - attr_list
+
 # The design documents live in docs/ beside the site pages but are not part of the
 # published site; the adaptations register (adaptations.md) is a site page and stays.
 exclude_docs: |
@@ -59,6 +64,9 @@ nav:
 
 plugins:
   - search
+  # Explicit, so heading anchors register as cross-reference targets (the
+  # auto-enabled instance skips the heading scan).
+  - autorefs
   - gen-files:
       scripts:
         - tools/docs/gen_api_reference.py

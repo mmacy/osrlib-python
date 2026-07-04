@@ -34,7 +34,10 @@ _PAGES: list[tuple[str, str, str]] = []  # (filename, title, loader description)
 def _page(filename: str, title: str, loader_ref: str, intro: str):
     _PAGES.append((filename, title, loader_ref))
     page = mkdocs_gen_files.open(f"reference/content-ids/{filename}", "w")
-    page.write(f"# {title}\n\n{intro} Loaded by {loader_ref}.\n")
+    # The explicit heading id makes the page an autorefs target, so docstrings can
+    # link id-typed parameters here with [...][<name>-index].
+    anchor = filename.removesuffix(".md")
+    page.write(f"# {title} {{ #{anchor}-index }}\n\n{intro} Loaded by {loader_ref}.\n")
     page.write(_OGC_NOTE + "\n")
     return page
 
