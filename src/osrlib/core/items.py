@@ -210,7 +210,10 @@ class GearTemplate(BaseModel):
 
     `lot_size` is the purchase lot (six torches for 1 gp buys a quantity of 6);
     `capacity_coins` is container capacity where the SRD gives one (backpack, sacks);
-    `combat` is the embedded combat facet for the three dual-listed items.
+    `combat` is the embedded combat facet for the three dual-listed items. `params`
+    carries structured exploration mechanics pinned from `Adventuring_Gear.md` (a
+    torch's `burn_turns` and `light_radius_feet`, the tinder box's
+    `light_chance_in_six`), consumed by the Phase 4 crawl procedures.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -222,6 +225,7 @@ class GearTemplate(BaseModel):
     lot_size: int = Field(default=1, ge=1)
     capacity_coins: int | None = None
     combat: CombatFacet | None = None
+    params: dict[str, int | str | bool] = {}
     overrides_applied: tuple[str, ...] = ()
 
 

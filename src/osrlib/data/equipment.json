@@ -109,7 +109,8 @@
       "item_type": "gear",
       "lot_size": 1,
       "name": "Backpack",
-      "overrides_applied": []
+      "overrides_applied": [],
+      "params": {}
     },
     {
       "capacity_coins": null,
@@ -119,7 +120,8 @@
       "item_type": "gear",
       "lot_size": 1,
       "name": "Crowbar",
-      "overrides_applied": []
+      "overrides_applied": [],
+      "params": {}
     },
     {
       "capacity_coins": null,
@@ -129,7 +131,8 @@
       "item_type": "gear",
       "lot_size": 1,
       "name": "Garlic",
-      "overrides_applied": []
+      "overrides_applied": [],
+      "params": {}
     },
     {
       "capacity_coins": null,
@@ -139,7 +142,8 @@
       "item_type": "gear",
       "lot_size": 1,
       "name": "Grappling hook",
-      "overrides_applied": []
+      "overrides_applied": [],
+      "params": {}
     },
     {
       "capacity_coins": null,
@@ -149,7 +153,8 @@
       "item_type": "gear",
       "lot_size": 1,
       "name": "Hammer (small)",
-      "overrides_applied": []
+      "overrides_applied": [],
+      "params": {}
     },
     {
       "capacity_coins": null,
@@ -159,7 +164,8 @@
       "item_type": "gear",
       "lot_size": 1,
       "name": "Holy symbol",
-      "overrides_applied": []
+      "overrides_applied": [],
+      "params": {}
     },
     {
       "capacity_coins": null,
@@ -189,7 +195,8 @@
       "item_type": "gear",
       "lot_size": 1,
       "name": "Holy water (vial)",
-      "overrides_applied": []
+      "overrides_applied": [],
+      "params": {}
     },
     {
       "capacity_coins": null,
@@ -199,7 +206,10 @@
       "item_type": "gear",
       "lot_size": 12,
       "name": "Iron spikes (12)",
-      "overrides_applied": []
+      "overrides_applied": [],
+      "params": {
+        "wedges_doors": true
+      }
     },
     {
       "capacity_coins": null,
@@ -209,7 +219,12 @@
       "item_type": "gear",
       "lot_size": 1,
       "name": "Lantern",
-      "overrides_applied": []
+      "overrides_applied": [],
+      "params": {
+        "brightness": "flame",
+        "burn_turns_per_flask": 24,
+        "light_radius_feet": 30
+      }
     },
     {
       "capacity_coins": null,
@@ -219,7 +234,8 @@
       "item_type": "gear",
       "lot_size": 1,
       "name": "Mirror (hand-sized, steel)",
-      "overrides_applied": []
+      "overrides_applied": [],
+      "params": {}
     },
     {
       "capacity_coins": null,
@@ -249,7 +265,10 @@
       "item_type": "gear",
       "lot_size": 1,
       "name": "Oil (1 flask)",
-      "overrides_applied": []
+      "overrides_applied": [],
+      "params": {
+        "fuels_lantern": true
+      }
     },
     {
       "capacity_coins": null,
@@ -259,7 +278,8 @@
       "item_type": "gear",
       "lot_size": 1,
       "name": "Pole (10’ long, wooden)",
-      "overrides_applied": []
+      "overrides_applied": [],
+      "params": {}
     },
     {
       "capacity_coins": null,
@@ -269,7 +289,10 @@
       "item_type": "gear",
       "lot_size": 7,
       "name": "Rations (iron, 7 days)",
-      "overrides_applied": []
+      "overrides_applied": [],
+      "params": {
+        "ration": true
+      }
     },
     {
       "capacity_coins": null,
@@ -279,7 +302,10 @@
       "item_type": "gear",
       "lot_size": 7,
       "name": "Rations (standard, 7 days)",
-      "overrides_applied": []
+      "overrides_applied": [],
+      "params": {
+        "ration": true
+      }
     },
     {
       "capacity_coins": null,
@@ -289,7 +315,8 @@
       "item_type": "gear",
       "lot_size": 1,
       "name": "Rope (50’)",
-      "overrides_applied": []
+      "overrides_applied": [],
+      "params": {}
     },
     {
       "capacity_coins": 600,
@@ -299,7 +326,8 @@
       "item_type": "gear",
       "lot_size": 1,
       "name": "Sack (large)",
-      "overrides_applied": []
+      "overrides_applied": [],
+      "params": {}
     },
     {
       "capacity_coins": 200,
@@ -309,7 +337,8 @@
       "item_type": "gear",
       "lot_size": 1,
       "name": "Sack (small)",
-      "overrides_applied": []
+      "overrides_applied": [],
+      "params": {}
     },
     {
       "capacity_coins": null,
@@ -319,7 +348,8 @@
       "item_type": "gear",
       "lot_size": 1,
       "name": "Stakes (3) and mallet",
-      "overrides_applied": []
+      "overrides_applied": [],
+      "params": {}
     },
     {
       "capacity_coins": null,
@@ -329,7 +359,10 @@
       "item_type": "gear",
       "lot_size": 1,
       "name": "Thieves’ tools",
-      "overrides_applied": []
+      "overrides_applied": [],
+      "params": {
+        "required_for": "open_locks"
+      }
     },
     {
       "capacity_coins": null,
@@ -339,7 +372,10 @@
       "item_type": "gear",
       "lot_size": 1,
       "name": "Tinder box (flint & steel)",
-      "overrides_applied": []
+      "overrides_applied": [],
+      "params": {
+        "light_chance_in_six": 2
+      }
     },
     {
       "capacity_coins": null,
@@ -355,7 +391,12 @@
       "item_type": "gear",
       "lot_size": 6,
       "name": "Torches (6)",
-      "overrides_applied": []
+      "overrides_applied": [],
+      "params": {
+        "brightness": "flame",
+        "burn_turns": 6,
+        "light_radius_feet": 30
+      }
     },
     {
       "capacity_coins": null,
@@ -365,7 +406,10 @@
       "item_type": "gear",
       "lot_size": 1,
       "name": "Waterskin",
-      "overrides_applied": []
+      "overrides_applied": [],
+      "params": {
+        "water_container": true
+      }
     },
     {
       "capacity_coins": null,
@@ -375,7 +419,8 @@
       "item_type": "gear",
       "lot_size": 2,
       "name": "Wine (2 pints)",
-      "overrides_applied": []
+      "overrides_applied": [],
+      "params": {}
     },
     {
       "capacity_coins": null,
@@ -385,7 +430,8 @@
       "item_type": "gear",
       "lot_size": 1,
       "name": "Wolfsbane (1 bunch)",
-      "overrides_applied": []
+      "overrides_applied": [],
+      "params": {}
     }
   ],
   "treasure_weights": [

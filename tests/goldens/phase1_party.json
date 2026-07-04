@@ -29,7 +29,12 @@
                 "item_type": "gear",
                 "lot_size": 6,
                 "name": "Torches (6)",
-                "overrides_applied": []
+                "overrides_applied": [],
+                "params": {
+                  "brightness": "flame",
+                  "burn_turns": 6,
+                  "light_radius_feet": 30
+                }
               }
             }
           ],
@@ -114,7 +119,10 @@
                 "item_type": "gear",
                 "lot_size": 12,
                 "name": "Iron spikes (12)",
-                "overrides_applied": []
+                "overrides_applied": [],
+                "params": {
+                  "wedges_doors": true
+                }
               }
             },
             {
@@ -133,7 +141,12 @@
                 "item_type": "gear",
                 "lot_size": 6,
                 "name": "Torches (6)",
-                "overrides_applied": []
+                "overrides_applied": [],
+                "params": {
+                  "brightness": "flame",
+                  "burn_turns": 6,
+                  "light_radius_feet": 30
+                }
               }
             }
           ],
@@ -376,7 +389,10 @@
                 "item_type": "gear",
                 "lot_size": 7,
                 "name": "Rations (standard, 7 days)",
-                "overrides_applied": []
+                "overrides_applied": [],
+                "params": {
+                  "ration": true
+                }
               }
             }
           ],
@@ -494,7 +510,10 @@
                 "item_type": "gear",
                 "lot_size": 1,
                 "name": "Oil (1 flask)",
-                "overrides_applied": []
+                "overrides_applied": [],
+                "params": {
+                  "fuels_lantern": true
+                }
               }
             },
             {
@@ -513,7 +532,12 @@
                 "item_type": "gear",
                 "lot_size": 6,
                 "name": "Torches (6)",
-                "overrides_applied": []
+                "overrides_applied": [],
+                "params": {
+                  "brightness": "flame",
+                  "burn_turns": 6,
+                  "light_radius_feet": 30
+                }
               }
             },
             {
@@ -526,7 +550,10 @@
                 "item_type": "gear",
                 "lot_size": 7,
                 "name": "Rations (standard, 7 days)",
-                "overrides_applied": []
+                "overrides_applied": [],
+                "params": {
+                  "ration": true
+                }
               }
             },
             {
@@ -539,7 +566,10 @@
                 "item_type": "gear",
                 "lot_size": 1,
                 "name": "Waterskin",
-                "overrides_applied": []
+                "overrides_applied": [],
+                "params": {
+                  "water_container": true
+                }
               }
             }
           ],
@@ -627,7 +657,8 @@
                 "item_type": "gear",
                 "lot_size": 1,
                 "name": "Rope (50’)",
-                "overrides_applied": []
+                "overrides_applied": [],
+                "params": {}
               }
             },
             {
@@ -646,7 +677,12 @@
                 "item_type": "gear",
                 "lot_size": 6,
                 "name": "Torches (6)",
-                "overrides_applied": []
+                "overrides_applied": [],
+                "params": {
+                  "brightness": "flame",
+                  "burn_turns": 6,
+                  "light_radius_feet": 30
+                }
               }
             }
           ],

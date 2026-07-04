@@ -5,7 +5,8 @@
     "source_pages": [
       "Awarding_XP.md",
       "Cleric.md",
-      "Combat_Tables.md"
+      "Combat_Tables.md",
+      "Encounters.md"
     ]
   },
   "attack_matrix": {
@@ -442,6 +443,45 @@
       }
     }
   ],
+  "reaction": {
+    "bands": [
+      {
+        "label": "2 or less",
+        "max_total": 2,
+        "min_total": null,
+        "result": "attacks",
+        "text": "Attacks"
+      },
+      {
+        "label": "3–5",
+        "max_total": 5,
+        "min_total": 3,
+        "result": "hostile",
+        "text": "Hostile, may attack"
+      },
+      {
+        "label": "6–8",
+        "max_total": 8,
+        "min_total": 6,
+        "result": "uncertain",
+        "text": "Uncertain, confused"
+      },
+      {
+        "label": "9–11",
+        "max_total": 11,
+        "min_total": 9,
+        "result": "indifferent",
+        "text": "Indifferent, may negotiate"
+      },
+      {
+        "label": "12 or more",
+        "max_total": null,
+        "min_total": 12,
+        "result": "friendly",
+        "text": "Eager, friendly"
+      }
+    ]
+  },
   "turning": {
     "rows": [
       {

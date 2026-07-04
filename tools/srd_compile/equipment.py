@@ -62,6 +62,26 @@ _GEAR_IDS = {
 # mallet` is one kit item (pinned), so it is absent here.
 _GEAR_LOT_SIZES = {"torch": 6, "iron_spikes": 12, "rations_iron": 7, "rations_standard": 7, "wine": 2}
 
+# Structured exploration mechanics, hand-curated from the Descriptions prose (the
+# `_CLASS_ABILITIES` precedent), pinned per the Phase 4 plan: torch "casts light in a
+# 30' radius and burns for 1 hour (6 turns)"; lantern "burns one oil flask every four
+# hours (24 turns)"; tinder box "one round per attempt, 2-in-6 chance of success";
+# rations mark the daily consumable (the 7-day lot quantity already ships via
+# `_GEAR_LOT_SIZES`, so no duplicate day count — the standard/iron distinction rides
+# the ids). Flame brightness is the printed 1-in-6 wandering baseline; *continual
+# light* carries `"daylight"`.
+_GEAR_MECHANICS: dict[str, dict[str, int | str | bool]] = {
+    "torch": {"burn_turns": 6, "light_radius_feet": 30, "brightness": "flame"},
+    "lantern": {"burn_turns_per_flask": 24, "light_radius_feet": 30, "brightness": "flame"},
+    "oil_flask": {"fuels_lantern": True},
+    "tinder_box": {"light_chance_in_six": 2},
+    "rations_iron": {"ration": True},
+    "rations_standard": {"ration": True},
+    "iron_spikes": {"wedges_doors": True},
+    "waterskin": {"water_container": True},
+    "thieves_tools": {"required_for": "open_locks"},
+}
+
 # Basic-encumbrance categories, from Weapons and Armour: "Leather armour counts as
 # light armour, chainmail and plate mail count as heavy armour."
 _ARMOUR_CATEGORIES = {"leather": "light", "chainmail": "heavy", "plate_mail": "heavy"}
@@ -237,6 +257,8 @@ def compile_equipment(srd_dir: Path) -> dict[str, object]:
             entry["capacity_coins"] = capacities[gear_id]
         if gear_id in facets:
             entry["combat"] = facets[gear_id]
+        if gear_id in _GEAR_MECHANICS:
+            entry["params"] = _GEAR_MECHANICS[gear_id]
         gear.append(entry)
     if len(gear) != 24:
         raise ValueError(f"expected 24 gear items, got {len(gear)}")

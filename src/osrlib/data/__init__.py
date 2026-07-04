@@ -26,7 +26,7 @@ from osrlib.core.classes import ClassCatalog
 from osrlib.core.items import EquipmentCatalog
 from osrlib.core.monsters import MonsterCatalog
 from osrlib.core.spells import SpellCatalog
-from osrlib.core.tables import CombatTables
+from osrlib.core.tables import CombatTables, EncounterTables
 from osrlib.errors import ContentValidationError
 
 __all__ = [
@@ -35,6 +35,7 @@ __all__ = [
     "load_ability_tables",
     "load_classes",
     "load_combat_tables",
+    "load_encounter_tables",
     "load_equipment",
     "load_languages",
     "load_monsters",
@@ -185,6 +186,23 @@ def load_combat_tables() -> CombatTables:
         return CombatTables.model_validate(data)
     except ValidationError as error:
         raise ContentValidationError(f"combat_tables.json failed validation: {error}") from error
+
+
+@cache
+def load_encounter_tables() -> EncounterTables:
+    """Load the dungeon encounter tables by level.
+
+    Returns:
+        The frozen encounter tables.
+
+    Raises:
+        ContentValidationError: If the generated data is missing or fails validation.
+    """
+    data = _read("encounter_tables.json")
+    try:
+        return EncounterTables.model_validate(data)
+    except ValidationError as error:
+        raise ContentValidationError(f"encounter_tables.json failed validation: {error}") from error
 
 
 @cache
