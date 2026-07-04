@@ -13,15 +13,15 @@ structured magic-item clause. Magic clauses are never free text —
 [`MagicAllotment`][osrlib.core.treasure.MagicAllotment] carries the any/category/pool
 kinds, exclusions, and fixed or diced counts.
 
-Generation (Phase 5 work item 3) draws on the
+Generation draws on the
 [`TREASURE_STREAM`][osrlib.core.treasure.TREASURE_STREAM] stream in printed-entry
 order: presence roll, then quantity dice, then per-item resolution depth-first, so
 results are reproducible from the stream alone.
 """
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from enum import StrEnum
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -578,7 +578,12 @@ def roll_room_contents(stream: RngStream) -> RoomContentsResult:
     )
 
 
-def _generate_valuable(kind: str, *, stream: RngStream, allocator: object) -> ValuableInstance:
+def _int_param(params: Mapping[str, Any], key: str, default: int = 0) -> int:
+    """Read an integer param — schema-validated data whose union the checker can't key by name."""
+    return int(params.get(key, default))
+
+
+def _generate_valuable(kind: Literal["gem", "jewellery"], *, stream: RngStream, allocator: Any) -> ValuableInstance:
     from osrlib.core.items import ValuableInstance
     from osrlib.data import load_equipment, load_treasure_tables
 
@@ -700,7 +705,7 @@ def _roll_powers(
         bucket.append(result)
 
 
-def _generate_scroll_spells(template: object, *, tier: str, stream: RngStream) -> dict[str, object]:
+def _generate_scroll_spells(template: Any, *, tier: str, stream: RngStream) -> dict[str, Any]:
     """Roll a spell scroll's contents: the 1-in-4 divine gate, then per-spell levels.
 
     Each inscribed spell rolls its level on the scroll spell-level table (the tier's
@@ -730,7 +735,7 @@ def generate_magic_item(
     *,
     tier: str,
     stream: RngStream,
-    allocator: object,
+    allocator: Any,
     exclude: tuple[MagicItemType, ...] = (),
 ) -> list[MagicItemInstance]:
     """Generate one magic item allotment: the type roll, the sub-table, the details.
@@ -790,9 +795,8 @@ def generate_magic_item(
             instance.charges_remaining = roll(template.charges_dice, stream).total
         quantity_dice = row.params.get("quantity_dice", template.quantity_dice)
         if quantity_dice is not None:
-            basic_fixed = row.params.get("basic_quantity_fixed")
-            if tier == "basic" and basic_fixed is not None:
-                instance.quantity = int(basic_fixed)
+            if tier == "basic" and "basic_quantity_fixed" in row.params:
+                instance.quantity = _int_param(row.params, "basic_quantity_fixed")
             else:
                 instance.quantity = roll(str(quantity_dice), stream).total
         wish_dice = row.params.get("wish_count_dice", template.params.get("wish_count_dice"))
@@ -814,7 +818,7 @@ def generate_treasure_entries(
     *,
     tier: str,
     stream: RngStream,
-    allocator: object,
+    allocator: Any,
 ) -> GeneratedTreasure:
     """Generate treasure from printed entries, in printed order — the pinned core.
 
@@ -853,7 +857,12 @@ def generate_treasure_entries(
                 valuables.append(_generate_valuable("jewellery", stream=stream, allocator=allocator))
         else:
             for allotment in entry.magic:
-                count = allotment.count if allotment.count is not None else roll(allotment.count_dice, stream).total
+                if allotment.count is not None:
+                    count = allotment.count
+                elif allotment.count_dice is not None:
+                    count = roll(allotment.count_dice, stream).total
+                else:  # unreachable: the allotment model requires one of the two
+                    raise ValueError("magic allotment carries neither count nor count_dice")
                 for _ in range(count):
                     if allotment.kind == "any":
                         picked = None
@@ -874,7 +883,7 @@ def generate_treasure(
     *,
     tier: str,
     stream: RngStream,
-    allocator: object,
+    allocator: Any,
 ) -> GeneratedTreasure:
     """Generate one treasure type's contents, à la carte.
 
@@ -905,7 +914,7 @@ def generate_unguarded_treasure(
     *,
     tier: str,
     stream: RngStream,
-    allocator: object,
+    allocator: Any,
 ) -> GeneratedTreasure:
     """Generate an unguarded-treasure cache for a dungeon level.
 

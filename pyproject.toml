@@ -12,8 +12,17 @@ dependencies = ["pydantic>=2"]
 [dependency-groups]
 dev = [
     "hypothesis>=6",
+    "pyright>=1.1.411",
     "pytest>=8",
     "ruff>=0.11",
+    { include-group = "examples" },
+]
+# The example front ends' dependencies (the FastAPI wrapper and its TestClient);
+# the package's runtime dependency remains pydantic alone.
+examples = [
+    "fastapi>=0.115",
+    "httpx>=0.28",
+    "uvicorn>=0.32",
 ]
 
 [build-system]
@@ -49,3 +58,8 @@ known-first-party = ["osrlib"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.pyright]
+include = ["src", "examples"]
+typeCheckingMode = "basic"
+pythonVersion = "3.14"

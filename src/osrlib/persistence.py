@@ -11,10 +11,11 @@ A replay is seed + accepted-command log, valid only under the same engine versio
 [`replay_game`][osrlib.persistence.replay_game] raises
 [`ReplayVersionError`][osrlib.errors.ReplayVersionError] when the log was recorded
 under a different engine. The standing test: `load(save)` equals
-`replay(seed, commands)` for every Phase 4 golden, at every checkpoint.
+`replay(seed, commands)` for every crawl golden, at every checkpoint.
 """
 
 from collections.abc import Callable, Mapping, Sequence
+from typing import cast
 
 from osrlib.core.character import Character
 from osrlib.core.clock import GameClock
@@ -45,9 +46,9 @@ __all__ = [
 def _migrate_1_to_2(payload: dict) -> dict:
     """Schema 1 → 2: drop the recovered-treasure ledger.
 
-    Phase 5 replaced the ledger with the departure-snapshot valuation delta — the
-    award's honest input — so version-1 saves simply shed the field. NPC
-    adventurers arrive with version 2; a version-1 save has none.
+    The departure-snapshot valuation delta replaced the ledger as the award's
+    honest input, so version-1 saves simply shed the field. NPC adventurers
+    arrived with version 2; a version-1 save has none.
     """
     payload.pop("recovered_treasure", None)
     payload["npcs"] = []
@@ -170,7 +171,7 @@ def load_game(document: Mapping[str, object]) -> GameSession:
             library understands.
     """
     payload = check_document(document, "save")
-    payload = _migrate(payload, int(document["schema_version"]))
+    payload = _migrate(payload, int(cast(int, document["schema_version"])))
     try:
         master_seed = int(payload["master_seed"])
         session = GameSession(
@@ -192,6 +193,8 @@ def load_game(document: Mapping[str, object]) -> GameSession:
         session.npcs = {}
         for entry in payload["npcs"]:
             npc = Character.model_validate(entry)
+            if npc.id is None:
+                raise ContentValidationError("an NPC in the save carries no id")
             session.npcs[npc.id] = npc
         session.flags = dict(payload["flags"])
         session.listener_state = {key: dict(value) for key, value in payload["listener_state"].items()}

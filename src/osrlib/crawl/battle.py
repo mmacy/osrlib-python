@@ -10,7 +10,7 @@ corridor).
 
 The machine detects spell disruption (a declared caster successfully attacked or
 failing a save after initiative resolves against them but before their action),
-auto-invokes morale, consumes the Phase 3 marker conditions and battle-bound spell
+auto-invokes morale, consumes the marker conditions and battle-bound spell
 effects, and resolves area footprints deterministically: an area's capacity in
 creatures is `ceil(span / 10) × width` filled in stable spawn order, cones
 reach-limited, with the engaged party front rank appended under `aoe_friendly_fire`.
@@ -22,7 +22,8 @@ phase sequence is per side).
 """
 
 import math
-from typing import Protocol
+from collections.abc import Mapping
+from typing import Any, Protocol
 
 from pydantic import BaseModel, ConfigDict
 
@@ -72,13 +73,23 @@ from osrlib.crawl.events import (
 from osrlib.data import load_classes, load_spells
 
 __all__ = [
-    "HANDLERS",
     "ActionPolicy",
     "BattleState",
+    "FLEE_EXIT_FEET",
+    "HANDLERS",
+    "MELEE_RANGE_FEET",
     "MonsterAction",
+    "NPC_PARTY_MORALE",
+    "NpcPartyPolicy",
     "ScriptedPolicy",
     "start_battle",
 ]
+
+
+def _int_param(params: Mapping[str, Any], key: str, default: int = 0) -> int:
+    """Read an integer param — schema-validated data whose union the checker can't key by name."""
+    return int(params.get(key, default))
+
 
 MELEE_RANGE_FEET = 5
 FLEE_EXIT_FEET = 120
@@ -302,9 +313,11 @@ def _npc_wielded(npc, *, missile: bool, distance_feet: int = MELEE_RANGE_FEET):
 def _breath_usable(monster: MonsterInstance, distance_feet: int) -> bool:
     if validate_breath(monster):
         return False
-    params = monster.template.ability("breath_weapon").params
-    length = params.get("length_feet")
-    if length is not None and distance_feet >= int(length):
+    ability = monster.template.ability("breath_weapon")
+    if ability is None:  # unreachable: validate_breath rejected the tagless monster
+        return False
+    params = ability.params
+    if "length_feet" in params and distance_feet >= _int_param(params, "length_feet"):
         return False
     return True
 
@@ -415,7 +428,7 @@ def _identify_worn_items(session, target) -> list[Event]:
         if isinstance(instance, MagicItemInstance) and (not instance.identified or not instance.cursed_revealed):
             template = magic_item_template(instance)
             if not instance.identified or (template.cursed and not instance.cursed_revealed):
-                events.extend(exploration.identify_item_events(session, target, instance))
+                events.extend(exploration._identify_item_events(session, target, instance))
     return events
 
 
@@ -625,7 +638,8 @@ def _validate_declaration(session, declaration: BattleDeclaration, member) -> li
             distance_feet=group.distance_feet if missile else MELEE_RANGE_FEET,
             fired_last_round=member.id in state.fired_last_round,
         )
-        attack = weapon.combat if hasattr(weapon, "combat") and weapon.combat is not None else weapon
+        combat_facet = getattr(weapon, "combat", None)
+        attack = combat_facet if combat_facet is not None else weapon
         return validate_attack(member, pool[0], attack, context, ruleset=session.ruleset)
     if declaration.action == "use_item":
         from osrlib.crawl import exploration
@@ -660,12 +674,19 @@ def _validate_declaration(session, declaration: BattleDeclaration, member) -> li
         targets, distance, rejections = _cast_targets(session, declaration, spell)
         if rejections:
             return rejections
-        from osrlib.core.spells import CastContext
+        from osrlib.core.spells import CastContext, caster_profile
 
+        profile = caster_profile(member.definition)
+        if profile is None:
+            # A member with no casting profile can never have a memorized copy.
+            return [
+                Rejection(code="magic.cast.not_memorized", params={"spell": spell.id, "reversed": declaration.reversed})
+            ]
         return validate_cast(
             member,
             spell,
             declaration.spell_mode,
+            profile=profile,
             reversed=declaration.reversed,
             targets=targets,
             context=CastContext(in_combat=True, distance_feet=distance),
@@ -787,10 +808,10 @@ def _validate_magic_item_declaration(session, declaration: BattleDeclaration, me
             member,
             spell,
             mode,
+            profile=None,
             targets=targets,
             context=CastContext(in_combat=True, distance_feet=distance),
             ledger=session.ledger,
-            require_memorized=False,
         )
     if category in (MagicItemCategory.ROD, MagicItemCategory.STAFF, MagicItemCategory.WAND):
         from osrlib.core.items import usable_by_class
@@ -837,7 +858,7 @@ def _resolve_magic_item_use(session, member, declaration: BattleDeclaration, sta
         return _resolve_scroll_cast(session, member, instance, template, declaration)
     if category in (MagicItemCategory.ROD, MagicItemCategory.STAFF, MagicItemCategory.WAND):
         effect_spec = template.effect
-        events.extend(exploration.identify_item_events(session, member, instance))
+        events.extend(exploration._identify_item_events(session, member, instance))
         from osrlib.crawl.events import ItemUsedEvent
 
         events.append(
@@ -855,8 +876,8 @@ def _resolve_magic_item_use(session, member, declaration: BattleDeclaration, sta
         elif effect_spec is not None and effect_spec.kind in ("damage_area", "condition_area"):
             group = _group_by_id(session, declaration.target_group_id)
             if group is not None and not group.fled and not group.surrendered:
-                events.extend(exploration.device_area_events(session, member, instance, template, group))
-        exploration.spend_device_charge(instance, template)
+                events.extend(exploration._device_area_events(session, member, instance, template, group))
+        exploration._spend_device_charge(instance, template)
         return events
     return events
 
@@ -895,7 +916,7 @@ def _resolve_scroll_cast(session, member, instance, template, declaration: Battl
     else:
         exploration._remove_magic_instance(member, instance)
     events: list[Event] = []
-    events.extend(exploration.identify_item_events(session, member, instance))
+    events.extend(exploration._identify_item_events(session, member, instance))
     events.append(ItemUsedEvent(code="items.scroll.read", character_id=member.id, instance_id=instance.instance_id))
     definition = load_classes().get(member.class_id)
     from osrlib.core.spells import caster_profile
@@ -940,7 +961,7 @@ def _resolve_striking(session, member, instance, declaration: BattleDeclaration)
     context = AttackContext(distance_feet=MELEE_RANGE_FEET)
     rolled = attack_roll(member, target, instance, context=context, ruleset=session.ruleset, stream=stream)
     events = list(rolled.events)
-    if rolled.hit:
+    if rolled.hit and template.effect is not None:
         result = roll(str(template.effect.damage_dice), stream)
         source = DamageSource(keys=("magic",), magical=True, kind="device")
         events.extend(
@@ -977,7 +998,7 @@ def _resolve_device_healing(session, member, instance, template, declaration: Ba
 # ---------------------------------------------------------------------- the round
 
 
-def handle_resolve_battle_round(session, command: ResolveBattleRound) -> tuple[list[Rejection], list[Event]]:
+def _handle_resolve_battle_round(session, command: ResolveBattleRound) -> tuple[list[Rejection], list[Event]]:
     state = session.battle
     if state is None:
         return [Rejection(code="battle.none_active")], []
@@ -1098,7 +1119,7 @@ def handle_resolve_battle_round(session, command: ResolveBattleRound) -> tuple[l
             events.extend(end)
             break
 
-    # Slow-weapon actors act last, after both sides' blocks (the Phase 2 ordering).
+    # Slow-weapon actors act last, after both sides' blocks (the pinned ordering).
     if session.battle is not None:
         for member, declaration in slow_attacks:
             if incapacitated(member):
@@ -1203,7 +1224,8 @@ def _party_attacks(session, by_member, *, missile: bool, slow_attacks, fired, fi
         is_missile = _is_missile_declaration(weapon, group.distance_feet)
         if is_missile != missile:
             continue
-        facet = weapon.combat if weapon is not None and getattr(weapon, "combat", None) is not None else weapon
+        combat_facet = getattr(weapon, "combat", None)
+        facet = combat_facet if combat_facet is not None else weapon
         if facet is not None and WeaponQuality.SLOW in getattr(facet, "qualities", ()):
             slow_attacks.append((member, declaration))
             continue
@@ -1220,7 +1242,8 @@ def _resolve_party_attack(session, member, declaration, fired, fire_damaged) -> 
     if not pool:
         return []
     weapon = _find_wielded(member, declaration.weapon_id)
-    attack = weapon.combat if weapon is not None and getattr(weapon, "combat", None) is not None else weapon
+    combat_facet = getattr(weapon, "combat", None)
+    attack = combat_facet if combat_facet is not None else weapon
     missile = _is_missile_declaration(weapon, group.distance_feet)
     events: list[Event] = []
     swings = _haste_multiplier(session, member.id, "attacks_multiplier")
@@ -1260,7 +1283,7 @@ def _resolve_party_attack(session, member, declaration, fired, fire_damaged) -> 
 
         # The first attack roll with an enchanted arm identifies it — and reveals
         # a curse, which sticks (pinned).
-        events.extend(exploration.identify_item_events(session, member, weapon))
+        events.extend(exploration._identify_item_events(session, member, weapon))
     if missile and weapon is not None:
         facet = _declaration_facet(weapon)
         if WeaponQuality.RELOAD in getattr(facet, "qualities", ()):
@@ -1274,20 +1297,20 @@ def _on_hit_drain(session, weapon: MagicItemInstance, target) -> list[Event]:
 
     1d4+4 total drains were rolled at generation; exhausted, the sword is a plain
     +1. The drain's lost-die rolls ride the advancement stream (drain reverses
-    advancement, the Phase 2 pin); the sword's own page sets XP to the lowest
+    advancement, pinned); the sword's own page sets XP to the lowest
     amount for the new level (`level_minimum`), unlike the wight's halfway.
     """
     template = magic_item_template(weapon)
     if template.effect is None or template.effect.kind != "on_hit_drain":
         return []
-    remaining = int(weapon.state.get("drains_remaining", 0))
+    remaining = _int_param(weapon.state, "drains_remaining")
     if remaining <= 0:
         return []
     weapon.state = {**weapon.state, "drains_remaining": remaining - 1}
     from osrlib.core.character import ADVANCEMENT_STREAM
 
     stream = session.streams.get(ADVANCEMENT_STREAM)
-    levels = int(template.effect.params.get("levels", 1))
+    levels = _int_param(template.effect.params, "levels", 1)
     if getattr(target, "definition", None) is not None:
         from osrlib.core.classes import drain_levels
 
@@ -1476,12 +1499,16 @@ def _party_magic(session, by_member, pending_casters, disrupted, acted, state) -
             continue
         spell = load_spells().get(declaration.spell_id)
         targets, distance, _ = _cast_targets(session, declaration, spell)
-        from osrlib.core.spells import CastContext
+        from osrlib.core.spells import CastContext, caster_profile
 
+        profile = caster_profile(member.definition)
+        if profile is None:
+            continue  # declaration validation already rejected the non-caster
         result = cast_spell(
             member,
             spell,
             declaration.spell_mode,
+            profile=profile,
             reversed=declaration.reversed,
             targets=targets,
             context=CastContext(in_combat=True, distance_feet=distance),
@@ -1723,7 +1750,7 @@ def _declare_npc_actions(session, state, pending_casters: dict, events: list[Eve
         actions = _policy_for(session, group).choose(session, group, session.streams.get(MONSTER_ACTION_STREAM))
         chosen[group.id] = actions
         for action in actions:
-            if action.kind == "npc_cast":
+            if action.kind == "npc_cast" and action.spell_id is not None:
                 pending_casters[action.monster_id] = action
                 events.append(SpellDeclaredEvent(caster_id=action.monster_id, spell_id=action.spell_id))
     return chosen
@@ -1767,8 +1794,13 @@ def _party_area_candidates(session, shape: str | None, dimensions: dict, gap_fee
 
 def _resolve_npc_cast(session, npc, group, action: MonsterAction, disrupted: set) -> list[Event]:
     """Resolve (or disrupt) an NPC's declared cast through the character kernel."""
-    from osrlib.core.spells import CastContext, cast_spell, validate_cast
+    from osrlib.core.spells import CastContext, cast_spell, caster_profile, validate_cast
 
+    if action.spell_id is None or action.spell_mode is None:
+        return []
+    profile = caster_profile(npc.definition)
+    if profile is None:
+        return []
     if npc.id in disrupted:
         return disrupt_casting(npc, action.spell_id, reversed=False)
     spell = load_spells().get(action.spell_id)
@@ -1784,12 +1816,15 @@ def _resolve_npc_cast(session, npc, group, action: MonsterAction, disrupted: set
     else:
         targets = []
     context = CastContext(in_combat=True, distance_feet=group.distance_feet)
-    if validate_cast(npc, spell, action.spell_mode, targets=targets, context=context, ledger=session.ledger):
+    if validate_cast(
+        npc, spell, action.spell_mode, profile=profile, targets=targets, context=context, ledger=session.ledger
+    ):
         return []
     result = cast_spell(
         npc,
         spell,
         action.spell_mode,
+        profile=profile,
         targets=targets,
         context=context,
         ledger=session.ledger,
@@ -1821,11 +1856,11 @@ def _pursuer_full_rate(session, group) -> int:
 
 
 def _group_morale(session, group, fire_damaged) -> list[Event]:
-    """Morale auto-invoked: the Phase 2 triggers through the per-battle tracker.
+    """Morale auto-invoked: the kernel's triggers through the per-battle tracker.
 
     Conditional alternates resolve by round context (fear-of-fire when the
     round's damage included fire, pinned example); the spell morale modifier
-    folds per the Phase 3 rule.
+    folds per the registered morale-modifier rule.
     """
     state = session.battle
     score = _group_morale_score(session, group)
@@ -1861,7 +1896,7 @@ def _confused_overrides(session, group, actions) -> list[Event]:
 
     The re-save runs on the magic stream and the behavior roll (and its own-group
     target pick) on the combat stream — machine-run round rolls, not ledger ticks
-    (pinned; the Phase 3 tick-time convention is untouched).
+    (pinned; the ledger tick-time convention is untouched).
     """
     events: list[Event] = []
     for monster in _living_monsters(session, group):
@@ -1989,5 +2024,5 @@ def _watch_disruption(events, pending_casters, disrupted, acted) -> None:
 
 
 HANDLERS = {
-    ResolveBattleRound: handle_resolve_battle_round,
+    ResolveBattleRound: _handle_resolve_battle_round,
 }

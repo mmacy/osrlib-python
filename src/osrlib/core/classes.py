@@ -5,8 +5,8 @@ as frozen [`ClassDefinition`][osrlib.core.classes.ClassDefinition] models via
 [`load_classes`][osrlib.data.load_classes]. Class definitions are pure data —
 requirements, prime requisites, XP-modifier tiers, progression tables, armour and
 weapon policies, structured ability tags — so Advanced classes are additive data
-rather than a redesign. `race` is a field, populated from the class in Classic play
-(the data model is Advanced-ready).
+rather than a redesign. `race` is an open, validated identity string, populated from
+the class in Classic play — no rules procedure consumes it, so new races are data.
 
 XP-modifier tiers are one uniform representation for all classes: ordered tiers of
 `{modifier_pct, minimum scores}`, evaluated best-first, first tier whose conditions all
@@ -18,7 +18,7 @@ per RAW include no penalties — a pinned interpretation recorded in
 Saves, THAC0, and spell slots are always read from the progression row for the
 character's level, never stored derivations —
 [`ClassDefinition.row`][osrlib.core.classes.ClassDefinition.row] is the pure
-recompute-from-level function whose inverse becomes Phase 2's energy drain.
+recompute-from-level function whose inverse is energy drain.
 """
 
 from enum import StrEnum
@@ -47,7 +47,6 @@ __all__ = [
     "HitDice",
     "LevelUpResult",
     "ProgressionRow",
-    "Race",
     "SavingThrows",
     "SkillCheckResult",
     "ThiefSkillRow",
@@ -73,19 +72,6 @@ PERCENTILE_THIEF_SKILLS = (
     "pick_pockets",
 )
 """The six d% roll-under thief skills; `hear_noise` is the seventh, rolled on 1d6."""
-
-
-class Race(StrEnum):
-    """Character races; in Classic play, race is implied by class.
-
-    The wire values are lowercase — they serialize into characters and saves; changing
-    them is a `schema_version` bump.
-    """
-
-    HUMAN = "human"
-    DWARF = "dwarf"
-    ELF = "elf"
-    HALFLING = "halfling"
 
 
 class HitDice(BaseModel):
@@ -220,7 +206,7 @@ class ThiefSkillRow(BaseModel):
 
     Skills are d% roll-under percentages except `hear_noise`, an X-in-6 upper bound
     (the SRD's `1–2` is stored as 2). Pick pockets can exceed 100 at high level; the
-    over-100 arithmetic belongs to the Phase 2 skill-check procedure.
+    over-100 arithmetic belongs to the skill-check procedure.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -239,8 +225,8 @@ class ClassAbility(BaseModel):
     """A structured class-ability tag plus the SRD prose it came from.
 
     `params` carries the mechanizable numbers (`{"range_feet": 60}` for infravision);
-    `manual` marks abilities that need referee judgment and stay prose. Procedures that
-    consume these tags land in Phases 2–4.
+    `manual` marks abilities that need referee judgment and stay prose. The combat,
+    magic, and crawl procedures consume these tags.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -255,18 +241,21 @@ class ClassAbility(BaseModel):
 class ClassDefinition(BaseModel):
     """A character class, compiled from its SRD page.
 
-    Frozen SRD data: play never mutates a class definition. `requirements` are minimum
-    scores checked at class choice; `may_not_lower` carries adjustment-step
-    restrictions (the thief's STR). `level_titles[i]` is the title at level `i + 1`;
-    the SRD's title lists run only through name level, so they are shorter than the
-    progression and levels beyond them have no title entry.
+    Frozen SRD data: play never mutates a class definition. `race` is an open,
+    validated identity string — no rules procedure consumes it (racial mechanics
+    resolve through structured ability tags), so Advanced races are additive data,
+    not code. `requirements` are minimum scores checked at class choice;
+    `may_not_lower` carries adjustment-step restrictions (the thief's STR).
+    `level_titles[i]` is the title at level `i + 1`; the SRD's title lists run only
+    through name level, so they are shorter than the progression and levels beyond
+    them have no title entry.
     """
 
     model_config = ConfigDict(frozen=True)
 
     id: str
     name: str
-    race: Race
+    race: str = Field(pattern=r"^[a-z][a-z0-9_]*$")
     requirements: dict[AbilityScore, int] = {}
     prime_requisites: tuple[AbilityScore, ...]
     xp_tiers: tuple[XpTier, ...]
@@ -309,7 +298,7 @@ class ClassDefinition(BaseModel):
         """Return the progression row for `level` — the pure recompute-from-level lookup.
 
         Saves, THAC0, attack bonus, and spell slots are read from here, never stored:
-        Phase 2's energy drain is this function's inverse, not a redesign.
+        energy drain is this function's inverse, not a redesign.
 
         Args:
             level: The character level, 1 through the class maximum.

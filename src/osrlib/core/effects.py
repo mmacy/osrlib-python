@@ -23,7 +23,7 @@ draws never shift effect draws and vice versa.
 
 from collections.abc import Mapping
 from enum import StrEnum
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -81,10 +81,10 @@ class Condition(StrEnum):
     The wire values are lowercase — they serialize into creatures and saves; changing
     them is a `schema_version` bump. Combat hooks exist for the subset the kernel
     consumes (paralysed, asleep, blind, averted_eyes, petrified, poisoned, diseased,
-    dead; Phase 3 adds silenced/feebleminded/weakened casting gates, the weakened
-    attack gate, and the entangled movement predicate); the rest are additive-safe
+    dead; the silenced/feebleminded/weakened casting gates, the weakened attack
+    gate, and the entangled movement predicate); the rest are additive-safe
     vocabulary — `afraid`, `turned`, `confused`, and `invisible` are marker states
-    consumed by Phase 4's battle machine and by games.
+    consumed by the battle machine and by games.
     """
 
     PARALYSED = "paralysed"
@@ -122,7 +122,12 @@ class ActiveCondition(BaseModel):
     effect_id: str | None = None
 
 
-def has_condition(target: object, condition: Condition) -> bool:
+def _int_param(params: Mapping[str, Any], key: str, default: int = 0) -> int:
+    """Read an integer param — schema-validated data whose union the checker can't key by name."""
+    return int(params.get(key, default))
+
+
+def has_condition(target: Any, condition: Condition) -> bool:
     """Return whether a creature currently has `condition`.
 
     Args:
@@ -135,12 +140,12 @@ def has_condition(target: object, condition: Condition) -> bool:
     return any(active.condition is condition for active in getattr(target, "conditions", ()))
 
 
-def _entity_id(target: object) -> str:
+def _entity_id(target: Any) -> str:
     identifier = getattr(target, "id", None)
     return identifier if identifier is not None else getattr(target, "name", "unknown")
 
 
-def grant_condition(target: object, condition: Condition, effect_id: str | None) -> list[Event]:
+def grant_condition(target: Any, condition: Condition, effect_id: str | None) -> list[Event]:
     """Grant a condition to a creature — the single-writer mutation point.
 
     A condition the creature is immune to (its defenses' `condition_immunities`) is
@@ -165,7 +170,7 @@ def grant_condition(target: object, condition: Condition, effect_id: str | None)
     return [ConditionGainedEvent(target_id=_entity_id(target), condition=condition.value, effect_id=effect_id)]
 
 
-def remove_condition(target: object, condition: Condition, effect_id: str | None) -> list[Event]:
+def remove_condition(target: Any, condition: Condition, effect_id: str | None) -> list[Event]:
     """Remove the condition owned by `effect_id` from a creature.
 
     Args:
@@ -183,7 +188,7 @@ def remove_condition(target: object, condition: Condition, effect_id: str | None
     return [ConditionRemovedEvent(target_id=_entity_id(target), condition=condition.value, effect_id=effect_id)]
 
 
-def _grant_modifiers(target: object, specs: tuple[ModifierSpec, ...], effect_id: str) -> None:
+def _grant_modifiers(target: Any, specs: tuple[ModifierSpec, ...], effect_id: str) -> None:
     """Grant an effect's stat modifiers — the single-writer mutation point."""
     if not hasattr(target, "stat_modifiers"):
         return
@@ -191,7 +196,7 @@ def _grant_modifiers(target: object, specs: tuple[ModifierSpec, ...], effect_id:
     target.stat_modifiers = (*target.stat_modifiers, *granted)
 
 
-def _remove_modifiers(target: object, effect_id: str) -> None:
+def _remove_modifiers(target: Any, effect_id: str) -> None:
     """Remove the stat modifiers owned by `effect_id`."""
     if not hasattr(target, "stat_modifiers"):
         return
@@ -200,7 +205,7 @@ def _remove_modifiers(target: object, effect_id: str) -> None:
         target.stat_modifiers = remaining
 
 
-def kill(target: object, *, permanent: bool = False) -> list[Event]:
+def kill(target: Any, *, permanent: bool = False) -> list[Event]:
     """Kill a creature: hit points to 0, the `dead` condition, and the death event.
 
     "A character or monster reduced to 0 hit points or less is killed." Idempotent —
@@ -249,8 +254,8 @@ MODIFIER_KINDS = frozenset(
 )
 """The closed vocabulary of stat-modifier kinds combat consults.
 
-`ac_bonus`, `strength_set`, and the damage multipliers arrive with Phase 5's magic
-items: `ac_bonus` improves AC by its value (descending down, ascending up), `ac_set`
+`ac_bonus`, `strength_set`, and the damage multipliers serve the magic items:
+`ac_bonus` improves AC by its value (descending down, ascending up), `ac_set`
 sets it outright, `strength_set` replaces the STR score combat modifiers derive from
 (Gauntlets of Ogre Power's 18, the Ring of Weakness's 3), and the multipliers double
 weapon damage (giant strength) or melee damage only (growth) after the roll.
@@ -313,7 +318,7 @@ class ActiveModifier(ModifierSpec):
 
 
 def modifier_values(
-    target: object,
+    target: Any,
     kind: str,
     *,
     element: str | None = None,
@@ -345,7 +350,7 @@ def modifier_values(
 
 
 def _matching_modifiers(
-    target: object,
+    target: Any,
     kind: str,
     element: str | None,
     versus_differs: bool,
@@ -364,7 +369,7 @@ def _matching_modifiers(
 
 
 def modifier_total(
-    target: object,
+    target: Any,
     kind: str,
     *,
     element: str | None = None,
@@ -401,7 +406,7 @@ def modifier_total(
     return bonus + penalty + sum(item_values)
 
 
-def modifier_dice(target: object, kind: str) -> str | None:
+def modifier_dice(target: Any, kind: str) -> str | None:
     """Return the dice of the first matching dice-valued modifier (*striking*'s +1d6).
 
     First-only is the cumulative rule for dice bonuses: two *strikings* don't
@@ -420,7 +425,7 @@ def modifier_dice(target: object, kind: str) -> str | None:
     return None
 
 
-def has_modifier(target: object, kind: str) -> bool:
+def has_modifier(target: Any, kind: str) -> bool:
     """Return whether a creature carries any modifier of `kind` (the flag kinds).
 
     Args:
@@ -478,7 +483,7 @@ class ActiveEffect(BaseModel):
     """A live effect on a creature, item, or location.
 
     `target_ref` is an entity id or a location string (a burning oil pool attaches to
-    a location now; cells arrive in Phase 4). `expires_round` is the absolute round
+    a location, a stationary *silence* to a cell). `expires_round` is the absolute round
     the effect expires on (`None` for indefinite and permanent effects); petrification
     suspension pushes it forward. `state` is the effect's own bookkeeping (revival
     round, counted rest days). `caster_level` records the casting caster's level on
@@ -525,8 +530,8 @@ class EffectsLedger(BaseModel):
         target_ref: str,
         *,
         clock: GameClock,
-        allocator: object,
-        registry: Mapping[str, object] | None = None,
+        allocator: Any,
+        registry: Mapping[str, Any] | None = None,
         stream: RngStream | None = None,
         caster_level: int | None = None,
     ) -> tuple[ActiveEffect | None, list[Event]]:
@@ -585,7 +590,7 @@ class EffectsLedger(BaseModel):
             _grant_modifiers(target, definition.modifiers, effect.effect_id)
         return effect, events
 
-    def release(self, effect_id: str, registry: Mapping[str, object] | None = None) -> list[Event]:
+    def release(self, effect_id: str, registry: Mapping[str, Any] | None = None) -> list[Event]:
         """Release an effect before expiry, removing its condition.
 
         Args:
@@ -617,10 +622,10 @@ class EffectsLedger(BaseModel):
         clock: GameClock,
         n: int,
         unit: TimeUnit,
-        registry: Mapping[str, object],
+        registry: Mapping[str, Any],
         *,
         stream: RngStream,
-        allocator: object | None = None,
+        allocator: Any | None = None,
     ) -> list[Event]:
         """Advance the clock and resolve every round boundary in the span.
 
@@ -634,8 +639,8 @@ class EffectsLedger(BaseModel):
             clock: The game clock; advanced in place.
             n: How many units to advance.
             unit: The unit to advance in.
-            registry: Live objects by entity id (the Phase 4 session will own one;
-                tests pass a dict).
+            registry: Live objects by entity id (the session owns one; tests pass
+                a dict).
             stream: The effects stream for effect-internal draws.
             allocator: Reserved for behaviors that attach follow-on effects.
 
@@ -665,7 +670,7 @@ class EffectsLedger(BaseModel):
     def _ordered(self) -> list[ActiveEffect]:
         return sorted(self.effects, key=lambda effect: (effect.attached_round, effect.effect_id))
 
-    def _suspended(self, effect: ActiveEffect, registry: Mapping[str, object]) -> bool:
+    def _suspended(self, effect: ActiveEffect, registry: Mapping[str, Any]) -> bool:
         target = registry.get(effect.target_ref)
         if target is None:
             return False
@@ -675,7 +680,7 @@ class EffectsLedger(BaseModel):
         )
 
     def _resolve_round(
-        self, current_round: int, registry: Mapping[str, object], stream: RngStream, allocator: object | None = None
+        self, current_round: int, registry: Mapping[str, Any], stream: RngStream, allocator: Any | None = None
     ) -> list[Event]:
         events: list[Event] = []
         # Suspension first: a suspended effect neither expires nor ticks this round,
@@ -702,9 +707,9 @@ class EffectsLedger(BaseModel):
         self,
         effect: ActiveEffect,
         current_round: int,
-        registry: Mapping[str, object],
+        registry: Mapping[str, Any],
         stream: RngStream,
-        allocator: object | None = None,
+        allocator: Any | None = None,
     ) -> list[Event]:
         self.effects.remove(effect)
         definition = effect.definition
@@ -732,7 +737,9 @@ class EffectsLedger(BaseModel):
                 kind="ring_of_weakness",
                 stacking="ignore",
                 modifiers=(
-                    ModifierSpec(kind="strength_set", value=int(definition.params["strength_set"]), from_item=True),
+                    ModifierSpec(
+                        kind="strength_set", value=_int_param(definition.params, "strength_set"), from_item=True
+                    ),
                 ),
             )
             clock_now = GameClock(rounds=current_round)
@@ -748,7 +755,7 @@ class EffectsLedger(BaseModel):
             element = definition.params.get("element")
             result = roll(str(dice), stream)
             source = DamageSource(
-                keys=tuple(str(key) for key in keys),
+                keys=tuple(str(key) for key in keys) if isinstance(keys, tuple) else (),
                 element=str(element) if element is not None else None,
                 kind="splash",
             )
@@ -758,7 +765,7 @@ class EffectsLedger(BaseModel):
         return events
 
     def _tick(
-        self, effect: ActiveEffect, current_round: int, registry: Mapping[str, object], stream: RngStream
+        self, effect: ActiveEffect, current_round: int, registry: Mapping[str, Any], stream: RngStream
     ) -> list[Event]:
         definition = effect.definition
         target = registry.get(effect.target_ref)
@@ -774,14 +781,14 @@ class EffectsLedger(BaseModel):
         self,
         effect: ActiveEffect,
         current_round: int,
-        target: object,
-        registry: Mapping[str, object],
+        target: Any,
+        registry: Mapping[str, Any],
         stream: RngStream,
     ) -> list[Event]:
         """The charm's periodic saving throw: a passed save releases the charm.
 
         The re-save is a tick-time draw, so it comes from the effects stream per the
-        Phase 2 convention; the interval was fixed at attach from the subject's INT
+        stream convention; the interval was fixed at attach from the subject's INT
         band (`tick_interval_rounds`).
         """
         from osrlib.core.combat import SaveCategory, saving_throw
@@ -801,12 +808,12 @@ class EffectsLedger(BaseModel):
         return events
 
     def _tick_regeneration(
-        self, effect: ActiveEffect, current_round: int, target: object, stream: RngStream
+        self, effect: ActiveEffect, current_round: int, target: Any, stream: RngStream
     ) -> list[Event]:
         definition = effect.definition
         params = definition.params
-        per_round = int(params.get("per_round", 0))
-        delay = int(params.get("delay_rounds", 0))
+        per_round = _int_param(params, "per_round")
+        delay = _int_param(params, "delay_rounds")
         while_alive = bool(params.get("while_alive", False))
         revive_dice = params.get("revive")
         target_id = _entity_id(target)
@@ -851,7 +858,7 @@ class EffectsLedger(BaseModel):
         return events
 
 
-def regeneration_definition(params: Mapping[str, object]) -> EffectDefinition:
+def regeneration_definition(params: Mapping[str, Any]) -> EffectDefinition:
     """Build a regeneration effect from a monster's `regeneration` ability params.
 
     Args:

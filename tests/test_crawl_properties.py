@@ -274,7 +274,7 @@ def test_the_player_view_never_leaks(seed, commands):
     # Monster internals: no HP fields beyond the party's own.
     if parsed.get("encounter"):
         for group in parsed["encounter"]["groups"]:
-            assert set(group) == {"label", "count", "distance_feet", "visible_conditions"}
+            assert set(group) == {"id", "label", "count", "distance_feet", "visible_conditions"}
     # Referee-visibility outcomes never appear (views carry no events at all).
     assert "exploration.detection.rolled" not in blob
 

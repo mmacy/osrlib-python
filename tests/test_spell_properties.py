@@ -9,7 +9,7 @@ from osrlib.core.character import Character
 from osrlib.core.classes import drain_levels
 from osrlib.core.effects import ActiveModifier, modifier_total
 from osrlib.core.rng import RngStreams
-from osrlib.core.spells import CastContext, MemorizedSpell, memorize_spells, validate_cast
+from osrlib.core.spells import CastContext, MemorizedSpell, caster_profile, memorize_spells, validate_cast
 from osrlib.data import load_classes, load_spells
 
 ALL_SPELL_IDS = sorted(spell.id for spell in load_spells().spells)
@@ -82,6 +82,7 @@ def test_validate_cast_never_raises(spell_id, mode, reversed, target_count, dist
         caster,
         load_spells().get(spell_id),
         mode,
+        profile=caster_profile(load_classes().get(caster.class_id)),
         reversed=reversed,
         targets=targets,
         context=CastContext(distance_feet=distance),

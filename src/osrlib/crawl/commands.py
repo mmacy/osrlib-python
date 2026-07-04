@@ -5,7 +5,7 @@ single-valued `command_type` Literal discriminator (snake_case, schema-stable,
 additive-only), an [`AnyCommand`][osrlib.crawl.commands.AnyCommand] discriminated
 union, and [`parse_command`][osrlib.crawl.commands.parse_command] returning `None`
 on unknown types. [`CommandResult`][osrlib.crawl.commands.CommandResult] is the
-envelope `GameSession.execute` returns: `accepted`, the Phase 1
+envelope `GameSession.execute` returns: `accepted`, the kernel's
 [`Rejection`][osrlib.core.validation.Rejection] model verbatim, and the events.
 
 Each command declares its legal session modes as a `allowed_modes` class attribute
@@ -112,6 +112,8 @@ class Command(BaseModel):
     """
 
     model_config = ConfigDict(frozen=True, extra="ignore")
+
+    command_type: str
 
     allowed_modes: ClassVar[frozenset[SessionMode]] = _ALL_MODES
 
@@ -566,7 +568,7 @@ class GrantCoins(Command):
 
 
 class AwardXP(Command):
-    """Referee: apply an XP award to one character — Phase 5's award will drive it."""
+    """Referee: apply an XP award to one character, outside the adventure award."""
 
     command_type: Literal["award_xp"] = "award_xp"
     character_id: str

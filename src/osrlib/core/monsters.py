@@ -8,7 +8,7 @@ as frozen [`MonsterTemplate`][osrlib.core.monsters.MonsterTemplate] models via
 can never be damaged by play.
 
 Ability bullets compile as structured tags plus the SRD prose (mirroring
-`ClassAbility`): the tags Phase 2 executes (`regeneration`, `energy_drain`, `poison`,
+`ClassAbility`): the tags the kernel executes (`regeneration`, `energy_drain`, `poison`,
 `paralysis`, `petrification`, `breath_weapon`, `gaze`, `disease`, `uses_fire`) carry
 pinned params; everything else compiles with `manual=True` and stays prose the kernel
 doesn't execute. Defenses the damage pipeline checks at damage time compile into the
@@ -298,7 +298,7 @@ class NumberAppearing(BaseModel):
 
 
 class TreasureRef(BaseModel):
-    """A faithful reference to the stat block's treasure type — semantics pin in Phase 5.
+    """A faithful reference to the stat block's treasure type, as printed.
 
     `letters` are the primary treasure-type letters (`R + S` is two);
     `parenthetical` keeps bracketed letters (`P (B)`); `special` keeps labels that are
@@ -320,7 +320,7 @@ class MonsterAbility(BaseModel):
 
     `params` carries the mechanizable values pinned by the compiler (the troll's
     regeneration delay and rate, a breath weapon's shape and element); `manual` marks
-    abilities the Phase 2 kernel doesn't execute — games and narrators present the
+    abilities the kernel doesn't execute — games and narrators present the
     prose.
     """
 
@@ -582,7 +582,7 @@ class IdAllocator(BaseModel):
     """A monotonic per-prefix entity ID counter (`monster-0001`, `effect-0001`).
 
     Matches the spec's session-scoped ID contract: standalone users and tests hold
-    one; the Phase 4 session adopts it. Serializable — the counters are plain state.
+    one; the session adopts it. Serializable — the counters are plain state.
     """
 
     model_config = ConfigDict(validate_assignment=True)

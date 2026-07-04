@@ -1,6 +1,6 @@
 """`GameSession`: command dispatch, the event log, listeners, flags, views.
 
-The session owns what the kernel has been promising since Phase 2: the
+The session owns what the kernel leaves to its caller: the
 [`RngStreams`][osrlib.core.rng.RngStreams] (master seed), the
 [`IdAllocator`][osrlib.core.monsters.IdAllocator], the
 [`EffectsLedger`][osrlib.core.effects.EffectsLedger], the
@@ -10,7 +10,7 @@ event logs, the mode, and the crawl state.
 
 `execute(command)` runs the pure validation pre-phase: a rejected command consumes
 no draws, no clock time, mutates nothing, and is excluded from the command log —
-the Phase 0 contract, enforced end to end. Accepted commands mutate, append their
+the spec's command contract, enforced end to end. Accepted commands mutate, append their
 events to the log, then listeners run in registration order, their events appended
 to the same result and log.
 
@@ -23,7 +23,7 @@ referee and town commands are handled here.
 """
 
 from collections.abc import Mapping, Sequence
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from pydantic import BaseModel, ConfigDict
 
@@ -73,23 +73,26 @@ from osrlib.crawl.events import (
     XpAwardedEvent,
 )
 from osrlib.crawl.party import Party
-from osrlib.data import load_classes, load_equipment, load_monsters
+from osrlib.data import load_equipment, load_monsters
 from osrlib.versioning import SCHEMA_VERSION, engine_version
 
 if TYPE_CHECKING:
+    from osrlib.crawl.battle import BattleState
+    from osrlib.crawl.encounter import EncounterState
     from osrlib.crawl.views import PlayerView, RefereeView
 
 __all__ = [
-    "ENCOUNTER_STREAM",
-    "EXPLORATION_STREAM",
-    "LIGHT_EFFECT_KINDS",
-    "MONSTER_ACTION_STREAM",
-    "WANDERING_STREAM",
+    "DARKNESS_EFFECT_KINDS",
     "DeathRecord",
     "DefeatedMonsterRecord",
     "DeprivationState",
+    "ENCOUNTER_STREAM",
+    "EXPLORATION_STREAM",
     "GameSession",
+    "LIGHT_EFFECT_KINDS",
     "Listener",
+    "MONSTER_ACTION_STREAM",
+    "WANDERING_STREAM",
 ]
 
 WANDERING_STREAM = "wandering"
@@ -126,7 +129,7 @@ class DeathRecord(BaseModel):
 
 
 class DefeatedMonsterRecord(BaseModel):
-    """One defeated monster — the Phase 5 XP-award input."""
+    """One defeated monster — the XP award's input."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -148,6 +151,13 @@ class DeprivationState(BaseModel):
     def worst(self) -> int:
         """The worse track — deprivation doesn't stack (pinned)."""
         return max(self.food_days, self.water_days)
+
+
+def _member_id(member: Character) -> str:
+    """A member's session id — assigned at session entry; absence is programmer misuse."""
+    if member.id is None:
+        raise ValueError(f"{member.name} has no session-assigned id")
+    return member.id
 
 
 class Listener(Protocol):
@@ -209,8 +219,8 @@ class GameSession:
         self.last_prepared_sleep: dict[str, int] = {}
         self.alerted_areas: list[str] = []
         self.heard_areas: list[str] = []
-        self.encounter = None  # EncounterState | None (set by osrlib.crawl.encounter)
-        self.battle = None  # BattleState | None (set by osrlib.crawl.battle)
+        self.encounter: EncounterState | None = None
+        self.battle: BattleState | None = None
         self._provisions_day = 0
         # Runtime extension points, re-registered by the game like listeners —
         # never serialized (policies are code).
@@ -221,7 +231,7 @@ class GameSession:
         """Create a new session, validating the adventure and assigning member ids.
 
         Character ids assign as `character-NNNN` from the session's allocator in
-        party order — the pinned prefix, closing the Phase 1 seam. Members that
+        party order — the pinned prefix. Members that
         already carry ids keep them (a party loaded from an earlier session).
 
         Args:
@@ -303,9 +313,9 @@ class GameSession:
 
     # ------------------------------------------------------------------ registry
 
-    def registry(self) -> dict[str, object]:
+    def registry(self) -> dict[str, Any]:
         """Live entities by id: party members (marching order), then monsters, then NPCs."""
-        entities: dict[str, object] = {member.id: member for member in self.party.members}
+        entities: dict[str, Any] = {_member_id(member): member for member in self.party.members}
         entities.update(self.monsters)
         entities.update(self.npcs)
         return entities
@@ -493,8 +503,7 @@ class GameSession:
 
     def member_has_infravision(self, member: Character) -> bool:
         """Whether one member sees in the dark: the class tag or a spell effect."""
-        definition = load_classes().get(member.class_id)
-        if any(ability.tag == "infravision" for ability in definition.abilities):
+        if any(ability.tag == "infravision" for ability in member.definition.abilities):
             return True
         return any(
             effect.target_ref == member.id and effect.definition.kind == "infravision" for effect in self.ledger.effects
@@ -556,16 +565,15 @@ class GameSession:
                 monster_xp=monster_xp,
                 treasure_xp=treasure_xp,
                 share=share,
-                survivors=tuple(member.id for member in survivors),
+                survivors=tuple(_member_id(member) for member in survivors),
             )
         )
         if share > 0:
             for member in survivors:
-                definition = load_classes().get(member.class_id)
-                result = apply_xp(member, definition, share, self.streams.get(ADVANCEMENT_STREAM))
+                result = apply_xp(member, member.definition, share, self.streams.get(ADVANCEMENT_STREAM))
                 events.append(
                     XpAwardedEvent(
-                        character_id=member.id,
+                        character_id=_member_id(member),
                         award=result.award,
                         modified_award=result.modified_award,
                         level_after=result.level_after,
@@ -587,11 +595,10 @@ class GameSession:
             return []
         events: list[Event] = []
         for member in survivors:
-            definition = load_classes().get(member.class_id)
-            result = apply_xp(member, definition, share, self.streams.get(ADVANCEMENT_STREAM))
+            result = apply_xp(member, member.definition, share, self.streams.get(ADVANCEMENT_STREAM))
             events.append(
                 XpAwardedEvent(
-                    character_id=member.id,
+                    character_id=_member_id(member),
                     award=result.award,
                     modified_award=result.modified_award,
                     level_after=result.level_after,
@@ -654,7 +661,10 @@ def _handle_grant_item(session: GameSession, command: GrantItem) -> tuple[list[R
     except ValueError:
         return [Rejection(code="session.command.unknown_item", params={"item": command.item_id})], []
     member.inventory.items.append(ItemInstance(template=template, quantity=command.quantity))
-    return [], [ItemAcquiredEvent(character_id=member.id, item_ids=(command.item_id,) * command.quantity)]
+    events: list[Event] = [
+        ItemAcquiredEvent(character_id=_member_id(member), item_ids=(command.item_id,) * command.quantity)
+    ]
+    return [], events
 
 
 def _handle_grant_coins(session: GameSession, command: GrantCoins) -> tuple[list[Rejection], list[Event]]:
@@ -665,7 +675,8 @@ def _handle_grant_coins(session: GameSession, command: GrantCoins) -> tuple[list
     purse = member.inventory.purse
     for denomination in ("pp", "gp", "ep", "sp", "cp"):
         setattr(purse, denomination, getattr(purse, denomination) + getattr(command.coins, denomination))
-    return [], [ItemAcquiredEvent(character_id=member.id, coins_gp_value=command.coins.value_gp)]
+    events: list[Event] = [ItemAcquiredEvent(character_id=_member_id(member), coins_gp_value=command.coins.value_gp)]
+    return [], events
 
 
 def _handle_award_xp(session: GameSession, command: AwardXP) -> tuple[list[Rejection], list[Event]]:
@@ -673,16 +684,16 @@ def _handle_award_xp(session: GameSession, command: AwardXP) -> tuple[list[Rejec
         member = session.member(command.character_id)
     except ValueError:
         return [Rejection(code="session.command.unknown_member", params={"character": command.character_id})], []
-    definition = load_classes().get(member.class_id)
-    result = apply_xp(member, definition, command.amount, session.streams.get(ADVANCEMENT_STREAM))
-    return [], [
+    result = apply_xp(member, member.definition, command.amount, session.streams.get(ADVANCEMENT_STREAM))
+    events: list[Event] = [
         XpAwardedEvent(
-            character_id=member.id,
+            character_id=_member_id(member),
             award=result.award,
             modified_award=result.modified_award,
             level_after=result.level_after,
         )
     ]
+    return [], events
 
 
 def _handle_set_flag(session: GameSession, command: SetFlag) -> tuple[list[Rejection], list[Event]]:
@@ -706,8 +717,10 @@ def _handle_spawn_monsters(session: GameSession, command: SpawnMonsters) -> tupl
         return [Rejection(code="session.command.not_in_dungeon")], []
     if command.count_fixed is not None:
         count = command.count_fixed
-    else:
+    elif command.count_dice is not None:
         count = roll(command.count_dice, session.streams.get(ENCOUNTER_STREAM)).total
+    else:  # unreachable: the command model requires exactly one of the two
+        raise ValueError("SpawnMonsters carries neither count_dice nor count_fixed")
     count = max(1, count)
     instances = session.spawn(command.template_id, count)
     events: list[Event] = [
@@ -743,7 +756,8 @@ def _handle_spawn_npc_party(session: GameSession, command: SpawnNpcParty) -> tup
             if composition.kind == command.party_kind
         )
     count = max(1, roll(count_dice, session.streams.get(ENCOUNTER_STREAM)).total)
-    party, bundle, events = exploration.field_npc_party(session, command.party_kind, count)
+    party, bundle, npc_events = exploration._field_npc_party(session, command.party_kind, count)
+    events: list[Event] = list(npc_events)
     label = "Basic Adventurers" if command.party_kind == "basic" else "Expert Adventurers"
     events.extend(
         encounter_module.start_encounter(
@@ -767,7 +781,7 @@ def _handle_identify_item(session: GameSession, command: IdentifyItem) -> tuple[
     instance = member.inventory.magic_item(command.item_id)
     if instance is None:
         return [Rejection(code="session.command.unknown_item", params={"item": command.item_id})], []
-    return [], exploration.identify_item_events(session, member, instance)
+    return [], exploration._identify_item_events(session, member, instance)
 
 
 def _handle_set_door_state(session: GameSession, command: SetDoorState) -> tuple[list[Rejection], list[Event]]:
@@ -805,26 +819,24 @@ def _handle_place_party(session: GameSession, command: PlaceParty) -> tuple[list
     if session.encounter is not None or session.battle is not None:
         return [Rejection(code="session.command.encounter_in_progress")], []
     location = command.location
-    if location.kind == "dungeon":
-        try:
-            level = session.adventure.dungeon(location.dungeon_id).level(location.level_number)
-        except ValueError:
-            return [
-                Rejection(code="session.command.unknown_location", params={"dungeon": str(location.dungeon_id)})
-            ], []
-        if not level.in_bounds(location.position):
-            return [Rejection(code="session.command.out_of_bounds")], []
-    session.dungeon_state.location = location
     events: list[Event] = []
     if location.kind == "dungeon":
-        session.dungeon_state.mark_explored(location.dungeon_id, location.level_number, location.position)
+        dungeon_id, level_number, position = location.dungeon_id, location.level_number, location.position
+        if dungeon_id is None or level_number is None or position is None:
+            # Unreachable: the location model validates that dungeon fields travel together.
+            raise ValueError("a dungeon location carries dungeon_id, level_number, and position")
+        try:
+            level = session.adventure.dungeon(dungeon_id).level(level_number)
+        except ValueError:
+            return [Rejection(code="session.command.unknown_location", params={"dungeon": dungeon_id})], []
+        if not level.in_bounds(position):
+            return [Rejection(code="session.command.out_of_bounds")], []
+        session.dungeon_state.location = location
+        session.dungeon_state.mark_explored(dungeon_id, level_number, position)
         session.mode = SessionMode.EXPLORING
-        events.append(
-            LocationEnteredEvent(
-                location_kind="dungeon", location_id=location.dungeon_id, level_number=location.level_number
-            )
-        )
+        events.append(LocationEnteredEvent(location_kind="dungeon", location_id=dungeon_id, level_number=level_number))
     else:
+        session.dungeon_state.location = location
         session.mode = SessionMode.TOWN
         events.append(LocationEnteredEvent(location_kind="town", location_id="town"))
     return [], events
@@ -858,7 +870,7 @@ _REFEREE_HANDLERS = {
 _HANDLERS_CACHE: dict | None = None
 
 
-def _handlers() -> Mapping[type[Command], object]:
+def _handlers() -> Mapping[type[Command], Any]:
     """The command-type → handler map, assembled lazily to avoid import cycles."""
     global _HANDLERS_CACHE
     if _HANDLERS_CACHE is None:

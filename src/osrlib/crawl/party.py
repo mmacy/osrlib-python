@@ -90,7 +90,7 @@ class Party(BaseModel):
         Raises:
             ValueError: If the ids are not exactly the current membership.
         """
-        by_id = {member.id: member for member in self.members}
-        if sorted(character_ids) != sorted(by_id):
+        by_id = {member.id: member for member in self.members if member.id is not None}
+        if len(by_id) != len(self.members) or sorted(character_ids) != sorted(by_id):
             raise ValueError("reorder must name every current member exactly once")
         self.members = [by_id[character_id] for character_id in character_ids]

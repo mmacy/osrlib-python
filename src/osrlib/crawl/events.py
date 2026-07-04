@@ -441,7 +441,7 @@ class MonsterFledEvent(Event):
 
 
 class MonsterDefeatedEvent(Event):
-    """One monster defeated — the spec's listener example and the Phase 5 XP input.
+    """One monster defeated — the spec's listener example and the XP award's input.
 
     Emitted per monster at battle end with `outcome` `slain`, `routed`, or
     `surrendered`; `xp` is the template's printed award.
@@ -493,7 +493,7 @@ class ItemUsedEvent(Event):
     """A magic item used: a potion drunk (or mixed), a scroll read, a device activated.
 
     `items.device.inert` is a rejection code, not an event — activating an
-    exhausted device costs nothing (the Phase 4 blocked-move precedent). Charges
+    exhausted device costs nothing (the blocked-move precedent). Charges
     never appear here: they are referee-only forever (RAW, undiscoverable).
     """
 

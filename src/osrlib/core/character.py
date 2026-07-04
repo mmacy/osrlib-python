@@ -3,8 +3,8 @@
 Creation is pure functions the game drives stepwise (sans-I/O: the game owns prompting
 and choice), mirroring the SRD's Creating a Character steps where they're mechanical.
 Kernel functions return structured results including the raw rolls, so front ends can
-show them; character creation emits no events — it is out-of-fiction and pre-session,
-and the first real events arrive with Phase 2 combat.
+show them; character creation emits no events — it is out-of-fiction and
+pre-session; the first real events belong to play.
 
 Derived values — modifiers, AC, movement rates, literacy, languages — are properties
 computed from the stored state, never stored themselves, so they can never desync.
@@ -13,8 +13,8 @@ bounds); procedure legality — was the adjustment legal, were requirements met 
 enforced by the creation functions at the time of the step, because a finished
 character cannot re-derive its own history.
 
-RNG stream keys are pinned as module-level conventions (sessions adopt them in Phase
-4): [`CHARACTER_CREATION_STREAM`][osrlib.core.character.CHARACTER_CREATION_STREAM] for
+RNG stream keys are pinned as module-level conventions (sessions adopt them):
+[`CHARACTER_CREATION_STREAM`][osrlib.core.character.CHARACTER_CREATION_STREAM] for
 creation draws and [`ADVANCEMENT_STREAM`][osrlib.core.character.ADVANCEMENT_STREAM]
 for level-up hit point rolls — separated so a creation-rules change never shifts
 in-play advancement draws in a golden scenario.
@@ -34,10 +34,10 @@ from osrlib.core.abilities import (
     apply_adjustment,
 )
 from osrlib.core.alignment import Alignment
-from osrlib.core.classes import ClassDefinition, Race, SavingThrows
+from osrlib.core.classes import ClassDefinition, SavingThrows
 from osrlib.core.dice import RollResult, roll
 from osrlib.core.effects import ActiveCondition, ActiveModifier
-from osrlib.core.items import Inventory, equip, movement_rate_feet, purchase, validate_purchase
+from osrlib.core.items import Inventory, ItemInstance, equip, movement_rate_feet, purchase, validate_purchase
 from osrlib.core.rng import RngStream
 from osrlib.core.ruleset import Ruleset
 from osrlib.core.spells import MemorizedSpell, SpellCatalog, caster_profile
@@ -86,8 +86,8 @@ ABILITY_ROLL_ORDER = (
 class Character(BaseModel):
     """A player character.
 
-    `id` defaults to `None`: entity IDs are session-scoped and assigned when sessions
-    exist in Phase 4. `carrying_treasure` is basic encumbrance's referee judgment,
+    `id` defaults to `None`: entity IDs are session-scoped, assigned when the
+    character joins a session. `carrying_treasure` is basic encumbrance's referee judgment,
     set by the game. `spell_book` holds spell ids (arcane casters only; tuple order
     is acquisition order) and `memorized_spells` the prepared copies (tuple order is
     memorization order and is load-bearing: casting consumes the first matching copy
@@ -101,7 +101,7 @@ class Character(BaseModel):
     id: str | None = None
     name: str = Field(min_length=1)
     class_id: str
-    race: Race
+    race: str = Field(pattern=r"^[a-z][a-z0-9_]*$")
     level: int = Field(ge=1)
     xp: int = Field(ge=0)
     scores: dict[AbilityScore, int]
@@ -225,32 +225,37 @@ class Character(BaseModel):
         enchantment on top of the mundane shield's +1; always-active worn items
         with an AC bonus (rings of protection) join the bonus.
         """
-        from osrlib.core.items import MagicItemInstance, magic_item_template
+        from osrlib.core.items import ArmourTemplate, MagicItemInstance, magic_item_template
         from osrlib.data import load_equipment
 
         base = 10 if ascending else 9
         worn = self.inventory.worn_armour
         if isinstance(worn, MagicItemInstance):
             template = magic_item_template(worn)
-            if template.ac_set is not None:
+            if template.ac_set is not None and template.ac_set_ascending is not None:
                 base = template.ac_set_ascending if ascending else template.ac_set
             elif worn.base_item_id is not None:
                 mundane = load_equipment().get(worn.base_item_id)
-                printed = mundane.ac_ascending if ascending else mundane.ac
-                base = printed + template.ac_bonus if ascending else printed - template.ac_bonus
-        elif worn is not None and worn.template.item_type == "armour" and worn.template.ac is not None:
-            base = worn.template.ac_ascending if ascending else worn.template.ac
+                if isinstance(mundane, ArmourTemplate) and mundane.ac is not None and mundane.ac_ascending is not None:
+                    printed = mundane.ac_ascending if ascending else mundane.ac
+                    base = printed + template.ac_bonus if ascending else printed - template.ac_bonus
+        elif worn is not None and isinstance(worn.template, ArmourTemplate) and worn.template.ac is not None:
+            printed_ascending = worn.template.ac_ascending
+            base = printed_ascending if ascending and printed_ascending is not None else worn.template.ac
         bonus = 0
         shield = self.inventory.shield
         if isinstance(shield, MagicItemInstance):
             template = magic_item_template(shield)
-            if template.ac_set is not None:
+            if template.ac_set is not None and template.ac_set_ascending is not None:
                 # The cursed shield's AC 9 [10] sets the wearer's base outright.
                 base = template.ac_set_ascending if ascending else template.ac_set
             else:
-                mundane_bonus = load_equipment().get("shield").ac_bonus or 0
+                mundane_shield = load_equipment().get("shield")
+                mundane_bonus = (getattr(mundane_shield, "ac_bonus", None) or 0) if mundane_shield else 0
                 bonus += mundane_bonus + template.ac_bonus
-        elif shield is not None and shield.template.item_type == "armour" and shield.template.ac_bonus is not None:
+        elif (
+            shield is not None and isinstance(shield.template, ArmourTemplate) and shield.template.ac_bonus is not None
+        ):
             bonus += shield.template.ac_bonus
         for ring in self.inventory.rings:
             template = magic_item_template(ring)
@@ -320,8 +325,8 @@ class Character(BaseModel):
 def party_to_document(characters: Sequence[Character]) -> dict[str, object]:
     """Serialize a party — a stamped collection of characters.
 
-    The crawl-layer party model (marching order, shared resources) arrives in Phase 4;
-    this is the milestone's party-as-collection.
+    The crawl-layer party model (marching order, shared resources) is
+    [`Party`][osrlib.crawl.party.Party]; this is the kernel's party-as-collection.
 
     Args:
         characters: The party members, in order.
@@ -562,12 +567,12 @@ def validate_starting_spells(
 def choose_starting_spells(
     character: Character, definition: ClassDefinition, catalog: SpellCatalog, spell_ids: Sequence[str]
 ) -> list[Rejection]:
-    """Fill an arcane caster's starting spell book — the Phase 1 creation seam closed.
+    """Fill an arcane caster's starting spell book — the last creation step.
 
     The stepwise creation surface: validates the choice (see
     [`validate_starting_spells`][osrlib.core.character.validate_starting_spells]) and
-    a still-empty book, then writes it. Creation stays event-less per the Phase 1
-    precedent.
+    a still-empty book, then writes it. Creation stays event-less like every other
+    creation step.
 
     Args:
         character: The created character; its `spell_book` is written.
@@ -672,7 +677,14 @@ def create_character(
             raise ValueError(f"illegal purchase: {[rejection.code for rejection in purchase_rejections]}")
         purchase(inventory, template, lots)
     for item_id in equip_ids:
-        instance = next((candidate for candidate in inventory.items if candidate.template.id == item_id), None)
+        instance = next(
+            (
+                candidate
+                for candidate in inventory.items
+                if isinstance(candidate, ItemInstance) and candidate.template.id == item_id
+            ),
+            None,
+        )
         if instance is None:
             raise ValueError(f"cannot equip {item_id!r}: no such item in the inventory")
         equip(inventory, definition, instance)

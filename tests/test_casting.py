@@ -36,6 +36,7 @@ from osrlib.core.spells import (
     CastContext,
     MemorizedSpell,
     cast_spell,
+    caster_profile,
     disrupt_casting,
     pop_mirror_image,
     validate_cast,
@@ -52,6 +53,10 @@ BASE_SCORES = {
     AbilityScore.CON: 10,
     AbilityScore.CHA: 10,
 }
+
+
+def profile_of(caster):
+    return caster_profile(load_classes().get(caster.class_id))
 
 
 def build_caster(class_id, level, *, name=None, memorized=(), spell_book=(), scores=None, alignment=Alignment.LAWFUL):
@@ -106,6 +111,7 @@ class Harness:
             caster,
             load_spells().get(spell_id),
             mode,
+            profile=profile_of(caster),
             reversed=reversed,
             targets=targets,
             context=context,
@@ -147,7 +153,9 @@ class TestCastingPipeline:
 
     def test_arcane_form_must_match(self):
         magic_user = build_caster("magic_user", 3, spell_book=("light_mu",), memorized=("light_mu",))
-        rejections = validate_cast(magic_user, load_spells().get("light_mu"), "blind", reversed=True)
+        rejections = validate_cast(
+            magic_user, load_spells().get("light_mu"), "blind", profile=profile_of(magic_user), reversed=True
+        )
         assert "magic.cast.not_memorized" in [rejection.code for rejection in rejections]
 
     def test_disruption_consumes_identically(self):
@@ -173,7 +181,9 @@ class TestCastingPipeline:
         magic_user = build_caster("magic_user", 1, spell_book=("sleep",), memorized=("sleep",))
         before_stream = harness.magic.export_state()
         before_copies = magic_user.memorized_spells
-        rejections = validate_cast(magic_user, load_spells().get("fire_ball"), "damage", targets=[])
+        rejections = validate_cast(
+            magic_user, load_spells().get("fire_ball"), "damage", profile=profile_of(magic_user), targets=[]
+        )
         assert rejections
         assert harness.magic.export_state() == before_stream
         assert magic_user.memorized_spells == before_copies
@@ -195,7 +205,9 @@ class TestCastingPipeline:
 
         cleric = build_caster("cleric", 2, memorized=("cure_light_wounds",))
         cleric.conditions = (ActiveCondition(condition=condition, effect_id=None),)
-        rejections = validate_cast(cleric, load_spells().get("cure_light_wounds"), "heal", targets=[cleric])
+        rejections = validate_cast(
+            cleric, load_spells().get("cure_light_wounds"), "heal", profile=profile_of(cleric), targets=[cleric]
+        )
         assert rejections[0].code == "magic.cast.caster_incapacitated"
         assert rejections[0].params["condition"] == condition.value
 
@@ -203,7 +215,12 @@ class TestCastingPipeline:
         cleric = build_caster("cleric", 2, memorized=("cure_light_wounds",))
         for context in (CastContext(bound=True), CastContext(gagged=True)):
             rejections = validate_cast(
-                cleric, load_spells().get("cure_light_wounds"), "heal", targets=[cleric], context=context
+                cleric,
+                load_spells().get("cure_light_wounds"),
+                "heal",
+                profile=profile_of(cleric),
+                targets=[cleric],
+                context=context,
             )
             assert rejections[0].code == "magic.cast.caster_restrained"
 
@@ -217,7 +234,12 @@ class TestCastingPipeline:
         magic_user.memorized_spells = (MemorizedSpell(spell_id="magic_missile"),)
         goblin = harness.monster("goblin")
         rejections = validate_cast(
-            magic_user, load_spells().get("magic_missile"), "missiles", targets=[goblin] * 5, ledger=harness.ledger
+            magic_user,
+            load_spells().get("magic_missile"),
+            "missiles",
+            profile=profile_of(magic_user),
+            targets=[goblin] * 5,
+            ledger=harness.ledger,
         )
         assert rejections[0].code == "magic.cast.anti_magic_shell"
 
@@ -225,9 +247,14 @@ class TestCastingPipeline:
         magic_user = build_caster("magic_user", 5, spell_book=("fire_ball",), memorized=("fire_ball",))
         goblin_stub = build_caster("fighter", 1, name="stub")
         spell = load_spells().get("fire_ball")
-        assert validate_cast(magic_user, spell, "damage", targets=[goblin_stub]) == []
+        assert validate_cast(magic_user, spell, "damage", profile=profile_of(magic_user), targets=[goblin_stub]) == []
         rejections = validate_cast(
-            magic_user, spell, "damage", targets=[goblin_stub], context=CastContext(distance_feet=300)
+            magic_user,
+            spell,
+            "damage",
+            profile=profile_of(magic_user),
+            targets=[goblin_stub],
+            context=CastContext(distance_feet=300),
         )
         assert rejections[0].code == "magic.cast.out_of_range"
 
@@ -265,12 +292,23 @@ class TestMagicMissile:
         magic_user = build_caster("magic_user", level, spell_book=("magic_missile",), memorized=("magic_missile",))
         stub = build_caster("fighter", 1, name="stub")
         rejections = validate_cast(
-            magic_user, load_spells().get("magic_missile"), "missiles", targets=[stub] * (missiles + 1)
+            magic_user,
+            load_spells().get("magic_missile"),
+            "missiles",
+            profile=profile_of(magic_user),
+            targets=[stub] * (missiles + 1),
         )
         assert rejections[0].code == "magic.cast.target_count"
         assert rejections[0].params["expected"] == missiles
         assert (
-            validate_cast(magic_user, load_spells().get("magic_missile"), "missiles", targets=[stub] * missiles) == []
+            validate_cast(
+                magic_user,
+                load_spells().get("magic_missile"),
+                "missiles",
+                profile=profile_of(magic_user),
+                targets=[stub] * missiles,
+            )
+            == []
         )
 
     def test_auto_hit_no_save_and_stacking(self):
@@ -684,7 +722,9 @@ class TestCuresAndRestoration:
             assert effect.expires_round == 14 * ROUNDS_PER_DAY
             assert validate_attack(victim, cleric, None, AttackContext(), ruleset=harness.ruleset)
             victim.memorized_spells = (MemorizedSpell(spell_id="cure_light_wounds"),)
-            assert validate_cast(victim, load_spells().get("cure_light_wounds"), "heal", targets=[victim])
+            assert validate_cast(
+                victim, load_spells().get("cure_light_wounds"), "heal", profile=profile_of(victim), targets=[victim]
+            )
             # The weakness also bans other class abilities (turning) and pins the
             # subject at 1 hp: healing from any source is blocked while it runs.
             from osrlib.core.combat import apply_healing
@@ -1177,7 +1217,9 @@ class TestSilenceWebDispelFeeblemind:
 
         harness, victim = scan_seeds(probe)
         # A silenced caster cannot cast.
-        rejections = validate_cast(victim, load_spells().get("sleep"), "hd_budget", targets=[victim])
+        rejections = validate_cast(
+            victim, load_spells().get("sleep"), "hd_budget", profile=profile_of(victim), targets=[victim]
+        )
         assert rejections[0].code == "magic.cast.caster_incapacitated"
 
     def test_silence_passed_save_attaches_nothing_to_the_creature(self):
@@ -1289,7 +1331,9 @@ class TestSilenceWebDispelFeeblemind:
 
         target = scan_seeds(probe)
         target.memorized_spells = (MemorizedSpell(spell_id="sleep"),)
-        rejections = validate_cast(target, load_spells().get("sleep"), "hd_budget", targets=[target])
+        rejections = validate_cast(
+            target, load_spells().get("sleep"), "hd_budget", profile=profile_of(target), targets=[target]
+        )
         assert rejections[0].code == "magic.cast.caster_incapacitated"
 
 

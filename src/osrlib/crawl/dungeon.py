@@ -344,7 +344,7 @@ class GeneratedCache(BaseModel):
     """An engine-created treasure cache in the state overlay.
 
     Authored `FeatureSpec`s are frozen content; the state overlay owns play-created
-    treasure — the Phase 4 template/instance split applied to loot. Generated
+    treasure — the template/instance split applied to loot. Generated
     hoards are untrapped (traps are authored content, per the stocking table's own
     separation, pinned).
     """
@@ -626,9 +626,8 @@ class DroppedItem(BaseModel):
 class DropPile(BaseModel):
     """Dropped items and coins on a cell — droppable, recoverable, distraction bait.
 
-    `valuables` and `magic_items` are additive Phase 5 members, so drops and loot
-    round-trip: battle-end loot, death-save survivors, and player drops all land
-    here and `TakeTreasure` recovers them.
+    Drops and loot round-trip: battle-end loot, death-save survivors, and player
+    drops all land here and `TakeTreasure` recovers them.
     """
 
     model_config = ConfigDict(validate_assignment=True)

@@ -19,8 +19,9 @@ coins means the character cannot move, under both tracking modes. Inventory itse
 never capped.
 """
 
+from collections.abc import Mapping
 from enum import StrEnum
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -33,16 +34,13 @@ from osrlib.core.treasure import MagicItemType, TreasureEntry
 from osrlib.core.validation import Rejection
 
 __all__ = [
-    "BASE_MOVEMENT_FEET",
-    "COIN_VALUES_CP",
-    "MAX_LOAD_COINS",
-    "MAX_RINGS_WORN",
-    "MISC_GEAR_WEIGHT_COINS",
     "AmmunitionTemplate",
     "AnyInstance",
     "ArmourCategory",
     "ArmourTemplate",
     "ArmourTypeRow",
+    "BASE_MOVEMENT_FEET",
+    "COIN_VALUES_CP",
     "CoinPurse",
     "Coins",
     "CombatFacet",
@@ -51,6 +49,10 @@ __all__ = [
     "GeneratedTreasure",
     "Inventory",
     "ItemInstance",
+    "ItemTemplate",
+    "MAX_LOAD_COINS",
+    "MAX_RINGS_WORN",
+    "MISC_GEAR_WEIGHT_COINS",
     "MagicArmourTypeTable",
     "MagicItemCatalog",
     "MagicItemCategory",
@@ -112,7 +114,7 @@ COIN_VALUES_CP = {"pp": 500, "gp": 100, "ep": 50, "sp": 10, "cp": 1}
 
 
 class WeaponQuality(StrEnum):
-    """The SRD's weapon qualities; execution of most arrives with Phase 2 combat."""
+    """The SRD's weapon qualities, consumed by combat resolution."""
 
     BLUNT = "blunt"
     BRACE = "brace"
@@ -126,7 +128,7 @@ class WeaponQuality(StrEnum):
 
 
 class Material(StrEnum):
-    """Weapon material — silver matters to Phase 2's damage resolution. Extensible."""
+    """Weapon material — silver matters to the damage pipeline's immunity gate. Extensible."""
 
     STANDARD = "standard"
     SILVER = "silver"
@@ -250,7 +252,7 @@ class GearTemplate(BaseModel):
     `combat` is the embedded combat facet for the three dual-listed items. `params`
     carries structured exploration mechanics pinned from `Adventuring_Gear.md` (a
     torch's `burn_turns` and `light_radius_feet`, the tinder box's
-    `light_chance_in_six`), consumed by the Phase 4 crawl procedures.
+    `light_chance_in_six`), consumed by the crawl procedures.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -294,7 +296,7 @@ ItemTemplate = Annotated[
 
 
 class TreasureWeight(BaseModel):
-    """A treasure encumbrance row (coin, gem, jewellery, ...); treasure itself is Phase 5."""
+    """A treasure encumbrance row (coin, gem, jewellery, ...) from the encumbrance table."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -412,7 +414,7 @@ class UsableBy(BaseModel):
 
 
 class MagicItemEffect(BaseModel):
-    """The structured mechanics of a wired magic item — the Phase 5 wired census.
+    """The structured mechanics of a wired magic item — the wired census.
 
     `kind` names the kernel behavior that executes it (`worn_modifiers`, `potion`,
     `damage_area`, `condition_area`, `healing`, `save_or_die`, `on_hit_drain`,
@@ -452,7 +454,7 @@ class ScrollCurse(BaseModel):
 
     `wired=True` marks the two the kernel resolves (energy drain through
     `drain_levels` with the curse's own halfway XP policy, slow healing through the
-    Phase 2 slowed-healing hooks); the rest are `manual` prose carried on the event.
+    slowed-healing hooks); the rest are `manual` prose carried on the event.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -1155,7 +1157,7 @@ class SwordControlResult(BaseModel):
     sword_controls: bool
 
 
-def sword_control_check(character: object, sword: MagicItemInstance, *, stream: RngStream) -> SwordControlResult:
+def sword_control_check(character: Any, sword: MagicItemInstance, *, stream: RngStream) -> SwordControlResult:
     """Resolve a sentient sword control check, à la carte.
 
     RAW arithmetic: the sword's Will is INT + Ego, +1 per extraordinary power,
@@ -1201,7 +1203,7 @@ def treasure_weight_coins(inventory: Inventory) -> int:
 
     Purse coins weigh 1 each; valuables weigh their `TreasureWeight` figures; magic
     items in the categories those rows price (potion, scroll, rod, staff, wand)
-    weigh as treasure — closing the Phase 1 seam. Rings and miscellaneous items
+    weigh as treasure. Rings and miscellaneous items
     weigh zero absent a page figure (the Bag of Holding's printed loaded weight
     rides its params, counted while it holds anything); enchanted weapons and
     armour weigh as *equipment* beside their mundane bases, not as treasure, so
@@ -1227,7 +1229,7 @@ def treasure_weight_coins(inventory: Inventory) -> int:
             ):
                 total += template.weight_coins * max(1, instance.quantity)
             elif "loaded_weight_coins" in template.params and instance.state.get("holding"):
-                total += int(template.params["loaded_weight_coins"])
+                total += _int_param(template.params, "loaded_weight_coins")
     return total
 
 
@@ -1298,7 +1300,12 @@ _BASIC_RATES: dict[ArmourCategory | None, tuple[int, int]] = {
 _DETAILED_RATES: tuple[tuple[int, int], ...] = ((400, 120), (600, 90), (800, 60), (MAX_LOAD_COINS, 30))
 
 
-def _worn_armour_category(worn: object) -> ArmourCategory | None:
+def _int_param(params: Mapping[str, Any], key: str, default: int = 0) -> int:
+    """Read an integer param — schema-validated data whose union the checker can't key by name."""
+    return int(params.get(key, default))
+
+
+def _worn_armour_category(worn: Any) -> ArmourCategory | None:
     """Return the worn body armour's category, resolving enchanted armour's base.
 
     Enchanted armour moves like its mundane base — enchantment halves the weight,
@@ -1673,7 +1680,7 @@ def unequip(inventory: Inventory, instance: ItemInstance | MagicItemInstance) ->
         inventory.shield = None
     elif any(existing is instance for existing in inventory.wielded):
         inventory.wielded.remove(instance)
-    elif any(existing is instance for existing in inventory.rings):
+    elif isinstance(instance, MagicItemInstance) and any(existing is instance for existing in inventory.rings):
         inventory.rings.remove(instance)
     else:
         raise ValueError("instance is not equipped")

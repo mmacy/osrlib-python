@@ -129,7 +129,7 @@ def _dispatch(session, line: str) -> bool:
     if verb == "enter":
         command = EnterDungeon(dungeon_id=args[0] if args else "barrow")
     elif verb == "move" and args:
-        command = MoveParty(direction=_DIRECTIONS.get(args[0], args[0]))
+        command = MoveParty.model_validate({"direction": _DIRECTIONS.get(args[0], args[0])})
     elif verb == "stairs":
         command = UseStairs()
     elif verb == "take" and args:
@@ -153,13 +153,13 @@ def _dispatch(session, line: str) -> bool:
                 return True
         command = TakeTreasure(feature_id=target)
     elif verb == "rest":
-        command = Rest(kind=args[0] if args else "turn")
+        command = Rest.model_validate({"kind": args[0] if args else "turn"})
     elif verb == "wait":
         command = Wait()
     elif verb == "parley" and args:
         command = Parley(character_id=args[0])
     elif verb == "evade":
-        command = Evade(drop=args[0] if args else "none")
+        command = Evade.model_validate({"drop": args[0] if args else "none"})
     elif verb == "town":
         command = TravelToTown()
     elif verb == "buy" and len(args) >= 2:
@@ -176,7 +176,7 @@ def _dispatch(session, line: str) -> bool:
         else:
             command = SellTreasure(item_ids=tuple(args))
     elif verb == "heal" and len(args) >= 2:
-        command = PurchaseHealing(character_id=args[0], service=args[1])
+        command = PurchaseHealing.model_validate({"character_id": args[0], "service": args[1]})
     elif verb == "use" and args:
         command = UseItem(
             character_id=args[0], item_id=args[1] if len(args) > 1 else "", target_id=args[2] if len(args) > 2 else None
