@@ -13,7 +13,10 @@ listener store, and reacts by executing ordinary referee commands:
   return.
 
 No library change: the listener reads session state, never mutates it directly,
-and everything it causes goes through logged commands.
+and everything it causes goes through logged commands. Because those nested
+executes append their own events to the session log, the listener returns no
+events of its own — returning the nested results would double-log them. The
+returned-events channel is for events a listener *authors* directly.
 """
 
 from collections.abc import Sequence
@@ -48,7 +51,6 @@ class FetchQuestListener:
         if self._reacting:
             return [], state
         state = dict(state)
-        emitted: list[Event] = []
         acquired = any(isinstance(event, ItemAcquiredEvent) for event in events)
         if acquired and not state.get("reward_granted"):
             carrier = self._idol_carrier()
@@ -56,23 +58,19 @@ class FetchQuestListener:
                 state["reward_granted"] = True
                 self._reacting = True
                 try:
-                    result = self._session.execute(GrantCoins(character_id=carrier.id, coins=Coins(gp=QUEST_REWARD_GP)))
-                    emitted.extend(result.events)
+                    self._session.execute(GrantCoins(character_id=carrier.id, coins=Coins(gp=QUEST_REWARD_GP)))
                 finally:
                     self._reacting = False
         returned_to_town = any(
             isinstance(event, LocationEnteredEvent) and event.location_kind == "town" for event in events
         )
         if returned_to_town and state.get("reward_granted") and not state.get("completed"):
-            if self._idol_carrier() is not None or state.get("reward_granted"):
-                state["completed"] = True
-                self._reacting = True
-                try:
-                    result = self._session.execute(SetFlag(key="quest.idol", value="recovered"))
-                    emitted.extend(result.events)
-                    for member in self._session.party.living_members():
-                        result = self._session.execute(AwardXP(character_id=member.id, amount=QUEST_BONUS_XP))
-                        emitted.extend(result.events)
-                finally:
-                    self._reacting = False
-        return emitted, state
+            state["completed"] = True
+            self._reacting = True
+            try:
+                self._session.execute(SetFlag(key="quest.idol", value="recovered"))
+                for member in self._session.party.living_members():
+                    self._session.execute(AwardXP(character_id=member.id, amount=QUEST_BONUS_XP))
+            finally:
+                self._reacting = False
+        return [], state

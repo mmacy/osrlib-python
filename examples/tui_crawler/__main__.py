@@ -40,13 +40,21 @@ from .quest import FetchQuestListener
 _DIRECTIONS = {"n": "north", "s": "south", "e": "east", "w": "west"}
 
 
-def _render(result) -> None:
+def _run(session, command):
+    """Execute one command and print every player-visible event it logged.
+
+    Printing the event-log delta (rather than the result's events) shows the
+    quest listener's reactions too: its nested commands append to the same log.
+    """
+    mark = len(session.event_log)
+    result = session.execute(command)
     if not result.accepted:
         print("  (refused: " + ", ".join(rejection.code for rejection in result.rejections) + ")")
-        return
-    for event in result.events:
+        return result
+    for event in session.event_log[mark:]:
         if event.visibility is Visibility.PLAYER:
             print("  " + format_message(event))
+    return result
 
 
 def _first_weapon_id(member) -> str | None:
@@ -59,7 +67,7 @@ def _first_weapon_id(member) -> str | None:
     return None
 
 
-def _battle_round(session) -> object:
+def _battle_round(session) -> ResolveBattleRound:
     """One auto-declared battle round: front rank attacks, the rest close or hold."""
     group = next(entry for entry in session.encounter.groups if not entry.fled and not entry.surrendered)
     living = session.party.living_members()
@@ -79,16 +87,15 @@ def _battle_round(session) -> object:
             )
         else:
             declarations.append(BattleDeclaration(character_id=member.id, action="hold"))
-    return session.execute(ResolveBattleRound(declarations=tuple(declarations)))
+    return ResolveBattleRound(declarations=tuple(declarations))
 
 
 def _fight(session) -> None:
     if session.battle is None:
-        _render(session.execute(EngageBattle()))
+        _run(session, EngageBattle())
     rounds = 0
     while session.battle is not None and rounds < 50:
-        result = _battle_round(session)
-        _render(result)
+        result = _run(session, _battle_round(session))
         if not result.accepted:
             return
         rounds += 1
@@ -177,7 +184,7 @@ def _dispatch(session, line: str) -> bool:
     if command is None:
         print(f"  (unknown command: {line.strip()!r})")
         return True
-    _render(session.execute(command))
+    _run(session, command)
     return True
 
 
