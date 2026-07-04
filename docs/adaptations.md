@@ -398,7 +398,7 @@ the charge. Locked by `test_casting.py::TestCuresAndRestoration`.
 deity faithfulness, not as a precondition on any procedure. The item ships in the
 Phase 1 gear data; games wanting the stricter reading check inventory themselves.
 Consequence chosen: a symbol-less cleric turns and casts unimpeded. Locked by
-`test_turning.py::TestProcedure::test_holy_symbol_is_not_a_gate`.
+`test_turning.py::TestValidation::test_holy_symbol_is_not_a_gate`.
 
 ### Starting books hold exactly capacity; book capacity is per level; books never auto-shrink
 
