@@ -111,6 +111,11 @@ class TestClassData:
         assert classes.get("dwarf").race == "dwarf"
         assert classes.get("cleric").race == "human"
 
+    def test_compiled_classes_carry_exactly_the_four_legacy_races(self):
+        # `race` is an open validated string; the shipped Classic catalog carries
+        # exactly the four legacy wire values.
+        assert {definition.race for definition in load_classes().classes} == {"human", "dwarf", "elf", "halfling"}
+
     def test_stature_notes_kept_as_manual_prose(self):
         classes = load_classes()
         assert any("stature" in note for note in classes.get("dwarf").weapons.manual_notes)

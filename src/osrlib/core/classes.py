@@ -47,7 +47,6 @@ __all__ = [
     "HitDice",
     "LevelUpResult",
     "ProgressionRow",
-    "Race",
     "SavingThrows",
     "SkillCheckResult",
     "ThiefSkillRow",
@@ -73,19 +72,6 @@ PERCENTILE_THIEF_SKILLS = (
     "pick_pockets",
 )
 """The six d% roll-under thief skills; `hear_noise` is the seventh, rolled on 1d6."""
-
-
-class Race(StrEnum):
-    """Character races; in Classic play, race is implied by class.
-
-    The wire values are lowercase — they serialize into characters and saves; changing
-    them is a `schema_version` bump.
-    """
-
-    HUMAN = "human"
-    DWARF = "dwarf"
-    ELF = "elf"
-    HALFLING = "halfling"
 
 
 class HitDice(BaseModel):
@@ -255,18 +241,21 @@ class ClassAbility(BaseModel):
 class ClassDefinition(BaseModel):
     """A character class, compiled from its SRD page.
 
-    Frozen SRD data: play never mutates a class definition. `requirements` are minimum
-    scores checked at class choice; `may_not_lower` carries adjustment-step
-    restrictions (the thief's STR). `level_titles[i]` is the title at level `i + 1`;
-    the SRD's title lists run only through name level, so they are shorter than the
-    progression and levels beyond them have no title entry.
+    Frozen SRD data: play never mutates a class definition. `race` is an open,
+    validated identity string — no rules procedure consumes it (racial mechanics
+    resolve through structured ability tags), so Advanced races are additive data,
+    not code. `requirements` are minimum scores checked at class choice;
+    `may_not_lower` carries adjustment-step restrictions (the thief's STR).
+    `level_titles[i]` is the title at level `i + 1`; the SRD's title lists run only
+    through name level, so they are shorter than the progression and levels beyond
+    them have no title entry.
     """
 
     model_config = ConfigDict(frozen=True)
 
     id: str
     name: str
-    race: Race
+    race: str = Field(pattern=r"^[a-z][a-z0-9_]*$")
     requirements: dict[AbilityScore, int] = {}
     prime_requisites: tuple[AbilityScore, ...]
     xp_tiers: tuple[XpTier, ...]

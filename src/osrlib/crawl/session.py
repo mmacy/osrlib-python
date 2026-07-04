@@ -73,7 +73,7 @@ from osrlib.crawl.events import (
     XpAwardedEvent,
 )
 from osrlib.crawl.party import Party
-from osrlib.data import load_classes, load_equipment, load_monsters
+from osrlib.data import load_equipment, load_monsters
 from osrlib.versioning import SCHEMA_VERSION, engine_version
 
 if TYPE_CHECKING:
@@ -493,8 +493,7 @@ class GameSession:
 
     def member_has_infravision(self, member: Character) -> bool:
         """Whether one member sees in the dark: the class tag or a spell effect."""
-        definition = load_classes().get(member.class_id)
-        if any(ability.tag == "infravision" for ability in definition.abilities):
+        if any(ability.tag == "infravision" for ability in member.definition.abilities):
             return True
         return any(
             effect.target_ref == member.id and effect.definition.kind == "infravision" for effect in self.ledger.effects
@@ -561,8 +560,7 @@ class GameSession:
         )
         if share > 0:
             for member in survivors:
-                definition = load_classes().get(member.class_id)
-                result = apply_xp(member, definition, share, self.streams.get(ADVANCEMENT_STREAM))
+                result = apply_xp(member, member.definition, share, self.streams.get(ADVANCEMENT_STREAM))
                 events.append(
                     XpAwardedEvent(
                         character_id=member.id,
@@ -587,8 +585,7 @@ class GameSession:
             return []
         events: list[Event] = []
         for member in survivors:
-            definition = load_classes().get(member.class_id)
-            result = apply_xp(member, definition, share, self.streams.get(ADVANCEMENT_STREAM))
+            result = apply_xp(member, member.definition, share, self.streams.get(ADVANCEMENT_STREAM))
             events.append(
                 XpAwardedEvent(
                     character_id=member.id,
@@ -673,8 +670,7 @@ def _handle_award_xp(session: GameSession, command: AwardXP) -> tuple[list[Rejec
         member = session.member(command.character_id)
     except ValueError:
         return [Rejection(code="session.command.unknown_member", params={"character": command.character_id})], []
-    definition = load_classes().get(member.class_id)
-    result = apply_xp(member, definition, command.amount, session.streams.get(ADVANCEMENT_STREAM))
+    result = apply_xp(member, member.definition, command.amount, session.streams.get(ADVANCEMENT_STREAM))
     return [], [
         XpAwardedEvent(
             character_id=member.id,

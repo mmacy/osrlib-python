@@ -660,12 +660,19 @@ def _validate_declaration(session, declaration: BattleDeclaration, member) -> li
         targets, distance, rejections = _cast_targets(session, declaration, spell)
         if rejections:
             return rejections
-        from osrlib.core.spells import CastContext
+        from osrlib.core.spells import CastContext, caster_profile
 
+        profile = caster_profile(member.definition)
+        if profile is None:
+            # A member with no casting profile can never have a memorized copy.
+            return [
+                Rejection(code="magic.cast.not_memorized", params={"spell": spell.id, "reversed": declaration.reversed})
+            ]
         return validate_cast(
             member,
             spell,
             declaration.spell_mode,
+            profile=profile,
             reversed=declaration.reversed,
             targets=targets,
             context=CastContext(in_combat=True, distance_feet=distance),
@@ -787,10 +794,10 @@ def _validate_magic_item_declaration(session, declaration: BattleDeclaration, me
             member,
             spell,
             mode,
+            profile=None,
             targets=targets,
             context=CastContext(in_combat=True, distance_feet=distance),
             ledger=session.ledger,
-            require_memorized=False,
         )
     if category in (MagicItemCategory.ROD, MagicItemCategory.STAFF, MagicItemCategory.WAND):
         from osrlib.core.items import usable_by_class
@@ -1476,12 +1483,16 @@ def _party_magic(session, by_member, pending_casters, disrupted, acted, state) -
             continue
         spell = load_spells().get(declaration.spell_id)
         targets, distance, _ = _cast_targets(session, declaration, spell)
-        from osrlib.core.spells import CastContext
+        from osrlib.core.spells import CastContext, caster_profile
 
+        profile = caster_profile(member.definition)
+        if profile is None:
+            continue  # declaration validation already rejected the non-caster
         result = cast_spell(
             member,
             spell,
             declaration.spell_mode,
+            profile=profile,
             reversed=declaration.reversed,
             targets=targets,
             context=CastContext(in_combat=True, distance_feet=distance),

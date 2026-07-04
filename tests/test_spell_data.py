@@ -49,6 +49,11 @@ class TestCensus:
         ids = {spell.id for spell in catalog.spells}
         assert not any(base in ids for base in DUAL_CONCEPTS)
 
+    def test_compiled_spells_carry_exactly_the_two_legacy_lists(self):
+        # `spell_list` is an open validated string; the shipped Classic catalog
+        # carries exactly the two legacy wire values.
+        assert {spell.spell_list for spell in load_spells().spells} == {"cleric", "magic_user"}
+
     def test_invisible_stalker_is_not_a_dual_page(self):
         # The (MU) marker distinguishes the monster page, not a (C) twin.
         spell = load_spells().get("invisible_stalker")

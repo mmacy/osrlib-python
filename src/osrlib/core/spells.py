@@ -301,9 +301,12 @@ class SpellTemplate(BaseModel):
 
     Frozen SRD data: play never mutates a spell template. `id` is the slugified
     primary name (`fire_ball`, `cure_light_wounds`), with `_c`/`_mu` suffixes for
-    the nine dual-page concepts. `duration` and `range` keep the printed strings;
-    the specs are the parsed forms. `conjured_monsters` embeds stat blocks printed
-    on the page (*sticks to snakes*' snake, validated as a full monster template);
+    the nine dual-page concepts. `spell_list` is an open, validated list id matched
+    against [`CasterProfile.spell_list`][osrlib.core.spells.CasterProfile] — the
+    Classic catalog carries `cleric` and `magic_user`, and Advanced lists are
+    additive data. `duration` and `range` keep the printed strings; the specs are
+    the parsed forms. `conjured_monsters` embeds stat blocks printed on the page
+    (*sticks to snakes*' snake, validated as a full monster template);
     `conjured_monster_ids` references existing `monsters.json` entries (*conjure
     elemental*'s four 16-HD elementals).
     """
@@ -312,7 +315,7 @@ class SpellTemplate(BaseModel):
 
     id: str = Field(min_length=1)
     name: str = Field(min_length=1)
-    spell_list: Literal["cleric", "magic_user"]
+    spell_list: str = Field(pattern=r"^[a-z][a-z0-9_]*$")
     level: int = Field(ge=1, le=6)
     duration: str = Field(min_length=1)
     duration_spec: DurationSpec
@@ -397,7 +400,7 @@ class SpellCatalog(BaseModel):
         """Return the spells on a class's list, optionally at one spell level.
 
         Args:
-            spell_list: `"cleric"` or `"magic_user"`.
+            spell_list: The list id, e.g. `"cleric"` or `"magic_user"`.
             level: A spell level to filter by, or `None` for the whole list.
 
         Returns:
@@ -718,17 +721,17 @@ def _max_range_feet(spell: SpellTemplate, caster_level: int) -> int | None:
     return None
 
 
-def _memorized_index(caster: object, spell: SpellTemplate, reversed: bool) -> int | None:
+def _memorized_index(caster: object, spell: SpellTemplate, reversed: bool, profile: CasterProfile) -> int | None:
     """Return the index of the first matching memorized copy (lowest index, pinned).
 
-    Divine casters (cleric-list spells) match any copy of the spell — the reversed
-    flag is chosen freely at cast; arcane casters (magic-user-list spells) fixed the
-    form at memorization, so the flag must match.
+    Divine casters match any copy of the spell — the reversed flag is chosen freely
+    at cast, whatever their spell list; arcane casters fixed the form at
+    memorization, so the flag must match.
     """
     for index, copy in enumerate(getattr(caster, "memorized_spells", ())):
         if copy.spell_id != spell.id:
             continue
-        if spell.spell_list == "cleric" or copy.reversed == reversed:
+        if profile.kind == "divine" or copy.reversed == reversed:
             return index
     return None
 
@@ -738,11 +741,11 @@ def validate_cast(
     spell: SpellTemplate,
     mode: str,
     *,
+    profile: CasterProfile | None,
     reversed: bool = False,
     targets: Sequence[object] = (),
     context: CastContext | None = None,
     ledger: EffectsLedger | None = None,
-    require_memorized: bool = True,
 ) -> list[Rejection]:
     """Validate a cast — the pure pre-phase: no RNG draws, no mutation.
 
@@ -762,12 +765,16 @@ def validate_cast(
         caster: The casting character.
         spell: The spell template.
         mode: The mode key on the chosen form.
+        profile: The caster's [`CasterProfile`][osrlib.core.spells.CasterProfile],
+            from [`caster_profile`][osrlib.core.spells.caster_profile] on the
+            definition the caller holds — divine casters match any memorized copy
+            (the reversed form is chosen at cast). `None` skips the memorized-copy
+            check entirely, for scroll reads: the scroll is the copy.
         reversed: True to cast the reversed form.
         targets: The explicit target list (entity objects, or location strings for
             effects games attach to places).
         context: The caller-asserted situation.
         ledger: The effects ledger, consulted for the caster's own blocking effects.
-        require_memorized: False for scroll reads — the scroll is the copy.
 
     Returns:
         Structured rejections; empty when the cast may resolve.
@@ -800,7 +807,7 @@ def validate_cast(
         spell_mode = spell.mode(mode, reversed=reversed)
     except ValueError:
         return [Rejection(code="magic.cast.unknown_mode", params={"spell": spell.id, "mode": mode})]
-    if require_memorized and _memorized_index(caster, spell, reversed) is None:
+    if profile is not None and _memorized_index(caster, spell, reversed, profile) is None:
         rejections.append(Rejection(code="magic.cast.not_memorized", params={"spell": spell.id, "reversed": reversed}))
     targeting = spell_mode.targeting
     if targeting is not None:
@@ -884,6 +891,7 @@ def cast_spell(
     spell: SpellTemplate,
     mode: str,
     *,
+    profile: CasterProfile,
     reversed: bool = False,
     targets: Sequence[object] = (),
     context: CastContext | None = None,
@@ -899,10 +907,12 @@ def cast_spell(
 
     Consumes the first matching memorized copy (lowest tuple index, pinned) whether
     or not the resolution ends up affecting anything — including a touch attack that
-    misses (nothing in RAW holds the charge, pinned). Casting anything releases the
-    caster's own *invisibility* (RAW: attacking or casting breaks it). Manual modes
-    emit the cast event with the manual marker and the kernel stops there — the à la
-    carte contract for the non-automated majority.
+    misses (nothing in RAW holds the charge, pinned). Divine casters consume any
+    copy of the spell and choose the form at cast time; arcane casters fixed the
+    form at memorization. Casting anything releases the caster's own *invisibility*
+    (RAW: attacking or casting breaks it). Manual modes emit the cast event with the
+    manual marker and the kernel stops there — the à la carte contract for the
+    non-automated majority.
 
     Spell-resolution draws (targeting dice, damage dice, touch-attack rolls,
     cast-time forced saves, dispel survival rolls) come from `stream` — the
@@ -914,6 +924,9 @@ def cast_spell(
         caster: The casting character; its `memorized_spells` shrinks by one copy.
         spell: The spell template.
         mode: The mode key on the chosen form.
+        profile: The caster's [`CasterProfile`][osrlib.core.spells.CasterProfile],
+            from [`caster_profile`][osrlib.core.spells.caster_profile] on the
+            definition the caller holds.
         reversed: True to cast the reversed form.
         targets: The explicit target list, in the caller's order.
         context: The caller-asserted situation.
@@ -934,11 +947,13 @@ def cast_spell(
             unmemorized spell is programmer misuse.
     """
     context = context or CastContext()
-    rejections = validate_cast(caster, spell, mode, reversed=reversed, targets=targets, context=context, ledger=ledger)
+    rejections = validate_cast(
+        caster, spell, mode, profile=profile, reversed=reversed, targets=targets, context=context, ledger=ledger
+    )
     if rejections:
         raise ValueError(f"illegal cast: {[rejection.code for rejection in rejections]}")
     spell_mode = spell.mode(mode, reversed=reversed)
-    index = _memorized_index(caster, spell, reversed)
+    index = _memorized_index(caster, spell, reversed, profile)
     copies = list(caster.memorized_spells)
     del copies[index]
     caster.memorized_spells = tuple(copies)
@@ -1143,19 +1158,19 @@ def cast_from_scroll(
 
     Raises:
         ValueError: If the cast is invalid — validate with
-            [`validate_cast`][osrlib.core.spells.validate_cast]
-            (`require_memorized=False`) first.
+            [`validate_cast`][osrlib.core.spells.validate_cast] (`profile=None`)
+            first.
     """
     context = context or CastContext()
     rejections = validate_cast(
         reader,
         spell,
         mode,
+        profile=None,
         reversed=reversed,
         targets=targets,
         context=context,
         ledger=ledger,
-        require_memorized=False,
     )
     if rejections:
         raise ValueError(f"illegal scroll cast: {[rejection.code for rejection in rejections]}")

@@ -1772,8 +1772,21 @@ def handle_cast_spell(session, command: CastSpell) -> tuple[list[Rejection], lis
         else:
             return [Rejection(code="magic.cast.unknown_target", params={"target": target_ref})], []
     context = _cast_context(session, targets, in_combat=False)
+    profile = caster_profile(member.definition)
+    if profile is None:
+        # A member with no casting profile can never have a memorized copy.
+        return [
+            Rejection(code="magic.cast.not_memorized", params={"spell": spell.id, "reversed": command.reversed})
+        ], []
     cast_rejections = validate_cast(
-        member, spell, command.mode, reversed=command.reversed, targets=targets, context=context, ledger=session.ledger
+        member,
+        spell,
+        command.mode,
+        profile=profile,
+        reversed=command.reversed,
+        targets=targets,
+        context=context,
+        ledger=session.ledger,
     )
     if cast_rejections:
         return cast_rejections, []
@@ -1781,6 +1794,7 @@ def handle_cast_spell(session, command: CastSpell) -> tuple[list[Rejection], lis
         member,
         spell,
         command.mode,
+        profile=profile,
         reversed=command.reversed,
         targets=targets,
         context=context,
@@ -2390,10 +2404,10 @@ def _use_scroll(session, member, instance: MagicItemInstance, template, command)
             member,
             spell,
             mode,
+            profile=None,
             targets=targets,
             context=context,
             ledger=session.ledger,
-            require_memorized=False,
         )
         if cast_rejections:
             return cast_rejections, []
@@ -2715,9 +2729,16 @@ def handle_purchase_healing(session, command: PurchaseHealing) -> tuple[list[Rej
     from osrlib.core.spells import validate_cast
 
     temple_cleric = _temple_cleric(spell)
+    temple_profile = caster_profile(temple_cleric.definition)
     context = _cast_context(session, [member], in_combat=False)
     cast_rejections = validate_cast(
-        temple_cleric, spell, spell.modes[0].key, targets=[member], context=context, ledger=session.ledger
+        temple_cleric,
+        spell,
+        spell.modes[0].key,
+        profile=temple_profile,
+        targets=[member],
+        context=context,
+        ledger=session.ledger,
     )
     if cast_rejections:
         return cast_rejections, []
@@ -2727,6 +2748,7 @@ def handle_purchase_healing(session, command: PurchaseHealing) -> tuple[list[Rej
         temple_cleric,
         spell,
         spell.modes[0].key,
+        profile=temple_profile,
         targets=[member],
         context=context,
         ledger=session.ledger,

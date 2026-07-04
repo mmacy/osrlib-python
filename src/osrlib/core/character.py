@@ -34,7 +34,7 @@ from osrlib.core.abilities import (
     apply_adjustment,
 )
 from osrlib.core.alignment import Alignment
-from osrlib.core.classes import ClassDefinition, Race, SavingThrows
+from osrlib.core.classes import ClassDefinition, SavingThrows
 from osrlib.core.dice import RollResult, roll
 from osrlib.core.effects import ActiveCondition, ActiveModifier
 from osrlib.core.items import Inventory, equip, movement_rate_feet, purchase, validate_purchase
@@ -101,7 +101,7 @@ class Character(BaseModel):
     id: str | None = None
     name: str = Field(min_length=1)
     class_id: str
-    race: Race
+    race: str = Field(pattern=r"^[a-z][a-z0-9_]*$")
     level: int = Field(ge=1)
     xp: int = Field(ge=0)
     scores: dict[AbilityScore, int]
