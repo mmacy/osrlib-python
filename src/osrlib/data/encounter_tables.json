@@ -1,0 +1,1639 @@
+{
+  "_meta": {
+    "generator": "tools/srd_compile",
+    "license": "Open Game Content under OGL 1.0a; see LICENSE-OGL.md in this directory",
+    "source_pages": [
+      "Dungeon_Encounters.md"
+    ]
+  },
+  "tables": [
+    {
+      "id": "level_1",
+      "label": "Level 1",
+      "max_level": 1,
+      "min_level": 1,
+      "overrides_applied": [],
+      "rows": [
+        {
+          "count_dice": "1d8",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "acolyte"
+            ],
+            "variant_dice": null
+          },
+          "name": "Acolyte",
+          "roll": 1
+        },
+        {
+          "count_dice": "1d8",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "bandit"
+            ],
+            "variant_dice": null
+          },
+          "name": "Bandit",
+          "roll": 2
+        },
+        {
+          "count_dice": "1d8",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "fire_beetle"
+            ],
+            "variant_dice": null
+          },
+          "name": "Beetle, Fire",
+          "roll": 3
+        },
+        {
+          "count_dice": "1d6",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "dwarf_monster"
+            ],
+            "variant_dice": null
+          },
+          "name": "Dwarf",
+          "roll": 4
+        },
+        {
+          "count_dice": "1d6",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "gnome"
+            ],
+            "variant_dice": null
+          },
+          "name": "Gnome",
+          "roll": 5
+        },
+        {
+          "count_dice": "2d4",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "goblin"
+            ],
+            "variant_dice": null
+          },
+          "name": "Goblin",
+          "roll": 6
+        },
+        {
+          "count_dice": "1d4",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "green_slime"
+            ],
+            "variant_dice": null
+          },
+          "name": "Green Slime",
+          "roll": 7
+        },
+        {
+          "count_dice": "3d6",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "halfling_monster"
+            ],
+            "variant_dice": null
+          },
+          "name": "Halfling",
+          "roll": 8
+        },
+        {
+          "count_dice": "1d10",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "killer_bee"
+            ],
+            "variant_dice": null
+          },
+          "name": "Killer Bee",
+          "roll": 9
+        },
+        {
+          "count_dice": "4d4",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "kobold"
+            ],
+            "variant_dice": null
+          },
+          "name": "Kobold",
+          "roll": 10
+        },
+        {
+          "count_dice": "1d3",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "gecko"
+            ],
+            "variant_dice": null
+          },
+          "name": "Lizard, Gecko",
+          "roll": 11
+        },
+        {
+          "count_dice": "2d4",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "orc"
+            ],
+            "variant_dice": null
+          },
+          "name": "Orc",
+          "roll": 12
+        },
+        {
+          "count_dice": "1d10",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "shrew_giant"
+            ],
+            "variant_dice": null
+          },
+          "name": "Shrew, Giant",
+          "roll": 13
+        },
+        {
+          "count_dice": "3d4",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "skeleton"
+            ],
+            "variant_dice": null
+          },
+          "name": "Skeleton",
+          "roll": 14
+        },
+        {
+          "count_dice": "1d6",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "spitting_cobra"
+            ],
+            "variant_dice": null
+          },
+          "name": "Snake, Cobra",
+          "roll": 15
+        },
+        {
+          "count_dice": "1d4",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "crab_spider"
+            ],
+            "variant_dice": null
+          },
+          "name": "Spider, Crab",
+          "roll": 16
+        },
+        {
+          "count_dice": "3d6",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "sprite"
+            ],
+            "variant_dice": null
+          },
+          "name": "Sprite",
+          "roll": 17
+        },
+        {
+          "count_dice": "1d10",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "stirge"
+            ],
+            "variant_dice": null
+          },
+          "name": "Stirge",
+          "roll": 18
+        },
+        {
+          "count_dice": "1d8",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "trader"
+            ],
+            "variant_dice": null
+          },
+          "name": "Trader",
+          "roll": 19
+        },
+        {
+          "count_dice": "2d6",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "normal_wolf"
+            ],
+            "variant_dice": null
+          },
+          "name": "Wolf",
+          "roll": 20
+        }
+      ]
+    },
+    {
+      "id": "level_2",
+      "label": "Level 2",
+      "max_level": 2,
+      "min_level": 2,
+      "overrides_applied": [],
+      "rows": [
+        {
+          "count_dice": "1d8",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "oil_beetle"
+            ],
+            "variant_dice": null
+          },
+          "name": "Beetle, Oil",
+          "roll": 1
+        },
+        {
+          "count_dice": "1d6",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "berserker"
+            ],
+            "variant_dice": null
+          },
+          "name": "Berserker",
+          "roll": 2
+        },
+        {
+          "count_dice": "1d4",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "mountain_lion"
+            ],
+            "variant_dice": null
+          },
+          "name": "Cat, Mountain Lion",
+          "roll": 3
+        },
+        {
+          "count_dice": "1d4",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "elf_monster"
+            ],
+            "variant_dice": null
+          },
+          "name": "Elf",
+          "roll": 4
+        },
+        {
+          "count_dice": "1d6",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "ghoul"
+            ],
+            "variant_dice": null
+          },
+          "name": "Ghoul",
+          "roll": 5
+        },
+        {
+          "count_dice": "1d6",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "gnoll"
+            ],
+            "variant_dice": null
+          },
+          "name": "Gnoll",
+          "roll": 6
+        },
+        {
+          "count_dice": null,
+          "count_fixed": 1,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "grey_ooze"
+            ],
+            "variant_dice": null
+          },
+          "name": "Grey Ooze",
+          "roll": 7
+        },
+        {
+          "count_dice": "1d6",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "hobgoblin"
+            ],
+            "variant_dice": null
+          },
+          "name": "Hobgoblin",
+          "roll": 8
+        },
+        {
+          "count_dice": "1d4",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "draco"
+            ],
+            "variant_dice": null
+          },
+          "name": "Lizard, Draco",
+          "roll": 9
+        },
+        {
+          "count_dice": "2d4",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "lizard_man"
+            ],
+            "variant_dice": null
+          },
+          "name": "Lizard Man",
+          "roll": 10
+        },
+        {
+          "count_dice": "1d10",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "neanderthal_caveman"
+            ],
+            "variant_dice": null
+          },
+          "name": "Neanderthal",
+          "roll": 11
+        },
+        {
+          "count_dice": "2d6",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "noble"
+            ],
+            "variant_dice": null
+          },
+          "name": "Noble",
+          "roll": 12
+        },
+        {
+          "count_dice": "2d4",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "pixie"
+            ],
+            "variant_dice": null
+          },
+          "name": "Pixie",
+          "roll": 13
+        },
+        {
+          "count_dice": "1d6",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "robber_fly"
+            ],
+            "variant_dice": null
+          },
+          "name": "Robber Fly",
+          "roll": 14
+        },
+        {
+          "count_dice": "2d6",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "rock_baboon"
+            ],
+            "variant_dice": null
+          },
+          "name": "Rock Baboon",
+          "roll": 15
+        },
+        {
+          "count_dice": "1d8",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "pit_viper"
+            ],
+            "variant_dice": null
+          },
+          "name": "Snake, Pit Viper",
+          "roll": 16
+        },
+        {
+          "count_dice": "1d3",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "black_widow"
+            ],
+            "variant_dice": null
+          },
+          "name": "Spider, Black Widow",
+          "roll": 17
+        },
+        {
+          "count_dice": "1d8",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "troglodyte"
+            ],
+            "variant_dice": null
+          },
+          "name": "Troglodyte",
+          "roll": 18
+        },
+        {
+          "count_dice": "2d4",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "veteran_1",
+              "veteran_2",
+              "veteran_3"
+            ],
+            "variant_dice": null
+          },
+          "name": "Veteran",
+          "roll": 19
+        },
+        {
+          "count_dice": "2d4",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "zombie"
+            ],
+            "variant_dice": null
+          },
+          "name": "Zombie",
+          "roll": 20
+        }
+      ]
+    },
+    {
+      "id": "level_3",
+      "label": "Level 3",
+      "max_level": 3,
+      "min_level": 3,
+      "overrides_applied": [
+        "rows.1.name"
+      ],
+      "rows": [
+        {
+          "count_dice": "1d6",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "ape_white"
+            ],
+            "variant_dice": null
+          },
+          "name": "Ape, White",
+          "roll": 1
+        },
+        {
+          "count_dice": "1d4+4",
+          "count_fixed": null,
+          "entry": {
+            "kind": "npc_party",
+            "party_kind": "basic"
+          },
+          "name": "Basic Adventurers",
+          "roll": 2
+        },
+        {
+          "count_dice": "1d6",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "tiger_beetle"
+            ],
+            "variant_dice": null
+          },
+          "name": "Beetle, Tiger",
+          "roll": 3
+        },
+        {
+          "count_dice": "2d4",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "bugbear"
+            ],
+            "variant_dice": null
+          },
+          "name": "Bugbear",
+          "roll": 4
+        },
+        {
+          "count_dice": "1d3",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "carcass_crawler"
+            ],
+            "variant_dice": null
+          },
+          "name": "Carcass Crawler",
+          "roll": 5
+        },
+        {
+          "count_dice": "1d6",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "doppelganger"
+            ],
+            "variant_dice": null
+          },
+          "name": "Doppelgänger",
+          "roll": 6
+        },
+        {
+          "count_dice": "2d4",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "driver_ant"
+            ],
+            "variant_dice": null
+          },
+          "name": "Driver Ant",
+          "roll": 7
+        },
+        {
+          "count_dice": "1d6",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "gargoyle"
+            ],
+            "variant_dice": null
+          },
+          "name": "Gargoyle",
+          "roll": 8
+        },
+        {
+          "count_dice": null,
+          "count_fixed": 1,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "gelatinous_cube"
+            ],
+            "variant_dice": null
+          },
+          "name": "Gelatinous Cube",
+          "roll": 9
+        },
+        {
+          "count_dice": "1d6",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "harpy"
+            ],
+            "variant_dice": null
+          },
+          "name": "Harpy",
+          "roll": 10
+        },
+        {
+          "count_dice": "1d6",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "crystal_living_statue"
+            ],
+            "variant_dice": null
+          },
+          "name": "Living Statue, Crystal",
+          "roll": 11
+        },
+        {
+          "count_dice": "1d8",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "wererat"
+            ],
+            "variant_dice": null
+          },
+          "name": "Lycanthrope, Wererat",
+          "roll": 12
+        },
+        {
+          "count_dice": "1d4",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "medium"
+            ],
+            "variant_dice": null
+          },
+          "name": "Medium",
+          "roll": 13
+        },
+        {
+          "count_dice": "1d3",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "medusa"
+            ],
+            "variant_dice": null
+          },
+          "name": "Medusa",
+          "roll": 14
+        },
+        {
+          "count_dice": null,
+          "count_fixed": 1,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "ochre_jelly"
+            ],
+            "variant_dice": null
+          },
+          "name": "Ochre Jelly",
+          "roll": 15
+        },
+        {
+          "count_dice": "1d6",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "ogre"
+            ],
+            "variant_dice": null
+          },
+          "name": "Ogre",
+          "roll": 16
+        },
+        {
+          "count_dice": "1d8",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "shadow"
+            ],
+            "variant_dice": null
+          },
+          "name": "Shadow",
+          "roll": 17
+        },
+        {
+          "count_dice": "1d3",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "tarantella"
+            ],
+            "variant_dice": null
+          },
+          "name": "Spider, Tarantella",
+          "roll": 18
+        },
+        {
+          "count_dice": "1d6",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "thoul"
+            ],
+            "variant_dice": null
+          },
+          "name": "Thoul",
+          "roll": 19
+        },
+        {
+          "count_dice": "1d6",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "wight"
+            ],
+            "variant_dice": null
+          },
+          "name": "Wight",
+          "roll": 20
+        }
+      ]
+    },
+    {
+      "id": "level_4_5",
+      "label": "Level 4–5",
+      "max_level": 5,
+      "min_level": 4,
+      "overrides_applied": [
+        "rows.5.name"
+      ],
+      "rows": [
+        {
+          "count_dice": "1d2",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "cave_bear"
+            ],
+            "variant_dice": null
+          },
+          "name": "Bear, Cave",
+          "roll": 1
+        },
+        {
+          "count_dice": "1d6",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "blink_dog"
+            ],
+            "variant_dice": null
+          },
+          "name": "Blink Dog",
+          "roll": 2
+        },
+        {
+          "count_dice": "1d3",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "caecilia"
+            ],
+            "variant_dice": null
+          },
+          "name": "Caecilia",
+          "roll": 3
+        },
+        {
+          "count_dice": "1d4",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "cockatrice"
+            ],
+            "variant_dice": null
+          },
+          "name": "Cockatrice",
+          "roll": 4
+        },
+        {
+          "count_dice": "1d6",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "doppelganger"
+            ],
+            "variant_dice": null
+          },
+          "name": "Doppelgänger",
+          "roll": 5
+        },
+        {
+          "count_dice": "1d6+3",
+          "count_fixed": null,
+          "entry": {
+            "kind": "npc_party",
+            "party_kind": "expert"
+          },
+          "name": "Expert Adventurers",
+          "roll": 6
+        },
+        {
+          "count_dice": null,
+          "count_fixed": 1,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "grey_ooze"
+            ],
+            "variant_dice": null
+          },
+          "name": "Grey Ooze",
+          "roll": 7
+        },
+        {
+          "count_dice": "2d4",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "hellhound_3",
+              "hellhound_4",
+              "hellhound_5",
+              "hellhound_6",
+              "hellhound_7"
+            ],
+            "variant_dice": null
+          },
+          "name": "Hellhound",
+          "roll": 8
+        },
+        {
+          "count_dice": "1d2",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "tuatara"
+            ],
+            "variant_dice": null
+          },
+          "name": "Lizard, Tuatara",
+          "roll": 9
+        },
+        {
+          "count_dice": "1d4",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "wereboar"
+            ],
+            "variant_dice": null
+          },
+          "name": "Lycanthrope, Wereboar",
+          "roll": 10
+        },
+        {
+          "count_dice": "1d6",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "werewolf"
+            ],
+            "variant_dice": null
+          },
+          "name": "Lycanthrope, Werewolf",
+          "roll": 11
+        },
+        {
+          "count_dice": "1d6",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "minotaur"
+            ],
+            "variant_dice": null
+          },
+          "name": "Minotaur",
+          "roll": 12
+        },
+        {
+          "count_dice": null,
+          "count_fixed": 1,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "ochre_jelly"
+            ],
+            "variant_dice": null
+          },
+          "name": "Ochre Jelly",
+          "roll": 13
+        },
+        {
+          "count_dice": "1d4",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "owl_bear"
+            ],
+            "variant_dice": null
+          },
+          "name": "Owl Bear",
+          "roll": 14
+        },
+        {
+          "count_dice": "1d4",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "rhagodessa"
+            ],
+            "variant_dice": null
+          },
+          "name": "Rhagodessa",
+          "roll": 15
+        },
+        {
+          "count_dice": "1d4",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "rust_monster"
+            ],
+            "variant_dice": null
+          },
+          "name": "Rust Monster",
+          "roll": 16
+        },
+        {
+          "count_dice": "1d4",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "spectre"
+            ],
+            "variant_dice": null
+          },
+          "name": "Spectre",
+          "roll": 17
+        },
+        {
+          "count_dice": "1d8",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "troll"
+            ],
+            "variant_dice": null
+          },
+          "name": "Troll",
+          "roll": 18
+        },
+        {
+          "count_dice": "1d4",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "weasel_giant"
+            ],
+            "variant_dice": null
+          },
+          "name": "Weasel, Giant",
+          "roll": 19
+        },
+        {
+          "count_dice": "1d4",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "wraith"
+            ],
+            "variant_dice": null
+          },
+          "name": "Wraith",
+          "roll": 20
+        }
+      ]
+    },
+    {
+      "id": "level_6_7",
+      "label": "Level 6-7",
+      "max_level": 7,
+      "min_level": 6,
+      "overrides_applied": [
+        "rows.5.name"
+      ],
+      "rows": [
+        {
+          "count_dice": "1d6",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "basilisk"
+            ],
+            "variant_dice": null
+          },
+          "name": "Basilisk",
+          "roll": 1
+        },
+        {
+          "count_dice": "1d2",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "cave_bear"
+            ],
+            "variant_dice": null
+          },
+          "name": "Bear, Cave",
+          "roll": 2
+        },
+        {
+          "count_dice": null,
+          "count_fixed": 1,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "black_pudding"
+            ],
+            "variant_dice": null
+          },
+          "name": "Black Pudding",
+          "roll": 3
+        },
+        {
+          "count_dice": "1d3",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "caecilia"
+            ],
+            "variant_dice": null
+          },
+          "name": "Caecilia",
+          "roll": 4
+        },
+        {
+          "count_dice": "1d4",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "white_dragon"
+            ],
+            "variant_dice": null
+          },
+          "name": "Dragon, White",
+          "roll": 5
+        },
+        {
+          "count_dice": "1d6+3",
+          "count_fixed": null,
+          "entry": {
+            "kind": "npc_party",
+            "party_kind": "expert"
+          },
+          "name": "Expert Adventurers",
+          "roll": 6
+        },
+        {
+          "count_dice": "1d2",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "gorgon"
+            ],
+            "variant_dice": null
+          },
+          "name": "Gorgon",
+          "roll": 7
+        },
+        {
+          "count_dice": "2d4",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "hellhound_3",
+              "hellhound_4",
+              "hellhound_5",
+              "hellhound_6",
+              "hellhound_7"
+            ],
+            "variant_dice": null
+          },
+          "name": "Hellhound",
+          "roll": 8
+        },
+        {
+          "count_dice": null,
+          "count_fixed": 1,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "hydra_5",
+              "hydra_6",
+              "hydra_7",
+              "hydra_8"
+            ],
+            "variant_dice": "1d4+4"
+          },
+          "name": "Hydra 1d4+4HD",
+          "roll": 9
+        },
+        {
+          "count_dice": "1d4",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "weretiger"
+            ],
+            "variant_dice": null
+          },
+          "name": "Lycanthrope, Weretiger",
+          "roll": 10
+        },
+        {
+          "count_dice": "1d6",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "minotaur"
+            ],
+            "variant_dice": null
+          },
+          "name": "Minotaur",
+          "roll": 11
+        },
+        {
+          "count_dice": "1d4",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "mummy"
+            ],
+            "variant_dice": null
+          },
+          "name": "Mummy",
+          "roll": 12
+        },
+        {
+          "count_dice": null,
+          "count_fixed": 1,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "ochre_jelly"
+            ],
+            "variant_dice": null
+          },
+          "name": "Ochre Jelly",
+          "roll": 13
+        },
+        {
+          "count_dice": "1d4",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "owl_bear"
+            ],
+            "variant_dice": null
+          },
+          "name": "Owl Bear",
+          "roll": 14
+        },
+        {
+          "count_dice": "1d4",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "rust_monster"
+            ],
+            "variant_dice": null
+          },
+          "name": "Rust Monster",
+          "roll": 15
+        },
+        {
+          "count_dice": "1d4+1",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "flame_salamander"
+            ],
+            "variant_dice": null
+          },
+          "name": "Salamander, Flame",
+          "roll": 16
+        },
+        {
+          "count_dice": "1d6",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "scorpion_giant"
+            ],
+            "variant_dice": null
+          },
+          "name": "Scorpion, Giant",
+          "roll": 17
+        },
+        {
+          "count_dice": "1d4",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "spectre"
+            ],
+            "variant_dice": null
+          },
+          "name": "Spectre",
+          "roll": 18
+        },
+        {
+          "count_dice": "1d8",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "troll"
+            ],
+            "variant_dice": null
+          },
+          "name": "Troll",
+          "roll": 19
+        },
+        {
+          "count_dice": "1d4",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "warp_beast"
+            ],
+            "variant_dice": null
+          },
+          "name": "Warp Beast",
+          "roll": 20
+        }
+      ]
+    },
+    {
+      "id": "level_8_plus",
+      "label": "Level 8+",
+      "max_level": null,
+      "min_level": 8,
+      "overrides_applied": [
+        "rows.7.name"
+      ],
+      "rows": [
+        {
+          "count_dice": null,
+          "count_fixed": 1,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "black_pudding"
+            ],
+            "variant_dice": null
+          },
+          "name": "Black Pudding",
+          "roll": 1
+        },
+        {
+          "count_dice": "1d2",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "chimera"
+            ],
+            "variant_dice": null
+          },
+          "name": "Chimera",
+          "roll": 2
+        },
+        {
+          "count_dice": "1d4",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "black_dragon"
+            ],
+            "variant_dice": null
+          },
+          "name": "Dragon, Black",
+          "roll": 3
+        },
+        {
+          "count_dice": "1d4",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "blue_dragon"
+            ],
+            "variant_dice": null
+          },
+          "name": "Dragon, Blue",
+          "roll": 4
+        },
+        {
+          "count_dice": "1d4",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "gold_dragon"
+            ],
+            "variant_dice": null
+          },
+          "name": "Dragon, Gold",
+          "roll": 5
+        },
+        {
+          "count_dice": "1d4",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "green_dragon"
+            ],
+            "variant_dice": null
+          },
+          "name": "Dragon, Green",
+          "roll": 6
+        },
+        {
+          "count_dice": "1d4",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "red_dragon"
+            ],
+            "variant_dice": null
+          },
+          "name": "Dragon, Red",
+          "roll": 7
+        },
+        {
+          "count_dice": "1d6+3",
+          "count_fixed": null,
+          "entry": {
+            "kind": "npc_party",
+            "party_kind": "expert"
+          },
+          "name": "Expert Adventurers",
+          "roll": 8
+        },
+        {
+          "count_dice": "1d4",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "hill_giant"
+            ],
+            "variant_dice": null
+          },
+          "name": "Giant, Hill",
+          "roll": 9
+        },
+        {
+          "count_dice": "1d2",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "stone_giant"
+            ],
+            "variant_dice": null
+          },
+          "name": "Giant, Stone",
+          "roll": 10
+        },
+        {
+          "count_dice": null,
+          "count_fixed": 1,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "amber_golem"
+            ],
+            "variant_dice": null
+          },
+          "name": "Golem, Amber",
+          "roll": 11
+        },
+        {
+          "count_dice": null,
+          "count_fixed": 1,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "bone_golem"
+            ],
+            "variant_dice": null
+          },
+          "name": "Golem, Bone",
+          "roll": 12
+        },
+        {
+          "count_dice": null,
+          "count_fixed": 1,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "hydra_9",
+              "hydra_10",
+              "hydra_11",
+              "hydra_12"
+            ],
+            "variant_dice": "1d4+8"
+          },
+          "name": "Hydra 1d4+8HD",
+          "roll": 13
+        },
+        {
+          "count_dice": "1d3",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "devil_swine"
+            ],
+            "variant_dice": null
+          },
+          "name": "Lycanthrope, Devil Swine",
+          "roll": 14
+        },
+        {
+          "count_dice": "1d4",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "werebear"
+            ],
+            "variant_dice": null
+          },
+          "name": "Lycanthrope, Werebear",
+          "roll": 15
+        },
+        {
+          "count_dice": "1d2",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "manticore"
+            ],
+            "variant_dice": null
+          },
+          "name": "Manticore",
+          "roll": 16
+        },
+        {
+          "count_dice": "1d2",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "purple_worm"
+            ],
+            "variant_dice": null
+          },
+          "name": "Purple Worm",
+          "roll": 17
+        },
+        {
+          "count_dice": "1d4+1",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "flame_salamander"
+            ],
+            "variant_dice": null
+          },
+          "name": "Salamander, Flame",
+          "roll": 18
+        },
+        {
+          "count_dice": "1d3",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "frost_salamander"
+            ],
+            "variant_dice": null
+          },
+          "name": "Salamander, Frost",
+          "roll": 19
+        },
+        {
+          "count_dice": "1d4",
+          "count_fixed": null,
+          "entry": {
+            "kind": "monster",
+            "monster_ids": [
+              "vampire_7",
+              "vampire_8",
+              "vampire_9"
+            ],
+            "variant_dice": null
+          },
+          "name": "Vampire",
+          "roll": 20
+        }
+      ]
+    }
+  ]
+}

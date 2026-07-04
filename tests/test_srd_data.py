@@ -16,6 +16,7 @@ DATA_FILES = (
     "abilities.json",
     "classes.json",
     "combat_tables.json",
+    "encounter_tables.json",
     "equipment.json",
     "languages.json",
     "monsters.json",
@@ -165,6 +166,25 @@ class TestEquipmentData:
     def test_stakes_and_mallet_is_one_kit_item(self):
         stakes = load_equipment().get("stakes_and_mallet")
         assert stakes.lot_size == 1
+
+    def test_exploration_gear_params(self):
+        # The hand-curated _GEAR_MECHANICS values, pinned from Adventuring_Gear.md.
+        equipment = load_equipment()
+        assert equipment.get("torch").params == {"burn_turns": 6, "light_radius_feet": 30, "brightness": "flame"}
+        assert equipment.get("lantern").params == {
+            "burn_turns_per_flask": 24,
+            "light_radius_feet": 30,
+            "brightness": "flame",
+        }
+        assert equipment.get("oil_flask").params == {"fuels_lantern": True}
+        assert equipment.get("tinder_box").params == {"light_chance_in_six": 2}
+        assert equipment.get("rations_standard").params == {"ration": True}
+        assert equipment.get("rations_iron").params == {"ration": True}
+        assert equipment.get("rations_standard").lot_size == 7  # the 7-day lot; no duplicate day count in params
+        assert equipment.get("iron_spikes").params == {"wedges_doors": True}
+        assert equipment.get("waterskin").params == {"water_container": True}
+        assert equipment.get("thieves_tools").params == {"required_for": "open_locks"}
+        assert equipment.get("rope").params == {}
 
     def test_treasure_weights(self):
         weights = {row.id: row.weight_coins for row in load_equipment().treasure_weights}

@@ -51,7 +51,9 @@ def apply_overrides(entries: list[dict[str, object]], overrides: list[dict[str, 
     """Merge overrides into parsed entries, recording provenance.
 
     Each override's `set` paths are dotted from the entry root; the touched paths are
-    recorded, sorted, in the entry's `overrides_applied` list.
+    recorded, sorted, in the entry's `overrides_applied` list. A numeric path segment
+    steps into a list (`rows.1.name` is the second row's name — the encounter tables'
+    per-row corrections).
 
     Args:
         entries: The parsed entries (each a dict with an `id`), mutated in place.
@@ -67,13 +69,21 @@ def apply_overrides(entries: list[dict[str, object]], overrides: list[dict[str, 
         if entry is None:
             raise ValueError(f"override targets unknown entry id {override['id']!r}")
         for path, value in override["set"].items():
-            target: dict[str, object] = entry
+            target: dict[str, object] | list[object] = entry
             *parents, leaf = path.split(".")
             for parent in parents:
-                stepped = target.get(parent)
-                if not isinstance(stepped, dict):
+                if isinstance(target, list):
+                    stepped = target[int(parent)] if parent.isdigit() and int(parent) < len(target) else None
+                else:
+                    stepped = target.get(parent)
+                if not isinstance(stepped, dict | list):
                     raise ValueError(f"override path {path!r} does not exist on entry {override['id']!r}")
                 target = stepped
-            target[leaf] = value
+            if isinstance(target, list):
+                if not leaf.isdigit() or int(leaf) >= len(target):
+                    raise ValueError(f"override path {path!r} does not exist on entry {override['id']!r}")
+                target[int(leaf)] = value
+            else:
+                target[leaf] = value
         applied = sorted({*entry.get("overrides_applied", []), *override["set"]})
         entry["overrides_applied"] = applied

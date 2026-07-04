@@ -1,0 +1,231 @@
+"""Property tests: the fuzz contract, spatial invariants, and the leak test."""
+
+import json
+
+from hypothesis import HealthCheck, given, settings
+from hypothesis import strategies as st
+
+from crawl_fixtures import build_adventure, build_party
+from osrlib.core.events import Visibility
+from osrlib.crawl.commands import (
+    ALL_COMMAND_CLASSES,
+    BattleDeclaration,
+    EnterDungeon,
+    GrantItem,
+    LightSource,
+    MoveParty,
+)
+from osrlib.crawl.dungeon import Coins, Direction, PartyLocation
+from osrlib.crawl.session import GameSession
+
+CHARACTER_IDS = ["character-0001", "character-0002", "character-0003", "character-0004", "character-0099"]
+ITEM_IDS = ["torch", "sword", "rations_standard", "waterskin", "iron_spikes", "gemstone_of_wishing"]
+DIRECTIONS = list(Direction)
+
+
+def command_strategy():
+    """Schema-valid commands with plausible-to-nonsense field values."""
+    samples = []
+    for command_class in ALL_COMMAND_CLASSES:
+        name = command_class.__name__
+        if name in ("PlaceParty",):
+            samples.append(
+                st.builds(
+                    command_class,
+                    location=st.sampled_from(
+                        [
+                            PartyLocation(kind="town"),
+                            PartyLocation(
+                                kind="dungeon", dungeon_id="delve", level_number=1, position=(0, 0), facing="east"
+                            ),
+                            PartyLocation(
+                                kind="dungeon", dungeon_id="delve", level_number=2, position=(2, 0), facing="south"
+                            ),
+                        ]
+                    ),
+                )
+            )
+            continue
+        if name == "SpawnMonsters":
+            samples.append(
+                st.builds(
+                    command_class,
+                    template_id=st.sampled_from(["goblin", "skeleton", "gazebo"]),
+                    count_fixed=st.integers(min_value=1, max_value=3),
+                    distance_feet=st.integers(min_value=0, max_value=90),
+                )
+            )
+            continue
+        if name == "ResolveBattleRound":
+            declaration = st.builds(
+                BattleDeclaration,
+                character_id=st.sampled_from(CHARACTER_IDS),
+                action=st.sampled_from(["attack", "cast", "turn_undead", "move", "use_item", "hold"]),
+                target_group_id=st.sampled_from([None, "group-0001", "group-9999"]),
+                weapon_id=st.sampled_from([None, "sword", "crossbow"]),
+                spell_id=st.sampled_from([None, "sleep", "fire_ball"]),
+                spell_mode=st.sampled_from([None, "hd_budget", "damage"]),
+                move=st.sampled_from([None, "close", "withdraw", "retreat"]),
+                item_id=st.sampled_from([None, "holy_water"]),
+            )
+            samples.append(st.builds(command_class, declarations=st.tuples(declaration)))
+            continue
+        fields = {}
+        for field_name, field in command_class.model_fields.items():
+            if field_name == "command_type":
+                continue
+            annotation = str(field.annotation)
+            if field_name in ("character_id",):
+                fields[field_name] = st.sampled_from(CHARACTER_IDS)
+            elif field_name in ("item_id",):
+                fields[field_name] = st.sampled_from(ITEM_IDS)
+            elif field_name in ("item_ids",):
+                fields[field_name] = st.lists(st.sampled_from(ITEM_IDS), min_size=1, max_size=2).map(tuple)
+            elif field_name in ("order",):
+                fields[field_name] = st.permutations(CHARACTER_IDS[:4]).map(tuple)
+            elif field_name in ("direction", "facing"):
+                fields[field_name] = st.sampled_from(DIRECTIONS)
+            elif field_name == "coins":
+                fields[field_name] = st.builds(Coins, gp=st.integers(min_value=0, max_value=50))
+            elif field_name in ("feature_id", "dungeon_id", "spell_id", "template_id", "key"):
+                fields[field_name] = st.sampled_from(["delve", "chest", "pile", "sleep", "goblin", "lever"])
+            elif field_name == "kind" and "secret_doors" in annotation:
+                fields[field_name] = st.sampled_from(["secret_doors", "room_traps", "construction"])
+            elif field_name == "kind":
+                fields[field_name] = st.sampled_from(["turn", "night", "day"])
+            elif field_name == "drop":
+                fields[field_name] = st.sampled_from(["none", "treasure", "food"])
+            elif field_name == "mode":
+                fields[field_name] = st.sampled_from(["hd_budget", "damage", "illuminate"])
+            elif field_name == "value":
+                fields[field_name] = st.sampled_from([True, 7, "open"])
+            elif field_name == "amount" or field_name == "n":
+                fields[field_name] = st.integers(min_value=0, max_value=100)
+            elif field_name == "quantity":
+                fields[field_name] = st.integers(min_value=1, max_value=6)
+            elif field_name == "unit":
+                fields[field_name] = st.sampled_from(["round", "turn"])
+            elif field_name in ("x", "y", "level_number"):
+                fields[field_name] = st.integers(min_value=0 if field_name != "level_number" else 1, max_value=4)
+            elif field_name in ("open", "wedged", "discovered", "unlocked"):
+                fields[field_name] = st.sampled_from([None, True, False])
+            elif field_name == "reversed":
+                fields[field_name] = st.booleans()
+            elif field_name in ("targets", "selections"):
+                fields[field_name] = st.just(())
+            elif field_name == "count_dice":
+                fields[field_name] = st.just(None)
+            elif field_name == "count_fixed":
+                fields[field_name] = st.just(1)
+            elif field_name == "distance_feet":
+                fields[field_name] = st.integers(min_value=0, max_value=60)
+            else:
+                fields[field_name] = st.just(field.default) if not field.is_required() else st.none()
+        samples.append(st.builds(command_class, **fields))
+    return st.one_of(samples)
+
+
+@settings(max_examples=40, deadline=None, suppress_health_check=[HealthCheck.too_slow])
+@given(
+    seed=st.integers(min_value=0, max_value=2**32),
+    commands=st.lists(command_strategy(), min_size=1, max_size=25),
+)
+def test_fuzzed_command_sequences_never_raise_and_hold_the_invariants(seed, commands):
+    """The spec's fuzz contract: schema-valid commands reject, never throw."""
+    session = GameSession.new(build_party(), build_adventure(), seed=seed)
+    last_rounds = session.clock.rounds
+    for command in commands:
+        session.execute(command)  # must never raise
+        # The clock never decreases.
+        assert session.clock.rounds >= last_rounds
+        last_rounds = session.clock.rounds
+        # The party never occupies a wall or an out-of-bounds cell.
+        location = session.dungeon_state.location
+        if location.kind == "dungeon":
+            level = session.adventure.dungeon(location.dungeon_id).level(location.level_number)
+            assert level.in_bounds(location.position)
+
+
+@settings(max_examples=10, deadline=None, suppress_health_check=[HealthCheck.too_slow])
+@given(
+    seed=st.integers(min_value=0, max_value=2**32),
+    commands=st.lists(command_strategy(), min_size=1, max_size=12),
+)
+def test_randomly_driven_sessions_save_and_load_round_trip(seed, commands):
+    from osrlib.persistence import load_game, save_game, session_state
+
+    session = GameSession.new(build_party(), build_adventure(), seed=seed)
+    for command in commands:
+        session.execute(command)
+    restored = load_game(json.loads(json.dumps(save_game(session))))
+    assert session_state(restored) == session_state(session)
+
+
+@settings(max_examples=10, deadline=None, suppress_health_check=[HealthCheck.too_slow])
+@given(
+    seed=st.integers(min_value=10**12, max_value=2**64),
+    commands=st.lists(command_strategy(), min_size=1, max_size=15),
+)
+def test_the_player_view_never_leaks(seed, commands):
+    """The leak property test — fuzzed sessions, not one fixture (pinned)."""
+    session = GameSession.new(build_party(), build_adventure(), seed=seed)
+    session.execute(GrantItem(character_id="character-0001", item_id="torch", quantity=6))
+    session.execute(GrantItem(character_id="character-0001", item_id="tinder_box"))
+    for command in commands:
+        session.execute(command)
+    view = session.view(Visibility.PLAYER)
+    blob = view.model_dump_json()
+    # The seed lives only in the save (13+ digit seeds can't collide with content).
+    assert str(seed) not in blob
+    # Session flags are referee-only: the view carries no flag store at all.
+    parsed_view = json.loads(blob)
+    assert "flags" not in parsed_view
+    # Unexplored geometry, trap specs, and secret doors stay hidden.
+    explored = {
+        (dungeon_level, tuple(cell))
+        for dungeon_level, cells in session.dungeon_state.explored.items()
+        for cell in cells
+    }
+    parsed = json.loads(blob)
+    for level_view in parsed["explored"]:
+        key = f"{level_view['dungeon_id']}:{level_view['level_number']}"
+        for cell in level_view["cells"]:
+            assert (key, tuple(cell)) in explored
+    assert "TrapSpec" not in blob and "trap_ref" not in blob
+    # Monster internals: no HP fields beyond the party's own.
+    if parsed.get("encounter"):
+        for group in parsed["encounter"]["groups"]:
+            assert set(group) == {"label", "count", "distance_feet", "visible_conditions"}
+    # Referee-visibility outcomes never appear (views carry no events at all).
+    assert "exploration.detection.rolled" not in blob
+
+
+def test_odometer_never_drifts_from_the_closed_form():
+    """Ping-pong movement: turns and odometer match the closed-form arithmetic."""
+    session = GameSession.new(build_party(), build_adventure(wandering_chance=0), seed=3)
+    session.execute(GrantItem(character_id="character-0001", item_id="torch", quantity=6))
+    session.execute(GrantItem(character_id="character-0001", item_id="tinder_box"))
+    session.execute(EnterDungeon(dungeon_id="delve"))
+    for _ in range(20):
+        result = session.execute(LightSource(character_id="character-0001", item_id="torch"))
+        if any(event.code == "exploration.light.lit" for event in result.events):
+            break
+    start_turns = session.clock.turns
+    threshold = 3 * 120
+    accrued = 0
+    turns = 0
+    explored: set = {(0, 0)}
+    position = (0, 0)
+    for step in range(150):
+        direction = Direction.EAST if position == (0, 0) else Direction.WEST
+        target = (1, 0) if direction is Direction.EAST else (0, 0)
+        result = session.execute(MoveParty(direction=direction))
+        assert result.accepted
+        accrued += 10 if target in explored else 30
+        explored.add(target)
+        if accrued >= threshold:
+            accrued = 0
+            turns += 1
+        position = target
+        assert session.odometer_thirds == accrued, f"drift at step {step}"
+    assert session.clock.turns - start_turns == turns

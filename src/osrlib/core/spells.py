@@ -1281,18 +1281,33 @@ def _condition_definition(
     if params.get("expiry"):
         fields["expiry"] = str(params["expiry"])
     if "escape_dice" in params:
-        # *Web*'s escape countdown by STR, pinned: normal strength rolls the escape
-        # dice; the augmented and giant tiers are caller/context assertions.
-        tier = context.strength_tiers.get(_target_ref(target))
-        if tier == "augmented":
-            fields.update(duration_unit=TimeUnit.ROUND, duration_amount=int(params["augmented_strength_rounds"]))
-            fields.pop("duration_dice", None)
-        elif tier == "giant":
-            fields.update(duration_unit=TimeUnit.ROUND, duration_amount=int(params["giant_strength_rounds"]))
-            fields.pop("duration_dice", None)
+        if isinstance(target, str):
+            # A location-bound web (cast at a cell, Phase 4): the cell keeps the
+            # spell's own duration — the web sits there — and the escape params
+            # ride the effect for the crawl's enter hook, which attaches the
+            # per-creature entangled countdown on entry (pinned).
+            fields["params"] = {
+                **fields["params"],
+                "escape_dice": str(params["escape_dice"]),
+                "escape_unit": str(params["escape_unit"]),
+            }
+            fields["condition"] = None
         else:
-            fields.update(duration_unit=TimeUnit(str(params["escape_unit"])), duration_dice=str(params["escape_dice"]))
-            fields.pop("duration_amount", None)
+            # *Web*'s escape countdown by STR, pinned: normal strength rolls the
+            # escape dice; the augmented and giant tiers are caller/context
+            # assertions.
+            tier = context.strength_tiers.get(_target_ref(target))
+            if tier == "augmented":
+                fields.update(duration_unit=TimeUnit.ROUND, duration_amount=int(params["augmented_strength_rounds"]))
+                fields.pop("duration_dice", None)
+            elif tier == "giant":
+                fields.update(duration_unit=TimeUnit.ROUND, duration_amount=int(params["giant_strength_rounds"]))
+                fields.pop("duration_dice", None)
+            else:
+                fields.update(
+                    duration_unit=TimeUnit(str(params["escape_unit"])), duration_dice=str(params["escape_dice"])
+                )
+                fields.pop("duration_amount", None)
     return EffectDefinition(**fields)
 
 

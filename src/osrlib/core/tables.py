@@ -1,13 +1,21 @@
-"""The combat tables as data: attack matrix, monster save bands, XP awards, turning.
+"""The rules tables as data: attack matrix, saves, XP, turning, reaction, encounters.
 
-The tables compile from `Combat_Tables.md` and `Awarding_XP.md` into
-`combat_tables.json` and load as frozen models via
-[`load_combat_tables`][osrlib.data.load_combat_tables]. The shipped matrix is
-asserted verbatim against the SRD, and its structure is locked as a property: every
+The combat tables compile from `Combat_Tables.md` and `Awarding_XP.md` (with the
+reaction table from `Encounters.md`) into `combat_tables.json` and load as frozen
+models via [`load_combat_tables`][osrlib.data.load_combat_tables]. The shipped matrix
+is asserted verbatim against the SRD, and its structure is locked as a property: every
 printed cell equals `clamp(THAC0 − AC, 2, 20)`. Pinned: AC values outside the printed
 −3..9 columns extend by the same formula — the printed bounds are page layout, not a
 rules cliff. The clamping is exactly what distinguishes matrix mode from the
 `thac0_arithmetic` ruleset flag once modifiers push totals past the plateaus.
+
+The dungeon encounter tables compile from `Dungeon_Encounters.md` into
+`encounter_tables.json` and load via
+[`load_encounter_tables`][osrlib.data.load_encounter_tables]. Their models live here —
+pinned for layering: `osrlib/data/` loaders import their model homes and `core`
+modules import the loaders, so a `crawl/` model home would give the loader a
+core → data → crawl transitive import. The crawl layer consumes the models; it
+doesn't define them.
 
 Monster stat blocks carry explicit THAC0 and save values (already reflecting the
 "bonus hit points attack as 1 HD higher" rule), so the HD-keyed lookups here serve
@@ -15,9 +23,13 @@ validation, custom monsters, and the save-as resolutions from packed-variant
 expansion.
 """
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from enum import StrEnum
+from typing import Annotated, Literal
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from osrlib.core.classes import SavingThrows
+from osrlib.core.dice import parse
 from osrlib.core.monsters import MonsterHitDice
 
 __all__ = [
@@ -25,13 +37,23 @@ __all__ = [
     "AttackMatrix",
     "AttackMatrixRow",
     "CombatTables",
+    "EncounterEntry",
+    "EncounterTable",
+    "EncounterTableRow",
+    "EncounterTables",
+    "MonsterEncounterEntry",
     "MonsterSaveBand",
+    "NpcPartyEncounterEntry",
+    "ReactionBand",
+    "ReactionResult",
+    "ReactionTable",
     "TurningResult",
     "TurningRow",
     "TurningTable",
     "XpAwardRow",
     "monster_save_band_label",
     "monster_xp",
+    "reaction_result",
     "thac0_for_hd",
     "to_hit_ac",
     "turning_column",
@@ -212,6 +234,237 @@ class XpAwardRow(BaseModel):
     bonus: int = Field(ge=0)
 
 
+class ReactionResult(StrEnum):
+    """The five monster reaction bands, from `Encounters.md`.
+
+    The wire values are lowercase — they serialize into events and saves; changing
+    them is a `schema_version` bump.
+    """
+
+    ATTACKS = "attacks"
+    HOSTILE = "hostile"
+    UNCERTAIN = "uncertain"
+    INDIFFERENT = "indifferent"
+    FRIENDLY = "friendly"
+
+
+class ReactionBand(BaseModel):
+    """One reaction-table band: the printed 2d6 range and its result.
+
+    `min_total` is `None` for the open "2 or less" band and `max_total` is `None`
+    for "12 or more" — the table's own clamping semantics: totals outside the
+    printed 2..12 span land in the outer bands.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    label: str
+    text: str
+    min_total: int | None = None
+    max_total: int | None = None
+    result: ReactionResult
+
+    @model_validator(mode="after")
+    def _band_must_be_bounded_or_open(self) -> ReactionBand:
+        if self.min_total is None and self.max_total is None:
+            raise ValueError("a reaction band needs at least one bound")
+        if self.min_total is not None and self.max_total is not None and self.min_total > self.max_total:
+            raise ValueError(f"reaction band minimum {self.min_total} exceeds maximum {self.max_total}")
+        return self
+
+
+class ReactionTable(BaseModel):
+    """The monster reaction table: five contiguous 2d6 bands."""
+
+    model_config = ConfigDict(frozen=True)
+
+    bands: tuple[ReactionBand, ...]
+
+    @model_validator(mode="after")
+    def _bands_must_be_contiguous(self) -> ReactionTable:
+        if len(self.bands) != 5:
+            raise ValueError(f"expected 5 reaction bands, got {len(self.bands)}")
+        if self.bands[0].min_total is not None or self.bands[-1].max_total is not None:
+            raise ValueError("the outer reaction bands must be open (2 or less / 12 or more)")
+        for previous, band in zip(self.bands, self.bands[1:], strict=False):
+            if previous.max_total is None or band.min_total != previous.max_total + 1:
+                raise ValueError("reaction bands must be contiguous in 2d6 order")
+        return self
+
+
+def reaction_result(table: ReactionTable, total: int) -> ReactionResult:
+    """Resolve a 2d6 reaction total against the table.
+
+    Totals below 2 and above 12 clamp into the outer bands — the table's own
+    "2 or less" / "12 or more" semantics, so a CHA-modified total of 1 or 14 is
+    never out of range.
+
+    Args:
+        table: The loaded reaction table.
+        total: The modified 2d6 total.
+
+    Returns:
+        The reaction result.
+    """
+    for band in table.bands:
+        if band.min_total is not None and total < band.min_total:
+            continue
+        if band.max_total is not None and total > band.max_total:
+            continue
+        return band.result
+    raise ValueError(f"no reaction band covers total {total}")  # unreachable on a valid table
+
+
+class MonsterEncounterEntry(BaseModel):
+    """An encounter-table cell resolving to monster template ids.
+
+    A single id is the common case. Multiple ids are a packed-variant pool
+    (`Veteran` over `veteran_1..3`): at spawn time each individual picks uniformly
+    from the pool on the wandering stream — pinned (RAW leaves the pick to the
+    referee; per-individual uniform is deterministic and matches the pages' printed
+    spreads). `variant_dice` marks the hydra form: the printed HD dice roll once on
+    the wandering stream and the total selects the template — `monster_ids` are
+    ordered so the dice minimum maps to index 0.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    kind: Literal["monster"] = "monster"
+    monster_ids: tuple[str, ...] = Field(min_length=1)
+    variant_dice: str | None = None
+
+    @model_validator(mode="after")
+    def _variant_dice_span_matches_pool(self) -> MonsterEncounterEntry:
+        if self.variant_dice is None:
+            return self
+        dice = parse(self.variant_dice)
+        if dice.multiplier != 1:
+            raise ValueError("variant dice may not carry a multiplier")
+        span = dice.count * (dice.sides - 1) + 1
+        if span != len(self.monster_ids):
+            raise ValueError(f"variant dice {self.variant_dice!r} spans {span} values for {len(self.monster_ids)} ids")
+        return self
+
+
+class NpcPartyEncounterEntry(BaseModel):
+    """An NPC adventuring party cell (Basic/Expert Adventurers).
+
+    Compiled faithfully as structured entries; the parties themselves are built in
+    Phase 5 (they need treasure types and magic items) — until then the wandering
+    procedure re-rolls these rows, draws consumed.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    kind: Literal["npc_party"] = "npc_party"
+    party_kind: Literal["basic", "expert"]
+
+
+EncounterEntry = Annotated[
+    MonsterEncounterEntry | NpcPartyEncounterEntry,
+    Field(discriminator="kind"),
+]
+"""Any encounter-table entry, discriminated by `kind`."""
+
+
+class EncounterTableRow(BaseModel):
+    """One d20 row of a dungeon encounter table.
+
+    `name` is the printed cell name (post-override normalization). The count is the
+    table's own parenthesized value and overrides the monster description's
+    number-appearing — pinned per the SRD's note and the spec: `count_dice` carries
+    dice forms and `count_fixed` the printed plain `1`, exactly one of the two.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    roll: int = Field(ge=1, le=20)
+    name: str = Field(min_length=1)
+    entry: EncounterEntry
+    count_dice: str | None = None
+    count_fixed: int | None = None
+
+    @field_validator("count_dice")
+    @classmethod
+    def _dice_must_parse(cls, value: str | None) -> str | None:
+        if value is not None:
+            parse(value)
+        return value
+
+    @model_validator(mode="after")
+    def _dice_or_fixed(self) -> EncounterTableRow:
+        if (self.count_dice is None) == (self.count_fixed is None):
+            raise ValueError("exactly one of count_dice or count_fixed is required")
+        return self
+
+
+class EncounterTable(BaseModel):
+    """One dungeon level column: twenty d20 rows.
+
+    `min_level`/`max_level` bound the printed band (`max_level=None` is the open
+    `8+` column).
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    id: str
+    label: str
+    min_level: int = Field(ge=1)
+    max_level: int | None = None
+    rows: tuple[EncounterTableRow, ...]
+    overrides_applied: tuple[str, ...] = ()
+
+    @model_validator(mode="after")
+    def _rows_cover_the_d20(self) -> EncounterTable:
+        if [row.roll for row in self.rows] != list(range(1, 21)):
+            raise ValueError(f"table {self.id!r} rows must cover d20 rolls 1-20 in order")
+        if self.max_level is not None and self.max_level < self.min_level:
+            raise ValueError(f"table {self.id!r} level band is inverted")
+        return self
+
+
+class EncounterTables(BaseModel):
+    """The six dungeon encounter tables, in level order."""
+
+    model_config = ConfigDict(frozen=True)
+
+    tables: tuple[EncounterTable, ...]
+
+    @model_validator(mode="after")
+    def _bands_must_be_contiguous_from_one(self) -> EncounterTables:
+        expected_min = 1
+        for table in self.tables[:-1]:
+            if table.min_level != expected_min or table.max_level is None:
+                raise ValueError("encounter table level bands must be contiguous from 1")
+            expected_min = table.max_level + 1
+        last = self.tables[-1]
+        if last.min_level != expected_min or last.max_level is not None:
+            raise ValueError("the last encounter table band must be open-ended")
+        return self
+
+    def for_level(self, level: int) -> EncounterTable:
+        """Return the table for a dungeon level, clamped into the printed bands.
+
+        Pinned: a dungeon level's table is its level number clamped into the printed
+        bands — 1, 2, 3, 4–5, 6–7, and everything 8 or deeper on `8+`.
+
+        Args:
+            level: The dungeon level number, 1-based.
+
+        Returns:
+            The table for that level.
+
+        Raises:
+            ValueError: If `level` is below 1.
+        """
+        if level < 1:
+            raise ValueError(f"dungeon levels are 1-based, got {level}")
+        for table in self.tables:
+            if table.max_level is None or level <= table.max_level:
+                return table
+        raise ValueError(f"no encounter table covers level {level}")  # unreachable on a valid catalog
+
+
 class CombatTables(BaseModel):
     """The loaded combat tables."""
 
@@ -221,6 +474,7 @@ class CombatTables(BaseModel):
     monster_saves: tuple[MonsterSaveBand, ...]
     xp_awards: tuple[XpAwardRow, ...]
     turning: TurningTable
+    reaction: ReactionTable
 
     def save_band(self, label: str) -> MonsterSaveBand:
         """Return the monster save band with `label`.

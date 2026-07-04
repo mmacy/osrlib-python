@@ -11,6 +11,7 @@ exception types it needs.
 __all__ = [
     "ContentValidationError",
     "OsrlibError",
+    "ReplayVersionError",
     "SaveVersionError",
 ]
 
@@ -35,4 +36,14 @@ class SaveVersionError(OsrlibError):
     Loading a document written by a newer library fails fast with this error rather
     than silently misreading it; see
     [`check_document`][osrlib.versioning.check_document].
+    """
+
+
+class ReplayVersionError(OsrlibError):
+    """Raised when a command log is replayed under a different engine version.
+
+    Any rules change may legitimately alter outcomes, so replaying under a
+    different engine version is an explicit, detectable error rather than silent
+    divergence — the spec's replay contract. Loading a *save* across engine
+    versions remains legal; replay is the guarantee that breaks.
     """

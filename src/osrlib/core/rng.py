@@ -262,3 +262,24 @@ class RngStreams:
             stream = RngStream.from_seed_material(self._master_seed, key)
             self._streams[key] = stream
         return stream
+
+    def export_states(self) -> dict[str, RngStreamState]:
+        """Export every touched stream's exact position, keyed by stream name.
+
+        Untouched streams need no snapshot — they re-derive from the master seed
+        on first use. Keys are sorted so serialization is deterministic.
+
+        Returns:
+            The stream snapshots for saves.
+        """
+        return {key: self._streams[key].export_state() for key in sorted(self._streams)}
+
+    def restore_states(self, states: dict[str, RngStreamState]) -> None:
+        """Restore previously exported stream positions.
+
+        Args:
+            states: Snapshots from
+                [`export_states`][osrlib.core.rng.RngStreams.export_states].
+        """
+        for key, snapshot in states.items():
+            self._streams[key] = RngStream.restore(snapshot)

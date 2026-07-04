@@ -30,7 +30,7 @@ Out of scope (deferred to the phase that consumes them):
 - Encounter sizing from number-appearing values and the encounter tables (4) — NA dice ship as data now
 - Sessions, commands, views, persistence (4) — Phase 2 kernel functions return result models carrying their events; entity IDs come from a lightweight allocator the Phase 4 session adopts
 - Subduing, bombing, unstable surfaces, underwater combat, and cover (out of 1.0) — none appear in the spec's rules scope; cover-like situations are served by the caller-supplied situational attack modifier, which is the RAW shape (referee applies −1 to −4)
-- XP award division and timing (5); statistical chi-square tests (5, they target treasure/reaction/wandering generators)
+- XP award division and timing (5); statistical chi-square tests (5, they target treasure/reaction/wandering generators) — *amended in Phase 4: the reaction and wandering tests landed with their generators; only the treasure third remains for Phase 5*
 
 ## Work items
 

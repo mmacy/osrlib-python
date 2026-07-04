@@ -1,11 +1,12 @@
 """Parser for the combat tables → `combat_tables.json`.
 
-Four tables: the attack matrix (16 THAC0 rows from `20 [-1]`/NH to `5 [+14]`, AC
+Five tables: the attack matrix (16 THAC0 rows from `20 [-1]`/NH to `5 [+14]`, AC
 columns −3..9, with the monster-HD row labels), the monster saving-throw bands (NH,
 1–3, ... 22 or more), the XP-awards-for-defeated-monsters table including the
-separate `N+` rows for bonus hit-point modifiers, and the turning-undead table from
-`Cleric.md` (11 cleric-level rows × 8 monster-HD columns, cells `—`/number/`T`/`D`).
-The matrix's AC-0 column is printed bold — data, stripped here.
+separate `N+` rows for bonus hit-point modifiers, the turning-undead table from
+`Cleric.md` (11 cleric-level rows × 8 monster-HD columns, cells `—`/number/`T`/`D`),
+and the monster reaction table from `Encounters.md` (five 2d6 bands with open outer
+bands). The matrix's AC-0 column is printed bold — data, stripped here.
 """
 
 import re
@@ -13,7 +14,16 @@ from pathlib import Path
 
 from .pipetable import parse_int, tables_after_heading
 
-SOURCE_PAGES = ("Combat_Tables.md", "Awarding_XP.md", "Cleric.md")
+SOURCE_PAGES = ("Combat_Tables.md", "Awarding_XP.md", "Cleric.md", "Encounters.md")
+
+# The printed result text → the ReactionResult wire value.
+_REACTION_RESULTS = {
+    "Attacks": "attacks",
+    "Hostile, may attack": "hostile",
+    "Uncertain, confused": "uncertain",
+    "Indifferent, may negotiate": "indifferent",
+    "Eager, friendly": "friendly",
+}
 
 _TURNING_COLUMNS = ["1", "2", "2*", "3", "4", "5", "6", "7-9"]
 _TURNING_LEVELS = [*(str(level) for level in range(1, 11)), "11+"]
@@ -34,11 +44,13 @@ def compile_combat_tables(srd_dir: Path) -> dict[str, object]:
     combat_page = (srd_dir / "Combat_Tables.md").read_text(encoding="utf-8")
     xp_page = (srd_dir / "Awarding_XP.md").read_text(encoding="utf-8")
     cleric_page = (srd_dir / "Cleric.md").read_text(encoding="utf-8")
+    encounters_page = (srd_dir / "Encounters.md").read_text(encoding="utf-8")
     return {
         "attack_matrix": {"rows": _parse_matrix(combat_page)},
         "monster_saves": _parse_save_bands(combat_page),
         "xp_awards": _parse_xp_awards(xp_page),
         "turning": {"rows": _parse_turning(cleric_page)},
+        "reaction": {"bands": _parse_reaction(encounters_page)},
     }
 
 
@@ -114,6 +126,28 @@ def _parse_turning(page: str) -> list[dict[str, object]]:
     if [row["label"] for row in rows] != _TURNING_LEVELS:
         raise ValueError(f"unexpected turning row labels: {[row['label'] for row in rows]}")
     return rows
+
+
+def _parse_reaction(page: str) -> list[dict[str, object]]:
+    table = tables_after_heading(page, "Monster Actions")[0]
+    if table[0] != ["2d6", "Result"]:
+        raise ValueError(f"unexpected reaction table header: {table[0]}")
+    bands = []
+    for label, text in table[1:]:
+        if text not in _REACTION_RESULTS:
+            raise ValueError(f"unknown reaction result {text!r}")
+        band: dict[str, object] = {"label": label, "text": text, "result": _REACTION_RESULTS[text]}
+        if label.endswith("or less"):
+            band["max_total"] = int(label.split()[0])
+        elif label.endswith("or more"):
+            band["min_total"] = int(label.split()[0])
+        else:
+            low, high = label.split("–")
+            band["min_total"], band["max_total"] = int(low), int(high)
+        bands.append(band)
+    if len(bands) != 5:
+        raise ValueError(f"expected 5 reaction bands, found {len(bands)}")
+    return bands
 
 
 def _parse_xp_awards(page: str) -> list[dict[str, object]]:

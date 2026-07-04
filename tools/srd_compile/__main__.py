@@ -24,10 +24,10 @@ from osrlib.core.classes import ClassCatalog
 from osrlib.core.items import EquipmentCatalog
 from osrlib.core.monsters import MonsterCatalog
 from osrlib.core.spells import SpellCatalog
-from osrlib.core.tables import CombatTables
+from osrlib.core.tables import CombatTables, EncounterTables
 from osrlib.data import LanguageCatalog
 
-from . import abilities, classes, combat_tables, equipment, languages, monsters, spells
+from . import abilities, classes, combat_tables, encounter_tables, equipment, languages, monsters, spells
 from .overrides import apply_overrides, load_overrides
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -93,6 +93,16 @@ def main() -> None:
     spells_data = spells.compile_spells(srd_dir, monsters_data["monsters"])
     apply_overrides(spells_data["spells"], load_overrides("spells.json"))
     _write(out_dir, "spells.json", SpellCatalog.model_validate(spells_data), spells.source_pages(srd_dir))
+
+    # Encounter-table overrides apply inside the compiler (they normalize the printed
+    # names entry resolution keys on), so no apply_overrides call here.
+    encounter_tables_data = encounter_tables.compile_encounter_tables(srd_dir, monsters_data["monsters"])
+    _write(
+        out_dir,
+        "encounter_tables.json",
+        EncounterTables.model_validate(encounter_tables_data),
+        encounter_tables.SOURCE_PAGES,
+    )
 
 
 if __name__ == "__main__":

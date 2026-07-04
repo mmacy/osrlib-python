@@ -1,4 +1,9 @@
-"""Tests for the kernel events: the discriminator, round-trips, codes, and messages."""
+"""Tests for the event registry: discriminators, round-trips, codes, and messages.
+
+Covers the kernel classes and, through `ALL_EVENT_CLASSES`, the crawl classes —
+the exhaustive template and round-trip tests extend automatically as the registry
+grows.
+"""
 
 import json
 
@@ -18,6 +23,7 @@ from osrlib.core.events import (
     Visibility,
     parse_event,
 )
+from osrlib.crawl.events import ALL_EVENT_CLASSES, parse_any_event
 from osrlib.errors import ContentValidationError
 from osrlib.messages import _TEMPLATES, format_message
 
@@ -44,6 +50,7 @@ def sample_event(event_class, code):
         "DamageAbsorbedEvent": dict(target_id="monster-0001", attacker_id="pc-1", keys=("silver",)),
         "SavingThrowRolledEvent": dict(target_id="pc-1", category="death", roll=13, required=12),
         "MoraleCheckedEvent": dict(subject="trolls", score=10, roll=8),
+        "ReactionRolledEvent": dict(roll=7, modifier=1, total=8, result="uncertain"),
         "ConditionGainedEvent": dict(target_id="pc-1", condition="paralysed", effect_id="effect-0001"),
         "ConditionRemovedEvent": dict(target_id="pc-1", condition="paralysed", effect_id="effect-0001"),
         "EffectAttachedEvent": dict(effect_id="effect-0001", kind="paralysis", target_ref="pc-1", expires_round=8),
@@ -75,31 +82,79 @@ def sample_event(event_class, code):
         "MagicDispelledEvent": dict(
             caster_id="pc-1", released_effect_ids=("effect-0001",), surviving_effect_ids=("effect-0002",)
         ),
+        "PartyMovedEvent": dict(x=3, y=4, facing="north"),
+        "LocationEnteredEvent": dict(location_kind="area", location_id="room-3", level_number=1),
+        "DoorEvent": dict(x=3, y=4, direction="north", character_id="pc-1"),
+        "ListenedEvent": dict(character_id="pc-1", direction="north"),
+        "DetectionRolledEvent": dict(character_id="pc-1", kind="secret_doors", chance=2, roll=3, passed=False),
+        "SearchCompletedEvent": dict(character_id="pc-1", kind="secret_doors", found=("secret door north",)),
+        "TrapEvent": dict(trap_ref="dungeon:1:room-3", character_id="pc-1"),
+        "ItemAcquiredEvent": dict(character_id="pc-1", item_ids=("torch",), coins_gp_value=100),
+        "ItemsDroppedEvent": dict(character_id="pc-1", item_ids=("rations_standard",), coins_gp_value=200),
+        "LightEvent": dict(character_id="pc-1", source="torch"),
+        "RestedEvent": dict(kind="night"),
+        "FatigueEvent": dict(),
+        "ProvisionsEvent": dict(character_id="pc-1", kind="food"),
+        "WanderingCheckEvent": dict(chance=2, roll=5, encounter=False),
+        "EncounterStartedEvent": dict(monster_name="Goblin", count=4, distance_feet=60),
+        "SurpriseRolledEvent": dict(side="party", threshold=2, roll=1, surprised=True),
+        "StanceChangedEvent": dict(stance="hostile"),
+        "EvasionEvent": dict(),
+        "PursuitEvent": dict(round=3, gap_feet=40),
+        "ExhaustionEvent": dict(),
+        "EncounterEndedEvent": dict(outcome="evaded"),
+        "BattleStartedEvent": dict(),
+        "BattleRoundEvent": dict(round=2),
+        "SpellDeclaredEvent": dict(caster_id="pc-1", spell_id="sleep"),
+        "GroupMovedEvent": dict(group_id="group-1", distance_feet=30),
+        "MonsterFledEvent": dict(group_id="group-1"),
+        "MonsterDefeatedEvent": dict(monster_id="monster-0001", template_id="goblin", outcome="slain", xp=5),
+        "BattleEndedEvent": dict(),
+        "FlagSetEvent": dict(key="portcullis_open", value=True),
+        "MonstersSpawnedEvent": dict(template_id="goblin", monster_ids=("monster-0001",)),
+        "XpAwardedEvent": dict(character_id="pc-1", award=100, modified_award=110, level_after=2),
+        "TimeAdvancedEvent": dict(n=2, unit="turn", rounds_total=120),
+        "GameOverEvent": dict(reason="tpk"),
     }
     return event_class(code=code, **samples[event_class.__name__])
 
 
 def all_shipped_events():
+    return [(event_class, code) for event_class in ALL_EVENT_CLASSES for code in sorted(event_class.allowed_codes)]
+
+
+def kernel_shipped_events():
     return [(event_class, code) for event_class in KERNEL_EVENT_CLASSES for code in sorted(event_class.allowed_codes)]
 
 
 class TestDiscriminator:
-    def test_every_kernel_event_declares_a_unique_event_type(self):
-        types = [event_class.model_fields["event_type"].default for event_class in KERNEL_EVENT_CLASSES]
+    def test_every_event_declares_a_unique_event_type(self):
+        types = [event_class.model_fields["event_type"].default for event_class in ALL_EVENT_CLASSES]
         assert len(set(types)) == len(types)
         assert all(isinstance(value, str) and value for value in types)
 
-    def test_every_kernel_event_declares_a_closed_code_set(self):
-        for event_class in KERNEL_EVENT_CLASSES:
+    def test_every_event_declares_a_closed_code_set(self):
+        for event_class in ALL_EVENT_CLASSES:
             assert event_class.allowed_codes, event_class.__name__
 
-    @pytest.mark.parametrize(("event_class", "code"), all_shipped_events())
+    @pytest.mark.parametrize(("event_class", "code"), kernel_shipped_events())
     def test_round_trip_through_json(self, event_class, code):
         event = sample_event(event_class, code)
         payload = json.loads(json.dumps(event.model_dump(mode="json")))
         parsed = parse_event(payload)
         assert parsed == event
         assert type(parsed) is event_class
+
+    @pytest.mark.parametrize(("event_class", "code"), all_shipped_events())
+    def test_round_trip_through_the_combined_parser(self, event_class, code):
+        event = sample_event(event_class, code)
+        payload = json.loads(json.dumps(event.model_dump(mode="json")))
+        parsed = parse_any_event(payload)
+        assert parsed == event
+        assert type(parsed) is event_class
+
+    def test_combined_parser_skips_unknown_types(self):
+        assert parse_any_event({"event_type": "quantum_flux", "code": "a.b", "visibility": "player"}) is None
 
     def test_unknown_fields_tolerated(self):
         event = sample_event(DamageDealtEvent, "combat.damage.dealt")
@@ -141,7 +196,7 @@ class TestVisibility:
 
 class TestMessages:
     def test_every_shipped_code_has_a_real_template(self):
-        shipped = {code for event_class in KERNEL_EVENT_CLASSES for code in event_class.allowed_codes}
+        shipped = {code for event_class in ALL_EVENT_CLASSES for code in event_class.allowed_codes}
         assert shipped == set(_TEMPLATES)
 
     @pytest.mark.parametrize(("event_class", "code"), all_shipped_events())

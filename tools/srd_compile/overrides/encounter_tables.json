@@ -1,0 +1,30 @@
+[
+  {
+    "id": "level_3",
+    "reason": "The printed cell 'Basic Adventures' (d20 roll 2) is a typo for 'Basic Adventurers' — the Notes section names the rows 'Basic Adventurers' and links the Adventuring Parties page. The spec names this exact typo as the overrides mechanism's example.",
+    "set": {
+      "rows.1.name": "Basic Adventurers"
+    }
+  },
+  {
+    "id": "level_4_5",
+    "reason": "The printed cell 'Expert Adventurer' (d20 roll 6) is singular; the Notes section names the rows 'Expert Adventurers' — normalized so all NPC-party rows share one label.",
+    "set": {
+      "rows.5.name": "Expert Adventurers"
+    }
+  },
+  {
+    "id": "level_6_7",
+    "reason": "The printed cell 'Expert Adventurer' (d20 roll 6) is singular; the Notes section names the rows 'Expert Adventurers' — normalized so all NPC-party rows share one label.",
+    "set": {
+      "rows.5.name": "Expert Adventurers"
+    }
+  },
+  {
+    "id": "level_8_plus",
+    "reason": "The printed cell 'Expert Adventurer' (d20 roll 8) is singular; the Notes section names the rows 'Expert Adventurers' — normalized so all NPC-party rows share one label.",
+    "set": {
+      "rows.7.name": "Expert Adventurers"
+    }
+  }
+]
