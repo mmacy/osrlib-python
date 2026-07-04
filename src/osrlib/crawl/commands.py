@@ -24,9 +24,10 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError,
 from osrlib.core.clock import TimeUnit
 from osrlib.core.dice import parse
 from osrlib.core.events import Event
+from osrlib.core.items import Coins
 from osrlib.core.spells import MemorizedSpell
 from osrlib.core.validation import Rejection
-from osrlib.crawl.dungeon import Coins, Direction, PartyLocation
+from osrlib.crawl.dungeon import Direction, PartyLocation
 
 __all__ = [
     "ALL_COMMAND_CLASSES",

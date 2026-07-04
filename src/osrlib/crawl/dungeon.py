@@ -24,12 +24,12 @@ from osrlib.core.alignment import Alignment
 from osrlib.core.clock import TimeUnit
 from osrlib.core.dice import parse
 from osrlib.core.effects import Condition
+from osrlib.core.items import Coins
 from osrlib.core.spells import SaveSpec
 from osrlib.core.tables import EncounterTable, ReactionResult
 
 __all__ = [
     "AreaSpec",
-    "Coins",
     "Direction",
     "DoorSpec",
     "DoorState",
@@ -204,28 +204,6 @@ class Edge(BaseModel):
         if (self.kind is EdgeKind.DOOR) != (self.door is not None):
             raise ValueError("an edge carries a door spec exactly when its kind is 'door'")
         return self
-
-
-class Coins(BaseModel):
-    """A frozen coin bundle: hand-placed cache contents and dropped treasure."""
-
-    model_config = ConfigDict(frozen=True)
-
-    pp: int = Field(default=0, ge=0)
-    gp: int = Field(default=0, ge=0)
-    ep: int = Field(default=0, ge=0)
-    sp: int = Field(default=0, ge=0)
-    cp: int = Field(default=0, ge=0)
-
-    @property
-    def total_coins(self) -> int:
-        """How many coins the bundle holds."""
-        return self.pp + self.gp + self.ep + self.sp + self.cp
-
-    @property
-    def value_gp(self) -> int:
-        """The bundle's value in whole gold pieces, floored — the Phase 5 XP input."""
-        return (self.pp * 500 + self.gp * 100 + self.ep * 50 + self.sp * 10 + self.cp) // 100
 
 
 class TransitionSpec(BaseModel):

@@ -18,11 +18,11 @@ from pydantic import BaseModel, ConfigDict, Field
 from osrlib.core.combat import roll_reaction
 from osrlib.core.effects import Condition, has_condition
 from osrlib.core.events import Event
+from osrlib.core.items import Coins
 from osrlib.core.spells import MAGIC_STREAM, turn_undead, validate_turn_undead
 from osrlib.core.tables import ReactionResult
 from osrlib.core.validation import Rejection
 from osrlib.crawl.commands import DropItems, EngageBattle, Evade, Parley, SessionMode, TurnUndead, Wait
-from osrlib.crawl.dungeon import Coins
 from osrlib.crawl.events import (
     EncounterEndedEvent,
     EncounterStartedEvent,

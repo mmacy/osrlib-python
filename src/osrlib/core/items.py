@@ -42,9 +42,11 @@ __all__ = [
     "ArmourTemplate",
     "ArmourTypeRow",
     "CoinPurse",
+    "Coins",
     "CombatFacet",
     "EquipmentCatalog",
     "GearTemplate",
+    "GeneratedTreasure",
     "Inventory",
     "ItemInstance",
     "MagicArmourTypeTable",
@@ -69,6 +71,7 @@ __all__ = [
     "SwordTableBand",
     "TreasureWeight",
     "UsableBy",
+    "ValuableInstance",
     "VersusBonus",
     "WeaponQuality",
     "WeaponTemplate",
@@ -905,6 +908,61 @@ class ItemInstance(BaseModel):
     instance_type: Literal["item"] = "item"
     template: ItemTemplate
     quantity: int = Field(default=1, ge=1)
+
+
+class Coins(BaseModel):
+    """A frozen coin bundle: generated treasure, cache contents, dropped piles."""
+
+    model_config = ConfigDict(frozen=True)
+
+    pp: int = Field(default=0, ge=0)
+    gp: int = Field(default=0, ge=0)
+    ep: int = Field(default=0, ge=0)
+    sp: int = Field(default=0, ge=0)
+    cp: int = Field(default=0, ge=0)
+
+    @property
+    def total_coins(self) -> int:
+        """How many coins the bundle holds."""
+        return self.pp + self.gp + self.ep + self.sp + self.cp
+
+    @property
+    def value_cp(self) -> int:
+        """The bundle's total value in copper pieces — the award math's exact unit."""
+        return sum(getattr(self, denomination) * value for denomination, value in COIN_VALUES_CP.items())
+
+    @property
+    def value_gp(self) -> int:
+        """The bundle's value in whole gold pieces, floored — the 1-gp-=-1-XP input."""
+        return self.value_cp // 100
+
+
+class ValuableInstance(BaseModel):
+    """A gem or piece of jewellery, its value rolled at generation and fixed.
+
+    Appraisal is instantaneous and exact (pinned): B/X prices treasure for the XP
+    economy, and a haggling or appraisal minigame is game territory (registered).
+    `weight_coins` comes from the `TreasureWeight` rows at generation.
+    """
+
+    model_config = ConfigDict(validate_assignment=True)
+
+    instance_type: Literal["valuable"] = "valuable"
+    instance_id: str
+    kind: Literal["gem", "jewellery"]
+    name: str = ""
+    value_gp: int = Field(ge=0)
+    weight_coins: int = Field(default=0, ge=0)
+
+
+class GeneratedTreasure(BaseModel):
+    """One generation's output: coins, valuables, and magic item instances."""
+
+    model_config = ConfigDict(frozen=True)
+
+    coins: Coins = Coins()
+    valuables: tuple[ValuableInstance, ...] = ()
+    magic_items: tuple[MagicItemInstance, ...] = ()
 
 
 class CoinPurse(BaseModel):

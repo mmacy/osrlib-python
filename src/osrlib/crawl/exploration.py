@@ -32,7 +32,7 @@ from osrlib.core.combat import (
 from osrlib.core.dice import roll
 from osrlib.core.effects import EFFECTS_STREAM, Condition, EffectDefinition, ModifierSpec
 from osrlib.core.events import Event
-from osrlib.core.items import ItemInstance, equip, unequip, validate_equip
+from osrlib.core.items import Coins, ItemInstance, equip, unequip, validate_equip
 from osrlib.core.spells import MAGIC_STREAM, CastContext, cast_spell, memorize_spells, validate_cast
 from osrlib.core.validation import Rejection
 from osrlib.crawl.commands import (
@@ -64,7 +64,6 @@ from osrlib.crawl.commands import (
     WedgeDoor,
 )
 from osrlib.crawl.dungeon import (
-    Coins,
     Direction,
     DroppedItem,
     DropPile,
