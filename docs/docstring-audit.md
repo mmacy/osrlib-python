@@ -16,7 +16,7 @@ The blind new-user test sharpened it: of five basic tasks, only three (à la car
 
 3. **No runnable examples.** Two `Examples:` blocks exist in the entire package (`GameClock`, `RngStreams`) — both container classes. Zero entry-point functions have one: not `create_character`, `resolve_attack`, `cast_spell`, `generate_treasure`, `GameSession.execute`, `format_message`, `save_game`/`load_game`. Not one example crosses a module boundary. Nothing in any docstring points at `examples/tui_crawler/`, which demonstrates the whole golden path.
 
-4. **The command surface doesn't serve front-end developers.** No command documents its rejection codes (~46 distinct codes ship with no table anywhere), its emitted events (nothing says `MoveParty` yields `PartyMovedEvent`), or its required session mode in prose (`allowed_modes` is a bare ClassVar). Roughly 30 command handler functions in `exploration.py` carry no docstring at all.
+4. **The command surface doesn't serve front-end developers.** No command documents its rejection codes (~106 distinct codes ship package-wide — 73 in `crawl/`, 36 in `core/` — with no table anywhere), its emitted events (nothing says `MoveParty` yields `PartyMovedEvent`), or its required session mode in prose (`allowed_modes` is a bare ClassVar). Roughly 30 command handler functions in `exploration.py` carry no docstring at all.
 
 5. **Duck-typed `object` parameters on flagship functions.** ~23 in `combat.py`, ~39 in `spells.py`, ~18 in `effects.py`: `resolve_attack(attacker: object, ...)` renders as `object` in generated docs, prose says "the attacking combatant" without naming or linking `Character`/`MonsterInstance`, and no combatant protocol or union type exists to link to.
 
