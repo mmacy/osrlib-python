@@ -1,0 +1,29 @@
+# The milestone playthrough: creation and outfitting happen before the loop
+# (the scripted party buys its kit from starting gold); this transcript is the
+# delve, the quest, the return, and the award.
+enter
+move e
+move e
+fight
+take cache
+move e
+move e
+take idol_shrine
+stairs
+move e
+move e
+take cache
+fight
+take pile
+fight
+move w
+move w
+stairs
+move w
+move w
+move w
+move w
+town
+sell all
+heal character-0001 cure_light_wounds
+status
