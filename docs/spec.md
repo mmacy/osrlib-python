@@ -316,4 +316,8 @@ Each phase ends with working, tested, documented code.
 
 **Phase 5 — treasure and the loop closed.** Treasure generation, magic items, NPC adventuring parties for the encounter tables (they need treasure types and magic items, hence this phase), end-of-adventure XP awards, the `examples/` TUI crawler. Milestone: a playable minimal dungeon crawl from character creation to leveling up, including a simple fetch quest implemented in the example's own game code on the listener/flags extension surface — proving games don't need library changes for game-design systems.
 
-**Phase 6 — release.** API polish, documentation pass with example front-end usage (sync TUI, FastAPI wrapper), publication to PyPI as `osrlib`, Advanced Fantasy groundwork validated against the data model.
+**Phase 6 — API freeze.** API polish — the last free-rename window: the public-surface census, the naming and signature sweep, the import contract, a typing gate — the FastAPI wrapper example beside the Phase 5 TUI as the second front-end proof, and Advanced Fantasy groundwork validated against the data model. After this phase the public surface is final.
+
+**Phase 7 — documentation.** The docstring overhaul to shippable new-user quality: development-history language and reviewer-directed rationale purged, runnable examples on the entry points and one cross-seam quickstart (character → adventure → session → events → save), every command documenting its modes, rejection codes, and emitted events, named types with cross-references replacing duck-typed `object` prose, and module docstrings that orient. On top of it, the documentation site (mkdocs-material + mkdocstrings, strict builds) with guides and walk-throughs for both example front ends, the command/event JSON Schema reference, and the README rewrite.
+
+**Phase 8 — release.** Release engineering — version 1.0.0, the changelog, packaging audits, the tag-driven trusted-publishing workflow — and publication to PyPI as `osrlib`.
