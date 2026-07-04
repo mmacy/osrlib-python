@@ -273,3 +273,116 @@ def test_odometer_never_drifts_from_the_closed_form():
         position = target
         assert session.odometer_thirds == accrued, f"drift at step {step}"
     assert session.clock.turns - start_turns == turns
+
+
+@settings(max_examples=50, deadline=None)
+@given(
+    gp=st.integers(min_value=0, max_value=500),
+    gems=st.integers(min_value=0, max_value=5),
+    jewellery=st.integers(min_value=0, max_value=3),
+    potions=st.integers(min_value=0, max_value=3),
+    scrolls=st.integers(min_value=0, max_value=2),
+    wands=st.integers(min_value=0, max_value=2),
+    rod=st.booleans(),
+    staff=st.booleans(),
+    ring=st.booleans(),
+    bag=st.sampled_from(["none", "empty", "holding"]),
+    sword=st.booleans(),
+    armour=st.booleans(),
+)
+def test_weights_match_the_closed_form_with_valuables_and_magic_items_aboard(
+    gp, gems, jewellery, potions, scrolls, wands, rod, staff, ring, bag, sword, armour
+):
+    """The plan's closed form: treasure weight is purse + valuables + the five
+    priced magic categories (plus the bag's loaded figure while it holds), and
+    enchanted arms weigh as equipment — base weight, armour halved."""
+    from osrlib.core.items import (
+        CoinPurse,
+        Inventory,
+        MagicItemInstance,
+        ValuableInstance,
+        equipment_weight_coins,
+        treasure_weight_coins,
+    )
+
+    inventory = Inventory(purse=CoinPurse(gp=gp))
+    counter = iter(range(1, 100))
+
+    def add(template_id: str, **kwargs) -> None:
+        inventory.items.append(
+            MagicItemInstance(instance_id=f"magic-item-{next(counter):04d}", template_id=template_id, **kwargs)
+        )
+
+    for index in range(gems):
+        inventory.valuables.append(
+            ValuableInstance(instance_id=f"valuable-g{index}", kind="gem", value_gp=50, weight_coins=1)
+        )
+    for index in range(jewellery):
+        inventory.valuables.append(
+            ValuableInstance(instance_id=f"valuable-j{index}", kind="jewellery", value_gp=300, weight_coins=10)
+        )
+    for _ in range(potions):
+        add("potion_of_healing")
+    for _ in range(scrolls):
+        add("scroll_of_protection_from_undead")
+    for _ in range(wands):
+        add("wand_of_fire_balls")
+    if rod:
+        add("rod_of_cancellation")
+    if staff:
+        add("staff_of_healing")
+    if ring:
+        add("ring_of_protection")
+    if bag != "none":
+        add("bag_of_holding", state={"holding": True} if bag == "holding" else {})
+    if sword:
+        add("sword_plus_1", base_item_id="sword")
+    if armour:
+        add("armour_plus_1", base_item_id="chainmail")
+
+    # The TreasureWeight rows, hard-coded: potion 10, scroll 1, wand 10, rod 20,
+    # staff 40; rings weigh zero; the bag's printed loaded weight is 600.
+    expected_treasure = (
+        gp
+        + gems * 1
+        + jewellery * 10
+        + potions * 10
+        + scrolls * 1
+        + wands * 10
+        + (20 if rod else 0)
+        + (40 if staff else 0)
+        + (600 if bag == "holding" else 0)
+    )
+    assert treasure_weight_coins(inventory) == expected_treasure
+    # Sword 60 as printed; chainmail 400 halved to 200 per RAW.
+    assert equipment_weight_coins(inventory) == (60 if sword else 0) + (200 if armour else 0)
+
+
+@settings(max_examples=25, deadline=None, suppress_health_check=[HealthCheck.too_slow])
+@given(
+    seed=st.integers(min_value=0, max_value=2**32),
+    ops=st.lists(st.tuples(st.sampled_from(["grant", "drop"]), st.integers(min_value=0, max_value=300)), max_size=8),
+)
+def test_the_valuation_delta_never_awards_negative(seed, ops):
+    """Whatever gets granted and abandoned, the award clamps at zero and XP never falls."""
+    from osrlib.crawl.commands import DropItems, GrantCoins, TravelToTown
+
+    session = GameSession.new(build_party(), build_adventure(wandering_chance=0), seed=seed)
+    member = session.party.members[0]
+    # A pre-departure purse the party can abandon below its snapshot.
+    session.execute(GrantCoins(character_id=member.id, coins=Coins(gp=100)))
+    session.execute(EnterDungeon(dungeon_id="delve"))
+    before = [m.xp for m in session.party.members]
+    for op, amount in ops:
+        if op == "grant":
+            session.execute(GrantCoins(character_id=member.id, coins=Coins(gp=amount)))
+        else:
+            session.execute(DropItems(character_id=member.id, item_ids=(), coins=Coins(gp=amount)))
+    result = session.execute(TravelToTown())
+    assert result.accepted
+    for event in result.events:
+        if event.code == "session.xp.adventure_award":
+            assert event.treasure_xp >= 0
+            assert event.monster_xp >= 0
+            assert event.share >= 0
+    assert all(m.xp >= b for m, b in zip(session.party.members, before, strict=True))

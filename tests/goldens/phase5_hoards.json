@@ -1,0 +1,2669 @@
+{
+  "final_stream_state": {
+    "inc": 146279044841962853495174742789202218485,
+    "state": 218600042446810489101173382940975283325
+  },
+  "hoards": {
+    "basic": {
+      "A": {
+        "coins": {
+          "cp": 0,
+          "ep": 0,
+          "gp": 0,
+          "pp": 1000,
+          "sp": 0
+        },
+        "magic_items": [
+          {
+            "base_item_id": null,
+            "charges_remaining": null,
+            "cursed_revealed": false,
+            "identified": false,
+            "instance_id": "magic-item-0001",
+            "instance_type": "magic_item",
+            "quantity": 1,
+            "sentience": null,
+            "state": {},
+            "template_id": "treasure_map_i"
+          },
+          {
+            "base_item_id": null,
+            "charges_remaining": null,
+            "cursed_revealed": false,
+            "identified": false,
+            "instance_id": "magic-item-0002",
+            "instance_type": "magic_item",
+            "quantity": 1,
+            "sentience": null,
+            "state": {},
+            "template_id": "potion_of_esp"
+          },
+          {
+            "base_item_id": null,
+            "charges_remaining": null,
+            "cursed_revealed": false,
+            "identified": false,
+            "instance_id": "magic-item-0003",
+            "instance_type": "magic_item",
+            "quantity": 1,
+            "sentience": null,
+            "state": {},
+            "template_id": "ring_of_protection"
+          }
+        ],
+        "valuables": [
+          {
+            "instance_id": "valuable-0001",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 1100,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0002",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 1500,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0003",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 900,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0004",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 1400,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0005",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 1200,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0006",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 1000,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0007",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 700,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0008",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 1000,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0009",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 1400,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0010",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 1000,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0011",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 800,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0012",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 1600,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0013",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 900,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0014",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 1500,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0015",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 1400,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0016",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 1200,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0017",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 1200,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0018",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 1100,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0019",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 1300,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0020",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 1100,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0021",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 1000,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0022",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 1100,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0023",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 1000,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0024",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 1600,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0025",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 1200,
+            "weight_coins": 10
+          }
+        ]
+      },
+      "B": {
+        "coins": {
+          "cp": 0,
+          "ep": 0,
+          "gp": 0,
+          "pp": 0,
+          "sp": 0
+        },
+        "magic_items": [],
+        "valuables": [
+          {
+            "instance_id": "valuable-0026",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 50,
+            "weight_coins": 1
+          }
+        ]
+      },
+      "C": {
+        "coins": {
+          "cp": 8000,
+          "ep": 4000,
+          "gp": 0,
+          "pp": 0,
+          "sp": 0
+        },
+        "magic_items": [],
+        "valuables": [
+          {
+            "instance_id": "valuable-0027",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 700,
+            "weight_coins": 10
+          }
+        ]
+      },
+      "D": {
+        "coins": {
+          "cp": 0,
+          "ep": 0,
+          "gp": 0,
+          "pp": 0,
+          "sp": 0
+        },
+        "magic_items": [],
+        "valuables": []
+      },
+      "E": {
+        "coins": {
+          "cp": 0,
+          "ep": 0,
+          "gp": 0,
+          "pp": 0,
+          "sp": 0
+        },
+        "magic_items": [],
+        "valuables": []
+      },
+      "F": {
+        "coins": {
+          "cp": 0,
+          "ep": 0,
+          "gp": 0,
+          "pp": 0,
+          "sp": 0
+        },
+        "magic_items": [
+          {
+            "base_item_id": "sword",
+            "charges_remaining": null,
+            "cursed_revealed": false,
+            "identified": false,
+            "instance_id": "magic-item-0004",
+            "instance_type": "magic_item",
+            "quantity": 1,
+            "sentience": {
+              "alignment": "lawful",
+              "communication": "speech",
+              "ego": 2,
+              "extraordinary_powers": [
+                "clairaudience"
+              ],
+              "intelligence": 12,
+              "languages": 1,
+              "reading": true,
+              "sensory_powers": [
+                "detect_shifting_architecture",
+                "detect_metals",
+                "see_invisible_objects"
+              ],
+              "special_purpose": null
+            },
+            "state": {},
+            "template_id": "sword_plus_1_plus_3_vs_undead"
+          },
+          {
+            "base_item_id": null,
+            "charges_remaining": null,
+            "cursed_revealed": false,
+            "identified": false,
+            "instance_id": "magic-item-0005",
+            "instance_type": "magic_item",
+            "quantity": 1,
+            "sentience": null,
+            "state": {},
+            "template_id": "ring_of_weakness"
+          },
+          {
+            "base_item_id": null,
+            "charges_remaining": null,
+            "cursed_revealed": false,
+            "identified": false,
+            "instance_id": "magic-item-0006",
+            "instance_type": "magic_item",
+            "quantity": 1,
+            "sentience": null,
+            "state": {
+              "spell_list": "magic_user",
+              "spells": [
+                "web",
+                "water_breathing"
+              ]
+            },
+            "template_id": "spell_scroll_2"
+          },
+          {
+            "base_item_id": null,
+            "charges_remaining": null,
+            "cursed_revealed": false,
+            "identified": false,
+            "instance_id": "magic-item-0007",
+            "instance_type": "magic_item",
+            "quantity": 1,
+            "sentience": null,
+            "state": {},
+            "template_id": "potion_of_diminution"
+          },
+          {
+            "base_item_id": null,
+            "charges_remaining": null,
+            "cursed_revealed": false,
+            "identified": false,
+            "instance_id": "magic-item-0008",
+            "instance_type": "magic_item",
+            "quantity": 1,
+            "sentience": null,
+            "state": {
+              "spell_list": "magic_user",
+              "spells": [
+                "read_magic"
+              ]
+            },
+            "template_id": "spell_scroll_1"
+          }
+        ],
+        "valuables": [
+          {
+            "instance_id": "valuable-0028",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 100,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0029",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 500,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0030",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 10,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0031",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 50,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0032",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 50,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0033",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 100,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0034",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 50,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0035",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 1000,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0036",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 100,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0037",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 100,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0038",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 100,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0039",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 50,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0040",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 500,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0041",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 50,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0042",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 50,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0043",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 1000,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0044",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 500,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0045",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 50,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0046",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 1200,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0047",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 1200,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0048",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 1200,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0049",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 900,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0050",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 1800,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0051",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 900,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0052",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 1300,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0053",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 700,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0054",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 1000,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0055",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 700,
+            "weight_coins": 10
+          }
+        ]
+      },
+      "G": {
+        "coins": {
+          "cp": 0,
+          "ep": 0,
+          "gp": 30000,
+          "pp": 1000,
+          "sp": 0
+        },
+        "magic_items": [],
+        "valuables": [
+          {
+            "instance_id": "valuable-0056",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 800,
+            "weight_coins": 10
+          }
+        ]
+      },
+      "H": {
+        "coins": {
+          "cp": 11000,
+          "ep": 30000,
+          "gp": 30000,
+          "pp": 0,
+          "sp": 32000
+        },
+        "magic_items": [
+          {
+            "base_item_id": null,
+            "charges_remaining": null,
+            "cursed_revealed": false,
+            "identified": false,
+            "instance_id": "magic-item-0009",
+            "instance_type": "magic_item",
+            "quantity": 1,
+            "sentience": null,
+            "state": {},
+            "template_id": "potion_of_invisibility"
+          },
+          {
+            "base_item_id": "sword",
+            "charges_remaining": null,
+            "cursed_revealed": false,
+            "identified": false,
+            "instance_id": "magic-item-0010",
+            "instance_type": "magic_item",
+            "quantity": 1,
+            "sentience": null,
+            "state": {},
+            "template_id": "sword_minus_1_cursed"
+          },
+          {
+            "base_item_id": "sword",
+            "charges_remaining": null,
+            "cursed_revealed": false,
+            "identified": false,
+            "instance_id": "magic-item-0011",
+            "instance_type": "magic_item",
+            "quantity": 1,
+            "sentience": null,
+            "state": {},
+            "template_id": "sword_plus_1_plus_2_vs_lycanthropes"
+          },
+          {
+            "base_item_id": null,
+            "charges_remaining": null,
+            "cursed_revealed": false,
+            "identified": false,
+            "instance_id": "magic-item-0012",
+            "instance_type": "magic_item",
+            "quantity": 1,
+            "sentience": null,
+            "state": {},
+            "template_id": "scroll_of_protection_from_undead"
+          },
+          {
+            "base_item_id": null,
+            "charges_remaining": null,
+            "cursed_revealed": false,
+            "identified": false,
+            "instance_id": "magic-item-0013",
+            "instance_type": "magic_item",
+            "quantity": 1,
+            "sentience": null,
+            "state": {},
+            "template_id": "potion_of_esp"
+          },
+          {
+            "base_item_id": null,
+            "charges_remaining": null,
+            "cursed_revealed": false,
+            "identified": false,
+            "instance_id": "magic-item-0014",
+            "instance_type": "magic_item",
+            "quantity": 1,
+            "sentience": null,
+            "state": {},
+            "template_id": "treasure_map_viii"
+          }
+        ],
+        "valuables": [
+          {
+            "instance_id": "valuable-0057",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 500,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0058",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 10,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0059",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 50,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0060",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 10,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0061",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 100,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0062",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 100,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0063",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 500,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0064",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 100,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0065",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 10,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0066",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 50,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0067",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 50,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0068",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 1000,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0069",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 100,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0070",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 50,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0071",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 50,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0072",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 500,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0073",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 100,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0074",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 10,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0075",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 500,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0076",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 50,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0077",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 500,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0078",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 100,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0079",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 500,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0080",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 100,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0081",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 50,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0082",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 50,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0083",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 50,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0084",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 50,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0085",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 10,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0086",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 500,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0087",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 500,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0088",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 10,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0089",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 50,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0090",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 10,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0091",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 100,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0092",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 10,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0093",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 500,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0094",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 500,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0095",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 10,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0096",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 50,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0097",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 10,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0098",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 500,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0099",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 100,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0100",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 100,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0101",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 100,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0102",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 500,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0103",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 500,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0104",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 50,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0105",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 500,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0106",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 500,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0107",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 500,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0108",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 100,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0109",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 100,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0110",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 100,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0111",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 100,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0112",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 50,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0113",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 500,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0114",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 1000,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0115",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 10,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0116",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 50,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0117",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 100,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0118",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 100,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0119",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 500,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0120",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 50,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0121",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 10,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0122",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 700,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0123",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 1200,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0124",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 500,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0125",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 800,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0126",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 700,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0127",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 800,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0128",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 1200,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0129",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 800,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0130",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 1400,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0131",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 1500,
+            "weight_coins": 10
+          }
+        ]
+      },
+      "I": {
+        "coins": {
+          "cp": 0,
+          "ep": 0,
+          "gp": 0,
+          "pp": 0,
+          "sp": 0
+        },
+        "magic_items": [],
+        "valuables": [
+          {
+            "instance_id": "valuable-0132",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 900,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0133",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 1500,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0134",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 1600,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0135",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 1200,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0136",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 1500,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0137",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 800,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0138",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 500,
+            "weight_coins": 10
+          }
+        ]
+      },
+      "J": {
+        "coins": {
+          "cp": 0,
+          "ep": 0,
+          "gp": 0,
+          "pp": 0,
+          "sp": 0
+        },
+        "magic_items": [],
+        "valuables": []
+      },
+      "K": {
+        "coins": {
+          "cp": 0,
+          "ep": 0,
+          "gp": 0,
+          "pp": 0,
+          "sp": 0
+        },
+        "magic_items": [],
+        "valuables": []
+      },
+      "L": {
+        "coins": {
+          "cp": 0,
+          "ep": 0,
+          "gp": 0,
+          "pp": 0,
+          "sp": 0
+        },
+        "magic_items": [],
+        "valuables": [
+          {
+            "instance_id": "valuable-0139",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 10,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0140",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 100,
+            "weight_coins": 1
+          }
+        ]
+      },
+      "M": {
+        "coins": {
+          "cp": 0,
+          "ep": 0,
+          "gp": 0,
+          "pp": 0,
+          "sp": 0
+        },
+        "magic_items": [],
+        "valuables": [
+          {
+            "instance_id": "valuable-0141",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 100,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0142",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 50,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0143",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 100,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0144",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 500,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0145",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 500,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0146",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 100,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0147",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 10,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0148",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 50,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0149",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 500,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0150",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 10,
+            "weight_coins": 1
+          }
+        ]
+      },
+      "N": {
+        "coins": {
+          "cp": 0,
+          "ep": 0,
+          "gp": 0,
+          "pp": 0,
+          "sp": 0
+        },
+        "magic_items": [],
+        "valuables": []
+      },
+      "O": {
+        "coins": {
+          "cp": 0,
+          "ep": 0,
+          "gp": 0,
+          "pp": 0,
+          "sp": 0
+        },
+        "magic_items": [
+          {
+            "base_item_id": null,
+            "charges_remaining": null,
+            "cursed_revealed": false,
+            "identified": false,
+            "instance_id": "magic-item-0015",
+            "instance_type": "magic_item",
+            "quantity": 1,
+            "sentience": null,
+            "state": {},
+            "template_id": "treasure_map_i"
+          }
+        ],
+        "valuables": []
+      },
+      "P": {
+        "coins": {
+          "cp": 17,
+          "ep": 0,
+          "gp": 0,
+          "pp": 0,
+          "sp": 0
+        },
+        "magic_items": [],
+        "valuables": []
+      },
+      "Q": {
+        "coins": {
+          "cp": 0,
+          "ep": 0,
+          "gp": 0,
+          "pp": 0,
+          "sp": 7
+        },
+        "magic_items": [],
+        "valuables": []
+      },
+      "R": {
+        "coins": {
+          "cp": 0,
+          "ep": 8,
+          "gp": 0,
+          "pp": 0,
+          "sp": 0
+        },
+        "magic_items": [],
+        "valuables": []
+      },
+      "S": {
+        "coins": {
+          "cp": 0,
+          "ep": 0,
+          "gp": 5,
+          "pp": 0,
+          "sp": 0
+        },
+        "magic_items": [],
+        "valuables": []
+      },
+      "T": {
+        "coins": {
+          "cp": 0,
+          "ep": 0,
+          "gp": 0,
+          "pp": 3,
+          "sp": 0
+        },
+        "magic_items": [],
+        "valuables": []
+      },
+      "U": {
+        "coins": {
+          "cp": 38,
+          "ep": 0,
+          "gp": 0,
+          "pp": 0,
+          "sp": 0
+        },
+        "magic_items": [],
+        "valuables": []
+      },
+      "V": {
+        "coins": {
+          "cp": 0,
+          "ep": 0,
+          "gp": 0,
+          "pp": 0,
+          "sp": 0
+        },
+        "magic_items": [],
+        "valuables": []
+      }
+    },
+    "expert": {
+      "A": {
+        "coins": {
+          "cp": 4000,
+          "ep": 0,
+          "gp": 0,
+          "pp": 0,
+          "sp": 0
+        },
+        "magic_items": [
+          {
+            "base_item_id": null,
+            "charges_remaining": null,
+            "cursed_revealed": false,
+            "identified": false,
+            "instance_id": "magic-item-0016",
+            "instance_type": "magic_item",
+            "quantity": 1,
+            "sentience": null,
+            "state": {},
+            "template_id": "ring_of_invisibility"
+          },
+          {
+            "base_item_id": "sword",
+            "charges_remaining": null,
+            "cursed_revealed": false,
+            "identified": false,
+            "instance_id": "magic-item-0017",
+            "instance_type": "magic_item",
+            "quantity": 1,
+            "sentience": null,
+            "state": {},
+            "template_id": "sword_plus_1"
+          },
+          {
+            "base_item_id": "sword",
+            "charges_remaining": null,
+            "cursed_revealed": false,
+            "identified": false,
+            "instance_id": "magic-item-0018",
+            "instance_type": "magic_item",
+            "quantity": 1,
+            "sentience": null,
+            "state": {},
+            "template_id": "sword_plus_1"
+          }
+        ],
+        "valuables": []
+      },
+      "B": {
+        "coins": {
+          "cp": 7000,
+          "ep": 0,
+          "gp": 0,
+          "pp": 0,
+          "sp": 0
+        },
+        "magic_items": [],
+        "valuables": []
+      },
+      "C": {
+        "coins": {
+          "cp": 0,
+          "ep": 0,
+          "gp": 0,
+          "pp": 0,
+          "sp": 2000
+        },
+        "magic_items": [],
+        "valuables": [
+          {
+            "instance_id": "valuable-0151",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 500,
+            "weight_coins": 1
+          }
+        ]
+      },
+      "D": {
+        "coins": {
+          "cp": 5000,
+          "ep": 0,
+          "gp": 0,
+          "pp": 0,
+          "sp": 6000
+        },
+        "magic_items": [],
+        "valuables": [
+          {
+            "instance_id": "valuable-0152",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 50,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0153",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 100,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0154",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 100,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0155",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 100,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0156",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 500,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0157",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 500,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0158",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 100,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0159",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 1100,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0160",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 1300,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0161",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 1200,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0162",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 900,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0163",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 1400,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0164",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 900,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0165",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 900,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0166",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 900,
+            "weight_coins": 10
+          }
+        ]
+      },
+      "E": {
+        "coins": {
+          "cp": 0,
+          "ep": 4000,
+          "gp": 0,
+          "pp": 0,
+          "sp": 0
+        },
+        "magic_items": [
+          {
+            "base_item_id": null,
+            "charges_remaining": null,
+            "cursed_revealed": false,
+            "identified": false,
+            "instance_id": "magic-item-0019",
+            "instance_type": "magic_item",
+            "quantity": 1,
+            "sentience": null,
+            "state": {},
+            "template_id": "potion_of_healing"
+          },
+          {
+            "base_item_id": null,
+            "charges_remaining": null,
+            "cursed_revealed": false,
+            "identified": false,
+            "instance_id": "magic-item-0020",
+            "instance_type": "magic_item",
+            "quantity": 1,
+            "sentience": null,
+            "state": {},
+            "template_id": "potion_of_invulnerability"
+          },
+          {
+            "base_item_id": null,
+            "charges_remaining": null,
+            "cursed_revealed": false,
+            "identified": false,
+            "instance_id": "magic-item-0021",
+            "instance_type": "magic_item",
+            "quantity": 1,
+            "sentience": null,
+            "state": {},
+            "template_id": "elven_cloak_and_boots"
+          },
+          {
+            "base_item_id": null,
+            "charges_remaining": null,
+            "cursed_revealed": false,
+            "identified": false,
+            "instance_id": "magic-item-0022",
+            "instance_type": "magic_item",
+            "quantity": 1,
+            "sentience": null,
+            "state": {},
+            "template_id": "treasure_map_i"
+          }
+        ],
+        "valuables": []
+      },
+      "F": {
+        "coins": {
+          "cp": 0,
+          "ep": 0,
+          "gp": 0,
+          "pp": 1000,
+          "sp": 0
+        },
+        "magic_items": [
+          {
+            "base_item_id": null,
+            "charges_remaining": null,
+            "cursed_revealed": false,
+            "identified": false,
+            "instance_id": "magic-item-0023",
+            "instance_type": "magic_item",
+            "quantity": 1,
+            "sentience": null,
+            "state": {
+              "spell_list": "magic_user",
+              "spells": [
+                "disintegrate",
+                "wall_of_fire"
+              ]
+            },
+            "template_id": "spell_scroll_2"
+          },
+          {
+            "base_item_id": null,
+            "charges_remaining": null,
+            "cursed_revealed": false,
+            "identified": false,
+            "instance_id": "magic-item-0024",
+            "instance_type": "magic_item",
+            "quantity": 1,
+            "sentience": null,
+            "state": {},
+            "template_id": "scroll_of_protection_from_elementals"
+          },
+          {
+            "base_item_id": null,
+            "charges_remaining": null,
+            "cursed_revealed": false,
+            "identified": false,
+            "instance_id": "magic-item-0025",
+            "instance_type": "magic_item",
+            "quantity": 1,
+            "sentience": null,
+            "state": {
+              "spell_list": "magic_user",
+              "spells": [
+                "growth_of_plants",
+                "cloudkill",
+                "ventriloquism",
+                "telekinesis",
+                "knock"
+              ]
+            },
+            "template_id": "spell_scroll_5"
+          },
+          {
+            "base_item_id": null,
+            "charges_remaining": null,
+            "cursed_revealed": false,
+            "identified": false,
+            "instance_id": "magic-item-0026",
+            "instance_type": "magic_item",
+            "quantity": 1,
+            "sentience": null,
+            "state": {},
+            "template_id": "potion_of_control_giant"
+          },
+          {
+            "base_item_id": null,
+            "charges_remaining": null,
+            "cursed_revealed": false,
+            "identified": false,
+            "instance_id": "magic-item-0027",
+            "instance_type": "magic_item",
+            "quantity": 1,
+            "sentience": null,
+            "state": {
+              "spell_list": "cleric",
+              "spells": [
+                "remove_fear"
+              ]
+            },
+            "template_id": "spell_scroll_1"
+          }
+        ],
+        "valuables": [
+          {
+            "instance_id": "valuable-0167",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 50,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0168",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 100,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0169",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 500,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0170",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 500,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0171",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 50,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0172",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 100,
+            "weight_coins": 1
+          }
+        ]
+      },
+      "G": {
+        "coins": {
+          "cp": 0,
+          "ep": 0,
+          "gp": 40000,
+          "pp": 0,
+          "sp": 0
+        },
+        "magic_items": [
+          {
+            "base_item_id": null,
+            "charges_remaining": null,
+            "cursed_revealed": false,
+            "identified": false,
+            "instance_id": "magic-item-0028",
+            "instance_type": "magic_item",
+            "quantity": 1,
+            "sentience": null,
+            "state": {},
+            "template_id": "ring_of_controlling_plants"
+          },
+          {
+            "base_item_id": "sword",
+            "charges_remaining": null,
+            "cursed_revealed": false,
+            "identified": false,
+            "instance_id": "magic-item-0029",
+            "instance_type": "magic_item",
+            "quantity": 1,
+            "sentience": {
+              "alignment": "lawful",
+              "communication": "empathy",
+              "ego": 7,
+              "extraordinary_powers": [],
+              "intelligence": 8,
+              "languages": 0,
+              "reading": false,
+              "sensory_powers": [
+                "locate_secret_doors",
+                "detect_metals"
+              ],
+              "special_purpose": null
+            },
+            "state": {},
+            "template_id": "sword_plus_2_charm_person"
+          },
+          {
+            "base_item_id": "sword",
+            "charges_remaining": null,
+            "cursed_revealed": false,
+            "identified": false,
+            "instance_id": "magic-item-0030",
+            "instance_type": "magic_item",
+            "quantity": 1,
+            "sentience": {
+              "alignment": "lawful",
+              "communication": "empathy",
+              "ego": 12,
+              "extraordinary_powers": [],
+              "intelligence": 8,
+              "languages": 0,
+              "reading": false,
+              "sensory_powers": [
+                "see_invisible_objects",
+                "detect_magic"
+              ],
+              "special_purpose": null
+            },
+            "state": {},
+            "template_id": "sword_plus_1_flaming"
+          },
+          {
+            "base_item_id": null,
+            "charges_remaining": null,
+            "cursed_revealed": false,
+            "identified": false,
+            "instance_id": "magic-item-0031",
+            "instance_type": "magic_item",
+            "quantity": 1,
+            "sentience": null,
+            "state": {},
+            "template_id": "elven_cloak_and_boots"
+          },
+          {
+            "base_item_id": null,
+            "charges_remaining": null,
+            "cursed_revealed": false,
+            "identified": false,
+            "instance_id": "magic-item-0032",
+            "instance_type": "magic_item",
+            "quantity": 1,
+            "sentience": null,
+            "state": {},
+            "template_id": "treasure_map_ix"
+          }
+        ],
+        "valuables": [
+          {
+            "instance_id": "valuable-0173",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 10,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0174",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 50,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0175",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 100,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0176",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 50,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0177",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 50,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0178",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 100,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0179",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 50,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0180",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 100,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0181",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 100,
+            "weight_coins": 1
+          }
+        ]
+      },
+      "H": {
+        "coins": {
+          "cp": 11000,
+          "ep": 0,
+          "gp": 0,
+          "pp": 0,
+          "sp": 0
+        },
+        "magic_items": [],
+        "valuables": []
+      },
+      "I": {
+        "coins": {
+          "cp": 0,
+          "ep": 0,
+          "gp": 0,
+          "pp": 0,
+          "sp": 0
+        },
+        "magic_items": [],
+        "valuables": [
+          {
+            "instance_id": "valuable-0182",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 10,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0183",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 1000,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0184",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 100,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0185",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 10,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0186",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 10,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0187",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 100,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0188",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 1300,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0189",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 1000,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0190",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 1300,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0191",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 900,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0192",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 900,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0193",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 700,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0194",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 900,
+            "weight_coins": 10
+          }
+        ]
+      },
+      "J": {
+        "coins": {
+          "cp": 0,
+          "ep": 0,
+          "gp": 0,
+          "pp": 0,
+          "sp": 3000
+        },
+        "magic_items": [],
+        "valuables": []
+      },
+      "K": {
+        "coins": {
+          "cp": 0,
+          "ep": 0,
+          "gp": 0,
+          "pp": 0,
+          "sp": 0
+        },
+        "magic_items": [],
+        "valuables": []
+      },
+      "L": {
+        "coins": {
+          "cp": 0,
+          "ep": 0,
+          "gp": 0,
+          "pp": 0,
+          "sp": 0
+        },
+        "magic_items": [],
+        "valuables": [
+          {
+            "instance_id": "valuable-0195",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 100,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0196",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 10,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0197",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 500,
+            "weight_coins": 1
+          },
+          {
+            "instance_id": "valuable-0198",
+            "instance_type": "valuable",
+            "kind": "gem",
+            "name": "Gem",
+            "value_gp": 10,
+            "weight_coins": 1
+          }
+        ]
+      },
+      "M": {
+        "coins": {
+          "cp": 0,
+          "ep": 0,
+          "gp": 0,
+          "pp": 12000,
+          "sp": 0
+        },
+        "magic_items": [],
+        "valuables": [
+          {
+            "instance_id": "valuable-0199",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 1200,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0200",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 1100,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0201",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 900,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0202",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 300,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0203",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 1400,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0204",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 800,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0205",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 1200,
+            "weight_coins": 10
+          },
+          {
+            "instance_id": "valuable-0206",
+            "instance_type": "valuable",
+            "kind": "jewellery",
+            "name": "Jewellery",
+            "value_gp": 1100,
+            "weight_coins": 10
+          }
+        ]
+      },
+      "N": {
+        "coins": {
+          "cp": 0,
+          "ep": 0,
+          "gp": 0,
+          "pp": 0,
+          "sp": 0
+        },
+        "magic_items": [
+          {
+            "base_item_id": null,
+            "charges_remaining": null,
+            "cursed_revealed": false,
+            "identified": false,
+            "instance_id": "magic-item-0033",
+            "instance_type": "magic_item",
+            "quantity": 1,
+            "sentience": null,
+            "state": {},
+            "template_id": "potion_of_control_undead"
+          },
+          {
+            "base_item_id": null,
+            "charges_remaining": null,
+            "cursed_revealed": false,
+            "identified": false,
+            "instance_id": "magic-item-0034",
+            "instance_type": "magic_item",
+            "quantity": 1,
+            "sentience": null,
+            "state": {},
+            "template_id": "potion_of_speed"
+          }
+        ],
+        "valuables": []
+      },
+      "O": {
+        "coins": {
+          "cp": 0,
+          "ep": 0,
+          "gp": 0,
+          "pp": 0,
+          "sp": 0
+        },
+        "magic_items": [
+          {
+            "base_item_id": null,
+            "charges_remaining": null,
+            "cursed_revealed": false,
+            "identified": false,
+            "instance_id": "magic-item-0035",
+            "instance_type": "magic_item",
+            "quantity": 1,
+            "sentience": null,
+            "state": {
+              "spell_list": "magic_user",
+              "spells": [
+                "polymorph_others"
+              ]
+            },
+            "template_id": "spell_scroll_1"
+          }
+        ],
+        "valuables": []
+      },
+      "P": {
+        "coins": {
+          "cp": 13,
+          "ep": 0,
+          "gp": 0,
+          "pp": 0,
+          "sp": 0
+        },
+        "magic_items": [],
+        "valuables": []
+      },
+      "Q": {
+        "coins": {
+          "cp": 0,
+          "ep": 0,
+          "gp": 0,
+          "pp": 0,
+          "sp": 9
+        },
+        "magic_items": [],
+        "valuables": []
+      },
+      "R": {
+        "coins": {
+          "cp": 0,
+          "ep": 8,
+          "gp": 0,
+          "pp": 0,
+          "sp": 0
+        },
+        "magic_items": [],
+        "valuables": []
+      },
+      "S": {
+        "coins": {
+          "cp": 0,
+          "ep": 0,
+          "gp": 5,
+          "pp": 0,
+          "sp": 0
+        },
+        "magic_items": [],
+        "valuables": []
+      },
+      "T": {
+        "coins": {
+          "cp": 0,
+          "ep": 0,
+          "gp": 0,
+          "pp": 2,
+          "sp": 0
+        },
+        "magic_items": [],
+        "valuables": []
+      },
+      "U": {
+        "coins": {
+          "cp": 90,
+          "ep": 0,
+          "gp": 0,
+          "pp": 0,
+          "sp": 0
+        },
+        "magic_items": [],
+        "valuables": []
+      },
+      "V": {
+        "coins": {
+          "cp": 0,
+          "ep": 0,
+          "gp": 0,
+          "pp": 0,
+          "sp": 92
+        },
+        "magic_items": [],
+        "valuables": []
+      }
+    }
+  },
+  "master_seed": 20260705
+}
