@@ -44,6 +44,7 @@ def sample_event(event_class, code):
         "DamageAbsorbedEvent": dict(target_id="monster-0001", attacker_id="pc-1", keys=("silver",)),
         "SavingThrowRolledEvent": dict(target_id="pc-1", category="death", roll=13, required=12),
         "MoraleCheckedEvent": dict(subject="trolls", score=10, roll=8),
+        "ReactionRolledEvent": dict(roll=7, modifier=1, total=8, result="uncertain"),
         "ConditionGainedEvent": dict(target_id="pc-1", condition="paralysed", effect_id="effect-0001"),
         "ConditionRemovedEvent": dict(target_id="pc-1", condition="paralysed", effect_id="effect-0001"),
         "EffectAttachedEvent": dict(effect_id="effect-0001", kind="paralysis", target_ref="pc-1", expires_round=8),

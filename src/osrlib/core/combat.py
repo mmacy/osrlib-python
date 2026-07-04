@@ -57,6 +57,7 @@ from osrlib.core.events import (
     InitiativeRoll,
     InitiativeRolledEvent,
     MoraleCheckedEvent,
+    ReactionRolledEvent,
     SavingThrowRolledEvent,
     TargetsSelectedEvent,
 )
@@ -64,7 +65,7 @@ from osrlib.core.items import CombatFacet, GearTemplate, MissileRanges, WeaponQu
 from osrlib.core.monsters import Element, MonsterAttack
 from osrlib.core.rng import RngStream
 from osrlib.core.ruleset import Ruleset
-from osrlib.core.tables import to_hit_ac
+from osrlib.core.tables import ReactionResult, reaction_result, to_hit_ac
 from osrlib.core.validation import Rejection
 
 __all__ = [
@@ -77,6 +78,7 @@ __all__ = [
     "MoraleResult",
     "MoraleTracker",
     "Participant",
+    "ReactionRollResult",
     "SaveCategory",
     "SaveResult",
     "TargetingMode",
@@ -100,6 +102,7 @@ __all__ = [
     "natural_healing",
     "participant_modifier",
     "resolve_attack",
+    "roll_reaction",
     "resolve_breath",
     "resolve_energy_drain",
     "resolve_gaze",
@@ -1129,6 +1132,43 @@ def check_morale(subject: str, score: int, *, modifier: int = 0, stream: RngStre
         modifier=modifier,
     )
     return MoraleResult(held=held, roll=rolled, modifier=modifier, events=(event,))
+
+
+class ReactionRollResult(BaseModel):
+    """A reaction roll's outcome: the raw 2d6, the modifier, and the table band."""
+
+    model_config = ConfigDict(frozen=True)
+
+    result: ReactionResult
+    roll: int
+    modifier: int = 0
+    total: int
+    events: tuple[Event, ...] = ()
+
+
+def roll_reaction(*, modifier: int = 0, stream: RngStream) -> ReactionRollResult:
+    """Roll a monster reaction: 2d6 plus the modifier against the reaction table.
+
+    The CHA modifier is the caller's to supply from `npc_reaction_modifier` — RAW
+    applies it only when one specific character attempts to speak with the monsters.
+    Totals outside 2..12 clamp into the table's own outer bands. The event is
+    **referee** visibility: players learn reactions from behavior, the morale
+    precedent.
+
+    Args:
+        modifier: The speaking character's CHA reaction modifier, when one applies.
+        stream: The RNG stream, conventionally the crawl's `"encounter"` stream.
+
+    Returns:
+        The outcome, with its referee-visibility event.
+    """
+    from osrlib.data import load_combat_tables
+
+    rolled = stream.randbelow(6) + 1 + stream.randbelow(6) + 1
+    total = rolled + modifier
+    result = reaction_result(load_combat_tables().reaction, total)
+    event = ReactionRolledEvent(roll=rolled, modifier=modifier, total=total, result=result.value)
+    return ReactionRollResult(result=result, roll=rolled, modifier=modifier, total=total, events=(event,))
 
 
 class MoraleTracker(BaseModel):

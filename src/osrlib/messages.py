@@ -115,6 +115,9 @@ _TEMPLATES: dict[str, Callable[[Event], str]] = {
         f"Morale check for {event.subject} (ML {event.score}): no roll — "
         + ("they never check morale." if event.score == 12 else "they never fight.")
     ),
+    "encounter.reaction.rolled": lambda event: (
+        f"Reaction roll: {event.roll}{event.modifier:+d} = {event.total} — {event.result}."
+    ),
     "effects.condition.gained": lambda event: f"{event.target_id} is {event.condition}.",
     "effects.condition.removed": lambda event: f"{event.target_id} is no longer {event.condition}.",
     "effects.effect.attached": lambda event: f"Effect {event.effect_id} ({event.kind}) attached to {event.target_ref}.",

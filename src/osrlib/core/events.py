@@ -59,6 +59,7 @@ __all__ = [
     "MonsterRevivedEvent",
     "MoraleCheckedEvent",
     "PreparedSpell",
+    "ReactionRolledEvent",
     "SavingThrowRolledEvent",
     "SpellBookUpdatedEvent",
     "SpellCastEvent",
@@ -247,6 +248,20 @@ class MoraleCheckedEvent(Event):
     score: int
     roll: int | None = None
     modifier: int = 0
+
+
+class ReactionRolledEvent(Event):
+    """A monster reaction roll: referee visibility — players learn reactions from behavior."""
+
+    allowed_codes: ClassVar[frozenset[str]] = frozenset({"encounter.reaction.rolled"})
+
+    event_type: Literal["reaction_rolled"] = "reaction_rolled"
+    code: str = "encounter.reaction.rolled"
+    visibility: Visibility = Visibility.REFEREE
+    roll: int
+    modifier: int = 0
+    total: int
+    result: str
 
 
 class ConditionGainedEvent(Event):
@@ -564,6 +579,7 @@ KERNEL_EVENT_CLASSES: tuple[type[Event], ...] = (
     DamageAbsorbedEvent,
     SavingThrowRolledEvent,
     MoraleCheckedEvent,
+    ReactionRolledEvent,
     ConditionGainedEvent,
     ConditionRemovedEvent,
     EffectAttachedEvent,
@@ -594,6 +610,7 @@ KernelEvent = Annotated[
     | DamageAbsorbedEvent
     | SavingThrowRolledEvent
     | MoraleCheckedEvent
+    | ReactionRolledEvent
     | ConditionGainedEvent
     | ConditionRemovedEvent
     | EffectAttachedEvent

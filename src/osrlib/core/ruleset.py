@@ -65,6 +65,24 @@ class Ruleset(BaseModel):
             own wording: the flag touches only weapon-material gates whose keys are a
             subset of {silver, magic}, and "another invulnerable monster" means a
             monster bearing such a gate.
+        deprivation_penalties: Documented adaptation, default off. Consumption is
+            tracked regardless; with the flag on, the SRD's "at the referee's
+            discretion, for example" starvation list gets pinned defaults drawn from
+            its own examples: after one full day without food or water, −1 to attack
+            rolls (an engine-written modifier effect) and the rest cadence doubles
+            (fatigue after three unrested turns instead of six); after two days,
+            movement also halves; from the third day on, a daily 1d4 hit-point loss
+            ticks on the effects stream. Water and food deprivation don't stack —
+            the worse track applies. The schedule's numbers are invented over the
+            SRD's open list (see `docs/adaptations.md`).
+        aoe_friendly_fire: Documented adaptation, default on: an area effect landing
+            on a monster group at melee range catches engaged party members among
+            its candidates (the Phase 4 footprint rule). Off means areas never
+            include party members among a monster group's candidates.
+        formation_width_limit: Documented adaptation, default on: corridor width
+            caps combatants fighting abreast — rank width 3 inside a keyed area and
+            2 in corridor cells (RAW's "2–3 characters in a 10' passage"). Off lifts
+            the cap: every combatant may melee.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -76,3 +94,6 @@ class Ruleset(BaseModel):
     thac0_arithmetic: bool = False
     weapon_reload: bool = False
     hd5_counts_as_magical: bool = False
+    deprivation_penalties: bool = False
+    aoe_friendly_fire: bool = True
+    formation_width_limit: bool = True

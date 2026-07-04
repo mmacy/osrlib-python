@@ -36,27 +36,43 @@ if TYPE_CHECKING:
     from osrlib.core.character import Character
 
 __all__ = [
+    "PERCENTILE_THIEF_SKILLS",
     "ArmourPolicy",
     "ArmourPolicyKind",
     "ClassAbility",
     "ClassCatalog",
     "ClassDefinition",
+    "DetectionResult",
     "DrainResult",
     "HitDice",
     "LevelUpResult",
     "ProgressionRow",
     "Race",
     "SavingThrows",
+    "SkillCheckResult",
     "ThiefSkillRow",
     "WeaponPolicy",
     "WeaponPolicyKind",
     "XpAwardResult",
     "XpTier",
     "apply_xp",
+    "detection_chance",
+    "detection_check",
     "drain_levels",
     "level_up",
+    "thief_skill_check",
     "xp_modifier_pct",
 ]
+
+PERCENTILE_THIEF_SKILLS = (
+    "climb_sheer_surfaces",
+    "find_remove_treasure_traps",
+    "hide_in_shadows",
+    "move_silently",
+    "open_locks",
+    "pick_pockets",
+)
+"""The six d% roll-under thief skills; `hear_noise` is the seventh, rolled on 1d6."""
 
 
 class Race(StrEnum):
@@ -443,6 +459,158 @@ def level_up(character: Character, definition: ClassDefinition, stream: RngStrea
     character.max_hp += result.hp_gained
     character.current_hp += result.hp_gained
     return result
+
+
+class SkillCheckResult(BaseModel):
+    """A thief skill check's outcome.
+
+    `chance` is the effective target after modifiers (the pick-pockets ≥1%-failure
+    cap applied). `noticed` is set only for pick pockets: a roll of more than twice
+    the effective chance means the attempted theft is noticed (RAW) — what the
+    victim does about it is a game procedure.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    skill: str
+    roll: int
+    chance: int
+    passed: bool
+    noticed: bool | None = None
+
+
+class DetectionResult(BaseModel):
+    """An X-in-6 detection check's outcome.
+
+    `roll` is `None` for a zero chance — no die is consumed (there is nothing to
+    roll under), pinned; the non-dwarf searching for construction tricks simply
+    fails.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    chance: int
+    roll: int | None = None
+    passed: bool
+
+
+def thief_skill_check(
+    character: Character, definition: ClassDefinition, skill: str, *, modifier_pct: int = 0, stream: RngStream
+) -> SkillCheckResult:
+    """Roll one thief skill check — an à la carte plain result, no events.
+
+    The six percentile skills roll d% with success on a result less than or equal
+    to the level row's chance; `hear_noise` rolls 1d6 against its X-in-6 bound. The
+    crawl procedures emit the events (and hide the referee-rolled outcomes); this
+    function just resolves the dice.
+
+    Pick pockets, per its RAW bullet: the caller folds the victim's over-5th-level
+    penalty into `modifier_pct` (−5% per victim level above 5th — the kernel never
+    sees the victim), the effective chance caps at 99 ("always at least a 1% chance
+    of failure"), and a roll of more than twice the effective chance sets `noticed`.
+
+    Args:
+        character: The rolling thief.
+        definition: The character's class definition; must carry a thief skill
+            table.
+        skill: A percentile skill name from
+            [`PERCENTILE_THIEF_SKILLS`][osrlib.core.classes.PERCENTILE_THIEF_SKILLS],
+            or `"hear_noise"`.
+        modifier_pct: A percentage adjustment to the percentile chance (ignored for
+            `hear_noise`).
+        stream: The RNG stream, conventionally the crawl's `"exploration"` stream.
+
+    Returns:
+        The check outcome.
+
+    Raises:
+        ValueError: If the class has no thief skills or the skill name is unknown —
+            gating who may attempt a skill is the caller's validation.
+    """
+    if not definition.thief_skills:
+        raise ValueError(f"{definition.id} has no thief skill table")
+    row = definition.thief_skills[character.level - 1]
+    if skill == "hear_noise":
+        roll = stream.randbelow(6) + 1
+        return SkillCheckResult(skill=skill, roll=roll, chance=row.hear_noise, passed=roll <= row.hear_noise)
+    if skill not in PERCENTILE_THIEF_SKILLS:
+        raise ValueError(f"unknown thief skill {skill!r}")
+    chance = getattr(row, skill) + modifier_pct
+    if skill == "pick_pockets":
+        chance = min(99, chance)
+    roll = stream.randbelow(100) + 1
+    noticed = roll > 2 * chance if skill == "pick_pockets" else None
+    return SkillCheckResult(skill=skill, roll=roll, chance=chance, passed=roll <= chance, noticed=noticed)
+
+
+def detection_check(chance_in_six: int, *, stream: RngStream) -> DetectionResult:
+    """Roll the shared X-in-6 detection check: searching, listening, demi-human tags.
+
+    A zero (or negative) chance consumes no draw and fails — pinned: the SRD grants
+    construction-trick perception to dwarves alone, and there is nothing to roll
+    under.
+
+    Args:
+        chance_in_six: The X-in-6 chance, from
+            [`detection_chance`][osrlib.core.classes.detection_chance] or a class
+            tag.
+        stream: The RNG stream, conventionally the crawl's `"exploration"` stream.
+
+    Returns:
+        The check outcome.
+    """
+    if chance_in_six <= 0:
+        return DetectionResult(chance=chance_in_six, passed=False)
+    roll = stream.randbelow(6) + 1
+    return DetectionResult(chance=chance_in_six, roll=roll, passed=roll <= chance_in_six)
+
+
+def _ability_chance(definition: ClassDefinition, tag: str) -> int | None:
+    for ability in definition.abilities:
+        if ability.tag == tag:
+            return int(ability.params.get("chance_in_six", 0))
+    return None
+
+
+def detection_chance(character: Character, definition: ClassDefinition, kind: str) -> int:
+    """Resolve a character's X-in-6 chance for one detection kind.
+
+    The pinned precedence: listening uses the thief's `hear_noise` row when
+    present, else the class's `listening_at_doors` param, else the universal
+    1-in-6; secret doors use `detect_secret_doors` (elf 2) else 1; room traps use
+    `detect_room_traps` (dwarf 2) else 1; construction tricks use
+    `detect_construction_tricks` (dwarf 2) else **zero** — the SRD grants the
+    perception to dwarves alone, and "as a dwarf you can sense" has no baseline for
+    others, unlike the universal 1-in-6 search chances which the SRD states for all
+    PCs.
+
+    Args:
+        character: The detecting character.
+        definition: The character's class definition.
+        kind: One of `"listening"`, `"secret_doors"`, `"room_traps"`, or
+            `"construction"`.
+
+    Returns:
+        The X-in-6 chance (0 means no chance at all).
+
+    Raises:
+        ValueError: If the kind is unknown.
+    """
+    if kind == "listening":
+        if definition.thief_skills:
+            return definition.thief_skills[character.level - 1].hear_noise
+        chance = _ability_chance(definition, "listening_at_doors")
+        return chance if chance is not None else 1
+    if kind == "secret_doors":
+        chance = _ability_chance(definition, "detect_secret_doors")
+        return chance if chance is not None else 1
+    if kind == "room_traps":
+        chance = _ability_chance(definition, "detect_room_traps")
+        return chance if chance is not None else 1
+    if kind == "construction":
+        chance = _ability_chance(definition, "detect_construction_tricks")
+        return chance if chance is not None else 0
+    raise ValueError(f"unknown detection kind {kind!r}")
 
 
 class DrainResult(BaseModel):
