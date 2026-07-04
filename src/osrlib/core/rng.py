@@ -221,9 +221,12 @@ class RngStreams:
     Examples:
 
         ```python
+        from osrlib.core.rng import RngStreams
+
         streams = RngStreams(master_seed=42)
         combat = streams.get("combat")
-        combat.randbelow(20) + 1  # a d20 roll
+        d20 = combat.randbelow(20) + 1
+        assert 1 <= d20 <= 20
         ```
     """
 

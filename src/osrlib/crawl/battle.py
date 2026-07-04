@@ -486,7 +486,7 @@ def start_battle(session, *, party_free_round: bool = False, monsters_free_round
     `ResolveBattleRound`.
 
     Args:
-        session: The running session.
+        session (osrlib.crawl.session.GameSession): The running session.
         party_free_round: The monsters were surprised.
         monsters_free_round: The party was surprised with a hostile/attacking stance.
 

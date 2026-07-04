@@ -125,7 +125,7 @@ def start_encounter(
     living member has infravision (the blind-party adaptation, registered).
 
     Args:
-        session: The running session.
+        session (osrlib.crawl.session.GameSession): The running session.
         groups: `(label, instances)` pairs, instances already in the registry.
         kind: `"wandering"`, `"keyed"`, or `"spawned"`.
         area_ref: The keyed area's state reference, when keyed.
@@ -242,7 +242,7 @@ def _end_of_round(session, *, party_lost_beat: bool = False) -> list[Event]:
     """Close one encounter round beat: the clock ticks and the monsters act per stance.
 
     Args:
-        session: The running session.
+        session (osrlib.crawl.session.GameSession): The running session.
         party_lost_beat: True when this beat is the surprised party's lost round —
             a battle opening here starts with the monsters' free round.
     """

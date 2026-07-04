@@ -1,0 +1,75 @@
+site_name: osrlib
+site_url: https://mmacy.github.io/osrlib-python/
+site_description: >-
+  B/X (1981 Basic/Expert) tabletop RPG rules engine for turn-based dungeon crawlers,
+  built on the Old-School Essentials SRD.
+repo_url: https://github.com/mmacy/osrlib-python
+repo_name: mmacy/osrlib-python
+
+theme:
+  name: material
+
+# The design documents live in docs/ beside the site pages but are not part of the
+# published site; the adaptations register (adaptations.md) is a site page and stays.
+exclude_docs: |
+  spec.md
+  phase-*-plan.md
+  docstring-audit.md
+
+strict: true
+
+validation:
+  nav:
+    omitted_files: warn
+    not_found: warn
+    absolute_links: warn
+  links:
+    not_found: warn
+    absolute_links: warn
+    unrecognized_links: warn
+    anchors: warn
+
+nav:
+  - Home: index.md
+  - Getting started:
+      - Quickstart: getting-started/quickstart.md
+      - Building an adventure: getting-started/building-an-adventure.md
+  - Guides:
+      - Sessions, commands, and events: guides/sessions-commands-events.md
+      - Views and visibility: guides/views-and-visibility.md
+      - Determinism, saves, and replay: guides/determinism-saves-replay.md
+      - The kernel à la carte: guides/kernel-a-la-carte.md
+      - Listeners and flags: guides/listeners-and-flags.md
+      - Authoring custom classes and spells: guides/authoring-custom-content.md
+      - Ruleset options: guides/ruleset-options.md
+  - Front ends:
+      - The TUI crawler: front-ends/tui-crawler.md
+      - The FastAPI pattern: front-ends/fastapi-pattern.md
+      - LLM referees: front-ends/llm-referees.md
+  - Reference:
+      - API: reference/api/
+      - RNG streams: reference/rng-streams.md
+      - Adaptations register: adaptations.md
+  - Licensing: licensing.md
+
+plugins:
+  - search
+  - gen-files:
+      scripts:
+        - tools/docs/gen_api_reference.py
+        - tools/docs/gen_licensing.py
+  - literate-nav
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: google
+            show_root_heading: false
+            show_source: false
+            members_order: source
+            separate_signature: true
+            show_signature_annotations: true
+            signature_crossrefs: true
+            line_length: 120
+            merge_init_into_class: true

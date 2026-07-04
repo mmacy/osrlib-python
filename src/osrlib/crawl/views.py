@@ -237,7 +237,7 @@ def build_player_view(session) -> PlayerView:
     """Build the player view from session state (never from the event log).
 
     Args:
-        session: The running session.
+        session (osrlib.crawl.session.GameSession): The running session.
 
     Returns:
         The frozen whitelist projection.
@@ -396,7 +396,7 @@ def build_referee_view(session) -> RefereeView:
     """Build the referee view: everything but RNG internals and the seed.
 
     Args:
-        session: The running session.
+        session (osrlib.crawl.session.GameSession): The running session.
 
     Returns:
         The full-state projection.
