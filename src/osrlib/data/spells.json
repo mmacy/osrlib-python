@@ -235,21 +235,30 @@
               {
                 "dice": null,
                 "element": null,
+                "from_item": false,
                 "kind": "attack_bonus",
+                "melee_only": false,
+                "save_categories": [],
                 "value": 1,
                 "versus_other_alignment": false
               },
               {
                 "dice": null,
                 "element": null,
+                "from_item": false,
                 "kind": "damage_bonus",
+                "melee_only": false,
+                "save_categories": [],
                 "value": 1,
                 "versus_other_alignment": false
               },
               {
                 "dice": null,
                 "element": null,
+                "from_item": false,
                 "kind": "morale_bonus",
+                "melee_only": false,
+                "save_categories": [],
                 "value": 1,
                 "versus_other_alignment": false
               }
@@ -304,21 +313,30 @@
                 {
                   "dice": null,
                   "element": null,
+                  "from_item": false,
                   "kind": "attack_bonus",
+                  "melee_only": false,
+                  "save_categories": [],
                   "value": -1,
                   "versus_other_alignment": false
                 },
                 {
                   "dice": null,
                   "element": null,
+                  "from_item": false,
                   "kind": "damage_bonus",
+                  "melee_only": false,
+                  "save_categories": [],
                   "value": -1,
                   "versus_other_alignment": false
                 },
                 {
                   "dice": null,
                   "element": null,
+                  "from_item": false,
                   "kind": "morale_bonus",
+                  "melee_only": false,
+                  "save_categories": [],
                   "value": -1,
                   "versus_other_alignment": false
                 }
@@ -1348,7 +1366,10 @@
                 {
                   "dice": null,
                   "element": null,
+                  "from_item": false,
                   "kind": "attack_bonus",
+                  "melee_only": false,
+                  "save_categories": [],
                   "value": -2,
                   "versus_other_alignment": false
                 }
@@ -4344,14 +4365,20 @@
               {
                 "dice": null,
                 "element": null,
+                "from_item": false,
                 "kind": "save_bonus",
+                "melee_only": false,
+                "save_categories": [],
                 "value": 1,
                 "versus_other_alignment": true
               },
               {
                 "dice": null,
                 "element": null,
+                "from_item": false,
                 "kind": "attack_penalty_of_attackers",
+                "melee_only": false,
+                "save_categories": [],
                 "value": -1,
                 "versus_other_alignment": true
               }
@@ -4421,14 +4448,20 @@
               {
                 "dice": null,
                 "element": null,
+                "from_item": false,
                 "kind": "save_bonus",
+                "melee_only": false,
+                "save_categories": [],
                 "value": 1,
                 "versus_other_alignment": true
               },
               {
                 "dice": null,
                 "element": null,
+                "from_item": false,
                 "kind": "attack_penalty_of_attackers",
+                "melee_only": false,
+                "save_categories": [],
                 "value": -1,
                 "versus_other_alignment": true
               }
@@ -4498,14 +4531,20 @@
               {
                 "dice": null,
                 "element": null,
+                "from_item": false,
                 "kind": "save_bonus",
+                "melee_only": false,
+                "save_categories": [],
                 "value": 1,
                 "versus_other_alignment": true
               },
               {
                 "dice": null,
                 "element": null,
+                "from_item": false,
                 "kind": "attack_penalty_of_attackers",
+                "melee_only": false,
+                "save_categories": [],
                 "value": -1,
                 "versus_other_alignment": true
               }
@@ -4572,14 +4611,20 @@
               {
                 "dice": null,
                 "element": null,
+                "from_item": false,
                 "kind": "save_bonus",
+                "melee_only": false,
+                "save_categories": [],
                 "value": 1,
                 "versus_other_alignment": true
               },
               {
                 "dice": null,
                 "element": null,
+                "from_item": false,
                 "kind": "attack_penalty_of_attackers",
+                "melee_only": false,
+                "save_categories": [],
                 "value": -1,
                 "versus_other_alignment": true
               }
@@ -4646,7 +4691,10 @@
               {
                 "dice": null,
                 "element": null,
+                "from_item": false,
                 "kind": "missile_immunity_nonmagical",
+                "melee_only": false,
+                "save_categories": [],
                 "value": 0,
                 "versus_other_alignment": false
               }
@@ -5250,14 +5298,20 @@
               {
                 "dice": null,
                 "element": "cold",
+                "from_item": false,
                 "kind": "save_bonus",
+                "melee_only": false,
+                "save_categories": [],
                 "value": 2,
                 "versus_other_alignment": false
               },
               {
                 "dice": null,
                 "element": "cold",
+                "from_item": false,
                 "kind": "damage_reduction_per_die",
+                "melee_only": false,
+                "save_categories": [],
                 "value": 1,
                 "versus_other_alignment": false
               }
@@ -5322,14 +5376,20 @@
               {
                 "dice": null,
                 "element": "fire",
+                "from_item": false,
                 "kind": "save_bonus",
+                "melee_only": false,
+                "save_categories": [],
                 "value": 2,
                 "versus_other_alignment": false
               },
               {
                 "dice": null,
                 "element": "fire",
+                "from_item": false,
                 "kind": "damage_reduction_per_die",
+                "melee_only": false,
+                "save_categories": [],
                 "value": 1,
                 "versus_other_alignment": false
               }
@@ -5392,14 +5452,20 @@
               {
                 "dice": null,
                 "element": null,
+                "from_item": false,
                 "kind": "ac_set_vs_missile",
+                "melee_only": false,
+                "save_categories": [],
                 "value": 2,
                 "versus_other_alignment": false
               },
               {
                 "dice": null,
                 "element": null,
+                "from_item": false,
                 "kind": "ac_set",
+                "melee_only": false,
+                "save_categories": [],
                 "value": 4,
                 "versus_other_alignment": false
               }
@@ -5945,14 +6011,20 @@
               {
                 "dice": "1d6",
                 "element": null,
+                "from_item": false,
                 "kind": "weapon_damage_dice_bonus",
+                "melee_only": false,
+                "save_categories": [],
                 "value": 0,
                 "versus_other_alignment": false
               },
               {
                 "dice": null,
                 "element": null,
+                "from_item": false,
                 "kind": "counts_as_magical",
+                "melee_only": false,
+                "save_categories": [],
                 "value": 0,
                 "versus_other_alignment": false
               }

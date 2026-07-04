@@ -26,27 +26,50 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from osrlib.core.classes import ArmourPolicyKind, ClassDefinition, WeaponPolicyKind
 from osrlib.core.dice import parse
+from osrlib.core.effects import ModifierSpec
 from osrlib.core.ruleset import EncumbranceMode, Ruleset
+from osrlib.core.treasure import MagicItemType, TreasureEntry
 from osrlib.core.validation import Rejection
 
 __all__ = [
     "BASE_MOVEMENT_FEET",
     "COIN_VALUES_CP",
     "MAX_LOAD_COINS",
+    "MAX_RINGS_WORN",
     "MISC_GEAR_WEIGHT_COINS",
     "AmmunitionTemplate",
     "ArmourCategory",
     "ArmourTemplate",
+    "ArmourTypeRow",
     "CoinPurse",
     "CombatFacet",
     "EquipmentCatalog",
     "GearTemplate",
     "Inventory",
     "ItemInstance",
+    "MagicArmourTypeTable",
+    "MagicItemCatalog",
+    "MagicItemCategory",
+    "MagicItemEffect",
+    "MagicItemInstance",
+    "MagicItemTemplate",
+    "MagicSubTable",
+    "MagicSubTableRow",
     "Material",
     "MissileRanges",
     "RangeBand",
+    "ScrollCurse",
+    "ScrollSpellLevelRow",
+    "ScrollSpellLevelTable",
+    "SentientSwordTables",
+    "SwordCommunicationRow",
+    "SwordPower",
+    "SwordPowersRow",
+    "SwordSentience",
+    "SwordTableBand",
     "TreasureWeight",
+    "UsableBy",
+    "VersusBonus",
     "WeaponQuality",
     "WeaponTemplate",
     "encounter_movement_rate",
@@ -60,6 +83,9 @@ __all__ = [
     "validate_equip",
     "validate_purchase",
 ]
+
+MAX_RINGS_WORN = 2
+"""RAW's ring cap: one on each hand — a third is rejected (more than two = none function)."""
 
 MAX_LOAD_COINS = 1600
 """The maximum load any character can carry; above it, movement is 0."""
@@ -304,6 +330,569 @@ class EquipmentCatalog(BaseModel):
         raise ValueError(f"unknown item id {item_id!r}")
 
 
+class MagicItemCategory(StrEnum):
+    """The magic item catalog's categories — the master table's types, devices split.
+
+    The master *Magic Item Type* table's `rod_staff_wand` type covers three catalog
+    categories; every other type maps to one.
+    """
+
+    ARMOUR = "armour"
+    MISC = "misc"
+    POTION = "potion"
+    RING = "ring"
+    ROD = "rod"
+    STAFF = "staff"
+    WAND = "wand"
+    SCROLL = "scroll"
+    SWORD = "sword"
+    WEAPON = "weapon"
+
+
+class VersusBonus(BaseModel):
+    """A `+2 vs Lycanthropes` clause: the printed label and its resolved targets.
+
+    `bonus` is the alternate attack-and-damage bonus that replaces the item's base
+    bonus against a matching target. Targets resolve structurally, never by
+    string-matching prose: `categories` name monster category tags (`undead`,
+    `enchanted`) and `template_ids` name compiled monster ids (the lycanthrope set,
+    the ability-derived spell-user and regenerating sets, the dagger's
+    orcs/goblins/kobolds). A clause matches a target whose template carries any
+    listed category or id; characters have no template and never match (pinned).
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    label: str = Field(min_length=1)
+    bonus: int
+    categories: tuple[str, ...] = ()
+    template_ids: tuple[str, ...] = ()
+
+    @model_validator(mode="after")
+    def _targets_must_resolve(self) -> VersusBonus:
+        if not self.categories and not self.template_ids:
+            raise ValueError(f"versus clause {self.label!r} resolves no categories or template ids")
+        return self
+
+
+class UsableBy(BaseModel):
+    """Who may use a magic item.
+
+    `all` is the default ("All characters (unless noted)"); `caster` restricts to
+    spell casters of `caster` kind (`arcane` for wands, per staff page otherwise);
+    `classes` restricts to the named class ids. Swords, weapons, and armour stay
+    `all` — "per normal class restrictions" resolves through the base item's
+    equip policies, not here.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    kind: Literal["all", "classes", "caster"] = "all"
+    class_ids: tuple[str, ...] = ()
+    caster: Literal["arcane", "divine", "any"] | None = None
+
+    @model_validator(mode="after")
+    def _shape_must_match_kind(self) -> UsableBy:
+        if self.kind == "classes" and not self.class_ids:
+            raise ValueError("a 'classes' usability names at least one class id")
+        if (self.kind == "caster") != (self.caster is not None):
+            raise ValueError("a caster kind is present exactly when the usability kind is 'caster'")
+        return self
+
+
+class MagicItemEffect(BaseModel):
+    """The structured mechanics of a wired magic item — the Phase 5 wired census.
+
+    `kind` names the kernel behavior that executes it (`worn_modifiers`, `potion`,
+    `damage_area`, `condition_area`, `healing`, `save_or_die`, `on_hit_drain`,
+    `striking`, `ward`, `regeneration`, `light`); everything else in the catalog is
+    `manual`-tagged prose. Fields are the union the behaviors read — dice, element,
+    save, shape and dimensions, duration — with `params` carrying per-item scalars.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    kind: str = Field(min_length=1)
+    modifiers: tuple[ModifierSpec, ...] = ()
+    condition: str | None = None
+    damage_dice: str | None = None
+    heal_dice: str | None = None
+    element: str | None = None
+    save_category: str | None = None
+    save_on: Literal["negates", "half"] | None = None
+    shape: str | None = None
+    dimensions: dict[str, int] = {}
+    range_feet: int | None = None
+    duration_unit: str | None = None
+    duration_amount: int | None = None
+    duration_dice: str | None = None
+    params: dict[str, int | str | bool | tuple[int | str, ...]] = {}
+
+    @field_validator("damage_dice", "heal_dice", "duration_dice")
+    @classmethod
+    def _dice_must_parse(cls, value: str | None) -> str | None:
+        if value is not None:
+            parse(value)
+        return value
+
+
+class ScrollCurse(BaseModel):
+    """One of the cursed scroll's six example curses, compiled as a data row.
+
+    `wired=True` marks the two the kernel resolves (energy drain through
+    `drain_levels` with the curse's own halfway XP policy, slow healing through the
+    Phase 2 slowed-healing hooks); the rest are `manual` prose carried on the event.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    id: str
+    name: str
+    prose: str
+    wired: bool = False
+
+
+class MagicItemTemplate(BaseModel):
+    """A magic item, compiled from the generation tables and per-item pages.
+
+    Frozen SRD data: play spawns mutable
+    [`MagicItemInstance`][osrlib.core.items.MagicItemInstance]s. `base_item_id` is
+    the mundane `equipment.json` template an enchanted arm overlays (sword, dagger,
+    chainmail, shield, arrows); generic armour outcomes leave it `None` — the
+    *Magic Armour Type* d8 sets the instance's base at generation. Bonuses are
+    negative for cursed items; the cursed `AC 9 [10]` forms carry `ac_set` /
+    `ac_set_ascending` instead. `charges_dice` rolls at generation (referee-only
+    forever after); `quantity_dice` sizes ammunition (sub-table rows may override
+    per printed band). `weight_coins` is the base item's weight — enchanted armour
+    at half per RAW, potions/scrolls/devices from the `TreasureWeight` rows.
+    `hoard_recipe` is a treasure map's compiled hoard; `curses` is the cursed
+    scroll's example-curse table.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    id: str
+    name: str
+    category: MagicItemCategory
+    base_item_id: str | None = None
+    attack_bonus: int = 0
+    damage_bonus: int = 0
+    ac_bonus: int = 0
+    ac_set: int | None = None
+    ac_set_ascending: int | None = None
+    versus: tuple[VersusBonus, ...] = ()
+    cursed: bool = False
+    charges_dice: str | None = None
+    quantity_dice: str | None = None
+    usable_by: UsableBy = UsableBy()
+    always_active: bool = False
+    effect: MagicItemEffect | None = None
+    params: dict[str, int | str | bool | tuple[int | str, ...]] = {}
+    manual: tuple[str, ...] = ()
+    weight_coins: int = Field(default=0, ge=0)
+    hoard_recipe: tuple[TreasureEntry, ...] = ()
+    curses: tuple[ScrollCurse, ...] = ()
+    overrides_applied: tuple[str, ...] = ()
+
+    @field_validator("charges_dice", "quantity_dice")
+    @classmethod
+    def _dice_must_parse(cls, value: str | None) -> str | None:
+        if value is not None:
+            parse(value)
+        return value
+
+
+class MagicSubTableRow(BaseModel):
+    """One outcome row of a category generation sub-table.
+
+    `basic_value` is the sparse small-die B column face (`None` when the printed
+    cell is blank — B and X are independent index spaces over the same outcome
+    list); `expert_min`/`expert_max` are the full d% X band (`00` reads as 100).
+    `item_ids` is usually one id; the armour-with-shield rows are two-item bundles.
+    `params` carries per-band generation data (the ring wish-count dice, the arrow
+    and bolt quantity dice) that overrides the template's own fields.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    item_ids: tuple[str, ...] = Field(min_length=1)
+    basic_value: int | None = None
+    expert_min: int = Field(ge=1, le=100)
+    expert_max: int = Field(ge=1, le=100)
+    params: dict[str, int | str | bool | tuple[int | str, ...]] = {}
+
+
+class MagicSubTable(BaseModel):
+    """One category's generation sub-table: the sparse B column and the full X column."""
+
+    model_config = ConfigDict(frozen=True)
+
+    category: MagicItemType
+    basic_die: int = Field(ge=2)
+    rows: tuple[MagicSubTableRow, ...] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _columns_must_cover_their_dice(self) -> MagicSubTable:
+        expected = 1
+        for row in self.rows:
+            if row.expert_min != expected:
+                raise ValueError(f"{self.category} expert bands must be contiguous from 01")
+            expected = row.expert_max + 1
+        if expected != 101:
+            raise ValueError(f"{self.category} expert bands must cover the whole d%")
+        basic_values = [row.basic_value for row in self.rows if row.basic_value is not None]
+        if basic_values != list(range(1, self.basic_die + 1)):
+            raise ValueError(f"{self.category} basic column must cover 1-{self.basic_die} in order")
+        return self
+
+    def row_for_basic(self, roll: int) -> MagicSubTableRow:
+        """Return the row a Basic-tier small-die roll selects.
+
+        Args:
+            roll: The small-die result, 1 through `basic_die`.
+
+        Returns:
+            The selected row.
+
+        Raises:
+            ValueError: If no row carries that face.
+        """
+        for row in self.rows:
+            if row.basic_value == roll:
+                return row
+        raise ValueError(f"{self.category} basic roll must be 1-{self.basic_die}, got {roll}")
+
+    def row_for_expert(self, roll: int) -> MagicSubTableRow:
+        """Return the row an Expert-tier d% roll selects.
+
+        Args:
+            roll: The d% result, 1–100.
+
+        Returns:
+            The selected row.
+
+        Raises:
+            ValueError: If the roll is outside 1–100.
+        """
+        for row in self.rows:
+            if row.expert_min <= roll <= row.expert_max:
+                return row
+        raise ValueError(f"{self.category} expert roll must be 1-100, got {roll}")
+
+
+class ArmourTypeRow(BaseModel):
+    """One d8 band of the *Magic Armour Type* table."""
+
+    model_config = ConfigDict(frozen=True)
+
+    roll_min: int = Field(ge=1, le=8)
+    roll_max: int = Field(ge=1, le=8)
+    base_item_id: str
+
+
+class MagicArmourTypeTable(BaseModel):
+    """The *Magic Armour Type* d8 table: what a generated `Armour +N` is made of."""
+
+    model_config = ConfigDict(frozen=True)
+
+    rows: tuple[ArmourTypeRow, ...] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _rows_cover_the_d8(self) -> MagicArmourTypeTable:
+        expected = 1
+        for row in self.rows:
+            if row.roll_min != expected:
+                raise ValueError("armour type rows must be contiguous from 1")
+            expected = row.roll_max + 1
+        if expected != 9:
+            raise ValueError("armour type rows must cover the whole d8")
+        return self
+
+    def base_for_roll(self, roll: int) -> str:
+        """Return the base armour id a d8 roll selects.
+
+        Args:
+            roll: The d8 result, 1–8.
+
+        Returns:
+            The mundane armour template id.
+
+        Raises:
+            ValueError: If the roll is outside 1–8.
+        """
+        for row in self.rows:
+            if row.roll_min <= roll <= row.roll_max:
+                return row.base_item_id
+        raise ValueError(f"armour type roll must be 1-8, got {roll}")
+
+
+class ScrollSpellLevelRow(BaseModel):
+    """One row of the *Random Scroll Spell Level* table.
+
+    The B column here is d6 *bands* (`1–3`), not sparse faces — `None` bounds mark
+    the Expert-only rows.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    basic_min: int | None = None
+    basic_max: int | None = None
+    expert_min: int = Field(ge=1, le=100)
+    expert_max: int = Field(ge=1, le=100)
+    arcane_level: int = Field(ge=1, le=6)
+    divine_level: int = Field(ge=1, le=5)
+
+
+class ScrollSpellLevelTable(BaseModel):
+    """The *Random Scroll Spell Level* table, with its arcane and divine columns."""
+
+    model_config = ConfigDict(frozen=True)
+
+    rows: tuple[ScrollSpellLevelRow, ...] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _columns_cover_their_dice(self) -> ScrollSpellLevelTable:
+        expected = 1
+        for row in self.rows:
+            if row.expert_min != expected:
+                raise ValueError("scroll spell level expert bands must be contiguous from 01")
+            expected = row.expert_max + 1
+        if expected != 101:
+            raise ValueError("scroll spell level expert bands must cover the whole d%")
+        expected = 1
+        for row in self.rows:
+            if row.basic_min is None:
+                continue
+            if row.basic_min != expected:
+                raise ValueError("scroll spell level basic bands must be contiguous from 1")
+            expected = (row.basic_max or 0) + 1
+        if expected != 7:
+            raise ValueError("scroll spell level basic bands must cover the whole d6")
+        return self
+
+    def level_for_basic(self, roll: int, *, divine: bool) -> int:
+        """Return the spell level a Basic-tier d6 roll selects.
+
+        Args:
+            roll: The d6 result, 1–6.
+            divine: True for the divine column.
+
+        Returns:
+            The spell level.
+
+        Raises:
+            ValueError: If no band covers the roll.
+        """
+        for row in self.rows:
+            if row.basic_min is not None and row.basic_min <= roll <= (row.basic_max or 0):
+                return row.divine_level if divine else row.arcane_level
+        raise ValueError(f"scroll spell level basic roll must be 1-6, got {roll}")
+
+    def level_for_expert(self, roll: int, *, divine: bool) -> int:
+        """Return the spell level an Expert-tier d% roll selects.
+
+        Args:
+            roll: The d% result, 1–100.
+            divine: True for the divine column.
+
+        Returns:
+            The spell level.
+
+        Raises:
+            ValueError: If the roll is outside 1–100.
+        """
+        for row in self.rows:
+            if row.expert_min <= roll <= row.expert_max:
+                return row.divine_level if divine else row.arcane_level
+        raise ValueError(f"scroll spell level roll must be 1-100, got {roll}")
+
+
+class SwordCommunicationRow(BaseModel):
+    """One INT row of the sentient sword *Communication* table."""
+
+    model_config = ConfigDict(frozen=True)
+
+    int_score: int = Field(ge=7, le=12)
+    reading: bool
+    communication: str
+
+
+class SwordPowersRow(BaseModel):
+    """One INT row of the sentient sword *Powers* table."""
+
+    model_config = ConfigDict(frozen=True)
+
+    int_score: int = Field(ge=7, le=12)
+    sensory: int = Field(ge=0)
+    extraordinary: int = Field(ge=0)
+
+
+class SwordTableBand(BaseModel):
+    """One die band of a sentient-sword roll table; `result` is a slug or directive.
+
+    Directives: `roll_twice` (languages and both power tables), `roll_thrice`
+    (extraordinary 00), `roll_extraordinary` (sensory 96–99).
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    roll_min: int = Field(ge=1)
+    roll_max: int = Field(ge=1)
+    result: str = Field(min_length=1)
+
+
+class SwordPower(BaseModel):
+    """One sentient-sword power: `manual`-tagged prose data (automation is out of 1.0)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    id: str
+    name: str
+    prose: str
+    extraordinary: bool = False
+    duplicates_allowed: bool = False
+
+
+class SentientSwordTables(BaseModel):
+    """The sentient-sword generation tables, compiled as data.
+
+    Generation order is pinned on the page's own procedure: the special-purpose
+    1-in-20 first (a special sword is always sentient at INT 12/Ego 12), otherwise
+    the 30% sentience roll, then INT 1d6+6, communication, languages, alignment,
+    powers, and Ego 1d12, in the printed order.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    communication: tuple[SwordCommunicationRow, ...]
+    languages: tuple[SwordTableBand, ...]
+    alignment: tuple[SwordTableBand, ...]
+    powers: tuple[SwordPowersRow, ...]
+    sensory_bands: tuple[SwordTableBand, ...]
+    extraordinary_bands: tuple[SwordTableBand, ...]
+    powers_catalog: tuple[SwordPower, ...]
+    special_purposes: tuple[SwordTableBand, ...]
+    special_purpose_prose: str = ""
+    alignment_touch_prose: str = ""
+
+    def power(self, power_id: str) -> SwordPower:
+        """Return the power with `power_id`.
+
+        Args:
+            power_id: The power id, e.g. `"detect_magic"`.
+
+        Returns:
+            The power.
+
+        Raises:
+            ValueError: If no power has that id.
+        """
+        for power in self.powers_catalog:
+            if power.id == power_id:
+                return power
+        raise ValueError(f"unknown sword power {power_id!r}")
+
+
+class MagicItemCatalog(BaseModel):
+    """The loaded magic item catalog: templates, sub-tables, and the sword tables."""
+
+    model_config = ConfigDict(frozen=True)
+
+    items: tuple[MagicItemTemplate, ...]
+    sub_tables: tuple[MagicSubTable, ...]
+    armour_type: MagicArmourTypeTable
+    scroll_spell_levels: ScrollSpellLevelTable
+    sentient_swords: SentientSwordTables
+
+    @model_validator(mode="after")
+    def _ids_unique_and_rows_resolve(self) -> MagicItemCatalog:
+        ids = [template.id for template in self.items]
+        if len(set(ids)) != len(ids):
+            raise ValueError("magic item ids must be unique")
+        known = set(ids)
+        for sub_table in self.sub_tables:
+            for row in sub_table.rows:
+                for item_id in row.item_ids:
+                    if item_id not in known:
+                        raise ValueError(f"{sub_table.category} row references unknown item {item_id!r}")
+        return self
+
+    def get(self, item_id: str) -> MagicItemTemplate:
+        """Return the magic item template with `item_id`.
+
+        Args:
+            item_id: The item id, e.g. `"potion_of_healing"`.
+
+        Returns:
+            The template.
+
+        Raises:
+            ValueError: If no item has that id.
+        """
+        for template in self.items:
+            if template.id == item_id:
+                return template
+        raise ValueError(f"unknown magic item id {item_id!r}")
+
+    def sub_table(self, category: MagicItemType) -> MagicSubTable:
+        """Return the generation sub-table for a master-table type.
+
+        Args:
+            category: The master-table type.
+
+        Returns:
+            The sub-table.
+
+        Raises:
+            ValueError: If no sub-table covers that type.
+        """
+        for sub_table in self.sub_tables:
+            if sub_table.category is category:
+                return sub_table
+        raise ValueError(f"no sub-table for category {category!r}")
+
+
+class SwordSentience(BaseModel):
+    """A sentient sword's rolled qualities — generation data fixed at creation."""
+
+    model_config = ConfigDict(frozen=True)
+
+    intelligence: int = Field(ge=7, le=12)
+    ego: int = Field(ge=1, le=12)
+    communication: str
+    reading: bool
+    alignment: str
+    languages: int = Field(default=0, ge=0)
+    sensory_powers: tuple[str, ...] = ()
+    extraordinary_powers: tuple[str, ...] = ()
+    special_purpose: str | None = None
+
+
+class MagicItemInstance(BaseModel):
+    """A mutable owned magic item spawned from a frozen template.
+
+    `charges_remaining` is referee-only (RAW: undiscoverable) and `None` for
+    uncharged items; `quantity` counts ammunition; `identified` gates the player
+    view's masking; `base_item_id` is the generated base for generic armour
+    outcomes (the *Magic Armour Type* d8) and the template's own base otherwise;
+    `state` is per-item memory (the energy-drain sword's remaining drains, the
+    staff of healing's per-target days, a multi-spell scroll's remaining spells).
+    """
+
+    model_config = ConfigDict(validate_assignment=True)
+
+    instance_type: Literal["magic_item"] = "magic_item"
+    instance_id: str
+    template_id: str
+    charges_remaining: int | None = None
+    quantity: int = Field(default=1, ge=0)
+    identified: bool = False
+    cursed_revealed: bool = False
+    base_item_id: str | None = None
+    sentience: SwordSentience | None = None
+    state: dict[str, int | str | bool | tuple[int | str, ...]] = {}
+
+
 class ItemInstance(BaseModel):
     """A mutable owned item spawned from a frozen template.
 
@@ -313,6 +902,7 @@ class ItemInstance(BaseModel):
 
     model_config = ConfigDict(validate_assignment=True)
 
+    instance_type: Literal["item"] = "item"
     template: ItemTemplate
     quantity: int = Field(default=1, ge=1)
 

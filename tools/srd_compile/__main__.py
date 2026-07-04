@@ -21,14 +21,25 @@ from pydantic import BaseModel
 
 from osrlib.core.abilities import AbilityTables
 from osrlib.core.classes import ClassCatalog
-from osrlib.core.items import EquipmentCatalog
+from osrlib.core.items import EquipmentCatalog, MagicItemCatalog
 from osrlib.core.monsters import MonsterCatalog
 from osrlib.core.spells import SpellCatalog
 from osrlib.core.tables import CombatTables, EncounterTables
 from osrlib.core.treasure import TreasureTables
 from osrlib.data import LanguageCatalog
 
-from . import abilities, classes, combat_tables, encounter_tables, equipment, languages, monsters, spells, treasure
+from . import (
+    abilities,
+    classes,
+    combat_tables,
+    encounter_tables,
+    equipment,
+    languages,
+    magic_items,
+    monsters,
+    spells,
+    treasure,
+)
 from .overrides import apply_overrides, load_overrides
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -107,6 +118,17 @@ def main() -> None:
 
     treasure_data = treasure.compile_treasure(srd_dir)
     _write(out_dir, "treasure.json", TreasureTables.model_validate(treasure_data), treasure.SOURCE_PAGES)
+
+    magic_items_data = magic_items.compile_magic_items(
+        srd_dir, monsters_data["monsters"], equipment_data["treasure_weights"]
+    )
+    apply_overrides(magic_items_data["items"], load_overrides("magic_items.json"))
+    _write(
+        out_dir,
+        "magic_items.json",
+        MagicItemCatalog.model_validate(magic_items_data),
+        magic_items.source_pages(srd_dir),
+    )
 
 
 if __name__ == "__main__":
