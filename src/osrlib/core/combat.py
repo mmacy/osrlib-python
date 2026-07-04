@@ -709,7 +709,7 @@ def attack_roll(
     """
     attacker_id, defender_id = _entity_id(attacker), _entity_id(defender)
     name = _attack_name(attack)
-    missile = _is_missile_use(attack, context)
+    missile = _is_missile_use(attack, context) or (isinstance(attack, MonsterAttack) and context.monster_missile)
     helpless = not missile and any(has_condition(defender, condition) for condition in _HELPLESS)
     if helpless or getattr(defender, "armour_class", 0) is None:
         event = AttackRolledEvent(

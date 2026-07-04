@@ -7,6 +7,7 @@ from hypothesis import strategies as st
 
 from crawl_fixtures import build_adventure, build_party
 from osrlib.core.events import Visibility
+from osrlib.core.items import Coins
 from osrlib.crawl.commands import (
     ALL_COMMAND_CLASSES,
     BattleDeclaration,
@@ -15,7 +16,7 @@ from osrlib.crawl.commands import (
     LightSource,
     MoveParty,
 )
-from osrlib.crawl.dungeon import Coins, Direction, PartyLocation
+from osrlib.crawl.dungeon import Direction, PartyLocation
 from osrlib.crawl.session import GameSession
 
 CHARACTER_IDS = ["character-0001", "character-0002", "character-0003", "character-0004", "character-0099"]

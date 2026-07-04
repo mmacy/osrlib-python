@@ -1407,6 +1407,21 @@ def purchase(inventory: Inventory, template: ItemTemplate, lots: int = 1) -> Ite
     return instance
 
 
+def _wielded_qualities(instance: ItemInstance | MagicItemInstance) -> tuple[WeaponQuality, ...]:
+    """A wielded instance's weapon qualities — an enchanted arm reads its base's."""
+    if isinstance(instance, MagicItemInstance):
+        base_id = instance.base_item_id or magic_item_template(instance).base_item_id
+        if base_id is None:
+            return ()
+        from osrlib.data import load_equipment
+
+        base = load_equipment().get(base_id)
+        return getattr(base, "qualities", ())
+    template = instance.template
+    facet = getattr(template, "combat", None) or template
+    return getattr(facet, "qualities", ()) or ()
+
+
 def _caster_kind(definition: ClassDefinition) -> str | None:
     """Return `"arcane"`/`"divine"` from the class's casting tag, or `None`."""
     for ability in definition.abilities:
@@ -1526,8 +1541,7 @@ def validate_equip(
             if not definition.armour.shields_allowed:
                 return [Rejection(code="items.equip.shield_forbidden", params={"class": definition.id})]
             if inventory is not None and any(
-                isinstance(wielded.template, WeaponTemplate) and WeaponQuality.TWO_HANDED in wielded.template.qualities
-                for wielded in inventory.wielded
+                WeaponQuality.TWO_HANDED in _wielded_qualities(wielded) for wielded in inventory.wielded
             ):
                 return [Rejection(code="items.equip.two_handed_with_shield", params={"class": definition.id})]
             return []

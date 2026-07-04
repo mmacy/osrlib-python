@@ -3,6 +3,7 @@
 from crawl_fixtures import build_adventure, build_party
 from osrlib.core.clock import ROUNDS_PER_TURN
 from osrlib.core.effects import Condition, has_condition
+from osrlib.core.items import Coins
 from osrlib.core.tables import ReactionResult
 from osrlib.crawl import encounter as encounter_module
 from osrlib.crawl import exploration
@@ -22,7 +23,7 @@ from osrlib.crawl.commands import (
     TurnUndead,
     Wait,
 )
-from osrlib.crawl.dungeon import Coins, Direction, PartyLocation
+from osrlib.crawl.dungeon import Direction, PartyLocation
 from osrlib.crawl.session import ENCOUNTER_STREAM, GameSession
 
 
