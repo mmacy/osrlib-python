@@ -271,6 +271,38 @@ _TEMPLATES: dict[str, Callable[[Event], str]] = {
     "battle.ended.victory": lambda event: "The battle is won.",
     "battle.ended.fled": lambda event: "The party flees the battle.",
     "battle.ended.defeat": lambda event: "The party is defeated.",
+    "treasure.hoard.generated": lambda event: (
+        f"Treasure generated at {event.cache_ref}"
+        + (f" ({', '.join(event.treasure_types)})" if event.treasure_types else "")
+        + f": {event.coins_gp_value} gp in coin, {len(event.valuable_ids)} valuable(s), "
+        + f"{len(event.magic_item_ids)} magic item(s)."
+    ),
+    "items.potion.drunk": lambda event: f"{event.character_id} drinks {event.instance_id}.",
+    "items.potion.mixed": lambda event: (
+        f"{event.character_id} mixes potions — both effects cancel and sickness takes hold!"
+    ),
+    "items.scroll.read": lambda event: f"{event.character_id} reads {event.instance_id} — the words disappear.",
+    "items.scroll.cursed": lambda event: f"{event.character_id} looks upon {event.instance_id} — a curse takes hold!",
+    "items.device.activated": lambda event: f"{event.character_id} activates {event.instance_id}.",
+    "items.item.identified": lambda event: f"{event.instance_id} is identified: {event.template_id}.",
+    "items.curse.revealed": lambda event: (
+        f"{event.instance_id} reveals its curse ({event.template_id}) — {event.character_id} cannot be rid of it."
+    ),
+    "encounter.npc_party.spawned": lambda event: (
+        f"An NPC party ({event.party_kind}, {event.alignment}) takes the field: "
+        + ", ".join(f"{npc} ({cls} {level})" for npc, cls, level in zip(event.npc_ids, event.class_ids, event.levels))
+        + "."
+    ),
+    "session.xp.adventure_award": lambda event: (
+        f"The adventure ends: {event.monster_xp} XP from monsters and {event.treasure_xp} XP from treasure — "
+        f"{event.share} XP to each of {len(event.survivors)} survivor(s)."
+    ),
+    "town.treasure.sold": lambda event: (
+        f"{event.character_id} sells {len(event.instance_ids)} valuable(s) for {event.gp_value} gp."
+    ),
+    "town.healing.purchased": lambda event: (
+        f"{event.character_id} purchases {event.service} at the temple for {event.cost_gp} gp."
+    ),
     "session.flag.set": lambda event: f"Flag {event.key} = {event.value!r}.",
     "session.monsters.spawned": lambda event: (
         f"Spawned {len(event.monster_ids)} × {event.template_id}: {', '.join(event.monster_ids)}."

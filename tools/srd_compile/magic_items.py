@@ -361,7 +361,7 @@ _MAGIC_ITEM_MECHANICS: dict[str, dict[str, object]] = {
             "kind": "ward",
             "duration_unit": "turn",
             "duration_amount": 6,
-            "params": {"targets": "undead", "bands": ("1-3:2d12", "4-5:2d6", "6+:1d6")},
+            "params": {"targets": "undead", "bands": ("1-3:2d12", "4-5:2d6", "6+:1d6"), "bars_categories": ("undead",)},
         },
     },
     "scroll_of_protection_from_elementals": {
@@ -537,6 +537,14 @@ def _misc_page_for(name: str) -> tuple[str, str | None]:
     encoded = quote(name.replace(" ", "_"), safe="_-,()'’") + ".md"
     encoded = encoded.replace("’", quote("’"))
     return encoded, None
+
+
+def _ward_target_sets(monsters: list[dict[str, object]]) -> dict[str, list[str]]:
+    """Page-derived id sets for the protection scroll wards (no category tags exist)."""
+    return {
+        "lycanthropes": sorted(str(m["id"]) for m in monsters if str(m["page"]).startswith("Lycanthrope")),
+        "elementals": sorted(str(m["id"]) for m in monsters if str(m["page"]) == "Elemental.md"),
+    }
 
 
 def _derived_versus_sets(monsters: list[dict[str, object]]) -> dict[str, list[str]]:
@@ -1167,6 +1175,13 @@ def compile_magic_items(
     device_rows, device_templates = _compile_devices(srd_dir, weights)
     misc_rows, misc_templates = _compile_misc(srd_dir)
     scroll_rows, scroll_templates, spell_levels = _compile_scrolls(srd_dir, weights)
+    ward_sets = _ward_target_sets(monsters)
+    for template in scroll_templates:
+        effect = template.get("effect")
+        if isinstance(effect, dict) and effect.get("kind") == "ward":
+            target_set = ward_sets.get(str(effect["params"].get("targets")))
+            if target_set is not None:
+                effect["params"] = {**effect["params"], "bars_template_ids": tuple(target_set)}
     sword_rows, sword_templates = _compile_swords(srd_dir, derived)
     weapon_rows, weapon_templates = _compile_weapons(srd_dir, derived)
     armour_rows, armour_templates, armour_type = _compile_armour(srd_dir)

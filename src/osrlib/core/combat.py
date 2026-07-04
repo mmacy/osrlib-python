@@ -93,6 +93,7 @@ __all__ = [
     "TargetingMode",
     "alignments_differ",
     "apply_healing",
+    "attack_facet",
     "attack_roll",
     "burning_oil_pool_definition",
     "cannot_move",
@@ -411,6 +412,19 @@ def _facet(attack: Attack) -> WeaponTemplate | CombatFacet | None:
     if isinstance(attack, WeaponTemplate | CombatFacet):
         return attack
     return None
+
+
+def attack_facet(attack: Attack) -> WeaponTemplate | CombatFacet | None:
+    """Return the combat stats behind any attack — the battle machine's lookup.
+
+    Args:
+        attack: The weapon, facet, gear item, magic instance, or `None`.
+
+    Returns:
+        The facet carrying dice, qualities, and ranges, or `None` for unarmed and
+        monster attacks.
+    """
+    return _facet(attack)
 
 
 def _item_modifier_total(

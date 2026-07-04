@@ -102,11 +102,13 @@ __all__ = [
     "TargetingSpec",
     "TurnUndeadResult",
     "add_spell_to_book",
+    "cast_from_scroll",
     "cast_spell",
     "caster_profile",
     "disrupt_casting",
     "forget_excess_memorized",
     "memorize_spells",
+    "minimum_caster_level",
     "pop_mirror_image",
     "turn_undead",
     "validate_cast",
@@ -740,6 +742,7 @@ def validate_cast(
     targets: Sequence[object] = (),
     context: CastContext | None = None,
     ledger: EffectsLedger | None = None,
+    require_memorized: bool = True,
 ) -> list[Rejection]:
     """Validate a cast — the pure pre-phase: no RNG draws, no mutation.
 
@@ -764,6 +767,7 @@ def validate_cast(
             effects games attach to places).
         context: The caller-asserted situation.
         ledger: The effects ledger, consulted for the caster's own blocking effects.
+        require_memorized: False for scroll reads — the scroll is the copy.
 
     Returns:
         Structured rejections; empty when the cast may resolve.
@@ -796,7 +800,7 @@ def validate_cast(
         spell_mode = spell.mode(mode, reversed=reversed)
     except ValueError:
         return [Rejection(code="magic.cast.unknown_mode", params={"spell": spell.id, "mode": mode})]
-    if _memorized_index(caster, spell, reversed) is None:
+    if require_memorized and _memorized_index(caster, spell, reversed) is None:
         rejections.append(Rejection(code="magic.cast.not_memorized", params={"spell": spell.id, "reversed": reversed}))
     targeting = spell_mode.targeting
     if targeting is not None:
@@ -938,7 +942,40 @@ def cast_spell(
     copies = list(caster.memorized_spells)
     del copies[index]
     caster.memorized_spells = tuple(copies)
+    return _perform_cast(
+        caster,
+        spell,
+        spell_mode,
+        reversed,
+        targets,
+        context=context,
+        ledger=ledger,
+        clock=clock,
+        allocator=allocator,
+        registry=registry,
+        ruleset=ruleset,
+        stream=stream,
+        effects_stream=effects_stream,
+    )
 
+
+def _perform_cast(
+    caster: object,
+    spell: SpellTemplate,
+    spell_mode: SpellMode,
+    reversed: bool,
+    targets: Sequence[object],
+    *,
+    context: CastContext,
+    ledger: EffectsLedger,
+    clock: GameClock,
+    allocator: object,
+    registry: dict[str, object],
+    ruleset: Ruleset,
+    stream: RngStream,
+    effects_stream: RngStream,
+) -> CastResult:
+    """Resolve a validated cast whose cost is already paid — shared by memory and scroll."""
     caster_id = _entity_id(caster)
     state = _CastState()
     # Casting breaks the caster's own invisibility, before the new spell resolves.
@@ -999,6 +1036,144 @@ def cast_spell(
         prose=spell_mode.prose,
         affected_ids=tuple(state.affected),
         events=(event, *state.events),
+    )
+
+
+class _ScrollReader:
+    """A duck-typed caster proxy: the reader's body at the scroll's caster level.
+
+    Attribute reads and writes pass through to the reader, so conditions and
+    modifiers land on the real character; only `level` is overridden — scroll
+    spells resolve at the minimum class level able to cast the spell (pinned).
+    """
+
+    __slots__ = ("_level", "_reader")
+
+    def __init__(self, reader: object, level: int) -> None:
+        object.__setattr__(self, "_reader", reader)
+        object.__setattr__(self, "_level", level)
+
+    @property
+    def level(self) -> int:
+        return object.__getattribute__(self, "_level")
+
+    def __getattr__(self, name: str):
+        return getattr(object.__getattribute__(self, "_reader"), name)
+
+    def __setattr__(self, name: str, value: object) -> None:
+        setattr(object.__getattribute__(self, "_reader"), name, value)
+
+
+def minimum_caster_level(spell: SpellTemplate) -> int:
+    """Return the minimum class level able to cast a spell, per the compiled progressions.
+
+    The floor is the least-power reading (pinned, registered — RAW is silent on
+    scroll caster level): the lowest level at which any class on the spell's list
+    has a slot of the spell's level.
+
+    Args:
+        spell: The spell template.
+
+    Returns:
+        The minimum caster level.
+
+    Raises:
+        ValueError: If no class on the spell's list ever gains a slot of that level.
+    """
+    from osrlib.data import load_classes
+
+    best: int | None = None
+    for definition in load_classes().classes:
+        profile = caster_profile(definition)
+        if profile is None or profile.spell_list != spell.spell_list:
+            continue
+        for row in definition.progression:
+            if len(row.spell_slots) >= spell.level and row.spell_slots[spell.level - 1] > 0:
+                best = row.level if best is None else min(best, row.level)
+                break
+    if best is None:
+        raise ValueError(f"no class casts level-{spell.level} {spell.spell_list} spells")
+    return best
+
+
+def cast_from_scroll(
+    reader: object,
+    spell: SpellTemplate,
+    mode: str,
+    *,
+    reversed: bool = False,
+    targets: Sequence[object] = (),
+    context: CastContext | None = None,
+    ledger: EffectsLedger,
+    clock: GameClock,
+    allocator: object,
+    registry: dict[str, object],
+    ruleset: Ruleset,
+    stream: RngStream,
+    effects_stream: RngStream,
+) -> CastResult:
+    """Cast an inscribed spell from a scroll: the scroll is the copy, and it burns.
+
+    Reuses [`validate_cast`][osrlib.core.spells.validate_cast]'s legality gates and
+    the full mode-resolution and effects machinery, but skips the memorized-copy
+    consume — "when a scroll is read, the words disappear", so the caller marks
+    the inscribed spell spent. The spell resolves at the minimum class level able
+    to cast it per the compiled progression (pinned; the floor is the least-power
+    reading, registered). Class-list gating (arcane readers for arcane scrolls,
+    the thief's scroll-use ability) and the light requirement are the crawl's
+    validation; the kernel resolves a legal read.
+
+    Args:
+        reader: The reading character.
+        spell: The inscribed spell.
+        mode: The mode key on the chosen form.
+        reversed: True to cast the reversed form (divine readers choose at cast).
+        targets: The explicit target list, in the caller's order.
+        context: The caller-asserted situation.
+        ledger: The effects ledger durations ride.
+        clock: The game clock.
+        allocator: The id allocator for attached effects.
+        registry: Live objects by entity id.
+        ruleset: The ruleset in play.
+        stream: The magic stream.
+        effects_stream: The effects stream, for attach-time dice.
+
+    Returns:
+        The cast outcome with its events.
+
+    Raises:
+        ValueError: If the cast is invalid — validate with
+            [`validate_cast`][osrlib.core.spells.validate_cast]
+            (`require_memorized=False`) first.
+    """
+    context = context or CastContext()
+    rejections = validate_cast(
+        reader,
+        spell,
+        mode,
+        reversed=reversed,
+        targets=targets,
+        context=context,
+        ledger=ledger,
+        require_memorized=False,
+    )
+    if rejections:
+        raise ValueError(f"illegal scroll cast: {[rejection.code for rejection in rejections]}")
+    caster = _ScrollReader(reader, minimum_caster_level(spell))
+    return _perform_cast(
+        caster,
+        spell,
+        spell.mode(mode, reversed=reversed),
+        reversed,
+        targets,
+        context=context,
+        ledger=ledger,
+        clock=clock,
+        allocator=allocator,
+        registry=registry,
+        ruleset=ruleset,
+        stream=stream,
+        effects_stream=effects_stream,
     )
 
 

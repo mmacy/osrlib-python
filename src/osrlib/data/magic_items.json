@@ -4042,6 +4042,20 @@
         "modifiers": [],
         "params": {
           "all_affected": true,
+          "bars_template_ids": [
+            "air_elemental_greater",
+            "air_elemental_intermediate",
+            "air_elemental_lesser",
+            "earth_elemental_greater",
+            "earth_elemental_intermediate",
+            "earth_elemental_lesser",
+            "fire_elemental_greater",
+            "fire_elemental_intermediate",
+            "fire_elemental_lesser",
+            "water_elemental_greater",
+            "water_elemental_intermediate",
+            "water_elemental_lesser"
+          ],
           "targets": "elementals"
         },
         "range_feet": null,
@@ -4103,6 +4117,14 @@
             "1-3:1d10",
             "4-5:1d8",
             "6+:1d4"
+          ],
+          "bars_template_ids": [
+            "devil_swine",
+            "werebear",
+            "wereboar",
+            "wererat",
+            "weretiger",
+            "werewolf"
           ],
           "targets": "lycanthropes"
         },
@@ -4203,6 +4225,9 @@
             "1-3:2d12",
             "4-5:2d6",
             "6+:1d6"
+          ],
+          "bars_categories": [
+            "undead"
           ],
           "targets": "undead"
         },

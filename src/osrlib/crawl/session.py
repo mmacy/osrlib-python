@@ -53,6 +53,7 @@ from osrlib.crawl.commands import (
     CommandResult,
     GrantCoins,
     GrantItem,
+    IdentifyItem,
     PlaceParty,
     SessionMode,
     SetDoorState,
@@ -613,6 +614,19 @@ def _handle_spawn_monsters(session: GameSession, command: SpawnMonsters) -> tupl
     return [], events
 
 
+def _handle_identify_item(session: GameSession, command: IdentifyItem) -> tuple[list[Rejection], list[Event]]:
+    from osrlib.crawl import exploration
+
+    try:
+        member = session.member(command.character_id)
+    except ValueError:
+        return [Rejection(code="session.command.unknown_member", params={"character": command.character_id})], []
+    instance = member.inventory.magic_item(command.item_id)
+    if instance is None:
+        return [Rejection(code="session.command.unknown_item", params={"item": command.item_id})], []
+    return [], exploration.identify_item_events(session, member, instance)
+
+
 def _handle_set_door_state(session: GameSession, command: SetDoorState) -> tuple[list[Rejection], list[Event]]:
     try:
         dungeon = session.adventure.dungeon(command.dungeon_id)
@@ -692,6 +706,7 @@ _REFEREE_HANDLERS = {
     SetFlag: _handle_set_flag,
     SpawnMonsters: _handle_spawn_monsters,
     SetDoorState: _handle_set_door_state,
+    IdentifyItem: _handle_identify_item,
     PlaceParty: _handle_place_party,
     AdvanceTime: _handle_advance_time,
 }

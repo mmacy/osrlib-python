@@ -115,6 +115,24 @@ def sample_event(event_class, code):
         "XpAwardedEvent": dict(character_id="pc-1", award=100, modified_award=110, level_after=2),
         "TimeAdvancedEvent": dict(n=2, unit="turn", rounds_total=120),
         "GameOverEvent": dict(reason="tpk"),
+        "HoardGeneratedEvent": dict(
+            cache_ref="cache-0001",
+            treasure_types=("A",),
+            coins_gp_value=120,
+            valuable_ids=("valuable-0001",),
+            magic_item_ids=("magic-item-0001",),
+        ),
+        "ItemUsedEvent": dict(character_id="character-0001", instance_id="magic-item-0001"),
+        "ItemIdentifiedEvent": dict(instance_id="magic-item-0001", template_id="potion_of_healing"),
+        "CurseRevealedEvent": dict(
+            character_id="character-0001", instance_id="magic-item-0001", template_id="cursed_armour_minus_1"
+        ),
+        "NpcPartySpawnedEvent": dict(
+            party_kind="basic", npc_ids=("npc-0001",), class_ids=("fighter",), levels=(2,), alignment="lawful"
+        ),
+        "AdventureXpAwardEvent": dict(monster_xp=100, treasure_xp=250, share=87, survivors=("character-0001",)),
+        "TreasureSoldEvent": dict(character_id="character-0001", instance_ids=("valuable-0001",), gp_value=500),
+        "HealingPurchasedEvent": dict(character_id="character-0001", service="cure_light_wounds", cost_gp=25),
     }
     return event_class(code=code, **samples[event_class.__name__])
 

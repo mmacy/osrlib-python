@@ -645,7 +645,7 @@ class EffectsLedger(BaseModel):
         clock.advance(n, unit)
         events: list[Event] = []
         for current_round in range(start + 1, clock.rounds + 1):
-            events.extend(self._resolve_round(current_round, registry, stream))
+            events.extend(self._resolve_round(current_round, registry, stream, allocator))
         return events
 
     def _expiry_round(self, definition: EffectDefinition, clock: GameClock, stream: RngStream | None) -> int | None:
@@ -673,7 +673,9 @@ class EffectsLedger(BaseModel):
             for active in getattr(target, "conditions", ())
         )
 
-    def _resolve_round(self, current_round: int, registry: Mapping[str, object], stream: RngStream) -> list[Event]:
+    def _resolve_round(
+        self, current_round: int, registry: Mapping[str, object], stream: RngStream, allocator: object | None = None
+    ) -> list[Event]:
         events: list[Event] = []
         # Suspension first: a suspended effect neither expires nor ticks this round,
         # and its remaining duration is preserved by pushing expiry forward.
@@ -687,7 +689,7 @@ class EffectsLedger(BaseModel):
             if effect.effect_id in suspended_ids:
                 continue
             if effect.expires_round is not None and effect.expires_round <= current_round:
-                events.extend(self._expire(effect, current_round, registry, stream))
+                events.extend(self._expire(effect, current_round, registry, stream, allocator))
         for effect in self._ordered():
             if effect.effect_id in suspended_ids or effect.definition.tick is None:
                 continue
@@ -696,7 +698,12 @@ class EffectsLedger(BaseModel):
         return events
 
     def _expire(
-        self, effect: ActiveEffect, current_round: int, registry: Mapping[str, object], stream: RngStream
+        self,
+        effect: ActiveEffect,
+        current_round: int,
+        registry: Mapping[str, object],
+        stream: RngStream,
+        allocator: object | None = None,
     ) -> list[Event]:
         self.effects.remove(effect)
         definition = effect.definition
@@ -715,6 +722,23 @@ class EffectsLedger(BaseModel):
         if definition.expiry == "death":
             if not has_condition(target, Condition.DEAD):
                 events.extend(kill(target))
+        elif definition.expiry == "weakness_strength_set":
+            # The Ring of Weakness's onset ran out: the curse takes hold as an
+            # indefinite item-kind effect setting STR to the printed value.
+            if allocator is None:
+                raise ValueError("the weakness onset attaches a follow-on effect; advance with an allocator")
+            follow_on = EffectDefinition(
+                kind="ring_of_weakness",
+                stacking="ignore",
+                modifiers=(
+                    ModifierSpec(kind="strength_set", value=int(definition.params["strength_set"]), from_item=True),
+                ),
+            )
+            clock_now = GameClock(rounds=current_round)
+            _, attach_events = self.attach(
+                follow_on, effect.target_ref, clock=clock_now, allocator=allocator, registry=registry
+            )
+            events.extend(attach_events)
         elif definition.expiry == "splash_damage":
             from osrlib.core.combat import DamageSource, deal_damage
 

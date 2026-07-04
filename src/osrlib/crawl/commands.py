@@ -48,6 +48,7 @@ __all__ = [
     "ForceDoor",
     "GrantCoins",
     "GrantItem",
+    "IdentifyItem",
     "InspectTreasure",
     "LightSource",
     "ListenAtDoor",
@@ -72,6 +73,7 @@ __all__ = [
     "TurnParty",
     "TurnUndead",
     "UnequipItem",
+    "UseItem",
     "UseStairs",
     "Wait",
     "WedgeDoor",
@@ -349,6 +351,35 @@ class CastSpell(Command):
     targets: tuple[str, ...] = ()
 
 
+class UseItem(Command):
+    """Use a magic item: drink a potion, read a scroll, activate a device (one round).
+
+    One round is the RAW activation cost (drinking is one round). `target_id` names
+    a character (the staff of healing's touch) or an encounter group (a device's
+    area); `spell_id`, `mode`, and `targets` select the inscribed spell and its
+    targets when reading a multi-spell scroll (the `CastSpell` surface). In battle,
+    item use is the `use_item` declaration instead.
+    """
+
+    allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.EXPLORING, SessionMode.ENCOUNTER})
+
+    command_type: Literal["use_item"] = "use_item"
+    character_id: str
+    item_id: str
+    target_id: str | None = None
+    spell_id: str | None = None
+    mode: str | None = None
+    targets: tuple[str, ...] = ()
+
+
+class IdentifyItem(Command):
+    """Referee: identify a magic item outright — game-driven identification."""
+
+    command_type: Literal["identify_item"] = "identify_item"
+    character_id: str
+    item_id: str
+
+
 class UseStairs(Command):
     """Take the transition on the party's cell (one unexplored-cell cost, pinned)."""
 
@@ -581,6 +612,7 @@ ALL_COMMAND_CLASSES: tuple[type[Command], ...] = (
     Rest,
     PrepareSpells,
     CastSpell,
+    UseItem,
     UseStairs,
     EnterDungeon,
     TravelToTown,
@@ -599,6 +631,7 @@ ALL_COMMAND_CLASSES: tuple[type[Command], ...] = (
     SetDoorState,
     PlaceParty,
     AdvanceTime,
+    IdentifyItem,
 )
 """Every command class, in census order — the discriminated union's members."""
 
