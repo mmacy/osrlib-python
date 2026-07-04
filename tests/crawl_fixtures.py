@@ -21,10 +21,10 @@ Level 2 (3 × 3): open corridor row y0; a keyed skeleton area at (2,0).
 
 from osrlib.core.abilities import AbilityScore
 from osrlib.core.character import Character
+from osrlib.core.items import Coins
 from osrlib.crawl.adventure import Adventure, TownSpec
 from osrlib.crawl.dungeon import (
     AreaSpec,
-    Coins,
     Direction,
     DoorSpec,
     DungeonSpec,

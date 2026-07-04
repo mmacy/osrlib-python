@@ -19,8 +19,10 @@ DATA_FILES = (
     "encounter_tables.json",
     "equipment.json",
     "languages.json",
+    "magic_items.json",
     "monsters.json",
     "spells.json",
+    "treasure.json",
 )
 
 

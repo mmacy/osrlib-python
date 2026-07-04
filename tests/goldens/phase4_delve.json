@@ -1401,128 +1401,7 @@
       "command_type": "travel_to_town"
     }
   ],
-  "defeated_monsters": [
-    {
-      "monster_id": "monster-0001",
-      "outcome": "slain",
-      "template_id": "goblin",
-      "xp": 5
-    },
-    {
-      "monster_id": "monster-0002",
-      "outcome": "slain",
-      "template_id": "goblin",
-      "xp": 5
-    },
-    {
-      "monster_id": "monster-0003",
-      "outcome": "routed",
-      "template_id": "goblin",
-      "xp": 5
-    },
-    {
-      "monster_id": "monster-0004",
-      "outcome": "routed",
-      "template_id": "goblin",
-      "xp": 5
-    },
-    {
-      "monster_id": "monster-0005",
-      "outcome": "routed",
-      "template_id": "goblin",
-      "xp": 5
-    },
-    {
-      "monster_id": "monster-0006",
-      "outcome": "routed",
-      "template_id": "goblin",
-      "xp": 5
-    },
-    {
-      "monster_id": "monster-0007",
-      "outcome": "routed",
-      "template_id": "skeleton",
-      "xp": 10
-    },
-    {
-      "monster_id": "monster-0008",
-      "outcome": "routed",
-      "template_id": "skeleton",
-      "xp": 10
-    },
-    {
-      "monster_id": "monster-0009",
-      "outcome": "routed",
-      "template_id": "skeleton",
-      "xp": 10
-    },
-    {
-      "monster_id": "monster-0010",
-      "outcome": "routed",
-      "template_id": "skeleton",
-      "xp": 10
-    },
-    {
-      "monster_id": "monster-0011",
-      "outcome": "slain",
-      "template_id": "goblin",
-      "xp": 5
-    },
-    {
-      "monster_id": "monster-0012",
-      "outcome": "slain",
-      "template_id": "goblin",
-      "xp": 5
-    },
-    {
-      "monster_id": "monster-0013",
-      "outcome": "slain",
-      "template_id": "goblin",
-      "xp": 5
-    },
-    {
-      "monster_id": "monster-0020",
-      "outcome": "slain",
-      "template_id": "normal_wolf",
-      "xp": 25
-    },
-    {
-      "monster_id": "monster-0021",
-      "outcome": "slain",
-      "template_id": "normal_wolf",
-      "xp": 25
-    },
-    {
-      "monster_id": "monster-0022",
-      "outcome": "slain",
-      "template_id": "normal_wolf",
-      "xp": 25
-    },
-    {
-      "monster_id": "monster-0023",
-      "outcome": "slain",
-      "template_id": "normal_wolf",
-      "xp": 25
-    },
-    {
-      "monster_id": "monster-0024",
-      "outcome": "slain",
-      "template_id": "normal_wolf",
-      "xp": 25
-    },
-    {
-      "monster_id": "monster-0025",
-      "outcome": "slain",
-      "template_id": "normal_wolf",
-      "xp": 25
-    },
-    {
-      "monster_id": "monster-0026",
-      "outcome": "slain",
-      "template_id": "normal_wolf",
-      "xp": 25
-    }
-  ],
+  "defeated_monsters": [],
   "event_log": [
     {
       "character_id": "character-0001",
@@ -1850,6 +1729,21 @@
       "location_id": "guard_room",
       "location_kind": "area",
       "visibility": "player"
+    },
+    {
+      "cache_ref": "cache-0001",
+      "code": "treasure.hoard.generated",
+      "coins_gp_value": 2000,
+      "event_type": "hoard_generated",
+      "magic_item_ids": [],
+      "treasure_types": [
+        "C"
+      ],
+      "valuable_ids": [
+        "valuable-0001",
+        "valuable-0002"
+      ],
+      "visibility": "referee"
     },
     {
       "code": "encounter.surprise.rolled",
@@ -2932,6 +2826,21 @@
       "visibility": "player"
     },
     {
+      "cache_ref": "cache-0002",
+      "code": "treasure.hoard.generated",
+      "coins_gp_value": 0,
+      "event_type": "hoard_generated",
+      "magic_item_ids": [],
+      "treasure_types": [
+        "C"
+      ],
+      "valuable_ids": [
+        "valuable-0003",
+        "valuable-0004"
+      ],
+      "visibility": "referee"
+    },
+    {
       "code": "encounter.surprise.rolled",
       "event_type": "surprise_rolled",
       "roll": null,
@@ -3536,6 +3445,22 @@
       "visibility": "player"
     },
     {
+      "cache_ref": "cache-0003",
+      "code": "treasure.hoard.generated",
+      "coins_gp_value": 2010,
+      "event_type": "hoard_generated",
+      "magic_item_ids": [],
+      "treasure_types": [
+        "C"
+      ],
+      "valuable_ids": [
+        "valuable-0005",
+        "valuable-0006",
+        "valuable-0007"
+      ],
+      "visibility": "referee"
+    },
+    {
       "code": "encounter.surprise.rolled",
       "event_type": "surprise_rolled",
       "roll": null,
@@ -3648,6 +3573,18 @@
       "location_id": "kennel_c",
       "location_kind": "area",
       "visibility": "player"
+    },
+    {
+      "cache_ref": "cache-0004",
+      "code": "treasure.hoard.generated",
+      "coins_gp_value": 100,
+      "event_type": "hoard_generated",
+      "magic_item_ids": [],
+      "treasure_types": [
+        "C"
+      ],
+      "valuable_ids": [],
+      "visibility": "referee"
     },
     {
       "code": "encounter.surprise.rolled",
@@ -5336,10 +5273,74 @@
       "location_id": "town",
       "location_kind": "town",
       "visibility": "player"
+    },
+    {
+      "code": "session.xp.adventure_award",
+      "event_type": "adventure_xp_award",
+      "monster_xp": 260,
+      "share": 128,
+      "survivors": [
+        "character-0005",
+        "character-0001",
+        "character-0002",
+        "character-0003",
+        "character-0004"
+      ],
+      "treasure_xp": 380,
+      "visibility": "player"
+    },
+    {
+      "award": 128,
+      "character_id": "character-0005",
+      "code": "session.xp.awarded",
+      "event_type": "xp_awarded",
+      "level_after": 5,
+      "modified_award": 128,
+      "visibility": "player"
+    },
+    {
+      "award": 128,
+      "character_id": "character-0001",
+      "code": "session.xp.awarded",
+      "event_type": "xp_awarded",
+      "level_after": 3,
+      "modified_award": 134,
+      "visibility": "player"
+    },
+    {
+      "award": 128,
+      "character_id": "character-0002",
+      "code": "session.xp.awarded",
+      "event_type": "xp_awarded",
+      "level_after": 3,
+      "modified_award": 128,
+      "visibility": "player"
+    },
+    {
+      "award": 128,
+      "character_id": "character-0003",
+      "code": "session.xp.awarded",
+      "event_type": "xp_awarded",
+      "level_after": 3,
+      "modified_award": 128,
+      "visibility": "player"
+    },
+    {
+      "award": 128,
+      "character_id": "character-0004",
+      "code": "session.xp.awarded",
+      "event_type": "xp_awarded",
+      "level_after": 3,
+      "modified_award": 128,
+      "visibility": "player"
     }
   ],
   "final_clock_rounds": 4800,
   "final_stream_states": {
+    "advancement": {
+      "inc": 86900093583733674921711004983579340669,
+      "state": 314979156681265795024256626365255291800
+    },
     "combat": {
       "inc": 121608830979365594321457036395390673307,
       "state": 93225619516251987891226741673370087680
@@ -5367,6 +5368,10 @@
     "monster_spawn": {
       "inc": 123643957193368879014590998056361979995,
       "state": 41034052424107000566539050429462451641
+    },
+    "treasure": {
+      "inc": 287780612102537662614319942825370588277,
+      "state": 323442542037818985208647256098094542287
     },
     "wandering": {
       "inc": 65919459233863451073673651863941616007,
@@ -5396,7 +5401,9 @@
               "pp": 0,
               "sp": 0
             },
+            "rings": [],
             "shield": null,
+            "valuables": [],
             "wielded": [],
             "worn_armour": null
           },
@@ -5434,7 +5441,9 @@
               "pp": 0,
               "sp": 0
             },
+            "rings": [],
             "shield": null,
+            "valuables": [],
             "wielded": [],
             "worn_armour": null
           },
@@ -5479,7 +5488,9 @@
               "pp": 0,
               "sp": 0
             },
+            "rings": [],
             "shield": null,
+            "valuables": [],
             "wielded": [],
             "worn_armour": null
           },
@@ -5517,7 +5528,9 @@
               "pp": 0,
               "sp": 0
             },
+            "rings": [],
             "shield": null,
+            "valuables": [],
             "wielded": [],
             "worn_armour": null
           },
@@ -5564,7 +5577,9 @@
               "pp": 0,
               "sp": 0
             },
+            "rings": [],
             "shield": null,
+            "valuables": [],
             "wielded": [],
             "worn_armour": null
           },
@@ -5613,14 +5628,8 @@
         }
       ]
     },
-    "schema_version": 1
+    "schema_version": 2
   },
-  "recovered_treasure": [
-    {
-      "gp_value": 400,
-      "source_ref": "halls:1:coffer"
-    }
-  ],
   "transcript": [
     "character-0001 acquires 150 gp in coin.",
     "character-0001 acquires sword, chainmail, torch, torch, torch, torch, tinder_box, iron_spikes, rations_standard, waterskin.",
@@ -5659,6 +5668,7 @@
     "An iron spike wedges the door south of (3, 0).",
     "The party moves to (3, 1), facing south.",
     "The party enters area guard_room (level 1).",
+    "Treasure generated at cache-0001 (C): 2000 gp in coin, 2 valuable(s), 0 magic item(s).",
     "Surprise (monsters): no roll, surprised on 1-2 — not surprised.",
     "Surprise (party): no roll, surprised on 1-2 — not surprised.",
     "Encounter: 6 × Goblin at 70'.",
@@ -5768,6 +5778,7 @@
     "The party moves to (3, 0), facing east.",
     "The party moves to (3, 1), facing south.",
     "The party enters area kennel_a (level 2).",
+    "Treasure generated at cache-0002 (C): 0 gp in coin, 2 valuable(s), 0 magic item(s).",
     "Surprise (monsters): no roll, surprised on 1-2 — not surprised.",
     "Surprise (party): rolled 2, surprised on 1-2 — surprised.",
     "Encounter: 3 × Goblin at 90' — the party is surprised.",
@@ -5826,6 +5837,7 @@
     "The party moves to (5, 0), facing east.",
     "The party moves to (5, 1), facing south.",
     "The party enters area kennel_b (level 2).",
+    "Treasure generated at cache-0003 (C): 2010 gp in coin, 3 valuable(s), 0 magic item(s).",
     "Surprise (monsters): no roll, surprised on 1-2 — not surprised.",
     "Surprise (party): rolled 6, surprised on 1-2 — not surprised.",
     "Encounter: 3 × Goblin at 50'.",
@@ -5841,6 +5853,7 @@
     "The party moves to (6, 0), facing east.",
     "The party moves to (6, 1), facing south.",
     "The party enters area kennel_c (level 2).",
+    "Treasure generated at cache-0004 (C): 100 gp in coin, 0 valuable(s), 0 magic item(s).",
     "Surprise (monsters): no roll, surprised on 1-2 — not surprised.",
     "Surprise (party): rolled 3, surprised on 1-2 — not surprised.",
     "Encounter: 3 × Goblin at 70'.",
@@ -6040,6 +6053,12 @@
     "The encounter ends (victory).",
     "Effect effect-0017 (light) on character-0001 expires.",
     "The torch carried by character-0001 gutters out.",
-    "The party enters town town."
+    "The party enters town town.",
+    "The adventure ends: 260 XP from monsters and 380 XP from treasure — 128 XP to each of 5 survivor(s).",
+    "character-0005 gains 128 XP (base 128), now level 5.",
+    "character-0001 gains 134 XP (base 128), now level 3.",
+    "character-0002 gains 128 XP (base 128), now level 3.",
+    "character-0003 gains 128 XP (base 128), now level 3.",
+    "character-0004 gains 128 XP (base 128), now level 3."
   ]
 }

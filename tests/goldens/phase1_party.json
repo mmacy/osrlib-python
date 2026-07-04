@@ -14,6 +14,7 @@
         "inventory": {
           "items": [
             {
+              "instance_type": "item",
               "quantity": 6,
               "template": {
                 "capacity_coins": null,
@@ -45,9 +46,12 @@
             "pp": 0,
             "sp": 0
           },
+          "rings": [],
           "shield": null,
+          "valuables": [],
           "wielded": [
             {
+              "instance_type": "item",
               "quantity": 1,
               "template": {
                 "cost_gp": 5,
@@ -67,6 +71,7 @@
             }
           ],
           "worn_armour": {
+            "instance_type": "item",
             "quantity": 1,
             "template": {
               "ac": 7,
@@ -110,6 +115,7 @@
         "inventory": {
           "items": [
             {
+              "instance_type": "item",
               "quantity": 12,
               "template": {
                 "capacity_coins": null,
@@ -126,6 +132,7 @@
               }
             },
             {
+              "instance_type": "item",
               "quantity": 6,
               "template": {
                 "capacity_coins": null,
@@ -157,9 +164,12 @@
             "pp": 0,
             "sp": 0
           },
+          "rings": [],
           "shield": null,
+          "valuables": [],
           "wielded": [
             {
+              "instance_type": "item",
               "quantity": 1,
               "template": {
                 "cost_gp": 5,
@@ -179,6 +189,7 @@
             }
           ],
           "worn_armour": {
+            "instance_type": "item",
             "quantity": 1,
             "template": {
               "ac": 7,
@@ -228,9 +239,12 @@
             "pp": 0,
             "sp": 0
           },
+          "rings": [],
           "shield": null,
+          "valuables": [],
           "wielded": [
             {
+              "instance_type": "item",
               "quantity": 1,
               "template": {
                 "cost_gp": 10,
@@ -249,6 +263,7 @@
             }
           ],
           "worn_armour": {
+            "instance_type": "item",
             "quantity": 1,
             "template": {
               "ac": 7,
@@ -300,9 +315,12 @@
             "pp": 0,
             "sp": 0
           },
+          "rings": [],
           "shield": null,
+          "valuables": [],
           "wielded": [
             {
+              "instance_type": "item",
               "quantity": 1,
               "template": {
                 "cost_gp": 10,
@@ -321,6 +339,7 @@
             }
           ],
           "worn_armour": {
+            "instance_type": "item",
             "quantity": 1,
             "template": {
               "ac": 7,
@@ -367,6 +386,7 @@
         "inventory": {
           "items": [
             {
+              "instance_type": "item",
               "quantity": 1,
               "template": {
                 "cost_gp": 0,
@@ -380,6 +400,7 @@
               }
             },
             {
+              "instance_type": "item",
               "quantity": 7,
               "template": {
                 "capacity_coins": null,
@@ -403,9 +424,12 @@
             "pp": 0,
             "sp": 0
           },
+          "rings": [],
           "shield": null,
+          "valuables": [],
           "wielded": [
             {
+              "instance_type": "item",
               "quantity": 1,
               "template": {
                 "cost_gp": 2,
@@ -438,6 +462,7 @@
             }
           ],
           "worn_armour": {
+            "instance_type": "item",
             "quantity": 1,
             "template": {
               "ac": 7,
@@ -481,6 +506,7 @@
         "inventory": {
           "items": [
             {
+              "instance_type": "item",
               "quantity": 1,
               "template": {
                 "capacity_coins": null,
@@ -517,6 +543,7 @@
               }
             },
             {
+              "instance_type": "item",
               "quantity": 6,
               "template": {
                 "capacity_coins": null,
@@ -541,6 +568,7 @@
               }
             },
             {
+              "instance_type": "item",
               "quantity": 7,
               "template": {
                 "capacity_coins": null,
@@ -557,6 +585,7 @@
               }
             },
             {
+              "instance_type": "item",
               "quantity": 1,
               "template": {
                 "capacity_coins": null,
@@ -580,9 +609,12 @@
             "pp": 0,
             "sp": 0
           },
+          "rings": [],
           "shield": null,
+          "valuables": [],
           "wielded": [
             {
+              "instance_type": "item",
               "quantity": 1,
               "template": {
                 "cost_gp": 3,
@@ -648,6 +680,7 @@
         "inventory": {
           "items": [
             {
+              "instance_type": "item",
               "quantity": 1,
               "template": {
                 "capacity_coins": null,
@@ -662,6 +695,7 @@
               }
             },
             {
+              "instance_type": "item",
               "quantity": 6,
               "template": {
                 "capacity_coins": null,
@@ -693,9 +727,12 @@
             "pp": 0,
             "sp": 0
           },
+          "rings": [],
           "shield": null,
+          "valuables": [],
           "wielded": [
             {
+              "instance_type": "item",
               "quantity": 1,
               "template": {
                 "cost_gp": 3,
@@ -728,6 +765,7 @@
             }
           ],
           "worn_armour": {
+            "instance_type": "item",
             "quantity": 1,
             "template": {
               "ac": 7,
@@ -762,5 +800,5 @@
       }
     ]
   },
-  "schema_version": 1
+  "schema_version": 2
 }

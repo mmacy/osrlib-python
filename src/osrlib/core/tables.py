@@ -43,6 +43,9 @@ __all__ = [
     "EncounterTables",
     "MonsterEncounterEntry",
     "MonsterSaveBand",
+    "NpcAlignmentBand",
+    "NpcClassLevelRow",
+    "NpcPartyComposition",
     "NpcPartyEncounterEntry",
     "ReactionBand",
     "ReactionResult",
@@ -423,12 +426,61 @@ class EncounterTable(BaseModel):
         return self
 
 
+class NpcClassLevelRow(BaseModel):
+    """One d8 row of the *NPC Adventurer Class and Level* table.
+
+    Rows are keyed by die result — results 4 and 5 are both Fighter with different
+    Expert level dice, per the survey.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    roll: int = Field(ge=1, le=8)
+    class_id: str
+    basic_dice: str
+    expert_dice: str
+
+    @field_validator("basic_dice", "expert_dice")
+    @classmethod
+    def _dice_must_parse(cls, value: str) -> str:
+        parse(value)
+        return value
+
+
+class NpcAlignmentBand(BaseModel):
+    """One d6 band of the *NPC Adventurer Alignment* table."""
+
+    model_config = ConfigDict(frozen=True)
+
+    roll_min: int = Field(ge=1, le=6)
+    roll_max: int = Field(ge=1, le=6)
+    alignment: str
+
+
+class NpcPartyComposition(BaseModel):
+    """One party kind's printed composition dice (Basic 1d4+4, Expert 1d6+3)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    kind: Literal["basic", "expert"]
+    count_dice: str
+
+    @field_validator("count_dice")
+    @classmethod
+    def _dice_must_parse(cls, value: str) -> str:
+        parse(value)
+        return value
+
+
 class EncounterTables(BaseModel):
-    """The six dungeon encounter tables, in level order."""
+    """The six dungeon encounter tables plus the NPC adventurer generation tables."""
 
     model_config = ConfigDict(frozen=True)
 
     tables: tuple[EncounterTable, ...]
+    npc_class_levels: tuple[NpcClassLevelRow, ...] = ()
+    npc_alignment: tuple[NpcAlignmentBand, ...] = ()
+    npc_compositions: tuple[NpcPartyComposition, ...] = ()
 
     @model_validator(mode="after")
     def _bands_must_be_contiguous_from_one(self) -> EncounterTables:

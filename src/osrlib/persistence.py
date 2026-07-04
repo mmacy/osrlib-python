@@ -16,6 +16,7 @@ under a different engine. The standing test: `load(save)` equals
 
 from collections.abc import Callable, Mapping, Sequence
 
+from osrlib.core.character import Character
 from osrlib.core.clock import GameClock
 from osrlib.core.effects import EffectsLedger
 from osrlib.core.monsters import IdAllocator, MonsterInstance
@@ -28,13 +29,7 @@ from osrlib.crawl.dungeon import DungeonState
 from osrlib.crawl.encounter import EncounterState
 from osrlib.crawl.events import parse_any_event
 from osrlib.crawl.party import Party
-from osrlib.crawl.session import (
-    DeathRecord,
-    DefeatedMonsterRecord,
-    DeprivationState,
-    GameSession,
-    RecoveredTreasureRecord,
-)
+from osrlib.crawl.session import DeathRecord, DefeatedMonsterRecord, DeprivationState, GameSession
 from osrlib.errors import ContentValidationError, ReplayVersionError
 from osrlib.versioning import SCHEMA_VERSION, check_document, engine_version, stamp_document
 
@@ -46,12 +41,21 @@ __all__ = [
     "session_state",
 ]
 
-MIGRATIONS: dict[int, Callable[[dict], dict]] = {}
-"""Ordered save migrations: `MIGRATIONS[n]` rewrites a version-`n` payload to `n+1`.
 
-Empty at schema version 1 — the chain is exercised by a synthetic in-test migration
-until a real bump populates it.
-"""
+def _migrate_1_to_2(payload: dict) -> dict:
+    """Schema 1 → 2: drop the recovered-treasure ledger.
+
+    Phase 5 replaced the ledger with the departure-snapshot valuation delta — the
+    award's honest input — so version-1 saves simply shed the field. NPC
+    adventurers arrive with version 2; a version-1 save has none.
+    """
+    payload.pop("recovered_treasure", None)
+    payload["npcs"] = []
+    return payload
+
+
+MIGRATIONS: dict[int, Callable[[dict], dict]] = {1: _migrate_1_to_2}
+"""Ordered save migrations: `MIGRATIONS[n]` rewrites a version-`n` payload to `n+1`."""
 
 
 def session_state(session: GameSession, *, include_event_log: bool = True) -> dict:
@@ -75,12 +79,13 @@ def session_state(session: GameSession, *, include_event_log: bool = True) -> di
         "ledger": session.ledger.model_dump(mode="json"),
         "dungeon_state": session.dungeon_state.model_dump(mode="json"),
         "monsters": [instance.model_dump(mode="json") for instance in session.monsters.values()],
+        "npcs": [npc.model_dump(mode="json") for npc in session.npcs.values()],
         "flags": dict(session.flags),
         "listener_state": {key: dict(value) for key, value in session.listener_state.items()},
         "death_records": {key: record.model_dump(mode="json") for key, record in session.death_records.items()},
         "defeated_monsters": [record.model_dump(mode="json") for record in session.defeated_monsters],
-        "recovered_treasure": [record.model_dump(mode="json") for record in session.recovered_treasure],
         "deprivation": {key: state.model_dump(mode="json") for key, state in session.deprivation.items()},
+        "treasure_snapshot_cp": session.treasure_snapshot_cp,
         "exploration": {
             "odometer_thirds": session.odometer_thirds,
             "turns_since_rest": session.turns_since_rest,
@@ -184,6 +189,10 @@ def load_game(document: Mapping[str, object]) -> GameSession:
         for entry in payload["monsters"]:
             instance = MonsterInstance.model_validate(entry)
             session.monsters[instance.id] = instance
+        session.npcs = {}
+        for entry in payload["npcs"]:
+            npc = Character.model_validate(entry)
+            session.npcs[npc.id] = npc
         session.flags = dict(payload["flags"])
         session.listener_state = {key: dict(value) for key, value in payload["listener_state"].items()}
         session.death_records = {
@@ -192,12 +201,11 @@ def load_game(document: Mapping[str, object]) -> GameSession:
         session.defeated_monsters = [
             DefeatedMonsterRecord.model_validate(entry) for entry in payload["defeated_monsters"]
         ]
-        session.recovered_treasure = [
-            RecoveredTreasureRecord.model_validate(entry) for entry in payload["recovered_treasure"]
-        ]
         session.deprivation = {
             key: DeprivationState.model_validate(value) for key, value in payload["deprivation"].items()
         }
+        snapshot = payload.get("treasure_snapshot_cp")
+        session.treasure_snapshot_cp = int(snapshot) if snapshot is not None else None
         exploration = payload["exploration"]
         session.odometer_thirds = int(exploration["odometer_thirds"])
         session.turns_since_rest = int(exploration["turns_since_rest"])

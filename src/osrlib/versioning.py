@@ -25,8 +25,15 @@ __all__ = [
     "stamp_document",
 ]
 
-SCHEMA_VERSION = 1
-"""The current serialization schema version shared by saves, commands, and events."""
+SCHEMA_VERSION = 2
+"""The current serialization schema version shared by saves, commands, and events.
+
+Version 2 (Phase 5): the recovered-treasure ledger left the save payload — the
+end-of-adventure award's input is the departure-snapshot valuation delta, and a
+ledger kept "as a log" with no consumer is exactly the accommodation the project
+bans. The 1 → 2 migration drops the field; every other Phase 5 serialized change
+is additive.
+"""
 
 
 def engine_version() -> str:

@@ -73,6 +73,11 @@ def sample_command(command_class):
         "SetDoorState": dict(dungeon_id="delve", level_number=1, x=2, y=0, direction="south", open=True),
         "PlaceParty": dict(location={"kind": "town"}),
         "AdvanceTime": dict(n=2, unit="turn"),
+        "UseItem": dict(character_id="character-0001", item_id="magic-item-0001"),
+        "IdentifyItem": dict(character_id="character-0001", item_id="magic-item-0001"),
+        "SpawnNpcParty": dict(party_kind="basic", distance_feet=60),
+        "SellTreasure": dict(item_ids=("valuable-0001",)),
+        "PurchaseHealing": dict(character_id="character-0001", service="cure_light_wounds"),
     }
     return command_class(**samples[command_class.__name__])
 

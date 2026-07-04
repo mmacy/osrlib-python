@@ -25,6 +25,7 @@ from osrlib.core.character import party_to_document
 from osrlib.core.combat import incapacitated
 from osrlib.core.effects import Condition, has_condition
 from osrlib.core.events import Event
+from osrlib.core.items import Coins
 from osrlib.crawl.commands import (
     BattleDeclaration,
     Command,
@@ -52,7 +53,7 @@ from osrlib.crawl.commands import (
     Wait,
     WedgeDoor,
 )
-from osrlib.crawl.dungeon import Coins, Direction
+from osrlib.crawl.dungeon import Direction
 from osrlib.crawl.party import Party
 from osrlib.crawl.session import GameSession
 from osrlib.messages import format_message
@@ -511,7 +512,6 @@ def build_golden(seed: int) -> dict:
         },
         "final_clock_rounds": session.clock.rounds,
         "defeated_monsters": [record.model_dump(mode="json") for record in session.defeated_monsters],
-        "recovered_treasure": [record.model_dump(mode="json") for record in session.recovered_treasure],
         "transcript": transcript,
     }
 

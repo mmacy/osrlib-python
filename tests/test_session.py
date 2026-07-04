@@ -3,6 +3,7 @@
 from crawl_fixtures import build_adventure, build_party
 from osrlib.core.clock import ROUNDS_PER_DAY, TimeUnit
 from osrlib.core.events import Visibility
+from osrlib.core.items import Coins
 from osrlib.crawl.commands import (
     AdvanceTime,
     AwardXP,
@@ -17,7 +18,7 @@ from osrlib.crawl.commands import (
     SetFlag,
     Wait,
 )
-from osrlib.crawl.dungeon import Coins, Direction, PartyLocation
+from osrlib.crawl.dungeon import Direction, PartyLocation
 from osrlib.crawl.events import FlagSetEvent
 from osrlib.crawl.session import GameSession
 

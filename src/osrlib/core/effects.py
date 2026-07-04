@@ -233,16 +233,28 @@ MODIFIER_KINDS = frozenset(
         "damage_bonus",
         "morale_bonus",
         "save_bonus",
+        "ac_bonus",
         "ac_set",
         "ac_set_vs_missile",
         "attack_penalty_of_attackers",
         "damage_reduction_per_die",
+        "damage_multiplier",
+        "melee_damage_multiplier",
         "missile_immunity_nonmagical",
+        "strength_set",
         "weapon_damage_dice_bonus",
         "counts_as_magical",
+        "magical_healing_half",
     }
 )
-"""The closed vocabulary of stat-modifier kinds combat consults."""
+"""The closed vocabulary of stat-modifier kinds combat consults.
+
+`ac_bonus`, `strength_set`, and the damage multipliers arrive with Phase 5's magic
+items: `ac_bonus` improves AC by its value (descending down, ascending up), `ac_set`
+sets it outright, `strength_set` replaces the STR score combat modifiers derive from
+(Gauntlets of Ogre Power's 18, the Ring of Weakness's 3), and the multipliers double
+weapon damage (giant strength) or melee damage only (growth) after the roll.
+"""
 
 
 class ModifierSpec(BaseModel):
@@ -251,9 +263,15 @@ class ModifierSpec(BaseModel):
     `value` is the signed adjustment (*bless*'s +1, *protection from evil*'s −1 to
     attackers, *shield*'s AC-set values); `dice` carries dice-valued bonuses
     (*striking*'s +1d6 weapon damage). Scopes: `element` restricts save bonuses and
-    per-die reductions to one element (*resist fire*), and `versus_other_alignment`
+    per-die reductions to one element (*resist fire*), `versus_other_alignment`
     restricts save bonuses to attacks from creatures of another alignment
-    (*protection from evil*).
+    (*protection from evil*), `save_categories` restricts save bonuses to named
+    categories (the Displacer Cloak's petrification/rods/spells/staves/wands list),
+    and `melee_only` restricts an attacker penalty to melee attacks (the cloak's −2
+    leaves missiles unaffected, RAW). `from_item` marks item-sourced modifiers
+    (potion effects, ward scrolls): they are exempt from the cumulative
+    largest-bonus cap — RAW's carve-out covers magic items generally, not just
+    worn ones (pinned).
     """
 
     model_config = ConfigDict(frozen=True)
@@ -263,6 +281,9 @@ class ModifierSpec(BaseModel):
     dice: str | None = None
     element: str | None = None
     versus_other_alignment: bool = False
+    save_categories: tuple[str, ...] = ()
+    melee_only: bool = False
+    from_item: bool = False
 
     @field_validator("kind")
     @classmethod
@@ -292,13 +313,20 @@ class ActiveModifier(ModifierSpec):
 
 
 def modifier_values(
-    target: object, kind: str, *, element: str | None = None, versus_differs: bool = False
+    target: object,
+    kind: str,
+    *,
+    element: str | None = None,
+    versus_differs: bool = False,
+    save_category: str | None = None,
+    melee: bool = False,
 ) -> list[int]:
     """Return the matching modifier values on a creature, scope-filtered.
 
     Element-scoped modifiers match only their element; alignment-scoped modifiers
     match only when the caller attests the source's alignment differs
-    (`versus_differs`).
+    (`versus_differs`); category-scoped save bonuses match only their categories;
+    melee-only modifiers match only when the caller attests a melee attack.
 
     Args:
         target: A creature carrying a `stat_modifiers` tuple.
@@ -306,41 +334,71 @@ def modifier_values(
         element: The damage or save element in play, if any.
         versus_differs: True when the source creature's alignment differs from the
             target's.
+        save_category: The saving throw category in play, if any.
+        melee: True when the attack in play is melee.
 
     Returns:
         The matching values, in attachment order.
     """
+    matching = _matching_modifiers(target, kind, element, versus_differs, save_category, melee)
+    return [modifier.value for modifier in matching]
+
+
+def _matching_modifiers(
+    target: object,
+    kind: str,
+    element: str | None,
+    versus_differs: bool,
+    save_category: str | None,
+    melee: bool,
+) -> list[ModifierSpec]:
     return [
-        modifier.value
+        modifier
         for modifier in getattr(target, "stat_modifiers", ())
         if modifier.kind == kind
         and (modifier.element is None or modifier.element == element)
         and (not modifier.versus_other_alignment or versus_differs)
+        and (not modifier.save_categories or save_category in modifier.save_categories)
+        and (not modifier.melee_only or melee)
     ]
 
 
-def modifier_total(target: object, kind: str, *, element: str | None = None, versus_differs: bool = False) -> int:
+def modifier_total(
+    target: object,
+    kind: str,
+    *,
+    element: str | None = None,
+    versus_differs: bool = False,
+    save_category: str | None = None,
+    melee: bool = False,
+) -> int:
     """Return a creature's cumulative modifier for one statistic.
 
     The cumulative-effects rule, pinned from `Spells.md` ("Multiple spells affecting
     the same game statistic do not combine"): only the single largest bonus and the
     single largest penalty apply — a *bless* and a *blight* offset; two *blesses*
     don't stack. Spell modifiers combine freely with non-spell modifiers (the RAW
-    carve-out for magic items, which arrive in Phase 5 outside this tuple).
+    carve-out for magic items — item-sourced modifiers ride equipped-item queries
+    and item-kind effects, both outside this cap; see
+    [`osrlib.core.combat`][osrlib.core.combat]).
 
     Args:
         target: A creature carrying a `stat_modifiers` tuple.
         kind: The modifier kind to total.
         element: The damage or save element in play, if any.
         versus_differs: True when the source creature's alignment differs.
+        save_category: The saving throw category in play, if any.
+        melee: True when the attack in play is melee.
 
     Returns:
         The signed cumulative modifier.
     """
-    values = modifier_values(target, kind, element=element, versus_differs=versus_differs)
-    bonus = max((value for value in values if value > 0), default=0)
-    penalty = min((value for value in values if value < 0), default=0)
-    return bonus + penalty
+    matching = _matching_modifiers(target, kind, element, versus_differs, save_category, melee)
+    spell_values = [modifier.value for modifier in matching if not modifier.from_item]
+    item_values = [modifier.value for modifier in matching if modifier.from_item]
+    bonus = max((value for value in spell_values if value > 0), default=0)
+    penalty = min((value for value in spell_values if value < 0), default=0)
+    return bonus + penalty + sum(item_values)
 
 
 def modifier_dice(target: object, kind: str) -> str | None:
@@ -588,7 +646,7 @@ class EffectsLedger(BaseModel):
         clock.advance(n, unit)
         events: list[Event] = []
         for current_round in range(start + 1, clock.rounds + 1):
-            events.extend(self._resolve_round(current_round, registry, stream))
+            events.extend(self._resolve_round(current_round, registry, stream, allocator))
         return events
 
     def _expiry_round(self, definition: EffectDefinition, clock: GameClock, stream: RngStream | None) -> int | None:
@@ -616,7 +674,9 @@ class EffectsLedger(BaseModel):
             for active in getattr(target, "conditions", ())
         )
 
-    def _resolve_round(self, current_round: int, registry: Mapping[str, object], stream: RngStream) -> list[Event]:
+    def _resolve_round(
+        self, current_round: int, registry: Mapping[str, object], stream: RngStream, allocator: object | None = None
+    ) -> list[Event]:
         events: list[Event] = []
         # Suspension first: a suspended effect neither expires nor ticks this round,
         # and its remaining duration is preserved by pushing expiry forward.
@@ -630,7 +690,7 @@ class EffectsLedger(BaseModel):
             if effect.effect_id in suspended_ids:
                 continue
             if effect.expires_round is not None and effect.expires_round <= current_round:
-                events.extend(self._expire(effect, current_round, registry, stream))
+                events.extend(self._expire(effect, current_round, registry, stream, allocator))
         for effect in self._ordered():
             if effect.effect_id in suspended_ids or effect.definition.tick is None:
                 continue
@@ -639,7 +699,12 @@ class EffectsLedger(BaseModel):
         return events
 
     def _expire(
-        self, effect: ActiveEffect, current_round: int, registry: Mapping[str, object], stream: RngStream
+        self,
+        effect: ActiveEffect,
+        current_round: int,
+        registry: Mapping[str, object],
+        stream: RngStream,
+        allocator: object | None = None,
     ) -> list[Event]:
         self.effects.remove(effect)
         definition = effect.definition
@@ -658,6 +723,23 @@ class EffectsLedger(BaseModel):
         if definition.expiry == "death":
             if not has_condition(target, Condition.DEAD):
                 events.extend(kill(target))
+        elif definition.expiry == "weakness_strength_set":
+            # The Ring of Weakness's onset ran out: the curse takes hold as an
+            # indefinite item-kind effect setting STR to the printed value.
+            if allocator is None:
+                raise ValueError("the weakness onset attaches a follow-on effect; advance with an allocator")
+            follow_on = EffectDefinition(
+                kind="ring_of_weakness",
+                stacking="ignore",
+                modifiers=(
+                    ModifierSpec(kind="strength_set", value=int(definition.params["strength_set"]), from_item=True),
+                ),
+            )
+            clock_now = GameClock(rounds=current_round)
+            _, attach_events = self.attach(
+                follow_on, effect.target_ref, clock=clock_now, allocator=allocator, registry=registry
+            )
+            events.extend(attach_events)
         elif definition.expiry == "splash_damage":
             from osrlib.core.combat import DamageSource, deal_damage
 

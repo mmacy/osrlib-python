@@ -24,12 +24,13 @@ from osrlib.core.alignment import Alignment
 from osrlib.core.clock import TimeUnit
 from osrlib.core.dice import parse
 from osrlib.core.effects import Condition
+from osrlib.core.items import Coins, MagicItemInstance, ValuableInstance
 from osrlib.core.spells import SaveSpec
 from osrlib.core.tables import EncounterTable, ReactionResult
 
 __all__ = [
     "AreaSpec",
-    "Coins",
+    "AreaTreasureSpec",
     "Direction",
     "DoorSpec",
     "DoorState",
@@ -40,6 +41,7 @@ __all__ = [
     "Edge",
     "EdgeKind",
     "FeatureSpec",
+    "GeneratedCache",
     "KeyedEncounter",
     "KeyedMonster",
     "LevelSpec",
@@ -48,6 +50,8 @@ __all__ = [
     "TransitionSpec",
     "TrapEffect",
     "TrapSpec",
+    "TreasureBundle",
+    "ValuableSpec",
     "WanderingSpec",
     "cell_ref",
     "edge_key",
@@ -206,28 +210,6 @@ class Edge(BaseModel):
         return self
 
 
-class Coins(BaseModel):
-    """A frozen coin bundle: hand-placed cache contents and dropped treasure."""
-
-    model_config = ConfigDict(frozen=True)
-
-    pp: int = Field(default=0, ge=0)
-    gp: int = Field(default=0, ge=0)
-    ep: int = Field(default=0, ge=0)
-    sp: int = Field(default=0, ge=0)
-    cp: int = Field(default=0, ge=0)
-
-    @property
-    def total_coins(self) -> int:
-        """How many coins the bundle holds."""
-        return self.pp + self.gp + self.ep + self.sp + self.cp
-
-    @property
-    def value_gp(self) -> int:
-        """The bundle's value in whole gold pieces, floored — the Phase 5 XP input."""
-        return (self.pp * 500 + self.gp * 100 + self.ep * 50 + self.sp * 10 + self.cp) // 100
-
-
 class TransitionSpec(BaseModel):
     """A level transition on a cell: stairs, trapdoor, or chute.
 
@@ -307,6 +289,75 @@ class TrapSpec(BaseModel):
     affects: Literal["triggerer", "party"] = "triggerer"
 
 
+class ValuableSpec(BaseModel):
+    """An authored named valuable in a cache — instantiated on take.
+
+    The authoring surface for named treasure: the example adventure's MacGuffin is
+    one. `name` is the display name; the instance id comes from the session
+    allocator when the cache is emptied.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    kind: Literal["gem", "jewellery"]
+    name: str = ""
+    value_gp: int = Field(ge=0)
+    weight_coins: int = Field(default=0, ge=0)
+
+
+class AreaTreasureSpec(BaseModel):
+    """An area's generated-treasure declaration: explicit type letters, or unguarded.
+
+    Generates on first entry into the area — how content places generated treasure
+    without monsters (the milestone dungeon uses it). `unguarded=True` rolls the
+    dungeon level's unguarded-treasure band.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    letters: tuple[str, ...] = ()
+    unguarded: bool = False
+
+    @model_validator(mode="after")
+    def _letters_or_unguarded(self) -> AreaTreasureSpec:
+        if bool(self.letters) == self.unguarded:
+            raise ValueError("an area treasure spec names letters or sets unguarded, not both or neither")
+        return self
+
+
+class TreasureBundle(BaseModel):
+    """A mutable generated-treasure bundle: coins, valuables, and magic items."""
+
+    model_config = ConfigDict(validate_assignment=True)
+
+    coins: Coins = Coins()
+    valuables: list[ValuableInstance] = []
+    magic_items: list[MagicItemInstance] = []
+
+    @property
+    def empty(self) -> bool:
+        """Whether the bundle holds nothing at all."""
+        return self.coins.total_coins == 0 and not self.valuables and not self.magic_items
+
+
+class GeneratedCache(BaseModel):
+    """An engine-created treasure cache in the state overlay.
+
+    Authored `FeatureSpec`s are frozen content; the state overlay owns play-created
+    treasure — the Phase 4 template/instance split applied to loot. Generated
+    hoards are untrapped (traps are authored content, per the stocking table's own
+    separation, pinned).
+    """
+
+    model_config = ConfigDict(validate_assignment=True)
+
+    cell_ref: str
+    treasure_types: tuple[str, ...] = ()
+    coins: Coins = Coins()
+    valuables: list[ValuableInstance] = []
+    magic_items: list[MagicItemInstance] = []
+
+
 class FeatureSpec(BaseModel):
     """A keyed feature: a treasure cache, a construction trick, or custom content.
 
@@ -324,6 +375,7 @@ class FeatureSpec(BaseModel):
     cell: Position | None = None
     item_ids: tuple[str, ...] = ()
     coins: Coins = Coins()
+    valuables: tuple[ValuableSpec, ...] = ()
     trap: TrapSpec | None = None
 
     @model_validator(mode="after")
@@ -389,6 +441,7 @@ class AreaSpec(BaseModel):
     encounter: KeyedEncounter | None = None
     features: tuple[FeatureSpec, ...] = ()
     trap: TrapSpec | None = None
+    treasure: AreaTreasureSpec | None = None
 
     @model_validator(mode="after")
     def _trap_kind_matches(self) -> AreaSpec:
@@ -571,12 +624,19 @@ class DroppedItem(BaseModel):
 
 
 class DropPile(BaseModel):
-    """Dropped items and coins on a cell — droppable, recoverable, distraction bait."""
+    """Dropped items and coins on a cell — droppable, recoverable, distraction bait.
+
+    `valuables` and `magic_items` are additive Phase 5 members, so drops and loot
+    round-trip: battle-end loot, death-save survivors, and player drops all land
+    here and `TakeTreasure` recovers them.
+    """
 
     model_config = ConfigDict(validate_assignment=True)
 
     items: list[DroppedItem] = []
     coins: Coins = Coins()
+    valuables: list[ValuableInstance] = []
+    magic_items: list[MagicItemInstance] = []
 
 
 class DungeonState(BaseModel):
@@ -603,6 +663,8 @@ class DungeonState(BaseModel):
     discovered_features: list[str] = []
     emptied_caches: list[str] = []
     piles: dict[str, DropPile] = {}
+    generated_caches: dict[str, GeneratedCache] = {}
+    generated_treasure_areas: list[str] = []
     resolved_encounters: list[str] = []
     listen_attempts: dict[str, list[str]] = {}
     search_attempts: dict[str, list[str]] = {}

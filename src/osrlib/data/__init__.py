@@ -23,10 +23,11 @@ from pydantic import BaseModel, ConfigDict, ValidationError, model_validator
 
 from osrlib.core.abilities import AbilityTables
 from osrlib.core.classes import ClassCatalog
-from osrlib.core.items import EquipmentCatalog
+from osrlib.core.items import EquipmentCatalog, MagicItemCatalog
 from osrlib.core.monsters import MonsterCatalog
 from osrlib.core.spells import SpellCatalog
 from osrlib.core.tables import CombatTables, EncounterTables
+from osrlib.core.treasure import TreasureTables
 from osrlib.errors import ContentValidationError
 
 __all__ = [
@@ -38,8 +39,10 @@ __all__ = [
     "load_encounter_tables",
     "load_equipment",
     "load_languages",
+    "load_magic_items",
     "load_monsters",
     "load_spells",
+    "load_treasure_tables",
 ]
 
 
@@ -220,6 +223,40 @@ def load_spells() -> SpellCatalog:
         return SpellCatalog.model_validate(data)
     except ValidationError as error:
         raise ContentValidationError(f"spells.json failed validation: {error}") from error
+
+
+@cache
+def load_magic_items() -> MagicItemCatalog:
+    """Load the magic item catalog: templates, sub-tables, and the sword tables.
+
+    Returns:
+        The frozen magic item catalog.
+
+    Raises:
+        ContentValidationError: If the generated data is missing or fails validation.
+    """
+    data = _read("magic_items.json")
+    try:
+        return MagicItemCatalog.model_validate(data)
+    except ValidationError as error:
+        raise ContentValidationError(f"magic_items.json failed validation: {error}") from error
+
+
+@cache
+def load_treasure_tables() -> TreasureTables:
+    """Load the treasure types, gem values, magic item type, stocking, and unguarded tables.
+
+    Returns:
+        The frozen treasure tables.
+
+    Raises:
+        ContentValidationError: If the generated data is missing or fails validation.
+    """
+    data = _read("treasure.json")
+    try:
+        return TreasureTables.model_validate(data)
+    except ValidationError as error:
+        raise ContentValidationError(f"treasure.json failed validation: {error}") from error
 
 
 @cache

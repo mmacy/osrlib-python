@@ -90,6 +90,31 @@ class TestSaveLoad:
         with pytest.raises(SaveVersionError):
             load_game(document)
 
+    def test_npc_encounter_survives_save_and_load(self):
+        # NPC adventurers are session state: a save taken mid-encounter restores
+        # the roster, the combatant lookups, and a battle that can keep running.
+        from osrlib.crawl.commands import BattleDeclaration, EngageBattle, ResolveBattleRound, SpawnNpcParty
+
+        session = GameSession.new(build_party(), build_adventure(wandering_chance=0), seed=31)
+        session.execute(GrantItem(character_id="character-0001", item_id="torch", quantity=6))
+        session.execute(GrantItem(character_id="character-0001", item_id="tinder_box"))
+        session.execute(EnterDungeon(dungeon_id="delve"))
+        assert session.execute(SpawnNpcParty(party_kind="basic", count_dice="1d3", distance_feet=30)).accepted
+        assert session.npcs
+        restored = load_game(json.loads(json.dumps(save_game(session))))
+        assert session_state(restored) == session_state(session)
+        assert set(restored.npcs) == set(session.npcs)
+        group = restored.encounter.groups[0]
+        for npc_id in group.monster_ids:
+            assert restored.combatant(npc_id) is not None
+        if restored.mode.value == "encounter":
+            assert restored.execute(EngageBattle()).accepted
+        declarations = tuple(
+            BattleDeclaration(character_id=member.id, action="move", move="close", target_group_id=group.id)
+            for member in restored.party.living_members()
+        )
+        assert restored.execute(ResolveBattleRound(declarations=declarations)).accepted
+
 
 class TestReplay:
     def test_load_equals_replay(self):
@@ -128,15 +153,18 @@ class TestReplay:
 
 
 class TestMigrations:
-    def test_synthetic_migration_chain(self):
-        # The framework is exercised with an injected chain: a version-0 payload
-        # (synthetic — the shipped floor is 1) migrates stepwise to the current
-        # schema.
-        def add_field(payload: dict) -> dict:
-            return {**payload, "added_by_migration": True}
-
-        migrated = _migrate({"seed": 1}, 0, migrations={0: add_field})
-        assert migrated == {"seed": 1, "added_by_migration": True}
+    def test_version_1_save_migrates_to_2(self):
+        # The framework's first honest exercise (the synthetic-only test retired
+        # with it): a real version-1 save document — the version-1 envelope and
+        # the recovered-treasure ledger the version carried — loads through the
+        # shipped 1 → 2 migration, which drops the ledger.
+        session, _ = drive_session()
+        document = save_game(session)
+        document["schema_version"] = 1
+        document["payload"]["recovered_treasure"] = [{"source_ref": "delve:1:chest", "gp_value": 200}]
+        restored = load_game(document)
+        assert not hasattr(restored, "recovered_treasure")
+        assert save_game(restored)["schema_version"] == 2
 
     def test_missing_migration_step_raises(self):
         with pytest.raises(ContentValidationError):

@@ -23,11 +23,13 @@ from osrlib.core.events import KERNEL_EVENT_CLASSES, Event, Visibility
 
 __all__ = [
     "ALL_EVENT_CLASSES",
+    "AdventureXpAwardEvent",
     "AnyEvent",
     "BattleEndedEvent",
     "BattleRoundEvent",
     "BattleStartedEvent",
     "CRAWL_EVENT_CLASSES",
+    "CurseRevealedEvent",
     "DetectionRolledEvent",
     "DoorEvent",
     "EncounterEndedEvent",
@@ -38,7 +40,11 @@ __all__ = [
     "FlagSetEvent",
     "GameOverEvent",
     "GroupMovedEvent",
+    "HealingPurchasedEvent",
+    "HoardGeneratedEvent",
     "ItemAcquiredEvent",
+    "ItemIdentifiedEvent",
+    "ItemUsedEvent",
     "ItemsDroppedEvent",
     "LightEvent",
     "ListenedEvent",
@@ -46,6 +52,7 @@ __all__ = [
     "MonsterDefeatedEvent",
     "MonsterFledEvent",
     "MonstersSpawnedEvent",
+    "NpcPartySpawnedEvent",
     "PartyMovedEvent",
     "ProvisionsEvent",
     "PursuitEvent",
@@ -56,6 +63,7 @@ __all__ = [
     "SurpriseRolledEvent",
     "TimeAdvancedEvent",
     "TrapEvent",
+    "TreasureSoldEvent",
     "WanderingCheckEvent",
     "XpAwardedEvent",
     "parse_any_event",
@@ -461,6 +469,135 @@ class BattleEndedEvent(Event):
     visibility: Visibility = Visibility.PLAYER
 
 
+class HoardGeneratedEvent(Event):
+    """A lair hoard, carried bundle, or area treasure generated (referee).
+
+    Referee visibility — contents are itemized here and players learn by finding.
+    `cache_ref` is the engine-created cache's state reference (or the group id for
+    carried bundles); value and counts summarize the generation.
+    """
+
+    allowed_codes: ClassVar[frozenset[str]] = frozenset({"treasure.hoard.generated"})
+
+    event_type: Literal["hoard_generated"] = "hoard_generated"
+    code: str = "treasure.hoard.generated"
+    visibility: Visibility = Visibility.REFEREE
+    cache_ref: str
+    treasure_types: tuple[str, ...] = ()
+    coins_gp_value: int = 0
+    valuable_ids: tuple[str, ...] = ()
+    magic_item_ids: tuple[str, ...] = ()
+
+
+class ItemUsedEvent(Event):
+    """A magic item used: a potion drunk (or mixed), a scroll read, a device activated.
+
+    `items.device.inert` is a rejection code, not an event — activating an
+    exhausted device costs nothing (the Phase 4 blocked-move precedent). Charges
+    never appear here: they are referee-only forever (RAW, undiscoverable).
+    """
+
+    allowed_codes: ClassVar[frozenset[str]] = frozenset(
+        {
+            "items.potion.drunk",
+            "items.potion.mixed",
+            "items.scroll.read",
+            "items.scroll.cursed",
+            "items.device.activated",
+        }
+    )
+
+    event_type: Literal["item_used"] = "item_used"
+    visibility: Visibility = Visibility.PLAYER
+    character_id: str
+    instance_id: str
+    manual: tuple[str, ...] = ()
+
+
+class ItemIdentifiedEvent(Event):
+    """A magic item identified — first meaningful use is the trigger (pinned)."""
+
+    allowed_codes: ClassVar[frozenset[str]] = frozenset({"items.item.identified"})
+
+    event_type: Literal["item_identified"] = "item_identified"
+    code: str = "items.item.identified"
+    visibility: Visibility = Visibility.PLAYER
+    instance_id: str
+    template_id: str
+
+
+class CurseRevealedEvent(Event):
+    """A cursed item revealed its true nature — and pinned itself to its bearer."""
+
+    allowed_codes: ClassVar[frozenset[str]] = frozenset({"items.curse.revealed"})
+
+    event_type: Literal["curse_revealed"] = "curse_revealed"
+    code: str = "items.curse.revealed"
+    visibility: Visibility = Visibility.PLAYER
+    character_id: str
+    instance_id: str
+    template_id: str
+
+
+class NpcPartySpawnedEvent(Event):
+    """An NPC adventuring party generated and fielded (referee — the full roster).
+
+    The player-facing `EncounterStartedEvent` names "adventurers" and the count;
+    the roster, classes, and levels are the referee's.
+    """
+
+    allowed_codes: ClassVar[frozenset[str]] = frozenset({"encounter.npc_party.spawned"})
+
+    event_type: Literal["npc_party_spawned"] = "npc_party_spawned"
+    code: str = "encounter.npc_party.spawned"
+    visibility: Visibility = Visibility.REFEREE
+    party_kind: str
+    npc_ids: tuple[str, ...]
+    class_ids: tuple[str, ...]
+    levels: tuple[int, ...]
+    alignment: str
+
+
+class AdventureXpAwardEvent(Event):
+    """The end-of-adventure XP award: the totals and the per-head share."""
+
+    allowed_codes: ClassVar[frozenset[str]] = frozenset({"session.xp.adventure_award"})
+
+    event_type: Literal["adventure_xp_award"] = "adventure_xp_award"
+    code: str = "session.xp.adventure_award"
+    visibility: Visibility = Visibility.PLAYER
+    monster_xp: int
+    treasure_xp: int
+    share: int
+    survivors: tuple[str, ...]
+
+
+class TreasureSoldEvent(Event):
+    """Valuables sold in town at full value (the 1-gp-1-XP identity kept clean)."""
+
+    allowed_codes: ClassVar[frozenset[str]] = frozenset({"town.treasure.sold"})
+
+    event_type: Literal["treasure_sold"] = "treasure_sold"
+    code: str = "town.treasure.sold"
+    visibility: Visibility = Visibility.PLAYER
+    character_id: str
+    instance_ids: tuple[str, ...]
+    gp_value: int
+
+
+class HealingPurchasedEvent(Event):
+    """A temple healing service purchased and cast."""
+
+    allowed_codes: ClassVar[frozenset[str]] = frozenset({"town.healing.purchased"})
+
+    event_type: Literal["healing_purchased"] = "healing_purchased"
+    code: str = "town.healing.purchased"
+    visibility: Visibility = Visibility.PLAYER
+    character_id: str
+    service: str
+    cost_gp: int
+
+
 class FlagSetEvent(Event):
     """A session flag changed (referee — content wiring is the game's secret)."""
 
@@ -552,6 +689,14 @@ CRAWL_EVENT_CLASSES: tuple[type[Event], ...] = (
     MonsterFledEvent,
     MonsterDefeatedEvent,
     BattleEndedEvent,
+    HoardGeneratedEvent,
+    ItemUsedEvent,
+    ItemIdentifiedEvent,
+    CurseRevealedEvent,
+    NpcPartySpawnedEvent,
+    AdventureXpAwardEvent,
+    TreasureSoldEvent,
+    HealingPurchasedEvent,
     FlagSetEvent,
     MonstersSpawnedEvent,
     XpAwardedEvent,

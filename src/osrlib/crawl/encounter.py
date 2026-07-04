@@ -18,11 +18,12 @@ from pydantic import BaseModel, ConfigDict, Field
 from osrlib.core.combat import roll_reaction
 from osrlib.core.effects import Condition, has_condition
 from osrlib.core.events import Event
+from osrlib.core.items import Coins
 from osrlib.core.spells import MAGIC_STREAM, turn_undead, validate_turn_undead
 from osrlib.core.tables import ReactionResult
 from osrlib.core.validation import Rejection
 from osrlib.crawl.commands import DropItems, EngageBattle, Evade, Parley, SessionMode, TurnUndead, Wait
-from osrlib.crawl.dungeon import Coins
+from osrlib.crawl.dungeon import TreasureBundle
 from osrlib.crawl.events import (
     EncounterEndedEvent,
     EncounterStartedEvent,
@@ -49,7 +50,12 @@ PURSUIT_ROUND_CAP = 30
 
 
 class EncounterGroup(BaseModel):
-    """One monster group in an encounter: its members and range-track distance."""
+    """One monster group in an encounter: its members and range-track distance.
+
+    `member_treasure` and `group_treasure` are the carried bundles generated at
+    spawn (individual P–T per monster, group U–V per group): slain and surrendered
+    members' bundles drop as loot at battle end; routed ones flee with theirs.
+    """
 
     model_config = ConfigDict(validate_assignment=True)
 
@@ -60,6 +66,8 @@ class EncounterGroup(BaseModel):
     fleeing: bool = False
     fled: bool = False
     surrendered: bool = False
+    member_treasure: dict[str, TreasureBundle] = {}
+    group_treasure: TreasureBundle | None = None
 
 
 class PursuitState(BaseModel):
@@ -92,7 +100,7 @@ class EncounterState(BaseModel):
 
 def _monsters(session, state: EncounterState | None = None) -> list:
     state = state or session.encounter
-    return [session.monsters[monster_id] for group in state.groups for monster_id in group.monster_ids]
+    return [session.combatant(monster_id) for group in state.groups for monster_id in group.monster_ids]
 
 
 def start_encounter(
@@ -479,18 +487,35 @@ def _pursuer_rate(session, groups) -> int:
     rates = []
     for group in groups:
         for monster_id in group.monster_ids:
-            monster = session.monsters[monster_id]
-            modes = monster.template.movement
-            base = next((mode for mode in modes if mode.descriptor is None), modes[0])
-            rates.append(base.rate_feet)
-            break  # one rate per group: its members share a stat block
+            combatant = session.combatant(monster_id)
+            if getattr(combatant, "definition", None) is not None:
+                # NPC adventurers run at their own movement rates; the slowest of
+                # the group paces it like the party's own rule.
+                rates.append(
+                    min(
+                        session.combatant(npc_id).movement_rate(session.ruleset)
+                        for npc_id in group.monster_ids
+                        if getattr(session.combatant(npc_id), "definition", None) is not None
+                    )
+                )
+            else:
+                modes = combatant.template.movement
+                base = next((mode for mode in modes if mode.descriptor is None), modes[0])
+                rates.append(base.rate_feet)
+            break  # one rate per group: monsters share a stat block
     return min(rates, default=0)
 
 
 def _group_intelligent(session, group: EncounterGroup) -> bool:
-    """The intelligence proxy, pinned: a treasure ref with letters marks a hoarder."""
-    monster = session.monsters[group.monster_ids[0]]
-    return bool(monster.template.treasure.letters)
+    """The intelligence proxy, pinned: a treasure ref with letters marks a hoarder.
+
+    NPC adventuring parties are always intelligent for the distraction roll
+    regardless of treasure letters — they are people (pinned).
+    """
+    combatant = session.combatant(group.monster_ids[0])
+    if getattr(combatant, "definition", None) is not None:
+        return True
+    return bool(combatant.template.treasure.letters)
 
 
 def pursuit_round(session, *, dropped_kind: str | None = None) -> list[Event]:
@@ -557,6 +582,97 @@ def _attach_exhaustion(session) -> list[Event]:
 # ---------------------------------------------------------------------- conclusion
 
 
+def _drop_loot(session, state: EncounterState) -> list[Event]:
+    """Drop slain and surrendered combatants' carried treasure at the party's cell.
+
+    Surrender hands it over — the pile mechanism is already the recovery surface;
+    routed monsters flee with theirs, and a group whose members routed or fled
+    keeps its shared bundle (pinned).
+    """
+    from osrlib.crawl import exploration
+    from osrlib.crawl.dungeon import DropPile
+
+    if session.dungeon_state.location.kind != "dungeon":
+        return []
+    dropped: list[TreasureBundle] = []
+    npc_spoils: list = []
+    for group in state.groups:
+        any_routed = group.fled or group.fleeing
+        for monster_id in group.monster_ids:
+            combatant = session.combatant(monster_id)
+            if combatant is None:
+                continue
+            if has_condition(combatant, Condition.DEAD) or group.surrendered:
+                bundle = group.member_treasure.pop(monster_id, None)
+                if bundle is not None and not bundle.empty:
+                    dropped.append(bundle)
+                if getattr(combatant, "definition", None) is not None:
+                    # A defeated NPC's kit and magic items are the loot — victory
+                    # over an Expert party is the campaign's magic-item faucet.
+                    npc_spoils.append(combatant)
+            elif has_condition(combatant, Condition.TURNED) or any_routed:
+                any_routed = True
+        if group.group_treasure is not None and not group.group_treasure.empty and not any_routed:
+            living = [
+                session.combatant(monster_id)
+                for monster_id in group.monster_ids
+                if session.combatant(monster_id) is not None
+            ]
+            all_defeated = all(has_condition(member, Condition.DEAD) for member in living) or group.surrendered
+            if all_defeated:
+                dropped.append(group.group_treasure)
+                group.group_treasure = None
+    if not dropped and not npc_spoils:
+        return []
+    ref = exploration._cell_ref(session)
+    pile = session.dungeon_state.piles.setdefault(ref, DropPile())
+    total = Coins()
+    for bundle in dropped:
+        total = Coins(
+            **{
+                denomination: getattr(total, denomination) + getattr(bundle.coins, denomination)
+                for denomination in ("pp", "gp", "ep", "sp", "cp")
+            }
+        )
+        pile.valuables.extend(bundle.valuables)
+        pile.magic_items.extend(bundle.magic_items)
+    for npc in npc_spoils:
+        inventory = npc.inventory
+        for instance in inventory.all_instances():
+            if hasattr(instance, "instance_id"):
+                pile.magic_items.append(instance)
+            else:
+                from osrlib.crawl.dungeon import DroppedItem
+
+                existing = next((entry for entry in pile.items if entry.item_id == instance.template.id), None)
+                if existing is None:
+                    pile.items.append(DroppedItem(item_id=instance.template.id, quantity=instance.quantity))
+                else:
+                    existing.quantity += instance.quantity
+        pile.valuables.extend(inventory.valuables)
+        total = Coins(
+            **{
+                denomination: getattr(total, denomination) + getattr(inventory.purse, denomination)
+                for denomination in ("pp", "gp", "ep", "sp", "cp")
+            }
+        )
+        inventory.items = []
+        inventory.wielded = []
+        inventory.rings = []
+        inventory.valuables = []
+        inventory.worn_armour = None
+        inventory.shield = None
+        purse = inventory.purse
+        purse.pp = purse.gp = purse.ep = purse.sp = purse.cp = 0
+    pile.coins = Coins(
+        **{
+            denomination: getattr(pile.coins, denomination) + getattr(total, denomination)
+            for denomination in ("pp", "gp", "ep", "sp", "cp")
+        }
+    )
+    return []
+
+
 def end_encounter(session, outcome: str) -> list[Event]:
     """Conclude the encounter: defeats, effect release, the minimum-turn clock owe.
 
@@ -578,38 +694,57 @@ def end_encounter(session, outcome: str) -> list[Event]:
     all_defeated = True
     for group in state.groups:
         for monster_id in group.monster_ids:
-            monster = session.monsters[monster_id]
+            combatant = session.combatant(monster_id)
             monster_outcome = None
-            if has_condition(monster, Condition.DEAD):
+            if has_condition(combatant, Condition.DEAD):
                 monster_outcome = "slain"
-            elif has_condition(monster, Condition.TURNED) or group.fled or group.fleeing:
+            elif has_condition(combatant, Condition.TURNED) or group.fled or group.fleeing:
                 monster_outcome = "routed"
             elif group.surrendered:
                 monster_outcome = "surrendered"
             if monster_outcome is None:
                 all_defeated = False
                 continue
+            if getattr(combatant, "definition", None) is not None:
+                # A defeated NPC adventurer is worth level-as-HD XP, recorded
+                # under `npc:<class_id>` (pinned, registered).
+                from osrlib.core.npc import npc_defeat_xp
+
+                template_id = f"npc:{combatant.class_id}"
+                xp = npc_defeat_xp(combatant.level)
+            else:
+                template_id = combatant.template.id
+                xp = combatant.template.xp
             record = DefeatedMonsterRecord(
-                monster_id=monster.id,
-                template_id=monster.template.id,
+                monster_id=combatant.id,
+                template_id=template_id,
                 outcome=monster_outcome,
-                xp=monster.template.xp,
+                xp=xp,
             )
             session.defeated_monsters.append(record)
             events.append(
                 MonsterDefeatedEvent(
-                    monster_id=monster.id,
-                    template_id=monster.template.id,
+                    monster_id=combatant.id,
+                    template_id=template_id,
                     outcome=monster_outcome,
-                    xp=monster.template.xp,
+                    xp=xp,
                 )
             )
+    events.extend(_drop_loot(session, state))
     for group in state.groups:
         for monster_id in group.monster_ids:
             for effect in list(session.ledger.active_on(monster_id)):
                 events.extend(session.ledger.release(effect.effect_id, session.registry()))
     if state.area_ref is not None and all_defeated:
         session.dungeon_state.resolved_encounters.append(state.area_ref)
+    from osrlib.core.ruleset import XpAwardTiming
+
+    if session.ruleset.xp_award_timing is XpAwardTiming.IMMEDIATE and session.defeated_monsters:
+        # Immediate mode: monster XP divides and applies at each encounter end,
+        # and the ledger clears with it (no return award will consume it).
+        pool = sum(record.xp for record in session.defeated_monsters)
+        session.defeated_monsters = []
+        events.extend(session.award_immediate_xp(pool))
     events.append(EncounterEndedEvent(outcome=outcome))
     boundary = -(-session.clock.rounds // ROUNDS_PER_TURN) * ROUNDS_PER_TURN
     target = max(boundary, state.started_round + ROUNDS_PER_TURN)

@@ -61,7 +61,16 @@ from osrlib.core.events import (
     SavingThrowRolledEvent,
     TargetsSelectedEvent,
 )
-from osrlib.core.items import CombatFacet, GearTemplate, MissileRanges, WeaponQuality, WeaponTemplate
+from osrlib.core.items import (
+    CombatFacet,
+    GearTemplate,
+    MagicItemInstance,
+    MissileRanges,
+    WeaponQuality,
+    WeaponTemplate,
+    equipped_item_modifiers,
+    magic_item_template,
+)
 from osrlib.core.monsters import Element, MonsterAttack
 from osrlib.core.rng import RngStream
 from osrlib.core.ruleset import Ruleset
@@ -84,6 +93,7 @@ __all__ = [
     "TargetingMode",
     "alignments_differ",
     "apply_healing",
+    "attack_facet",
     "attack_roll",
     "burning_oil_pool_definition",
     "cannot_move",
@@ -97,6 +107,7 @@ __all__ = [
     "effective_hd",
     "falling_damage",
     "incapacitated",
+    "melee_modifier_for",
     "morale_modifier",
     "morale_triggers",
     "natural_healing",
@@ -131,8 +142,16 @@ _CANNOT_ACT = (Condition.DEAD, Condition.PETRIFIED, Condition.PARALYSED, Conditi
 _HOLY_ITEM_ID = "holy_water"
 _FIRE_ITEM_IDS = ("torch", "oil_flask")
 
-Attack = WeaponTemplate | CombatFacet | GearTemplate | MonsterAttack | None
-"""What a combatant attacks with; `None` is an unarmed attack (1d2)."""
+Attack = WeaponTemplate | CombatFacet | GearTemplate | MonsterAttack | MagicItemInstance | None
+"""What a combatant attacks with; `None` is an unarmed attack (1d2).
+
+A `MagicItemInstance` attack is an enchanted arm: its base weapon supplies the
+dice, qualities, and ranges, and its template supplies the attack and damage
+bonuses (versus-clauses swapping in their alternate bonus when the defender's
+template carries the referenced tag or id) — and it counts as magical for the
+graded-immunity checks, cursed forms included (pinned: a cursed sword is still a
+magic sword).
+"""
 
 
 class AttackContext(BaseModel):
@@ -142,12 +161,16 @@ class AttackContext(BaseModel):
     honest context, and supplying the context (was the charge 60 feet? is the target
     unaware?) is the caller's or Phase 4's job. `situational_modifier` is the RAW
     referee adjustment (cover −1 to −4, the dozing dragon's +2, and kin).
+    `defender_ally_ac_bonus` is an ally-granted AC bonus the caller asserts — the
+    Ring of Protection 5' Radius shielding the wearer's rank-mates; adjacency is
+    the caller's spatial judgment, so the value arrives as context.
     """
 
     model_config = ConfigDict(frozen=True)
 
     distance_feet: int | None = None
     situational_modifier: int = 0
+    defender_ally_ac_bonus: int = 0
     behind_target: bool = False
     target_unaware: bool = False
     defender_retreating: bool = False
@@ -340,16 +363,142 @@ def _attack_name(attack: Attack) -> str:
         return attack.name
     if isinstance(attack, CombatFacet):
         return "improvised"
+    if isinstance(attack, MagicItemInstance):
+        return magic_item_template(attack).name
     return attack.name
+
+
+def _magic_base(attack: MagicItemInstance) -> WeaponTemplate | None:
+    """Return an enchanted arm's mundane base weapon template, when it has one.
+
+    The staff of striking has no listed base damage of its own use here — its
+    2d6-per-charge form is the crawl's device path; wielded plainly it swings as
+    the mundane staff.
+    """
+    from osrlib.data import load_equipment
+
+    base_id = attack.base_item_id or magic_item_template(attack).base_item_id
+    if base_id is None:
+        return None
+    base = load_equipment().get(base_id)
+    return base if isinstance(base, WeaponTemplate) else None
+
+
+def _magic_weapon_bonus(attack: Attack, defender: object | None) -> int:
+    """Return an enchanted arm's effective bonus against a defender.
+
+    The base bonus applies unless a versus clause matches the defender's template
+    (by category tag or template id), in which case the clause's alternate bonus
+    swaps in. Characters have no template and never match a clause (pinned).
+    """
+    if not isinstance(attack, MagicItemInstance):
+        return 0
+    template = magic_item_template(attack)
+    bonus = template.attack_bonus
+    defender_template = getattr(defender, "template", None)
+    if defender_template is not None:
+        for clause in template.versus:
+            if (
+                set(clause.categories) & set(defender_template.categories)
+                or defender_template.id in clause.template_ids
+            ):
+                bonus = clause.bonus
+                break
+    return bonus
 
 
 def _facet(attack: Attack) -> WeaponTemplate | CombatFacet | None:
     """Return the combat stats of a character attack (a gear item's embedded facet)."""
     if isinstance(attack, GearTemplate):
         return attack.combat
+    if isinstance(attack, MagicItemInstance):
+        return _magic_base(attack)
     if isinstance(attack, WeaponTemplate | CombatFacet):
         return attack
     return None
+
+
+def attack_facet(attack: Attack) -> WeaponTemplate | CombatFacet | None:
+    """Return the combat stats behind any attack — the battle machine's lookup.
+
+    Args:
+        attack: The weapon, facet, gear item, magic instance, or `None`.
+
+    Returns:
+        The facet carrying dice, qualities, and ranges, or `None` for unarmed and
+        monster attacks.
+    """
+    return _facet(attack)
+
+
+def _item_modifier_total(
+    target: object,
+    kind: str,
+    *,
+    element: str | None = None,
+    save_category: str | None = None,
+    melee: bool = False,
+) -> int:
+    """Total the matching equipped-item modifiers — the query-time item channel.
+
+    Item bonuses are computed from equipped inventory at query time, never
+    `ActiveEffect` stat modifiers, and are exempt from the spell cumulative caps
+    (the `modifier_total` carve-out): matching values simply sum.
+    """
+    inventory = getattr(target, "inventory", None)
+    if inventory is None:
+        return 0
+    total = 0
+    for spec in equipped_item_modifiers(inventory):
+        if spec.kind != kind:
+            continue
+        if spec.element is not None and spec.element != element:
+            continue
+        if spec.save_categories and save_category not in spec.save_categories:
+            continue
+        if spec.melee_only and not melee:
+            continue
+        total += spec.value
+    return total
+
+
+def _strength_set_value(combatant: object) -> int | None:
+    """Return the operative `strength_set` value, or `None`.
+
+    Pinned precedence: the first active stat modifier in attachment order wins
+    (so the Ring of Weakness's curse, an attached item effect, dominates worn
+    gauntlets), then the first equipped item's, in equipped order.
+    """
+    for modifier in getattr(combatant, "stat_modifiers", ()):
+        if modifier.kind == "strength_set":
+            return modifier.value
+    inventory = getattr(combatant, "inventory", None)
+    if inventory is not None:
+        for spec in equipped_item_modifiers(inventory):
+            if spec.kind == "strength_set":
+                return spec.value
+    return None
+
+
+def melee_modifier_for(combatant: object) -> int:
+    """Return a combatant's melee attack-and-damage modifier, `strength_set` aware.
+
+    A `strength_set` modifier (Gauntlets of Ogre Power's 18, the Ring of
+    Weakness's 3) replaces the STR score the ability table's melee modifier
+    derives from; monsters keep their intrinsic 0.
+
+    Args:
+        combatant: The attacking combatant.
+
+    Returns:
+        The signed melee modifier.
+    """
+    strength = _strength_set_value(combatant)
+    if strength is not None and getattr(combatant, "definition", None) is not None:
+        from osrlib.data import load_ability_tables
+
+        return load_ability_tables().melee_modifier(strength)
+    return getattr(combatant, "melee_modifier", 0)
 
 
 def _qualities(attack: Attack) -> tuple[WeaponQuality, ...]:
@@ -416,6 +565,13 @@ def damage_source_for(attacker: object, attack: Attack, context: AttackContext) 
     elif isinstance(attack, MonsterAttack):
         kind = "monster"
         missile = context.monster_missile
+    elif isinstance(attack, MagicItemInstance):
+        # An enchanted arm counts as magical for the graded-immunity checks —
+        # the Phase 2 seam's real source, cursed forms included (pinned).
+        keys.append("magic")
+        magical = True
+        if _is_missile_use(attack, context):
+            missile = True
     else:
         material = getattr(attack, "material", None)
         if material is not None and material.value == "silver":
@@ -521,6 +677,11 @@ def _defender_descending_ac(defender: object, context: AttackContext, *, missile
     set_kind = "ac_set_vs_missile" if missile else "ac_set"
     for value in modifier_values(defender, set_kind):
         ac = min(ac, value)
+    # AC-bonus modifiers (the potion of invulnerability's ±2) improve or worsen
+    # descending AC directly; equipped-item AC rides the character's own property.
+    ac -= modifier_total(defender, "ac_bonus")
+    # An ally's aura (the 5'-radius protection ring), asserted by the caller.
+    ac -= context.defender_ally_ac_bonus
     return ac
 
 
@@ -554,7 +715,7 @@ def attack_roll(
     """
     attacker_id, defender_id = _entity_id(attacker), _entity_id(defender)
     name = _attack_name(attack)
-    missile = _is_missile_use(attack, context)
+    missile = _is_missile_use(attack, context) or (isinstance(attack, MonsterAttack) and context.monster_missile)
     helpless = not missile and any(has_condition(defender, condition) for condition in _HELPLESS)
     if helpless or getattr(defender, "armour_class", 0) is None:
         event = AttackRolledEvent(
@@ -574,23 +735,34 @@ def attack_roll(
         if halfling is not None:
             modifier += int(halfling.get("bonus", 0))
     else:
-        modifier += getattr(attacker, "melee_modifier", 0)
+        modifier += melee_modifier_for(attacker)
     if context.behind_target and context.target_unaware:
         back_stab = _class_ability_params(attacker, "back_stab")
         if back_stab is not None:
             modifier += int(back_stab.get("attack_bonus", 0))
     if context.defender_retreating:
         modifier += 2
+    # An enchanted arm's bonus (versus-clauses swapping in their alternate).
+    modifier += _magic_weapon_bonus(attack, defender)
     # Spell stat modifiers: the attacker's own bonuses (*bless*/*blight*) and the
     # defender's ward penalty on attackers of another alignment (*protection from
-    # evil*), each under the cumulative rule.
+    # evil*), each under the cumulative rule — plus the defender's equipped-item
+    # penalties (the Displacer Cloak's melee-only −2), outside the caps.
     modifier += modifier_total(attacker, "attack_bonus")
     modifier += modifier_total(
-        defender, "attack_penalty_of_attackers", versus_differs=alignments_differ(attacker, defender)
+        defender, "attack_penalty_of_attackers", versus_differs=alignments_differ(attacker, defender), melee=not missile
     )
+    modifier += _item_modifier_total(defender, "attack_penalty_of_attackers", melee=not missile)
 
     ac = _defender_descending_ac(defender, context, missile=missile)
     thac0 = attacker.thac0
+    girdle = _item_effect_params(attacker, "giant_strength")
+    if girdle is not None:
+        # The girdle's wearer attacks as an 8 HD monster — unless the character's
+        # own probabilities are already better (RAW).
+        from osrlib.core.tables import thac0_for_hd
+
+        thac0 = min(thac0, thac0_for_hd(int(girdle["attack_as_hd"]))[0])
     required = (thac0 - ac) if ruleset.thac0_arithmetic else to_hit_ac(thac0, ac)
     natural = stream.randbelow(20) + 1
     total = natural + modifier
@@ -689,13 +861,19 @@ def damage_roll(
     context: AttackContext,
     ruleset: Ruleset,
     stream: RngStream,
+    defender: object | None = None,
 ) -> RollResult:
     """Roll an attack's damage: dice, STR for melee, doublings, minimum 1.
 
     With `variable_weapon_damage` off, every weapon and gear combat facet deals 1d6;
     unarmed attacks stay 1d2 (the specific unarmed rule) and monster damage is
     unaffected (pinned). Doublings (brace against a charging attacker, a 60-foot
-    mounted charge, the thief's back-stab multiplier) apply after the roll and STR.
+    mounted charge, the thief's back-stab multiplier, and the item damage
+    multipliers — giant strength on weapon attacks, growth on melee) apply after
+    the roll and STR. An enchanted arm adds its damage bonus, versus-clauses
+    swapping in the alternate against a matching `defender`. The Girdle of Giant
+    Strength branches on `variable_weapon_damage`: twice normal weapon damage under
+    the default, the printed 2d8 with the flag off.
 
     Args:
         attacker: The attacking combatant.
@@ -703,11 +881,13 @@ def damage_roll(
         context: The caller-asserted situation.
         ruleset: The ruleset in play.
         stream: The combat stream.
+        defender: The defender, for versus-clause resolution.
 
     Returns:
         The damage roll; `total` is the final amount (minimum 1).
     """
     rolls: tuple[int, ...] = ()
+    girdle = _item_effect_params(attacker, "giant_strength")
     if isinstance(attack, MonsterAttack):
         if attack.fixed_damage_options:
             amount = attack.fixed_damage_options[context.fixed_damage_option]
@@ -723,6 +903,11 @@ def damage_roll(
     elif attack is None:
         result = roll("1d2", stream)
         rolls, amount = result.rolls, result.total
+    elif girdle is not None and not ruleset.variable_weapon_damage:
+        # The girdle's printed 2d8 replaces the flat 1d6 with the flag off — the
+        # one wired item whose mechanics branch on a `Ruleset` flag.
+        result = roll(str(girdle["flat_damage_dice"]), stream)
+        rolls, amount = result.rolls, result.total
     else:
         facet = _facet(attack)
         dice = facet.damage if ruleset.variable_weapon_damage else "1d6"
@@ -730,7 +915,9 @@ def damage_roll(
         rolls, amount = result.rolls, result.total
     missile = _is_missile_use(attack, context)
     if not missile and not isinstance(attack, MonsterAttack):
-        amount += getattr(attacker, "melee_modifier", 0)
+        amount += melee_modifier_for(attacker)
+    # An enchanted arm's damage bonus (the versus alternate against a match).
+    amount += _magic_weapon_bonus(attack, defender)
     # Spell stat modifiers join the pre-doubling sum (pinned): *bless*'s flat bonus
     # on any attack, *striking*'s extra die on weapon attacks only (never unarmed,
     # never a monster's natural attack).
@@ -746,11 +933,40 @@ def damage_roll(
         amount *= 2
     if context.charging and WeaponQuality.CHARGE in qualities:
         amount *= 2
+    if not isinstance(attack, MonsterAttack):
+        # Item damage multipliers double after the flat bonuses, beside the
+        # quality doublings (pinned): giant strength on weapon attacks, growth on
+        # melee attacks (unarmed included), the girdle's double under the
+        # variable-damage default.
+        if attack is not None:
+            multiplier = modifier_total(attacker, "damage_multiplier")
+            if multiplier > 1:
+                amount *= multiplier
+            if girdle is not None and ruleset.variable_weapon_damage:
+                amount *= 2
+        if not missile:
+            melee_multiplier = modifier_total(attacker, "melee_damage_multiplier")
+            if melee_multiplier > 1:
+                amount *= melee_multiplier
     if context.behind_target and context.target_unaware:
         back_stab = _class_ability_params(attacker, "back_stab")
         if back_stab is not None:
             amount *= int(back_stab.get("damage_multiplier", 1))
     return RollResult(rolls=rolls, modifier=0, multiplier=1, total=max(1, amount))
+
+
+def _item_effect_params(combatant: object, effect_kind: str) -> dict[str, object] | None:
+    """Return the params of an equipped always-active item effect of `effect_kind`."""
+    inventory = getattr(combatant, "inventory", None)
+    if inventory is None:
+        return None
+    for instance in inventory.equipped_instances():
+        if not isinstance(instance, MagicItemInstance):
+            continue
+        template = magic_item_template(instance)
+        if template.always_active and template.effect is not None and template.effect.kind == effect_kind:
+            return dict(template.effect.params)
+    return None
 
 
 def deal_damage(
@@ -761,6 +977,8 @@ def deal_damage(
     attacker_id: str | None = None,
     rolls: tuple[int, ...] = (),
     clock: GameClock | None = None,
+    ruleset: Ruleset | None = None,
+    stream: RngStream | None = None,
 ) -> list[Event]:
     """Apply damage: reductions, the hit point floor, ledgers, and death.
 
@@ -768,7 +986,8 @@ def deal_damage(
     regenerating monster whose regeneration they block accrue in the non-regenerable
     ledger (capped at max HP); the monster is permanently dead only when that ledger
     alone reaches max HP (pinned). A destructive killing source destroys the victim's
-    mundane equipment.
+    mundane equipment; `ruleset` and `stream` feed the magic-item death save when a
+    destructive kill lands (callers of destructive sources pass them).
 
     Args:
         target: The creature taking damage; mutated.
@@ -778,6 +997,8 @@ def deal_damage(
         rolls: The raw damage dice, for the event.
         clock: When passed, stamps the target's `last_damaged_round` (regeneration's
             delay anchor).
+        ruleset: The ruleset in play, for the magic-item death save.
+        stream: The stream the death save rolls on (the resolving subsystem's own).
 
     Returns:
         The damage, state, and death events, in order.
@@ -788,12 +1009,14 @@ def deal_damage(
             keys = {key.value for key in reduction.keys}
             if not keys or any(key in keys for key in source.keys) or (source.element in keys):
                 amount = max(1, amount // reduction.divisor)
-    # Element-scoped per-die reduction (*resist cold/fire*): 1 point per damage die
-    # rolled, each die inflicting a minimum of 1. Sources that rolled no dice (fixed
-    # damage, a dragon's current-hp breath) have no dice to reduce (pinned — the
-    # page's rule is per die rolled).
+    # Element-scoped per-die reduction (*resist cold/fire*, the fire-resistance
+    # ring and potion): 1 point per damage die rolled, each die inflicting a
+    # minimum of 1. Sources that rolled no dice (fixed damage, a dragon's
+    # current-hp breath) have no dice to reduce (pinned — the page's rule is per
+    # die rolled). Item channels join outside the spell caps.
     if source.element is not None and rolls:
         per_die = modifier_total(target, "damage_reduction_per_die", element=source.element)
+        per_die += _item_modifier_total(target, "damage_reduction_per_die", element=source.element)
         if per_die > 0:
             amount = max(min(amount, len(rolls)), amount - per_die * len(rolls))
     events: list[Event] = []
@@ -834,35 +1057,92 @@ def deal_damage(
         )
         events.extend(kill(target, permanent=permanent))
         if source.destructive:
-            events.extend(destroy_equipment(target))
+            events.extend(destroy_equipment(target, source=source, ruleset=ruleset, stream=stream))
     elif already_dead and newly_permanent:
         events.append(DeathEvent(code="combat.death.permanent", target_id=target_id))
     return events
 
 
-def destroy_equipment(target: object) -> list[Event]:
+_DEATH_SAVE_CATEGORIES = {"breath": SaveCategory.BREATH, "spell": SaveCategory.SPELLS, "device": SaveCategory.WANDS}
+
+
+def destroy_equipment(
+    target: object,
+    *,
+    source: DamageSource | None = None,
+    ruleset: Ruleset | None = None,
+    stream: RngStream | None = None,
+) -> list[Event]:
     """Destroy a victim's carried equipment — the destructive-death outcome.
 
     Called by the damage pipeline for destructive killing sources and by
     *disintegrate* (the material form destroyed includes what it carries, pinned).
 
+    Under the `magic_item_death_save` flag (default on), each magic item in the
+    doomed inventory rolls 1d20 against the owner's save value for the destructive
+    source's category (breath weapons save versus breath, destructive spells versus
+    spells, devices versus wands, anything else versus death — pinned), plus the
+    item's best combat bonus (the highest of its attack, damage, and AC bonuses —
+    a cursed item saves at its penalty). Survivors stay in the item list and their
+    instance ids ride the event's `saved_items`; the crawl lands them in a drop
+    pile at the victim's cell (pinned — surviving the blast but not the looting
+    would be no survival at all). The rolls are silent bookkeeping on the caller's
+    stream — the event carries the outcome.
+
     Args:
-        target: The victim; its inventory is emptied.
+        target: The victim; its inventory is emptied but for saved magic items.
+        source: The destructive damage source, for the save category.
+        ruleset: The ruleset in play; `None` skips the save (everything burns).
+        stream: The stream the item saves roll on.
 
     Returns:
         The destruction event, or nothing for an empty inventory.
+
+    Raises:
+        ValueError: If the flag is on, magic items are present, and no stream was
+            supplied (programmer misuse — the save cannot roll).
     """
     inventory = getattr(target, "inventory", None)
     if inventory is None:
         return []
-    names = tuple(instance.template.name for instance in inventory.all_instances())
-    if not names:
+    instances = inventory.all_instances()
+    if not instances:
         return []
-    inventory.items = []
+    save_enabled = ruleset is not None and ruleset.magic_item_death_save
+    category = _DEATH_SAVE_CATEGORIES.get(source.kind if source is not None else "", SaveCategory.DEATH)
+    destroyed: list[str] = []
+    saved: list[MagicItemInstance] = []
+    for instance in instances:
+        if isinstance(instance, MagicItemInstance):
+            template = magic_item_template(instance)
+            if save_enabled:
+                if stream is None:
+                    raise ValueError("the magic-item death save needs a stream; pass the resolving subsystem's")
+                required = getattr(target.saves, category.value)
+                # The best of the item's actual bonuses: unset bonuses are 0 and
+                # must not mask a cursed item's penalty (−2/−2/unset saves at −2).
+                bonuses = [
+                    bonus for bonus in (template.attack_bonus, template.damage_bonus, template.ac_bonus) if bonus
+                ]
+                best_bonus = max(bonuses) if bonuses else 0
+                if stream.randbelow(20) + 1 + best_bonus >= required:
+                    saved.append(instance)
+                    continue
+            destroyed.append(template.name)
+        else:
+            destroyed.append(instance.template.name)
+    inventory.items = list(saved)
     inventory.wielded = []
     inventory.worn_armour = None
     inventory.shield = None
-    return [EquipmentDestroyedEvent(target_id=_entity_id(target), item_names=names)]
+    inventory.rings = []
+    return [
+        EquipmentDestroyedEvent(
+            target_id=_entity_id(target),
+            item_names=tuple(destroyed),
+            saved_items=tuple(instance.instance_id for instance in saved),
+        )
+    ]
 
 
 def resolve_attack(
@@ -912,7 +1192,7 @@ def resolve_attack(
         # roll; the immunity gate above still applies first.
         events.extend(kill(defender))
         return AttackResult(attack_roll=rolled, events=tuple(events))
-    damage = damage_roll(attacker, attack, context=context, ruleset=ruleset, stream=stream)
+    damage = damage_roll(attacker, attack, context=context, ruleset=ruleset, stream=stream, defender=defender)
     if damage.total > 0:
         events.extend(
             deal_damage(
@@ -922,6 +1202,8 @@ def resolve_attack(
                 attacker_id=_entity_id(attacker),
                 rolls=damage.rolls,
                 clock=clock,
+                ruleset=ruleset,
+                stream=stream,
             )
         )
     return AttackResult(attack_roll=rolled, damage=damage.total, events=tuple(events))
@@ -1320,7 +1602,13 @@ def saving_throw(
     if magical and category is not SaveCategory.BREATH:
         modifier += getattr(target, "magic_save_modifier", 0)
     versus_differs = alignments_differ(source, target) if source is not None else False
-    modifier += modifier_total(target, "save_bonus", element=element, versus_differs=versus_differs)
+    modifier += modifier_total(
+        target, "save_bonus", element=element, versus_differs=versus_differs, save_category=category.value
+    )
+    # Equipped-item save bonuses (rings of protection and fire resistance, the
+    # Displacer Cloak's category-scoped +2) — the query-time item channel, exempt
+    # from the spell cumulative caps.
+    modifier += _item_modifier_total(target, "save_bonus", element=element, save_category=category.value)
     rolled = stream.randbelow(20) + 1
     passed = rolled + modifier >= required
     event = SavingThrowRolledEvent(
@@ -1362,6 +1650,11 @@ def apply_healing(target: object, amount: int, *, source: str = "magical") -> li
         return []
     if has_condition(target, Condition.WEAKENED) or (source == "magical" and has_condition(target, Condition.DISEASED)):
         return [HealingAppliedEvent(code="combat.healing.blocked", target_id=target_id, amount=0, source=source)]
+    if source == "magical" and has_modifier(target, "magical_healing_half"):
+        # The cursed scroll's slow healing: "healing spells only cure half the
+        # normal number of hit points" — half, floored, unlike *cause disease*'s
+        # outright block.
+        amount //= 2
     healed = min(amount, target.max_hp - target.current_hp)
     target.current_hp += healed
     return [
@@ -1374,11 +1667,12 @@ def natural_healing(target: object, stream: RngStream, *, ledger: EffectsLedger 
     """Apply one full day of complete rest: 1d3 hit points.
 
     Callable by whoever can attest the rest was uninterrupted (Phase 4 automates).
-    Slowed-healing diseases stretch the cadence: under mummy rot, natural healing
+    Slowed-healing effects stretch the cadence: under mummy rot, natural healing
     runs ten times slower (pinned), and an effect carrying a `healing_rest_days`
-    param (*cause disease*'s "twice the usual amount of time" is 2) heals once per
-    that many consecutive full rest days, tracked on the effect. When several apply,
-    the slowest wins. Without a ledger to track on, a diseased target does not heal.
+    param (*cause disease*'s and the cursed scroll's "twice the usual amount of
+    time" is 2) heals once per that many consecutive full rest days, tracked on the
+    effect — disease or not. When several apply, the slowest wins. Without a ledger
+    to track on, a diseased target does not heal.
 
     Args:
         target: The resting creature; mutated.
@@ -1391,20 +1685,20 @@ def natural_healing(target: object, stream: RngStream, *, ledger: EffectsLedger 
     """
     if has_condition(target, Condition.DEAD):
         return []
-    if has_condition(target, Condition.DISEASED):
-        if ledger is None:
-            return []
-        slowdowns = []
+    if has_condition(target, Condition.DISEASED) and ledger is None:
+        return []
+    slowdowns = []
+    if ledger is not None:
         for effect in ledger.active_on(_entity_id(target)):
             if effect.definition.kind == "mummy_rot":
                 slowdowns.append((effect, 10))
             elif "healing_rest_days" in effect.definition.params:
                 slowdowns.append((effect, int(effect.definition.params["healing_rest_days"])))
-        if slowdowns:
-            effect, cadence = max(slowdowns, key=lambda pair: pair[1])
-            effect.state["rest_days"] = effect.state.get("rest_days", 0) + 1
-            if effect.state["rest_days"] % cadence != 0:
-                return []
+    if slowdowns:
+        effect, cadence = max(slowdowns, key=lambda pair: pair[1])
+        effect.state["rest_days"] = effect.state.get("rest_days", 0) + 1
+        if effect.state["rest_days"] % cadence != 0:
+            return []
     amount = stream.randbelow(3) + 1
     return apply_healing(target, amount, source="natural")
 
@@ -1734,6 +2028,15 @@ def resolve_breath(
         if amount < 1:
             continue
         events.extend(
-            deal_damage(target, amount, source=source, attacker_id=_entity_id(monster), rolls=tuple(rolls), clock=clock)
+            deal_damage(
+                target,
+                amount,
+                source=source,
+                attacker_id=_entity_id(monster),
+                rolls=tuple(rolls),
+                clock=clock,
+                ruleset=ruleset,
+                stream=stream,
+            )
         )
     return events

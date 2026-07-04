@@ -24,9 +24,10 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError,
 from osrlib.core.clock import TimeUnit
 from osrlib.core.dice import parse
 from osrlib.core.events import Event
+from osrlib.core.items import Coins
 from osrlib.core.spells import MemorizedSpell
 from osrlib.core.validation import Rejection
-from osrlib.crawl.dungeon import Coins, Direction, PartyLocation
+from osrlib.crawl.dungeon import Direction, PartyLocation
 
 __all__ = [
     "ALL_COMMAND_CLASSES",
@@ -47,6 +48,7 @@ __all__ = [
     "ForceDoor",
     "GrantCoins",
     "GrantItem",
+    "IdentifyItem",
     "InspectTreasure",
     "LightSource",
     "ListenAtDoor",
@@ -57,6 +59,7 @@ __all__ = [
     "PlaceParty",
     "PrepareSpells",
     "PurchaseEquipment",
+    "PurchaseHealing",
     "RemoveTreasureTrap",
     "ReorderParty",
     "ResolveBattleRound",
@@ -64,13 +67,16 @@ __all__ = [
     "Search",
     "SessionMode",
     "SetDoorState",
+    "SellTreasure",
     "SetFlag",
     "SpawnMonsters",
+    "SpawnNpcParty",
     "TakeTreasure",
     "TravelToTown",
     "TurnParty",
     "TurnUndead",
     "UnequipItem",
+    "UseItem",
     "UseStairs",
     "Wait",
     "WedgeDoor",
@@ -348,6 +354,35 @@ class CastSpell(Command):
     targets: tuple[str, ...] = ()
 
 
+class UseItem(Command):
+    """Use a magic item: drink a potion, read a scroll, activate a device (one round).
+
+    One round is the RAW activation cost (drinking is one round). `target_id` names
+    a character (the staff of healing's touch) or an encounter group (a device's
+    area); `spell_id`, `mode`, and `targets` select the inscribed spell and its
+    targets when reading a multi-spell scroll (the `CastSpell` surface). In battle,
+    item use is the `use_item` declaration instead.
+    """
+
+    allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.EXPLORING, SessionMode.ENCOUNTER})
+
+    command_type: Literal["use_item"] = "use_item"
+    character_id: str
+    item_id: str
+    target_id: str | None = None
+    spell_id: str | None = None
+    mode: str | None = None
+    targets: tuple[str, ...] = ()
+
+
+class IdentifyItem(Command):
+    """Referee: identify a magic item outright — game-driven identification."""
+
+    command_type: Literal["identify_item"] = "identify_item"
+    character_id: str
+    item_id: str
+
+
 class UseStairs(Command):
     """Take the transition on the party's cell (one unexplored-cell cost, pinned)."""
 
@@ -381,6 +416,47 @@ class PurchaseEquipment(Command):
     command_type: Literal["purchase_equipment"] = "purchase_equipment"
     character_id: str
     item_ids: tuple[str, ...] = Field(min_length=1)
+
+
+class SellTreasure(Command):
+    """Sell valuables in town at full value (zero time).
+
+    Each entry names a carried valuable's instance id; the coins credit its
+    carrier's purse. Full `value_gp` is pinned and registered: the SRD prices
+    treasure but names no exchange spread, and full value keeps the 1-gp-1-XP
+    identity clean. Magic items reject with `town.sell.no_fixed_value` (RAW's own
+    words) and revealed curses stick.
+    """
+
+    allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.TOWN})
+
+    command_type: Literal["sell_treasure"] = "sell_treasure"
+    item_ids: tuple[str, ...] = Field(min_length=1)
+
+
+class PurchaseHealing(Command):
+    """Buy a temple healing service in town (zero time).
+
+    The service list and prices are invented and registered (the SRD's base-town
+    page is prose): *cure light wounds* 25 gp, *cure serious wounds* 100 gp,
+    *cure disease* 150 gp, *neutralize poison* 150 gp, *remove curse* 200 gp,
+    *raise dead* 1,500 gp. Each resolves through the kernel spell path with an
+    abstract temple cleric at the minimum level able to cast the spell; the named
+    character is the target and pays from their own purse.
+    """
+
+    allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.TOWN})
+
+    command_type: Literal["purchase_healing"] = "purchase_healing"
+    character_id: str
+    service: Literal[
+        "cure_light_wounds",
+        "cure_serious_wounds",
+        "cure_disease",
+        "neutralize_poison",
+        "remove_curse",
+        "raise_dead",
+    ]
 
 
 class Parley(Command):
@@ -528,6 +604,26 @@ class SpawnMonsters(Command):
         return self
 
 
+class SpawnNpcParty(Command):
+    """Referee: generate an NPC adventuring party and open an encounter.
+
+    `count_dice=None` rolls the compiled composition dice (Basic 1d4+4, Expert
+    1d6+3) — the surface for keyed content, quest listeners, and tests.
+    """
+
+    command_type: Literal["spawn_npc_party"] = "spawn_npc_party"
+    party_kind: Literal["basic", "expert"]
+    count_dice: str | None = None
+    distance_feet: int = Field(ge=0)
+
+    @field_validator("count_dice")
+    @classmethod
+    def _dice_must_parse(cls, value: str | None) -> str | None:
+        if value is not None:
+            parse(value)
+        return value
+
+
 class SetDoorState(Command):
     """Referee: rewrite a door's overlay anywhere (`None` fields stay unchanged)."""
 
@@ -580,10 +676,13 @@ ALL_COMMAND_CLASSES: tuple[type[Command], ...] = (
     Rest,
     PrepareSpells,
     CastSpell,
+    UseItem,
     UseStairs,
     EnterDungeon,
     TravelToTown,
     PurchaseEquipment,
+    SellTreasure,
+    PurchaseHealing,
     Parley,
     Evade,
     EngageBattle,
@@ -595,9 +694,11 @@ ALL_COMMAND_CLASSES: tuple[type[Command], ...] = (
     AwardXP,
     SetFlag,
     SpawnMonsters,
+    SpawnNpcParty,
     SetDoorState,
     PlaceParty,
     AdvanceTime,
+    IdentifyItem,
 )
 """Every command class, in census order — the discriminated union's members."""
 

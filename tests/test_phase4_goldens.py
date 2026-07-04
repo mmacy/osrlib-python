@@ -80,8 +80,6 @@ class TestReplay:
         assert replayed.clock.rounds == golden["final_clock_rounds"]
         defeated = [record.model_dump(mode="json") for record in replayed.defeated_monsters]
         assert defeated == golden["defeated_monsters"]
-        recovered = [record.model_dump(mode="json") for record in replayed.recovered_treasure]
-        assert recovered == golden["recovered_treasure"]
         assert replayed.mode.value == "town"
 
     def test_the_milestone_beats_are_in_the_stream(self, golden):

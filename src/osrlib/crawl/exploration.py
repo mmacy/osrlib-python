@@ -32,8 +32,27 @@ from osrlib.core.combat import (
 from osrlib.core.dice import roll
 from osrlib.core.effects import EFFECTS_STREAM, Condition, EffectDefinition, ModifierSpec
 from osrlib.core.events import Event
-from osrlib.core.items import ItemInstance, equip, unequip, validate_equip
-from osrlib.core.spells import MAGIC_STREAM, CastContext, cast_spell, memorize_spells, validate_cast
+from osrlib.core.items import (
+    Coins,
+    ItemInstance,
+    MagicItemCategory,
+    MagicItemInstance,
+    equip,
+    magic_item_template,
+    unequip,
+    usable_by_class,
+    validate_equip,
+    validate_unequip,
+)
+from osrlib.core.spells import (
+    MAGIC_STREAM,
+    CastContext,
+    cast_from_scroll,
+    cast_spell,
+    caster_profile,
+    memorize_spells,
+    validate_cast,
+)
 from osrlib.core.validation import Rejection
 from osrlib.crawl.commands import (
     CastSpell,
@@ -51,20 +70,22 @@ from osrlib.crawl.commands import (
     PickLock,
     PrepareSpells,
     PurchaseEquipment,
+    PurchaseHealing,
     RemoveTreasureTrap,
     ReorderParty,
     Rest,
     Search,
+    SellTreasure,
     SessionMode,
     TakeTreasure,
     TravelToTown,
     TurnParty,
     UnequipItem,
+    UseItem,
     UseStairs,
     WedgeDoor,
 )
 from osrlib.crawl.dungeon import (
-    Coins,
     Direction,
     DroppedItem,
     DropPile,
@@ -77,11 +98,15 @@ from osrlib.crawl.dungeon import (
     step,
 )
 from osrlib.crawl.events import (
+    CurseRevealedEvent,
     DetectionRolledEvent,
     DoorEvent,
     FatigueEvent,
+    HealingPurchasedEvent,
     ItemAcquiredEvent,
+    ItemIdentifiedEvent,
     ItemsDroppedEvent,
+    ItemUsedEvent,
     LightEvent,
     ListenedEvent,
     LocationEnteredEvent,
@@ -90,6 +115,7 @@ from osrlib.crawl.events import (
     RestedEvent,
     SearchCompletedEvent,
     TrapEvent,
+    TreasureSoldEvent,
     WanderingCheckEvent,
 )
 from osrlib.data import load_classes, load_encounter_tables, load_equipment, load_monsters, load_spells
@@ -399,8 +425,9 @@ def _consume_item(member, item_id: str, quantity: int = 1) -> bool:
 
 
 def _find_item(member, item_id: str):
+    """The mundane-item lookup — magic instances resolve by instance id instead."""
     for instance in member.inventory.all_instances():
-        if instance.template.id == item_id:
+        if not isinstance(instance, MagicItemInstance) and instance.template.id == item_id:
             return instance
     return None
 
@@ -433,8 +460,9 @@ def wandering_check(session, *, resting: bool = False) -> tuple[list[Event], boo
     The chance takes +1 for noise since the last check, +1 for daylight-bright
     light, −1 while resting, clamped to [0, 6]; a clamped 0 skips the roll. The
     check die draws from the wandering stream; the d20 table roll, count dice,
-    variant picks, and NPC-party re-rolls (draws consumed) follow on the same
-    stream; spawned hit points draw from the monster-spawn stream and the
+    and variant picks follow on the same stream (NPC-party rows spawn a real
+    party — the Phase 4 re-roll is gone); spawned hit points draw from the
+    monster-spawn stream, NPC composition from the npc-party stream, and the
     encounter's own dice from the encounter stream.
     """
     from osrlib.crawl import encounter as encounter_module
@@ -460,12 +488,26 @@ def wandering_check(session, *, resting: bool = False) -> tuple[list[Event], boo
         return events, False
     table = level.wandering.table or load_encounter_tables().for_level(level.number)
     row = table.rows[stream.randbelow(20)]
-    while row.entry.kind == "npc_party":
-        # NPC parties arrive in Phase 5; re-roll until a monster row, draws consumed.
-        row = table.rows[stream.randbelow(20)]
     count = row.count_fixed if row.count_fixed is not None else roll(row.count_dice, stream).total
     count = max(1, count)
     entry = row.entry
+    if entry.kind == "npc_party":
+        # The wandering re-roll ends: the row rolls its printed count dice on the
+        # wandering stream, generates the party, and the encounter procedure runs
+        # unchanged — surprise both ways, distance, reaction (NPC parties react on
+        # the table like anyone; parley works; keyed stances don't apply).
+        party, bundle, npc_events = field_npc_party(session, entry.party_kind, count)
+        events.extend(npc_events)
+        events.extend(
+            encounter_module.start_encounter(
+                session,
+                groups=[(row.name, party.members)],
+                kind="wandering",
+                monsters_roll_surprise=True,
+            )
+        )
+        _assign_carried(session, [({}, bundle)])
+        return events, True
     if entry.variant_dice is not None:
         # The hydra form: the printed HD dice select the template once.
         dice = roll(entry.variant_dice, stream)
@@ -479,6 +521,7 @@ def wandering_check(session, *, resting: bool = False) -> tuple[list[Event], boo
     instances = []
     for template_id in template_ids:
         instances.extend(session.spawn(template_id, 1))
+    carried = [generate_carried_treasure(session, instances)]
     events.extend(
         encounter_module.start_encounter(
             session,
@@ -487,6 +530,7 @@ def wandering_check(session, *, resting: bool = False) -> tuple[list[Event], boo
             monsters_roll_surprise=False,  # wandering monsters know the dungeon (pinned)
         )
     )
+    _assign_carried(session, carried)
     return events, True
 
 
@@ -708,6 +752,7 @@ def _relocate(session, dungeon_id: str, level_number: int, position, facing) -> 
     state.mark_explored(dungeon_id, level_number, position)
     events.extend(_boundary_events(session, old_area, position))
     events.extend(_enter_hooks(session))
+    events.extend(_area_treasure_check(session))
     events.extend(_room_trap_check(session))
     events.extend(_keyed_encounter_check(session))
     return events
@@ -728,22 +773,34 @@ def _keyed_encounter_check(session) -> list[Event]:
     from osrlib.crawl.session import WANDERING_STREAM
 
     groups = []
+    carried = []
+    templates = []
     for keyed in area.encounter.monsters:
         if keyed.count_fixed is not None:
             count = keyed.count_fixed
         else:
             count = max(1, roll(keyed.count_dice, session.streams.get(WANDERING_STREAM)).total)
+        template = load_monsters().get(keyed.template_id)
+        templates.append(template)
         instances = session.spawn(keyed.template_id, count, alignment=area.encounter.alignment)
-        groups.append((load_monsters().get(keyed.template_id).name, instances))
-    return encounter_module.start_encounter(
-        session,
-        groups=groups,
-        kind="keyed",
-        area_ref=area_ref,
-        monsters_aware=area.encounter.aware or area_ref in session.alerted_areas,
-        party_aware=area_ref in session.heard_areas,
-        pinned_stance=area.encounter.stance,
+        groups.append((template.name, instances))
+        # Carried treasure generates at spawn, per keyed line in printed order;
+        # the lair hoard follows (pinned draw order on the treasure stream).
+        carried.append(generate_carried_treasure(session, instances))
+    events = _generate_lair_hoard(session, area, templates)
+    events.extend(
+        encounter_module.start_encounter(
+            session,
+            groups=groups,
+            kind="keyed",
+            area_ref=area_ref,
+            monsters_aware=area.encounter.aware or area_ref in session.alerted_areas,
+            party_aware=area_ref in session.heard_areas,
+            pinned_stance=area.encounter.stance,
+        )
     )
+    _assign_carried(session, carried)
+    return events
 
 
 # ---------------------------------------------------------------------- movement handlers
@@ -785,6 +842,7 @@ def handle_move_party(session, command: MoveParty) -> tuple[list[Rejection], lis
     events.extend(_boundary_events(session, old_area, target))
     events.extend(_swing_shut(session, previous=position))
     events.extend(_enter_hooks(session))
+    events.extend(_area_treasure_check(session))
     events.extend(_room_trap_check(session))
     events.extend(_keyed_encounter_check(session))
     events.extend(_accrue_movement(session, 10 if explored_before else 30))
@@ -856,6 +914,9 @@ def handle_enter_dungeon(session, command: EnterDungeon) -> tuple[list[Rejection
     entrance_level = next((level for level in dungeon.levels if level.entrance is not None), None)
     if entrance_level is None:
         return [Rejection(code="session.command.unknown_location", params={"dungeon": command.dungeon_id})], []
+    # The award values what the party actually brings back: each departure
+    # snapshots the valuation, and the return award is the delta (pinned).
+    session.snapshot_treasure()
     travel = session.adventure.town.travel_turns.get(command.dungeon_id, 0)
     events, _ = session.advance_turns(travel, field=False)
     session.mode = SessionMode.EXPLORING
@@ -875,6 +936,14 @@ def handle_travel_to_town(session, command: TravelToTown) -> tuple[list[Rejectio
     travel_events, _ = session.advance_turns(travel, field=False)
     events.extend(travel_events)
     events.append(LocationEnteredEvent(location_kind="town", location_id="town"))
+    from osrlib.core.ruleset import XpAwardTiming
+
+    if session.ruleset.xp_award_timing is XpAwardTiming.ON_RETURN:
+        events.extend(session.award_adventure_xp())
+    else:
+        # Immediate mode: town arrival awards nothing; the snapshot still resets.
+        session.defeated_monsters = []
+        session.treasure_snapshot_cp = None
     return [], events
 
 
@@ -1149,12 +1218,15 @@ def handle_inspect_treasure(session, command: InspectTreasure) -> tuple[list[Rej
     if not definition.thief_skills:
         return [Rejection(code="exploration.trap.not_a_thief", params={"character": member.id})], []
     feature = next((f for f in _features_here(session) if f.id == command.feature_id), None)
-    if feature is None or feature.kind != "treasure_cache":
+    cache = session.dungeon_state.generated_caches.get(command.feature_id)
+    if cache is not None and cache.cell_ref == _cell_ref(session):
+        feature = None  # generated hoards are untrapped (pinned): the check runs, nothing is found
+    elif feature is None or feature.kind != "treasure_cache":
         return [Rejection(code="exploration.feature.unknown", params={"feature": command.feature_id})], []
     light_rejections = _requires_light(session, member, infravision_suffices=False)
     if light_rejections:
         return light_rejections, []
-    ref = _feature_ref(session, feature)
+    ref = _feature_ref(session, feature) if feature is not None else command.feature_id
     attempts = session.dungeon_state.inspect_attempts.setdefault(ref, [])
     if member.id in attempts:
         return [Rejection(code="exploration.search.already_tried", params={"character": member.id})], []
@@ -1170,7 +1242,12 @@ def handle_inspect_treasure(session, command: InspectTreasure) -> tuple[list[Rej
         )
     ]
     state = session.dungeon_state
-    trapped = feature.trap is not None and ref not in state.sprung_traps and ref not in state.removed_traps
+    trapped = (
+        feature is not None
+        and feature.trap is not None
+        and ref not in state.sprung_traps
+        and ref not in state.removed_traps
+    )
     if result.passed and trapped and ref not in state.found_traps:
         state.found_traps.append(ref)
         events.append(TrapEvent(code="exploration.trap.found", trap_ref=ref, character_id=member.id))
@@ -1247,6 +1324,28 @@ def handle_take_treasure(session, command: TakeTreasure) -> tuple[list[Rejection
         events.append(
             ItemAcquiredEvent(character_id=taker.id, item_ids=tuple(item_ids), coins_gp_value=pile.coins.value_gp)
         )
+        events.extend(_immediate_treasure_award(session, pile.coins.value_cp, pile.valuables))
+        turn_events, _ = _spend_turn(session)
+        events.extend(turn_events)
+        return [], events
+    cache = state.generated_caches.get(command.feature_id)
+    if cache is not None:
+        if cache.cell_ref != _cell_ref(session):
+            return [Rejection(code="exploration.feature.unknown", params={"feature": command.feature_id})], []
+        item_ids = []
+        for valuable in cache.valuables:
+            taker.inventory.valuables.append(valuable)
+            item_ids.append(valuable.instance_id)
+        for magic_item in cache.magic_items:
+            taker.inventory.items.append(magic_item)
+            item_ids.append(magic_item.instance_id)
+        purse = taker.inventory.purse
+        for denomination in ("pp", "gp", "ep", "sp", "cp"):
+            setattr(purse, denomination, getattr(purse, denomination) + getattr(cache.coins, denomination))
+        coins_value = cache.coins.value_gp
+        del state.generated_caches[command.feature_id]
+        events.append(ItemAcquiredEvent(character_id=taker.id, item_ids=tuple(item_ids), coins_gp_value=coins_value))
+        events.extend(_immediate_treasure_award(session, cache.coins.value_cp, cache.valuables))
         turn_events, _ = _spend_turn(session)
         events.extend(turn_events)
         return [], events
@@ -1277,17 +1376,28 @@ def handle_take_treasure(session, command: TakeTreasure) -> tuple[list[Rejection
     for item_id in feature.item_ids:
         taker.inventory.items.append(ItemInstance(template=equipment.get(item_id)))
         item_ids.append(item_id)
+    for spec in feature.valuables:
+        # Authored named valuables (the example's MacGuffin) instantiate on take.
+        from osrlib.core.items import ValuableInstance
+
+        valuable = ValuableInstance(
+            instance_id=session.allocator.allocate("valuable"),
+            kind=spec.kind,
+            name=spec.name,
+            value_gp=spec.value_gp,
+            weight_coins=spec.weight_coins,
+        )
+        taker.inventory.valuables.append(valuable)
+        item_ids.append(valuable.instance_id)
     purse = taker.inventory.purse
     for denomination in ("pp", "gp", "ep", "sp", "cp"):
         setattr(purse, denomination, getattr(purse, denomination) + getattr(feature.coins, denomination))
     state.emptied_caches.append(ref)
-    if feature.coins.value_gp:
-        from osrlib.crawl.session import RecoveredTreasureRecord
-
-        session.recovered_treasure.append(RecoveredTreasureRecord(source_ref=ref, gp_value=feature.coins.value_gp))
     events.append(
         ItemAcquiredEvent(character_id=taker.id, item_ids=tuple(item_ids), coins_gp_value=feature.coins.value_gp)
     )
+    taken_valuables = [valuable for valuable in taker.inventory.valuables if valuable.instance_id in item_ids]
+    events.extend(_immediate_treasure_award(session, feature.coins.value_cp, taken_valuables))
     turn_events, _ = _spend_turn(session)
     events.extend(turn_events)
     return [], events
@@ -1299,6 +1409,12 @@ def _transfer_pile(taker, pile: DropPile) -> list[str]:
     for dropped in pile.items:
         taker.inventory.items.append(ItemInstance(template=equipment.get(dropped.item_id), quantity=dropped.quantity))
         item_ids.extend([dropped.item_id] * dropped.quantity)
+    for valuable in pile.valuables:
+        taker.inventory.valuables.append(valuable)
+        item_ids.append(valuable.instance_id)
+    for magic_item in pile.magic_items:
+        taker.inventory.items.append(magic_item)
+        item_ids.append(magic_item.instance_id)
     purse = taker.inventory.purse
     for denomination in ("pp", "gp", "ep", "sp", "cp"):
         setattr(purse, denomination, getattr(purse, denomination) + getattr(pile.coins, denomination))
@@ -1326,10 +1442,20 @@ def handle_drop_items(session, command: DropItems) -> tuple[list[Rejection], lis
 def _validate_drops(member, command: DropItems) -> list[Rejection]:
     counts: dict[str, int] = {}
     for item_id in command.item_ids:
+        magic = member.inventory.magic_item(item_id)
+        if magic is not None:
+            if magic.cursed_revealed:
+                # A revealed cursed item pins to its bearer until *remove curse*.
+                return [Rejection(code="items.curse.stuck", params={"item": item_id})]
+            continue
+        if any(valuable.instance_id == item_id for valuable in member.inventory.valuables):
+            continue
         counts[item_id] = counts.get(item_id, 0) + 1
     for item_id, needed in counts.items():
         held = sum(
-            instance.quantity for instance in member.inventory.all_instances() if instance.template.id == item_id
+            instance.quantity
+            for instance in member.inventory.all_instances()
+            if not isinstance(instance, MagicItemInstance) and instance.template.id == item_id
         )
         if held < needed:
             return [Rejection(code="exploration.item.not_carried", params={"item": item_id})]
@@ -1342,20 +1468,35 @@ def _validate_drops(member, command: DropItems) -> list[Rejection]:
 
 def _apply_drop(session, member, command: DropItems, *, to_pile: bool) -> list[Event]:
     """Remove the dropped goods; onto the cell's pile, or scattered (pursuit bait)."""
-    for item_id in command.item_ids:
-        _consume_item(member, item_id)
-    purse = member.inventory.purse
-    for denomination in ("pp", "gp", "ep", "sp", "cp"):
-        setattr(purse, denomination, getattr(purse, denomination) - getattr(command.coins, denomination))
+    pile = None
     if to_pile:
-        ref = _cell_ref(session)
-        pile = session.dungeon_state.piles.setdefault(ref, DropPile())
-        for item_id in command.item_ids:
+        pile = session.dungeon_state.piles.setdefault(_cell_ref(session), DropPile())
+    for item_id in command.item_ids:
+        magic = member.inventory.magic_item(item_id)
+        if magic is not None:
+            _remove_magic_instance(member, magic)
+            if pile is not None:
+                pile.magic_items.append(magic)
+            continue
+        valuable = next(
+            (candidate for candidate in member.inventory.valuables if candidate.instance_id == item_id), None
+        )
+        if valuable is not None:
+            member.inventory.valuables.remove(valuable)
+            if pile is not None:
+                pile.valuables.append(valuable)
+            continue
+        _consume_item(member, item_id)
+        if pile is not None:
             existing = next((entry for entry in pile.items if entry.item_id == item_id), None)
             if existing is None:
                 pile.items.append(DroppedItem(item_id=item_id, quantity=1))
             else:
                 existing.quantity += 1
+    purse = member.inventory.purse
+    for denomination in ("pp", "gp", "ep", "sp", "cp"):
+        setattr(purse, denomination, getattr(purse, denomination) - getattr(command.coins, denomination))
+    if pile is not None:
         pile.coins = Coins(
             **{
                 denomination: getattr(pile.coins, denomination) + getattr(command.coins, denomination)
@@ -1493,7 +1634,16 @@ def handle_equip_item(session, command: EquipItem) -> tuple[list[Rejection], lis
     if rejections:
         return rejections, []
     instance = next(
-        (candidate for candidate in member.inventory.items if candidate.template.id == command.item_id), None
+        (
+            candidate
+            for candidate in member.inventory.items
+            if (
+                candidate.instance_id == command.item_id
+                if isinstance(candidate, MagicItemInstance)
+                else candidate.template.id == command.item_id
+            )
+        ),
+        None,
     )
     if instance is None:
         return [Rejection(code="exploration.item.not_carried", params={"item": command.item_id})], []
@@ -1502,7 +1652,10 @@ def handle_equip_item(session, command: EquipItem) -> tuple[list[Rejection], lis
     if equip_rejections:
         return equip_rejections, []
     equip(member.inventory, definition, instance)
-    return [], []
+    events: list[Event] = []
+    if isinstance(instance, MagicItemInstance):
+        events.extend(attach_worn_item_effects(session, member, instance))
+    return [], events
 
 
 def handle_unequip_item(session, command: UnequipItem) -> tuple[list[Rejection], list[Event]]:
@@ -1510,16 +1663,28 @@ def handle_unequip_item(session, command: UnequipItem) -> tuple[list[Rejection],
     if rejections:
         return rejections, []
     inventory = member.inventory
-    equipped = [*inventory.wielded]
-    if inventory.worn_armour is not None:
-        equipped.append(inventory.worn_armour)
-    if inventory.shield is not None:
-        equipped.append(inventory.shield)
-    instance = next((candidate for candidate in equipped if candidate.template.id == command.item_id), None)
+    instance = next(
+        (
+            candidate
+            for candidate in inventory.equipped_instances()
+            if (
+                candidate.instance_id == command.item_id
+                if isinstance(candidate, MagicItemInstance)
+                else candidate.template.id == command.item_id
+            )
+        ),
+        None,
+    )
     if instance is None:
         return [Rejection(code="exploration.item.not_equipped", params={"item": command.item_id})], []
+    unequip_rejections = validate_unequip(inventory, instance)
+    if unequip_rejections:
+        return unequip_rejections, []
+    events: list[Event] = []
+    if isinstance(instance, MagicItemInstance):
+        events.extend(_release_instance_effects(session, instance))
     unequip(inventory, instance)
-    return [], []
+    return [], events
 
 
 def handle_purchase_equipment(session, command: PurchaseEquipment) -> tuple[list[Rejection], list[Event]]:
@@ -1629,6 +1794,10 @@ def handle_cast_spell(session, command: CastSpell) -> tuple[list[Rejection], lis
     )
     events = list(result.events)
     events.extend(_stationary_silence(session, spell, result, targets))
+    if spell.id.startswith("remove_curse") and not command.reversed:
+        for target in targets:
+            if getattr(target, "definition", None) is not None:
+                events.extend(lift_curses(session, target))
     events.extend(session.advance_rounds(1))
     return [], events
 
@@ -1686,6 +1855,921 @@ def _stationary_silence(session, spell, result, targets) -> list[Event]:
     return attach_events
 
 
+# ---------------------------------------------------------------------- treasure generation
+
+
+def _immediate_treasure_award(session, coins_cp: int, valuables) -> list:
+    """The `immediate` timing's treasure XP: the acquisition's value as the delta."""
+    from osrlib.core.ruleset import XpAwardTiming
+
+    if session.ruleset.xp_award_timing is not XpAwardTiming.IMMEDIATE:
+        return []
+    total_cp = coins_cp + sum(valuable.value_gp * 100 for valuable in valuables)
+    return session.award_immediate_xp(total_cp // 100)
+
+
+def treasure_tier(session) -> str:
+    """The tier the crawl passes to generation, evaluated at generation time (pinned).
+
+    `basic` while the party's highest living level is 1–3, `expert` at 4+ — the
+    master table's own definition of Basic and Expert characters.
+    """
+    highest = max((member.level for member in session.party.living_members()), default=1)
+    return "expert" if highest >= 4 else "basic"
+
+
+def _merge_generated(bundle, generated) -> None:
+    from osrlib.core.items import Coins
+
+    bundle.coins = Coins(
+        **{
+            denomination: getattr(bundle.coins, denomination) + getattr(generated.coins, denomination)
+            for denomination in ("pp", "gp", "ep", "sp", "cp")
+        }
+    )
+    bundle.valuables.extend(generated.valuables)
+    bundle.magic_items.extend(generated.magic_items)
+
+
+def generate_carried_treasure(session, instances):
+    """Generate carried treasure at spawn: individual letters per monster, group per group.
+
+    Individual letters (P–T) read each instance's own template (packed-variant
+    pools may mix); group letters (U–V) read the first instance's — the row's
+    members share a stat block. The `multiplier` repeats the whole listed
+    generation (the Noble's `V × 3`), pinned. Returns `(member_treasure,
+    group_bundle)` for the encounter group.
+    """
+    from osrlib.core.treasure import TREASURE_STREAM, generate_treasure, plan_treasure_ref
+    from osrlib.crawl.dungeon import TreasureBundle
+
+    stream = session.streams.get(TREASURE_STREAM)
+    tier = treasure_tier(session)
+    member_treasure = {}
+    for instance in instances:
+        plan = plan_treasure_ref(instance.template.treasure)
+        if not plan.individual:
+            continue
+        bundle = TreasureBundle()
+        for letter in plan.individual:
+            for _ in range(plan.multiplier):
+                generated = generate_treasure(letter, tier=tier, stream=stream, allocator=session.allocator)
+                _merge_generated(bundle, generated)
+        if not bundle.empty:
+            member_treasure[instance.id] = bundle
+    group_plan = plan_treasure_ref(instances[0].template.treasure) if instances else None
+    group_bundle = None
+    if group_plan is not None and group_plan.group:
+        bundle = TreasureBundle()
+        for letter in group_plan.group:
+            for _ in range(group_plan.multiplier):
+                generated = generate_treasure(letter, tier=tier, stream=stream, allocator=session.allocator)
+                _merge_generated(bundle, generated)
+        if not bundle.empty:
+            group_bundle = bundle
+    return member_treasure, group_bundle
+
+
+def field_npc_party(session, kind: str, count: int):
+    """Generate an NPC party, register its members, and return them with the events.
+
+    Members register in `session.npcs` (allocator prefix `npc`); the referee-only
+    roster event carries classes and levels — the player-facing encounter event
+    names "adventurers" and the count.
+    """
+    from osrlib.core.npc import NPC_PARTY_STREAM, generate_npc_party
+    from osrlib.core.treasure import TREASURE_STREAM
+    from osrlib.crawl.dungeon import TreasureBundle
+    from osrlib.crawl.events import NpcPartySpawnedEvent
+
+    party = generate_npc_party(
+        kind,
+        count=count,
+        npc_stream=session.streams.get(NPC_PARTY_STREAM),
+        treasure_stream=session.streams.get(TREASURE_STREAM),
+        allocator=session.allocator,
+    )
+    for member in party.members:
+        session.npcs[member.id] = member
+    bundle = TreasureBundle(
+        coins=party.treasure.coins,
+        valuables=list(party.treasure.valuables),
+        magic_items=list(party.treasure.magic_items),
+    )
+    event = NpcPartySpawnedEvent(
+        party_kind=kind,
+        npc_ids=tuple(member.id for member in party.members),
+        class_ids=tuple(member.class_id for member in party.members),
+        levels=tuple(member.level for member in party.members),
+        alignment=party.alignment.value,
+    )
+    return party, (None if bundle.empty else bundle), [event]
+
+
+def _assign_carried(session, carried) -> None:
+    """Attach the spawn-time bundles to the encounter groups, in input order."""
+    if session.encounter is None:
+        return
+    for group, (member_treasure, group_bundle) in zip(session.encounter.groups, carried, strict=True):
+        group.member_treasure = member_treasure
+        group.group_treasure = group_bundle
+
+
+def _generate_cache(session, *, cell, treasure_types, entries_lists, extra_gp=0) -> list:
+    """Land generated treasure as an engine-created cache in the state overlay."""
+    from osrlib.core.items import Coins
+    from osrlib.core.treasure import TREASURE_STREAM, generate_treasure_entries
+    from osrlib.crawl.dungeon import GeneratedCache, TreasureBundle
+    from osrlib.crawl.events import HoardGeneratedEvent
+
+    stream = session.streams.get(TREASURE_STREAM)
+    tier = treasure_tier(session)
+    bundle = TreasureBundle()
+    for entries in entries_lists:
+        _merge_generated(
+            bundle, generate_treasure_entries(entries, tier=tier, stream=stream, allocator=session.allocator)
+        )
+    if extra_gp:
+        bundle.coins = Coins(
+            **{
+                denomination: getattr(bundle.coins, denomination) + (extra_gp if denomination == "gp" else 0)
+                for denomination in ("pp", "gp", "ep", "sp", "cp")
+            }
+        )
+    if bundle.empty:
+        return []
+    cache_id = session.allocator.allocate("cache")
+    location = _location(session)
+    ref = cell_ref(location.dungeon_id, location.level_number, cell)
+    session.dungeon_state.generated_caches[cache_id] = GeneratedCache(
+        cell_ref=ref,
+        treasure_types=tuple(treasure_types),
+        coins=bundle.coins,
+        valuables=bundle.valuables,
+        magic_items=bundle.magic_items,
+    )
+    return [
+        HoardGeneratedEvent(
+            cache_ref=cache_id,
+            treasure_types=tuple(treasure_types),
+            coins_gp_value=bundle.coins.value_gp,
+            valuable_ids=tuple(valuable.instance_id for valuable in bundle.valuables),
+            magic_item_ids=tuple(item.instance_id for item in bundle.magic_items),
+        )
+    ]
+
+
+def _generate_lair_hoard(session, area, templates) -> list:
+    """Generate a keyed area's lair hoard when its keyed encounter first spawns.
+
+    The keyed monsters' hoard letters (A–O), parenthetical letters, and `extra_gp`
+    land as one engine-created cache on the area's first listed cell (pinned).
+    """
+    from osrlib.core.treasure import plan_treasure_ref
+    from osrlib.data import load_treasure_tables
+
+    letters: list[str] = []
+    extra_gp = 0
+    for template in templates:
+        plan = plan_treasure_ref(template.treasure)
+        for _ in range(plan.multiplier):
+            letters.extend(plan.lair)
+        extra_gp += plan.extra_gp
+    if not letters and not extra_gp:
+        return []
+    tables = load_treasure_tables()
+    entries_lists = [tables.treasure_type(letter).entries for letter in letters]
+    return _generate_cache(
+        session, cell=area.cells[0], treasure_types=letters, entries_lists=entries_lists, extra_gp=extra_gp
+    )
+
+
+def _area_treasure_check(session) -> list:
+    """Generate an area's declared treasure on first entry (the authoring surface)."""
+    from osrlib.data import load_treasure_tables
+
+    level = _level(session)
+    area = level.area_at(_position(session))
+    if area is None or area.treasure is None:
+        return []
+    area_ref = _area_ref(session, area.id)
+    state = session.dungeon_state
+    if area_ref in state.generated_treasure_areas:
+        return []
+    state.generated_treasure_areas.append(area_ref)
+    tables = load_treasure_tables()
+    if area.treasure.unguarded:
+        band = tables.unguarded.band_for_level(level.number)
+        return _generate_cache(
+            session, cell=_position(session), treasure_types=("unguarded",), entries_lists=[band.entries]
+        )
+    entries_lists = [tables.treasure_type(letter).entries for letter in area.treasure.letters]
+    return _generate_cache(
+        session, cell=_position(session), treasure_types=area.treasure.letters, entries_lists=entries_lists
+    )
+
+
+# ---------------------------------------------------------------------- magic item use
+
+
+def identify_item_events(session, member, instance: MagicItemInstance) -> list:
+    """Identify an item (and reveal its curse) — the first-meaningful-use trigger.
+
+    Cursed items identify as their true nature at the same trigger and pin to
+    their bearer (`items.curse.stuck` on unequip, drop, and sale) until *remove
+    curse* — the armour-reads-as-+1 deception collapses at first battle use,
+    which is RAW's own reveal moment.
+    """
+    template = magic_item_template(instance)
+    events: list[Event] = []
+    if not instance.identified:
+        instance.identified = True
+        events.append(ItemIdentifiedEvent(instance_id=instance.instance_id, template_id=instance.template_id))
+    if template.cursed and not instance.cursed_revealed:
+        instance.cursed_revealed = True
+        events.append(
+            CurseRevealedEvent(
+                character_id=member.id, instance_id=instance.instance_id, template_id=instance.template_id
+            )
+        )
+    return events
+
+
+def _remove_magic_instance(member, instance: MagicItemInstance) -> None:
+    inventory = member.inventory
+    for collection in (inventory.items, inventory.wielded, inventory.rings):
+        if any(existing is instance for existing in collection):
+            collection.remove(instance)
+            return
+    if inventory.worn_armour is instance:
+        inventory.worn_armour = None
+    elif inventory.shield is instance:
+        inventory.shield = None
+
+
+def _release_instance_effects(session, instance: MagicItemInstance) -> list:
+    """Release the ledger effects a worn item attached (its state remembers them)."""
+    events: list[Event] = []
+    for effect_id in instance.state.get("effect_ids", ()):
+        if any(effect.effect_id == effect_id for effect in session.ledger.effects):
+            events.extend(session.ledger.release(str(effect_id), session.registry()))
+    if "effect_ids" in instance.state:
+        instance.state = {key: value for key, value in instance.state.items() if key != "effect_ids"}
+    return events
+
+
+def attach_worn_item_effects(session, member, instance: MagicItemInstance) -> list:
+    """Attach a worn item's ledger effects: the regeneration ring, the weakness onset.
+
+    Item-sourced ledger effects attach undispellable (RAW's dispel exemption for
+    items); the instance's state remembers the effect ids so unequipping releases
+    them. A cursed ring reveals when its curse takes effect — the onset is
+    automatic at wearing, so the reveal is too (RAW: "the ring cannot be removed,
+    once worn").
+    """
+    template = magic_item_template(instance)
+    events: list[Event] = []
+    if template.effect is None:
+        return events
+    definition = None
+    if template.effect.kind == "regeneration":
+        definition = EffectDefinition(
+            kind="regeneration",
+            tick="regeneration",
+            stacking="ignore",
+            params={
+                str(key): value if not isinstance(value, list) else tuple(value)
+                for key, value in template.effect.params.items()
+            },
+        )
+    elif template.effect.kind == "weakness":
+        events.extend(identify_item_events(session, member, instance))
+        definition = EffectDefinition(
+            kind="ring_of_weakness_onset",
+            duration_unit=TimeUnit.ROUND,
+            duration_amount=int(template.effect.params["onset_rounds"]),
+            expiry="weakness_strength_set",
+            params={"strength_set": int(template.effect.params["strength_set"])},
+        )
+    if definition is None:
+        return events
+    effect, attach_events = session.ledger.attach(
+        definition, member.id, clock=session.clock, allocator=session.allocator, registry=session.registry()
+    )
+    events.extend(attach_events)
+    if effect is not None:
+        held = instance.state.get("effect_ids", ())
+        instance.state = {**instance.state, "effect_ids": (*held, effect.effect_id)}
+    return events
+
+
+def _potion_effect_definition(template, instance) -> EffectDefinition:
+    """Build a potion's timed item effect: 1d6+6 turns, undispellable, referee-tracked."""
+    effect = template.effect
+    params: dict[str, int | str | bool | tuple[int | str, ...]] = {
+        str(key): value for key, value in effect.params.items() if key != "effect_kind"
+    }
+    params["item_source"] = "potion"
+    condition = Condition(effect.condition) if effect.condition is not None else None
+    return EffectDefinition(
+        kind=str(effect.params.get("effect_kind", template.id)),
+        duration_unit=TimeUnit.TURN,
+        duration_dice="1d6+6",
+        condition=condition,
+        modifiers=effect.modifiers,
+        stacking="stack",
+        params=params,
+    )
+
+
+def _use_potion(session, member, instance: MagicItemInstance, template) -> tuple[list[Rejection], list]:
+    from osrlib.core.combat import apply_healing
+
+    stream = session.streams.get(MAGIC_STREAM)
+    events: list[Event] = []
+    effect_spec = template.effect
+    instantaneous = effect_spec is not None and bool(effect_spec.params.get("instantaneous"))
+    active_potions = [
+        effect
+        for effect in session.ledger.effects
+        if effect.target_ref == member.id and effect.definition.params.get("item_source") == "potion"
+    ]
+    _remove_magic_instance(member, instance)
+    events.extend(identify_item_events(session, member, instance))
+    if active_potions and not instantaneous and effect_spec is not None:
+        # Mixing, pinned as both printed consequences: both effects cancel and the
+        # drinker is disabled for 3 turns; inapplicable to instantaneous or
+        # permanent potions.
+        events.append(
+            ItemUsedEvent(code="items.potion.mixed", character_id=member.id, instance_id=instance.instance_id)
+        )
+        for effect in active_potions:
+            events.extend(session.ledger.release(effect.effect_id, session.registry()))
+        sickness = EffectDefinition(
+            kind="potion_sickness",
+            duration_unit=TimeUnit.TURN,
+            duration_amount=3,
+            condition=Condition.PARALYSED,
+            params={"item_source": "potion_sickness"},
+        )
+        _, attach_events = session.ledger.attach(
+            sickness, member.id, clock=session.clock, allocator=session.allocator, registry=session.registry()
+        )
+        events.extend(attach_events)
+        return [], events
+    events.append(
+        ItemUsedEvent(
+            code="items.potion.drunk",
+            character_id=member.id,
+            instance_id=instance.instance_id,
+            manual=template.manual if effect_spec is None else (),
+        )
+    )
+    if effect_spec is None:
+        return [], events
+    if effect_spec.kind == "healing":
+        paralysing = [
+            effect
+            for effect in session.ledger.active_on(member.id)
+            if effect.definition.condition is Condition.PARALYSED
+        ]
+        if paralysing:
+            # The potion's second usage: paralysing effects are negated instead.
+            for effect in paralysing:
+                events.extend(session.ledger.release(effect.effect_id, session.registry()))
+        else:
+            amount = roll(str(effect_spec.heal_dice), stream).total
+            events.extend(apply_healing(member, amount, source="magical"))
+        return [], events
+    if effect_spec.kind == "save_or_die":
+        save = saving_throw(member, SaveCategory(str(effect_spec.save_category)), magical=True, stream=stream)
+        events.extend(save.events)
+        if not save.passed:
+            from osrlib.core.effects import kill
+
+            events.extend(kill(member))
+        return [], events
+    definition = _potion_effect_definition(template, instance)
+    if effect_spec.params.get("weekly_inversion"):
+        # More than one in a week inverts the benefits (pinned per-character on the
+        # clock's day, tracked as a ledger marker so it serializes).
+        cooldown_active = bool(session.ledger.active_on(member.id, "invulnerability_cooldown"))
+        if cooldown_active:
+            inverted = tuple(spec.model_copy(update={"value": -spec.value}) for spec in definition.modifiers)
+            definition = definition.model_copy(update={"modifiers": inverted})
+        marker = EffectDefinition(
+            kind="invulnerability_cooldown", duration_unit=TimeUnit.DAY, duration_amount=7, stacking="refresh"
+        )
+        _, marker_events = session.ledger.attach(
+            marker, member.id, clock=session.clock, allocator=session.allocator, registry=session.registry()
+        )
+        events.extend(marker_events)
+    _, attach_events = session.ledger.attach(
+        definition,
+        member.id,
+        clock=session.clock,
+        allocator=session.allocator,
+        registry=session.registry(),
+        stream=session.streams.get(EFFECTS_STREAM),
+    )
+    events.extend(attach_events)
+    return [], events
+
+
+def _thief_scroll_use(definition) -> dict | None:
+    for ability in definition.abilities:
+        if ability.tag == "scroll_use":
+            return ability.params
+    return None
+
+
+def _use_scroll(session, member, instance: MagicItemInstance, template, command) -> tuple[list[Rejection], list]:
+    light_rejections = _requires_light(session, member, infravision_suffices=False)
+    if light_rejections:
+        return light_rejections, []
+    stream = session.streams.get(MAGIC_STREAM)
+    events: list[Event] = []
+    if template.cursed:
+        # Merely looking at the baneful script curses the reader, class regardless.
+        _remove_magic_instance(member, instance)
+        events.extend(identify_item_events(session, member, instance))
+        curse = template.curses[session.streams.get(EFFECTS_STREAM).randbelow(len(template.curses))]
+        events.append(
+            ItemUsedEvent(
+                code="items.scroll.cursed",
+                character_id=member.id,
+                instance_id=instance.instance_id,
+                manual=(f"{curse.name}: {curse.prose}",) if not curse.wired else (),
+            )
+        )
+        if curse.id == "energy_drain":
+            from osrlib.core.character import ADVANCEMENT_STREAM
+            from osrlib.core.classes import drain_levels
+
+            result = drain_levels(
+                member,
+                load_classes().get(member.class_id),
+                levels=1,
+                xp_policy="halfway",
+                stream=session.streams.get(ADVANCEMENT_STREAM),
+            )
+            events.extend(result.events)
+        elif curse.id == "slow_healing":
+            # Not a disease: the curse halves healing spells where *cause
+            # disease* voids them, so DISEASED (the magical-healing block)
+            # would overshoot RAW. Natural healing doubles via the rest-day
+            # cadence, magical halves via the modifier.
+            slow = EffectDefinition(
+                kind="cursed_slow_healing",
+                modifiers=(ModifierSpec(kind="magical_healing_half", value=1, from_item=True),),
+                params={"healing_rest_days": 2, "item_source": "cursed_scroll"},
+            )
+            _, attach_events = session.ledger.attach(
+                slow, member.id, clock=session.clock, allocator=session.allocator, registry=session.registry()
+            )
+            events.extend(attach_events)
+        return [], events
+    if template.effect is not None and template.effect.kind == "ward":
+        _remove_magic_instance(member, instance)
+        events.extend(identify_item_events(session, member, instance))
+        events.append(ItemUsedEvent(code="items.scroll.read", character_id=member.id, instance_id=instance.instance_id))
+        params: dict[str, int | str | bool | tuple[int | str, ...]] = {"party_wide": True}
+        for key in ("targets", "bars_categories", "bars_template_ids"):
+            if key in template.effect.params:
+                params[key] = template.effect.params[key]
+        for band in template.effect.params.get("bands", ()):
+            band_label, _, dice = str(band).partition(":")
+            params[f"affected_{band_label.replace('-', '_').replace('+', '_plus')}"] = roll(dice, stream).total
+        if template.effect.params.get("all_affected"):
+            params["all_affected"] = True
+        ward = EffectDefinition(
+            kind="protection_ward",
+            duration_unit=TimeUnit(str(template.effect.duration_unit)),
+            duration_amount=template.effect.duration_amount,
+            params=params,
+        )
+        _, attach_events = session.ledger.attach(
+            ward, member.id, clock=session.clock, allocator=session.allocator, registry=session.registry()
+        )
+        events.extend(attach_events)
+        return [], events
+    if "spell_count" in template.params:
+        remaining = tuple(str(spell) for spell in instance.state.get("spells", ()))
+        if not remaining:
+            return [Rejection(code="items.scroll.spent", params={"item": instance.instance_id})], []
+        spell_id = command.spell_id or remaining[0]
+        if spell_id not in remaining:
+            return [Rejection(code="items.scroll.no_such_spell", params={"spell": spell_id})], []
+        spell = load_spells().get(spell_id)
+        definition = load_classes().get(member.class_id)
+        profile = caster_profile(definition)
+        thief_params = _thief_scroll_use(definition)
+        divine_scroll = instance.state.get("spell_list") == "cleric"
+        thief_reading = False
+        if divine_scroll:
+            if profile is None or profile.kind != "divine":
+                return [Rejection(code="items.scroll.wrong_caster", params={"item": instance.instance_id})], []
+        elif profile is None or profile.kind != "arcane":
+            if thief_params is not None and member.level >= int(thief_params.get("min_level", 10)):
+                thief_reading = True
+            else:
+                return [Rejection(code="items.scroll.wrong_caster", params={"item": instance.instance_id})], []
+        mode = command.mode or spell.modes[0].key
+        registry = session.registry()
+        targets: list[object] = []
+        target_refs = command.targets or ((command.target_id,) if command.target_id else ())
+        for target_ref in target_refs:
+            if target_ref.startswith("cell:"):
+                targets.append(target_ref)
+            elif target_ref in registry:
+                targets.append(registry[target_ref])
+            else:
+                return [Rejection(code="magic.cast.unknown_target", params={"target": target_ref})], []
+        context = _cast_context(session, targets, in_combat=False)
+        cast_rejections = validate_cast(
+            member,
+            spell,
+            mode,
+            targets=targets,
+            context=context,
+            ledger=session.ledger,
+            require_memorized=False,
+        )
+        if cast_rejections:
+            return cast_rejections, []
+        left = tuple(spell for spell in remaining if spell != spell_id) + tuple(
+            spell_id for _ in range(remaining.count(spell_id) - 1)
+        )
+        if left:
+            instance.state = {**instance.state, "spells": left}
+        else:
+            _remove_magic_instance(member, instance)
+        events.extend(identify_item_events(session, member, instance))
+        events.append(ItemUsedEvent(code="items.scroll.read", character_id=member.id, instance_id=instance.instance_id))
+        if thief_reading:
+            error_pct = int(thief_params.get("error_pct", 10))
+            if stream.randbelow(100) + 1 <= error_pct:
+                # The 10% error resolves as a simple fizzle consuming the spell
+                # (pinned, registered — RAW's "unusual or deleterious effect" is
+                # referee territory).
+                return [], events
+        result = cast_from_scroll(
+            member,
+            spell,
+            mode,
+            targets=targets,
+            context=context,
+            ledger=session.ledger,
+            clock=session.clock,
+            allocator=session.allocator,
+            registry=registry,
+            ruleset=session.ruleset,
+            stream=stream,
+            effects_stream=session.streams.get(EFFECTS_STREAM),
+        )
+        events.extend(result.events)
+        events.extend(_stationary_silence(session, spell, result, targets))
+        return [], events
+    # Everything else on the scroll table (protection from magic, treasure maps)
+    # is manual prose: reading it is supported, the game narrates.
+    _remove_magic_instance(member, instance)
+    events.extend(identify_item_events(session, member, instance))
+    events.append(
+        ItemUsedEvent(
+            code="items.scroll.read",
+            character_id=member.id,
+            instance_id=instance.instance_id,
+            manual=template.manual,
+        )
+    )
+    return [], events
+
+
+def device_area_events(session, member, instance: MagicItemInstance, template, group) -> list:
+    """Resolve a device's wired area effect against one encounter group.
+
+    Cones and spheres resolve through the Phase 4 footprint rule; each caught
+    target saves per the item's spec. Device damage presents `magic` and is
+    destructive (the SRD's equipment-destruction examples are energy deaths
+    generally, pinned).
+    """
+    from osrlib.core.combat import DamageSource, deal_damage
+    from osrlib.crawl import battle as battle_module
+
+    effect_spec = template.effect
+    stream = session.streams.get(MAGIC_STREAM)
+    events: list[Event] = []
+    candidates = battle_module._area_candidates(session, group, effect_spec.shape, dict(effect_spec.dimensions))
+    for target in candidates:
+        save = saving_throw(
+            target,
+            SaveCategory(str(effect_spec.save_category)),
+            magical=True,
+            element=effect_spec.element,
+            stream=stream,
+        )
+        events.extend(save.events)
+        if effect_spec.kind == "damage_area":
+            source = DamageSource(
+                keys=("magic",), element=effect_spec.element, magical=True, kind="device", destructive=True
+            )
+            result = roll(str(effect_spec.damage_dice), stream)
+            amount = result.total
+            if save.passed:
+                amount //= 2
+            if amount < 1:
+                continue
+            events.extend(
+                deal_damage(
+                    target,
+                    amount,
+                    source=source,
+                    attacker_id=member.id,
+                    rolls=result.rolls,
+                    clock=session.clock,
+                    ruleset=session.ruleset,
+                    stream=stream,
+                )
+            )
+        else:
+            if save.passed:
+                continue
+            condition = Condition(str(effect_spec.condition))
+            definition = EffectDefinition(
+                kind=str(effect_spec.params.get("effect_kind", template.id)),
+                duration_unit=TimeUnit(str(effect_spec.duration_unit)),
+                duration_amount=effect_spec.duration_amount,
+                condition=condition,
+                params={"item_source": "device"},
+            )
+            _, attach_events = session.ledger.attach(
+                definition,
+                str(getattr(target, "id", target)),
+                clock=session.clock,
+                allocator=session.allocator,
+                registry=session.registry(),
+            )
+            events.extend(attach_events)
+    return events
+
+
+def spend_device_charge(instance: MagicItemInstance, template) -> None:
+    """Spend one charge; the last one exhausts the item to inert, silently (RAW)."""
+    if template.charges_dice is not None and instance.charges_remaining is not None:
+        instance.charges_remaining -= 1
+
+
+def _use_device(session, member, instance: MagicItemInstance, template, command) -> tuple[list[Rejection], list]:
+    from osrlib.core.combat import apply_healing
+
+    definition = load_classes().get(member.class_id)
+    if not usable_by_class(template, definition):
+        return [Rejection(code="items.use.not_usable", params={"item": instance.instance_id})], []
+    if template.charges_dice is not None and (instance.charges_remaining or 0) <= 0:
+        return [Rejection(code="items.device.inert", params={"item": instance.instance_id})], []
+    effect_spec = template.effect
+    group = None
+    if effect_spec is not None and effect_spec.kind in ("damage_area", "condition_area"):
+        if session.encounter is not None:
+            if command.target_id is None:
+                return [Rejection(code="items.use.target_required", params={"item": instance.instance_id})], []
+            group = next((entry for entry in session.encounter.groups if entry.id == command.target_id), None)
+            if group is None or group.fled or group.surrendered:
+                return [Rejection(code="items.use.unknown_target", params={"target": command.target_id or ""})], []
+    if effect_spec is not None and effect_spec.kind == "striking":
+        return [Rejection(code="items.use.battle_only", params={"item": instance.instance_id})], []
+    target = None
+    if effect_spec is not None and effect_spec.kind == "healing":
+        # Resolve the touch target before anything mutates: a rejected command
+        # mutates nothing, and identification below is a mutation.
+        target = member if command.target_id is None else session.registry().get(command.target_id)
+        if target is None:
+            return [Rejection(code="items.use.unknown_target", params={"target": command.target_id or ""})], []
+    events: list[Event] = []
+    events.extend(identify_item_events(session, member, instance))
+    events.append(
+        ItemUsedEvent(
+            code="items.device.activated",
+            character_id=member.id,
+            instance_id=instance.instance_id,
+            manual=template.manual if effect_spec is None else (),
+        )
+    )
+    if effect_spec is not None and effect_spec.kind == "healing":
+        day_key = f"healed:{getattr(target, 'id', command.target_id)}"
+        today = session.clock.days
+        if effect_spec.params.get("once_per_target_per_day") and instance.state.get(day_key) == today:
+            # RAW: effective on any individual at most once per day — the
+            # activation still happens, nothing more heals.
+            pass
+        else:
+            instance.state = {**instance.state, day_key: today}
+            amount = roll(str(effect_spec.heal_dice), session.streams.get(MAGIC_STREAM)).total
+            events.extend(apply_healing(target, amount, source="magical"))
+    elif group is not None:
+        events.extend(device_area_events(session, member, instance, template, group))
+    spend_device_charge(instance, template)
+    return [], events
+
+
+def _toggle_sword_light(session, member, instance: MagicItemInstance, template) -> tuple[list[Rejection], list]:
+    """The Sword +1, Light command toggle — the Phase 3 light-effect machinery."""
+    events: list[Event] = []
+    events.extend(identify_item_events(session, member, instance))
+    active = [
+        effect
+        for effect in session.ledger.active_on(member.id, "light")
+        if effect.definition.params.get("source") == "sword"
+    ]
+    if active:
+        for effect in active:
+            events.extend(session.ledger.release(effect.effect_id, session.registry()))
+        events.append(LightEvent(code="exploration.light.extinguished", character_id=member.id, source="sword"))
+        return [], events
+    definition = EffectDefinition(
+        kind="light",
+        params={
+            "source": "sword",
+            "light_radius_feet": int(template.effect.params.get("light_radius_feet", 30)),
+            "brightness": "flame",
+        },
+    )
+    _, attach_events = session.ledger.attach(
+        definition, member.id, clock=session.clock, allocator=session.allocator, registry=session.registry()
+    )
+    events.extend(attach_events)
+    events.append(LightEvent(code="exploration.light.lit", character_id=member.id, source="sword"))
+    return [], events
+
+
+def handle_use_item(session, command: UseItem) -> tuple[list[Rejection], list[Event]]:
+    member, rejections = _member_able(session, command.character_id)
+    if rejections:
+        return rejections, []
+    instance = member.inventory.magic_item(command.item_id)
+    if instance is None:
+        return [Rejection(code="exploration.item.not_carried", params={"item": command.item_id})], []
+    template = magic_item_template(instance)
+    if template.category is MagicItemCategory.POTION:
+        rejections, events = _use_potion(session, member, instance, template)
+    elif template.category is MagicItemCategory.SCROLL:
+        rejections, events = _use_scroll(session, member, instance, template, command)
+    elif template.category in (MagicItemCategory.ROD, MagicItemCategory.STAFF, MagicItemCategory.WAND):
+        rejections, events = _use_device(session, member, instance, template, command)
+    elif template.effect is not None and template.effect.kind == "light":
+        rejections, events = _toggle_sword_light(session, member, instance, template)
+    else:
+        return [Rejection(code="items.use.not_usable", params={"item": command.item_id})], []
+    if rejections:
+        return rejections, []
+    if session.mode is SessionMode.ENCOUNTER:
+        from osrlib.crawl import encounter as encounter_module
+
+        events.extend(encounter_module.end_of_round(session))
+    else:
+        events.extend(session.advance_rounds(1))
+    return [], events
+
+
+# ---------------------------------------------------------------------- town services
+
+HEALING_SERVICES: dict[str, tuple[str, int]] = {
+    "cure_light_wounds": ("cure_light_wounds", 25),
+    "cure_serious_wounds": ("cure_serious_wounds", 100),
+    "cure_disease": ("cure_disease", 150),
+    "neutralize_poison": ("neutralize_poison", 150),
+    "remove_curse": ("remove_curse_c", 200),
+    "raise_dead": ("raise_dead", 1500),
+}
+"""The temple's six services: spell id and price in gp (invented, registered).
+
+All services are always available in the 1.0 marker town (registered — town size
+and cleric availability are game territory).
+"""
+
+
+def lift_curses(session, member) -> list[Event]:
+    """*Remove curse* lifts the bearer's item curses: stuck items become discardable.
+
+    The item stays cursed and identified — the stuck marker clears — and item
+    curse effects (the Ring of Weakness's STR set, the cursed scroll's slow
+    healing) release.
+    """
+    events: list[Event] = []
+    for instance in member.inventory.all_instances():
+        if isinstance(instance, MagicItemInstance) and instance.cursed_revealed:
+            instance.cursed_revealed = False
+    for effect in list(session.ledger.active_on(member.id)):
+        if effect.definition.kind in ("ring_of_weakness", "ring_of_weakness_onset", "cursed_slow_healing"):
+            events.extend(session.ledger.release(effect.effect_id, session.registry()))
+    return events
+
+
+def handle_sell_treasure(session, command: SellTreasure) -> tuple[list[Rejection], list[Event]]:
+    sales: list[tuple[object, object]] = []  # (owner, valuable)
+    for item_id in command.item_ids:
+        found = None
+        for member in session.party.members:
+            if member.inventory.magic_item(item_id) is not None:
+                return [Rejection(code="town.sell.no_fixed_value", params={"item": item_id})], []
+            valuable = next(
+                (candidate for candidate in member.inventory.valuables if candidate.instance_id == item_id), None
+            )
+            if valuable is not None:
+                found = (member, valuable)
+                break
+        if found is None:
+            return [Rejection(code="exploration.item.not_carried", params={"item": item_id})], []
+        sales.append(found)
+    events: list[Event] = []
+    by_seller: dict[str, tuple[object, list]] = {}
+    for member, valuable in sales:
+        by_seller.setdefault(member.id, (member, []))[1].append(valuable)
+    for member, valuables in by_seller.values():
+        total = 0
+        for valuable in valuables:
+            member.inventory.valuables.remove(valuable)
+            total += valuable.value_gp
+        member.inventory.purse.gp += total
+        events.append(
+            TreasureSoldEvent(
+                character_id=member.id,
+                instance_ids=tuple(valuable.instance_id for valuable in valuables),
+                gp_value=total,
+            )
+        )
+    return [], events
+
+
+def handle_purchase_healing(session, command: PurchaseHealing) -> tuple[list[Rejection], list[Event]]:
+    try:
+        member = session.member(command.character_id)
+    except ValueError:
+        return [Rejection(code="session.command.unknown_member", params={"character": command.character_id})], []
+    spell_id, cost_gp = HEALING_SERVICES[command.service]
+    spell = load_spells().get(spell_id)
+    if not member.inventory.purse.can_afford(cost_gp):
+        return [
+            Rejection(code="items.purchase.insufficient_funds", params={"item": command.service, "cost_gp": cost_gp})
+        ], []
+    from osrlib.core.spells import validate_cast
+
+    temple_cleric = _temple_cleric(spell)
+    context = _cast_context(session, [member], in_combat=False)
+    cast_rejections = validate_cast(
+        temple_cleric, spell, spell.modes[0].key, targets=[member], context=context, ledger=session.ledger
+    )
+    if cast_rejections:
+        return cast_rejections, []
+    member.inventory.purse.spend(cost_gp)
+    events: list[Event] = [HealingPurchasedEvent(character_id=member.id, service=command.service, cost_gp=cost_gp)]
+    result = cast_spell(
+        temple_cleric,
+        spell,
+        spell.modes[0].key,
+        targets=[member],
+        context=context,
+        ledger=session.ledger,
+        clock=session.clock,
+        allocator=session.allocator,
+        registry=session.registry(),
+        ruleset=session.ruleset,
+        stream=session.streams.get(MAGIC_STREAM),
+        effects_stream=session.streams.get(EFFECTS_STREAM),
+    )
+    events.extend(result.events)
+    if command.service == "remove_curse":
+        events.extend(lift_curses(session, member))
+    return [], events
+
+
+def _temple_cleric(spell):
+    """An abstract temple cleric at the minimum level able to cast the service.
+
+    Built fresh per purchase — no draws, no registry entry; the magic and effects
+    streams the spell already owns carry the rolls.
+    """
+    from osrlib.core.abilities import AbilityScore
+    from osrlib.core.alignment import Alignment
+    from osrlib.core.character import Character
+    from osrlib.core.spells import MemorizedSpell, minimum_caster_level
+
+    level = minimum_caster_level(spell)
+    return Character(
+        id="town-cleric",
+        name="Temple cleric",
+        class_id="cleric",
+        race="human",
+        level=level,
+        xp=0,
+        scores={ability: 9 for ability in AbilityScore},
+        alignment=Alignment.LAWFUL,
+        max_hp=1,
+        current_hp=1,
+        memorized_spells=(MemorizedSpell(spell_id=spell.id),),
+    )
+
+
 HANDLERS = {
     MoveParty: handle_move_party,
     TurnParty: handle_turn_party,
@@ -1708,8 +2792,11 @@ HANDLERS = {
     Rest: handle_rest,
     PrepareSpells: handle_prepare_spells,
     CastSpell: handle_cast_spell,
+    UseItem: handle_use_item,
     UseStairs: handle_use_stairs,
     EnterDungeon: handle_enter_dungeon,
     TravelToTown: handle_travel_to_town,
     PurchaseEquipment: handle_purchase_equipment,
+    SellTreasure: handle_sell_treasure,
+    PurchaseHealing: handle_purchase_healing,
 }

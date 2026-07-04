@@ -1,0 +1,9 @@
+[
+  {
+    "id": "helm_of_telepathy",
+    "reason": "Helm_of_Telepathy.md is truncated mid-sentence in the SRD dump ('though the creature'); the completion mirrors the identical telepathy wording on Extraordinary_Powers_of_Sentient_Swords.md ('though it is not compelled to respond').",
+    "set": {
+      "manual.4": "Bidirectional communication: The wearer may initiate bidirectional, telepathic communication, though the creature is not compelled to respond."
+    }
+  }
+]

@@ -53,11 +53,13 @@ from osrlib.crawl.commands import (
     CommandResult,
     GrantCoins,
     GrantItem,
+    IdentifyItem,
     PlaceParty,
     SessionMode,
     SetDoorState,
     SetFlag,
     SpawnMonsters,
+    SpawnNpcParty,
 )
 from osrlib.crawl.dungeon import DungeonState, edge_ref
 from osrlib.crawl.events import (
@@ -88,7 +90,6 @@ __all__ = [
     "DeprivationState",
     "GameSession",
     "Listener",
-    "RecoveredTreasureRecord",
 ]
 
 WANDERING_STREAM = "wandering"
@@ -133,15 +134,6 @@ class DefeatedMonsterRecord(BaseModel):
     template_id: str
     outcome: str
     xp: int
-
-
-class RecoveredTreasureRecord(BaseModel):
-    """Recovered treasure coin value — the Phase 5 1-gp-=-1-XP input."""
-
-    model_config = ConfigDict(frozen=True)
-
-    source_ref: str
-    gp_value: int
 
 
 class DeprivationState(BaseModel):
@@ -198,6 +190,7 @@ class GameSession:
         self.mode = SessionMode.TOWN
         self.dungeon_state = DungeonState()
         self.monsters: dict[str, MonsterInstance] = {}
+        self.npcs: dict[str, Character] = {}
         self.flags: dict[str, str | int | bool] = {}
         self.listener_state: dict[str, dict] = {}
         self.listeners: list[Listener] = []
@@ -205,8 +198,8 @@ class GameSession:
         self.event_log: list[Event | dict] = []
         self.death_records: dict[str, DeathRecord] = {}
         self.defeated_monsters: list[DefeatedMonsterRecord] = []
-        self.recovered_treasure: list[RecoveredTreasureRecord] = []
         self.deprivation: dict[str, DeprivationState] = {}
+        self.treasure_snapshot_cp: int | None = None
         # Exploration bookkeeping (all serialized into saves).
         self.odometer_thirds = 0
         self.turns_since_rest = 0
@@ -311,10 +304,29 @@ class GameSession:
     # ------------------------------------------------------------------ registry
 
     def registry(self) -> dict[str, object]:
-        """Live entities by id: party members first (marching order), then monsters."""
+        """Live entities by id: party members (marching order), then monsters, then NPCs."""
         entities: dict[str, object] = {member.id: member for member in self.party.members}
         entities.update(self.monsters)
+        entities.update(self.npcs)
         return entities
+
+    def combatant(self, combatant_id: str) -> object | None:
+        """Return the monster or NPC with `combatant_id`, or `None`.
+
+        The encounter side model's lookup: `EncounterGroup.monster_ids` is the
+        combatant-id list it always structurally was, spanning monsters and NPC
+        adventurers.
+
+        Args:
+            combatant_id: The combatant's entity id.
+
+        Returns:
+            The live instance, or `None` when the id is unknown.
+        """
+        found = self.monsters.get(combatant_id)
+        if found is not None:
+            return found
+        return self.npcs.get(combatant_id)
 
     def member(self, character_id: str) -> Character:
         """Return the party member with `character_id` (see [`Party.member`][osrlib.crawl.party.Party.member])."""
@@ -488,6 +500,105 @@ class GameSession:
             effect.target_ref == member.id and effect.definition.kind == "infravision" for effect in self.ledger.effects
         )
 
+    # ------------------------------------------------------------------ the XP award
+
+    def party_valuation_cp(self) -> int:
+        """The party's treasure valuation in copper pieces — the award's exact unit.
+
+        All members count, including the dead (their carried treasure that made it
+        back is the party's recovery): coin value in cp plus every valuable's
+        `value_gp`. Magic items and mundane equipment count zero — magical
+        treasure grants no XP per RAW, and mundane-gear salvage is below the
+        simulation floor (registered).
+        """
+        total = 0
+        for member in self.party.members:
+            total += member.inventory.purse.value_cp
+            total += sum(valuable.value_gp * 100 for valuable in member.inventory.valuables)
+        return total
+
+    def snapshot_treasure(self) -> None:
+        """Record the departure valuation — `EnterDungeon`'s bookkeeping."""
+        self.treasure_snapshot_cp = self.party_valuation_cp()
+
+    def award_adventure_xp(self) -> list[Event]:
+        """The end-of-adventure award: defeated monsters plus the valuation delta.
+
+        The treasure XP is the delta between the party's valuation now and the
+        departure snapshot — floored to gp once from the cp total, never negative
+        (clamped at zero: a party that lost money learned nothing monetarily,
+        pinned). The total divides evenly among living members (floor division,
+        remainder dropped — RAW divides evenly and B/X arithmetic is integer) and
+        applies through `apply_xp` directly (a command whose handler executed
+        further commands would double-log; `AwardXP` remains the referee and game
+        surface). Dead members' recovered treasure counts toward the pool; dead
+        members receive no share. A TPK never awards — no one returned. The
+        defeated-monsters ledger clears and the next departure snapshots anew.
+        """
+        from osrlib.crawl.events import AdventureXpAwardEvent
+
+        survivors = self.party.living_members()
+        events: list[Event] = []
+        monster_xp = sum(record.xp for record in self.defeated_monsters)
+        current = self.party_valuation_cp()
+        baseline = self.treasure_snapshot_cp if self.treasure_snapshot_cp is not None else current
+        treasure_xp = max(0, (current - baseline) // 100)
+        self.defeated_monsters = []
+        self.treasure_snapshot_cp = None
+        if not survivors:
+            return events
+        total = monster_xp + treasure_xp
+        if total <= 0:
+            return events
+        share = total // len(survivors)
+        events.append(
+            AdventureXpAwardEvent(
+                monster_xp=monster_xp,
+                treasure_xp=treasure_xp,
+                share=share,
+                survivors=tuple(member.id for member in survivors),
+            )
+        )
+        if share > 0:
+            for member in survivors:
+                definition = load_classes().get(member.class_id)
+                result = apply_xp(member, definition, share, self.streams.get(ADVANCEMENT_STREAM))
+                events.append(
+                    XpAwardedEvent(
+                        character_id=member.id,
+                        award=result.award,
+                        modified_award=result.modified_award,
+                        level_after=result.level_after,
+                    )
+                )
+        return events
+
+    def award_immediate_xp(self, amount: int) -> list[Event]:
+        """The `immediate` timing's division: apply one award pool now.
+
+        Same division and events as the return award: evenly among living
+        members, floor division, remainder dropped.
+        """
+        survivors = self.party.living_members()
+        if not survivors or amount <= 0:
+            return []
+        share = amount // len(survivors)
+        if share <= 0:
+            return []
+        events: list[Event] = []
+        for member in survivors:
+            definition = load_classes().get(member.class_id)
+            result = apply_xp(member, definition, share, self.streams.get(ADVANCEMENT_STREAM))
+            events.append(
+                XpAwardedEvent(
+                    character_id=member.id,
+                    award=result.award,
+                    modified_award=result.modified_award,
+                    level_after=result.level_after,
+                )
+            )
+        return events
+
     # ------------------------------------------------------------------ death records
 
     def _record_deaths(self, events: Sequence[Event]) -> None:
@@ -613,6 +724,52 @@ def _handle_spawn_monsters(session: GameSession, command: SpawnMonsters) -> tupl
     return [], events
 
 
+def _handle_spawn_npc_party(session: GameSession, command: SpawnNpcParty) -> tuple[list[Rejection], list[Event]]:
+    from osrlib.core.dice import roll
+    from osrlib.crawl import encounter as encounter_module
+    from osrlib.crawl import exploration
+    from osrlib.data import load_encounter_tables
+
+    if session.encounter is not None or session.battle is not None:
+        return [Rejection(code="session.command.encounter_in_progress")], []
+    if session.dungeon_state.location.kind != "dungeon":
+        return [Rejection(code="session.command.not_in_dungeon")], []
+    if command.count_dice is not None:
+        count_dice = command.count_dice
+    else:
+        count_dice = next(
+            composition.count_dice
+            for composition in load_encounter_tables().npc_compositions
+            if composition.kind == command.party_kind
+        )
+    count = max(1, roll(count_dice, session.streams.get(ENCOUNTER_STREAM)).total)
+    party, bundle, events = exploration.field_npc_party(session, command.party_kind, count)
+    label = "Basic Adventurers" if command.party_kind == "basic" else "Expert Adventurers"
+    events.extend(
+        encounter_module.start_encounter(
+            session,
+            groups=[(label, party.members)],
+            kind="spawned",
+            distance_feet=command.distance_feet,
+        )
+    )
+    exploration._assign_carried(session, [({}, bundle)])
+    return [], events
+
+
+def _handle_identify_item(session: GameSession, command: IdentifyItem) -> tuple[list[Rejection], list[Event]]:
+    from osrlib.crawl import exploration
+
+    try:
+        member = session.member(command.character_id)
+    except ValueError:
+        return [Rejection(code="session.command.unknown_member", params={"character": command.character_id})], []
+    instance = member.inventory.magic_item(command.item_id)
+    if instance is None:
+        return [Rejection(code="session.command.unknown_item", params={"item": command.item_id})], []
+    return [], exploration.identify_item_events(session, member, instance)
+
+
 def _handle_set_door_state(session: GameSession, command: SetDoorState) -> tuple[list[Rejection], list[Event]]:
     try:
         dungeon = session.adventure.dungeon(command.dungeon_id)
@@ -691,7 +848,9 @@ _REFEREE_HANDLERS = {
     AwardXP: _handle_award_xp,
     SetFlag: _handle_set_flag,
     SpawnMonsters: _handle_spawn_monsters,
+    SpawnNpcParty: _handle_spawn_npc_party,
     SetDoorState: _handle_set_door_state,
+    IdentifyItem: _handle_identify_item,
     PlaceParty: _handle_place_party,
     AdvanceTime: _handle_advance_time,
 }
