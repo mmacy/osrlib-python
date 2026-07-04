@@ -92,10 +92,17 @@ class ExploredLevelView(BaseModel):
 
 
 class EncounterGroupView(BaseModel):
-    """A monster group as the players see it: name, count, distance, behavior — never HP."""
+    """A monster group as the players see it: id, name, count, distance, behavior — never HP.
+
+    The group `id` is the command vocabulary: battle declarations name their
+    `target_group_id` with it, so the projection must carry it for a wire client
+    to fight at all — an allocator ordinal, not a secret (the id doctrine
+    [`MemberView`][osrlib.crawl.views.MemberView] already sets).
+    """
 
     model_config = ConfigDict(frozen=True)
 
+    id: str
     label: str
     count: int
     distance_feet: int
@@ -369,6 +376,7 @@ def _encounter_view(session) -> EncounterView | None:
         conditions = sorted({active.condition.value for monster in living for active in monster.conditions})
         groups.append(
             EncounterGroupView(
+                id=group.id,
                 label=group.label,
                 count=len(living),
                 distance_feet=group.distance_feet,
