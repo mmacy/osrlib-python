@@ -28,13 +28,7 @@ from osrlib.crawl.dungeon import DungeonState
 from osrlib.crawl.encounter import EncounterState
 from osrlib.crawl.events import parse_any_event
 from osrlib.crawl.party import Party
-from osrlib.crawl.session import (
-    DeathRecord,
-    DefeatedMonsterRecord,
-    DeprivationState,
-    GameSession,
-    RecoveredTreasureRecord,
-)
+from osrlib.crawl.session import DeathRecord, DefeatedMonsterRecord, DeprivationState, GameSession
 from osrlib.errors import ContentValidationError, ReplayVersionError
 from osrlib.versioning import SCHEMA_VERSION, check_document, engine_version, stamp_document
 
@@ -46,12 +40,19 @@ __all__ = [
     "session_state",
 ]
 
-MIGRATIONS: dict[int, Callable[[dict], dict]] = {}
-"""Ordered save migrations: `MIGRATIONS[n]` rewrites a version-`n` payload to `n+1`.
 
-Empty at schema version 1 — the chain is exercised by a synthetic in-test migration
-until a real bump populates it.
-"""
+def _migrate_1_to_2(payload: dict) -> dict:
+    """Schema 1 → 2: drop the recovered-treasure ledger.
+
+    Phase 5 replaced the ledger with the departure-snapshot valuation delta — the
+    award's honest input — so version-1 saves simply shed the field.
+    """
+    payload.pop("recovered_treasure", None)
+    return payload
+
+
+MIGRATIONS: dict[int, Callable[[dict], dict]] = {1: _migrate_1_to_2}
+"""Ordered save migrations: `MIGRATIONS[n]` rewrites a version-`n` payload to `n+1`."""
 
 
 def session_state(session: GameSession, *, include_event_log: bool = True) -> dict:
@@ -79,7 +80,6 @@ def session_state(session: GameSession, *, include_event_log: bool = True) -> di
         "listener_state": {key: dict(value) for key, value in session.listener_state.items()},
         "death_records": {key: record.model_dump(mode="json") for key, record in session.death_records.items()},
         "defeated_monsters": [record.model_dump(mode="json") for record in session.defeated_monsters],
-        "recovered_treasure": [record.model_dump(mode="json") for record in session.recovered_treasure],
         "deprivation": {key: state.model_dump(mode="json") for key, state in session.deprivation.items()},
         "exploration": {
             "odometer_thirds": session.odometer_thirds,
@@ -191,9 +191,6 @@ def load_game(document: Mapping[str, object]) -> GameSession:
         }
         session.defeated_monsters = [
             DefeatedMonsterRecord.model_validate(entry) for entry in payload["defeated_monsters"]
-        ]
-        session.recovered_treasure = [
-            RecoveredTreasureRecord.model_validate(entry) for entry in payload["recovered_treasure"]
         ]
         session.deprivation = {
             key: DeprivationState.model_validate(value) for key, value in payload["deprivation"].items()

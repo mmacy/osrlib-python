@@ -23,6 +23,7 @@ from osrlib.core.spells import MAGIC_STREAM, turn_undead, validate_turn_undead
 from osrlib.core.tables import ReactionResult
 from osrlib.core.validation import Rejection
 from osrlib.crawl.commands import DropItems, EngageBattle, Evade, Parley, SessionMode, TurnUndead, Wait
+from osrlib.crawl.dungeon import TreasureBundle
 from osrlib.crawl.events import (
     EncounterEndedEvent,
     EncounterStartedEvent,
@@ -49,7 +50,12 @@ PURSUIT_ROUND_CAP = 30
 
 
 class EncounterGroup(BaseModel):
-    """One monster group in an encounter: its members and range-track distance."""
+    """One monster group in an encounter: its members and range-track distance.
+
+    `member_treasure` and `group_treasure` are the carried bundles generated at
+    spawn (individual P–T per monster, group U–V per group): slain and surrendered
+    members' bundles drop as loot at battle end; routed ones flee with theirs.
+    """
 
     model_config = ConfigDict(validate_assignment=True)
 
@@ -60,6 +66,8 @@ class EncounterGroup(BaseModel):
     fleeing: bool = False
     fled: bool = False
     surrendered: bool = False
+    member_treasure: dict[str, TreasureBundle] = {}
+    group_treasure: TreasureBundle | None = None
 
 
 class PursuitState(BaseModel):
@@ -557,6 +565,64 @@ def _attach_exhaustion(session) -> list[Event]:
 # ---------------------------------------------------------------------- conclusion
 
 
+def _drop_loot(session, state: EncounterState) -> list[Event]:
+    """Drop slain and surrendered combatants' carried treasure at the party's cell.
+
+    Surrender hands it over — the pile mechanism is already the recovery surface;
+    routed monsters flee with theirs, and a group whose members routed or fled
+    keeps its shared bundle (pinned).
+    """
+    from osrlib.crawl import exploration
+    from osrlib.crawl.dungeon import DropPile
+
+    if session.dungeon_state.location.kind != "dungeon":
+        return []
+    dropped: list[TreasureBundle] = []
+    for group in state.groups:
+        any_routed = group.fled or group.fleeing
+        for monster_id in group.monster_ids:
+            combatant = session.combatant(monster_id)
+            if combatant is None:
+                continue
+            if has_condition(combatant, Condition.DEAD) or group.surrendered:
+                bundle = group.member_treasure.pop(monster_id, None)
+                if bundle is not None and not bundle.empty:
+                    dropped.append(bundle)
+            elif has_condition(combatant, Condition.TURNED) or any_routed:
+                any_routed = True
+        if group.group_treasure is not None and not group.group_treasure.empty and not any_routed:
+            living = [
+                session.combatant(monster_id)
+                for monster_id in group.monster_ids
+                if session.combatant(monster_id) is not None
+            ]
+            all_defeated = all(has_condition(member, Condition.DEAD) for member in living) or group.surrendered
+            if all_defeated:
+                dropped.append(group.group_treasure)
+                group.group_treasure = None
+    if not dropped:
+        return []
+    ref = exploration._cell_ref(session)
+    pile = session.dungeon_state.piles.setdefault(ref, DropPile())
+    total = Coins()
+    for bundle in dropped:
+        total = Coins(
+            **{
+                denomination: getattr(total, denomination) + getattr(bundle.coins, denomination)
+                for denomination in ("pp", "gp", "ep", "sp", "cp")
+            }
+        )
+        pile.valuables.extend(bundle.valuables)
+        pile.magic_items.extend(bundle.magic_items)
+    pile.coins = Coins(
+        **{
+            denomination: getattr(pile.coins, denomination) + getattr(total, denomination)
+            for denomination in ("pp", "gp", "ep", "sp", "cp")
+        }
+    )
+    return []
+
+
 def end_encounter(session, outcome: str) -> list[Event]:
     """Conclude the encounter: defeats, effect release, the minimum-turn clock owe.
 
@@ -604,6 +670,7 @@ def end_encounter(session, outcome: str) -> list[Event]:
                     xp=monster.template.xp,
                 )
             )
+    events.extend(_drop_loot(session, state))
     for group in state.groups:
         for monster_id in group.monster_ids:
             for effect in list(session.ledger.active_on(monster_id)):

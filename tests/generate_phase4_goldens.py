@@ -511,7 +511,6 @@ def build_golden(seed: int) -> dict:
         },
         "final_clock_rounds": session.clock.rounds,
         "defeated_monsters": [record.model_dump(mode="json") for record in session.defeated_monsters],
-        "recovered_treasure": [record.model_dump(mode="json") for record in session.recovered_treasure],
         "transcript": transcript,
     }
 

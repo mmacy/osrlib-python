@@ -128,15 +128,18 @@ class TestReplay:
 
 
 class TestMigrations:
-    def test_synthetic_migration_chain(self):
-        # The framework is exercised with an injected chain: a version-0 payload
-        # (synthetic — the shipped floor is 1) migrates stepwise to the current
-        # schema.
-        def add_field(payload: dict) -> dict:
-            return {**payload, "added_by_migration": True}
-
-        migrated = _migrate({"seed": 1}, 0, migrations={0: add_field})
-        assert migrated == {"seed": 1, "added_by_migration": True}
+    def test_version_1_save_migrates_to_2(self):
+        # The framework's first honest exercise (the synthetic-only test retired
+        # with it): a real version-1 save document — the version-1 envelope and
+        # the recovered-treasure ledger the version carried — loads through the
+        # shipped 1 → 2 migration, which drops the ledger.
+        session, _ = drive_session()
+        document = save_game(session)
+        document["schema_version"] = 1
+        document["payload"]["recovered_treasure"] = [{"source_ref": "delve:1:chest", "gp_value": 200}]
+        restored = load_game(document)
+        assert not hasattr(restored, "recovered_treasure")
+        assert save_game(restored)["schema_version"] == 2
 
     def test_missing_migration_step_raises(self):
         with pytest.raises(ContentValidationError):

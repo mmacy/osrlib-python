@@ -501,6 +501,7 @@ def wandering_check(session, *, resting: bool = False) -> tuple[list[Event], boo
     instances = []
     for template_id in template_ids:
         instances.extend(session.spawn(template_id, 1))
+    carried = [generate_carried_treasure(session, instances)]
     events.extend(
         encounter_module.start_encounter(
             session,
@@ -509,6 +510,7 @@ def wandering_check(session, *, resting: bool = False) -> tuple[list[Event], boo
             monsters_roll_surprise=False,  # wandering monsters know the dungeon (pinned)
         )
     )
+    _assign_carried(session, carried)
     return events, True
 
 
@@ -730,6 +732,7 @@ def _relocate(session, dungeon_id: str, level_number: int, position, facing) -> 
     state.mark_explored(dungeon_id, level_number, position)
     events.extend(_boundary_events(session, old_area, position))
     events.extend(_enter_hooks(session))
+    events.extend(_area_treasure_check(session))
     events.extend(_room_trap_check(session))
     events.extend(_keyed_encounter_check(session))
     return events
@@ -750,22 +753,34 @@ def _keyed_encounter_check(session) -> list[Event]:
     from osrlib.crawl.session import WANDERING_STREAM
 
     groups = []
+    carried = []
+    templates = []
     for keyed in area.encounter.monsters:
         if keyed.count_fixed is not None:
             count = keyed.count_fixed
         else:
             count = max(1, roll(keyed.count_dice, session.streams.get(WANDERING_STREAM)).total)
+        template = load_monsters().get(keyed.template_id)
+        templates.append(template)
         instances = session.spawn(keyed.template_id, count, alignment=area.encounter.alignment)
-        groups.append((load_monsters().get(keyed.template_id).name, instances))
-    return encounter_module.start_encounter(
-        session,
-        groups=groups,
-        kind="keyed",
-        area_ref=area_ref,
-        monsters_aware=area.encounter.aware or area_ref in session.alerted_areas,
-        party_aware=area_ref in session.heard_areas,
-        pinned_stance=area.encounter.stance,
+        groups.append((template.name, instances))
+        # Carried treasure generates at spawn, per keyed line in printed order;
+        # the lair hoard follows (pinned draw order on the treasure stream).
+        carried.append(generate_carried_treasure(session, instances))
+    events = _generate_lair_hoard(session, area, templates)
+    events.extend(
+        encounter_module.start_encounter(
+            session,
+            groups=groups,
+            kind="keyed",
+            area_ref=area_ref,
+            monsters_aware=area.encounter.aware or area_ref in session.alerted_areas,
+            party_aware=area_ref in session.heard_areas,
+            pinned_stance=area.encounter.stance,
+        )
     )
+    _assign_carried(session, carried)
+    return events
 
 
 # ---------------------------------------------------------------------- movement handlers
@@ -807,6 +822,7 @@ def handle_move_party(session, command: MoveParty) -> tuple[list[Rejection], lis
     events.extend(_boundary_events(session, old_area, target))
     events.extend(_swing_shut(session, previous=position))
     events.extend(_enter_hooks(session))
+    events.extend(_area_treasure_check(session))
     events.extend(_room_trap_check(session))
     events.extend(_keyed_encounter_check(session))
     events.extend(_accrue_movement(session, 10 if explored_before else 30))
@@ -1171,12 +1187,15 @@ def handle_inspect_treasure(session, command: InspectTreasure) -> tuple[list[Rej
     if not definition.thief_skills:
         return [Rejection(code="exploration.trap.not_a_thief", params={"character": member.id})], []
     feature = next((f for f in _features_here(session) if f.id == command.feature_id), None)
-    if feature is None or feature.kind != "treasure_cache":
+    cache = session.dungeon_state.generated_caches.get(command.feature_id)
+    if cache is not None and cache.cell_ref == _cell_ref(session):
+        feature = None  # generated hoards are untrapped (pinned): the check runs, nothing is found
+    elif feature is None or feature.kind != "treasure_cache":
         return [Rejection(code="exploration.feature.unknown", params={"feature": command.feature_id})], []
     light_rejections = _requires_light(session, member, infravision_suffices=False)
     if light_rejections:
         return light_rejections, []
-    ref = _feature_ref(session, feature)
+    ref = _feature_ref(session, feature) if feature is not None else command.feature_id
     attempts = session.dungeon_state.inspect_attempts.setdefault(ref, [])
     if member.id in attempts:
         return [Rejection(code="exploration.search.already_tried", params={"character": member.id})], []
@@ -1192,7 +1211,12 @@ def handle_inspect_treasure(session, command: InspectTreasure) -> tuple[list[Rej
         )
     ]
     state = session.dungeon_state
-    trapped = feature.trap is not None and ref not in state.sprung_traps and ref not in state.removed_traps
+    trapped = (
+        feature is not None
+        and feature.trap is not None
+        and ref not in state.sprung_traps
+        and ref not in state.removed_traps
+    )
     if result.passed and trapped and ref not in state.found_traps:
         state.found_traps.append(ref)
         events.append(TrapEvent(code="exploration.trap.found", trap_ref=ref, character_id=member.id))
@@ -1272,6 +1296,26 @@ def handle_take_treasure(session, command: TakeTreasure) -> tuple[list[Rejection
         turn_events, _ = _spend_turn(session)
         events.extend(turn_events)
         return [], events
+    cache = state.generated_caches.get(command.feature_id)
+    if cache is not None:
+        if cache.cell_ref != _cell_ref(session):
+            return [Rejection(code="exploration.feature.unknown", params={"feature": command.feature_id})], []
+        item_ids = []
+        for valuable in cache.valuables:
+            taker.inventory.valuables.append(valuable)
+            item_ids.append(valuable.instance_id)
+        for magic_item in cache.magic_items:
+            taker.inventory.items.append(magic_item)
+            item_ids.append(magic_item.instance_id)
+        purse = taker.inventory.purse
+        for denomination in ("pp", "gp", "ep", "sp", "cp"):
+            setattr(purse, denomination, getattr(purse, denomination) + getattr(cache.coins, denomination))
+        coins_value = cache.coins.value_gp
+        del state.generated_caches[command.feature_id]
+        events.append(ItemAcquiredEvent(character_id=taker.id, item_ids=tuple(item_ids), coins_gp_value=coins_value))
+        turn_events, _ = _spend_turn(session)
+        events.extend(turn_events)
+        return [], events
     feature = next((f for f in _features_here(session) if f.id == command.feature_id), None)
     if feature is None or feature.kind != "treasure_cache":
         return [Rejection(code="exploration.feature.unknown", params={"feature": command.feature_id})], []
@@ -1299,14 +1343,23 @@ def handle_take_treasure(session, command: TakeTreasure) -> tuple[list[Rejection
     for item_id in feature.item_ids:
         taker.inventory.items.append(ItemInstance(template=equipment.get(item_id)))
         item_ids.append(item_id)
+    for spec in feature.valuables:
+        # Authored named valuables (the example's MacGuffin) instantiate on take.
+        from osrlib.core.items import ValuableInstance
+
+        valuable = ValuableInstance(
+            instance_id=session.allocator.allocate("valuable"),
+            kind=spec.kind,
+            name=spec.name,
+            value_gp=spec.value_gp,
+            weight_coins=spec.weight_coins,
+        )
+        taker.inventory.valuables.append(valuable)
+        item_ids.append(valuable.instance_id)
     purse = taker.inventory.purse
     for denomination in ("pp", "gp", "ep", "sp", "cp"):
         setattr(purse, denomination, getattr(purse, denomination) + getattr(feature.coins, denomination))
     state.emptied_caches.append(ref)
-    if feature.coins.value_gp:
-        from osrlib.crawl.session import RecoveredTreasureRecord
-
-        session.recovered_treasure.append(RecoveredTreasureRecord(source_ref=ref, gp_value=feature.coins.value_gp))
     events.append(
         ItemAcquiredEvent(character_id=taker.id, item_ids=tuple(item_ids), coins_gp_value=feature.coins.value_gp)
     )
@@ -1321,6 +1374,12 @@ def _transfer_pile(taker, pile: DropPile) -> list[str]:
     for dropped in pile.items:
         taker.inventory.items.append(ItemInstance(template=equipment.get(dropped.item_id), quantity=dropped.quantity))
         item_ids.extend([dropped.item_id] * dropped.quantity)
+    for valuable in pile.valuables:
+        taker.inventory.valuables.append(valuable)
+        item_ids.append(valuable.instance_id)
+    for magic_item in pile.magic_items:
+        taker.inventory.items.append(magic_item)
+        item_ids.append(magic_item.instance_id)
     purse = taker.inventory.purse
     for denomination in ("pp", "gp", "ep", "sp", "cp"):
         setattr(purse, denomination, getattr(purse, denomination) + getattr(pile.coins, denomination))
@@ -1348,10 +1407,20 @@ def handle_drop_items(session, command: DropItems) -> tuple[list[Rejection], lis
 def _validate_drops(member, command: DropItems) -> list[Rejection]:
     counts: dict[str, int] = {}
     for item_id in command.item_ids:
+        magic = member.inventory.magic_item(item_id)
+        if magic is not None:
+            if magic.cursed_revealed:
+                # A revealed cursed item pins to its bearer until *remove curse*.
+                return [Rejection(code="items.curse.stuck", params={"item": item_id})]
+            continue
+        if any(valuable.instance_id == item_id for valuable in member.inventory.valuables):
+            continue
         counts[item_id] = counts.get(item_id, 0) + 1
     for item_id, needed in counts.items():
         held = sum(
-            instance.quantity for instance in member.inventory.all_instances() if instance.template.id == item_id
+            instance.quantity
+            for instance in member.inventory.all_instances()
+            if not isinstance(instance, MagicItemInstance) and instance.template.id == item_id
         )
         if held < needed:
             return [Rejection(code="exploration.item.not_carried", params={"item": item_id})]
@@ -1364,20 +1433,35 @@ def _validate_drops(member, command: DropItems) -> list[Rejection]:
 
 def _apply_drop(session, member, command: DropItems, *, to_pile: bool) -> list[Event]:
     """Remove the dropped goods; onto the cell's pile, or scattered (pursuit bait)."""
-    for item_id in command.item_ids:
-        _consume_item(member, item_id)
-    purse = member.inventory.purse
-    for denomination in ("pp", "gp", "ep", "sp", "cp"):
-        setattr(purse, denomination, getattr(purse, denomination) - getattr(command.coins, denomination))
+    pile = None
     if to_pile:
-        ref = _cell_ref(session)
-        pile = session.dungeon_state.piles.setdefault(ref, DropPile())
-        for item_id in command.item_ids:
+        pile = session.dungeon_state.piles.setdefault(_cell_ref(session), DropPile())
+    for item_id in command.item_ids:
+        magic = member.inventory.magic_item(item_id)
+        if magic is not None:
+            _remove_magic_instance(member, magic)
+            if pile is not None:
+                pile.magic_items.append(magic)
+            continue
+        valuable = next(
+            (candidate for candidate in member.inventory.valuables if candidate.instance_id == item_id), None
+        )
+        if valuable is not None:
+            member.inventory.valuables.remove(valuable)
+            if pile is not None:
+                pile.valuables.append(valuable)
+            continue
+        _consume_item(member, item_id)
+        if pile is not None:
             existing = next((entry for entry in pile.items if entry.item_id == item_id), None)
             if existing is None:
                 pile.items.append(DroppedItem(item_id=item_id, quantity=1))
             else:
                 existing.quantity += 1
+    purse = member.inventory.purse
+    for denomination in ("pp", "gp", "ep", "sp", "cp"):
+        setattr(purse, denomination, getattr(purse, denomination) - getattr(command.coins, denomination))
+    if pile is not None:
         pile.coins = Coins(
             **{
                 denomination: getattr(pile.coins, denomination) + getattr(command.coins, denomination)
@@ -1730,6 +1814,174 @@ def _stationary_silence(session, spell, result, targets) -> list[Event]:
         definition, _cell_ref(session), clock=session.clock, allocator=session.allocator, registry=session.registry()
     )
     return attach_events
+
+
+# ---------------------------------------------------------------------- treasure generation
+
+
+def treasure_tier(session) -> str:
+    """The tier the crawl passes to generation, evaluated at generation time (pinned).
+
+    `basic` while the party's highest living level is 1–3, `expert` at 4+ — the
+    master table's own definition of Basic and Expert characters.
+    """
+    highest = max((member.level for member in session.party.living_members()), default=1)
+    return "expert" if highest >= 4 else "basic"
+
+
+def _merge_generated(bundle, generated) -> None:
+    from osrlib.core.items import Coins
+
+    bundle.coins = Coins(
+        **{
+            denomination: getattr(bundle.coins, denomination) + getattr(generated.coins, denomination)
+            for denomination in ("pp", "gp", "ep", "sp", "cp")
+        }
+    )
+    bundle.valuables.extend(generated.valuables)
+    bundle.magic_items.extend(generated.magic_items)
+
+
+def generate_carried_treasure(session, instances):
+    """Generate carried treasure at spawn: individual letters per monster, group per group.
+
+    Individual letters (P–T) read each instance's own template (packed-variant
+    pools may mix); group letters (U–V) read the first instance's — the row's
+    members share a stat block. The `multiplier` repeats the whole listed
+    generation (the Noble's `V × 3`), pinned. Returns `(member_treasure,
+    group_bundle)` for the encounter group.
+    """
+    from osrlib.core.treasure import TREASURE_STREAM, generate_treasure, plan_treasure_ref
+    from osrlib.crawl.dungeon import TreasureBundle
+
+    stream = session.streams.get(TREASURE_STREAM)
+    tier = treasure_tier(session)
+    member_treasure = {}
+    for instance in instances:
+        plan = plan_treasure_ref(instance.template.treasure)
+        if not plan.individual:
+            continue
+        bundle = TreasureBundle()
+        for letter in plan.individual:
+            for _ in range(plan.multiplier):
+                generated = generate_treasure(letter, tier=tier, stream=stream, allocator=session.allocator)
+                _merge_generated(bundle, generated)
+        if not bundle.empty:
+            member_treasure[instance.id] = bundle
+    group_plan = plan_treasure_ref(instances[0].template.treasure) if instances else None
+    group_bundle = None
+    if group_plan is not None and group_plan.group:
+        bundle = TreasureBundle()
+        for letter in group_plan.group:
+            for _ in range(group_plan.multiplier):
+                generated = generate_treasure(letter, tier=tier, stream=stream, allocator=session.allocator)
+                _merge_generated(bundle, generated)
+        if not bundle.empty:
+            group_bundle = bundle
+    return member_treasure, group_bundle
+
+
+def _assign_carried(session, carried) -> None:
+    """Attach the spawn-time bundles to the encounter groups, in input order."""
+    if session.encounter is None:
+        return
+    for group, (member_treasure, group_bundle) in zip(session.encounter.groups, carried, strict=True):
+        group.member_treasure = member_treasure
+        group.group_treasure = group_bundle
+
+
+def _generate_cache(session, *, cell, treasure_types, entries_lists, extra_gp=0) -> list:
+    """Land generated treasure as an engine-created cache in the state overlay."""
+    from osrlib.core.items import Coins
+    from osrlib.core.treasure import TREASURE_STREAM, generate_treasure_entries
+    from osrlib.crawl.dungeon import GeneratedCache, TreasureBundle
+    from osrlib.crawl.events import HoardGeneratedEvent
+
+    stream = session.streams.get(TREASURE_STREAM)
+    tier = treasure_tier(session)
+    bundle = TreasureBundle()
+    for entries in entries_lists:
+        _merge_generated(
+            bundle, generate_treasure_entries(entries, tier=tier, stream=stream, allocator=session.allocator)
+        )
+    if extra_gp:
+        bundle.coins = Coins(
+            **{
+                denomination: getattr(bundle.coins, denomination) + (extra_gp if denomination == "gp" else 0)
+                for denomination in ("pp", "gp", "ep", "sp", "cp")
+            }
+        )
+    if bundle.empty:
+        return []
+    cache_id = session.allocator.allocate("cache")
+    location = _location(session)
+    ref = cell_ref(location.dungeon_id, location.level_number, cell)
+    session.dungeon_state.generated_caches[cache_id] = GeneratedCache(
+        cell_ref=ref,
+        treasure_types=tuple(treasure_types),
+        coins=bundle.coins,
+        valuables=bundle.valuables,
+        magic_items=bundle.magic_items,
+    )
+    return [
+        HoardGeneratedEvent(
+            cache_ref=cache_id,
+            treasure_types=tuple(treasure_types),
+            coins_gp_value=bundle.coins.value_gp,
+            valuable_ids=tuple(valuable.instance_id for valuable in bundle.valuables),
+            magic_item_ids=tuple(item.instance_id for item in bundle.magic_items),
+        )
+    ]
+
+
+def _generate_lair_hoard(session, area, templates) -> list:
+    """Generate a keyed area's lair hoard when its keyed encounter first spawns.
+
+    The keyed monsters' hoard letters (A–O), parenthetical letters, and `extra_gp`
+    land as one engine-created cache on the area's first listed cell (pinned).
+    """
+    from osrlib.core.treasure import plan_treasure_ref
+    from osrlib.data import load_treasure_tables
+
+    letters: list[str] = []
+    extra_gp = 0
+    for template in templates:
+        plan = plan_treasure_ref(template.treasure)
+        for _ in range(plan.multiplier):
+            letters.extend(plan.lair)
+        extra_gp += plan.extra_gp
+    if not letters and not extra_gp:
+        return []
+    tables = load_treasure_tables()
+    entries_lists = [tables.treasure_type(letter).entries for letter in letters]
+    return _generate_cache(
+        session, cell=area.cells[0], treasure_types=letters, entries_lists=entries_lists, extra_gp=extra_gp
+    )
+
+
+def _area_treasure_check(session) -> list:
+    """Generate an area's declared treasure on first entry (the authoring surface)."""
+    from osrlib.data import load_treasure_tables
+
+    level = _level(session)
+    area = level.area_at(_position(session))
+    if area is None or area.treasure is None:
+        return []
+    area_ref = _area_ref(session, area.id)
+    state = session.dungeon_state
+    if area_ref in state.generated_treasure_areas:
+        return []
+    state.generated_treasure_areas.append(area_ref)
+    tables = load_treasure_tables()
+    if area.treasure.unguarded:
+        band = tables.unguarded.band_for_level(level.number)
+        return _generate_cache(
+            session, cell=_position(session), treasure_types=("unguarded",), entries_lists=[band.entries]
+        )
+    entries_lists = [tables.treasure_type(letter).entries for letter in area.treasure.letters]
+    return _generate_cache(
+        session, cell=_position(session), treasure_types=area.treasure.letters, entries_lists=entries_lists
+    )
 
 
 # ---------------------------------------------------------------------- magic item use

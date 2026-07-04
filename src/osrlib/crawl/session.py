@@ -89,7 +89,6 @@ __all__ = [
     "DeprivationState",
     "GameSession",
     "Listener",
-    "RecoveredTreasureRecord",
 ]
 
 WANDERING_STREAM = "wandering"
@@ -134,15 +133,6 @@ class DefeatedMonsterRecord(BaseModel):
     template_id: str
     outcome: str
     xp: int
-
-
-class RecoveredTreasureRecord(BaseModel):
-    """Recovered treasure coin value — the Phase 5 1-gp-=-1-XP input."""
-
-    model_config = ConfigDict(frozen=True)
-
-    source_ref: str
-    gp_value: int
 
 
 class DeprivationState(BaseModel):
@@ -199,6 +189,7 @@ class GameSession:
         self.mode = SessionMode.TOWN
         self.dungeon_state = DungeonState()
         self.monsters: dict[str, MonsterInstance] = {}
+        self.npcs: dict[str, Character] = {}
         self.flags: dict[str, str | int | bool] = {}
         self.listener_state: dict[str, dict] = {}
         self.listeners: list[Listener] = []
@@ -206,7 +197,6 @@ class GameSession:
         self.event_log: list[Event | dict] = []
         self.death_records: dict[str, DeathRecord] = {}
         self.defeated_monsters: list[DefeatedMonsterRecord] = []
-        self.recovered_treasure: list[RecoveredTreasureRecord] = []
         self.deprivation: dict[str, DeprivationState] = {}
         # Exploration bookkeeping (all serialized into saves).
         self.odometer_thirds = 0
@@ -312,10 +302,29 @@ class GameSession:
     # ------------------------------------------------------------------ registry
 
     def registry(self) -> dict[str, object]:
-        """Live entities by id: party members first (marching order), then monsters."""
+        """Live entities by id: party members (marching order), then monsters, then NPCs."""
         entities: dict[str, object] = {member.id: member for member in self.party.members}
         entities.update(self.monsters)
+        entities.update(self.npcs)
         return entities
+
+    def combatant(self, combatant_id: str) -> object | None:
+        """Return the monster or NPC with `combatant_id`, or `None`.
+
+        The encounter side model's lookup: `EncounterGroup.monster_ids` is the
+        combatant-id list it always structurally was, spanning monsters and NPC
+        adventurers.
+
+        Args:
+            combatant_id: The combatant's entity id.
+
+        Returns:
+            The live instance, or `None` when the id is unknown.
+        """
+        found = self.monsters.get(combatant_id)
+        if found is not None:
+            return found
+        return self.npcs.get(combatant_id)
 
     def member(self, character_id: str) -> Character:
         """Return the party member with `character_id` (see [`Party.member`][osrlib.crawl.party.Party.member])."""

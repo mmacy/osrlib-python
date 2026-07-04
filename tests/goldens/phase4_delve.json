@@ -1852,6 +1852,21 @@
       "visibility": "player"
     },
     {
+      "cache_ref": "cache-0001",
+      "code": "treasure.hoard.generated",
+      "coins_gp_value": 2000,
+      "event_type": "hoard_generated",
+      "magic_item_ids": [],
+      "treasure_types": [
+        "C"
+      ],
+      "valuable_ids": [
+        "valuable-0001",
+        "valuable-0002"
+      ],
+      "visibility": "referee"
+    },
+    {
       "code": "encounter.surprise.rolled",
       "event_type": "surprise_rolled",
       "roll": null,
@@ -2932,6 +2947,21 @@
       "visibility": "player"
     },
     {
+      "cache_ref": "cache-0002",
+      "code": "treasure.hoard.generated",
+      "coins_gp_value": 0,
+      "event_type": "hoard_generated",
+      "magic_item_ids": [],
+      "treasure_types": [
+        "C"
+      ],
+      "valuable_ids": [
+        "valuable-0003",
+        "valuable-0004"
+      ],
+      "visibility": "referee"
+    },
+    {
       "code": "encounter.surprise.rolled",
       "event_type": "surprise_rolled",
       "roll": null,
@@ -3536,6 +3566,22 @@
       "visibility": "player"
     },
     {
+      "cache_ref": "cache-0003",
+      "code": "treasure.hoard.generated",
+      "coins_gp_value": 2010,
+      "event_type": "hoard_generated",
+      "magic_item_ids": [],
+      "treasure_types": [
+        "C"
+      ],
+      "valuable_ids": [
+        "valuable-0005",
+        "valuable-0006",
+        "valuable-0007"
+      ],
+      "visibility": "referee"
+    },
+    {
       "code": "encounter.surprise.rolled",
       "event_type": "surprise_rolled",
       "roll": null,
@@ -3648,6 +3694,18 @@
       "location_id": "kennel_c",
       "location_kind": "area",
       "visibility": "player"
+    },
+    {
+      "cache_ref": "cache-0004",
+      "code": "treasure.hoard.generated",
+      "coins_gp_value": 100,
+      "event_type": "hoard_generated",
+      "magic_item_ids": [],
+      "treasure_types": [
+        "C"
+      ],
+      "valuable_ids": [],
+      "visibility": "referee"
     },
     {
       "code": "encounter.surprise.rolled",
@@ -5368,6 +5426,10 @@
       "inc": 123643957193368879014590998056361979995,
       "state": 41034052424107000566539050429462451641
     },
+    "treasure": {
+      "inc": 287780612102537662614319942825370588277,
+      "state": 323442542037818985208647256098094542287
+    },
     "wandering": {
       "inc": 65919459233863451073673651863941616007,
       "state": 119897328061694705786070434384340144505
@@ -5623,14 +5685,8 @@
         }
       ]
     },
-    "schema_version": 1
+    "schema_version": 2
   },
-  "recovered_treasure": [
-    {
-      "gp_value": 400,
-      "source_ref": "halls:1:coffer"
-    }
-  ],
   "transcript": [
     "character-0001 acquires 150 gp in coin.",
     "character-0001 acquires sword, chainmail, torch, torch, torch, torch, tinder_box, iron_spikes, rations_standard, waterskin.",
@@ -5669,6 +5725,7 @@
     "An iron spike wedges the door south of (3, 0).",
     "The party moves to (3, 1), facing south.",
     "The party enters area guard_room (level 1).",
+    "Treasure generated at cache-0001 (C): 2000 gp in coin, 2 valuable(s), 0 magic item(s).",
     "Surprise (monsters): no roll, surprised on 1-2 — not surprised.",
     "Surprise (party): no roll, surprised on 1-2 — not surprised.",
     "Encounter: 6 × Goblin at 70'.",
@@ -5778,6 +5835,7 @@
     "The party moves to (3, 0), facing east.",
     "The party moves to (3, 1), facing south.",
     "The party enters area kennel_a (level 2).",
+    "Treasure generated at cache-0002 (C): 0 gp in coin, 2 valuable(s), 0 magic item(s).",
     "Surprise (monsters): no roll, surprised on 1-2 — not surprised.",
     "Surprise (party): rolled 2, surprised on 1-2 — surprised.",
     "Encounter: 3 × Goblin at 90' — the party is surprised.",
@@ -5836,6 +5894,7 @@
     "The party moves to (5, 0), facing east.",
     "The party moves to (5, 1), facing south.",
     "The party enters area kennel_b (level 2).",
+    "Treasure generated at cache-0003 (C): 2010 gp in coin, 3 valuable(s), 0 magic item(s).",
     "Surprise (monsters): no roll, surprised on 1-2 — not surprised.",
     "Surprise (party): rolled 6, surprised on 1-2 — not surprised.",
     "Encounter: 3 × Goblin at 50'.",
@@ -5851,6 +5910,7 @@
     "The party moves to (6, 0), facing east.",
     "The party moves to (6, 1), facing south.",
     "The party enters area kennel_c (level 2).",
+    "Treasure generated at cache-0004 (C): 100 gp in coin, 0 valuable(s), 0 magic item(s).",
     "Surprise (monsters): no roll, surprised on 1-2 — not surprised.",
     "Surprise (party): rolled 3, surprised on 1-2 — not surprised.",
     "Encounter: 3 × Goblin at 70'.",

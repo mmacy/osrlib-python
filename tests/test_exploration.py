@@ -398,7 +398,6 @@ class TestTreasureTraps:
         acquired = next(event for event in result.events if event.code == "exploration.item.acquired")
         assert acquired.coins_gp_value == 200
         assert first.inventory.purse.gp == 200
-        assert session.recovered_treasure[0].gp_value == 200
         assert "delve:1:chest" in session.dungeon_state.emptied_caches
         again = session.execute(TakeTreasure(feature_id="chest"))
         assert not again.accepted
