@@ -1353,7 +1353,7 @@ def _resolve_effect(
             effects_stream=effects_stream,
         )
     elif kind == "kill":
-        _resolve_kill(caster, mode, selected, state, stream)
+        _resolve_kill(caster, mode, selected, state, stream, ruleset)
     elif kind == "dispel":
         _resolve_dispel(caster, mode, selected, state, ledger, registry, stream)
     elif kind == "restore_life":
@@ -1411,7 +1411,16 @@ def _resolve_damage(
                 continue
             result = roll(str(params["dice"]), stream)
             state.events.extend(
-                deal_damage(target, result.total, source=source, attacker_id=caster_id, rolls=result.rolls, clock=clock)
+                deal_damage(
+                    target,
+                    result.total,
+                    source=source,
+                    attacker_id=caster_id,
+                    rolls=result.rolls,
+                    clock=clock,
+                    ruleset=ruleset,
+                    stream=stream,
+                )
             )
             state.affect(target)
         return
@@ -1429,7 +1438,16 @@ def _resolve_damage(
             return
         result = roll(str(params["dice"]), stream)
         state.events.extend(
-            deal_damage(target, result.total, source=source, attacker_id=caster_id, rolls=result.rolls, clock=clock)
+            deal_damage(
+                target,
+                result.total,
+                source=source,
+                attacker_id=caster_id,
+                rolls=result.rolls,
+                clock=clock,
+                ruleset=ruleset,
+                stream=stream,
+            )
         )
         state.affect(target)
         return
@@ -1455,7 +1473,16 @@ def _resolve_damage(
         if amount < 1:
             continue
         state.events.extend(
-            deal_damage(target, amount, source=source, attacker_id=caster_id, rolls=result.rolls, clock=clock)
+            deal_damage(
+                target,
+                amount,
+                source=source,
+                attacker_id=caster_id,
+                rolls=result.rolls,
+                clock=clock,
+                ruleset=ruleset,
+                stream=stream,
+            )
         )
         state.affect(target)
 
@@ -1578,7 +1605,12 @@ def _resolve_attachment(
 
 
 def _resolve_kill(
-    caster: object, mode: SpellMode, selected: list[object], state: _CastState, stream: RngStream
+    caster: object,
+    mode: SpellMode,
+    selected: list[object],
+    state: _CastState,
+    stream: RngStream,
+    ruleset: Ruleset,
 ) -> None:
     params = mode.effect.params
     for target in selected:
@@ -1594,7 +1626,8 @@ def _resolve_kill(
             continue
         state.events.extend(events)
         if params.get("destroy_equipment"):
-            state.events.extend(destroy_equipment(target))
+            spell_source = DamageSource(kind="spell", destructive=True)
+            state.events.extend(destroy_equipment(target, source=spell_source, ruleset=ruleset, stream=stream))
         state.affect(target)
 
 

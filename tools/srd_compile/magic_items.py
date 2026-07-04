@@ -342,7 +342,11 @@ _MAGIC_ITEM_MECHANICS: dict[str, dict[str, object]] = {
         "effect": {"kind": "healing", "heal_dice": "1d6+1", "params": {"once_per_target_per_day": True}},
     },
     "staff_of_striking": {
+        "base_item_id": "staff",
         "effect": {"kind": "striking", "damage_dice": "2d6"},
+    },
+    "sword_plus_1_wishes": {
+        "params": {"wish_count_dice": "1d4"},
     },
     "scroll_of_protection_from_lycanthropes": {
         "effect": {

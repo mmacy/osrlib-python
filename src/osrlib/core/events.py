@@ -372,7 +372,12 @@ class DeathEvent(Event):
 
 
 class EquipmentDestroyedEvent(Event):
-    """A victim's equipment destroyed by a destructive death (dragon breath)."""
+    """A victim's equipment destroyed by a destructive death (dragon breath).
+
+    `item_names` are the destroyed items; `saved_items` (additive) are the instance
+    ids of magic items that passed the `magic_item_death_save` roll — the crawl
+    lands them in a drop pile at the victim's cell.
+    """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"combat.equipment.destroyed"})
 
@@ -381,6 +386,7 @@ class EquipmentDestroyedEvent(Event):
     visibility: Visibility = Visibility.PLAYER
     target_id: str
     item_names: tuple[str, ...]
+    saved_items: tuple[str, ...] = ()
 
 
 class LevelDrainedEvent(Event):

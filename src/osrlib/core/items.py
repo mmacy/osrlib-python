@@ -27,6 +27,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from osrlib.core.classes import ArmourPolicyKind, ClassDefinition, WeaponPolicyKind
 from osrlib.core.dice import parse
 from osrlib.core.effects import ModifierSpec
+from osrlib.core.rng import RngStream
 from osrlib.core.ruleset import EncumbranceMode, Ruleset
 from osrlib.core.treasure import MagicItemType, TreasureEntry
 from osrlib.core.validation import Rejection
@@ -38,6 +39,7 @@ __all__ = [
     "MAX_RINGS_WORN",
     "MISC_GEAR_WEIGHT_COINS",
     "AmmunitionTemplate",
+    "AnyInstance",
     "ArmourCategory",
     "ArmourTemplate",
     "ArmourTypeRow",
@@ -65,6 +67,7 @@ __all__ = [
     "ScrollSpellLevelTable",
     "SentientSwordTables",
     "SwordCommunicationRow",
+    "SwordControlResult",
     "SwordPower",
     "SwordPowersRow",
     "SwordSentience",
@@ -78,13 +81,18 @@ __all__ = [
     "encounter_movement_rate",
     "equip",
     "equipment_weight_coins",
+    "equipped_item_modifiers",
+    "magic_item_template",
     "movement_rate_feet",
     "purchase",
+    "sword_control_check",
     "tracked_weight_coins",
     "treasure_weight_coins",
     "unequip",
+    "usable_by_class",
     "validate_equip",
     "validate_purchase",
+    "validate_unequip",
 ]
 
 MAX_RINGS_WORN = 2
@@ -1038,37 +1046,166 @@ class CoinPurse(BaseModel):
             setattr(self, denomination, getattr(self, denomination) + coins)
 
 
+AnyInstance = Annotated[
+    ItemInstance | MagicItemInstance,
+    Field(discriminator="instance_type"),
+]
+"""Any owned instance — mundane or magic — discriminated by `instance_type`."""
+
+
 class Inventory(BaseModel):
-    """A character's carried items, coins, and equipped state.
+    """A character's carried items, coins, valuables, and equipped state.
 
     The item list is ordered (a defined order everywhere, per the determinism
     contract). Equipping moves an instance out of `items` into its slot, so each
-    instance lives in exactly one place.
+    instance lives in exactly one place. Magic items join the item list and the
+    equipped slots as union members; `rings` are the two worn-ring slots (RAW: one
+    on each hand — the cap is enforced at equip validation); `valuables` are carried
+    gems and jewellery.
     """
 
     model_config = ConfigDict(validate_assignment=True)
 
-    items: list[ItemInstance] = []
+    items: list[AnyInstance] = []
     purse: CoinPurse = CoinPurse()
-    worn_armour: ItemInstance | None = None
-    shield: ItemInstance | None = None
-    wielded: list[ItemInstance] = []
+    valuables: list[ValuableInstance] = []
+    worn_armour: AnyInstance | None = None
+    shield: AnyInstance | None = None
+    wielded: list[AnyInstance] = []
+    rings: list[MagicItemInstance] = []
 
-    def all_instances(self) -> list[ItemInstance]:
+    def all_instances(self) -> list[ItemInstance | MagicItemInstance]:
         """Return every carried instance — the item list plus the equipped slots."""
-        equipped: list[ItemInstance] = []
+        equipped: list[ItemInstance | MagicItemInstance] = []
         if self.worn_armour is not None:
             equipped.append(self.worn_armour)
         if self.shield is not None:
             equipped.append(self.shield)
-        return [*self.items, *equipped, *self.wielded]
+        return [*self.items, *equipped, *self.wielded, *self.rings]
+
+    def equipped_instances(self) -> list[ItemInstance | MagicItemInstance]:
+        """Return every equipped instance, slots first then wielded then rings."""
+        equipped: list[ItemInstance | MagicItemInstance] = []
+        if self.worn_armour is not None:
+            equipped.append(self.worn_armour)
+        if self.shield is not None:
+            equipped.append(self.shield)
+        return [*equipped, *self.wielded, *self.rings]
+
+    def magic_item(self, instance_id: str) -> MagicItemInstance | None:
+        """Return the carried magic item with `instance_id`, or `None`.
+
+        Args:
+            instance_id: The instance id, e.g. `"magic-item-0003"`.
+
+        Returns:
+            The instance, wherever it is carried or equipped.
+        """
+        for instance in self.all_instances():
+            if isinstance(instance, MagicItemInstance) and instance.instance_id == instance_id:
+                return instance
+        return None
+
+
+def magic_item_template(instance: MagicItemInstance) -> MagicItemTemplate:
+    """Return a magic item instance's template from the loaded catalog.
+
+    Args:
+        instance: The instance.
+
+    Returns:
+        The frozen template.
+    """
+    from osrlib.data import load_magic_items
+
+    return load_magic_items().get(instance.template_id)
+
+
+def equipped_item_modifiers(inventory: Inventory) -> list[ModifierSpec]:
+    """Return the stat modifiers granted by equipped always-active magic items.
+
+    Item bonuses are computed from equipped inventory at query time — never
+    `ActiveEffect` stat modifiers — the `modifier_total` carve-out: they combine
+    freely with spell modifiers and are exempt from the cumulative caps (pinned).
+
+    Args:
+        inventory: The inventory to scan.
+
+    Returns:
+        The modifiers, in equipped order (slots, wielded, rings).
+    """
+    modifiers: list[ModifierSpec] = []
+    for instance in inventory.equipped_instances():
+        if not isinstance(instance, MagicItemInstance):
+            continue
+        template = magic_item_template(instance)
+        if not template.always_active or template.effect is None:
+            continue
+        modifiers.extend(template.effect.modifiers)
+    return modifiers
+
+
+class SwordControlResult(BaseModel):
+    """A sentient sword control check's outcome — the RAW arithmetic, no events."""
+
+    model_config = ConfigDict(frozen=True)
+
+    sword_will: int
+    wielder_will: int
+    sword_controls: bool
+
+
+def sword_control_check(character: object, sword: MagicItemInstance, *, stream: RngStream) -> SwordControlResult:
+    """Resolve a sentient sword control check, à la carte.
+
+    RAW arithmetic: the sword's Will is INT + Ego, +1 per extraordinary power,
+    +1d10 when the sword's and wielder's alignments differ; the wielder's Will is
+    STR + WIS, −1d4 below full hit points, −2d4 below half. The sword controls
+    when its Will is strictly higher. The crawl never auto-invokes this in 1.0 —
+    games narrate control through referee commands (registered).
+
+    Args:
+        character: The wielder (a character with scores and hit points).
+        sword: The sentient sword instance.
+        stream: The RNG stream for the situational dice; à la carte callers choose.
+
+    Returns:
+        The plain result — no events, crawl-neutral.
+
+    Raises:
+        ValueError: If the sword is not sentient.
+    """
+    from osrlib.core.abilities import AbilityScore
+
+    if sword.sentience is None:
+        raise ValueError(f"{sword.instance_id} is not sentient")
+    sentience = sword.sentience
+    sword_will = sentience.intelligence + sentience.ego + len(sentience.extraordinary_powers)
+    wielder_alignment = getattr(getattr(character, "alignment", None), "value", None)
+    if wielder_alignment != sentience.alignment:
+        sword_will += stream.randbelow(10) + 1
+    scores = character.scores
+    wielder_will = scores[AbilityScore.STR] + scores[AbilityScore.WIS]
+    if character.current_hp < character.max_hp:
+        if character.current_hp * 2 < character.max_hp:
+            wielder_will -= stream.randbelow(4) + 1 + stream.randbelow(4) + 1
+        else:
+            wielder_will -= stream.randbelow(4) + 1
+    return SwordControlResult(
+        sword_will=sword_will, wielder_will=wielder_will, sword_controls=sword_will > wielder_will
+    )
 
 
 def treasure_weight_coins(inventory: Inventory) -> int:
     """Return the weight of carried treasure in coins.
 
-    In Phase 1 treasure is coins, weighing 1 each; treasure items (gems, jewellery)
-    arrive with Phase 5 and will add their `equipment.json` treasure weights here.
+    Purse coins weigh 1 each; valuables weigh their `TreasureWeight` figures; magic
+    items in the categories those rows price (potion, scroll, rod, staff, wand)
+    weigh as treasure — closing the Phase 1 seam. Rings and miscellaneous items
+    weigh zero absent a page figure (the Bag of Holding's printed loaded weight
+    rides its params, counted while it holds anything); enchanted weapons and
+    armour weigh as *equipment* beside their mundane bases, not as treasure, so
+    basic encumbrance's treasure tracking stays honest (pinned).
 
     Args:
         inventory: The inventory to weigh.
@@ -1076,7 +1213,22 @@ def treasure_weight_coins(inventory: Inventory) -> int:
     Returns:
         The treasure weight in coins.
     """
-    return inventory.purse.total_coins
+    total = inventory.purse.total_coins
+    total += sum(valuable.weight_coins for valuable in inventory.valuables)
+    for instance in inventory.all_instances():
+        if isinstance(instance, MagicItemInstance):
+            template = magic_item_template(instance)
+            if template.category in (
+                MagicItemCategory.POTION,
+                MagicItemCategory.SCROLL,
+                MagicItemCategory.ROD,
+                MagicItemCategory.STAFF,
+                MagicItemCategory.WAND,
+            ):
+                total += template.weight_coins * max(1, instance.quantity)
+            elif "loaded_weight_coins" in template.params and instance.state.get("holding"):
+                total += int(template.params["loaded_weight_coins"])
+    return total
 
 
 def equipment_weight_coins(inventory: Inventory) -> int:
@@ -1085,6 +1237,8 @@ def equipment_weight_coins(inventory: Inventory) -> int:
     Weapons and armour weigh their listed weights; ammunition weighs 0 (included in
     the missile weapon's listed weight, pinned); miscellaneous gear counts as a flat
     80 coins when any is carried (pinned — the SRD gives gear no per-item weights).
+    Enchanted weapons and armour weigh as equipment beside their mundane bases —
+    base weight, armour halved per RAW.
 
     Args:
         inventory: The inventory to weigh.
@@ -1092,9 +1246,21 @@ def equipment_weight_coins(inventory: Inventory) -> int:
     Returns:
         The equipment weight in coins.
     """
+    from osrlib.data import load_equipment
+
     total = 0
     has_gear = False
     for instance in inventory.all_instances():
+        if isinstance(instance, MagicItemInstance):
+            if instance.base_item_id is None:
+                continue
+            base = load_equipment().get(instance.base_item_id)
+            weight = getattr(base, "weight_coins", 0)
+            template = magic_item_template(instance)
+            if template.category is MagicItemCategory.ARMOUR:
+                weight //= 2
+            total += weight
+            continue
         template = instance.template
         if isinstance(template, WeaponTemplate | ArmourTemplate | AmmunitionTemplate):
             total += template.weight_coins * instance.quantity
@@ -1241,15 +1407,102 @@ def purchase(inventory: Inventory, template: ItemTemplate, lots: int = 1) -> Ite
     return instance
 
 
+def _caster_kind(definition: ClassDefinition) -> str | None:
+    """Return `"arcane"`/`"divine"` from the class's casting tag, or `None`."""
+    for ability in definition.abilities:
+        if ability.tag == "arcane_magic":
+            return "arcane"
+        if ability.tag == "divine_magic":
+            return "divine"
+    return None
+
+
+def usable_by_class(template: MagicItemTemplate, definition: ClassDefinition) -> bool:
+    """Return whether a class may use a magic item per its `usable_by`.
+
+    Args:
+        template: The magic item template.
+        definition: The class definition.
+
+    Returns:
+        True when the item's usability admits the class.
+    """
+    usable = template.usable_by
+    if usable.kind == "all":
+        return True
+    if usable.kind == "classes":
+        return definition.id in usable.class_ids
+    kind = _caster_kind(definition)
+    if kind is None:
+        return False
+    return usable.caster == "any" or usable.caster == kind
+
+
+def _validate_equip_magic(
+    definition: ClassDefinition, instance: MagicItemInstance, inventory: Inventory | None
+) -> list[Rejection]:
+    """Validate equipping a magic item — the base item's policies plus the item's own.
+
+    Enchanted arms resolve through the base item's armour and weapon policies
+    exactly like their mundane counterparts; rings cap at two (`items.ring.hands_full`
+    — RAW, more than two = none function, delivered as the slot cap); devices and
+    miscellaneous items gate on the item's `usable_by`; potions, scrolls, and
+    ammunition are not equippable.
+    """
+    from osrlib.data import load_equipment
+
+    template = magic_item_template(instance)
+    if template.category is MagicItemCategory.RING:
+        if inventory is not None and len(inventory.rings) >= MAX_RINGS_WORN:
+            return [Rejection(code="items.ring.hands_full", params={"item": instance.instance_id})]
+        return []
+    if template.category in (MagicItemCategory.POTION, MagicItemCategory.SCROLL):
+        return [Rejection(code="items.equip.not_equippable", params={"item": instance.instance_id})]
+    if template.category in (MagicItemCategory.SWORD, MagicItemCategory.WEAPON, MagicItemCategory.ARMOUR):
+        base_id = instance.base_item_id or template.base_item_id
+        if base_id is None:
+            return [Rejection(code="items.equip.not_equippable", params={"item": instance.instance_id})]
+        base = load_equipment().get(base_id)
+        if isinstance(base, AmmunitionTemplate):
+            return [Rejection(code="items.equip.not_equippable", params={"item": instance.instance_id})]
+        return validate_equip(definition, ItemInstance(template=base), inventory)
+    # Devices and miscellaneous items: the item's own usability governs (the RAW
+    # staves-in-melee carve-out means class weapon policies do not apply, pinned).
+    if not usable_by_class(template, definition):
+        return [Rejection(code="items.equip.not_usable", params={"item": instance.instance_id})]
+    return []
+
+
+def validate_unequip(inventory: Inventory, instance: ItemInstance | MagicItemInstance) -> list[Rejection]:
+    """Validate returning an equipped instance to the item list.
+
+    A revealed cursed item pins to its bearer: it rejects with `items.curse.stuck`
+    until *remove curse* (each cursed category's page carries the same
+    cannot-discard clause).
+
+    Args:
+        inventory: The inventory holding the instance.
+        instance: The equipped instance.
+
+    Returns:
+        Structured rejections; empty when unequipping is legal.
+    """
+    if isinstance(instance, MagicItemInstance) and instance.cursed_revealed:
+        return [Rejection(code="items.curse.stuck", params={"item": instance.instance_id})]
+    return []
+
+
 def validate_equip(
-    definition: ClassDefinition, instance: ItemInstance, inventory: Inventory | None = None
+    definition: ClassDefinition, instance: ItemInstance | MagicItemInstance, inventory: Inventory | None = None
 ) -> list[Rejection]:
     """Validate equipping an item against the class's armour and weapon policies.
 
     Weapon policies govern the weapons list only: gear carrying a combat facet (torch,
     holy water, burning oil) is exempt and always equippable (pinned — see
     `docs/adaptations.md`, including the magic-user consequence). Gear without a
-    facet, and ammunition, is not equippable at all.
+    facet, and ammunition, is not equippable at all. Magic items resolve through
+    their base item's policies (enchanted arms), the ring cap, or their own
+    `usable_by` (devices, miscellaneous items).
 
     Wielding a two-handed weapon with a shield equipped — or equipping the second of
     the pair — rejects with `items.equip.two_handed_with_shield`, pinned at equip
@@ -1265,6 +1518,8 @@ def validate_equip(
     Returns:
         Structured rejections; empty when equipping is legal.
     """
+    if isinstance(instance, MagicItemInstance):
+        return _validate_equip_magic(definition, instance, inventory)
     template = instance.template
     if isinstance(template, ArmourTemplate):
         if template.is_shield:
@@ -1310,14 +1565,28 @@ def validate_equip(
     return [Rejection(code="items.equip.not_equippable", params={"item": template.id})]
 
 
-def equip(inventory: Inventory, definition: ClassDefinition, instance: ItemInstance) -> None:
+def _is_shield_instance(instance: ItemInstance | MagicItemInstance) -> bool:
+    if isinstance(instance, MagicItemInstance):
+        return (instance.base_item_id or magic_item_template(instance).base_item_id) == "shield"
+    return isinstance(instance.template, ArmourTemplate) and instance.template.is_shield
+
+
+def _is_body_armour_instance(instance: ItemInstance | MagicItemInstance) -> bool:
+    if isinstance(instance, MagicItemInstance):
+        template = magic_item_template(instance)
+        return template.category is MagicItemCategory.ARMOUR and not _is_shield_instance(instance)
+    return isinstance(instance.template, ArmourTemplate) and not instance.template.is_shield
+
+
+def equip(inventory: Inventory, definition: ClassDefinition, instance: ItemInstance | MagicItemInstance) -> None:
     """Equip an item from the inventory's item list.
 
     Body armour goes to the worn-armour slot and the shield to the shield slot — a
-    previous occupant returns to the item list. Weapons and combat-facet gear join the
-    wielded list. Equipping a two-handed weapon with a shield equipped (or the shield
-    while a two-handed weapon is wielded) rejects — the conflict is enforced at equip
-    time, not silently ignored at resolution.
+    previous occupant returns to the item list. Weapons, combat-facet gear, devices,
+    and miscellaneous magic items join the wielded list; rings join the ring slots.
+    Equipping a two-handed weapon with a shield equipped (or the shield while a
+    two-handed weapon is wielded) rejects — the conflict is enforced at equip time,
+    not silently ignored at resolution.
 
     Args:
         inventory: The inventory; mutated.
@@ -1334,21 +1603,21 @@ def equip(inventory: Inventory, definition: ClassDefinition, instance: ItemInsta
     if rejections:
         raise ValueError(f"illegal equip: {[rejection.code for rejection in rejections]}")
     inventory.items.remove(instance)
-    template = instance.template
-    if isinstance(template, ArmourTemplate):
-        if template.is_shield:
-            if inventory.shield is not None:
-                inventory.items.append(inventory.shield)
-            inventory.shield = instance
-        else:
-            if inventory.worn_armour is not None:
-                inventory.items.append(inventory.worn_armour)
-            inventory.worn_armour = instance
+    if isinstance(instance, MagicItemInstance) and magic_item_template(instance).category is MagicItemCategory.RING:
+        inventory.rings.append(instance)
+    elif _is_shield_instance(instance):
+        if inventory.shield is not None:
+            inventory.items.append(inventory.shield)
+        inventory.shield = instance
+    elif _is_body_armour_instance(instance):
+        if inventory.worn_armour is not None:
+            inventory.items.append(inventory.worn_armour)
+        inventory.worn_armour = instance
     else:
         inventory.wielded.append(instance)
 
 
-def unequip(inventory: Inventory, instance: ItemInstance) -> None:
+def unequip(inventory: Inventory, instance: ItemInstance | MagicItemInstance) -> None:
     """Return an equipped instance to the item list.
 
     Args:
@@ -1356,14 +1625,21 @@ def unequip(inventory: Inventory, instance: ItemInstance) -> None:
         instance: The equipped instance.
 
     Raises:
-        ValueError: If the instance is not equipped.
+        ValueError: If the instance is not equipped, or a revealed curse pins it
+            (validate with [`validate_unequip`][osrlib.core.items.validate_unequip]
+            first).
     """
+    rejections = validate_unequip(inventory, instance)
+    if rejections:
+        raise ValueError(f"illegal unequip: {[rejection.code for rejection in rejections]}")
     if inventory.worn_armour is instance:
         inventory.worn_armour = None
     elif inventory.shield is instance:
         inventory.shield = None
     elif any(existing is instance for existing in inventory.wielded):
         inventory.wielded.remove(instance)
+    elif any(existing is instance for existing in inventory.rings):
+        inventory.rings.remove(instance)
     else:
         raise ValueError("instance is not equipped")
     inventory.items.append(instance)

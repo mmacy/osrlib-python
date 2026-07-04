@@ -4840,7 +4840,7 @@
       "ac_set_ascending": null,
       "always_active": false,
       "attack_bonus": 0,
-      "base_item_id": null,
+      "base_item_id": "staff",
       "category": "staff",
       "charges_dice": "3d10",
       "cursed": false,
@@ -5533,7 +5533,9 @@
       ],
       "name": "Sword +1, Wishes",
       "overrides_applied": [],
-      "params": {},
+      "params": {
+        "wish_count_dice": "1d4"
+      },
       "quantity_dice": null,
       "usable_by": {
         "caster": null,

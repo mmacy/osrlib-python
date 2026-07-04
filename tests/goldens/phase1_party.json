@@ -46,7 +46,9 @@
             "pp": 0,
             "sp": 0
           },
+          "rings": [],
           "shield": null,
+          "valuables": [],
           "wielded": [
             {
               "instance_type": "item",
@@ -162,7 +164,9 @@
             "pp": 0,
             "sp": 0
           },
+          "rings": [],
           "shield": null,
+          "valuables": [],
           "wielded": [
             {
               "instance_type": "item",
@@ -235,7 +239,9 @@
             "pp": 0,
             "sp": 0
           },
+          "rings": [],
           "shield": null,
+          "valuables": [],
           "wielded": [
             {
               "instance_type": "item",
@@ -309,7 +315,9 @@
             "pp": 0,
             "sp": 0
           },
+          "rings": [],
           "shield": null,
+          "valuables": [],
           "wielded": [
             {
               "instance_type": "item",
@@ -416,7 +424,9 @@
             "pp": 0,
             "sp": 0
           },
+          "rings": [],
           "shield": null,
+          "valuables": [],
           "wielded": [
             {
               "instance_type": "item",
@@ -599,7 +609,9 @@
             "pp": 0,
             "sp": 0
           },
+          "rings": [],
           "shield": null,
+          "valuables": [],
           "wielded": [
             {
               "instance_type": "item",
@@ -715,7 +727,9 @@
             "pp": 0,
             "sp": 0
           },
+          "rings": [],
           "shield": null,
+          "valuables": [],
           "wielded": [
             {
               "instance_type": "item",

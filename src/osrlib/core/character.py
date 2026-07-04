@@ -217,32 +217,59 @@ class Character(BaseModel):
         """
         return (self.alignment_tongue, *self.definition.languages, *self.extra_languages)
 
-    @property
-    def armour_class(self) -> int:
-        """Descending AC: armour base (9 unarmoured), −1 per shield bonus, minus the DEX modifier."""
-        dex_modifier = self._tables().ac_modifier(self.scores[AbilityScore.DEX])
-        base = 9
+    def _armour_parts(self, *, ascending: bool) -> tuple[int, int]:
+        """Return `(base, bonus)`: worn armour base AC and total shield/item bonuses.
+
+        Magic armour overlays its base item's AC with the enchantment bonus (the
+        cursed `AC 9 [10]` forms set the base outright); magic shields add their
+        enchantment on top of the mundane shield's +1; always-active worn items
+        with an AC bonus (rings of protection) join the bonus.
+        """
+        from osrlib.core.items import MagicItemInstance, magic_item_template
+        from osrlib.data import load_equipment
+
+        base = 10 if ascending else 9
         worn = self.inventory.worn_armour
-        if worn is not None and worn.template.item_type == "armour" and worn.template.ac is not None:
-            base = worn.template.ac
+        if isinstance(worn, MagicItemInstance):
+            template = magic_item_template(worn)
+            if template.ac_set is not None:
+                base = template.ac_set_ascending if ascending else template.ac_set
+            elif worn.base_item_id is not None:
+                mundane = load_equipment().get(worn.base_item_id)
+                printed = mundane.ac_ascending if ascending else mundane.ac
+                base = printed + template.ac_bonus if ascending else printed - template.ac_bonus
+        elif worn is not None and worn.template.item_type == "armour" and worn.template.ac is not None:
+            base = worn.template.ac_ascending if ascending else worn.template.ac
         bonus = 0
         shield = self.inventory.shield
-        if shield is not None and shield.template.item_type == "armour" and shield.template.ac_bonus is not None:
-            bonus = shield.template.ac_bonus
+        if isinstance(shield, MagicItemInstance):
+            template = magic_item_template(shield)
+            if template.ac_set is not None:
+                # The cursed shield's AC 9 [10] sets the wearer's base outright.
+                base = template.ac_set_ascending if ascending else template.ac_set
+            else:
+                mundane_bonus = load_equipment().get("shield").ac_bonus or 0
+                bonus += mundane_bonus + template.ac_bonus
+        elif shield is not None and shield.template.item_type == "armour" and shield.template.ac_bonus is not None:
+            bonus += shield.template.ac_bonus
+        for ring in self.inventory.rings:
+            template = magic_item_template(ring)
+            if template.always_active:
+                bonus += template.ac_bonus
+        return base, bonus
+
+    @property
+    def armour_class(self) -> int:
+        """Descending AC: armour base (9 unarmoured), −1 per bonus, minus the DEX modifier."""
+        dex_modifier = self._tables().ac_modifier(self.scores[AbilityScore.DEX])
+        base, bonus = self._armour_parts(ascending=False)
         return base - bonus - dex_modifier
 
     @property
     def armour_class_ascending(self) -> int:
-        """Ascending AC: armour base (10 unarmoured), +1 per shield bonus, plus the DEX modifier."""
+        """Ascending AC: armour base (10 unarmoured), +1 per bonus, plus the DEX modifier."""
         dex_modifier = self._tables().ac_modifier(self.scores[AbilityScore.DEX])
-        base = 10
-        worn = self.inventory.worn_armour
-        if worn is not None and worn.template.item_type == "armour" and worn.template.ac_ascending is not None:
-            base = worn.template.ac_ascending
-        bonus = 0
-        shield = self.inventory.shield
-        if shield is not None and shield.template.item_type == "armour" and shield.template.ac_bonus is not None:
-            bonus = shield.template.ac_bonus
+        base, bonus = self._armour_parts(ascending=True)
         return base + bonus + dex_modifier
 
     def movement_rate(self, ruleset: Ruleset) -> int:

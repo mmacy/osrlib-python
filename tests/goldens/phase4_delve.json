@@ -5396,7 +5396,9 @@
               "pp": 0,
               "sp": 0
             },
+            "rings": [],
             "shield": null,
+            "valuables": [],
             "wielded": [],
             "worn_armour": null
           },
@@ -5434,7 +5436,9 @@
               "pp": 0,
               "sp": 0
             },
+            "rings": [],
             "shield": null,
+            "valuables": [],
             "wielded": [],
             "worn_armour": null
           },
@@ -5479,7 +5483,9 @@
               "pp": 0,
               "sp": 0
             },
+            "rings": [],
             "shield": null,
+            "valuables": [],
             "wielded": [],
             "worn_armour": null
           },
@@ -5517,7 +5523,9 @@
               "pp": 0,
               "sp": 0
             },
+            "rings": [],
             "shield": null,
+            "valuables": [],
             "wielded": [],
             "worn_armour": null
           },
@@ -5564,7 +5572,9 @@
               "pp": 0,
               "sp": 0
             },
+            "rings": [],
             "shield": null,
+            "valuables": [],
             "wielded": [],
             "worn_armour": null
           },

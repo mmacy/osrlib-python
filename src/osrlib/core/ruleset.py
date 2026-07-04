@@ -75,6 +75,13 @@ class Ruleset(BaseModel):
             ticks on the effects stream. Water and food deprivation don't stack —
             the worse track applies. The schedule's numbers are invented over the
             SRD's open list (see `docs/adaptations.md`).
+        magic_item_death_save: The SRD's referee-optional save for magic items on a
+            destructive death, default on (the spec's default): each magic item in
+            the doomed inventory rolls the owner's save values against the
+            destructive source's category, plus the item's best combat bonus;
+            survivors land in a drop pile at the victim's cell instead of
+            vanishing (pinned — surviving the blast but not the looting would be
+            no survival at all).
         aoe_friendly_fire: Documented adaptation, default on: an area effect landing
             on a monster group at melee range catches engaged party members among
             its candidates (the Phase 4 footprint rule). Off means areas never
@@ -94,6 +101,7 @@ class Ruleset(BaseModel):
     thac0_arithmetic: bool = False
     weapon_reload: bool = False
     hd5_counts_as_magical: bool = False
+    magic_item_death_save: bool = True
     deprivation_penalties: bool = False
     aoe_friendly_fire: bool = True
     formation_width_limit: bool = True
