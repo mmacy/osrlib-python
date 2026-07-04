@@ -1043,7 +1043,11 @@ character is never mutated), and waive the arcane magical-script reading gate
 scrolls with the printed 10% error chance, resolved as a fizzle — the spell
 burns, nothing resolves. A cursed scroll triggers on reading and rolls
 uniformly among the six compiled curses (energy drain and slow healing wired,
-the rest manual). Protection scrolls attach one party-wide ward effect to the
+the rest manual): energy drain resolves through `drain_levels` at the
+`halfway` XP policy (the curse's own wording), and slow healing doubles the
+natural rest-day cadence while halving healing spells, floored — half, not
+*cause disease*'s outright block, so the curse is no disease and carries no
+condition. Protection scrolls attach one party-wide ward effect to the
 reader with per-HD-band counts as structured params
 (`affected_1_3`/`affected_4_5`/`affected_6_plus`); the ward bars the listed
 creatures from melee (the *protection from evil* machinery) and breaks for the
@@ -1064,8 +1068,15 @@ destructive (the lightning-bolt equipment precedent). Locked by
 
 `MAX_RINGS_WORN = 2` (RAW: one on each hand), the third rejected at equip
 validation (`items.ring.hands_full`). The ring of protection's 5'-radius
-variant extends to the wearer's rank — the battle space has no finer adjacency.
-Locked by `test_items.py` and `test_magic_items.py`.
+variant extends its AC bonus to the wearer's rank-mates against attacks in
+battle — the battle space has no finer adjacency than the rank, and the
+printed example ("two characters fighting beside the wearer") is exactly
+melee defense. The aura arrives as caller-asserted context
+(`AttackContext.defender_ally_ac_bonus`), never stacks across rings, and the
+wearer's own +1 rides the equipped-item channel as usual. Saving throws and
+out-of-battle resolution honor the wearer alone, pinned: saves resolve inside
+the character-scoped kernel, and outside battle the party has no spatial
+model. Locked by `test_items.py` and `test_magic_items.py`.
 
 ### The item streams
 

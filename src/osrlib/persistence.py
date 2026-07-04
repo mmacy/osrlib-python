@@ -16,6 +16,7 @@ under a different engine. The standing test: `load(save)` equals
 
 from collections.abc import Callable, Mapping, Sequence
 
+from osrlib.core.character import Character
 from osrlib.core.clock import GameClock
 from osrlib.core.effects import EffectsLedger
 from osrlib.core.monsters import IdAllocator, MonsterInstance
@@ -45,9 +46,11 @@ def _migrate_1_to_2(payload: dict) -> dict:
     """Schema 1 → 2: drop the recovered-treasure ledger.
 
     Phase 5 replaced the ledger with the departure-snapshot valuation delta — the
-    award's honest input — so version-1 saves simply shed the field.
+    award's honest input — so version-1 saves simply shed the field. NPC
+    adventurers arrive with version 2; a version-1 save has none.
     """
     payload.pop("recovered_treasure", None)
+    payload["npcs"] = []
     return payload
 
 
@@ -76,6 +79,7 @@ def session_state(session: GameSession, *, include_event_log: bool = True) -> di
         "ledger": session.ledger.model_dump(mode="json"),
         "dungeon_state": session.dungeon_state.model_dump(mode="json"),
         "monsters": [instance.model_dump(mode="json") for instance in session.monsters.values()],
+        "npcs": [npc.model_dump(mode="json") for npc in session.npcs.values()],
         "flags": dict(session.flags),
         "listener_state": {key: dict(value) for key, value in session.listener_state.items()},
         "death_records": {key: record.model_dump(mode="json") for key, record in session.death_records.items()},
@@ -185,6 +189,10 @@ def load_game(document: Mapping[str, object]) -> GameSession:
         for entry in payload["monsters"]:
             instance = MonsterInstance.model_validate(entry)
             session.monsters[instance.id] = instance
+        session.npcs = {}
+        for entry in payload["npcs"]:
+            npc = Character.model_validate(entry)
+            session.npcs[npc.id] = npc
         session.flags = dict(payload["flags"])
         session.listener_state = {key: dict(value) for key, value in payload["listener_state"].items()}
         session.death_records = {

@@ -20,8 +20,41 @@ from osrlib.crawl.dungeon import Direction, PartyLocation
 from osrlib.crawl.session import GameSession
 
 CHARACTER_IDS = ["character-0001", "character-0002", "character-0003", "character-0004", "character-0099"]
-ITEM_IDS = ["torch", "sword", "rations_standard", "waterskin", "iron_spikes", "gemstone_of_wishing"]
+ITEM_IDS = [
+    "torch",
+    "sword",
+    "rations_standard",
+    "waterskin",
+    "iron_spikes",
+    "gemstone_of_wishing",
+    # The planted magic instances (see plant_magic_items): the fuzz must be able
+    # to equip, use, and drop them.
+    "magic-item-9001",
+    "magic-item-9002",
+    "magic-item-9003",
+]
 DIRECTIONS = list(Direction)
+
+
+def plant_magic_items(session) -> None:
+    """Give the first member unidentified magic items the fuzz can reach."""
+    from osrlib.core.items import MagicItemInstance
+
+    member = session.party.members[0]
+    member.inventory.items.append(
+        MagicItemInstance(instance_id="magic-item-9001", template_id="armour_plus_1", base_item_id="chainmail")
+    )
+    member.inventory.items.append(
+        MagicItemInstance(instance_id="magic-item-9002", template_id="potion_of_giant_strength")
+    )
+    member.inventory.items.append(
+        MagicItemInstance(
+            instance_id="magic-item-9003",
+            template_id="wand_of_fire_balls",
+            charges_remaining=7,
+            state={"secret": 1},
+        )
+    )
 
 
 def command_strategy():
@@ -154,6 +187,7 @@ def command_strategy():
 def test_fuzzed_command_sequences_never_raise_and_hold_the_invariants(seed, commands):
     """The spec's fuzz contract: schema-valid commands reject, never throw."""
     session = GameSession.new(build_party(), build_adventure(), seed=seed)
+    plant_magic_items(session)
     last_rounds = session.clock.rounds
     for command in commands:
         session.execute(command)  # must never raise
@@ -192,17 +226,18 @@ def test_the_player_view_never_leaks(seed, commands):
     session = GameSession.new(build_party(), build_adventure(), seed=seed)
     session.execute(GrantItem(character_id="character-0001", item_id="torch", quantity=6))
     session.execute(GrantItem(character_id="character-0001", item_id="tinder_box"))
-    # Unidentified magic items ride along: the fuzz never uses these ids, so they
-    # must stay masked whatever the command sequence does.
+    # Unidentified magic items ride along under ids the fuzz never uses (the
+    # 8000s — ITEM_IDS carries only the 9000s), so these must stay masked
+    # whatever the command sequence does.
     from osrlib.core.items import MagicItemInstance
 
     member = session.party.members[0]
     member.inventory.items.append(
-        MagicItemInstance(instance_id="magic-item-9001", template_id="potion_of_giant_strength")
+        MagicItemInstance(instance_id="magic-item-8001", template_id="potion_of_giant_strength")
     )
     member.inventory.items.append(
         MagicItemInstance(
-            instance_id="magic-item-9002",
+            instance_id="magic-item-8002",
             template_id="wand_of_fire_balls",
             charges_remaining=7,
             state={"secret": 1},

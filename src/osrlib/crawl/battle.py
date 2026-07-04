@@ -347,6 +347,32 @@ def _party_target_pool(session) -> list:
     return [member for member in _party_front_rank(session) if not has_condition(member, Condition.INVISIBLE)]
 
 
+def _ally_protection_bonus(session, defender) -> int:
+    """The Ring of Protection 5' Radius: a rank-mate's ring shields the defender.
+
+    The battle space has no finer adjacency than the rank (pinned), so "allies
+    within 5'" is the wearer's rank. The wearer's own +1 rides the equipped-item
+    channel — only allies collect the aura here — and multiple rings never stack.
+
+    Args:
+        session: The battle's session.
+        defender: The combatant under attack; non-members collect nothing.
+
+    Returns:
+        1 when a living rank-mate wears the radius ring, else 0.
+    """
+    for rank in _party_ranks(session):
+        if defender not in rank:
+            continue
+        for ally in rank:
+            if ally is defender:
+                continue
+            if any(ring.template_id == "ring_of_protection_5_radius" for ring in ally.inventory.rings):
+                return 1
+        return 0
+    return 0
+
+
 def _reachable_targets(session, monster: MonsterInstance, pool: list) -> list:
     """Filter the pool by the *protection from evil* melee ban (pinned).
 
@@ -1564,7 +1590,9 @@ def _confused_party_overrides(session, by_member, fire_damaged) -> list[Event]:
             fellows = [other for other in session.party.living_members() if other.id != member.id]
             if fellows:
                 target = fellows[session.streams.get(COMBAT_STREAM).randbelow(len(fellows))]
-                context = AttackContext(distance_feet=MELEE_RANGE_FEET)
+                context = AttackContext(
+                    distance_feet=MELEE_RANGE_FEET, defender_ally_ac_bonus=_ally_protection_bonus(session, target)
+                )
                 result = resolve_attack(
                     member,
                     target,
@@ -1710,6 +1738,7 @@ def _resolve_npc_attack(session, npc, target, group, *, missile: bool, retreatin
     context = AttackContext(
         distance_feet=group.distance_feet if missile else MELEE_RANGE_FEET,
         defender_retreating=retreating,
+        defender_ally_ac_bonus=_ally_protection_bonus(session, target),
     )
     result = resolve_attack(
         npc,
@@ -1723,6 +1752,7 @@ def _resolve_npc_attack(session, npc, target, group, *, missile: bool, retreatin
     events.extend(result.events)
     if isinstance(weapon, MagicItemInstance) and result.attack_roll.hit and not result.absorbed:
         events.extend(_on_hit_drain(session, weapon, target))
+    events.extend(_identify_worn_items(session, target))
     return events
 
 
@@ -1902,7 +1932,11 @@ def _resolve_monster_melee(session, monster, target, *, party_retreating: bool) 
                     pop_mirror_image(session.ledger, target.id, registry=session.registry(), clock=session.clock)
                 )
                 continue
-            context = AttackContext(distance_feet=MELEE_RANGE_FEET, defender_retreating=party_retreating)
+            context = AttackContext(
+                distance_feet=MELEE_RANGE_FEET,
+                defender_retreating=party_retreating,
+                defender_ally_ac_bonus=_ally_protection_bonus(session, target),
+            )
             result = resolve_attack(
                 monster,
                 target,

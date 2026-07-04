@@ -244,6 +244,7 @@ MODIFIER_KINDS = frozenset(
         "strength_set",
         "weapon_damage_dice_bonus",
         "counts_as_magical",
+        "magical_healing_half",
     }
 )
 """The closed vocabulary of stat-modifier kinds combat consults.

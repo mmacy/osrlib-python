@@ -215,8 +215,6 @@ def _roll_expert_items(
         return
     profile = caster_profile(definition)
     for category in _SUB_TABLE_ORDER:
-        if category is MagicItemType.ARMOUR and not _KITS[definition.id][1]:
-            continue
         if category is MagicItemType.ARMOUR and definition.armour.kind.value == "none":
             continue
         if category is MagicItemType.SWORD and validate_equip(

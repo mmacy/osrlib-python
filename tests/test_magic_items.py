@@ -131,6 +131,23 @@ class TestEnchantedArms:
         assert member.armour_class == 9
         assert member.armour_class_ascending == 10
 
+    def test_enchanted_armour_moves_at_its_base_category(self):
+        # Enchantment halves the weight, not the bulk: +1 chainmail is still
+        # heavy for the basic-encumbrance rates, +1 leather still light.
+        from osrlib.core.items import movement_rate_feet
+
+        member = fighter()
+        member.inventory.worn_armour = magic_instance("armour_plus_1", base_item_id="chainmail")
+        assert movement_rate_feet(member.inventory, RULESET) == 60
+        member.inventory.worn_armour = magic_instance("armour_plus_1", 2, base_item_id="leather")
+        assert movement_rate_feet(member.inventory, RULESET) == 90
+        # And the loot-wear-walk loop survives end to end.
+        from osrlib.crawl.commands import MoveParty
+
+        session, member, instance = session_with_item("armour_plus_1", base_item_id="chainmail")
+        assert session.execute(EquipItem(character_id=member.id, item_id=instance.instance_id)).accepted
+        assert session.execute(MoveParty(direction="east")).accepted
+
     def test_girdle_branches_on_variable_weapon_damage(self):
         member = fighter()
         girdle = magic_instance("girdle_of_giant_strength")
@@ -304,6 +321,28 @@ class TestDeathSave:
                 burned += 1
         assert saved and burned
 
+    def test_cursed_items_save_at_their_penalty(self):
+        # Same seed, same d20: the +1 sword saves whenever the −2 does, and rolls
+        # in between burn only the cursed one — the penalty is real, not masked
+        # by an unset bonus's zero.
+        source = DamageSource(kind="breath", destructive=True)
+        gap_seen = False
+        for seed in range(120):
+            blessed = fighter()
+            blessed.inventory.items.append(magic_instance("sword_plus_1", base_item_id="sword"))
+            plus_saved = bool(
+                destroy_equipment(blessed, source=source, ruleset=Ruleset(), stream=stream(seed))[0].saved_items
+            )
+            hexed = fighter()
+            hexed.inventory.items.append(magic_instance("sword_minus_2_cursed", 2, base_item_id="sword"))
+            minus_saved = bool(
+                destroy_equipment(hexed, source=source, ruleset=Ruleset(), stream=stream(seed))[0].saved_items
+            )
+            assert plus_saved or not minus_saved
+            if plus_saved and not minus_saved:
+                gap_seen = True
+        assert gap_seen
+
 
 class TestSwordControl:
     def test_control_check_arithmetic(self):
@@ -426,6 +465,60 @@ class TestScrollsInPlay:
         codes = [event.code for event in result.events]
         assert "items.scroll.cursed" in codes
 
+    def read_cursed_scroll(self, seed: int):
+        """Level the reader to 2 first (a drain from level 1 would kill), then read."""
+        from osrlib.crawl.commands import AwardXP, LightSource
+
+        session, member, scroll = session_with_item("cursed_scroll", seed=seed)
+        for _ in range(20):
+            if session.party_light()[0]:
+                break
+            session.execute(LightSource(character_id=member.id, item_id="torch"))
+        session.execute(AwardXP(character_id=member.id, amount=4000))
+        assert member.level == 2
+        result = session.execute(UseItem(character_id=member.id, item_id=scroll.instance_id))
+        assert result.accepted
+        return session, member
+
+    def test_the_energy_drain_curse_drains_at_halfway(self):
+        for seed in range(1, 200):
+            session, member = self.read_cursed_scroll(seed)
+            if member.level == 1:
+                # The wight's policy, per the curse's own "halfway between"
+                # wording: the floored midpoint of the fighter thresholds 0–2,000.
+                assert member.xp == 1000
+                return
+        raise AssertionError("no seed rolled the energy-drain curse")
+
+    def test_the_slow_healing_curse_halves_spells_and_doubles_rest(self):
+        from osrlib.core.combat import apply_healing, natural_healing
+
+        for seed in range(1, 200):
+            session, member = self.read_cursed_scroll(seed)
+            effects = session.ledger.active_on(member.id, "cursed_slow_healing")
+            if not effects:
+                continue
+            # Not a disease: healing spells cure half (floored), never zero-block.
+            member.current_hp = 1
+            events = apply_healing(member, 6)
+            assert member.current_hp == 4
+            assert events[0].code != "combat.healing.blocked"
+            # Natural healing runs at the two-day cadence.
+            first = natural_healing(member, stream(seed, "effects"), ledger=session.ledger)
+            assert first == []
+            second = natural_healing(member, stream(seed, "effects"), ledger=session.ledger)
+            assert second and member.current_hp > 4
+            # Remove curse releases it and healing returns to normal.
+            from osrlib.crawl.exploration import lift_curses
+
+            lift_curses(session, member)
+            assert not session.ledger.active_on(member.id, "cursed_slow_healing")
+            member.current_hp = 1
+            apply_healing(member, 6)
+            assert member.current_hp == 7 or member.current_hp == member.max_hp
+            return
+        raise AssertionError("no seed rolled the slow-healing curse")
+
     def test_protection_scroll_attaches_the_ward(self):
         session, member, scroll = session_with_item("scroll_of_protection_from_elementals")
         result = session.execute(UseItem(character_id=member.id, item_id=scroll.instance_id))
@@ -442,6 +535,23 @@ def scroll_mode(spell_id: str) -> str:
 
 
 class TestDevicesInPlay:
+    def test_a_rejected_use_mutates_nothing(self):
+        # The rejection contract: no identification, no state, no draws, no
+        # time, no log entry — the healing target resolves before anything moves.
+        session, member, staff = session_with_item("staff_of_healing")
+        member.inventory.items.remove(staff)
+        cleric = next(m for m in session.party.members if m.class_id == "cleric")
+        cleric.inventory.items.append(staff)
+        logged = len(session.command_log)
+        rounds = session.clock.rounds
+        states = {key: state.model_dump(mode="json") for key, state in session.streams.export_states().items()}
+        result = session.execute(UseItem(character_id=cleric.id, item_id=staff.instance_id, target_id="bogus"))
+        assert not result.accepted
+        assert result.rejections[0].code == "items.use.unknown_target"
+        assert staff.identified is False and staff.state == {}
+        assert {key: state.model_dump(mode="json") for key, state in session.streams.export_states().items()} == states
+        assert session.clock.rounds == rounds and len(session.command_log) == logged
+
     def test_charges_spend_silently_and_exhaust_to_inert(self):
         session, member, wand = session_with_item("rod_of_cancellation", charges_remaining=1)
         result = session.execute(UseItem(character_id=member.id, item_id=wand.instance_id))
@@ -508,3 +618,42 @@ class TestRingsInPlay:
         session, member, ring = session_with_item("ring_of_protection")
         result = session.execute(IdentifyItem(character_id=member.id, item_id=ring.instance_id))
         assert result.accepted and ring.identified
+
+
+class TestRadiusRing:
+    def test_the_aura_shields_rank_mates_and_never_the_wearer_twice(self):
+        from osrlib.crawl import battle as battle_module
+
+        session = GameSession.new(build_party(), build_adventure(wandering_chance=0), seed=9)
+        session.execute(GrantItem(character_id="character-0001", item_id="torch", quantity=6))
+        session.execute(GrantItem(character_id="character-0001", item_id="tinder_box"))
+        session.execute(EnterDungeon(dungeon_id="delve"))
+        members = session.party.members
+        members[1].inventory.rings.append(magic_instance("ring_of_protection_5_radius"))
+        # The rank-mate collects the aura; the wearer's own +1 rides the
+        # equipped-item channel, so the helper grants the wearer nothing extra.
+        assert battle_module._ally_protection_bonus(session, members[0]) == 1
+        assert battle_module._ally_protection_bonus(session, members[1]) == 0
+        assert battle_module._ally_protection_bonus(session, spawned("goblin")) == 0
+        # A plain ring projects nothing.
+        members[1].inventory.rings = [magic_instance("ring_of_protection", 2)]
+        assert battle_module._ally_protection_bonus(session, members[0]) == 0
+
+    def test_the_context_bonus_improves_the_defender_ac(self):
+        from osrlib.core.combat import attack_roll
+
+        member = fighter()
+        monster = spawned("goblin")
+        bare = attack_roll(
+            monster, member, None, context=AttackContext(distance_feet=5), ruleset=RULESET, stream=stream(11)
+        )
+        shielded = attack_roll(
+            monster,
+            member,
+            None,
+            context=AttackContext(distance_feet=5, defender_ally_ac_bonus=1),
+            ruleset=RULESET,
+            stream=stream(11),
+        )
+        assert shielded.events[0].defender_ac == bare.events[0].defender_ac - 1
+        assert shielded.required == bare.required + 1

@@ -460,8 +460,9 @@ def wandering_check(session, *, resting: bool = False) -> tuple[list[Event], boo
     The chance takes +1 for noise since the last check, +1 for daylight-bright
     light, −1 while resting, clamped to [0, 6]; a clamped 0 skips the roll. The
     check die draws from the wandering stream; the d20 table roll, count dice,
-    variant picks, and NPC-party re-rolls (draws consumed) follow on the same
-    stream; spawned hit points draw from the monster-spawn stream and the
+    and variant picks follow on the same stream (NPC-party rows spawn a real
+    party — the Phase 4 re-roll is gone); spawned hit points draw from the
+    monster-spawn stream, NPC composition from the npc-party stream, and the
     encounter's own dice from the encounter stream.
     """
     from osrlib.crawl import encounter as encounter_module
@@ -2314,9 +2315,13 @@ def _use_scroll(session, member, instance: MagicItemInstance, template, command)
             )
             events.extend(result.events)
         elif curse.id == "slow_healing":
+            # Not a disease: the curse halves healing spells where *cause
+            # disease* voids them, so DISEASED (the magical-healing block)
+            # would overshoot RAW. Natural healing doubles via the rest-day
+            # cadence, magical halves via the modifier.
             slow = EffectDefinition(
                 kind="cursed_slow_healing",
-                condition=Condition.DISEASED,
+                modifiers=(ModifierSpec(kind="magical_healing_half", value=1, from_item=True),),
                 params={"healing_rest_days": 2, "item_source": "cursed_scroll"},
             )
             _, attach_events = session.ledger.attach(
@@ -2533,6 +2538,13 @@ def _use_device(session, member, instance: MagicItemInstance, template, command)
                 return [Rejection(code="items.use.unknown_target", params={"target": command.target_id or ""})], []
     if effect_spec is not None and effect_spec.kind == "striking":
         return [Rejection(code="items.use.battle_only", params={"item": instance.instance_id})], []
+    target = None
+    if effect_spec is not None and effect_spec.kind == "healing":
+        # Resolve the touch target before anything mutates: a rejected command
+        # mutates nothing, and identification below is a mutation.
+        target = member if command.target_id is None else session.registry().get(command.target_id)
+        if target is None:
+            return [Rejection(code="items.use.unknown_target", params={"target": command.target_id or ""})], []
     events: list[Event] = []
     events.extend(identify_item_events(session, member, instance))
     events.append(
@@ -2544,9 +2556,6 @@ def _use_device(session, member, instance: MagicItemInstance, template, command)
         )
     )
     if effect_spec is not None and effect_spec.kind == "healing":
-        target = member if command.target_id is None else session.registry().get(command.target_id)
-        if target is None:
-            return [Rejection(code="items.use.unknown_target", params={"target": command.target_id or ""})], []
         day_key = f"healed:{getattr(target, 'id', command.target_id)}"
         today = session.clock.days
         if effect_spec.params.get("once_per_target_per_day") and instance.state.get(day_key) == today:

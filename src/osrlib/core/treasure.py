@@ -594,11 +594,11 @@ def _generate_valuable(kind: str, *, stream: RngStream, allocator: object) -> Va
         kind=kind,
         name=name,
         value_gp=value,
-        weight_coins=weights[kind if kind == "gem" else "jewellery"],
+        weight_coins=weights[kind],
     )
 
 
-def _generate_sentience(template: object, *, stream: RngStream) -> SwordSentience | None:
+def _generate_sentience(*, stream: RngStream) -> SwordSentience | None:
     """Roll a magic sword's sentience in the page's pinned procedure order.
 
     The special-purpose 1-in-20 rolls first per magic sword (a special sword is
@@ -804,7 +804,7 @@ def generate_magic_item(
             drains = roll(str(template.effect.params["total_drains_dice"]), stream).total
             instance.state = {**instance.state, "drains_remaining": drains}
         if template.category is MagicItemCategory.SWORD:
-            instance.sentience = _generate_sentience(template, stream=stream)
+            instance.sentience = _generate_sentience(stream=stream)
         instances.append(instance)
     return instances
 

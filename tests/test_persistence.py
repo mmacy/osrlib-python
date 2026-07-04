@@ -90,6 +90,31 @@ class TestSaveLoad:
         with pytest.raises(SaveVersionError):
             load_game(document)
 
+    def test_npc_encounter_survives_save_and_load(self):
+        # NPC adventurers are session state: a save taken mid-encounter restores
+        # the roster, the combatant lookups, and a battle that can keep running.
+        from osrlib.crawl.commands import BattleDeclaration, EngageBattle, ResolveBattleRound, SpawnNpcParty
+
+        session = GameSession.new(build_party(), build_adventure(wandering_chance=0), seed=31)
+        session.execute(GrantItem(character_id="character-0001", item_id="torch", quantity=6))
+        session.execute(GrantItem(character_id="character-0001", item_id="tinder_box"))
+        session.execute(EnterDungeon(dungeon_id="delve"))
+        assert session.execute(SpawnNpcParty(party_kind="basic", count_dice="1d3", distance_feet=30)).accepted
+        assert session.npcs
+        restored = load_game(json.loads(json.dumps(save_game(session))))
+        assert session_state(restored) == session_state(session)
+        assert set(restored.npcs) == set(session.npcs)
+        group = restored.encounter.groups[0]
+        for npc_id in group.monster_ids:
+            assert restored.combatant(npc_id) is not None
+        if restored.mode.value == "encounter":
+            assert restored.execute(EngageBattle()).accepted
+        declarations = tuple(
+            BattleDeclaration(character_id=member.id, action="move", move="close", target_group_id=group.id)
+            for member in restored.party.living_members()
+        )
+        assert restored.execute(ResolveBattleRound(declarations=declarations)).accepted
+
 
 class TestReplay:
     def test_load_equals_replay(self):

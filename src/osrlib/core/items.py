@@ -1298,6 +1298,30 @@ _BASIC_RATES: dict[ArmourCategory | None, tuple[int, int]] = {
 _DETAILED_RATES: tuple[tuple[int, int], ...] = ((400, 120), (600, 90), (800, 60), (MAX_LOAD_COINS, 30))
 
 
+def _worn_armour_category(worn: object) -> ArmourCategory | None:
+    """Return the worn body armour's category, resolving enchanted armour's base.
+
+    Enchanted armour moves like its mundane base — enchantment halves the weight,
+    not the bulk, so +1 plate is still heavy for the basic-encumbrance rates.
+
+    Args:
+        worn: The `worn_armour` slot's instance, or `None`.
+
+    Returns:
+        The armour category, or `None` for unarmoured.
+    """
+    if worn is None:
+        return None
+    if isinstance(worn, MagicItemInstance):
+        if worn.base_item_id is None:
+            return None
+        from osrlib.data import load_equipment
+
+        base = load_equipment().get(worn.base_item_id)
+        return base.category if isinstance(base, ArmourTemplate) else None
+    return worn.template.category if isinstance(worn.template, ArmourTemplate) else None
+
+
 def movement_rate_feet(inventory: Inventory, ruleset: Ruleset, carrying_treasure: bool = False) -> int:
     """Return the movement rate in feet per exploration turn.
 
@@ -1330,10 +1354,7 @@ def movement_rate_feet(inventory: Inventory, ruleset: Ruleset, carrying_treasure
     if tracked > MAX_LOAD_COINS:
         return 0
     if mode is EncumbranceMode.BASIC:
-        category = None
-        if inventory.worn_armour is not None and isinstance(inventory.worn_armour.template, ArmourTemplate):
-            category = inventory.worn_armour.template.category
-        without, with_treasure = _BASIC_RATES[category]
+        without, with_treasure = _BASIC_RATES[_worn_armour_category(inventory.worn_armour)]
         return with_treasure if carrying_treasure else without
     for threshold, rate in _DETAILED_RATES:
         if tracked <= threshold:

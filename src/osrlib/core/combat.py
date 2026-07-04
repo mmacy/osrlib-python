@@ -161,12 +161,16 @@ class AttackContext(BaseModel):
     honest context, and supplying the context (was the charge 60 feet? is the target
     unaware?) is the caller's or Phase 4's job. `situational_modifier` is the RAW
     referee adjustment (cover −1 to −4, the dozing dragon's +2, and kin).
+    `defender_ally_ac_bonus` is an ally-granted AC bonus the caller asserts — the
+    Ring of Protection 5' Radius shielding the wearer's rank-mates; adjacency is
+    the caller's spatial judgment, so the value arrives as context.
     """
 
     model_config = ConfigDict(frozen=True)
 
     distance_feet: int | None = None
     situational_modifier: int = 0
+    defender_ally_ac_bonus: int = 0
     behind_target: bool = False
     target_unaware: bool = False
     defender_retreating: bool = False
@@ -676,6 +680,8 @@ def _defender_descending_ac(defender: object, context: AttackContext, *, missile
     # AC-bonus modifiers (the potion of invulnerability's ±2) improve or worsen
     # descending AC directly; equipped-item AC rides the character's own property.
     ac -= modifier_total(defender, "ac_bonus")
+    # An ally's aura (the 5'-radius protection ring), asserted by the caller.
+    ac -= context.defender_ally_ac_bonus
     return ac
 
 
@@ -1113,7 +1119,12 @@ def destroy_equipment(
                 if stream is None:
                     raise ValueError("the magic-item death save needs a stream; pass the resolving subsystem's")
                 required = getattr(target.saves, category.value)
-                best_bonus = max(template.attack_bonus, template.damage_bonus, template.ac_bonus)
+                # The best of the item's actual bonuses: unset bonuses are 0 and
+                # must not mask a cursed item's penalty (−2/−2/unset saves at −2).
+                bonuses = [
+                    bonus for bonus in (template.attack_bonus, template.damage_bonus, template.ac_bonus) if bonus
+                ]
+                best_bonus = max(bonuses) if bonuses else 0
                 if stream.randbelow(20) + 1 + best_bonus >= required:
                     saved.append(instance)
                     continue
@@ -1639,6 +1650,11 @@ def apply_healing(target: object, amount: int, *, source: str = "magical") -> li
         return []
     if has_condition(target, Condition.WEAKENED) or (source == "magical" and has_condition(target, Condition.DISEASED)):
         return [HealingAppliedEvent(code="combat.healing.blocked", target_id=target_id, amount=0, source=source)]
+    if source == "magical" and has_modifier(target, "magical_healing_half"):
+        # The cursed scroll's slow healing: "healing spells only cure half the
+        # normal number of hit points" — half, floored, unlike *cause disease*'s
+        # outright block.
+        amount //= 2
     healed = min(amount, target.max_hp - target.current_hp)
     target.current_hp += healed
     return [
@@ -1651,11 +1667,12 @@ def natural_healing(target: object, stream: RngStream, *, ledger: EffectsLedger 
     """Apply one full day of complete rest: 1d3 hit points.
 
     Callable by whoever can attest the rest was uninterrupted (Phase 4 automates).
-    Slowed-healing diseases stretch the cadence: under mummy rot, natural healing
+    Slowed-healing effects stretch the cadence: under mummy rot, natural healing
     runs ten times slower (pinned), and an effect carrying a `healing_rest_days`
-    param (*cause disease*'s "twice the usual amount of time" is 2) heals once per
-    that many consecutive full rest days, tracked on the effect. When several apply,
-    the slowest wins. Without a ledger to track on, a diseased target does not heal.
+    param (*cause disease*'s and the cursed scroll's "twice the usual amount of
+    time" is 2) heals once per that many consecutive full rest days, tracked on the
+    effect — disease or not. When several apply, the slowest wins. Without a ledger
+    to track on, a diseased target does not heal.
 
     Args:
         target: The resting creature; mutated.
@@ -1668,20 +1685,20 @@ def natural_healing(target: object, stream: RngStream, *, ledger: EffectsLedger 
     """
     if has_condition(target, Condition.DEAD):
         return []
-    if has_condition(target, Condition.DISEASED):
-        if ledger is None:
-            return []
-        slowdowns = []
+    if has_condition(target, Condition.DISEASED) and ledger is None:
+        return []
+    slowdowns = []
+    if ledger is not None:
         for effect in ledger.active_on(_entity_id(target)):
             if effect.definition.kind == "mummy_rot":
                 slowdowns.append((effect, 10))
             elif "healing_rest_days" in effect.definition.params:
                 slowdowns.append((effect, int(effect.definition.params["healing_rest_days"])))
-        if slowdowns:
-            effect, cadence = max(slowdowns, key=lambda pair: pair[1])
-            effect.state["rest_days"] = effect.state.get("rest_days", 0) + 1
-            if effect.state["rest_days"] % cadence != 0:
-                return []
+    if slowdowns:
+        effect, cadence = max(slowdowns, key=lambda pair: pair[1])
+        effect.state["rest_days"] = effect.state.get("rest_days", 0) + 1
+        if effect.state["rest_days"] % cadence != 0:
+            return []
     amount = stream.randbelow(3) + 1
     return apply_healing(target, amount, source="natural")
 
