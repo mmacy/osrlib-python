@@ -1,0 +1,775 @@
+{
+  "cleric_level": 6,
+  "dragon_auto_saved": true,
+  "events": [
+    {
+      "caster_id": "pc-mu",
+      "code": "magic.book.added",
+      "event_type": "spell_book_updated",
+      "spell_id": "magic_missile",
+      "visibility": "player"
+    },
+    {
+      "caster_id": "pc-mu",
+      "code": "magic.book.added",
+      "event_type": "spell_book_updated",
+      "spell_id": "web",
+      "visibility": "player"
+    },
+    {
+      "caster_id": "pc-mu",
+      "code": "magic.book.added",
+      "event_type": "spell_book_updated",
+      "spell_id": "fire_ball",
+      "visibility": "player"
+    },
+    {
+      "caster_id": "pc-cleric",
+      "code": "magic.memorize.prepared",
+      "event_type": "spells_memorized",
+      "prepared": [
+        {
+          "reversed": false,
+          "spell_id": "cure_light_wounds"
+        },
+        {
+          "reversed": false,
+          "spell_id": "cure_light_wounds"
+        },
+        {
+          "reversed": false,
+          "spell_id": "bless"
+        },
+        {
+          "reversed": false,
+          "spell_id": "hold_person_c"
+        }
+      ],
+      "visibility": "player"
+    },
+    {
+      "caster_id": "pc-mu",
+      "code": "magic.memorize.prepared",
+      "event_type": "spells_memorized",
+      "prepared": [
+        {
+          "reversed": false,
+          "spell_id": "magic_missile"
+        },
+        {
+          "reversed": false,
+          "spell_id": "sleep"
+        },
+        {
+          "reversed": false,
+          "spell_id": "fire_ball"
+        }
+      ],
+      "visibility": "player"
+    },
+    {
+      "caster_id": "pc-cleric",
+      "code": "magic.cast.cast",
+      "event_type": "spell_cast",
+      "manual": false,
+      "mode": "battle",
+      "reversed": false,
+      "spell_id": "bless",
+      "target_ids": [
+        "pc-cleric",
+        "pc-mu"
+      ],
+      "visibility": "player"
+    },
+    {
+      "code": "effects.effect.attached",
+      "effect_id": "effect-0001",
+      "event_type": "effect_attached",
+      "expires_round": 360,
+      "kind": "bless",
+      "target_ref": "pc-cleric",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.effect.attached",
+      "effect_id": "effect-0002",
+      "event_type": "effect_attached",
+      "expires_round": 360,
+      "kind": "bless",
+      "target_ref": "pc-mu",
+      "visibility": "referee"
+    },
+    {
+      "code": "combat.initiative.rolled",
+      "entries": [
+        {
+          "key": "party",
+          "modifier": 0,
+          "rolls": [
+            6,
+            3
+          ],
+          "total": 3
+        },
+        {
+          "key": "monsters",
+          "modifier": 0,
+          "rolls": [
+            6,
+            1
+          ],
+          "total": 1
+        }
+      ],
+      "event_type": "initiative_rolled",
+      "mode": "side",
+      "order": [
+        "party",
+        "monsters"
+      ],
+      "visibility": "player"
+    },
+    {
+      "code": "combat.initiative.rolled",
+      "entries": [
+        {
+          "key": "party",
+          "modifier": 0,
+          "rolls": [
+            4
+          ],
+          "total": 4
+        },
+        {
+          "key": "monsters",
+          "modifier": 0,
+          "rolls": [
+            6
+          ],
+          "total": 6
+        }
+      ],
+      "event_type": "initiative_rolled",
+      "mode": "side",
+      "order": [
+        "monsters",
+        "party"
+      ],
+      "visibility": "player"
+    },
+    {
+      "attack_name": "weapon",
+      "attacker_id": "monster-0001",
+      "code": "combat.attack.missed",
+      "defender_ac": 8,
+      "defender_id": "pc-mu",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 11,
+      "roll": 9,
+      "total": 9,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "weapon",
+      "attacker_id": "monster-0001",
+      "code": "combat.attack.missed",
+      "defender_ac": 8,
+      "defender_id": "pc-mu",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 11,
+      "roll": 7,
+      "total": 7,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "weapon",
+      "attacker_id": "monster-0001",
+      "code": "combat.attack.hit",
+      "defender_ac": 8,
+      "defender_id": "pc-mu",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 11,
+      "roll": 12,
+      "total": 12,
+      "visibility": "player"
+    },
+    {
+      "amount": 5,
+      "attacker_id": "monster-0001",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [],
+      "non_regenerable": false,
+      "rolls": [
+        5
+      ],
+      "target_id": "pc-mu",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 6,
+      "event_type": "hit_points_reported",
+      "max_hp": 11,
+      "target_id": "pc-mu",
+      "visibility": "referee"
+    },
+    {
+      "caster_id": "pc-mu",
+      "code": "magic.cast.disrupted",
+      "event_type": "spell_disrupted",
+      "reversed": false,
+      "spell_id": "fire_ball",
+      "visibility": "player"
+    },
+    {
+      "caster_id": "pc-mu",
+      "code": "magic.memorize.prepared",
+      "event_type": "spells_memorized",
+      "prepared": [
+        {
+          "reversed": false,
+          "spell_id": "magic_missile"
+        },
+        {
+          "reversed": false,
+          "spell_id": "sleep"
+        },
+        {
+          "reversed": false,
+          "spell_id": "fire_ball"
+        }
+      ],
+      "visibility": "player"
+    },
+    {
+      "caster_id": "pc-mu",
+      "code": "magic.cast.cast",
+      "event_type": "spell_cast",
+      "manual": false,
+      "mode": "damage",
+      "reversed": false,
+      "spell_id": "fire_ball",
+      "target_ids": [
+        "monster-0001",
+        "monster-0008"
+      ],
+      "visibility": "player"
+    },
+    {
+      "category": "spells",
+      "code": "combat.save.failed",
+      "event_type": "saving_throw_rolled",
+      "modifier": 0,
+      "required": 18,
+      "roll": 10,
+      "target_id": "monster-0001",
+      "visibility": "player"
+    },
+    {
+      "amount": 28,
+      "attacker_id": "pc-mu",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "magic",
+        "fire"
+      ],
+      "non_regenerable": false,
+      "rolls": [
+        3,
+        6,
+        6,
+        5,
+        4,
+        4
+      ],
+      "target_id": "monster-0001",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 0,
+      "event_type": "hit_points_reported",
+      "max_hp": 3,
+      "target_id": "monster-0001",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.condition.gained",
+      "condition": "dead",
+      "effect_id": null,
+      "event_type": "condition_gained",
+      "target_id": "monster-0001",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.death.died",
+      "event_type": "death",
+      "target_id": "monster-0001",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 0,
+      "event_type": "hit_points_reported",
+      "max_hp": 3,
+      "target_id": "monster-0001",
+      "visibility": "referee"
+    },
+    {
+      "category": "spells",
+      "code": "combat.save.auto",
+      "event_type": "saving_throw_rolled",
+      "modifier": 0,
+      "required": null,
+      "roll": null,
+      "target_id": "monster-0008",
+      "visibility": "player"
+    },
+    {
+      "amount": 11,
+      "attacker_id": "pc-mu",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "magic",
+        "fire"
+      ],
+      "non_regenerable": false,
+      "rolls": [
+        1,
+        1,
+        3,
+        6,
+        6,
+        5
+      ],
+      "target_id": "monster-0008",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 43,
+      "event_type": "hit_points_reported",
+      "max_hp": 54,
+      "target_id": "monster-0008",
+      "visibility": "referee"
+    },
+    {
+      "caster_id": "pc-mu",
+      "code": "magic.cast.cast",
+      "event_type": "spell_cast",
+      "manual": false,
+      "mode": "hd_budget",
+      "reversed": false,
+      "spell_id": "sleep",
+      "target_ids": [
+        "monster-0004",
+        "monster-0005",
+        "monster-0006",
+        "monster-0007"
+      ],
+      "visibility": "player"
+    },
+    {
+      "code": "combat.targeting.selected",
+      "event_type": "targets_selected",
+      "mode": "hd_budget",
+      "target_ids": [
+        "monster-0004",
+        "monster-0005",
+        "monster-0006"
+      ],
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.effect.attached",
+      "effect_id": "effect-0003",
+      "event_type": "effect_attached",
+      "expires_round": 420,
+      "kind": "sleep",
+      "target_ref": "monster-0004",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.condition.gained",
+      "condition": "asleep",
+      "effect_id": "effect-0003",
+      "event_type": "condition_gained",
+      "target_id": "monster-0004",
+      "visibility": "player"
+    },
+    {
+      "code": "effects.effect.attached",
+      "effect_id": "effect-0004",
+      "event_type": "effect_attached",
+      "expires_round": 840,
+      "kind": "sleep",
+      "target_ref": "monster-0005",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.condition.gained",
+      "condition": "asleep",
+      "effect_id": "effect-0004",
+      "event_type": "condition_gained",
+      "target_id": "monster-0005",
+      "visibility": "player"
+    },
+    {
+      "code": "effects.effect.attached",
+      "effect_id": "effect-0005",
+      "event_type": "effect_attached",
+      "expires_round": 420,
+      "kind": "sleep",
+      "target_ref": "monster-0006",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.condition.gained",
+      "condition": "asleep",
+      "effect_id": "effect-0005",
+      "event_type": "condition_gained",
+      "target_id": "monster-0006",
+      "visibility": "player"
+    },
+    {
+      "caster_id": "pc-mu",
+      "code": "magic.cast.cast",
+      "event_type": "spell_cast",
+      "manual": false,
+      "mode": "missiles",
+      "reversed": false,
+      "spell_id": "magic_missile",
+      "target_ids": [
+        "monster-0007",
+        "monster-0007",
+        "monster-0007"
+      ],
+      "visibility": "player"
+    },
+    {
+      "amount": 2,
+      "attacker_id": "pc-mu",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "magic"
+      ],
+      "non_regenerable": false,
+      "rolls": [
+        1
+      ],
+      "target_id": "monster-0007",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 7,
+      "event_type": "hit_points_reported",
+      "max_hp": 9,
+      "target_id": "monster-0007",
+      "visibility": "referee"
+    },
+    {
+      "amount": 7,
+      "attacker_id": "pc-mu",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "magic"
+      ],
+      "non_regenerable": false,
+      "rolls": [
+        6
+      ],
+      "target_id": "monster-0007",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 0,
+      "event_type": "hit_points_reported",
+      "max_hp": 9,
+      "target_id": "monster-0007",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.condition.gained",
+      "condition": "dead",
+      "effect_id": null,
+      "event_type": "condition_gained",
+      "target_id": "monster-0007",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.death.died",
+      "event_type": "death",
+      "target_id": "monster-0007",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 0,
+      "event_type": "hit_points_reported",
+      "max_hp": 9,
+      "target_id": "monster-0007",
+      "visibility": "referee"
+    },
+    {
+      "amount": 7,
+      "attacker_id": "pc-mu",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "magic"
+      ],
+      "non_regenerable": false,
+      "rolls": [
+        6
+      ],
+      "target_id": "monster-0007",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 0,
+      "event_type": "hit_points_reported",
+      "max_hp": 9,
+      "target_id": "monster-0007",
+      "visibility": "referee"
+    },
+    {
+      "caster_id": "pc-cleric",
+      "code": "magic.cast.cast",
+      "event_type": "spell_cast",
+      "manual": false,
+      "mode": "individual",
+      "reversed": false,
+      "spell_id": "hold_person_c",
+      "target_ids": [
+        "monster-0002"
+      ],
+      "visibility": "player"
+    },
+    {
+      "category": "spells",
+      "code": "combat.save.failed",
+      "event_type": "saving_throw_rolled",
+      "modifier": -2,
+      "required": 18,
+      "roll": 17,
+      "target_id": "monster-0002",
+      "visibility": "player"
+    },
+    {
+      "code": "effects.effect.attached",
+      "effect_id": "effect-0006",
+      "event_type": "effect_attached",
+      "expires_round": 540,
+      "kind": "hold_person_c",
+      "target_ref": "monster-0002",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.condition.gained",
+      "condition": "paralysed",
+      "effect_id": "effect-0006",
+      "event_type": "condition_gained",
+      "target_id": "monster-0002",
+      "visibility": "player"
+    },
+    {
+      "caster_id": "pc-cleric",
+      "code": "magic.cast.cast",
+      "event_type": "spell_cast",
+      "manual": false,
+      "mode": "harm",
+      "reversed": true,
+      "spell_id": "cure_light_wounds",
+      "target_ids": [
+        "monster-0002"
+      ],
+      "visibility": "player"
+    },
+    {
+      "attack_name": "cure_light_wounds",
+      "attacker_id": "pc-cleric",
+      "code": "combat.attack.auto_hit",
+      "defender_ac": null,
+      "defender_id": "monster-0002",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": null,
+      "roll": null,
+      "total": null,
+      "visibility": "player"
+    },
+    {
+      "amount": 5,
+      "attacker_id": "pc-cleric",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [
+        "magic"
+      ],
+      "non_regenerable": false,
+      "rolls": [
+        4
+      ],
+      "target_id": "monster-0002",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 0,
+      "event_type": "hit_points_reported",
+      "max_hp": 1,
+      "target_id": "monster-0002",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.condition.gained",
+      "condition": "dead",
+      "effect_id": null,
+      "event_type": "condition_gained",
+      "target_id": "monster-0002",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.death.died",
+      "event_type": "death",
+      "target_id": "monster-0002",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 0,
+      "event_type": "hit_points_reported",
+      "max_hp": 1,
+      "target_id": "monster-0002",
+      "visibility": "referee"
+    },
+    {
+      "caster_id": "pc-cleric",
+      "code": "magic.cast.cast",
+      "event_type": "spell_cast",
+      "manual": false,
+      "mode": "heal",
+      "reversed": false,
+      "spell_id": "cure_light_wounds",
+      "target_ids": [
+        "pc-mu"
+      ],
+      "visibility": "player"
+    },
+    {
+      "amount": 4,
+      "code": "combat.healing.applied",
+      "event_type": "healing_applied",
+      "source": "magical",
+      "target_id": "pc-mu",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 10,
+      "event_type": "hit_points_reported",
+      "max_hp": 11,
+      "target_id": "pc-mu",
+      "visibility": "referee"
+    }
+  ],
+  "healed": [
+    4
+  ],
+  "held_target": "monster-0002",
+  "hold_attempts": 1,
+  "magic_user_book": [
+    "sleep",
+    "magic_missile",
+    "web",
+    "fire_ball"
+  ],
+  "magic_user_level": 6,
+  "master_seed": 20260703,
+  "missile_targets": [
+    "monster-0007"
+  ],
+  "sleep_affected": [
+    "monster-0004",
+    "monster-0005",
+    "monster-0006"
+  ],
+  "touch_attempts": 1,
+  "transcript": [
+    "pc-mu adds magic_missile to their spell book.",
+    "pc-mu adds web to their spell book.",
+    "pc-mu adds fire_ball to their spell book.",
+    "pc-cleric memorizes: cure_light_wounds, cure_light_wounds, bless, hold_person_c.",
+    "pc-mu memorizes: magic_missile, sleep, fire_ball.",
+    "pc-cleric casts bless [battle] at pc-cleric, pc-mu.",
+    "Effect effect-0001 (bless) attached to pc-cleric.",
+    "Effect effect-0002 (bless) attached to pc-mu.",
+    "Initiative (side): party 3, monsters 1. Order: party, monsters.",
+    "Initiative (side): party 4, monsters 6. Order: monsters, party.",
+    "monster-0001 misses pc-mu with weapon: rolled 9+0 = 9, needing 11.",
+    "monster-0001 misses pc-mu with weapon: rolled 7+0 = 7, needing 11.",
+    "monster-0001 hits pc-mu with weapon: rolled 12+0 = 12, needing 11.",
+    "pc-mu takes 5 damage from monster-0001.",
+    "pc-mu is at 6/11 hit points.",
+    "pc-mu's casting of fire_ball is disrupted — the spell is lost.",
+    "pc-mu memorizes: magic_missile, sleep, fire_ball.",
+    "pc-mu casts fire_ball [damage] at monster-0001, monster-0008.",
+    "monster-0001 fails a save versus spells: rolled 10+0, needing 18.",
+    "monster-0001 takes 28 damage from pc-mu.",
+    "monster-0001 is at 0/3 hit points.",
+    "monster-0001 is dead.",
+    "monster-0001 is killed.",
+    "monster-0001 is at 0/3 hit points.",
+    "monster-0008 automatically saves versus spells.",
+    "monster-0008 takes 11 damage from pc-mu.",
+    "monster-0008 is at 43/54 hit points.",
+    "pc-mu casts sleep [hd_budget] at monster-0004, monster-0005, monster-0006, monster-0007.",
+    "Targets (hd_budget): monster-0004, monster-0005, monster-0006.",
+    "Effect effect-0003 (sleep) attached to monster-0004.",
+    "monster-0004 is asleep.",
+    "Effect effect-0004 (sleep) attached to monster-0005.",
+    "monster-0005 is asleep.",
+    "Effect effect-0005 (sleep) attached to monster-0006.",
+    "monster-0006 is asleep.",
+    "pc-mu casts magic_missile [missiles] at monster-0007, monster-0007, monster-0007.",
+    "monster-0007 takes 2 damage from pc-mu.",
+    "monster-0007 is at 7/9 hit points.",
+    "monster-0007 takes 7 damage from pc-mu.",
+    "monster-0007 is at 0/9 hit points.",
+    "monster-0007 is dead.",
+    "monster-0007 is killed.",
+    "monster-0007 is at 0/9 hit points.",
+    "monster-0007 takes 7 damage from pc-mu.",
+    "monster-0007 is at 0/9 hit points.",
+    "pc-cleric casts hold_person_c [individual] at monster-0002.",
+    "monster-0002 fails a save versus spells: rolled 17-2, needing 18.",
+    "Effect effect-0006 (hold_person_c) attached to monster-0002.",
+    "monster-0002 is paralysed.",
+    "pc-cleric casts cure_light_wounds (reversed) [harm] at monster-0002.",
+    "pc-cleric strikes the helpless monster-0002 with cure_light_wounds — no roll needed.",
+    "monster-0002 takes 5 damage from pc-cleric.",
+    "monster-0002 is at 0/1 hit points.",
+    "monster-0002 is dead.",
+    "monster-0002 is killed.",
+    "monster-0002 is at 0/1 hit points.",
+    "pc-cleric casts cure_light_wounds [heal] at pc-mu.",
+    "pc-mu regains 4 hit points (magical).",
+    "pc-mu is at 10/11 hit points."
+  ],
+  "wight_slept": false
+}

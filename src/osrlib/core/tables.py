@@ -1,4 +1,4 @@
-"""The combat tables as data: attack matrix, monster save bands, XP awards.
+"""The combat tables as data: attack matrix, monster save bands, XP awards, turning.
 
 The tables compile from `Combat_Tables.md` and `Awarding_XP.md` into
 `combat_tables.json` and load as frozen models via
@@ -21,17 +21,25 @@ from osrlib.core.classes import SavingThrows
 from osrlib.core.monsters import MonsterHitDice
 
 __all__ = [
+    "TURNING_COLUMNS",
     "AttackMatrix",
     "AttackMatrixRow",
     "CombatTables",
     "MonsterSaveBand",
+    "TurningResult",
+    "TurningRow",
+    "TurningTable",
     "XpAwardRow",
     "monster_save_band_label",
     "monster_xp",
     "thac0_for_hd",
     "to_hit_ac",
+    "turning_column",
     "xp_band_label",
 ]
+
+TURNING_COLUMNS = ("1", "2", "2*", "3", "4", "5", "6", "7-9")
+"""The turning table's monster-HD column labels, exactly as `Cleric.md` prints them."""
 
 # The attack matrix's HD rows as (max effective HD, THAC0). Effective HD is the count
 # plus 1 for a bonus hit-point modifier ("attack as 1 HD higher"); negative modifiers
@@ -106,6 +114,94 @@ class MonsterSaveBand(BaseModel):
     saves: SavingThrows
 
 
+class TurningResult(BaseModel):
+    """One turning-table cell, resolved.
+
+    `outcome` follows the table legend: `fail` (—), `number` (succeeds when the 2d6
+    turn roll meets `threshold`), `turn` (T — automatic), `destroy` (D — automatic,
+    and affected monsters are annihilated rather than turned).
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    outcome: str
+    threshold: int | None = None
+
+    @model_validator(mode="after")
+    def _threshold_only_on_number(self) -> TurningResult:
+        if self.outcome not in ("fail", "number", "turn", "destroy"):
+            raise ValueError(f"unknown turning outcome {self.outcome!r}")
+        if (self.outcome == "number") != (self.threshold is not None):
+            raise ValueError("exactly the 'number' outcome carries a threshold")
+        return self
+
+
+class TurningRow(BaseModel):
+    """One cleric level's turning row: cells keyed by the monster-HD column label.
+
+    Cell values are exactly as printed: `—`, a threshold number, `T`, or `D`.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    label: str
+    cells: dict[str, str]
+
+    @model_validator(mode="after")
+    def _cells_cover_printed_columns(self) -> TurningRow:
+        if tuple(self.cells) != TURNING_COLUMNS:
+            raise ValueError(f"turning row {self.label!r} must cover columns {TURNING_COLUMNS} in order")
+        for column, cell in self.cells.items():
+            if cell not in ("—", "T", "D") and not cell.isdigit():
+                raise ValueError(f"unparseable turning cell {cell!r} in column {column!r}")
+        return self
+
+
+class TurningTable(BaseModel):
+    """The turning-undead table: 11 cleric-level rows (1–10, `11+`) × 8 HD columns."""
+
+    model_config = ConfigDict(frozen=True)
+
+    rows: tuple[TurningRow, ...]
+
+    @model_validator(mode="after")
+    def _rows_cover_printed_levels(self) -> TurningTable:
+        labels = [row.label for row in self.rows]
+        if labels != [*(str(level) for level in range(1, 11)), "11+"]:
+            raise ValueError(f"turning rows must cover levels 1-10 and 11+, got {labels}")
+        return self
+
+    def result(self, cleric_level: int, column: str) -> TurningResult:
+        """Resolve the turning cell for a cleric level and monster-HD column.
+
+        Levels above 10 clamp to the `11+` row (the printed table's own semantics).
+
+        Args:
+            cleric_level: The turning cleric's level, 1 or higher.
+            column: The monster-HD column label, from
+                [`turning_column`][osrlib.core.tables.turning_column].
+
+        Returns:
+            The resolved cell.
+
+        Raises:
+            ValueError: If the level is below 1 or the column label is unknown.
+        """
+        if cleric_level < 1:
+            raise ValueError(f"cleric level must be positive, got {cleric_level}")
+        if column not in TURNING_COLUMNS:
+            raise ValueError(f"unknown turning column {column!r}")
+        row = self.rows[min(cleric_level, 11) - 1]
+        cell = row.cells[column]
+        if cell == "—":
+            return TurningResult(outcome="fail")
+        if cell == "T":
+            return TurningResult(outcome="turn")
+        if cell == "D":
+            return TurningResult(outcome="destroy")
+        return TurningResult(outcome="number", threshold=int(cell))
+
+
 class XpAwardRow(BaseModel):
     """One XP-awards row: the printed HD label, base XP, and bonus XP per ability."""
 
@@ -124,6 +220,7 @@ class CombatTables(BaseModel):
     attack_matrix: AttackMatrix
     monster_saves: tuple[MonsterSaveBand, ...]
     xp_awards: tuple[XpAwardRow, ...]
+    turning: TurningTable
 
     def save_band(self, label: str) -> MonsterSaveBand:
         """Return the monster save band with `label`.
@@ -233,6 +330,32 @@ def monster_save_band_label(hit_dice: MonsterHitDice) -> str:
     if hd <= 21:
         return "19–21"
     return "22 or more"
+
+
+def turning_column(hit_dice: MonsterHitDice) -> str | None:
+    """Return the turning-table column for a monster's Hit Dice, or `None` above 9.
+
+    Pinned: the column is the HD *count* as a string, except count 2 with a special
+    ability (`asterisks > 0`) maps to `2*` (the table's own footnote), counts 7–9
+    share `7-9`, and counts above 9 have no column — turning fails against them (the
+    printed table is the rule; the "referee may expand" footnote is game data
+    territory). Modifiers don't shift columns (the mummy's 5+1 turns on column 5),
+    and the asterisk matters only at count 2 (the wight's `3*` is column 3).
+
+    Args:
+        hit_dice: The monster's Hit Dice.
+
+    Returns:
+        The column label, or `None` when the monster is beyond the printed table.
+    """
+    count = max(1, hit_dice.count)
+    if count == 2 and hit_dice.asterisks > 0:
+        return "2*"
+    if count <= 6:
+        return str(count)
+    if count <= 9:
+        return "7-9"
+    return None
 
 
 def xp_band_label(hit_dice: MonsterHitDice) -> str:

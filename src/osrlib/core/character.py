@@ -36,12 +36,13 @@ from osrlib.core.abilities import (
 from osrlib.core.alignment import Alignment
 from osrlib.core.classes import ClassDefinition, Race, SavingThrows
 from osrlib.core.dice import RollResult, roll
-from osrlib.core.effects import ActiveCondition
+from osrlib.core.effects import ActiveCondition, ActiveModifier
 from osrlib.core.items import Inventory, equip, movement_rate_feet, purchase, validate_purchase
 from osrlib.core.rng import RngStream
 from osrlib.core.ruleset import Ruleset
+from osrlib.core.spells import MemorizedSpell, SpellCatalog, caster_profile
 from osrlib.core.validation import Rejection
-from osrlib.data import load_ability_tables, load_classes, load_equipment, load_languages
+from osrlib.data import load_ability_tables, load_classes, load_equipment, load_languages, load_spells
 from osrlib.errors import ContentValidationError
 from osrlib.versioning import check_document, stamp_document
 
@@ -53,6 +54,7 @@ __all__ = [
     "Character",
     "CharacterCreationResult",
     "HitPointRoll",
+    "choose_starting_spells",
     "create_character",
     "party_from_document",
     "party_to_document",
@@ -61,6 +63,7 @@ __all__ = [
     "roll_starting_gold",
     "validate_class_choice",
     "validate_extra_languages",
+    "validate_starting_spells",
 ]
 
 CHARACTER_CREATION_STREAM = "character_creation"
@@ -84,8 +87,13 @@ class Character(BaseModel):
     """A player character.
 
     `id` defaults to `None`: entity IDs are session-scoped and assigned when sessions
-    exist in Phase 4. Spells and conditions are Phase 2/3 additive fields.
-    `carrying_treasure` is basic encumbrance's referee judgment, set by the game.
+    exist in Phase 4. `carrying_treasure` is basic encumbrance's referee judgment,
+    set by the game. `spell_book` holds spell ids (arcane casters only; tuple order
+    is acquisition order) and `memorized_spells` the prepared copies (tuple order is
+    memorization order and is load-bearing: casting consumes the first matching copy
+    and drain forgets newest-first). Spell slots stay derived —
+    `definition.row(level).spell_slots`, never stored — so leveling and drain
+    recompute them for free.
     """
 
     model_config = ConfigDict(validate_assignment=True, extra="ignore")
@@ -104,6 +112,9 @@ class Character(BaseModel):
     inventory: Inventory = Field(default_factory=Inventory)
     carrying_treasure: bool = False
     conditions: tuple[ActiveCondition, ...] = ()
+    stat_modifiers: tuple[ActiveModifier, ...] = ()
+    spell_book: tuple[str, ...] = ()
+    memorized_spells: tuple[MemorizedSpell, ...] = ()
 
     @field_validator("scores")
     @classmethod
@@ -462,6 +473,93 @@ def validate_extra_languages(definition: ClassDefinition, int_score: int, choice
     return rejections
 
 
+def validate_starting_spells(
+    definition: ClassDefinition, catalog: SpellCatalog, spell_ids: Sequence[str]
+) -> list[Rejection]:
+    """Validate a starting spell-book choice against class and capacity rules.
+
+    Arcane casters "begin play with as many spells in their spell book as they are
+    able to memorize" (`Spell_Books.md`) — the per-level counts must equal the
+    level-1 slot counts exactly, which for both magic-user and elf means one
+    first-level spell. The caller supplies the choice: "The referee may choose these
+    spells or may allow the player to select" — the game owns the decision, the
+    kernel validates it. Clerics (and non-casters) start with nothing: any selection
+    for them is rejected.
+
+    Args:
+        definition: The character's class.
+        catalog: The loaded spell catalog.
+        spell_ids: The chosen spell ids.
+
+    Returns:
+        Structured rejections; empty when the choice is legal.
+    """
+    profile = caster_profile(definition)
+    if profile is None or profile.kind != "arcane":
+        if spell_ids or (profile is not None and profile.kind == "arcane"):
+            return [Rejection(code="magic.book.not_arcane", params={"class": definition.id})]
+        return []
+    rejections: list[Rejection] = []
+    counts: dict[int, int] = {}
+    seen: set[str] = set()
+    for spell_id in spell_ids:
+        if spell_id in seen:
+            rejections.append(Rejection(code="magic.book.duplicate", params={"spell": spell_id}))
+            continue
+        seen.add(spell_id)
+        try:
+            template = catalog.get(spell_id)
+        except ValueError:
+            rejections.append(Rejection(code="magic.book.unknown_spell", params={"spell": spell_id}))
+            continue
+        if template.spell_list != profile.spell_list:
+            rejections.append(
+                Rejection(code="magic.book.wrong_list", params={"spell": spell_id, "list": template.spell_list})
+            )
+            continue
+        counts[template.level] = counts.get(template.level, 0) + 1
+    slots = definition.row(1).spell_slots
+    for spell_level in range(1, max((*counts, len(slots)), default=0) + 1):
+        allowed = slots[spell_level - 1] if spell_level <= len(slots) else 0
+        chosen = counts.get(spell_level, 0)
+        if chosen != allowed:
+            rejections.append(
+                Rejection(
+                    code="magic.book.capacity_mismatch",
+                    params={"spell_level": spell_level, "capacity": allowed, "chosen": chosen},
+                )
+            )
+    return rejections
+
+
+def choose_starting_spells(
+    character: Character, definition: ClassDefinition, catalog: SpellCatalog, spell_ids: Sequence[str]
+) -> list[Rejection]:
+    """Fill an arcane caster's starting spell book — the Phase 1 creation seam closed.
+
+    The stepwise creation surface: validates the choice (see
+    [`validate_starting_spells`][osrlib.core.character.validate_starting_spells]) and
+    a still-empty book, then writes it. Creation stays event-less per the Phase 1
+    precedent.
+
+    Args:
+        character: The created character; its `spell_book` is written.
+        definition: The character's class.
+        catalog: The loaded spell catalog.
+        spell_ids: The chosen spell ids.
+
+    Returns:
+        Structured rejections; empty when the book was written.
+    """
+    if character.spell_book:
+        return [Rejection(code="magic.book.already_chosen", params={"character": character.name})]
+    rejections = validate_starting_spells(definition, catalog, spell_ids)
+    if rejections:
+        return rejections
+    character.spell_book = tuple(spell_ids)
+    return []
+
+
 def roll_starting_gold(stream: RngStream) -> RollResult:
     """Roll starting money: 3d6 × 10 gold pieces, via the dice grammar.
 
@@ -482,6 +580,7 @@ def create_character(
     ruleset: Ruleset,
     stream: RngStream,
     adjustment: AbilityAdjustment | None = None,
+    starting_spell_ids: Sequence[str] = (),
     extra_languages: Sequence[str] = (),
     purchases: Sequence[tuple[str, int]] = (),
     equip_ids: Sequence[str] = (),
@@ -489,9 +588,10 @@ def create_character(
     """Create a 1st-level character with all decisions supplied upfront.
 
     A convenience for scripts and tests: calls the same stepwise creation functions in
-    the SRD's order — roll scores, validate the class choice, adjust scores, roll hit
-    points, validate languages, roll starting gold, buy and equip — drawing scores,
-    hit points, and gold from `stream` in that pinned order.
+    the SRD's order — roll scores, validate the class choice, adjust scores, choose
+    the spell book (the SRD's step 6, before hit points; it consumes no draws), roll
+    hit points, validate languages, roll starting gold, buy and equip — drawing
+    scores, hit points, and gold from `stream` in that pinned order.
 
     Args:
         name: The character's name.
@@ -501,6 +601,8 @@ def create_character(
         stream: The RNG stream for creation draws, conventionally the
             `character_creation` stream.
         adjustment: The optional ability score adjustment.
+        starting_spell_ids: The arcane starting spell book (exactly the level-1
+            memorization capacity — one first-level spell for magic-user and elf).
         extra_languages: INT-granted extra language choices.
         purchases: `(item_id, lots)` pairs bought in order from the starting gold.
         equip_ids: Item ids to equip after purchase, in order.
@@ -510,9 +612,9 @@ def create_character(
 
     Raises:
         ValueError: If any decision is illegal for the rolled scores — unknown ids, a
-            failed class requirement, an illegal adjustment, language choices, an
-            unaffordable purchase, or a forbidden equip. Callers wanting structured
-            reasons drive the stepwise functions themselves.
+            failed class requirement, an illegal adjustment, spell choices, language
+            choices, an unaffordable purchase, or a forbidden equip. Callers wanting
+            structured reasons drive the stepwise functions themselves.
     """
     definition = load_classes().get(class_id)
     ability_rolls = roll_ability_scores(stream)
@@ -522,6 +624,11 @@ def create_character(
     scores = dict(ability_rolls.scores)
     if adjustment is not None:
         scores = apply_adjustment(scores, adjustment, definition.prime_requisites, definition.may_not_lower)
+    profile = caster_profile(definition)
+    if starting_spell_ids or (profile is not None and profile.kind == "arcane"):
+        spell_rejections = validate_starting_spells(definition, load_spells(), starting_spell_ids)
+        if spell_rejections:
+            raise ValueError(f"illegal starting spells: {[rejection.code for rejection in spell_rejections]}")
     con_modifier = load_ability_tables().hit_point_modifier(scores[AbilityScore.CON])
     hit_point_roll = roll_hit_points(definition, con_modifier, ruleset, stream)
     language_rejections = validate_extra_languages(definition, scores[AbilityScore.INT], extra_languages)
@@ -554,6 +661,7 @@ def create_character(
         max_hp=hit_point_roll.hit_points,
         current_hp=hit_point_roll.hit_points,
         inventory=inventory,
+        spell_book=tuple(starting_spell_ids),
     )
     return CharacterCreationResult(
         character=character,

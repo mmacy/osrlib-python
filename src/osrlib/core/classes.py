@@ -587,6 +587,14 @@ def drain_levels(
             target_id=character.id or character.name, current_hp=character.current_hp, max_hp=character.max_hp
         )
     )
+    if getattr(character, "memorized_spells", ()):
+        # The drain/memorization interplay: memorized copies in excess of the shrunk
+        # slots are forgotten newest-first. Runtime imports because the spells module
+        # sits above this one in the import graph (spells → combat → classes).
+        from osrlib.core.spells import forget_excess_memorized
+        from osrlib.data import load_spells
+
+        events.extend(forget_excess_memorized(character, definition, load_spells()))
     return DrainResult(
         levels_lost=former_level - character.level,
         new_level=character.level,

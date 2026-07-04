@@ -37,12 +37,13 @@ from osrlib.versioning import SCHEMA_VERSION, engine_version
 MASTER_SEED = 6
 GOLDEN_PATH = Path(__file__).parent / "goldens" / "phase1_party.json"
 
-# class id → (name, alignment, adjustment, extra languages, purchases, equips)
+# class id → (name, alignment, adjustment, starting spells, extra languages, purchases, equips)
 PARTY_PLAN = {
     "cleric": (
         "Adelheid",
         Alignment.LAWFUL,
         None,
+        (),
         (),
         [("mace", 1), ("leather", 1), ("torch", 1)],
         ["mace", "leather"],
@@ -52,16 +53,27 @@ PARTY_PLAN = {
         Alignment.LAWFUL,
         None,
         (),
+        (),
         [("war_hammer", 1), ("leather", 1), ("iron_spikes", 1), ("torch", 1)],
         ["war_hammer", "leather"],
     ),
-    "elf": ("Cirdan", Alignment.NEUTRAL, None, (), [("sword", 1), ("leather", 1)], ["sword", "leather"]),
+    # Arcane casters begin play with a spell book at capacity: one first-level spell.
+    "elf": (
+        "Cirdan",
+        Alignment.NEUTRAL,
+        None,
+        ("magic_missile",),
+        (),
+        [("sword", 1), ("leather", 1)],
+        ["sword", "leather"],
+    ),
     # Seed 6 rolls the fighter STR 16 / INT 16: lowering INT by 2 to raise STR to 17
     # exercises the adjustment step inside the golden.
     "fighter": (
         "Dagmar",
         Alignment.NEUTRAL,
         AbilityAdjustment(lowered={AbilityScore.INT: 2}, raised={AbilityScore.STR: 1}),
+        (),
         (),
         [("sword", 1), ("leather", 1)],
         ["sword", "leather"],
@@ -71,6 +83,7 @@ PARTY_PLAN = {
         "Elderberry",
         Alignment.LAWFUL,
         None,
+        (),
         ("dragon", "gnoll"),
         [("sling", 1), ("sling_stones", 1), ("leather", 1), ("rations_standard", 1)],
         ["sling", "leather"],
@@ -79,6 +92,7 @@ PARTY_PLAN = {
         "Falk",
         Alignment.CHAOTIC,
         None,
+        ("sleep",),
         (),
         [("dagger", 1), ("oil_flask", 1), ("torch", 1), ("rations_standard", 1), ("waterskin", 1)],
         ["dagger"],
@@ -88,6 +102,7 @@ PARTY_PLAN = {
         "Grima",
         Alignment.CHAOTIC,
         None,
+        (),
         ("kobold",),
         [("dagger", 1), ("leather", 1), ("rope", 1), ("torch", 1)],
         ["dagger", "leather"],
@@ -100,7 +115,7 @@ def build_golden_party(streams: RngStreams) -> list[CharacterCreationResult]:
     stream = streams.get("character_creation")
     results = []
     for class_id in sorted(PARTY_PLAN):
-        name, alignment, adjustment, extra_languages, purchases, equip_ids = PARTY_PLAN[class_id]
+        name, alignment, adjustment, starting_spell_ids, extra_languages, purchases, equip_ids = PARTY_PLAN[class_id]
         results.append(
             create_character(
                 name=name,
@@ -109,6 +124,7 @@ def build_golden_party(streams: RngStreams) -> list[CharacterCreationResult]:
                 ruleset=Ruleset(),
                 stream=stream,
                 adjustment=adjustment,
+                starting_spell_ids=starting_spell_ids,
                 extra_languages=extra_languages,
                 purchases=purchases,
                 equip_ids=equip_ids,

@@ -25,6 +25,7 @@ from osrlib.core.abilities import AbilityTables
 from osrlib.core.classes import ClassCatalog
 from osrlib.core.items import EquipmentCatalog
 from osrlib.core.monsters import MonsterCatalog
+from osrlib.core.spells import SpellCatalog
 from osrlib.core.tables import CombatTables
 from osrlib.errors import ContentValidationError
 
@@ -37,6 +38,7 @@ __all__ = [
     "load_equipment",
     "load_languages",
     "load_monsters",
+    "load_spells",
 ]
 
 
@@ -183,6 +185,23 @@ def load_combat_tables() -> CombatTables:
         return CombatTables.model_validate(data)
     except ValidationError as error:
         raise ContentValidationError(f"combat_tables.json failed validation: {error}") from error
+
+
+@cache
+def load_spells() -> SpellCatalog:
+    """Load the spell templates compiled from the SRD's spell pages.
+
+    Returns:
+        The frozen spell catalog.
+
+    Raises:
+        ContentValidationError: If the generated data is missing or fails validation.
+    """
+    data = _read("spells.json")
+    try:
+        return SpellCatalog.model_validate(data)
+    except ValidationError as error:
+        raise ContentValidationError(f"spells.json failed validation: {error}") from error
 
 
 @cache

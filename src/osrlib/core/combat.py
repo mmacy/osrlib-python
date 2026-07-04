@@ -34,7 +34,17 @@ from pydantic import BaseModel, ConfigDict
 from osrlib.core.classes import SavingThrows
 from osrlib.core.clock import GameClock, TimeUnit
 from osrlib.core.dice import RollResult, roll
-from osrlib.core.effects import Condition, EffectDefinition, EffectsLedger, has_condition, kill
+from osrlib.core.effects import (
+    Condition,
+    EffectDefinition,
+    EffectsLedger,
+    has_condition,
+    has_modifier,
+    kill,
+    modifier_dice,
+    modifier_total,
+    modifier_values,
+)
 from osrlib.core.events import (
     AttackRolledEvent,
     DamageAbsorbedEvent,
@@ -70,18 +80,22 @@ __all__ = [
     "SaveCategory",
     "SaveResult",
     "TargetingMode",
+    "alignments_differ",
     "apply_healing",
     "attack_roll",
     "burning_oil_pool_definition",
+    "cannot_move",
     "check_immunity",
     "check_morale",
     "damage_roll",
     "damage_source_for",
     "deal_damage",
+    "destroy_equipment",
     "drain_monster_hd",
     "effective_hd",
     "falling_damage",
     "incapacitated",
+    "morale_modifier",
     "morale_triggers",
     "natural_healing",
     "participant_modifier",
@@ -140,6 +154,7 @@ class AttackContext(BaseModel):
     attacker_large: bool = False
     lit: bool = False
     fixed_damage_option: int = 0
+    monster_missile: bool = False
 
 
 class DamageSource(BaseModel):
@@ -147,9 +162,13 @@ class DamageSource(BaseModel):
 
     `keys` are material/enchantment keys (`silver`, `magic`, `holy`); `element` is the
     energy element, if any; `kind` names the delivery (`weapon`, `unarmed`, `splash`,
-    `breath`, `falling`, `effect`); `destructive` marks sources that destroy a
-    victim's equipment on death (every breath weapon now, *lightning bolt* in
-    Phase 3).
+    `breath`, `falling`, `effect`, `spell`); `destructive` marks sources that destroy
+    a victim's equipment on death (breath weapons, *lightning bolt*). `missile` marks
+    small-missile deliveries for *protection from normal missiles* — pinned boundary
+    from that page's own examples: character weapon missiles and thrown splash items
+    are small missiles; monster attacks are never auto-marked (the hurled boulder is
+    the RAW counter-example), with `AttackContext.monster_missile` as the caller's
+    opt-in when the fiction says small missile (a hobgoblin's arrow).
     """
 
     model_config = ConfigDict(frozen=True)
@@ -159,6 +178,7 @@ class DamageSource(BaseModel):
     magical: bool = False
     kind: str = "weapon"
     destructive: bool = False
+    missile: bool = False
 
 
 class AttackRollResult(BaseModel):
@@ -271,6 +291,27 @@ def _entity_id(combatant: object) -> str:
     return identifier if identifier is not None else getattr(combatant, "name", "unknown")
 
 
+def alignments_differ(source: object, target: object) -> bool:
+    """Return whether two combatants' operative alignments differ, for warding gates.
+
+    Pinned: a combatant whose alignment is unresolved (`None` — a multi-option
+    monster spawned without a choice) counts as being of another alignment — the
+    ward errs protective.
+
+    Args:
+        source: The creature the ward is checked against (the attacker).
+        target: The warded creature.
+
+    Returns:
+        True when the alignments differ or either is unresolved.
+    """
+    source_alignment = getattr(source, "alignment", None)
+    target_alignment = getattr(target, "alignment", None)
+    if source_alignment is None or target_alignment is None:
+        return True
+    return source_alignment != target_alignment
+
+
 def _class_ability_params(combatant: object, tag: str) -> dict[str, int | str] | None:
     definition = getattr(combatant, "definition", None)
     if definition is None:
@@ -349,7 +390,10 @@ def damage_source_for(attacker: object, attack: Attack, context: AttackContext) 
     oil deal fire (pinned — see the module docstring). Monster natural attacks are
     mundane; the `hd5_counts_as_magical` flag is resolved by
     [`check_immunity`][osrlib.core.combat.check_immunity] from the attacker, not
-    here.
+    here. A wielder under *striking* presents `magic` on weapon attacks (never
+    unarmed — the enchantment is the weapon's, pinned to the wielder because item
+    instances carry no ids). Missile-ness is recorded for the small-missile
+    immunity gate (see [`DamageSource`][osrlib.core.combat.DamageSource]).
 
     Args:
         attacker: The attacking combatant.
@@ -362,10 +406,13 @@ def damage_source_for(attacker: object, attack: Attack, context: AttackContext) 
     keys: list[str] = []
     element: str | None = None
     kind = "weapon"
+    magical = False
+    missile = False
     if attack is None:
         kind = "unarmed"
     elif isinstance(attack, MonsterAttack):
         kind = "monster"
+        missile = context.monster_missile
     else:
         material = getattr(attack, "material", None)
         if material is not None and material.value == "silver":
@@ -373,11 +420,18 @@ def damage_source_for(attacker: object, attack: Attack, context: AttackContext) 
         if isinstance(attack, GearTemplate):
             if WeaponQuality.SPLASH in _qualities(attack):
                 kind = "splash"
+                missile = True
             if attack.id == _HOLY_ITEM_ID:
                 keys.append("holy")
             if attack.id == "torch" or (attack.id == "oil_flask" and context.lit):
                 element = "fire"
-    return DamageSource(keys=tuple(keys), element=element, kind=kind)
+        if _is_missile_use(attack, context):
+            missile = True
+        # The wielder's *striking* enchantment: the weapon counts as magical.
+        if has_modifier(attacker, "counts_as_magical"):
+            keys.append("magic")
+            magical = True
+    return DamageSource(keys=tuple(keys), element=element, kind=kind, magical=magical, missile=missile)
 
 
 def _is_bladed(attack: Attack) -> bool:
@@ -410,7 +464,7 @@ def validate_attack(
         Structured rejections; empty when the attack may be rolled.
     """
     rejections: list[Rejection] = []
-    for condition in _CANNOT_ACT:
+    for condition in (*_CANNOT_ACT, Condition.WEAKENED):
         if has_condition(attacker, condition):
             rejections.append(
                 Rejection(
@@ -445,7 +499,7 @@ def validate_attack(
     return rejections
 
 
-def _defender_descending_ac(defender: object, context: AttackContext) -> int | None:
+def _defender_descending_ac(defender: object, context: AttackContext, *, missile: bool = False) -> int | None:
     ac = getattr(defender, "armour_class", None)
     if ac is None:
         return None
@@ -459,6 +513,11 @@ def _defender_descending_ac(defender: object, context: AttackContext) -> int | N
         params = _class_ability_params(defender, "defensive_bonus")
         if params is not None:
             ac -= int(params.get("ac_bonus", 0))
+    # AC-set modifiers (*shield*): the effective AC is the better of the defender's
+    # own and the set value, never worse (pinned) — for descending AC, the minimum.
+    set_kind = "ac_set_vs_missile" if missile else "ac_set"
+    for value in modifier_values(defender, set_kind):
+        ac = min(ac, value)
     return ac
 
 
@@ -519,8 +578,15 @@ def attack_roll(
             modifier += int(back_stab.get("attack_bonus", 0))
     if context.defender_retreating:
         modifier += 2
+    # Spell stat modifiers: the attacker's own bonuses (*bless*/*blight*) and the
+    # defender's ward penalty on attackers of another alignment (*protection from
+    # evil*), each under the cumulative rule.
+    modifier += modifier_total(attacker, "attack_bonus")
+    modifier += modifier_total(
+        defender, "attack_penalty_of_attackers", versus_differs=alignments_differ(attacker, defender)
+    )
 
-    ac = _defender_descending_ac(defender, context)
+    ac = _defender_descending_ac(defender, context, missile=missile)
     thac0 = attacker.thac0
     required = (thac0 - ac) if ruleset.thac0_arithmetic else to_hit_ac(thac0, ac)
     natural = stream.randbelow(20) + 1
@@ -562,7 +628,10 @@ def check_immunity(defender: object, source: DamageSource, *, ruleset: Ruleset, 
     `harmed_only_by` gate on undead targets and has *no effect* on anything else;
     `uses_fire` monsters ignore burning oil; the `hd5_counts_as_magical` flag lets a
     5+ HD monster attacker (or one bearing a silver/magic-subset gate itself) bypass
-    gates whose keys are a subset of {silver, magic}.
+    gates whose keys are a subset of {silver, magic}; and a defender under
+    *protection from normal missiles* absorbs any small nonmagical missile (the
+    source's `missile` flag — an arrow or thrown flask is blocked, a hurled boulder
+    or enchanted arrow is not).
 
     Args:
         defender: The defending combatant.
@@ -573,6 +642,8 @@ def check_immunity(defender: object, source: DamageSource, *, ruleset: Ruleset, 
     Returns:
         True when the hit is absorbed.
     """
+    if source.missile and not source.magical and has_modifier(defender, "missile_immunity_nonmagical"):
+        return True
     template = getattr(defender, "template", None)
     categories = template.categories if template is not None else ()
     if "holy" in source.keys and "undead" not in categories:
@@ -657,6 +728,16 @@ def damage_roll(
     missile = _is_missile_use(attack, context)
     if not missile and not isinstance(attack, MonsterAttack):
         amount += getattr(attacker, "melee_modifier", 0)
+    # Spell stat modifiers join the pre-doubling sum (pinned): *bless*'s flat bonus
+    # on any attack, *striking*'s extra die on weapon attacks only (never unarmed,
+    # never a monster's natural attack).
+    amount += modifier_total(attacker, "damage_bonus")
+    if attack is not None and not isinstance(attack, MonsterAttack):
+        striking = modifier_dice(attacker, "weapon_damage_dice_bonus")
+        if striking is not None:
+            bonus = roll(striking, stream)
+            rolls = (*rolls, *bonus.rolls)
+            amount += bonus.total
     qualities = _qualities(attack)
     if context.braced and WeaponQuality.BRACE in qualities:
         amount *= 2
@@ -704,6 +785,14 @@ def deal_damage(
             keys = {key.value for key in reduction.keys}
             if not keys or any(key in keys for key in source.keys) or (source.element in keys):
                 amount = max(1, amount // reduction.divisor)
+    # Element-scoped per-die reduction (*resist cold/fire*): 1 point per damage die
+    # rolled, each die inflicting a minimum of 1. Sources that rolled no dice (fixed
+    # damage, a dragon's current-hp breath) have no dice to reduce (pinned — the
+    # page's rule is per die rolled).
+    if source.element is not None and rolls:
+        per_die = modifier_total(target, "damage_reduction_per_die", element=source.element)
+        if per_die > 0:
+            amount = max(min(amount, len(rolls)), amount - per_die * len(rolls))
     events: list[Event] = []
     target_id = _entity_id(target)
     already_dead = has_condition(target, Condition.DEAD)
@@ -742,13 +831,24 @@ def deal_damage(
         )
         events.extend(kill(target, permanent=permanent))
         if source.destructive:
-            events.extend(_destroy_equipment(target))
+            events.extend(destroy_equipment(target))
     elif already_dead and newly_permanent:
         events.append(DeathEvent(code="combat.death.permanent", target_id=target_id))
     return events
 
 
-def _destroy_equipment(target: object) -> list[Event]:
+def destroy_equipment(target: object) -> list[Event]:
+    """Destroy a victim's carried equipment — the destructive-death outcome.
+
+    Called by the damage pipeline for destructive killing sources and by
+    *disintegrate* (the material form destroyed includes what it carries, pinned).
+
+    Args:
+        target: The victim; its inventory is emptied.
+
+    Returns:
+        The destruction event, or nothing for an empty inventory.
+    """
     inventory = getattr(target, "inventory", None)
     if inventory is None:
         return []
@@ -1076,6 +1176,41 @@ def incapacitated(combatant: object) -> bool:
     return any(has_condition(combatant, condition) for condition in _CANNOT_ACT)
 
 
+def cannot_move(combatant: object) -> bool:
+    """Return whether a combatant cannot move — the *web* entanglement hook.
+
+    Queryable now, consumed by Phase 4's movement rules: an entangled creature
+    "can't move" per the *web* page, and the incapacitated states cannot move
+    either.
+
+    Args:
+        combatant: The combatant.
+
+    Returns:
+        True when movement is impossible.
+    """
+    return incapacitated(combatant) or has_condition(combatant, Condition.ENTANGLED)
+
+
+def morale_modifier(combatant: object) -> int:
+    """Return a combatant's spell morale modifier (*bless*/*blight*), for `check_morale`.
+
+    [`check_morale`][osrlib.core.combat.check_morale] receives a side key and score,
+    never a creature, so spell morale modifiers ride its existing `modifier`
+    argument: the caller folds this into the situational adjustment. Pinned: spell
+    morale modifiers count inside the same ±2 total-adjustment clamp and the ML 2/12
+    exemptions as situational adjustments — one uniform adjustment rule, not a
+    second channel.
+
+    Args:
+        combatant: The creature whose morale is being checked.
+
+    Returns:
+        The signed cumulative morale modifier.
+    """
+    return modifier_total(combatant, "morale_bonus")
+
+
 def morale_triggers(members: Sequence[object]) -> list[str]:
     """Return the morale triggers a side's current state raises.
 
@@ -1104,6 +1239,7 @@ def saving_throw(
     modifier: int = 0,
     magical: bool = False,
     element: str | None = None,
+    source: object | None = None,
     stream: RngStream,
 ) -> SaveResult:
     """Roll a saving throw: 1d20 at or above the target's value for the category.
@@ -1112,7 +1248,10 @@ def saving_throw(
     category is not breath (pinned reading of "does not normally include saves
     against breath attacks"; referee discretion beyond that arrives as a caller
     modifier). Energy `auto_save` defenses (a dragon versus similar magical forms of
-    its element) pass without a roll.
+    its element) pass without a roll. Save-bonus stat modifiers apply under the
+    cumulative rule: unconditional, element-scoped (*resist cold/fire* versus a
+    matching `element`), and alignment-scoped (*protection from evil*, consulted
+    against `source`).
 
     Args:
         target: The saving combatant.
@@ -1120,7 +1259,10 @@ def saving_throw(
         modifier: The caller-supplied adjustment.
         magical: Whether the effect is magical (WIS applies; auto-save defenses key
             off it).
-        element: The effect's element, consulted by auto-save defenses.
+        element: The effect's element, consulted by auto-save defenses and scoped
+            save bonuses.
+        source: The creature whose attack or ability forced the save, consulted by
+            alignment-scoped save bonuses.
         stream: The combat stream.
 
     Returns:
@@ -1137,6 +1279,8 @@ def saving_throw(
     required = getattr(saves, category.value)
     if magical and category is not SaveCategory.BREATH:
         modifier += getattr(target, "magic_save_modifier", 0)
+    versus_differs = alignments_differ(source, target) if source is not None else False
+    modifier += modifier_total(target, "save_bonus", element=element, versus_differs=versus_differs)
     rolled = stream.randbelow(20) + 1
     passed = rolled + modifier >= required
     event = SavingThrowRolledEvent(
@@ -1187,15 +1331,17 @@ def natural_healing(target: object, stream: RngStream, *, ledger: EffectsLedger 
     """Apply one full day of complete rest: 1d3 hit points.
 
     Callable by whoever can attest the rest was uninterrupted (Phase 4 automates).
-    Under mummy rot, natural healing runs ten times slower — one 1d3 recovery per
-    ten consecutive full rest days, tracked on the rot effect (pinned); without a
-    ledger to track on, a diseased target does not heal.
+    Slowed-healing diseases stretch the cadence: under mummy rot, natural healing
+    runs ten times slower (pinned), and an effect carrying a `healing_rest_days`
+    param (*cause disease*'s "twice the usual amount of time" is 2) heals once per
+    that many consecutive full rest days, tracked on the effect. When several apply,
+    the slowest wins. Without a ledger to track on, a diseased target does not heal.
 
     Args:
         target: The resting creature; mutated.
         stream: The effects stream (natural-healing rolls are effect-internal
             randomness, pinned).
-        ledger: The effects ledger carrying the mummy-rot effect, when any.
+        ledger: The effects ledger carrying the disease effect, when any.
 
     Returns:
         The healing and state events; empty on a non-healing rest day.
@@ -1205,11 +1351,16 @@ def natural_healing(target: object, stream: RngStream, *, ledger: EffectsLedger 
     if has_condition(target, Condition.DISEASED):
         if ledger is None:
             return []
-        rots = ledger.active_on(_entity_id(target), "mummy_rot")
-        if rots:
-            rot = rots[0]
-            rot.state["rest_days"] = rot.state.get("rest_days", 0) + 1
-            if rot.state["rest_days"] % 10 != 0:
+        slowdowns = []
+        for effect in ledger.active_on(_entity_id(target)):
+            if effect.definition.kind == "mummy_rot":
+                slowdowns.append((effect, 10))
+            elif "healing_rest_days" in effect.definition.params:
+                slowdowns.append((effect, int(effect.definition.params["healing_rest_days"])))
+        if slowdowns:
+            effect, cadence = max(slowdowns, key=lambda pair: pair[1])
+            effect.state["rest_days"] = effect.state.get("rest_days", 0) + 1
+            if effect.state["rest_days"] % cadence != 0:
                 return []
     amount = stream.randbelow(3) + 1
     return apply_healing(target, amount, source="natural")

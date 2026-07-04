@@ -13,6 +13,8 @@ from osrlib.core.events import (
     InitiativeRolledEvent,
     LevelDrainedEvent,
     MoraleCheckedEvent,
+    PreparedSpell,
+    TurningTypeOutcome,
     Visibility,
     parse_event,
 )
@@ -55,6 +57,24 @@ def sample_event(event_class, code):
         "MonsterRevivedEvent": dict(target_id="monster-0001"),
         "HitPointsReportedEvent": dict(target_id="monster-0001", current_hp=12, max_hp=30),
         "TargetsSelectedEvent": dict(mode="hd_budget", target_ids=("monster-0001",)),
+        "SpellsMemorizedEvent": dict(
+            caster_id="pc-1",
+            prepared=(PreparedSpell(spell_id="cure_light_wounds"), PreparedSpell(spell_id="bless", reversed=True)),
+        ),
+        "SpellCastEvent": dict(caster_id="pc-1", spell_id="fire_ball", mode="damage", target_ids=("monster-0001",)),
+        "SpellDisruptedEvent": dict(caster_id="pc-1", spell_id="fire_ball"),
+        "SpellForgottenEvent": dict(caster_id="pc-1", spell_id="sleep"),
+        "SpellBookUpdatedEvent": dict(caster_id="pc-1", spell_id="web"),
+        "UndeadTurnedEvent": dict(
+            caster_id="pc-1",
+            roll=9,
+            hd_pool=7,
+            types=(TurningTypeOutcome(template_id="skeleton", column="1", outcome="turn"),),
+            affected_ids=("monster-0001",),
+        ),
+        "MagicDispelledEvent": dict(
+            caster_id="pc-1", released_effect_ids=("effect-0001",), surviving_effect_ids=("effect-0002",)
+        ),
     }
     return event_class(code=code, **samples[event_class.__name__])
 

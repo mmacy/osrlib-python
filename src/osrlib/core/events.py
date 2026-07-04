@@ -55,10 +55,19 @@ __all__ = [
     "KERNEL_EVENT_CLASSES",
     "KernelEvent",
     "LevelDrainedEvent",
+    "MagicDispelledEvent",
     "MonsterRevivedEvent",
     "MoraleCheckedEvent",
+    "PreparedSpell",
     "SavingThrowRolledEvent",
+    "SpellBookUpdatedEvent",
+    "SpellCastEvent",
+    "SpellDisruptedEvent",
+    "SpellForgottenEvent",
+    "SpellsMemorizedEvent",
     "TargetsSelectedEvent",
+    "TurningTypeOutcome",
+    "UndeadTurnedEvent",
     "Visibility",
     "parse_event",
 ]
@@ -415,6 +424,139 @@ class TargetsSelectedEvent(Event):
     target_ids: tuple[str, ...]
 
 
+class PreparedSpell(BaseModel):
+    """One prepared copy in a memorization event: the spell and its fixed form."""
+
+    model_config = ConfigDict(frozen=True)
+
+    spell_id: str
+    reversed: bool = False
+
+
+class SpellsMemorizedEvent(Event):
+    """A caster's daily preparation resolved: the full prepared list.
+
+    One event per preparation — memorization is a full replacement, so the list is
+    the caster's complete new memory.
+    """
+
+    allowed_codes: ClassVar[frozenset[str]] = frozenset({"magic.memorize.prepared"})
+
+    event_type: Literal["spells_memorized"] = "spells_memorized"
+    code: str = "magic.memorize.prepared"
+    visibility: Visibility = Visibility.PLAYER
+    caster_id: str
+    prepared: tuple[PreparedSpell, ...]
+
+
+class SpellCastEvent(Event):
+    """A spell cast: the memorized copy was consumed.
+
+    `manual=True` marks modes the kernel doesn't execute — the game narrates the
+    effect from the spell's prose. Resolution consequences ride the existing event
+    types (saves, damage, conditions, effects, healing, deaths), exactly as breath
+    weapons do. `magic.cast.no_effect` reports a cast whose every target was
+    ineligible or unaffected — the copy is still spent (rejections are free and
+    would leak hidden state, pinned).
+    """
+
+    allowed_codes: ClassVar[frozenset[str]] = frozenset({"magic.cast.cast", "magic.cast.no_effect"})
+
+    event_type: Literal["spell_cast"] = "spell_cast"
+    visibility: Visibility = Visibility.PLAYER
+    caster_id: str
+    spell_id: str
+    mode: str
+    reversed: bool = False
+    target_ids: tuple[str, ...] = ()
+    manual: bool = False
+
+
+class SpellDisruptedEvent(Event):
+    """A declared casting disrupted: the copy is lost as if it had been cast."""
+
+    allowed_codes: ClassVar[frozenset[str]] = frozenset({"magic.cast.disrupted"})
+
+    event_type: Literal["spell_disrupted"] = "spell_disrupted"
+    code: str = "magic.cast.disrupted"
+    visibility: Visibility = Visibility.PLAYER
+    caster_id: str
+    spell_id: str
+    reversed: bool = False
+
+
+class SpellForgottenEvent(Event):
+    """A memorized copy forgotten because level drain shrank the caster's slots."""
+
+    allowed_codes: ClassVar[frozenset[str]] = frozenset({"magic.memory.forgotten"})
+
+    event_type: Literal["spell_forgotten"] = "spell_forgotten"
+    code: str = "magic.memory.forgotten"
+    visibility: Visibility = Visibility.PLAYER
+    caster_id: str
+    spell_id: str
+    reversed: bool = False
+
+
+class SpellBookUpdatedEvent(Event):
+    """A spell added to an arcane caster's spell book."""
+
+    allowed_codes: ClassVar[frozenset[str]] = frozenset({"magic.book.added"})
+
+    event_type: Literal["spell_book_updated"] = "spell_book_updated"
+    code: str = "magic.book.added"
+    visibility: Visibility = Visibility.PLAYER
+    caster_id: str
+    spell_id: str
+
+
+class TurningTypeOutcome(BaseModel):
+    """One undead type's turning verdict: its column, the cell, and the threshold."""
+
+    model_config = ConfigDict(frozen=True)
+
+    template_id: str
+    column: str | None = None
+    outcome: str
+    threshold: int | None = None
+
+
+class UndeadTurnedEvent(Event):
+    """A turning attempt resolved — player visibility: the player rolls turning dice.
+
+    Carries the 2d6 turn roll, the 2d6 HD pool when one was rolled (some type
+    succeeded), the per-type verdicts, and the affected monsters. Per-monster
+    consequences ride `ConditionGainedEvent`/`DeathEvent`. The code is `failed` when
+    no type succeeded, `destroyed` when any affected monster was destroyed, and
+    `turned` otherwise.
+    """
+
+    allowed_codes: ClassVar[frozenset[str]] = frozenset(
+        {"magic.turning.turned", "magic.turning.destroyed", "magic.turning.failed"}
+    )
+
+    event_type: Literal["undead_turned"] = "undead_turned"
+    visibility: Visibility = Visibility.PLAYER
+    caster_id: str
+    roll: int
+    hd_pool: int | None = None
+    types: tuple[TurningTypeOutcome, ...] = ()
+    affected_ids: tuple[str, ...] = ()
+
+
+class MagicDispelledEvent(Event):
+    """A *dispel magic* resolved: which effects were released and which survived."""
+
+    allowed_codes: ClassVar[frozenset[str]] = frozenset({"magic.dispel.resolved"})
+
+    event_type: Literal["magic_dispelled"] = "magic_dispelled"
+    code: str = "magic.dispel.resolved"
+    visibility: Visibility = Visibility.PLAYER
+    caster_id: str
+    released_effect_ids: tuple[str, ...] = ()
+    surviving_effect_ids: tuple[str, ...] = ()
+
+
 KERNEL_EVENT_CLASSES: tuple[type[Event], ...] = (
     InitiativeRolledEvent,
     AttackRolledEvent,
@@ -435,6 +577,13 @@ KERNEL_EVENT_CLASSES: tuple[type[Event], ...] = (
     MonsterRevivedEvent,
     HitPointsReportedEvent,
     TargetsSelectedEvent,
+    SpellsMemorizedEvent,
+    SpellCastEvent,
+    SpellDisruptedEvent,
+    SpellForgottenEvent,
+    SpellBookUpdatedEvent,
+    UndeadTurnedEvent,
+    MagicDispelledEvent,
 )
 """Every kernel event class, in declaration order — the discriminated union's members."""
 
@@ -457,7 +606,14 @@ KernelEvent = Annotated[
     | LevelDrainedEvent
     | MonsterRevivedEvent
     | HitPointsReportedEvent
-    | TargetsSelectedEvent,
+    | TargetsSelectedEvent
+    | SpellsMemorizedEvent
+    | SpellCastEvent
+    | SpellDisruptedEvent
+    | SpellForgottenEvent
+    | SpellBookUpdatedEvent
+    | UndeadTurnedEvent
+    | MagicDispelledEvent,
     Field(discriminator="event_type"),
 ]
 """Any kernel event, discriminated by `event_type`."""
