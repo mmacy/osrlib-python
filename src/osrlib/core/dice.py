@@ -137,7 +137,6 @@ def roll(expression: str | DiceExpression, stream: RngStream) -> RollResult:
         TypeError: If `expression` is neither a string nor a `DiceExpression`.
 
     Examples:
-
         ```python
         from osrlib.core.dice import roll
         from osrlib.core.rng import RngStreams

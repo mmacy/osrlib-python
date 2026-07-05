@@ -72,7 +72,6 @@ class GameClock(BaseModel):
     """The game clock: elapsed time as a single count of rounds.
 
     Examples:
-
         ```python
         from osrlib.core.clock import GameClock, TimeUnit
 

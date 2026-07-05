@@ -1232,7 +1232,6 @@ def resolve_attack(
         The full resolution with its events.
 
     Examples:
-
         A 1st-level fighter swings a sword at a goblin. Every draw comes from a
         named, seeded stream, so the same seed always replays the same fight:
 

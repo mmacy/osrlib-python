@@ -293,7 +293,6 @@ class GameSession:
             The result envelope; rejected commands carry rejections and no events.
 
         Examples:
-
             ```python
             from osrlib.core.alignment import Alignment
             from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character
@@ -701,7 +700,6 @@ class GameSession:
             The frozen view.
 
         Examples:
-
             ```python
             from osrlib.core.alignment import Alignment
             from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character

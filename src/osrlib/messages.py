@@ -336,7 +336,6 @@ def format_message(event: Event) -> str:
         The formatted English line, or the event's code when no template exists.
 
     Examples:
-
         ```python
         from osrlib.core.events import DamageDealtEvent
         from osrlib.messages import format_message

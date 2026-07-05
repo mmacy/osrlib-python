@@ -1006,7 +1006,6 @@ def cast_spell(
             unmemorized spell is programmer misuse.
 
     Examples:
-
         ```python
         from osrlib.core.alignment import Alignment
         from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character
