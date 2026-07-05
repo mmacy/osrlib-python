@@ -919,7 +919,6 @@ def generate_treasure(
         ValueError: If the letter or tier is unknown.
 
     Examples:
-
         ```python
         from osrlib.core.monsters import IdAllocator
         from osrlib.core.rng import RngStreams

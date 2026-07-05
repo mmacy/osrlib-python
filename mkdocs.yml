@@ -8,11 +8,33 @@ repo_name: mmacy/osrlib-python
 
 theme:
   name: material
+  palette:
+    # Light/dark toggle: the button flips between the two schemes and the site
+    # remembers the reader's choice.
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
 
 markdown_extensions:
   # Explicit heading ids ({ #anchor }) — the generated reference pages carry them so
   # docstrings can cross-reference the content-id indexes via autorefs.
   - attr_list
+  # Syntax highlighting for fenced and inline code. highlight tokenizes with
+  # Pygments; superfences enables the ```lang fences (and keeps them working
+  # alongside the snippet markers); inlinehilite colors `#!lang ...` inline code.
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
   # The front-end walk-throughs excerpt the real example sources via named snippet
   # sections (--8<-- markers), so the pages cannot drift from the code they teach;
   # check_paths fails the build when a marker disappears.
@@ -28,6 +50,12 @@ exclude_docs: |
   docstring-audit.md
 
 strict: true
+
+# `mkdocs serve` watches docs/ and mkdocs.yml by default, not the package source.
+# The API reference is generated from src/ docstrings via mkdocstrings, so watch it
+# too — otherwise docstring edits don't live-reload and the preview goes stale.
+watch:
+  - src
 
 validation:
   nav:
@@ -86,6 +114,13 @@ plugins:
       handlers:
         python:
           paths: [src]
+          # Remote inventories: resolve cross-references to external symbols against the
+          # upstream docs instead of leaving them as plain text. pydantic covers the
+          # BaseModel/Field surface the command, event, and game-state models expose;
+          # python covers stdlib types in signatures and docstrings (e.g. Enum, Path).
+          inventories:
+            - https://docs.pydantic.dev/latest/objects.inv
+            - https://docs.python.org/3/objects.inv
           options:
             docstring_style: google
             # Render the model fields, not only methods: for the frozen pydantic

@@ -219,7 +219,6 @@ class RngStreams:
     key string.
 
     Examples:
-
         ```python
         from osrlib.core.rng import RngStreams
 

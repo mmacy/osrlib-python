@@ -178,7 +178,6 @@ def load_game(document: Mapping[str, object]) -> GameSession:
             library understands.
 
     Examples:
-
         ```python
         from osrlib.core.alignment import Alignment
         from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character

@@ -58,9 +58,6 @@ select = [
     "UP",  # pyupgrade
     "W",   # pycodestyle warnings
 ]
-# House docstring style puts a blank line between a section header ("Examples:") and
-# its content; D412 forbids it.
-ignore = ["D412"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
