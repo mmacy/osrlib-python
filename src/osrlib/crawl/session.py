@@ -1,26 +1,33 @@
-"""`GameSession`: command dispatch, the event log, listeners, flags, views.
+"""`GameSession`: the command loop, the event log, listeners, flags, and views.
 
-The session owns what the kernel leaves to its caller: the
-[`RngStreams`][osrlib.core.rng.RngStreams] (master seed), the
-[`IdAllocator`][osrlib.core.monsters.IdAllocator], the
+The session is the front end's one object. Build it with
+[`GameSession.new`][osrlib.crawl.session.GameSession.new] (or restore one with
+`load_game`), feed player intent to
+[`GameSession.execute`][osrlib.crawl.session.GameSession.execute] as typed
+commands from [`osrlib.crawl.commands`][osrlib.crawl.commands], and render the
+[`Event`][osrlib.core.events.Event]s that come back. The session owns what the
+kernel leaves to its caller: the [`RngStreams`][osrlib.core.rng.RngStreams]
+(master seed), the [`IdAllocator`][osrlib.core.monsters.IdAllocator], the
 [`EffectsLedger`][osrlib.core.effects.EffectsLedger], the
 [`GameClock`][osrlib.core.clock.GameClock], the entity registry (characters and
-live monster instances), the flag store, the listener-state store, the command and
-event logs, the mode, and the crawl state.
+live monster instances), the flag store, the listener-state store, the command
+and event logs, the mode, and the crawl state.
 
-`execute(command)` runs the pure validation pre-phase: a rejected command consumes
-no draws, no clock time, mutates nothing, and is excluded from the command log —
-the spec's command contract, enforced end to end. Accepted commands mutate, append their
-events to the log, then listeners run in registration order, their events appended
-to the same result and log.
+`execute(command)` runs a pure validation pre-phase: a rejected command consumes
+no RNG draws, no clock time, mutates nothing, and is excluded from the command
+log. Accepted commands mutate, append their events to the log, then registered
+listeners run in registration order, their events appended to the same result and
+log. Each command class documents its legal modes, rejection codes, and events.
 
-Command handlers live in [`osrlib.crawl.exploration`][osrlib.crawl.exploration],
-[`osrlib.crawl.encounter`][osrlib.crawl.encounter], and
-[`osrlib.crawl.battle`][osrlib.crawl.battle]; each is one function
-`(session, command) -> (rejections, events)` whose discipline is validation first —
-no draw, no mutation, no time before the last rejection check. The session-owned
-referee and town commands are handled here.
+For presentation, [`GameSession.view`][osrlib.crawl.session.GameSession.view]
+projects the state at player or referee visibility — render from views and
+events, never from raw session internals.
 """
+# Command handlers live in osrlib.crawl.exploration, osrlib.crawl.encounter, and
+# osrlib.crawl.battle; each is one function (session, command) -> (rejections,
+# events) whose discipline is validation first — no draw, no mutation, no time
+# before the last rejection check. The session-owned referee and town commands
+# are handled at the bottom of this module.
 
 from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any, Protocol
@@ -111,7 +118,7 @@ LIGHT_EFFECT_KINDS = frozenset({"light", "continual_light"})
 """The light-family effect kinds: torch/lantern attachments and the light spells."""
 
 DARKNESS_EFFECT_KINDS = frozenset({"darkness", "continual_darkness"})
-"""The darkness-family effect kinds, whose radii swallow a marching party (pinned)."""
+"""The darkness-family effect kinds — the printed radii swallow a marching party."""
 
 
 class DeathRecord(BaseModel):
@@ -149,7 +156,7 @@ class DeprivationState(BaseModel):
 
     @property
     def worst(self) -> int:
-        """The worse track — deprivation doesn't stack (pinned)."""
+        """The worse track — the two deprivation tracks don't stack."""
         return max(self.food_days, self.water_days)
 
 
@@ -177,7 +184,17 @@ class Listener(Protocol):
 
 
 class GameSession:
-    """A running game: the single entry point for command execution and views."""
+    """A running game: the single entry point for command execution and views.
+
+    The loop: [`execute`][osrlib.crawl.session.GameSession.execute] one command at
+    a time and render its [`CommandResult`][osrlib.crawl.commands.CommandResult];
+    read state through [`view`][osrlib.crawl.session.GameSession.view] (player or
+    referee visibility) rather than session attributes; extend the game with
+    [`register_listener`][osrlib.crawl.session.GameSession.register_listener] and
+    session flags. Everything that happened is on `event_log`, every accepted
+    command on `command_log`, and `save_game`/`load_game` round-trip the whole
+    session deterministically: same seed, same commands, same game.
+    """
 
     def __init__(
         self,
@@ -231,8 +248,8 @@ class GameSession:
         """Create a new session, validating the adventure and assigning member ids.
 
         Character ids assign as `character-NNNN` from the session's allocator in
-        party order — the pinned prefix. Members that
-        already carry ids keep them (a party loaded from an earlier session).
+        party order. Members that already carry ids keep them (a party loaded from
+        an earlier session).
 
         Args:
             party: The party, in marching order.
@@ -274,6 +291,42 @@ class GameSession:
 
         Returns:
             The result envelope; rejected commands carry rejections and no events.
+
+        Examples:
+
+            ```python
+            from osrlib.core.alignment import Alignment
+            from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character
+            from osrlib.core.rng import RngStreams
+            from osrlib.core.ruleset import Ruleset
+            from osrlib.crawl.adventure import Adventure, TownSpec
+            from osrlib.crawl.commands import EnterDungeon
+            from osrlib.crawl.dungeon import DungeonSpec, LevelSpec
+            from osrlib.crawl.party import Party
+            from osrlib.crawl.session import GameSession
+
+            rules = Ruleset()
+            rng = RngStreams(master_seed=7).get(CHARACTER_CREATION_STREAM)
+            hero = create_character(
+                name="Hild",
+                class_id="fighter",
+                alignment=Alignment.LAWFUL,
+                ruleset=rules,
+                stream=rng,
+            )
+            level = LevelSpec(number=1, width=1, height=1, entrance=(0, 0))
+            crypt = DungeonSpec(id="crypt", name="The Old Crypt", levels=(level,))
+            town = TownSpec(name="Threshold")
+            adventure = Adventure(name="A First Delve", town=town, dungeons=(crypt,))
+            session = GameSession.new(Party(members=[hero.character]), adventure, seed=7)
+
+            result = session.execute(EnterDungeon(dungeon_id="crypt"))
+            assert result.accepted and result.events
+
+            again = session.execute(EnterDungeon(dungeon_id="crypt"))  # already inside
+            assert not again.accepted
+            assert again.rejections[0].code == "session.command.wrong_mode"
+            ```
         """
         if self.mode not in type(command).allowed_modes:
             return CommandResult(
@@ -323,9 +376,9 @@ class GameSession:
     def combatant(self, combatant_id: str) -> object | None:
         """Return the monster or NPC with `combatant_id`, or `None`.
 
-        The encounter side model's lookup: `EncounterGroup.monster_ids` is the
-        combatant-id list it always structurally was, spanning monsters and NPC
-        adventurers.
+        The encounter side's lookup: an
+        [`EncounterGroup`][osrlib.crawl.encounter.EncounterGroup]'s combatant ids
+        span monsters and NPC adventurers, and this resolves both.
 
         Args:
             combatant_id: The combatant's entity id.
@@ -346,9 +399,11 @@ class GameSession:
         """Spawn `count` instances into the registry, ids from the session allocator.
 
         Args:
-            template_id: The monster template id.
+            template_id: A monster template id from
+                [`load_monsters`][osrlib.data.load_monsters] — see
+                [the monster id index][monsters-index].
             count: How many to spawn.
-            alignment: An alignment pin from keyed content.
+            alignment: An alignment override from keyed content.
 
         Returns:
             The spawned instances, in spawn order.
@@ -372,8 +427,8 @@ class GameSession:
         """Advance the clock `n` rounds through the ledger, translating light expiries.
 
         A light-kind expiry is referee visibility; the session appends the
-        player-facing `exploration.light.expired` with the source kind (the pinned
-        mechanism). Day-boundary crossings consume provisions.
+        player-facing `exploration.light.expired` with the source kind.
+        Day-boundary crossings consume provisions.
 
         Args:
             n: How many rounds.
@@ -420,11 +475,10 @@ class GameSession:
         """Advance whole turns one at a time, running the per-turn bookkeeping.
 
         A mid-turn clock snaps to the next turn boundary first — turn-costing
-        actions absorb partial round-time (the pinned odometer bookkeeping). Each
-        turn: the ledger advances, day boundaries consume provisions, the rest
-        cadence counts (unless `resting`), and — in the field — the wandering
-        cadence may fire a check that starts an encounter, which stops the
-        advance.
+        actions absorb partial round-time. Each turn: the ledger advances, day
+        boundaries consume provisions, the rest cadence counts (unless `resting`),
+        and — in the field — the wandering cadence may fire a check that starts an
+        encounter, which stops the advance.
 
         Args:
             turns: How many turns to advance.
@@ -464,8 +518,8 @@ class GameSession:
 
         Lit means any living member carries an active light-family effect — unless
         a darkness-family effect on any member suppresses the party's light while
-        it runs (the printed radii swallow a marching party, pinned). Darkness
-        with `blocks_infravision` disables infravision too.
+        it runs (the printed radii swallow a marching party). Darkness with
+        `blocks_infravision` disables infravision too.
 
         Returns:
             The pair of party-level light facts.
@@ -489,9 +543,9 @@ class GameSession:
     def bright_light(self) -> bool:
         """Whether the party carries daylight-bright light (*continual light*'s data).
 
-        RAW modifies the wandering chance for "bright light sources"; the
-        torch/lantern flame is the baseline the printed 1-in-6 already assumes
-        (pinned), so only `brightness == "daylight"` counts.
+        RAW modifies the wandering chance for "bright light sources"; osrlib adopts
+        the reading that the torch/lantern flame is the baseline the printed 1-in-6
+        already assumes, so only `brightness == "daylight"` counts.
         """
         living_ids = {member.id for member in self.party.living_members()}
         return any(
@@ -517,8 +571,8 @@ class GameSession:
         All members count, including the dead (their carried treasure that made it
         back is the party's recovery): coin value in cp plus every valuable's
         `value_gp`. Magic items and mundane equipment count zero — magical
-        treasure grants no XP per RAW, and mundane-gear salvage is below the
-        simulation floor (registered).
+        treasure grants no XP per RAW, and mundane-gear salvage sits below the
+        simulation floor by design.
         """
         total = 0
         for member in self.party.members:
@@ -535,8 +589,8 @@ class GameSession:
 
         The treasure XP is the delta between the party's valuation now and the
         departure snapshot — floored to gp once from the cp total, never negative
-        (clamped at zero: a party that lost money learned nothing monetarily,
-        pinned). The total divides evenly among living members (floor division,
+        (clamped at zero: a party that lost money learned nothing monetarily).
+        The total divides evenly among living members (floor division,
         remainder dropped — RAW divides evenly and B/X arithmetic is integer) and
         applies through `apply_xp` directly (a command whose handler executed
         further commands would double-log; `AwardXP` remains the referee and game
@@ -611,10 +665,11 @@ class GameSession:
     def _record_deaths(self, events: Sequence[Event]) -> None:
         """Record party deaths with the clock round and the cause just resolved.
 
-        Pinned: `poison` when the killing resolution was a poison save (a failed
-        death-category save immediately preceding the death) or a poison-delay
-        expiry; else the nearest preceding cause-bearing event's kind. Only the
-        poison/non-poison distinction is consumed (by *neutralize poison*).
+        The cause is `poison` when the killing resolution was a poison save (a
+        failed death-category save immediately preceding the death) or a
+        poison-delay expiry; else the nearest preceding cause-bearing event's
+        kind. Only the poison/non-poison distinction is consumed (by *neutralize
+        poison*).
         """
         member_ids = {member.id for member in self.party.members}
         cause = "unknown"
@@ -634,12 +689,56 @@ class GameSession:
     def view(self, visibility: Visibility) -> PlayerView | RefereeView:
         """Return the projection for a visibility level.
 
+        The player view is an enumerated whitelist safe to show at the table; the
+        referee view is the full state minus RNG internals. Neither carries the
+        master seed — it lives only in the save.
+
         Args:
             visibility: `PLAYER` for the safe whitelist, `REFEREE` for everything
                 but RNG internals.
 
         Returns:
             The frozen view.
+
+        Examples:
+
+            ```python
+            from osrlib.core.alignment import Alignment
+            from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character
+            from osrlib.core.events import Visibility
+            from osrlib.core.rng import RngStreams
+            from osrlib.core.ruleset import Ruleset
+            from osrlib.crawl.adventure import Adventure, TownSpec
+            from osrlib.crawl.commands import EnterDungeon
+            from osrlib.crawl.dungeon import DungeonSpec, LevelSpec
+            from osrlib.crawl.party import Party
+            from osrlib.crawl.session import GameSession
+
+            rules = Ruleset()
+            rng = RngStreams(master_seed=7).get(CHARACTER_CREATION_STREAM)
+            hero = create_character(
+                name="Hild",
+                class_id="fighter",
+                alignment=Alignment.LAWFUL,
+                ruleset=rules,
+                stream=rng,
+            )
+            level = LevelSpec(number=1, width=1, height=1, entrance=(0, 0))
+            crypt = DungeonSpec(id="crypt", name="The Old Crypt", levels=(level,))
+            town = TownSpec(name="Threshold")
+            adventure = Adventure(name="A First Delve", town=town, dungeons=(crypt,))
+            session = GameSession.new(Party(members=[hero.character]), adventure, seed=7)
+            session.execute(EnterDungeon(dungeon_id="crypt"))
+
+            player = session.view(Visibility.PLAYER)
+            referee = session.view(Visibility.REFEREE)
+            assert player.mode == "exploring"
+            # The referee sees session flags; the player whitelist has no such field.
+            assert "flags" in referee.state
+            assert "flags" not in player.model_dump()
+            # Neither view leaks the master seed — it lives only in the save.
+            assert "master_seed" not in referee.state
+            ```
         """
         from osrlib.crawl.views import build_player_view, build_referee_view
 

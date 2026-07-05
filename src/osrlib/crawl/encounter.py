@@ -1,16 +1,18 @@
 """The encounter procedure: surprise, distance, reaction, parley, evasion, pursuit.
 
-An encounter (wandering, keyed on area entry, or `SpawnMonsters`) opens with
-surprise, distance, and reaction, then runs in round beats: each encounter command
-is one round, and the monsters act per their stance after it. Battle opens through
+An encounter — wandering, keyed on area entry, or referee-spawned through
+[`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] — opens with surprise,
+distance, and reaction, then runs in round beats: each encounter command is one
+round, and the monsters act per their stance after it. Battle opens through
 [`osrlib.crawl.battle`][osrlib.crawl.battle] when a stance or the party demands it.
 
-The stance map, pinned and registered (RAW's bands assume a referee): 2- attacks
+The stance map resolves bands the OSE SRD leaves to a human referee: 2- attacks
 now; 3–5 hostile — the monsters attack at the end of the next encounter round
 unless the party has begun evading or improved the stance by parley; 6–8 uncertain
 — hold, posture, re-roll next round at +0; 9–11 indifferent — the party may pass,
-parley, or withdraw freely; 12+ friendly. Only attacks/hostile stances pursue an
-evading party (pinned — RAW leaves pursuit to the referee, keyed to low reactions).
+parley, or withdraw freely; 12+ friendly. Only the attacks/hostile stances pursue
+an evading party, as a documented adaptation (see the adaptations register) — RAW
+leaves pursuit itself to the referee too, keyed here to low reactions.
 """
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -47,7 +49,11 @@ __all__ = [
 ]
 
 PURSUIT_ROUND_CAP = 30
-"""Running exhaustion after 30 rounds; the pursuit's terminal escape valve (pinned)."""
+"""The round at which a running pursuit gives up: the terminal escape valve.
+
+With the party no faster than its pursuers, the gap never grows, so a pursuit
+that reaches this round ends in exhaustion rather than running forever.
+"""
 
 
 class EncounterGroup(BaseModel):
@@ -118,11 +124,12 @@ def start_encounter(
 ) -> list[Event]:
     """Open an encounter: surprise, distance, reaction, and the first consequences.
 
-    Surprise pins: wandering monsters never roll (they come "moving in the
-    direction of the party"); a keyed area's `aware` flag, a failed door forcing,
-    and the lit-party rule each skip the monsters' roll; a successful listen marks
+    Wandering monsters never roll for surprise (they come "moving in the direction
+    of the party"); a keyed area's `aware` flag, a failed door forcing, and the
+    lit-party rule each skip the monsters' roll instead; a successful listen marks
     the party aware. The party is surprised on 1–2 — 1–3 when unlit and not every
-    living member has infravision (the blind-party adaptation, registered).
+    living member has infravision, as a documented adaptation (see the
+    adaptations register; the blind-party adaptation).
 
     Args:
         session (osrlib.crawl.session.GameSession): The running session.
@@ -480,11 +487,11 @@ def _party_run_rate(session) -> int:
 
 
 def _pursuer_rate(session, groups) -> int:
-    """The slowest pursuing group's base ground mode, full rate per round (pinned).
+    """The slowest pursuing group's base ground mode, full rate per round.
 
     Slowest-of-pursuers mirrors slowest-of-party; a pack that strings out is
-    fiction (registered). Flying reads dungeon ceilings: the base ground mode is
-    the mode with no descriptor, else the first printed.
+    fiction. Flying reads dungeon ceilings: the base ground mode is the mode
+    with no descriptor, else the first printed.
     """
     rates = []
     for group in groups:
@@ -509,10 +516,10 @@ def _pursuer_rate(session, groups) -> int:
 
 
 def _group_intelligent(session, group: EncounterGroup) -> bool:
-    """The intelligence proxy, pinned: a treasure ref with letters marks a hoarder.
+    """The intelligence proxy: a treasure ref with letters marks a hoarder.
 
-    NPC adventuring parties are always intelligent for the distraction roll
-    regardless of treasure letters — they are people (pinned).
+    NPC adventuring parties are always intelligent for the distraction roll,
+    regardless of treasure letters — they are people.
     """
     combatant = session.combatant(group.monster_ids[0])
     if getattr(combatant, "definition", None) is not None:
@@ -589,7 +596,7 @@ def _drop_loot(session, state: EncounterState) -> list[Event]:
 
     Surrender hands it over — the pile mechanism is already the recovery surface;
     routed monsters flee with theirs, and a group whose members routed or fled
-    keeps its shared bundle (pinned).
+    keeps its shared bundle.
     """
     from osrlib.crawl import exploration
     from osrlib.crawl.dungeon import DropPile
@@ -680,13 +687,12 @@ def end_encounter(session, outcome: str) -> list[Event]:
 
     Defeated, routed, and surrendered monsters post `MonsterDefeatedEvent`s to the
     ledger; `turned` effects on routed undead release; remaining effects on the
-    encounter's monsters release too — the fiction moves on (pinned, registered:
-    a dead troll's pending revival is game narration after the battle). The clock
-    advances to `max(next turn boundary, encounter start + one turn)` (RAW's
-    conclusion), with the wandering cadence still suspended — pinned: when the
-    encounter started mid-turn, the minimum-one-turn clause dominates and the
-    conclusion may itself land mid-turn (the boundary clause only guarantees the
-    boundary is reached).
+    encounter's monsters release too — the fiction moves on (a dead troll's
+    pending revival is game narration after the battle). The clock advances to
+    `max(next turn boundary, encounter start + one turn)`, with the wandering
+    cadence still suspended: when the encounter started mid-turn, the
+    minimum-one-turn clause dominates, so the conclusion may itself land mid-turn
+    — the boundary clause only guarantees the boundary is reached.
     """
     from osrlib.core.clock import ROUNDS_PER_TURN
     from osrlib.crawl.session import DefeatedMonsterRecord

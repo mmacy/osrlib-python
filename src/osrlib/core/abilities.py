@@ -347,14 +347,14 @@ def validate_adjustment(
 ) -> list[Rejection]:
     """Validate an adjustment against the SRD's rules, returning structured rejections.
 
-    The rules, per the SRD's Creating a Character step 3 and the pinned
-    interpretations in `docs/adaptations.md`:
+    The rules, per the SRD's Creating a Character step 3 and the adaptations register's
+    interpretations:
 
     - Only STR, INT, and WIS may be lowered.
     - A prime requisite of the chosen class may not be lowered, nor may an ability in
       the class's `may_not_lower` restrictions (the thief's STR).
-    - Each lowered score drops by an even amount (pinned: the two-for-one trade is
-      per-score, so an odd reduction would strand half a point).
+    - Each lowered score drops by an even amount (the two-for-one trade is per-score,
+      so an odd reduction would strand half a point).
     - The total raise equals the sum of reductions divided by two, distributed freely
       among the class's prime requisites and nowhere else.
     - No lowered score drops below 9; no raised score rises above 18.

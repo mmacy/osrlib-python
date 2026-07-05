@@ -128,7 +128,8 @@ def load_classes() -> ClassCatalog:
     """Load the seven Classic class definitions.
 
     Returns:
-        The frozen class catalog.
+        The frozen class catalog — see [the class id index][classes-index] for the
+        class ids it defines.
 
     Raises:
         ContentValidationError: If the generated data is missing or fails validation.
@@ -145,7 +146,8 @@ def load_equipment() -> EquipmentCatalog:
     """Load the weapon, armour, gear, ammunition, and treasure-weight lists.
 
     Returns:
-        The frozen equipment catalog.
+        The frozen equipment catalog — see [the equipment id index][equipment-index]
+        for the item ids it defines.
 
     Raises:
         ContentValidationError: If the generated data is missing or fails validation.
@@ -162,7 +164,8 @@ def load_monsters() -> MonsterCatalog:
     """Load the monster templates compiled from the SRD's monster pages.
 
     Returns:
-        The frozen monster catalog.
+        The frozen monster catalog — see [the monster id index][monsters-index] for
+        the template ids it defines.
 
     Raises:
         ContentValidationError: If the generated data is missing or fails validation.
@@ -213,7 +216,8 @@ def load_spells() -> SpellCatalog:
     """Load the spell templates compiled from the SRD's spell pages.
 
     Returns:
-        The frozen spell catalog.
+        The frozen spell catalog — see [the spell id index][spells-index] for the
+        spell ids it defines.
 
     Raises:
         ContentValidationError: If the generated data is missing or fails validation.
@@ -230,7 +234,8 @@ def load_magic_items() -> MagicItemCatalog:
     """Load the magic item catalog: templates, sub-tables, and the sword tables.
 
     Returns:
-        The frozen magic item catalog.
+        The frozen magic item catalog — see [the magic item id index][magic-items-index]
+        for the item ids it defines.
 
     Raises:
         ContentValidationError: If the generated data is missing or fails validation.
@@ -247,7 +252,8 @@ def load_treasure_tables() -> TreasureTables:
     """Load the treasure types, gem values, magic item type, stocking, and unguarded tables.
 
     Returns:
-        The frozen treasure tables.
+        The frozen treasure tables — see [the treasure type index][treasure-types-index]
+        for the treasure type letters they key on.
 
     Raises:
         ContentValidationError: If the generated data is missing or fails validation.
@@ -264,7 +270,8 @@ def load_languages() -> LanguageCatalog:
     """Load the language list: Common plus the twenty Other Languages.
 
     Returns:
-        The frozen language catalog.
+        The frozen language catalog — see [the language id index][languages-index]
+        for the language ids it defines.
 
     Raises:
         ContentValidationError: If the generated data is missing or fails validation.

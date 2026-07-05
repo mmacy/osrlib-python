@@ -4,8 +4,10 @@ Every serialized model (saves, commands, events) stamps itself with these values
 birth. `SCHEMA_VERSION` is the single monotonically increasing integer shared by saves,
 commands, and events — independent of the package version. Within a schema version,
 changes are additive only (new event types, new optional fields); renames, removals, and
-semantic changes bump it. The engine version pins exact behavior: identical replay
-outcomes are guaranteed only under an identical engine version.
+semantic changes bump it, and a loader migrates an older document forward (see
+[`osrlib.persistence`][osrlib.persistence]). The engine version identifies exact rules
+behavior: identical replay outcomes are guaranteed only when the recorded and running
+engine versions match.
 
 The stamped-document helpers wrap a payload with both versions and a `kind` string, so
 serialized artifacts (characters, parties, saves) share one envelope
@@ -28,10 +30,11 @@ __all__ = [
 SCHEMA_VERSION = 2
 """The current serialization schema version shared by saves, commands, and events.
 
-Version 2: the recovered-treasure ledger left the save payload — the
-end-of-adventure award's input is the departure-snapshot valuation delta, and a
-ledger kept "as a log" with no consumer is exactly the accommodation the project
-bans. The 1 → 2 migration drops the field.
+Version 2 dropped the recovered-treasure ledger from the save payload: the
+end-of-adventure award is computed from the departure-snapshot valuation delta
+instead, so a save no longer needs to carry the ledger field. See
+[`MIGRATIONS`][osrlib.persistence.MIGRATIONS] for the 1 → 2 step that drops it from
+older saves on load.
 """
 
 

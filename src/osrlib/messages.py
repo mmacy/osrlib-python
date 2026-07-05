@@ -1,14 +1,15 @@
 """The default English message formatter.
 
-[`format_message`][osrlib.messages.format_message] renders any event to a plain
-English line — pure string templating keyed by the event's outcome-bearing `code`, no
-I/O. It is a *total* function, pinned: unknown codes format to the code string itself
-rather than raising, honoring "consumers must ignore unknown event types" for forward
-compatibility (a test asserts every shipped code has a real template).
+[`format_message`][osrlib.messages.format_message] renders any [`Event`][osrlib.core.events.Event]
+to a plain English line — pure string templating keyed by the event's outcome-bearing
+`code`, no I/O. It is a total function: an event whose code has no template formats to
+the code string itself rather than raising, so a transcript stays printable even when
+it holds event types this version of the library doesn't recognize.
 
 Templates reference entity IDs, not names — events carry structured facts and IDs
-only. Front ends and narrators that want prose with names resolve IDs themselves and
-localize freely; this formatter exists so a bare kernel transcript is readable.
+only. A front end or narrator that wants prose with names resolves IDs itself and
+localizes freely; this formatter exists so a bare kernel transcript is readable without
+one.
 """
 
 from collections.abc import Callable
@@ -324,14 +325,25 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
 def format_message(event: Event) -> str:
     """Format an event as a default English message.
 
-    Total, pinned: an event whose code has no template formats to the code string
-    itself — never raises — so logs from newer engine versions stay printable.
+    Total: an event whose code has no template formats to the code string itself —
+    never raises — so logs carrying event types this function doesn't recognize stay
+    printable.
 
     Args:
         event: The event to format.
 
     Returns:
         The formatted English line, or the event's code when no template exists.
+
+    Examples:
+
+        ```python
+        from osrlib.core.events import DamageDealtEvent
+        from osrlib.messages import format_message
+
+        event = DamageDealtEvent(target_id="orc-1", attacker_id="hild", amount=5)
+        assert format_message(event) == "orc-1 takes 5 damage from hild."
+        ```
     """
     template = _TEMPLATES.get(event.code)
     if template is None:

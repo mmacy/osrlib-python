@@ -1,24 +1,36 @@
-"""The range-track battle state machine and the default monster action policy.
+"""The range-track battle state machine and the pluggable monster action policy.
 
-Battle wraps the kernel's combat functions in the SRD round sequence: declaration,
-initiative, then per side — monster morale, movement, missiles, magic, melee — with
-slow-weapon actors last. The combat space is the abstract per-group range track
-(the Bard's Tale convention): each monster group sits at a distance from the party,
-closing at encounter rate and melee-ing at 5'; party ranks derive from marching
-order under the `formation_width_limit` flag (width 3 inside a keyed area, 2 in
-corridor).
+[`start_battle`][osrlib.crawl.battle.start_battle] opens battle — from the
+encounter procedure's own stance handling, a pursuit collapsing to melee range, or
+the party's own choice through the
+[`EngageBattle`][osrlib.crawl.commands.EngageBattle] command — and each round after
+that runs through
+[`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound], which carries one
+[`BattleDeclaration`][osrlib.crawl.commands.BattleDeclaration] per living, able
+party member. A round wraps the kernel's combat functions in the OSE SRD's
+sequence: declaration, initiative, then per side — monster morale, movement,
+missiles, magic, melee — with slow-weapon actors last. The combat space is the
+abstract per-group range track (the Bard's Tale convention), as a documented
+adaptation — see the adaptations register: each monster group sits at a distance
+from the party, closing at encounter rate and meleeing at 5'; party ranks derive
+from marching order under the `formation_width_limit` flag (width 3 inside a keyed
+area, 2 in a corridor).
 
-The machine detects spell disruption (a declared caster successfully attacked or
-failing a save after initiative resolves against them but before their action),
-auto-invokes morale, consumes the marker conditions and battle-bound spell
-effects, and resolves area footprints deterministically: an area's capacity in
-creatures is `ceil(span / 10) × width` filled in stable spawn order, cones
-reach-limited, with the engaged party front rank appended under `aoe_friendly_fire`.
+The machine detects spell disruption (a declared caster is successfully attacked,
+or fails a save, after initiative resolves against them but before their action),
+auto-invokes morale, consumes marker conditions and battle-bound spell effects, and
+resolves area footprints deterministically: an area's capacity in creatures is
+`ceil(span / 10) × width`, filled in stable spawn order, cones reach-limited, with
+the engaged party front rank appended under `aoe_friendly_fire`.
 
-Policy draws come only from the `monster_action` stream, so a substituted policy
-never shifts attack or damage draws (pinned). Individual initiative still resolves
-side blocks — the sides order by their best individual total (pinned; the SRD's
-phase sequence is per side).
+Monster and NPC-party sides act through a pluggable
+[`ActionPolicy`][osrlib.crawl.battle.ActionPolicy], substitutable per encounter
+side; the shipped [`ScriptedPolicy`][osrlib.crawl.battle.ScriptedPolicy] and
+[`NpcPartyPolicy`][osrlib.crawl.battle.NpcPartyPolicy] draw only from the
+`monster_action` stream, so swapping in a custom policy never shifts attack or
+damage draws. Initiative still resolves in side blocks — the sides order by their
+best individual total, since the SRD's phase sequence runs per side, not per
+combatant.
 """
 
 import math
@@ -137,15 +149,16 @@ class ActionPolicy(Protocol):
 
 
 class ScriptedPolicy:
-    """The default policy, pinned.
+    """The default [`ActionPolicy`][osrlib.crawl.battle.ActionPolicy]: scripted breath, then close-and-melee.
 
     Monsters with a scripted pattern in their data follow it: an `uses_per_day`
     breath weapon opens with breath, then breath or melee with equal chance while
-    daily uses remain (the dragons, RAW); a `per_round_chance_in_six` gate rolls
-    each round (the hellhound). Otherwise a group beyond 5' closes; at 5' it
-    melees, each monster picking its target uniformly from the reachable party
-    rank. Monster missile routines lack structured range data and stay
-    close-then-melee (pinned, registered). Groups never cast.
+    daily uses remain (the dragons, per the OSE SRD); a `per_round_chance_in_six`
+    gate rolls each round (the hellhound). Otherwise a group beyond 5' closes; at
+    5' it melees, each monster picking its target uniformly from the reachable
+    party rank. Monster missile routines carry no structured range data, so osrlib
+    treats them the same as melee — close, then attack at 5' — as a documented
+    adaptation (see the adaptations register). Groups never cast.
     """
 
     def choose(self, session, group, stream) -> list[MonsterAction]:
@@ -183,9 +196,12 @@ class ScriptedPolicy:
 
 
 class NpcPartyPolicy:
-    """The default policy for NPC adventurer sides — invented tactics, registered.
+    """The default [`ActionPolicy`][osrlib.crawl.battle.ActionPolicy] for NPC adventurer sides.
 
-    Per living member each round, in a pinned priority: (1) a caster holding a
+    The OSE SRD gives no tactics of its own for an opposing party of adventurers, so
+    osrlib supplies one, as a documented adaptation (see the adaptations register).
+
+    Per living member each round, in priority order: (1) a caster holding a
     memorized cure spell heals the group's most-wounded member below half hp
     (lowest hp ratio, ties by id); (1½) a member below half hp with no cure left
     in the group drinks a carried healing potion — the one item-use the default
@@ -363,12 +379,12 @@ def _party_target_pool(session) -> list:
 def _ally_protection_bonus(session, defender) -> int:
     """The Ring of Protection 5' Radius: a rank-mate's ring shields the defender.
 
-    The battle space has no finer adjacency than the rank (pinned), so "allies
-    within 5'" is the wearer's rank. The wearer's own +1 rides the equipped-item
-    channel — only allies collect the aura here — and multiple rings never stack.
+    The battle space has no adjacency finer than the rank, so "allies within 5'"
+    is the wearer's rank. The wearer's own +1 rides the equipped-item channel —
+    only allies collect the aura here — and multiple rings never stack.
 
     Args:
-        session: The battle's session.
+        session (osrlib.crawl.session.GameSession): The battle's session.
         defender: The combatant under attack; non-members collect nothing.
 
     Returns:
@@ -388,7 +404,7 @@ def _ally_protection_bonus(session, defender) -> int:
 
 
 def _reachable_targets(session, monster: MonsterInstance, pool: list) -> list:
-    """Filter the pool by the *protection from evil* melee ban (pinned).
+    """Filter the pool by the *protection from evil* melee ban.
 
     A monster whose template bears a warded category may not initiate melee
     against a warded target of differing alignment; the ban breaks for a target
@@ -444,9 +460,9 @@ def _monster_pool(session, group) -> list[MonsterInstance]:
 
 
 NPC_PARTY_MORALE = 9
-"""NPC adventurer groups check morale at ML 9 — the Veteran stat block's printed
-score, the SRD's own low-level-adventurer monster as the data anchor rather than an
-invented number (pinned, registered)."""
+"""NPC adventurer groups check morale at ML 9, the Veteran stat block's printed
+score. osrlib anchors on the OSE SRD's own low-level-adventurer monster rather than
+an invented number, as a documented adaptation (see the adaptations register)."""
 
 
 def _group_morale_score(session, group) -> int | None:
@@ -730,7 +746,12 @@ def _cast_targets(session, declaration: BattleDeclaration, spell) -> tuple[list,
 
 
 def _area_span_feet(shape: str | None, dimensions: dict, gap_feet: int) -> int:
-    """The pinned deterministic footprint span: diameter, length, or reach-limited length."""
+    """The deterministic footprint span: diameter, length, or reach-limited length.
+
+    A documented adaptation (see the adaptations register): the OSE SRD leaves how
+    an area effect covers a group of creatures to the referee, so osrlib maps shape
+    and dimensions to a span in feet here, deterministically.
+    """
     if shape == "sphere":
         return 2 * int(dimensions.get("radius_feet", 0))
     if shape == "cube":
@@ -761,9 +782,9 @@ def _validate_magic_item_declaration(session, declaration: BattleDeclaration, me
     """The `use_item` declaration widened: potions, scrolls, and devices (magic phase).
 
     Potions drink on the drinker (self); wands, staves, and rods target a group and
-    resolve in the magic phase alongside casts (pinned: devices unleash magical
-    effects, and magic-phase keeps the missile/melee ordering clean); scroll reads
-    resolve in the magic phase through the declaration's spell fields.
+    resolve in the magic phase alongside casts — devices unleash magical effects,
+    and resolving them there keeps the missile/melee ordering clean; scroll reads
+    resolve in the magic phase too, through the declaration's spell fields.
     """
     from osrlib.crawl import exploration
 
@@ -1154,14 +1175,15 @@ def _party_is_retreating(session, by_member) -> bool:
 
 
 def _party_movement(session, by_member) -> list[Event]:
-    """Consolidated formation movement, pinned precedence: retreat, withdrawal, close.
+    """Consolidated formation movement, in order of precedence: retreat, withdrawal, close.
 
-    The party moves as a formation (individual members cannot leave it — the
-    Bard's Tale convention, registered): every member retreating moves off at the
-    full encounter rate (Combat.md's "full encounter movement rate" — the running
-    pursuit begins when the battle converts); every member withdrawing backs off
-    at half encounter rate; else the first `close` declaration in marching order
-    advances the formation on its named group at encounter rate, stopping at 5'.
+    The party moves as a single formation — individual members cannot leave it,
+    as a documented adaptation (see the adaptations register; the Bard's Tale
+    convention): every member retreating moves off at the full encounter rate
+    (the OSE SRD's "full encounter movement rate" — the running pursuit begins
+    once the battle converts); every member withdrawing backs off at half
+    encounter rate; else the first `close` declaration in marching order advances
+    the formation on its named group at encounter rate, stopping at 5'.
     """
     declarations = [declaration for _, declaration in by_member.values()]
     events: list[Event] = []
@@ -1198,7 +1220,10 @@ def _party_movement(session, by_member) -> list[Event]:
 
 
 def _party_move_multiplier(session) -> int:
-    """*Haste*'s movement multiplier applies when every living member bears it (pinned)."""
+    """*Haste*'s movement multiplier applies only when every living party member bears it.
+
+    A documented adaptation (see the adaptations register).
+    """
     living = session.party.living_members()
     if not living:
         return 1
@@ -1293,12 +1318,12 @@ def _resolve_party_attack(session, member, declaration, fired, fire_damaged) -> 
 
 
 def _on_hit_drain(session, weapon: MagicItemInstance, target) -> list[Event]:
-    """The energy-drain sword's on-hit drain — automatic on every hit (pinned).
+    """The energy-drain sword's on-hit drain: automatic on every hit.
 
-    1d4+4 total drains were rolled at generation; exhausted, the sword is a plain
-    +1. The drain's lost-die rolls ride the advancement stream (drain reverses
-    advancement, pinned); the sword's own page sets XP to the lowest
-    amount for the new level (`level_minimum`), unlike the wight's halfway.
+    1d4+4 total drains were rolled at generation; once exhausted, the sword is a
+    plain +1. The drain's lost-die rolls ride the advancement stream, since drain
+    reverses advancement; the sword's own entry in the OSE SRD sets XP to the
+    lowest amount for the new level (`level_minimum`), unlike the wight's halfway.
     """
     template = magic_item_template(weapon)
     if template.effect is None or template.effect.kind != "on_hit_drain":
@@ -1341,7 +1366,7 @@ def _ward_bars_monster(session, monster) -> bool:
 
     A ward bars matching monsters up to its rolled per-HD-band count (1–3, 4–5,
     and 6+ HD bands), counted in spawn order among the encounter's matching
-    monsters — or all of them for the elementals form (pinned).
+    monsters — or all of them for the elementals form.
     """
     wards = _party_wards(session)
     if not wards:
@@ -1556,8 +1581,8 @@ def _release_concentration(session, caster_id: str, state) -> list[Event]:
 def _confused_party_overrides(session, by_member, fire_damaged) -> list[Event]:
     """A confused party member's declaration is overridden by the behavior roll.
 
-    Mirroring the monster override (pinned): the above-2-HD re-save runs first on
-    the magic stream (characters count their level), then `attack_caster_group`
+    Mirroring the monster override: the above-2-HD re-save runs first on the
+    magic stream (characters count their level), then `attack_caster_group`
     sends them at the nearest monster group's front rank when engaged (uniform
     pick, combat stream); `attack_own_group` at a fellow party member;
     `no_action` babbles.
@@ -1858,9 +1883,9 @@ def _pursuer_full_rate(session, group) -> int:
 def _group_morale(session, group, fire_damaged) -> list[Event]:
     """Morale auto-invoked: the kernel's triggers through the per-battle tracker.
 
-    Conditional alternates resolve by round context (fear-of-fire when the
-    round's damage included fire, pinned example); the spell morale modifier
-    folds per the registered morale-modifier rule.
+    Conditional alternates resolve by round context — fear-of-fire, for example,
+    when the round's damage included fire — and the spell morale modifier folds
+    in per the usual morale-modifier rule.
     """
     state = session.battle
     score = _group_morale_score(session, group)
@@ -1895,8 +1920,8 @@ def _confused_overrides(session, group, actions) -> list[Event]:
     """The machine-run confusion beat: re-save, then the 2d6 behavior roll.
 
     The re-save runs on the magic stream and the behavior roll (and its own-group
-    target pick) on the combat stream — machine-run round rolls, not ledger ticks
-    (pinned; the ledger tick-time convention is untouched).
+    target pick) on the combat stream — machine-run round rolls, distinct from the
+    ledger's own tick-time effects.
     """
     events: list[Event] = []
     for monster in _living_monsters(session, group):
@@ -1988,7 +2013,7 @@ def _resolve_monster_melee(session, monster, target, *, party_retreating: bool) 
 
 
 def _resolve_breath(session, monster, group) -> list[Event]:
-    """A breath weapon against the party: the pinned rank coverage."""
+    """A breath weapon against the party, resolved through the deterministic rank-coverage footprint."""
     params = monster.template.ability("breath_weapon").params
     if str(params.get("targeting")) == "single":
         from osrlib.crawl.session import MONSTER_ACTION_STREAM

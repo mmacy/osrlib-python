@@ -2,26 +2,32 @@
 
 Basic and Expert Adventurers generate through the same character kernel PCs use —
 composition (the caller rolls the count: the wandering table's printed dice or the
-compiled composition dice), one alignment for the whole party (RAW offers either;
-a single alignment drives reaction, parley, and ward interactions coherently,
-registered), then per member in order: the d8 class-and-level row, the level dice by
-kind, 3d6-in-order ability scores, hit points by rolling the class hit die per level
-through [`level_up`][osrlib.core.classes.level_up] (CON applied, minimum 1 per
-level), XP at the class's threshold for the rolled level, the pinned equipment kit,
-and rolled spell picks. All of those draw from the
+compiled composition dice), one alignment for the whole party (RAW offers either; a
+single alignment drives reaction, parley, and ward interactions coherently), then per
+member in order: the d8 class-and-level row, the level dice by kind, 3d6-in-order
+ability scores, hit points by rolling the class hit die per level through
+[`level_up`][osrlib.core.classes.level_up] (CON applied, minimum 1 per level), XP at
+the class's threshold for the rolled level, the equipment kit, and rolled spell
+picks. All of those draw from the
 [`NPC_PARTY_STREAM`][osrlib.core.npc.NPC_PARTY_STREAM] stream; the party's treasure
-and Expert magic items draw from the treasure stream — they are treasure procedures
-and belong to its statistics (pinned draw ownership).
+and Expert magic items draw from the treasure stream instead, since they are treasure
+procedures and belong to its statistics.
 
-Pinned interpretations (registered in `docs/adaptations.md`): NPC adventurers skip
-class ability-score requirements (RAW's procedure rolls class before scores and
-names no re-roll); the equipment kits are invented over RAW's "normal adventuring
-gear"; casters roll each open slot uniformly from the class-legal spells of that
-level ("choose or roll" — rolling is the deterministic branch), with arcane spell
-books equal to exactly the memorized picks; Expert magic items roll at 5% per level
-per suitable sub-table in the master table's printed order, unusable rolls ignored
-with no re-roll, and rolled wearable or wieldable items are equipped when better
-than the kit piece (higher effective AC, or any enchantment over a mundane arm).
+osrlib adopts several documented adaptations here (see the adaptations register): NPC
+adventurers skip class ability-score requirements (RAW's procedure rolls class before
+scores and names no re-roll); the equipment kits are invented over RAW's "normal
+adventuring gear"; casters roll each open slot uniformly from the class-legal spells
+of that level ("choose or roll" — rolling is the deterministic branch), with arcane
+spell books equal to exactly the memorized picks; Expert magic items roll at 5% per
+level per suitable sub-table in the master table's printed order, unusable rolls
+ignored with no re-roll, and rolled wearable or wieldable items are equipped when
+better than the kit piece (higher effective AC, or any enchantment over a mundane
+arm).
+
+Part of the core kernel. Call
+[`generate_npc_party`][osrlib.core.npc.generate_npc_party] to run the whole
+procedure; it builds on [`osrlib.core.character`][osrlib.core.character], whose model
+and creation functions it reuses for each party member.
 """
 
 from typing import Any, Literal
@@ -113,9 +119,10 @@ class NpcParty(BaseModel):
 def npc_defeat_xp(level: int) -> int:
     """Return the XP award for defeating an NPC adventurer of `level`.
 
-    Pinned (registered): the `Awarding_XP.md` table value for HD equal to the
-    NPC's level, no plus-category, no ability bonuses — RAW prices monsters, not
-    classed NPCs, and level-as-HD is the straight reading.
+    osrlib adopts the reading that an NPC adventurer's XP award is the OSE SRD's XP
+    awards table value for HD equal to the NPC's level, no plus-category, no ability
+    bonuses — RAW prices monsters, not classed NPCs, and level-as-HD is the straight
+    reading.
 
     Args:
         level: The NPC's class level.
@@ -176,7 +183,7 @@ def _item_usable(member: Character, definition: ClassDefinition, instance: Magic
 
 
 def _maybe_equip_upgrade(member: Character, definition: ClassDefinition, instance: MagicItemInstance) -> None:
-    """Equip a rolled arm when better than the kit piece (pinned).
+    """Equip a rolled arm when it is better than the kit piece.
 
     Better means higher effective AC for armour and shields, or any enchantment
     over a mundane arm for swords and weapons; cursed forms test as +1 (their
@@ -243,19 +250,19 @@ def generate_npc_party(
 ) -> NpcParty:
     """Generate an NPC adventuring party by the SRD procedure.
 
-    Draw order, pinned: one d6 alignment roll for the whole party, then per member
-    — the d8 class-and-level row, the level dice by `kind`, 3d6-in-order scores,
-    the first-level hit die, one `level_up` roll per level above first, and the
-    spell picks — all on `npc_stream`; then each member's Expert magic items and
-    finally the shared U + V group treasure on `treasure_stream`.
+    Draw order: one d6 alignment roll for the whole party, then per member — the d8
+    class-and-level row, the level dice by `kind`, 3d6-in-order scores, the
+    first-level hit die, one `level_up` roll per level above first, and the spell
+    picks — all on `npc_stream`; then each member's Expert magic items and finally
+    the shared U + V group treasure on `treasure_stream`.
 
     Args:
         kind: `"basic"` (levels 1d3) or `"expert"` (per-row level dice).
         count: The party size; the caller rolls it (the wandering row's printed
             dice, or the compiled composition dice).
         npc_stream: The `npc_party` stream.
-        treasure_stream: The treasure stream (items and the group bundle are
-            treasure procedures and belong to its statistics, pinned).
+        treasure_stream: The treasure stream — items and the group bundle are
+            treasure procedures and belong to its statistics, not the NPC stream's.
         allocator: The id allocator (`npc`, `magic-item`, and `valuable` prefixes).
 
     Returns:

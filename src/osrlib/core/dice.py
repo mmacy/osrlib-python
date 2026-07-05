@@ -135,6 +135,24 @@ def roll(expression: str | DiceExpression, stream: RngStream) -> RollResult:
     Raises:
         ContentValidationError: If a string expression doesn't match the grammar.
         TypeError: If `expression` is neither a string nor a `DiceExpression`.
+
+    Examples:
+
+        ```python
+        from osrlib.core.dice import roll
+        from osrlib.core.rng import RngStreams
+
+        stream = RngStreams(master_seed=42).get("treasure")
+
+        # A plain 3d6: three dice, summed.
+        scores = roll("3d6", stream)
+        assert scores.rolls == (4, 2, 3)
+        assert scores.total == 9
+
+        # Modifier then multiplier: (2d6 + 1) × 10, evaluated in that order.
+        gold = roll("2d6+1×10", stream)
+        assert gold.total == (sum(gold.rolls) + 1) * 10
+        ```
     """
     if isinstance(expression, str):
         expression = parse(expression)

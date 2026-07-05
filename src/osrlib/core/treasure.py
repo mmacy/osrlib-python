@@ -1,10 +1,16 @@
 """Treasure tables and generation: types A–V, gems, jewellery, and magic item rolls.
 
-The treasure tables compile from `Treasure_Types.md`, `Gems_and_Jewellery.md`,
-`Magic_Items_%28General%29.md`, and `Designing_a_Dungeon.md` into `treasure.json` and
-load as frozen models via [`load_treasure_tables`][osrlib.data.load_treasure_tables].
-The models live here — the `core/tables.py` layering precedent: loaders import their
-model homes, `core` imports the loaders, `crawl` consumes.
+The treasure tables — treasure types A through V, the gem and jewellery value
+tables, the master *Magic Item Type* table, the room-contents stocking table, and
+the unguarded-treasure bands — compile from the OSE SRD's treasure pages into
+`treasure.json` and load as frozen models via
+[`load_treasure_tables`][osrlib.data.load_treasure_tables]. Generation starts at
+[`generate_treasure`][osrlib.core.treasure.generate_treasure] for a treasure type's
+full contents, at
+[`generate_unguarded_treasure`][osrlib.core.treasure.generate_unguarded_treasure] for
+an unguarded cache, or at
+[`generate_magic_item`][osrlib.core.treasure.generate_magic_item] for a single magic
+item rolled à la carte.
 
 Every treasure-type entry parses on one fixed grammar: an optional `NN%: ` presence
 gate, then a coin quantity (dice with an optional `× K` multiplier folded into the
@@ -18,6 +24,11 @@ Generation draws on the
 order: presence roll, then quantity dice, then per-item resolution depth-first, so
 results are reproducible from the stream alone.
 """
+
+# The treasure models live in this module rather than in core/tables.py: the
+# osrlib/data loaders import their model homes and every core module imports the
+# loaders, so a crawl-owned model home would give load_treasure_tables() a
+# core -> data -> crawl transitive import.
 
 from collections.abc import Mapping, Sequence
 from enum import StrEnum
@@ -234,8 +245,8 @@ class GemValueTable(BaseModel):
     """The d20 gem value table plus the jewellery dice.
 
     `manual_notes` keeps the referee-discretion prose (damaged jewellery −50%, the
-    combining-values option) — nothing in the engine crushes jewellery in 1.0, and
-    combining is presentation (registered).
+    combining-values option): osrlib never reduces a jewellery value for damage, and
+    combining values is a presentation choice left to the game.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -404,8 +415,8 @@ class UnguardedTreasureBand(BaseModel):
 class UnguardedTreasureTable(BaseModel):
     """The unguarded-treasure bands, in level order.
 
-    Levels beyond the last printed band clamp into it (the encounter-table
-    precedent, pinned): levels 10+ use the 8–9 band.
+    Levels beyond the last printed band always clamp into it: levels 10+ use the
+    8–9 band.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -435,6 +446,8 @@ class UnguardedTreasureTable(BaseModel):
         """
         if level < 1:
             raise ValueError(f"dungeon levels are 1-based, got {level}")
+        # Same clamp-into-the-last-band convention the encounter tables use for
+        # dungeon levels past their printed range.
         for band in self.bands:
             if level <= band.max_level:
                 return band
@@ -493,15 +506,15 @@ class RoomContentsResult(BaseModel):
 
 
 class TreasureRefPlan(BaseModel):
-    """A monster's `TreasureRef`, resolved to generation instructions — pinned.
+    """A monster's `TreasureRef`, resolved to generation instructions.
 
     Letters resolve each by its own section: hoard letters (A–O) are lair treasure,
     individual letters (P–T) generate once per monster, group letters (U–V) once per
     group. Parenthetical letters are lair treasure regardless of section (the
-    Bandit's `U (A)`: U carried by the group, A in the lair). `extra_gp` adds flat
-    gp to the lair hoard; `multiplier` repeats the whole listed generation that many
+    Bandit's `U (A)`: U carried by the group, A in the lair). `extra_gp` adds flat gp
+    to the lair hoard; `multiplier` repeats the whole listed generation that many
     times (the Noble's `V × 3`). `special` labels and `see_below` generate nothing —
-    they are content prose for keyed areas (registered), as are the small-lair
+    they are content prose for a game's keyed areas to supply, as are the small-lair
     reduction and the referee's manual value adjustment.
     """
 
@@ -521,7 +534,7 @@ def plan_treasure_ref(ref: TreasureRef) -> TreasureRefPlan:
         ref: The monster template's treasure reference.
 
     Returns:
-        The pinned plan (see [`TreasureRefPlan`][osrlib.core.treasure.TreasureRefPlan]).
+        The resolved plan (see [`TreasureRefPlan`][osrlib.core.treasure.TreasureRefPlan]).
 
     Raises:
         ValueError: If a referenced letter is not a compiled treasure type.
@@ -604,13 +617,13 @@ def _generate_valuable(kind: Literal["gem", "jewellery"], *, stream: RngStream, 
 
 
 def _generate_sentience(*, stream: RngStream) -> SwordSentience | None:
-    """Roll a magic sword's sentience in the page's pinned procedure order.
+    """Roll a magic sword's sentience in the SRD's own procedure order.
 
     The special-purpose 1-in-20 rolls first per magic sword (a special sword is
     always sentient at INT 12/Ego 12, RAW), otherwise the 30% sentience roll, then
     the printed steps: INT 1d6+6, communication by INT, languages (rolled only for
-    speech-capable swords — empathic swords speak nothing, pinned), alignment,
-    powers by INT (sensory duplicates re-rolled with draws consumed; extraordinary
+    speech-capable swords — empathic swords always speak nothing), alignment, powers
+    by INT (sensory duplicates re-rolled with draws consumed; extraordinary
     duplicates re-rolled unless the power allows them), and Ego 1d12.
     """
     from osrlib.core.items import SwordSentience
@@ -709,9 +722,9 @@ def _generate_scroll_spells(template: Any, *, tier: str, stream: RngStream) -> d
     """Roll a spell scroll's contents: the 1-in-4 divine gate, then per-spell levels.
 
     Each inscribed spell rolls its level on the scroll spell-level table (the tier's
-    column) and then picks uniformly among the class list's spells of that level
-    (pinned — RAW says "the referee may choose the spells or may roll for them
-    randomly", and rolling is the deterministic branch).
+    column) and then picks uniformly among the class list's spells of that level. RAW
+    says "the referee may choose the spells or may roll for them randomly"; osrlib
+    always takes the rollable, deterministic branch.
     """
     from osrlib.data import load_magic_items, load_spells
 
@@ -741,13 +754,13 @@ def generate_magic_item(
     """Generate one magic item allotment: the type roll, the sub-table, the details.
 
     When `category` is `None`, the master *Magic Item Type* table rolls under the
-    tier's d% column, re-rolling excluded categories with draws consumed (the
-    wandering-re-roll precedent). `tier` selects the printed B or X probability
-    columns (`basic` rolls the sub-table's small die, `expert` its d%). Instance
-    details resolve depth-first in a pinned order: the *Magic Armour Type* d8 for
-    generic armour outcomes, charges (rolled at creation, referee-only forever
-    after — RAW "undiscoverable"), ammunition quantities, wish counts, scroll
-    contents, the energy-drain sword's total, and sword sentience last.
+    tier's d% column, re-rolling excluded categories with draws consumed. `tier`
+    selects the printed B or X probability columns (`basic` rolls the sub-table's
+    small die, `expert` its d%). Instance details always resolve depth-first in this
+    order: the *Magic Armour Type* d8 for generic armour outcomes, charges (rolled at
+    creation, referee-only forever after — RAW "undiscoverable"), ammunition
+    quantities, wish counts, scroll contents, the energy-drain sword's total, and
+    sword sentience last.
 
     Args:
         category: The master-table type, or `None` to roll it.
@@ -820,7 +833,7 @@ def generate_treasure_entries(
     stream: RngStream,
     allocator: Any,
 ) -> GeneratedTreasure:
-    """Generate treasure from printed entries, in printed order — the pinned core.
+    """Generate treasure from printed entries, in printed order — the core every generation entry point shares.
 
     Per entry: the presence roll (when gated), then the quantity dice, then per-item
     resolution (each gem's value, each jewellery's value, each magic item fully
@@ -888,7 +901,9 @@ def generate_treasure(
     """Generate one treasure type's contents, à la carte.
 
     Args:
-        treasure_type: The type letter, `"A"` through `"V"`.
+        treasure_type: The type letter, `"A"` through `"V"`, from
+            [`load_treasure_tables`][osrlib.data.load_treasure_tables] — see
+            [the treasure type index][treasure-types-index].
         tier: `"basic"` or `"expert"` — the printed B or X magic item columns; the
             crawl passes `basic` while the party's highest living level is 1–3 and
             `expert` at 4+, evaluated at generation time. À la carte callers choose
@@ -902,6 +917,25 @@ def generate_treasure(
 
     Raises:
         ValueError: If the letter or tier is unknown.
+
+    Examples:
+
+        ```python
+        from osrlib.core.monsters import IdAllocator
+        from osrlib.core.rng import RngStreams
+        from osrlib.core.treasure import TREASURE_STREAM, generate_treasure
+
+        stream = RngStreams(master_seed=1).get(TREASURE_STREAM)
+        hoard = generate_treasure("A", tier="expert", stream=stream, allocator=IdAllocator())
+        assert hoard.coins.total_coins == 7000
+        assert len(hoard.valuables) == 19
+        assert len(hoard.magic_items) == 3
+        assert {item.template_id for item in hoard.magic_items} == {
+            "sword_plus_1_plus_3_vs_dragons",
+            "ring_of_protection",
+            "potion_of_poison",
+        }
+        ```
     """
     from osrlib.data import load_treasure_tables
 
@@ -918,8 +952,8 @@ def generate_unguarded_treasure(
 ) -> GeneratedTreasure:
     """Generate an unguarded-treasure cache for a dungeon level.
 
-    The level clamps into the printed bands (the encounter-table precedent, pinned):
-    levels 10 and deeper use the 8–9 band.
+    The level always clamps into the printed bands: levels 10 and deeper use the
+    8–9 band.
 
     Args:
         dungeon_level: The dungeon level number, 1-based.

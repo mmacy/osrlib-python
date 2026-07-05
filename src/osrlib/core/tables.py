@@ -1,27 +1,32 @@
 """The rules tables as data: attack matrix, saves, XP, turning, reaction, encounters.
 
-The combat tables compile from `Combat_Tables.md` and `Awarding_XP.md` (with the
-reaction table from `Encounters.md`) into `combat_tables.json` and load as frozen
-models via [`load_combat_tables`][osrlib.data.load_combat_tables]. The shipped matrix
-is asserted verbatim against the SRD, and its structure is locked as a property: every
-printed cell equals `clamp(THAC0 − AC, 2, 20)`. Pinned: AC values outside the printed
-−3..9 columns extend by the same formula — the printed bounds are page layout, not a
-rules cliff. The clamping is exactly what distinguishes matrix mode from the
-`thac0_arithmetic` ruleset flag once modifiers push totals past the plateaus.
+The combat tables — the attack matrix, monster saving throws, XP awards, turning
+undead, and monster reactions — ship with the package as frozen models and load via
+[`load_combat_tables`][osrlib.data.load_combat_tables]. The dungeon encounter tables
+(six dungeon-level columns plus the NPC adventurer generation tables) load via
+[`load_encounter_tables`][osrlib.data.load_encounter_tables]. Load first, then resolve
+with the helpers here: [`to_hit_ac`][osrlib.core.tables.to_hit_ac],
+[`reaction_result`][osrlib.core.tables.reaction_result],
+[`monster_xp`][osrlib.core.tables.monster_xp], and their kin.
 
-The dungeon encounter tables compile from `Dungeon_Encounters.md` into
-`encounter_tables.json` and load via
-[`load_encounter_tables`][osrlib.data.load_encounter_tables]. Their models live here —
-pinned for layering: `osrlib/data/` loaders import their model homes and `core`
-modules import the loaders, so a `crawl/` model home would give the loader a
-core → data → crawl transitive import. The crawl layer consumes the models; it
-doesn't define them.
+The shipped attack matrix matches the OSE SRD verbatim, and every printed cell equals
+`clamp(THAC0 − AC, 2, 20)`; AC values outside the printed −3..9 columns extend by the
+same formula — the printed bounds are page layout, not a rules cliff. The clamping is
+exactly what distinguishes matrix mode from the `thac0_arithmetic` ruleset flag once
+modifiers push totals past the plateaus.
 
 Monster stat blocks carry explicit THAC0 and save values (already reflecting the
 "bonus hit points attack as 1 HD higher" rule), so the HD-keyed lookups here serve
 validation, custom monsters, and the save-as resolutions from packed-variant
 expansion.
 """
+
+# Layering: the encounter-table models live here in core, not in crawl/, because the
+# osrlib/data/ loaders import their model homes and core modules import the loaders —
+# a crawl/ model home would give the loaders a core → data → crawl transitive import.
+# The crawl layer consumes these models; it doesn't define them. (The tables themselves
+# compile from the SRD markdown sources into combat_tables.json / encounter_tables.json
+# at build time.)
 
 from enum import StrEnum
 from typing import Annotated, Literal
@@ -64,7 +69,7 @@ __all__ = [
 ]
 
 TURNING_COLUMNS = ("1", "2", "2*", "3", "4", "5", "6", "7-9")
-"""The turning table's monster-HD column labels, exactly as `Cleric.md` prints them."""
+"""The turning table's monster-HD column labels, exactly as the SRD's cleric turning table prints them."""
 
 # The attack matrix's HD rows as (max effective HD, THAC0). Effective HD is the count
 # plus 1 for a bonus hit-point modifier ("attack as 1 HD higher"); negative modifiers
@@ -238,7 +243,7 @@ class XpAwardRow(BaseModel):
 
 
 class ReactionResult(StrEnum):
-    """The five monster reaction bands, from `Encounters.md`.
+    """The five monster reaction bands, from the OSE SRD's encounter rules.
 
     The wire values are lowercase — they serialize into events and saves; changing
     them is a `schema_version` bump.
@@ -321,13 +326,15 @@ def reaction_result(table: ReactionTable, total: int) -> ReactionResult:
 class MonsterEncounterEntry(BaseModel):
     """An encounter-table cell resolving to monster template ids.
 
-    A single id is the common case. Multiple ids are a packed-variant pool
-    (`Veteran` over `veteran_1..3`): at spawn time each individual picks uniformly
-    from the pool on the wandering stream — pinned (RAW leaves the pick to the
-    referee; per-individual uniform is deterministic and matches the pages' printed
-    spreads). `variant_dice` marks the hydra form: the printed HD dice roll once on
-    the wandering stream and the total selects the template — `monster_ids` are
-    ordered so the dice minimum maps to index 0.
+    `monster_ids` are monster ids from [`load_monsters`][osrlib.data.load_monsters] —
+    see [the monster id index][monsters-index]. A single id is the common case.
+    Multiple ids are a packed-variant pool (`Veteran` over `veteran_1..3`): the
+    tabletop table leaves the pick to the referee, so osrlib has each spawned
+    individual pick uniformly from the pool on the wandering stream — deterministic,
+    and matching the printed spreads on the monster pages. `variant_dice` marks the
+    hydra form: the printed HD dice roll once on the wandering stream and the total
+    selects the template — `monster_ids` are ordered so the dice minimum maps to
+    index 0.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -352,8 +359,8 @@ class MonsterEncounterEntry(BaseModel):
 class NpcPartyEncounterEntry(BaseModel):
     """An NPC adventuring party cell (Basic/Expert Adventurers).
 
-    Compiled faithfully as structured entries; the NPC generator builds the
-    parties these rows call for (see [`osrlib.core.npc`][osrlib.core.npc]).
+    The NPC generator builds the parties these rows call for; see
+    [`osrlib.core.npc`][osrlib.core.npc].
     """
 
     model_config = ConfigDict(frozen=True)
@@ -372,10 +379,10 @@ EncounterEntry = Annotated[
 class EncounterTableRow(BaseModel):
     """One d20 row of a dungeon encounter table.
 
-    `name` is the printed cell name (post-override normalization). The count is the
-    table's own parenthesized value and overrides the monster description's
-    number-appearing — pinned per the SRD's note and the spec: `count_dice` carries
-    dice forms and `count_fixed` the printed plain `1`, exactly one of the two.
+    `name` is the printed cell name (after any documented data overrides). The count
+    is the table's own parenthesized value and, per the SRD's note, overrides the
+    monster description's number-appearing: `count_dice` carries dice forms and
+    `count_fixed` the printed plain `1`, exactly one of the two.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -496,8 +503,8 @@ class EncounterTables(BaseModel):
     def for_level(self, level: int) -> EncounterTable:
         """Return the table for a dungeon level, clamped into the printed bands.
 
-        Pinned: a dungeon level's table is its level number clamped into the printed
-        bands — 1, 2, 3, 4–5, 6–7, and everything 8 or deeper on `8+`.
+        A dungeon level's table is its level number clamped into the printed bands —
+        1, 2, 3, 4–5, 6–7, and everything 8 or deeper on `8+`.
 
         Args:
             level: The dungeon level number, 1-based.
@@ -565,10 +572,9 @@ class CombatTables(BaseModel):
 def to_hit_ac(thac0: int, ac: int) -> int:
     """Return the attack roll required to hit `ac` under the attack matrix.
 
-    Pinned: every printed matrix cell equals `clamp(THAC0 − AC, 2, 20)` (locked by a
-    property test against the shipped table), and AC values outside the printed −3..9
-    columns extend by the same formula — the printed bounds are page layout, not a
-    rules cliff.
+    Every printed matrix cell equals `clamp(THAC0 − AC, 2, 20)`, and armour classes
+    outside the printed −3..9 columns extend by the same formula: the printed bounds
+    are page layout, not a rules cliff.
 
     Args:
         thac0: The attacker's THAC0.
@@ -584,7 +590,7 @@ def thac0_for_hd(count: int, *, bonus_modifier: bool = False) -> tuple[int, int]
     """Return the attack-matrix THAC0 (and attack bonus) for a monster's Hit Dice.
 
     Bonus hit-point modifiers attack as 1 HD higher; negative modifiers keep the
-    unmodified row (pinned). Fractional and sub-1 HD use the "Up to 1" row (19 [0]).
+    unmodified row. Fractional and sub-1 HD use the "Up to 1" row (19 [0]).
     Monster stat blocks carry printed THAC0 — this lookup serves validation, custom
     monsters, and drained instances re-deriving from reduced HD.
 
@@ -640,12 +646,11 @@ def monster_save_band_label(hit_dice: MonsterHitDice) -> str:
 def turning_column(hit_dice: MonsterHitDice) -> str | None:
     """Return the turning-table column for a monster's Hit Dice, or `None` above 9.
 
-    Pinned: the column is the HD *count* as a string, except count 2 with a special
-    ability (`asterisks > 0`) maps to `2*` (the table's own footnote), counts 7–9
-    share `7-9`, and counts above 9 have no column — turning fails against them (the
-    printed table is the rule; the "referee may expand" footnote is game data
-    territory). Modifiers don't shift columns (the mummy's 5+1 turns on column 5),
-    and the asterisk matters only at count 2 (the wight's `3*` is column 3).
+    The column is the HD *count* as a string, with three exceptions: count 2 with a
+    special ability (`asterisks > 0`) maps to `2*` (the table's own footnote), counts
+    7–9 share `7-9`, and counts above 9 have no column — turning fails against them.
+    Modifiers don't shift columns (the mummy's 5+1 turns on column 5), and the
+    asterisk matters only at count 2 (the wight's `3*` is column 3).
 
     Args:
         hit_dice: The monster's Hit Dice.
@@ -666,10 +671,10 @@ def turning_column(hit_dice: MonsterHitDice) -> str | None:
 def xp_band_label(hit_dice: MonsterHitDice) -> str:
     """Return the XP-awards row label for a monster's Hit Dice.
 
-    Pinned: negative hit-point modifiers map to the *lower* band — the goblin's 1-1
-    HD awards from the "Less than 1" row (the "attack as 1 HD higher" rule is for
-    bonus modifiers only). Fractional and fixed-hp forms are "Less than 1". Above 21
-    HD every monster lands on the "21–21+" row and inflation applies (see
+    Negative hit-point modifiers map to the *lower* band — the goblin's 1-1 HD awards
+    from the "Less than 1" row (the "attack as 1 HD higher" rule is for bonus
+    modifiers only). Fractional and fixed-hp forms are "Less than 1". Above 21 HD
+    every monster lands on the "21–21+" row and inflation applies (see
     [`monster_xp`][osrlib.core.tables.monster_xp]).
 
     Args:

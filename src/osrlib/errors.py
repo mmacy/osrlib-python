@@ -1,11 +1,18 @@
 """Exception hierarchy for out-of-fiction failures.
 
 The typed hierarchy rooted at [`OsrlibError`][osrlib.errors.OsrlibError] is reserved for
-out-of-fiction failures: corrupt saves, unknown schema versions, malformed content.
-Programmer misuse (bad argument types, out-of-range seeds) raises stdlib `ValueError` or
-`TypeError` instead, and in-fiction invalid commands (moving through a wall) are rejected
-by the session rather than raised. The hierarchy grows additively — each phase adds the
-exception types it needs.
+out-of-fiction failures: corrupt saves, unknown schema versions, malformed content. An
+exception means the caller broke the API contract, or the content itself is malformed —
+never that a player's in-fiction choice was illegal. An invalid in-fiction command
+(moving through a wall) or an illegal creation choice is refused as a
+[`Rejection`][osrlib.core.validation.Rejection] result, not raised. Programmer misuse
+(bad argument types, out-of-range seeds) raises stdlib `ValueError` or `TypeError`
+instead.
+
+A front end maps this hierarchy to its own error surface — HTTP status codes, process
+exit codes, dialog text — however suits its platform. The hierarchy grows additively
+over time: new exception types may be added, but existing ones are never removed or
+repurposed.
 """
 
 __all__ = [
@@ -43,7 +50,8 @@ class ReplayVersionError(OsrlibError):
     """Raised when a command log is replayed under a different engine version.
 
     Any rules change may legitimately alter outcomes, so replaying under a
-    different engine version is an explicit, detectable error rather than silent
-    divergence — the spec's replay contract. Loading a *save* across engine
-    versions remains legal; replay is the guarantee that breaks.
+    different engine version is an explicit, detectable error rather than a
+    silent divergence: replay reproduces the original outcomes only when run
+    under the identical engine version. Loading a *save* across engine versions
+    remains legal; replay is the guarantee that breaks.
     """
