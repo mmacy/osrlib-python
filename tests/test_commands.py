@@ -27,6 +27,7 @@ REFEREE_COMMANDS = {
     "set_door_state",
     "place_party",
     "advance_time",
+    "roll_dice",
 }
 
 
@@ -78,6 +79,7 @@ def sample_command(command_class):
         "SpawnNpcParty": dict(party_kind="basic", distance_feet=60),
         "SellTreasure": dict(item_ids=("valuable-0001",)),
         "PurchaseHealing": dict(character_id="character-0001", service="cure_light_wounds"),
+        "RollDice": dict(expression="2d6"),
     }
     return command_class(**samples[command_class.__name__])
 

@@ -115,6 +115,7 @@ def sample_event(event_class, code):
         "XpAwardedEvent": dict(character_id="pc-1", award=100, modified_award=110, level_after=2),
         "TimeAdvancedEvent": dict(n=2, unit="turn", rounds_total=120),
         "GameOverEvent": dict(reason="tpk"),
+        "DiceRolledEvent": dict(expression="2d6", total=7, rolls=(3, 4)),
         "HoardGeneratedEvent": dict(
             cache_ref="cache-0001",
             treasure_types=("A",),

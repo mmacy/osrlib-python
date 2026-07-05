@@ -16,7 +16,7 @@ does this wiring for you: it owns an `RngStreams` container built from the sessi
 master seed and hands out the correctly named stream wherever a kernel function needs
 one, so ordinary gameplay never requires touching a stream directly.
 
-There are 12 named streams in total. The table below lists each one; the sections that
+There are 13 named streams in total. The table below lists each one; the sections that
 follow give more detail on what each stream governs.
 
 | Stream key | Constant | Governs |
@@ -33,6 +33,7 @@ follow give more detail on what each stream governs.
 | `"encounter"` | [`ENCOUNTER_STREAM`][osrlib.crawl.session.ENCOUNTER_STREAM] | Encounter setup: surprise, distance, reaction rolls, distraction, and group counts for monsters or NPC parties spawned by command. |
 | `"exploration"` | [`EXPLORATION_STREAM`][osrlib.crawl.session.EXPLORATION_STREAM] | Exploration: forcing doors, listening, searching, traps, tinder, and thief skill checks. |
 | `"monster_action"` | [`MONSTER_ACTION_STREAM`][osrlib.crawl.session.MONSTER_ACTION_STREAM] | Monster action policy during battle: which action a monster group takes each round and which target it picks. |
+| `"adjudication"` | [`ADJUDICATION_STREAM`][osrlib.crawl.session.ADJUDICATION_STREAM] | The referee's ad-hoc adjudication rolls: freeform dice commanded through the seeded session. |
 
 ## Character streams
 
@@ -88,7 +89,7 @@ resolution of each individual coin hoard, gem, piece of jewellery, or magic item
 
 ## Crawl-session streams
 
-Four streams belong to the dungeon-crawl loop and are keyed on
+Five streams belong to the dungeon-crawl loop and are keyed on
 [`GameSession`][osrlib.crawl.session.GameSession] rather than a kernel module, since
 they only make sense in the context of a running session.
 
@@ -112,6 +113,14 @@ The [`MONSTER_ACTION_STREAM`][osrlib.crawl.session.MONSTER_ACTION_STREAM] (key
 battle: which action a group takes on its turn and which target it selects. Keeping
 this on its own stream means swapping in a different monster action policy never
 shifts the combat stream's attack and damage rolls.
+
+The [`ADJUDICATION_STREAM`][osrlib.crawl.session.ADJUDICATION_STREAM] (key
+`"adjudication"`) covers the referee's ad-hoc rolls for freeform adjudication —
+dice commanded through the seeded session to resolve a chance outcome the content
+model can't express, such as whether a frayed rope holds. Keeping these on their own
+stream means an ad-hoc referee roll never perturbs the draw sequence of a keyed
+mechanic, so the outcomes of encounters, combat, and exploration stay fixed under
+replay no matter how many adjudication rolls the referee interleaves.
 
 ## Stream independence in practice
 

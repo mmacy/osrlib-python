@@ -173,6 +173,8 @@ def command_strategy():
                 fields[field_name] = st.just(1)
             elif field_name == "distance_feet":
                 fields[field_name] = st.integers(min_value=0, max_value=60)
+            elif field_name == "expression":
+                fields[field_name] = st.sampled_from(["1d6", "2d6", "3d6+1", "1d20", "1d4-1", "2d6×10", "d%"])
             else:
                 fields[field_name] = st.just(field.default) if not field.is_required() else st.none()
         samples.append(st.builds(command_class, **fields))

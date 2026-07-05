@@ -69,6 +69,7 @@ __all__ = [
     "ReorderParty",
     "ResolveBattleRound",
     "Rest",
+    "RollDice",
     "Search",
     "SessionMode",
     "SetDoorState",
@@ -1611,6 +1612,41 @@ class AdvanceTime(Command):
     unit: TimeUnit
 
 
+class RollDice(Command):
+    """Referee: roll a dice expression through the seeded session.
+
+    An authorial roll for freeform adjudication — the referee resolves a *chance*
+    outcome the content model can't express (a puzzle, a bluff, "does the frayed
+    rope hold?") by rolling through the engine rather than inventing a number, so
+    the result is logged, replayable, and grounded in a typed event. Referee
+    commands are legal in every mode. The roll draws from the dedicated
+    [`ADJUDICATION_STREAM`][osrlib.crawl.session.ADJUDICATION_STREAM], so an ad-hoc
+    referee roll never perturbs the draw sequence of keyed mechanics. A malformed
+    `expression` is rejected at construction, exactly as
+    [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters]'s `count_dice` is, so it
+    never reaches the session and consumes no draw.
+
+    Modes:
+        `town`, `exploring`, `encounter`, `battle`, `game_over`
+
+    Rejections:
+        None.
+
+    Events:
+        [`DiceRolledEvent`][osrlib.crawl.events.DiceRolledEvent] with the
+        expression, the total, and the individual die results.
+    """
+
+    command_type: Literal["roll_dice"] = "roll_dice"
+    expression: str
+
+    @field_validator("expression")
+    @classmethod
+    def _expression_must_parse(cls, value: str) -> str:
+        parse(value)
+        return value
+
+
 ALL_COMMAND_CLASSES: tuple[type[Command], ...] = (
     MoveParty,
     TurnParty,
@@ -1656,6 +1692,7 @@ ALL_COMMAND_CLASSES: tuple[type[Command], ...] = (
     PlaceParty,
     AdvanceTime,
     IdentifyItem,
+    RollDice,
 )
 """Every command class — the discriminated union's members, in a stable wire order."""
 
