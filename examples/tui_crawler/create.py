@@ -10,6 +10,7 @@ from osrlib.core.rng import RngStream
 from osrlib.core.ruleset import Ruleset
 from osrlib.crawl.party import Party
 
+# --8<-- [start:script-party-roster]
 # The scripted party: one of each role, kit bought from starting gold.
 _SCRIPT_PARTY = (
     (
@@ -24,11 +25,13 @@ _SCRIPT_PARTY = (
     ("Sable", "thief", Alignment.NEUTRAL, (("sword", 1), ("leather", 1)), ("sword", "leather"), ()),
     ("Elandril", "magic_user", Alignment.NEUTRAL, (("dagger", 1),), ("dagger",), ("sleep",)),
 )
+# --8<-- [end:script-party-roster]
 
 _CLASS_CHOICES = ("cleric", "dwarf", "elf", "fighter", "halfling", "magic_user", "thief")
 _ALIGNMENTS = {"l": Alignment.LAWFUL, "n": Alignment.NEUTRAL, "c": Alignment.CHAOTIC}
 
 
+# --8<-- [start:scripted-party-fn]
 def scripted_party(stream: RngStream, ruleset: Ruleset) -> Party:
     """Build the fixed script party — the non-interactive and test path."""
     members = []
@@ -45,6 +48,9 @@ def scripted_party(stream: RngStream, ruleset: Ruleset) -> Party:
         )
         members.append(result.character)
     return Party(members=members)
+
+
+# --8<-- [end:scripted-party-fn]
 
 
 def interactive_party(stream: RngStream, ruleset: Ruleset) -> Party:

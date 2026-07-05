@@ -29,6 +29,7 @@ from osrlib.crawl.events import ItemAcquiredEvent, LocationEnteredEvent
 from .content import IDOL_NAME, QUEST_BONUS_XP, QUEST_REWARD_GP
 
 
+# --8<-- [start:fetch-quest-listener]
 class FetchQuestListener:
     """Recover the Jade Idol and bring it home — a quest tracker as a listener."""
 
@@ -74,3 +75,6 @@ class FetchQuestListener:
             finally:
                 self._reacting = False
         return [], state
+
+
+# --8<-- [end:fetch-quest-listener]

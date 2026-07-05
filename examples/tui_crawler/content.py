@@ -41,6 +41,7 @@ def _open_row(level_y: int, width: int) -> dict[str, Edge]:
     return edges
 
 
+# --8<-- [start:wandering-table]
 def _rival_party_table() -> EncounterTable:
     """A wandering table of rival adventurers: every d20 row fields a Basic pair."""
     rows = tuple(
@@ -53,6 +54,9 @@ def _rival_party_table() -> EncounterTable:
         for roll in range(1, 21)
     )
     return EncounterTable(id="barrow_rivals", label="Barrow halls", min_level=2, rows=rows)
+
+
+# --8<-- [end:wandering-table]
 
 
 def build_adventure() -> Adventure:
@@ -71,6 +75,7 @@ def build_adventure() -> Adventure:
                 cells=((2, 0), (3, 0)),
                 encounter=KeyedEncounter(monsters=(KeyedMonster(template_id="goblin", count_fixed=2),)),
             ),
+            # --8<-- [start:idol-shrine-area]
             AreaSpec(
                 id="shrine",
                 name="Shrine of the Barrow King",
@@ -89,6 +94,7 @@ def build_adventure() -> Adventure:
                     ),
                 ),
             ),
+            # --8<-- [end:idol-shrine-area]
         ),
         transitions=(
             TransitionSpec(

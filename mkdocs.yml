@@ -13,6 +13,12 @@ markdown_extensions:
   # Explicit heading ids ({ #anchor }) — the generated reference pages carry them so
   # docstrings can cross-reference the content-id indexes via autorefs.
   - attr_list
+  # The front-end walk-throughs excerpt the real example sources via named snippet
+  # sections (--8<-- markers), so the pages cannot drift from the code they teach;
+  # check_paths fails the build when a marker disappears.
+  - pymdownx.snippets:
+      base_path: [.]
+      check_paths: true
 
 # The design documents live in docs/ beside the site pages but are not part of the
 # published site; the adaptations register (adaptations.md) is a site page and stays.
