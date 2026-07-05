@@ -1,5 +1,7 @@
 """Session contract tests: rejection purity, modes, logs, listeners, records, views."""
 
+import pytest
+
 from crawl_fixtures import build_adventure, build_party
 from osrlib.core.clock import ROUNDS_PER_DAY, TimeUnit
 from osrlib.core.events import Visibility
@@ -14,13 +16,17 @@ from osrlib.crawl.commands import (
     PlaceParty,
     ReorderParty,
     ResolveBattleRound,
+    RollDice,
+    SessionMode,
     SetDoorState,
     SetFlag,
+    SpawnMonsters,
     Wait,
 )
 from osrlib.crawl.dungeon import Direction, PartyLocation
-from osrlib.crawl.events import FlagSetEvent
+from osrlib.crawl.events import DiceRolledEvent, FlagSetEvent
 from osrlib.crawl.session import GameSession
+from osrlib.errors import ContentValidationError
 
 
 def make_session(seed: int = 11) -> GameSession:
@@ -190,6 +196,83 @@ class TestRefereeCommands:
         # In town provisions consume but never run short.
         assert codes.count("exploration.provisions.consumed") == 8  # food + water for four members
         assert "exploration.provisions.short" not in codes
+
+
+class TestRollDice:
+    def test_accepted_and_logged_with_a_dice_rolled_event(self):
+        session = make_session()
+        result = session.execute(RollDice(expression="2d6"))
+        assert result.accepted
+        (event,) = result.events
+        assert isinstance(event, DiceRolledEvent)
+        assert event.code == "adjudication.dice_rolled"
+        assert event.expression == "2d6"
+        assert len(event.rolls) == 2
+        assert all(1 <= die <= 6 for die in event.rolls)
+        assert event.total == sum(event.rolls)
+        # Accepted rolls join the reproducible trajectory.
+        assert session.command_log[-1] == RollDice(expression="2d6")
+        assert session.event_log[-1] == event
+
+    def test_roll_is_referee_visibility(self):
+        assert DiceRolledEvent.model_fields["visibility"].default is Visibility.REFEREE
+        session = make_session()
+        (event,) = session.execute(RollDice(expression="1d20")).events
+        assert event.visibility is Visibility.REFEREE
+
+    def test_modifier_and_multiplier_carry_through_to_the_total(self):
+        session = make_session()
+        (event,) = session.execute(RollDice(expression="2d6+1×10")).events
+        assert event.total == (sum(event.rolls) + 1) * 10
+
+    def test_malformed_expression_is_rejected_at_construction(self):
+        # A bad expression fails validation before it can reach the session: no
+        # CommandResult, no draw, no log entry — the same way SpawnMonsters guards
+        # its count_dice. Validation stays a pure pre-phase.
+        session = make_session()
+        before_streams = stream_states(session)
+        before_log = len(session.command_log)
+        before_events = len(session.event_log)
+        with pytest.raises(ContentValidationError):
+            RollDice(expression="garbage")
+        assert stream_states(session) == before_streams
+        assert len(session.command_log) == before_log
+        assert len(session.event_log) == before_events
+
+    def test_same_seed_same_command_is_byte_identical(self):
+        first = make_session(seed=7).execute(RollDice(expression="3d6")).events[0]
+        second = make_session(seed=7).execute(RollDice(expression="3d6")).events[0]
+        assert first.model_dump(mode="json") == second.model_dump(mode="json")
+
+    def test_roll_touches_only_the_adjudication_stream(self):
+        session = make_session()
+        session.execute(EnterDungeon(dungeon_id="delve"))  # exercise the crawl streams first
+        before = stream_states(session)
+        session.execute(RollDice(expression="4d6"))
+        after = stream_states(session)
+        changed = {key for key in after if before.get(key) != after.get(key)}
+        assert changed == {"adjudication"}
+
+    def test_interleaved_roll_leaves_a_keyed_mechanic_unshifted(self):
+        def spawn_events(interleave: bool) -> list:
+            session = make_session(seed=99)
+            session.execute(EnterDungeon(dungeon_id="delve"))
+            if interleave:
+                session.execute(RollDice(expression="3d6"))
+            result = session.execute(SpawnMonsters(template_id="goblin", count_dice="2d4", distance_feet=60))
+            assert result.accepted
+            return [event.model_dump(mode="json") for event in result.events]
+
+        # An interleaved adjudication roll must not shift the encounter stream's draws.
+        assert spawn_events(interleave=False) == spawn_events(interleave=True)
+
+    def test_legal_in_every_mode(self):
+        for mode in SessionMode:
+            session = make_session()
+            session.mode = mode
+            result = session.execute(RollDice(expression="1d6"))
+            assert result.accepted, mode
+            assert isinstance(result.events[0], DiceRolledEvent)
 
 
 class TestReorder:

@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- `RollDice`, an authorial command that rolls an arbitrary dice expression through the seeded session for freeform referee adjudication. It draws from a dedicated `adjudication` RNG stream and emits a referee-visibility `DiceRolledEvent`, so an ad-hoc roll is accepted, logged, and replayable without ever perturbing a keyed mechanic's draw sequence.
+
 ## [1.0.0] - 2026-07-05
 
 ### Added

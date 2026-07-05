@@ -14,6 +14,7 @@ from osrlib.crawl.commands import (
     GrantItem,
     LightSource,
     MoveParty,
+    RollDice,
     SetFlag,
 )
 from osrlib.crawl.dungeon import Direction
@@ -128,6 +129,22 @@ class TestReplay:
         party_document = party_to_document(build_party().members)
         serialized = [command.model_dump(mode="json") for command in accepted]
         replayed = replay_game(SEED, party_document, build_adventure(), Ruleset(), serialized)
+        assert session_state(replayed) == session_state(session)
+
+    def test_adjudication_roll_survives_save_load_and_replay(self):
+        session = GameSession.new(build_party(), build_adventure(), seed=SEED)
+        accepted = [
+            command
+            for command in (RollDice(expression="3d6"), RollDice(expression="1d20+2"))
+            if session.execute(command).accepted
+        ]
+        assert session.event_log[-1].code == "adjudication.dice_rolled"
+        # The roll is on the reproducible trajectory: a save/load round trip preserves it...
+        restored = load_game(json.loads(json.dumps(save_game(session))))
+        assert session_state(restored) == session_state(session)
+        # ...and a replay of the command log reproduces the same rolls exactly.
+        party_document = party_to_document(build_party().members)
+        replayed = replay_game(SEED, party_document, build_adventure(), Ruleset(), accepted)
         assert session_state(replayed) == session_state(session)
 
     def test_replay_under_a_different_engine_version_raises(self):

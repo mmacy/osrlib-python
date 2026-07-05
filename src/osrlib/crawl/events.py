@@ -31,6 +31,7 @@ __all__ = [
     "CRAWL_EVENT_CLASSES",
     "CurseRevealedEvent",
     "DetectionRolledEvent",
+    "DiceRolledEvent",
     "DoorEvent",
     "EncounterEndedEvent",
     "EncounterStartedEvent",
@@ -660,6 +661,25 @@ class GameOverEvent(Event):
     reason: str
 
 
+class DiceRolledEvent(Event):
+    """An authorial dice roll resolved (referee — the referee's hidden adjudication rolls).
+
+    Emitted by [`RollDice`][osrlib.crawl.commands.RollDice] when a referee resolves a
+    freeform *chance* outcome by rolling through the seeded session. Carries the
+    expression that was rolled, the `total`, and each individual die result in
+    `rolls`.
+    """
+
+    allowed_codes: ClassVar[frozenset[str]] = frozenset({"adjudication.dice_rolled"})
+
+    event_type: Literal["dice_rolled"] = "dice_rolled"
+    code: str = "adjudication.dice_rolled"
+    visibility: Visibility = Visibility.REFEREE
+    expression: str
+    total: int
+    rolls: tuple[int, ...]
+
+
 CRAWL_EVENT_CLASSES: tuple[type[Event], ...] = (
     PartyMovedEvent,
     LocationEnteredEvent,
@@ -702,6 +722,7 @@ CRAWL_EVENT_CLASSES: tuple[type[Event], ...] = (
     XpAwardedEvent,
     TimeAdvancedEvent,
     GameOverEvent,
+    DiceRolledEvent,
 )
 """Every crawl event class, in declaration order."""
 

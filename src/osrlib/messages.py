@@ -319,6 +319,9 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
     ),
     "session.time.advanced": lambda event: f"Time advances {event.n} {event.unit}(s), to round {event.rounds_total}.",
     "session.game_over": lambda event: f"The game is over: {event.reason}.",
+    "adjudication.dice_rolled": lambda event: (
+        f"Referee rolls {event.expression}: [{', '.join(str(die) for die in event.rolls)}] — total {event.total}."
+    ),
 }
 
 

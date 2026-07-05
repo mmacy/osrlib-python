@@ -62,6 +62,7 @@ from osrlib.crawl.commands import (
     GrantItem,
     IdentifyItem,
     PlaceParty,
+    RollDice,
     SessionMode,
     SetDoorState,
     SetFlag,
@@ -70,6 +71,7 @@ from osrlib.crawl.commands import (
 )
 from osrlib.crawl.dungeon import DungeonState, edge_ref
 from osrlib.crawl.events import (
+    DiceRolledEvent,
     DoorEvent,
     FlagSetEvent,
     ItemAcquiredEvent,
@@ -89,6 +91,7 @@ if TYPE_CHECKING:
     from osrlib.crawl.views import PlayerView, RefereeView
 
 __all__ = [
+    "ADJUDICATION_STREAM",
     "DARKNESS_EFFECT_KINDS",
     "DeathRecord",
     "DefeatedMonsterRecord",
@@ -113,6 +116,10 @@ EXPLORATION_STREAM = "exploration"
 
 MONSTER_ACTION_STREAM = "monster_action"
 """Stream key for the action policy's draws — a policy change never shifts combat draws."""
+
+ADJUDICATION_STREAM = "adjudication"
+"""Stream key for the referee's ad-hoc adjudication rolls — kept off the mechanical
+streams so a freeform roll never shifts a keyed mechanic's draw sequence."""
 
 LIGHT_EFFECT_KINDS = frozenset({"light", "continual_light"})
 """The light-family effect kinds: torch/lantern attachments and the light spells."""
@@ -951,6 +958,16 @@ def _handle_advance_time(session: GameSession, command: AdvanceTime) -> tuple[li
     return [], events
 
 
+def _handle_roll_dice(session: GameSession, command: RollDice) -> tuple[list[Rejection], list[Event]]:
+    from osrlib.core.dice import roll
+
+    # The command's field validator already guaranteed the expression parses, so the
+    # draw happens unconditionally here — validation is the pure pre-phase, the roll is
+    # the only side effect, and it lands on its own stream to leave keyed draws untouched.
+    result = roll(command.expression, session.streams.get(ADJUDICATION_STREAM))
+    return [], [DiceRolledEvent(expression=command.expression, total=result.total, rolls=result.rolls)]
+
+
 _REFEREE_HANDLERS = {
     GrantItem: _handle_grant_item,
     GrantCoins: _handle_grant_coins,
@@ -962,6 +979,7 @@ _REFEREE_HANDLERS = {
     IdentifyItem: _handle_identify_item,
     PlaceParty: _handle_place_party,
     AdvanceTime: _handle_advance_time,
+    RollDice: _handle_roll_dice,
 }
 
 _HANDLERS_CACHE: dict | None = None
