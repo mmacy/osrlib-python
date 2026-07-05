@@ -80,6 +80,12 @@ def check_wheel(wheel_path: Path, version: str, project: dict, errors: list[str]
         if missing:
             errors.append(f"wheel is missing package files: {missing}")
 
+        # Named must-haves, asserted independently of the tree listing: deleting
+        # one from src/ must fail the audit, not shrink its expectations.
+        for required in ("osrlib/py.typed", "osrlib/data/LICENSE-OGL.md"):
+            if required not in members:
+                errors.append(f"wheel is missing {required}")
+
         checked_in_data = {name for name in expected_package_files() if name.startswith("osrlib/data/")}
         shipped_data = {name for name in members if name.startswith("osrlib/data/")}
         if shipped_data != checked_in_data:
