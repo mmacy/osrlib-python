@@ -1,5 +1,7 @@
 # Docstring audit — input to the Phase 7 plan
 
+> **Executed in Phase 7.** This audit was the charter for the Phase 7 docstring overhaul, which is now complete: the development-history vocabulary is purged (a mechanical tripwire enforces it), the entry points carry runnable examples, every command documents its modes, rejection codes, and emitted events, the duck-typed combatant parameters are named with cross-references, the id parameters link their loaders and the generated content-id indexes, and the module docstrings orient. The published site renders the result. This document is kept as the record of the pre-overhaul state.
+
 A shippability audit of every public docstring in `src/osrlib/`, conducted 2026-07-04 on the post-Phase-5 codebase (branch `phase-6-plan`), wearing one hat: "do these look like shippable docstrings appropriate for new library users to effectively use the library?" Three independent passes — the `core/` kernel, the `crawl/` layer plus top-level modules, and a blind new-user test that attempted five tasks from docstrings alone. This document is evidence for the Phase 7 plan, not the plan; the Phase 7 planning pass should verify counts and line references against the code it ships against, since Phase 6's rename sweep will move some of them.
 
 ## Verdict

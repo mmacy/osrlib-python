@@ -1,12 +1,20 @@
 # osrlib
 
-A Python library implementing the classic 1981 B/X (Basic/Expert) fantasy adventure game rules for turn-based, grid-based dungeon crawlers in the style of the original Bard's Tale. The rules are sourced from the Old-School Essentials System Reference Document, an Open Game Content restatement of the B/X rules. osrlib is the rules authority and game-state engine; the game supplies presentation, input, and content.
+A Python library implementing the classic 1981 B/X (Basic/Expert) fantasy adventure game rules for turn-based, grid-based dungeon crawlers in the style of the original Bard's Tale. The rules are sourced from the [Old-School Essentials System Reference Document](https://oldschoolessentials.necroticgnome.com/srd/), an Open Game Content restatement of the B/X rules. osrlib is the rules authority and game-state engine; your game supplies presentation, input, and content.
 
-See [the specification](docs/spec.md) for the full design: architecture, contracts, rules scope, and the phased roadmap.
+The library is headless and sans-I/O — it never renders, prompts, sleeps, or touches the network — and every game it runs is deterministic: the same seed and the same commands always replay the same game. Four kinds of consumer are first-class: a web or mobile backend (FastAPI over HTTP), a terminal game (a local TUI crawler), an LLM referee or narrator driven by structured events and typed commands, and scripts or simulations using the kernel à la carte.
 
-## Development status
+**Status:** pre-release. Install from source (below); there is no PyPI release yet. The public API is frozen, and the [documentation site](https://mmacy.github.io/osrlib-python/) is the place to learn the library — quickstart, guides, front-end walk-throughs, and a full reference for every command, event, rejection code, and content id.
 
-Early development — Phase 6 (the API freeze) is complete: the public surface is frozen ahead of the documentation and release phases. The Advanced Fantasy groundwork is validated (`race` and `spell_list` opened from closed vocabularies to validated string ids, the divine reversal-at-cast freedom re-keyed onto the caster profile, and hand-authored fixture content run through the full kernel lifecycle), the public-surface census landed (complete `__all__` per module with an AST completeness gate, the top-level re-exports cut, internal crawl handlers underscore-prefixed, stale phase-promise language retired, a pyright basic-mode CI gate at zero errors with zero suppressions), and a second example front end proves the engine presentation-agnostic: `examples/fastapi_crawler` serves the same barrow over HTTP with per-session locks, player-visibility filtering at the wire, in-fiction rejections as 200s, the typed error hierarchy mapped to HTTP statuses, and saves that never leave the server. Phase 5 delivered treasure and reward: treasure types A–V compiled and generated (coins, gems, jewellery, and magic on the printed tables), the 164-item magic item catalog with its wired mechanics census, magic items in play (identification and curses, potions, scrolls with wards and the thief fizzle, charged devices, rings, enchanted arms in the combat kernel), lazily generated hoards and the loot flow, NPC adventuring parties as encounter sides with their own action policy, the end-of-adventure XP award (the departure-snapshot valuation delta) with town selling and temple services, and the dependency-free example crawler `examples/tui_crawler` whose fetch quest proves the listener extension surface — plus the schema-version-2 migration, the first real one. Phase 4 delivered the crawl (the `GameSession` command/event API, exploration, encounters, the range-track battle machine, save/load with load-equals-replay); Phase 3 magic; Phase 2 the combat kernel; Phase 1 characters; and Phase 0 the contracts underneath (deterministic named RNG streams, the dice grammar, the game clock, the event-emission rules).
+## Installation
+
+Requires Python ≥ 3.14 and [uv](https://docs.astral.sh/uv/). The only runtime dependency is [pydantic](https://docs.pydantic.dev/).
+
+```sh
+git clone https://github.com/mmacy/osrlib-python.git
+cd osrlib-python
+uv sync
+```
 
 ## Quickstart
 
@@ -56,15 +64,7 @@ restored = load_game(document)
 assert save_game(restored) == document
 ```
 
-## SRD data pipeline
-
-The game data in `src/osrlib/data/` is generated from the scraped SRD markdown in `srd/` and is never hand-edited. Regenerate it with:
-
-```sh
-uv run python -m tools.srd_compile
-```
-
-CI regenerates the data and fails on any diff, so `srd/`, the compiler, and the generated data cannot silently drift. Parser corrections belong in `tools/srd_compile/overrides/`, never in the output; every override carries a reason and is recorded in the output entry's `overrides_applied` provenance list. Pinned rules interpretations are registered in [docs/adaptations.md](docs/adaptations.md).
+The [documentation site](https://mmacy.github.io/osrlib-python/) walks this example step by step, then builds out from it: [building an adventure](https://mmacy.github.io/osrlib-python/getting-started/building-an-adventure/), the [session and event loop](https://mmacy.github.io/osrlib-python/guides/sessions-commands-events/), and complete [front-end walk-throughs](https://mmacy.github.io/osrlib-python/front-ends/tui-crawler/) for the two example games in `examples/`.
 
 ## Determinism
 
@@ -82,23 +82,32 @@ rolls_b = [roll("2d6×10", streams_b.get("treasure")).total for _ in range(3)]
 assert rolls_a == rolls_b  # same seed + same key → identical sequences
 ```
 
-Successive rolls on one stream differ, of course; reproducibility across derivations is the contract.
+Successive rolls on one stream differ, of course; reproducibility across derivations is the contract. Saved games replay from the seed and the command log, so a loaded game is bit-for-bit the game you saved.
 
-## Development quickstart
+## SRD data pipeline
 
-Requires Python ≥ 3.14 and [uv](https://docs.astral.sh/uv/).
+The game data in `src/osrlib/data/` is generated from the scraped SRD markdown in `srd/` and is never hand-edited. Regenerate it with:
+
+```sh
+uv run python -m tools.srd_compile
+```
+
+CI regenerates the data and fails on any diff, so `srd/`, the compiler, and the generated data cannot silently drift. Parser corrections belong in `tools/srd_compile/overrides/`, never in the output; every override carries a reason and is recorded in the output entry's `overrides_applied` provenance list. Rules interpretations and adaptations are documented in the [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/).
+
+## Contributing
+
+Requires Python ≥ 3.14 and [uv](https://docs.astral.sh/uv/). Run the checks the way CI does:
 
 ```sh
 uv sync
-uv run pytest
-```
-
-Format and lint with ruff:
-
-```sh
-uv run ruff format
+uv run ruff format --check
 uv run ruff check
+uv run pyright
+uv run pytest
+uv run mkdocs build --strict
 ```
+
+The design is documented in [the specification](docs/spec.md): architecture, contracts, rules scope, and the phased roadmap.
 
 ## Licensing
 
