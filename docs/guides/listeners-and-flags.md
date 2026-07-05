@@ -103,51 +103,7 @@ session.register_listener(FetchQuestListener(session))
 Here is the listener in full, from `examples/tui_crawler/quest.py`:
 
 ```{.python .no-run}
-class FetchQuestListener:
-    """Recover the Jade Idol and bring it home — a quest tracker as a listener."""
-
-    key = "fetch_quest"
-
-    def __init__(self, session) -> None:
-        """Bind the listener to the session it issues referee commands through."""
-        self._session = session
-        self._reacting = False
-
-    def _idol_carrier(self):
-        for member in self._session.party.members:
-            for valuable in member.inventory.valuables:
-                if valuable.name == IDOL_NAME:
-                    return member
-        return None
-
-    def handle(self, events: Sequence[Event], state: dict) -> tuple[list[Event], dict]:
-        """React to one command's events (see the session listener contract)."""
-        if self._reacting:
-            return [], state
-        state = dict(state)
-        acquired = any(isinstance(event, ItemAcquiredEvent) for event in events)
-        if acquired and not state.get("reward_granted"):
-            carrier = self._idol_carrier()
-            if carrier is not None:
-                state["reward_granted"] = True
-                self._reacting = True
-                try:
-                    self._session.execute(GrantCoins(character_id=carrier.id, coins=Coins(gp=QUEST_REWARD_GP)))
-                finally:
-                    self._reacting = False
-        returned_to_town = any(
-            isinstance(event, LocationEnteredEvent) and event.location_kind == "town" for event in events
-        )
-        if returned_to_town and state.get("reward_granted") and not state.get("completed"):
-            state["completed"] = True
-            self._reacting = True
-            try:
-                self._session.execute(SetFlag(key="quest.idol", value="recovered"))
-                for member in self._session.party.living_members():
-                    self._session.execute(AwardXP(character_id=member.id, amount=QUEST_BONUS_XP))
-            finally:
-                self._reacting = False
-        return [], state
+--8<-- "examples/tui_crawler/quest.py:fetch-quest-listener"
 ```
 
 A few things worth calling out:
@@ -232,12 +188,12 @@ assert session.listener_state["move_counter"] == {"moves": 2}
 
 # Flags are plain session state: referee-only, set by command, read directly.
 assert session.flags == {}
-session.execute(SetFlag(key="crypt.visited", value=True))
-assert session.flags == {"crypt.visited": True}
+session.execute(SetFlag(key="crypt.lever_pulled", value=True))
+assert session.flags == {"crypt.lever_pulled": True}
 
 # A front end working from views alone reads flags off the referee view instead.
 referee_state = session.view(Visibility.REFEREE).state
-assert referee_state["flags"] == {"crypt.visited": True}
+assert referee_state["flags"] == {"crypt.lever_pulled": True}
 ```
 
 ## Where next

@@ -666,7 +666,10 @@ class EquipItem(Command):
     """Equip an item from a member's item list (zero time).
 
     Legal in town and while exploring. Class armour and weapon policies validate
-    before anything changes.
+    before anything changes. `item_id` is the magic item's instance id for a magic
+    item, or the catalog id (from [`load_equipment`][osrlib.data.load_equipment] —
+    see [the equipment id index][equipment-index]) for a mundane one, which has no
+    per-instance id.
 
     Modes:
         `town`, `exploring`

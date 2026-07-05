@@ -1085,12 +1085,13 @@ AnyInstance = Annotated[
 class Inventory(BaseModel):
     """A character's carried items, coins, valuables, and equipped state.
 
-    The item list is ordered (a defined order everywhere, per the determinism
-    contract). Equipping moves an instance out of `items` into its slot, so each
-    instance lives in exactly one place. Magic items join the item list and the
-    equipped slots as union members; `rings` are the two worn-ring slots (RAW: one
-    on each hand — the cap is enforced at equip validation); `valuables` are carried
-    gems and jewellery.
+    The item list (`items`) is ordered (a defined order everywhere, per the
+    determinism contract). Equipping moves an instance out of `items` into its slot,
+    so each instance lives in exactly one place. Carried coins are the `purse`
+    ([`CoinPurse`][osrlib.core.items.CoinPurse]); magic items join the item list and
+    the equipped slots as union members; `rings` are the two worn-ring slots (RAW:
+    one on each hand — the cap is enforced at equip validation); `valuables` are
+    carried gems and jewellery.
     """
 
     model_config = ConfigDict(validate_assignment=True)

@@ -61,16 +61,34 @@ _BANNED_PATTERNS = (
 _ALLOWLIST: dict[str, tuple[str, ...]] = {}
 
 
+def _string_expr(stmt: ast.stmt) -> str | None:
+    """The literal string value of a bare string-expression statement, else None."""
+    if isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Constant) and isinstance(stmt.value.value, str):
+        return stmt.value.value
+    return None
+
+
 def _module_docstrings(path: Path) -> list[tuple[int, str]]:
-    """Every docstring in the module, with its line number."""
+    """Every rendered docstring in the module, with its line number.
+
+    Covers module, class, and function docstrings plus PEP 224 attribute docstrings
+    (a bare string that follows an assignment) — mkdocstrings renders the latter, so
+    the tripwire must scan them too.
+    """
     tree = ast.parse(path.read_text(encoding="utf-8"))
     found: list[tuple[int, str]] = []
     for node in ast.walk(tree):
         if isinstance(node, ast.Module | ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef):
             docstring = ast.get_docstring(node, clean=False)
             if docstring:
-                body = node.body[0]
-                found.append((body.lineno, docstring))
+                found.append((node.body[0].lineno, docstring))
+        if isinstance(node, ast.Module | ast.ClassDef):
+            # Attribute docstrings: a string statement immediately after an assignment.
+            for previous, statement in zip(node.body, node.body[1:], strict=False):
+                if isinstance(previous, ast.Assign | ast.AnnAssign):
+                    attribute_doc = _string_expr(statement)
+                    if attribute_doc:
+                        found.append((statement.lineno, attribute_doc))
     return found
 
 
