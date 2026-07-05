@@ -33,6 +33,7 @@ from osrlib.core.events import Event
 from osrlib.crawl.commands import parse_command
 from osrlib.messages import format_message
 from osrlib.persistence import load_game, save_game, session_state
+from osrlib.versioning import engine_version
 
 GOLDEN_DIR = Path(__file__).parent / "goldens"
 
@@ -97,7 +98,15 @@ def replayed(golden):
 class TestMilestoneScriptedRun:
     def test_party_document_matches(self, golden, scripted):
         _, party_document, _ = scripted
-        assert canonical(party_document) == canonical(golden["party_document"]), REGENERATE_HINT
+        # The engine version stamp tracks the package version, so comparing it here
+        # would force a golden regeneration on every release with zero behavior
+        # change; the golden keeps the stamp of the engine that produced it. Strip
+        # the stamp from copies — both fixtures are module-scoped, so popping the
+        # shared dicts would plant test-order coupling.
+        assert party_document["engine_version"] == engine_version()
+        stripped = {key: value for key, value in party_document.items() if key != "engine_version"}
+        expected = {key: value for key, value in golden["party_document"].items() if key != "engine_version"}
+        assert canonical(stripped) == canonical(expected), REGENERATE_HINT
 
     def test_command_log_and_checkpoints_match(self, golden, scripted):
         session, _, checkpoints = scripted

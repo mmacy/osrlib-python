@@ -21,12 +21,16 @@ Four kinds of consumer are first-class:
 
 ## Installation
 
-osrlib is pre-release: install it from source. The library requires Python ≥ 3.14 and its only runtime dependency is [pydantic](https://docs.pydantic.dev/).
+Install [osrlib from PyPI](https://pypi.org/project/osrlib/). The library requires Python ≥ 3.14 and its only runtime dependency is [pydantic](https://docs.pydantic.dev/).
 
 ```sh
-git clone https://github.com/mmacy/osrlib-python.git
-cd osrlib-python
-uv sync
+uv add osrlib
+```
+
+or, with pip:
+
+```sh
+pip install osrlib
 ```
 
 ## Licensing
