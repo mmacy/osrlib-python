@@ -28,6 +28,7 @@ from osrlib.core.ruleset import Ruleset
 from osrlib.crawl.commands import parse_command
 from osrlib.messages import format_message
 from osrlib.persistence import load_game, replay_game, save_game, session_state
+from osrlib.versioning import engine_version
 
 GOLDEN_PATH = Path(__file__).parent / "goldens" / "phase4_delve.json"
 
@@ -60,7 +61,17 @@ def canonical(value) -> str:
 class TestPartyBuild:
     def test_party_rebuilds_from_the_creation_streams(self, golden):
         members = build_milestone_party(golden["master_seed"])
-        assert canonical(party_to_document(members)) == canonical(golden["party_document"]), REGENERATE_HINT
+        document = party_to_document(members)
+        # The engine version stamp tracks the package version, so comparing it here
+        # would force a golden regeneration on every release with zero behavior
+        # change; the golden keeps the stamp of the engine that produced it. Strip
+        # the stamp from copies — the golden fixture is module-scoped and the
+        # replayed fixture feeds golden["party_document"] into replay_game, so
+        # popping the shared dict would plant test-order coupling.
+        assert document["engine_version"] == engine_version()
+        stripped = {key: value for key, value in document.items() if key != "engine_version"}
+        expected = {key: value for key, value in golden["party_document"].items() if key != "engine_version"}
+        assert canonical(stripped) == canonical(expected), REGENERATE_HINT
 
 
 class TestReplay:

@@ -1,3 +1,7 @@
+# The test, docs-build, and srd-data jobs are duplicated into release.yml
+# (a tag push triggers no CI run, so the release re-runs the gate itself).
+# When editing those jobs here, mirror the change there by hand.
+
 name: CI
 
 on:

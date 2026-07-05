@@ -1,13 +1,45 @@
 [project]
 name = "osrlib"
-version = "0.1.0"
+version = "1.0.0"
 description = "B/X (1981 Basic/Expert) tabletop RPG rules engine for turn-based dungeon crawlers"
 readme = "README.md"
-license = "MIT"
-license-files = ["LICENSE"]
+# The wheel ships Open Game Content (osrlib/data/*.json and its LICENSE-OGL.md
+# copy) beside MIT-licensed code, so the expression names both; the LicenseRef-
+# form is PEP 639's escape hatch for licenses off the SPDX list.
+license = "MIT AND LicenseRef-OGL-1.0a"
+license-files = ["LICENSE", "LICENSE-OGL.md"]
 authors = [{ name = "Marsh Macy" }]
 requires-python = ">=3.14"
 dependencies = ["pydantic>=2"]
+keywords = [
+    "bx",
+    "dungeon-crawler",
+    "game-engine",
+    "old-school-essentials",
+    "osr",
+    "rpg",
+    "srd",
+    "ttrpg",
+]
+# No `License ::` classifier beside an SPDX expression, per PEP 639. Only 3.14
+# carries a version classifier because only 3.14 is tested; future minors earn
+# theirs by entering CI.
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Games/Entertainment :: Role-Playing",
+    "Topic :: Software Development :: Libraries",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Documentation = "https://mmacy.github.io/osrlib-python/"
+Repository = "https://github.com/mmacy/osrlib-python"
+Issues = "https://github.com/mmacy/osrlib-python/issues"
+Changelog = "https://github.com/mmacy/osrlib-python/blob/main/CHANGELOG.md"
 
 [dependency-groups]
 dev = [

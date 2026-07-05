@@ -16,7 +16,7 @@ Then create a session and play:
 # the tests build one with the TUI's scripted party.
 curl -s localhost:8000/sessions -X POST -H 'content-type: application/json' \
   -d '{"party_document": {...}}'
-# → {"session_id": "…", "schema_version": 2, "engine_version": "0.1.0"}
+# → {"session_id": "…", "schema_version": 2, "engine_version": "1.0.0"}
 
 curl -s localhost:8000/sessions/$SID/commands -X POST -H 'content-type: application/json' \
   -d '{"command_type": "enter_dungeon", "dungeon_id": "barrow"}'

@@ -4,16 +4,20 @@ A Python library implementing the classic 1981 B/X (Basic/Expert) fantasy advent
 
 The library is headless and sans-I/O — it never renders, prompts, sleeps, or touches the network — and every game it runs is deterministic: the same seed and the same commands always replay the same game. Four kinds of consumer are first-class: a web or mobile backend (FastAPI over HTTP), a terminal game (a local TUI crawler), an LLM referee or narrator driven by structured events and typed commands, and scripts or simulations using the kernel à la carte.
 
-**Status:** pre-release. Install from source (below); there is no PyPI release yet. The public API is frozen, and the [documentation site](https://mmacy.github.io/osrlib-python/) is the place to learn the library — quickstart, guides, front-end walk-throughs, and a full reference for every command, event, rejection code, and content id.
+**Status:** released — [osrlib on PyPI](https://pypi.org/project/osrlib/). The public API is frozen, and the [documentation site](https://mmacy.github.io/osrlib-python/) is the place to learn the library — quickstart, guides, front-end walk-throughs, and a full reference for every command, event, rejection code, and content id.
 
 ## Installation
 
-Requires Python ≥ 3.14 and [uv](https://docs.astral.sh/uv/). The only runtime dependency is [pydantic](https://docs.pydantic.dev/).
+Requires Python ≥ 3.14. The only runtime dependency is [pydantic](https://docs.pydantic.dev/).
 
 ```sh
-git clone https://github.com/mmacy/osrlib-python.git
-cd osrlib-python
-uv sync
+uv add osrlib
+```
+
+or, with pip:
+
+```sh
+pip install osrlib
 ```
 
 ## Quickstart
@@ -96,9 +100,11 @@ CI regenerates the data and fails on any diff, so `srd/`, the compiler, and the 
 
 ## Contributing
 
-Requires Python ≥ 3.14 and [uv](https://docs.astral.sh/uv/). Run the checks the way CI does:
+Requires Python ≥ 3.14 and [uv](https://docs.astral.sh/uv/). Install from source and run the checks the way CI does:
 
 ```sh
+git clone https://github.com/mmacy/osrlib-python.git
+cd osrlib-python
 uv sync
 uv run ruff format --check
 uv run ruff check

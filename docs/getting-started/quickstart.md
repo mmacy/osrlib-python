@@ -2,12 +2,16 @@
 
 This page runs the whole loop once: roll characters, form a party, build the smallest possible adventure, start a session, execute commands, read the events, and round-trip the game through a save. The complete program appears [at the end of the page](#the-complete-program) — every fragment along the way is an excerpt of it.
 
-osrlib is pre-release: install it from source with [uv](https://docs.astral.sh/uv/). The library requires Python ≥ 3.14.
+Install [osrlib from PyPI](https://pypi.org/project/osrlib/) with [uv](https://docs.astral.sh/uv/) or pip. The library requires Python ≥ 3.14.
 
 ```sh
-git clone https://github.com/mmacy/osrlib-python.git
-cd osrlib-python
-uv sync
+uv add osrlib
+```
+
+or, with pip:
+
+```sh
+pip install osrlib
 ```
 
 ## Roll the party
