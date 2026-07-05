@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-07-05
+
 ### Added
 
 - `RollDice`, an authorial command that rolls an arbitrary dice expression through the seeded session for freeform referee adjudication. It draws from a dedicated `adjudication` RNG stream and emits a referee-visibility `DiceRolledEvent`, so an ad-hoc roll is accepted, logged, and replayable without ever perturbing a keyed mechanic's draw sequence.
@@ -26,5 +28,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The documentation site: quickstart, guides, front-end walk-throughs, and a full reference for every command, event, rejection code, message code, RNG stream, and content id.
 - The typed surface: complete type hints under `py.typed`, checked in CI.
 
-[Unreleased]: https://github.com/mmacy/osrlib-python/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/mmacy/osrlib-python/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/mmacy/osrlib-python/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/mmacy/osrlib-python/releases/tag/v1.0.0
