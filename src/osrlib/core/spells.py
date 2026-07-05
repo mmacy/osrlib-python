@@ -1,7 +1,10 @@
-"""Spell templates, memorization, casting, disruption, and turning undead.
+"""Spell memorization, casting, spell resolution, and turning undead.
 
-The 106 SRD spell pages compile into `spells.json` and load as frozen
-[`SpellTemplate`][osrlib.core.spells.SpellTemplate] models via
+Part of the core kernel: everything here runs standalone — no game session required —
+and every random draw comes from a named, seeded RNG stream.
+
+The OSE SRD's spell pages compile into a catalog of frozen
+[`SpellTemplate`][osrlib.core.spells.SpellTemplate] models loaded by
 [`load_spells`][osrlib.data.load_spells]. A template carries the page's presentation
 data (duration, range, prose) alongside structured mechanics: one
 [`SpellMode`][osrlib.core.spells.SpellMode] per castable usage, each naming its
@@ -11,25 +14,42 @@ Modes the kernel doesn't automate ship `manual=True` with the SRD prose: casting
 is a supported operation (the slot is consumed, the event is emitted), and the game
 or narrator resolves the fiction.
 
-Reversed forms are entry data, not separate catalog entries (pinned): the nine
-concepts printed as separate `(C)` and `(MU)` pages compile as two entries with
+The daily flow: [`memorize_spells`][osrlib.core.spells.memorize_spells] prepares a
+caster's list (arcane casters choose from a spell book grown with
+[`add_spell_to_book`][osrlib.core.spells.add_spell_to_book]), then
+[`validate_cast`][osrlib.core.spells.validate_cast] checks legality and
+[`cast_spell`][osrlib.core.spells.cast_spell] consumes the memorized copy and
+resolves the mode. [`cast_from_scroll`][osrlib.core.spells.cast_from_scroll]
+resolves an inscribed spell without a memorized copy, and
+[`disrupt_casting`][osrlib.core.spells.disrupt_casting] loses one when a declared
+cast is broken. Clerics also turn undead here:
+[`validate_turn_undead`][osrlib.core.spells.validate_turn_undead], then
+[`turn_undead`][osrlib.core.spells.turn_undead].
+
+Casters are [`Character`][osrlib.core.character.Character] objects; targets arrive
+duck-typed per the combatant convention (see [`osrlib.core.combat`][osrlib.core.combat])
+as characters, [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] objects, or
+location strings for effects a game attaches to places.
+
+Reversed forms are entry data, not separate catalog entries: the nine concepts
+printed as separate cleric and magic-user pages compile as two entries with
 `_c`/`_mu` id suffixes because the pairs differ mechanically, while a reversible
 spell's reverse lives on its entry as a
 [`ReversedForm`][osrlib.core.spells.ReversedForm].
 
 Every draw inside spell resolution — targeting dice, damage dice, touch-attack
 rolls, cast-time forced saves, dispel survival rolls, and both turning rolls — comes
-from the [`MAGIC_STREAM`][osrlib.core.spells.MAGIC_STREAM] stream, so a combat-rules
-change never shifts spell goldens and vice versa. Effect-internal draws (rolled
+from the [`MAGIC_STREAM`][osrlib.core.spells.MAGIC_STREAM] stream, so spell results
+replay independently of combat draws and vice versa. Effect-internal draws (rolled
 durations at attach, tick-time saves such as the charm re-save) stay on the
-`"effects"` stream per the effects-engine convention.
-
-Import direction, mirroring the `alignment.py` lesson: the data loaders
-import these models and `character.py` imports the loaders, so this module never
-imports `character.py` — casting, memorization, and turning take caster objects
-duck-typed (the combatant convention), and `character.py` imports
-[`MemorizedSpell`][osrlib.core.spells.MemorizedSpell] from here, never the reverse.
+[`EFFECTS_STREAM`][osrlib.core.effects.EFFECTS_STREAM] stream.
 """
+
+# Import direction, mirroring the alignment.py lesson: the data loaders import these
+# models and character.py imports the loaders, so this module never imports
+# character.py — casting, memorization, and turning take caster objects duck-typed
+# (the combatant convention), and character.py imports MemorizedSpell from here,
+# never the reverse.
 
 from collections.abc import Mapping, Sequence
 from typing import Any, Literal
@@ -170,8 +190,8 @@ class RangeSpec(BaseModel):
     `feet` carries the distance in feet for `feet`, `yards` (converted: `240 yards
     around the caster` is 720), and `per_level` kinds; `per_level_feet` is the extra
     feet per caster level (*cloudkill*-style `60' +10' per level` is feet 60,
-    per_level_feet 10). `touch` covers `The caster or a creature touched` (pinned:
-    self-targeting allowed); presence forms and other prose are `special`.
+    per_level_feet 10). `touch` covers `The caster or a creature touched` —
+    self-targeting is allowed; presence forms and other prose are `special`.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -216,7 +236,7 @@ class SaveSpec(BaseModel):
 
     `modifier` is the target's adjustment (*hold person*'s single-target −2,
     *feeblemind*'s −4). `on_save="negates"` means a passed save avoids the effect;
-    `"half"` halves damage (flooring, pinned).
+    `"half"` halves damage, rounding down.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -229,7 +249,7 @@ class SaveSpec(BaseModel):
 class SpellEffect(BaseModel):
     """The structured effect a mode's resolution executes — the closed vocabulary.
 
-    `kind` names the interpreter behavior; `params` carries the pinned per-spell
+    `kind` names the interpreter behavior; `params` carries the per-spell
     scalars (damage dice, per-level scaling, exclusions, revival windows).
     `condition` is the condition a `condition` effect attaches; `cures_conditions`
     and `cures_effect_kinds` name what a `cure` effect releases; `modifiers` is the
@@ -260,8 +280,8 @@ class SpellMode(BaseModel):
     usage. `key` is stable snake_case within the spell's form — casting names the
     mode by it. `manual=True` marks modes the kernel doesn't execute: casting one
     consumes the memorized copy and emits the cast event with the manual marker plus
-    the prose — the à la carte contract for the non-automated majority. Manual modes
-    may omit `targeting` (the page pinned no structure); automated modes always
+    the prose, and the game or narrator resolves the fiction. Manual modes may omit
+    `targeting` (the page carries no structured targeting); automated modes always
     carry targeting and an effect.
     """
 
@@ -385,7 +405,8 @@ class SpellCatalog(BaseModel):
         """Return the spell template for `spell_id`.
 
         Args:
-            spell_id: The spell id, e.g. `"fire_ball"` or `"hold_person_c"`.
+            spell_id: The spell id, e.g. `"fire_ball"` or `"hold_person_c"` — see
+                [the spell id index][spells-index].
 
         Returns:
             The spell template.
@@ -418,10 +439,11 @@ class SpellCatalog(BaseModel):
 class MemorizedSpell(BaseModel):
     """One memorized copy of a spell: the id and the form fixed at memorization.
 
-    Arcane casters fix the normal or reversed form when memorizing (`Spells.md`:
-    "The normal or reversed form of a spell must be selected when the spell is
-    memorized"); divine casters always memorize the normal form and choose at cast
-    time, so their copies carry `reversed=False`.
+    `spell_id` is a spell id from [`load_spells`][osrlib.data.load_spells] — see
+    [the spell id index][spells-index]. Arcane casters fix the normal or reversed
+    form when memorizing (the OSE SRD: "The normal or reversed form of a spell must
+    be selected when the spell is memorized"); divine casters always memorize the
+    normal form and choose at cast time, so their copies carry `reversed=False`.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -443,7 +465,8 @@ def caster_profile(definition: ClassDefinition) -> CasterProfile | None:
     """Return a class definition's casting profile, or `None` for non-casters.
 
     Args:
-        definition: A class definition carrying an `abilities` tuple.
+        definition: The [`ClassDefinition`][osrlib.core.classes.ClassDefinition],
+            from [`load_classes`][osrlib.data.load_classes].
 
     Returns:
         The profile, from the `divine_magic`/`arcane_magic` tag's `spell_list` param.
@@ -492,15 +515,16 @@ def memorize_spells(
     their spell book and fix normal or reversed per copy at memorization. Duplicate
     selections are legal per RAW ("may opt to memorize the same spell twice"). The
     once-a-day/after-sleep/one-hour gates are exploration procedure owned by the
-    crawl layer — standalone users call this freely (pinned).
+    crawl layer — standalone callers may call this freely, by design.
 
     Args:
-        caster: The preparing character; its `memorized_spells` is replaced.
-        definition: The caster's class definition.
-        catalog: The loaded spell catalog.
-        selections: The prepared copies, in memorization order (order is
-            load-bearing: casting consumes the first matching copy and drain
-            forgets newest-first).
+        caster: The preparing caster: a [`Character`][osrlib.core.character.Character]
+            with a casting class; its `memorized_spells` tuple is replaced.
+        definition: The caster's [`ClassDefinition`][osrlib.core.classes.ClassDefinition].
+        catalog: The loaded spell catalog, from [`load_spells`][osrlib.data.load_spells].
+        selections: The prepared [`MemorizedSpell`][osrlib.core.spells.MemorizedSpell]
+            copies, in memorization order (order is load-bearing: casting consumes
+            the first matching copy and drain forgets newest-first).
 
     Returns:
         The rejections (nothing mutated) or the memorized event.
@@ -579,18 +603,19 @@ def add_spell_to_book(
     """Add a spell to an arcane caster's book — the referee-level growth surface.
 
     Covers mentoring and leveling; the fiction around it (the mentor's week, a lost
-    book's rewriting costs) belongs to the game. Pinned capacity: the book holds, per
-    spell level, at most the caster's current slot count at that level (the RAW
-    "contains exactly the number of spells that the character is capable of
-    memorizing", read per level). The book never auto-shrinks — it is a physical
-    object; a drained character may hold a book over capacity and simply cannot add
-    more until capacity catches up (pinned).
+    book's rewriting costs) belongs to the game. The book holds, per spell level, at
+    most the caster's current slot count at that level (the RAW "contains exactly
+    the number of spells that the character is capable of memorizing", read per
+    level). The book never auto-shrinks — it is a physical object; a drained
+    character may hold a book over capacity and simply cannot add more until
+    capacity catches up.
 
     Args:
-        caster: The learning character; its `spell_book` grows.
-        definition: The caster's class definition.
-        catalog: The loaded spell catalog.
-        spell_id: The spell to add.
+        caster: The learning caster: a [`Character`][osrlib.core.character.Character]
+            with an arcane class; its `spell_book` tuple grows.
+        definition: The caster's [`ClassDefinition`][osrlib.core.classes.ClassDefinition].
+        catalog: The loaded spell catalog, from [`load_spells`][osrlib.data.load_spells].
+        spell_id: The spell id to add — see [the spell id index][spells-index].
 
     Returns:
         The rejections (nothing mutated) or the book-updated event.
@@ -631,13 +656,14 @@ def forget_excess_memorized(caster: Any, definition: ClassDefinition, catalog: S
 
     The drain interplay: after a level drop, for each spell level where the
     memorized count exceeds the new slot count, excess copies are forgotten
-    newest-first (highest tuple index) — pinned; RAW is silent and newest-first
-    keeps the rule deterministic without new state.
+    newest-first (highest tuple index). RAW is silent on which copies go; osrlib
+    adopts newest-first because it keeps the rule deterministic without new state.
 
     Args:
-        caster: The drained character; its `memorized_spells` shrinks.
-        definition: The caster's class definition.
-        catalog: The loaded spell catalog.
+        caster: The drained caster: a [`Character`][osrlib.core.character.Character];
+            its `memorized_spells` tuple shrinks.
+        definition: The caster's [`ClassDefinition`][osrlib.core.classes.ClassDefinition].
+        catalog: The loaded spell catalog, from [`load_spells`][osrlib.data.load_spells].
 
     Returns:
         One forgotten event per dropped copy, newest first.
@@ -676,14 +702,15 @@ class CastContext(BaseModel):
     """The caller-asserted situation a cast resolves under — the RAW referee surface.
 
     `in_combat` gates the touch-attack roll ("In combat, a melee attack roll is
-    required" — the pinned inverse: no roll outside combat). `bound`/`gagged` are the
-    `Combat.md` Freedom restraints the kernel has no model for. `rounds_since_death`
-    and `days_since_death` are the caller's attestations for *neutralize poison* and
-    *raise dead* (the session supplies them from its death records) — the kernel has no
-    cause-of-death model, so supplying `rounds_since_death` *is* the attestation
-    that the target died of poison; omit it for any other death. `strength_tiers`
-    maps entity ids to `"augmented"`/`"giant"` for *web*'s faster escape tiers
-    (caller-asserted until such effects exist).
+    required"; outside combat the touch lands without a roll). `bound`/`gagged` are
+    the OSE SRD's freedom restraints, which the kernel has no model for.
+    `rounds_since_death` and `days_since_death` are the caller's attestations for
+    *neutralize poison* and *raise dead* (the session supplies them from its death
+    records) — the kernel has no cause-of-death model, so supplying
+    `rounds_since_death` *is* the attestation that the target died of poison; omit
+    it for any other death. `strength_tiers` maps entity ids to
+    `"augmented"`/`"giant"` for *web*'s faster escape tiers (caller-asserted until
+    such effects exist).
     """
 
     model_config = ConfigDict(frozen=True)
@@ -738,7 +765,7 @@ def _max_range_feet(spell: SpellTemplate, caster_level: int) -> int | None:
 
 
 def _memorized_index(caster: Any, spell: SpellTemplate, reversed: bool, profile: CasterProfile) -> int | None:
-    """Return the index of the first matching memorized copy (lowest index, pinned).
+    """Return the index of the first matching memorized copy (lowest index).
 
     Divine casters match any copy of the spell — the reversed flag is chosen freely
     at cast, whatever their spell list; arcane casters fixed the form at
@@ -772,25 +799,30 @@ def validate_cast(
     (single takes one; *magic missile* takes exactly one target per missile), and
     range — only when the context supplies a distance, mirroring the combat
     convention. Category and immunity gates are **resolution** outcomes, never
-    validator rejections (pinned, extending the holy-water doctrine):
-    casting *charm person* at a disguised doppelgänger must not be a zero-cost
-    detector. A cleric's holy symbol is not checked (pinned — `Cleric.md` states
-    carrying one as a class edict, not a mechanical gate on any procedure).
+    validator rejections, by design: casting *charm person* at a disguised
+    doppelgänger must not be a zero-cost detector. A cleric's holy symbol is not
+    checked — the OSE SRD states carrying one as a class edict, not a mechanical
+    gate on any procedure.
 
     Args:
-        caster: The casting character.
-        spell: The spell template.
-        mode: The mode key on the chosen form.
+        caster: The casting caster: a [`Character`][osrlib.core.character.Character].
+        spell: The [`SpellTemplate`][osrlib.core.spells.SpellTemplate] to cast.
+        mode: The mode key on the chosen form (see
+            [`SpellTemplate.mode`][osrlib.core.spells.SpellTemplate.mode]).
         profile: The caster's [`CasterProfile`][osrlib.core.spells.CasterProfile],
             from [`caster_profile`][osrlib.core.spells.caster_profile] on the
             definition the caller holds — divine casters match any memorized copy
             (the reversed form is chosen at cast). `None` skips the memorized-copy
             check entirely, for scroll reads: the scroll is the copy.
         reversed: True to cast the reversed form.
-        targets: The explicit target list (entity objects, or location strings for
-            effects games attach to places).
-        context: The caller-asserted situation.
-        ledger: The effects ledger, consulted for the caster's own blocking effects.
+        targets: The explicit target list, per the combatant convention (see
+            [`osrlib.core.combat`][osrlib.core.combat]):
+            [`Character`][osrlib.core.character.Character] or
+            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] objects, or
+            location strings for effects games attach to places.
+        context: The caller-asserted [`CastContext`][osrlib.core.spells.CastContext].
+        ledger: The [`EffectsLedger`][osrlib.core.effects.EffectsLedger], consulted
+            for the caster's own blocking effects.
 
     Returns:
         Structured rejections; empty when the cast may resolve.
@@ -873,8 +905,8 @@ class CastResult(BaseModel):
     event is emitted) and the game narrates the effect — `prose` carries the mode's
     SRD text for that. `no_effect` marks a resolved cast that affected nothing (an
     ineligible target, every save passed on a negating spell): the copy is still
-    spent, never refunded (pinned — rejections are free and would leak hidden
-    state).
+    spent, never refunded — validation rejections are free, and refunding a resolved
+    cast would leak hidden state such as an unseen target's immunity.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -921,37 +953,48 @@ def cast_spell(
 ) -> CastResult:
     """Cast a memorized spell: consume the copy, resolve the mode, return the events.
 
-    Consumes the first matching memorized copy (lowest tuple index, pinned) whether
-    or not the resolution ends up affecting anything — including a touch attack that
-    misses (nothing in RAW holds the charge, pinned). Divine casters consume any
-    copy of the spell and choose the form at cast time; arcane casters fixed the
-    form at memorization. Casting anything releases the caster's own *invisibility*
-    (RAW: attacking or casting breaks it). Manual modes emit the cast event with the
-    manual marker and the kernel stops there — the à la carte contract for the
-    non-automated majority.
+    Consumes the first matching memorized copy (lowest tuple index) whether or not
+    the resolution ends up affecting anything — including a touch attack that misses
+    (nothing in RAW holds the charge). Divine casters consume any copy of the spell
+    and choose the form at cast time; arcane casters fixed the form at memorization.
+    Casting anything releases the caster's own *invisibility* (RAW: attacking or
+    casting breaks it). Manual modes emit the cast event with the manual marker and
+    the kernel stops there — the game or narrator resolves the fiction.
 
     Spell-resolution draws (targeting dice, damage dice, touch-attack rolls,
     cast-time forced saves, dispel survival rolls) come from `stream` — the
     [`MAGIC_STREAM`][osrlib.core.spells.MAGIC_STREAM] convention; attach-time draws
     (rolled durations, *web* escape dice) come from `effects_stream` per the
-    effects-engine convention, so the two subsystems never shift each other's goldens.
+    effects-engine convention, so the two subsystems replay independently.
 
     Args:
-        caster: The casting character; its `memorized_spells` shrinks by one copy.
-        spell: The spell template.
-        mode: The mode key on the chosen form.
+        caster: The casting caster: a [`Character`][osrlib.core.character.Character]
+            with a matching memorized copy; its `memorized_spells` tuple shrinks by
+            one copy.
+        spell: The [`SpellTemplate`][osrlib.core.spells.SpellTemplate] to cast, from
+            the catalog [`load_spells`][osrlib.data.load_spells] returns.
+        mode: The mode key on the chosen form (see
+            [`SpellTemplate.mode`][osrlib.core.spells.SpellTemplate.mode]).
         profile: The caster's [`CasterProfile`][osrlib.core.spells.CasterProfile],
             from [`caster_profile`][osrlib.core.spells.caster_profile] on the
             definition the caller holds.
         reversed: True to cast the reversed form.
-        targets: The explicit target list, in the caller's order.
-        context: The caller-asserted situation.
-        ledger: The effects ledger durations ride.
-        clock: The game clock.
-        allocator: The id allocator for attached effects.
-        registry: Live objects by entity id.
-        ruleset: The ruleset in play.
-        stream: The magic stream.
+        targets: The explicit target list, in the caller's order, per the combatant
+            convention (see [`osrlib.core.combat`][osrlib.core.combat]):
+            [`Character`][osrlib.core.character.Character] or
+            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] objects, or
+            location strings for effects games attach to places.
+        context: The caller-asserted [`CastContext`][osrlib.core.spells.CastContext].
+        ledger: The [`EffectsLedger`][osrlib.core.effects.EffectsLedger] durations ride.
+        clock: The [`GameClock`][osrlib.core.clock.GameClock].
+        allocator: The id allocator for attached effects: an
+            [`IdAllocator`][osrlib.core.monsters.IdAllocator].
+        registry: Live combatants by entity id —
+            [`Character`][osrlib.core.character.Character] and
+            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] objects the
+            resolution may mutate.
+        ruleset: The [`Ruleset`][osrlib.core.ruleset.Ruleset] in play.
+        stream: The magic stream (the `"magic"` [`RngStream`][osrlib.core.rng.RngStream]).
         effects_stream: The effects stream, for attach-time dice.
 
     Returns:
@@ -961,6 +1004,60 @@ def cast_spell(
         ValueError: If the cast is invalid — validate with
             [`validate_cast`][osrlib.core.spells.validate_cast] first; casting an
             unmemorized spell is programmer misuse.
+
+    Examples:
+
+        ```python
+        from osrlib.core.alignment import Alignment
+        from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character
+        from osrlib.core.clock import GameClock
+        from osrlib.core.effects import EFFECTS_STREAM, EffectsLedger
+        from osrlib.core.monsters import MONSTER_SPAWN_STREAM, IdAllocator, spawn_monster
+        from osrlib.core.rng import RngStreams
+        from osrlib.core.ruleset import Ruleset
+        from osrlib.core.spells import MAGIC_STREAM, MemorizedSpell, cast_spell, caster_profile, memorize_spells
+        from osrlib.data import load_classes, load_monsters, load_spells
+
+        rules = Ruleset()
+        streams = RngStreams(master_seed=11)
+        catalog = load_spells()
+        definition = load_classes().get("magic_user")
+
+        # A 1st-level magic-user with *magic missile* in her book, memorized for the day.
+        created = create_character(
+            name="Zelia",
+            class_id="magic_user",
+            alignment=Alignment.NEUTRAL,
+            ruleset=rules,
+            stream=streams.get(CHARACTER_CREATION_STREAM),
+            starting_spell_ids=["magic_missile"],
+        )
+        zelia = created.character
+        prepared = memorize_spells(zelia, definition, catalog, [MemorizedSpell(spell_id="magic_missile")])
+        assert prepared.accepted
+
+        # One goblin target; the registry maps entity ids to the live objects.
+        template = load_monsters().get("goblin")
+        goblin = spawn_monster(template, id="monster-0001", stream=streams.get(MONSTER_SPAWN_STREAM))
+        outcome = cast_spell(
+            zelia,
+            catalog.get("magic_missile"),
+            "missiles",
+            profile=caster_profile(definition),
+            targets=[goblin],
+            ledger=EffectsLedger(),
+            clock=GameClock(),
+            allocator=IdAllocator(),
+            registry={"monster-0001": goblin},
+            ruleset=rules,
+            stream=streams.get(MAGIC_STREAM),
+            effects_stream=streams.get(EFFECTS_STREAM),
+        )
+        assert outcome.spell_id == "magic_missile" and not outcome.no_effect
+        assert outcome.affected_ids == ("monster-0001",)
+        assert zelia.memorized_spells == ()  # the cast consumed the memorized copy
+        assert goblin.max_hp - goblin.current_hp == 3  # 1d6+1 missile damage, stable under this seed
+        ```
     """
     context = context or CastContext()
     rejections = validate_cast(
@@ -1077,7 +1174,7 @@ class _ScrollReader:
 
     Attribute reads and writes pass through to the reader, so conditions and
     modifiers land on the real character; only `level` is overridden — scroll
-    spells resolve at the minimum class level able to cast the spell (pinned).
+    spells resolve at the minimum class level able to cast the spell.
     """
 
     __slots__ = ("_level", "_reader")
@@ -1100,12 +1197,12 @@ class _ScrollReader:
 def minimum_caster_level(spell: SpellTemplate) -> int:
     """Return the minimum class level able to cast a spell, per the compiled progressions.
 
-    The floor is the least-power reading (pinned, registered — RAW is silent on
-    scroll caster level): the lowest level at which any class on the spell's list
-    has a slot of the spell's level.
+    RAW is silent on a scroll's caster level; osrlib adopts the least-power reading
+    (a documented adaptation): the lowest level at which any class on the spell's
+    list has a slot of the spell's level.
 
     Args:
-        spell: The spell template.
+        spell: The [`SpellTemplate`][osrlib.core.spells.SpellTemplate].
 
     Returns:
         The minimum caster level.
@@ -1151,24 +1248,37 @@ def cast_from_scroll(
     the full mode-resolution and effects machinery, but skips the memorized-copy
     consume — "when a scroll is read, the words disappear", so the caller marks
     the inscribed spell spent. The spell resolves at the minimum class level able
-    to cast it per the compiled progression (pinned; the floor is the least-power
-    reading, registered). Class-list gating (arcane readers for arcane scrolls,
-    the thief's scroll-use ability) and the light requirement are the crawl's
-    validation; the kernel resolves a legal read.
+    to cast it (the least-power reading — see
+    [`minimum_caster_level`][osrlib.core.spells.minimum_caster_level]). Class-list
+    gating (arcane readers for arcane scrolls, the thief's scroll-use ability) and
+    the light requirement are the crawl's validation; the kernel resolves a legal
+    read.
 
     Args:
-        reader: The reading character.
-        spell: The inscribed spell.
-        mode: The mode key on the chosen form.
+        reader: The reading character: a
+            [`Character`][osrlib.core.character.Character]. Conditions and modifiers
+            from the resolution land on the reader; only its effective level is
+            proxied.
+        spell: The inscribed [`SpellTemplate`][osrlib.core.spells.SpellTemplate].
+        mode: The mode key on the chosen form (see
+            [`SpellTemplate.mode`][osrlib.core.spells.SpellTemplate.mode]).
         reversed: True to cast the reversed form (divine readers choose at cast).
-        targets: The explicit target list, in the caller's order.
-        context: The caller-asserted situation.
-        ledger: The effects ledger durations ride.
-        clock: The game clock.
-        allocator: The id allocator for attached effects.
-        registry: Live objects by entity id.
-        ruleset: The ruleset in play.
-        stream: The magic stream.
+        targets: The explicit target list, in the caller's order, per the combatant
+            convention (see [`osrlib.core.combat`][osrlib.core.combat]):
+            [`Character`][osrlib.core.character.Character] or
+            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] objects, or
+            location strings.
+        context: The caller-asserted [`CastContext`][osrlib.core.spells.CastContext].
+        ledger: The [`EffectsLedger`][osrlib.core.effects.EffectsLedger] durations ride.
+        clock: The [`GameClock`][osrlib.core.clock.GameClock].
+        allocator: The id allocator for attached effects: an
+            [`IdAllocator`][osrlib.core.monsters.IdAllocator].
+        registry: Live combatants by entity id —
+            [`Character`][osrlib.core.character.Character] and
+            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] objects the
+            resolution may mutate.
+        ruleset: The [`Ruleset`][osrlib.core.ruleset.Ruleset] in play.
+        stream: The magic stream (the `"magic"` [`RngStream`][osrlib.core.rng.RngStream]).
         effects_stream: The effects stream, for attach-time dice.
 
     Returns:
@@ -1220,8 +1330,10 @@ def disrupt_casting(caster: Any, spell_id: str, *, reversed: bool = False) -> li
     consumes a normal copy, mirroring the cast-time rule).
 
     Args:
-        caster: The disrupted caster; its `memorized_spells` shrinks by one copy.
-        spell_id: The declared spell.
+        caster: The disrupted caster: a
+            [`Character`][osrlib.core.character.Character]; its `memorized_spells`
+            tuple shrinks by one copy.
+        spell_id: The declared spell's id — see [the spell id index][spells-index].
         reversed: Whether the declared cast was the reversed form.
 
     Returns:
@@ -1250,7 +1362,7 @@ def _is_undead(target: Any) -> bool:
 
 
 def _is_person(target: Any) -> bool:
-    """The *hold/charm person* gate, pinned: any character, or a `person` monster."""
+    """The *hold/charm person* gate: any character, or a monster bearing the `person` category."""
     if getattr(target, "definition", None) is not None:
         return True
     template = getattr(target, "template", None)
@@ -1258,7 +1370,7 @@ def _is_person(target: Any) -> bool:
 
 
 def _is_arcane_caster(target: Any) -> bool:
-    """The *feeblemind* gate, pinned: a target bearing the `arcane_magic` class tag."""
+    """The *feeblemind* gate: a target whose class bears the `arcane_magic` tag."""
     definition = getattr(target, "definition", None)
     if definition is None:
         return False
@@ -1341,9 +1453,9 @@ def _spell_save(
 ) -> tuple[bool, list[Event]]:
     """Roll a mode's saving throw; returns `(passed, events)`.
 
-    Spell saves always pass `magical=True` (the WIS modifier applies, pinned) and
-    carry the mode's modifier and the effect's element (energy
-    `auto_save` defenses resolve through the existing pipeline unchanged).
+    Spell saves always pass `magical=True` (the WIS modifier applies) and carry the
+    mode's modifier and the effect's element (energy `auto_save` defenses resolve
+    through the existing pipeline unchanged).
     """
     save = mode.save
     if save is None:
@@ -1386,7 +1498,7 @@ def _resolved_duration(
 ) -> dict[str, Any]:
     """Build an effect definition's duration fields from the spell and overrides.
 
-    Per-level durations are computed at cast (pinned): fixed amounts gain
+    Per-level durations are computed at cast: fixed amounts gain
     `per_level × caster level`, and dice durations fold the bonus into the dice
     modifier (`1d6 turns +1 per level` at level 3 attaches `1d6+3`), keeping the
     rolled-at-attach behavior on the effects stream. Concentration
@@ -1424,7 +1536,7 @@ def _resolved_duration(
 
 
 def _charm_interval_rounds(target: Any) -> int:
-    """The charm re-save interval by INT band, pinned: month = 30 days, week = 7.
+    """The charm re-save interval by INT band: month = 30 days, week = 7.
 
     Monsters have no INT score and default to the middle weekly band
     (override-correctable per monster).
@@ -1444,7 +1556,7 @@ def _charm_interval_rounds(target: Any) -> int:
 
 
 def _effect_params(params: Mapping[str, Any]) -> dict[str, Any]:
-    """The params carried onto the attached effect: the pinned data, minus consumed keys."""
+    """The params carried onto the attached effect: the per-spell data, minus consumed keys."""
     consumed = {
         "permanent",
         "indefinite",
@@ -1860,7 +1972,7 @@ def _resolve_dispel(
     Per effect, when the recorded caster level exceeds the dispelling caster's, the
     effect survives on a d100 roll at or under 5% per level of deficit (RAW: "a 5%
     chance per level difference of *not* being dispelled"). Monster-inflicted
-    effects are non-dispellable by construction; magic items are exempt (pinned).
+    effects are non-dispellable by construction; magic items are exempt.
     """
     pct_per_level = _int_param(_mode_effect(mode).params, "survival_pct_per_level", 5)
     released: list[str] = []
@@ -1903,14 +2015,13 @@ def _resolve_restore_life(
 ) -> None:
     """*Raise dead*'s restore-life usage.
 
-    Restores a dead human or demihuman — pinned: any `Character` (all four Classic
-    races qualify), never a monster — dead no longer than 4 days × (caster level −
-    7), which is 0 days at level 7 (RAW-faithful). Revival sets 1 hp, removes
-    `dead`, and attaches the weakness effect: cannot attack or cast, half movement,
-    pinned to 14 elapsed days as the simplification of RAW's "two full weeks of bed
-    rest" (rest tracking is crawl procedure; games wanting strict bed-rest
-    semantics extend or release via the ledger). Magical healing doesn't shorten it,
-    per the page.
+    Restores a dead human or demihuman — any `Character` qualifies (all four Classic
+    races), never a monster — dead no longer than 4 days × (caster level − 7), which
+    is 0 days at level 7 (RAW-faithful). Revival sets 1 hp, removes `dead`, and
+    attaches the weakness effect: cannot attack or cast, half movement, fixed at 14
+    elapsed days as a simplification of RAW's "two full weeks of bed rest" (rest
+    tracking is crawl procedure; games wanting strict bed-rest semantics extend or
+    release via the ledger). Magical healing doesn't shorten it, per the page.
     """
     params = _mode_effect(mode).params
     target = selected[0] if selected else None
@@ -1958,10 +2069,14 @@ def pop_mirror_image(
     misses)." When the last image pops, the effect is released.
 
     Args:
-        ledger: The effects ledger.
+        ledger: The [`EffectsLedger`][osrlib.core.effects.EffectsLedger].
         target_ref: The mirrored caster's entity id.
-        registry: Live objects by entity id.
-        clock: The game clock, stamped on the bookkeeping event.
+        registry: Live combatants by entity id —
+            [`Character`][osrlib.core.character.Character] and
+            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] objects the
+            release may mutate.
+        clock: The [`GameClock`][osrlib.core.clock.GameClock], stamped on the
+            bookkeeping event.
 
     Returns:
         The pop (and final release) events; empty when no mirror-image effect is
@@ -2000,12 +2115,12 @@ def validate_turn_undead(cleric: Any, definition: ClassDefinition) -> list[Rejec
     (dead, petrified, paralysed, asleep) cannot present the symbol, and a `weakened`
     one cannot turn — the raise-dead weakness bans class abilities ("cannot attack,
     cast spells, or use other class abilities"). The holy symbol itself is *not* a
-    precondition (pinned): `Cleric.md` states carrying one as a class edict, not a
-    mechanical gate; games wanting the stricter reading check inventory themselves.
+    precondition: the OSE SRD states carrying one as a class edict, not a mechanical
+    gate; games wanting the stricter reading check inventory themselves.
 
     Args:
-        cleric: The turning character.
-        definition: The character's class definition.
+        cleric: The turning character: a [`Character`][osrlib.core.character.Character].
+        definition: The character's [`ClassDefinition`][osrlib.core.classes.ClassDefinition].
 
     Returns:
         Structured rejections; empty when the attempt may be rolled.
@@ -2035,7 +2150,7 @@ def turn_undead(
     registry: dict[str, Any],
     stream: RngStream,
 ) -> TurnUndeadResult:
-    """Turn undead — the full procedure, pinned end to end.
+    """Turn undead — the full procedure, one call.
 
     One 2d6 turn roll (the magic stream) is compared per candidate *type* against
     that type's turning-table cell — `—` types are unaffected, number types succeed
@@ -2045,23 +2160,30 @@ def turn_undead(
     (minimum 1, fixed bonuses dropped — the *sleep* convention); the pool stops at
     the first unaffordable monster (RAW: excess Hit Dice "are wasted", not
     reallocated); at least one undead is always affected on a successful turn even
-    when the pool rolls short (RAW minimum effect), pinned to the cheapest eligible
-    monster. Affected monsters whose column says `D` die permanently ("instantly
-    and permanently annihilated"); the rest gain the `turned` condition via an
-    indefinite, non-dispellable effect the encounter releases (flee behavior is
-    the battle machine's).
+    when the pool rolls short (RAW minimum effect), resolved as the cheapest
+    eligible monster. Affected monsters whose column says `D` die permanently
+    ("instantly and permanently annihilated"); the rest gain the `turned` condition
+    via an indefinite, non-dispellable effect the encounter releases (flee behavior
+    is the battle machine's).
 
     Only monsters bearing the `undead` category are candidates; non-undead in the
-    list resolve as unaffected rather than rejecting (the no-leak doctrine).
+    list resolve as unaffected rather than rejecting, so a turning attempt never
+    doubles as a free undead detector.
 
     Args:
-        cleric: The turning character.
-        definition: The character's class definition (the `turn_undead` tag).
-        candidates: The encounter's monsters, in stable order.
-        ledger: The effects ledger the `turned` condition attaches through.
-        clock: The game clock.
-        allocator: The id allocator.
-        registry: Live objects by entity id.
+        cleric: The turning character: a [`Character`][osrlib.core.character.Character].
+        definition: The character's [`ClassDefinition`][osrlib.core.classes.ClassDefinition]
+            (the `turn_undead` tag).
+        candidates: The encounter's monsters, in stable order:
+            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] objects.
+        ledger: The [`EffectsLedger`][osrlib.core.effects.EffectsLedger] the
+            `turned` condition attaches through.
+        clock: The [`GameClock`][osrlib.core.clock.GameClock].
+        allocator: The id allocator for the attached effect: an
+            [`IdAllocator`][osrlib.core.monsters.IdAllocator].
+        registry: Live combatants by entity id —
+            [`Character`][osrlib.core.character.Character] and
+            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] objects.
         stream: The magic stream — the player rolls turning dice in B/X, so both
             rolls are player-visible on the event.
 

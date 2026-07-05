@@ -1,11 +1,16 @@
 # Adaptations and pinned interpretations
 
-osrlib follows OSE rules-as-written. This file is the single register for the places
+osrlib follows OSE rules-as-written. This page is the single register for the places
 where that isn't enough: **pinned interpretations**, where the SRD text is ambiguous
 and the library commits to one reading, and **documented adaptations**, where the
 tabletop game assumes a human referee and the library provides a default behind a
-`Ruleset` flag. Narrators and reviewers should look here instead of grepping
-docstrings; every entry is also stated in the owning docstring and locked by a test.
+`Ruleset` flag. Look here instead of grepping docstrings; every entry is also stated
+in the owning docstring and locked by a test.
+
+This register doubles as the project's evidence ledger: entries cite the source files
+and test names that lock them. Those citations refer to [the osrlib
+repository](https://github.com/mmacy/osrlib-python) — they are provenance for the
+curious, not links on this site.
 
 ## Pinned interpretations
 

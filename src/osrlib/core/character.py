@@ -1,23 +1,37 @@
-"""The player character: model, creation procedure, and stamped serialization.
+"""The player character: model, stepwise creation, and stamped serialization.
 
-Creation is pure functions the game drives stepwise (sans-I/O: the game owns prompting
-and choice), mirroring the SRD's Creating a Character steps where they're mechanical.
-Kernel functions return structured results including the raw rolls, so front ends can
-show them; character creation emits no events — it is out-of-fiction and
-pre-session; the first real events belong to play.
-
-Derived values — modifiers, AC, movement rates, literacy, languages — are properties
-computed from the stored state, never stored themselves, so they can never desync.
+[`Character`][osrlib.core.character.Character] is the player character model. Its
+derived values — modifiers, AC, movement rate, literacy, languages — are properties
+computed from stored state, never stored themselves, so they can never desync from it.
 Model validation is structural only (score ranges, level within class bounds, HP
-bounds); procedure legality — was the adjustment legal, were requirements met — is
-enforced by the creation functions at the time of the step, because a finished
-character cannot re-derive its own history.
+bounds); whether a creation step itself was legal (was the adjustment legal, were
+requirements met) is enforced by the creation functions at the time of the step,
+because a finished character cannot re-derive its own history.
 
-RNG stream keys are pinned as module-level conventions (sessions adopt them):
+Creation follows the OSE SRD's Creating a Character steps as a sequence of pure
+functions a caller drives one at a time — [`roll_ability_scores`]
+[osrlib.core.character.roll_ability_scores], [`validate_class_choice`]
+[osrlib.core.character.validate_class_choice],
+[`apply_adjustment`][osrlib.core.abilities.apply_adjustment],
+[`roll_hit_points`][osrlib.core.character.roll_hit_points],
+[`validate_extra_languages`][osrlib.core.character.validate_extra_languages],
+[`roll_starting_gold`][osrlib.core.character.roll_starting_gold], and equipment
+purchase — each taking the caller's choice and returning a structured result
+(including the raw rolls, for display) or a list of rejections rather than raising.
+Character creation is out-of-fiction and pre-session: it emits no events; the first
+events belong to play. [`create_character`][osrlib.core.character.create_character]
+drives the whole sequence in one call for scripts and tests that already know every
+choice upfront.
+
+Advancement — leveling up, energy drain, and XP awards — lives in
+[`osrlib.core.classes`][osrlib.core.classes], which also defines the played class.
+
+Two module-level RNG stream keys are the convention every session adopts:
 [`CHARACTER_CREATION_STREAM`][osrlib.core.character.CHARACTER_CREATION_STREAM] for
-creation draws and [`ADVANCEMENT_STREAM`][osrlib.core.character.ADVANCEMENT_STREAM]
-for level-up hit point rolls — separated so a creation-rules change never shifts
-in-play advancement draws in a golden scenario.
+creation draws (ability scores, first-level hit points, starting gold) and
+[`ADVANCEMENT_STREAM`][osrlib.core.character.ADVANCEMENT_STREAM] for in-play level-up
+hit point rolls, kept separate so a creation-rules change never shifts advancement
+draws already recorded in a save.
 """
 
 from collections.abc import Mapping, Sequence
@@ -80,7 +94,7 @@ ABILITY_ROLL_ORDER = (
     AbilityScore.CON,
     AbilityScore.CHA,
 )
-"""The pinned draw order for rolling ability scores — the SRD's listing order."""
+"""The draw order for rolling ability scores: the SRD's listing order, always."""
 
 
 class Character(BaseModel):
@@ -398,8 +412,9 @@ class CharacterCreationResult(BaseModel):
 def roll_ability_scores(stream: RngStream) -> AbilityScoreRolls:
     """Roll 3d6 for each ability, drawn in the SRD's order STR INT WIS DEX CON CHA.
 
-    The draw order is pinned — part of the determinism contract for the
-    `character_creation` stream.
+    The draw order is fixed: it's part of the determinism contract for the
+    [`CHARACTER_CREATION_STREAM`][osrlib.core.character.CHARACTER_CREATION_STREAM]
+    convention.
 
     Args:
         stream: The RNG stream to draw from.
@@ -449,8 +464,8 @@ def roll_hit_points(
     """Roll first-level hit points: the class hit die plus the CON modifier, minimum 1.
 
     With the `hp_reroll_at_first_level` flag on, the die is re-rolled while the raw
-    die shows 1–2 (before the CON modifier), each re-roll consuming a draw — the
-    pinned reading of the SRD's "re-rolling 1s and 2s".
+    die shows 1–2 (before the CON modifier), each re-roll consuming a draw — osrlib's
+    reading of the SRD's "re-rolling 1s and 2s".
 
     Args:
         definition: The character's class.
@@ -472,14 +487,16 @@ def roll_hit_points(
 def validate_extra_languages(definition: ClassDefinition, int_score: int, choices: Sequence[str]) -> list[Rejection]:
     """Validate INT-granted extra language choices.
 
-    Extras must come from the Other Languages table (the twenty choosable languages in
-    `languages.json`), may not duplicate a class native (pinned), may not repeat, and
-    may not exceed the INT table's additional-languages allowance.
+    Extras must come from the SRD's Other Languages table (the twenty choosable
+    languages), may not duplicate a class native, may not repeat, and may not exceed
+    the INT table's additional-languages allowance.
 
     Args:
         definition: The chosen class, whose natives the choices may not duplicate.
         int_score: The character's (adjusted) INT score.
-        choices: The chosen extra language ids.
+        choices: The chosen extra language ids, from
+            [`load_languages`][osrlib.data.load_languages] — see
+            [the language id index][languages-index].
 
     Returns:
         Structured rejections; empty when the choices are legal.
@@ -511,8 +528,8 @@ def validate_starting_spells(
     """Validate a starting spell-book choice against class and capacity rules.
 
     Arcane casters "begin play with as many spells in their spell book as they are
-    able to memorize" (`Spell_Books.md`) — the per-level counts must equal the
-    level-1 slot counts exactly, which for both magic-user and elf means one
+    able to memorize" (the OSE SRD's spell books rules) — the per-level counts must
+    equal the level-1 slot counts exactly, which for both magic-user and elf means one
     first-level spell. The caller supplies the choice: "The referee may choose these
     spells or may allow the player to select" — the game owns the decision, the
     kernel validates it. Clerics (and non-casters) start with nothing: any selection
@@ -521,7 +538,9 @@ def validate_starting_spells(
     Args:
         definition: The character's class.
         catalog: The loaded spell catalog.
-        spell_ids: The chosen spell ids.
+        spell_ids: The chosen spell ids, from
+            [`load_spells`][osrlib.data.load_spells] — see
+            [the spell id index][spells-index].
 
     Returns:
         Structured rejections; empty when the choice is legal.
@@ -578,7 +597,9 @@ def choose_starting_spells(
         character: The created character; its `spell_book` is written.
         definition: The character's class.
         catalog: The loaded spell catalog.
-        spell_ids: The chosen spell ids.
+        spell_ids: The chosen spell ids, from
+            [`load_spells`][osrlib.data.load_spells] — see
+            [the spell id index][spells-index].
 
     Returns:
         Structured rejections; empty when the book was written.
@@ -619,24 +640,34 @@ def create_character(
 ) -> CharacterCreationResult:
     """Create a 1st-level character with all decisions supplied upfront.
 
-    A convenience for scripts and tests: calls the same stepwise creation functions in
-    the SRD's order — roll scores, validate the class choice, adjust scores, choose
-    the spell book (the SRD's step 6, before hit points; it consumes no draws), roll
-    hit points, validate languages, roll starting gold, buy and equip — drawing
-    scores, hit points, and gold from `stream` in that pinned order.
+    A convenience for scripts and tests: it calls the same stepwise creation functions
+    used for interactive play, in the SRD's order — roll scores, validate the class
+    choice, adjust scores, choose the spell book (the SRD's step 6, before hit points;
+    it consumes no draws), roll hit points, validate languages, roll starting gold, buy
+    and equip — drawing scores, hit points, and gold from `stream` in that fixed order.
 
     Args:
         name: The character's name.
-        class_id: The chosen class id.
+        class_id: The chosen class id, from [`load_classes`][osrlib.data.load_classes]
+            — see [the class id index][classes-index].
         alignment: The chosen alignment.
         ruleset: The ruleset in play.
-        stream: The RNG stream for creation draws, conventionally the
-            `character_creation` stream.
+        stream: The RNG stream for creation draws, conventionally
+            [`CHARACTER_CREATION_STREAM`][osrlib.core.character.CHARACTER_CREATION_STREAM].
         adjustment: The optional ability score adjustment.
-        starting_spell_ids: The arcane starting spell book (exactly the level-1
-            memorization capacity — one first-level spell for magic-user and elf).
-        extra_languages: INT-granted extra language choices.
+        starting_spell_ids: The arcane starting spell book: ids from
+            [`load_spells`][osrlib.data.load_spells] — see
+            [the spell id index][spells-index]. Must be exactly the level-1
+            memorization capacity (one first-level spell for magic-user and elf).
+        extra_languages: INT-granted extra language choices: ids from
+            [`load_languages`][osrlib.data.load_languages] — see
+            [the language id index][languages-index].
         purchases: `(item_id, lots)` pairs bought in order from the starting gold.
+            `item_id` is from [`load_equipment`][osrlib.data.load_equipment] — see
+            [the equipment index][equipment-index]. `lots` is how many of the
+            catalog's unit of sale to buy: weapons and armour sell one at a time, so
+            `lots` is the quantity bought, while gear and ammunition sell in
+            fixed-size lots (one lot of torches is six torches).
         equip_ids: Item ids to equip after purchase, in order.
 
     Returns:
@@ -647,6 +678,34 @@ def create_character(
             failed class requirement, an illegal adjustment, spell choices, language
             choices, an unaffordable purchase, or a forbidden equip. Callers wanting
             structured reasons drive the stepwise functions themselves.
+
+    Examples:
+
+        ```python
+        from osrlib.core.alignment import Alignment
+        from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character
+        from osrlib.core.rng import RngStreams
+        from osrlib.core.ruleset import Ruleset
+
+        streams = RngStreams(master_seed=2)
+        stream = streams.get(CHARACTER_CREATION_STREAM)
+        result = create_character(
+            name="Rurik",
+            class_id="fighter",
+            alignment=Alignment.LAWFUL,
+            ruleset=Ruleset(),
+            stream=stream,
+            purchases=[("sword", 1), ("leather", 1)],
+            equip_ids=["sword", "leather"],
+        )
+        character = result.character
+        assert character.class_id == "fighter"
+        assert character.level == 1
+        assert character.max_hp == character.current_hp == 8
+        assert character.armour_class == 6
+        assert character.inventory.worn_armour.template.id == "leather"
+        assert character.inventory.purse.gp == 30
+        ```
     """
     definition = load_classes().get(class_id)
     ability_rolls = roll_ability_scores(stream)

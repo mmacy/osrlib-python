@@ -1,19 +1,23 @@
-"""The exploration turn loop: movement, time, doors, searching, traps, light, rest.
+"""The exploration turn: movement, doors, searching, traps, light, rest, wandering checks.
 
-Every handler here is one function `(session, command) -> (rejections, events)`
-under the pure pre-phase discipline: all validation happens before the first draw,
-mutation, or clock tick, so a rejected command costs nothing.
+Each handler here is one function `(session, command) -> (rejections, events)`.
+Callers never call a handler directly: they build one of the command classes in
+[`osrlib.crawl.commands`][osrlib.crawl.commands] (`MoveParty`, `Search`, `Rest`,
+and so on) and hand it to
+[`GameSession.execute`][osrlib.crawl.session.GameSession.execute], which dispatches
+to the matching handler here. Every handler validates before it draws, mutates, or
+advances the clock, so a rejected command costs nothing.
 
-Time bookkeeping, pinned: the odometer accrues movement in thirds-of-feet
-(integers — an unexplored cell costs 30 units, a previously explored cell 10,
-implementing the SRD's "three times their base movement rate" through familiar
-areas exactly); when the accrued total reaches 3 × the party's exploration rate,
-the clock advances one full turn and the odometer resets. Turn-costing actions
-advance one whole turn and reset the odometer, absorbing the partial move.
+Movement accrues in thirds-of-feet: an unexplored cell costs 30 units, a
+previously explored cell 10 — the SRD's rule that familiar ground moves three
+times as fast. Once the accrued total reaches 3 × the party's exploration rate,
+the clock advances one full turn and the odometer resets; turn-costing actions
+advance a whole turn outright, absorbing whatever partial move was pending.
 
-Trap resolution draws (the 2-in-6 spring check, saves, damage, volley counts) run
-on the exploration stream — the procedure owns its dice; attach-time duration dice
-stay on the effects stream per the effects-engine convention (pinned, registered).
+Trap resolution (the 2-in-6 spring check, saves, damage, volley counts) draws on
+the exploration stream, since the procedure owns its own dice; attach-time
+condition durations draw on the effects stream instead, matching every other
+effect attachment in the engine.
 """
 
 from collections.abc import Mapping
@@ -280,6 +284,12 @@ def exploration_rate(session) -> int:
 
     Under the `deprivation_penalties` flag, a member two or more days into the
     worse deprivation track moves at half rate.
+
+    Args:
+        session (osrlib.crawl.session.GameSession): The running session.
+
+    Returns:
+        The slowest living member's movement rate, in feet per turn.
     """
     rates = []
     for member in session.party.living_members():
@@ -319,7 +329,15 @@ def _fatigue_threshold(session) -> int:
 
 
 def check_fatigue(session) -> list[Event]:
-    """Attach the unrested-fatigue penalty once the cadence threshold passes."""
+    """Attach the unrested-fatigue penalty once the cadence threshold passes.
+
+    Args:
+        session (osrlib.crawl.session.GameSession): The running session.
+
+    Returns:
+        The events from attaching the fatigue effect, or an empty list before the
+        threshold or once fatigue is already active on every living member.
+    """
     if session.turns_since_rest < _fatigue_threshold(session):
         return []
     living = session.party.living_members()
@@ -372,11 +390,18 @@ def _credit_exhaustion_rest(session, rest_turns: int) -> list[Event]:
 def consume_provisions(session) -> list[Event]:
     """One day-boundary crossing: rations and water per living member.
 
-    Standard rations consume before iron (fresh food spoils first, pinned); a
-    carried waterskin satisfies the day (per-pint bookkeeping is below the
-    simulation floor, pinned). In town, provisions consume but never run short.
-    A successful day resets that deprivation track; under the flag, the schedule's
-    effects sync afterwards.
+    Standard rations consume before iron, since fresh food spoils first; a carried
+    waterskin satisfies the day without per-pint bookkeeping. In town, provisions
+    consume but never run short. A successful day resets that member's deprivation
+    track; under the `deprivation_penalties` flag, the schedule's effects sync
+    afterwards (see the adaptations register).
+
+    Args:
+        session (osrlib.crawl.session.GameSession): The running session.
+
+    Returns:
+        One [`ProvisionsEvent`][osrlib.crawl.events.ProvisionsEvent] per living
+        member per resource (food and water).
     """
     events: list[Event] = []
     in_town = _location(session).kind == "town"
@@ -410,7 +435,7 @@ def _new_deprivation():
 
 
 def _sync_deprivation(session, member, state) -> list[Event]:
-    """Apply the pinned deprivation schedule: −1 attack at one day, 1d4/day at three."""
+    """Apply the deprivation schedule: −1 attack at one day, 1d4/day at three."""
     events: list[Event] = []
     active = session.ledger.active_on(member.id, DEPRIVATION_KIND)
     if state.worst >= 1 and not active:
@@ -474,7 +499,15 @@ def _remove_instance(member, instance) -> None:
 
 
 def wandering_interval(session) -> int:
-    """The current level's wandering-check interval in turns (RAW default 2)."""
+    """The current level's wandering-check interval in turns (RAW default 2).
+
+    Args:
+        session (osrlib.crawl.session.GameSession): The running session.
+
+    Returns:
+        The interval in turns, or an effectively unreachable value outside a
+        dungeon.
+    """
     if _location(session).kind != "dungeon":
         return 10**9
     return _level(session).wandering.interval_turns
@@ -490,6 +523,16 @@ def wandering_check(session, *, resting: bool = False) -> tuple[list[Event], boo
     party, never a re-roll); spawned hit points draw from the
     monster-spawn stream, NPC composition from the npc-party stream, and the
     encounter's own dice from the encounter stream.
+
+    Args:
+        session (osrlib.crawl.session.GameSession): The running session.
+        resting: Whether the party is resting: the −1 chance penalty applies.
+
+    Returns:
+        The check's events and whether an encounter opened. The events always
+        include one
+        [`WanderingCheckEvent`][osrlib.crawl.events.WanderingCheckEvent]; a hit
+        adds the spawn and encounter-opening events too.
     """
     from osrlib.crawl import encounter as encounter_module
     from osrlib.crawl.session import WANDERING_STREAM
@@ -579,7 +622,7 @@ def _boundary_events(session, old_area, new_position) -> list[Event]:
 
 
 def _enter_hooks(session) -> list[Event]:
-    """Run location-bound effect enter behaviors, in attachment order (pinned).
+    """Run location-bound effect enter behaviors, in attachment order.
 
     The burning-oil pool deals its 1d8 to each living member entering the cell;
     a *web* cell entangles each entering member with the escape countdown; a
@@ -656,9 +699,9 @@ def _room_trap_check(session) -> list[Event]:
 def _resolve_trap(session, trap: TrapSpec, *, triggerer) -> list[Event]:
     """Resolve a sprung trap's effect — damage automatic, no attack roll.
 
-    Draws run on the exploration stream (the procedure owns its dice, pinned);
-    attach-time condition durations roll on the effects stream per the
-    effects-engine convention.
+    Draws run on the exploration stream, since the procedure owns its own dice;
+    attach-time condition durations roll on the effects stream instead, matching
+    every other effect attachment in the engine.
     """
     from osrlib.crawl.session import EXPLORATION_STREAM
 
@@ -876,7 +919,7 @@ def _handle_move_party(session, command: MoveParty) -> tuple[list[Rejection], li
 
 
 def _swing_shut(session, *, previous, leaving_level: bool = False) -> list[Event]:
-    """Doors the party opened swing shut behind it unless wedged (pinned always).
+    """Doors the party opened swing shut behind it unless wedged, always.
 
     With `leaving_level` (a transition or the trip to town), every party-opened
     unwedged door on the departed level shuts — the party is gone from all of
@@ -1188,7 +1231,7 @@ def _handle_search(session, command: Search) -> tuple[list[Rejection], list[Even
 
 
 def _reveal(session, kind: str, events: list[Event]) -> list[str]:
-    """Reveal every hidden feature of one kind on the current cell (pinned: the cell)."""
+    """Reveal every hidden feature of one kind on the current cell, and only the cell."""
     level = _level(session)
     position = _position(session)
     state = session.dungeon_state
@@ -1867,10 +1910,10 @@ def _cast_context(session, targets, *, in_combat: bool, distance_feet: int | Non
 def _stationary_silence(session, spell, result, targets) -> list[Event]:
     """*Silence 15' radius*'s save-passed outcome: the area anchors to a cell.
 
-    On a passed save RAW leaves a stationary area the creature can step out of —
-    a registered adaptation: the effect attaches to the party's cell
-    (the encounter's abstract location), and creatures in that cell cannot cast
-    while there.
+    On a passed save RAW leaves a stationary area the creature can step out of. As
+    a documented adaptation (see the adaptations register), the effect instead
+    attaches to the party's cell (the encounter's abstract location), and
+    creatures in that cell cannot cast while it holds.
     """
     if spell.id != "silence_15_radius" or result.manual or _location(session).kind != "dungeon":
         return []
@@ -1909,7 +1952,7 @@ def _immediate_treasure_award(session, coins_cp: int, valuables) -> list:
 
 
 def _treasure_tier(session) -> str:
-    """The tier the crawl passes to generation, evaluated at generation time (pinned).
+    """The tier the crawl passes to generation, evaluated at generation time.
 
     `basic` while the party's highest living level is 1–3, `expert` at 4+ — the
     master table's own definition of Basic and Expert characters.
@@ -1937,7 +1980,7 @@ def _generate_carried_treasure(session, instances):
     Individual letters (P–T) read each instance's own template (packed-variant
     pools may mix); group letters (U–V) read the first instance's — the row's
     members share a stat block. The `multiplier` repeats the whole listed
-    generation (the Noble's `V × 3`), pinned. Returns `(member_treasure,
+    generation (for example, the Noble's `V × 3`). Returns `(member_treasure,
     group_bundle)` for the encounter group.
     """
     from osrlib.core.treasure import TREASURE_STREAM, generate_treasure, plan_treasure_ref
@@ -2067,7 +2110,7 @@ def _generate_lair_hoard(session, area, templates) -> list:
     """Generate a keyed area's lair hoard when its keyed encounter first spawns.
 
     The keyed monsters' hoard letters (A–O), parenthetical letters, and `extra_gp`
-    land as one engine-created cache on the area's first listed cell (pinned).
+    land as one engine-created cache on the area's first listed cell.
     """
     from osrlib.core.treasure import plan_treasure_ref
     from osrlib.data import load_treasure_tables
@@ -2493,12 +2536,12 @@ def _use_scroll(session, member, instance: MagicItemInstance, template, command)
 
 
 def _device_area_events(session, member, instance: MagicItemInstance, template, group) -> list:
-    """Resolve a device's wired area effect against one encounter group.
+    """Resolve a device's area effect (cone or sphere) against one encounter group.
 
     Cones and spheres resolve through the battle footprint rule; each caught
     target saves per the item's spec. Device damage presents `magic` and is
-    destructive (the SRD's equipment-destruction examples are energy deaths
-    generally, pinned).
+    destructive: the SRD's equipment-destruction examples are all energy-type
+    deaths.
     """
     from osrlib.core.combat import DamageSource, deal_damage
     from osrlib.crawl import battle as battle_module
@@ -2688,10 +2731,11 @@ HEALING_SERVICES: dict[str, tuple[str, int]] = {
     "remove_curse": ("remove_curse_c", 200),
     "raise_dead": ("raise_dead", 1500),
 }
-"""The temple's six services: spell id and price in gp (invented, registered).
+"""The temple's six services: spell id and price in gp, invented over the SRD's
+open list (see the adaptations register).
 
-All services are always available in the 1.0 marker town (registered — town size
-and cleric availability are game territory).
+All services are always available — town size and cleric availability are game
+territory left to your front end.
 """
 
 

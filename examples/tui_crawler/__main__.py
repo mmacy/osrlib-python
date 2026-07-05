@@ -40,6 +40,7 @@ from .quest import FetchQuestListener
 _DIRECTIONS = {"n": "north", "s": "south", "e": "east", "w": "west"}
 
 
+# --8<-- [start:render-events]
 def _run(session, command):
     """Execute one command and print every player-visible event it logged.
 
@@ -55,6 +56,9 @@ def _run(session, command):
         if event.visibility is Visibility.PLAYER:
             print("  " + format_message(event))
     return result
+
+
+# --8<-- [end:render-events]
 
 
 def _first_weapon_id(member) -> str | None:
@@ -101,6 +105,7 @@ def _fight(session) -> None:
         rounds += 1
 
 
+# --8<-- [start:player-view]
 def _status(session) -> None:
     view = session.view(Visibility.PLAYER)
     print(f"[{view.mode}] round {view.clock_rounds}")
@@ -109,6 +114,9 @@ def _status(session) -> None:
         purse = member.inventory["purse"]
         valuables = ", ".join(v["name"] or v["kind"] for v in member.inventory["valuables"])
         print(f"    gold {purse['gp']} gp" + (f"; carrying {valuables}" if valuables else ""))
+
+
+# --8<-- [end:player-view]
 
 
 def _dispatch(session, line: str) -> bool:
@@ -125,11 +133,13 @@ def _dispatch(session, line: str) -> bool:
     if verb == "fight":
         _fight(session)
         return True
+    # --8<-- [start:parse-command]
     command = None
     if verb == "enter":
         command = EnterDungeon(dungeon_id=args[0] if args else "barrow")
     elif verb == "move" and args:
         command = MoveParty.model_validate({"direction": _DIRECTIONS.get(args[0], args[0])})
+    # --8<-- [end:parse-command]
     elif verb == "stairs":
         command = UseStairs()
     elif verb == "take" and args:
@@ -207,9 +217,11 @@ def main(argv: list[str] | None = None) -> int:
         party = scripted_party(creation_stream, ruleset)
     else:
         party = interactive_party(creation_stream, ruleset)
+    # --8<-- [start:register-quest-listener]
     session = GameSession.new(party, adventure, seed=arguments.seed, ruleset=ruleset)
     session.streams.restore_states(streams.export_states())
     session.register_listener(FetchQuestListener(session))
+    # --8<-- [end:register-quest-listener]
 
     print(f"— {adventure.name} —")
     print(adventure.description)

@@ -1,22 +1,33 @@
-"""Weapons, armour, gear, ammunition, inventory, coins, and encumbrance.
+"""Equipment, inventories, magic items, identification, and curses.
 
-Equipment compiles from the SRD's equipment pages into `equipment.json` and loads as
-frozen templates via [`load_equipment`][osrlib.data.load_equipment]; play spawns
-mutable [`ItemInstance`][osrlib.core.items.ItemInstance]s from them, so shared data can
-never be damaged by play.
+The equipment catalog — weapons, armour, gear, and ammunition — compiles from the OSE
+SRD's equipment pages and loads as frozen templates via
+[`load_equipment`][osrlib.data.load_equipment]. The magic item catalog — enchanted
+arms, potions, scrolls, rings, rods, staves, wands, and sentient swords — compiles the
+same way and loads via [`load_magic_items`][osrlib.data.load_magic_items]. Play never
+mutates either catalog: it spawns owned instances from the frozen templates —
+[`ItemInstance`][osrlib.core.items.ItemInstance] for mundane equipment,
+[`MagicItemInstance`][osrlib.core.items.MagicItemInstance] for magic items — and
+carries them in an [`Inventory`][osrlib.core.items.Inventory].
+
+A magic item instance starts unidentified, and even once identified may still hide a
+curse: a revealed cursed item pins to its bearer until *remove curse*.
+[`equip`][osrlib.core.items.equip] and [`unequip`][osrlib.core.items.unequip], and
+their `validate_*` counterparts, enforce what a class may wear or wield: armour and
+weapon policies, a two-ring cap, and the conflict between a two-handed weapon and a
+shield.
 
 Torch, holy water, and burning oil appear on both the SRD's weapon table and its gear
-list; pinned, one entry per physical item: they compile as *gear* carrying an embedded
-combat facet, the weapons list holds the 19 pure weapons, and no item has two ids.
-Class weapon policies govern the weapons list only — gear combat facets are exempt (a
-strict quality-tag reading would forbid a cleric holy water, which is absurd; the rule
-deliberately over-grants: a magic-user may also throw oil or swing a torch — see
-`docs/adaptations.md`).
+list. osrlib adopts the reading that each is one physical item, not two: they compile
+as *gear* carrying an embedded combat facet, the weapons list holds the 19 pure
+weapons, and no item has two ids. Class weapon policies govern the weapons list only —
+gear combat facets are exempt, so a cleric may use holy water and a magic-user may
+throw oil or swing a torch, as a documented adaptation (see the adaptations register).
 
 All weights are in coins (ten coins to the pound); coins themselves weigh 1 each. The
-maximum load rule is general, not a detailed-mode extra: tracked weight above 1,600
-coins means the character cannot move, under both tracking modes. Inventory itself is
-never capped.
+maximum load rule always applies, not only under detailed encumbrance: tracked weight
+above 1,600 coins means the character cannot move, under both tracking modes.
+Inventory itself is never capped.
 """
 
 from collections.abc import Mapping
@@ -107,7 +118,7 @@ BASE_MOVEMENT_FEET = 120
 """The default movement rate, feet per exploration turn: 120' (40')."""
 
 MISC_GEAR_WEIGHT_COINS = 80
-"""Detailed encumbrance's flat weight for carrying any miscellaneous gear (pinned)."""
+"""Detailed encumbrance's flat weight for carrying any miscellaneous gear."""
 
 COIN_VALUES_CP = {"pp": 500, "gp": 100, "ep": 50, "sp": 10, "cp": 1}
 """Coin values in copper pieces, from the SRD's Wealth conversion table."""
@@ -247,12 +258,13 @@ class CombatFacet(BaseModel):
 class GearTemplate(BaseModel):
     """An adventuring gear item.
 
-    `lot_size` is the purchase lot (six torches for 1 gp buys a quantity of 6);
+    `lot_size` sizes the purchase lot bought at `cost_gp` — see
+    [`purchase`][osrlib.core.items.purchase] for exactly what a lot buys.
     `capacity_coins` is container capacity where the SRD gives one (backpack, sacks);
     `combat` is the embedded combat facet for the three dual-listed items. `params`
-    carries structured exploration mechanics pinned from `Adventuring_Gear.md` (a
-    torch's `burn_turns` and `light_radius_feet`, the tinder box's
-    `light_chance_in_six`), consumed by the crawl procedures.
+    carries structured exploration mechanics from the SRD's gear table (a torch's
+    `burn_turns` and `light_radius_feet`, the tinder box's `light_chance_in_six`),
+    consumed by the crawl procedures.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -271,9 +283,10 @@ class GearTemplate(BaseModel):
 class AmmunitionTemplate(BaseModel):
     """An ammunition row.
 
-    Ammunition weight is 0 (pinned): the SRD's missile weapon weights already include
+    Ammunition weight is always 0: the SRD's missile weapon weights already include
     the ammunition and its container, and the ammunition table has no weight column.
-    Sling stones' cost of `Free` compiles to cost 0 with lot size 1 (pinned).
+    Sling stones' printed cost of `Free` compiles to cost 0 with a purchase lot size
+    of 1.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -329,7 +342,10 @@ class EquipmentCatalog(BaseModel):
         """Return the template with `item_id` from any of the four lists.
 
         Args:
-            item_id: The item id, e.g. `"sword"` or `"torch"`.
+            item_id: An equipment id from
+                [`load_equipment`][osrlib.data.load_equipment] — see
+                [the equipment id index][equipment-index], e.g. `"sword"` or
+                `"torch"`.
 
         Returns:
             The template.
@@ -371,7 +387,8 @@ class VersusBonus(BaseModel):
     `enchanted`) and `template_ids` name compiled monster ids (the lycanthrope set,
     the ability-derived spell-user and regenerating sets, the dagger's
     orcs/goblins/kobolds). A clause matches a target whose template carries any
-    listed category or id; characters have no template and never match (pinned).
+    listed category or id; characters carry no monster template, so a clause never
+    matches one.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -414,13 +431,14 @@ class UsableBy(BaseModel):
 
 
 class MagicItemEffect(BaseModel):
-    """The structured mechanics of a wired magic item — the wired census.
+    """The structured mechanics of a magic item the kernel automates.
 
     `kind` names the kernel behavior that executes it (`worn_modifiers`, `potion`,
     `damage_area`, `condition_area`, `healing`, `save_or_die`, `on_hit_drain`,
-    `striking`, `ward`, `regeneration`, `light`); everything else in the catalog is
-    `manual`-tagged prose. Fields are the union the behaviors read — dice, element,
-    save, shape and dimensions, duration — with `params` carrying per-item scalars.
+    `striking`, `ward`, `regeneration`, `light`); every other item in the catalog
+    carries `manual`-tagged prose instead. Fields are the union the behaviors read —
+    dice, element, save, shape and dimensions, duration — with `params` carrying
+    per-item scalars.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -469,9 +487,12 @@ class MagicItemTemplate(BaseModel):
     """A magic item, compiled from the generation tables and per-item pages.
 
     Frozen SRD data: play spawns mutable
-    [`MagicItemInstance`][osrlib.core.items.MagicItemInstance]s. `base_item_id` is
-    the mundane `equipment.json` template an enchanted arm overlays (sword, dagger,
-    chainmail, shield, arrows); generic armour outcomes leave it `None` — the
+    [`MagicItemInstance`][osrlib.core.items.MagicItemInstance]s. `id` is this
+    template's own id, listed in [`load_magic_items`][osrlib.data.load_magic_items]'s
+    catalog — see [the magic item id index][magic-items-index]. `base_item_id` is the
+    mundane equipment id (from [`load_equipment`][osrlib.data.load_equipment]; see
+    [the equipment id index][equipment-index]) an enchanted arm overlays (sword,
+    dagger, chainmail, shield, arrows); generic armour outcomes leave it `None` — the
     *Magic Armour Type* d8 sets the instance's base at generation. Bonuses are
     negative for cursed items; the cursed `AC 9 [10]` forms carry `ac_set` /
     `ac_set_ascending` instead. `charges_dice` rolls at generation (referee-only
@@ -769,10 +790,10 @@ class SwordPower(BaseModel):
 class SentientSwordTables(BaseModel):
     """The sentient-sword generation tables, compiled as data.
 
-    Generation order is pinned on the page's own procedure: the special-purpose
-    1-in-20 first (a special sword is always sentient at INT 12/Ego 12), otherwise
-    the 30% sentience roll, then INT 1d6+6, communication, languages, alignment,
-    powers, and Ego 1d12, in the printed order.
+    Generation follows the SRD's own procedure: the special-purpose 1-in-20 roll
+    first (a special sword is always sentient at INT 12/Ego 12), otherwise the 30%
+    sentience roll, then INT 1d6+6, communication, languages, alignment, powers, and
+    Ego 1d12, in the printed order.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -834,7 +855,10 @@ class MagicItemCatalog(BaseModel):
         """Return the magic item template with `item_id`.
 
         Args:
-            item_id: The item id, e.g. `"potion_of_healing"`.
+            item_id: A magic item id from
+                [`load_magic_items`][osrlib.data.load_magic_items] — see
+                [the magic item id index][magic-items-index], e.g.
+                `"potion_of_healing"`.
 
         Returns:
             The template.
@@ -884,12 +908,15 @@ class SwordSentience(BaseModel):
 class MagicItemInstance(BaseModel):
     """A mutable owned magic item spawned from a frozen template.
 
-    `charges_remaining` is referee-only (RAW: undiscoverable) and `None` for
-    uncharged items; `quantity` counts ammunition; `identified` gates the player
-    view's masking; `base_item_id` is the generated base for generic armour
-    outcomes (the *Magic Armour Type* d8) and the template's own base otherwise;
-    `state` is per-item memory (the energy-drain sword's remaining drains, the
-    staff of healing's per-target days, a multi-spell scroll's remaining spells).
+    `template_id` is the item id from
+    [`load_magic_items`][osrlib.data.load_magic_items] — see
+    [the magic item id index][magic-items-index]. `charges_remaining` is referee-only
+    (RAW: undiscoverable) and `None` for uncharged items; `quantity` counts
+    ammunition; `identified` gates the player view's masking; `base_item_id` is the
+    generated base for generic armour outcomes (the *Magic Armour Type* d8) and the
+    template's own base otherwise; `state` is per-item memory (the energy-drain
+    sword's remaining drains, the staff of healing's per-target days, a multi-spell
+    scroll's remaining spells).
     """
 
     model_config = ConfigDict(validate_assignment=True)
@@ -950,9 +977,9 @@ class Coins(BaseModel):
 class ValuableInstance(BaseModel):
     """A gem or piece of jewellery, its value rolled at generation and fixed.
 
-    Appraisal is instantaneous and exact (pinned): B/X prices treasure for the XP
-    economy, and a haggling or appraisal minigame is game territory (registered).
-    `weight_coins` comes from the `TreasureWeight` rows at generation.
+    Appraisal is always instantaneous and exact: B/X prices treasure for the XP
+    economy, and a haggling or appraisal minigame is a game's own feature to add, not
+    part of osrlib. `weight_coins` comes from the `TreasureWeight` rows at generation.
     """
 
     model_config = ConfigDict(validate_assignment=True)
@@ -980,8 +1007,8 @@ class CoinPurse(BaseModel):
 
     Payment consumes denominations smallest-first (cp, sp, ep, gp, pp) until the cost
     is covered; change for any overpayment returns in the fewest coins, largest
-    denominations first. The algorithm is pinned — purse contents after a purchase are
-    deterministic and value-preserving.
+    denominations first. Purse contents after a purchase are always deterministic and
+    value-preserving.
     """
 
     model_config = ConfigDict(validate_assignment=True)
@@ -1019,7 +1046,7 @@ class CoinPurse(BaseModel):
         return self.value_cp >= cost_gp * 100
 
     def spend(self, cost_gp: int) -> None:
-        """Pay a cost in gold pieces, making change per the pinned algorithm.
+        """Pay a cost in gold pieces, spending smallest denominations first and making change largest-first.
 
         Args:
             cost_gp: The cost in whole gold pieces. Non-negative.
@@ -1058,12 +1085,13 @@ AnyInstance = Annotated[
 class Inventory(BaseModel):
     """A character's carried items, coins, valuables, and equipped state.
 
-    The item list is ordered (a defined order everywhere, per the determinism
-    contract). Equipping moves an instance out of `items` into its slot, so each
-    instance lives in exactly one place. Magic items join the item list and the
-    equipped slots as union members; `rings` are the two worn-ring slots (RAW: one
-    on each hand — the cap is enforced at equip validation); `valuables` are carried
-    gems and jewellery.
+    The item list (`items`) is ordered (a defined order everywhere, per the
+    determinism contract). Equipping moves an instance out of `items` into its slot,
+    so each instance lives in exactly one place. Carried coins are the `purse`
+    ([`CoinPurse`][osrlib.core.items.CoinPurse]); magic items join the item list and
+    the equipped slots as union members; `rings` are the two worn-ring slots (RAW:
+    one on each hand — the cap is enforced at equip validation); `valuables` are
+    carried gems and jewellery.
     """
 
     model_config = ConfigDict(validate_assignment=True)
@@ -1110,10 +1138,10 @@ class Inventory(BaseModel):
 
 
 def magic_item_template(instance: MagicItemInstance) -> MagicItemTemplate:
-    """Return a magic item instance's template from the loaded catalog.
+    """Return a magic item instance's template from [`load_magic_items`][osrlib.data.load_magic_items]'s catalog.
 
     Args:
-        instance: The instance.
+        instance: The instance whose template to look up.
 
     Returns:
         The frozen template.
@@ -1126,9 +1154,11 @@ def magic_item_template(instance: MagicItemInstance) -> MagicItemTemplate:
 def equipped_item_modifiers(inventory: Inventory) -> list[ModifierSpec]:
     """Return the stat modifiers granted by equipped always-active magic items.
 
-    Item bonuses are computed from equipped inventory at query time — never
-    `ActiveEffect` stat modifiers — the `modifier_total` carve-out: they combine
-    freely with spell modifiers and are exempt from the cumulative caps (pinned).
+    Item bonuses are computed from equipped inventory at query time rather than
+    stored as `ActiveEffect` stat modifiers: they combine freely with spell
+    modifiers and are always exempt from the cumulative largest-bonus-plus-largest-
+    penalty cap that [`modifier_total`][osrlib.core.effects.modifier_total] applies
+    to spell-sourced modifiers.
 
     Args:
         inventory: The inventory to scan.
@@ -1163,11 +1193,12 @@ def sword_control_check(character: Any, sword: MagicItemInstance, *, stream: Rng
     RAW arithmetic: the sword's Will is INT + Ego, +1 per extraordinary power,
     +1d10 when the sword's and wielder's alignments differ; the wielder's Will is
     STR + WIS, −1d4 below full hit points, −2d4 below half. The sword controls
-    when its Will is strictly higher. The crawl never auto-invokes this in 1.0 —
-    games narrate control through referee commands (registered).
+    when its Will is strictly higher. The crawl framework never auto-invokes this
+    check; games narrate control through referee commands.
 
     Args:
-        character: The wielder (a character with scores and hit points).
+        character: The wielder: a [`Character`][osrlib.core.character.Character]
+            with ability scores and hit points.
         sword: The sentient sword instance.
         stream: The RNG stream for the situational dice; à la carte callers choose.
 
@@ -1202,12 +1233,12 @@ def treasure_weight_coins(inventory: Inventory) -> int:
     """Return the weight of carried treasure in coins.
 
     Purse coins weigh 1 each; valuables weigh their `TreasureWeight` figures; magic
-    items in the categories those rows price (potion, scroll, rod, staff, wand)
-    weigh as treasure. Rings and miscellaneous items
-    weigh zero absent a page figure (the Bag of Holding's printed loaded weight
-    rides its params, counted while it holds anything); enchanted weapons and
-    armour weigh as *equipment* beside their mundane bases, not as treasure, so
-    basic encumbrance's treasure tracking stays honest (pinned).
+    items in the categories those rows price (potion, scroll, rod, staff, wand) weigh
+    as treasure. Rings and miscellaneous items weigh zero absent a page figure (the
+    Bag of Holding's printed loaded weight rides its params, counted while it holds
+    anything); enchanted weapons and armour always weigh as *equipment* beside their
+    mundane bases, not as treasure, so basic encumbrance's treasure tracking stays
+    honest.
 
     Args:
         inventory: The inventory to weigh.
@@ -1236,11 +1267,12 @@ def treasure_weight_coins(inventory: Inventory) -> int:
 def equipment_weight_coins(inventory: Inventory) -> int:
     """Return detailed-encumbrance equipment weight: weapons, armour, and the gear flat.
 
-    Weapons and armour weigh their listed weights; ammunition weighs 0 (included in
-    the missile weapon's listed weight, pinned); miscellaneous gear counts as a flat
-    80 coins when any is carried (pinned — the SRD gives gear no per-item weights).
-    Enchanted weapons and armour weigh as equipment beside their mundane bases —
-    base weight, armour halved per RAW.
+    Weapons and armour weigh their listed weights; ammunition always weighs 0 — its
+    weight is already folded into the missile weapon's listed weight, and the
+    ammunition table has no weight column of its own. Miscellaneous gear counts as a
+    flat 80 coins when any is carried, since the SRD gives gear no per-item weights.
+    Enchanted weapons and armour weigh as equipment beside their mundane bases — base
+    weight, armour halved per RAW.
 
     Args:
         inventory: The inventory to weigh.
@@ -1386,6 +1418,8 @@ def encounter_movement_rate(base_rate_feet: int) -> int:
 def validate_purchase(purse: CoinPurse, template: ItemTemplate, lots: int = 1) -> list[Rejection]:
     """Validate buying `lots` purchase lots of an item.
 
+    See [`purchase`][osrlib.core.items.purchase] for exactly what a purchase lot buys.
+
     Args:
         purse: The buyer's purse.
         template: The item to buy.
@@ -1408,9 +1442,12 @@ def validate_purchase(purse: CoinPurse, template: ItemTemplate, lots: int = 1) -
 def purchase(inventory: Inventory, template: ItemTemplate, lots: int = 1) -> ItemInstance:
     """Buy `lots` purchase lots of an item, paying from the purse.
 
-    Gear and ammunition arrive in lot-sized quantities (one lot of torches is 6);
-    weapons and armour have no lot size, so `lots` is the quantity. The new instance
-    is appended to the item list.
+    A purchase lot is the quantity one purchase at the template's listed `cost_gp`
+    delivers: gear and ammunition arrive in `lot_size`-sized lots (buying one lot of
+    torches costs 1 gp and yields quantity 6), while weapons and armour carry no
+    `lot_size` field, so one lot is a single unit. `lots` scales both the total cost
+    and the delivered quantity: buying 2 lots of torches costs 2 gp and yields
+    quantity 12. The new instance is appended to the item list.
 
     Args:
         inventory: The buyer's inventory; mutated.
@@ -1541,16 +1578,16 @@ def validate_equip(
     """Validate equipping an item against the class's armour and weapon policies.
 
     Weapon policies govern the weapons list only: gear carrying a combat facet (torch,
-    holy water, burning oil) is exempt and always equippable (pinned — see
-    `docs/adaptations.md`, including the magic-user consequence). Gear without a
-    facet, and ammunition, is not equippable at all. Magic items resolve through
-    their base item's policies (enchanted arms), the ring cap, or their own
-    `usable_by` (devices, miscellaneous items).
+    holy water, burning oil) is exempt and always equippable, as a documented
+    adaptation (see the adaptations register) that also lets a magic-user throw oil
+    or swing a torch. Gear without a facet, and ammunition, is not equippable at all.
+    Magic items resolve through their base item's policies (enchanted arms), the ring
+    cap, or their own `usable_by` (devices, miscellaneous items).
 
     Wielding a two-handed weapon with a shield equipped — or equipping the second of
-    the pair — rejects with `items.equip.two_handed_with_shield`, pinned at equip
-    time rather than silently ignoring the shield at resolution. The check needs the
-    current equipped state, so pass `inventory` when one exists.
+    the pair — always rejects with `items.equip.two_handed_with_shield`: the conflict
+    is enforced at equip time rather than silently ignored at resolution. The check
+    needs the current equipped state, so pass `inventory` when one exists.
 
     Args:
         definition: The character's class definition.

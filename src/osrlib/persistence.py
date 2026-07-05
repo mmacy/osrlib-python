@@ -1,17 +1,22 @@
-"""Save/load, the migration framework, replay, and the load-equals-replay guarantee.
+"""Save/load and replay: two paths to a running session, guaranteed to agree.
 
-A save is a [`stamp_document`][osrlib.versioning.stamp_document] envelope of kind
-`"save"` carrying the full state: party, embedded adventure content (saves are
-self-contained, pinned), dungeon state, clock, ledger, allocator, registry monsters,
-flags, listener state, mode, crawl counters, exported RNG stream states, the master
-seed, the accepted-command log always, and the event log optionally (a saved game
-restores from state alone; the logs are records, not dependencies).
+A save, produced by [`save_game`][osrlib.persistence.save_game], is a
+[`stamp_document`][osrlib.versioning.stamp_document] envelope of kind `"save"`
+carrying the full session state: party, the adventure's own content (a save is
+self-contained and needs no other files to load), dungeon state, clock, ledger,
+allocator, registry monsters, flags, listener state, mode, crawl counters, exported
+RNG stream states, the master seed, the accepted-command log always, and the event
+log optionally. A session restores from that state alone — the command and event
+logs are records of what happened, not dependencies of the restore.
 
-A replay is seed + accepted-command log, valid only under the same engine version:
-[`replay_game`][osrlib.persistence.replay_game] raises
-[`ReplayVersionError`][osrlib.errors.ReplayVersionError] when the log was recorded
-under a different engine. The standing test: `load(save)` equals
-`replay(seed, commands)` for every crawl golden, at every checkpoint.
+[`load_game`][osrlib.persistence.load_game] rebuilds a session directly from a save's
+state, migrating older schema versions on the way in.
+[`replay_game`][osrlib.persistence.replay_game] rebuilds a session the other way, by
+re-executing the master seed and the accepted-command log from scratch; it is valid
+only under the identical engine version that recorded the log, and raises
+[`ReplayVersionError`][osrlib.errors.ReplayVersionError] on a mismatch. Loading a save
+and replaying its command log from the same seed always reach the identical session
+state.
 """
 
 from collections.abc import Callable, Mapping, Sequence
@@ -50,6 +55,8 @@ def _migrate_1_to_2(payload: dict) -> dict:
     honest input, so version-1 saves simply shed the field. NPC adventurers
     arrived with version 2; a version-1 save has none.
     """
+    # A ledger kept only "as a log," with no code ever reading it back, is dead state;
+    # dropping the field is preferable to migrating a shape nothing consumes.
     payload.pop("recovered_treasure", None)
     payload["npcs"] = []
     return payload
@@ -169,6 +176,35 @@ def load_game(document: Mapping[str, object]) -> GameSession:
         ContentValidationError: If the envelope or payload is malformed.
         SaveVersionError: If the document's schema version is newer than this
             library understands.
+
+    Examples:
+
+        ```python
+        from osrlib.core.alignment import Alignment
+        from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character
+        from osrlib.core.rng import RngStreams
+        from osrlib.core.ruleset import Ruleset
+        from osrlib.crawl.adventure import Adventure, TownSpec
+        from osrlib.crawl.dungeon import DungeonSpec, Edge, EdgeKind, LevelSpec
+        from osrlib.crawl.party import Party
+        from osrlib.crawl.session import GameSession
+        from osrlib.persistence import load_game, save_game
+
+        rules = Ruleset()
+        roll = RngStreams(master_seed=7).get(CHARACTER_CREATION_STREAM)
+        pc = create_character(name="Hild", class_id="fighter", alignment=Alignment.LAWFUL, ruleset=rules, stream=roll)
+        party = Party(members=[pc.character])
+
+        level = LevelSpec(number=1, width=2, height=1, entrance=(0, 0), edges={"1,0:west": Edge(kind=EdgeKind.OPEN)})
+        crypt = DungeonSpec(id="crypt", name="The Old Crypt", levels=(level,))
+        town = TownSpec(name="Threshold", travel_turns={"crypt": 1})
+        adventure = Adventure(name="A First Delve", town=town, dungeons=(crypt,))
+
+        session = GameSession.new(party, adventure, seed=7)
+        document = save_game(session)
+        restored = load_game(document)
+        assert save_game(restored) == document
+        ```
     """
     payload = check_document(document, "save")
     payload = _migrate(payload, int(cast(int, document["schema_version"])))

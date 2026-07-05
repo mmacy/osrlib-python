@@ -16,7 +16,7 @@ obey:
   `extra="ignore"` and `frozen=True` on every subclass at class-definition time, so no
   subclass can silently break that guarantee with `extra="forbid"` or a mutable config.
 
-The serialized type discriminator is pinned here:
+The serialized type discriminator is declared here:
 every kernel event class declares a single-valued `event_type: Literal[...]` wire
 field (snake_case, schema-stable, additive-only). Pydantic discriminates the
 [`KernelEvent`][osrlib.core.events.KernelEvent] union on it, giving native tagged-union
@@ -148,7 +148,13 @@ class InitiativeRoll(BaseModel):
 
 
 class InitiativeRolledEvent(Event):
-    """Initiative rolled for a round: every roll (re-rolls included) and the acting order."""
+    """Initiative rolled for a round: every roll (re-rolls included) and the acting order.
+
+    Emitted once per round by
+    [`roll_initiative`][osrlib.core.combat.roll_initiative]. `mode` is `"side"` when
+    one roll sets the order for an entire side, or `"individual"` when each
+    combatant rolls separately.
+    """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"combat.initiative.rolled"})
 
@@ -163,9 +169,11 @@ class InitiativeRolledEvent(Event):
 class AttackRolledEvent(Event):
     """An attack roll resolved: the die, the modifiers, and what it needed.
 
-    `roll`, `total`, and `required` are `None` for the helpless auto-hit (no roll is
-    consumed, pinned); `natural` carries 1 or 20 when the natural roll overrode the
-    modified total.
+    Emitted by [`attack_roll`][osrlib.core.combat.attack_roll]. `code` is
+    `combat.attack.hit` or `combat.attack.missed` for a rolled attack, or
+    `combat.attack.auto_hit` for a helpless target (no roll required); `roll`,
+    `total`, and `required` are `None` in the auto-hit case. `natural` carries 1 or
+    20 when the natural roll overrode the modified total.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset(
@@ -188,8 +196,10 @@ class AttackRolledEvent(Event):
 class DamageDealtEvent(Event):
     """Damage applied to a creature.
 
-    Carries the amount only — never the target's remaining hit points: monster HP is
-    hidden by design, and the referee-visibility
+    Emitted by [`deal_damage`][osrlib.core.combat.deal_damage], from a weapon attack, a
+    spell, or an effect such as splash damage. Carries the amount only — never the
+    target's remaining hit points: monster HP is hidden by design, and the
+    referee-visibility
     [`HitPointsReportedEvent`][osrlib.core.events.HitPointsReportedEvent] carries it.
     """
 
@@ -207,7 +217,12 @@ class DamageDealtEvent(Event):
 
 
 class DamageAbsorbedEvent(Event):
-    """A hit absorbed by an immunity gate: no damage was rolled."""
+    """A hit absorbed by an immunity gate: no damage was rolled.
+
+    Emitted in place of
+    [`DamageDealtEvent`][osrlib.core.events.DamageDealtEvent] when a
+    `harmed_only_by` or energy defense excludes the source.
+    """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"combat.damage.absorbed"})
 
@@ -220,7 +235,12 @@ class DamageAbsorbedEvent(Event):
 
 
 class SavingThrowRolledEvent(Event):
-    """A saving throw resolved; `roll` and `required` are `None` for auto-save defenses."""
+    """A saving throw resolved; `roll` and `required` are `None` for auto-save defenses.
+
+    Emitted by [`saving_throw`][osrlib.core.combat.saving_throw]. `code` is
+    `combat.save.passed` or `combat.save.failed` for a rolled save, or
+    `combat.save.auto` when a defense auto-passes it.
+    """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset(
         {"combat.save.passed", "combat.save.failed", "combat.save.auto"}
@@ -236,7 +256,13 @@ class SavingThrowRolledEvent(Event):
 
 
 class MoraleCheckedEvent(Event):
-    """A morale check: referee visibility — players learn the outcome from behavior."""
+    """A morale check: referee visibility — players learn the outcome from behavior.
+
+    Emitted by [`check_morale`][osrlib.core.combat.check_morale]. `code` is
+    `combat.morale.held` or `combat.morale.broke` for a rolled check, or
+    `combat.morale.exempt` when the score is 2 (never fights) or 12 (never checks)
+    and no roll is made.
+    """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset(
         {"combat.morale.held", "combat.morale.broke", "combat.morale.exempt"}
@@ -251,7 +277,10 @@ class MoraleCheckedEvent(Event):
 
 
 class ReactionRolledEvent(Event):
-    """A monster reaction roll: referee visibility — players learn reactions from behavior."""
+    """A monster reaction roll: referee visibility — players learn reactions from behavior.
+
+    Emitted by [`roll_reaction`][osrlib.core.combat.roll_reaction].
+    """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"encounter.reaction.rolled"})
 
@@ -265,7 +294,12 @@ class ReactionRolledEvent(Event):
 
 
 class ConditionGainedEvent(Event):
-    """A creature gained a condition."""
+    """A creature gained a condition.
+
+    Emitted by [`grant_condition`][osrlib.core.effects.grant_condition] — directly, or
+    through [`EffectsLedger.attach`][osrlib.core.effects.EffectsLedger.attach]
+    attaching an effect that carries one.
+    """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"effects.condition.gained"})
 
@@ -278,7 +312,12 @@ class ConditionGainedEvent(Event):
 
 
 class ConditionRemovedEvent(Event):
-    """A creature lost a condition."""
+    """A creature lost a condition.
+
+    Emitted by [`remove_condition`][osrlib.core.effects.remove_condition] — directly,
+    or through [`EffectsLedger.release`][osrlib.core.effects.EffectsLedger.release]
+    or expiry removing the effect that granted it.
+    """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"effects.condition.removed"})
 
@@ -291,7 +330,10 @@ class ConditionRemovedEvent(Event):
 
 
 class EffectAttachedEvent(Event):
-    """An effect attached to a creature, item, or location (referee bookkeeping)."""
+    """An effect attached to a creature, item, or location (referee bookkeeping).
+
+    Emitted by [`EffectsLedger.attach`][osrlib.core.effects.EffectsLedger.attach].
+    """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"effects.effect.attached"})
 
@@ -305,7 +347,12 @@ class EffectAttachedEvent(Event):
 
 
 class EffectTickedEvent(Event):
-    """An effect's periodic tick resolved (referee bookkeeping)."""
+    """An effect's periodic tick resolved (referee bookkeeping).
+
+    Emitted by [`EffectsLedger.advance`][osrlib.core.effects.EffectsLedger.advance]
+    (regeneration, a charm's re-save) or
+    [`pop_mirror_image`][osrlib.core.spells.pop_mirror_image] popping one figment.
+    """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"effects.effect.ticked"})
 
@@ -319,7 +366,10 @@ class EffectTickedEvent(Event):
 
 
 class EffectExpiredEvent(Event):
-    """An effect's duration ran out (referee bookkeeping)."""
+    """An effect's duration ran out (referee bookkeeping).
+
+    Emitted by [`EffectsLedger.advance`][osrlib.core.effects.EffectsLedger.advance].
+    """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"effects.effect.expired"})
 
@@ -333,7 +383,11 @@ class EffectExpiredEvent(Event):
 
 
 class EffectReleasedEvent(Event):
-    """An effect explicitly released before expiry (referee bookkeeping)."""
+    """An effect explicitly released before expiry (referee bookkeeping).
+
+    Emitted by [`EffectsLedger.release`][osrlib.core.effects.EffectsLedger.release] — a
+    *dispel magic* or a charm's passed re-save, for example.
+    """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"effects.effect.released"})
 
@@ -346,7 +400,12 @@ class EffectReleasedEvent(Event):
 
 
 class HealingAppliedEvent(Event):
-    """Healing applied — or blocked (mummy rot renders magical healing ineffective)."""
+    """Healing applied — or blocked (mummy rot renders magical healing ineffective).
+
+    Emitted by [`apply_healing`][osrlib.core.combat.apply_healing] or a regeneration
+    tick. `code` is `combat.healing.applied` normally, or `combat.healing.blocked`
+    when a condition blocks it.
+    """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"combat.healing.applied", "combat.healing.blocked"})
 
@@ -360,8 +419,10 @@ class HealingAppliedEvent(Event):
 class DeathEvent(Event):
     """A creature reduced to 0 hit points or less is killed.
 
-    `combat.death.permanent` marks a regenerating creature's permanent death (the
-    troll's non-regenerable ledger reaching max HP).
+    Emitted by [`kill`][osrlib.core.effects.kill]. `code` is `combat.death.died` for an
+    ordinary death, or `combat.death.permanent` when a regenerating creature's
+    non-regenerable damage ledger reaches max hit points, ending any chance of
+    revival (the troll).
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"combat.death.died", "combat.death.permanent"})
@@ -373,6 +434,8 @@ class DeathEvent(Event):
 
 class EquipmentDestroyedEvent(Event):
     """A victim's equipment destroyed by a destructive death (dragon breath).
+
+    Emitted by [`destroy_equipment`][osrlib.core.combat.destroy_equipment].
 
     `item_names` are the destroyed items; `saved_items` (additive) are the instance
     ids of magic items that passed the `magic_item_death_save` roll — the crawl
@@ -392,6 +455,12 @@ class EquipmentDestroyedEvent(Event):
 class LevelDrainedEvent(Event):
     """Energy drain resolved: levels lost, with the terminal case as its own code.
 
+    Emitted by [`drain_monster_hd`][osrlib.core.combat.drain_monster_hd] or
+    [`drain_levels`][osrlib.core.classes.drain_levels]. `code` is
+    `combat.drain.drained` for levels lost, or `combat.drain.slain` for the terminal
+    case — the victim is already at level 1 (or 1 Hit Die or fewer) with nowhere
+    left to drain, so the drain kills it outright.
+
     `spawn_consequence` is the structured-but-manual field carrying the SRD's spawn
     prose ("becomes a wight in 1d4 days, under the control of the wight that killed
     them") — the kernel kills, the game narrates.
@@ -410,7 +479,11 @@ class LevelDrainedEvent(Event):
 
 
 class MonsterRevivedEvent(Event):
-    """A regenerating monster returned from death (the troll's 2d6-round revival)."""
+    """A regenerating monster returned from death (the troll's 2d6-round revival).
+
+    Emitted by a regeneration tick inside
+    [`EffectsLedger.advance`][osrlib.core.effects.EffectsLedger.advance].
+    """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"effects.regeneration.revived"})
 
@@ -421,7 +494,12 @@ class MonsterRevivedEvent(Event):
 
 
 class HitPointsReportedEvent(Event):
-    """A creature's hit point state — referee visibility: monster HP is hidden by design."""
+    """A creature's hit point state — referee visibility: monster HP is hidden by design.
+
+    Emitted alongside damage, healing, death, energy drain, and regeneration — any
+    change to a creature's current or maximum hit points — so the referee's view
+    stays in sync.
+    """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"combat.state.hit_points"})
 
@@ -434,7 +512,10 @@ class HitPointsReportedEvent(Event):
 
 
 class TargetsSelectedEvent(Event):
-    """The targeting model's resolution: which candidates an effect selected."""
+    """The targeting model's resolution: which candidates an effect selected.
+
+    Emitted by [`select_targets`][osrlib.core.combat.select_targets].
+    """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"combat.targeting.selected"})
 
@@ -457,8 +538,9 @@ class PreparedSpell(BaseModel):
 class SpellsMemorizedEvent(Event):
     """A caster's daily preparation resolved: the full prepared list.
 
-    One event per preparation — memorization is a full replacement, so the list is
-    the caster's complete new memory.
+    Emitted by [`memorize_spells`][osrlib.core.spells.memorize_spells]. One event per
+    preparation — memorization is a full replacement, so the list is the caster's
+    complete new memory.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"magic.memorize.prepared"})
@@ -473,12 +555,16 @@ class SpellsMemorizedEvent(Event):
 class SpellCastEvent(Event):
     """A spell cast: the memorized copy was consumed.
 
+    Emitted by [`cast_spell`][osrlib.core.spells.cast_spell] or
+    [`cast_from_scroll`][osrlib.core.spells.cast_from_scroll]. `code` is
+    `magic.cast.cast` for an ordinary cast, or `magic.cast.no_effect` when every
+    target was ineligible or unaffected — the copy is still spent, since rejections
+    are free and would leak hidden state about which targets were eligible.
+
     `manual=True` marks modes the kernel doesn't execute — the game narrates the
     effect from the spell's prose. Resolution consequences ride the existing event
     types (saves, damage, conditions, effects, healing, deaths), exactly as breath
-    weapons do. `magic.cast.no_effect` reports a cast whose every target was
-    ineligible or unaffected — the copy is still spent (rejections are free and
-    would leak hidden state, pinned).
+    weapons do.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"magic.cast.cast", "magic.cast.no_effect"})
@@ -494,7 +580,10 @@ class SpellCastEvent(Event):
 
 
 class SpellDisruptedEvent(Event):
-    """A declared casting disrupted: the copy is lost as if it had been cast."""
+    """A declared casting disrupted: the copy is lost as if it had been cast.
+
+    Emitted by [`disrupt_casting`][osrlib.core.spells.disrupt_casting].
+    """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"magic.cast.disrupted"})
 
@@ -507,7 +596,11 @@ class SpellDisruptedEvent(Event):
 
 
 class SpellForgottenEvent(Event):
-    """A memorized copy forgotten because level drain shrank the caster's slots."""
+    """A memorized copy forgotten because level drain shrank the caster's slots.
+
+    Emitted by
+    [`forget_excess_memorized`][osrlib.core.spells.forget_excess_memorized].
+    """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"magic.memory.forgotten"})
 
@@ -520,7 +613,10 @@ class SpellForgottenEvent(Event):
 
 
 class SpellBookUpdatedEvent(Event):
-    """A spell added to an arcane caster's spell book."""
+    """A spell added to an arcane caster's spell book.
+
+    Emitted by [`add_spell_to_book`][osrlib.core.spells.add_spell_to_book].
+    """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"magic.book.added"})
 
@@ -545,6 +641,8 @@ class TurningTypeOutcome(BaseModel):
 class UndeadTurnedEvent(Event):
     """A turning attempt resolved — player visibility: the player rolls turning dice.
 
+    Emitted by [`turn_undead`][osrlib.core.spells.turn_undead].
+
     Carries the 2d6 turn roll, the 2d6 HD pool when one was rolled (some type
     succeeded), the per-type verdicts, and the affected monsters. Per-monster
     consequences ride `ConditionGainedEvent`/`DeathEvent`. The code is `failed` when
@@ -566,7 +664,11 @@ class UndeadTurnedEvent(Event):
 
 
 class MagicDispelledEvent(Event):
-    """A *dispel magic* resolved: which effects were released and which survived."""
+    """A *dispel magic* resolved: which effects were released and which survived.
+
+    Emitted by [`cast_spell`][osrlib.core.spells.cast_spell] when a *dispel
+    magic*-kind spell resolves.
+    """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"magic.dispel.resolved"})
 

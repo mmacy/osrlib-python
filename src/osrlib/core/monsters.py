@@ -4,21 +4,25 @@ The 138 SRD monster pages compile into `monsters.json` (packed-variant pages exp
 one concrete entry per variant, because a frozen template must be spawnable) and load
 as frozen [`MonsterTemplate`][osrlib.core.monsters.MonsterTemplate] models via
 [`load_monsters`][osrlib.data.load_monsters]. Play spawns mutable
-[`MonsterInstance`][osrlib.core.monsters.MonsterInstance]s from them, so shared data
-can never be damaged by play.
+[`MonsterInstance`][osrlib.core.monsters.MonsterInstance]s from frozen templates with
+[`spawn_monster`][osrlib.core.monsters.spawn_monster], so shared template data can
+never be damaged by play: load the catalog once, then spawn one instance per creature.
 
 Ability bullets compile as structured tags plus the SRD prose (mirroring
 `ClassAbility`): the tags the kernel executes (`regeneration`, `energy_drain`, `poison`,
 `paralysis`, `petrification`, `breath_weapon`, `gaze`, `disease`, `uses_fire`) carry
-pinned params; everything else compiles with `manual=True` and stays prose the kernel
-doesn't execute. Defenses the damage pipeline checks at damage time compile into the
-structured [`Defenses`][osrlib.core.monsters.Defenses] shape while the bullets keep
-the prose.
+structured params the engine reads directly; everything else compiles with
+`manual=True` and stays prose the kernel doesn't execute. Defenses the damage pipeline
+checks at damage time compile into the structured
+[`Defenses`][osrlib.core.monsters.Defenses] shape while the bullets keep the prose.
 
 Spawned hit points draw from the
-[`MONSTER_SPAWN_STREAM`][osrlib.core.monsters.MONSTER_SPAWN_STREAM] stream (module
-constant, following the `character.py` precedent) so a combat-rules change never
-shifts spawned HP in a golden scenario.
+[`MONSTER_SPAWN_STREAM`][osrlib.core.monsters.MONSTER_SPAWN_STREAM] stream, a
+module-level constant, so a combat-rules change never shifts spawned hit points in a
+fixed scenario.
+
+Part of the core kernel, alongside [`osrlib.core.combat`][osrlib.core.combat], which
+the spawned instances feed as combatants.
 """
 
 from enum import StrEnum
@@ -66,8 +70,8 @@ MONSTER_SPAWN_STREAM = "monster_spawn"
 class DamageKey(StrEnum):
     """The damage-source keys a `harmed_only_by` gate or reduction can name.
 
-    `holy` is carried by holy water's combat facet and pinned: an undead target admits
-    holy damage through any `harmed_only_by` gate — the specific rule ("holy water
+    `holy` is carried by holy water's combat facet: an undead target admits holy
+    damage through any `harmed_only_by` gate — the specific rule ("holy water
     inflicts damage on undead monsters") overrides the general immunity, otherwise the
     wight's silver-or-magic gate would absorb the one weapon made for it.
     """
@@ -241,7 +245,7 @@ class MoraleAlternate(BaseModel):
 
 
 class AlignmentSpec(BaseModel):
-    """A monster's alignment options — compound alignments compile to options (pinned).
+    """A monster's alignment options — compound alignments compile to options.
 
     `Chaotic` is one option; `Lawful or Neutral` is two; `Any` is all three, with
     `usual` carrying `Any, usually Lawful`.
@@ -318,7 +322,7 @@ class TreasureRef(BaseModel):
 class MonsterAbility(BaseModel):
     """A structured monster-ability tag plus the SRD prose it came from.
 
-    `params` carries the mechanizable values pinned by the compiler (the troll's
+    `params` carries the mechanizable values the compiler fixes (the troll's
     regeneration delay and rate, a breath weapon's shape and element); `manual` marks
     abilities the kernel doesn't execute — games and narrators present the
     prose.
@@ -422,7 +426,9 @@ class MonsterCatalog(BaseModel):
         """Return the monster template for `monster_id`.
 
         Args:
-            monster_id: The monster id, e.g. `"troll"` or `"red_dragon"`.
+            monster_id: A monster id from [`load_monsters`][osrlib.data.load_monsters]
+                — see [the monster id index][monsters-index], e.g. `"troll"` or
+                `"red_dragon"`.
 
         Returns:
             The monster template.
@@ -439,15 +445,16 @@ class MonsterCatalog(BaseModel):
 class MonsterInstance(BaseModel):
     """A mutable monster spawned from a frozen template.
 
-    Exposes the same combatant surface as `Character` (THAC0, attack bonus, AC both
-    ways, saves, conditions, stat modifiers), so combat functions take either.
-    `nonregen_damage` is the troll's non-regenerable damage ledger (fire and acid
-    accrue here; regeneration never heals it, and the troll is permanently dead only
-    when this ledger alone reaches max HP — pinned). `last_damaged_round` feeds
-    regeneration's damage delay; `breath_uses_today` tracks the dragons'
-    three-per-day limit. `alignment` is the operative alignment resolved at spawn
-    (pinned — a multi-option `AlignmentSpec` can't answer *protection from evil*'s
-    ward gate); `None` means unresolved, which the ward treats as differing.
+    Exposes the same combatant surface as
+    [`Character`][osrlib.core.character.Character] (THAC0, attack bonus, AC both ways,
+    saves, conditions, stat modifiers), so combat functions take either. `nonregen_damage`
+    is the troll's non-regenerable damage ledger (fire and acid accrue here;
+    regeneration never heals it, and the troll is permanently dead only when this
+    ledger alone reaches max HP). `last_damaged_round` feeds regeneration's damage
+    delay; `breath_uses_today` tracks the dragons' three-per-day limit. `alignment` is
+    the operative alignment resolved at spawn (a multi-option `AlignmentSpec` alone
+    can't answer *protection from evil*'s ward gate); `None` means unresolved, which
+    the ward treats as differing.
     """
 
     model_config = ConfigDict(validate_assignment=True)
@@ -479,7 +486,7 @@ class MonsterInstance(BaseModel):
         """The printed THAC0 (already reflecting the bonus-hit-points 1-HD-higher rule).
 
         A drained instance re-derives from its reduced Hit Dice via the attack matrix
-        rows (pinned).
+        rows.
         """
         if self.drained_hd == 0:
             return self.template.thac0
@@ -511,7 +518,7 @@ class MonsterInstance(BaseModel):
         """The stat block's saving throw values; drained instances re-derive.
 
         A drained instance reads the monster saving-throw band for its reduced Hit
-        Dice (pinned).
+        Dice.
         """
         if self.drained_hd == 0:
             return self.template.saves.values
@@ -540,17 +547,25 @@ class MonsterInstance(BaseModel):
 def spawn_monster(
     template: MonsterTemplate, *, id: str, stream: RngStream, alignment: Alignment | None = None
 ) -> MonsterInstance:
-    """Spawn a mutable instance, rolling hit points from the template's Hit Dice.
+    """Spawn a mutable instance from a frozen template, rolling hit points from its Hit Dice.
 
-    HP is the sum of `count` rolls of the hit die (d8, or d4 for ½ HD) plus the
-    signed modifier, minimum 1 (pinned); fixed-hp forms (`1hp`, the hydra's 8 hp per
-    HD) roll nothing and are exact. The operative alignment resolves at spawn
-    (pinned): the caller's choice wins, else the template's `usual`, else its sole
-    option; a multi-option template with no usual and no caller choice stays
-    unresolved, which alignment-gated wards treat as differing (erring protective).
+    `template` is immutable stat-block data: load the catalog once with
+    [`load_monsters`][osrlib.data.load_monsters] and call `spawn_monster` once per
+    creature that enters play. Every instance gets its own hit points, conditions, and
+    stat modifiers, so damage and status changes on one instance never touch the
+    shared template or any other instance spawned from it.
+
+    Hit points are the sum of `count` rolls of the hit die (d8, or d4 for ½ HD) plus
+    the signed modifier, minimum 1; fixed-hp forms (`1hp`, the hydra's 8 hp per HD)
+    roll nothing and are exact. The operative alignment resolves at spawn: the
+    caller's choice wins, else the template's `usual`, else its sole option; a
+    multi-option template with no usual and no caller choice stays unresolved, which
+    alignment-gated wards treat as differing (erring protective).
 
     Args:
-        template: The frozen template to spawn from.
+        template: The frozen template to spawn from — get one from
+            [`load_monsters`][osrlib.data.load_monsters]`().get(monster_id)`; see
+            [the monster id index][monsters-index] for valid ids.
         id: The instance's entity id, conventionally from an
             [`IdAllocator`][osrlib.core.monsters.IdAllocator].
         stream: The RNG stream for the hit point rolls, conventionally
@@ -581,8 +596,10 @@ def spawn_monster(
 class IdAllocator(BaseModel):
     """A monotonic per-prefix entity ID counter (`monster-0001`, `effect-0001`).
 
-    Matches the spec's session-scoped ID contract: standalone users and tests hold
-    one; the session adopts it. Serializable — the counters are plain state.
+    A [`GameSession`][osrlib.crawl.session.GameSession] adopts one instance so every
+    entity it creates — monsters, effects, NPCs, valuables — gets a unique id;
+    standalone callers can create their own instead. Serializable — the counters are
+    plain state.
     """
 
     model_config = ConfigDict(validate_assignment=True)

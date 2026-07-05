@@ -1,24 +1,32 @@
 """Class definitions, level progression, XP awards, and leveling up.
 
-The seven Classic classes compile from the SRD class pages into `classes.json` and load
-as frozen [`ClassDefinition`][osrlib.core.classes.ClassDefinition] models via
-[`load_classes`][osrlib.data.load_classes]. Class definitions are pure data —
-requirements, prime requisites, XP-modifier tiers, progression tables, armour and
-weapon policies, structured ability tags — so Advanced classes are additive data
-rather than a redesign. `race` is an open, validated identity string, populated from
-the class in Classic play — no rules procedure consumes it, so new races are data.
+The seven Classic classes compile from the OSE SRD's class pages into
+[`ClassDefinition`][osrlib.core.classes.ClassDefinition] models, loaded frozen via
+[`load_classes`][osrlib.data.load_classes]. A definition is pure data: requirements,
+prime requisites, XP-modifier tiers, a per-level progression table (hit dice, THAC0,
+saves, and spell-slot capacity), armour and weapon policies, and structured ability
+tags — so an Advanced class is additive data rather than a code change. `race` is an
+open, validated identity string, populated from the class in Classic play — no rules
+procedure consumes it, so a new race is data too.
 
-XP-modifier tiers are one uniform representation for all classes: ordered tiers of
-`{modifier_pct, minimum scores}`, evaluated best-first, first tier whose conditions all
-hold wins (pinned: the standard single-prime-requisite table's penalty rows only work
-under first-match-wins). Elf and halfling carry exactly their stated bonus tiers, which
-per RAW include no penalties — a pinned interpretation recorded in
-`docs/adaptations.md`.
+XP-modifier tiers are one uniform representation for every class: ordered tiers of
+`{modifier_pct, minimum scores}`, evaluated best-first — the first tier whose minimum
+scores all hold wins. osrlib reads this as the standard single-prime-requisite table's
+intended behavior: its penalty rows only make sense under first-match evaluation. Elf
+and halfling carry exactly their stated bonus tiers, which per RAW include no penalty
+rows, as a documented adaptation (see the adaptations register).
 
 Saves, THAC0, and spell slots are always read from the progression row for the
-character's level, never stored derivations —
+character's level, never stored as separate derived fields —
 [`ClassDefinition.row`][osrlib.core.classes.ClassDefinition.row] is the pure
-recompute-from-level function whose inverse is energy drain.
+recompute-from-level lookup whose inverse is energy drain
+([`drain_levels`][osrlib.core.classes.drain_levels]).
+
+Advancement lives here too: [`apply_xp`][osrlib.core.classes.apply_xp] awards XP and
+levels a character up when a threshold is crossed,
+[`level_up`][osrlib.core.classes.level_up] performs the level-up roll directly, and
+[`drain_levels`][osrlib.core.classes.drain_levels] reverses it. Character creation
+itself lives in [`osrlib.core.character`][osrlib.core.character].
 """
 
 from enum import StrEnum
@@ -332,7 +340,8 @@ class ClassCatalog(BaseModel):
         """Return the class definition for `class_id`.
 
         Args:
-            class_id: The class id, e.g. `"fighter"`.
+            class_id: The class id to look up, e.g. `"fighter"` — see
+                [the class id index][classes-index].
 
         Returns:
             The class definition.
@@ -387,10 +396,10 @@ class XpAwardResult(BaseModel):
 def xp_modifier_pct(definition: ClassDefinition, scores: dict[AbilityScore, int]) -> int:
     """Return the class XP-modifier percentage for a score set.
 
-    Tiers are evaluated best-first; the first tier whose minimums all hold wins
-    (pinned interpretation: the standard table's penalty rows only work under
-    first-match-wins). With no matching tier the modifier is zero — which is how the
-    multi-prime-requisite classes carry no penalties per RAW.
+    Tiers are evaluated best-first; the first tier whose minimums all hold wins.
+    osrlib reads this as the standard table's intended behavior — its penalty rows
+    only make sense under first-match evaluation. With no matching tier the modifier
+    is zero, which is how the multi-prime-requisite classes carry no penalties per RAW.
 
     Args:
         definition: The class definition.
@@ -471,9 +480,9 @@ class SkillCheckResult(BaseModel):
 class DetectionResult(BaseModel):
     """An X-in-6 detection check's outcome.
 
-    `roll` is `None` for a zero chance — no die is consumed (there is nothing to
-    roll under), pinned; the non-dwarf searching for construction tricks simply
-    fails.
+    `roll` is `None` for a zero chance: no die is consumed, since there is nothing to
+    roll under — for example, a non-dwarf searching for construction tricks simply
+    fails without a roll.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -535,9 +544,9 @@ def thief_skill_check(
 def detection_check(chance_in_six: int, *, stream: RngStream) -> DetectionResult:
     """Roll the shared X-in-6 detection check: searching, listening, demi-human tags.
 
-    A zero (or negative) chance consumes no draw and fails — pinned: the SRD grants
-    construction-trick perception to dwarves alone, and there is nothing to roll
-    under.
+    A zero (or negative) chance consumes no draw and fails: the OSE SRD grants
+    construction-trick perception to dwarves alone, and a character without it has
+    nothing to roll under.
 
     Args:
         chance_in_six: The X-in-6 chance, from
@@ -564,14 +573,13 @@ def _ability_chance(definition: ClassDefinition, tag: str) -> int | None:
 def detection_chance(character: Character, definition: ClassDefinition, kind: str) -> int:
     """Resolve a character's X-in-6 chance for one detection kind.
 
-    The pinned precedence: listening uses the thief's `hear_noise` row when
-    present, else the class's `listening_at_doors` param, else the universal
+    Precedence, applied in this order: listening uses the thief's `hear_noise` row
+    when present, else the class's `listening_at_doors` param, else the universal
     1-in-6; secret doors use `detect_secret_doors` (elf 2) else 1; room traps use
     `detect_room_traps` (dwarf 2) else 1; construction tricks use
-    `detect_construction_tricks` (dwarf 2) else **zero** — the SRD grants the
+    `detect_construction_tricks` (dwarf 2) else **zero** — the OSE SRD grants the
     perception to dwarves alone, and "as a dwarf you can sense" has no baseline for
-    others, unlike the universal 1-in-6 search chances which the SRD states for all
-    PCs.
+    others, unlike the universal 1-in-6 search chances the SRD states for all PCs.
 
     Args:
         character: The detecting character.
@@ -639,11 +647,11 @@ def drain_levels(
     Per level drained, mirroring `level_up` exactly in reverse: above name level
     subtract the flat-bonus delta (no roll, no CON); otherwise roll the class hit die
     plus the CON modifier (minimum 1 per die) and subtract it from max and current
-    hit points — rolling the lost die is the RAW-faithful reading of "loses one Hit
-    Die of hit points" that keeps the model stateless (pinned).
+    hit points — rolling the lost die is osrlib's RAW-faithful reading of "loses one
+    Hit Die of hit points" that keeps the model stateless.
 
-    Pinned floors: drain never reduces max HP below 1 or current HP below 1 while
-    the character retains a level — death by drain happens only by losing the last
+    Floors: drain never reduces max HP below 1 or current HP below 1 while the
+    character retains a level — death by drain happens only by losing the last
     level ("a person drained of all levels"), the terminal state. XP is set once
     after all levels drain, by policy: `halfway` is the floored midpoint of the
     former and new levels' thresholds (the wight); `level_minimum` is the new
@@ -658,7 +666,7 @@ def drain_levels(
             `energy_drain` tag.
         stream: The RNG stream for the lost hit die rolls, conventionally
             [`ADVANCEMENT_STREAM`][osrlib.core.character.ADVANCEMENT_STREAM] — the
-            same subsystem as the gains it reverses (pinned).
+            same subsystem as the gains it reverses.
         spawn_consequence: The monster's spawn prose, carried on the drain event.
 
     Returns:
@@ -765,8 +773,8 @@ def drain_levels(
 def apply_xp(character: Character, definition: ClassDefinition, award: int, stream: RngStream) -> XpAwardResult:
     """Apply an XP award: class modifier, the one-level-per-award rule, and leveling.
 
-    The class XP-modifier percentage applies first, with the result floored (pinned).
-    Then the rule exactly as written: XP that would reach two or more levels above the
+    The class XP-modifier percentage applies first, with the result floored. Then the
+    rule exactly as written: XP that would reach two or more levels above the
     starting level is clamped to 1 XP below the second level's threshold, and the
     character gains one level. At the class's maximum level no further levels are
     gained but XP keeps accumulating, unclamped — there is no next threshold to hold

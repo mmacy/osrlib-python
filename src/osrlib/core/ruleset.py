@@ -4,10 +4,10 @@ Every SRD optional rule and every documented adaptation is a named flag with a
 default. Flags are read at resolution time, so a `Ruleset` is fixed for the life of a
 session (it participates in saves and replays). The model is frozen and rejects unknown
 flags — a typo'd flag name errors instead of silently doing nothing.
-
-Every flag here is read by an implemented behavior; shipping a flag whose behavior
-doesn't exist would be a lie in the API. Additive flag growth is schema-legal.
 """
+
+# Every flag here is read by an implemented behavior; never ship a flag whose behavior
+# doesn't exist. Adding new flags with defaults is schema-legal.
 
 from enum import StrEnum
 
@@ -46,67 +46,77 @@ class EncumbranceMode(StrEnum):
 class Ruleset(BaseModel):
     """The optional-rule and adaptation flags a session plays under.
 
+    Each flag is either an optional rule from the OSE SRD or a documented adaptation
+    (see the adaptations register on the documentation site). Build a `Ruleset` when a
+    session starts; it is frozen, and it travels with saves and replays so a game
+    always resumes under the rules it began with.
+
     Attributes:
-        hp_reroll_at_first_level: SRD optional rule: re-roll starting hit-point rolls
-            of 1–2 (the raw die, before the CON modifier) until the die shows 3 or
-            more. Default off.
+        hp_reroll_at_first_level: SRD optional rule, default off: first-level
+            hit-point dice showing 1 or 2 (the raw die, before the CON modifier) are
+            re-rolled until the die shows 3 or more.
         encumbrance: Which encumbrance system tracks carried weight and drives
-            movement rates. Default basic.
-        variable_weapon_damage: SRD optional rule, default on. Off means every weapon
-            *and gear combat facet* deals 1d6 (RAW: "PC attacks inflict 1d6 damage");
-            unarmed attacks stay 1d2 (the specific unarmed rule, not a weapon) and
-            monster damage is unaffected (monsters always "deal the damage indicated
-            in the description") — pinned.
-        individual_initiative: SRD optional rule, default off: 1d6 per participant,
-            DEX-modified for characters (plus the halfling's `initiative_bonus` tag);
-            monsters take a caller-supplied modifier (default 0), the RAW
-            referee-judgment surface.
-        thac0_arithmetic: SRD optional rule, default off: replaces the attack-matrix
-            lookup with unclamped `THAC0 − AC` subtraction. The ascending-AC attack
-            procedure is algebraically identical, so this one flag covers both
-            presentations; the matrix differs only through its 2..20 clamping.
-        weapon_reload: SRD optional rule, default off: a reload-quality weapon may
-            not fire two rounds running. The attack validator rejects when the
-            caller-supplied context says the weapon fired last round; round
-            bookkeeping is the battle machine's job — the kernel enforces the rule
-            given honest context (pinned).
-        hd5_counts_as_magical: SRD invulnerabilities optional rule, default off,
-            implemented *in full*: both a monster of 5+ HD and another invulnerable
-            monster bypass silver/magic-only gates. Pinned boundary from the rule's
-            own wording: the flag touches only weapon-material gates whose keys are a
-            subset of {silver, magic}, and "another invulnerable monster" means a
-            monster bearing such a gate.
-        deprivation_penalties: Documented adaptation, default off. Consumption is
-            tracked regardless; with the flag on, the SRD's "at the referee's
-            discretion, for example" starvation list gets pinned defaults drawn from
-            its own examples: after one full day without food or water, −1 to attack
-            rolls (an engine-written modifier effect) and the rest cadence doubles
-            (fatigue after three unrested turns instead of six); after two days,
-            movement also halves; from the third day on, a daily 1d4 hit-point loss
-            ticks on the effects stream. Water and food deprivation don't stack —
-            the worse track applies. The schedule's numbers are invented over the
-            SRD's open list (see `docs/adaptations.md`).
-        magic_item_death_save: The SRD's referee-optional save for magic items on a
-            destructive death, default on (the spec's default): each magic item in
-            the doomed inventory rolls the owner's save values against the
-            destructive source's category, plus the item's best combat bonus;
-            survivors land in a drop pile at the victim's cell instead of
-            vanishing (pinned — surviving the blast but not the looting would be
-            no survival at all).
-        xp_award_timing: `on_return` per RAW — XP for defeated monsters and
-            recovered treasure awards when the party survives and returns to
-            safety — or `immediate` for continuous CRPG play: monster XP at each
-            encounter end, treasure XP at each acquisition, nothing on the town
-            arrival, and drops never refund (registered — the arcade adaptation
-            trades exactness for immediacy).
-        aoe_friendly_fire: Documented adaptation, default on: an area effect landing
-            on a monster group at melee range catches engaged party members among
-            its candidates (the battle footprint rule). Off means areas never
-            include party members among a monster group's candidates.
-        formation_width_limit: Documented adaptation, default on: corridor width
-            caps combatants fighting abreast — rank width 3 inside a keyed area and
-            2 in corridor cells (RAW's "2–3 characters in a 10' passage"). Off lifts
-            the cap: every combatant may melee.
+            movement rates; see [`osrlib.core.items`][osrlib.core.items]. Default
+            basic.
+        variable_weapon_damage: SRD optional rule, default on: each weapon deals the
+            damage listed in its description. Off means every weapon — and every
+            piece of gear swung as one — deals 1d6, the SRD's baseline "PC attacks
+            inflict 1d6 damage" rule. Unarmed attacks stay 1d2 either way (their own
+            rule, not weapon damage), and monster damage is unaffected: monsters
+            always deal the damage in their descriptions.
+        individual_initiative: SRD optional rule, default off: each combat
+            participant rolls its own 1d6 initiative, DEX-modified for characters
+            (plus the halfling's `initiative_bonus` class tag). The tabletop game
+            leaves monster initiative modifiers to the referee; osrlib takes a
+            caller-supplied modifier, default 0.
+        thac0_arithmetic: SRD optional rule, default off: the attack target number is
+            unclamped `THAC0 − AC` arithmetic instead of the attack-matrix lookup.
+            The SRD's ascending-AC attack procedure is algebraically identical, so
+            this one flag covers both presentations; the matrix differs only through
+            its 2..20 clamping.
+        weapon_reload: SRD optional rule, default off: a weapon with the reload
+            quality cannot fire two rounds running. The attack validator rejects the
+            shot when the caller-supplied context says the weapon fired last round;
+            round-to-round bookkeeping belongs to the battle layer, and the kernel
+            enforces the rule given honest context.
+        hd5_counts_as_magical: The SRD's invulnerabilities optional rule, default
+            off: a monster of 5 or more Hit Dice — or another invulnerable monster —
+            can harm creatures otherwise hurt only by silver or magic weapons.
+            Following the rule's own wording, osrlib applies the flag only to
+            weapon-material requirements limited to silver and magic, and reads
+            "another invulnerable monster" as a monster bearing such a requirement
+            itself.
+        deprivation_penalties: A documented adaptation, default off. Food and water
+            consumption is tracked either way; this flag controls whether going
+            without carries penalties. The tabletop game leaves starvation penalties
+            to the referee ("at the referee's discretion, for example..."); osrlib
+            fixes a schedule drawn from the SRD's own examples — see the adaptations
+            register. After one full day without food or water: −1 to attack rolls,
+            and rest is needed twice as often (fatigue after three unrested turns
+            instead of six). After two days: movement also halves. From the third day
+            on: 1d4 hit points lost per day. Food and water deprivation don't stack —
+            the worse track applies.
+        magic_item_death_save: The SRD's referee-optional saving throw for magic
+            items whose owner dies to a destructive effect, default on: each magic
+            item in the doomed inventory rolls the owner's save values against the
+            destructive source's category, adding the item's best combat bonus.
+            Survivors land in a drop pile at the victim's cell rather than vanishing —
+            surviving the blast but not the looting would be no survival at all.
+        xp_award_timing: When XP awards fire, default `on_return` — the tabletop
+            rule: XP for defeated monsters and recovered treasure is awarded when the
+            party survives and returns to safety. `immediate` is a documented
+            adaptation for continuous CRPG play: monster XP lands at each encounter's
+            end, treasure XP at each acquisition, nothing more on reaching town, and
+            dropped treasure never refunds.
+        aoe_friendly_fire: A documented adaptation, default on: an area effect
+            landing on a monster group at melee range catches engaged party members
+            among its candidates. Off means area effects never include party members
+            among a monster group's candidates.
+        formation_width_limit: A documented adaptation, default on: passage width
+            caps how many combatants fight abreast — three inside a keyed area, two
+            in corridor cells — following the SRD's "2–3 characters fighting
+            side-by-side in a 10' wide passage". Off lifts the cap: every combatant
+            may melee.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")

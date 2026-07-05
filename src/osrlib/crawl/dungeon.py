@@ -7,7 +7,7 @@ levels, areas, features, and traps are game content, never mutated;
 (explored cells, door state, sprung traps, dropped piles, the party's location) and
 serializes into saves.
 
-Geometry, pinned as API convention: cells are 10' squares addressed `(x, y)` with
+Geometry, as API convention: cells are 10' squares addressed `(x, y)` with
 `x` increasing east and `y` increasing south from the level's northwest corner.
 Edges are the single spatial truth for walls and doors: an `edges` map keyed by the
 canonical edge key (a cell plus `north` or `west`, so each physical edge has exactly
@@ -140,7 +140,7 @@ def edge_key(position: Position, direction: Direction) -> str:
 def cell_ref(dungeon_id: str, level_number: int, position: Position) -> str:
     """Return the structured cell reference used by location-bound effects.
 
-    The pinned format is `cell:{dungeon}:{level}:{x},{y}` — an
+    The format is `cell:{dungeon}:{level}:{x},{y}` — an
     [`ActiveEffect.target_ref`][osrlib.core.effects.ActiveEffect] in this form
     anchors the effect to a dungeon cell.
 
@@ -228,7 +228,7 @@ class TransitionSpec(BaseModel):
 
 
 class TrapEffect(BaseModel):
-    """What a sprung trap does — the example-trap census is the fixture set.
+    """What a sprung trap does: damage, a save, a condition, a fall, or a transition.
 
     `damage_dice` rolls once; `volley_dice` is the darts form (1d6 projectiles,
     each rolling `damage_dice` — a count-times-damage form the dice grammar alone
@@ -292,9 +292,10 @@ class TrapSpec(BaseModel):
 class ValuableSpec(BaseModel):
     """An authored named valuable in a cache — instantiated on take.
 
-    The authoring surface for named treasure: the example adventure's MacGuffin is
-    one. `name` is the display name; the instance id comes from the session
-    allocator when the cache is emptied.
+    The authoring surface for named treasure: a unique gem or piece of jewellery
+    with its own display name, rather than a generic generated one. `name` is the
+    display name; the instance id comes from the session allocator when the cache
+    is emptied.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -309,8 +310,10 @@ class AreaTreasureSpec(BaseModel):
     """An area's generated-treasure declaration: explicit type letters, or unguarded.
 
     Generates on first entry into the area — how content places generated treasure
-    without monsters (the milestone dungeon uses it). `unguarded=True` rolls the
-    dungeon level's unguarded-treasure band.
+    in an area with no monsters. `letters` names one or more treasure type letters
+    (see [the treasure type index][treasure-types-index]); `unguarded=True` instead
+    rolls the dungeon level's unguarded-treasure band. Exactly one of the two
+    applies.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -343,10 +346,10 @@ class TreasureBundle(BaseModel):
 class GeneratedCache(BaseModel):
     """An engine-created treasure cache in the state overlay.
 
-    Authored `FeatureSpec`s are frozen content; the state overlay owns play-created
-    treasure — the template/instance split applied to loot. Generated
-    hoards are untrapped (traps are authored content, per the stocking table's own
-    separation, pinned).
+    Authored [`FeatureSpec`][osrlib.crawl.dungeon.FeatureSpec]s are frozen content;
+    the state overlay owns play-created treasure — the template/instance split
+    applied to loot. Generated hoards are always untrapped: traps are authored
+    content only, never a generation outcome (see the adaptations register).
     """
 
     model_config = ConfigDict(validate_assignment=True)
@@ -361,10 +364,13 @@ class GeneratedCache(BaseModel):
 class FeatureSpec(BaseModel):
     """A keyed feature: a treasure cache, a construction trick, or custom content.
 
-    Stairs are `TransitionSpec`'s alone — no second home. Caches carry the
-    hand-placed contents (item ids and coins) and an optional treasure trap — the
-    milestone's droppable, recoverable treasure. `cell` binds the feature to a cell;
-    a feature listed on an area with `cell=None` binds to the whole area.
+    Stairs are [`TransitionSpec`][osrlib.crawl.dungeon.TransitionSpec]'s alone — no
+    second home. Caches carry hand-placed contents — `item_ids` (any id from
+    [`load_equipment`][osrlib.data.load_equipment], see
+    [the equipment id index][equipment-index]) and `coins` — plus an optional
+    treasure trap, so a cache's contents can be dropped, found, and recovered like
+    any other treasure. `cell` binds the feature to a cell; a feature listed on an
+    area with `cell=None` binds to the whole area.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -386,7 +392,11 @@ class FeatureSpec(BaseModel):
 
 
 class KeyedMonster(BaseModel):
-    """One monster line of a keyed encounter: the template and its count."""
+    """One monster line of a keyed encounter: the template and its count.
+
+    `template_id` is any id from [`load_monsters`][osrlib.data.load_monsters] — see
+    [the monster id index][monsters-index].
+    """
 
     model_config = ConfigDict(frozen=True)
 

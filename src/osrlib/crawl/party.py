@@ -1,6 +1,6 @@
 """The crawl party: marching order, group movement, and combat ranks.
 
-The member list order **is** marching order — pinned: no separate order field to
+The member list order **is** marching order — there is no separate order field to
 desync; `reorder` swaps in place, and `ReorderParty` is the only command that
 mutates it. Dead members stay in the party (their gear is carried state; excluding
 them is a game decision via referee commands) but never count toward movement rate,

@@ -73,8 +73,8 @@ __all__ = [
 class PartyMovedEvent(Event):
     """The party moved or turned; `x`/`y`/`facing` are the resulting pose.
 
-    A blocked move is a rejection (`exploration.move.blocked`), never an event —
-    moving into a wall is an in-fiction invalid command (pinned).
+    A blocked move is a rejection (`exploration.move.blocked`), never an event:
+    moving into a wall is an in-fiction invalid command, not a game state change.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"exploration.party.moved", "exploration.party.turned"})
@@ -87,7 +87,7 @@ class PartyMovedEvent(Event):
 
 
 class LocationEnteredEvent(Event):
-    """The party crossed a location boundary — the spec's listener example event.
+    """The party crossed a location boundary.
 
     `location_kind` is `area`, `level`, `dungeon`, or `town`; `location_id` is the
     area or dungeon id (`"town"` for town). `level_number` rides level and dungeon
@@ -195,7 +195,7 @@ class TrapEvent(Event):
 
 
 class ItemAcquiredEvent(Event):
-    """Items or coins entered a character's inventory — the spec's listener example."""
+    """Items or coins entered a character's inventory."""
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"exploration.item.acquired"})
 
@@ -225,7 +225,7 @@ class LightEvent(Event):
 
     `source` is the item or effect kind (`torch`, `lantern`, `light`); `.failed`
     is a failed tinder-box attempt; `.expired` is the session's player-facing
-    translation of the ledger's referee-visibility expiry (the pinned mechanism).
+    translation of the ledger's referee-visibility expiry.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset(
@@ -441,7 +441,7 @@ class MonsterFledEvent(Event):
 
 
 class MonsterDefeatedEvent(Event):
-    """One monster defeated — the spec's listener example and the XP award's input.
+    """One monster defeated — feeds the adventure's XP award.
 
     Emitted per monster at battle end with `outcome` `slain`, `routed`, or
     `surrendered`; `xp` is the template's printed award.
@@ -493,7 +493,7 @@ class ItemUsedEvent(Event):
     """A magic item used: a potion drunk (or mixed), a scroll read, a device activated.
 
     `items.device.inert` is a rejection code, not an event — activating an
-    exhausted device costs nothing (the blocked-move precedent). Charges
+    exhausted device costs nothing, the same as a blocked move. Charges
     never appear here: they are referee-only forever (RAW, undiscoverable).
     """
 
@@ -515,7 +515,7 @@ class ItemUsedEvent(Event):
 
 
 class ItemIdentifiedEvent(Event):
-    """A magic item identified — first meaningful use is the trigger (pinned)."""
+    """A magic item identified — a first meaningful use of it is the trigger."""
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"items.item.identified"})
 
@@ -527,7 +527,7 @@ class ItemIdentifiedEvent(Event):
 
 
 class CurseRevealedEvent(Event):
-    """A cursed item revealed its true nature — and pinned itself to its bearer."""
+    """A cursed item revealed its true nature — and pins itself to its bearer."""
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"items.curse.revealed"})
 

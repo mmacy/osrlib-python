@@ -1,16 +1,24 @@
 """The projection API: the player's safe whitelist and the referee's full state.
 
-`execute()` mutates; views read. The player view is an enumerated whitelist —
-pinned field census, locked by the leak property test: party public sheets,
-location and facing, explored cells with their edges (secret doors only if
-discovered — an undiscovered secret door renders as wall), known piles and emptied
-caches in explored space, active effects on party members with remaining durations,
-the elapsed clock, the mode, the current encounter/battle public state (names,
+`execute()` mutates session state; [`build_player_view`][osrlib.crawl.views.build_player_view]
+and [`build_referee_view`][osrlib.crawl.views.build_referee_view] build these frozen
+projections from that state alone, never from the event log.
+
+The player view is an enumerated whitelist: party public sheets, location and
+facing, explored cells with their edges (secret doors only if discovered — an
+undiscovered secret door renders as wall), known piles and emptied caches in
+explored space, active effects on party members with remaining durations, the
+elapsed clock, the mode, the current encounter/battle public state (names,
 counts, distances, visible conditions — never HP), fatigue/exhaustion/deprivation
-status, and the adventure's public prose. Never present: unexplored geometry,
-undiscovered traps or secret doors, monster HP or stat internals, referee-visibility
-roll outcomes, session flags, RNG state, or the seed (the seed lives only in the
-save — neither view carries it).
+status, and the adventure's public prose. It never carries unexplored geometry,
+undiscovered traps or secret doors, monster HP or stat internals,
+referee-visibility roll outcomes, session flags, RNG state, or the seed — the
+seed lives only in the save, and neither view carries it.
+
+The referee view carries everything else the save does, minus RNG internals and
+the seed, for LLM referees and tests. A front end must never trust the client:
+a networked game keeps the session and the referee view server-side, and returns
+only the player view — or player-visibility events — over the wire.
 """
 
 from pydantic import BaseModel, ConfigDict
@@ -122,7 +130,7 @@ class EncounterView(BaseModel):
 
 
 class PlayerView(BaseModel):
-    """The safe projection — the enumerated whitelist, locked by the leak test."""
+    """The safe projection: an enumerated whitelist of exactly the fields a player may see."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -165,13 +173,13 @@ _MASKED_CATEGORY_NAMES = {
 
 
 def _masked_magic_item(instance: MagicItemInstance) -> dict:
-    """One magic item as the player sees it — the identification mask, pinned.
+    """One magic item as the player sees it — masked until identified.
 
     An unidentified item shows only its category display name (an enchanted arm
     shows its base — "a sword with a faint aura", the concession because *detect
     magic* exists); an identified one shows its true name and id. Charges,
-    sentience, and per-item state never appear at any identification level (RAW:
-    charges are undiscoverable).
+    sentience, and per-item state never appear at any identification level: by
+    RAW, charges are undiscoverable.
     """
     from osrlib.data import load_equipment
 
@@ -223,8 +231,9 @@ def _masked_inventory(member) -> dict:
 def _effect_remaining_rounds(session, effect) -> int | None:
     """Remaining rounds for the member-effect view — potion durations stay hidden.
 
-    RAW: the referee rolls and tracks a potion's duration and does "not tell the
-    player how long the potion will last" (pinned).
+    By RAW, the referee rolls and tracks a potion's duration and never tells the
+    player how long it will last, so a potion-sourced effect always reports
+    `None` here.
     """
     if effect.definition.params.get("item_source") == "potion":
         return None
@@ -237,7 +246,7 @@ def build_player_view(session) -> PlayerView:
     """Build the player view from session state (never from the event log).
 
     Args:
-        session: The running session.
+        session (osrlib.crawl.session.GameSession): The running session.
 
     Returns:
         The frozen whitelist projection.
@@ -396,7 +405,7 @@ def build_referee_view(session) -> RefereeView:
     """Build the referee view: everything but RNG internals and the seed.
 
     Args:
-        session: The running session.
+        session (osrlib.crawl.session.GameSession): The running session.
 
     Returns:
         The full-state projection.

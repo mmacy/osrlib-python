@@ -49,9 +49,11 @@ __all__ = ["app"]
 
 app = FastAPI(title="osrlib barrow crawler", description="The example barrow adventure behind an HTTP API.")
 
+# --8<-- [start:session-store]
 _store_lock = threading.Lock()
 _sessions: dict[str, tuple[GameSession, threading.Lock]] = {}
 _saves: dict[str, dict] = {}
+# --8<-- [end:session-store]
 
 
 class CreateSession(BaseModel):
@@ -72,6 +74,7 @@ class CreateSession(BaseModel):
         return self
 
 
+# --8<-- [start:error-mapping]
 @app.exception_handler(ContentValidationError)
 def _content_validation_error(request: Request, error: ContentValidationError) -> JSONResponse:
     """Malformed content — a bad party document or command payload — is a 422."""
@@ -92,6 +95,10 @@ def _session_or_404(session_id: str) -> tuple[GameSession, threading.Lock]:
     return entry
 
 
+# --8<-- [end:error-mapping]
+
+
+# --8<-- [start:create-session]
 @app.post("/sessions")
 def create_session(request: CreateSession) -> dict:
     """Create a session from a party document, or restore one from a server-side save.
@@ -117,6 +124,9 @@ def create_session(request: CreateSession) -> dict:
     return {"session_id": session_id, "schema_version": SCHEMA_VERSION, "engine_version": engine_version()}
 
 
+# --8<-- [end:create-session]
+
+
 @app.get("/sessions/{session_id}")
 def session_metadata(session_id: str) -> dict:
     """The schema handshake the spec promises front ends, plus the public mode."""
@@ -133,6 +143,7 @@ def session_metadata(session_id: str) -> dict:
     }
 
 
+# --8<-- [start:execute-command]
 @app.post("/sessions/{session_id}/commands")
 def execute_command(session_id: str, body: dict) -> dict:
     """Parse and execute one command under the session lock.
@@ -155,6 +166,10 @@ def execute_command(session_id: str, body: dict) -> dict:
     }
 
 
+# --8<-- [end:execute-command]
+
+
+# --8<-- [start:player-view]
 @app.get("/sessions/{session_id}/view")
 def player_view(session_id: str) -> dict:
     """The player projection — the only game-state read the API offers."""
@@ -164,6 +179,10 @@ def player_view(session_id: str) -> dict:
     return view.model_dump(mode="json")
 
 
+# --8<-- [end:player-view]
+
+
+# --8<-- [start:save-session]
 @app.post("/sessions/{session_id}/save")
 def save_session(session_id: str) -> dict:
     """Snapshot into the server-side save store; only the opaque id crosses the wire."""
@@ -174,3 +193,6 @@ def save_session(session_id: str) -> dict:
     with _store_lock:
         _saves[save_id] = document
     return {"save_id": save_id}
+
+
+# --8<-- [end:save-session]

@@ -74,6 +74,8 @@ class GameClock(BaseModel):
     Examples:
 
         ```python
+        from osrlib.core.clock import GameClock, TimeUnit
+
         clock = GameClock()
         crossings = clock.advance(2, TimeUnit.TURN)
         assert clock.turns == 2

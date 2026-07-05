@@ -2,13 +2,13 @@
 
 An adventure is frozen game content — the session runs it, never mutates it. The
 base town anchors the XP rule's "survive and return to safety" and safe day-level
-rest; in 1.0 it is a marker offering safe rest and equipment purchase through the
+rest. It is a marker offering safe rest and equipment purchase through the
 kernel, not a simulated town. Content prose lives in these models — events
 carry ids and front ends resolve prose against the adventure.
 
 [`validate_adventure`][osrlib.crawl.adventure.validate_adventure] is the fail-fast
-content gate the spec's error taxonomy names: dangling references (transition
-targets, monster template ids, item ids, area cells out of bounds) raise
+content gate: dangling references (transition targets, monster template ids,
+item ids, area cells out of bounds) raise
 [`ContentValidationError`][osrlib.errors.ContentValidationError] before a session
 ever runs the content.
 """
@@ -96,9 +96,10 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
 
     Checks, per level: area cells and features in bounds, feature ids unique,
     cache item ids resolving against the equipment catalog, keyed-encounter
-    template ids (and pinned alignments) resolving against the monster catalog,
-    transition destinations resolving to real cells, town travel entries naming
-    real dungeons, and an entrance existing somewhere in every dungeon.
+    template ids (and any fixed spawn alignment) resolving against the monster
+    catalog, transition destinations resolving to real cells, town travel
+    entries naming real dungeons, and an entrance existing somewhere in every
+    dungeon.
 
     Args:
         adventure: The adventure to validate.
