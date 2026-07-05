@@ -41,14 +41,14 @@ The same loop on branch `phase-N-impl`: implement to the plan with tests green, 
 
 ## Greenfield discipline
 
-osrlib is pre-1.0 with no external consumers: every call site lives in this repo. Code-level backward compatibility is an anti-pattern here, not a virtue. When a better factoring appears, refactor to it outright and update every call site — the tests and CI are the safety net. Specifically:
+osrlib is released: the public API is frozen and semantic versioning governs what a release may change, so breaking the public surface is a major-version event, not a refactor. Behind that surface, code-level backward compatibility is an anti-pattern here, not a virtue. When a better internal factoring appears, refactor to it outright and update every call site — the tests and CI are the safety net. Specifically:
 
 - No re-exports, aliases, or shims whose purpose is keeping an old import path working. One home per symbol; move it and fix the imports. (Precedent: the `Alignment` re-export from `character.py` was cut in PR #8 review as exactly this.)
 - No deprecation paths, `_v2`-style parallel names, or code kept "just in case" a removed path is wanted back — git history is the archive.
 - No parameters, flags, or branches whose only purpose is preserving a behavior nothing in the repo still uses.
 - Prose that justifies a design by "so the old path still works" is the tell: if the sentence names no current consumer, the accommodation should not exist.
 
-Do not overcorrect into breaking the compatibility contracts that are real. Those are the spec's, not the code's: `schema_version` governs serialized artifacts (saves, commands, events — additive-only within a version), and the determinism contract governs draw sequences and golden files. Honor those two; everything else is freely refactorable.
+Do not overcorrect into breaking the compatibility contracts that are real: the public API surface (semantic versioning, promised in `CHANGELOG.md`), `schema_version` for serialized artifacts (saves, commands, events — additive-only within a version), and the determinism contract governing draw sequences and golden files. Honor those; everything else is freely refactorable.
 
 ## Invariants the spec imposes
 
