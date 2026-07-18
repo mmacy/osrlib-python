@@ -16,7 +16,7 @@ ever runs the content.
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from osrlib.core.items import EquipmentCatalog
-from osrlib.core.monsters import MonsterCatalog
+from osrlib.core.monsters import MonsterCatalog, MonsterTemplate
 from osrlib.crawl.dungeon import DungeonSpec, FeatureSpec, LevelSpec
 from osrlib.errors import ContentValidationError
 
@@ -44,7 +44,17 @@ class TownSpec(BaseModel):
 
 
 class Adventure(BaseModel):
-    """An adventure: one or more dungeons plus the base town and metadata."""
+    """An adventure: one or more dungeons plus the base town and metadata.
+
+    `monsters` are the adventure's bundled custom
+    [`MonsterTemplate`][osrlib.core.monsters.MonsterTemplate]s: they join the
+    shipped catalog for this adventure's sessions everywhere the engine resolves
+    template ids (keyed encounters, `SpawnMonsters`, inline wandering tables,
+    listen checks). Bundled ids must not collide with the shipped catalog or each
+    other — a collision is a validation error, never an override. The empty tuple
+    is the universal default: an adventure that bundles nothing plays exactly as
+    before.
+    """
 
     model_config = ConfigDict(frozen=True)
 
@@ -53,6 +63,7 @@ class Adventure(BaseModel):
     hooks: tuple[str, ...] = ()
     town: TownSpec
     dungeons: tuple[DungeonSpec, ...] = Field(min_length=1)
+    monsters: tuple[MonsterTemplate, ...] = ()
 
     @model_validator(mode="after")
     def _dungeon_ids_unique(self) -> Adventure:
@@ -79,6 +90,28 @@ class Adventure(BaseModel):
         raise ValueError(f"unknown dungeon id {dungeon_id!r}")
 
 
+def _effective_monsters(adventure: Adventure, base: MonsterCatalog) -> tuple[MonsterCatalog, tuple[str, ...]]:
+    """Build the adventure's effective monster catalog: base ∪ bundled, first occurrence wins.
+
+    Always returns a usable catalog plus every skipped colliding id (empty means
+    clean) — both callers get a total answer, and each turns a non-empty collision
+    list into its own typed failure. An empty bundle returns the base catalog
+    object itself: no copy, no behavior change for adventures that bundle nothing.
+    """
+    if not adventure.monsters:
+        return base, ()
+    seen = {template.id for template in base.monsters}
+    accepted: list[MonsterTemplate] = []
+    colliding: list[str] = []
+    for template in adventure.monsters:
+        if template.id in seen:
+            colliding.append(template.id)
+            continue
+        seen.add(template.id)
+        accepted.append(template)
+    return MonsterCatalog(monsters=(*base.monsters, *accepted)), tuple(colliding)
+
+
 def _validate_feature(
     feature: FeatureSpec, level: LevelSpec, owner: str, equipment: EquipmentCatalog, errors: list[str]
 ) -> None:
@@ -94,22 +127,28 @@ def _validate_feature(
 def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment: EquipmentCatalog) -> None:
     """Validate an adventure's cross-references — the fail-fast content gate.
 
-    Checks, per level: area cells and features in bounds, feature ids unique,
-    cache item ids resolving against the equipment catalog, keyed-encounter
-    template ids (and any fixed spawn alignment) resolving against the monster
-    catalog, transition destinations resolving to real cells, town travel
-    entries naming real dungeons, and an entrance existing somewhere in every
-    dungeon.
+    Checks: bundled monster ids colliding with the shipped catalog or each other;
+    then, per level: area cells and features in bounds, feature ids unique, cache
+    item ids resolving against the equipment catalog, keyed-encounter template ids
+    (and any fixed spawn alignment) and inline wandering-table monster ids
+    resolving against the effective catalog, transition destinations resolving to
+    real cells, town travel entries naming real dungeons, and an entrance existing
+    somewhere in every dungeon.
 
     Args:
         adventure: The adventure to validate.
-        monsters: The monster catalog keyed encounters resolve against.
+        monsters: The *base* monster catalog — validation unions it internally
+            with the adventure's bundled templates, and every monster reference
+            resolves against that union.
         equipment: The equipment catalog cache contents resolve against.
 
     Raises:
         ContentValidationError: Listing every dangling reference found.
     """
     errors: list[str] = []
+    effective, colliding = _effective_monsters(adventure, monsters)
+    for monster_id in colliding:
+        errors.append(f"bundled monster id {monster_id!r} collides with the catalog")
     for dungeon_id in adventure.town.travel_turns:
         if not any(dungeon.id == dungeon_id for dungeon in adventure.dungeons):
             errors.append(f"town travel names unknown dungeon {dungeon_id!r}")
@@ -139,7 +178,7 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
                 if area.encounter is not None:
                     for keyed in area.encounter.monsters:
                         try:
-                            template = monsters.get(keyed.template_id)
+                            template = effective.get(keyed.template_id)
                         except ValueError:
                             errors.append(f"{owner}: area {area.id!r} references unknown monster {keyed.template_id!r}")
                             continue
@@ -155,6 +194,17 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
                 if feature.cell is None:
                     errors.append(f"{owner}: level-scope feature {feature.id!r} needs a cell")
                 _validate_feature(feature, level, owner, equipment, errors)
+            if level.wandering.table is not None:
+                for row in level.wandering.table.rows:
+                    if row.entry.kind != "monster":
+                        continue
+                    for monster_id in row.entry.monster_ids:
+                        try:
+                            effective.get(monster_id)
+                        except ValueError:
+                            errors.append(
+                                f"{owner}: wandering row {row.name!r} references unknown monster {monster_id!r}"
+                            )
             for transition in level.transitions:
                 if not level.in_bounds(transition.position):
                     errors.append(f"{owner}: transition at {transition.position} is out of bounds")

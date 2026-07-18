@@ -126,7 +126,7 @@ from osrlib.crawl.events import (
     TreasureSoldEvent,
     WanderingCheckEvent,
 )
-from osrlib.data import load_classes, load_encounter_tables, load_equipment, load_monsters, load_spells
+from osrlib.data import load_classes, load_encounter_tables, load_equipment, load_spells
 
 if TYPE_CHECKING:
     from osrlib.core.character import Character
@@ -849,7 +849,7 @@ def _keyed_encounter_check(session) -> list[Event]:
             count = keyed.count_fixed
         else:
             count = max(1, roll(keyed.count_dice, session.streams.get(WANDERING_STREAM)).total)
-        template = load_monsters().get(keyed.template_id)
+        template = session.effective_monsters.get(keyed.template_id)
         templates.append(template)
         instances = session.spawn(keyed.template_id, count, alignment=area.encounter.alignment)
         groups.append((template.name, instances))
@@ -1139,7 +1139,7 @@ def _handle_listen_at_door(session, command: ListenAtDoor) -> tuple[list[Rejecti
     if check.passed and area is not None and area.encounter is not None:
         area_ref = _area_ref(session, area.id)
         if area_ref not in session.dungeon_state.resolved_encounters:
-            monsters = load_monsters()
+            monsters = session.effective_monsters
             noisy = any("undead" not in monsters.get(keyed.template_id).categories for keyed in area.encounter.monsters)
             if noisy:
                 heard = True

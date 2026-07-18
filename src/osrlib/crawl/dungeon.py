@@ -394,8 +394,10 @@ class FeatureSpec(BaseModel):
 class KeyedMonster(BaseModel):
     """One monster line of a keyed encounter: the template and its count.
 
-    `template_id` is any id from [`load_monsters`][osrlib.data.load_monsters] — see
-    [the monster id index][monsters-index].
+    `template_id` is any id in the session's effective catalog — a shipped id from
+    [`load_monsters`][osrlib.data.load_monsters] (see
+    [the monster id index][monsters-index]) or one bundled by the adventure's
+    `monsters`.
     """
 
     model_config = ConfigDict(frozen=True)

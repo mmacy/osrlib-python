@@ -48,11 +48,11 @@ from osrlib.core.events import (
     Visibility,
 )
 from osrlib.core.items import ItemInstance
-from osrlib.core.monsters import MONSTER_SPAWN_STREAM, IdAllocator, MonsterInstance, spawn_monster
+from osrlib.core.monsters import MONSTER_SPAWN_STREAM, IdAllocator, MonsterCatalog, MonsterInstance, spawn_monster
 from osrlib.core.rng import RngStreams
 from osrlib.core.ruleset import Ruleset
 from osrlib.core.validation import Rejection
-from osrlib.crawl.adventure import Adventure, validate_adventure
+from osrlib.crawl.adventure import Adventure, _effective_monsters, validate_adventure
 from osrlib.crawl.commands import (
     AdvanceTime,
     AwardXP,
@@ -83,6 +83,7 @@ from osrlib.crawl.events import (
 )
 from osrlib.crawl.party import Party
 from osrlib.data import load_equipment, load_monsters
+from osrlib.errors import ContentValidationError
 from osrlib.versioning import SCHEMA_VERSION, engine_version
 
 if TYPE_CHECKING:
@@ -212,9 +213,21 @@ class GameSession:
         streams: RngStreams,
         master_seed: int,
     ) -> None:
-        """Internal constructor — use [`GameSession.new`][osrlib.crawl.session.GameSession.new] or `load_game`."""
+        """Internal constructor — use [`GameSession.new`][osrlib.crawl.session.GameSession.new] or `load_game`.
+
+        Raises:
+            ContentValidationError: If the adventure bundles monster ids that
+                collide with the shipped catalog or each other — the typed
+                backstop for `load_game`, which trusts saved content otherwise.
+        """
         self.party = party
         self.adventure = adventure
+        catalog, colliding = _effective_monsters(adventure, load_monsters())
+        if colliding:
+            raise ContentValidationError(
+                "adventure bundles colliding monster ids: " + ", ".join(repr(monster_id) for monster_id in colliding)
+            )
+        self._monster_catalog = catalog
         self.ruleset = ruleset
         self.streams = streams
         self.master_seed = master_seed
@@ -287,6 +300,17 @@ class GameSession:
     def metadata(self) -> dict[str, object]:
         """The front-end handshake: the schema and engine versions."""
         return {"schema_version": SCHEMA_VERSION, "engine_version": engine_version()}
+
+    @property
+    def effective_monsters(self) -> MonsterCatalog:
+        """The session's monster catalog: the shipped catalog plus the adventure's bundled templates.
+
+        Every engine site that resolves a template id — spawning, keyed
+        encounters, wandering rows, listen checks — resolves against this
+        catalog. For an adventure that bundles nothing it *is* the shipped
+        catalog ([`load_monsters`][osrlib.data.load_monsters]'s cached object).
+        """
+        return self._monster_catalog
 
     # ------------------------------------------------------------------ dispatch
 
@@ -405,16 +429,17 @@ class GameSession:
         """Spawn `count` instances into the registry, ids from the session allocator.
 
         Args:
-            template_id: A monster template id from
-                [`load_monsters`][osrlib.data.load_monsters] — see
-                [the monster id index][monsters-index].
+            template_id: Any id in the session's
+                [`effective_monsters`][osrlib.crawl.session.GameSession.effective_monsters]
+                catalog — shipped (see [the monster id index][monsters-index]) or
+                bundled by the adventure.
             count: How many to spawn.
             alignment: An alignment override from keyed content.
 
         Returns:
             The spawned instances, in spawn order.
         """
-        template = load_monsters().get(template_id)
+        template = self.effective_monsters.get(template_id)
         spawned = []
         for _ in range(count):
             instance = spawn_monster(
@@ -810,7 +835,7 @@ def _handle_spawn_monsters(session: GameSession, command: SpawnMonsters) -> tupl
     from osrlib.crawl import encounter as encounter_module
 
     try:
-        load_monsters().get(command.template_id)
+        session.effective_monsters.get(command.template_id)
     except ValueError:
         return [Rejection(code="session.command.unknown_monster", params={"template": command.template_id})], []
     if session.encounter is not None or session.battle is not None:

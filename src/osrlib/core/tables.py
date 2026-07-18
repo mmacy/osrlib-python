@@ -326,8 +326,10 @@ def reaction_result(table: ReactionTable, total: int) -> ReactionResult:
 class MonsterEncounterEntry(BaseModel):
     """An encounter-table cell resolving to monster template ids.
 
-    `monster_ids` are monster ids from [`load_monsters`][osrlib.data.load_monsters] —
-    see [the monster id index][monsters-index]. A single id is the common case.
+    `monster_ids` resolve against the session's effective catalog — shipped ids from
+    [`load_monsters`][osrlib.data.load_monsters] (see
+    [the monster id index][monsters-index]) or, in an adventure's inline wandering
+    table, ids the adventure bundles. A single id is the common case.
     Multiple ids are a packed-variant pool (`Veteran` over `veteran_1..3`): the
     tabletop table leaves the pick to the referee, so osrlib has each spawned
     individual pick uniformly from the pool on the wandering stream — deterministic,
