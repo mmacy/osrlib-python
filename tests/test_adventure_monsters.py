@@ -135,7 +135,9 @@ class TestTheField:
     def test_the_default_is_the_empty_tuple(self):
         adventure = build_adventure()
         assert adventure.monsters == ()
-        assert adventure.model_dump(mode="json")["monsters"] == []
+        dumped = adventure.model_dump(mode="json")
+        assert dumped["monsters"] == []
+        assert Adventure.model_validate(dumped).monsters == ()
 
     def test_a_bundled_template_round_trips_the_document(self):
         adventure = bundled_adventure(monsters=(wretch(),))
