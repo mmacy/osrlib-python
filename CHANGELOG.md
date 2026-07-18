@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- `Adventure.monsters` — an adventure document can bundle its own custom `MonsterTemplate`s, which join the shipped catalog for that adventure's sessions everywhere the engine resolves template ids: keyed encounters, `SpawnMonsters`, inline wandering tables, listen checks, and `GameSession.spawn`. Downstream of spawn nothing changes — combat, XP, treasure, persistence, and replay carry bundled monsters unmodified. Bundled ids must not collide with the shipped catalog or each other; collisions fail `validate_adventure` (and, for doctored saves, `load_game`) with `ContentValidationError`. The session exposes the union as the read-only `GameSession.effective_monsters` property.
+
+### Changed
+
+- `validate_adventure` now checks inline wandering-table monster ids: an adventure whose level wandering table names a dangling monster id — previously accepted by the gate and left to crash at play time — fails validation up front.
+
 ## [1.1.0] - 2026-07-05
 
 ### Added

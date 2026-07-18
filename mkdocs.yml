@@ -79,7 +79,7 @@ nav:
       - Determinism, saves, and replay: guides/determinism-saves-replay.md
       - The kernel à la carte: guides/kernel-a-la-carte.md
       - Listeners and flags: guides/listeners-and-flags.md
-      - Authoring custom classes and spells: guides/authoring-custom-content.md
+      - Authoring custom classes, spells, and monsters: guides/authoring-custom-content.md
       - Ruleset options: guides/ruleset-options.md
   - Front ends:
       - The TUI crawler: front-ends/tui-crawler.md
