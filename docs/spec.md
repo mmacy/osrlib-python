@@ -162,7 +162,7 @@ A session runs an adventure, not a dungeon: the party, clock, active effects, an
 - An **adventure** is one or more dungeons plus a base town and scenario metadata (name, description, hooks). The base town anchors the XP rule's "survive and return to safety" and safe day-level rest — the rules source is the XP-awarding procedure; the SRD's base-town page is a referee checklist, not mechanics. In 1.0 the town is a marker offering the services the SRD names — selling treasure (recovered gp becomes XP) and healing — plus the equipment lists; it is not a simulated town.
 - A **dungeon** is one or more **levels** — the SRD's term for the deeper and deeper floors joined by stairs, trapdoors, and chutes. The level number is rules-visible: it keys the wandering encounter tables, scales unguarded treasure, and sets the danger expectation (1 HD monsters on level 1, 2 HD on level 2, and so on).
 - A **level** is a grid of 10' cells — the SRD's typical mapping scale, fixed as the cell size here — with wall and door edges.
-- A **keyed area** (a room or cave) is a named region over cells, matching the SRD's numbered-area convention. Areas carry content bindings — monsters, treasure, traps, specials, description IDs — and area-oriented procedures (searching, room vs. treasure traps, keyed encounters) resolve against them. Areas annotate the grid; cells remain the single source of spatial truth.
+- A **keyed area** (a room or cave) is a named region over cells, matching the SRD's numbered-area convention. Areas carry content bindings — monsters, treasure, traps, specials, description IDs — and area-oriented procedures (searching, room vs. treasure traps, keyed encounters) resolve against them; an adventure may also carry custom `MonsterTemplate`s of its own, which join the shipped catalog for its sessions everywhere the engine resolves template ids, with colliding ids rejected at validation, never overridden. Areas annotate the grid; cells remain the single source of spatial truth.
 
 Movement between levels and dungeons happens through commands like any other movement; the session persists across all of it.
 
@@ -205,6 +205,7 @@ Pipeline rules:
 
 - Output is deterministic and diff-reviewable; regeneration is a one-command `uv run` task, and CI regenerates and fails on any diff so `srd/`, the compiler, and `osrlib/data/` cannot silently drift.
 - Bad or ambiguous parses are corrected by patch files in `tools/srd_compile/overrides/`, merged after parsing with provenance recorded in the output (e.g. the dungeon encounter table's "Basic Adventures" typo for Basic Adventurers). `osrlib/data/` is never hand-edited.
+- Adventure-bundled monster templates are adventure data, not SRD data: the shipped catalog stays frozen and generated, and bundled templates never merge into it — they join per-session through the adventure document that carries them.
 - Every generated file validates against the typed models at build time; tests assert entry counts and spot-check known values (e.g. Troll is AC 4 [15], HD 6+3*).
 - Where prose can't be mechanized (e.g. referee-judgment abilities), the data keeps the prose and a `manual` tag so games and narrators can still present it.
 
@@ -321,3 +322,5 @@ Each phase ends with working, tested, documented code.
 **Phase 7 — documentation.** The docstring overhaul to shippable new-user quality: development-history language and reviewer-directed rationale purged, runnable examples on the entry points and one cross-seam quickstart (character → adventure → session → events → save), every command documenting its modes, rejection codes, and emitted events, named types with cross-references replacing duck-typed `object` prose, and module docstrings that orient. On top of it, the documentation site (mkdocs-material + mkdocstrings, strict builds) with guides and walk-throughs for both example front ends, the command/event JSON Schema reference, and the README rewrite.
 
 **Phase 8 — release.** Release engineering — version 1.0.0, the changelog, packaging audits, the tag-driven trusted-publishing workflow — and publication to PyPI as `osrlib`.
+
+**Phase 9 — adventure-bundled monsters.** Adventure documents carry custom monster templates, resolved everywhere the engine resolves template ids; released as 1.2.0.

@@ -1,14 +1,16 @@
-# Authoring custom classes and spells
+# Authoring custom classes, spells, and monsters
 
-The seven classes and the spell list that ship with osrlib are compiled from the OSE SRD into the
-package's data files by a build pipeline — that pipeline is not the extension point, and there is no
-way to feed your own content into it. What *is* supported is authoring your own class and spell
-definitions in code, validating them the same way the shipped catalogs validate their own content, and
-running them through the same kernel that plays a fighter or a magic-user: creation, advancement,
-memorization, and casting. A class's `race` and a spell's `spell_list` are both open, validated string
-ids for exactly this reason — nothing in the kernel restricts them to the values the shipped classes
-happen to use. This page builds one small custom class and one custom spell for it, and [the complete
-program](#the-complete-program) at the end runs every step shown along the way.
+The seven classes, the spell list, and the monster catalog that ship with osrlib are compiled from the
+OSE SRD into the package's data files by a build pipeline — that pipeline is not the extension point,
+and there is no way to feed your own content into it. What *is* supported is authoring your own class,
+spell, and monster definitions in code, validating them the same way the shipped catalogs validate
+their own content, and running them through the same kernel that plays a fighter or a goblin: creation,
+advancement, memorization, casting, and — for monsters — spawning, combat, XP, and treasure. A class's
+`race` and a spell's `spell_list` are both open, validated string ids for exactly this reason — nothing
+in the kernel restricts them to the values the shipped classes happen to use. This page builds one
+small custom class and one custom spell for it ([the complete program](#the-complete-program) runs
+every step shown along the way), then [a custom monster bundled into an
+adventure](#bundling-custom-monsters-with-an-adventure) for the crawl layer.
 
 ## The shape of a class definition
 
@@ -426,12 +428,125 @@ assert cast_result.affected_ids == (wounded.id,)
 assert warden.memorized_spells == ()
 ```
 
+## Bundling custom monsters with an adventure
+
+Monsters take a different transport than classes and spells, because the crawl layer already has a
+document that carries content: the adventure. `Adventure.monsters` bundles your own
+[`MonsterTemplate`][osrlib.core.monsters.MonsterTemplate]s with the adventure document, and every
+session running that adventure resolves them everywhere it resolves a shipped template id — keyed
+encounters, [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters], inline wandering tables, listen
+checks, and [`GameSession.spawn`][osrlib.crawl.session.GameSession.spawn]. No loader reassignment, no
+registration: the document carries the content, and
+[`GameSession.effective_monsters`][osrlib.crawl.session.GameSession.effective_monsters] is the shipped
+catalog plus the bundle. Downstream of spawning nothing is different for a bundled monster — a spawned
+[`MonsterInstance`][osrlib.core.monsters.MonsterInstance] embeds its full template, so combat, morale,
+XP, treasure, saves, and replay never look the id up again.
+
+A template is a frozen model you build with `model_validate`, exactly like the class and spell above.
+Three table helpers derive the stat-block numbers the SRD would print so your creation matches the
+attack matrix, the monster save bands, and the XP awards table:
+[`thac0_for_hd`][osrlib.core.tables.thac0_for_hd],
+[`monster_save_band_label`][osrlib.core.tables.monster_save_band_label], and
+[`monster_xp`][osrlib.core.tables.monster_xp]. The one rule is the collision rule: a bundled id must
+not collide with the shipped catalog or another bundled id —
+[`validate_adventure`][osrlib.crawl.adventure.validate_adventure] rejects collisions outright, never
+overrides (an adventure that wants a variant orc names a variant id). Note that [the monster id
+index][monsters-index] documents the shipped catalog only; bundled ids live in the adventure that
+carries them:
+
+```python
+from osrlib.core.alignment import Alignment
+from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character
+from osrlib.core.monsters import MonsterHitDice, MonsterTemplate
+from osrlib.core.rng import RngStreams
+from osrlib.core.ruleset import Ruleset
+from osrlib.core.tables import monster_save_band_label, monster_xp, thac0_for_hd
+from osrlib.crawl.adventure import Adventure, TownSpec, validate_adventure
+from osrlib.crawl.dungeon import AreaSpec, DungeonSpec, KeyedEncounter, KeyedMonster, LevelSpec
+from osrlib.crawl.party import Party
+from osrlib.crawl.session import GameSession
+from osrlib.data import load_combat_tables, load_equipment, load_monsters
+
+# 2+1 HD with one special ability: the helpers derive THAC0 (the +1 attacks one
+# HD higher), the save band, and the XP award from the printed tables.
+hd = MonsterHitDice(count=2, modifier=1, asterisks=1)
+thac0, attack_bonus = thac0_for_hd(hd.count, bonus_modifier=hd.modifier > 0)
+
+BONE_WARDEN = MonsterTemplate.model_validate(
+    {
+        "id": "bone_warden",
+        "name": "Bone Warden",
+        "page": "Custom",
+        "ac": 5,
+        "ac_ascending": 14,
+        "hit_dice": hd.model_dump(),
+        "attacks": ({"attacks": ({"name": "halberd", "damage": "1d10"},)},),
+        "thac0": thac0,
+        "attack_bonus": attack_bonus,
+        "movement": ({"rate_feet": 60, "encounter_rate_feet": 20},),
+        "saves": {
+            "values": {"death": 12, "wands": 13, "paralysis": 14, "breath": 15, "spells": 16},
+            "save_as": monster_save_band_label(hd),
+        },
+        "morale": 12,
+        "alignment": {"options": ("chaotic",)},
+        "xp": monster_xp(load_combat_tables(), hd),
+        "number_appearing": {"dungeon": {"dice": "1d4"}, "lair": {"fixed": 1}},
+        "categories": ("undead",),
+    }
+)
+
+# Bundle it: the adventure document carries the template, and a keyed area
+# references it like any shipped id.
+level = LevelSpec(
+    number=1,
+    width=2,
+    height=1,
+    entrance=(0, 0),
+    areas=(
+        AreaSpec(
+            id="ossuary",
+            name="The ossuary",
+            cells=((1, 0),),
+            encounter=KeyedEncounter(monsters=(KeyedMonster(template_id="bone_warden", count_fixed=1),)),
+        ),
+    ),
+)
+adventure = Adventure(
+    name="The Bone Warden's Vigil",
+    town=TownSpec(name="Threshold"),
+    dungeons=(DungeonSpec(id="crypt", name="The Crypt", levels=(level,)),),
+    monsters=(BONE_WARDEN,),
+)
+
+# The same gate the shipped content passes — the base catalog goes in unchanged,
+# and validation unions it with the bundle internally.
+validate_adventure(adventure, load_monsters(), load_equipment())
+
+rng = RngStreams(master_seed=7).get(CHARACTER_CREATION_STREAM)
+hero = create_character(name="Hild", class_id="fighter", alignment=Alignment.LAWFUL, ruleset=Ruleset(), stream=rng)
+session = GameSession.new(Party(members=[hero.character]), adventure, seed=7)
+
+# The session's effective catalog resolves the bundled id — the very object the
+# adventure carries — and spawning embeds it in each instance.
+assert session.effective_monsters.get("bone_warden") is BONE_WARDEN
+guards = session.spawn("bone_warden", 2)
+assert [guard.template.id for guard in guards] == ["bone_warden", "bone_warden"]
+assert all(guard.max_hp >= 3 for guard in guards)  # 2d8+1 rolls at least 3
+```
+
+Bundled equipment, classes, and spells have no adventure-document seam yet — monsters earned theirs
+first, and the same shape is the template if a future need is demonstrated. For classes and spells the
+catalog-extension pattern above is the supported path.
+
 ## What's not supported
 
 There is no merge path into the shipped content. `load_classes` and `load_spells` are cached loaders
 that read the generated `classes.json`/`spells.json` shipped inside the package; there is no append or
 register call, so an extended catalog is always a value your own code builds and holds — `classes` and
-`spells` above, never something fed back into the loaders themselves.
+`spells` above, never something fed back into the loaders themselves. `load_monsters` is just as
+closed: [bundling](#bundling-custom-monsters-with-an-adventure) unions per session through the
+adventure document that carries the templates, and the shipped catalog object never changes.
 
 [`create_character`][osrlib.core.character.create_character], the one-call convenience wrapper used in
 [the quickstart](../getting-started/quickstart.md), resolves its `class_id` argument straight through
