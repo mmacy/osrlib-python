@@ -1,6 +1,6 @@
 [project]
 name = "osrlib"
-version = "1.1.0"
+version = "1.2.0"
 description = "B/X (1981 Basic/Expert) tabletop RPG rules engine for turn-based dungeon crawlers"
 readme = "README.md"
 # The wheel ships Open Game Content (osrlib/data/*.json and its LICENSE-OGL.md
