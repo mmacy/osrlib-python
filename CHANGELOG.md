@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-07-17
+
 ### Added
 
 - `Adventure.monsters` — an adventure document can bundle its own custom `MonsterTemplate`s, which join the shipped catalog for that adventure's sessions everywhere the engine resolves template ids: keyed encounters, `SpawnMonsters`, inline wandering tables, listen checks, and `GameSession.spawn`. Downstream of spawn nothing changes — combat, XP, treasure, persistence, and replay carry bundled monsters unmodified. Bundled ids must not collide with the shipped catalog or each other; collisions fail `validate_adventure` (and, for doctored saves, `load_game`) with `ContentValidationError`. The session exposes the union as the read-only `GameSession.effective_monsters` property.
@@ -36,6 +38,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The documentation site: quickstart, guides, front-end walk-throughs, and a full reference for every command, event, rejection code, message code, RNG stream, and content id.
 - The typed surface: complete type hints under `py.typed`, checked in CI.
 
-[Unreleased]: https://github.com/mmacy/osrlib-python/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/mmacy/osrlib-python/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/mmacy/osrlib-python/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/mmacy/osrlib-python/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/mmacy/osrlib-python/releases/tag/v1.0.0
