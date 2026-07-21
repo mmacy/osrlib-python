@@ -337,6 +337,17 @@ _CELL_FEET = 10
 _DEFAULT_LIGHT_FEET = 30
 
 
+def _light_radius_feet(params) -> int:
+    """The radius of one light-family effect, in feet.
+
+    Equipment and magic-item light sources store the radius under
+    `light_radius_feet`; the *light* spell family stores it under `radius_feet`.
+    Read whichever the source carries, falling back to the torch default.
+    """
+    raw = params.get("light_radius_feet", params.get("radius_feet"))
+    return int(raw) if raw is not None else _DEFAULT_LIGHT_FEET
+
+
 def _sight_passes(session, level, location, cell: Position, direction: Direction) -> bool:
     """Whether torchlight (and sight) crosses one cell edge.
 
@@ -387,16 +398,21 @@ def _light_reveal(session) -> tuple[str | None, set[Position]]:
     living_ids = {member.id for member in session.party.living_members()}
     radius_cells = max(
         (
-            int(effect.definition.params.get("light_radius_feet", _DEFAULT_LIGHT_FEET)) // _CELL_FEET
+            _light_radius_feet(effect.definition.params) // _CELL_FEET
             for effect in session.ledger.effects
             if effect.target_ref in living_ids and effect.definition.kind in LIGHT_EFFECT_KINDS
         ),
         default=_DEFAULT_LIGHT_FEET // _CELL_FEET,
     )
     origin = tuple(location.position)
-    # Flood outward through open passages, bounded by straight-line (Chebyshev)
-    # reach so the torch lights the whole small room but only a few cells of
-    # corridor. Every reached cell stays within the light's radius of the party.
+    # The keyed room the party stands in is lit to its far corners — you are
+    # standing inside it — so its open-connected cells reveal even past the
+    # torch's reach; elsewhere, light spills through open passages only within
+    # that straight-line (Chebyshev) reach. Both honour real passability: the
+    # flood only crosses an edge sight passes, so walls and shut or undiscovered
+    # doors stop it, and an alcove sealed off inside a keyed room stays dark.
+    area = level.area_at(origin)
+    in_room = {tuple(cell) for cell in area.cells} if area is not None else frozenset()
     seen: set[Position] = {origin}
     frontier = [origin]
     while frontier:
@@ -405,17 +421,13 @@ def _light_reveal(session) -> tuple[str | None, set[Position]]:
             neighbour = step(cell, direction)
             if neighbour in seen or not level.in_bounds(neighbour):
                 continue
-            if max(abs(neighbour[0] - origin[0]), abs(neighbour[1] - origin[1])) > radius_cells:
+            within_reach = max(abs(neighbour[0] - origin[0]), abs(neighbour[1] - origin[1])) <= radius_cells
+            if not (within_reach or neighbour in in_room):
                 continue
             if not _sight_passes(session, level, location, cell, direction):
                 continue
             seen.add(neighbour)
             frontier.append(neighbour)
-    # The keyed room the party stands in reads as lit to its far corners — you
-    # are standing inside it — even where those corners outrun the torch's radius.
-    area = level.area_at(origin)
-    if area is not None:
-        seen.update(tuple(cell) for cell in area.cells)
     return f"{location.dungeon_id}:{location.level_number}", seen
 
 
