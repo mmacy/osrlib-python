@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-07-20
+
+### Fixed
+
+- The player view's explored cells now include what the party sees by its own light from its current cell — the lit room it stands in and open passages out to the light source's radius (a torch's 30 feet, the *light* spell's 15) — rather than only the cells it has physically entered. A front end drawing `PlayerView.explored` renders the torchlit room at once instead of leaving it dark until the party steps onto each square. The reveal is sight, not exploration: it never enters the persisted explored set (so movement cost and map memory are unchanged), it stops at walls and shut or undiscovered doors, and it never reaches the referee view.
+
 ## [1.2.0] - 2026-07-17
 
 ### Added
@@ -38,7 +44,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The documentation site: quickstart, guides, front-end walk-throughs, and a full reference for every command, event, rejection code, message code, RNG stream, and content id.
 - The typed surface: complete type hints under `py.typed`, checked in CI.
 
-[Unreleased]: https://github.com/mmacy/osrlib-python/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/mmacy/osrlib-python/compare/v1.2.1...HEAD
+[1.2.1]: https://github.com/mmacy/osrlib-python/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/mmacy/osrlib-python/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/mmacy/osrlib-python/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/mmacy/osrlib-python/releases/tag/v1.0.0

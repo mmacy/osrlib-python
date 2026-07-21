@@ -10,6 +10,7 @@ import pytest
 from crawl_fixtures import build_adventure, build_party
 from osrlib.core.clock import ROUNDS_PER_TURN, TimeUnit
 from osrlib.core.effects import Condition, has_condition
+from osrlib.core.events import Visibility
 from osrlib.core.rng import RngStream
 from osrlib.core.ruleset import Ruleset
 from osrlib.crawl import exploration
@@ -835,3 +836,121 @@ class TestStationarySilence:
             assert muted.rejections[0].code == "magic.cast.silenced_area"
             return
         raise AssertionError("no seed passed the silence save in forty tries")
+
+
+class TestLightReveal:
+    """A lit party sees the room and passages its torch reaches before it steps
+    onto those cells; the reveal is sight, never persisted as exploration, so it
+    can never cheapen the movement of later walking that ground."""
+
+    @staticmethod
+    def _cells(session) -> set:
+        view = session.view(Visibility.PLAYER)
+        level = next(entry for entry in view.explored if entry.level_number == 1)
+        return set(level.cells)
+
+    @staticmethod
+    def _edges(session) -> dict:
+        view = session.view(Visibility.PLAYER)
+        return next(entry for entry in view.explored if entry.level_number == 1).edges
+
+    @staticmethod
+    def _ignite(session) -> None:
+        for _ in range(20):  # tinder is 2-in-6 per round; retry until the torch takes
+            lit = session.execute(LightSource(character_id="character-0001", item_id="torch"))
+            if any(event.code == "exploration.light.lit" for event in lit.events):
+                return
+        raise AssertionError("torch never lit in twenty tinder attempts")
+
+    def test_torchlight_reveals_the_open_cells_ahead_without_moving(self):
+        session = quiet_session()
+        entered(session)  # the party stands at the entrance (0, 0), torch burning
+        cells = self._cells(session)
+        # The corridor east and the pit-room opening south are seen from here.
+        assert {(0, 0), (1, 0), (2, 0), (1, 1)} <= cells
+        # Seeing a cell is not walking it: the explored set stays a footprint.
+        assert not session.dungeon_state.is_explored("delve", 1, (1, 0))
+        assert not session.dungeon_state.is_explored("delve", 1, (2, 0))
+
+    def test_unlit_party_sees_only_where_it_has_walked(self):
+        session = quiet_session()
+        session.execute(EnterDungeon(dungeon_id="delve"))  # inside, but no torch lit
+        assert session.party_light()[0] is False
+        assert self._cells(session) == {(0, 0)}
+
+    def test_torchlight_stops_at_a_closed_door(self):
+        session = quiet_session()
+        entered(session)
+        # room_a lies behind the stuck (closed) door on (2, 0)'s south edge.
+        room_a = {(2, 1), (3, 1), (2, 2), (3, 2)}
+        assert room_a.isdisjoint(self._cells(session))
+
+    def test_torchlight_reveals_the_whole_room_it_stands_in(self):
+        session = quiet_session()
+        session.execute(EnterDungeon(dungeon_id="delve"))
+        place(session, (2, 1))  # stand inside room_a
+        self._ignite(session)
+        assert session.party_light()[0] is True
+        assert {(2, 1), (3, 1), (2, 2), (3, 2)} <= self._cells(session)
+
+    def test_undiscovered_secret_door_stays_a_wall_under_light(self):
+        # A lit party beside an undiscovered secret door must see neither the
+        # cell behind it nor the door itself — it renders as solid rock.
+        session = quiet_session()
+        session.execute(EnterDungeon(dungeon_id="delve"))
+        place(session, (3, 1))  # room_a, west of the secret door on (3, 1)'s east edge
+        self._ignite(session)
+        assert session.party_light()[0] is True
+        assert (4, 1) not in self._cells(session)
+        assert self._edges(session)["4,1:west"].kind == "wall"
+
+    def test_light_spell_radius_reveals_less_than_a_torch(self):
+        # The *light* spell keeps its radius under `radius_feet` (not the
+        # equipment key `light_radius_feet`); its 15 feet reach one cell, where a
+        # 30-foot torch would reach three. Regression for the param-name mismatch.
+        from osrlib.core.effects import EffectDefinition
+
+        session = quiet_session()
+        session.execute(EnterDungeon(dungeon_id="delve"))  # entrance (0, 0), no torch lit
+        session.ledger.attach(
+            EffectDefinition(kind="light", params={"effect_kind": "light", "radius_feet": 15}),
+            "character-0001",
+            clock=session.clock,
+            allocator=session.allocator,
+            registry=session.registry(),
+        )
+        assert session.party_light()[0] is True
+        cells = self._cells(session)
+        assert (1, 0) in cells  # one cell east — within a 15-foot reach
+        assert (2, 0) not in cells  # two cells east — a torch would show it, this light must not
+
+    def test_seeing_a_cell_by_light_does_not_change_movement_cost(self):
+        # Sight is not exploration: a cell lit but never walked still costs the
+        # full unexplored-cell movement when the party finally steps onto it.
+        session = quiet_session()
+        entered(session)  # at (0, 0); (1, 0) is revealed by torchlight, unwalked
+        assert (1, 0) in self._cells(session)
+        assert not session.dungeon_state.is_explored("delve", 1, (1, 0))
+        session.execute(MoveParty(direction=Direction.EAST))  # step onto (1, 0)
+        assert session.odometer_thirds == 30  # the new-cell cost, not the 10 of familiar ground
+
+    def test_reveal_does_not_bleed_into_another_level(self):
+        session = quiet_session()
+        entered(session)
+        place(session, (4, 1))  # the stairs cell
+        session.execute(UseStairs())  # descend to level 2; the torch still burns
+        view = session.view(Visibility.PLAYER)
+        level1 = next(entry for entry in view.explored if entry.level_number == 1)
+        walked = {tuple(cell) for cell in session.dungeon_state.explored["delve:1"]}
+        # Off the party's current level, the projection is the walked footprint
+        # only — the light reveal never augments another level.
+        assert set(level1.cells) == walked
+
+    def test_light_reveal_stays_out_of_the_referee_view(self):
+        session = quiet_session()
+        entered(session)  # (1, 0) is revealed to the player, never walked
+        assert (1, 0) in self._cells(session)
+        referee = session.view(Visibility.REFEREE)
+        walked = {tuple(cell) for cell in referee.state["dungeon_state"]["explored"]["delve:1"]}
+        assert (1, 0) not in walked  # sight is the player's alone; the referee sees only footprints
+        assert (0, 0) in walked
