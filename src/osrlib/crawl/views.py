@@ -25,7 +25,7 @@ from pydantic import BaseModel, ConfigDict
 
 from osrlib.core.effects import Condition, has_condition
 from osrlib.core.items import MagicItemCategory, MagicItemInstance, magic_item_template
-from osrlib.crawl.dungeon import Direction, EdgeKind, PartyLocation, Position, cell_ref, edge_ref
+from osrlib.crawl.dungeon import Direction, EdgeKind, PartyLocation, Position, cell_ref, edge_ref, step
 from osrlib.crawl.exploration import EXHAUSTED_KIND, FATIGUE_KIND
 
 __all__ = [
@@ -331,7 +331,96 @@ def _visible_cell_refs(session) -> set[str]:
     return refs
 
 
+# The dungeon grid is authored at the classic ten-foot square, so a torch's
+# thirty-foot radius reaches three cells of open floor.
+_CELL_FEET = 10
+_DEFAULT_LIGHT_FEET = 30
+
+
+def _sight_passes(session, level, location, cell: Position, direction: Direction) -> bool:
+    """Whether torchlight (and sight) crosses one cell edge.
+
+    Open floor and an open, non-secret door let light through; walls, blocked
+    edges, and shut or undiscovered-secret doors stop it — the same passability
+    the mover and the edge projection already agree on.
+    """
+    edge = level.edge(cell, direction)
+    if edge.kind is EdgeKind.OPEN:
+        return True
+    if edge.kind is EdgeKind.DOOR:
+        ref = edge_ref(location.dungeon_id, location.level_number, cell, direction)
+        state = session.dungeon_state.doors.get(ref)
+        if edge.door.kind == "secret" and (state is None or not state.discovered):
+            return False
+        return bool(state.open) if state is not None else edge.door.starts_open
+    return False
+
+
+def _light_reveal(session) -> tuple[str | None, set[Position]]:
+    """Cells the party sees *right now* by its own light, keyed to their level.
+
+    This is sight, not exploration: the party glimpses the lit room it stands in
+    and a few cells down open passages, but these cells never enter the persisted
+    explored set. So seeing a room never cheapens the movement of later walking
+    it, and stepping away lets the unwalked cells fall dark again. Torchlight
+    fills the keyed room whole and spills through open doorways out to the light's
+    radius; walls, and shut or undiscovered doors, stop it. Empty unless the party
+    stands in a dungeon with a light burning.
+
+    Returns:
+        The `"{dungeon}:{level}"` explored-map key for the party's level and the
+        set of seen cells, or `(None, set())` when nothing is lit.
+    """
+    location = session.dungeon_state.location
+    if location.kind != "dungeon":
+        return None, set()
+    lit, _ = session.party_light()
+    if not lit:
+        return None, set()
+    try:
+        level = session.adventure.dungeon(location.dungeon_id).level(location.level_number)
+    except ValueError:
+        return None, set()
+
+    from osrlib.crawl.session import LIGHT_EFFECT_KINDS
+
+    living_ids = {member.id for member in session.party.living_members()}
+    radius_cells = max(
+        (
+            int(effect.definition.params.get("light_radius_feet", _DEFAULT_LIGHT_FEET)) // _CELL_FEET
+            for effect in session.ledger.effects
+            if effect.target_ref in living_ids and effect.definition.kind in LIGHT_EFFECT_KINDS
+        ),
+        default=_DEFAULT_LIGHT_FEET // _CELL_FEET,
+    )
+    origin = tuple(location.position)
+    # Flood outward through open passages, bounded by straight-line (Chebyshev)
+    # reach so the torch lights the whole small room but only a few cells of
+    # corridor. Every reached cell stays within the light's radius of the party.
+    seen: set[Position] = {origin}
+    frontier = [origin]
+    while frontier:
+        cell = frontier.pop()
+        for direction in Direction:
+            neighbour = step(cell, direction)
+            if neighbour in seen or not level.in_bounds(neighbour):
+                continue
+            if max(abs(neighbour[0] - origin[0]), abs(neighbour[1] - origin[1])) > radius_cells:
+                continue
+            if not _sight_passes(session, level, location, cell, direction):
+                continue
+            seen.add(neighbour)
+            frontier.append(neighbour)
+    # The keyed room the party stands in reads as lit to its far corners — you
+    # are standing inside it — even where those corners outrun the torch's radius.
+    area = level.area_at(origin)
+    if area is not None:
+        seen.update(tuple(cell) for cell in area.cells)
+    return f"{location.dungeon_id}:{location.level_number}", seen
+
+
 def _explored_levels(session):
+    reveal_key, reveal_cells = _light_reveal(session)
     for key, cells in session.dungeon_state.explored.items():
         dungeon_id, level_text = key.rsplit(":", 1)
         level_number = int(level_text)
@@ -339,11 +428,15 @@ def _explored_levels(session):
             level = session.adventure.dungeon(dungeon_id).level(level_number)
         except ValueError:
             continue
-        # Visible equals explored plus the current cell (the named simplification
-        # of the spec's visible flag, registered); the current cell is explored
-        # on arrival, so the explored set is the visible set.
+        # Visible equals explored plus what the party's own light reveals from the
+        # current cell (the spec's visible flag): the lit room and a few cells of
+        # open passage, drawn now without waiting on a footstep into each square.
+        visible = list(cells)
+        if key == reveal_key:
+            known = set(cells)
+            visible.extend(cell for cell in reveal_cells if cell not in known)
         edges: dict[str, EdgeView] = {}
-        for cell in cells:
+        for cell in visible:
             for direction in Direction:
                 key_text = _canonical_edge(cell, direction)
                 if key_text in edges:
@@ -362,7 +455,7 @@ def _explored_levels(session):
                     )
                 else:
                     edges[key_text] = EdgeView(kind=edge.kind.value)
-        yield ExploredLevelView(dungeon_id=dungeon_id, level_number=level_number, cells=tuple(cells), edges=edges)
+        yield ExploredLevelView(dungeon_id=dungeon_id, level_number=level_number, cells=tuple(visible), edges=edges)
 
 
 def _canonical_edge(cell: Position, direction: Direction) -> str:

@@ -10,6 +10,7 @@ import pytest
 from crawl_fixtures import build_adventure, build_party
 from osrlib.core.clock import ROUNDS_PER_TURN, TimeUnit
 from osrlib.core.effects import Condition, has_condition
+from osrlib.core.events import Visibility
 from osrlib.core.rng import RngStream
 from osrlib.core.ruleset import Ruleset
 from osrlib.crawl import exploration
@@ -835,3 +836,49 @@ class TestStationarySilence:
             assert muted.rejections[0].code == "magic.cast.silenced_area"
             return
         raise AssertionError("no seed passed the silence save in forty tries")
+
+
+class TestLightReveal:
+    """A lit party sees the room and passages its torch reaches before it steps
+    onto those cells; the reveal is sight, never persisted as exploration, so it
+    can never cheapen the movement of later walking that ground."""
+
+    @staticmethod
+    def _cells(session) -> set:
+        view = session.view(Visibility.PLAYER)
+        level = next(entry for entry in view.explored if entry.level_number == 1)
+        return set(level.cells)
+
+    def test_torchlight_reveals_the_open_cells_ahead_without_moving(self):
+        session = quiet_session()
+        entered(session)  # the party stands at the entrance (0, 0), torch burning
+        cells = self._cells(session)
+        # The corridor east and the pit-room opening south are seen from here.
+        assert {(0, 0), (1, 0), (2, 0), (1, 1)} <= cells
+        # Seeing a cell is not walking it: the explored set stays a footprint.
+        assert not session.dungeon_state.is_explored("delve", 1, (1, 0))
+        assert not session.dungeon_state.is_explored("delve", 1, (2, 0))
+
+    def test_unlit_party_sees_only_where_it_has_walked(self):
+        session = quiet_session()
+        session.execute(EnterDungeon(dungeon_id="delve"))  # inside, but no torch lit
+        assert session.party_light()[0] is False
+        assert self._cells(session) == {(0, 0)}
+
+    def test_torchlight_stops_at_a_closed_door(self):
+        session = quiet_session()
+        entered(session)
+        # room_a lies behind the stuck (closed) door on (2, 0)'s south edge.
+        room_a = {(2, 1), (3, 1), (2, 2), (3, 2)}
+        assert room_a.isdisjoint(self._cells(session))
+
+    def test_torchlight_reveals_the_whole_room_it_stands_in(self):
+        session = quiet_session()
+        session.execute(EnterDungeon(dungeon_id="delve"))
+        place(session, (2, 1))  # stand inside room_a
+        for _ in range(20):  # tinder is 2-in-6 per round; retry until the torch takes
+            lit = session.execute(LightSource(character_id="character-0001", item_id="torch"))
+            if any(event.code == "exploration.light.lit" for event in lit.events):
+                break
+        assert session.party_light()[0] is True
+        assert {(2, 1), (3, 1), (2, 2), (3, 2)} <= self._cells(session)
