@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- The player view's explored cells now include what the party sees by its own light from its current cell — the lit room it stands in and open passages out to the light source's radius (a torch's 30 feet, the *light* spell's 15) — rather than only the cells it has physically entered. A front end drawing `PlayerView.explored` renders the torchlit room at once instead of leaving it dark until the party steps onto each square. The reveal is sight, not exploration: it never enters the persisted explored set (so movement cost and map memory are unchanged), it stops at walls and shut or undiscovered doors, and it never reaches the referee view.
+
 ## [1.2.0] - 2026-07-17
 
 ### Added
