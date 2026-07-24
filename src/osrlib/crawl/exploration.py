@@ -69,6 +69,7 @@ from osrlib.crawl.commands import (
     EquipItem,
     ExtinguishSource,
     ForceDoor,
+    GiveItems,
     InspectTreasure,
     LightSource,
     ListenAtDoor,
@@ -114,6 +115,7 @@ from osrlib.crawl.events import (
     ItemAcquiredEvent,
     ItemIdentifiedEvent,
     ItemsDroppedEvent,
+    ItemsGivenEvent,
     ItemUsedEvent,
     LightEvent,
     ListenedEvent,
@@ -1501,16 +1503,21 @@ def _handle_drop_items(session, command: DropItems) -> tuple[list[Rejection], li
     member, rejections = _member_able(session, command.character_id)
     if rejections:
         return rejections, []
-    rejections = _validate_drops(member, command)
+    rejections = _validate_carried(member, command.item_ids, command.coins)
     if rejections:
         return rejections, []
     events = _apply_drop(session, member, command, to_pile=True)
     return [], events
 
 
-def _validate_drops(member, command: DropItems) -> list[Rejection]:
+def _validate_carried(member, item_ids: tuple[str, ...], coins: Coins) -> list[Rejection]:
+    """Guard the item/coin handout shared by drop and give.
+
+    The member must carry every named item and coin, and no revealed cursed item
+    may leave its bearer.
+    """
     counts: dict[str, int] = {}
-    for item_id in command.item_ids:
+    for item_id in item_ids:
         magic = member.inventory.magic_item(item_id)
         if magic is not None:
             if magic.cursed_revealed:
@@ -1530,9 +1537,82 @@ def _validate_drops(member, command: DropItems) -> list[Rejection]:
             return [Rejection(code="exploration.item.not_carried", params={"item": item_id})]
     purse = member.inventory.purse
     for denomination in ("pp", "gp", "ep", "sp", "cp"):
-        if getattr(command.coins, denomination) > getattr(purse, denomination):
+        if getattr(coins, denomination) > getattr(purse, denomination):
             return [Rejection(code="exploration.item.not_carried", params={"item": denomination})]
     return []
+
+
+def _handle_give_items(session, command: GiveItems) -> tuple[list[Rejection], list[Event]]:
+    giver, rejections = _member_able(session, command.character_id)
+    if rejections:
+        return rejections, []
+    if command.recipient_id == command.character_id:
+        return [Rejection(code="exploration.give.same_member", params={"character": command.character_id})], []
+    recipient, rejections = _member_able(session, command.recipient_id)
+    if rejections:
+        return rejections, []
+    rejections = _validate_carried(giver, command.item_ids, command.coins)
+    if rejections:
+        return rejections, []
+    events = _apply_give(session, giver, recipient, command)
+    return [], events
+
+
+def _grant_mundane(member, item_id: str, quantity: int = 1) -> None:
+    """Add a mundane equipment item to a member's pack, merging with any like stack."""
+    existing = next(
+        (
+            instance
+            for instance in member.inventory.items
+            if not isinstance(instance, MagicItemInstance) and instance.template.id == item_id
+        ),
+        None,
+    )
+    if existing is not None:
+        existing.quantity += quantity
+    else:
+        member.inventory.items.append(ItemInstance(template=load_equipment().get(item_id), quantity=quantity))
+
+
+def _apply_give(session, giver, recipient, command: GiveItems) -> list[Event]:
+    """Move the named goods and coins from giver to recipient (zero time).
+
+    A given magic item releases any worn effects first, then lands unequipped in
+    the recipient's pack; mundane items merge into a like stack; coins move purse
+    to purse.
+    """
+    events: list[Event] = []
+    for item_id in command.item_ids:
+        magic = giver.inventory.magic_item(item_id)
+        if magic is not None:
+            events.extend(_release_instance_effects(session, magic))
+            _remove_magic_instance(giver, magic)
+            recipient.inventory.items.append(magic)
+            continue
+        valuable = next(
+            (candidate for candidate in giver.inventory.valuables if candidate.instance_id == item_id), None
+        )
+        if valuable is not None:
+            giver.inventory.valuables.remove(valuable)
+            recipient.inventory.valuables.append(valuable)
+            continue
+        _consume_item(giver, item_id)
+        _grant_mundane(recipient, item_id)
+    giver_purse = giver.inventory.purse
+    recipient_purse = recipient.inventory.purse
+    for denomination in ("pp", "gp", "ep", "sp", "cp"):
+        moved = getattr(command.coins, denomination)
+        setattr(giver_purse, denomination, getattr(giver_purse, denomination) - moved)
+        setattr(recipient_purse, denomination, getattr(recipient_purse, denomination) + moved)
+    events.append(
+        ItemsGivenEvent(
+            character_id=giver.id,
+            recipient_id=recipient.id,
+            item_ids=tuple(command.item_ids),
+            coins_gp_value=command.coins.value_gp,
+        )
+    )
+    return events
 
 
 def _apply_drop(session, member, command: DropItems, *, to_pile: bool) -> list[Event]:
@@ -2886,6 +2966,7 @@ HANDLERS = {
     RemoveTreasureTrap: _handle_remove_treasure_trap,
     TakeTreasure: _handle_take_treasure,
     DropItems: _handle_drop_items,
+    GiveItems: _handle_give_items,
     LightSource: _handle_light_source,
     ExtinguishSource: _handle_extinguish_source,
     EquipItem: _handle_equip_item,

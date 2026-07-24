@@ -47,6 +47,7 @@
   "exploration.door.wedged": "The party tried to close or re-wedge a door that a spike or similar item is already holding open.",
   "exploration.feature.emptied": "The party tried to take treasure from a cache that has already been emptied.",
   "exploration.feature.unknown": "The command references a feature at the party's location that doesn't exist, or that isn't the kind of feature (such as a treasure cache) the action expects.",
+  "exploration.give.same_member": "A character was told to give items or coins to themselves; the giver and recipient must be different party members.",
   "exploration.item.not_carried": "The character or party doesn't currently have the referenced item, coin amount, or dropped item in their possession at this location.",
   "exploration.item.not_equipped": "The character tried to unequip an item that isn't currently worn or wielded.",
   "exploration.light.no_flame": "The party has no open flame currently burning to light this from, and the character isn't carrying a tinder box to strike a new one.",

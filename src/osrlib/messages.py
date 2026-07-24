@@ -223,6 +223,13 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
         + (f"{event.coins_gp_value} gp in coin" if event.coins_gp_value else "")
         + "."
     ),
+    "exploration.item.given": lambda event: (
+        f"{event.character_id} gives "
+        + (", ".join(event.item_ids) if event.item_ids else "")
+        + (" and " if event.item_ids and event.coins_gp_value else "")
+        + (f"{event.coins_gp_value} gp in coin" if event.coins_gp_value else "")
+        + f" to {event.recipient_id}."
+    ),
     "exploration.light.lit": lambda event: f"{event.character_id} lights a {event.source}.",
     "exploration.light.extinguished": lambda event: f"{event.character_id} extinguishes the {event.source}.",
     "exploration.light.failed": lambda event: f"{event.character_id} fumbles with the tinder box — no flame.",

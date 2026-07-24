@@ -51,6 +51,7 @@ __all__ = [
     "Evade",
     "ExtinguishSource",
     "ForceDoor",
+    "GiveItems",
     "GrantCoins",
     "GrantItem",
     "IdentifyItem",
@@ -593,6 +594,44 @@ class DropItems(Command):
 
     command_type: Literal["drop_items"] = "drop_items"
     character_id: str
+    item_ids: tuple[str, ...] = ()
+    coins: Coins = Coins()
+
+
+class GiveItems(Command):
+    """Hand items and coins from one party member to another (zero time).
+
+    The distribute-the-load move: `character_id` is the giver, `recipient_id` the
+    companion who takes the goods. Each `item_ids` entry gives one unit (repeat an
+    id for more); a given magic item releases any worn effects first and lands
+    unequipped in the recipient's pack. Legal in town and while exploring — not
+    mid-encounter or in battle. Both members must be able-bodied.
+
+    Modes:
+        `town`, `exploring`
+
+    Rejections:
+        - `session.command.wrong_mode` — an encounter or battle is underway, or the
+          game is over.
+        - `session.command.unknown_member` — `character_id` or `recipient_id` names
+          no party member.
+        - `session.command.member_incapacitated` — the giver or recipient cannot
+          act.
+        - `exploration.give.same_member` — giver and recipient are the same member.
+        - `items.curse.stuck` — a revealed cursed item cannot be handed off.
+        - `exploration.item.not_carried` — the giver lacks an item or the coins.
+
+    Events:
+        [`ItemsGivenEvent`][osrlib.crawl.events.ItemsGivenEvent] with what changed
+        hands. A worn magic item's effects release
+        ([`EffectReleasedEvent`][osrlib.core.events.EffectReleasedEvent]).
+    """
+
+    allowed_modes: ClassVar[frozenset[SessionMode]] = _FIELD_MODES
+
+    command_type: Literal["give_items"] = "give_items"
+    character_id: str
+    recipient_id: str
     item_ids: tuple[str, ...] = ()
     coins: Coins = Coins()
 
@@ -1662,6 +1701,7 @@ ALL_COMMAND_CLASSES: tuple[type[Command], ...] = (
     RemoveTreasureTrap,
     TakeTreasure,
     DropItems,
+    GiveItems,
     LightSource,
     ExtinguishSource,
     EquipItem,

@@ -47,6 +47,7 @@ __all__ = [
     "ItemIdentifiedEvent",
     "ItemUsedEvent",
     "ItemsDroppedEvent",
+    "ItemsGivenEvent",
     "LightEvent",
     "ListenedEvent",
     "LocationEnteredEvent",
@@ -217,6 +218,23 @@ class ItemsDroppedEvent(Event):
     code: str = "exploration.item.dropped"
     visibility: Visibility = Visibility.PLAYER
     character_id: str
+    item_ids: tuple[str, ...] = ()
+    coins_gp_value: int = 0
+
+
+class ItemsGivenEvent(Event):
+    """Items or coins handed from one party member to another.
+
+    `character_id` is the giver, `recipient_id` the companion who took the goods.
+    """
+
+    allowed_codes: ClassVar[frozenset[str]] = frozenset({"exploration.item.given"})
+
+    event_type: Literal["items_given"] = "items_given"
+    code: str = "exploration.item.given"
+    visibility: Visibility = Visibility.PLAYER
+    character_id: str
+    recipient_id: str
     item_ids: tuple[str, ...] = ()
     coins_gp_value: int = 0
 
@@ -690,6 +708,7 @@ CRAWL_EVENT_CLASSES: tuple[type[Event], ...] = (
     TrapEvent,
     ItemAcquiredEvent,
     ItemsDroppedEvent,
+    ItemsGivenEvent,
     LightEvent,
     RestedEvent,
     FatigueEvent,

@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- `GiveItems`, a command that hands items and coins from one party member to another in zero game time — the distribute-the-load move for shifting weight off an overloaded companion so the party's marching rate recovers. Legal in town and while exploring (not mid-encounter or in battle); both members must be able-bodied and distinct. A given magic item releases its worn effects and lands unequipped in the recipient's pack, mundane items merge into a like stack, valuables and coins move across, and the transfer emits a player-visible `ItemsGivenEvent`. The giver must actually carry what's named, and a revealed cursed item cannot be handed off.
+
 ## [1.2.1] - 2026-07-20
 
 ### Fixed

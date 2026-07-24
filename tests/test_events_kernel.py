@@ -91,6 +91,9 @@ def sample_event(event_class, code):
         "TrapEvent": dict(trap_ref="dungeon:1:room-3", character_id="pc-1"),
         "ItemAcquiredEvent": dict(character_id="pc-1", item_ids=("torch",), coins_gp_value=100),
         "ItemsDroppedEvent": dict(character_id="pc-1", item_ids=("rations_standard",), coins_gp_value=200),
+        "ItemsGivenEvent": dict(
+            character_id="pc-1", recipient_id="pc-2", item_ids=("rations_standard",), coins_gp_value=200
+        ),
         "LightEvent": dict(character_id="pc-1", source="torch"),
         "RestedEvent": dict(kind="night"),
         "FatigueEvent": dict(),
