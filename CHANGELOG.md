@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-07-24
+
 ### Added
 
 - `osrlib.crawl.stocking.stock_area` — the SRD dungeon-stocking procedure that consumes the shipped stocking tables. Given a dungeon level, an effective monster catalog, and one `RngStream`, it rolls a single keyed area's contents (the stocking d6, then the treasure d6 when the row calls for it, then, on a monster room, the encounter table's d20 row, its count, and the variant or per-individual pool picks) and answers a frozen `StockedArea` — content models an author can review, place, and edit. A monster room's rolled individuals group by template into `KeyedMonster` lines with concrete counts; an empty or trap room that rolls treasure gets an unguarded `AreaTreasureSpec`; an NPC-party row reports its rolled kind and count as a `StockedNpcParty` and stops (a party has no keyed content model). Every draw comes from the passed stream in a fixed order, so a stocked area is reproducible from the stream's state alone. Traps and specials produce no models — the procedure ends where the referee's design begins.
