@@ -425,7 +425,12 @@ class KeyedEncounter(BaseModel):
 
     `aware=True` means the monsters expect intruders (they never roll surprise);
     `stance` pins the reaction outright (no reaction roll); `alignment` fixes the
-    spawn alignment for multi-option templates.
+    spawn alignment for multi-option templates. `hoard=True` (the default) means
+    the engine generates the keyed monsters' lair hoard the first time the
+    encounter spawns; `hoard=False` is the treasure-absent keyed room — a monster
+    room the stocking roll gave no treasure — expressible because SRD stocking
+    puts treasure on only some monster rooms, while an encounter would otherwise
+    always bring its lair letters.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -434,6 +439,7 @@ class KeyedEncounter(BaseModel):
     alignment: Alignment | None = None
     aware: bool = False
     stance: ReactionResult | None = None
+    hoard: bool = True
 
 
 class AreaSpec(BaseModel):

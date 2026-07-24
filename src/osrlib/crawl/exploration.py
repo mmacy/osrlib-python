@@ -858,7 +858,9 @@ def _keyed_encounter_check(session) -> list[Event]:
         # Carried treasure generates at spawn, per keyed line in printed order;
         # the lair hoard follows (pinned draw order on the treasure stream).
         carried.append(_generate_carried_treasure(session, instances))
-    events = _generate_lair_hoard(session, area, templates)
+    # The lair hoard is gated: a keyed encounter the author marked hoardless (a
+    # stocking roll that gave the monster room no treasure) generates no cache.
+    events = _generate_lair_hoard(session, area, templates) if area.encounter.hoard else []
     events.extend(
         encounter_module.start_encounter(
             session,
