@@ -41,10 +41,10 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from osrlib.core.dice import parse, roll
+from osrlib.core.dice import roll
 from osrlib.core.monsters import MonsterCatalog
 from osrlib.core.rng import RngStream
-from osrlib.core.tables import EncounterTable
+from osrlib.core.tables import EncounterTable, select_encounter_individuals
 from osrlib.core.treasure import roll_room_contents
 from osrlib.crawl.dungeon import AreaTreasureSpec, KeyedEncounter, KeyedMonster
 from osrlib.data import load_encounter_tables
@@ -179,18 +179,7 @@ def _stock_monster_room(
             treasure_present=treasure_present,
             npc_party=StockedNpcParty(kind=entry.party_kind, count=count),
         )
-    # A list (never the model's variadic tuple) so index access is unconditioned by
-    # length narrowing; the entry model guarantees at least one id.
-    ids = list(entry.monster_ids)
-    if entry.variant_dice is not None:
-        # The hydra form: the printed HD dice select the template once.
-        dice = roll(entry.variant_dice, stream)
-        template_ids = [ids[dice.total - _dice_minimum(entry.variant_dice)]] * count
-    elif len(ids) > 1:
-        # Packed-variant pool: each individual picks uniformly (the crawl's convention).
-        template_ids = [ids[stream.randbelow(len(ids))] for _ in range(count)]
-    else:
-        template_ids = [ids[0]] * count
+    template_ids = select_encounter_individuals(entry, count, stream)
     # Resolve every distinct rolled id through the effective catalog exactly as
     # session.spawn would — a stocked encounter references only real monsters.
     for template_id in dict.fromkeys(template_ids):
@@ -208,9 +197,3 @@ def _group_monsters(template_ids: list[str]) -> tuple[KeyedMonster, ...]:
     for template_id in template_ids:
         counts[template_id] = counts.get(template_id, 0) + 1
     return tuple(KeyedMonster(template_id=template_id, count_fixed=count) for template_id, count in counts.items())
-
-
-def _dice_minimum(expression: str) -> int:
-    """The lowest total a dice expression can roll — a variant row's first template offset."""
-    parsed = parse(expression)
-    return parsed.count + parsed.modifier

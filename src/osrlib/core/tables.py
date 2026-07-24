@@ -34,8 +34,9 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from osrlib.core.classes import SavingThrows
-from osrlib.core.dice import parse
+from osrlib.core.dice import parse, roll
 from osrlib.core.monsters import MonsterHitDice
+from osrlib.core.rng import RngStream
 
 __all__ = [
     "TURNING_COLUMNS",
@@ -62,6 +63,7 @@ __all__ = [
     "monster_save_band_label",
     "monster_xp",
     "reaction_result",
+    "select_encounter_individuals",
     "thac0_for_hd",
     "to_hit_ac",
     "turning_column",
@@ -432,6 +434,40 @@ class EncounterTable(BaseModel):
         if self.max_level is not None and self.max_level < self.min_level:
             raise ValueError(f"table {self.id!r} level band is inverted")
         return self
+
+
+def _dice_minimum(expression: str) -> int:
+    """The lowest total a dice expression can roll — a variant row's first-template offset."""
+    parsed = parse(expression)
+    return parsed.count + parsed.modifier
+
+
+def select_encounter_individuals(entry: MonsterEncounterEntry, count: int, stream: RngStream) -> list[str]:
+    """Resolve a monster row's individuals to template ids — the shared encounter-and-stocking draw.
+
+    The wandering-encounter check and dungeon stocking select the same way, from
+    the same stream in the same order, so a stocked row yields exactly what a
+    wandering roll on that row would: a `variant_dice` row rolls once (the hydra
+    form, the printed HD dice selecting one template for the whole group), a
+    packed pool row picks uniformly per individual, and a single-id row repeats.
+
+    Args:
+        entry: The row's monster entry.
+        count: The number of individuals — already rolled and clamped by the caller.
+        stream: The RNG stream every draw advances.
+
+    Returns:
+        One template id per individual, in draw order.
+    """
+    # A list (never the model's variadic tuple) so index access is unconditioned by
+    # length narrowing; the entry model guarantees at least one id.
+    ids = list(entry.monster_ids)
+    if entry.variant_dice is not None:
+        total = roll(entry.variant_dice, stream).total
+        return [ids[total - _dice_minimum(entry.variant_dice)]] * count
+    if len(ids) > 1:
+        return [ids[stream.randbelow(len(ids))] for _ in range(count)]
+    return [ids[0]] * count
 
 
 class NpcClassLevelRow(BaseModel):

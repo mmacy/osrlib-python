@@ -18,6 +18,7 @@ from osrlib.core.tables import (
     EncounterTableRow,
     MonsterEncounterEntry,
     NpcPartyEncounterEntry,
+    select_encounter_individuals,
 )
 from osrlib.crawl.adventure import Adventure, TownSpec
 from osrlib.crawl.commands import EnterDungeon, MoveParty
@@ -242,3 +243,27 @@ class TestHoardGate:
         result = _run_keyed(False, 3)
         codes = {event.code for event in result.event_log}
         assert "treasure.hoard.generated" not in codes
+
+
+class TestSharedResolution:
+    """`select_encounter_individuals` is the one home both wandering_check and stock_area
+    consume, so a stocked row can never drift from a wandering roll on that row. These pin
+    the resolver's own draw so a change to it is a deliberate, visible edit."""
+
+    def test_variant_row_selects_one_template_for_the_group(self):
+        entry = MonsterEncounterEntry(monster_ids=("a", "b", "c"), variant_dice="1d3")
+        ids = select_encounter_individuals(entry, 4, fresh(0))
+        assert len(ids) == 4 and len(set(ids)) == 1 and ids[0] in ("a", "b", "c")
+
+    def test_pool_row_picks_uniformly_per_individual(self):
+        entry = MonsterEncounterEntry(monster_ids=("a", "b", "c"))
+        ids = select_encounter_individuals(entry, 6, fresh(0))
+        assert len(ids) == 6 and all(pick in ("a", "b", "c") for pick in ids)
+
+    def test_single_id_row_repeats(self):
+        entry = MonsterEncounterEntry(monster_ids=("a",))
+        assert select_encounter_individuals(entry, 3, fresh(0)) == ["a", "a", "a"]
+
+    def test_resolver_is_deterministic(self):
+        entry = MonsterEncounterEntry(monster_ids=("a", "b", "c"))
+        assert select_encounter_individuals(entry, 5, fresh(0)) == select_encounter_individuals(entry, 5, fresh(0))

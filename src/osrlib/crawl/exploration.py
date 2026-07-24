@@ -60,6 +60,7 @@ from osrlib.core.spells import (
     memorize_spells,
     validate_cast,
 )
+from osrlib.core.tables import select_encounter_individuals
 from osrlib.core.validation import Rejection
 from osrlib.crawl.commands import (
     CastSpell,
@@ -579,16 +580,7 @@ def wandering_check(session, *, resting: bool = False) -> tuple[list[Event], boo
         )
         _assign_carried(session, [({}, bundle)])
         return events, True
-    if entry.variant_dice is not None:
-        # The hydra form: the printed HD dice select the template once.
-        dice = roll(entry.variant_dice, stream)
-        minimum = _dice_minimum(entry.variant_dice)
-        template_ids = [entry.monster_ids[dice.total - minimum]] * count
-    elif len(entry.monster_ids) > 1:
-        # Packed-variant pool: each individual picks uniformly (pinned).
-        template_ids = [entry.monster_ids[stream.randbelow(len(entry.monster_ids))] for _ in range(count)]
-    else:
-        template_ids = [entry.monster_ids[0]] * count
+    template_ids = select_encounter_individuals(entry, count, stream)
     instances = []
     for template_id in template_ids:
         instances.extend(session.spawn(template_id, 1))
@@ -603,13 +595,6 @@ def wandering_check(session, *, resting: bool = False) -> tuple[list[Event], boo
     )
     _assign_carried(session, carried)
     return events, True
-
-
-def _dice_minimum(expression: str) -> int:
-    from osrlib.core.dice import parse
-
-    parsed = parse(expression)
-    return parsed.count + parsed.modifier
 
 
 # ---------------------------------------------------------------------- arrival processing
