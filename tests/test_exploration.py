@@ -11,6 +11,7 @@ from crawl_fixtures import build_adventure, build_party
 from osrlib.core.clock import ROUNDS_PER_TURN, TimeUnit
 from osrlib.core.effects import Condition, has_condition
 from osrlib.core.events import Visibility
+from osrlib.core.items import Coins, ValuableInstance
 from osrlib.core.rng import RngStream
 from osrlib.core.ruleset import Ruleset
 from osrlib.crawl import exploration
@@ -20,6 +21,8 @@ from osrlib.crawl.commands import (
     EnterDungeon,
     ExtinguishSource,
     ForceDoor,
+    GiveItems,
+    GrantCoins,
     GrantItem,
     InspectTreasure,
     LightSource,
@@ -676,6 +679,113 @@ class TestProvisions:
         assert session.deprivation["character-0001"].food_days == 3
         assert session.ledger.active_on("character-0001", exploration.DEPRIVATION_KIND) == []
         assert exploration._fatigue_threshold(session) == 6
+
+
+class TestGiveItems:
+    """Handing goods and coins between members — the distribute-the-load move."""
+
+    def test_give_moves_coins_and_a_mundane_item_between_members(self):
+        session = quiet_session()
+        entered(session)
+        session.execute(GrantCoins(character_id="character-0001", coins=Coins(gp=100)))
+        spikes_before = sum(
+            i.quantity for i in session.member("character-0002").inventory.items if i.template.id == "iron_spikes"
+        )
+        result = session.execute(
+            GiveItems(
+                character_id="character-0001",
+                recipient_id="character-0002",
+                item_ids=("iron_spikes",),
+                coins=Coins(gp=40),
+            )
+        )
+        assert result.accepted
+        given = next(event for event in result.events if event.code == "exploration.item.given")
+        assert given.recipient_id == "character-0002"
+        assert given.coins_gp_value == 40
+        assert session.member("character-0001").inventory.purse.gp == 60
+        assert session.member("character-0002").inventory.purse.gp == 40
+        spikes_after = sum(
+            i.quantity for i in session.member("character-0002").inventory.items if i.template.id == "iron_spikes"
+        )
+        assert spikes_after == spikes_before + 1
+
+    def test_give_moves_a_valuable(self):
+        session = quiet_session()
+        entered(session)
+        giver = session.member("character-0001")
+        gem = ValuableInstance(instance_id="valuable-9001", kind="gem", name="ruby", value_gp=500, weight_coins=10)
+        giver.inventory.valuables.append(gem)
+        result = session.execute(
+            GiveItems(character_id="character-0001", recipient_id="character-0003", item_ids=("valuable-9001",))
+        )
+        assert result.accepted
+        assert all(v.instance_id != "valuable-9001" for v in giver.inventory.valuables)
+        assert any(v.instance_id == "valuable-9001" for v in session.member("character-0003").inventory.valuables)
+
+    def test_give_is_zero_time(self):
+        session = quiet_session()
+        entered(session)
+        session.execute(GrantCoins(character_id="character-0001", coins=Coins(gp=10)))
+        before = session.clock.rounds
+        session.execute(GiveItems(character_id="character-0001", recipient_id="character-0002", coins=Coins(gp=10)))
+        assert session.clock.rounds == before
+
+    def test_give_relieves_an_overloaded_member_and_unfreezes_the_party(self):
+        session = quiet_session()
+        entered(session)
+        # 1,601 coins tops the 1,600-coin maximum load: movement drops to 0, and
+        # the party moves at the slowest living member's rate — everyone freezes.
+        session.member("character-0001").inventory.purse.gp = 1601
+        assert session.member("character-0001").movement_rate(session.ruleset) == 0
+        assert exploration.exploration_rate(session) == 0
+        session.execute(GiveItems(character_id="character-0001", recipient_id="character-0002", coins=Coins(gp=800)))
+        assert session.member("character-0001").movement_rate(session.ruleset) > 0
+        assert exploration.exploration_rate(session) > 0
+
+    def test_give_rejects_when_the_giver_lacks_the_item(self):
+        session = quiet_session()
+        entered(session)
+        result = session.execute(
+            GiveItems(character_id="character-0002", recipient_id="character-0001", item_ids=("plate_mail",))
+        )
+        assert not result.accepted
+        assert result.rejections[0].code == "exploration.item.not_carried"
+
+    def test_give_rejects_more_coin_than_carried(self):
+        session = quiet_session()
+        entered(session)
+        result = session.execute(
+            GiveItems(character_id="character-0001", recipient_id="character-0002", coins=Coins(gp=999999))
+        )
+        assert not result.accepted
+        assert result.rejections[0].code == "exploration.item.not_carried"
+
+    def test_give_rejects_to_self(self):
+        session = quiet_session()
+        entered(session)
+        result = session.execute(
+            GiveItems(character_id="character-0001", recipient_id="character-0001", coins=Coins(gp=0))
+        )
+        assert not result.accepted
+        assert result.rejections[0].code == "exploration.give.same_member"
+
+    def test_give_rejects_unknown_recipient(self):
+        session = quiet_session()
+        entered(session)
+        result = session.execute(
+            GiveItems(character_id="character-0001", recipient_id="character-9999", item_ids=("iron_spikes",))
+        )
+        assert not result.accepted
+        assert result.rejections[0].code == "session.command.unknown_member"
+
+    def test_give_is_allowed_in_town(self):
+        session = quiet_session()  # a fresh session starts in town, before EnterDungeon
+        assert session.mode.value == "town"
+        result = session.execute(
+            GiveItems(character_id="character-0001", recipient_id="character-0002", item_ids=("iron_spikes",))
+        )
+        assert result.accepted
 
 
 class TestLocationEffects:

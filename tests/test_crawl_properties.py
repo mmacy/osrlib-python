@@ -127,7 +127,7 @@ def command_strategy():
             if field_name == "command_type":
                 continue
             annotation = str(field.annotation)
-            if field_name in ("character_id",):
+            if field_name in ("character_id", "recipient_id"):
                 fields[field_name] = st.sampled_from(CHARACTER_IDS)
             elif field_name in ("item_id",):
                 fields[field_name] = st.sampled_from(ITEM_IDS)

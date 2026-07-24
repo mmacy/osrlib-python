@@ -47,6 +47,7 @@ def sample_command(command_class):
         "RemoveTreasureTrap": dict(character_id="pc-1", feature_id="chest-1"),
         "TakeTreasure": dict(feature_id="chest-1"),
         "DropItems": dict(character_id="pc-1", item_ids=("torch",)),
+        "GiveItems": dict(character_id="pc-1", recipient_id="pc-2", item_ids=("torch",)),
         "LightSource": dict(character_id="pc-1", item_id="torch"),
         "ExtinguishSource": dict(character_id="pc-1"),
         "EquipItem": dict(character_id="pc-1", item_id="sword"),

@@ -457,7 +457,7 @@ def _handle_drop_during_encounter(session, command: DropItems) -> tuple[list[Rej
     member, rejections = exploration._member_able(session, command.character_id)
     if rejections:
         return rejections, []
-    rejections = exploration._validate_drops(member, command)
+    rejections = exploration._validate_carried(member, command.item_ids, command.coins)
     if rejections:
         return rejections, []
     in_pursuit = state.pursuit is not None
