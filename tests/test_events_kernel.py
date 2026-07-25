@@ -94,6 +94,7 @@ def sample_event(event_class, code):
         "ItemsGivenEvent": dict(
             character_id="pc-1", recipient_id="pc-2", item_ids=("rations_standard",), coins_gp_value=200
         ),
+        "ItemsLeftBehindEvent": dict(item_ids=("valuable-0001",), coins_gp_value=40),
         "LightEvent": dict(character_id="pc-1", source="torch"),
         "RestedEvent": dict(kind="night"),
         "FatigueEvent": dict(),

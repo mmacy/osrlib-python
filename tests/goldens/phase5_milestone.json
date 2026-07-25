@@ -339,7 +339,8 @@
     },
     {
       "command_type": "take_treasure",
-      "feature_id": "cache-0001"
+      "feature_id": "cache-0001",
+      "recipient_id": null
     },
     {
       "command_type": "move_party",
@@ -351,10 +352,11 @@
     },
     {
       "command_type": "take_treasure",
-      "feature_id": "idol_shrine"
+      "feature_id": "idol_shrine",
+      "recipient_id": null
     },
     {
-      "character_id": "character-0001",
+      "character_id": "character-0002",
       "coins": {
         "cp": 0,
         "ep": 0,
@@ -377,7 +379,8 @@
     },
     {
       "command_type": "take_treasure",
-      "feature_id": "cache-0002"
+      "feature_id": "cache-0002",
+      "recipient_id": null
     },
     {
       "command_type": "engage_battle"
@@ -596,7 +599,8 @@
     },
     {
       "command_type": "take_treasure",
-      "feature_id": "pile"
+      "feature_id": "pile",
+      "recipient_id": null
     },
     {
       "command_type": "resolve_battle_round",
@@ -1643,11 +1647,35 @@
     {
       "character_id": "character-0001",
       "code": "exploration.item.acquired",
-      "coins_gp_value": 50,
+      "coins_gp_value": 13,
+      "event_type": "item_acquired",
+      "item_ids": [],
+      "visibility": "player"
+    },
+    {
+      "character_id": "character-0002",
+      "code": "exploration.item.acquired",
+      "coins_gp_value": 13,
       "event_type": "item_acquired",
       "item_ids": [
         "valuable-0002"
       ],
+      "visibility": "player"
+    },
+    {
+      "character_id": "character-0003",
+      "code": "exploration.item.acquired",
+      "coins_gp_value": 12,
+      "event_type": "item_acquired",
+      "item_ids": [],
+      "visibility": "player"
+    },
+    {
+      "character_id": "character-0004",
+      "code": "exploration.item.acquired",
+      "coins_gp_value": 12,
+      "event_type": "item_acquired",
+      "item_ids": [],
       "visibility": "player"
     },
     {
@@ -1659,7 +1687,7 @@
       "visibility": "referee"
     },
     {
-      "character_id": "character-0001",
+      "character_id": "character-0002",
       "code": "exploration.item.acquired",
       "coins_gp_value": 200,
       "event_type": "item_acquired",
@@ -1713,7 +1741,31 @@
     {
       "character_id": "character-0001",
       "code": "exploration.item.acquired",
-      "coins_gp_value": 210,
+      "coins_gp_value": 52,
+      "event_type": "item_acquired",
+      "item_ids": [],
+      "visibility": "player"
+    },
+    {
+      "character_id": "character-0002",
+      "code": "exploration.item.acquired",
+      "coins_gp_value": 52,
+      "event_type": "item_acquired",
+      "item_ids": [],
+      "visibility": "player"
+    },
+    {
+      "character_id": "character-0003",
+      "code": "exploration.item.acquired",
+      "coins_gp_value": 52,
+      "event_type": "item_acquired",
+      "item_ids": [],
+      "visibility": "player"
+    },
+    {
+      "character_id": "character-0004",
+      "code": "exploration.item.acquired",
+      "coins_gp_value": 52,
       "event_type": "item_acquired",
       "item_ids": [],
       "visibility": "player"
@@ -3035,9 +3087,18 @@
       "character_id": "character-0001",
       "code": "town.treasure.sold",
       "event_type": "treasure_sold",
-      "gp_value": 3800,
+      "gp_value": 1600,
       "instance_ids": [
-        "valuable-0001",
+        "valuable-0001"
+      ],
+      "visibility": "player"
+    },
+    {
+      "character_id": "character-0002",
+      "code": "town.treasure.sold",
+      "event_type": "treasure_sold",
+      "gp_value": 2200,
+      "instance_ids": [
         "valuable-0002"
       ],
       "visibility": "player"
@@ -3552,15 +3613,21 @@
     "The party moves to (3, 0), facing east.",
     "The party moves to (4, 0), facing east.",
     "The party enters area shrine (level 1).",
-    "character-0001 acquires valuable-0002 and 50 gp in coin.",
+    "character-0001 acquires 13 gp in coin.",
+    "character-0002 acquires valuable-0002 and 13 gp in coin.",
+    "character-0003 acquires 12 gp in coin.",
+    "character-0004 acquires 12 gp in coin.",
     "Wandering check: skipped vs 0-in-6 — nothing comes.",
-    "character-0001 acquires 200 gp in coin.",
+    "character-0002 acquires 200 gp in coin.",
     "The party enters level barrow (level 2).",
     "The party moves to (1, 0), facing east.",
     "The party moves to (2, 0), facing east.",
     "The party enters area vault (level 2).",
     "Treasure generated at cache-0002 (unguarded): 210 gp in coin, 0 valuable(s), 0 magic item(s).",
-    "character-0001 acquires 210 gp in coin.",
+    "character-0001 acquires 52 gp in coin.",
+    "character-0002 acquires 52 gp in coin.",
+    "character-0003 acquires 52 gp in coin.",
+    "character-0004 acquires 52 gp in coin.",
     "Wandering check: 2 vs 6-in-6 — an encounter!",
     "An NPC party (basic, neutral) takes the field: npc-0001 (dwarf 1), npc-0002 (magic_user 2).",
     "Surprise (monsters): rolled 6, surprised on 1-2 — not surprised.",
@@ -3676,7 +3743,8 @@
     "character-0002 gains 480 XP (base 600), now level 1.",
     "character-0003 gains 660 XP (base 600), now level 2.",
     "character-0004 gains 660 XP (base 600), now level 1.",
-    "character-0001 sells 2 valuable(s) for 3800 gp.",
+    "character-0001 sells 1 valuable(s) for 1600 gp.",
+    "character-0002 sells 1 valuable(s) for 2200 gp.",
     "character-0001 purchases cure_light_wounds at the temple for 25 gp.",
     "town-cleric casts cure_light_wounds [heal] at character-0001.",
     "character-0001 regains 2 hit points (magical).",

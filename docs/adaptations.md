@@ -717,10 +717,59 @@ springing on movement (the party walks around the known pit); the player-facing
 without springing — an unknown trap's spring die stays referee-only. A trap
 transition (slides) relocates the whole party — the party model has one location
 (pinned simplification). The darts volley resolves as one damage application whose
-rolls are every dart's die. `TakeTreasure` delivers contents to the first living
-member in marching order, who is also the treasure trap's triggerer (pinned; the
-command carries no character). Locked by `test_exploration.py::TestSearching`,
-`TestTreasureTraps`, and `TestTrapResolutionCensus`.
+rolls are every dart's die. `TakeTreasure`'s treasure trap springs on the character
+who reaches in: the command's `recipient_id` when one is named, otherwise the first
+living member in marching order (pinned). Locked by
+`test_exploration.py::TestSearching`, `TestTreasureTraps`, and
+`TestTrapResolutionCensus`.
+
+### A recovered haul spreads across the party: usable items, even wealth, everyone mobile
+
+RAW never says who physically carries the loot — it says the opposite, that the split
+is the players' business: "Awarded XP is always divided evenly, irrespective of how
+the players decide to divide the treasure" (*Awarding XP*). What RAW *does* pin are
+the consequences: "The maximum load any character can carry is 1,600 coins of weight.
+Characters carrying more than this cannot move", and "The movement rate of the party
+as a whole is determined by the speed of the slowest member" (*Time, Weight,
+Movement*). Together those make a single-carrier default a party-stopping bug rather
+than a fairness quibble — one pickup on one character can freeze everyone. There is
+no tabletop referee here to say "spread it out", so the engine does, as a documented
+adaptation:
+
+- **Items go where they are useful.** Each item prefers a carrier whose class may use
+  it, judged by the same class policies `validate_equip` enforces plus a magic item's
+  own `usable_by` — the fighter takes the plate mail, the magic-user the arcane wand,
+  the cleric the divine staff. Equipped state is deliberately *not* consulted: the
+  question is where the item belongs, not whether their hands are full this instant.
+  When nobody's class can use it, it still goes in somebody's pack.
+- **Gems and jewellery divide by worth, not by count.** Three 50 gp gems against one
+  300 gp ring is even in objects and lopsided in wealth, and wealth is what a share
+  means. Value is also cheap to move — a 1,000 gp gem weighs one coin — so balancing
+  it costs the party nothing in mobility. Pieces deal richest-first, each to whoever
+  currently holds the least by value.
+- **Coins divide evenly, denomination by denomination.** Every coin weighs 1 whatever
+  its metal, so an even split of a denomination is even in worth *and* even in weight
+  — the one place where a fair share and a mobile party want the same thing. Coins
+  are not used to compensate for a big gem: matching a 1,000 gp gem in coin means
+  1,000 coins of weight, which is precisely the immobilisation being fixed.
+- **Nothing is ever loaded past the maximum load.** A carrier who would cross 1,600
+  coins does not take the parcel; the search moves on. A take therefore cannot
+  immobilise anyone that some other arrangement would have kept moving.
+- **What will not fit stays where it lies**, in the drop pile on the party's cell,
+  with an `exploration.item.left_behind` event. Treasure is never destroyed: the
+  party lightens up and comes back. Goods pack best-first — items, then valuables,
+  then coins richest denomination first — so a party out of capacity keeps the
+  platinum and leaves the copper.
+
+The order is items, then valuables, then coins: the lumpy, class-constrained goods go
+out while every carrier still has room to honour the constraint, and the fluid wealth
+follows to even things up. The whole pass is deterministic and spends no RNG draw —
+ties break on marching order, never on a die. It is automatic bookkeeping, not a
+ruling: `GiveItems` and `DropItems` rearrange it freely, and the XP award is untouched
+either way, since `party_valuation_cp` sums the whole party. `TakeTreasure` also
+accepts an explicit `recipient_id`, which narrows the carriers to that one member
+(still capped at their own maximum load). Locked by
+`test_exploration.py::TestTreasureDistribution`.
 
 ### Light, darkness, and location-bound effects
 
