@@ -534,8 +534,24 @@ class TakeTreasure(Command):
     The party must be exploring a dungeon (see
     [`EnterDungeon`][osrlib.crawl.commands.EnterDungeon]). `feature_id` names an
     authored cache, an engine-generated cache, or the literal `pile` for goods
-    dropped on the cell. The leading living member carries everything; taking a
-    trapped cache with its trap unresolved risks springing it.
+    dropped on the cell.
+
+    By default the haul **spreads across the living members**: items go to a
+    character whose class can use them (the fighter takes the plate mail, the
+    magic-user the arcane scroll), gems and jewellery divide by worth, and coins
+    divide evenly denomination by denomination. Nothing is ever loaded past the
+    1,600-coin maximum load, so a pickup cannot immobilise the party — the group
+    moves at its slowest member's rate, so one mule stops everyone. Name
+    `recipient_id` to override: that member alone fills their pack, up to their own
+    maximum load. Whatever exceeds the carriers' capacity stays in the drop pile on
+    the cell — nothing is destroyed, and the party can lighten up and come back for
+    it. This first pass is automatic bookkeeping, not a ruling: rearrange it freely
+    with [`GiveItems`][osrlib.crawl.commands.GiveItems], and note that XP divides
+    evenly however the goods end up split, per RAW.
+
+    The named recipient — or the leading living member when none is named — is the
+    one who reaches in, so taking a trapped cache with its trap unresolved risks
+    springing it on them.
 
     Modes:
         `exploring`
@@ -543,12 +559,16 @@ class TakeTreasure(Command):
     Rejections:
         - `session.command.wrong_mode` — the session is not exploring a dungeon.
         - `session.command.no_living_members` — no one is left to carry.
+        - `session.command.unknown_member` — `recipient_id` names no party member.
+        - `session.command.member_incapacitated` — the recipient cannot act.
         - `exploration.feature.unknown` — nothing by that id on this cell.
         - `exploration.feature.emptied` — the cache has already been emptied.
 
     Events:
-        [`ItemAcquiredEvent`][osrlib.crawl.events.ItemAcquiredEvent] listing the
-        goods and coin value. An unresolved treasure trap rolls first
+        One [`ItemAcquiredEvent`][osrlib.crawl.events.ItemAcquiredEvent] per member
+        who took something, listing their goods and coin value, in marching order;
+        an [`ItemsLeftBehindEvent`][osrlib.crawl.events.ItemsLeftBehindEvent] when
+        the party could not carry it all. An unresolved treasure trap rolls first
         ([`DetectionRolledEvent`][osrlib.crawl.events.DetectionRolledEvent], a
         [`TrapEvent`][osrlib.crawl.events.TrapEvent], and the trap's resolution
         when it springs). Under the immediate XP timing an
@@ -560,6 +580,7 @@ class TakeTreasure(Command):
 
     command_type: Literal["take_treasure"] = "take_treasure"
     feature_id: str
+    recipient_id: str | None = None
 
 
 class DropItems(Command):

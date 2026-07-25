@@ -655,7 +655,8 @@
     },
     {
       "command_type": "take_treasure",
-      "feature_id": "coffer"
+      "feature_id": "coffer",
+      "recipient_id": null
     },
     {
       "character_id": "character-0002",
@@ -3253,7 +3254,39 @@
     {
       "character_id": "character-0001",
       "code": "exploration.item.acquired",
-      "coins_gp_value": 400,
+      "coins_gp_value": 80,
+      "event_type": "item_acquired",
+      "item_ids": [],
+      "visibility": "player"
+    },
+    {
+      "character_id": "character-0002",
+      "code": "exploration.item.acquired",
+      "coins_gp_value": 80,
+      "event_type": "item_acquired",
+      "item_ids": [],
+      "visibility": "player"
+    },
+    {
+      "character_id": "character-0003",
+      "code": "exploration.item.acquired",
+      "coins_gp_value": 80,
+      "event_type": "item_acquired",
+      "item_ids": [],
+      "visibility": "player"
+    },
+    {
+      "character_id": "character-0004",
+      "code": "exploration.item.acquired",
+      "coins_gp_value": 80,
+      "event_type": "item_acquired",
+      "item_ids": [],
+      "visibility": "player"
+    },
+    {
+      "character_id": "character-0005",
+      "code": "exploration.item.acquired",
+      "coins_gp_value": 80,
       "event_type": "item_acquired",
       "item_ids": [],
       "visibility": "player"
@@ -8334,7 +8367,11 @@
     "monster-0006 (goblin) is routed.",
     "The encounter ends (victory).",
     "The party moves to (4, 1), facing east.",
-    "character-0001 acquires 400 gp in coin.",
+    "character-0001 acquires 80 gp in coin.",
+    "character-0002 acquires 80 gp in coin.",
+    "character-0003 acquires 80 gp in coin.",
+    "character-0004 acquires 80 gp in coin.",
+    "character-0005 acquires 80 gp in coin.",
     "Detection roll (secret_doors, character-0002): 5 vs 2-in-6 — failure.",
     "character-0002 searches (secret_doors) and finds nothing.",
     "Wandering check: 3 vs 3-in-6 — an encounter!",

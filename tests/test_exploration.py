@@ -7,13 +7,13 @@ matters.
 
 import pytest
 
-from crawl_fixtures import build_adventure, build_party
+from crawl_fixtures import STOCK_ROSTER, build_adventure, build_party
 from osrlib.core.clock import ROUNDS_PER_TURN, TimeUnit
-from osrlib.core.effects import Condition, has_condition
+from osrlib.core.effects import Condition, has_condition, kill
 from osrlib.core.events import Visibility
-from osrlib.core.items import Coins, ValuableInstance
+from osrlib.core.items import Coins, ItemInstance, MagicItemInstance, ValuableInstance
 from osrlib.core.rng import RngStream
-from osrlib.core.ruleset import Ruleset
+from osrlib.core.ruleset import EncumbranceMode, Ruleset
 from osrlib.crawl import exploration
 from osrlib.crawl.commands import (
     AdvanceTime,
@@ -41,8 +41,17 @@ from osrlib.crawl.commands import (
     UseStairs,
     WedgeDoor,
 )
-from osrlib.crawl.dungeon import Direction, PartyLocation, TrapEffect, TrapSpec
+from osrlib.crawl.dungeon import (
+    Direction,
+    DroppedItem,
+    DropPile,
+    PartyLocation,
+    TrapEffect,
+    TrapSpec,
+    cell_ref,
+)
 from osrlib.crawl.session import EXPLORATION_STREAM, GameSession
+from osrlib.data import load_equipment
 
 pytestmark = pytest.mark.filterwarnings("ignore::DeprecationWarning")
 
@@ -393,18 +402,255 @@ class TestTreasureTraps:
         assert result.rejections[0].code == "exploration.trap.not_found"
 
     def test_take_treasure_runs_the_spring_check_and_fills_packs(self):
+        # Seed 9 springs the poison needle on the leader, who dies reaching in; the
+        # survivors split the 200 gp between them and the corpse takes no share.
         session = self.build_at_chest(seed=9)
-        first = session.party.living_members()[0]
+        before = session.party.living_members()
         result = session.execute(TakeTreasure(feature_id="chest"))
         assert result.accepted
         codes = [event.code for event in result.events]
         assert codes[0] == "exploration.detection.rolled"  # the 2-in-6 spring check
-        acquired = next(event for event in result.events if event.code == "exploration.item.acquired")
-        assert acquired.coins_gp_value == 200
-        assert first.inventory.purse.gp == 200
+        acquired = [event for event in result.events if event.code == "exploration.item.acquired"]
+        survivors = session.party.living_members()
+        assert len(survivors) == len(before) - 1
+        assert sorted(member.inventory.purse.gp for member in survivors) == [66, 67, 67]
+        assert sum(member.inventory.purse.gp for member in session.party.members) == 200
+        assert sum(event.item_ids.count("holy_water") for event in acquired) == 1
         assert "delve:1:chest" in session.dungeon_state.emptied_caches
         again = session.execute(TakeTreasure(feature_id="chest"))
         assert not again.accepted
+
+
+class TestTreasureDistribution:
+    """`TakeTreasure`'s haul spread: usable items, even wealth, everybody still moving."""
+
+    def at_entrance(self, roster=STOCK_ROSTER, seed: int = 5, ruleset: Ruleset | None = None):
+        session = GameSession.new(
+            build_party(roster), build_adventure(wandering_chance=0), seed=seed, ruleset=ruleset or Ruleset()
+        )
+        session.execute(EnterDungeon(dungeon_id="delve"))
+        place(session, (0, 0))
+        return session
+
+    def pile(self, session, **contents) -> None:
+        session.dungeon_state.piles[cell_ref("delve", 1, (0, 0))] = DropPile(**contents)
+
+    def purses(self, session) -> list:
+        return [member.inventory.purse for member in session.party.living_members()]
+
+    def test_a_haul_that_would_overload_one_member_spreads_instead(self):
+        # The reported failure: 600 sp + 900 cp on the member already holding coin
+        # tops the 1,600-coin maximum load, and the party moves at its slowest.
+        session = self.at_entrance()
+        session.execute(GrantCoins(character_id="character-0001", coins=Coins(gp=150)))
+        self.pile(session, coins=Coins(sp=600, cp=900))
+        result = session.execute(TakeTreasure(feature_id="pile"))
+        assert result.accepted
+        acquired = [event for event in result.events if event.code == "exploration.item.acquired"]
+        assert len(acquired) == 4  # everyone shoulders a share
+        assert all(member.movement_rate(session.ruleset) > 0 for member in session.party.living_members())
+        assert exploration.exploration_rate(session) > 0
+        assert session.execute(MoveParty(direction=Direction.EAST)).accepted
+
+    def test_coins_divide_evenly_denomination_by_denomination(self):
+        session = self.at_entrance()
+        self.pile(session, coins=Coins(gp=100, sp=50, cp=7))
+        assert session.execute(TakeTreasure(feature_id="pile")).accepted
+        purses = self.purses(session)
+        assert [purse.gp for purse in purses] == [25, 25, 25, 25]
+        assert [purse.sp for purse in purses] == [13, 13, 12, 12]  # the odd two to the front
+        assert [purse.cp for purse in purses] == [2, 2, 2, 1]
+
+    def test_gems_and_jewellery_divide_by_worth_not_by_count(self):
+        session = self.at_entrance()
+        pieces = [300, 300, 50, 50, 50, 50, 50, 50]
+        self.pile(
+            session,
+            valuables=[
+                ValuableInstance(instance_id=f"valuable-90{index:02d}", kind="gem", value_gp=value, weight_coins=1)
+                for index, value in enumerate(pieces)
+            ],
+        )
+        assert session.execute(TakeTreasure(feature_id="pile")).accepted
+        worths = [sum(v.value_gp for v in member.inventory.valuables) for member in session.party.living_members()]
+        counts = [len(member.inventory.valuables) for member in session.party.living_members()]
+        assert sorted(worths) == [150, 150, 300, 300]  # even in worth
+        assert sorted(counts) == [1, 1, 3, 3]  # deliberately lopsided in objects
+        assert sum(worths) == sum(pieces)
+
+    def test_items_go_to_a_character_whose_class_can_use_them(self):
+        session = self.at_entrance()
+        self.pile(
+            session,
+            items=[DroppedItem(item_id="plate_mail", quantity=1)],
+            magic_items=[
+                MagicItemInstance(instance_id="magic-item-9001", template_id="wand_of_cold"),
+                MagicItemInstance(instance_id="magic-item-9002", template_id="staff_of_healing"),
+            ],
+        )
+        assert session.execute(TakeTreasure(feature_id="pile")).accepted
+        holder = {}
+        for member in session.party.living_members():
+            for instance in member.inventory.items:
+                key = instance.instance_id if isinstance(instance, MagicItemInstance) else instance.template.id
+                holder[key] = member.class_id
+        assert holder["magic-item-9001"] == "magic_user"  # arcane-only wand
+        assert holder["magic-item-9002"] == "cleric"  # divine-only staff
+        assert holder["plate_mail"] in ("fighter", "cleric")  # never the thief or the magic-user
+
+    def test_an_item_nobody_can_use_still_finds_a_carrier(self):
+        session = self.at_entrance(roster=(("Elara", "magic_user"), ("Ione", "magic_user")))
+        self.pile(session, items=[DroppedItem(item_id="plate_mail", quantity=1)])
+        result = session.execute(TakeTreasure(feature_id="pile"))
+        assert result.accepted
+        carried = [instance.template.id for member in session.party.members for instance in member.inventory.items]
+        assert carried.count("plate_mail") == 1  # nobody may wear it; somebody still hauls it
+        assert not session.dungeon_state.piles
+
+    def test_an_item_that_will_not_fit_moves_on_without_disturbing_a_like_one(self):
+        # Detailed encumbrance weighs armour, and the fighter — the only member who
+        # may wear plate, so the first tried — is already too laden for a second
+        # suit, which falls back to the magic-user who merely hauls it. The suit the
+        # fighter already owned must stay put: two like `ItemInstance`s compare
+        # equal, so backing the offered one out by equality would take the wrong
+        # object and leave one suit aliased into two inventories.
+        session = self.at_entrance(
+            roster=(("Brakk", "fighter"), ("Elara", "magic_user")),
+            ruleset=Ruleset(encumbrance=EncumbranceMode.DETAILED),
+        )
+        fighter, mage = session.party.members
+        owned = ItemInstance(template=load_equipment().get("plate_mail"), quantity=1)
+        fighter.inventory.items.append(owned)
+        session.execute(GrantCoins(character_id="character-0001", coins=Coins(gp=700)))
+        self.pile(session, items=[DroppedItem(item_id="plate_mail", quantity=1)])
+        result = session.execute(TakeTreasure(feature_id="pile"))
+        assert result.accepted
+        assert [event.character_id for event in result.events if event.code == "exploration.item.acquired"] == [mage.id]
+        suits = [
+            instance
+            for member in session.party.members
+            for instance in member.inventory.items
+            if not isinstance(instance, MagicItemInstance) and instance.template.id == "plate_mail"
+        ]
+        assert len(suits) == 2 and len({id(suit) for suit in suits}) == 2  # two suits, two objects
+        assert any(instance is owned for instance in fighter.inventory.items)
+        assert all(member.movement_rate(session.ruleset) > 0 for member in session.party.members)
+
+    def test_a_haul_beyond_the_party_leaves_the_rest_and_loses_nothing(self):
+        session = self.at_entrance()
+        self.pile(session, coins=Coins(cp=10_000))
+        result = session.execute(TakeTreasure(feature_id="pile"))
+        assert result.accepted
+        left = next(event for event in result.events if event.code == "exploration.item.left_behind")
+        carried = sum(purse.total_coins for purse in self.purses(session))
+        remaining = session.dungeon_state.piles[cell_ref("delve", 1, (0, 0))].coins
+        assert carried == 4 * 1600  # every pack filled to the maximum load, no further
+        assert carried + remaining.total_coins == 10_000  # nothing destroyed
+        assert left.coins_gp_value == remaining.value_gp
+        assert all(member.movement_rate(session.ruleset) > 0 for member in session.party.living_members())
+
+    def test_the_richest_denomination_goes_in_the_packs_first(self):
+        session = self.at_entrance()
+        self.pile(session, coins=Coins(pp=4_000, cp=4_000))
+        assert session.execute(TakeTreasure(feature_id="pile")).accepted
+        purses = self.purses(session)
+        remaining = session.dungeon_state.piles[cell_ref("delve", 1, (0, 0))].coins
+        assert sum(purse.pp for purse in purses) == 4_000  # platinum first
+        assert remaining.pp == 0 and remaining.cp == 1_600  # copper is what stays
+        assert sum(purse.cp for purse in purses) + remaining.cp == 4_000
+
+    def test_a_named_recipient_takes_the_lot(self):
+        session = self.at_entrance()
+        self.pile(session, coins=Coins(gp=100))
+        result = session.execute(TakeTreasure(feature_id="pile", recipient_id="character-0003"))
+        assert result.accepted
+        assert [event.character_id for event in result.events if event.code == "exploration.item.acquired"] == [
+            "character-0003"
+        ]
+        assert [purse.gp for purse in self.purses(session)] == [0, 0, 100, 0]
+
+    def test_a_named_recipient_carries_only_what_fits_and_the_rest_stays(self):
+        session = self.at_entrance()
+        self.pile(session, coins=Coins(cp=2_000))
+        result = session.execute(TakeTreasure(feature_id="pile", recipient_id="character-0002"))
+        assert result.accepted
+        assert session.member("character-0002").inventory.purse.cp == 1_600
+        assert session.member("character-0002").movement_rate(session.ruleset) > 0
+        assert session.dungeon_state.piles[cell_ref("delve", 1, (0, 0))].coins.cp == 400
+        assert any(event.code == "exploration.item.left_behind" for event in result.events)
+
+    def test_an_unknown_recipient_rejects_before_anything_moves(self):
+        session = self.at_entrance()
+        self.pile(session, coins=Coins(gp=100))
+        before = session.clock.rounds
+        result = session.execute(TakeTreasure(feature_id="pile", recipient_id="character-9999"))
+        assert result.rejections[0].code == "session.command.unknown_member"
+        assert session.clock.rounds == before
+        assert session.dungeon_state.piles[cell_ref("delve", 1, (0, 0))].coins.gp == 100
+
+    def test_a_dead_recipient_rejects_and_the_survivors_still_split_the_haul(self):
+        session = self.at_entrance()
+        self.pile(session, coins=Coins(gp=99))
+        kill(session.member("character-0002"))
+        refused = session.execute(TakeTreasure(feature_id="pile", recipient_id="character-0002"))
+        assert refused.rejections[0].code == "session.command.member_incapacitated"
+        assert session.execute(TakeTreasure(feature_id="pile")).accepted
+        assert [member.inventory.purse.gp for member in session.party.members] == [33, 0, 33, 33]
+
+    def test_the_named_recipient_is_the_one_who_springs_the_cache_trap(self):
+        # Seed 9 rolls the 2-in-6 spring: the character who reaches in takes it.
+        session = quiet_session(seed=9)
+        entered(session)
+        place(session, (3, 2))
+        result = session.execute(TakeTreasure(feature_id="chest", recipient_id="character-0003"))
+        assert result.accepted
+        sprung = next(event for event in result.events if event.code == "exploration.trap.sprung")
+        assert sprung.character_id == "character-0003"
+
+    def test_the_spread_consumes_no_randomness(self):
+        session = self.at_entrance()
+        self.pile(
+            session,
+            coins=Coins(gp=137, sp=91),
+            valuables=[ValuableInstance(instance_id="valuable-9001", kind="gem", value_gp=500, weight_coins=1)],
+            items=[DroppedItem(item_id="plate_mail", quantity=1)],
+        )
+        before = {key: state.model_dump() for key, state in session.streams.export_states().items()}
+        assert session.execute(TakeTreasure(feature_id="pile")).accepted
+        after = {key: state.model_dump() for key, state in session.streams.export_states().items()}
+        assert after == before
+
+    def test_the_split_is_identical_across_two_seeded_runs(self):
+        def run():
+            session = self.at_entrance(seed=17)
+            self.pile(
+                session,
+                coins=Coins(gp=137, sp=91, cp=13),
+                valuables=[
+                    ValuableInstance(instance_id=f"valuable-90{index:02d}", kind="gem", value_gp=value, weight_coins=1)
+                    for index, value in enumerate((90, 40, 40, 10))
+                ],
+                magic_items=[MagicItemInstance(instance_id="magic-item-9001", template_id="wand_of_cold")],
+            )
+            result = session.execute(TakeTreasure(feature_id="pile"))
+            return [event.model_dump(mode="json") for event in result.events]
+
+        assert run() == run()
+
+    def test_the_party_total_is_conserved_across_a_take(self):
+        session = self.at_entrance()
+        session.execute(GrantCoins(character_id="character-0001", coins=Coins(gp=25)))
+        before = session.party_valuation_cp()
+        self.pile(
+            session,
+            coins=Coins(gp=100, ep=3),
+            valuables=[
+                ValuableInstance(instance_id="valuable-9001", kind="jewellery", value_gp=700, weight_coins=10),
+                ValuableInstance(instance_id="valuable-9002", kind="gem", value_gp=250, weight_coins=1),
+            ],
+        )
+        assert session.execute(TakeTreasure(feature_id="pile")).accepted
+        assert session.party_valuation_cp() == before + Coins(gp=100, ep=3).value_cp + (700 + 250) * 100
 
 
 class TestTrapResolutionCensus:

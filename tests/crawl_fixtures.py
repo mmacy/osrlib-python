@@ -44,6 +44,7 @@ from osrlib.crawl.party import Party
 from osrlib.data import load_classes
 
 __all__ = [
+    "STOCK_ROSTER",
     "build_adventure",
     "build_party",
     "build_sightline_adventure",
@@ -220,16 +221,18 @@ def _member(name: str, class_id: str) -> Character:
     )
 
 
-def build_party() -> Party:
-    """Build a stock four-member party (ids unassigned; the session assigns them)."""
-    return Party(
-        members=[
-            _member("Brakk", "fighter"),
-            _member("Sable", "thief"),
-            _member("Wynn", "cleric"),
-            _member("Elara", "magic_user"),
-        ]
-    )
+STOCK_ROSTER = (("Brakk", "fighter"), ("Sable", "thief"), ("Wynn", "cleric"), ("Elara", "magic_user"))
+"""The stock party's names and classes, in marching order."""
+
+
+def build_party(roster=STOCK_ROSTER) -> Party:
+    """Build the stock four-member party (ids unassigned; the session assigns them).
+
+    Args:
+        roster: `(name, class_id)` pairs in marching order. Pass a narrower roster to
+            exercise class-gated behavior — loot only one class can use, say.
+    """
+    return Party(members=[_member(name, class_id) for name, class_id in roster])
 
 
 def build_milestone_adventure() -> Adventure:

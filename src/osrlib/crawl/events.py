@@ -48,6 +48,7 @@ __all__ = [
     "ItemUsedEvent",
     "ItemsDroppedEvent",
     "ItemsGivenEvent",
+    "ItemsLeftBehindEvent",
     "LightEvent",
     "ListenedEvent",
     "LocationEnteredEvent",
@@ -218,6 +219,24 @@ class ItemsDroppedEvent(Event):
     code: str = "exploration.item.dropped"
     visibility: Visibility = Visibility.PLAYER
     character_id: str
+    item_ids: tuple[str, ...] = ()
+    coins_gp_value: int = 0
+
+
+class ItemsLeftBehindEvent(Event):
+    """Treasure the party could not carry, left where it lay.
+
+    Emitted by [`TakeTreasure`][osrlib.crawl.commands.TakeTreasure] when a haul
+    exceeds the carriers' remaining maximum load: the remainder lands in the drop
+    pile on the party's cell, so nothing is destroyed and a lightened party can come
+    back for it.
+    """
+
+    allowed_codes: ClassVar[frozenset[str]] = frozenset({"exploration.item.left_behind"})
+
+    event_type: Literal["items_left_behind"] = "items_left_behind"
+    code: str = "exploration.item.left_behind"
+    visibility: Visibility = Visibility.PLAYER
     item_ids: tuple[str, ...] = ()
     coins_gp_value: int = 0
 
@@ -708,6 +727,7 @@ CRAWL_EVENT_CLASSES: tuple[type[Event], ...] = (
     TrapEvent,
     ItemAcquiredEvent,
     ItemsDroppedEvent,
+    ItemsLeftBehindEvent,
     ItemsGivenEvent,
     LightEvent,
     RestedEvent,
