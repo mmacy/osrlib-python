@@ -14,7 +14,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = REPO_ROOT / "examples" / "tui_crawler" / "scripts" / "milestone.txt"
-MILESTONE_SEED = 203
+MILESTONE_SEED = 21
 
 
 def run_crawler(*arguments: str) -> subprocess.CompletedProcess:

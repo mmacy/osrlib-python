@@ -26,7 +26,7 @@ from pydantic import BaseModel, ConfigDict
 from osrlib.core.effects import Condition, has_condition
 from osrlib.core.items import MagicItemCategory, MagicItemInstance, magic_item_template
 from osrlib.crawl.dungeon import Direction, EdgeKind, PartyLocation, Position, cell_ref, edge_ref, step
-from osrlib.crawl.exploration import EXHAUSTED_KIND, FATIGUE_KIND
+from osrlib.crawl.exploration import _CELL_FEET, EXHAUSTED_KIND, FATIGUE_KIND, _sight_passes
 
 __all__ = [
     "EdgeView",
@@ -331,9 +331,6 @@ def _visible_cell_refs(session) -> set[str]:
     return refs
 
 
-# The dungeon grid is authored at the classic ten-foot square, so a torch's
-# thirty-foot radius reaches three cells of open floor.
-_CELL_FEET = 10
 _DEFAULT_LIGHT_FEET = 30
 
 
@@ -346,25 +343,6 @@ def _light_radius_feet(params) -> int:
     """
     raw = params.get("light_radius_feet", params.get("radius_feet"))
     return int(raw) if raw is not None else _DEFAULT_LIGHT_FEET
-
-
-def _sight_passes(session, level, location, cell: Position, direction: Direction) -> bool:
-    """Whether torchlight (and sight) crosses one cell edge.
-
-    Open floor and an open, non-secret door let light through; walls, blocked
-    edges, and shut or undiscovered-secret doors stop it — the same passability
-    the mover and the edge projection already agree on.
-    """
-    edge = level.edge(cell, direction)
-    if edge.kind is EdgeKind.OPEN:
-        return True
-    if edge.kind is EdgeKind.DOOR:
-        ref = edge_ref(location.dungeon_id, location.level_number, cell, direction)
-        state = session.dungeon_state.doors.get(ref)
-        if edge.door.kind == "secret" and (state is None or not state.discovered):
-            return False
-        return bool(state.open) if state is not None else edge.door.starts_open
-    return False
 
 
 def _light_reveal(session) -> tuple[str | None, set[Position]]:

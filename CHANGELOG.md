@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- Encounter distance is now bounded by the space the encounter happens in. The 2d6 × 10' dungeon roll ignored the party's surroundings entirely, so an encounter keyed to a 20' room could open at 120' — six times the room's width — and a rolled distance routinely exceeded the whole dungeon level. The SRD rolls only "if there is uncertainty", since "the situation in which the encounter occurs often determines how far away the monster is"; the walls around the party's cell are that situation, so a rolled distance now caps at the longest unobstructed straight sight line from that cell across the four grid directions, floored at one cell (10'). A corridor still affords its full sight line and the printed 20'–120' band; a room affords no more than the room; shut and undiscovered-secret doors stop the line where they stop the party. Darkness never shortens it — light governs surprise, not distance — and a caller-supplied `distance_feet` (every referee spawn: `SpawnMonsters`, `SpawnNpcParty`) is never capped. The cap reads the rolled result and never the RNG stream, so no draw sequence changes; rolled distances in cramped spaces do change, which moved the Phase 4 and Phase 5 scenario goldens.
+
 ## [1.3.0] - 2026-07-24
 
 ### Added

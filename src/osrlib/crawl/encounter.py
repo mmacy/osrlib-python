@@ -13,6 +13,13 @@ unless the party has begun evading or improved the stance by parley; 6–8 uncer
 parley, or withdraw freely; 12+ friendly. Only the attacks/hostile stances pursue
 an evading party, as a documented adaptation (see the adaptations register) — RAW
 leaves pursuit itself to the referee too, keyed here to low reactions.
+
+The distance roll is bounded by the space it happens in: RAW rolls 2d6 × 10' only
+"if there is uncertainty", and the walls around the party's cell resolve that
+uncertainty, so the rolled distance caps at the longest straight sight line the
+cell affords — the room's own span in a room, the whole passage down a corridor,
+never shortened by darkness. A caller that supplies `distance_feet` is never
+capped: the referee places what the referee spawns.
 """
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -137,7 +144,7 @@ def start_encounter(
         kind: `"wandering"`, `"keyed"`, or `"spawned"`.
         area_ref: The keyed area's state reference, when keyed.
         distance_feet: A fixed distance; `None` rolls 2d6 × 10 on the encounter
-            stream.
+            stream and caps the result at the party cell's sight line.
         monsters_roll_surprise: False when the monsters can never be surprised.
         monsters_aware: True when the monsters expect intruders.
         party_aware: True when the party heard the room.
@@ -146,6 +153,7 @@ def start_encounter(
     Returns:
         The encounter-opening events.
     """
+    from osrlib.crawl import exploration
     from osrlib.crawl.session import ENCOUNTER_STREAM
 
     stream = session.streams.get(ENCOUNTER_STREAM)
@@ -178,6 +186,16 @@ def start_encounter(
     if distance_feet is None:
         rolled_tens: int = stream.randbelow(6) + 1 + stream.randbelow(6) + 1
         distance_feet = rolled_tens * 10
+        # RAW rolls 2d6 × 10' only "if there is uncertainty"; otherwise "the
+        # situation in which the encounter occurs" fixes the distance — and the
+        # walls the party is standing between are that situation. The roll is
+        # therefore capped at the cell's longest straight sight line: a corridor
+        # keeps the full hundred and twenty feet, while a twenty-foot room cannot
+        # open at eighty. The cap reads the result, never the stream, so the draw
+        # sequence is the same bounded or not.
+        ceiling = exploration._sight_line_feet(session)
+        if ceiling is not None:
+            distance_feet = min(distance_feet, ceiling)
 
     group_models = [
         EncounterGroup(

@@ -252,6 +252,83 @@ def _known_door(session, direction: Direction):
     return edge, state
 
 
+# ---------------------------------------------------------------------- sight lines
+
+# The dungeon grid is authored at the classic ten-foot square, so a torch's
+# thirty-foot radius reaches three cells of open floor and a straight run of
+# three cells is thirty feet of sight.
+_CELL_FEET = 10
+
+
+def _sight_passes(session, level, location, cell: Position, direction: Direction) -> bool:
+    """Whether sight (and torchlight) crosses one cell edge.
+
+    Open floor and an open, non-secret door let light through; walls, blocked
+    edges, and shut or undiscovered-secret doors stop it — the same passability
+    the mover and the edge projection already agree on.
+
+    Args:
+        session (osrlib.crawl.session.GameSession): The running session.
+        level (osrlib.crawl.dungeon.LevelSpec): The level holding the cell.
+        location: The party's dungeon location, for the door overlay's refs.
+        cell: The cell sight leaves.
+        direction: Which of the cell's four edges sight crosses.
+
+    Returns:
+        True when sight crosses the edge.
+    """
+    edge = level.edge(cell, direction)
+    if edge.kind is EdgeKind.OPEN:
+        return True
+    if edge.kind is EdgeKind.DOOR:
+        ref = edge_ref(location.dungeon_id, location.level_number, cell, direction)
+        state = session.dungeon_state.doors.get(ref)
+        if edge.door.kind == "secret" and (state is None or not state.discovered):
+            return False
+        return bool(state.open) if state is not None else edge.door.starts_open
+    return False
+
+
+def _sight_line_feet(session) -> int | None:
+    """The longest unobstructed straight sight line from the party's cell, in feet.
+
+    Sight runs cell by cell along each of the four grid directions, crossing only
+    the edges `_sight_passes` allows, and the longest of the four runs is how far
+    the space lets the party see from where it stands: a chamber's own span inside
+    a chamber, the whole passage down a straight corridor. On a rectangular room
+    this equals the room's extent from the party's cell, since the farthest corner
+    is exactly the longer of the two runs away in grid (Chebyshev) distance.
+
+    This is geometry, never illumination: darkness never shortens the line,
+    because a monster the party cannot see is still exactly as far away as it is.
+    Light governs surprise, not distance.
+
+    Args:
+        session (osrlib.crawl.session.GameSession): The running session.
+
+    Returns:
+        The sight line in feet — never shorter than one cell — or `None` when the
+        party is not standing on a dungeon cell.
+    """
+    location = _location(session)
+    if location.kind != "dungeon":
+        return None
+    try:
+        level = _level(session)
+    except ValueError:
+        return None
+    origin = _position(session)
+    longest = 0
+    for direction in Direction:
+        cell = origin
+        run = 0
+        while _sight_passes(session, level, location, cell, direction):
+            cell = step(cell, direction)
+            run += 1
+        longest = max(longest, run)
+    return max(1, longest) * _CELL_FEET
+
+
 # ---------------------------------------------------------------------- light gates
 
 

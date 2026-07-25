@@ -761,7 +761,20 @@ of the party") but the party may be. Locked by
 ### The encounter procedure
 
 Every encounter opens with surprise, a 2d6 × 10' distance roll, and reaction —
-keyed encounters included (rooms are abstracted onto the same track). Keyed
+keyed encounters included (rooms are abstracted onto the same track). The distance
+roll is bounded by the space it happens in: RAW rolls 2d6 × 10' only "if there is
+uncertainty", because "the situation in which the encounter occurs often determines
+how far away the monster is", and the walls around the party's cell are that
+situation. Pinned: a rolled distance caps at the longest unobstructed straight sight
+line from the party's cell, taken across the four grid directions through the edges
+sight crosses (open floor, open non-secret doors) — on a rectangular room exactly
+that room's extent from the cell the party stands on, down a straight corridor the
+whole passage, so the printed 20'–120' band stays fully available wherever the space
+affords it. The floor is one cell, 10', so a sealed cell never yields 0'; darkness
+never shortens the line, since light governs surprise and not distance (a monster
+the party cannot see is still exactly as far away as it is); and a caller-supplied
+distance — every referee spawn — is never capped. The cap reads the rolled result
+and never the stream, so bounding consumes no randomness. Keyed
 awareness comes from the area's flag, a failed door forcing alerts the room, the
 lit-party rule skips the monsters' surprise roll entirely, and a successful listen
 marks party awareness. Parley re-rolls are uncapped, each a fresh roll with the
@@ -782,7 +795,8 @@ one turn)`, which may itself land mid-turn when the encounter started mid-turn
 its end — the fiction moves on (a dead troll's pending revival is post-battle
 narration); an evaded keyed encounter re-triggers fresh on the next entry. Locked
 by `test_encounter.py`, the free rounds by
-`test_encounter.py::TestSurpriseFreeRounds`.
+`test_encounter.py::TestSurpriseFreeRounds`, the distance bound by
+`test_encounter.py::TestEncounterDistance`.
 
 ### Evasion and pursuit
 
