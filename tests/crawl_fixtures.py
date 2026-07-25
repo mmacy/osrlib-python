@@ -46,6 +46,7 @@ from osrlib.data import load_classes
 __all__ = [
     "build_adventure",
     "build_party",
+    "build_sightline_adventure",
 ]
 
 
@@ -163,6 +164,40 @@ def build_adventure(wandering_chance: int = 1) -> Adventure:
         description="A two-level test dungeon.",
         town=TownSpec(name="Threshold", services=("inn", "trader"), travel_turns={"delve": 6}),
         dungeons=(DungeonSpec(id="delve", name="The Delve", levels=(level_1, level_2)),),
+    )
+
+
+def build_sightline_adventure() -> Adventure:
+    """Build the one-level sight-line dungeon: four cells with four different views.
+
+    Level 1 (15 × 5), four unconnected pieces the referee places the party into:
+
+    ```text
+        x0   x1   x2  ...  x14
+    y0  [chamber———————]           (0,0)–(2,0): a sealed 30' chamber
+    y2  clo|door|corr————————————  (0,2) closet, door east, then (1,2)–(14,2)
+    y4  seal                       (0,4): a sealed cell with no edges at all
+    ```
+
+    The sight lines, in feet: the corridor cell (1,2) sees 130' east (past the
+    printed 2d6 × 10' maximum, so nothing there is ever clamped); the chamber's
+    west end (0,0) sees 20'; the sealed cell (0,4) sees nothing, and the closet
+    (0,2) sees nothing either until its door opens onto the corridor.
+    """
+    edges: dict[str, Edge] = {}
+    _open(edges, (0, 0), Direction.EAST)
+    _open(edges, (1, 0), Direction.EAST)
+    _door(edges, (0, 2), Direction.EAST)  # the closet's door onto the corridor
+    for x in range(1, 14):
+        _open(edges, (x, 2), Direction.EAST)
+    level = LevelSpec(
+        number=1, width=15, height=5, edges=edges, entrance=(1, 2), wandering=WanderingSpec(chance_in_six=0)
+    )
+    return Adventure(
+        name="The Sight Lines",
+        description="A level built to measure what the party can see.",
+        town=TownSpec(name="Threshold", travel_turns={"sightlines": 1}),
+        dungeons=(DungeonSpec(id="sightlines", name="Sight Lines", levels=(level,)),),
     )
 
 

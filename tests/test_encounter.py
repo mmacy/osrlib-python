@@ -1,6 +1,6 @@
 """Encounter procedure tests: surprise, stances, parley, evasion, pursuit, conclusion."""
 
-from crawl_fixtures import build_adventure, build_party
+from crawl_fixtures import build_adventure, build_party, build_sightline_adventure
 from osrlib.core.clock import ROUNDS_PER_TURN
 from osrlib.core.effects import Condition, has_condition
 from osrlib.core.items import Coins
@@ -44,6 +44,13 @@ def start(session, template_id="goblin", count=2, distance=40, **kwargs):
     return encounter_module.start_encounter(
         session, groups=[(template_id, instances)], kind="spawned", distance_feet=distance, **kwargs
     )
+
+
+# The sight-line level's four vantage points (see `build_sightline_adventure`).
+CHAMBER_CELL = (0, 0)
+CLOSET_CELL = (0, 2)
+CORRIDOR_CELL = (1, 2)
+SEALED_CELL = (0, 4)
 
 
 class TestSurprise:
@@ -336,6 +343,118 @@ class TestConclusion:
         # Evading leaves the keyed encounter unresolved: it re-triggers.
         session.execute(EngageBattle()) if session.mode.value == "encounter" else None
         assert session.mode.value == "battle"
+
+
+class TestEncounterDistance:
+    """The rolled distance is bounded by the space: RAW rolls only "if there is uncertainty"."""
+
+    def test_a_long_corridor_keeps_the_full_2d6_range(self):
+        # The corridor affords 130' of straight sight, so no roll is ever cut and
+        # the distances span the printed 20'–120'.
+        distances = {self.rolled(seed, CORRIDOR_CELL) for seed in range(60)}
+        assert distances <= set(range(20, 130, 10))
+        assert max(distances) > 100  # nothing clipped the top of the range
+        assert len(distances) > 5  # the roll still varies
+
+    def test_a_small_chamber_clamps_to_its_own_span(self):
+        # A three-cell chamber, sealed: 20' from the west end to the east end.
+        assert {self.rolled(seed, CHAMBER_CELL) for seed in range(60)} == {20}
+
+    def test_a_sealed_cell_falls_back_to_the_one_cell_floor(self):
+        # Nothing to see in any direction; the clamp never produces 0'.
+        assert {self.rolled(seed, SEALED_CELL) for seed in range(60)} == {10}
+
+    def test_a_keyed_encounter_opens_within_the_room_it_is_keyed_to(self):
+        # The reported bug's shape: goblins keyed to a 20' room, entered through
+        # its door, can no longer greet the party from eighty feet away.
+        for seed in range(20):
+            session = quiet_session(seed=seed)
+            session.execute(
+                PlaceParty(
+                    location=PartyLocation(
+                        kind="dungeon", dungeon_id="delve", level_number=1, position=(2, 0), facing=Direction.SOUTH
+                    )
+                )
+            )
+            session.dungeon_state.door("delve:1:2,1:north").open = True
+            result = session.execute(MoveParty(direction=Direction.SOUTH))
+            assert session.encounter is not None and session.encounter.kind == "keyed"
+            opened = next(event for event in result.events if event.code == "encounter.started")
+            assert opened.distance_feet == 10
+
+    def test_a_shut_door_shortens_the_line_and_opening_it_restores_the_roll(self):
+        # One cell, one door: shut, the closet is all there is; open, the roll
+        # runs the full corridor beyond it — the same roll, off the same draws.
+        for seed in range(30):
+            assert self.rolled(seed, CLOSET_CELL) == 10
+            assert self.rolled(seed, CLOSET_CELL, open_closet=True) == self.rolled(seed, CORRIDOR_CELL)
+
+    def test_darkness_never_shortens_the_line(self):
+        # Light governs surprise, not distance: an unseen monster down a dark
+        # corridor is still exactly as far away as it is.
+        dark = self.sighting_session(seed=3, cell=CORRIDOR_CELL)
+        assert dark.party_light()[0] is False
+        assert exploration._sight_line_feet(dark) == 130
+        assert max(self.rolled(seed, CORRIDOR_CELL) for seed in range(60)) > 30  # past a torch's radius
+
+    def test_an_explicit_distance_is_never_bounded(self):
+        # The referee places what the referee spawns.
+        session = self.sighting_session(seed=3, cell=SEALED_CELL)
+        instances = session.spawn("goblin", 2)
+        encounter_module.start_encounter(
+            session,
+            groups=[("goblin", instances)],
+            kind="spawned",
+            distance_feet=90,
+            pinned_stance=ReactionResult.INDIFFERENT,
+        )
+        assert session.encounter.groups[0].distance_feet == 90
+
+    def test_the_bound_consumes_no_randomness(self):
+        # Same seed, same draws: the clamp reads the rolled result and never the
+        # stream, so a bounded encounter leaves the stream exactly where an
+        # unbounded one does.
+        states = []
+        for cell in (SEALED_CELL, CORRIDOR_CELL):
+            session = self.sighting_session(seed=17, cell=cell)
+            instances = session.spawn("goblin", 2)
+            encounter_module.start_encounter(
+                session, groups=[("goblin", instances)], kind="wandering", pinned_stance=ReactionResult.INDIFFERENT
+            )
+            states.append(session.streams.export_states()[ENCOUNTER_STREAM].model_dump(mode="json"))
+        assert states[0] == states[1]
+
+    def test_the_bounded_roll_is_deterministic(self):
+        assert self.rolled(11, CHAMBER_CELL) == self.rolled(11, CHAMBER_CELL)
+        assert self.rolled(11, CORRIDOR_CELL) == self.rolled(11, CORRIDOR_CELL)
+
+    # ------------------------------------------------------------------ helpers
+
+    @staticmethod
+    def sighting_session(seed: int, cell) -> GameSession:
+        """A session on the sight-line level, party unlit and standing on `cell`."""
+        session = GameSession.new(build_party(), build_sightline_adventure(), seed=seed)
+        session.execute(EnterDungeon(dungeon_id="sightlines"))
+        session.execute(
+            PlaceParty(
+                location=PartyLocation(
+                    kind="dungeon", dungeon_id="sightlines", level_number=1, position=cell, facing=Direction.EAST
+                )
+            )
+        )
+        return session
+
+    @classmethod
+    def rolled(cls, seed: int, cell, *, open_closet: bool = False) -> int:
+        """The distance an unpinned encounter opens at, from `cell`, on `seed`."""
+        session = cls.sighting_session(seed, cell)
+        if open_closet:
+            session.dungeon_state.door("sightlines:1:1,2:west").open = True
+        instances = session.spawn("goblin", 2)
+        encounter_module.start_encounter(
+            session, groups=[("goblin", instances)], kind="wandering", pinned_stance=ReactionResult.INDIFFERENT
+        )
+        return session.encounter.groups[0].distance_feet
 
 
 class TestSurpriseFreeRounds:
