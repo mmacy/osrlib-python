@@ -5,7 +5,8 @@ with the geometry left behind: sections of entries that mirror
 [`AreaSpec`][osrlib.crawl.dungeon.AreaSpec] minus its cells, each section
 optionally carrying a level's [`WanderingSpec`][osrlib.crawl.dungeon.WanderingSpec],
 plus the bundled [`MonsterTemplate`][osrlib.core.monsters.MonsterTemplate]s the
-entries' encounters reference — the pack's closure. Packs are how an authoring
+entries' encounters and the sections' wandering tables reference — the pack's
+closure. Packs are how an authoring
 tool moves stocked rooms from one adventure to another: the consumer writes an
 entry's content into a target area it already has, so a pack never places cells,
 transitions, or any other geometry.
