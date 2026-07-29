@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- `osrlib.crawl.content_pack` — content packs, the portable form of finished keyed content. A `ContentPack` holds sections of geometry-free entries (`AreaSpec` minus its cells: prose, keyed encounter, room trap, treasure declaration, features), each section optionally carrying a level's `WanderingSpec`, plus the bundled `MonsterTemplate`s the entries reference — the pack's closure. Section ids, pack-wide entry ids, and bundled monster ids are unique by construction; dangling references stay legal, and `validate_content_pack` reports them as structured `PackFinding`s (dotted snake_case codes, the `Rejection` discipline) instead of raising. Packs serialize as stamped `"content_pack"` documents via `ContentPack.to_document`/`from_document` with the documented acceptance rules: older schema versions load, newer ones fail with `SaveVersionError`, and any write re-stamps at current versions.
 - `TakeTreasure.recipient_id` (optional) — names the single party member who fills their pack from the cache or pile, in place of the default spread. The named member is also the one who reaches in, so they are the character an unresolved treasure trap springs on. Goods beyond that member's own maximum load stay on the cell.
 - `ItemsLeftBehindEvent` (`exploration.item.left_behind`, player visibility) — reports the goods and coin a haul left in the drop pile on the party's cell because the carriers had no capacity for them.
 
@@ -62,7 +63,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The documentation site: quickstart, guides, front-end walk-throughs, and a full reference for every command, event, rejection code, message code, RNG stream, and content id.
 - The typed surface: complete type hints under `py.typed`, checked in CI.
 
-[Unreleased]: https://github.com/mmacy/osrlib-python/compare/v1.2.1...HEAD
+[Unreleased]: https://github.com/mmacy/osrlib-python/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/mmacy/osrlib-python/compare/v1.2.1...v1.3.0
 [1.2.1]: https://github.com/mmacy/osrlib-python/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/mmacy/osrlib-python/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/mmacy/osrlib-python/compare/v1.0.0...v1.1.0
