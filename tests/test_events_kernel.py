@@ -112,6 +112,7 @@ def sample_event(event_class, code):
         "SpellDeclaredEvent": dict(caster_id="pc-1", spell_id="sleep"),
         "GroupMovedEvent": dict(group_id="group-1", distance_feet=30),
         "MonsterFledEvent": dict(group_id="group-1"),
+        "MonstersLeftBehindEvent": dict(group_id="group-2", source_group_id="group-1", count=2),
         "MonsterDefeatedEvent": dict(monster_id="monster-0001", template_id="goblin", outcome="slain", xp=5),
         "BattleEndedEvent": dict(),
         "FlagSetEvent": dict(key="portcullis_open", value=True),

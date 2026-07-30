@@ -285,6 +285,9 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
     "battle.group.moved": lambda event: f"{event.group_id} is now {event.distance_feet}' away.",
     "battle.side.fled": lambda event: f"{event.group_id} flees the battle!",
     "battle.side.surrendered": lambda event: f"{event.group_id} surrenders.",
+    "battle.group.left_behind": lambda event: (
+        f"{event.source_group_id} leaves {event.count} helpless behind as {event.group_id}."
+    ),
     "battle.monster.defeated": lambda event: f"{event.monster_id} ({event.template_id}) is {event.outcome}.",
     "battle.ended.victory": lambda event: "The battle is won.",
     "battle.ended.fled": lambda event: "The party flees the battle.",

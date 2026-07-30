@@ -47,6 +47,7 @@ from osrlib.core.combat import (
     SaveCategory,
     TargetingMode,
     alignments_differ,
+    cannot_move,
     incapacitated,
     morale_modifier,
     morale_triggers,
@@ -80,6 +81,7 @@ from osrlib.crawl.events import (
     GameOverEvent,
     GroupMovedEvent,
     MonsterFledEvent,
+    MonstersLeftBehindEvent,
     SpellDeclaredEvent,
 )
 from osrlib.data import load_classes, load_spells
@@ -551,11 +553,23 @@ def _check_ends(session, *, party_retreating: bool) -> list[Event] | None:
         from osrlib.crawl.encounter import PursuitState
 
         session.battle = None
+        # Only a group still willing and able to run chases: not the broken and
+        # not the shaken (they are fleeing themselves), and not a group whose
+        # living members all lie helpless — retreat from those simply succeeds.
+        pursuers = [
+            group
+            for group in groups
+            if not group.fled
+            and not group.surrendered
+            and not group.fleeing
+            and not _group_all_shaken(session, group)
+            and encounter_module._group_can_pursue(session, group)
+        ]
+        if not pursuers:
+            return [BattleEndedEvent(code="battle.ended.fled"), *encounter_module.end_encounter(session, "evaded")]
         session.mode = SessionMode.ENCOUNTER
         session.encounter.evading = True
-        session.encounter.pursuit = PursuitState(
-            gap_feet=min(group.distance_feet for group in groups if not group.fled and not group.surrendered)
-        )
+        session.encounter.pursuit = PursuitState(gap_feet=min(group.distance_feet for group in pursuers))
         return [BattleEndedEvent(code="battle.ended.fled")]
     return None
 
@@ -1696,6 +1710,11 @@ def _monster_block(
         if not free_round:
             events.extend(_group_morale(session, group, fire_damaged))
         if group.fleeing or _group_all_shaken(session, group):
+            if not any(not cannot_move(monster) for monster in _living_monsters(session, group)):
+                # A broken side that cannot run — slept or webbed mid-flight —
+                # lies where it is; flight resumes only if someone can move again.
+                continue
+            events.extend(_leave_helpless_behind(session, group))
             rate = _pursuer_full_rate(session, group)
             group.distance_feet += rate
             events.append(GroupMovedEvent(group_id=group.id, distance_feet=group.distance_feet))
@@ -1713,8 +1732,6 @@ def _monster_block(
             if has_condition(monster, Condition.DEAD) or has_condition(monster, Condition.CONFUSED):
                 continue
             if action.kind == "close" and not moved:
-                from osrlib.core.combat import cannot_move
-
                 if cannot_move(monster):
                     continue
                 rate = _encounter_rate(monster, session)
@@ -1880,6 +1897,37 @@ def _pursuer_full_rate(session, group) -> int:
     return base.rate_feet
 
 
+def _leave_helpless_behind(session, group) -> list[Event]:
+    """Split a routing group's immobile living members into a stay-behind group.
+
+    Fleeing is movement, and a member who cannot move cannot run: the runners keep
+    the original group — its flags, and the shared group bundle they carry off
+    ("routed ones flee with theirs") — while the helpless become a fresh
+    non-fleeing group where the side broke, at the current distance, their
+    individual treasure bundles still on them. Dead members also stay with the
+    runners' group record: outcome classification and loot drops key off the
+    `dead` condition before any group flag, so their bookkeeping is unchanged.
+    """
+    from osrlib.crawl.encounter import EncounterGroup
+
+    left_ids = [monster.id for monster in _living_monsters(session, group) if cannot_move(monster)]
+    if not left_ids:
+        return []
+    stay_behind = EncounterGroup(
+        id=session.allocator.allocate("group"),
+        label=group.label,
+        monster_ids=left_ids,
+        distance_feet=group.distance_feet,
+    )
+    for monster_id in left_ids:
+        bundle = group.member_treasure.pop(monster_id, None)
+        if bundle is not None:
+            stay_behind.member_treasure[monster_id] = bundle
+    group.monster_ids = [monster_id for monster_id in group.monster_ids if monster_id not in set(left_ids)]
+    session.encounter.groups.append(stay_behind)
+    return [MonstersLeftBehindEvent(group_id=stay_behind.id, source_group_id=group.id, count=len(left_ids))]
+
+
 def _group_morale(session, group, fire_damaged) -> list[Event]:
     """Morale auto-invoked: the kernel's triggers through the per-battle tracker.
 
@@ -1892,6 +1940,12 @@ def _group_morale(session, group, fire_damaged) -> list[Event]:
     if score is None or group.fleeing:
         return []
     members = [session.combatant(monster_id) for monster_id in group.monster_ids]
+    if all(incapacitated(member) for member in members):
+        # No one on the side is awake to break: a morale check is a decision, and
+        # a side that is entirely asleep, paralysed, or petrified makes none. The
+        # triggers stay pending — unconsumed — so a member who can act again
+        # judges them then.
+        return []
     triggers = morale_triggers(members)
     acted = state.morale_acted.setdefault(group.id, [])
     events: list[Event] = []

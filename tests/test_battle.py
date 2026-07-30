@@ -1,7 +1,7 @@
 """Battle machine tests: rounds, disruption, effect consumption, footprints, morale."""
 
 from crawl_fixtures import build_adventure, build_party
-from osrlib.core.effects import Condition, EffectDefinition, ModifierSpec, has_condition
+from osrlib.core.effects import ActiveCondition, Condition, EffectDefinition, ModifierSpec, has_condition
 from osrlib.core.ruleset import Ruleset
 from osrlib.core.tables import ReactionResult
 from osrlib.crawl import battle as battle_module
@@ -11,6 +11,7 @@ from osrlib.crawl.commands import (
     EngageBattle,
     EnterDungeon,
     EquipItem,
+    Evade,
     GrantItem,
     LightSource,
     ReorderParty,
@@ -530,6 +531,99 @@ class TestMoraleAndEnds:
         if session.mode.value == "exploring":
             assert session.defeated_monsters
             assert all(record.xp == 5 for record in session.defeated_monsters if record.template_id == "goblin")
+
+
+def sleep_monsters(session, monster_ids):
+    for monster_id in monster_ids:
+        session.monsters[monster_id].conditions = (
+            ActiveCondition(condition=Condition.ASLEEP, effect_id="effect-9999"),
+        )
+
+
+class TestHelplessSidesDoNotRun:
+    """A side with no one awake makes no morale decision and cannot flee (issue: slept groups broke and ran)."""
+
+    def test_all_asleep_group_neither_checks_morale_nor_flees(self):
+        session = battle_session(count=2, distance=20, seed=9)
+        group = session.encounter.groups[0]
+        sleep_monsters(session, group.monster_ids)
+        result = session.execute(ResolveBattleRound(declarations=hold_all(session)))
+        assert result.accepted
+        codes = [getattr(event, "code", "") for event in result.events]
+        assert not any(code.startswith("combat.morale.") for code in codes)
+        assert "battle.side.fled" not in codes
+        assert "battle.group.moved" not in codes
+        assert group.fleeing is False
+        assert group.distance_feet == 20
+
+    def test_pending_trigger_is_judged_once_someone_wakes(self):
+        session = battle_session(count=2, distance=20, seed=9)
+        group = session.encounter.groups[0]
+        sleep_monsters(session, group.monster_ids)
+        result = session.execute(ResolveBattleRound(declarations=hold_all(session)))
+        assert not any(getattr(event, "code", "").startswith("combat.morale.") for event in result.events)
+        # One goblin shakes the spell: half the side is still down, and the woken
+        # goblin now judges the half-incapacitated trigger the gate left pending.
+        session.monsters[group.monster_ids[0]].conditions = ()
+        result = session.execute(ResolveBattleRound(declarations=hold_all(session)))
+        assert result.accepted
+        assert any(getattr(event, "code", "").startswith("combat.morale.") for event in result.events)
+
+    def test_fleeing_group_leaves_its_sleepers_behind(self):
+        session = battle_session(count=3, distance=20, seed=9)
+        group = session.encounter.groups[0]
+        group.fleeing = True
+        sleeper_id = group.monster_ids[0]
+        sleep_monsters(session, [sleeper_id])
+        result = session.execute(ResolveBattleRound(declarations=hold_all(session)))
+        assert result.accepted
+        left_behind = next(event for event in result.events if event.code == "battle.group.left_behind")
+        assert left_behind.source_group_id == group.id
+        assert left_behind.count == 1
+        stay_behind = next(entry for entry in session.encounter.groups if entry.id == left_behind.group_id)
+        assert stay_behind.monster_ids == [sleeper_id]
+        assert stay_behind.distance_feet == 20  # where the side broke
+        assert stay_behind.fleeing is False
+        assert sleeper_id not in group.monster_ids
+        assert group.distance_feet > 20  # the runners kept running
+
+    def test_fleeing_group_fully_asleep_stops_where_it_is(self):
+        session = battle_session(count=2, distance=20, seed=9)
+        group = session.encounter.groups[0]
+        group.fleeing = True
+        sleep_monsters(session, group.monster_ids)
+        result = session.execute(ResolveBattleRound(declarations=hold_all(session)))
+        assert result.accepted
+        codes = [getattr(event, "code", "") for event in result.events]
+        assert "battle.group.moved" not in codes
+        assert "battle.group.left_behind" not in codes
+        assert group.distance_feet == 20
+        assert session.mode.value == "battle"  # still at the party's mercy, not escaped
+
+    def test_retreat_from_helpless_monsters_escapes_without_pursuit(self):
+        session = battle_session(count=2, distance=40, seed=9)
+        sleep_monsters(session, session.encounter.groups[0].monster_ids)
+        declarations = tuple(
+            BattleDeclaration(character_id=member.id, action="move", move="retreat")
+            for member in session.party.living_members()
+        )
+        result = session.execute(ResolveBattleRound(declarations=declarations))
+        assert result.accepted
+        codes = [getattr(event, "code", "") for event in result.events]
+        assert "battle.ended.fled" in codes
+        assert "encounter.ended" in codes
+        assert session.encounter is None
+        assert session.mode.value == "exploring"
+
+    def test_evading_helpless_monsters_succeeds_outright(self):
+        # Hell hounds outrun the party, so only the sleep keeps this from a pursuit.
+        session = battle_session(template_id="hellhound_3", count=2, distance=40, seed=9, engage=False)
+        sleep_monsters(session, session.encounter.groups[0].monster_ids)
+        result = session.execute(Evade())
+        assert result.accepted
+        codes = [getattr(event, "code", "") for event in result.events]
+        assert "encounter.evasion.succeeded" in codes
+        assert session.encounter is None
 
 
 class TestDefaultPolicy:
