@@ -10,7 +10,9 @@ full contents, at
 [`generate_unguarded_treasure`][osrlib.core.treasure.generate_unguarded_treasure] for
 an unguarded cache, or at
 [`generate_magic_item`][osrlib.core.treasure.generate_magic_item] for a single magic
-item rolled à la carte.
+item rolled à la carte, or at
+[`instantiate_magic_item`][osrlib.core.treasure.instantiate_magic_item] for a named
+item's creation details alone.
 
 Every treasure-type entry parses on one fixed grammar: an optional `NN%: ` presence
 gate, then a coin quantity (dice with an optional `× K` multiplier folded into the
@@ -74,6 +76,7 @@ __all__ = [
     "generate_treasure",
     "generate_treasure_entries",
     "generate_unguarded_treasure",
+    "instantiate_magic_item",
     "plan_treasure_ref",
     "roll_room_contents",
 ]
@@ -743,6 +746,78 @@ def _generate_scroll_spells(template: Any, *, tier: str, stream: RngStream) -> d
     return {"spell_list": spell_list, "spells": tuple(spell_ids)}
 
 
+def instantiate_magic_item(
+    item_id: str,
+    *,
+    tier: str,
+    stream: RngStream,
+    allocator: Any,
+    params: Mapping[str, Any] | None = None,
+) -> MagicItemInstance:
+    """Instantiate one specific magic item template, rolling its creation details.
+
+    The named-item half of [`generate_magic_item`][osrlib.core.treasure.generate_magic_item]:
+    no table selection, just the depth-first detail resolution for `item_id` — the
+    *Magic Armour Type* d8 for generic armour, charges (rolled at creation,
+    referee-only forever after), quantities, wish counts, scroll contents, the
+    energy-drain sword's total, and sword sentience last. This is how hand-placed
+    magic items ([`FeatureSpec.magic_item_ids`][osrlib.crawl.dungeon.FeatureSpec])
+    become instances: the author names the item, the details roll on the treasure
+    stream when it enters play.
+
+    Args:
+        item_id: An id from [`load_magic_items`][osrlib.data.load_magic_items] —
+            see [the magic item id index][magic-items-index].
+        tier: `"basic"` or `"expert"` — the printed B or X columns, where a
+            detail differs by tier (scroll contents, some quantities).
+        stream: The treasure stream.
+        allocator: The id allocator (`magic-item` prefix).
+        params: A generation row's parameter overrides (`quantity_dice`,
+            `basic_quantity_fixed`, `wish_count_dice`); `None` for direct
+            placement, which resolves from the template alone.
+
+    Returns:
+        The generated instance.
+
+    Raises:
+        ValueError: If `tier` is unknown or `item_id` is not in the catalog.
+    """
+    from osrlib.core.items import MagicItemCategory, MagicItemInstance
+    from osrlib.data import load_magic_items
+
+    if tier not in ("basic", "expert"):
+        raise ValueError(f"tier must be 'basic' or 'expert', got {tier!r}")
+    row_params: Mapping[str, Any] = params if params is not None else {}
+    catalog = load_magic_items()
+    template = catalog.get(item_id)
+    instance = MagicItemInstance(
+        instance_id=allocator.allocate("magic-item"),
+        template_id=item_id,
+        base_item_id=template.base_item_id,
+    )
+    if template.category is MagicItemCategory.ARMOUR and template.base_item_id is None:
+        instance.base_item_id = catalog.armour_type.base_for_roll(stream.randbelow(8) + 1)
+    if template.charges_dice is not None:
+        instance.charges_remaining = roll(template.charges_dice, stream).total
+    quantity_dice = row_params.get("quantity_dice", template.quantity_dice)
+    if quantity_dice is not None:
+        if tier == "basic" and "basic_quantity_fixed" in row_params:
+            instance.quantity = _int_param(row_params, "basic_quantity_fixed")
+        else:
+            instance.quantity = roll(str(quantity_dice), stream).total
+    wish_dice = row_params.get("wish_count_dice", template.params.get("wish_count_dice"))
+    if wish_dice is not None:
+        instance.state = {**instance.state, "wishes_remaining": roll(str(wish_dice), stream).total}
+    if "spell_count" in template.params:
+        instance.state = {**instance.state, **_generate_scroll_spells(template, tier=tier, stream=stream)}
+    if template.effect is not None and template.effect.kind == "on_hit_drain":
+        drains = roll(str(template.effect.params["total_drains_dice"]), stream).total
+        instance.state = {**instance.state, "drains_remaining": drains}
+    if template.category is MagicItemCategory.SWORD:
+        instance.sentience = _generate_sentience(stream=stream)
+    return instance
+
+
 def generate_magic_item(
     category: MagicItemType | None,
     *,
@@ -775,7 +850,6 @@ def generate_magic_item(
     Raises:
         ValueError: If `tier` is unknown or `category` is excluded.
     """
-    from osrlib.core.items import MagicItemCategory, MagicItemInstance
     from osrlib.data import load_magic_items, load_treasure_tables
 
     if tier not in ("basic", "expert"):
@@ -794,36 +868,10 @@ def generate_magic_item(
         row = sub_table.row_for_basic(stream.randbelow(sub_table.basic_die) + 1)
     else:
         row = sub_table.row_for_expert(stream.randbelow(100) + 1)
-    instances: list[MagicItemInstance] = []
-    for item_id in row.item_ids:
-        template = catalog.get(item_id)
-        instance = MagicItemInstance(
-            instance_id=allocator.allocate("magic-item"),
-            template_id=item_id,
-            base_item_id=template.base_item_id,
-        )
-        if template.category is MagicItemCategory.ARMOUR and template.base_item_id is None:
-            instance.base_item_id = catalog.armour_type.base_for_roll(stream.randbelow(8) + 1)
-        if template.charges_dice is not None:
-            instance.charges_remaining = roll(template.charges_dice, stream).total
-        quantity_dice = row.params.get("quantity_dice", template.quantity_dice)
-        if quantity_dice is not None:
-            if tier == "basic" and "basic_quantity_fixed" in row.params:
-                instance.quantity = _int_param(row.params, "basic_quantity_fixed")
-            else:
-                instance.quantity = roll(str(quantity_dice), stream).total
-        wish_dice = row.params.get("wish_count_dice", template.params.get("wish_count_dice"))
-        if wish_dice is not None:
-            instance.state = {**instance.state, "wishes_remaining": roll(str(wish_dice), stream).total}
-        if "spell_count" in template.params:
-            instance.state = {**instance.state, **_generate_scroll_spells(template, tier=tier, stream=stream)}
-        if template.effect is not None and template.effect.kind == "on_hit_drain":
-            drains = roll(str(template.effect.params["total_drains_dice"]), stream).total
-            instance.state = {**instance.state, "drains_remaining": drains}
-        if template.category is MagicItemCategory.SWORD:
-            instance.sentience = _generate_sentience(stream=stream)
-        instances.append(instance)
-    return instances
+    return [
+        instantiate_magic_item(item_id, tier=tier, stream=stream, allocator=allocator, params=row.params)
+        for item_id in row.item_ids
+    ]
 
 
 def generate_treasure_entries(

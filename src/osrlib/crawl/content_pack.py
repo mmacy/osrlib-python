@@ -66,6 +66,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from osrlib.core.items import EquipmentCatalog
 from osrlib.core.monsters import MonsterCatalog, MonsterTemplate
 from osrlib.crawl.dungeon import AreaTreasureSpec, FeatureSpec, KeyedEncounter, TrapSpec, WanderingSpec
+from osrlib.data import load_magic_items
 from osrlib.errors import ContentValidationError
 from osrlib.versioning import check_document, stamp_document
 
@@ -233,7 +234,10 @@ def validate_content_pack(
 
     Checks every monster reference (keyed-encounter lines and wandering-table
     rows) against the union of the shipped catalog and the pack's bundled
-    monsters, and every feature's `item_ids` against the equipment catalog.
+    monsters, every feature's `item_ids` against the equipment catalog, and every
+    feature's `magic_item_ids` against the shipped magic-item catalog
+    ([`load_magic_items`][osrlib.data.load_magic_items] — packs bundle no magic
+    items, so the check loads it itself).
     Findings are data, not errors: a dangling reference is legal in a pack
     exactly as it is while editing an adventure, and a caller wanting a gate
     checks for a non-empty result.
@@ -250,6 +254,7 @@ def validate_content_pack(
     """
     known_monsters = {template.id for template in monsters.monsters}
     known_monsters.update(template.id for template in pack.monsters)
+    magic = load_magic_items()
     findings: list[PackFinding] = []
 
     def check_items(features: tuple[FeatureSpec, ...], entry_id: str) -> None:
@@ -262,6 +267,19 @@ def validate_content_pack(
                         PackFinding(
                             code="pack.feature.unknown_item",
                             message=f"entry {entry_id!r} feature {feature.id!r} references unknown item {item_id!r}",
+                            entry_id=entry_id,
+                        )
+                    )
+            for item_id in feature.magic_item_ids:
+                try:
+                    magic.get(item_id)
+                except ValueError:
+                    findings.append(
+                        PackFinding(
+                            code="pack.feature.unknown_magic_item",
+                            message=(
+                                f"entry {entry_id!r} feature {feature.id!r} references unknown magic item {item_id!r}"
+                            ),
                             entry_id=entry_id,
                         )
                     )

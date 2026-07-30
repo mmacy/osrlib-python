@@ -1590,6 +1590,7 @@ def _handle_take_treasure(session, command: TakeTreasure) -> tuple[list[Rejectio
     # back to the party rather than stranding the haul on a corpse.
     carriers = [member for member in carriers if not incapacitated(member)] or session.party.living_members()
     from osrlib.core.items import ValuableInstance
+    from osrlib.core.treasure import TREASURE_STREAM, instantiate_magic_item
 
     haul = DropPile(
         coins=feature.coins,
@@ -1604,6 +1605,18 @@ def _handle_take_treasure(session, command: TakeTreasure) -> tuple[list[Rejectio
                 weight_coins=spec.weight_coins,
             )
             for spec in feature.valuables
+        ],
+        # Authored magic items instantiate on take as well: creation details roll
+        # on the treasure stream at the tier in force when the cache is emptied,
+        # exactly as a generated hoard's would.
+        magic_items=[
+            instantiate_magic_item(
+                item_id,
+                tier=_treasure_tier(session),
+                stream=session.streams.get(TREASURE_STREAM),
+                allocator=session.allocator,
+            )
+            for item_id in feature.magic_item_ids
         ],
     )
     state.emptied_caches.append(ref)

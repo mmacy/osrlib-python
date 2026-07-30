@@ -368,10 +368,16 @@ class FeatureSpec(BaseModel):
     Stairs are [`TransitionSpec`][osrlib.crawl.dungeon.TransitionSpec]'s alone — no
     second home. Caches carry hand-placed contents — `item_ids` (any id from
     [`load_equipment`][osrlib.data.load_equipment], see
-    [the equipment id index][equipment-index]) and `coins` — plus an optional
+    [the equipment id index][equipment-index]), `magic_item_ids` (any id from
+    [`load_magic_items`][osrlib.data.load_magic_items], see
+    [the magic item id index][magic-items-index]), and `coins` — plus an optional
     treasure trap, so a cache's contents can be dropped, found, and recovered like
-    any other treasure. `cell` binds the feature to a cell; a feature listed on an
-    area with `cell=None` binds to the whole area.
+    any other treasure. Hand-placed magic items instantiate when the cache is
+    emptied: the author names the item, and its creation details (charges,
+    quantities, sword sentience) roll on the treasure stream via
+    [`instantiate_magic_item`][osrlib.core.treasure.instantiate_magic_item].
+    `cell` binds the feature to a cell; a feature listed on an area with
+    `cell=None` binds to the whole area.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -381,6 +387,7 @@ class FeatureSpec(BaseModel):
     description: str = ""
     cell: Position | None = None
     item_ids: tuple[str, ...] = ()
+    magic_item_ids: tuple[str, ...] = ()
     coins: Coins = Coins()
     valuables: tuple[ValuableSpec, ...] = ()
     trap: TrapSpec | None = None
