@@ -140,10 +140,33 @@ class TestRefereeCommands:
         session = make_session()
         result = session.execute(AwardXP(character_id="character-0001", amount=2500))
         assert result.accepted
+        awarded, leveled = result.events
+        assert awarded.code == "session.xp.awarded"
+        assert leveled.code == "session.level.gained"
+        assert session.member("character-0001").level == 2
+        assert awarded.level_after == 2
+
+    def test_award_xp_emits_the_level_event_fields(self):
+        from osrlib.data import load_classes
+
+        session = make_session()
+        result = session.execute(AwardXP(character_id="character-0001", amount=2500))
+        leveled = result.events[1]
+        assert leveled.character_id == "character-0001"
+        assert leveled.level_before == 1
+        assert leveled.level_after == 2
+        assert leveled.hp_gained >= 1
+        assert leveled.hp_roll is not None
+        assert isinstance(leveled.con_applied, bool)
+        assert leveled.title == load_classes().get("fighter").level_titles[1]
+
+    def test_award_below_threshold_emits_no_level_event(self):
+        session = make_session()
+        result = session.execute(AwardXP(character_id="character-0001", amount=100))
+        assert result.accepted
         (event,) = result.events
         assert event.code == "session.xp.awarded"
-        assert session.member("character-0001").level == 2
-        assert event.level_after == 2
+        assert session.member("character-0001").level == 1
 
     def test_award_xp_clamps_one_level_per_award(self):
         session = make_session()

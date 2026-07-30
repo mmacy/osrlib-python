@@ -12,6 +12,7 @@ from osrlib.crawl.commands import (
     EnterDungeon,
     ForceDoor,
     GrantItem,
+    LearnSpell,
     LightSource,
     MoveParty,
     RollDice,
@@ -145,6 +146,21 @@ class TestReplay:
         # ...and a replay of the command log reproduces the same rolls exactly.
         party_document = party_to_document(build_party().members)
         replayed = replay_game(SEED, party_document, build_adventure(), Ruleset(), accepted)
+        assert session_state(replayed) == session_state(session)
+
+    def test_replay_reproduces_a_learned_spell(self):
+        session = GameSession.new(build_party(), build_adventure(), seed=SEED)
+        commands = [
+            AwardXP(character_id="character-0004", amount=2500),  # level 2 opens a book slot
+            LearnSpell(character_id="character-0004", spell_id="charm_person"),
+        ]
+        accepted = [command for command in commands if session.execute(command).accepted]
+        assert session.member("character-0004").spell_book == ("sleep", "charm_person")
+        restored = load_game(json.loads(json.dumps(save_game(session))))
+        assert restored.member("character-0004").spell_book == ("sleep", "charm_person")
+        party_document = party_to_document(build_party().members)
+        replayed = replay_game(SEED, party_document, build_adventure(), Ruleset(), accepted)
+        assert replayed.member("character-0004").spell_book == ("sleep", "charm_person")
         assert session_state(replayed) == session_state(session)
 
     def test_replay_under_a_different_engine_version_raises(self):

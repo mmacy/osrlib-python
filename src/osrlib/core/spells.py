@@ -131,6 +131,7 @@ __all__ = [
     "forget_excess_memorized",
     "memorize_spells",
     "minimum_caster_level",
+    "open_book_capacity",
     "pop_mirror_image",
     "turn_undead",
     "validate_cast",
@@ -597,6 +598,37 @@ class SpellBookResult(BaseModel):
         return not self.rejections
 
 
+def open_book_capacity(caster: Any, definition: ClassDefinition, catalog: SpellCatalog) -> tuple[int, ...]:
+    """Per-spell-level open spell-book slots: row capacity minus spells held, floored at zero.
+
+    Entry `i` is the number of spells of spell level `i + 1` the caster's book can
+    still take: the current progression row's slot count at that level minus the
+    spells already held there, never below zero. The zero floor carries the
+    book-never-shrinks rule: a drained caster's book may sit over capacity, and an
+    over-full level simply reads as no openings until capacity catches up. Non-arcane
+    classes keep no book, so their answer is the empty tuple.
+
+    Args:
+        caster: The caster: a [`Character`][osrlib.core.character.Character]; its
+            `spell_book` and `level` are read.
+        definition: The caster's [`ClassDefinition`][osrlib.core.classes.ClassDefinition].
+        catalog: The loaded spell catalog, from [`load_spells`][osrlib.data.load_spells].
+
+    Returns:
+        One open-slot count per spell level of the progression row, or `()` for
+        a class with no arcane book.
+    """
+    profile = caster_profile(definition)
+    if profile is None or profile.kind != "arcane":
+        return ()
+    slots = definition.row(caster.level).spell_slots
+    held: dict[int, int] = {}
+    for held_id in caster.spell_book:
+        spell_level = catalog.get(held_id).level
+        held[spell_level] = held.get(spell_level, 0) + 1
+    return tuple(max(0, capacity - held.get(index + 1, 0)) for index, capacity in enumerate(slots))
+
+
 def add_spell_to_book(
     caster: Any, definition: ClassDefinition, catalog: SpellCatalog, spell_id: str
 ) -> SpellBookResult:
@@ -635,10 +667,10 @@ def add_spell_to_book(
         )
     if spell_id in caster.spell_book:
         return SpellBookResult(rejections=(Rejection(code="magic.book.duplicate", params={"spell": spell_id}),))
-    slots = definition.row(caster.level).spell_slots
-    capacity = slots[template.level - 1] if template.level <= len(slots) else 0
-    held = sum(1 for held_id in caster.spell_book if catalog.get(held_id).level == template.level)
-    if held >= capacity:
+    open_slots = open_book_capacity(caster, definition, catalog)
+    if template.level > len(open_slots) or open_slots[template.level - 1] == 0:
+        slots = definition.row(caster.level).spell_slots
+        capacity = slots[template.level - 1] if template.level <= len(slots) else 0
         return SpellBookResult(
             rejections=(
                 Rejection(

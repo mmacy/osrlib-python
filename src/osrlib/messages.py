@@ -331,6 +331,13 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
     "session.xp.awarded": lambda event: (
         f"{event.character_id} gains {event.modified_award} XP (base {event.award}), now level {event.level_after}."
     ),
+    "session.level.gained": lambda event: (
+        f"{event.character_id} advances to level {event.level_after}"
+        + (f" ({event.title})" if event.title is not None else "")
+        + f": +{event.hp_gained} hp"
+        + (f" (rolled {event.hp_roll})" if event.hp_roll is not None else "")
+        + "."
+    ),
     "session.time.advanced": lambda event: f"Time advances {event.n} {event.unit}(s), to round {event.rounds_total}.",
     "session.game_over": lambda event: f"The game is over: {event.reason}.",
     "adjudication.dice_rolled": lambda event: (

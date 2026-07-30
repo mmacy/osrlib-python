@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- `CharacterLeveledUpEvent` (`session.level.gained`, player visibility) — fires immediately after a member's `XpAwardedEvent` whenever an XP award crosses a level threshold, on every award surface: the end-of-adventure award, the immediate timing, and the referee's `AwardXP`. It carries the levels before and after, the hit points gained, the raw hit die roll (`None` past name level, where the gain is the flat-bonus delta), whether the CON modifier applied, and the class's level title at the new level (`None` past the printed title list). Previously a level gain surfaced only as the `level_after` field on the XP award, so a front end had no event to announce the moment on — and no hit-point or title facts to announce it with.
+- `LearnSpell`, a command that adds a spell to an arcane caster's spell book in-session — leveling's new capacity or a mentor's teaching made concrete, driving the core `add_spell_to_book` through the command loop so the addition is validated, logged, and replayed like any other command. Legal in town and while exploring, and no game time passes: the fiction around the learning (the mentor's week, a copied scroll's costs) belongs to the game. The per-spell-level capacity, the duplicate/wrong-list/non-arcane gates, and the book-never-shrinks rule are exactly the core function's, and a successful learning emits the existing `SpellBookUpdatedEvent`.
+- `open_book_capacity` — the per-spell-level count of open spell-book slots: the progression row's capacity minus the spells held at that level, floored at zero (a drained caster's book may sit over capacity and simply reads as no openings), `()` for a class with no arcane book. `add_spell_to_book`'s capacity check now consults it, so the rule has one home a front end can share when rendering what a caster may still learn. Alongside it, `level_title` answers a class's level title at a given level, `None` beyond the printed list — the level event reads it.
+
 ## [1.4.0] - 2026-07-28
 
 ### Added

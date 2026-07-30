@@ -113,6 +113,36 @@ class TestOnReturnAward:
         session.execute(EnterDungeon(dungeon_id="delve"))
         assert session.treasure_snapshot_cp is not None
 
+    def test_the_return_award_reports_each_level_gained(self):
+        session = build_session()
+        session.execute(EnterDungeon(dungeon_id="delve"))
+        session.defeated_monsters.append(
+            DefeatedMonsterRecord(monster_id="monster-0001", template_id="goblin", outcome="slain", xp=8000)
+        )
+        result = go_home(session)
+        events = list(result.events)
+        # The 2000 XP share levels the fighter (threshold 2000), thief (1200), and
+        # cleric (1500, +5% from WIS 13); the magic-user (2500) stays at level 1.
+        levelers = {"character-0001", "character-0002", "character-0003"}
+        for member in session.party.living_members():
+            awarded_index = next(
+                index
+                for index, event in enumerate(events)
+                if event.code == "session.xp.awarded" and event.character_id == member.id
+            )
+            member_level_events = [
+                event for event in events if event.code == "session.level.gained" and event.character_id == member.id
+            ]
+            if member.id in levelers:
+                assert member.level == 2
+                assert len(member_level_events) == 1
+                follower = events[awarded_index + 1]
+                assert follower.code == "session.level.gained"
+                assert follower.character_id == member.id
+            else:
+                assert member.level == 1
+                assert member_level_events == []
+
 
 class TestImmediateTiming:
     def test_treasure_awards_at_acquisition_and_town_awards_nothing(self):
@@ -137,6 +167,34 @@ class TestImmediateTiming:
         result = go_home(session)
         assert not any(event.code == "session.xp.adventure_award" for event in result.events)
         assert [m.xp - x for m, x in zip(session.party.members, before, strict=True)] == gained
+
+    def test_immediate_award_reports_the_level(self):
+        ruleset = Ruleset(xp_award_timing=XpAwardTiming.IMMEDIATE)
+        session = build_session(seed=9, ruleset=ruleset)
+        session.execute(EnterDungeon(dungeon_id="delve"))
+        from osrlib.crawl import exploration
+        from osrlib.crawl.dungeon import DropPile
+
+        ref = exploration._cell_ref(session)
+        session.dungeon_state.piles[ref] = DropPile(coins=Coins(gp=4800))
+        result = session.execute(TakeTreasure(feature_id="pile"))
+        assert result.accepted
+        events = list(result.events)
+        # The 1200 XP share levels the thief alone; the level event follows their award.
+        thief = session.member("character-0002")
+        assert thief.level == 2
+        awarded_index = next(
+            index
+            for index, event in enumerate(events)
+            if event.code == "session.xp.awarded" and event.character_id == thief.id
+        )
+        leveled = events[awarded_index + 1]
+        assert leveled.code == "session.level.gained"
+        assert leveled.character_id == thief.id
+        assert leveled.level_before == 1
+        assert leveled.level_after == 2
+        level_events = [event for event in events if event.code == "session.level.gained"]
+        assert [event.character_id for event in level_events] == [thief.id]
 
     def test_no_double_award_across_the_timings(self):
         # on_return: the same 200 gp taken and returned awards once, at return.

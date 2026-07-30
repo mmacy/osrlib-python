@@ -58,6 +58,7 @@ from osrlib.core.ruleset import EncumbranceMode
 from osrlib.core.spells import (
     MAGIC_STREAM,
     CastContext,
+    add_spell_to_book,
     cast_from_scroll,
     cast_spell,
     caster_profile,
@@ -76,6 +77,7 @@ from osrlib.crawl.commands import (
     ForceDoor,
     GiveItems,
     InspectTreasure,
+    LearnSpell,
     LightSource,
     ListenAtDoor,
     MoveParty,
@@ -2292,6 +2294,15 @@ def _handle_prepare_spells(session, command: PrepareSpells) -> tuple[list[Reject
     return [], events
 
 
+def _handle_learn_spell(session, command: LearnSpell) -> tuple[list[Rejection], list[Event]]:
+    member, rejections = _member_able(session, command.character_id)
+    if rejections:
+        return rejections, []
+    definition = load_classes().get(member.class_id)
+    result = add_spell_to_book(member, definition, load_spells(), command.spell_id)
+    return list(result.rejections), list(result.events)
+
+
 def _handle_cast_spell(session, command: CastSpell) -> tuple[list[Rejection], list[Event]]:
     member, rejections = _member_able(session, command.character_id)
     if rejections:
@@ -3364,6 +3375,7 @@ HANDLERS = {
     UnequipItem: _handle_unequip_item,
     Rest: _handle_rest,
     PrepareSpells: _handle_prepare_spells,
+    LearnSpell: _handle_learn_spell,
     CastSpell: _handle_cast_spell,
     UseItem: _handle_use_item,
     UseStairs: _handle_use_stairs,
