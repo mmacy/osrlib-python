@@ -2,6 +2,7 @@
 
 import pytest
 
+from crawl_fixtures import build_adventure, build_party
 from osrlib.core.alignment import Alignment
 from osrlib.core.character import (
     choose_starting_spells,
@@ -9,6 +10,7 @@ from osrlib.core.character import (
     validate_starting_spells,
 )
 from osrlib.core.classes import apply_xp, drain_levels
+from osrlib.core.effects import ActiveCondition, Condition
 from osrlib.core.rng import RngStreams
 from osrlib.core.ruleset import Ruleset
 from osrlib.core.spells import (
@@ -16,7 +18,10 @@ from osrlib.core.spells import (
     add_spell_to_book,
     caster_profile,
     memorize_spells,
+    open_book_capacity,
 )
+from osrlib.crawl.commands import AwardXP, LearnSpell
+from osrlib.crawl.session import GameSession
 from osrlib.data import load_classes, load_spells
 
 MASTER_SEED = 20_260_703
@@ -25,6 +30,11 @@ MASTER_SEED = 20_260_703
 @pytest.fixture
 def streams():
     return RngStreams(master_seed=MASTER_SEED)
+
+
+@pytest.fixture
+def session():
+    return GameSession.new(build_party(), build_adventure(), seed=MASTER_SEED)
 
 
 def make_character(streams, class_id, *, level=1, starting_spells=()):
@@ -123,6 +133,53 @@ class TestAddSpellToBook:
         assert (
             add_spell_to_book(cleric, cleric_definition, catalog, "bless").rejections[0].code == "magic.book.not_arcane"
         )
+
+
+class TestOpenBookCapacity:
+    def test_counts_per_level_for_a_leveled_magic_user(self, streams):
+        magic_user, definition = make_character(streams, "magic_user", level=3, starting_spells=("sleep",))
+        # Level 3 slots are (2, 1, 0, ...); the book holds one first-level spell.
+        assert open_book_capacity(magic_user, definition, load_spells()) == (1, 1, 0, 0, 0, 0)
+
+    def test_the_floor_holds_an_over_capacity_book_at_zero(self, streams):
+        magic_user, definition = make_character(streams, "magic_user", level=2, starting_spells=("sleep",))
+        add_spell_to_book(magic_user, definition, load_spells(), "charm_person")
+        drain_levels(magic_user, definition, xp_policy="level_minimum", stream=streams.get("advancement"))
+        # Level 1 capacity is one; the drained book holds two — floored at zero, never negative.
+        assert open_book_capacity(magic_user, definition, load_spells())[0] == 0
+
+    def test_non_arcane_classes_answer_the_empty_tuple(self, streams):
+        cleric, definition = make_character(streams, "cleric")
+        assert open_book_capacity(cleric, definition, load_spells()) == ()
+
+
+class TestLearnSpellCommand:
+    def test_learning_grows_the_book_in_zero_time(self, session):
+        session.execute(AwardXP(character_id="character-0004", amount=2500))  # level 2: one open slot
+        before_rounds = session.clock.rounds
+        result = session.execute(LearnSpell(character_id="character-0004", spell_id="charm_person"))
+        assert result.accepted
+        assert session.member("character-0004").spell_book == ("sleep", "charm_person")
+        assert [event.code for event in result.events] == ["magic.book.added"]
+        assert session.command_log[-1] == LearnSpell(character_id="character-0004", spell_id="charm_person")
+        assert session.clock.rounds == before_rounds
+
+    def test_duplicate_and_capacity_rejected(self, session):
+        result = session.execute(LearnSpell(character_id="character-0004", spell_id="sleep"))
+        assert result.rejections[0].code == "magic.book.duplicate"
+        result = session.execute(LearnSpell(character_id="character-0004", spell_id="charm_person"))
+        assert result.rejections[0].code == "magic.book.capacity_exceeded"
+
+    def test_non_arcane_member_rejected(self, session):
+        result = session.execute(LearnSpell(character_id="character-0003", spell_id="cure_light_wounds"))
+        assert result.rejections[0].code == "magic.book.not_arcane"
+
+    def test_incapacitated_member_rejected(self, session):
+        member = session.member("character-0004")
+        member.current_hp = 0
+        member.conditions = (ActiveCondition(condition=Condition.DEAD, effect_id=None),)
+        result = session.execute(LearnSpell(character_id="character-0004", spell_id="charm_person"))
+        assert result.rejections[0].code == "session.command.member_incapacitated"
 
 
 class TestMemorizeSpells:

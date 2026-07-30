@@ -56,6 +56,7 @@ __all__ = [
     "GrantItem",
     "IdentifyItem",
     "InspectTreasure",
+    "LearnSpell",
     "LightSource",
     "ListenAtDoor",
     "MoveParty",
@@ -866,6 +867,41 @@ class PrepareSpells(Command):
     selections: tuple[MemorizedSpell, ...] = ()
 
 
+class LearnSpell(Command):
+    """Add a spell to an arcane caster's spell book — leveling or mentoring made concrete.
+
+    Legal in town and while exploring. The book holds, per spell level, at most
+    the caster's current slot count at that level, and it never shrinks — a
+    drained caster's book may sit over capacity, taking nothing more until
+    capacity catches up. No game time passes: the fiction around the learning
+    (the mentor's week, a copied scroll's costs) belongs to the game.
+
+    Modes:
+        `town`, `exploring`
+
+    Rejections:
+        - `session.command.wrong_mode` — an encounter or battle is underway, or the
+          game is over.
+        - `session.command.unknown_member` — `character_id` names no party member.
+        - `session.command.member_incapacitated` — the member cannot act.
+        - `magic.book.not_arcane` — the class keeps no spell book.
+        - `magic.book.unknown_spell` — `spell_id` names no spell.
+        - `magic.book.wrong_list` — the spell is off the caster's spell list.
+        - `magic.book.duplicate` — the book already holds the spell.
+        - `magic.book.capacity_exceeded` — no open slot at the spell's level.
+
+    Events:
+        [`SpellBookUpdatedEvent`][osrlib.core.events.SpellBookUpdatedEvent] with
+        the added spell. No game time passes.
+    """
+
+    allowed_modes: ClassVar[frozenset[SessionMode]] = _FIELD_MODES
+
+    command_type: Literal["learn_spell"] = "learn_spell"
+    character_id: str
+    spell_id: str
+
+
 class CastSpell(Command):
     """Cast a memorized spell outside battle (one round).
 
@@ -1479,7 +1515,10 @@ class AwardXP(Command):
 
     Events:
         [`XpAwardedEvent`][osrlib.crawl.events.XpAwardedEvent] with the award, the
-        modified award, and the level after.
+        modified award, and the level after; when the award crosses a level
+        threshold, a
+        [`CharacterLeveledUpEvent`][osrlib.crawl.events.CharacterLeveledUpEvent]
+        follows with the levels, the hit points gained, and the new title.
     """
 
     command_type: Literal["award_xp"] = "award_xp"
@@ -1729,6 +1768,7 @@ ALL_COMMAND_CLASSES: tuple[type[Command], ...] = (
     UnequipItem,
     Rest,
     PrepareSpells,
+    LearnSpell,
     CastSpell,
     UseItem,
     UseStairs,

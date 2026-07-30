@@ -66,6 +66,7 @@ __all__ = [
     "detection_chance",
     "detection_check",
     "drain_levels",
+    "level_title",
     "level_up",
     "thief_skill_check",
     "xp_modifier_pct",
@@ -412,6 +413,24 @@ def xp_modifier_pct(definition: ClassDefinition, scores: dict[AbilityScore, int]
         if all(scores[ability] >= minimum for ability, minimum in tier.minimums.items()):
             return tier.modifier_pct
     return 0
+
+
+def level_title(definition: ClassDefinition, level: int) -> str | None:
+    """Return the class's level title at `level`, or `None` beyond the printed list.
+
+    `level_titles[i]` is the title at level `i + 1`; the SRD's title lists run only
+    through name level, so levels past the list have no title.
+
+    Args:
+        definition: The [`ClassDefinition`][osrlib.core.classes.ClassDefinition].
+        level: The character level, 1 or greater.
+
+    Returns:
+        The title, or `None` when the class's title list doesn't reach `level`.
+    """
+    if 1 <= level <= len(definition.level_titles):
+        return definition.level_titles[level - 1]
+    return None
 
 
 def level_up(character: Character, definition: ClassDefinition, stream: RngStream) -> LevelUpResult:

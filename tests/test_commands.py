@@ -54,6 +54,7 @@ def sample_command(command_class):
         "UnequipItem": dict(character_id="pc-1", item_id="sword"),
         "Rest": dict(kind="turn"),
         "PrepareSpells": dict(character_id="pc-1"),
+        "LearnSpell": dict(character_id="pc-1", spell_id="sleep"),
         "CastSpell": dict(character_id="pc-1", spell_id="light", mode="illuminate"),
         "UseStairs": dict(),
         "EnterDungeon": dict(dungeon_id="delve"),
@@ -125,6 +126,10 @@ class TestModes:
 
     def test_battle_round_is_battle_only(self):
         assert ResolveBattleRound.allowed_modes == frozenset({SessionMode.BATTLE})
+
+    def test_learn_spell_is_a_field_command(self):
+        learn_spell = next(cls for cls in ALL_COMMAND_CLASSES if cls.__name__ == "LearnSpell")
+        assert learn_spell.allowed_modes == frozenset({SessionMode.TOWN, SessionMode.EXPLORING})
 
     def test_turn_undead_is_encounter_only(self):
         # The one aggressive act with a pre-battle procedure of its own (pinned):

@@ -29,6 +29,7 @@ __all__ = [
     "BattleRoundEvent",
     "BattleStartedEvent",
     "CRAWL_EVENT_CLASSES",
+    "CharacterLeveledUpEvent",
     "CurseRevealedEvent",
     "DetectionRolledEvent",
     "DiceRolledEvent",
@@ -674,6 +675,34 @@ class XpAwardedEvent(Event):
     level_after: int
 
 
+class CharacterLeveledUpEvent(Event):
+    """One character gained a level — the award's threshold crossing made visible.
+
+    Fires immediately after the member's own
+    [`XpAwardedEvent`][osrlib.crawl.events.XpAwardedEvent] whenever an XP award
+    crosses a level threshold, whichever surface awarded it (the end-of-adventure
+    award, the immediate timing, or the referee's
+    [`AwardXP`][osrlib.crawl.commands.AwardXP]). While the Hit Dice count still
+    grows, `hp_roll` is the raw die; past name level the gain is the flat-bonus
+    delta with no die, so `hp_roll` is `None` and `con_applied` is false. `title`
+    is the class's level title at `level_after`, `None` past the printed title
+    list (the SRD's lists run only through name level).
+    """
+
+    allowed_codes: ClassVar[frozenset[str]] = frozenset({"session.level.gained"})
+
+    event_type: Literal["leveled_up"] = "leveled_up"
+    code: str = "session.level.gained"
+    visibility: Visibility = Visibility.PLAYER
+    character_id: str
+    level_before: int
+    level_after: int
+    hp_gained: int
+    hp_roll: int | None
+    con_applied: bool
+    title: str | None
+
+
 class TimeAdvancedEvent(Event):
     """The clock advanced (referee bookkeeping); `rounds_total` is the new position."""
 
@@ -759,6 +788,7 @@ CRAWL_EVENT_CLASSES: tuple[type[Event], ...] = (
     FlagSetEvent,
     MonstersSpawnedEvent,
     XpAwardedEvent,
+    CharacterLeveledUpEvent,
     TimeAdvancedEvent,
     GameOverEvent,
     DiceRolledEvent,

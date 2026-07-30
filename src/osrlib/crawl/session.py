@@ -36,7 +36,7 @@ from pydantic import BaseModel, ConfigDict
 
 from osrlib.core.alignment import Alignment
 from osrlib.core.character import ADVANCEMENT_STREAM, Character
-from osrlib.core.classes import apply_xp
+from osrlib.core.classes import XpAwardResult, apply_xp, level_title
 from osrlib.core.clock import ROUNDS_PER_DAY, ROUNDS_PER_TURN, GameClock, TimeUnit
 from osrlib.core.effects import EFFECTS_STREAM, EffectsLedger
 from osrlib.core.events import (
@@ -71,6 +71,7 @@ from osrlib.crawl.commands import (
 )
 from osrlib.crawl.dungeon import DungeonState, edge_ref
 from osrlib.crawl.events import (
+    CharacterLeveledUpEvent,
     DiceRolledEvent,
     DoorEvent,
     FlagSetEvent,
@@ -173,6 +174,36 @@ def _member_id(member: Character) -> str:
     if member.id is None:
         raise ValueError(f"{member.name} has no session-assigned id")
     return member.id
+
+
+def _xp_award_events(member: Character, result: XpAwardResult) -> list[Event]:
+    """`XpAwardedEvent` plus, when the award crossed a threshold, the level event.
+
+    Every `apply_xp` call site reports through here, so the ordering — the level
+    event immediately after the same member's award event — is structural rather
+    than repeated at each surface.
+    """
+    events: list[Event] = [
+        XpAwardedEvent(
+            character_id=_member_id(member),
+            award=result.award,
+            modified_award=result.modified_award,
+            level_after=result.level_after,
+        )
+    ]
+    if result.level_up is not None:
+        events.append(
+            CharacterLeveledUpEvent(
+                character_id=_member_id(member),
+                level_before=result.level_before,
+                level_after=result.level_after,
+                hp_gained=result.level_up.hp_gained,
+                hp_roll=result.level_up.hp_roll,
+                con_applied=result.level_up.con_applied,
+                title=level_title(member.definition, result.level_after),
+            )
+        )
+    return events
 
 
 class Listener(Protocol):
@@ -656,14 +687,7 @@ class GameSession:
         if share > 0:
             for member in survivors:
                 result = apply_xp(member, member.definition, share, self.streams.get(ADVANCEMENT_STREAM))
-                events.append(
-                    XpAwardedEvent(
-                        character_id=_member_id(member),
-                        award=result.award,
-                        modified_award=result.modified_award,
-                        level_after=result.level_after,
-                    )
-                )
+                events.extend(_xp_award_events(member, result))
         return events
 
     def award_immediate_xp(self, amount: int) -> list[Event]:
@@ -681,14 +705,7 @@ class GameSession:
         events: list[Event] = []
         for member in survivors:
             result = apply_xp(member, member.definition, share, self.streams.get(ADVANCEMENT_STREAM))
-            events.append(
-                XpAwardedEvent(
-                    character_id=_member_id(member),
-                    award=result.award,
-                    modified_award=result.modified_award,
-                    level_after=result.level_after,
-                )
-            )
+            events.extend(_xp_award_events(member, result))
         return events
 
     # ------------------------------------------------------------------ death records
@@ -814,15 +831,7 @@ def _handle_award_xp(session: GameSession, command: AwardXP) -> tuple[list[Rejec
     except ValueError:
         return [Rejection(code="session.command.unknown_member", params={"character": command.character_id})], []
     result = apply_xp(member, member.definition, command.amount, session.streams.get(ADVANCEMENT_STREAM))
-    events: list[Event] = [
-        XpAwardedEvent(
-            character_id=_member_id(member),
-            award=result.award,
-            modified_award=result.modified_award,
-            level_after=result.level_after,
-        )
-    ]
-    return [], events
+    return [], _xp_award_events(member, result)
 
 
 def _handle_set_flag(session: GameSession, command: SetFlag) -> tuple[list[Rejection], list[Event]]:
