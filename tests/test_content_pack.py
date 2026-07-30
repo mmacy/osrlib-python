@@ -183,3 +183,14 @@ class TestValidateContentPack:
         assert [finding.code for finding in findings] == ["pack.feature.unknown_item"]
         assert findings[0].entry_id == "cache"
         assert "'no-such-item'" in findings[0].message
+
+    def test_unknown_feature_magic_item_is_a_finding(self):
+        entry = ContentPackEntry(
+            id="cache",
+            features=(FeatureSpec(id="chest", kind="treasure_cache", magic_item_ids=("sword_plus_1", "sword_plus_6")),),
+        )
+        pack = make_pack(sections=(PackSection(id="level-1", entries=(entry,)),))
+        findings = validate_content_pack(pack, MONSTERS, EQUIPMENT)
+        assert [finding.code for finding in findings] == ["pack.feature.unknown_magic_item"]
+        assert findings[0].entry_id == "cache"
+        assert "'sword_plus_6'" in findings[0].message

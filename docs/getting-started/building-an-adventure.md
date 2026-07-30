@@ -51,7 +51,7 @@ A [`KeyedEncounter`][osrlib.crawl.dungeon.KeyedEncounter] lists its monsters by 
 
 Beyond encounters, an area (or the level itself) can carry:
 
-- [`FeatureSpec`][osrlib.crawl.dungeon.FeatureSpec] — treasure caches with hand-placed items, coins, and named valuables ([`ValuableSpec`][osrlib.crawl.dungeon.ValuableSpec]), construction tricks, or custom content for your front end
+- [`FeatureSpec`][osrlib.crawl.dungeon.FeatureSpec] — treasure caches with hand-placed items, magic items (any id from [the magic item id index][magic-items-index] — a `sword_plus_1` in a chest), coins, and named valuables ([`ValuableSpec`][osrlib.crawl.dungeon.ValuableSpec]), construction tricks, or custom content for your front end
 - [`TrapSpec`][osrlib.crawl.dungeon.TrapSpec] — room traps on areas, treasure traps on caches
 - [`AreaTreasureSpec`][osrlib.crawl.dungeon.AreaTreasureSpec] — generated treasure: explicit treasure type letters (see [the treasure type index][treasure-types-index]) or the level's unguarded band
 - [`TransitionSpec`][osrlib.crawl.dungeon.TransitionSpec] — stairs, trapdoors, and chutes between levels (these live on the level, not the area)

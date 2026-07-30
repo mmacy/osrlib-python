@@ -2,6 +2,8 @@
 
 from collections import Counter
 
+import pytest
+
 from osrlib.core.items import MagicItemCategory
 from osrlib.core.monsters import IdAllocator
 from osrlib.core.rng import RngStream
@@ -11,6 +13,7 @@ from osrlib.core.treasure import (
     generate_magic_item,
     generate_treasure,
     generate_unguarded_treasure,
+    instantiate_magic_item,
     plan_treasure_ref,
     roll_room_contents,
 )
@@ -173,6 +176,40 @@ class TestMagicItemGeneration:
     def test_generated_items_enter_play_unidentified(self):
         items = generate_magic_item(MagicItemType.POTION, tier="expert", stream=stream_for(53), allocator=IdAllocator())
         assert not items[0].identified
+
+
+class TestMagicItemInstantiation:
+    """`instantiate_magic_item`: a named item's creation details, no table selection."""
+
+    def test_named_item_rolls_its_creation_details(self):
+        instance = instantiate_magic_item("wand_of_fear", tier="expert", stream=stream_for(3), allocator=IdAllocator())
+        assert instance.instance_id == "magic-item-0001"
+        assert instance.template_id == "wand_of_fear"
+        assert instance.charges_remaining is not None and instance.charges_remaining >= 2  # 2d10, rolled at creation
+        assert not instance.identified
+
+    def test_same_seed_same_instance(self):
+        first = instantiate_magic_item("sword_plus_1", tier="expert", stream=stream_for(7), allocator=IdAllocator())
+        second = instantiate_magic_item("sword_plus_1", tier="expert", stream=stream_for(7), allocator=IdAllocator())
+        assert first == second
+
+    def test_generic_armour_rolls_its_base_type(self):
+        instance = instantiate_magic_item("armour_plus_1", tier="expert", stream=stream_for(9), allocator=IdAllocator())
+        assert instance.base_item_id is not None
+
+    def test_ammunition_quantity_rolls_from_the_template(self):
+        instance = instantiate_magic_item(
+            "arrows_plus_1", tier="expert", stream=stream_for(13), allocator=IdAllocator()
+        )
+        assert instance.quantity >= 3  # the template's 3d10, not the default single
+
+    def test_unknown_id_raises(self):
+        with pytest.raises(ValueError):
+            instantiate_magic_item("vorpal_sword", tier="expert", stream=stream_for(1), allocator=IdAllocator())
+
+    def test_unknown_tier_raises(self):
+        with pytest.raises(ValueError, match="tier"):
+            instantiate_magic_item("sword_plus_1", tier="epic", stream=stream_for(1), allocator=IdAllocator())
 
 
 class TestTreasureRefSemantics:

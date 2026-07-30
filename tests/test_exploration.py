@@ -655,6 +655,68 @@ class TestTreasureDistribution:
         assert session.party_valuation_cp() == before + Coins(gp=100, ep=3).value_cp + (700 + 250) * 100
 
 
+class TestAuthoredMagicItems:
+    """Hand-placed `FeatureSpec.magic_item_ids`: named items instantiate when the cache empties."""
+
+    def build_at_magic_chest(self, seed: int = 5):
+        # The shared fixture's chest, with two named magic items placed and the
+        # needle trap removed so the take is roll-free up to instantiation.
+        adventure = build_adventure(wandering_chance=0)
+        dungeon = adventure.dungeon("delve")
+        level = dungeon.level(1)
+        room = next(area for area in level.areas if area.id == "room_a")
+        chest = room.features[0].model_copy(update={"magic_item_ids": ("sword_plus_1", "wand_of_fear"), "trap": None})
+        patched_room = room.model_copy(update={"features": (chest,)})
+        patched_level = level.model_copy(update={"areas": (level.areas[0], patched_room)})
+        patched = adventure.model_copy(
+            update={"dungeons": (dungeon.model_copy(update={"levels": (patched_level, dungeon.levels[1])}),)}
+        )
+        session = GameSession.new(build_party(), patched, seed=seed)
+        session.execute(GrantItem(character_id="character-0001", item_id="torch", quantity=6))
+        session.execute(GrantItem(character_id="character-0001", item_id="tinder_box"))
+        entered(session)
+        place(session, (3, 2))
+        return session
+
+    def carried_magic(self, session) -> list[MagicItemInstance]:
+        return [
+            instance
+            for member in session.party.living_members()
+            for instance in member.inventory.items
+            if isinstance(instance, MagicItemInstance)
+        ]
+
+    def test_placed_magic_items_instantiate_on_take(self):
+        session = self.build_at_magic_chest()
+        result = session.execute(TakeTreasure(feature_id="chest"))
+        assert result.accepted
+        carried = self.carried_magic(session)
+        assert sorted(instance.template_id for instance in carried) == ["sword_plus_1", "wand_of_fear"]
+        assert all(not instance.identified for instance in carried)
+        wand = next(instance for instance in carried if instance.template_id == "wand_of_fear")
+        assert wand.charges_remaining is not None and wand.charges_remaining >= 2  # 2d10, rolled on take
+        acquired_ids = [
+            item_id
+            for event in result.events
+            if event.code == "exploration.item.acquired"
+            for item_id in event.item_ids
+        ]
+        assert {instance.instance_id for instance in carried} <= set(acquired_ids)
+        assert "delve:1:chest" in session.dungeon_state.emptied_caches
+        assert not session.execute(TakeTreasure(feature_id="chest")).accepted
+
+    def test_the_details_are_identical_across_two_seeded_runs(self):
+        def run():
+            session = self.build_at_magic_chest(seed=11)
+            assert session.execute(TakeTreasure(feature_id="chest")).accepted
+            return sorted(
+                (instance.model_dump(mode="json") for instance in self.carried_magic(session)),
+                key=lambda dumped: dumped["instance_id"],
+            )
+
+        assert run() == run()
+
+
 class TestTrapResolutionCensus:
     """The Designing_a_Dungeon example traps, resolved through the kernel."""
 

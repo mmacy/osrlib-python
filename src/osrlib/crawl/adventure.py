@@ -15,9 +15,10 @@ ever runs the content.
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from osrlib.core.items import EquipmentCatalog
+from osrlib.core.items import EquipmentCatalog, MagicItemCatalog
 from osrlib.core.monsters import MonsterCatalog, MonsterTemplate
 from osrlib.crawl.dungeon import DungeonSpec, FeatureSpec, LevelSpec
+from osrlib.data import load_magic_items
 from osrlib.errors import ContentValidationError
 
 __all__ = [
@@ -113,7 +114,12 @@ def _effective_monsters(adventure: Adventure, base: MonsterCatalog) -> tuple[Mon
 
 
 def _validate_feature(
-    feature: FeatureSpec, level: LevelSpec, owner: str, equipment: EquipmentCatalog, errors: list[str]
+    feature: FeatureSpec,
+    level: LevelSpec,
+    owner: str,
+    equipment: EquipmentCatalog,
+    magic: MagicItemCatalog,
+    errors: list[str],
 ) -> None:
     if feature.cell is not None and not level.in_bounds(feature.cell):
         errors.append(f"{owner}: feature {feature.id!r} cell {feature.cell} is out of bounds")
@@ -122,6 +128,11 @@ def _validate_feature(
             equipment.get(item_id)
         except ValueError:
             errors.append(f"{owner}: feature {feature.id!r} references unknown item {item_id!r}")
+    for item_id in feature.magic_item_ids:
+        try:
+            magic.get(item_id)
+        except ValueError:
+            errors.append(f"{owner}: feature {feature.id!r} references unknown magic item {item_id!r}")
 
 
 def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment: EquipmentCatalog) -> None:
@@ -129,7 +140,10 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
 
     Checks: bundled monster ids colliding with the shipped catalog or each other;
     then, per level: area cells and features in bounds, feature ids unique, cache
-    item ids resolving against the equipment catalog, keyed-encounter template ids
+    item ids resolving against the equipment catalog, cache magic item ids
+    resolving against the shipped magic-item catalog
+    ([`load_magic_items`][osrlib.data.load_magic_items] — adventures bundle no
+    magic items, so validation loads it itself), keyed-encounter template ids
     (and any fixed spawn alignment) and inline wandering-table monster ids
     resolving against the effective catalog, transition destinations resolving to
     real cells, town travel entries naming real dungeons, and an entrance existing
@@ -146,6 +160,7 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
         ContentValidationError: Listing every dangling reference found.
     """
     errors: list[str] = []
+    magic = load_magic_items()
     effective, colliding = _effective_monsters(adventure, monsters)
     for monster_id in colliding:
         errors.append(f"bundled monster id {monster_id!r} collides with the catalog")
@@ -189,11 +204,11 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
                                 f"outside {keyed.template_id!r}'s options"
                             )
                 for feature in area.features:
-                    _validate_feature(feature, level, owner, equipment, errors)
+                    _validate_feature(feature, level, owner, equipment, magic, errors)
             for feature in level.features:
                 if feature.cell is None:
                     errors.append(f"{owner}: level-scope feature {feature.id!r} needs a cell")
-                _validate_feature(feature, level, owner, equipment, errors)
+                _validate_feature(feature, level, owner, equipment, magic, errors)
             if level.wandering.table is not None:
                 for row in level.wandering.table.rows:
                     if row.entry.kind != "monster":

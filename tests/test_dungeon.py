@@ -106,6 +106,33 @@ class TestValidateAdventure:
         assert "gazebo" in str(excinfo.value)
         assert "vorpal_sword" in str(excinfo.value)
 
+    def test_placed_magic_item_ids_resolve_against_the_shipped_catalog(self):
+        adventure = build_adventure()
+        dungeon = adventure.dungeon("delve")
+        level = dungeon.level(1)
+        room = next(area for area in level.areas if area.id == "room_a")
+        chest = room.features[0].model_copy(update={"magic_item_ids": ("sword_plus_1", "wand_of_fear")})
+        good_room = room.model_copy(update={"features": (chest,)})
+        good_level = level.model_copy(update={"areas": (level.areas[0], good_room)})
+        good = adventure.model_copy(
+            update={"dungeons": (dungeon.model_copy(update={"levels": (good_level, dungeon.levels[1])}),)}
+        )
+        validate_adventure(good, load_monsters(), load_equipment())
+
+    def test_unknown_magic_item(self):
+        adventure = build_adventure()
+        dungeon = adventure.dungeon("delve")
+        level = dungeon.level(1)
+        room = next(area for area in level.areas if area.id == "room_a")
+        bad_chest = room.features[0].model_copy(update={"magic_item_ids": ("sword_plus_6",)})
+        bad_room = room.model_copy(update={"features": (bad_chest,)})
+        bad_level = level.model_copy(update={"areas": (level.areas[0], bad_room)})
+        bad = adventure.model_copy(
+            update={"dungeons": (dungeon.model_copy(update={"levels": (bad_level, dungeon.levels[1])}),)}
+        )
+        with pytest.raises(ContentValidationError, match="unknown magic item 'sword_plus_6'"):
+            validate_adventure(bad, load_monsters(), load_equipment())
+
     def test_dangling_transition_target(self):
         adventure = build_adventure()
         dungeon = adventure.dungeon("delve")
