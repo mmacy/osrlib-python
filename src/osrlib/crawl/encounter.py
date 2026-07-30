@@ -24,7 +24,7 @@ capped: the referee places what the referee spawns.
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from osrlib.core.combat import roll_reaction
+from osrlib.core.combat import cannot_move, roll_reaction
 from osrlib.core.effects import Condition, has_condition
 from osrlib.core.events import Event
 from osrlib.core.items import Coins
@@ -391,7 +391,11 @@ def _handle_evade(session, command: Evade) -> tuple[list[Rejection], list[Event]
             ):
                 events.append(ItemsDroppedEvent(character_id=member.id, item_ids=("rations",)))
 
-    pursuers = [group for group in state.groups if not group.fled and not group.surrendered]
+    pursuers = [
+        group
+        for group in state.groups
+        if not group.fled and not group.surrendered and _group_can_pursue(session, group)
+    ]
     pursues = state.stance in (ReactionResult.ATTACKS.value, ReactionResult.HOSTILE.value) and pursuers
     if not pursues or _party_run_rate(session) > _pursuer_rate(session, pursuers):
         events.append(EvasionEvent(code="encounter.evasion.succeeded"))
@@ -502,6 +506,19 @@ def _party_run_rate(session) -> int:
     from osrlib.crawl import exploration
 
     return exploration.exploration_rate(session)
+
+
+def _group_can_pursue(session, group: EncounterGroup) -> bool:
+    """Whether any of the group's living members can actually give chase.
+
+    Pursuit is running: a group whose living members are all asleep, paralysed,
+    petrified, or webbed in place has nobody able to follow, and the party's
+    flight from it simply succeeds.
+    """
+    return any(
+        not has_condition(combatant, Condition.DEAD) and not cannot_move(combatant)
+        for combatant in (session.combatant(monster_id) for monster_id in group.monster_ids)
+    )
 
 
 def _pursuer_rate(session, groups) -> int:

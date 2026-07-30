@@ -54,6 +54,7 @@ __all__ = [
     "LocationEnteredEvent",
     "MonsterDefeatedEvent",
     "MonsterFledEvent",
+    "MonstersLeftBehindEvent",
     "MonstersSpawnedEvent",
     "NpcPartySpawnedEvent",
     "PartyMovedEvent",
@@ -478,6 +479,25 @@ class MonsterFledEvent(Event):
     group_id: str
 
 
+class MonstersLeftBehindEvent(Event):
+    """A routing group left its helpless members where they lie.
+
+    Fleeing is movement, and a member who cannot move (asleep, paralysed, held by a
+    *web*) cannot run: the runners split off and keep fleeing under the original
+    group id while the helpless stay behind as the new group `group_id`, at the
+    distance the side broke from.
+    """
+
+    allowed_codes: ClassVar[frozenset[str]] = frozenset({"battle.group.left_behind"})
+
+    event_type: Literal["monsters_left_behind"] = "monsters_left_behind"
+    code: str = "battle.group.left_behind"
+    visibility: Visibility = Visibility.PLAYER
+    group_id: str
+    source_group_id: str
+    count: int
+
+
 class MonsterDefeatedEvent(Event):
     """One monster defeated — feeds the adventure's XP award.
 
@@ -746,6 +766,7 @@ CRAWL_EVENT_CLASSES: tuple[type[Event], ...] = (
     SpellDeclaredEvent,
     GroupMovedEvent,
     MonsterFledEvent,
+    MonstersLeftBehindEvent,
     MonsterDefeatedEvent,
     BattleEndedEvent,
     HoardGeneratedEvent,
