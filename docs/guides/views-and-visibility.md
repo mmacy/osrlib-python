@@ -45,8 +45,12 @@ adventure's and town's public names and descriptions; each party member's own pu
 sheet ([`MemberView`][osrlib.crawl.views.MemberView] — id, name, class, level, current
 and max hit points, conditions, inventory, memorized spells — a player always sees
 their own characters in full); the party's location and facing; the elapsed clock; the
-session mode; the explored map, cell by cell, with its edges (an undiscovered secret
-door renders as a plain wall — [`ExploredLevelView`][osrlib.crawl.views.ExploredLevelView]
+session mode; the mapped cells with their edges — every cell the party has walked,
+every cell its own light has shown it (persisted as map memory in
+[`DungeonState.seen`][osrlib.crawl.dungeon.DungeonState.seen], so a front end's
+automap remembers a torchlit room after the party walks on), and whatever its light
+reveals from where it stands right now, while an undiscovered secret door renders as
+a plain wall throughout ([`ExploredLevelView`][osrlib.crawl.views.ExploredLevelView]
 and [`EdgeView`][osrlib.crawl.views.EdgeView]); known dropped piles and emptied
 treasure caches in that explored space; active effects on party members with their
 remaining duration (except a potion's — RAW has the referee track that secretly, so

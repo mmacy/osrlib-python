@@ -15,6 +15,7 @@ one entry). An edge absent from the map is a wall — authored content declares 
 passages (`open`) and doors explicitly — and the level boundary is implicitly wall.
 """
 
+from collections.abc import Iterable
 from enum import StrEnum
 from typing import Literal
 
@@ -659,19 +660,23 @@ class DropPile(BaseModel):
 class DungeonState(BaseModel):
     """The mutable overlay play writes over the frozen adventure content.
 
-    References are strings so the overlay serializes flat: explored cells key by
-    `"{dungeon}:{level}"`, doors by [`edge_ref`][osrlib.crawl.dungeon.edge_ref],
-    traps and caches by `"{dungeon}:{level}:{area_or_feature_id}"`, piles by
-    [`cell_ref`][osrlib.crawl.dungeon.cell_ref]. Attempt memory (listen once per
-    character per door, search once per character per cell per kind, the pick-lock
-    lockout with the thief's level at failure) lives here too — it is game state,
-    not procedure-local bookkeeping.
+    References are strings so the overlay serializes flat: explored and seen
+    cells key by `"{dungeon}:{level}"`, doors by
+    [`edge_ref`][osrlib.crawl.dungeon.edge_ref], traps and caches by
+    `"{dungeon}:{level}:{area_or_feature_id}"`, piles by
+    [`cell_ref`][osrlib.crawl.dungeon.cell_ref]. `explored` is the party's
+    footprint — the cells it has physically entered — while `seen` is its map
+    memory: the cells its own light has shown it, read by the player projection
+    only. Attempt memory (listen once per character per door, search once per
+    character per cell per kind, the pick-lock lockout with the thief's level at
+    failure) lives here too — it is game state, not procedure-local bookkeeping.
     """
 
     model_config = ConfigDict(validate_assignment=True)
 
     location: PartyLocation = PartyLocation(kind="town")
     explored: dict[str, list[Position]] = {}
+    seen: dict[str, list[Position]] = {}
     doors: dict[str, DoorState] = {}
     sprung_traps: list[str] = []
     removed_traps: list[str] = []
@@ -716,6 +721,27 @@ class DungeonState(BaseModel):
             self.explored[key] = [position]
         elif position not in cells:
             cells.append(position)
+
+    def mark_seen(self, dungeon_id: str, level_number: int, positions: Iterable[Position]) -> None:
+        """Mark cells seen (idempotent): map memory, what the party has glimpsed by light.
+
+        Seen cells are read by the player projection only, so a front end's
+        automap remembers a room the party's light showed it after the party
+        walks on. They never affect movement cost — that reads the explored
+        footprint via [`is_explored`][osrlib.crawl.dungeon.DungeonState.is_explored]
+        — or drop-pile visibility, which stays on explored cells (piles only ever
+        form where the party has stood). New positions append in sorted `(x, y)`
+        order so serialization is deterministic across runs.
+
+        Args:
+            dungeon_id: The dungeon id.
+            level_number: The 1-based level number.
+            positions: The cells to remember; already-seen cells are skipped.
+        """
+        key = f"{dungeon_id}:{level_number}"
+        fresh = sorted(set(positions) - set(self.seen.get(key, [])))
+        if fresh:
+            self.seen.setdefault(key, []).extend(fresh)
 
     def door(self, ref: str) -> DoorState:
         """Return (creating on first touch) the mutable state for one door.

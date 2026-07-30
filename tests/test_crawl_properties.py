@@ -261,17 +261,21 @@ def test_the_player_view_never_leaks(seed, commands):
     # Session flags are referee-only: the view carries no flag store at all.
     parsed_view = json.loads(blob)
     assert "flags" not in parsed_view
-    # Unexplored geometry, trap specs, and secret doors stay hidden.
-    explored = {
+    # Unexplored geometry, trap specs, and secret doors stay hidden: every
+    # projected cell is either walked (`explored`) or persisted map memory
+    # (`seen` — the live light reveal is folded into it after every accepted
+    # command, so nothing the view shows escapes the two sets).
+    mapped = {
         (dungeon_level, tuple(cell))
-        for dungeon_level, cells in session.dungeon_state.explored.items()
+        for source in (session.dungeon_state.explored, session.dungeon_state.seen)
+        for dungeon_level, cells in source.items()
         for cell in cells
     }
     parsed = json.loads(blob)
     for level_view in parsed["explored"]:
         key = f"{level_view['dungeon_id']}:{level_view['level_number']}"
         for cell in level_view["cells"]:
-            assert (key, tuple(cell)) in explored
+            assert (key, tuple(cell)) in mapped
     assert "TrapSpec" not in blob and "trap_ref" not in blob
     # Monster internals: no HP fields beyond the party's own.
     if parsed.get("encounter"):

@@ -414,7 +414,26 @@ class GameSession:
             self.listener_state[listener.key] = state
             accumulated.extend(emitted)
             self.event_log.extend(emitted)
+        self._persist_sight()
         return CommandResult(accepted=True, events=tuple(accumulated))
+
+    def _persist_sight(self) -> None:
+        """Fold the party's current light reveal into the seen map memory.
+
+        Runs after every accepted command — the one hook that covers every
+        reveal-changing action uniformly (entering, moving, stairs, doors,
+        lighting, placement, discovery, battle-flight relocation) — and calls
+        [`mark_seen`][osrlib.crawl.dungeon.DungeonState.mark_seen] with what
+        `_light_reveal` shows from the party's cell. Rejected commands change no
+        state, so they never reach it.
+        """
+        from osrlib.crawl.exploration import _light_reveal
+
+        key, cells = _light_reveal(self)
+        if key is None or not cells:
+            return
+        dungeon_id, level_text = key.rsplit(":", 1)
+        self.dungeon_state.mark_seen(dungeon_id, int(level_text), cells)
 
     def register_listener(self, listener: Listener) -> None:
         """Register a listener; it runs after each command in registration order.
