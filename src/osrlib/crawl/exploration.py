@@ -336,6 +336,87 @@ def _sight_line_feet(session) -> int | None:
     return max(1, longest) * _CELL_FEET
 
 
+_DEFAULT_LIGHT_FEET = 30
+
+
+def _light_radius_feet(params) -> int:
+    """The radius of one light-family effect, in feet.
+
+    Equipment and magic-item light sources store the radius under
+    `light_radius_feet`; the *light* spell family stores it under `radius_feet`.
+    Read whichever the source carries, falling back to the torch default.
+    """
+    raw = params.get("light_radius_feet", params.get("radius_feet"))
+    return int(raw) if raw is not None else _DEFAULT_LIGHT_FEET
+
+
+def _light_reveal(session) -> tuple[str | None, set[Position]]:
+    """Cells the party sees *right now* by its own light, keyed to their level.
+
+    This is sight, not exploration: the party glimpses the lit room it stands in
+    and a few cells down open passages, but these cells never enter the persisted
+    explored set, so seeing a room never cheapens the movement of later walking
+    it. The session does persist the result as map memory — after every accepted
+    command it folds these cells into
+    [`DungeonState.seen`][osrlib.crawl.dungeon.DungeonState.seen], so a front
+    end's automap remembers the glimpsed room after the party walks on. Torchlight
+    fills the keyed room whole and spills through open doorways out to the light's
+    radius; walls, and shut or undiscovered doors, stop it. Empty unless the party
+    stands in a dungeon with a light burning.
+
+    Returns:
+        The `"{dungeon}:{level}"` explored-map key for the party's level and the
+        set of seen cells, or `(None, set())` when nothing is lit.
+    """
+    location = session.dungeon_state.location
+    if location.kind != "dungeon":
+        return None, set()
+    lit, _ = session.party_light()
+    if not lit:
+        return None, set()
+    try:
+        level = session.adventure.dungeon(location.dungeon_id).level(location.level_number)
+    except ValueError:
+        return None, set()
+
+    from osrlib.crawl.session import LIGHT_EFFECT_KINDS
+
+    living_ids = {member.id for member in session.party.living_members()}
+    radius_cells = max(
+        (
+            _light_radius_feet(effect.definition.params) // _CELL_FEET
+            for effect in session.ledger.effects
+            if effect.target_ref in living_ids and effect.definition.kind in LIGHT_EFFECT_KINDS
+        ),
+        default=_DEFAULT_LIGHT_FEET // _CELL_FEET,
+    )
+    origin = tuple(location.position)
+    # The keyed room the party stands in is lit to its far corners — you are
+    # standing inside it — so its open-connected cells reveal even past the
+    # torch's reach; elsewhere, light spills through open passages only within
+    # that straight-line (Chebyshev) reach. Both honour real passability: the
+    # flood only crosses an edge sight passes, so walls and shut or undiscovered
+    # doors stop it, and an alcove sealed off inside a keyed room stays dark.
+    area = level.area_at(origin)
+    in_room = {tuple(cell) for cell in area.cells} if area is not None else frozenset()
+    seen: set[Position] = {origin}
+    frontier = [origin]
+    while frontier:
+        cell = frontier.pop()
+        for direction in Direction:
+            neighbour = step(cell, direction)
+            if neighbour in seen or not level.in_bounds(neighbour):
+                continue
+            within_reach = max(abs(neighbour[0] - origin[0]), abs(neighbour[1] - origin[1])) <= radius_cells
+            if not (within_reach or neighbour in in_room):
+                continue
+            if not _sight_passes(session, level, location, cell, direction):
+                continue
+            seen.add(neighbour)
+            frontier.append(neighbour)
+    return f"{location.dungeon_id}:{location.level_number}", seen
+
+
 # ---------------------------------------------------------------------- light gates
 
 

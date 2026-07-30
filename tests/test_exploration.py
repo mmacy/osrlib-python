@@ -5,6 +5,8 @@ prediction helper clones a stream to compute the exact next draw where an outcom
 matters.
 """
 
+import json
+
 import pytest
 
 from crawl_fixtures import STOCK_ROSTER, build_adventure, build_party
@@ -1196,8 +1198,9 @@ class TestStationarySilence:
 
 class TestLightReveal:
     """A lit party sees the room and passages its torch reaches before it steps
-    onto those cells; the reveal is sight, never persisted as exploration, so it
-    can never cheapen the movement of later walking that ground."""
+    onto those cells; the reveal is sight, never persisted as exploration (it
+    persists as `seen` map memory instead), so it can never cheapen the movement
+    of later walking that ground."""
 
     @staticmethod
     def _cells(session) -> set:
@@ -1298,9 +1301,11 @@ class TestLightReveal:
         view = session.view(Visibility.PLAYER)
         level1 = next(entry for entry in view.explored if entry.level_number == 1)
         walked = {tuple(cell) for cell in session.dungeon_state.explored["delve:1"]}
+        remembered = {tuple(cell) for cell in session.dungeon_state.seen["delve:1"]}
         # Off the party's current level, the projection is the walked footprint
-        # only — the light reveal never augments another level.
-        assert set(level1.cells) == walked
+        # plus the persisted map memory — the live light reveal, now shining on
+        # level 2, never augments level 1.
+        assert set(level1.cells) == walked | remembered
 
     def test_light_reveal_stays_out_of_the_referee_view(self):
         session = quiet_session()
@@ -1310,3 +1315,64 @@ class TestLightReveal:
         walked = {tuple(cell) for cell in referee.state["dungeon_state"]["explored"]["delve:1"]}
         assert (1, 0) not in walked  # sight is the player's alone; the referee sees only footprints
         assert (0, 0) in walked
+
+
+class TestSeenPersistence:
+    """What the party has seen by light persists as map memory (`DungeonState.seen`),
+    distinct from the walked `explored` footprint: the projection remembers the
+    glimpsed cells after the light is gone, while movement cost, pile gating, and
+    the hidden geometry rules stay exactly as they were."""
+
+    _cells = staticmethod(TestLightReveal._cells)
+    _ignite = staticmethod(TestLightReveal._ignite)
+
+    def test_seen_cells_stay_projected_after_the_party_walks_away(self):
+        # The issue scenario: the torch shows the corridor ahead, the party walks
+        # on, the light gutters out — and the automap still remembers the room.
+        session = quiet_session()
+        entered(session)  # at (0, 0), torch burning
+        assert {(0, 0), (1, 0), (2, 0), (1, 1)} <= self._cells(session)
+        session.execute(MoveParty(direction=Direction.EAST))  # to (1, 0)
+        session.execute(MoveParty(direction=Direction.WEST))  # back to (0, 0)
+        session.execute(ExtinguishSource(character_id="character-0001"))
+        # No light burns, so nothing is *seen right now* — yet the glimpsed
+        # cells stay on the map as memory, still unwalked.
+        assert session.party_light()[0] is False
+        assert {(2, 0), (1, 1)} <= self._cells(session)
+        assert not session.dungeon_state.is_explored("delve", 1, (2, 0))
+        assert not session.dungeon_state.is_explored("delve", 1, (1, 1))
+
+    def test_seen_survives_save_and_load(self):
+        from osrlib.persistence import load_game, save_game
+
+        session = quiet_session()
+        entered(session)
+        session.execute(MoveParty(direction=Direction.EAST))
+        assert session.dungeon_state.seen["delve:1"]
+        restored = load_game(json.loads(json.dumps(save_game(session))))
+        assert restored.dungeon_state.seen == session.dungeon_state.seen
+        # The restored view still carries the remembered, unwalked cells.
+        assert (2, 0) in self._cells(restored)
+        assert not restored.dungeon_state.is_explored("delve", 1, (2, 0))
+
+    def test_an_old_save_without_the_seen_field_loads_clean(self):
+        from osrlib.persistence import load_game, save_game
+
+        session = quiet_session()
+        entered(session)
+        document = json.loads(json.dumps(save_game(session)))
+        del document["payload"]["dungeon_state"]["seen"]  # a pre-`seen` engine's save
+        restored = load_game(document)
+        assert restored.dungeon_state.seen == {}
+        assert restored.dungeon_state.explored == session.dungeon_state.explored
+
+    def test_seen_never_records_a_sealed_alcove(self):
+        # The cell behind an undiscovered secret door is never seen, so walking
+        # away cannot leave it on the map either.
+        session = quiet_session()
+        session.execute(EnterDungeon(dungeon_id="delve"))
+        place(session, (3, 1))  # room_a, west of the secret door on (3, 1)'s east edge
+        self._ignite(session)
+        assert (4, 1) not in {tuple(cell) for cell in session.dungeon_state.seen["delve:1"]}
+        place(session, (0, 0))  # walk away
+        assert (4, 1) not in self._cells(session)

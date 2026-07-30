@@ -137,6 +137,18 @@ class TestDungeonState:
         assert state.is_explored("delve", 1, (1, 0))
         assert not state.is_explored("delve", 2, (0, 0))
 
+    def test_seen_marking_is_idempotent_and_deterministically_ordered(self):
+        state = DungeonState()
+        state.mark_seen("delve", 1, {(2, 0), (0, 0), (1, 0)})  # a set: input order must not matter
+        assert state.seen["delve:1"] == [(0, 0), (1, 0), (2, 0)]
+        state.mark_seen("delve", 1, [(1, 0), (3, 0), (3, 0)])
+        assert state.seen["delve:1"] == [(0, 0), (1, 0), (2, 0), (3, 0)]
+        state.mark_seen("delve", 1, [(0, 0)])
+        assert state.seen["delve:1"] == [(0, 0), (1, 0), (2, 0), (3, 0)]
+        assert "delve:2" not in state.seen
+        # Seeing is not exploring: the footprint stays empty.
+        assert not state.is_explored("delve", 1, (0, 0))
+
     def test_door_state_created_on_first_touch(self):
         state = DungeonState()
         ref = edge_ref("delve", 1, (2, 0), Direction.SOUTH)
@@ -150,6 +162,7 @@ class TestDungeonState:
             location=PartyLocation(kind="dungeon", dungeon_id="delve", level_number=1, position=(2, 1), facing="south")
         )
         state.mark_explored("delve", 1, (0, 0))
+        state.mark_seen("delve", 1, [(0, 0), (1, 0), (0, 1)])
         state.door("delve:1:2,1:north").open = True
         state.sprung_traps.append("delve:1:pit_room")
         state.lock_failures["delve:1:2,1:north"] = {"pc-2": 1}

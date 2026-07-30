@@ -5,10 +5,12 @@ and [`build_referee_view`][osrlib.crawl.views.build_referee_view] build these fr
 projections from that state alone, never from the event log.
 
 The player view is an enumerated whitelist: party public sheets, location and
-facing, explored cells with their edges (secret doors only if discovered — an
-undiscovered secret door renders as wall), known piles and emptied caches in
-explored space, active effects on party members with remaining durations, the
-elapsed clock, the mode, the current encounter/battle public state (names,
+facing, the mapped cells with their edges — walked cells, remembered seen cells
+the party's light has shown it, and what its light reveals right now (secret
+doors only if discovered — an undiscovered secret door renders as wall), known
+piles and emptied caches in explored space, active effects on party members
+with remaining durations, the elapsed clock, the mode, the current
+encounter/battle public state (names,
 counts, distances, visible conditions — never HP), fatigue/exhaustion/deprivation
 status, and the adventure's public prose. It never carries unexplored geometry,
 undiscovered traps or secret doors, monster HP or stat internals,
@@ -25,8 +27,8 @@ from pydantic import BaseModel, ConfigDict
 
 from osrlib.core.effects import Condition, has_condition
 from osrlib.core.items import MagicItemCategory, MagicItemInstance, magic_item_template
-from osrlib.crawl.dungeon import Direction, EdgeKind, PartyLocation, Position, cell_ref, edge_ref, step
-from osrlib.crawl.exploration import _CELL_FEET, EXHAUSTED_KIND, FATIGUE_KIND, _sight_passes
+from osrlib.crawl.dungeon import Direction, EdgeKind, PartyLocation, Position, cell_ref, edge_ref
+from osrlib.crawl.exploration import EXHAUSTED_KIND, FATIGUE_KIND, _light_reveal
 
 __all__ = [
     "EdgeView",
@@ -331,99 +333,30 @@ def _visible_cell_refs(session) -> set[str]:
     return refs
 
 
-_DEFAULT_LIGHT_FEET = 30
-
-
-def _light_radius_feet(params) -> int:
-    """The radius of one light-family effect, in feet.
-
-    Equipment and magic-item light sources store the radius under
-    `light_radius_feet`; the *light* spell family stores it under `radius_feet`.
-    Read whichever the source carries, falling back to the torch default.
-    """
-    raw = params.get("light_radius_feet", params.get("radius_feet"))
-    return int(raw) if raw is not None else _DEFAULT_LIGHT_FEET
-
-
-def _light_reveal(session) -> tuple[str | None, set[Position]]:
-    """Cells the party sees *right now* by its own light, keyed to their level.
-
-    This is sight, not exploration: the party glimpses the lit room it stands in
-    and a few cells down open passages, but these cells never enter the persisted
-    explored set. So seeing a room never cheapens the movement of later walking
-    it, and stepping away lets the unwalked cells fall dark again. Torchlight
-    fills the keyed room whole and spills through open doorways out to the light's
-    radius; walls, and shut or undiscovered doors, stop it. Empty unless the party
-    stands in a dungeon with a light burning.
-
-    Returns:
-        The `"{dungeon}:{level}"` explored-map key for the party's level and the
-        set of seen cells, or `(None, set())` when nothing is lit.
-    """
-    location = session.dungeon_state.location
-    if location.kind != "dungeon":
-        return None, set()
-    lit, _ = session.party_light()
-    if not lit:
-        return None, set()
-    try:
-        level = session.adventure.dungeon(location.dungeon_id).level(location.level_number)
-    except ValueError:
-        return None, set()
-
-    from osrlib.crawl.session import LIGHT_EFFECT_KINDS
-
-    living_ids = {member.id for member in session.party.living_members()}
-    radius_cells = max(
-        (
-            _light_radius_feet(effect.definition.params) // _CELL_FEET
-            for effect in session.ledger.effects
-            if effect.target_ref in living_ids and effect.definition.kind in LIGHT_EFFECT_KINDS
-        ),
-        default=_DEFAULT_LIGHT_FEET // _CELL_FEET,
-    )
-    origin = tuple(location.position)
-    # The keyed room the party stands in is lit to its far corners — you are
-    # standing inside it — so its open-connected cells reveal even past the
-    # torch's reach; elsewhere, light spills through open passages only within
-    # that straight-line (Chebyshev) reach. Both honour real passability: the
-    # flood only crosses an edge sight passes, so walls and shut or undiscovered
-    # doors stop it, and an alcove sealed off inside a keyed room stays dark.
-    area = level.area_at(origin)
-    in_room = {tuple(cell) for cell in area.cells} if area is not None else frozenset()
-    seen: set[Position] = {origin}
-    frontier = [origin]
-    while frontier:
-        cell = frontier.pop()
-        for direction in Direction:
-            neighbour = step(cell, direction)
-            if neighbour in seen or not level.in_bounds(neighbour):
-                continue
-            within_reach = max(abs(neighbour[0] - origin[0]), abs(neighbour[1] - origin[1])) <= radius_cells
-            if not (within_reach or neighbour in in_room):
-                continue
-            if not _sight_passes(session, level, location, cell, direction):
-                continue
-            seen.add(neighbour)
-            frontier.append(neighbour)
-    return f"{location.dungeon_id}:{location.level_number}", seen
-
-
 def _explored_levels(session):
     reveal_key, reveal_cells = _light_reveal(session)
-    for key, cells in session.dungeon_state.explored.items():
+    dungeon_state = session.dungeon_state
+    keys = list(dungeon_state.explored)
+    keys.extend(key for key in dungeon_state.seen if key not in dungeon_state.explored)
+    for key in keys:
         dungeon_id, level_text = key.rsplit(":", 1)
         level_number = int(level_text)
         try:
             level = session.adventure.dungeon(dungeon_id).level(level_number)
         except ValueError:
             continue
-        # Visible equals explored plus what the party's own light reveals from the
-        # current cell (the spec's visible flag): the lit room and a few cells of
-        # open passage, drawn now without waiting on a footstep into each square.
-        visible = list(cells)
+        # Visible equals walked cells, plus the persisted seen cells the party's
+        # light has shown it (map memory — see `DungeonState.seen`), plus what its
+        # light reveals from the current cell right now (the spec's visible flag),
+        # so lighting a torch draws the room immediately, without a footstep or
+        # even a command between the ledger and the view.
+        visible = list(dungeon_state.explored.get(key, []))
+        known = set(visible)
+        for cell in dungeon_state.seen.get(key, []):
+            if cell not in known:
+                visible.append(cell)
+                known.add(cell)
         if key == reveal_key:
-            known = set(cells)
             visible.extend(cell for cell in reveal_cells if cell not in known)
         edges: dict[str, EdgeView] = {}
         for cell in visible:
