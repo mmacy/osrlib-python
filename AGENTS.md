@@ -22,7 +22,7 @@ Each roadmap phase in `docs/spec.md` ships as two PRs — a plan, then an implem
 
 ## Greenfield discipline
 
-osrlib is released: the public API is frozen and semantic versioning governs what a release may change, so breaking the public surface is a major-version event, not a refactor. Behind that surface, code-level backward compatibility is an anti-pattern here, not a virtue. When a better internal factoring appears, refactor to it outright and update every call site — the tests and CI are the safety net. Specifically:
+osrlib is released: the public API is frozen and semantic versioning governs what a release may change, so breaking the public surface is a major-version event, not a refactor. Behind that surface, code-level backward compatibility is an anti-pattern here, not a virtue. When a better internal factoring appears, refactor to it outright and update every call site — the tests and CI are the safety net. Do the right thing even when it's the hard thing, and question existing code and the decisions behind it as the project matures — what was right then may not be right now. Specifically:
 
 - No re-exports, aliases, or shims whose purpose is keeping an old import path working. One home per symbol; move it and fix the imports. (Precedent: the `Alignment` re-export from `character.py` was cut in PR #8 review as exactly this.)
 - No deprecation paths, `_v2`-style parallel names, or code kept "just in case" a removed path is wanted back — git history is the archive.
