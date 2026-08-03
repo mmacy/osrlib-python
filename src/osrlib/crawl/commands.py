@@ -297,7 +297,8 @@ class ForceDoor(Command):
     door — the next wandering check takes the noise bonus — and a failed attempt
     alerts the room beyond, denying the party surprise there. A successful force
     is an opening: an unfound `open`-trigger room trap on either adjoining area
-    gets its 2-in-6 spring check, and the forcing character is the one it lands on.
+    gets its 2-in-6 spring check, and the forcing character is the one it lands
+    on — or the next member standing, if an earlier spring felled them.
 
     Modes:
         `exploring`

@@ -186,18 +186,45 @@ class TestReplay:
 
 
 class TestMigrations:
-    def test_version_1_save_migrates_to_2(self):
+    def test_version_1_save_migrates_forward(self):
         # The framework's first honest exercise (the synthetic-only test retired
         # with it): a real version-1 save document — the version-1 envelope and
         # the recovered-treasure ledger the version carried — loads through the
-        # shipped 1 → 2 migration, which drops the ledger.
+        # whole shipped chain, starting with the 1 → 2 step that drops the ledger.
         session, _ = drive_session()
         document = save_game(session)
         document["schema_version"] = 1
         document["payload"]["recovered_treasure"] = [{"source_ref": "delve:1:chest", "gp_value": 200}]
         restored = load_game(document)
         assert not hasattr(restored, "recovered_treasure")
-        assert save_game(restored)["schema_version"] == 2
+        assert save_game(restored)["schema_version"] == SCHEMA_VERSION
+
+    def test_version_2_dead_treasure_trigger_migrates_to_3(self):
+        # Schema 3 narrowed TrapSpec: treasure+enter — dead but legal before —
+        # is rewritten to "open" on load rather than bricking the save.
+        session, _ = drive_session()
+        document = save_game(session)
+        document["schema_version"] = 2
+        doctored = [
+            feature["trap"]
+            for dungeon in document["payload"]["adventure"]["dungeons"]
+            for level in dungeon["levels"]
+            for area in level["areas"]
+            for feature in area["features"]
+            if feature.get("trap")
+        ]
+        assert doctored  # the delve's chest carries its needle trap
+        for trap in doctored:
+            trap["trigger"] = "enter"
+        restored = load_game(document)
+        chest = next(
+            feature
+            for area in restored.adventure.dungeon("delve").level(1).areas
+            for feature in area.features
+            if feature.trap is not None
+        )
+        assert chest.trap.trigger == "open"
+        assert save_game(restored)["schema_version"] == SCHEMA_VERSION
 
     def test_missing_migration_step_raises(self):
         with pytest.raises(ContentValidationError):

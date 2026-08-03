@@ -107,7 +107,7 @@ class TestEventContract:
 
 class TestVersioning:
     def test_schema_version(self):
-        assert SCHEMA_VERSION == 2
+        assert SCHEMA_VERSION == 3
         assert isinstance(SCHEMA_VERSION, int)
 
     def test_engine_version_matches_package_metadata(self):

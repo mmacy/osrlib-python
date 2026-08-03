@@ -62,7 +62,28 @@ def _migrate_1_to_2(payload: dict) -> dict:
     return payload
 
 
-MIGRATIONS: dict[int, Callable[[dict], dict]] = {1: _migrate_1_to_2}
+def _migrate_2_to_3(payload: dict) -> dict:
+    """Schema 2 → 3: a treasure trap's trigger is always `"open"`.
+
+    Version 3 made [`TrapSpec`][osrlib.crawl.dungeon.TrapSpec] reject
+    `trigger="enter"` on `kind="treasure"` — a value the cache path never read,
+    so rewriting it to the one springing action a cache has is lossless. The
+    embedded adventure is the only save surface that carries trap specs, and a
+    treasure trap can sit only on a feature (area-level or level-level).
+    """
+    for dungeon in payload.get("adventure", {}).get("dungeons", ()):
+        for level in dungeon.get("levels", ()):
+            feature_lists = [level.get("features", ())]
+            feature_lists.extend(area.get("features", ()) for area in level.get("areas", ()))
+            for features in feature_lists:
+                for feature in features:
+                    trap = feature.get("trap")
+                    if isinstance(trap, dict) and trap.get("kind") == "treasure" and trap.get("trigger") == "enter":
+                        trap["trigger"] = "open"
+    return payload
+
+
+MIGRATIONS: dict[int, Callable[[dict], dict]] = {1: _migrate_1_to_2, 2: _migrate_2_to_3}
 """Ordered save migrations: `MIGRATIONS[n]` rewrites a version-`n` payload to `n+1`."""
 
 

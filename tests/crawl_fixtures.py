@@ -47,6 +47,7 @@ __all__ = [
     "STOCK_ROSTER",
     "build_adventure",
     "build_blade_adventure",
+    "build_double_trap_adventure",
     "build_party",
     "build_sightline_adventure",
 ]
@@ -208,6 +209,38 @@ def build_blade_adventure() -> Adventure:
         description="A level of doors with blades rigged to them.",
         town=TownSpec(name="Threshold", travel_turns={"blades": 1}),
         dungeons=(DungeonSpec(id="blades", name="Blades", levels=(level,)),),
+    )
+
+
+def build_double_trap_adventure(inner_trap: TrapSpec, outer_trap: TrapSpec) -> Adventure:
+    """Build the two-trapped-areas corner: one door joining two open-trigger traps.
+
+    Level 1 (2 × 1): the party starts inside `outer` at (0,0); the only door
+    leads east into `inner` at (1,0). Both areas carry the caller's traps —
+    author them `kind="room"`, `trigger="open"` — and opening the door rolls the
+    far (inner) side first. Level 2 (1 × 1) is bare, a landing cell for
+    chute-effect traps.
+    """
+    edges: dict[str, Edge] = {}
+    _door(edges, (0, 0), Direction.EAST)
+    level_1 = LevelSpec(
+        number=1,
+        width=2,
+        height=1,
+        edges=edges,
+        areas=(
+            AreaSpec(id="outer", name="Outer room", cells=((0, 0),), trap=outer_trap),
+            AreaSpec(id="inner", name="Inner room", cells=((1, 0),), trap=inner_trap),
+        ),
+        entrance=(0, 0),
+        wandering=WanderingSpec(chance_in_six=0),
+    )
+    level_2 = LevelSpec(number=2, width=1, height=1, edges={}, wandering=WanderingSpec(chance_in_six=0))
+    return Adventure(
+        name="The Double Blade",
+        description="One door, two blades.",
+        town=TownSpec(name="Threshold", travel_turns={"double": 1}),
+        dungeons=(DungeonSpec(id="double", name="Double", levels=(level_1, level_2)),),
     )
 
 

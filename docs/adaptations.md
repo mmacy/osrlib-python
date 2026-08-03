@@ -725,15 +725,20 @@ opening a door of the area — `OpenDoor` or a successful `ForceDoor` — with t
 same 2-in-6 on every opening until the one spring. A door belongs to the area
 from either adjoining cell (pinned: the blade over the lintel drops on the way
 out too), the far side rolling first should one door join two trapped areas, and
-the spring lands on the opener — the forcing character, else the first living
-member in marching order. A `room_traps` search covers the searched cell's door
+each spring lands on the opener — the forcing character, else the first living
+member in marching order — passing to the next member standing if an earlier
+spring killed the opener. A trap needs a living victim: a party with no one left
+rolls no spring die, and a spring whose effect carries the party away from the
+door (a chute) cancels the springs behind it — the party is no longer performing
+the opening (all pinned). A `room_traps` search covers the searched cell's door
 edges, so the `open`-trigger trap beyond a known door is findable from the
 threatened side before the door is opened; an undiscovered secret door hides its
 trap along with itself (the no-leak doctrine), and a found door trap never
 springs, like the walked-around pit. A treasure trap's only springing action is
-opening its cache, so the model rejects `trigger="enter"` on `kind="treasure"`.
+opening its cache, so the model rejects `trigger="enter"` on `kind="treasure"` —
+schema version 3, with a lossless migration rewriting the dead value on load.
 Locked by `test_exploration.py::TestSearching`, `TestTreasureTraps`,
-`TestDoorTraps`, and `TestTrapResolutionCensus`.
+`TestDoorTraps`, `TestTwoTrappedAreas`, and `TestTrapResolutionCensus`.
 
 ### A recovered haul spreads across the party: usable items, even wealth, everyone mobile
 
