@@ -755,6 +755,21 @@ class TestTrapResolutionCensus:
             target = session.registry()[save.target_id]
             assert has_condition(target, Condition.DEAD) == (save.code == "combat.save.failed")
 
+    def test_a_passed_save_spares_from_a_kill_even_when_on_save_is_half(self):
+        trap = TrapSpec(
+            kind="room",
+            trigger="enter",
+            effect=TrapEffect(save={"category": "death", "on_save": "half"}, kills=True),
+            affects="party",
+        )
+        session, member, events = self.resolve(trap)
+        saves = [event for event in events if getattr(event, "category", None) == "death"]
+        assert len(saves) == 4  # every living member
+        assert {save.code for save in saves} == {"combat.save.passed", "combat.save.failed"}  # seed 2 splits the party
+        for save in saves:
+            target = session.registry()[save.target_id]
+            assert has_condition(target, Condition.DEAD) == (save.code == "combat.save.failed")
+
     def test_scything_blade_no_save(self):
         trap = TrapSpec(kind="room", trigger="enter", effect=TrapEffect(damage_dice="1d8"))
         session, member, events = self.resolve(trap)

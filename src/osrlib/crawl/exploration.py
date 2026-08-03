@@ -862,18 +862,17 @@ def _resolve_trap(session, trap: TrapSpec, *, triggerer) -> list[Event]:
     effect = trap.effect
     events: list[Event] = []
     for victim in victims:
-        negated = False
         halved = False
         if effect.save is not None:
             save = saving_throw(victim, SaveCategory(effect.save.category), stream=stream)
             events.extend(save.events)
             if save.passed:
-                if effect.save.on_save == "negates":
-                    negated = True
-                else:
-                    halved = True
-        if negated:
-            continue
+                # A passed save always spares the victim from a kill — `on_save` scales
+                # damage only, and half of a kill isn't a thing B/X expresses (the rule
+                # `_resolve_kill` already applies on the spell side).
+                if effect.kills or effect.save.on_save == "negates":
+                    continue
+                halved = True
         if effect.kills:
             from osrlib.core.effects import kill
 
