@@ -848,6 +848,45 @@ def _room_trap_check(session) -> list[Event]:
     return events
 
 
+def _door_trap_check(session, direction: Direction, *, triggerer=None) -> list[Event]:
+    """The open-trigger room trap: opening a door of the trapped area springs it.
+
+    A door belongs to an area when either adjoining cell lies inside it — the
+    blade over the lintel drops on the way in and the way out alike. 2-in-6 to
+    spring on each opening, like every triggering action; found traps never
+    spring, the same knowing-avoidance the enter path grants. The far side rolls
+    first when a door joins two trapped areas. Without a named `triggerer` (the
+    party opening a door, no character attached), the spring lands on the first
+    living member in marching order — the hands-on default the enter path uses.
+    """
+    from osrlib.crawl.session import EXPLORATION_STREAM
+
+    level = _level(session)
+    position = _position(session)
+    state = session.dungeon_state
+    events: list[Event] = []
+    seen: list[str] = []
+    for cell in (step(position, direction), position):
+        area = level.area_at(cell)
+        if area is None or area.id in seen:
+            continue
+        seen.append(area.id)
+        if area.trap is None or area.trap.trigger != "open":
+            continue
+        trap_ref = _area_ref(session, area.id)
+        if trap_ref in state.sprung_traps or trap_ref in state.found_traps or trap_ref in state.removed_traps:
+            continue
+        stream = session.streams.get(EXPLORATION_STREAM)
+        spring_roll = stream.randbelow(6) + 1
+        events.append(DetectionRolledEvent(kind="trap_spring", chance=2, roll=spring_roll, passed=spring_roll <= 2))
+        if spring_roll <= 2:
+            victim = triggerer if triggerer is not None else session.party.living_members()[0]
+            state.sprung_traps.append(trap_ref)
+            events.append(TrapEvent(code="exploration.trap.sprung", trap_ref=trap_ref, character_id=victim.id))
+            events.extend(_resolve_trap(session, area.trap, triggerer=victim))
+    return events
+
+
 def _resolve_trap(session, trap: TrapSpec, *, triggerer) -> list[Event]:
     """Resolve a sprung trap's effect — damage automatic, no attack roll.
 
@@ -1194,7 +1233,9 @@ def _handle_open_door(session, command: OpenDoor) -> tuple[list[Rejection], list
     state.open = True
     state.opened_by_party = True
     x, y = _position(session)
-    return [], [DoorEvent(code="exploration.door.opened", x=x, y=y, direction=command.direction.value)]
+    events: list[Event] = [DoorEvent(code="exploration.door.opened", x=x, y=y, direction=command.direction.value)]
+    events.extend(_door_trap_check(session, command.direction))
+    return [], events
 
 
 def _handle_close_door(session, command: CloseDoor) -> tuple[list[Rejection], list[Event]]:
@@ -1235,11 +1276,14 @@ def _handle_force_door(session, command: ForceDoor) -> tuple[list[Rejection], li
     if check.passed:
         state.open = True
         state.opened_by_party = True
-        return [], [
+        events: list[Event] = [
             DoorEvent(
                 code="exploration.door.forced", x=x, y=y, direction=command.direction.value, character_id=member.id
             )
         ]
+        # The shoulder that bursts the door through takes what's rigged to it.
+        events.extend(_door_trap_check(session, command.direction, triggerer=member))
+        return [], events
     beyond = step(_position(session), command.direction)
     area = _level(session).area_at(beyond)
     if area is not None:
@@ -1406,12 +1450,28 @@ def _reveal(session, kind: str, events: list[Event]) -> list[str]:
                     door.discovered = True
                     found.append(f"secret_door:{direction.value}")
     elif kind == "room_traps":
+        candidates = []
         area = level.area_at(position)
         if area is not None and area.trap is not None:
-            trap_ref = _area_ref(session, area.id)
+            candidates.append(area)
+        # A door trap threatens from the corridor side too: the searched cell's
+        # door edges count as part of it, so an open-trigger trap in the area
+        # beyond is findable before the door is ever opened. An undiscovered
+        # secret door stays blank wall — finding the trap would leak the door.
+        for direction in Direction:
+            edge = level.edge(position, direction)
+            if edge.kind is not EdgeKind.DOOR:
+                continue
+            if edge.door.kind == "secret" and not _door_state(session, direction).discovered:
+                continue
+            beyond = level.area_at(step(position, direction))
+            if beyond is not None and beyond.trap is not None and beyond.trap.trigger == "open":
+                candidates.append(beyond)
+        for candidate in candidates:
+            trap_ref = _area_ref(session, candidate.id)
             if trap_ref not in state.found_traps and trap_ref not in state.sprung_traps:
                 state.found_traps.append(trap_ref)
-                found.append(f"room_trap:{area.id}")
+                found.append(f"room_trap:{candidate.id}")
                 events.append(TrapEvent(code="exploration.trap.found", trap_ref=trap_ref))
     elif kind == "construction":
         for feature in _features_here(session):

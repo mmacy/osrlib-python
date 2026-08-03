@@ -46,6 +46,7 @@ from osrlib.data import load_classes
 __all__ = [
     "STOCK_ROSTER",
     "build_adventure",
+    "build_blade_adventure",
     "build_party",
     "build_sightline_adventure",
 ]
@@ -165,6 +166,48 @@ def build_adventure(wandering_chance: int = 1) -> Adventure:
         description="A two-level test dungeon.",
         town=TownSpec(name="Threshold", services=("inn", "trader"), travel_turns={"delve": 6}),
         dungeons=(DungeonSpec(id="delve", name="The Delve", levels=(level_1, level_2)),),
+    )
+
+
+def build_blade_adventure() -> Adventure:
+    """Build the one-level door-trap dungeon: three trapped rooms behind three doors.
+
+    Level 1 (3 × 2), entrance (0,0):
+
+    ```text
+        x0    x1    x2
+    y0  ENT———corr—D—[blade_room]   (normal door on (1,0)'s east edge)
+    y1  [cellar] [vault]            (stuck door south of (0,0); secret door south of (1,0))
+    ```
+
+    Every room trap here has `trigger="open"` — none of them springs on entry.
+    The blade room exercises `OpenDoor`, the cellar's stuck door `ForceDoor`,
+    and the vault's secret door the no-leak rule for searches.
+    """
+    edges: dict[str, Edge] = {}
+    _open(edges, (0, 0), Direction.EAST)
+    _door(edges, (1, 0), Direction.EAST)  # into the blade room
+    _door(edges, (1, 0), Direction.SOUTH, kind="secret")  # into the vault
+    _door(edges, (0, 0), Direction.SOUTH, stuck=True)  # into the cellar
+    blade = TrapSpec(kind="room", trigger="open", effect=TrapEffect(damage_dice="1d8"))
+    level = LevelSpec(
+        number=1,
+        width=3,
+        height=2,
+        edges=edges,
+        areas=(
+            AreaSpec(id="blade_room", name="Blade room", cells=((2, 0),), trap=blade),
+            AreaSpec(id="vault", name="Vault", cells=((1, 1),), trap=blade),
+            AreaSpec(id="cellar", name="Cellar", cells=((0, 1),), trap=blade),
+        ),
+        entrance=(0, 0),
+        wandering=WanderingSpec(chance_in_six=0),
+    )
+    return Adventure(
+        name="The Blade Delve",
+        description="A level of doors with blades rigged to them.",
+        town=TownSpec(name="Threshold", travel_turns={"blades": 1}),
+        dungeons=(DungeonSpec(id="blades", name="Blades", levels=(level,)),),
     )
 
 

@@ -8,8 +8,9 @@ matters.
 import json
 
 import pytest
+from pydantic import ValidationError
 
-from crawl_fixtures import STOCK_ROSTER, build_adventure, build_party
+from crawl_fixtures import STOCK_ROSTER, build_adventure, build_blade_adventure, build_party
 from osrlib.core.clock import ROUNDS_PER_TURN, TimeUnit
 from osrlib.core.effects import Condition, has_condition, kill
 from osrlib.core.events import Visibility
@@ -19,6 +20,7 @@ from osrlib.core.ruleset import EncumbranceMode, Ruleset
 from osrlib.crawl import exploration
 from osrlib.crawl.commands import (
     AdvanceTime,
+    CloseDoor,
     DropItems,
     EnterDungeon,
     ExtinguishSource,
@@ -67,8 +69,8 @@ def quiet_session(seed: int = 5, ruleset: Ruleset | None = None) -> GameSession:
     return session
 
 
-def entered(session) -> None:
-    session.execute(EnterDungeon(dungeon_id="delve"))
+def entered(session, dungeon_id: str = "delve") -> None:
+    session.execute(EnterDungeon(dungeon_id=dungeon_id))
     for _ in range(20):  # tinder is 2-in-6 per round; retry until the torch takes
         lit = session.execute(LightSource(character_id="character-0001", item_id="torch"))
         if any(event.code == "exploration.light.lit" for event in lit.events):
@@ -81,11 +83,11 @@ def peek(session, key: str, below: int) -> int:
     return clone.randbelow(below) + 1
 
 
-def place(session, position, facing=Direction.EAST, level_number=1) -> None:
+def place(session, position, facing=Direction.EAST, level_number=1, dungeon_id="delve") -> None:
     session.execute(
         PlaceParty(
             location=PartyLocation(
-                kind="dungeon", dungeon_id="delve", level_number=level_number, position=position, facing=facing
+                kind="dungeon", dungeon_id=dungeon_id, level_number=level_number, position=position, facing=facing
             )
         )
     )
@@ -862,6 +864,122 @@ class TestTrapSaveInteractions:
         for save in saves:
             target = session.registry()[save.target_id]
             assert has_condition(target, Condition.BLIND) == (save.code == "combat.save.failed")
+
+
+SEED_SPRINGS = 0  # the spring die before the blade room's door rolls a 1
+SEED_MISSES = 1  # the same die rolls above 2: the blade stays set
+SEED_SEARCH_PASSES = 0  # the searcher's 1-in-6 detection roll is a 1
+SEED_FORCE_SPRINGS = 3  # the cellar force succeeds and its spring die fires
+
+
+class TestDoorTraps:
+    """The open-trigger room trap: the springing action is opening a door of the area.
+
+    The blade delve puts an `open`-trigger trap behind a normal door, a stuck
+    door, and a secret door (see `build_blade_adventure`). Seeds are pinned the
+    way the census tests pin theirs: each names the die outcome it was chosen for.
+    """
+
+    BLADE = "blades:1:blade_room"
+
+    def build_before_the_door(self, seed: int) -> GameSession:
+        session = GameSession.new(build_party(), build_blade_adventure(), seed=seed)
+        session.execute(GrantItem(character_id="character-0001", item_id="torch", quantity=6))
+        session.execute(GrantItem(character_id="character-0001", item_id="tinder_box"))
+        entered(session, dungeon_id="blades")
+        session.execute(MoveParty(direction=Direction.EAST))  # to (1,0), before the blade room's door
+        return session
+
+    def test_opening_the_door_springs_the_blade(self):
+        session = self.build_before_the_door(seed=SEED_SPRINGS)
+        assert peek(session, EXPLORATION_STREAM, 6) <= 2  # this seed's spring die fires
+        result = session.execute(OpenDoor(direction=Direction.EAST))
+        assert result.accepted
+        codes = [event.code for event in result.events]
+        assert "exploration.door.opened" in codes
+        sprung = next(event for event in result.events if event.code == "exploration.trap.sprung")
+        assert sprung.trap_ref == self.BLADE
+        assert sprung.character_id == "character-0001"  # first living member in marching order
+        damage = next(event for event in result.events if getattr(event, "amount", None) is not None)
+        assert 1 <= damage.amount <= 8
+        assert self.BLADE in session.dungeon_state.sprung_traps
+
+    def test_the_blade_hangs_over_the_door_not_the_threshold(self):
+        # The trigger is the opening, not the doorway: after a spring die that
+        # missed, walking into the area consumes no further die.
+        session = self.build_before_the_door(seed=SEED_MISSES)
+        result = session.execute(OpenDoor(direction=Direction.EAST))
+        rolls = [event for event in result.events if getattr(event, "kind", None) == "trap_spring"]
+        assert len(rolls) == 1 and not rolls[0].passed
+        before = session.streams.get(EXPLORATION_STREAM).export_state()
+        assert session.execute(MoveParty(direction=Direction.EAST)).accepted
+        assert session.streams.get(EXPLORATION_STREAM).export_state() == before
+        assert self.BLADE not in session.dungeon_state.sprung_traps
+
+    def test_every_opening_rolls_until_the_blade_falls_once(self):
+        session = self.build_before_the_door(seed=SEED_MISSES)
+        session.execute(OpenDoor(direction=Direction.EAST))  # the miss above
+        session.execute(CloseDoor(direction=Direction.EAST))
+        result = session.execute(OpenDoor(direction=Direction.EAST))  # re-arms: a fresh die
+        assert any(getattr(event, "kind", None) == "trap_spring" for event in result.events)
+
+    def test_a_sprung_blade_is_spent(self):
+        session = self.build_before_the_door(seed=SEED_SPRINGS)
+        session.execute(OpenDoor(direction=Direction.EAST))
+        session.execute(CloseDoor(direction=Direction.EAST))
+        before = session.streams.get(EXPLORATION_STREAM).export_state()
+        assert session.execute(OpenDoor(direction=Direction.EAST)).accepted
+        assert session.streams.get(EXPLORATION_STREAM).export_state() == before
+
+    def test_a_found_door_trap_never_springs(self):
+        session = self.build_before_the_door(seed=SEED_SPRINGS)
+        session.dungeon_state.found_traps.append(self.BLADE)
+        before = session.streams.get(EXPLORATION_STREAM).export_state()
+        assert session.execute(OpenDoor(direction=Direction.EAST)).accepted
+        assert session.streams.get(EXPLORATION_STREAM).export_state() == before
+        assert self.BLADE not in session.dungeon_state.sprung_traps
+
+    def test_the_blade_swings_on_the_way_out_too(self):
+        # The door belongs to the area from either side: opening it from inside
+        # the trapped room rolls the same spring die.
+        session = self.build_before_the_door(seed=SEED_MISSES)
+        place(session, (2, 0), facing=Direction.WEST, dungeon_id="blades")
+        result = session.execute(OpenDoor(direction=Direction.WEST))
+        assert result.accepted
+        assert any(getattr(event, "kind", None) == "trap_spring" for event in result.events)
+
+    def test_searching_before_the_door_finds_the_trap_beyond_it(self):
+        session = self.build_before_the_door(seed=SEED_SEARCH_PASSES)
+        assert peek(session, EXPLORATION_STREAM, 6) == 1  # this seed's searcher succeeds
+        result = session.execute(Search(character_id="character-0001", kind="room_traps"))
+        assert result.accepted
+        completed = next(event for event in result.events if event.code == "exploration.search.found")
+        assert "room_trap:blade_room" in completed.found
+        assert self.BLADE in session.dungeon_state.found_traps
+        # The vault's trap sits behind the undiscovered secret door on this same
+        # cell: finding it would leak the door, so it stays hidden.
+        assert "blades:1:vault" not in session.dungeon_state.found_traps
+
+    def test_a_discovered_secret_door_gives_up_its_trap(self):
+        session = self.build_before_the_door(seed=SEED_SEARCH_PASSES)
+        exploration._door_state(session, Direction.SOUTH).discovered = True
+        result = session.execute(Search(character_id="character-0001", kind="room_traps"))
+        completed = next(event for event in result.events if event.code == "exploration.search.found")
+        assert set(completed.found) == {"room_trap:blade_room", "room_trap:vault"}
+        assert "blades:1:vault" in session.dungeon_state.found_traps
+
+    def test_a_forced_door_springs_the_trap_on_the_forcer(self):
+        session = self.build_before_the_door(seed=SEED_FORCE_SPRINGS)
+        place(session, (0, 0), facing=Direction.SOUTH, dungeon_id="blades")
+        result = session.execute(ForceDoor(character_id="character-0002", direction=Direction.SOUTH))
+        assert any(event.code == "exploration.door.forced" for event in result.events)
+        sprung = next(event for event in result.events if event.code == "exploration.trap.sprung")
+        assert sprung.trap_ref == "blades:1:cellar"
+        assert sprung.character_id == "character-0002"  # the shoulder on the door, not marching order
+
+    def test_a_treasure_trap_cannot_trigger_on_enter(self):
+        with pytest.raises(ValidationError):
+            TrapSpec(kind="treasure", trigger="enter", effect=TrapEffect(damage_dice="1d4"))
 
 
 class TestLight:

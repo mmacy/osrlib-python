@@ -234,6 +234,9 @@ class OpenDoor(Command):
     The party must be exploring a dungeon (see
     [`EnterDungeon`][osrlib.crawl.commands.EnterDungeon]). An undiscovered secret
     door rejects exactly like blank wall — commands never leak hidden geometry.
+    Opening a door of an area whose room trap triggers on `open` is the trap's
+    springing action: 2-in-6 to spring on the first living member in marching
+    order, unless the trap has already been found.
 
     Modes:
         `exploring`
@@ -250,7 +253,8 @@ class OpenDoor(Command):
 
     Events:
         [`DoorEvent`][osrlib.crawl.events.DoorEvent] with code
-        `exploration.door.opened`.
+        `exploration.door.opened`, then the trap events when a door trap's
+        spring check runs.
     """
 
     allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.EXPLORING})
@@ -291,7 +295,9 @@ class ForceDoor(Command):
     The party must be exploring a dungeon (see
     [`EnterDungeon`][osrlib.crawl.commands.EnterDungeon]). Any attempt bangs on the
     door — the next wandering check takes the noise bonus — and a failed attempt
-    alerts the room beyond, denying the party surprise there.
+    alerts the room beyond, denying the party surprise there. A successful force
+    is an opening: an unfound `open`-trigger room trap on either adjoining area
+    gets its 2-in-6 spring check, and the forcing character is the one it lands on.
 
     Modes:
         `exploring`
@@ -310,7 +316,7 @@ class ForceDoor(Command):
     Events:
         [`DoorEvent`][osrlib.crawl.events.DoorEvent] with code
         `exploration.door.forced` on success or `exploration.door.stuck` on
-        failure.
+        failure, then the trap events when a door trap's spring check runs.
     """
 
     allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.EXPLORING})
@@ -424,7 +430,11 @@ class Search(Command):
 
     The party must be exploring a dungeon (see
     [`EnterDungeon`][osrlib.crawl.commands.EnterDungeon]), with light (infravision
-    suffices). Each character gets one attempt per cell per kind, ever.
+    suffices). Each character gets one attempt per cell per kind, ever. A
+    `room_traps` search covers the cell's door edges too: an `open`-trigger trap
+    in an area beyond a known door is findable from this side of it, and a found
+    trap never springs. An undiscovered secret door hides its trap along with
+    itself.
 
     Modes:
         `exploring`

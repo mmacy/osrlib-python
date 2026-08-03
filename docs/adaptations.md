@@ -719,9 +719,21 @@ transition (slides) relocates the whole party — the party model has one locati
 (pinned simplification). The darts volley resolves as one damage application whose
 rolls are every dart's die. `TakeTreasure`'s treasure trap springs on the character
 who reaches in: the command's `recipient_id` when one is named, otherwise the first
-living member in marching order (pinned). Locked by
-`test_exploration.py::TestSearching`, `TestTreasureTraps`, and
-`TestTrapResolutionCensus`.
+living member in marching order (pinned). A room trap's `trigger` names its
+springing action: `enter` rolls on entering a cell of the area, `open` rolls on
+opening a door of the area — `OpenDoor` or a successful `ForceDoor` — with the
+same 2-in-6 on every opening until the one spring. A door belongs to the area
+from either adjoining cell (pinned: the blade over the lintel drops on the way
+out too), the far side rolling first should one door join two trapped areas, and
+the spring lands on the opener — the forcing character, else the first living
+member in marching order. A `room_traps` search covers the searched cell's door
+edges, so the `open`-trigger trap beyond a known door is findable from the
+threatened side before the door is opened; an undiscovered secret door hides its
+trap along with itself (the no-leak doctrine), and a found door trap never
+springs, like the walked-around pit. A treasure trap's only springing action is
+opening its cache, so the model rejects `trigger="enter"` on `kind="treasure"`.
+Locked by `test_exploration.py::TestSearching`, `TestTreasureTraps`,
+`TestDoorTraps`, and `TestTrapResolutionCensus`.
 
 ### A recovered haul spreads across the party: usable items, even wealth, everyone mobile
 
