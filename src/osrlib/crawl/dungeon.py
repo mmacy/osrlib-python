@@ -233,13 +233,14 @@ class TrapEffect(BaseModel):
 
     `damage_dice` rolls once; `volley_dice` is the darts form (1d6 projectiles,
     each rolling `damage_dice` — a count-times-damage form the dice grammar alone
-    can't say). `save` gates the effect: `negates` spares a passer outright,
-    `half` halves damage. `kills` marks save-or-die forms (poison gas); a passed
-    save always spares the victim from a kill, whatever `on_save` says, because
-    `on_save` scales damage only and half of a kill isn't a thing B/X expresses.
-    `condition` with its duration is the blindness form; `fall_feet` is the pit's
-    falling damage; `transition` drops the victim elsewhere (slides). `manual`
-    keeps prose for the rest.
+    can't say). `save` gates the effect: `negates` spares a passer outright, and
+    a passed save always spares the victim from `kills` and `condition`, whatever
+    `on_save` says — `on_save` scales damage only, because half of a kill or of a
+    blindness isn't a thing B/X expresses. `half` halves damage, rolled and
+    falling alike. `kills` marks save-or-die forms (poison gas). `condition` with
+    its duration is the blindness form; `fall_feet` is the pit's falling damage;
+    `transition` drops the victim elsewhere (slides). `manual` keeps prose for
+    the rest.
     """
 
     model_config = ConfigDict(frozen=True)
