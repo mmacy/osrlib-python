@@ -212,7 +212,8 @@ class ContentPack(BaseModel):
                 library understands.
         """
         payload = check_document(document, CONTENT_PACK_KIND)
-        if int(document["schema_version"]) < 3:
+        schema_version = document["schema_version"]  # an int: check_document vetted the envelope
+        if isinstance(schema_version, int) and schema_version < 3:
             _rewrite_dead_treasure_triggers(payload)
         try:
             return cls.model_validate(payload)
