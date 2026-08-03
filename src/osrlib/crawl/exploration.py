@@ -851,6 +851,12 @@ def _room_trap_check(session) -> list[Event]:
 def _resolve_trap(session, trap: TrapSpec, *, triggerer) -> list[Event]:
     """Resolve a sprung trap's effect — damage automatic, no attack roll.
 
+    A passed save spares the victim outright when it negates — and always spares
+    them from the kill and the condition, whatever `on_save` says, the rule
+    [`_resolve_kill`][osrlib.core.spells] and [`_resolve_attachment`][osrlib.core.spells]
+    apply on the spell side. A passed `half` save halves damage, rolled and
+    falling alike.
+
     Draws run on the exploration stream, since the procedure owns its own dice;
     attach-time condition durations roll on the effects stream instead, matching
     every other effect attachment in the engine.
@@ -862,19 +868,18 @@ def _resolve_trap(session, trap: TrapSpec, *, triggerer) -> list[Event]:
     effect = trap.effect
     events: list[Event] = []
     for victim in victims:
-        negated = False
-        halved = False
+        passed = False
         if effect.save is not None:
             save = saving_throw(victim, SaveCategory(effect.save.category), stream=stream)
             events.extend(save.events)
-            if save.passed:
-                if effect.save.on_save == "negates":
-                    negated = True
-                else:
-                    halved = True
-        if negated:
-            continue
+            passed = save.passed
+            if passed and effect.save.on_save == "negates":
+                continue
+        # Past the negates gate, `passed` means a made "half" save: damage halves,
+        # the kill and the condition are spared.
         if effect.kills:
+            if passed:
+                continue
             from osrlib.core.effects import kill
 
             events.extend(kill(victim))
@@ -891,7 +896,7 @@ def _resolve_trap(session, trap: TrapSpec, *, triggerer) -> list[Event]:
             else:
                 result = roll(effect.damage_dice, stream)
                 rolls, total = list(result.rolls), result.total
-            if halved:
+            if passed:
                 total //= 2
             if total > 0:
                 events.extend(
@@ -906,16 +911,18 @@ def _resolve_trap(session, trap: TrapSpec, *, triggerer) -> list[Event]:
         if effect.fall_feet is not None:
             fall = falling_damage(effect.fall_feet, stream)
             if fall is not None:
-                events.extend(
-                    deal_damage(
-                        victim,
-                        fall.total,
-                        source=DamageSource(kind="falling"),
-                        rolls=fall.rolls,
-                        clock=session.clock,
+                total = fall.total // 2 if passed else fall.total
+                if total > 0:
+                    events.extend(
+                        deal_damage(
+                            victim,
+                            total,
+                            source=DamageSource(kind="falling"),
+                            rolls=fall.rolls,
+                            clock=session.clock,
+                        )
                     )
-                )
-        if effect.condition is not None:
+        if effect.condition is not None and not passed:
             definition = EffectDefinition(
                 kind=f"trap_{effect.condition.value}",
                 condition=effect.condition,

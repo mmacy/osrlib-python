@@ -717,15 +717,16 @@ class TestAuthoredMagicItems:
         assert run() == run()
 
 
+def resolve_trap(trap: TrapSpec, seed: int = 2):
+    session = quiet_session(seed=seed)
+    entered(session)
+    member = session.party.living_members()[0]
+    events = exploration._resolve_trap(session, trap, triggerer=member)
+    return session, member, events
+
+
 class TestTrapResolutionCensus:
     """The Designing_a_Dungeon example traps, resolved through the kernel."""
-
-    def resolve(self, trap: TrapSpec, seed: int = 2):
-        session = quiet_session(seed=seed)
-        entered(session)
-        member = session.party.living_members()[0]
-        events = exploration._resolve_trap(session, trap, triggerer=member)
-        return session, member, events
 
     def test_falling_block_save_versus_petrification_negates(self):
         trap = TrapSpec(
@@ -733,7 +734,7 @@ class TestTrapResolutionCensus:
             trigger="enter",
             effect=TrapEffect(damage_dice="1d10", save={"category": "paralysis", "on_save": "negates"}),
         )
-        session, member, events = self.resolve(trap)
+        session, member, events = resolve_trap(trap)
         save = events[0]
         assert save.category == "paralysis"
         if save.code == "combat.save.passed":
@@ -748,7 +749,7 @@ class TestTrapResolutionCensus:
             effect=TrapEffect(save={"category": "death", "on_save": "negates"}, kills=True),
             affects="party",
         )
-        session, member, events = self.resolve(trap)
+        session, member, events = resolve_trap(trap)
         saves = [event for event in events if getattr(event, "category", None) == "death"]
         assert len(saves) == 4  # every living member
         for save in saves:
@@ -757,14 +758,14 @@ class TestTrapResolutionCensus:
 
     def test_scything_blade_no_save(self):
         trap = TrapSpec(kind="room", trigger="enter", effect=TrapEffect(damage_dice="1d8"))
-        session, member, events = self.resolve(trap)
+        session, member, events = resolve_trap(trap)
         damage = next(event for event in events if getattr(event, "amount", None) is not None)
         assert 1 <= damage.amount <= 8
         assert member.current_hp == max(0, member.max_hp - damage.amount)
 
     def test_darts_volley_rolls_count_times_damage(self):
         trap = TrapSpec(kind="treasure", trigger="open", effect=TrapEffect(damage_dice="1d4", volley_dice="1d6"))
-        session, member, events = self.resolve(trap, seed=8)
+        session, member, events = resolve_trap(trap, seed=8)
         damage = next(event for event in events if getattr(event, "amount", None) is not None)
         assert 1 <= len(damage.rolls) <= 6
         assert all(1 <= roll <= 4 for roll in damage.rolls)
@@ -780,13 +781,13 @@ class TestTrapResolutionCensus:
                 save={"category": "spells", "on_save": "negates"},
             ),
         )
-        session, member, events = self.resolve(trap, seed=13)
+        session, member, events = resolve_trap(trap, seed=13)
         save = events[0]
         assert has_condition(member, Condition.BLIND) == (save.code == "combat.save.failed")
 
     def test_pit_inflicts_falling_damage(self):
         trap = TrapSpec(kind="room", trigger="enter", effect=TrapEffect(fall_feet=10))
-        session, member, events = self.resolve(trap)
+        session, member, events = resolve_trap(trap)
         damage = next(event for event in events if getattr(event, "amount", None) is not None)
         assert 1 <= damage.amount <= 6
 
@@ -800,6 +801,67 @@ class TestTrapResolutionCensus:
         assert result.accepted
         assert session.streams.get(EXPLORATION_STREAM).export_state() == before  # no spring die
         assert "delve:1:pit_room" not in session.dungeon_state.sprung_traps
+
+
+class TestTrapSaveInteractions:
+    """Save forms the authored surface permits beyond the SRD census.
+
+    A passed save always spares the victim from the binary components — the kill
+    (the `_resolve_kill` rule) and the condition (the `_resolve_attachment` rule) —
+    while `on_save="half"` halves damage, rolled and falling alike.
+    """
+
+    def test_a_passed_save_spares_from_a_kill_even_when_on_save_is_half(self):
+        trap = TrapSpec(
+            kind="room",
+            trigger="enter",
+            effect=TrapEffect(save={"category": "death", "on_save": "half"}, kills=True),
+            affects="party",
+        )
+        session, member, events = resolve_trap(trap)
+        saves = [event for event in events if getattr(event, "category", None) == "death"]
+        assert len(saves) == 4  # every living member
+        assert {save.code for save in saves} == {"combat.save.passed", "combat.save.failed"}  # seed 2 splits the party
+        for save in saves:
+            target = session.registry()[save.target_id]
+            assert has_condition(target, Condition.DEAD) == (save.code == "combat.save.failed")
+
+    def test_a_passed_half_save_halves_falling_damage(self):
+        trap = TrapSpec(
+            kind="room",
+            trigger="enter",
+            effect=TrapEffect(fall_feet=10, save={"category": "paralysis", "on_save": "half"}),
+            affects="party",
+        )
+        session, member, events = resolve_trap(trap, seed=1)
+        saves = [event for event in events if getattr(event, "category", None) == "paralysis"]
+        damage = {event.target_id: event for event in events if getattr(event, "amount", None) is not None}
+        assert len(saves) == 4  # every living member
+        assert {save.code for save in saves} == {"combat.save.passed", "combat.save.failed"}  # seed 1 splits the party
+        for save in saves:
+            rolled = sum(damage[save.target_id].rolls)
+            expected = rolled // 2 if save.code == "combat.save.passed" else rolled
+            assert damage[save.target_id].amount == expected
+
+    def test_a_passed_half_save_spares_the_condition(self):
+        trap = TrapSpec(
+            kind="room",
+            trigger="enter",
+            effect=TrapEffect(
+                condition=Condition.BLIND,
+                condition_duration_dice="1d8",
+                condition_duration_unit=TimeUnit.TURN,
+                save={"category": "spells", "on_save": "half"},
+            ),
+            affects="party",
+        )
+        session, member, events = resolve_trap(trap)
+        saves = [event for event in events if getattr(event, "category", None) == "spells"]
+        assert len(saves) == 4  # every living member
+        assert {save.code for save in saves} == {"combat.save.passed", "combat.save.failed"}  # seed 2 splits the party
+        for save in saves:
+            target = session.registry()[save.target_id]
+            assert has_condition(target, Condition.BLIND) == (save.code == "combat.save.failed")
 
 
 class TestLight:
