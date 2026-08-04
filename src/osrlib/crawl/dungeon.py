@@ -281,9 +281,12 @@ class TrapEffect(BaseModel):
 class TrapSpec(BaseModel):
     """A trap: room (over an area) or treasure (on a feature).
 
-    `trigger` names the springing action (`enter` a cell of the trapped area,
-    `open` a trapped cache). `affects` defaults to the triggerer; `party` covers
-    forms like poison gas filling the room.
+    `trigger` names the springing action. A room trap springs on `enter` — a
+    cell of the trapped area — or on `open` — a door of the area, either side:
+    the blade that drops when the door swings. A treasure trap always springs on
+    `open`, the cache it guards; there is nothing to enter, so `enter` is
+    rejected. `affects` defaults to the triggerer; `party` covers forms like
+    poison gas filling the room.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -292,6 +295,12 @@ class TrapSpec(BaseModel):
     trigger: Literal["enter", "open"]
     effect: TrapEffect
     affects: Literal["triggerer", "party"] = "triggerer"
+
+    @model_validator(mode="after")
+    def _treasure_traps_spring_on_open(self) -> TrapSpec:
+        if self.kind == "treasure" and self.trigger != "open":
+            raise ValueError("a treasure trap springs on open; a cache has nothing to enter")
+        return self
 
 
 class ValuableSpec(BaseModel):

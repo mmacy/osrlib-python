@@ -27,8 +27,14 @@ __all__ = [
     "stamp_document",
 ]
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 """The current serialization schema version shared by saves, commands, and events.
+
+Version 3 narrowed `TrapSpec`: a treasure trap's `trigger` must be `"open"`, the
+one springing action a cache has. Earlier versions accepted `"enter"` and the
+engine ignored it, so the 2 → 3 step in
+[`MIGRATIONS`][osrlib.persistence.MIGRATIONS] rewrites the dead value to `"open"`
+losslessly; content packs apply the same rewrite on load.
 
 Version 2 dropped the recovered-treasure ledger from the save payload: the
 end-of-adventure award is computed from the departure-snapshot valuation delta

@@ -1,5 +1,5 @@
 {
-  "engine_version": "0.1.0",
+  "engine_version": "1.4.0",
   "kind": "party",
   "payload": {
     "characters": [
@@ -800,5 +800,5 @@
       }
     ]
   },
-  "schema_version": 2
+  "schema_version": 3
 }

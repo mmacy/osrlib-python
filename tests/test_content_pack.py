@@ -116,6 +116,19 @@ class TestPackDocuments:
         with pytest.raises(SaveVersionError):
             ContentPack.from_document(document)
 
+    def test_a_pre_3_dead_treasure_trigger_is_repaired_on_load(self):
+        # Schema 3 narrowed TrapSpec (a treasure trap's trigger must be "open");
+        # a pre-3 pack carrying the dead value is repaired in place on load.
+        needle = TrapSpec(kind="treasure", trigger="open", effect=TrapEffect(damage_dice="1d4"))
+        chest = FeatureSpec(id="chest", kind="treasure_cache", trap=needle)
+        entry = ContentPackEntry(id="vault", features=(chest,))
+        pack = make_pack(sections=(PackSection(id="level-1", entries=(entry,)),))
+        document = pack.to_document()
+        document["schema_version"] = 2
+        document["payload"]["sections"][0]["entries"][0]["features"][0]["trap"]["trigger"] = "enter"
+        loaded = ContentPack.from_document(document)
+        assert loaded.sections[0].entries[0].features[0].trap.trigger == "open"
+
     def test_a_write_re_stamps_at_current_versions(self):
         document = make_pack().to_document()
         document["schema_version"] = 1

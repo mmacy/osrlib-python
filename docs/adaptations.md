@@ -719,9 +719,26 @@ transition (slides) relocates the whole party — the party model has one locati
 (pinned simplification). The darts volley resolves as one damage application whose
 rolls are every dart's die. `TakeTreasure`'s treasure trap springs on the character
 who reaches in: the command's `recipient_id` when one is named, otherwise the first
-living member in marching order (pinned). Locked by
-`test_exploration.py::TestSearching`, `TestTreasureTraps`, and
-`TestTrapResolutionCensus`.
+living member in marching order (pinned). A room trap's `trigger` names its
+springing action: `enter` rolls on entering a cell of the area, `open` rolls on
+opening a door of the area — `OpenDoor` or a successful `ForceDoor` — with the
+same 2-in-6 on every opening until the one spring. A door belongs to the area
+from either adjoining cell (pinned: the blade over the lintel drops on the way
+out too), the far side rolling first should one door join two trapped areas, and
+each spring lands on the opener — the forcing character, else the first living
+member in marching order — passing to the next member standing if an earlier
+spring killed the opener. A trap needs a living victim: a party with no one left
+rolls no spring die, and a spring whose effect carries the party away from the
+door (a chute) cancels the springs behind it — the party is no longer performing
+the opening (all pinned). A `room_traps` search covers the searched cell's door
+edges, so the `open`-trigger trap beyond a known door is findable from the
+threatened side before the door is opened; an undiscovered secret door hides its
+trap along with itself (the no-leak doctrine), and a found door trap never
+springs, like the walked-around pit. A treasure trap's only springing action is
+opening its cache, so the model rejects `trigger="enter"` on `kind="treasure"` —
+schema version 3, with a lossless migration rewriting the dead value on load.
+Locked by `test_exploration.py::TestSearching`, `TestTreasureTraps`,
+`TestDoorTraps`, `TestTwoTrappedAreas`, and `TestTrapResolutionCensus`.
 
 ### A recovered haul spreads across the party: usable items, even wealth, everyone mobile
 

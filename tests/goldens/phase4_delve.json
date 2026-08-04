@@ -7992,7 +7992,7 @@
   },
   "master_seed": 20260793,
   "party_document": {
-    "engine_version": "1.3.0",
+    "engine_version": "1.4.0",
     "kind": "party",
     "payload": {
       "characters": [
@@ -8240,7 +8240,7 @@
         }
       ]
     },
-    "schema_version": 2
+    "schema_version": 3
   },
   "transcript": [
     "character-0001 acquires 150 gp in coin.",

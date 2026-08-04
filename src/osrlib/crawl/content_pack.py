@@ -85,6 +85,21 @@ CONTENT_PACK_KIND = "content_pack"
 _CODE_PATTERN = re.compile(r"[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+")
 
 
+def _rewrite_dead_treasure_triggers(payload: dict) -> None:
+    """Rewrite a pre-3 payload's `treasure`+`enter` traps to `"open"`, in place.
+
+    The pack-side twin of the save chain's `_migrate_2_to_3`: a treasure trap
+    can sit only on an entry's features, and the engine never read the dead
+    trigger, so the rewrite is lossless.
+    """
+    for section in payload.get("sections", ()):
+        for entry in section.get("entries", ()):
+            for feature in entry.get("features", ()):
+                trap = feature.get("trap")
+                if isinstance(trap, dict) and trap.get("kind") == "treasure" and trap.get("trigger") == "enter":
+                    trap["trigger"] = "open"
+
+
 class ContentPackEntry(BaseModel):
     """One portable room: [`AreaSpec`][osrlib.crawl.dungeon.AreaSpec] minus its geometry.
 
@@ -176,10 +191,12 @@ class ContentPack(BaseModel):
     def from_document(cls, document: Mapping[str, object]) -> ContentPack:
         """Load a content pack from a stamped document.
 
-        A `schema_version` older than the current one is accepted — pack payload
-        changes are additive within a version, so an older document validates
-        directly. Unknown payload fields are ignored, per the additive-schema
-        contract.
+        A `schema_version` older than the current one is accepted: pack payload
+        changes are additive within a version, and the one narrowing — schema 3
+        made [`TrapSpec`][osrlib.crawl.dungeon.TrapSpec] reject `trigger="enter"`
+        on a treasure trap — is repaired in place, rewriting the dead value to
+        `"open"` exactly as the save migration does. Unknown payload fields are
+        ignored, per the additive-schema contract.
 
         Args:
             document: A document produced by
@@ -195,6 +212,9 @@ class ContentPack(BaseModel):
                 library understands.
         """
         payload = check_document(document, CONTENT_PACK_KIND)
+        schema_version = document["schema_version"]  # an int: check_document vetted the envelope
+        if isinstance(schema_version, int) and schema_version < 3:
+            _rewrite_dead_treasure_triggers(payload)
         try:
             return cls.model_validate(payload)
         except ValueError as error:
