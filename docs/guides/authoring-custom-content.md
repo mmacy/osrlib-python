@@ -565,7 +565,7 @@ catalog only; bundled ids live in the adventure that carries them:
 ```python
 from osrlib.core.alignment import Alignment
 from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character
-from osrlib.core.items import GearTemplate, WeaponTemplate
+from osrlib.core.items import AmmunitionTemplate, ArmourTemplate, GearTemplate, WeaponTemplate
 from osrlib.core.rng import RngStreams
 from osrlib.core.ruleset import Ruleset
 from osrlib.crawl.adventure import Adventure, TownSpec, validate_adventure
@@ -578,8 +578,9 @@ from osrlib.data import load_equipment, load_monsters
 # The quest object: a gear item with no shop price, carried like any other kit.
 TEMPLE_IDOL = GearTemplate.model_validate({"id": "temple_idol", "name": "Idol of the drowned saint", "cost_gp": 0})
 
-# Weapons, armour, and ammunition bundle the same way — build each from the model
-# its shipped list is made of.
+# The saint's own arms and armour: each kind is the model its shipped list is made
+# of, so a weapon carries damage and qualities, body armour both AC formats and its
+# basic-encumbrance category, and ammunition the lot it is sold and found in.
 DROWNED_BLADE = WeaponTemplate.model_validate(
     {
         "id": "drowned_blade",
@@ -590,9 +591,25 @@ DROWNED_BLADE = WeaponTemplate.model_validate(
         "qualities": ("melee",),
     }
 )
+SAINTS_SCALE = ArmourTemplate.model_validate(
+    {
+        "id": "saints_scale",
+        "name": "Scale of the saint",
+        "cost_gp": 0,
+        "weight_coins": 300,
+        "ac": 6,
+        "ac_ascending": 13,
+        "category": "light",
+    }
+)
+BLESSED_STONES = AmmunitionTemplate.model_validate(
+    {"id": "blessed_stones", "name": "Blessed sling stones", "cost_gp": 0, "lot_size": 20}
+)
 
 # Bundle them: the adventure document carries the templates, and a cache places
-# one by id like any shipped item.
+# them by id like any shipped item.
+BUNDLED_IDS = ("temple_idol", "drowned_blade", "saints_scale", "blessed_stones")
+
 level = LevelSpec(
     number=1,
     width=2,
@@ -603,7 +620,7 @@ level = LevelSpec(
             id="shrine",
             name="The flooded shrine",
             cells=((1, 0),),
-            features=(FeatureSpec(id="altar", kind="treasure_cache", cell=(1, 0), item_ids=("temple_idol",)),),
+            features=(FeatureSpec(id="altar", kind="treasure_cache", cell=(1, 0), item_ids=BUNDLED_IDS),),
         ),
     ),
 )
@@ -611,7 +628,7 @@ adventure = Adventure(
     name="The Drowned Saint",
     town=TownSpec(name="Threshold"),
     dungeons=(DungeonSpec(id="shrine", name="The Shrine", levels=(level,)),),
-    items=(TEMPLE_IDOL, DROWNED_BLADE),
+    items=(TEMPLE_IDOL, DROWNED_BLADE, SAINTS_SCALE, BLESSED_STONES),
 )
 
 # The same gate the shipped content passes: the base catalog goes in unchanged,
@@ -622,9 +639,15 @@ rng = RngStreams(master_seed=7).get(CHARACTER_CREATION_STREAM)
 hero = create_character(name="Hild", class_id="fighter", alignment=Alignment.LAWFUL, ruleset=Ruleset(), stream=rng)
 session = GameSession.new(Party(members=[hero.character]), adventure, seed=7)
 
-# The session's effective catalog resolves the bundled id — the very object the
+# The session's effective catalog resolves every bundled id — the very objects the
 # adventure carries — and a grant hands over that template.
 assert session.effective_equipment.get("temple_idol") is TEMPLE_IDOL
+assert [session.effective_equipment.get(item_id).item_type for item_id in BUNDLED_IDS] == [
+    "gear",
+    "weapon",
+    "armour",
+    "ammunition",
+]
 granted = session.execute(GrantItem(character_id=hero.character.id, item_id="temple_idol"))
 assert granted.accepted
 assert granted.events[0].item_ids == ("temple_idol",)
@@ -634,7 +657,7 @@ refused = session.execute(PurchaseEquipment(character_id=hero.character.id, item
 assert refused.rejections[0].code == "items.purchase.not_stocked"
 ```
 
-Two boundaries are worth stating plainly. The town shop stocks the shipped equipment lists only, so a
+Three boundaries are worth stating plainly. The town shop stocks the shipped equipment lists only, so a
 bundled item is never for sale: [`PurchaseEquipment`][osrlib.crawl.commands.PurchaseEquipment] refuses
 it with `items.purchase.not_stocked`, distinct from `session.command.unknown_item`, which means no such
 id exists at all — a front end can say "the trader doesn't carry that" rather than "no such thing". And
@@ -642,6 +665,18 @@ id exists at all — a front end can say "the trader doesn't carry that" rather 
 exists, resolving ids straight through `load_equipment()`, so a bundled id passed there raises
 `ValueError`: kit a character out with shipped gear at creation, and hand them the adventure's own
 items in play.
+
+The third is that some class policies are written as id lists. A class whose
+[`WeaponPolicy`][osrlib.core.classes.WeaponPolicy] is `allowed` names every weapon it may wield by id —
+the cleric's five blunt weapons, the magic-user's dagger — and a bundled id appears in no shipped
+class's list, so a cleric carrying the drowned blade can never equip it, earning the same
+`items.equip.weapon_not_allowed` an off-list shipped weapon does. Classes whose weapons are `any` or a
+`forbidden` list (fighter, elf, thief, dwarf, halfling) wield bundled weapons without ceremony. Armour
+behaves the same way where the policy names an id: the thief's `leather_only` admits the id `leather`
+alone, so bundled body armour is unwearable by a thief whatever its category, while a class with `any`
+armour wears the saint's scale exactly as it wears plate. None of that is about bundling — it is the
+shipped classes' own policies — and a custom class of your own is free to name your bundled ids in its
+`weapon_ids`.
 
 ## What's not supported
 

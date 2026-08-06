@@ -254,7 +254,7 @@ Pipeline rules:
 
 - Output is deterministic and diff-reviewable; regeneration is a one-command `uv run` task, and CI regenerates and fails on any diff so `srd/`, the compiler, and `osrlib/data/` cannot silently drift.
 - Bad or ambiguous parses are corrected by patch files in `tools/srd_compile/overrides/`, merged after parsing with provenance recorded in the output (e.g. the dungeon encounter table's "Basic Adventures" typo for Basic Adventurers). `osrlib/data/` is never hand-edited.
-- Adventure-bundled monster templates are adventure data, not SRD data: the shipped catalog stays frozen and generated, and bundled templates never merge into it — they join per-session through the adventure document that carries them.
+- Adventure-bundled monster and item templates are adventure data, not SRD data: the shipped catalogs stay frozen and generated, and bundled templates never merge into them — they join per-session through the adventure document that carries them.
 - Every generated file validates against the typed models at build time; tests assert entry counts and spot-check known values (e.g. Troll is AC 4 [15], HD 6+3*).
 - Where prose can't be mechanized (e.g. referee-judgment abilities), the data keeps the prose and a `manual` tag so games and narrators can still present it.
 

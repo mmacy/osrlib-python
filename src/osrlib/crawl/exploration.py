@@ -44,6 +44,7 @@ from osrlib.core.items import (
     MAX_LOAD_COINS,
     Coins,
     ItemInstance,
+    ItemTemplate,
     MagicItemCategory,
     MagicItemInstance,
     equip,
@@ -2135,7 +2136,7 @@ def _handle_give_items(session, command: GiveItems) -> tuple[list[Rejection], li
     return [], events
 
 
-def _grant_mundane(member, template, quantity: int = 1) -> None:
+def _grant_mundane(member, template: ItemTemplate, quantity: int = 1) -> None:
     """Add a mundane equipment item to a member's pack, merging with any like stack."""
     existing = next(
         (

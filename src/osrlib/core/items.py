@@ -342,10 +342,12 @@ class EquipmentCatalog(BaseModel):
         """Return the template with `item_id` from any of the four lists.
 
         Args:
-            item_id: An equipment id from
-                [`load_equipment`][osrlib.data.load_equipment] — see
-                [the equipment id index][equipment-index], e.g. `"sword"` or
-                `"torch"`.
+            item_id: Any equipment id this catalog carries. For the shipped
+                catalog ([`load_equipment`][osrlib.data.load_equipment]) that is
+                an id from [the equipment id index][equipment-index], e.g.
+                `"sword"` or `"torch"`; a catalog a session built by adding an
+                adventure's own item templates also answers those bundled ids,
+                which no index documents.
 
         Returns:
             The template.
