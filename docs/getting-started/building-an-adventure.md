@@ -148,4 +148,4 @@ assert len(session.monsters) == 2
 
 - The example games ship complete authored adventures worth reading: [the TUI crawler](../front-ends/tui-crawler.md) builds a two-level barrow with a fetch quest, custom wandering tables, and a hand-placed MacGuffin.
 - [Sessions, commands, and events](../guides/sessions-commands-events.md) — what happens after the encounter starts.
-- [Authoring custom classes and spells](../guides/authoring-custom-content.md) — extending the content catalogs themselves.
+- [Authoring custom classes, spells, monsters, and items](../guides/authoring-custom-content.md) — extending the content catalogs themselves.

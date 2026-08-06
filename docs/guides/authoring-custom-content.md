@@ -1,16 +1,17 @@
-# Authoring custom classes, spells, and monsters
+# Authoring custom classes, spells, monsters, and items
 
-The seven classes, the spell list, and the monster catalog that ship with osrlib are compiled from the
-OSE SRD into the package's data files by a build pipeline — that pipeline is not the extension point,
-and there is no way to feed your own content into it. What *is* supported is authoring your own class,
-spell, and monster definitions in code, validating them the same way the shipped catalogs validate
-their own content, and running them through the same kernel that plays a fighter or a goblin: creation,
-advancement, memorization, casting, and — for monsters — spawning, combat, XP, and treasure. A class's
-`race` and a spell's `spell_list` are both open, validated string ids for exactly this reason — nothing
-in the kernel restricts them to the values the shipped classes happen to use. This page builds one
-small custom class and one custom spell for it ([the complete program](#the-complete-program) runs
-every step shown along the way), then [a custom monster bundled into an
-adventure](#bundling-custom-monsters-with-an-adventure) for the crawl layer.
+The seven classes, the spell list, the monster catalog, and the equipment lists that ship with osrlib
+are compiled from the OSE SRD into the package's data files by a build pipeline — that pipeline is not
+the extension point, and there is no way to feed your own content into it. What *is* supported is
+authoring your own class, spell, monster, and item definitions in code, validating them the same way
+the shipped catalogs validate their own content, and running them through the same kernel that plays a
+fighter or a goblin: creation, advancement, memorization, casting, and — for monsters — spawning,
+combat, XP, and treasure. A class's `race` and a spell's `spell_list` are both open, validated string
+ids for exactly this reason — nothing in the kernel restricts them to the values the shipped classes
+happen to use. This page builds one small custom class and one custom spell for it ([the complete
+program](#the-complete-program) runs every step shown along the way), then [a custom monster bundled
+into an adventure](#bundling-custom-monsters-with-an-adventure) and [the items an adventure carries
+with it](#bundling-custom-items-with-an-adventure) for the crawl layer.
 
 ## The shape of a class definition
 
@@ -535,18 +536,122 @@ assert [guard.template.id for guard in guards] == ["bone_warden", "bone_warden"]
 assert all(guard.max_hp >= 3 for guard in guards)  # 2d8+1 rolls at least 3
 ```
 
-Bundled equipment, classes, and spells have no adventure-document seam yet — monsters earned theirs
-first, and the same shape is the template if a future need is demonstrated. For classes and spells the
-catalog-extension pattern above is the supported path.
+Bundled classes and spells have no adventure-document home — for those, the catalog-extension pattern
+above is the supported path.
+
+## Bundling custom items with an adventure
+
+Items travel with the adventure exactly the way monsters do. `Adventure.items` carries your own
+[`WeaponTemplate`][osrlib.core.items.WeaponTemplate],
+[`ArmourTemplate`][osrlib.core.items.ArmourTemplate], [`GearTemplate`][osrlib.core.items.GearTemplate],
+and [`AmmunitionTemplate`][osrlib.core.items.AmmunitionTemplate]s — the same models the shipped
+equipment lists are made of, discriminated by the `item_type` field each one already carries — and
+every session running that adventure resolves them everywhere it resolves a shipped equipment id: a
+treasure cache's `item_ids`, [`GrantItem`][osrlib.crawl.commands.GrantItem], and the drop pile a party
+recovers goods from. [`GameSession.effective_equipment`][osrlib.crawl.session.GameSession.effective_equipment]
+is the shipped catalog plus the bundle. Downstream of acquisition nothing differs: an
+[`ItemInstance`][osrlib.core.items.ItemInstance] embeds its whole template, so equipping, encumbrance,
+combat, handing items between members, dropping, saving, and replay never look the id up again.
+
+The one rule is the collision rule, and for items it is three-way: a bundled id must collide with
+neither the equipment catalog, nor the magic-item catalog, nor another bundled id, because an item id
+names exactly one thing per session.
+[`validate_adventure`][osrlib.crawl.adventure.validate_adventure] rejects a collision outright and
+never overrides — an adventure that wants a brighter torch names a different id. Treasure-weight rows
+(`coin`, `gem`, `jewellery`, …) are an encumbrance table rather than item identity, so their ids sit
+outside the rule. As with monsters, [the equipment id index][equipment-index] documents the shipped
+catalog only; bundled ids live in the adventure that carries them:
+
+```python
+from osrlib.core.alignment import Alignment
+from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character
+from osrlib.core.items import GearTemplate, WeaponTemplate
+from osrlib.core.rng import RngStreams
+from osrlib.core.ruleset import Ruleset
+from osrlib.crawl.adventure import Adventure, TownSpec, validate_adventure
+from osrlib.crawl.commands import GrantItem, PurchaseEquipment
+from osrlib.crawl.dungeon import AreaSpec, DungeonSpec, FeatureSpec, LevelSpec
+from osrlib.crawl.party import Party
+from osrlib.crawl.session import GameSession
+from osrlib.data import load_equipment, load_monsters
+
+# The quest object: a gear item with no shop price, carried like any other kit.
+TEMPLE_IDOL = GearTemplate.model_validate({"id": "temple_idol", "name": "Idol of the drowned saint", "cost_gp": 0})
+
+# Weapons, armour, and ammunition bundle the same way — build each from the model
+# its shipped list is made of.
+DROWNED_BLADE = WeaponTemplate.model_validate(
+    {
+        "id": "drowned_blade",
+        "name": "Drowned blade",
+        "cost_gp": 0,
+        "weight_coins": 60,
+        "damage": "1d8",
+        "qualities": ("melee",),
+    }
+)
+
+# Bundle them: the adventure document carries the templates, and a cache places
+# one by id like any shipped item.
+level = LevelSpec(
+    number=1,
+    width=2,
+    height=1,
+    entrance=(0, 0),
+    areas=(
+        AreaSpec(
+            id="shrine",
+            name="The flooded shrine",
+            cells=((1, 0),),
+            features=(FeatureSpec(id="altar", kind="treasure_cache", cell=(1, 0), item_ids=("temple_idol",)),),
+        ),
+    ),
+)
+adventure = Adventure(
+    name="The Drowned Saint",
+    town=TownSpec(name="Threshold"),
+    dungeons=(DungeonSpec(id="shrine", name="The Shrine", levels=(level,)),),
+    items=(TEMPLE_IDOL, DROWNED_BLADE),
+)
+
+# The same gate the shipped content passes: the base catalog goes in unchanged,
+# and validation unions it with the bundle before resolving the cache's item ids.
+validate_adventure(adventure, load_monsters(), load_equipment())
+
+rng = RngStreams(master_seed=7).get(CHARACTER_CREATION_STREAM)
+hero = create_character(name="Hild", class_id="fighter", alignment=Alignment.LAWFUL, ruleset=Ruleset(), stream=rng)
+session = GameSession.new(Party(members=[hero.character]), adventure, seed=7)
+
+# The session's effective catalog resolves the bundled id — the very object the
+# adventure carries — and a grant hands over that template.
+assert session.effective_equipment.get("temple_idol") is TEMPLE_IDOL
+granted = session.execute(GrantItem(character_id=hero.character.id, item_id="temple_idol"))
+assert granted.accepted
+assert granted.events[0].item_ids == ("temple_idol",)
+
+# The town shop stocks the shipped lists, so the idol is found, never bought.
+refused = session.execute(PurchaseEquipment(character_id=hero.character.id, item_ids=("temple_idol",)))
+assert refused.rejections[0].code == "items.purchase.not_stocked"
+```
+
+Two boundaries are worth stating plainly. The town shop stocks the shipped equipment lists only, so a
+bundled item is never for sale: [`PurchaseEquipment`][osrlib.crawl.commands.PurchaseEquipment] refuses
+it with `items.purchase.not_stocked`, distinct from `session.command.unknown_item`, which means no such
+id exists at all — a front end can say "the trader doesn't carry that" rather than "no such thing". And
+[`create_character`][osrlib.core.character.create_character]'s `purchases` run before any session
+exists, resolving ids straight through `load_equipment()`, so a bundled id passed there raises
+`ValueError`: kit a character out with shipped gear at creation, and hand them the adventure's own
+items in play.
 
 ## What's not supported
 
 There is no merge path into the shipped content. `load_classes` and `load_spells` are cached loaders
 that read the generated `classes.json`/`spells.json` shipped inside the package; there is no append or
 register call, so an extended catalog is always a value your own code builds and holds — `classes` and
-`spells` above, never something fed back into the loaders themselves. `load_monsters` is just as
-closed: [bundling](#bundling-custom-monsters-with-an-adventure) unions per session through the
-adventure document that carries the templates, and the shipped catalog object never changes.
+`spells` above, never something fed back into the loaders themselves. `load_monsters` and
+`load_equipment` are just as closed: bundling ([monsters](#bundling-custom-monsters-with-an-adventure),
+[items](#bundling-custom-items-with-an-adventure)) unions per session through the adventure document
+that carries the templates, and the shipped catalog objects never change.
 
 [`create_character`][osrlib.core.character.create_character], the one-call convenience wrapper used in
 [the quickstart](../getting-started/quickstart.md), resolves its `class_id` argument straight through

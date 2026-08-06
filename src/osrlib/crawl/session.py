@@ -47,12 +47,12 @@ from osrlib.core.events import (
     SavingThrowRolledEvent,
     Visibility,
 )
-from osrlib.core.items import ItemInstance
+from osrlib.core.items import EquipmentCatalog, ItemInstance
 from osrlib.core.monsters import MONSTER_SPAWN_STREAM, IdAllocator, MonsterCatalog, MonsterInstance, spawn_monster
 from osrlib.core.rng import RngStreams
 from osrlib.core.ruleset import Ruleset
 from osrlib.core.validation import Rejection
-from osrlib.crawl.adventure import Adventure, _effective_monsters, validate_adventure
+from osrlib.crawl.adventure import Adventure, _effective_equipment, _effective_monsters, validate_adventure
 from osrlib.crawl.commands import (
     AdvanceTime,
     AwardXP,
@@ -247,8 +247,8 @@ class GameSession:
         """Internal constructor — use [`GameSession.new`][osrlib.crawl.session.GameSession.new] or `load_game`.
 
         Raises:
-            ContentValidationError: If the adventure bundles monster ids that
-                collide with the shipped catalog or each other — the typed
+            ContentValidationError: If the adventure bundles monster or item ids
+                that collide with the shipped catalogs or each other — the typed
                 backstop for `load_game`, which trusts saved content otherwise.
         """
         self.party = party
@@ -259,6 +259,12 @@ class GameSession:
                 "adventure bundles colliding monster ids: " + ", ".join(repr(monster_id) for monster_id in colliding)
             )
         self._monster_catalog = catalog
+        equipment, colliding_items = _effective_equipment(adventure, load_equipment())
+        if colliding_items:
+            raise ContentValidationError(
+                "adventure bundles colliding item ids: " + ", ".join(repr(item_id) for item_id in colliding_items)
+            )
+        self._equipment_catalog = equipment
         self.ruleset = ruleset
         self.streams = streams
         self.master_seed = master_seed
@@ -342,6 +348,19 @@ class GameSession:
         catalog ([`load_monsters`][osrlib.data.load_monsters]'s cached object).
         """
         return self._monster_catalog
+
+    @property
+    def effective_equipment(self) -> EquipmentCatalog:
+        """The session's equipment catalog: the shipped catalog plus the adventure's bundled templates.
+
+        Every engine site that resolves an authored item id — treasure caches,
+        `GrantItem`, drop-pile recovery — resolves against this catalog. For an
+        adventure that bundles nothing it *is* the shipped catalog
+        ([`load_equipment`][osrlib.data.load_equipment]'s cached object). The town
+        shop is the exception: it stocks the shipped equipment lists, so a bundled
+        item is never on sale.
+        """
+        return self._equipment_catalog
 
     # ------------------------------------------------------------------ dispatch
 
@@ -822,7 +841,7 @@ def _handle_grant_item(session: GameSession, command: GrantItem) -> tuple[list[R
     except ValueError:
         return [Rejection(code="session.command.unknown_member", params={"character": command.character_id})], []
     try:
-        template = load_equipment().get(command.item_id)
+        template = session.effective_equipment.get(command.item_id)
     except ValueError:
         return [Rejection(code="session.command.unknown_item", params={"item": command.item_id})], []
     member.inventory.items.append(ItemInstance(template=template, quantity=command.quantity))

@@ -6,7 +6,10 @@ with the geometry left behind: sections of entries that mirror
 optionally carrying a level's [`WanderingSpec`][osrlib.crawl.dungeon.WanderingSpec],
 plus the bundled [`MonsterTemplate`][osrlib.core.monsters.MonsterTemplate]s the
 entries' encounters and the sections' wandering tables reference — the pack's
-closure. Packs are how an authoring
+closure. Item templates are deliberately not part of that closure: a pack's
+features reference the shipped equipment catalog only, since a bundled item id
+belongs to the one adventure that carries it and would arrive dangling in any
+other. Packs are how an authoring
 tool moves stocked rooms from one adventure to another: the consumer writes an
 entry's content into a target area it already has, so a pack never places cells,
 transitions, or any other geometry.
@@ -254,8 +257,8 @@ def validate_content_pack(
 
     Checks every monster reference (keyed-encounter lines and wandering-table
     rows) against the union of the shipped catalog and the pack's bundled
-    monsters, every feature's `item_ids` against the equipment catalog, and every
-    feature's `magic_item_ids` against the shipped magic-item catalog
+    monsters, every feature's `item_ids` against the shipped equipment catalog,
+    and every feature's `magic_item_ids` against the shipped magic-item catalog
     ([`load_magic_items`][osrlib.data.load_magic_items] — packs bundle no magic
     items, so the check loads it itself).
     Findings are data, not errors: a dangling reference is legal in a pack
@@ -266,7 +269,10 @@ def validate_content_pack(
         pack: The pack to check.
         monsters: The *base* monster catalog — the check unions it with
             `pack.monsters` internally.
-        equipment: The equipment catalog feature contents resolve against.
+        equipment: The shipped equipment catalog feature contents resolve
+            against. Packs carry no item bundle of their own, so there is nothing
+            to union here: an entry naming an item some adventure bundles reports
+            as a gap, which is the honest answer for a portable pack.
 
     Returns:
         One finding per gap, in section and entry order; empty means the pack is
