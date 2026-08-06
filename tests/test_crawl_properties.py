@@ -166,8 +166,12 @@ def command_strategy():
             elif field_name == "value":
                 fields[field_name] = st.sampled_from([True, 7, "open"])
             elif field_name == "trigger_id":
+                # "lever-east" is listed twice on purpose: the doubled weight makes a
+                # re-mark of an already-marked trigger likely within a short sequence.
                 fields[field_name] = st.sampled_from(["lever-east", "lever-east", "idol-lifted", "no-such-trigger"])
             elif field_name == "text":
+                # Journal beats reach the player view verbatim, so these strings must
+                # avoid every substring the leak tests below search the view blob for.
                 fields[field_name] = st.sampled_from(
                     ["The lever grinds.", "A consequence was dropped.", "Nothing at all happens."]
                 )

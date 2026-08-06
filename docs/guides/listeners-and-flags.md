@@ -100,7 +100,7 @@ other command:
   fired, appending its id to `session.fired_triggers` — the state that answers once-only
   semantics. Marking a trigger that has already fired is accepted, appends nothing, and still
   emits its [`TriggerFiredEvent`][osrlib.crawl.events.TriggerFiredEvent], so a repeatable
-  trigger's every firing shows up in the log while the state stays a set of ids in first-fired
+  trigger's every firing shows up in the log while the state stays a list of ids in first-fired
   order.
 - [`AddJournalEntry`][osrlib.crawl.commands.AddJournalEntry] appends a beat to `session.journal`,
   stamped with the clock position it landed at. The journal is the one part of this vocabulary the
@@ -119,8 +119,8 @@ remembering things itself, the discipline this page opened with.
 The optional `source` stamp (see
 [Sessions, commands, and events](sessions-commands-events.md)) is what ties the vocabulary
 together: a listener that stamps the commands it issues with its own quest or trigger id leaves a
-log that answers *why* every entry is there. A library-shipped trigger and quest interpreter is
-built on exactly this surface; a game's own listener can drive it today.
+log that answers *why* every entry is there. A library-shipped trigger and quest interpreter will
+be built on exactly this surface when it arrives; a game's own listener can drive it today.
 
 ## The fetch quest, worked
 

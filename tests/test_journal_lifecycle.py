@@ -179,6 +179,10 @@ class TestLegality:
 class TestVisibility:
     def test_the_journal_is_for_the_table_and_the_wiring_is_not(self):
         session = make_session()
+        # Off the zero mark first, so the beat's clock stamp is a real number rather
+        # than the value an unstamped field would carry anyway. The span runs before
+        # the three commands, so what they emit is all this test collects.
+        assert session.execute(AdvanceTime(n=2, unit="turn")).accepted
         emitted = []
         for command in (
             MarkTriggerFired(trigger_id="lever-east"),
@@ -193,7 +197,7 @@ class TestVisibility:
         assert [type(event) for event in player] == [JournalEntryAddedEvent]
         assert [type(event) for event in referee] == [TriggerFiredEvent, NoteRecordedEvent]
         assert player[0].text == "The lever grinds; somewhere below, a portcullis rises."
-        assert player[0].rounds == session.clock.rounds
+        assert player[0].rounds == session.clock.rounds == 120
 
 
 class TestPersistenceAndTheView:
