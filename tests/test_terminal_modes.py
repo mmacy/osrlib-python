@@ -98,6 +98,21 @@ def game_over_events(events) -> list:
     return [event for event in events if getattr(event, "code", None) == "session.game_over"]
 
 
+def assert_session_ended(session: GameSession, events) -> None:
+    """The shape of every wipe: the ending last, no play state left, and no encore."""
+    assert session.mode is SessionMode.GAME_OVER
+    assert session.battle is None and session.encounter is None
+    assert getattr(events[-1], "code", None) == "session.game_over"
+    assert events[-1].reason == "the party has fallen"
+    assert len(game_over_events(events)) == 1
+    # The trigger is the death, not the state: nothing among the corpses ends the
+    # session a second time.
+    again = session.execute(RollDice(expression="1d6"))
+    assert again.accepted
+    assert not game_over_events(again.events)
+    assert session.mode is SessionMode.GAME_OVER
+
+
 class TestTheLegalityCensus:
     """Terminal-mode membership follows referee-ness, with three exceptions."""
 
@@ -169,24 +184,10 @@ class TestVictoryAtTheExecutedSeam:
 class TestNonBattleWipes:
     """Every entrance to game-over, one test each, plus the edge-trigger rule."""
 
-    def assert_ended(self, session: GameSession, events) -> None:
-        """The shape of every wipe: the ending last, no play state, and no encore."""
-        assert session.mode is SessionMode.GAME_OVER
-        assert session.battle is None and session.encounter is None
-        assert getattr(events[-1], "code", None) == "session.game_over"
-        assert events[-1].reason == "the party has fallen"
-        assert len(game_over_events(events)) == 1
-        # The trigger is the death, not the state: nothing among the corpses ends
-        # the session a second time.
-        again = session.execute(RollDice(expression="1d6"))
-        assert again.accepted
-        assert not game_over_events(again.events)
-        assert session.mode is SessionMode.GAME_OVER
-
     def test_a_trap_wipe_ends_the_session(self):
         session, events = trap_wipe_session()
         assert any(getattr(event, "code", None) == "exploration.trap.sprung" for event in events)
-        self.assert_ended(session, events)
+        assert_session_ended(session, events)
 
     def test_a_deprivation_wipe_ends_the_session(self):
         session = GameSession.new(
@@ -202,7 +203,7 @@ class TestNonBattleWipes:
         result = session.execute(AdvanceTime(n=1, unit=TimeUnit.DAY))
         assert result.accepted
         assert any(getattr(event, "code", None) == "combat.death.died" for event in result.events)
-        self.assert_ended(session, list(result.events))
+        assert_session_ended(session, list(result.events))
 
     def test_a_town_wipe_ends_the_session(self):
         session = make_session()
@@ -210,7 +211,7 @@ class TestNonBattleWipes:
         result = session.execute(AdvanceTime(n=1, unit=TimeUnit.TURN))
         assert result.accepted
         assert session.dungeon_state.location.kind == "town"
-        self.assert_ended(session, list(result.events))
+        assert_session_ended(session, list(result.events))
 
     def test_a_lost_battle_and_a_trap_wipe_end_the_session_identically(self):
         from osrlib.crawl.commands import ResolveBattleRound
@@ -354,9 +355,7 @@ class TestWipedPartyGuards:
         codes = [getattr(event, "code", None) for event in result.events]
         assert "battle.started" not in codes, "a battle among corpses would end in defeat for a wipe that was no battle"
         assert "battle.ended.defeat" not in codes
-        assert session.battle is None and session.encounter is None
-        assert session.mode is SessionMode.GAME_OVER
-        assert codes[-1] == "session.game_over"
+        assert_session_ended(session, list(result.events))
 
     def test_a_pursuit_round_that_kills_the_last_member_resolves_nothing(self):
         session = self.encounter_session(template_id="normal_wolf")
