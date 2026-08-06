@@ -991,7 +991,7 @@ class TestDoorTraps:
 
     def test_a_discovered_secret_door_gives_up_its_trap(self):
         session = self.build_before_the_door(seed=SEED_SEARCH_PASSES)
-        exploration._door_state(session, Direction.SOUTH).discovered = True
+        exploration._materialize_door(session, Direction.SOUTH).discovered = True
         result = session.execute(Search(character_id="character-0001", kind="room_traps"))
         completed = next(event for event in result.events if event.code == "exploration.search.found")
         assert set(completed.found) == {"room_trap:blade_room", "room_trap:vault"}

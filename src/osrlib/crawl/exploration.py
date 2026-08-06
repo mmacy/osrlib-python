@@ -104,6 +104,7 @@ from osrlib.crawl.commands import (
 from osrlib.crawl.dungeon import (
     AreaSpec,
     Direction,
+    DoorState,
     DroppedItem,
     DropPile,
     EdgeKind,
@@ -229,21 +230,69 @@ def _edge_ref(session, direction: Direction) -> str:
     return edge_ref(dungeon_id, level_number, position, direction)
 
 
-def _door_state(session, direction: Direction):
-    """The overlay entry for the door on one side of the party's cell.
+def _seed(edge, state: DoorState) -> DoorState:
+    """Apply the authored `starts_open` to a fresh overlay entry."""
+    if edge.kind is EdgeKind.DOOR and edge.door.starts_open:
+        state.open = True
+    return state
 
-    Initialized from the authored `starts_open` on first touch; a door forced or
-    opened by the party marks `opened_by_party`, which is what the swing-shut
-    rule watches.
+
+def _read_door_state(session, edge, ref: str) -> DoorState:
+    """The overlay entry for one door, for reading — never stored.
+
+    A door nobody has operated has no entry: this answers a transient default
+    seeded from the authored spec, which reads identically to the entry an
+    operation would store. Reading never writes, so a refused command leaves the
+    overlay exactly as it found it.
+
+    Args:
+        session (osrlib.crawl.session.GameSession): The running session.
+        edge (osrlib.crawl.dungeon.Edge): The authored edge the door sits on.
+        ref: The door's [`edge_ref`][osrlib.crawl.dungeon.edge_ref].
+
+    Returns:
+        The stored entry when one exists, else a transient seeded default.
+    """
+    state = session.dungeon_state.doors.get(ref)
+    return state if state is not None else _seed(edge, DoorState())
+
+
+def _store_door_state(session, edge, ref: str) -> DoorState:
+    """The overlay entry for one door, for writing — created and seeded on first touch.
+
+    Every mutation of a door goes through here: opening, closing, wedging,
+    unlocking, discovering a secret door, and the referee's own door writes. The
+    authored `starts_open` seeds only a brand-new entry, so materializing a door
+    that is already stored never rewrites what play did to it.
+
+    Args:
+        session (osrlib.crawl.session.GameSession): The running session.
+        edge (osrlib.crawl.dungeon.Edge): The authored edge the door sits on.
+        ref: The door's [`edge_ref`][osrlib.crawl.dungeon.edge_ref].
+
+    Returns:
+        The stored, mutable entry.
+    """
+    state = session.dungeon_state.doors.get(ref)
+    if state is not None:
+        return state
+    return _seed(edge, session.dungeon_state.door(ref))
+
+
+def _door_state(session, direction: Direction) -> DoorState:
+    """The read-only overlay entry for the door on one side of the party's cell."""
+    edge = _level(session).edge(_position(session), direction)
+    return _read_door_state(session, edge, _edge_ref(session, direction))
+
+
+def _materialize_door(session, direction: Direction) -> DoorState:
+    """The stored overlay entry for the door on one side of the party's cell.
+
+    A door forced or opened by the party marks `opened_by_party`, which is what
+    the swing-shut rule watches.
     """
     edge = _level(session).edge(_position(session), direction)
-    ref = _edge_ref(session, direction)
-    state = session.dungeon_state.doors.get(ref)
-    if state is None:
-        state = session.dungeon_state.door(ref)
-        if edge.kind is EdgeKind.DOOR and edge.door.starts_open:
-            state.open = True
-    return state
+    return _store_door_state(session, edge, _edge_ref(session, direction))
 
 
 def _known_door(session, direction: Direction):
@@ -1260,8 +1309,9 @@ def _handle_open_door(session, command: OpenDoor) -> tuple[list[Rejection], list
         return [Rejection(code="exploration.door.locked")], []
     if edge.door.stuck:
         return [Rejection(code="exploration.door.stuck")], []
-    state.open = True
-    state.opened_by_party = True
+    stored = _materialize_door(session, command.direction)
+    stored.open = True
+    stored.opened_by_party = True
     x, y = _position(session)
     events: list[Event] = [DoorEvent(code="exploration.door.opened", x=x, y=y, direction=command.direction.value)]
     events.extend(_door_trap_check(session, command.direction))
@@ -1277,7 +1327,7 @@ def _handle_close_door(session, command: CloseDoor) -> tuple[list[Rejection], li
         return [Rejection(code="exploration.door.already_closed")], []
     if state.wedged:
         return [Rejection(code="exploration.door.wedged")], []
-    state.open = False
+    _materialize_door(session, command.direction).open = False
     x, y = _position(session)
     return [], [DoorEvent(code="exploration.door.closed", x=x, y=y, direction=command.direction.value)]
 
@@ -1304,8 +1354,9 @@ def _handle_force_door(session, command: ForceDoor) -> tuple[list[Rejection], li
     check = detection_check(member.open_doors_chance, stream=session.streams.get(EXPLORATION_STREAM))
     x, y = _position(session)
     if check.passed:
-        state.open = True
-        state.opened_by_party = True
+        stored = _materialize_door(session, command.direction)
+        stored.open = True
+        stored.opened_by_party = True
         events: list[Event] = [
             DoorEvent(
                 code="exploration.door.forced", x=x, y=y, direction=command.direction.value, character_id=member.id
@@ -1338,7 +1389,7 @@ def _handle_wedge_door(session, command: WedgeDoor) -> tuple[list[Rejection], li
     if spike_carrier is None:
         return [Rejection(code="exploration.door.no_spike")], []
     _consume_item(spike_carrier, "iron_spikes")
-    state.wedged = True
+    _materialize_door(session, command.direction).wedged = True
     x, y = _position(session)
     return [], [DoorEvent(code="exploration.door.wedged", x=x, y=y, direction=command.direction.value)]
 
@@ -1416,7 +1467,7 @@ def _handle_pick_lock(session, command: PickLock) -> tuple[list[Rejection], list
         )
     ]
     if result.passed:
-        state.unlocked = True
+        _materialize_door(session, command.direction).unlocked = True
         x, y = _position(session)
         events.append(
             DoorEvent(
@@ -1475,9 +1526,8 @@ def _reveal(session, kind: str, events: list[Event]) -> list[str]:
         for direction in Direction:
             edge = level.edge(position, direction)
             if edge.kind is EdgeKind.DOOR and edge.door.kind == "secret":
-                door = _door_state(session, direction)
-                if not door.discovered:
-                    door.discovered = True
+                if not _door_state(session, direction).discovered:
+                    _materialize_door(session, direction).discovered = True
                     found.append(f"secret_door:{direction.value}")
     elif kind == "room_traps":
         candidates = []
