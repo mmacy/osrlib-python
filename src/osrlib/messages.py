@@ -216,6 +216,7 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
         + (f"{event.coins_gp_value} gp in coin" if event.coins_gp_value else "")
         + "."
     ),
+    "exploration.item.consumed": lambda event: f"{event.character_id} uses up {event.item_id}.",
     "exploration.item.dropped": lambda event: (
         f"{event.character_id} drops "
         + (", ".join(event.item_ids) if event.item_ids else "")
@@ -356,6 +357,11 @@ def format_message(event: Event) -> str:
     never raises — so logs carrying event types this function doesn't recognize stay
     printable.
 
+    An event carrying a non-empty `narrative` field — the authored beat a gate's
+    success rides — has that text appended verbatim after the templated line. This
+    formatter is the library's deterministic renderer, and authored text is shown
+    exactly as written.
+
     Args:
         event: The event to format.
 
@@ -372,6 +378,6 @@ def format_message(event: Event) -> str:
         ```
     """
     template = _TEMPLATES.get(event.code)
-    if template is None:
-        return event.code
-    return template(event)
+    line = event.code if template is None else template(event)
+    narrative = getattr(event, "narrative", None)
+    return f"{line} {narrative}" if narrative else line

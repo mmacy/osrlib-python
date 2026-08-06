@@ -949,7 +949,7 @@ def _resolve_scroll_cast(session, member, instance, template, declaration: Battl
     if left:
         instance.state = {**instance.state, "spells": left}
     else:
-        exploration._remove_magic_instance(member, instance)
+        exploration._remove_instance(member, instance)
     events: list[Event] = []
     events.extend(exploration._identify_item_events(session, member, instance))
     events.append(ItemUsedEvent(code="items.scroll.read", character_id=member.id, instance_id=instance.instance_id))

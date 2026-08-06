@@ -26,6 +26,7 @@ from osrlib.core.items import (
 )
 from osrlib.core.monsters import MonsterCatalog, MonsterTemplate
 from osrlib.crawl.dungeon import DungeonSpec, FeatureSpec, LevelSpec
+from osrlib.crawl.gates import GateSpec, HasItemCondition
 from osrlib.data import load_magic_items
 from osrlib.errors import ContentValidationError
 
@@ -200,6 +201,33 @@ def _validate_feature(
             errors.append(f"{owner}: feature {feature.id!r} references unknown magic item {item_id!r}")
 
 
+def _validate_gate(
+    gate: GateSpec | None,
+    owner: str,
+    site: str,
+    equipment: EquipmentCatalog,
+    magic: MagicItemCatalog,
+    errors: list[str],
+) -> None:
+    """Resolve a gate's `has_item` id against the item domain the condition matches.
+
+    Equipment (base ∪ bundled) or magic item: exactly the union `has_item`
+    evaluates against, so an id neither catalog holds can never be satisfied and is
+    a dangling reference. Flag keys and effect kinds are open domains and get no
+    check — a flag nobody writes is authoring-tool territory, not a broken document.
+    """
+    if gate is None or not isinstance(gate.condition, HasItemCondition):
+        return
+    item_id = gate.condition.item_id
+    try:
+        equipment.get(item_id)
+    except ValueError:
+        try:
+            magic.get(item_id)
+        except ValueError:
+            errors.append(f"{owner}: {site} gate references unknown item {item_id!r}")
+
+
 def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment: EquipmentCatalog) -> None:
     """Validate an adventure's cross-references — the fail-fast content gate.
 
@@ -211,9 +239,11 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
     magic-item catalog ([`load_magic_items`][osrlib.data.load_magic_items] —
     adventures bundle no magic items, so validation loads it itself),
     keyed-encounter template ids (and any fixed spawn alignment) and inline
-    wandering-table monster ids resolving against the effective catalog,
-    transition destinations resolving to real cells, town travel entries naming
-    real dungeons, and an entrance existing somewhere in every dungeon.
+    wandering-table monster ids resolving against the effective catalog, item ids
+    named by `has_item` gates on doors and transitions resolving against the
+    effective equipment catalog or the magic-item catalog, transition destinations
+    resolving to real cells, town travel entries naming real dungeons, and an
+    entrance existing somewhere in every dungeon.
 
     Args:
         adventure: The adventure to validate.
@@ -291,7 +321,13 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
                             errors.append(
                                 f"{owner}: wandering row {row.name!r} references unknown monster {monster_id!r}"
                             )
+            for edge_key_, edge in level.edges.items():
+                if edge.door is not None:
+                    _validate_gate(edge.door.requires, owner, f"door {edge_key_}", effective_items, magic, errors)
             for transition in level.transitions:
+                _validate_gate(
+                    transition.requires, owner, f"transition at {transition.position}", effective_items, magic, errors
+                )
                 if not level.in_bounds(transition.position):
                     errors.append(f"{owner}: transition at {transition.position} is out of bounds")
                 try:

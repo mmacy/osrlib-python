@@ -48,6 +48,7 @@ from osrlib.data import load_classes
 __all__ = [
     "GATE_KEY",
     "GATE_SEAL",
+    "GATE_SIGIL",
     "GATE_TOKEN",
     "STOCK_ROSTER",
     "build_adventure",
@@ -228,6 +229,10 @@ GATE_TOKEN = GearTemplate(id="toll_token", name="Ferryman's token", cost_gp=0)
 GATE_SEAL = GearTemplate(id="silver_seal", name="Silver seal", cost_gp=0)
 """The reliquary's second requirement, behind its lock."""
 
+GATE_SIGIL = GearTemplate(id="sanctum_sigil", name="Sanctum sigil", cost_gp=0)
+"""The sanctum door's requirement: a real item the warren never places, so the door
+opens for nobody until a referee opens it by hand."""
+
 
 def build_gated_adventure() -> Adventure:
     """Build the two-level gated dungeon: a key door, a toll stair, a lock plus a gate.
@@ -350,7 +355,7 @@ def build_gated_adventure() -> Adventure:
         description="A warren of doors that want something.",
         town=TownSpec(name="Threshold", travel_turns={"warren": 1}),
         dungeons=(DungeonSpec(id="warren", name="The Warren", levels=(level_1, level_2)),),
-        items=(GATE_KEY, GATE_TOKEN, GATE_SEAL),
+        items=(GATE_KEY, GATE_TOKEN, GATE_SEAL, GATE_SIGIL),
     )
 
 

@@ -45,6 +45,7 @@ __all__ = [
     "HealingPurchasedEvent",
     "HoardGeneratedEvent",
     "ItemAcquiredEvent",
+    "ItemConsumedEvent",
     "ItemIdentifiedEvent",
     "ItemUsedEvent",
     "ItemsDroppedEvent",
@@ -107,10 +108,21 @@ class LocationEnteredEvent(Event):
     location_kind: str
     location_id: str
     level_number: int | None = None
+    narrative: str | None = None
+    """The authored success text of the gate on the transition that was taken, when the
+    author wrote one. Authored text on an event is content data in a structured field,
+    not engine-baked English: the event still carries its message code and its facts,
+    and the default formatter appends this line verbatim after the templated one."""
 
 
 class DoorEvent(Event):
-    """A door changed state; the edge is named by its cell and direction."""
+    """A door changed state; the edge is named by its cell and direction.
+
+    `narrative` carries the authored success text of the door's gate when the
+    opening satisfied one — content data in a structured field, not engine-baked
+    English: the event still carries its message code and its facts, and the
+    default formatter appends the line verbatim after the templated one.
+    """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset(
         {
@@ -130,6 +142,7 @@ class DoorEvent(Event):
     y: int
     direction: str
     character_id: str | None = None
+    narrative: str | None = None
 
 
 class ListenedEvent(Event):
@@ -210,6 +223,24 @@ class ItemAcquiredEvent(Event):
     character_id: str
     item_ids: tuple[str, ...] = ()
     coins_gp_value: int = 0
+
+
+class ItemConsumedEvent(Event):
+    """One carried item was used up — a gate's toll paid, a spike driven home.
+
+    `item_id` follows the acquisition masking rule: a mundane consumption carries
+    the catalog id, a magic one the instance's session-scoped `instance_id`, never
+    its `template_id` — an unidentified item's true identity never rides a
+    player-visible event.
+    """
+
+    allowed_codes: ClassVar[frozenset[str]] = frozenset({"exploration.item.consumed"})
+
+    event_type: Literal["item_consumed"] = "item_consumed"
+    code: str = "exploration.item.consumed"
+    visibility: Visibility = Visibility.PLAYER
+    character_id: str
+    item_id: str
 
 
 class ItemsDroppedEvent(Event):
@@ -658,7 +689,11 @@ class HealingPurchasedEvent(Event):
 
 
 class FlagSetEvent(Event):
-    """A session flag changed (referee — content wiring is the game's secret)."""
+    """A session flag changed (referee — content wiring is the game's secret).
+
+    The flag store a [`FlagEqualsCondition`][osrlib.crawl.gates.FlagEqualsCondition]
+    reads is the same one this event reports being written.
+    """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"session.flag.set"})
 
@@ -775,6 +810,7 @@ CRAWL_EVENT_CLASSES: tuple[type[Event], ...] = (
     SearchCompletedEvent,
     TrapEvent,
     ItemAcquiredEvent,
+    ItemConsumedEvent,
     ItemsDroppedEvent,
     ItemsLeftBehindEvent,
     ItemsGivenEvent,
