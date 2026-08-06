@@ -15,20 +15,28 @@ import json
 
 import pytest
 
-from crawl_fixtures import build_adventure, build_party
+from crawl_fixtures import build_adventure, build_gas_trap_adventure, build_party
+from osrlib.core.clock import TimeUnit
+from osrlib.core.effects import Condition, EffectDefinition
+from osrlib.core.ruleset import Ruleset
 from osrlib.crawl.commands import (
     ALL_COMMAND_CLASSES,
     AdvanceTime,
     AwardXP,
+    EnterDungeon,
+    GrantCoins,
     GrantItem,
+    MoveParty,
     PlaceParty,
+    PurchaseHealing,
     RollDice,
     SessionMode,
     SetFlag,
     SpawnMonsters,
     SpawnNpcParty,
 )
-from osrlib.crawl.session import GameSession
+from osrlib.crawl.dungeon import Direction
+from osrlib.crawl.session import DeprivationState, GameSession
 from osrlib.persistence import load_game, save_game, session_state
 from test_commands import REFEREE_COMMANDS, RESUME_PLAY_CARVE_OUTS, sample_command
 
@@ -40,9 +48,47 @@ PLAY_COMMAND_CLASSES = tuple(
     if command_class.model_fields["command_type"].default not in REFEREE_COMMANDS
 )
 
+# The seed whose 2-in-6 spring die fires when the party steps into the gas room,
+# so the trap wipe is scripted rather than lucky (the phase golden's seed).
+GAS_TRAP_SEED = 20_260_806
+
+POISON_ONSET = EffectDefinition(
+    kind="poison_onset",
+    duration_unit=TimeUnit.ROUND,
+    duration_amount=1,
+    expiry="death",
+    condition=Condition.POISONED,
+)
+"""A delayed poison on every member: the wipe that arrives under a referee's clock."""
+
 
 def make_session(seed: int = 11) -> GameSession:
     return GameSession.new(build_party(), build_adventure(), seed=seed)
+
+
+def poison_everyone(session: GameSession) -> None:
+    """Attach the delayed poison to every member; one round of clock finishes them."""
+    for member in session.party.members:
+        session.ledger.attach(
+            POISON_ONSET,
+            member.id,
+            clock=session.clock,
+            allocator=session.allocator,
+            registry=session.registry(),
+        )
+
+
+def trap_wipe_session(seed: int = GAS_TRAP_SEED) -> tuple[GameSession, list]:
+    """Walk the party into the gas room; the spring kills all four."""
+    session = GameSession.new(build_party(), build_gas_trap_adventure(), seed=seed)
+    assert session.execute(EnterDungeon(dungeon_id="vault")).accepted
+    result = session.execute(MoveParty(direction=Direction.EAST))
+    assert result.accepted
+    return session, list(result.events)
+
+
+def game_over_events(events) -> list:
+    return [event for event in events if getattr(event, "code", None) == "session.game_over"]
 
 
 class TestTheLegalityCensus:
@@ -111,6 +157,125 @@ class TestVictoryAtTheExecutedSeam:
             assert not result.accepted, command.command_type
             assert result.rejections[0].code == "session.command.wrong_mode"
         assert session.mode is SessionMode.VICTORY
+
+
+class TestNonBattleWipes:
+    """Every entrance to game-over, one test each, plus the edge-trigger rule."""
+
+    def assert_ended(self, session: GameSession, events) -> None:
+        """The shape of every wipe: the ending last, no play state, and no encore."""
+        assert session.mode is SessionMode.GAME_OVER
+        assert session.battle is None and session.encounter is None
+        assert getattr(events[-1], "code", None) == "session.game_over"
+        assert events[-1].reason == "the party has fallen"
+        assert len(game_over_events(events)) == 1
+        # The trigger is the death, not the state: nothing among the corpses ends
+        # the session a second time.
+        again = session.execute(RollDice(expression="1d6"))
+        assert again.accepted
+        assert not game_over_events(again.events)
+        assert session.mode is SessionMode.GAME_OVER
+
+    def test_a_trap_wipe_ends_the_session(self):
+        session, events = trap_wipe_session()
+        assert any(getattr(event, "code", None) == "exploration.trap.sprung" for event in events)
+        self.assert_ended(session, events)
+
+    def test_a_deprivation_wipe_ends_the_session(self):
+        session = GameSession.new(
+            build_party(),
+            build_adventure(wandering_chance=0),
+            seed=3,
+            ruleset=Ruleset(deprivation_penalties=True),
+        )
+        assert session.execute(EnterDungeon(dungeon_id="delve")).accepted
+        for member in session.party.members:
+            member.current_hp = 1
+            session.deprivation[str(member.id)] = DeprivationState(food_days=3, water_days=3)
+        result = session.execute(AdvanceTime(n=1, unit=TimeUnit.DAY))
+        assert result.accepted
+        assert any(getattr(event, "code", None) == "combat.death.died" for event in result.events)
+        self.assert_ended(session, list(result.events))
+
+    def test_a_town_wipe_ends_the_session(self):
+        session = make_session()
+        poison_everyone(session)
+        result = session.execute(AdvanceTime(n=1, unit=TimeUnit.TURN))
+        assert result.accepted
+        assert session.dungeon_state.location.kind == "town"
+        self.assert_ended(session, list(result.events))
+
+    def test_a_lost_battle_and_a_trap_wipe_end_the_session_identically(self):
+        from osrlib.crawl.commands import ResolveBattleRound
+        from test_battle import battle_session, hold_all
+
+        battle = battle_session(template_id="ogre", count=2, distance=5, seed=12)
+        for member in battle.party.members:
+            member.current_hp = 1
+        rounds = 0
+        while battle.mode is SessionMode.BATTLE and rounds < 40:
+            rounds += 1
+            result = battle.execute(ResolveBattleRound(declarations=hold_all(battle)))
+            assert result.accepted
+        codes = [getattr(event, "code", None) for event in result.events]
+        assert codes[-2:] == ["battle.ended.defeat", "session.game_over"]
+        _, trap_events = trap_wipe_session()
+        assert game_over_events(result.events) == game_over_events(trap_events)
+
+
+class TestVictoryIsSticky:
+    def test_a_death_after_victory_leaves_the_mode_alone(self):
+        session = make_session()
+        poison_everyone(session)
+        session.mode = SessionMode.VICTORY
+        result = session.execute(AdvanceTime(n=1, unit=TimeUnit.TURN))
+        assert result.accepted
+        assert any(getattr(event, "code", None) == "combat.death.died" for event in result.events)
+        assert not session.party.living_members()
+        assert session.mode is SessionMode.VICTORY
+        assert not game_over_events(result.events)
+
+
+class TestTheSalvageFlow:
+    """Out of game-over the documented way: to town, to the temple, back down."""
+
+    def test_the_fallen_party_is_carried_to_town_and_raised(self):
+        session, _ = trap_wipe_session()
+        placed = session.execute(PlaceParty(location={"kind": "town"}))
+        assert placed.accepted
+        assert session.mode is SessionMode.TOWN
+        # The level-versus-edge distinction: a dead party in town is a state, and
+        # states do not re-trigger the ending.
+        assert not game_over_events(placed.events)
+        assert not session.party.living_members()
+        member = session.party.members[0]
+        assert session.execute(GrantCoins(character_id=str(member.id), coins={"gp": 1500})).accepted
+        raised = session.execute(PurchaseHealing(character_id=str(member.id), service="raise_dead"))
+        assert raised.accepted, [rejection.code for rejection in raised.rejections]
+        assert session.party.living_members() == [member]
+        assert session.execute(EnterDungeon(dungeon_id="vault")).accepted
+        assert session.mode is SessionMode.EXPLORING
+
+    def test_the_salvage_clock_advances_from_both_legs(self):
+        session, _ = trap_wipe_session()
+        before = session.clock.rounds
+        assert session.execute(AdvanceTime(n=6, unit=TimeUnit.TURN)).accepted
+        in_game_over = session.clock.rounds - before
+        assert in_game_over == 6 * 60, "the revival window keeps elapsing while the party lies fallen"
+        assert session.execute(PlaceParty(location={"kind": "town"})).accepted
+        before = session.clock.rounds
+        assert session.execute(AdvanceTime(n=6, unit=TimeUnit.TURN)).accepted
+        # The salvaged leg: a dead party in a non-terminal mode, the flow's own
+        # next state, and the clock it needs still runs.
+        assert session.clock.rounds - before == 6 * 60
+
+    def test_spawning_is_refused_in_game_over(self):
+        session, _ = trap_wipe_session()
+        result = session.execute(SpawnMonsters(template_id="goblin", count_fixed=2, distance_feet=30))
+        assert not result.accepted
+        assert result.rejections[0].code == "session.command.wrong_mode"
+        assert result.rejections[0].params["mode"] == "game_over"
+        assert session.encounter is None and session.battle is None
 
 
 class TestPersistence:

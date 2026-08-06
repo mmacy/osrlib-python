@@ -54,6 +54,7 @@ __all__ = [
     "build_adventure",
     "build_blade_adventure",
     "build_double_trap_adventure",
+    "build_gas_trap_adventure",
     "build_gated_adventure",
     "build_open_door_adventure",
     "build_party",
@@ -412,6 +413,54 @@ def build_double_trap_adventure(inner_trap: TrapSpec, outer_trap: TrapSpec) -> A
         description="One door, two blades.",
         town=TownSpec(name="Threshold", travel_turns={"double": 1}),
         dungeons=(DungeonSpec(id="double", name="Double", levels=(level_1, level_2)),),
+    )
+
+
+def build_gas_trap_adventure() -> Adventure:
+    """Build the one-level gas-trap dungeon: one step from the entrance to a wipe.
+
+    Level 1 (2 × 1), entrance (0,0):
+
+    ```text
+        x0   x1
+    y0  ENT——[gas_room]
+    ```
+
+    `gas_room` at (1,0) carries an enter-trigger room trap whose effect is
+    `kills=True`, `affects="party"`, and no save — the save-or-die gas that fills
+    the room, with no save to make. Stepping east springs it 2-in-6, and a spring
+    ends the whole party at once.
+    """
+    edges: dict[str, Edge] = {}
+    _open(edges, (0, 0), Direction.EAST)
+    gas = TrapSpec(
+        kind="room",
+        trigger="enter",
+        affects="party",
+        effect=TrapEffect(kills=True),
+    )
+    level = LevelSpec(
+        number=1,
+        width=2,
+        height=1,
+        edges=edges,
+        areas=(
+            AreaSpec(
+                id="gas_room",
+                name="Fume-filled chamber",
+                description="A low chamber, the air in it faintly green.",
+                cells=((1, 0),),
+                trap=gas,
+            ),
+        ),
+        entrance=(0, 0),
+        wandering=WanderingSpec(chance_in_six=0),
+    )
+    return Adventure(
+        name="The Fume Vault",
+        description="A doorway, a chamber, and a room full of gas.",
+        town=TownSpec(name="Threshold", travel_turns={"vault": 1}),
+        dungeons=(DungeonSpec(id="vault", name="The Fume Vault", levels=(level,)),),
     )
 
 

@@ -75,6 +75,7 @@ from osrlib.crawl.events import (
     DiceRolledEvent,
     DoorEvent,
     FlagSetEvent,
+    GameOverEvent,
     ItemAcquiredEvent,
     LightEvent,
     LocationEnteredEvent,
@@ -425,7 +426,8 @@ class GameSession:
         if rejections:
             return CommandResult(accepted=False, rejections=tuple(rejections))
         self.command_log.append(command)
-        self._record_deaths(events)
+        if self._record_deaths(events):
+            events.extend(self._end_on_party_wipe())
         self.event_log.extend(events)
         accumulated = list(events)
         for listener in self.listeners:
@@ -748,7 +750,7 @@ class GameSession:
 
     # ------------------------------------------------------------------ death records
 
-    def _record_deaths(self, events: Sequence[Event]) -> None:
+    def _record_deaths(self, events: Sequence[Event]) -> bool:
         """Record party deaths with the clock round and the cause just resolved.
 
         The cause is `poison` when the killing resolution was a poison save (a
@@ -756,9 +758,19 @@ class GameSession:
         poison-delay expiry; else the nearest preceding cause-bearing event's
         kind. Only the poison/non-poison distinction is consumed (by *neutralize
         poison*).
+
+        Args:
+            events: The just-executed command's events, in order.
+
+        Returns:
+            True when a party member died in them — the edge
+            [`_end_on_party_wipe`][osrlib.crawl.session.GameSession._end_on_party_wipe]
+            triggers on, identified by this same walk. Monsters and NPC
+            adventurers carry non-member ids and never count.
         """
         member_ids = {member.id for member in self.party.members}
         cause = "unknown"
+        died = False
         for event in events:
             if isinstance(event, SavingThrowRolledEvent) and event.category == "death":
                 if event.code == "combat.save.failed":
@@ -769,6 +781,33 @@ class GameSession:
                 cause = "damage"
             if isinstance(event, DeathEvent) and event.target_id in member_ids:
                 self.death_records[event.target_id] = DeathRecord(round=self.clock.rounds, cause=cause)
+                died = True
+        return died
+
+    def _end_on_party_wipe(self) -> list[Event]:
+        """End the session when the death just recorded left nobody standing.
+
+        The one entrance to `game_over`, whatever killed the party: a lost battle,
+        a trap, a fall, starvation, a poison that finished the last member under a
+        referee's clock. Any open encounter or battle clears — a concluded session
+        holds no live play state — and the ending is reported as one
+        [`GameOverEvent`][osrlib.crawl.events.GameOverEvent].
+
+        The trigger is the death, not the state: this runs only for a command whose
+        own events killed a member, so ferrying an already-fallen party to town
+        (the revival flow's first step) never re-enters game-over. A terminal mode
+        is left alone, so a party that dies after the adventure concluded stays in
+        `victory` and a second death among the fallen ends nothing twice.
+
+        Returns:
+            The ending event, or nothing when a member still lives.
+        """
+        if self.mode.terminal or self.party.living_members():
+            return []
+        self.battle = None
+        self.encounter = None
+        self.mode = SessionMode.GAME_OVER
+        return [GameOverEvent(reason="the party has fallen")]
 
     # ------------------------------------------------------------------ views
 
