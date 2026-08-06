@@ -6,18 +6,22 @@
   "command_log": [
     {
       "command_type": "enter_dungeon",
-      "dungeon_id": "barrow"
+      "dungeon_id": "barrow",
+      "source": null
     },
     {
       "command_type": "move_party",
-      "direction": "east"
+      "direction": "east",
+      "source": null
     },
     {
       "command_type": "move_party",
-      "direction": "east"
+      "direction": "east",
+      "source": null
     },
     {
-      "command_type": "engage_battle"
+      "command_type": "engage_battle",
+      "source": null
     },
     {
       "command_type": "resolve_battle_round",
@@ -70,60 +74,8 @@
           "targets": [],
           "weapon_id": null
         }
-      ]
-    },
-    {
-      "command_type": "resolve_battle_round",
-      "declarations": [
-        {
-          "action": "attack",
-          "character_id": "character-0001",
-          "item_id": null,
-          "move": null,
-          "reversed": false,
-          "spell_id": null,
-          "spell_mode": null,
-          "target_group_id": "group-0001",
-          "targets": [],
-          "weapon_id": "sword"
-        },
-        {
-          "action": "attack",
-          "character_id": "character-0002",
-          "item_id": null,
-          "move": null,
-          "reversed": false,
-          "spell_id": null,
-          "spell_mode": null,
-          "target_group_id": "group-0001",
-          "targets": [],
-          "weapon_id": "mace"
-        },
-        {
-          "action": "hold",
-          "character_id": "character-0003",
-          "item_id": null,
-          "move": null,
-          "reversed": false,
-          "spell_id": null,
-          "spell_mode": null,
-          "target_group_id": null,
-          "targets": [],
-          "weapon_id": null
-        },
-        {
-          "action": "hold",
-          "character_id": "character-0004",
-          "item_id": null,
-          "move": null,
-          "reversed": false,
-          "spell_id": null,
-          "spell_mode": null,
-          "target_group_id": null,
-          "targets": [],
-          "weapon_id": null
-        }
-      ]
+      ],
+      "source": null
     },
     {
       "command_type": "resolve_battle_round",
@@ -176,7 +128,8 @@
           "targets": [],
           "weapon_id": null
         }
-      ]
+      ],
+      "source": null
     },
     {
       "command_type": "resolve_battle_round",
@@ -229,7 +182,62 @@
           "targets": [],
           "weapon_id": null
         }
-      ]
+      ],
+      "source": null
+    },
+    {
+      "command_type": "resolve_battle_round",
+      "declarations": [
+        {
+          "action": "attack",
+          "character_id": "character-0001",
+          "item_id": null,
+          "move": null,
+          "reversed": false,
+          "spell_id": null,
+          "spell_mode": null,
+          "target_group_id": "group-0001",
+          "targets": [],
+          "weapon_id": "sword"
+        },
+        {
+          "action": "attack",
+          "character_id": "character-0002",
+          "item_id": null,
+          "move": null,
+          "reversed": false,
+          "spell_id": null,
+          "spell_mode": null,
+          "target_group_id": "group-0001",
+          "targets": [],
+          "weapon_id": "mace"
+        },
+        {
+          "action": "hold",
+          "character_id": "character-0003",
+          "item_id": null,
+          "move": null,
+          "reversed": false,
+          "spell_id": null,
+          "spell_mode": null,
+          "target_group_id": null,
+          "targets": [],
+          "weapon_id": null
+        },
+        {
+          "action": "hold",
+          "character_id": "character-0004",
+          "item_id": null,
+          "move": null,
+          "reversed": false,
+          "spell_id": null,
+          "spell_mode": null,
+          "target_group_id": null,
+          "targets": [],
+          "weapon_id": null
+        }
+      ],
+      "source": null
     },
     {
       "command_type": "resolve_battle_round",
@@ -282,7 +290,8 @@
           "targets": [],
           "weapon_id": null
         }
-      ]
+      ],
+      "source": null
     },
     {
       "command_type": "resolve_battle_round",
@@ -335,25 +344,30 @@
           "targets": [],
           "weapon_id": null
         }
-      ]
+      ],
+      "source": null
     },
     {
       "command_type": "take_treasure",
       "feature_id": "cache-0001",
-      "recipient_id": null
+      "recipient_id": null,
+      "source": null
     },
     {
       "command_type": "move_party",
-      "direction": "east"
+      "direction": "east",
+      "source": null
     },
     {
       "command_type": "move_party",
-      "direction": "east"
+      "direction": "east",
+      "source": null
     },
     {
       "command_type": "take_treasure",
       "feature_id": "idol_shrine",
-      "recipient_id": null
+      "recipient_id": null,
+      "source": null
     },
     {
       "character_id": "character-0002",
@@ -364,26 +378,32 @@
         "pp": 0,
         "sp": 0
       },
-      "command_type": "grant_coins"
+      "command_type": "grant_coins",
+      "source": null
     },
     {
-      "command_type": "use_stairs"
+      "command_type": "use_stairs",
+      "source": null
     },
     {
       "command_type": "move_party",
-      "direction": "east"
+      "direction": "east",
+      "source": null
     },
     {
       "command_type": "move_party",
-      "direction": "east"
+      "direction": "east",
+      "source": null
     },
     {
       "command_type": "take_treasure",
       "feature_id": "cache-0002",
-      "recipient_id": null
+      "recipient_id": null,
+      "source": null
     },
     {
-      "command_type": "engage_battle"
+      "command_type": "engage_battle",
+      "source": null
     },
     {
       "command_type": "resolve_battle_round",
@@ -436,60 +456,8 @@
           "targets": [],
           "weapon_id": null
         }
-      ]
-    },
-    {
-      "command_type": "resolve_battle_round",
-      "declarations": [
-        {
-          "action": "attack",
-          "character_id": "character-0001",
-          "item_id": null,
-          "move": null,
-          "reversed": false,
-          "spell_id": null,
-          "spell_mode": null,
-          "target_group_id": "group-0002",
-          "targets": [],
-          "weapon_id": "sword"
-        },
-        {
-          "action": "attack",
-          "character_id": "character-0002",
-          "item_id": null,
-          "move": null,
-          "reversed": false,
-          "spell_id": null,
-          "spell_mode": null,
-          "target_group_id": "group-0002",
-          "targets": [],
-          "weapon_id": "mace"
-        },
-        {
-          "action": "hold",
-          "character_id": "character-0003",
-          "item_id": null,
-          "move": null,
-          "reversed": false,
-          "spell_id": null,
-          "spell_mode": null,
-          "target_group_id": null,
-          "targets": [],
-          "weapon_id": null
-        },
-        {
-          "action": "hold",
-          "character_id": "character-0004",
-          "item_id": null,
-          "move": null,
-          "reversed": false,
-          "spell_id": null,
-          "spell_mode": null,
-          "target_group_id": null,
-          "targets": [],
-          "weapon_id": null
-        }
-      ]
+      ],
+      "source": null
     },
     {
       "command_type": "resolve_battle_round",
@@ -542,7 +510,8 @@
           "targets": [],
           "weapon_id": null
         }
-      ]
+      ],
+      "source": null
     },
     {
       "command_type": "resolve_battle_round",
@@ -595,12 +564,68 @@
           "targets": [],
           "weapon_id": null
         }
-      ]
+      ],
+      "source": null
+    },
+    {
+      "command_type": "resolve_battle_round",
+      "declarations": [
+        {
+          "action": "attack",
+          "character_id": "character-0001",
+          "item_id": null,
+          "move": null,
+          "reversed": false,
+          "spell_id": null,
+          "spell_mode": null,
+          "target_group_id": "group-0002",
+          "targets": [],
+          "weapon_id": "sword"
+        },
+        {
+          "action": "attack",
+          "character_id": "character-0002",
+          "item_id": null,
+          "move": null,
+          "reversed": false,
+          "spell_id": null,
+          "spell_mode": null,
+          "target_group_id": "group-0002",
+          "targets": [],
+          "weapon_id": "mace"
+        },
+        {
+          "action": "hold",
+          "character_id": "character-0003",
+          "item_id": null,
+          "move": null,
+          "reversed": false,
+          "spell_id": null,
+          "spell_mode": null,
+          "target_group_id": null,
+          "targets": [],
+          "weapon_id": null
+        },
+        {
+          "action": "hold",
+          "character_id": "character-0004",
+          "item_id": null,
+          "move": null,
+          "reversed": false,
+          "spell_id": null,
+          "spell_mode": null,
+          "target_group_id": null,
+          "targets": [],
+          "weapon_id": null
+        }
+      ],
+      "source": null
     },
     {
       "command_type": "take_treasure",
       "feature_id": "pile",
-      "recipient_id": null
+      "recipient_id": null,
+      "source": null
     },
     {
       "command_type": "resolve_battle_round",
@@ -653,60 +678,8 @@
           "targets": [],
           "weapon_id": null
         }
-      ]
-    },
-    {
-      "command_type": "resolve_battle_round",
-      "declarations": [
-        {
-          "action": "attack",
-          "character_id": "character-0001",
-          "item_id": null,
-          "move": null,
-          "reversed": false,
-          "spell_id": null,
-          "spell_mode": null,
-          "target_group_id": "group-0003",
-          "targets": [],
-          "weapon_id": "sword"
-        },
-        {
-          "action": "attack",
-          "character_id": "character-0002",
-          "item_id": null,
-          "move": null,
-          "reversed": false,
-          "spell_id": null,
-          "spell_mode": null,
-          "target_group_id": "group-0003",
-          "targets": [],
-          "weapon_id": "mace"
-        },
-        {
-          "action": "hold",
-          "character_id": "character-0003",
-          "item_id": null,
-          "move": null,
-          "reversed": false,
-          "spell_id": null,
-          "spell_mode": null,
-          "target_group_id": null,
-          "targets": [],
-          "weapon_id": null
-        },
-        {
-          "action": "hold",
-          "character_id": "character-0004",
-          "item_id": null,
-          "move": null,
-          "reversed": false,
-          "spell_id": null,
-          "spell_mode": null,
-          "target_group_id": null,
-          "targets": [],
-          "weapon_id": null
-        }
-      ]
+      ],
+      "source": null
     },
     {
       "command_type": "resolve_battle_round",
@@ -759,7 +732,8 @@
           "targets": [],
           "weapon_id": null
         }
-      ]
+      ],
+      "source": null
     },
     {
       "command_type": "resolve_battle_round",
@@ -812,7 +786,62 @@
           "targets": [],
           "weapon_id": null
         }
-      ]
+      ],
+      "source": null
+    },
+    {
+      "command_type": "resolve_battle_round",
+      "declarations": [
+        {
+          "action": "attack",
+          "character_id": "character-0001",
+          "item_id": null,
+          "move": null,
+          "reversed": false,
+          "spell_id": null,
+          "spell_mode": null,
+          "target_group_id": "group-0003",
+          "targets": [],
+          "weapon_id": "sword"
+        },
+        {
+          "action": "attack",
+          "character_id": "character-0002",
+          "item_id": null,
+          "move": null,
+          "reversed": false,
+          "spell_id": null,
+          "spell_mode": null,
+          "target_group_id": "group-0003",
+          "targets": [],
+          "weapon_id": "mace"
+        },
+        {
+          "action": "hold",
+          "character_id": "character-0003",
+          "item_id": null,
+          "move": null,
+          "reversed": false,
+          "spell_id": null,
+          "spell_mode": null,
+          "target_group_id": null,
+          "targets": [],
+          "weapon_id": null
+        },
+        {
+          "action": "hold",
+          "character_id": "character-0004",
+          "item_id": null,
+          "move": null,
+          "reversed": false,
+          "spell_id": null,
+          "spell_mode": null,
+          "target_group_id": null,
+          "targets": [],
+          "weapon_id": null
+        }
+      ],
+      "source": null
     },
     {
       "command_type": "resolve_battle_round",
@@ -865,74 +894,90 @@
           "targets": [],
           "weapon_id": null
         }
-      ]
+      ],
+      "source": null
     },
     {
       "command_type": "move_party",
-      "direction": "west"
+      "direction": "west",
+      "source": null
     },
     {
       "command_type": "move_party",
-      "direction": "west"
+      "direction": "west",
+      "source": null
     },
     {
-      "command_type": "use_stairs"
-    },
-    {
-      "command_type": "move_party",
-      "direction": "west"
-    },
-    {
-      "command_type": "move_party",
-      "direction": "west"
+      "command_type": "use_stairs",
+      "source": null
     },
     {
       "command_type": "move_party",
-      "direction": "west"
+      "direction": "west",
+      "source": null
     },
     {
       "command_type": "move_party",
-      "direction": "west"
+      "direction": "west",
+      "source": null
     },
     {
-      "command_type": "travel_to_town"
+      "command_type": "move_party",
+      "direction": "west",
+      "source": null
+    },
+    {
+      "command_type": "move_party",
+      "direction": "west",
+      "source": null
+    },
+    {
+      "command_type": "travel_to_town",
+      "source": null
     },
     {
       "command_type": "set_flag",
       "key": "quest.idol",
+      "source": null,
       "value": "recovered"
     },
     {
       "amount": 600,
       "character_id": "character-0001",
-      "command_type": "award_xp"
+      "command_type": "award_xp",
+      "source": null
     },
     {
       "amount": 600,
       "character_id": "character-0002",
-      "command_type": "award_xp"
+      "command_type": "award_xp",
+      "source": null
     },
     {
       "amount": 600,
       "character_id": "character-0003",
-      "command_type": "award_xp"
+      "command_type": "award_xp",
+      "source": null
     },
     {
       "amount": 600,
       "character_id": "character-0004",
-      "command_type": "award_xp"
+      "command_type": "award_xp",
+      "source": null
     },
     {
       "command_type": "sell_treasure",
       "item_ids": [
         "valuable-0001",
         "valuable-0002"
-      ]
+      ],
+      "source": null
     },
     {
       "character_id": "character-0001",
       "command_type": "purchase_healing",
-      "service": "cure_light_wounds"
+      "service": "cure_light_wounds",
+      "source": null
     }
   ],
   "defeated_monsters": [],

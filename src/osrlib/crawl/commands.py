@@ -137,6 +137,12 @@ class Command(BaseModel):
     model_config = ConfigDict(frozen=True, extra="ignore")
 
     command_type: str
+    source: str | None = Field(default=None, min_length=1)
+    """An annotation naming the authored object — a trigger or quest id — or the game
+    system on whose behalf the command was issued. Execution never reads it: a stamped
+    command does exactly what the same command unstamped does. It is logged and replayed
+    with the command, so the log alone answers "why did this happen". Absent is `None`;
+    the empty string is not a value."""
 
     allowed_modes: ClassVar[frozenset[SessionMode]] = _ALL_MODES
 

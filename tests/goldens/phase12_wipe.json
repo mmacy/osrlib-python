@@ -2,19 +2,23 @@
   "command_log": [
     {
       "command_type": "enter_dungeon",
-      "dungeon_id": "vault"
+      "dungeon_id": "vault",
+      "source": null
     },
     {
       "command_type": "move_party",
-      "direction": "east"
+      "direction": "east",
+      "source": null
     },
     {
       "command_type": "roll_dice",
-      "expression": "2d6"
+      "expression": "2d6",
+      "source": null
     },
     {
       "command_type": "set_flag",
       "key": "fume_vault_epitaph",
+      "source": null,
       "value": "four went in"
     }
   ],

@@ -14,7 +14,8 @@
         "pp": 0,
         "sp": 0
       },
-      "command_type": "grant_coins"
+      "command_type": "grant_coins",
+      "source": null
     },
     {
       "character_id": "character-0001",
@@ -30,7 +31,8 @@
         "iron_spikes",
         "rations_standard",
         "waterskin"
-      ]
+      ],
+      "source": null
     },
     {
       "character_id": "character-0002",
@@ -41,7 +43,8 @@
         "pp": 0,
         "sp": 0
       },
-      "command_type": "grant_coins"
+      "command_type": "grant_coins",
+      "source": null
     },
     {
       "character_id": "character-0002",
@@ -51,7 +54,8 @@
         "chainmail",
         "rations_standard",
         "waterskin"
-      ]
+      ],
+      "source": null
     },
     {
       "character_id": "character-0003",
@@ -62,7 +66,8 @@
         "pp": 0,
         "sp": 0
       },
-      "command_type": "grant_coins"
+      "command_type": "grant_coins",
+      "source": null
     },
     {
       "character_id": "character-0003",
@@ -72,7 +77,8 @@
         "leather",
         "rations_standard",
         "waterskin"
-      ]
+      ],
+      "source": null
     },
     {
       "character_id": "character-0004",
@@ -83,7 +89,8 @@
         "pp": 0,
         "sp": 0
       },
-      "command_type": "grant_coins"
+      "command_type": "grant_coins",
+      "source": null
     },
     {
       "character_id": "character-0004",
@@ -93,7 +100,8 @@
         "chainmail",
         "rations_standard",
         "waterskin"
-      ]
+      ],
+      "source": null
     },
     {
       "character_id": "character-0005",
@@ -104,7 +112,8 @@
         "pp": 0,
         "sp": 0
       },
-      "command_type": "grant_coins"
+      "command_type": "grant_coins",
+      "source": null
     },
     {
       "character_id": "character-0005",
@@ -113,147 +122,178 @@
         "dagger",
         "rations_standard",
         "waterskin"
-      ]
+      ],
+      "source": null
     },
     {
       "character_id": "character-0001",
       "command_type": "equip_item",
-      "item_id": "sword"
+      "item_id": "sword",
+      "source": null
     },
     {
       "character_id": "character-0001",
       "command_type": "equip_item",
-      "item_id": "chainmail"
+      "item_id": "chainmail",
+      "source": null
     },
     {
       "character_id": "character-0002",
       "command_type": "equip_item",
-      "item_id": "sword"
+      "item_id": "sword",
+      "source": null
     },
     {
       "character_id": "character-0002",
       "command_type": "equip_item",
-      "item_id": "chainmail"
+      "item_id": "chainmail",
+      "source": null
     },
     {
       "character_id": "character-0003",
       "command_type": "equip_item",
-      "item_id": "sword"
+      "item_id": "sword",
+      "source": null
     },
     {
       "character_id": "character-0003",
       "command_type": "equip_item",
-      "item_id": "leather"
+      "item_id": "leather",
+      "source": null
     },
     {
       "character_id": "character-0004",
       "command_type": "equip_item",
-      "item_id": "mace"
+      "item_id": "mace",
+      "source": null
     },
     {
       "character_id": "character-0004",
       "command_type": "equip_item",
-      "item_id": "chainmail"
+      "item_id": "chainmail",
+      "source": null
     },
     {
       "character_id": "character-0005",
       "command_type": "equip_item",
-      "item_id": "dagger"
+      "item_id": "dagger",
+      "source": null
     },
     {
       "command_type": "enter_dungeon",
-      "dungeon_id": "halls"
+      "dungeon_id": "halls",
+      "source": null
     },
     {
       "character_id": "character-0001",
       "command_type": "light_source",
-      "item_id": "torch"
+      "item_id": "torch",
+      "source": null
     },
     {
       "character_id": "character-0001",
       "command_type": "light_source",
-      "item_id": "torch"
+      "item_id": "torch",
+      "source": null
     },
     {
       "character_id": "character-0001",
       "command_type": "light_source",
-      "item_id": "torch"
+      "item_id": "torch",
+      "source": null
     },
     {
       "character_id": "character-0001",
       "command_type": "light_source",
-      "item_id": "torch"
+      "item_id": "torch",
+      "source": null
     },
     {
       "character_id": "character-0001",
       "command_type": "light_source",
-      "item_id": "torch"
+      "item_id": "torch",
+      "source": null
     },
     {
       "character_id": "character-0001",
       "command_type": "light_source",
-      "item_id": "torch"
+      "item_id": "torch",
+      "source": null
     },
     {
       "character_id": "character-0001",
       "command_type": "light_source",
-      "item_id": "torch"
+      "item_id": "torch",
+      "source": null
     },
     {
       "character_id": "character-0001",
       "command_type": "light_source",
-      "item_id": "torch"
+      "item_id": "torch",
+      "source": null
     },
     {
       "command_type": "move_party",
-      "direction": "east"
+      "direction": "east",
+      "source": null
     },
     {
       "command_type": "move_party",
-      "direction": "south"
+      "direction": "south",
+      "source": null
     },
     {
       "command_type": "move_party",
-      "direction": "north"
+      "direction": "north",
+      "source": null
     },
     {
       "command_type": "move_party",
-      "direction": "east"
+      "direction": "east",
+      "source": null
     },
     {
       "command_type": "move_party",
-      "direction": "east"
+      "direction": "east",
+      "source": null
     },
     {
       "character_id": "character-0003",
       "command_type": "listen_at_door",
-      "direction": "south"
+      "direction": "south",
+      "source": null
     },
     {
       "character_id": "character-0001",
       "command_type": "force_door",
-      "direction": "south"
+      "direction": "south",
+      "source": null
     },
     {
       "character_id": "character-0001",
       "command_type": "force_door",
-      "direction": "south"
+      "direction": "south",
+      "source": null
     },
     {
       "character_id": "character-0001",
       "command_type": "force_door",
-      "direction": "south"
+      "direction": "south",
+      "source": null
     },
     {
       "command_type": "wedge_door",
-      "direction": "south"
+      "direction": "south",
+      "source": null
     },
     {
       "command_type": "move_party",
-      "direction": "south"
+      "direction": "south",
+      "source": null
     },
     {
-      "command_type": "engage_battle"
+      "command_type": "engage_battle",
+      "source": null
     },
     {
       "command_type": "resolve_battle_round",
@@ -318,7 +358,8 @@
           "targets": [],
           "weapon_id": null
         }
-      ]
+      ],
+      "source": null
     },
     {
       "command_type": "resolve_battle_round",
@@ -385,7 +426,8 @@
           ],
           "weapon_id": null
         }
-      ]
+      ],
+      "source": null
     },
     {
       "command_type": "resolve_battle_round",
@@ -452,7 +494,8 @@
           ],
           "weapon_id": null
         }
-      ]
+      ],
+      "source": null
     },
     {
       "command_type": "resolve_battle_round",
@@ -517,7 +560,8 @@
           "targets": [],
           "weapon_id": null
         }
-      ]
+      ],
+      "source": null
     },
     {
       "command_type": "resolve_battle_round",
@@ -582,7 +626,8 @@
           "targets": [],
           "weapon_id": null
         }
-      ]
+      ],
+      "source": null
     },
     {
       "command_type": "resolve_battle_round",
@@ -647,21 +692,25 @@
           "targets": [],
           "weapon_id": null
         }
-      ]
+      ],
+      "source": null
     },
     {
       "command_type": "move_party",
-      "direction": "east"
+      "direction": "east",
+      "source": null
     },
     {
       "command_type": "take_treasure",
       "feature_id": "coffer",
-      "recipient_id": null
+      "recipient_id": null,
+      "source": null
     },
     {
       "character_id": "character-0002",
       "command_type": "search",
-      "kind": "secret_doors"
+      "kind": "secret_doors",
+      "source": null
     },
     {
       "command_type": "resolve_battle_round",
@@ -726,7 +775,8 @@
           "targets": [],
           "weapon_id": null
         }
-      ]
+      ],
+      "source": null
     },
     {
       "command_type": "resolve_battle_round",
@@ -791,7 +841,8 @@
           "targets": [],
           "weapon_id": null
         }
-      ]
+      ],
+      "source": null
     },
     {
       "command_type": "resolve_battle_round",
@@ -856,7 +907,8 @@
           "targets": [],
           "weapon_id": null
         }
-      ]
+      ],
+      "source": null
     },
     {
       "command_type": "resolve_battle_round",
@@ -921,12 +973,14 @@
           "targets": [],
           "weapon_id": null
         }
-      ]
+      ],
+      "source": null
     },
     {
       "character_id": "character-0005",
       "command_type": "search",
-      "kind": "secret_doors"
+      "kind": "secret_doors",
+      "source": null
     },
     {
       "command_type": "reorder_party",
@@ -936,38 +990,47 @@
         "character-0002",
         "character-0003",
         "character-0004"
-      ]
+      ],
+      "source": null
     },
     {
       "command_type": "open_door",
-      "direction": "east"
+      "direction": "east",
+      "source": null
     },
     {
       "command_type": "wedge_door",
-      "direction": "east"
+      "direction": "east",
+      "source": null
     },
     {
       "command_type": "move_party",
-      "direction": "east"
+      "direction": "east",
+      "source": null
     },
     {
       "command_type": "move_party",
-      "direction": "east"
+      "direction": "east",
+      "source": null
     },
     {
-      "command_type": "use_stairs"
+      "command_type": "use_stairs",
+      "source": null
     },
     {
       "command_type": "move_party",
-      "direction": "east"
+      "direction": "east",
+      "source": null
     },
     {
       "command_type": "open_door",
-      "direction": "south"
+      "direction": "south",
+      "source": null
     },
     {
       "command_type": "move_party",
-      "direction": "south"
+      "direction": "south",
+      "source": null
     },
     {
       "command_type": "resolve_battle_round",
@@ -1032,7 +1095,8 @@
           "targets": [],
           "weapon_id": null
         }
-      ]
+      ],
+      "source": null
     },
     {
       "command_type": "resolve_battle_round",
@@ -1097,7 +1161,8 @@
           "targets": [],
           "weapon_id": null
         }
-      ]
+      ],
+      "source": null
     },
     {
       "command_type": "resolve_battle_round",
@@ -1162,27 +1227,33 @@
           "targets": [],
           "weapon_id": null
         }
-      ]
+      ],
+      "source": null
     },
     {
       "command_type": "move_party",
-      "direction": "north"
+      "direction": "north",
+      "source": null
     },
     {
       "command_type": "move_party",
-      "direction": "east"
+      "direction": "east",
+      "source": null
     },
     {
       "command_type": "move_party",
-      "direction": "east"
+      "direction": "east",
+      "source": null
     },
     {
       "command_type": "move_party",
-      "direction": "south"
+      "direction": "south",
+      "source": null
     },
     {
       "command_type": "evade",
-      "drop": "none"
+      "drop": "none",
+      "source": null
     },
     {
       "character_id": "character-0001",
@@ -1194,7 +1265,8 @@
         "sp": 0
       },
       "command_type": "drop_items",
-      "item_ids": []
+      "item_ids": [],
+      "source": null
     },
     {
       "character_id": "character-0001",
@@ -1206,132 +1278,171 @@
         "sp": 0
       },
       "command_type": "drop_items",
-      "item_ids": []
+      "item_ids": [],
+      "source": null
     },
     {
       "character_id": "character-0001",
       "command_type": "light_source",
-      "item_id": "torch"
+      "item_id": "torch",
+      "source": null
     },
     {
       "character_id": "character-0001",
       "command_type": "light_source",
-      "item_id": "torch"
+      "item_id": "torch",
+      "source": null
     },
     {
       "command_type": "move_party",
-      "direction": "north"
+      "direction": "north",
+      "source": null
     },
     {
       "command_type": "move_party",
-      "direction": "east"
+      "direction": "east",
+      "source": null
     },
     {
       "command_type": "move_party",
-      "direction": "east"
+      "direction": "east",
+      "source": null
     },
     {
       "command_type": "move_party",
-      "direction": "south"
+      "direction": "south",
+      "source": null
     },
     {
       "command_type": "evade",
-      "drop": "none"
+      "drop": "none",
+      "source": null
     },
     {
-      "command_type": "wait"
+      "command_type": "wait",
+      "source": null
     },
     {
-      "command_type": "wait"
+      "command_type": "wait",
+      "source": null
     },
     {
-      "command_type": "wait"
+      "command_type": "wait",
+      "source": null
     },
     {
-      "command_type": "wait"
+      "command_type": "wait",
+      "source": null
     },
     {
-      "command_type": "wait"
+      "command_type": "wait",
+      "source": null
     },
     {
-      "command_type": "wait"
+      "command_type": "wait",
+      "source": null
     },
     {
-      "command_type": "wait"
+      "command_type": "wait",
+      "source": null
     },
     {
-      "command_type": "wait"
+      "command_type": "wait",
+      "source": null
     },
     {
-      "command_type": "wait"
+      "command_type": "wait",
+      "source": null
     },
     {
-      "command_type": "wait"
+      "command_type": "wait",
+      "source": null
     },
     {
-      "command_type": "wait"
+      "command_type": "wait",
+      "source": null
     },
     {
-      "command_type": "wait"
+      "command_type": "wait",
+      "source": null
     },
     {
-      "command_type": "wait"
+      "command_type": "wait",
+      "source": null
     },
     {
-      "command_type": "wait"
+      "command_type": "wait",
+      "source": null
     },
     {
-      "command_type": "wait"
+      "command_type": "wait",
+      "source": null
     },
     {
-      "command_type": "wait"
+      "command_type": "wait",
+      "source": null
     },
     {
-      "command_type": "wait"
+      "command_type": "wait",
+      "source": null
     },
     {
-      "command_type": "wait"
+      "command_type": "wait",
+      "source": null
     },
     {
-      "command_type": "wait"
+      "command_type": "wait",
+      "source": null
     },
     {
-      "command_type": "wait"
+      "command_type": "wait",
+      "source": null
     },
     {
-      "command_type": "wait"
+      "command_type": "wait",
+      "source": null
     },
     {
-      "command_type": "wait"
+      "command_type": "wait",
+      "source": null
     },
     {
-      "command_type": "wait"
+      "command_type": "wait",
+      "source": null
     },
     {
-      "command_type": "wait"
+      "command_type": "wait",
+      "source": null
     },
     {
-      "command_type": "wait"
+      "command_type": "wait",
+      "source": null
     },
     {
-      "command_type": "wait"
+      "command_type": "wait",
+      "source": null
     },
     {
-      "command_type": "wait"
+      "command_type": "wait",
+      "source": null
     },
     {
-      "command_type": "wait"
+      "command_type": "wait",
+      "source": null
     },
     {
-      "command_type": "wait"
+      "command_type": "wait",
+      "source": null
     },
     {
       "command_type": "move_party",
-      "direction": "north"
+      "direction": "north",
+      "source": null
     },
     {
       "command_type": "rest",
-      "kind": "night"
+      "kind": "night",
+      "source": null
     },
     {
       "character_id": "character-0005",
@@ -1357,167 +1468,207 @@
           "reversed": false,
           "spell_id": "fire_ball"
         }
-      ]
+      ],
+      "source": null
     },
     {
       "character_id": "character-0001",
       "command_type": "light_source",
-      "item_id": "torch"
+      "item_id": "torch",
+      "source": null
     },
     {
       "character_id": "character-0001",
       "command_type": "light_source",
-      "item_id": "torch"
+      "item_id": "torch",
+      "source": null
     },
     {
       "character_id": "character-0001",
       "command_type": "light_source",
-      "item_id": "torch"
+      "item_id": "torch",
+      "source": null
     },
     {
       "character_id": "character-0001",
       "command_type": "light_source",
-      "item_id": "torch"
+      "item_id": "torch",
+      "source": null
     },
     {
       "command_type": "move_party",
-      "direction": "west"
+      "direction": "west",
+      "source": null
     },
     {
       "command_type": "move_party",
-      "direction": "west"
+      "direction": "west",
+      "source": null
     },
     {
       "command_type": "move_party",
-      "direction": "west"
+      "direction": "west",
+      "source": null
     },
     {
       "command_type": "move_party",
-      "direction": "west"
+      "direction": "west",
+      "source": null
     },
     {
       "command_type": "move_party",
-      "direction": "west"
+      "direction": "west",
+      "source": null
     },
     {
-      "command_type": "use_stairs"
-    },
-    {
-      "command_type": "move_party",
-      "direction": "west"
-    },
-    {
-      "command_type": "move_party",
-      "direction": "west"
+      "command_type": "use_stairs",
+      "source": null
     },
     {
       "command_type": "move_party",
-      "direction": "west"
+      "direction": "west",
+      "source": null
     },
     {
       "command_type": "move_party",
-      "direction": "north"
+      "direction": "west",
+      "source": null
     },
     {
       "command_type": "move_party",
-      "direction": "west"
+      "direction": "west",
+      "source": null
     },
     {
       "command_type": "move_party",
-      "direction": "west"
+      "direction": "north",
+      "source": null
     },
     {
       "command_type": "move_party",
-      "direction": "west"
+      "direction": "west",
+      "source": null
+    },
+    {
+      "command_type": "move_party",
+      "direction": "west",
+      "source": null
+    },
+    {
+      "command_type": "move_party",
+      "direction": "west",
+      "source": null
     },
     {
       "command_type": "rest",
-      "kind": "turn"
+      "kind": "turn",
+      "source": null
     },
     {
       "command_type": "rest",
-      "kind": "turn"
+      "kind": "turn",
+      "source": null
     },
     {
       "command_type": "rest",
-      "kind": "turn"
+      "kind": "turn",
+      "source": null
     },
     {
       "command_type": "rest",
-      "kind": "turn"
+      "kind": "turn",
+      "source": null
     },
     {
       "command_type": "rest",
-      "kind": "turn"
+      "kind": "turn",
+      "source": null
     },
     {
       "command_type": "rest",
-      "kind": "turn"
+      "kind": "turn",
+      "source": null
     },
     {
       "command_type": "rest",
-      "kind": "turn"
+      "kind": "turn",
+      "source": null
     },
     {
       "character_id": "character-0001",
       "command_type": "light_source",
-      "item_id": "torch"
+      "item_id": "torch",
+      "source": null
     },
     {
       "command_type": "rest",
-      "kind": "turn"
+      "kind": "turn",
+      "source": null
     },
     {
       "command_type": "rest",
-      "kind": "turn"
+      "kind": "turn",
+      "source": null
     },
     {
       "command_type": "rest",
-      "kind": "turn"
+      "kind": "turn",
+      "source": null
     },
     {
       "command_type": "rest",
-      "kind": "turn"
+      "kind": "turn",
+      "source": null
     },
     {
       "command_type": "rest",
-      "kind": "turn"
+      "kind": "turn",
+      "source": null
     },
     {
       "command_type": "rest",
-      "kind": "turn"
+      "kind": "turn",
+      "source": null
     },
     {
       "character_id": "character-0001",
       "command_type": "light_source",
-      "item_id": "torch"
+      "item_id": "torch",
+      "source": null
     },
     {
       "command_type": "rest",
-      "kind": "turn"
+      "kind": "turn",
+      "source": null
     },
     {
       "command_type": "rest",
-      "kind": "turn"
+      "kind": "turn",
+      "source": null
     },
     {
       "command_type": "rest",
-      "kind": "turn"
+      "kind": "turn",
+      "source": null
     },
     {
       "command_type": "rest",
-      "kind": "turn"
+      "kind": "turn",
+      "source": null
     },
     {
       "command_type": "rest",
-      "kind": "turn"
+      "kind": "turn",
+      "source": null
     },
     {
       "command_type": "rest",
-      "kind": "turn"
+      "kind": "turn",
+      "source": null
     },
     {
-      "command_type": "engage_battle"
+      "command_type": "engage_battle",
+      "source": null
     },
     {
       "command_type": "resolve_battle_round",
@@ -1582,44 +1733,54 @@
           "targets": [],
           "weapon_id": null
         }
-      ]
+      ],
+      "source": null
     },
     {
       "character_id": "character-0001",
       "command_type": "light_source",
-      "item_id": "torch"
+      "item_id": "torch",
+      "source": null
     },
     {
       "character_id": "character-0001",
       "command_type": "light_source",
-      "item_id": "torch"
+      "item_id": "torch",
+      "source": null
     },
     {
       "command_type": "rest",
-      "kind": "turn"
+      "kind": "turn",
+      "source": null
     },
     {
       "command_type": "rest",
-      "kind": "turn"
+      "kind": "turn",
+      "source": null
     },
     {
       "command_type": "rest",
-      "kind": "turn"
+      "kind": "turn",
+      "source": null
     },
     {
       "command_type": "rest",
-      "kind": "turn"
+      "kind": "turn",
+      "source": null
     },
     {
       "command_type": "rest",
-      "kind": "turn"
+      "kind": "turn",
+      "source": null
     },
     {
       "command_type": "rest",
-      "kind": "turn"
+      "kind": "turn",
+      "source": null
     },
     {
-      "command_type": "engage_battle"
+      "command_type": "engage_battle",
+      "source": null
     },
     {
       "command_type": "resolve_battle_round",
@@ -1684,7 +1845,8 @@
           "targets": [],
           "weapon_id": null
         }
-      ]
+      ],
+      "source": null
     },
     {
       "command_type": "resolve_battle_round",
@@ -1751,7 +1913,8 @@
           "targets": [],
           "weapon_id": null
         }
-      ]
+      ],
+      "source": null
     },
     {
       "command_type": "resolve_battle_round",
@@ -1820,7 +1983,8 @@
           ],
           "weapon_id": null
         }
-      ]
+      ],
+      "source": null
     },
     {
       "command_type": "resolve_battle_round",
@@ -1885,10 +2049,12 @@
           "targets": [],
           "weapon_id": null
         }
-      ]
+      ],
+      "source": null
     },
     {
-      "command_type": "travel_to_town"
+      "command_type": "travel_to_town",
+      "source": null
     }
   ],
   "defeated_monsters": [],
