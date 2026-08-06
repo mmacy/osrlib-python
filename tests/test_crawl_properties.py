@@ -165,6 +165,16 @@ def command_strategy():
                 fields[field_name] = st.sampled_from(["hd_budget", "damage", "illuminate"])
             elif field_name == "value":
                 fields[field_name] = st.sampled_from([True, 7, "open"])
+            elif field_name == "trigger_id":
+                fields[field_name] = st.sampled_from(["lever-east", "lever-east", "idol-lifted", "no-such-trigger"])
+            elif field_name == "text":
+                fields[field_name] = st.sampled_from(
+                    ["The lever grinds.", "A consequence was dropped.", "Nothing at all happens."]
+                )
+            elif field_name == "source":
+                # The stamp the trigger and quest layers put on the commands they
+                # issue: the fuzz drives both stamped and unstamped shapes.
+                fields[field_name] = st.sampled_from([None, "trigger:lever-east", "quest:the_idol"])
             elif field_name == "amount" or field_name == "n":
                 fields[field_name] = st.integers(min_value=0, max_value=100)
             elif field_name == "quantity":

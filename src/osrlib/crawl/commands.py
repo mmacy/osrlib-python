@@ -37,6 +37,7 @@ from osrlib.crawl.dungeon import Direction, PartyLocation
 
 __all__ = [
     "ALL_COMMAND_CLASSES",
+    "AddJournalEntry",
     "AdvanceTime",
     "AnyCommand",
     "AwardXP",
@@ -60,6 +61,7 @@ __all__ = [
     "LearnSpell",
     "LightSource",
     "ListenAtDoor",
+    "MarkTriggerFired",
     "MoveParty",
     "OpenDoor",
     "Parley",
@@ -68,6 +70,7 @@ __all__ = [
     "PrepareSpells",
     "PurchaseEquipment",
     "PurchaseHealing",
+    "RecordNote",
     "RemoveTreasureTrap",
     "ReorderParty",
     "ResolveBattleRound",
@@ -1832,6 +1835,80 @@ class RollDice(Command):
         return value
 
 
+class MarkTriggerFired(Command):
+    """Referee: record that an authored trigger has fired.
+
+    One of the lifecycle commands a trigger-and-quest interpreter, a game's own
+    listener, or an LLM referee drives: the mark goes in before the trigger's
+    consequences issue, so fired-state is what answers once-only semantics, and it
+    survives save, load, and replay like any other session state. Referee commands
+    are legal in every mode, terminal modes included. Marking an already-marked
+    trigger is accepted and changes nothing: session state records that a trigger
+    *has* fired, while each mark in the command log records *one* firing.
+
+    Modes:
+        `town`, `exploring`, `encounter`, `battle`, `game_over`, `victory`
+
+    Rejections:
+        None.
+
+    Events:
+        [`TriggerFiredEvent`][osrlib.crawl.events.TriggerFiredEvent] with the
+        trigger id, for every mark.
+    """
+
+    command_type: Literal["mark_trigger_fired"] = "mark_trigger_fired"
+    trigger_id: str = Field(min_length=1)
+
+
+class AddJournalEntry(Command):
+    """Referee: append an authored beat to the session journal.
+
+    The journal is the party's record of the adventure in order of discovery:
+    entries append, are never rewritten, and are never derived from other state, so
+    a beat outlives whatever produced it. Each entry is stamped with the clock
+    position it landed at, and
+    [`PlayerView.journal`][osrlib.crawl.views.PlayerView] ships the entries as they
+    were written. Referee commands are legal in every mode, terminal modes included
+    — a closing beat lands after the adventure has concluded.
+
+    Modes:
+        `town`, `exploring`, `encounter`, `battle`, `game_over`, `victory`
+
+    Rejections:
+        None.
+
+    Events:
+        [`JournalEntryAddedEvent`][osrlib.crawl.events.JournalEntryAddedEvent] with
+        the text and the clock position.
+    """
+
+    command_type: Literal["add_journal_entry"] = "add_journal_entry"
+    text: str = Field(min_length=1)
+
+
+class RecordNote(Command):
+    """Referee: record an annotation in the logs, with no state effect at all.
+
+    The note lands as a referee-visibility event and touches nothing: it is the
+    mechanism for machine-issued records — a consequence that was dropped, a
+    cascade that was cut short — and for a referee's own margin notes alike.
+    Referee commands are legal in every mode, terminal modes included.
+
+    Modes:
+        `town`, `exploring`, `encounter`, `battle`, `game_over`, `victory`
+
+    Rejections:
+        None.
+
+    Events:
+        [`NoteRecordedEvent`][osrlib.crawl.events.NoteRecordedEvent] with the text.
+    """
+
+    command_type: Literal["record_note"] = "record_note"
+    text: str = Field(min_length=1)
+
+
 ALL_COMMAND_CLASSES: tuple[type[Command], ...] = (
     MoveParty,
     TurnParty,
@@ -1880,6 +1957,9 @@ ALL_COMMAND_CLASSES: tuple[type[Command], ...] = (
     AdvanceTime,
     IdentifyItem,
     RollDice,
+    MarkTriggerFired,
+    AddJournalEntry,
+    RecordNote,
 )
 """Every command class — the discriminated union's members, in a stable wire order."""
 

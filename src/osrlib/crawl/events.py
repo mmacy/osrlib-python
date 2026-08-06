@@ -51,6 +51,7 @@ __all__ = [
     "ItemsDroppedEvent",
     "ItemsGivenEvent",
     "ItemsLeftBehindEvent",
+    "JournalEntryAddedEvent",
     "LightEvent",
     "ListenedEvent",
     "LocationEnteredEvent",
@@ -58,6 +59,7 @@ __all__ = [
     "MonsterFledEvent",
     "MonstersLeftBehindEvent",
     "MonstersSpawnedEvent",
+    "NoteRecordedEvent",
     "NpcPartySpawnedEvent",
     "PartyMovedEvent",
     "ProvisionsEvent",
@@ -70,6 +72,7 @@ __all__ = [
     "TimeAdvancedEvent",
     "TrapEvent",
     "TreasureSoldEvent",
+    "TriggerFiredEvent",
     "WanderingCheckEvent",
     "XpAwardedEvent",
     "parse_any_event",
@@ -806,6 +809,55 @@ class DiceRolledEvent(Event):
     rolls: tuple[int, ...]
 
 
+class TriggerFiredEvent(Event):
+    """An authored trigger fired (referee — trigger wiring is the game's secret).
+
+    Emitted for every [`MarkTriggerFired`][osrlib.crawl.commands.MarkTriggerFired],
+    a mark of an already-fired trigger included: session state records that a
+    trigger has fired, and these events record each firing.
+    """
+
+    allowed_codes: ClassVar[frozenset[str]] = frozenset({"session.trigger.fired"})
+
+    event_type: Literal["trigger_fired"] = "trigger_fired"
+    code: str = "session.trigger.fired"
+    visibility: Visibility = Visibility.REFEREE
+    trigger_id: str
+
+
+class JournalEntryAddedEvent(Event):
+    """A beat was appended to the session journal — the whole entry, as written.
+
+    Player-visible: the journal is written for the table. The authored `text` is
+    content data in a structured field, not engine-baked English — the event still
+    carries its message code and its facts — and `rounds` is the clock position the
+    entry landed at, the same stamp the stored entry carries.
+    """
+
+    allowed_codes: ClassVar[frozenset[str]] = frozenset({"session.journal.entry_added"})
+
+    event_type: Literal["journal_entry_added"] = "journal_entry_added"
+    code: str = "session.journal.entry_added"
+    visibility: Visibility = Visibility.PLAYER
+    text: str
+    rounds: int
+
+
+class NoteRecordedEvent(Event):
+    """A referee annotation was recorded (referee — and it changes no state).
+
+    The report of a machine-issued record — a dropped consequence, a cascade cut
+    short — or of a referee's own margin note.
+    """
+
+    allowed_codes: ClassVar[frozenset[str]] = frozenset({"session.note.recorded"})
+
+    event_type: Literal["note_recorded"] = "note_recorded"
+    code: str = "session.note.recorded"
+    visibility: Visibility = Visibility.REFEREE
+    text: str
+
+
 CRAWL_EVENT_CLASSES: tuple[type[Event], ...] = (
     PartyMovedEvent,
     LocationEnteredEvent,
@@ -854,6 +906,9 @@ CRAWL_EVENT_CLASSES: tuple[type[Event], ...] = (
     TimeAdvancedEvent,
     GameOverEvent,
     DiceRolledEvent,
+    TriggerFiredEvent,
+    JournalEntryAddedEvent,
+    NoteRecordedEvent,
 )
 """Every crawl event class, in declaration order."""
 
