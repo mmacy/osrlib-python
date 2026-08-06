@@ -21,7 +21,7 @@ Level 2 (3 × 3): open corridor row y0; a keyed skeleton area at (2,0).
 
 from osrlib.core.abilities import AbilityScore
 from osrlib.core.character import Character
-from osrlib.core.items import Coins
+from osrlib.core.items import Coins, GearTemplate
 from osrlib.crawl.adventure import Adventure, TownSpec
 from osrlib.crawl.dungeon import (
     AreaSpec,
@@ -40,14 +40,21 @@ from osrlib.crawl.dungeon import (
     WanderingSpec,
     edge_key,
 )
+from osrlib.crawl.gates import GateSpec, HasItemCondition
+from osrlib.crawl.narrative import NarrativeBlock
 from osrlib.crawl.party import Party
 from osrlib.data import load_classes
 
 __all__ = [
+    "GATE_KEY",
+    "GATE_SEAL",
+    "GATE_TOKEN",
     "STOCK_ROSTER",
     "build_adventure",
     "build_blade_adventure",
     "build_double_trap_adventure",
+    "build_gated_adventure",
+    "build_open_door_adventure",
     "build_party",
     "build_sightline_adventure",
 ]
@@ -209,6 +216,165 @@ def build_blade_adventure() -> Adventure:
         description="A level of doors with blades rigged to them.",
         town=TownSpec(name="Threshold", travel_turns={"blades": 1}),
         dungeons=(DungeonSpec(id="blades", name="Blades", levels=(level,)),),
+    )
+
+
+GATE_KEY = GearTemplate(id="brass_key", name="Brass key", cost_gp=0)
+"""The gated door's key: an adventure-bundled item, so `has_item` names something real."""
+
+GATE_TOKEN = GearTemplate(id="toll_token", name="Ferryman's token", cost_gp=0)
+"""The toll the gated stair consumes, one per crossing."""
+
+GATE_SEAL = GearTemplate(id="silver_seal", name="Silver seal", cost_gp=0)
+"""The reliquary's second requirement, behind its lock."""
+
+
+def build_gated_adventure() -> Adventure:
+    """Build the two-level gated dungeon: a key door, a toll stair, a lock plus a gate.
+
+    Level 1 (5 × 2), entrance (0,0):
+
+    ```text
+        x0     x1        x2        x3          x4
+    y0  ENT——corr(niche)—D—corr————corr(stair)—D—[sanctum]
+    y1                  [reliquary]
+    ```
+
+    - `niche` at (1,0) is a cache holding the brass key and one ferryman's token.
+    - The door east of (1,0) requires the brass key and consumes nothing.
+    - The stair at (3,0) descends to level 2 and takes a token per crossing.
+    - The door east of (3,0) requires a sigil nothing in the dungeon holds — the
+      door a referee opens by hand.
+    - The door south of (2,0) into the reliquary is locked *and* requires the
+      silver seal, which lies on level 2.
+
+    Level 2 (2 × 1): the stair back up at (0,0), and the `vault` cache holding the
+    silver seal at (1,0).
+    """
+    key_gate = GateSpec(
+        condition=HasItemCondition(item_id="brass_key"),
+        narrative=NarrativeBlock(
+            refusal="The bronze sentinel folds its arms. Brass, it says. Brass or nothing.",
+            success="The brass key turns in the sentinel's palm and the door swings wide.",
+            speaker="the bronze sentinel",
+            guidance="The sentinel is bored, not hostile; it has done this for six hundred years.",
+        ),
+    )
+    toll_gate = GateSpec(
+        condition=HasItemCondition(item_id="toll_token", consumes=True),
+        narrative=NarrativeBlock(
+            refusal="The ferryman's hand stays out, empty. No token, no crossing.",
+            success="The ferryman pockets the token and the stair opens onto the dark.",
+            journal="The ferryman below the warren takes one token per crossing.",
+        ),
+    )
+    sanctum_gate = GateSpec(
+        condition=HasItemCondition(item_id="sanctum_sigil"),
+        narrative=NarrativeBlock(refusal="The sanctum door has no handle on this side."),
+    )
+    reliquary_gate = GateSpec(
+        condition=HasItemCondition(item_id="silver_seal"),
+        narrative=NarrativeBlock(
+            refusal="The seal-plate is empty; the door does not care that the lock is undone.",
+            success="The silver seal drops into its plate and the reliquary opens.",
+        ),
+    )
+
+    edges_1: dict[str, Edge] = {}
+    _open(edges_1, (0, 0), Direction.EAST)
+    _door(edges_1, (1, 0), Direction.EAST, requires=key_gate)
+    _open(edges_1, (2, 0), Direction.EAST)
+    _door(edges_1, (2, 0), Direction.SOUTH, locked=True, requires=reliquary_gate)
+    _door(edges_1, (3, 0), Direction.EAST, requires=sanctum_gate)
+    level_1 = LevelSpec(
+        number=1,
+        width=5,
+        height=2,
+        edges=edges_1,
+        areas=(AreaSpec(id="reliquary", name="Reliquary", cells=((2, 1),)),),
+        features=(
+            FeatureSpec(
+                id="niche",
+                kind="treasure_cache",
+                description="A shallow niche in the corridor wall.",
+                cell=(1, 0),
+                item_ids=("brass_key", "toll_token"),
+            ),
+        ),
+        transitions=(
+            TransitionSpec(
+                kind="stairs_down",
+                position=(3, 0),
+                to_dungeon_id="warren",
+                to_level_number=2,
+                to_position=(0, 0),
+                to_facing=Direction.EAST,
+                requires=toll_gate,
+            ),
+        ),
+        entrance=(0, 0),
+        wandering=WanderingSpec(chance_in_six=0),
+    )
+
+    edges_2: dict[str, Edge] = {}
+    _open(edges_2, (0, 0), Direction.EAST)
+    level_2 = LevelSpec(
+        number=2,
+        width=2,
+        height=1,
+        edges=edges_2,
+        features=(
+            FeatureSpec(
+                id="vault",
+                kind="treasure_cache",
+                description="A ferryman's strongbox.",
+                cell=(1, 0),
+                item_ids=("silver_seal",),
+            ),
+        ),
+        transitions=(
+            TransitionSpec(
+                kind="stairs_up",
+                position=(0, 0),
+                to_dungeon_id="warren",
+                to_level_number=1,
+                to_position=(3, 0),
+                to_facing=Direction.WEST,
+            ),
+        ),
+        wandering=WanderingSpec(chance_in_six=0),
+    )
+
+    return Adventure(
+        name="The Gated Warren",
+        description="A warren of doors that want something.",
+        town=TownSpec(name="Threshold", travel_turns={"warren": 1}),
+        dungeons=(DungeonSpec(id="warren", name="The Warren", levels=(level_1, level_2)),),
+        items=(GATE_KEY, GATE_TOKEN, GATE_SEAL),
+    )
+
+
+def build_open_door_adventure() -> Adventure:
+    """Build the one-level pair of cells joined by an authored-open door.
+
+    Level 1 (2 × 1), entrance (0,0): the only edge is a door east of (0,0) with
+    `starts_open=True`, so the overlay's seeding rule has something to seed.
+    """
+    edges: dict[str, Edge] = {}
+    _door(edges, (0, 0), Direction.EAST, starts_open=True)
+    level = LevelSpec(
+        number=1,
+        width=2,
+        height=1,
+        edges=edges,
+        entrance=(0, 0),
+        wandering=WanderingSpec(chance_in_six=0),
+    )
+    return Adventure(
+        name="The Open Door",
+        description="Two cells and a door that starts open.",
+        town=TownSpec(name="Threshold", travel_turns={"vestibule": 1}),
+        dungeons=(DungeonSpec(id="vestibule", name="Vestibule", levels=(level,)),),
     )
 
 
