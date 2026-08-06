@@ -1734,15 +1734,14 @@ class SetDoorState(Command):
 class PlaceParty(Command):
     """Referee: teleport the party to a location.
 
-    Referee commands are legal in every mode, except that the party cannot be
-    teleported out of an open encounter or battle. Placing into a dungeon marks
-    the cell explored and switches the session to `exploring`; placing in town
-    switches it to `town`. That switch is what makes this the salvage door out of
-    `game_over` — carrying the fallen party to town is the first step of the
-    revival flow that ends at
-    [`PurchaseHealing`][osrlib.crawl.commands.PurchaseHealing]'s `raise_dead` —
-    and equally what makes it illegal in `victory`: a concluded adventure is not
-    resumed.
+    The party cannot be teleported out of an open encounter or battle. Placing
+    into a dungeon marks the cell explored and switches the session to
+    `exploring`; placing in town switches it to `town`. That switch is play
+    resuming, which is why this is the one referee command a concluded adventure
+    withholds: it is illegal in `victory`. It stays legal in `game_over`, where it
+    is the salvage door — carrying the fallen party to town is the first step of
+    the revival flow that ends at
+    [`PurchaseHealing`][osrlib.crawl.commands.PurchaseHealing]'s `raise_dead`.
 
     Modes:
         `town`, `exploring`, `encounter`, `battle`, `game_over`

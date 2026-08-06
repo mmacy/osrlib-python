@@ -15,7 +15,13 @@ import json
 
 import pytest
 
-from crawl_fixtures import build_adventure, build_chute_adventure, build_gas_trap_adventure, build_party
+from crawl_fixtures import (
+    build_adventure,
+    build_chute_adventure,
+    build_gas_trap_adventure,
+    build_lethal_coffer_adventure,
+    build_party,
+)
 from osrlib.core.clock import TimeUnit
 from osrlib.core.effects import Condition, EffectDefinition
 from osrlib.core.ruleset import Ruleset
@@ -36,6 +42,8 @@ from osrlib.crawl.commands import (
     SetFlag,
     SpawnMonsters,
     SpawnNpcParty,
+    TakeTreasure,
+    TurnUndead,
     Wait,
 )
 from osrlib.crawl.dungeon import Direction
@@ -182,7 +190,12 @@ class TestVictoryAtTheExecutedSeam:
 
 
 class TestNonBattleWipes:
-    """Every entrance to game-over, one test each, plus the edge-trigger rule."""
+    """The non-battle entrances to game-over, plus the edge-trigger rule.
+
+    The fourth entrance — a wipe during an open encounter — is proven in
+    `TestWipedPartyGuards`, where the guard that keeps it from opening a battle
+    among corpses is what makes the ending honest.
+    """
 
     def test_a_trap_wipe_ends_the_session(self):
         session, events = trap_wipe_session()
@@ -289,14 +302,14 @@ class TestTheSalvageFlow:
 class TestWipedPartyGuards:
     """Once nobody lives, no procedure starts anything new inside the same command."""
 
-    def encounter_session(self, template_id: str = "goblin", *, seed: int = 5) -> GameSession:
+    def encounter_session(self, template_id: str = "goblin", *, count: int = 2, seed: int = 5) -> GameSession:
         """A hostile encounter open on the dungeon grid, the party still standing."""
         from osrlib.core.tables import ReactionResult
         from osrlib.crawl import encounter as encounter_module
 
         session = GameSession.new(build_party(), build_adventure(wandering_chance=0), seed=seed)
         assert session.execute(EnterDungeon(dungeon_id="delve")).accepted
-        instances = session.spawn(template_id, 2)
+        instances = session.spawn(template_id, count)
         encounter_module.start_encounter(
             session,
             groups=[(template_id, instances)],
@@ -328,7 +341,10 @@ class TestWipedPartyGuards:
         assert session.encounter is None and session.battle is None
         after = stream_states(session)
         assert after.get("treasure") == before.get("treasure"), "corpses generate no treasure"
-        assert after.get("wandering") == before.get("wandering"), "corpses spawn no keyed encounter"
+        # The keyed spawn's own streams: the goblins would be rolled up and their
+        # encounter opened on these two.
+        assert after.get("monster_spawn") == before.get("monster_spawn"), "corpses spawn no keyed monsters"
+        assert after.get("encounter") == before.get("encounter"), "and open no encounter with them"
         assert session.mode is SessionMode.GAME_OVER
 
     def test_a_wiped_span_truncates_at_the_wipe_turn(self):
@@ -355,6 +371,36 @@ class TestWipedPartyGuards:
         codes = [getattr(event, "code", None) for event in result.events]
         assert "battle.started" not in codes, "a battle among corpses would end in defeat for a wipe that was no battle"
         assert "battle.ended.defeat" not in codes
+        assert_session_ended(session, list(result.events))
+
+    def test_turning_undead_that_kills_the_last_member_opens_no_battle(self):
+        session = self.encounter_session(template_id="skeleton", count=6)
+        poison_everyone(session)
+        result = session.execute(TurnUndead(character_id="character-0003"))
+        assert result.accepted
+        codes = [getattr(event, "code", None) for event in result.events]
+        assert "encounter.stance.changed" in codes, "the symbol was presented while they lived"
+        assert "battle.started" not in codes, "the surviving skeletons attack nobody: nobody is left"
+        assert "battle.ended.defeat" not in codes
+        assert_session_ended(session, list(result.events))
+
+    def test_a_cache_trap_that_kills_the_openers_loots_nothing(self):
+        session = GameSession.new(build_party(), build_lethal_coffer_adventure(), seed=4)
+        assert session.execute(EnterDungeon(dungeon_id="strongroom")).accepted
+        before = stream_states(session)
+        before_rounds = session.clock.rounds
+        result = session.execute(TakeTreasure(feature_id="coffer"))
+        assert result.accepted
+        codes = [getattr(event, "code", None) for event in result.events]
+        assert "exploration.trap.sprung" in codes
+        # The turn the attempt cost still passes; the looting never happens.
+        assert session.clock.rounds - before_rounds == 60
+        assert stream_states(session).get("treasure") == before.get("treasure"), (
+            "the coffer's magic item is never rolled up for the dead"
+        )
+        assert session.dungeon_state.emptied_caches == [], "the coffer keeps its contents for whoever comes back"
+        assert "exploration.item.left_behind" not in codes
+        assert "exploration.item.acquired" not in codes
         assert_session_ended(session, list(result.events))
 
     def test_a_pursuit_round_that_kills_the_last_member_resolves_nothing(self):

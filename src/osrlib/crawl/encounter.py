@@ -473,6 +473,10 @@ def _handle_turn_undead(session, command: TurnUndead) -> tuple[list[Rejection], 
     state.stance = ReactionResult.ATTACKS.value
     events.append(StanceChangedEvent(stance=state.stance))
     events.extend(session.advance_rounds(1))
+    if not session.party.living_members():
+        # The round that answered the symbol left nobody standing: no battle opens
+        # for the dead. The stance change stands — it happened while they lived.
+        return [], events
     events.extend(battle_module.start_battle(session))
     return [], events
 

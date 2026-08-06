@@ -38,6 +38,7 @@ from osrlib.crawl.dungeon import (
     TransitionSpec,
     TrapEffect,
     TrapSpec,
+    ValuableSpec,
     WanderingSpec,
     edge_key,
 )
@@ -58,6 +59,7 @@ __all__ = [
     "build_double_trap_adventure",
     "build_gas_trap_adventure",
     "build_gated_adventure",
+    "build_lethal_coffer_adventure",
     "build_open_door_adventure",
     "build_party",
     "build_sightline_adventure",
@@ -463,6 +465,46 @@ def build_gas_trap_adventure() -> Adventure:
         description="A doorway, a chamber, and a room full of gas.",
         town=TownSpec(name="Threshold", travel_turns={"vault": 1}),
         dungeons=(DungeonSpec(id="vault", name="The Fume Vault", levels=(level,)),),
+    )
+
+
+def build_lethal_coffer_adventure() -> Adventure:
+    """Build the one-cell dungeon whose only feature is a coffer that kills openers.
+
+    Level 1 (1 × 1), entrance (0,0): the `coffer` cache holds coins, an authored
+    named valuable, and a magic item — instantiation the take path performs on the
+    treasure stream — behind a treasure trap whose effect is `kills=True`,
+    `affects="party"`, and no save. `TakeTreasure` is the springing action.
+    """
+    coffer = FeatureSpec(
+        id="coffer",
+        kind="treasure_cache",
+        description="A squat iron coffer, its lid seamed with tarnish.",
+        cell=(0, 0),
+        coins=Coins(gp=300),
+        valuables=(ValuableSpec(kind="jewellery", name="The reeve's chain", value_gp=700),),
+        magic_item_ids=("potion_of_healing",),
+        trap=TrapSpec(
+            kind="treasure",
+            trigger="open",
+            affects="party",
+            effect=TrapEffect(kills=True),
+        ),
+    )
+    level = LevelSpec(
+        number=1,
+        width=1,
+        height=1,
+        edges={},
+        features=(coffer,),
+        entrance=(0, 0),
+        wandering=WanderingSpec(chance_in_six=0),
+    )
+    return Adventure(
+        name="The Reeve's Coffer",
+        description="One cell, one coffer, one very bad idea.",
+        town=TownSpec(name="Threshold", travel_turns={"strongroom": 1}),
+        dungeons=(DungeonSpec(id="strongroom", name="The Strongroom", levels=(level,)),),
     )
 
 

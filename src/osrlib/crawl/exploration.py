@@ -1905,6 +1905,13 @@ def _handle_take_treasure(session, command: TakeTreasure) -> tuple[list[Rejectio
     # whoever is still standing, and a named recipient who went down hands the job
     # back to the party rather than stranding the haul on a corpse.
     carriers = [member for member in carriers if not incapacitated(member)] or session.party.living_members()
+    if not carriers:
+        # The trap took the whole party: looting needs a living looter. Nothing is
+        # instantiated, the cache stays sealed with its contents for whoever comes
+        # back for them, and only the turn the attempt cost passes.
+        turn_events, _ = _spend_turn(session)
+        events.extend(turn_events)
+        return [], events
     from osrlib.core.items import ValuableInstance
     from osrlib.core.treasure import TREASURE_STREAM, instantiate_magic_item
 
