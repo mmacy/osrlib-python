@@ -73,16 +73,21 @@ def gated_session(seed: int = 91) -> GameSession:
 
 
 def door_gate_session(gate, *, roster=STOCK_ROSTER, seed: int = 7, **door_fields) -> GameSession:
-    """A two-cell dungeon whose single east-west door carries `gate`, party inside.
+    """A three-cell corridor whose only door carries `gate`, party inside at the west end.
 
     The harness for the command census: `door_fields` sets the mundane door
-    conditions (`locked`, `stuck`, `starts_open`) the gate has to compose with.
+    conditions (`locked`, `stuck`, `starts_open`) the gate has to compose with. The
+    third cell is out of the door's reach, so the party can walk far enough away
+    for the door to swing shut behind it.
     """
     level = LevelSpec(
         number=1,
-        width=2,
+        width=3,
         height=1,
-        edges={"1,0:west": Edge(kind=EdgeKind.DOOR, door=DoorSpec(requires=gate, **door_fields))},
+        edges={
+            "1,0:west": Edge(kind=EdgeKind.DOOR, door=DoorSpec(requires=gate, **door_fields)),
+            "2,0:west": Edge(kind=EdgeKind.OPEN),
+        },
         entrance=(0, 0),
         wandering=WanderingSpec(chance_in_six=0),
     )
@@ -456,6 +461,19 @@ class TestConsumption:
         assert session.execute(OpenDoor(direction=Direction.EAST)).rejections[0].code == (
             "exploration.door.gate_refused"
         )
+
+    def test_a_door_that_swings_shut_wants_another_token(self):
+        session = door_gate_session(TOLL_GATE)
+        session.execute(GrantItem(character_id="character-0001", item_id="toll_token", quantity=2))
+        assert session.execute(OpenDoor(direction=Direction.EAST)).accepted
+        session.execute(MoveParty(direction=Direction.EAST))
+        result = session.execute(MoveParty(direction=Direction.EAST))  # out of the doorway
+        assert any(event.code == "exploration.door.swung_shut" for event in result.events)
+        session.execute(MoveParty(direction=Direction.WEST))
+        reopened = session.execute(OpenDoor(direction=Direction.WEST))
+        assert reopened.accepted
+        assert reopened.events[0].code == "exploration.item.consumed"
+        assert carried(session.member("character-0001"), "toll_token") == 0
 
     def test_a_non_consuming_gate_keeps_reopening_for_free(self):
         session = door_gate_session(KEY_GATE)
