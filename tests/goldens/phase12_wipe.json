@@ -1,0 +1,254 @@
+{
+  "command_log": [
+    {
+      "command_type": "enter_dungeon",
+      "dungeon_id": "vault"
+    },
+    {
+      "command_type": "move_party",
+      "direction": "east"
+    },
+    {
+      "command_type": "roll_dice",
+      "expression": "2d6"
+    },
+    {
+      "command_type": "set_flag",
+      "key": "fume_vault_epitaph",
+      "value": "four went in"
+    }
+  ],
+  "event_log": [
+    {
+      "code": "exploration.location.entered",
+      "event_type": "location_entered",
+      "level_number": 1,
+      "location_id": "vault",
+      "location_kind": "dungeon",
+      "narrative": null,
+      "visibility": "player"
+    },
+    {
+      "code": "exploration.party.moved",
+      "event_type": "party_moved",
+      "facing": "east",
+      "visibility": "player",
+      "x": 1,
+      "y": 0
+    },
+    {
+      "code": "exploration.location.entered",
+      "event_type": "location_entered",
+      "level_number": 1,
+      "location_id": "gas_room",
+      "location_kind": "area",
+      "narrative": null,
+      "visibility": "player"
+    },
+    {
+      "chance": 2,
+      "character_id": null,
+      "code": "exploration.detection.rolled",
+      "event_type": "detection_rolled",
+      "kind": "trap_spring",
+      "passed": true,
+      "roll": 2,
+      "visibility": "referee"
+    },
+    {
+      "character_id": "character-0001",
+      "code": "exploration.trap.sprung",
+      "event_type": "trap",
+      "trap_ref": "vault:1:gas_room",
+      "visibility": "player"
+    },
+    {
+      "code": "effects.condition.gained",
+      "condition": "dead",
+      "effect_id": null,
+      "event_type": "condition_gained",
+      "target_id": "character-0001",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.death.died",
+      "event_type": "death",
+      "target_id": "character-0001",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 0,
+      "event_type": "hit_points_reported",
+      "max_hp": 6,
+      "target_id": "character-0001",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.condition.gained",
+      "condition": "dead",
+      "effect_id": null,
+      "event_type": "condition_gained",
+      "target_id": "character-0002",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.death.died",
+      "event_type": "death",
+      "target_id": "character-0002",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 0,
+      "event_type": "hit_points_reported",
+      "max_hp": 6,
+      "target_id": "character-0002",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.condition.gained",
+      "condition": "dead",
+      "effect_id": null,
+      "event_type": "condition_gained",
+      "target_id": "character-0003",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.death.died",
+      "event_type": "death",
+      "target_id": "character-0003",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 0,
+      "event_type": "hit_points_reported",
+      "max_hp": 6,
+      "target_id": "character-0003",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.condition.gained",
+      "condition": "dead",
+      "effect_id": null,
+      "event_type": "condition_gained",
+      "target_id": "character-0004",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.death.died",
+      "event_type": "death",
+      "target_id": "character-0004",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 0,
+      "event_type": "hit_points_reported",
+      "max_hp": 6,
+      "target_id": "character-0004",
+      "visibility": "referee"
+    },
+    {
+      "code": "session.game_over",
+      "event_type": "game_over",
+      "reason": "the party has fallen",
+      "visibility": "player"
+    },
+    {
+      "code": "adjudication.dice_rolled",
+      "event_type": "dice_rolled",
+      "expression": "2d6",
+      "rolls": [
+        2,
+        2
+      ],
+      "total": 4,
+      "visibility": "referee"
+    },
+    {
+      "code": "session.flag.set",
+      "event_type": "flag_set",
+      "key": "fume_vault_epitaph",
+      "value": "four went in",
+      "visibility": "referee"
+    }
+  ],
+  "final_state": {
+    "clock_rounds": 120,
+    "death_records": {
+      "character-0001": {
+        "cause": "unknown",
+        "round": 120
+      },
+      "character-0002": {
+        "cause": "unknown",
+        "round": 120
+      },
+      "character-0003": {
+        "cause": "unknown",
+        "round": 120
+      },
+      "character-0004": {
+        "cause": "unknown",
+        "round": 120
+      }
+    },
+    "flags": {
+      "fume_vault_epitaph": "four went in"
+    },
+    "living_members": [],
+    "location": {
+      "dungeon_id": "vault",
+      "facing": "east",
+      "kind": "dungeon",
+      "level_number": 1,
+      "position": [
+        1,
+        0
+      ]
+    },
+    "mode": "game_over",
+    "sprung_traps": [
+      "vault:1:gas_room"
+    ],
+    "streams": {
+      "adjudication": {
+        "inc": 294242704708591112232865321142618524279,
+        "state": 276917075251574234553572669492349806884
+      },
+      "effects": {
+        "inc": 254660684533615384397355265053951014801,
+        "state": 247835075629963386257661275564366288447
+      },
+      "exploration": {
+        "inc": 268349707610237478210702862891146745685,
+        "state": 132359238004248418566007146094169790359
+      }
+    }
+  },
+  "master_seed": 20260806,
+  "transcript": [
+    "The party enters dungeon vault (level 1).",
+    "The party moves to (1, 0), facing east.",
+    "The party enters area gas_room (level 1).",
+    "Detection roll (trap_spring): 2 vs 2-in-6 — success.",
+    "A trap springs (vault:1:gas_room) on character-0001!",
+    "character-0001 is dead.",
+    "character-0001 is killed.",
+    "character-0001 is at 0/6 hit points.",
+    "character-0002 is dead.",
+    "character-0002 is killed.",
+    "character-0002 is at 0/6 hit points.",
+    "character-0003 is dead.",
+    "character-0003 is killed.",
+    "character-0003 is at 0/6 hit points.",
+    "character-0004 is dead.",
+    "character-0004 is killed.",
+    "character-0004 is at 0/6 hit points.",
+    "The game is over: the party has fallen.",
+    "Referee rolls 2d6: [2, 2] — total 4.",
+    "Flag fume_vault_epitaph = 'four went in'."
+  ]
+}

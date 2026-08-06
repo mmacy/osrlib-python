@@ -368,6 +368,14 @@ class GameSession:
     def execute(self, command: Command) -> CommandResult:
         """Execute one command: the pure validation pre-phase, then apply and log.
 
+        An accepted command's own bookkeeping runs before its events reach the log
+        and the listeners: party deaths are recorded with their cause, and a
+        command whose events killed the last living member ends the session in
+        `game_over` with a
+        [`GameOverEvent`][osrlib.crawl.events.GameOverEvent] closing its result —
+        whatever killed the party, and from whichever mode. A session already in a
+        terminal mode is left alone.
+
         Args:
             command: The command to execute.
 
@@ -581,6 +589,13 @@ class GameSession:
         boundaries consume provisions, the rest cadence counts (unless `resting`),
         and — in the field — the wandering cadence may fire a check that starts an
         encounter, which stops the advance.
+
+        A field span also stops the moment it leaves nobody standing: the
+        cadences belong to the living, so a rest that starves the party out ends
+        at the turn it happened rather than running its remaining hours. The key
+        is `field`, not the mode — everything a non-field span does is ledger
+        bookkeeping, and a revival window measured in elapsed time has to keep
+        elapsing while the party lies dead.
 
         Args:
             turns: How many turns to advance.

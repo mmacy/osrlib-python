@@ -772,7 +772,12 @@ class TimeAdvancedEvent(Event):
 
 
 class GameOverEvent(Event):
-    """The session reached its terminal state (TPK)."""
+    """The session ended: the party was wiped out, however it happened.
+
+    A lost battle, a save-or-die trap, a fall, starvation, or a poison that
+    finished the last member under the referee's clock all report the same
+    ending, and the session is in `game_over` when it lands.
+    """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"session.game_over"})
 

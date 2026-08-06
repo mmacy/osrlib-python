@@ -25,7 +25,7 @@ Forty-four commands, sixty-eight events, one discriminator field each — an age
 
 ```{.python .no-run}
 # Sketch: the agent loop, framework left to the reader.
-while session.mode is not SessionMode.GAME_OVER:
+while not session.mode.terminal:  # the party fell, or the adventure is won
     observation = session.view(Visibility.REFEREE)
     payload = model.decide(observation, tools)  # the model emits one JSON command
     command = parse_command(payload)
