@@ -78,6 +78,7 @@
   "items.equip.weapon_forbidden": "The character tried to equip a weapon that the class's weapon policy explicitly excludes.",
   "items.equip.weapon_not_allowed": "The character tried to equip a weapon that isn't on the class's list of permitted weapons.",
   "items.purchase.insufficient_funds": "The character tried to buy equipment or pay for a temple healing service whose total cost is more coin than the character's purse currently holds.",
+  "items.purchase.not_stocked": "The character tried to buy an item the adventure bundles rather than one the shipped equipment lists carry; the town shop stocks the shipped lists only, and bundled items are found in the dungeon rather than bought.",
   "items.ring.hands_full": "The character tried to equip a third magic ring while already wearing the maximum of two.",
   "items.scroll.no_such_spell": "The character tried to read a spell from a scroll that isn't among the spells still inscribed on it.",
   "items.scroll.spent": "The character tried to read from a scroll whose inscribed spells have all already been used up.",

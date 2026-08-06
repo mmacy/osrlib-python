@@ -44,6 +44,7 @@ from osrlib.core.items import (
     MAX_LOAD_COINS,
     Coins,
     ItemInstance,
+    ItemTemplate,
     MagicItemCategory,
     MagicItemInstance,
     equip,
@@ -1975,7 +1976,7 @@ def _distribute_haul(session, carriers, haul: DropPile) -> tuple[list[Event], Dr
         copper pieces, and the valuables taken (the XP award's exact inputs).
     """
     ruleset = session.ruleset
-    equipment = load_equipment()
+    equipment = session.effective_equipment
     taken_ids: list[list[str]] = [[] for _ in carriers]
     taken_valuables: list = []
     leftovers = DropPile()
@@ -2135,20 +2136,20 @@ def _handle_give_items(session, command: GiveItems) -> tuple[list[Rejection], li
     return [], events
 
 
-def _grant_mundane(member, item_id: str, quantity: int = 1) -> None:
+def _grant_mundane(member, template: ItemTemplate, quantity: int = 1) -> None:
     """Add a mundane equipment item to a member's pack, merging with any like stack."""
     existing = next(
         (
             instance
             for instance in member.inventory.items
-            if not isinstance(instance, MagicItemInstance) and instance.template.id == item_id
+            if not isinstance(instance, MagicItemInstance) and instance.template.id == template.id
         ),
         None,
     )
     if existing is not None:
         existing.quantity += quantity
     else:
-        member.inventory.items.append(ItemInstance(template=load_equipment().get(item_id), quantity=quantity))
+        member.inventory.items.append(ItemInstance(template=template, quantity=quantity))
 
 
 def _apply_give(session, giver, recipient, command: GiveItems) -> list[Event]:
@@ -2173,8 +2174,13 @@ def _apply_give(session, giver, recipient, command: GiveItems) -> list[Event]:
             giver.inventory.valuables.remove(valuable)
             recipient.inventory.valuables.append(valuable)
             continue
+        # The giver's own instance carries the template across: no catalog
+        # resolution, so an adventure-bundled item hands over like any other.
+        carried = _find_item(giver, item_id)
+        if carried is None:  # unreachable: _validate_carried proved the giver holds it
+            raise ValueError(f"{giver.name} does not carry {item_id!r}")
         _consume_item(giver, item_id)
-        _grant_mundane(recipient, item_id)
+        _grant_mundane(recipient, carried.template)
     giver_purse = giver.inventory.purse
     recipient_purse = recipient.inventory.purse
     for denomination in ("pp", "gp", "ep", "sp", "cp"):
@@ -2417,6 +2423,8 @@ def _handle_purchase_equipment(session, command: PurchaseEquipment) -> tuple[lis
     member, rejections = _member_able(session, command.character_id)
     if rejections:
         return rejections, []
+    # The shop stocks the shipped equipment lists; an adventure's bundled items
+    # enter play through caches and grants, never off a shelf.
     equipment = load_equipment()
     templates = []
     total_cost = 0
@@ -2424,7 +2432,11 @@ def _handle_purchase_equipment(session, command: PurchaseEquipment) -> tuple[lis
         try:
             template = equipment.get(item_id)
         except ValueError:
-            return [Rejection(code="session.command.unknown_item", params={"item": item_id})], []
+            try:
+                session.effective_equipment.get(item_id)
+            except ValueError:
+                return [Rejection(code="session.command.unknown_item", params={"item": item_id})], []
+            return [Rejection(code="items.purchase.not_stocked", params={"item": item_id})], []
         templates.append(template)
         total_cost += template.cost_gp
     if not member.inventory.purse.can_afford(total_cost):

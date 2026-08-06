@@ -379,9 +379,11 @@ class FeatureSpec(BaseModel):
     """A keyed feature: a treasure cache, a construction trick, or custom content.
 
     Stairs are [`TransitionSpec`][osrlib.crawl.dungeon.TransitionSpec]'s alone — no
-    second home. Caches carry hand-placed contents — `item_ids` (any id from
+    second home. Caches carry hand-placed contents — `item_ids` (any id in the
+    session's effective equipment catalog: a shipped id from
     [`load_equipment`][osrlib.data.load_equipment], see
-    [the equipment id index][equipment-index]), `magic_item_ids` (any id from
+    [the equipment id index][equipment-index], or one bundled by the adventure's
+    `items`), `magic_item_ids` (any id from
     [`load_magic_items`][osrlib.data.load_magic_items], see
     [the magic item id index][magic-items-index]), and `coins` — plus an optional
     treasure trap, so a cache's contents can be dropped, found, and recovered like

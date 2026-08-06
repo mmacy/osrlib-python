@@ -740,9 +740,10 @@ class EquipItem(Command):
 
     Legal in town and while exploring. Class armour and weapon policies validate
     before anything changes. `item_id` is the magic item's instance id for a magic
-    item, or the catalog id (from [`load_equipment`][osrlib.data.load_equipment] —
-    see [the equipment id index][equipment-index]) for a mundane one, which has no
-    per-instance id.
+    item, or the catalog id for a mundane one, which has no per-instance id — a
+    shipped id (from [`load_equipment`][osrlib.data.load_equipment], see [the
+    equipment id index][equipment-index]) or one the adventure bundles, which no
+    index documents.
 
     Modes:
         `town`, `exploring`
@@ -1127,7 +1128,11 @@ class PurchaseEquipment(Command):
     """Buy equipment in town: each `item_ids` entry buys one purchase lot (zero time).
 
     The party must be in town. The whole basket prices first; if the member cannot
-    afford the total, nothing is bought.
+    afford the total, nothing is bought. The shop stocks the shipped equipment
+    lists ([`load_equipment`][osrlib.data.load_equipment] — see [the equipment id
+    index][equipment-index]) and nothing else: an item the adventure bundles is
+    not for sale, however the party came by the id, and rejects as unstocked
+    rather than as unknown.
 
     Modes:
         `town`
@@ -1136,7 +1141,9 @@ class PurchaseEquipment(Command):
         - `session.command.wrong_mode` — the party is not in town.
         - `session.command.unknown_member` — `character_id` names no party member.
         - `session.command.member_incapacitated` — the member cannot act.
-        - `session.command.unknown_item` — an entry names no equipment item.
+        - `session.command.unknown_item` — an entry names no equipment item at all.
+        - `items.purchase.not_stocked` — an entry names an item the adventure
+          bundles; the shop does not carry it.
         - `items.purchase.insufficient_funds` — the purse cannot cover the total.
 
     Events:
@@ -1478,7 +1485,9 @@ class GrantItem(Command):
 
     Rejections:
         - `session.command.unknown_member` — `character_id` names no party member.
-        - `session.command.unknown_item` — `item_id` names no equipment item.
+        - `session.command.unknown_item` — `item_id` names no item in the session's
+          [`effective_equipment`][osrlib.crawl.session.GameSession.effective_equipment]
+          catalog: neither a shipped id nor one the adventure bundles.
 
     Events:
         [`ItemAcquiredEvent`][osrlib.crawl.events.ItemAcquiredEvent] with the
