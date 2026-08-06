@@ -92,10 +92,37 @@ class TestMilestoneBeats:
         assert spent["params"]["refusal"].startswith("The ferryman's hand")
         assert golden["final_state"]["inventories"]["character-0001"].get("toll_token") is None
 
+    def test_any_members_key_opens_the_door(self, golden):
+        """The key rides the *last* member when the sentinel's door opens.
+
+        Whoever holds it, the party holds it: the lead carries the toll and the
+        rear carries the key, and the door still opens.
+        """
+        packs = golden["final_state"]["inventories"]
+        assert "brass_key" not in packs["character-0001"]
+        assert packs["character-0004"]["brass_key"] == 1
+        given = next(event for event in golden["event_log"] if event.get("code") == "exploration.item.given")
+        opened = next(
+            index
+            for index, event in enumerate(golden["event_log"])
+            if event.get("code") == "exploration.door.opened" and event.get("narrative")
+        )
+        assert golden["event_log"].index(given) < opened, "the key changed hands before the door opened"
+        assert given["recipient_id"] == "character-0004"
+        # And the toll still came from the lead, who never held the key.
+        consumed = next(event for event in golden["event_log"] if event.get("code") == "exploration.item.consumed")
+        assert consumed["character_id"] == "character-0001"
+
     def test_the_lock_answers_before_the_gate_and_both_are_required(self, golden):
-        ladder = [entry["code"] for entry in golden["refusals"][1:3]]
-        assert ladder == ["exploration.door.locked", "exploration.door.gate_refused"]
-        assert golden["refusals"][2]["params"]["refusal"].startswith("The seal-plate is empty")
+        codes = [entry["code"] for entry in golden["refusals"]]
+        locked = codes.index("exploration.door.locked")
+        # The reliquary is the only door addressed from the south.
+        seal = next(
+            index for index, entry in enumerate(golden["refusals"]) if entry["params"].get("direction") == "south"
+        )
+        assert locked < seal, "the lock answers first; the gate has its say only once the lock is undone"
+        assert golden["refusals"][seal]["code"] == "exploration.door.gate_refused"
+        assert golden["refusals"][seal]["params"]["refusal"].startswith("The seal-plate is empty")
         # The reliquary door ends the run open, unlocked, and opened by the party.
         reliquary = golden["final_state"]["doors"]["warren:1:2,1:north"]
         assert reliquary == {

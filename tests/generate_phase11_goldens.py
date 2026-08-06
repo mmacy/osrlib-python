@@ -5,7 +5,8 @@ doors and stairs want something, with refusal probes interleaved between the
 accepted commands:
 
 - the key-gated door refuses with its authored text, then opens once the key is
-  out of the niche, with its success beat in the transcript;
+  out of the niche and handed to the *last* member in marching order — any
+  member's pack satisfies the gate — with its success beat in the transcript;
 - the reliquary's locked-and-gated door refuses on its lock first, then on its
   gate once a referee undoes the lock, then opens when the seal is in hand;
 - the ferryman's stair takes a token per crossing and refuses once the tokens run
@@ -32,6 +33,7 @@ from osrlib.crawl.commands import (
     CloseDoor,
     Command,
     EnterDungeon,
+    GiveItems,
     MoveParty,
     OpenDoor,
     SetDoorState,
@@ -55,6 +57,9 @@ SCRIPT: tuple[tuple[Command, str | None], ...] = (
     # The sentinel wants brass, and the key is still in the niche.
     (OpenDoor(direction=Direction.EAST), "exploration.door.gate_refused"),
     (TakeTreasure(feature_id="niche"), None),
+    # The key goes to the back of the marching order: any member's pack counts,
+    # and the one the toll would pick is no longer the one holding the key.
+    (GiveItems(character_id="character-0001", recipient_id="character-0004", item_ids=("brass_key",)), None),
     (OpenDoor(direction=Direction.EAST), None),
     (MoveParty(direction=Direction.EAST), None),
     # The reliquary is locked as well as gated: the lock answers first.
@@ -173,6 +178,9 @@ def build_golden(seed: int) -> dict:
             raise RuntimeError(f"milestone beat missing from the run: {required}")
     if not any("The brass key turns" in line for line in transcript):
         raise RuntimeError("the door's success beat never reached the transcript")
+    carried = inventories(session)
+    if "brass_key" in carried["character-0001"] or "brass_key" not in carried["character-0004"]:
+        raise RuntimeError("the key must ride the last member, not the first: that is what 'any member' means")
     return {
         "master_seed": seed,
         "refusals": refusals,

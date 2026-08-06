@@ -61,7 +61,14 @@ from osrlib.core.combat import (
 from osrlib.core.dice import roll
 from osrlib.core.effects import EFFECTS_STREAM, Condition, has_condition
 from osrlib.core.events import AttackRolledEvent, Event, SavingThrowRolledEvent
-from osrlib.core.items import MagicItemCategory, MagicItemInstance, WeaponQuality, magic_item_template
+from osrlib.core.items import (
+    GearTemplate,
+    ItemInstance,
+    MagicItemCategory,
+    MagicItemInstance,
+    WeaponQuality,
+    magic_item_template,
+)
 from osrlib.core.monsters import MonsterInstance
 from osrlib.core.spells import (
     MAGIC_STREAM,
@@ -1451,11 +1458,14 @@ def _resolve_use_item(session, member, declaration, fire_damaged) -> list[Event]
     pool = _monster_pool(session, group)
     if not pool:
         return []
-    instance = exploration._find_item(member, declaration.item_id)
-    if instance is None:
+    # One lookup takes the flask and answers what was taken: the instance the
+    # attack resolves from is the instance that left the pack.
+    instance = exploration._consume_item(member, declaration.item_id)
+    if not isinstance(instance, ItemInstance) or not isinstance(instance.template, GearTemplate):
+        # Unreachable: the declaration validator proved the item is gear carrying a
+        # combat facet — holy water, a flask of burning oil — before the round ran.
         return []
     template = instance.template
-    exploration._consume_item(member, declaration.item_id)
     context = AttackContext(distance_feet=group.distance_feet, lit=True)
     result = resolve_splash_attack(
         member,

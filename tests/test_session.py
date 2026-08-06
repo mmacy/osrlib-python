@@ -164,6 +164,17 @@ class TestRejectionPurity:
         ref = edge_ref("delve", 1, (3, 1), Direction.EAST)
         assert session.dungeon_state.doors[ref].discovered
 
+    def test_a_referee_write_that_sets_nothing_stores_nothing(self):
+        session = make_session()
+        result = session.execute(SetDoorState(dungeon_id="delve", level_number=1, x=2, y=0, direction=Direction.SOUTH))
+        assert result.accepted
+        assert result.events == ()
+        assert session.dungeon_state.doors == {}, "a write with nothing to write materializes nothing"
+        # A door that does not exist still rejects, whatever the command sets.
+        refused = session.execute(SetDoorState(dungeon_id="delve", level_number=1, x=0, y=0, direction=Direction.NORTH))
+        assert not refused.accepted
+        assert refused.rejections[0].code == "session.command.no_door"
+
     def test_a_referee_write_seeds_an_untouched_authored_open_door(self):
         from crawl_fixtures import build_open_door_adventure
 

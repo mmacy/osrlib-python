@@ -688,11 +688,10 @@ def _sync_deprivation(session, member, state) -> list[Event]:
 def _consume_item(member, item_id: str, quantity: int = 1) -> ItemInstance | MagicItemInstance | None:
     """Take units of a carried item and answer the instance they came from.
 
-    The whole carried surface counts — pack, hands, worn slots, rings — and both
-    kinds of instance: a mundane one matches its template's id, a magic one its
-    `template_id`, the same rule a `has_item` gate evaluates by. Equipment ids and
-    magic-item ids name disjoint domains, so the two can never resolve to each
-    other. A stack spent exactly leaves the inventory; a deeper one decrements.
+    The lookup is [`Inventory.carried_item`][osrlib.core.items.Inventory.carried_item]
+    — the whole carried surface, mundane and magic alike, the same rule a
+    `has_item` gate evaluates by, so anything a gate can find, a toll can take. A
+    stack spent exactly leaves the inventory; a deeper one decrements.
 
     Args:
         member (osrlib.core.character.Character): The carrier.
@@ -703,7 +702,7 @@ def _consume_item(member, item_id: str, quantity: int = 1) -> ItemInstance | Mag
         The instance the units came from, or `None` when the member carries no
         such item or too few of it (in which case nothing is taken).
     """
-    instance = gates._carried_instance(member, item_id)
+    instance = member.inventory.carried_item(item_id)
     if instance is None or instance.quantity < quantity:
         return None
     if instance.quantity == quantity:
@@ -714,7 +713,16 @@ def _consume_item(member, item_id: str, quantity: int = 1) -> ItemInstance | Mag
 
 
 def _find_item(member, item_id: str):
-    """The mundane-item lookup — magic instances resolve by instance id instead."""
+    """The mundane-item lookup: presence checks whose subject is shipped gear.
+
+    Narrower than
+    [`Inventory.carried_item`][osrlib.core.items.Inventory.carried_item] on
+    purpose — a torch to light, a tinder box to strike it with, thieves' tools to
+    pick a lock with are mundane equipment by definition, and a caller that goes
+    on to read `instance.template` needs the mundane instance this returns.
+    Anything that finds an item in order to *take* one uses the wider lookup, so
+    that finding and taking can never disagree.
+    """
     for instance in member.inventory.all_instances():
         if not isinstance(instance, MagicItemInstance) and instance.template.id == item_id:
             return instance
@@ -1533,7 +1541,12 @@ def _handle_wedge_door(session, command: WedgeDoor) -> tuple[list[Rejection], li
     if state.wedged:
         return [Rejection(code="exploration.door.wedged")], []
     spike_carrier = next(
-        (member for member in session.party.living_members() if _find_item(member, "iron_spikes") is not None), None
+        (
+            member
+            for member in session.party.living_members()
+            if member.inventory.carried_item("iron_spikes") is not None
+        ),
+        None,
     )
     if spike_carrier is None:
         return [Rejection(code="exploration.door.no_spike")], []
@@ -2379,11 +2392,11 @@ def _apply_give(session, giver, recipient, command: GiveItems) -> list[Event]:
             recipient.inventory.valuables.append(valuable)
             continue
         # The giver's own instance carries the template across: no catalog
-        # resolution, so an adventure-bundled item hands over like any other.
-        carried = _find_item(giver, item_id)
-        if carried is None:  # unreachable: _validate_carried proved the giver holds it
+        # resolution, so an adventure-bundled item hands over like any other. One
+        # lookup takes it and answers what was taken — nothing can shift between.
+        carried = _consume_item(giver, item_id)
+        if not isinstance(carried, ItemInstance):  # unreachable: magic left through the branch above
             raise ValueError(f"{giver.name} does not carry {item_id!r}")
-        _consume_item(giver, item_id)
         _grant_mundane(recipient, carried.template)
     giver_purse = giver.inventory.purse
     recipient_purse = recipient.inventory.purse

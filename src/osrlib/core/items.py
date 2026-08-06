@@ -1138,6 +1138,50 @@ class Inventory(BaseModel):
                 return instance
         return None
 
+    def carried_item(self, item_id: str) -> ItemInstance | MagicItemInstance | None:
+        """Return the first carried instance of a catalog id, mundane or magic, or `None`.
+
+        The whole carried surface counts — pack, hands, worn slots, rings — in
+        [`all_instances`][osrlib.core.items.Inventory.all_instances] order. A
+        mundane instance matches on its template's id and a magic one on its
+        `template_id`; equipment ids and magic-item ids name disjoint domains, so
+        one id can never resolve to both. Valuables never match: gems and jewellery
+        carry no catalog id, only an instance id.
+
+        A spent stack — quantity zero, expressible only on a magic instance such as
+        an emptied quiver of arrows +1 — is not carrying and never matches, so
+        anything that finds an instance this way can also take a unit from it.
+
+        Args:
+            item_id: The catalog id to look for: an equipment id (see
+                [the equipment id index][equipment-index], or an id an adventure
+                bundles) or a magic item id (see
+                [the magic item id index][magic-items-index]).
+
+        Returns:
+            The instance, or `None` when the inventory holds none.
+
+        Examples:
+            ```python
+            from osrlib.core.items import Inventory, ItemInstance
+            from osrlib.data import load_equipment
+
+            inventory = Inventory(items=[ItemInstance(template=load_equipment().get("torch"), quantity=6)])
+            carried = inventory.carried_item("torch")
+            assert carried is not None and carried.quantity == 6
+            assert inventory.carried_item("lantern") is None
+            ```
+        """
+        for instance in self.all_instances():
+            if instance.quantity < 1:
+                continue
+            if isinstance(instance, MagicItemInstance):
+                if instance.template_id == item_id:
+                    return instance
+            elif instance.template.id == item_id:
+                return instance
+        return None
+
 
 def magic_item_template(instance: MagicItemInstance) -> MagicItemTemplate:
     """Return a magic item instance's template from [`load_magic_items`][osrlib.data.load_magic_items]'s catalog.

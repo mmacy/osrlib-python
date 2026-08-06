@@ -14,6 +14,21 @@
       "recipient_id": null
     },
     {
+      "character_id": "character-0001",
+      "coins": {
+        "cp": 0,
+        "ep": 0,
+        "gp": 0,
+        "pp": 0,
+        "sp": 0
+      },
+      "command_type": "give_items",
+      "item_ids": [
+        "brass_key"
+      ],
+      "recipient_id": "character-0004"
+    },
+    {
       "command_type": "open_door",
       "direction": "east"
     },
@@ -120,6 +135,17 @@
         "brass_key",
         "toll_token"
       ],
+      "visibility": "player"
+    },
+    {
+      "character_id": "character-0001",
+      "code": "exploration.item.given",
+      "coins_gp_value": 0,
+      "event_type": "items_given",
+      "item_ids": [
+        "brass_key"
+      ],
+      "recipient_id": "character-0004",
       "visibility": "player"
     },
     {
@@ -316,12 +342,13 @@
     },
     "inventories": {
       "character-0001": {
-        "brass_key": 1,
         "silver_seal": 1
       },
       "character-0002": {},
       "character-0003": {},
-      "character-0004": {}
+      "character-0004": {
+        "brass_key": 1
+      }
     },
     "location": {
       "dungeon_id": "warren",
@@ -360,7 +387,7 @@
       }
     },
     {
-      "after_commands": 5,
+      "after_commands": 6,
       "code": "exploration.door.locked",
       "command": {
         "command_type": "open_door",
@@ -369,7 +396,7 @@
       "params": {}
     },
     {
-      "after_commands": 6,
+      "after_commands": 7,
       "code": "exploration.door.gate_refused",
       "command": {
         "command_type": "open_door",
@@ -381,7 +408,7 @@
       }
     },
     {
-      "after_commands": 12,
+      "after_commands": 13,
       "code": "exploration.transition.gate_refused",
       "command": {
         "command_type": "use_stairs"
@@ -391,7 +418,7 @@
       }
     },
     {
-      "after_commands": 12,
+      "after_commands": 13,
       "code": "exploration.door.gate_refused",
       "command": {
         "command_type": "open_door",
@@ -403,7 +430,7 @@
       }
     },
     {
-      "after_commands": 16,
+      "after_commands": 17,
       "code": "exploration.move.blocked",
       "command": {
         "command_type": "move_party",
@@ -414,7 +441,7 @@
       }
     },
     {
-      "after_commands": 16,
+      "after_commands": 17,
       "code": "exploration.door.gate_refused",
       "command": {
         "command_type": "open_door",
@@ -430,6 +457,7 @@
     "The party enters dungeon warren (level 1).",
     "The party moves to (1, 0), facing east.",
     "character-0001 acquires brass_key, toll_token.",
+    "character-0001 gives brass_key to character-0004.",
     "The door east of (1, 0) opens. The brass key turns in the sentinel's palm and the door swings wide.",
     "The party moves to (2, 0), facing east.",
     "The party moves to (3, 0), facing east.",

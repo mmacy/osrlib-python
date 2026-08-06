@@ -9,8 +9,10 @@ opening its door and evaluation never drifts from the truth.
 The condition vocabulary is a discriminated union that grows additively:
 
 - [`HasItemCondition`][osrlib.crawl.gates.HasItemCondition] — some party member's
-  carried inventory holds an item with that catalog id. With `consumes=True`, the
-  successful command takes one instance from the first holder in marching order.
+  carried inventory holds an item with that catalog id
+  ([`Inventory.carried_item`][osrlib.core.items.Inventory.carried_item] is the
+  matching rule, equipped slots and all). With `consumes=True`, the successful
+  command takes one instance from the first holder in marching order.
 - [`FlagEqualsCondition`][osrlib.crawl.gates.FlagEqualsCondition] — a session flag
   ([`SetFlag`][osrlib.crawl.commands.SetFlag]) holds a value.
 - [`EffectActiveCondition`][osrlib.crawl.gates.EffectActiveCondition] — an active
@@ -31,7 +33,6 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from osrlib.core.character import Character
 from osrlib.core.effects import EffectsLedger
-from osrlib.core.items import ItemInstance, MagicItemInstance
 from osrlib.crawl.narrative import NarrativeBlock
 
 __all__ = [
@@ -113,26 +114,6 @@ class GateSpec(BaseModel):
     narrative: NarrativeBlock | None = None
 
 
-def _carried_instance(member: Character, item_id: str) -> ItemInstance | MagicItemInstance | None:
-    """The member's first carried instance of a catalog id, or `None`.
-
-    Mundane instances match on their template's id and magic instances on their
-    `template_id` — the union `has_item` speaks. Valuables never match: gems and
-    jewellery carry no catalog id. A spent stack (a magic quiver shot down to zero,
-    the only instance a quantity of zero is expressible on) is not carrying: the
-    empty quiver satisfies nothing and pays no toll.
-    """
-    for instance in member.inventory.all_instances():
-        if instance.quantity < 1:
-            continue
-        if isinstance(instance, MagicItemInstance):
-            if instance.template_id == item_id:
-                return instance
-        elif instance.template.id == item_id:
-            return instance
-    return None
-
-
 def condition_holds(
     condition: ConditionSpec,
     *,
@@ -169,7 +150,7 @@ def condition_holds(
         ```
     """
     if isinstance(condition, HasItemCondition):
-        return any(_carried_instance(member, condition.item_id) is not None for member in members)
+        return any(member.inventory.carried_item(condition.item_id) is not None for member in members)
     if isinstance(condition, FlagEqualsCondition):
         if condition.key not in flags:
             return False
@@ -194,6 +175,6 @@ def first_holder(members: Sequence[Character], item_id: str) -> Character | None
         The member, or `None` when nobody carries one.
     """
     for member in members:
-        if _carried_instance(member, item_id) is not None:
+        if member.inventory.carried_item(item_id) is not None:
             return member
     return None

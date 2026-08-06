@@ -972,6 +972,10 @@ def _handle_set_door_state(session: GameSession, command: SetDoorState) -> tuple
     edge = level.edge((command.x, command.y), command.direction)
     if edge.kind is not EdgeKind.DOOR:
         return [Rejection(code="session.command.no_door", params={"x": command.x, "y": command.y})], []
+    if command.open is command.wedged is command.discovered is command.unlocked is None:
+        # A write with nothing to write is legal and does nothing at all — it must
+        # not leave an overlay entry behind for a door nobody has touched.
+        return [], []
     ref = edge_ref(command.dungeon_id, command.level_number, (command.x, command.y), command.direction)
     # The referee writes through the same seeded materializer the play handlers
     # use, so a first write to an authored-open door does not store it shut.

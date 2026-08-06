@@ -295,6 +295,56 @@ class TestGatedCommands:
         assert [event.code for event in result.events] == ["exploration.door.opened"]
         assert session.execute(MoveParty(direction=Direction.EAST)).accepted
 
+    def test_the_dead_still_carry_what_a_door_asks_for(self):
+        """The command seam's own proof of the domain: the party carries its dead.
+
+        Evaluation walks every member, living or dead — a key that rides a corpse
+        still opens its door, and a corpse still pays the toll it carries.
+        """
+        from osrlib.core.effects import Condition, grant_condition
+
+        session = door_gate_session(KEY_GATE)
+        session.execute(GrantItem(character_id="character-0004", item_id="brass_key"))
+        grant_condition(session.member("character-0004"), Condition.DEAD, None)
+        assert [member.id for member in session.party.living_members()] == [
+            "character-0001",
+            "character-0002",
+            "character-0003",
+        ]
+        assert session.execute(OpenDoor(direction=Direction.EAST)).accepted
+
+    def test_a_corpse_pays_the_toll_it_carries(self):
+        from osrlib.core.effects import Condition, grant_condition
+
+        session = door_gate_session(TOLL_GATE)
+        session.execute(GrantItem(character_id="character-0004", item_id="toll_token"))
+        grant_condition(session.member("character-0004"), Condition.DEAD, None)
+        result = session.execute(OpenDoor(direction=Direction.EAST))
+        assert result.accepted
+        consumed = result.events[0]
+        assert consumed.code == "exploration.item.consumed"
+        assert consumed.character_id == "character-0004"
+        assert carried(session.member("character-0004"), "toll_token") == 0
+
+    def test_a_corpse_pays_the_transitions_toll_too(self):
+        from osrlib.core.effects import Condition, grant_condition
+
+        session = gated_session()
+        session.execute(
+            PlaceParty(
+                location=PartyLocation(
+                    kind="dungeon", dungeon_id="warren", level_number=1, position=(3, 0), facing=Direction.EAST
+                )
+            )
+        )
+        session.execute(GrantItem(character_id="character-0004", item_id="toll_token"))
+        grant_condition(session.member("character-0004"), Condition.DEAD, None)
+        result = session.execute(UseStairs())
+        assert result.accepted
+        assert result.events[0].code == "exploration.item.consumed"
+        assert result.events[0].character_id == "character-0004"
+        assert session.dungeon_state.location.level_number == 2
+
     def test_a_flag_gate_and_an_effect_gate_open_the_same_way(self):
         flag_gate = GateSpec(condition=FlagEqualsCondition(key="portcullis", value="raised"))
         session = door_gate_session(flag_gate)

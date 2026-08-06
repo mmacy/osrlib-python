@@ -10,6 +10,8 @@ from osrlib.core.items import (
     CoinPurse,
     Inventory,
     ItemInstance,
+    MagicItemInstance,
+    ValuableInstance,
     encounter_movement_rate,
     equip,
     equipment_weight_coins,
@@ -271,6 +273,51 @@ class TestEquipLegality:
         assert [rejection.code for rejection in validate_equip(fighter, instance("arrows", 20))] == [
             "items.equip.not_equippable"
         ]
+
+
+class TestCarriedItemLookup:
+    """`Inventory.carried_item` — the one home for "does this pack hold item X"."""
+
+    def test_it_finds_a_mundane_instance_wherever_it_is_carried(self):
+        fighter = load_classes().get("fighter")
+        inventory = Inventory(items=[instance("torch", 6), instance("sword"), instance("leather")])
+        equip(inventory, fighter, inventory.items[1])
+        equip(inventory, fighter, inventory.items[1])
+        found = inventory.carried_item("torch")
+        assert found is not None and found.quantity == 6
+        assert inventory.carried_item("sword") is inventory.wielded[0]
+        assert inventory.carried_item("leather") is inventory.worn_armour
+        assert inventory.carried_item("lantern") is None
+
+    def test_it_finds_a_magic_instance_by_template_id_including_a_ring(self):
+        potion = MagicItemInstance(instance_id="magic-item-0001", template_id="potion_of_healing")
+        ring = MagicItemInstance(instance_id="magic-item-0002", template_id="ring_of_protection")
+        inventory = Inventory(items=[potion], rings=[ring])
+        assert inventory.carried_item("potion_of_healing") is potion
+        assert inventory.carried_item("ring_of_protection") is ring
+        # Instance ids are `magic_item`'s domain, never this one's.
+        assert inventory.carried_item("magic-item-0001") is None
+
+    def test_a_valuable_never_matches(self):
+        inventory = Inventory(
+            valuables=[ValuableInstance(instance_id="valuable-0001", kind="gem", name="Brass key", value_gp=10)]
+        )
+        assert inventory.carried_item("valuable-0001") is None
+        assert inventory.carried_item("Brass key") is None
+
+    def test_a_spent_stack_is_not_carried(self):
+        # Only a magic instance can hold zero units; an empty quiver is not an item
+        # in hand, and nothing that finds one this way could take a unit from it.
+        empty = MagicItemInstance(instance_id="magic-item-0003", template_id="arrow_plus_1", quantity=0)
+        inventory = Inventory(items=[empty])
+        assert inventory.carried_item("arrow_plus_1") is None
+        empty.quantity = 1
+        assert inventory.carried_item("arrow_plus_1") is empty
+
+    def test_it_answers_the_first_match_in_carried_order(self):
+        first, second = instance("torch", 1), instance("torch", 6)
+        inventory = Inventory(items=[first, second])
+        assert inventory.carried_item("torch") is first
 
 
 class TestEquipMechanics:
