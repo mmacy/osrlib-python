@@ -250,11 +250,17 @@ class OpenDoor(Command):
           undone.
         - `exploration.door.stuck` — a stuck door needs
           [`ForceDoor`][osrlib.crawl.commands.ForceDoor].
+        - `exploration.door.gate_refused` — the door carries an authored
+          condition ([`GateSpec`][osrlib.crawl.gates.GateSpec]) the party does not
+          satisfy; the refusal carries the author's own text. Checked last, after
+          every other refusal, so it fires only when the gate alone bars the way.
 
     Events:
+        [`ItemConsumedEvent`][osrlib.crawl.events.ItemConsumedEvent] first when the
+        gate's condition consumes what it asks for, then
         [`DoorEvent`][osrlib.crawl.events.DoorEvent] with code
-        `exploration.door.opened`, then the trap events when a door trap's
-        spring check runs.
+        `exploration.door.opened` (carrying the gate's success text when its author
+        wrote one), then the trap events when a door trap's spring check runs.
     """
 
     allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.EXPLORING})
@@ -313,11 +319,18 @@ class ForceDoor(Command):
           [`PickLock`][osrlib.crawl.commands.PickLock], not muscle.
         - `exploration.door.not_stuck` — an unstuck door opens with
           [`OpenDoor`][osrlib.crawl.commands.OpenDoor].
+        - `exploration.door.gate_refused` — the door carries an authored
+          condition ([`GateSpec`][osrlib.crawl.gates.GateSpec]) the party does not
+          satisfy. Checked before the shoulder ever hits the door: a gate-refused
+          forcing makes no noise, denies no surprise, and rolls nothing.
 
     Events:
+        [`ItemConsumedEvent`][osrlib.crawl.events.ItemConsumedEvent] first when the
+        gate's condition consumes what it asks for, then
         [`DoorEvent`][osrlib.crawl.events.DoorEvent] with code
-        `exploration.door.forced` on success or `exploration.door.stuck` on
-        failure, then the trap events when a door trap's spring check runs.
+        `exploration.door.forced` on success (carrying the gate's success text when
+        its author wrote one) or `exploration.door.stuck` on failure, then the trap
+        events when a door trap's spring check runs.
     """
 
     allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.EXPLORING})
@@ -344,7 +357,8 @@ class WedgeDoor(Command):
         - `exploration.door.no_spike` — no living member carries iron spikes.
 
     Events:
-        [`DoorEvent`][osrlib.crawl.events.DoorEvent] with code
+        [`ItemConsumedEvent`][osrlib.crawl.events.ItemConsumedEvent] for the spike,
+        then [`DoorEvent`][osrlib.crawl.events.DoorEvent] with code
         `exploration.door.wedged`.
     """
 
@@ -1053,12 +1067,20 @@ class UseStairs(Command):
     Rejections:
         - `session.command.wrong_mode` — the session is not exploring a dungeon.
         - `exploration.stairs.none` — no transition on the party's cell.
+        - `exploration.transition.gate_refused` — the transition carries an
+          authored condition ([`GateSpec`][osrlib.crawl.gates.GateSpec]) the party
+          does not satisfy; the refusal carries the author's own text, and costs no
+          movement, no time, and no toll.
 
     Events:
+        [`ItemConsumedEvent`][osrlib.crawl.events.ItemConsumedEvent] first when the
+        gate's condition consumes what it asks for — the toll is paid at the
+        threshold — then
         [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] when the
-        level or dungeon changes. Arrival then runs the cell's entry checks — area
-        treasure, room traps, keyed encounters — each reporting its own events, and
-        the movement cost accrues toward the turn clock.
+        level or dungeon changes, carrying the gate's success text when its author
+        wrote one. Arrival then runs the cell's entry checks — area treasure, room
+        traps, keyed encounters — each reporting its own events, and the movement
+        cost accrues toward the turn clock.
     """
 
     allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.EXPLORING})
@@ -1550,7 +1572,9 @@ class SetFlag(Command):
     """Referee: set a session flag (content wiring: the lever opens the portcullis).
 
     Referee commands are legal in every mode. Flags serialize into saves; game
-    code and listeners read them back.
+    code and listeners read them back, and authored content reads them through
+    [`FlagEqualsCondition`][osrlib.crawl.gates.FlagEqualsCondition] — the gate on a
+    door or stair that opens when the lever has been pulled.
 
     Modes:
         `town`, `exploring`, `encounter`, `battle`, `game_over`

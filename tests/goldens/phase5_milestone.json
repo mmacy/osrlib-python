@@ -943,6 +943,7 @@
       "level_number": 1,
       "location_id": "barrow",
       "location_kind": "dungeon",
+      "narrative": null,
       "visibility": "player"
     },
     {
@@ -967,6 +968,7 @@
       "level_number": 1,
       "location_id": "guard_room",
       "location_kind": "area",
+      "narrative": null,
       "visibility": "player"
     },
     {
@@ -1642,6 +1644,7 @@
       "level_number": 1,
       "location_id": "shrine",
       "location_kind": "area",
+      "narrative": null,
       "visibility": "player"
     },
     {
@@ -1700,6 +1703,7 @@
       "level_number": 2,
       "location_id": "barrow",
       "location_kind": "level",
+      "narrative": null,
       "visibility": "player"
     },
     {
@@ -1724,6 +1728,7 @@
       "level_number": 2,
       "location_id": "vault",
       "location_kind": "area",
+      "narrative": null,
       "visibility": "player"
     },
     {
@@ -2932,6 +2937,7 @@
       "level_number": 1,
       "location_id": "barrow",
       "location_kind": "level",
+      "narrative": null,
       "visibility": "player"
     },
     {
@@ -2940,6 +2946,7 @@
       "level_number": 1,
       "location_id": "shrine",
       "location_kind": "area",
+      "narrative": null,
       "visibility": "player"
     },
     {
@@ -2956,6 +2963,7 @@
       "level_number": 1,
       "location_id": "guard_room",
       "location_kind": "area",
+      "narrative": null,
       "visibility": "player"
     },
     {
@@ -2988,6 +2996,7 @@
       "level_number": null,
       "location_id": "town",
       "location_kind": "town",
+      "narrative": null,
       "visibility": "player"
     },
     {

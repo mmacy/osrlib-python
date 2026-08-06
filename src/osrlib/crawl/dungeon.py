@@ -28,6 +28,7 @@ from osrlib.core.effects import Condition
 from osrlib.core.items import Coins, MagicItemInstance, ValuableInstance
 from osrlib.core.spells import SaveSpec
 from osrlib.core.tables import EncounterTable, ReactionResult
+from osrlib.crawl.gates import GateSpec
 
 __all__ = [
     "AreaSpec",
@@ -186,6 +187,17 @@ class DoorSpec(BaseModel):
     `kind="secret"` doors are invisible until discovered (a successful secret-door
     search marks them in the state overlay). `stuck` and `locked` are the authored
     starting conditions; play mutates the overlay, never this spec.
+
+    `requires` is an optional authored gate — a stateless predicate
+    ([`GateSpec`][osrlib.crawl.gates.GateSpec]) evaluated whenever the party
+    attempts to open or force the door, after every mundane refusal. It is
+    orthogonal to `locked`: a door carrying both requires both,
+    [`PickLock`][osrlib.crawl.commands.PickLock] addresses only the lock, and
+    [`SetDoorState`][osrlib.crawl.commands.SetDoorState] rewrites the overlay
+    without ever touching the gate. A door standing open admits passage
+    unchecked — the gate guards the opening, not the doorway — so a door set open
+    lets the party through until it closes again, after which the gate applies
+    once more.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -194,6 +206,7 @@ class DoorSpec(BaseModel):
     stuck: bool = False
     locked: bool = False
     starts_open: bool = False
+    requires: GateSpec | None = None
 
 
 class Edge(BaseModel):
@@ -216,6 +229,17 @@ class TransitionSpec(BaseModel):
 
     The destination is `(dungeon_id, level_number, position, facing)`. Chutes are
     one-way — `UseStairs` rejects on arrival cells that have no transition back.
+
+    `requires` is an optional authored gate ([`GateSpec`][osrlib.crawl.gates.GateSpec])
+    on a transition the party *takes*: [`UseStairs`][osrlib.crawl.commands.UseStairs]
+    evaluates it after the no-transition-here refusal and before the party moves,
+    which is what makes a toll payable at the threshold. A transition inside a
+    trap effect is a forced relocation rather than an attempt and may carry no
+    gate at all — [`TrapEffect`][osrlib.crawl.dungeon.TrapEffect] rejects one that
+    does. The gate's `success` beat rides the arrival's
+    [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent], so a
+    transition whose destination is its own level (which crosses no boundary and
+    emits no such event) has nowhere to display one.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -226,6 +250,7 @@ class TransitionSpec(BaseModel):
     to_level_number: int = Field(ge=1)
     to_position: Position
     to_facing: Direction
+    requires: GateSpec | None = None
 
 
 class TrapEffect(BaseModel):
@@ -275,6 +300,10 @@ class TrapEffect(BaseModel):
             raise ValueError("a condition duration needs a condition")
         if self.volley_dice is not None and self.damage_dice is None:
             raise ValueError("a volley needs per-projectile damage dice")
+        if self.transition is not None and self.transition.requires is not None:
+            # The chute drops the victim; the party never attempts it, so there is
+            # no attempt for a gate to guard.
+            raise ValueError("a trap effect's transition never gates: it is a forced relocation, not an attempt")
         return self
 
 

@@ -68,6 +68,7 @@ from osrlib.core.spells import (
 )
 from osrlib.core.tables import select_encounter_individuals
 from osrlib.core.validation import Rejection
+from osrlib.crawl import gates
 from osrlib.crawl.commands import (
     CastSpell,
     CloseDoor,
@@ -104,6 +105,7 @@ from osrlib.crawl.commands import (
 from osrlib.crawl.dungeon import (
     AreaSpec,
     Direction,
+    DoorState,
     DroppedItem,
     DropPile,
     EdgeKind,
@@ -122,6 +124,7 @@ from osrlib.crawl.events import (
     FatigueEvent,
     HealingPurchasedEvent,
     ItemAcquiredEvent,
+    ItemConsumedEvent,
     ItemIdentifiedEvent,
     ItemsDroppedEvent,
     ItemsGivenEvent,
@@ -229,21 +232,69 @@ def _edge_ref(session, direction: Direction) -> str:
     return edge_ref(dungeon_id, level_number, position, direction)
 
 
-def _door_state(session, direction: Direction):
-    """The overlay entry for the door on one side of the party's cell.
+def _seed(edge, state: DoorState) -> DoorState:
+    """Apply the authored `starts_open` to a fresh overlay entry."""
+    if edge.kind is EdgeKind.DOOR and edge.door.starts_open:
+        state.open = True
+    return state
 
-    Initialized from the authored `starts_open` on first touch; a door forced or
-    opened by the party marks `opened_by_party`, which is what the swing-shut
-    rule watches.
+
+def _read_door_state(session, edge, ref: str) -> DoorState:
+    """The overlay entry for one door, for reading — never stored.
+
+    A door nobody has operated has no entry: this answers a transient default
+    seeded from the authored spec, which reads identically to the entry an
+    operation would store. Reading never writes, so a refused command leaves the
+    overlay exactly as it found it.
+
+    Args:
+        session (osrlib.crawl.session.GameSession): The running session.
+        edge (osrlib.crawl.dungeon.Edge): The authored edge the door sits on.
+        ref: The door's [`edge_ref`][osrlib.crawl.dungeon.edge_ref].
+
+    Returns:
+        The stored entry when one exists, else a transient seeded default.
+    """
+    state = session.dungeon_state.doors.get(ref)
+    return state if state is not None else _seed(edge, DoorState())
+
+
+def _store_door_state(session, edge, ref: str) -> DoorState:
+    """The overlay entry for one door, for writing — created and seeded on first touch.
+
+    Every mutation of a door goes through here: opening, closing, wedging,
+    unlocking, discovering a secret door, and the referee's own door writes. The
+    authored `starts_open` seeds only a brand-new entry, so materializing a door
+    that is already stored never rewrites what play did to it.
+
+    Args:
+        session (osrlib.crawl.session.GameSession): The running session.
+        edge (osrlib.crawl.dungeon.Edge): The authored edge the door sits on.
+        ref: The door's [`edge_ref`][osrlib.crawl.dungeon.edge_ref].
+
+    Returns:
+        The stored, mutable entry.
+    """
+    state = session.dungeon_state.doors.get(ref)
+    if state is not None:
+        return state
+    return _seed(edge, session.dungeon_state.door(ref))
+
+
+def _door_state(session, direction: Direction) -> DoorState:
+    """The read-only overlay entry for the door on one side of the party's cell."""
+    edge = _level(session).edge(_position(session), direction)
+    return _read_door_state(session, edge, _edge_ref(session, direction))
+
+
+def _materialize_door(session, direction: Direction) -> DoorState:
+    """The stored overlay entry for the door on one side of the party's cell.
+
+    A door forced or opened by the party marks `opened_by_party`, which is what
+    the swing-shut rule watches.
     """
     edge = _level(session).edge(_position(session), direction)
-    ref = _edge_ref(session, direction)
-    state = session.dungeon_state.doors.get(ref)
-    if state is None:
-        state = session.dungeon_state.door(ref)
-        if edge.kind is EdgeKind.DOOR and edge.door.starts_open:
-            state.open = True
-    return state
+    return _store_door_state(session, edge, _edge_ref(session, direction))
 
 
 def _known_door(session, direction: Direction):
@@ -634,31 +685,59 @@ def _sync_deprivation(session, member, state) -> list[Event]:
     return events
 
 
-def _consume_item(member, item_id: str, quantity: int = 1) -> bool:
-    instance = _find_item(member, item_id)
+def _consume_item(member, item_id: str, quantity: int = 1) -> ItemInstance | MagicItemInstance | None:
+    """Take units of a carried item and answer the instance they came from.
+
+    The lookup is [`Inventory.carried_item`][osrlib.core.items.Inventory.carried_item]
+    — the whole carried surface, mundane and magic alike, the same rule a
+    `has_item` gate evaluates by, so anything a gate can find, a toll can take. A
+    stack spent exactly leaves the inventory; a deeper one decrements.
+
+    Args:
+        member (osrlib.core.character.Character): The carrier.
+        item_id: The catalog id to take.
+        quantity: How many units.
+
+    Returns:
+        The instance the units came from, or `None` when the member carries no
+        such item or too few of it (in which case nothing is taken).
+    """
+    instance = member.inventory.carried_item(item_id)
     if instance is None or instance.quantity < quantity:
-        return False
+        return None
     if instance.quantity == quantity:
         _remove_instance(member, instance)
     else:
         instance.quantity -= quantity
-    return True
+    return instance
 
 
 def _find_item(member, item_id: str):
-    """The mundane-item lookup — magic instances resolve by instance id instead."""
+    """The mundane-item lookup: presence checks whose subject is shipped gear.
+
+    Narrower than
+    [`Inventory.carried_item`][osrlib.core.items.Inventory.carried_item] on
+    purpose — a torch to light, a tinder box to strike it with, thieves' tools to
+    pick a lock with are mundane equipment by definition, and a caller that goes
+    on to read `instance.template` needs the mundane instance this returns.
+    Anything that finds an item in order to *take* one uses the wider lookup, so
+    that finding and taking can never disagree.
+    """
     for instance in member.inventory.all_instances():
         if not isinstance(instance, MagicItemInstance) and instance.template.id == item_id:
             return instance
     return None
 
 
-def _remove_instance(member, instance) -> None:
+def _remove_instance(member, instance: ItemInstance | MagicItemInstance) -> None:
+    """Take one instance out of wherever it is carried: pack, hands, slot, or ring."""
     inventory = member.inventory
     if any(existing is instance for existing in inventory.items):
         inventory.items.remove(instance)
     elif any(existing is instance for existing in inventory.wielded):
         inventory.wielded.remove(instance)
+    elif isinstance(instance, MagicItemInstance) and any(existing is instance for existing in inventory.rings):
+        inventory.rings.remove(instance)
     elif inventory.worn_armour is instance:
         inventory.worn_armour = None
     elif inventory.shield is instance:
@@ -1023,8 +1102,13 @@ def _resolve_trap(session, trap: TrapSpec, *, triggerer) -> list[Event]:
     return events
 
 
-def _relocate(session, dungeon_id: str, level_number: int, position, facing) -> list[Event]:
-    """Move the party to a cell (transitions, slides): explore, events, hooks."""
+def _relocate(session, dungeon_id: str, level_number: int, position, facing, *, narrative=None) -> list[Event]:
+    """Move the party to a cell (transitions, slides): explore, events, hooks.
+
+    `narrative` is the authored success beat of the gate the party satisfied to get
+    here; it rides the level- or dungeon-crossing event. A relocation that crosses
+    no boundary emits no such event and so has nowhere to carry a beat.
+    """
     state = session.dungeon_state
     old_location = state.location
     old_area = None
@@ -1042,9 +1126,17 @@ def _relocate(session, dungeon_id: str, level_number: int, position, facing) -> 
     )
     events: list[Event] = []
     if old_location.kind != "dungeon" or old_location.dungeon_id != dungeon_id:
-        events.append(LocationEnteredEvent(location_kind="dungeon", location_id=dungeon_id, level_number=level_number))
+        events.append(
+            LocationEnteredEvent(
+                location_kind="dungeon", location_id=dungeon_id, level_number=level_number, narrative=narrative
+            )
+        )
     elif old_location.level_number != level_number:
-        events.append(LocationEnteredEvent(location_kind="level", location_id=dungeon_id, level_number=level_number))
+        events.append(
+            LocationEnteredEvent(
+                location_kind="level", location_id=dungeon_id, level_number=level_number, narrative=narrative
+            )
+        )
     events.extend(leave_events)
     state.mark_explored(dungeon_id, level_number, position)
     events.extend(_boundary_events(session, old_area, position))
@@ -1195,11 +1287,31 @@ def _handle_reorder_party(session, command: ReorderParty) -> tuple[list[Rejectio
 
 
 def _handle_use_stairs(session, command: UseStairs) -> tuple[list[Rejection], list[Event]]:
+    """Take the transition on the party's cell, paying its gate's toll at the threshold.
+
+    The gate is the last validation step: a refusal costs no draw, no time, and no
+    item, and the toll is taken only once the crossing is certain — its event lands
+    before the arrival's own cascade.
+    """
     transition = _level(session).transition_at(_position(session))
     if transition is None:
         return [Rejection(code="exploration.stairs.none")], []
-    events = _relocate(
-        session, transition.to_dungeon_id, transition.to_level_number, transition.to_position, transition.to_facing
+    refusal = _gate_refusal(session, transition.requires)
+    if refusal is not None:
+        params: dict[str, int | str | tuple[int | str, ...]] = {}
+        if refusal:
+            params["refusal"] = refusal
+        return [Rejection(code="exploration.transition.gate_refused", params=params)], []
+    events = _pay_toll(session, transition.requires)
+    events.extend(
+        _relocate(
+            session,
+            transition.to_dungeon_id,
+            transition.to_level_number,
+            transition.to_position,
+            transition.to_facing,
+            narrative=_gate_success(transition.requires),
+        )
     )
     events.extend(_accrue_movement(session, 30))
     return [], events
@@ -1246,6 +1358,70 @@ def _handle_travel_to_town(session, command: TravelToTown) -> tuple[list[Rejecti
     return [], events
 
 
+# ---------------------------------------------------------------------- gates
+
+
+def _gate_refusal(session, gate) -> str | None:
+    """The gate's refusal beat when its condition fails right now, else `None`.
+
+    A gate check is the last validation step of the command that carries it:
+    every mundane refusal has already been answered, so a refusal from here means
+    the gate alone barred the way and the authored line is the final word. The
+    check draws no dice, costs no time, and mutates nothing.
+
+    Args:
+        session (osrlib.crawl.session.GameSession): The running session.
+        gate (osrlib.crawl.gates.GateSpec | None): The authored gate, or `None`
+            for an ungated door or transition.
+
+    Returns:
+        `None` when the way is open (an absent gate included), else the gate's
+        authored refusal text — the empty string when the author wrote none.
+    """
+    if gate is None:
+        return None
+    if gates.condition_holds(gate.condition, members=session.party.members, flags=session.flags, ledger=session.ledger):
+        return None
+    return gate.narrative.refusal if gate.narrative is not None else ""
+
+
+def _pay_toll(session, gate) -> list[Event]:
+    """Take a consuming gate's toll: one instance from the first holder in marching order.
+
+    Consumption is an effect of the successful command, never of evaluation, and
+    it happens per success: a toll gate charges again every time it is passed.
+    """
+    condition = None if gate is None else gate.condition
+    if not isinstance(condition, gates.HasItemCondition) or not condition.consumes:
+        return []
+    holder = gates.first_holder(session.party.members, condition.item_id)
+    instance = _consume_item(holder, condition.item_id) if holder is not None else None
+    if holder is None or holder.id is None or instance is None:
+        # Unreachable: the gate passed on this very matching rule a moment ago.
+        raise ValueError(f"the toll {condition.item_id!r} went missing between the check and the taking")
+    return [ItemConsumedEvent(character_id=holder.id, item_id=_consumed_item_id(instance))]
+
+
+def _gate_success(gate) -> str | None:
+    """The gate's authored success text, when its author wrote one.
+
+    Rides the successful command's own event — the door event, or the arrival's
+    boundary event — so the beat displays where the moment happens.
+    """
+    if gate is None or gate.narrative is None or not gate.narrative.success:
+        return None
+    return gate.narrative.success
+
+
+def _consumed_item_id(instance) -> str:
+    """What a consumption reports: a magic item's instance id, else the catalog id.
+
+    An unidentified item's true identity never rides a player-visible event, so a
+    magic consumption names the session-scoped instance and nothing more.
+    """
+    return instance.instance_id if isinstance(instance, MagicItemInstance) else instance.template.id
+
+
 # ---------------------------------------------------------------------- door handlers
 
 
@@ -1260,10 +1436,27 @@ def _handle_open_door(session, command: OpenDoor) -> tuple[list[Rejection], list
         return [Rejection(code="exploration.door.locked")], []
     if edge.door.stuck:
         return [Rejection(code="exploration.door.stuck")], []
-    state.open = True
-    state.opened_by_party = True
+    refusal = _gate_refusal(session, edge.door.requires)
+    if refusal is not None:
+        params: dict[str, int | str | tuple[int | str, ...]] = {"direction": command.direction.value}
+        if refusal:
+            params["refusal"] = refusal
+        return [Rejection(code="exploration.door.gate_refused", params=params)], []
+    # The toll is paid at the threshold: its event lands before the door's own.
+    events: list[Event] = _pay_toll(session, edge.door.requires)
+    stored = _materialize_door(session, command.direction)
+    stored.open = True
+    stored.opened_by_party = True
     x, y = _position(session)
-    events: list[Event] = [DoorEvent(code="exploration.door.opened", x=x, y=y, direction=command.direction.value)]
+    events.append(
+        DoorEvent(
+            code="exploration.door.opened",
+            x=x,
+            y=y,
+            direction=command.direction.value,
+            narrative=_gate_success(edge.door.requires),
+        )
+    )
     events.extend(_door_trap_check(session, command.direction))
     return [], events
 
@@ -1277,7 +1470,7 @@ def _handle_close_door(session, command: CloseDoor) -> tuple[list[Rejection], li
         return [Rejection(code="exploration.door.already_closed")], []
     if state.wedged:
         return [Rejection(code="exploration.door.wedged")], []
-    state.open = False
+    _materialize_door(session, command.direction).open = False
     x, y = _position(session)
     return [], [DoorEvent(code="exploration.door.closed", x=x, y=y, direction=command.direction.value)]
 
@@ -1296,6 +1489,14 @@ def _handle_force_door(session, command: ForceDoor) -> tuple[list[Rejection], li
         return [Rejection(code="exploration.door.locked")], []
     if not edge.door.stuck:
         return [Rejection(code="exploration.door.not_stuck")], []
+    refusal = _gate_refusal(session, edge.door.requires)
+    if refusal is not None:
+        # A gate-refused forcing never happened: no noise, no denied surprise, no
+        # draw. The gate is checked before the shoulder ever hits the door.
+        params: dict[str, int | str | tuple[int | str, ...]] = {"direction": command.direction.value}
+        if refusal:
+            params["refusal"] = refusal
+        return [Rejection(code="exploration.door.gate_refused", params=params)], []
     from osrlib.crawl.session import EXPLORATION_STREAM
 
     # Any attempt bangs on the door: the noise flag marks the next wandering
@@ -1304,13 +1505,20 @@ def _handle_force_door(session, command: ForceDoor) -> tuple[list[Rejection], li
     check = detection_check(member.open_doors_chance, stream=session.streams.get(EXPLORATION_STREAM))
     x, y = _position(session)
     if check.passed:
-        state.open = True
-        state.opened_by_party = True
-        events: list[Event] = [
+        events: list[Event] = _pay_toll(session, edge.door.requires)
+        stored = _materialize_door(session, command.direction)
+        stored.open = True
+        stored.opened_by_party = True
+        events.append(
             DoorEvent(
-                code="exploration.door.forced", x=x, y=y, direction=command.direction.value, character_id=member.id
+                code="exploration.door.forced",
+                x=x,
+                y=y,
+                direction=command.direction.value,
+                character_id=member.id,
+                narrative=_gate_success(edge.door.requires),
             )
-        ]
+        )
         # The shoulder that bursts the door through takes what's rigged to it.
         events.extend(_door_trap_check(session, command.direction, triggerer=member))
         return [], events
@@ -1333,14 +1541,24 @@ def _handle_wedge_door(session, command: WedgeDoor) -> tuple[list[Rejection], li
     if state.wedged:
         return [Rejection(code="exploration.door.wedged")], []
     spike_carrier = next(
-        (member for member in session.party.living_members() if _find_item(member, "iron_spikes") is not None), None
+        (
+            member
+            for member in session.party.living_members()
+            if member.inventory.carried_item("iron_spikes") is not None
+        ),
+        None,
     )
     if spike_carrier is None:
         return [Rejection(code="exploration.door.no_spike")], []
-    _consume_item(spike_carrier, "iron_spikes")
-    state.wedged = True
+    spike = _consume_item(spike_carrier, "iron_spikes")
+    if spike is None:  # unreachable: the carrier was found by the same lookup
+        raise ValueError(f"{spike_carrier.name} carries no iron spikes")
+    _materialize_door(session, command.direction).wedged = True
     x, y = _position(session)
-    return [], [DoorEvent(code="exploration.door.wedged", x=x, y=y, direction=command.direction.value)]
+    return [], [
+        ItemConsumedEvent(character_id=spike_carrier.id, item_id=_consumed_item_id(spike)),
+        DoorEvent(code="exploration.door.wedged", x=x, y=y, direction=command.direction.value),
+    ]
 
 
 def _handle_listen_at_door(session, command: ListenAtDoor) -> tuple[list[Rejection], list[Event]]:
@@ -1416,7 +1634,7 @@ def _handle_pick_lock(session, command: PickLock) -> tuple[list[Rejection], list
         )
     ]
     if result.passed:
-        state.unlocked = True
+        _materialize_door(session, command.direction).unlocked = True
         x, y = _position(session)
         events.append(
             DoorEvent(
@@ -1475,9 +1693,8 @@ def _reveal(session, kind: str, events: list[Event]) -> list[str]:
         for direction in Direction:
             edge = level.edge(position, direction)
             if edge.kind is EdgeKind.DOOR and edge.door.kind == "secret":
-                door = _door_state(session, direction)
-                if not door.discovered:
-                    door.discovered = True
+                if not _door_state(session, direction).discovered:
+                    _materialize_door(session, direction).discovered = True
                     found.append(f"secret_door:{direction.value}")
     elif kind == "room_traps":
         candidates = []
@@ -2164,7 +2381,7 @@ def _apply_give(session, giver, recipient, command: GiveItems) -> list[Event]:
         magic = giver.inventory.magic_item(item_id)
         if magic is not None:
             events.extend(_release_instance_effects(session, magic))
-            _remove_magic_instance(giver, magic)
+            _remove_instance(giver, magic)
             recipient.inventory.items.append(magic)
             continue
         valuable = next(
@@ -2175,11 +2392,11 @@ def _apply_give(session, giver, recipient, command: GiveItems) -> list[Event]:
             recipient.inventory.valuables.append(valuable)
             continue
         # The giver's own instance carries the template across: no catalog
-        # resolution, so an adventure-bundled item hands over like any other.
-        carried = _find_item(giver, item_id)
-        if carried is None:  # unreachable: _validate_carried proved the giver holds it
+        # resolution, so an adventure-bundled item hands over like any other. One
+        # lookup takes it and answers what was taken — nothing can shift between.
+        carried = _consume_item(giver, item_id)
+        if not isinstance(carried, ItemInstance):  # unreachable: magic left through the branch above
             raise ValueError(f"{giver.name} does not carry {item_id!r}")
-        _consume_item(giver, item_id)
         _grant_mundane(recipient, carried.template)
     giver_purse = giver.inventory.purse
     recipient_purse = recipient.inventory.purse
@@ -2206,7 +2423,7 @@ def _apply_drop(session, member, command: DropItems, *, to_pile: bool) -> list[E
     for item_id in command.item_ids:
         magic = member.inventory.magic_item(item_id)
         if magic is not None:
-            _remove_magic_instance(member, magic)
+            _remove_instance(member, magic)
             if pile is not None:
                 pile.magic_items.append(magic)
             continue
@@ -2860,18 +3077,6 @@ def _identify_item_events(session, member, instance: MagicItemInstance) -> list:
     return events
 
 
-def _remove_magic_instance(member, instance: MagicItemInstance) -> None:
-    inventory = member.inventory
-    for collection in (inventory.items, inventory.wielded, inventory.rings):
-        if any(existing is instance for existing in collection):
-            collection.remove(instance)
-            return
-    if inventory.worn_armour is instance:
-        inventory.worn_armour = None
-    elif inventory.shield is instance:
-        inventory.shield = None
-
-
 def _release_instance_effects(session, instance: MagicItemInstance) -> list:
     """Release the ledger effects a worn item attached (its state remembers them)."""
     events: list[Event] = []
@@ -2961,7 +3166,7 @@ def _use_potion(session, member, instance: MagicItemInstance, template) -> tuple
         for effect in session.ledger.effects
         if effect.target_ref == member.id and effect.definition.params.get("item_source") == "potion"
     ]
-    _remove_magic_instance(member, instance)
+    _remove_instance(member, instance)
     events.extend(_identify_item_events(session, member, instance))
     if active_potions and not instantaneous and effect_spec is not None:
         # Mixing, pinned as both printed consequences: both effects cancel and the
@@ -3058,7 +3263,7 @@ def _use_scroll(session, member, instance: MagicItemInstance, template, command)
     events: list[Event] = []
     if template.cursed:
         # Merely looking at the baneful script curses the reader, class regardless.
-        _remove_magic_instance(member, instance)
+        _remove_instance(member, instance)
         events.extend(_identify_item_events(session, member, instance))
         curse = template.curses[session.streams.get(EFFECTS_STREAM).randbelow(len(template.curses))]
         events.append(
@@ -3097,7 +3302,7 @@ def _use_scroll(session, member, instance: MagicItemInstance, template, command)
             events.extend(attach_events)
         return [], events
     if template.effect is not None and template.effect.kind == "ward":
-        _remove_magic_instance(member, instance)
+        _remove_instance(member, instance)
         events.extend(_identify_item_events(session, member, instance))
         events.append(ItemUsedEvent(code="items.scroll.read", character_id=member.id, instance_id=instance.instance_id))
         params: dict[str, int | str | bool | tuple[int | str, ...]] = {"party_wide": True}
@@ -3171,7 +3376,7 @@ def _use_scroll(session, member, instance: MagicItemInstance, template, command)
         if left:
             instance.state = {**instance.state, "spells": left}
         else:
-            _remove_magic_instance(member, instance)
+            _remove_instance(member, instance)
         events.extend(_identify_item_events(session, member, instance))
         events.append(ItemUsedEvent(code="items.scroll.read", character_id=member.id, instance_id=instance.instance_id))
         if thief_reading and thief_params is not None:
@@ -3200,7 +3405,7 @@ def _use_scroll(session, member, instance: MagicItemInstance, template, command)
         return [], events
     # Everything else on the scroll table (protection from magic, treasure maps)
     # is manual prose: reading it is supported, the game narrates.
-    _remove_magic_instance(member, instance)
+    _remove_instance(member, instance)
     events.extend(_identify_item_events(session, member, instance))
     events.append(
         ItemUsedEvent(

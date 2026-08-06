@@ -1,5 +1,7 @@
 """Session contract tests: rejection purity, modes, logs, listeners, records, views."""
 
+import json
+
 import pytest
 
 from crawl_fixtures import build_adventure, build_party
@@ -9,10 +11,13 @@ from osrlib.core.items import Coins
 from osrlib.crawl.commands import (
     AdvanceTime,
     AwardXP,
+    CloseDoor,
     EnterDungeon,
     GrantCoins,
     GrantItem,
+    ListenAtDoor,
     MoveParty,
+    OpenDoor,
     PlaceParty,
     ReorderParty,
     ResolveBattleRound,
@@ -22,6 +27,7 @@ from osrlib.crawl.commands import (
     SetFlag,
     SpawnMonsters,
     Wait,
+    WedgeDoor,
 )
 from osrlib.crawl.dungeon import Direction, PartyLocation
 from osrlib.crawl.events import DiceRolledEvent, FlagSetEvent
@@ -108,6 +114,77 @@ class TestRejectionPurity:
         assert result.accepted
         assert session.command_log[-1] == SetFlag(key="lever", value=True)
         assert session.event_log[-1] == result.events[-1]
+
+    def test_a_rejection_leaves_the_entire_session_state_byte_identical(self):
+        """The strongest form: the whole save payload, before and after a refusal."""
+        from osrlib.persistence import session_state
+
+        session = make_session()
+        outfit(session)
+        session.execute(EnterDungeon(dungeon_id="delve"))
+        session.execute(MoveParty(direction=Direction.EAST))
+        session.execute(MoveParty(direction=Direction.EAST))  # (2,0): the stuck door lies south
+        before = json.loads(json.dumps(session_state(session)))
+        refusals = [
+            OpenDoor(direction=Direction.SOUTH),  # stuck
+            CloseDoor(direction=Direction.SOUTH),  # already closed
+            MoveParty(direction=Direction.SOUTH),  # blocked by the shut door
+            MoveParty(direction=Direction.NORTH),  # the level boundary
+            WedgeDoor(direction=Direction.EAST),  # no door there at all
+            ListenAtDoor(character_id="character-0001", direction=Direction.NORTH),
+        ]
+        for command in refusals:
+            result = session.execute(command)
+            assert not result.accepted, command.command_type
+        assert json.loads(json.dumps(session_state(session))) == before
+
+    def test_a_refused_door_command_materializes_no_door_entry(self):
+        session = make_session()
+        outfit(session)
+        session.execute(EnterDungeon(dungeon_id="delve"))
+        session.execute(MoveParty(direction=Direction.EAST))
+        session.execute(MoveParty(direction=Direction.EAST))
+        assert not session.execute(OpenDoor(direction=Direction.SOUTH)).accepted
+        assert not session.execute(MoveParty(direction=Direction.SOUTH)).accepted
+        assert session.dungeon_state.doors == {}
+
+    def test_the_secret_door_discovery_write_does_materialize(self):
+        from osrlib.crawl import exploration
+        from osrlib.crawl.dungeon import edge_ref
+
+        session = make_session()
+        session.execute(
+            PlaceParty(
+                location=PartyLocation(
+                    kind="dungeon", dungeon_id="delve", level_number=1, position=(3, 1), facing=Direction.EAST
+                )
+            )
+        )
+        exploration._materialize_door(session, Direction.EAST).discovered = True
+        ref = edge_ref("delve", 1, (3, 1), Direction.EAST)
+        assert session.dungeon_state.doors[ref].discovered
+
+    def test_a_referee_write_that_sets_nothing_stores_nothing(self):
+        session = make_session()
+        result = session.execute(SetDoorState(dungeon_id="delve", level_number=1, x=2, y=0, direction=Direction.SOUTH))
+        assert result.accepted
+        assert result.events == ()
+        assert session.dungeon_state.doors == {}, "a write with nothing to write materializes nothing"
+        # A door that does not exist still rejects, whatever the command sets.
+        refused = session.execute(SetDoorState(dungeon_id="delve", level_number=1, x=0, y=0, direction=Direction.NORTH))
+        assert not refused.accepted
+        assert refused.rejections[0].code == "session.command.no_door"
+
+    def test_a_referee_write_seeds_an_untouched_authored_open_door(self):
+        from crawl_fixtures import build_open_door_adventure
+
+        session = GameSession.new(build_party(), build_open_door_adventure(), seed=5)
+        result = session.execute(
+            SetDoorState(dungeon_id="vestibule", level_number=1, x=0, y=0, direction=Direction.EAST, wedged=True)
+        )
+        assert result.accepted
+        stored = session.dungeon_state.doors["vestibule:1:1,0:west"]
+        assert stored.wedged and stored.open, "the referee's write must not store an authored-open door shut"
 
 
 class TestModes:

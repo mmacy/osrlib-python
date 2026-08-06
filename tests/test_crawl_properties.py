@@ -5,7 +5,7 @@ import json
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from crawl_fixtures import build_adventure, build_party
+from crawl_fixtures import build_adventure, build_gated_adventure, build_party
 from osrlib.core.events import Visibility
 from osrlib.core.items import Coins
 from osrlib.crawl.commands import (
@@ -27,6 +27,10 @@ ITEM_IDS = [
     "waterskin",
     "iron_spikes",
     "gemstone_of_wishing",
+    # The gated warren's bundled items: the fuzz must be able to grant, carry,
+    # give, and drop what its doors and stairs ask for.
+    "brass_key",
+    "toll_token",
     # The planted magic instances (see plant_magic_items): the fuzz must be able
     # to equip, use, and drop them.
     "magic-item-9001",
@@ -74,6 +78,12 @@ def command_strategy():
                             ),
                             PartyLocation(
                                 kind="dungeon", dungeon_id="delve", level_number=2, position=(2, 0), facing="south"
+                            ),
+                            PartyLocation(
+                                kind="dungeon", dungeon_id="warren", level_number=1, position=(3, 0), facing="east"
+                            ),
+                            PartyLocation(
+                                kind="dungeon", dungeon_id="warren", level_number=2, position=(0, 0), facing="east"
                             ),
                         ]
                     ),
@@ -140,7 +150,9 @@ def command_strategy():
             elif field_name == "coins":
                 fields[field_name] = st.builds(Coins, gp=st.integers(min_value=0, max_value=50))
             elif field_name in ("feature_id", "dungeon_id", "spell_id", "template_id", "key"):
-                fields[field_name] = st.sampled_from(["delve", "chest", "pile", "sleep", "goblin", "lever"])
+                fields[field_name] = st.sampled_from(
+                    ["delve", "warren", "chest", "niche", "vault", "pile", "sleep", "goblin", "lever"]
+                )
             elif field_name == "service":
                 fields[field_name] = st.sampled_from(["cure_light_wounds", "remove_curse", "raise_dead"])
             elif field_name == "kind" and "secret_doors" in annotation:
@@ -201,6 +213,22 @@ def test_fuzzed_command_sequences_never_raise_and_hold_the_invariants(seed, comm
         if location.kind == "dungeon":
             level = session.adventure.dungeon(location.dungeon_id).level(location.level_number)
             assert level.in_bounds(location.position)
+
+
+@settings(max_examples=25, deadline=None, suppress_health_check=[HealthCheck.too_slow])
+@given(
+    seed=st.integers(min_value=0, max_value=2**32),
+    commands=st.lists(command_strategy(), min_size=1, max_size=25),
+)
+def test_gated_content_only_ever_rejects_and_never_leaks_its_wiring(seed, commands):
+    """The fuzz contract over authored gates: doors and stairs that want something."""
+    session = GameSession.new(build_party(), build_gated_adventure(), seed=seed)
+    session.execute(GrantItem(character_id="character-0001", item_id="brass_key"))
+    for command in commands:
+        session.execute(command)  # must never raise
+    blob = session.view(Visibility.PLAYER).model_dump_json()
+    for wiring in ("requires", "condition_type", "has_item", "guidance", "sentinel", "ferryman"):
+        assert wiring not in blob
 
 
 @settings(max_examples=10, deadline=None, suppress_health_check=[HealthCheck.too_slow])
@@ -283,6 +311,11 @@ def test_the_player_view_never_leaks(seed, commands):
             assert set(group) == {"id", "label", "count", "distance_feet", "visible_conditions"}
     # Referee-visibility outcomes never appear (views carry no events at all).
     assert "exploration.detection.rolled" not in blob
+    # Gate wiring is content wiring, and content wiring is the game's secret: the
+    # edge projection carries kind and door state only, never the condition that
+    # guards the door, its narrative block, or the guidance inside it.
+    for wiring in ("requires", "condition_type", "has_item", "guidance", "refusal", "narrative"):
+        assert wiring not in blob
 
 
 def test_odometer_never_drifts_from_the_closed_form():
