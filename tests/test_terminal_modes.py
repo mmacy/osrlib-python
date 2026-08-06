@@ -15,7 +15,7 @@ import json
 
 import pytest
 
-from crawl_fixtures import build_adventure, build_gas_trap_adventure, build_party
+from crawl_fixtures import build_adventure, build_chute_adventure, build_gas_trap_adventure, build_party
 from osrlib.core.clock import TimeUnit
 from osrlib.core.effects import Condition, EffectDefinition
 from osrlib.core.ruleset import Ruleset
@@ -24,16 +24,19 @@ from osrlib.crawl.commands import (
     AdvanceTime,
     AwardXP,
     EnterDungeon,
+    Evade,
     GrantCoins,
     GrantItem,
     MoveParty,
     PlaceParty,
     PurchaseHealing,
+    Rest,
     RollDice,
     SessionMode,
     SetFlag,
     SpawnMonsters,
     SpawnNpcParty,
+    Wait,
 )
 from osrlib.crawl.dungeon import Direction
 from osrlib.crawl.session import DeprivationState, GameSession
@@ -85,6 +88,10 @@ def trap_wipe_session(seed: int = GAS_TRAP_SEED) -> tuple[GameSession, list]:
     result = session.execute(MoveParty(direction=Direction.EAST))
     assert result.accepted
     return session, list(result.events)
+
+
+def stream_states(session: GameSession) -> dict:
+    return {key: state.model_dump(mode="json") for key, state in session.streams.export_states().items()}
 
 
 def game_over_events(events) -> list:
@@ -276,6 +283,96 @@ class TestTheSalvageFlow:
         assert result.rejections[0].code == "session.command.wrong_mode"
         assert result.rejections[0].params["mode"] == "game_over"
         assert session.encounter is None and session.battle is None
+
+
+class TestWipedPartyGuards:
+    """Once nobody lives, no procedure starts anything new inside the same command."""
+
+    def encounter_session(self, template_id: str = "goblin", *, seed: int = 5) -> GameSession:
+        """A hostile encounter open on the dungeon grid, the party still standing."""
+        from osrlib.core.tables import ReactionResult
+        from osrlib.crawl import encounter as encounter_module
+
+        session = GameSession.new(build_party(), build_adventure(wandering_chance=0), seed=seed)
+        assert session.execute(EnterDungeon(dungeon_id="delve")).accepted
+        instances = session.spawn(template_id, 2)
+        encounter_module.start_encounter(
+            session,
+            groups=[(template_id, instances)],
+            kind="spawned",
+            distance_feet=60,
+            pinned_stance=ReactionResult.HOSTILE,
+            party_aware=True,
+        )
+        assert session.mode is SessionMode.ENCOUNTER
+        return session
+
+    def test_a_chute_that_kills_en_route_discovers_and_ambushes_nothing(self):
+        session = GameSession.new(build_party(), build_chute_adventure(), seed=4)
+        assert session.execute(EnterDungeon(dungeon_id="shaft")).accepted
+        before = stream_states(session)
+        result = session.execute(MoveParty(direction=Direction.EAST))
+        assert result.accepted
+        assert any(getattr(event, "code", None) == "exploration.trap.sprung" for event in result.events)
+        # The bodies genuinely moved: the relocation is the wiping command's own
+        # bookkeeping, and it still reports itself.
+        location = session.dungeon_state.location
+        assert (location.level_number, location.position) == (2, (0, 0))
+        assert any(getattr(event, "code", None) == "exploration.location.entered" for event in result.events)
+        # What never follows: the landing's cache and the landing's goblins.
+        assert session.dungeon_state.generated_caches == {}
+        assert session.dungeon_state.generated_treasure_areas == []
+        assert session.dungeon_state.resolved_encounters == []
+        assert session.monsters == {}
+        assert session.encounter is None and session.battle is None
+        after = stream_states(session)
+        assert after.get("treasure") == before.get("treasure"), "corpses generate no treasure"
+        assert after.get("wandering") == before.get("wandering"), "corpses spawn no keyed encounter"
+        assert session.mode is SessionMode.GAME_OVER
+
+    def test_a_wiped_span_truncates_at_the_wipe_turn(self):
+        session = GameSession.new(build_party(), build_adventure(wandering_chance=6), seed=7)
+        assert session.execute(EnterDungeon(dungeon_id="delve")).accepted
+        poison_everyone(session)
+        before_rounds = session.clock.rounds
+        before = stream_states(session)
+        result = session.execute(Rest(kind="night"))
+        assert result.accepted
+        # Forty-eight turns were asked for; the party died in the first one.
+        assert session.clock.rounds - before_rounds == 60
+        assert stream_states(session).get("wandering") == before.get("wandering"), "no wandering roll for the dead"
+        assert session.wandering_counter == 0
+        assert session.mode is SessionMode.GAME_OVER
+
+    def test_an_encounter_round_that_kills_the_last_member_opens_no_battle(self):
+        session = self.encounter_session()
+        state = session.encounter
+        assert state.hostile_deadline == state.round + 1, "the deadline falls on the round the Wait resolves"
+        poison_everyone(session)
+        result = session.execute(Wait())
+        assert result.accepted
+        codes = [getattr(event, "code", None) for event in result.events]
+        assert "battle.started" not in codes, "a battle among corpses would end in defeat for a wipe that was no battle"
+        assert "battle.ended.defeat" not in codes
+        assert session.battle is None and session.encounter is None
+        assert session.mode is SessionMode.GAME_OVER
+        assert codes[-1] == "session.game_over"
+
+    def test_a_pursuit_round_that_kills_the_last_member_resolves_nothing(self):
+        session = self.encounter_session(template_id="normal_wolf")
+        member = session.party.members[0]
+        assert session.execute(GrantCoins(character_id=str(member.id), coins={"gp": 10})).accepted
+        poison_everyone(session)
+        before = stream_states(session)
+        result = session.execute(Evade(drop="treasure"))
+        assert result.accepted
+        codes = [getattr(event, "code", None) for event in result.events]
+        assert "encounter.evasion.pursuit" in codes, "the wolves outrun the party, so the chase begins"
+        assert not any(code and code.startswith("encounter.pursuit.") for code in codes)
+        assert "battle.started" not in codes
+        assert stream_states(session).get("encounter") == before.get("encounter"), "no distraction die for the dead"
+        assert session.battle is None and session.encounter is None
+        assert session.mode is SessionMode.GAME_OVER
 
 
 class TestPersistence:

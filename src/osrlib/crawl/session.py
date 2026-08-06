@@ -598,6 +598,12 @@ class GameSession:
         for _ in range(turns):
             events.extend(self.advance_rounds(ROUNDS_PER_TURN - self.clock.rounds % ROUNDS_PER_TURN))
             in_field = field if field is not None else self.mode is SessionMode.EXPLORING
+            if in_field and not self.party.living_members():
+                # The cadences belong to the living: a span that kills the last
+                # member — a rest that starves the party out — stops at the turn
+                # it happened. Out of the field there is nothing to stop, and a
+                # revival window measured in elapsed time has to keep elapsing.
+                break
             if in_field and not resting:
                 # The rest cadence is a dungeon rule ("must rest for one turn every
                 # hour in the dungeon") — town time and overland travel don't accrue.
