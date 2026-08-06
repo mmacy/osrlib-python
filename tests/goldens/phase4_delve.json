@@ -2009,6 +2009,7 @@
       "level_number": 1,
       "location_id": "halls",
       "location_kind": "dungeon",
+      "narrative": null,
       "visibility": "player"
     },
     {
@@ -2098,6 +2099,7 @@
       "level_number": 1,
       "location_id": "pit_hall",
       "location_kind": "area",
+      "narrative": null,
       "visibility": "player"
     },
     {
@@ -2184,6 +2186,7 @@
       "code": "exploration.door.stuck",
       "direction": "south",
       "event_type": "door",
+      "narrative": null,
       "visibility": "player",
       "x": 3,
       "y": 0
@@ -2193,6 +2196,7 @@
       "code": "exploration.door.stuck",
       "direction": "south",
       "event_type": "door",
+      "narrative": null,
       "visibility": "player",
       "x": 3,
       "y": 0
@@ -2202,15 +2206,24 @@
       "code": "exploration.door.forced",
       "direction": "south",
       "event_type": "door",
+      "narrative": null,
       "visibility": "player",
       "x": 3,
       "y": 0
+    },
+    {
+      "character_id": "character-0001",
+      "code": "exploration.item.consumed",
+      "event_type": "item_consumed",
+      "item_id": "iron_spikes",
+      "visibility": "player"
     },
     {
       "character_id": null,
       "code": "exploration.door.wedged",
       "direction": "south",
       "event_type": "door",
+      "narrative": null,
       "visibility": "player",
       "x": 3,
       "y": 0
@@ -2229,6 +2242,7 @@
       "level_number": 1,
       "location_id": "guard_room",
       "location_kind": "area",
+      "narrative": null,
       "visibility": "player"
     },
     {
@@ -4107,15 +4121,24 @@
       "code": "exploration.door.opened",
       "direction": "east",
       "event_type": "door",
+      "narrative": null,
       "visibility": "player",
       "x": 4,
       "y": 1
+    },
+    {
+      "character_id": "character-0001",
+      "code": "exploration.item.consumed",
+      "event_type": "item_consumed",
+      "item_id": "iron_spikes",
+      "visibility": "player"
     },
     {
       "character_id": null,
       "code": "exploration.door.wedged",
       "direction": "east",
       "event_type": "door",
+      "narrative": null,
       "visibility": "player",
       "x": 4,
       "y": 1
@@ -4142,6 +4165,7 @@
       "level_number": 2,
       "location_id": "halls",
       "location_kind": "level",
+      "narrative": null,
       "visibility": "player"
     },
     {
@@ -4157,6 +4181,7 @@
       "code": "exploration.door.opened",
       "direction": "south",
       "event_type": "door",
+      "narrative": null,
       "visibility": "player",
       "x": 1,
       "y": 0
@@ -4175,6 +4200,7 @@
       "level_number": 2,
       "location_id": "crypt",
       "location_kind": "area",
+      "narrative": null,
       "visibility": "player"
     },
     {
@@ -4796,6 +4822,7 @@
       "code": "exploration.door.swung_shut",
       "direction": "north",
       "event_type": "door",
+      "narrative": null,
       "visibility": "player",
       "x": 1,
       "y": 1
@@ -4822,6 +4849,7 @@
       "level_number": 2,
       "location_id": "kennel_a",
       "location_kind": "area",
+      "narrative": null,
       "visibility": "player"
     },
     {
@@ -4983,6 +5011,7 @@
       "level_number": 2,
       "location_id": "kennel_b",
       "location_kind": "area",
+      "narrative": null,
       "visibility": "player"
     },
     {
@@ -5838,6 +5867,7 @@
       "level_number": 1,
       "location_id": "halls",
       "location_kind": "level",
+      "narrative": null,
       "visibility": "player"
     },
     {
@@ -5862,6 +5892,7 @@
       "level_number": 1,
       "location_id": "guard_room",
       "location_kind": "area",
+      "narrative": null,
       "visibility": "player"
     },
     {
@@ -7884,6 +7915,7 @@
       "level_number": null,
       "location_id": "town",
       "location_kind": "town",
+      "narrative": null,
       "visibility": "player"
     },
     {
@@ -8278,6 +8310,7 @@
     "The door south of (3, 0) won't budge — character-0001 strains in vain.",
     "The door south of (3, 0) won't budge — character-0001 strains in vain.",
     "character-0001 forces the door south of (3, 0) open.",
+    "character-0001 uses up iron_spikes.",
     "An iron spike wedges the door south of (3, 0).",
     "The party moves to (3, 1), facing south.",
     "The party enters area guard_room (level 1).",
@@ -8446,6 +8479,7 @@
     "Detection roll (secret_doors, character-0005): 1 vs 1-in-6 — success.",
     "character-0005 searches (secret_doors) and finds: secret_door:east.",
     "The door east of (4, 1) opens.",
+    "character-0001 uses up iron_spikes.",
     "An iron spike wedges the door east of (4, 1).",
     "The party moves to (5, 1), facing east.",
     "The party moves to (6, 1), facing east.",
