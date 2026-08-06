@@ -172,6 +172,18 @@ class TestConditionEvaluation:
         assert party.living_members() == party.members[:3]
         assert hold(HasItemCondition(item_id="iron_spikes"), members=party.members)
 
+    def test_a_spent_stack_is_not_carried(self):
+        """A quantity of zero — the empty magic quiver — satisfies nothing.
+
+        Otherwise a gate would pass on a stack its own toll could not take from.
+        """
+        party = build_party()
+        party.members[0].inventory.items.append(
+            MagicItemInstance(instance_id="magic-item-0009", template_id="arrow_plus_1", quantity=0)
+        )
+        assert not hold(HasItemCondition(item_id="arrow_plus_1"), members=party.members)
+        assert first_holder(party.members, "arrow_plus_1") is None
+
     def test_consumes_does_not_affect_evaluation(self):
         party = build_party()
         party.members[0].inventory.items.append(gear("torch"))

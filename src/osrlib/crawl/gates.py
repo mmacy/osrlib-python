@@ -118,9 +118,13 @@ def _carried_instance(member: Character, item_id: str) -> ItemInstance | MagicIt
 
     Mundane instances match on their template's id and magic instances on their
     `template_id` — the union `has_item` speaks. Valuables never match: gems and
-    jewellery carry no catalog id.
+    jewellery carry no catalog id. A spent stack (a magic quiver shot down to zero,
+    the only instance a quantity of zero is expressible on) is not carrying: the
+    empty quiver satisfies nothing and pays no toll.
     """
     for instance in member.inventory.all_instances():
+        if instance.quantity < 1:
+            continue
         if isinstance(instance, MagicItemInstance):
             if instance.template_id == item_id:
                 return instance
