@@ -13,10 +13,11 @@ types.
 
 Each command declares its legal session modes as an `allowed_modes` class
 attribute; the session rejects a wrong-mode command with
-`session.command.wrong_mode`. Referee commands are legal in every mode and are
-logged and replayed like any other. Every command class documents its contract in
-three sections: `Modes:` (the legal session modes), `Rejections:` (the rejection
-codes it can return), and `Events:` (what it emits when accepted).
+`session.command.wrong_mode`. Referee commands are legal in every mode except
+those that would resume play in a session that has ended, and are logged and
+replayed like any other. Every command class documents its contract in three
+sections: `Modes:` (the legal session modes), `Rejections:` (the rejection codes
+it can return), and `Events:` (what it emits when accepted).
 """
 
 from collections.abc import Mapping
@@ -97,6 +98,14 @@ class SessionMode(StrEnum):
 
     The wire values are lowercase — they serialize into saves; changing them is a
     `schema_version` bump.
+
+    `game_over` and `victory` are the terminal modes: the session has ended. Play
+    commands are illegal in both, referee commands remain legal except the ones
+    that would resume play ([`PlaceParty`][osrlib.crawl.commands.PlaceParty] in
+    `victory`, [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] and
+    [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] in both), and no play
+    ever leaves either one. The referee's salvage door out of `game_over` is
+    `PlaceParty`, documented there.
     """
 
     TOWN = "town"
@@ -104,6 +113,12 @@ class SessionMode(StrEnum):
     ENCOUNTER = "encounter"
     BATTLE = "battle"
     GAME_OVER = "game_over"
+    VICTORY = "victory"
+
+    @property
+    def terminal(self) -> bool:
+        """Whether the session has ended: `game_over` or `victory`."""
+        return self in (SessionMode.GAME_OVER, SessionMode.VICTORY)
 
 
 _ALL_MODES = frozenset(SessionMode)
@@ -1031,11 +1046,11 @@ class UseItem(Command):
 class IdentifyItem(Command):
     """Referee: identify a magic item outright — game-driven identification.
 
-    Referee commands are legal in every mode and are logged and replayed like any
-    other.
+    Referee commands are legal in every mode, terminal modes included, and are
+    logged and replayed like any other.
 
     Modes:
-        `town`, `exploring`, `encounter`, `battle`, `game_over`
+        `town`, `exploring`, `encounter`, `battle`, `game_over`, `victory`
 
     Rejections:
         - `session.command.unknown_member` — `character_id` names no party member.
@@ -1499,11 +1514,11 @@ class ResolveBattleRound(Command):
 class GrantItem(Command):
     """Referee: place an item directly into a member's inventory.
 
-    Referee commands are legal in every mode and are logged and replayed like any
-    other.
+    Referee commands are legal in every mode, terminal modes included, and are
+    logged and replayed like any other.
 
     Modes:
-        `town`, `exploring`, `encounter`, `battle`, `game_over`
+        `town`, `exploring`, `encounter`, `battle`, `game_over`, `victory`
 
     Rejections:
         - `session.command.unknown_member` — `character_id` names no party member.
@@ -1525,10 +1540,10 @@ class GrantItem(Command):
 class GrantCoins(Command):
     """Referee: place coins directly into a member's purse.
 
-    Referee commands are legal in every mode.
+    Referee commands are legal in every mode, terminal modes included.
 
     Modes:
-        `town`, `exploring`, `encounter`, `battle`, `game_over`
+        `town`, `exploring`, `encounter`, `battle`, `game_over`, `victory`
 
     Rejections:
         - `session.command.unknown_member` — `character_id` names no party member.
@@ -1546,11 +1561,12 @@ class GrantCoins(Command):
 class AwardXP(Command):
     """Referee: apply an XP award to one character, outside the adventure award.
 
-    Referee commands are legal in every mode. The award applies the
-    prime-requisite modifier and can trigger level gains.
+    Referee commands are legal in every mode, terminal modes included — an
+    adventure's rewards land after the session has concluded. The award applies
+    the prime-requisite modifier and can trigger level gains.
 
     Modes:
-        `town`, `exploring`, `encounter`, `battle`, `game_over`
+        `town`, `exploring`, `encounter`, `battle`, `game_over`, `victory`
 
     Rejections:
         - `session.command.unknown_member` — `character_id` names no party member.
@@ -1571,13 +1587,14 @@ class AwardXP(Command):
 class SetFlag(Command):
     """Referee: set a session flag (content wiring: the lever opens the portcullis).
 
-    Referee commands are legal in every mode. Flags serialize into saves; game
-    code and listeners read them back, and authored content reads them through
+    Referee commands are legal in every mode, terminal modes included. Flags
+    serialize into saves; game code and listeners read them back, and authored
+    content reads them through
     [`FlagEqualsCondition`][osrlib.crawl.gates.FlagEqualsCondition] — the gate on a
     door or stair that opens when the lever has been pulled.
 
     Modes:
-        `town`, `exploring`, `encounter`, `battle`, `game_over`
+        `town`, `exploring`, `encounter`, `battle`, `game_over`, `victory`
 
     Rejections:
         None.
@@ -1594,12 +1611,14 @@ class SetFlag(Command):
 class SpawnMonsters(Command):
     """Referee: spawn monsters and open an encounter at a distance.
 
-    Referee commands are legal in every mode, but the party must be standing in a
-    dungeon with no encounter already open — encounters live on the dungeon grid.
-    Exactly one of `count_dice` or `count_fixed` is required.
+    The party must be standing in a dungeon with no encounter already open —
+    encounters live on the dungeon grid. Spawning is the one referee power a
+    terminal session withholds: an encounter is play, and a session that has
+    ended opens no new play state, so this is illegal in `game_over` and
+    `victory` alike. Exactly one of `count_dice` or `count_fixed` is required.
 
     Modes:
-        `town`, `exploring`, `encounter`, `battle`, `game_over`
+        `town`, `exploring`, `encounter`, `battle`
 
     Rejections:
         - `session.command.unknown_monster` — `template_id` names no monster.
@@ -1616,6 +1635,10 @@ class SpawnMonsters(Command):
         [`StanceChangedEvent`][osrlib.crawl.events.StanceChangedEvent]; an attacks
         stance opens battle at once.
     """
+
+    allowed_modes: ClassVar[frozenset[SessionMode]] = _ALL_MODES - frozenset(
+        {SessionMode.GAME_OVER, SessionMode.VICTORY}
+    )
 
     command_type: Literal["spawn_monsters"] = "spawn_monsters"
     template_id: str
@@ -1641,12 +1664,13 @@ class SpawnNpcParty(Command):
     """Referee: generate an NPC adventuring party and open an encounter.
 
     `count_dice=None` rolls the compiled composition dice (Basic 1d4+4, Expert
-    1d6+3) — the surface for keyed content, quest listeners, and tests. Referee
-    commands are legal in every mode, but the party must be standing in a dungeon
-    with no encounter already open.
+    1d6+3) — the surface for keyed content, quest listeners, and tests. The party
+    must be standing in a dungeon with no encounter already open, and, like
+    [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters], the command is illegal
+    in a terminal mode: a concluded session opens no new encounter.
 
     Modes:
-        `town`, `exploring`, `encounter`, `battle`, `game_over`
+        `town`, `exploring`, `encounter`, `battle`
 
     Rejections:
         - `session.command.encounter_in_progress` — an encounter or battle is
@@ -1658,6 +1682,10 @@ class SpawnNpcParty(Command):
         referee-visibility roster), then the encounter opening as with
         [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters].
     """
+
+    allowed_modes: ClassVar[frozenset[SessionMode]] = _ALL_MODES - frozenset(
+        {SessionMode.GAME_OVER, SessionMode.VICTORY}
+    )
 
     command_type: Literal["spawn_npc_party"] = "spawn_npc_party"
     party_kind: Literal["basic", "expert"]
@@ -1675,11 +1703,11 @@ class SpawnNpcParty(Command):
 class SetDoorState(Command):
     """Referee: rewrite a door's overlay anywhere (`None` fields stay unchanged).
 
-    Referee commands are legal in every mode; the door may be on any level of any
-    dungeon, not just under the party.
+    Referee commands are legal in every mode, terminal modes included; the door
+    may be on any level of any dungeon, not just under the party.
 
     Modes:
-        `town`, `exploring`, `encounter`, `battle`, `game_over`
+        `town`, `exploring`, `encounter`, `battle`, `game_over`, `victory`
 
     Rejections:
         - `session.command.unknown_location` — `dungeon_id` or `level_number`
@@ -1709,7 +1737,12 @@ class PlaceParty(Command):
     Referee commands are legal in every mode, except that the party cannot be
     teleported out of an open encounter or battle. Placing into a dungeon marks
     the cell explored and switches the session to `exploring`; placing in town
-    switches it to `town`.
+    switches it to `town`. That switch is what makes this the salvage door out of
+    `game_over` — carrying the fallen party to town is the first step of the
+    revival flow that ends at
+    [`PurchaseHealing`][osrlib.crawl.commands.PurchaseHealing]'s `raise_dead` —
+    and equally what makes it illegal in `victory`: a concluded adventure is not
+    resumed.
 
     Modes:
         `town`, `exploring`, `encounter`, `battle`, `game_over`
@@ -1726,6 +1759,8 @@ class PlaceParty(Command):
         destination.
     """
 
+    allowed_modes: ClassVar[frozenset[SessionMode]] = _ALL_MODES - frozenset({SessionMode.VICTORY})
+
     command_type: Literal["place_party"] = "place_party"
     location: PartyLocation
 
@@ -1733,12 +1768,13 @@ class PlaceParty(Command):
 class AdvanceTime(Command):
     """Referee: advance the clock directly.
 
-    Referee commands are legal in every mode. Time passes with full bookkeeping —
-    effect expiries, provisions on day boundaries — but no wandering cadence: the
-    referee controls encounters.
+    Referee commands are legal in every mode, terminal modes included — the clock
+    a revival window is measured in keeps running after the party falls. Time
+    passes with full bookkeeping — effect expiries, provisions on day boundaries —
+    but no wandering cadence: the referee controls encounters.
 
     Modes:
-        `town`, `exploring`, `encounter`, `battle`, `game_over`
+        `town`, `exploring`, `encounter`, `battle`, `game_over`, `victory`
 
     Rejections:
         None.
@@ -1762,7 +1798,8 @@ class RollDice(Command):
     outcome the content model can't express (a puzzle, a bluff, "does the frayed
     rope hold?") by rolling through the engine rather than inventing a number, so
     the result is logged, replayable, and grounded in a typed event. Referee
-    commands are legal in every mode. The roll draws from the dedicated
+    commands are legal in every mode, terminal modes included. The roll draws from
+    the dedicated
     [`ADJUDICATION_STREAM`][osrlib.crawl.session.ADJUDICATION_STREAM], so an ad-hoc
     referee roll never perturbs the draw sequence of keyed mechanics. A malformed
     `expression` is rejected at construction, exactly as
@@ -1770,7 +1807,7 @@ class RollDice(Command):
     never reaches the session and consumes no draw.
 
     Modes:
-        `town`, `exploring`, `encounter`, `battle`, `game_over`
+        `town`, `exploring`, `encounter`, `battle`, `game_over`, `victory`
 
     Rejections:
         None.

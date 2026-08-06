@@ -24,10 +24,22 @@ REFEREE_COMMANDS = {
     "award_xp",
     "set_flag",
     "spawn_monsters",
+    "spawn_npc_party",
     "set_door_state",
     "place_party",
     "advance_time",
+    "identify_item",
     "roll_dice",
+}
+
+# The referee commands a terminal session withholds, each because it would resume
+# play: `PlaceParty` teleports the party into a play mode (and so stays legal in
+# `game_over`, where carrying the fallen to town is the first step of the revival
+# flow), and the two spawn commands open an encounter.
+RESUME_PLAY_CARVE_OUTS = {
+    "place_party": frozenset({SessionMode.VICTORY}),
+    "spawn_monsters": frozenset({SessionMode.GAME_OVER, SessionMode.VICTORY}),
+    "spawn_npc_party": frozenset({SessionMode.GAME_OVER, SessionMode.VICTORY}),
 }
 
 
@@ -118,11 +130,13 @@ class TestModes:
         for command_class in ALL_COMMAND_CLASSES:
             assert command_class.allowed_modes, command_class.__name__
 
-    def test_referee_commands_are_legal_everywhere(self):
+    def test_referee_commands_are_legal_everywhere_but_the_resume_play_carve_outs(self):
         for command_class in ALL_COMMAND_CLASSES:
             command_type = command_class.model_fields["command_type"].default
-            if command_type in REFEREE_COMMANDS:
-                assert command_class.allowed_modes == frozenset(SessionMode), command_class.__name__
+            if command_type not in REFEREE_COMMANDS:
+                continue
+            withheld = RESUME_PLAY_CARVE_OUTS.get(command_type, frozenset())
+            assert command_class.allowed_modes == frozenset(SessionMode) - withheld, command_class.__name__
 
     def test_battle_round_is_battle_only(self):
         assert ResolveBattleRound.allowed_modes == frozenset({SessionMode.BATTLE})
