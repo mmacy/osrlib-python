@@ -24,6 +24,15 @@ that streams or narrates the raw event log as it happens — an LLM referee doin
 turn-by-turn narration, say — is responsible for checking `.visibility` itself before
 showing an event to a player, the same way it would filter a database query.
 
+The authored layer splits the same way. A journal beat is written for the table, so
+[`JournalEntryAddedEvent`][osrlib.crawl.events.JournalEntryAddedEvent] is
+player-visible and carries the authored text itself — content data in a structured
+field, alongside the event's message code, never engine-baked English. The wiring that
+produced the beat is not: a fired trigger
+([`TriggerFiredEvent`][osrlib.crawl.events.TriggerFiredEvent]) and a referee note
+([`NoteRecordedEvent`][osrlib.crawl.events.NoteRecordedEvent]) are referee-visibility,
+exactly as a flag write is, because content wiring is the game's secret.
+
 Most front ends never need to do that filtering by hand, though, because osrlib also
 ships two ready-made projections of the *whole session*, one per audience, and either
 one already applies this filtering for its consumer.
@@ -54,7 +63,10 @@ a plain wall throughout ([`ExploredLevelView`][osrlib.crawl.views.ExploredLevelV
 and [`EdgeView`][osrlib.crawl.views.EdgeView]); known dropped piles and emptied
 treasure caches in that explored space; active effects on party members with their
 remaining duration (except a potion's — RAW has the referee track that secretly, so
-the view reports it as unknown); fatigue, exhaustion, and deprivation status; and, when
+the view reports it as unknown); fatigue, exhaustion, and deprivation status; the
+session journal as written ([`JournalEntry`][osrlib.crawl.session.JournalEntry] — the
+beats in order of discovery, each carrying the clock position it landed at, while the
+trigger fired-marks behind them stay out of the view entirely); and, when
 one is running, the current encounter or battle's public shape
 ([`EncounterView`][osrlib.crawl.views.EncounterView] and
 [`EncounterGroupView`][osrlib.crawl.views.EncounterGroupView] — a monster group's id,
@@ -88,6 +100,16 @@ assert player_group.count == 1
 assert "current_hp" not in player_group.model_dump()
 ```
 
+The authored layer shows the same shape from the other side: the journal reaches the
+player view whole, while the trigger that wrote it does not reach it at all.
+
+```{.python .no-run}
+# The beat is for the table; the trigger that produced it is referee-only wiring.
+assert [entry.text for entry in journal_view.journal] == ["The lever grinds."]
+assert "lever-east" not in journal_view.model_dump_json()
+assert referee_state["fired_triggers"] == ["lever-east"]
+```
+
 ## Never trust the client
 
 The moment a game goes over a network, this split becomes a security boundary, not
@@ -112,7 +134,14 @@ from osrlib.core.events import Visibility
 from osrlib.core.rng import RngStreams
 from osrlib.core.ruleset import Ruleset
 from osrlib.crawl.adventure import Adventure, TownSpec
-from osrlib.crawl.commands import EnterDungeon, SessionMode, SpawnMonsters
+from osrlib.crawl.commands import (
+    AddJournalEntry,
+    EnterDungeon,
+    MarkTriggerFired,
+    RecordNote,
+    SessionMode,
+    SpawnMonsters,
+)
 from osrlib.crawl.dungeon import DungeonSpec, LevelSpec
 from osrlib.crawl.party import Party
 from osrlib.crawl.session import GameSession
@@ -151,6 +180,19 @@ assert "current_hp" in referee_monster
 player_group = player_view.encounter.groups[0]
 assert player_group.count == 1
 assert "current_hp" not in player_group.model_dump()
+
+# A trigger fires: it is marked, it writes a journal beat, and the referee annotates it.
+session.execute(MarkTriggerFired(trigger_id="lever-east"))
+session.execute(AddJournalEntry(text="The lever grinds.", source="trigger:lever-east"))
+session.execute(RecordNote(text="The east lever is the only one that answers."))
+
+journal_view = session.view(Visibility.PLAYER)
+referee_state = session.view(Visibility.REFEREE).state
+
+# The beat is for the table; the trigger that produced it is referee-only wiring.
+assert [entry.text for entry in journal_view.journal] == ["The lever grinds."]
+assert "lever-east" not in journal_view.model_dump_json()
+assert referee_state["fired_triggers"] == ["lever-east"]
 ```
 
 ## Where next

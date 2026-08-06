@@ -89,6 +89,39 @@ to decide whether to narrate the portcullis creaking open, say — reads `sessio
 when it holds the session, or `session.view(Visibility.REFEREE).state["flags"]` when it works
 from views alone.
 
+## Lifecycle commands: fired-marks, the journal, and notes
+
+Flags are one vocabulary a reactive listener writes with. Three more referee commands cover the
+bookkeeping an authored trigger or quest layer needs, and they behave exactly like `SetFlag` —
+legal in every mode, never rejected, issued through `execute`, and logged and replayed like any
+other command:
+
+- [`MarkTriggerFired`][osrlib.crawl.commands.MarkTriggerFired] records that an authored trigger has
+  fired, appending its id to `session.fired_triggers` — the state that answers once-only
+  semantics. Marking a trigger that has already fired is accepted, appends nothing, and still
+  emits its [`TriggerFiredEvent`][osrlib.crawl.events.TriggerFiredEvent], so a repeatable
+  trigger's every firing shows up in the log while the state stays a set of ids in first-fired
+  order.
+- [`AddJournalEntry`][osrlib.crawl.commands.AddJournalEntry] appends a beat to `session.journal`,
+  stamped with the clock position it landed at. The journal is the one part of this vocabulary the
+  players see: it ships verbatim in the [`PlayerView`][osrlib.crawl.views.PlayerView], and its
+  [`JournalEntryAddedEvent`][osrlib.crawl.events.JournalEntryAddedEvent] is player-visible.
+- [`RecordNote`][osrlib.crawl.commands.RecordNote] records an annotation with no state effect at
+  all — the mechanism for machine-issued records (a consequence that was dropped, a cascade cut
+  short) and for a referee's own margin notes alike. Its event is referee-visibility, like the
+  fired-mark's.
+
+Both blocks are engine-owned session state: they persist in saves, and because these commands are
+their only writers, a replay — which runs with no listeners registered — rebuilds them exactly by
+re-executing the log. That is also why a listener must act by issuing commands rather than by
+remembering things itself, the discipline this page opened with.
+
+The optional `source` stamp (see
+[Sessions, commands, and events](sessions-commands-events.md)) is what ties the vocabulary
+together: a listener that stamps the commands it issues with its own quest or trigger id leaves a
+log that answers *why* every entry is there. A library-shipped trigger and quest interpreter is
+built on exactly this surface; a game's own listener can drive it today.
+
 ## The fetch quest, worked
 
 The TUI crawler (see [the complete front end](../front-ends/tui-crawler.md)) hides a named
@@ -141,7 +174,14 @@ from osrlib.core.events import Event, Visibility
 from osrlib.core.rng import RngStreams
 from osrlib.core.ruleset import Ruleset
 from osrlib.crawl.adventure import Adventure, TownSpec
-from osrlib.crawl.commands import EnterDungeon, MoveParty, SetFlag
+from osrlib.crawl.commands import (
+    AddJournalEntry,
+    EnterDungeon,
+    MarkTriggerFired,
+    MoveParty,
+    RecordNote,
+    SetFlag,
+)
 from osrlib.crawl.dungeon import Direction, DungeonSpec, Edge, EdgeKind, LevelSpec
 from osrlib.crawl.events import PartyMovedEvent
 from osrlib.crawl.party import Party
@@ -194,6 +234,19 @@ assert session.flags == {"crypt.lever_pulled": True}
 # A front end working from views alone reads flags off the referee view instead.
 referee_state = session.view(Visibility.REFEREE).state
 assert referee_state["flags"] == {"crypt.lever_pulled": True}
+
+# The lifecycle vocabulary: mark the trigger, write the beat, annotate the margin. The
+# source stamp says on whose behalf each command was issued.
+session.execute(MarkTriggerFired(trigger_id="crypt.lever", source="trigger:crypt.lever"))
+session.execute(AddJournalEntry(text="The lever grinds.", source="trigger:crypt.lever"))
+session.execute(MarkTriggerFired(trigger_id="crypt.lever", source="trigger:crypt.lever"))
+session.execute(RecordNote(text="The portcullis consequence had nothing to open."))
+
+# A re-mark appends nothing; the journal is player-visible state, the marks are not.
+assert session.fired_triggers == ["crypt.lever"]
+assert [entry.text for entry in session.journal] == ["The lever grinds."]
+assert session.view(Visibility.PLAYER).journal == tuple(session.journal)
+assert session.command_log[-1].source is None  # the note was the referee's own
 ```
 
 ## Where next
