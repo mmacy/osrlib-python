@@ -9,13 +9,15 @@ facing, the mapped cells with their edges — walked cells, remembered seen cell
 the party's light has shown it, and what its light reveals right now (secret
 doors only if discovered — an undiscovered secret door renders as wall), known
 piles and emptied caches in explored space, active effects on party members
-with remaining durations, the elapsed clock, the mode, the current
+with remaining durations, the elapsed clock, the mode, the journal (the appended
+beats verbatim, each with the clock position it landed at), the current
 encounter/battle public state (names,
 counts, distances, visible conditions — never HP), fatigue/exhaustion/deprivation
 status, and the adventure's public prose. It never carries unexplored geometry,
 undiscovered traps or secret doors, monster HP or stat internals,
-referee-visibility roll outcomes, session flags, RNG state, or the seed — the
-seed lives only in the save, and neither view carries it.
+referee-visibility roll outcomes, session flags, trigger fired-marks, referee
+notes, RNG state, or the seed — the seed lives only in the save, and neither view
+carries it.
 
 The referee view carries everything else the save does, minus RNG internals and
 the seed, for LLM referees and tests. A front end must never trust the client:
@@ -29,6 +31,7 @@ from osrlib.core.effects import Condition, has_condition
 from osrlib.core.items import MagicItemCategory, MagicItemInstance, magic_item_template
 from osrlib.crawl.dungeon import Direction, EdgeKind, PartyLocation, Position, cell_ref, edge_ref
 from osrlib.crawl.exploration import EXHAUSTED_KIND, FATIGUE_KIND, _light_reveal
+from osrlib.crawl.session import JournalEntry
 
 __all__ = [
     "EdgeView",
@@ -152,6 +155,10 @@ class PlayerView(BaseModel):
     fatigued: bool
     exhausted: bool
     deprivation: dict[str, dict[str, int]]
+    journal: tuple[JournalEntry, ...]
+    """The session journal, shipped as written: the players' own record of the
+    adventure, in order of discovery, each beat carrying the clock position it landed
+    at. The wiring behind the beats — trigger fired-marks, referee notes — stays out."""
     encounter: EncounterView | None = None
 
 
@@ -320,6 +327,7 @@ def build_player_view(session) -> PlayerView:
         fatigued=fatigued,
         exhausted=exhausted,
         deprivation=deprivation,
+        journal=tuple(session.journal),
         encounter=_encounter_view(session),
     )
 

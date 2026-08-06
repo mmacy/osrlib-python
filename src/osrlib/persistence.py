@@ -4,10 +4,11 @@ A save, produced by [`save_game`][osrlib.persistence.save_game], is a
 [`stamp_document`][osrlib.versioning.stamp_document] envelope of kind `"save"`
 carrying the full session state: party, the adventure's own content (a save is
 self-contained and needs no other files to load), dungeon state, clock, ledger,
-allocator, registry monsters, flags, listener state, mode, crawl counters, exported
-RNG stream states, the master seed, the accepted-command log always, and the event
-log optionally. A session restores from that state alone — the command and event
-logs are records of what happened, not dependencies of the restore.
+allocator, registry monsters, flags, trigger fired-marks, the journal, listener
+state, mode, crawl counters, exported RNG stream states, the master seed, the
+accepted-command log always, and the event log optionally. A session restores from
+that state alone — the command and event logs are records of what happened, not
+dependencies of the restore.
 
 [`load_game`][osrlib.persistence.load_game] rebuilds a session directly from a save's
 state, migrating older schema versions on the way in.
@@ -35,7 +36,7 @@ from osrlib.crawl.dungeon import DungeonState
 from osrlib.crawl.encounter import EncounterState
 from osrlib.crawl.events import parse_any_event
 from osrlib.crawl.party import Party
-from osrlib.crawl.session import DeathRecord, DefeatedMonsterRecord, DeprivationState, GameSession
+from osrlib.crawl.session import DeathRecord, DefeatedMonsterRecord, DeprivationState, GameSession, JournalEntry
 from osrlib.errors import ContentValidationError, ReplayVersionError
 from osrlib.versioning import SCHEMA_VERSION, check_document, engine_version, stamp_document
 
@@ -110,6 +111,8 @@ def session_state(session: GameSession, *, include_event_log: bool = True) -> di
         "monsters": [instance.model_dump(mode="json") for instance in session.monsters.values()],
         "npcs": [npc.model_dump(mode="json") for npc in session.npcs.values()],
         "flags": dict(session.flags),
+        "fired_triggers": list(session.fired_triggers),
+        "journal": [entry.model_dump(mode="json") for entry in session.journal],
         "listener_state": {key: dict(value) for key, value in session.listener_state.items()},
         "death_records": {key: record.model_dump(mode="json") for key, record in session.death_records.items()},
         "defeated_monsters": [record.model_dump(mode="json") for record in session.defeated_monsters],
@@ -253,6 +256,10 @@ def load_game(document: Mapping[str, object]) -> GameSession:
                 raise ContentValidationError("an NPC in the save carries no id")
             session.npcs[npc.id] = npc
         session.flags = dict(payload["flags"])
+        # Both blocks arrived after schema version 3 and load with empty defaults, so
+        # an older save restores unchanged and starts remembering from there.
+        session.fired_triggers = [str(entry) for entry in payload.get("fired_triggers", [])]
+        session.journal = [JournalEntry.model_validate(entry) for entry in payload.get("journal", [])]
         session.listener_state = {key: dict(value) for key, value in payload["listener_state"].items()}
         session.death_records = {
             key: DeathRecord.model_validate(value) for key, value in payload["death_records"].items()

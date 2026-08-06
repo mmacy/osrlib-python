@@ -196,6 +196,75 @@ class TestVisibility:
         assert player[0].rounds == session.clock.rounds
 
 
+class TestPersistenceAndTheView:
+    """Both blocks are ordinary session state: saved, loaded, replayed, projected."""
+
+    LIFECYCLE: tuple[Command, ...] = (
+        MarkTriggerFired(trigger_id="lever-east"),
+        SetFlag(key="portcullis", value="open", source="trigger:lever-east"),
+        AddJournalEntry(text="The lever grinds; somewhere below, a portcullis rises.", source="trigger:lever-east"),
+        AdvanceTime(n=1, unit="turn"),
+        MarkTriggerFired(trigger_id="lever-east"),
+        AddJournalEntry(text="The same lever, the same grinding.", source="trigger:lever-east"),
+        RecordNote(text="The east lever is the only one that answers."),
+    )
+
+    def test_both_blocks_round_trip_through_a_save(self):
+        session = run(self.LIFECYCLE)
+        restored = load_game(json.loads(json.dumps(save_game(session))))
+        assert restored.fired_triggers == ["lever-east"]
+        assert restored.journal == session.journal
+        assert [entry.rounds for entry in restored.journal] == [0, 60]
+        assert session_state(restored) == session_state(session)
+
+    def test_a_save_written_without_the_blocks_loads_empty_and_starts_remembering(self):
+        document = json.loads(json.dumps(save_game(run([EnterDungeon(dungeon_id="delve")]))))
+        del document["payload"]["fired_triggers"]
+        del document["payload"]["journal"]
+        restored = load_game(document)
+        assert restored.fired_triggers == []
+        assert restored.journal == []
+        assert restored.execute(MarkTriggerFired(trigger_id="lever-east")).accepted
+        assert restored.execute(AddJournalEntry(text="The lever grinds.")).accepted
+        assert restored.fired_triggers == ["lever-east"]
+        assert [entry.text for entry in restored.journal] == ["The lever grinds."]
+
+    def test_load_equals_replay_with_both_blocks_populated(self):
+        from osrlib.core.character import party_to_document
+        from osrlib.core.ruleset import Ruleset
+        from osrlib.persistence import replay_game
+
+        session = run(self.LIFECYCLE)
+        restored = load_game(json.loads(json.dumps(save_game(session))))
+        replayed = replay_game(
+            17,
+            party_to_document(build_party().members),
+            build_adventure(wandering_chance=0),
+            Ruleset(),
+            [command.model_dump(mode="json") for command in session.command_log],
+        )
+        assert replayed.fired_triggers == ["lever-east"]
+        assert replayed.journal == session.journal
+        assert session_state(replayed) == session_state(restored)
+
+    def test_the_player_view_ships_the_journal_and_neither_the_marks_nor_the_notes(self):
+        session = run(self.LIFECYCLE)
+        view = session.view(Visibility.PLAYER)
+        assert view.journal == tuple(session.journal)
+        blob = view.model_dump_json()
+        parsed = json.loads(blob)
+        assert "fired_triggers" not in parsed
+        assert "lever-east" not in blob, "the trigger id is wiring, and wiring is the game's secret"
+        assert "The east lever is the only one that answers." not in blob, "a referee note is not for the table"
+        assert "The lever grinds; somewhere below, a portcullis rises." in blob
+
+    def test_the_referee_view_carries_both_blocks(self):
+        session = run(self.LIFECYCLE)
+        state = session.view(Visibility.REFEREE).state
+        assert state["fired_triggers"] == ["lever-east"]
+        assert [entry["text"] for entry in state["journal"]] == [entry.text for entry in session.journal]
+
+
 class TestTheSourceStamp:
     def test_a_stamped_command_survives_save_and_load(self):
         session = run([command.model_copy(update={"source": STAMP}) for command in SCRIPT])
