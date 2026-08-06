@@ -20,6 +20,7 @@ from osrlib.crawl.commands import (
 )
 from osrlib.crawl.dungeon import Direction
 from osrlib.crawl.session import GameSession
+from osrlib.data import load_equipment
 
 
 def battle_session(
@@ -137,6 +138,71 @@ class TestDeclarationValidation:
         )
         result = session.execute(ResolveBattleRound(declarations=declarations))
         assert result.accepted
+
+
+class TestUseItemAction:
+    """The `use_item` action: the thrown flask, and the two ways it is refused.
+
+    One declaration, one lookup: the instance the throw resolves from is the
+    instance that leaves the pack, so a resolved throw costs exactly one flask and
+    a refused declaration costs none.
+    """
+
+    def thrower(self, session):
+        return session.member("character-0003")
+
+    def flask_declaration(self, session, item_id: str):
+        return hold_all(
+            session,
+            extra=(
+                BattleDeclaration(
+                    character_id="character-0003",
+                    action="use_item",
+                    item_id=item_id,
+                    target_group_id=group_id(session),
+                ),
+            ),
+        )
+
+    def test_a_thrown_flask_resolves_the_attack_and_costs_exactly_one(self):
+        session = battle_session(distance=20, seed=17)
+        session.execute(GrantItem(character_id="character-0003", item_id="oil_flask", quantity=2))
+        result = session.execute(ResolveBattleRound(declarations=self.flask_declaration(session, "oil_flask")))
+        assert result.accepted
+        throws = [
+            event
+            for event in result.events
+            if event.code in ("combat.attack.hit", "combat.attack.missed")
+            and getattr(event, "attacker_id", None) == "character-0003"
+        ]
+        assert len(throws) == 1, "the throw resolved once"
+        assert throws[0].attack_name == load_equipment().get("oil_flask").name
+        carried = [
+            instance for instance in self.thrower(session).inventory.items if instance.template.id == "oil_flask"
+        ]
+        assert [instance.quantity for instance in carried] == [1], "exactly one flask left the pack"
+
+    def test_a_carried_item_with_no_combat_use_rejects_and_costs_nothing(self):
+        session = battle_session(distance=20, seed=17)
+        session.execute(GrantItem(character_id="character-0003", item_id="rope"))
+        before = self.thrower(session).inventory.model_dump(mode="json")
+        result = session.execute(ResolveBattleRound(declarations=self.flask_declaration(session, "rope")))
+        assert not result.accepted
+        assert [rejection.code for rejection in result.rejections] == ["battle.declaration.item_unusable"]
+        assert result.rejections[0].params == {"item": "rope"}
+        assert result.events == ()
+        assert self.thrower(session).inventory.model_dump(mode="json") == before
+
+    def test_declaring_an_item_nobody_carries_rejects_the_same_way(self):
+        session = battle_session(distance=20, seed=17)
+        # The flask is real gear with a combat facet — but this character has none.
+        before = self.thrower(session).inventory.model_dump(mode="json")
+        result = session.execute(ResolveBattleRound(declarations=self.flask_declaration(session, "oil_flask")))
+        assert not result.accepted
+        assert [rejection.code for rejection in result.rejections] == ["battle.declaration.item_unusable"]
+        assert result.rejections[0].params == {"item": "oil_flask"}
+        assert result.events == ()
+        assert self.thrower(session).inventory.model_dump(mode="json") == before
 
 
 class TestRangeTrack:
