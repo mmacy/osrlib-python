@@ -1,0 +1,453 @@
+{
+  "command_log": [
+    {
+      "command_type": "enter_dungeon",
+      "dungeon_id": "warren"
+    },
+    {
+      "command_type": "move_party",
+      "direction": "east"
+    },
+    {
+      "command_type": "take_treasure",
+      "feature_id": "niche",
+      "recipient_id": null
+    },
+    {
+      "command_type": "open_door",
+      "direction": "east"
+    },
+    {
+      "command_type": "move_party",
+      "direction": "east"
+    },
+    {
+      "command_type": "set_door_state",
+      "direction": "south",
+      "discovered": null,
+      "dungeon_id": "warren",
+      "level_number": 1,
+      "open": null,
+      "unlocked": true,
+      "wedged": null,
+      "x": 2,
+      "y": 0
+    },
+    {
+      "command_type": "move_party",
+      "direction": "east"
+    },
+    {
+      "command_type": "use_stairs"
+    },
+    {
+      "command_type": "move_party",
+      "direction": "east"
+    },
+    {
+      "command_type": "take_treasure",
+      "feature_id": "vault",
+      "recipient_id": null
+    },
+    {
+      "command_type": "move_party",
+      "direction": "west"
+    },
+    {
+      "command_type": "use_stairs"
+    },
+    {
+      "command_type": "set_door_state",
+      "direction": "east",
+      "discovered": null,
+      "dungeon_id": "warren",
+      "level_number": 1,
+      "open": true,
+      "unlocked": null,
+      "wedged": null,
+      "x": 3,
+      "y": 0
+    },
+    {
+      "command_type": "move_party",
+      "direction": "east"
+    },
+    {
+      "command_type": "move_party",
+      "direction": "west"
+    },
+    {
+      "command_type": "close_door",
+      "direction": "east"
+    },
+    {
+      "command_type": "move_party",
+      "direction": "west"
+    },
+    {
+      "command_type": "open_door",
+      "direction": "south"
+    },
+    {
+      "command_type": "move_party",
+      "direction": "south"
+    }
+  ],
+  "event_log": [
+    {
+      "code": "exploration.location.entered",
+      "event_type": "location_entered",
+      "level_number": 1,
+      "location_id": "warren",
+      "location_kind": "dungeon",
+      "narrative": null,
+      "visibility": "player"
+    },
+    {
+      "code": "exploration.party.moved",
+      "event_type": "party_moved",
+      "facing": "east",
+      "visibility": "player",
+      "x": 1,
+      "y": 0
+    },
+    {
+      "character_id": "character-0001",
+      "code": "exploration.item.acquired",
+      "coins_gp_value": 0,
+      "event_type": "item_acquired",
+      "item_ids": [
+        "brass_key",
+        "toll_token"
+      ],
+      "visibility": "player"
+    },
+    {
+      "character_id": null,
+      "code": "exploration.door.opened",
+      "direction": "east",
+      "event_type": "door",
+      "narrative": "The brass key turns in the sentinel's palm and the door swings wide.",
+      "visibility": "player",
+      "x": 1,
+      "y": 0
+    },
+    {
+      "code": "exploration.party.moved",
+      "event_type": "party_moved",
+      "facing": "east",
+      "visibility": "player",
+      "x": 2,
+      "y": 0
+    },
+    {
+      "code": "exploration.party.moved",
+      "event_type": "party_moved",
+      "facing": "east",
+      "visibility": "player",
+      "x": 3,
+      "y": 0
+    },
+    {
+      "character_id": null,
+      "code": "exploration.door.swung_shut",
+      "direction": "west",
+      "event_type": "door",
+      "narrative": null,
+      "visibility": "player",
+      "x": 2,
+      "y": 0
+    },
+    {
+      "character_id": "character-0001",
+      "code": "exploration.item.consumed",
+      "event_type": "item_consumed",
+      "item_id": "toll_token",
+      "visibility": "player"
+    },
+    {
+      "code": "exploration.location.entered",
+      "event_type": "location_entered",
+      "level_number": 2,
+      "location_id": "warren",
+      "location_kind": "level",
+      "narrative": "The ferryman pockets the token and the stair opens onto the dark.",
+      "visibility": "player"
+    },
+    {
+      "code": "exploration.party.moved",
+      "event_type": "party_moved",
+      "facing": "east",
+      "visibility": "player",
+      "x": 1,
+      "y": 0
+    },
+    {
+      "character_id": "character-0001",
+      "code": "exploration.item.acquired",
+      "coins_gp_value": 0,
+      "event_type": "item_acquired",
+      "item_ids": [
+        "silver_seal"
+      ],
+      "visibility": "player"
+    },
+    {
+      "chance": 0,
+      "code": "exploration.wandering.checked",
+      "encounter": false,
+      "event_type": "wandering_check",
+      "roll": null,
+      "visibility": "referee"
+    },
+    {
+      "code": "exploration.party.moved",
+      "event_type": "party_moved",
+      "facing": "west",
+      "visibility": "player",
+      "x": 0,
+      "y": 0
+    },
+    {
+      "code": "exploration.location.entered",
+      "event_type": "location_entered",
+      "level_number": 1,
+      "location_id": "warren",
+      "location_kind": "level",
+      "narrative": null,
+      "visibility": "player"
+    },
+    {
+      "character_id": null,
+      "code": "exploration.door.opened",
+      "direction": "east",
+      "event_type": "door",
+      "narrative": null,
+      "visibility": "referee",
+      "x": 3,
+      "y": 0
+    },
+    {
+      "code": "exploration.party.moved",
+      "event_type": "party_moved",
+      "facing": "east",
+      "visibility": "player",
+      "x": 4,
+      "y": 0
+    },
+    {
+      "code": "exploration.party.moved",
+      "event_type": "party_moved",
+      "facing": "west",
+      "visibility": "player",
+      "x": 3,
+      "y": 0
+    },
+    {
+      "character_id": null,
+      "code": "exploration.door.closed",
+      "direction": "east",
+      "event_type": "door",
+      "narrative": null,
+      "visibility": "player",
+      "x": 3,
+      "y": 0
+    },
+    {
+      "code": "exploration.party.moved",
+      "event_type": "party_moved",
+      "facing": "west",
+      "visibility": "player",
+      "x": 2,
+      "y": 0
+    },
+    {
+      "character_id": null,
+      "code": "exploration.door.opened",
+      "direction": "south",
+      "event_type": "door",
+      "narrative": "The silver seal drops into its plate and the reliquary opens.",
+      "visibility": "player",
+      "x": 2,
+      "y": 0
+    },
+    {
+      "code": "exploration.party.moved",
+      "event_type": "party_moved",
+      "facing": "south",
+      "visibility": "player",
+      "x": 2,
+      "y": 1
+    },
+    {
+      "code": "exploration.location.entered",
+      "event_type": "location_entered",
+      "level_number": 1,
+      "location_id": "reliquary",
+      "location_kind": "area",
+      "narrative": null,
+      "visibility": "player"
+    }
+  ],
+  "final_state": {
+    "clock_rounds": 180,
+    "doors": {
+      "warren:1:2,0:west": {
+        "discovered": false,
+        "open": false,
+        "opened_by_party": true,
+        "unlocked": false,
+        "wedged": false
+      },
+      "warren:1:2,1:north": {
+        "discovered": false,
+        "open": true,
+        "opened_by_party": true,
+        "unlocked": true,
+        "wedged": false
+      },
+      "warren:1:4,0:west": {
+        "discovered": false,
+        "open": false,
+        "opened_by_party": false,
+        "unlocked": false,
+        "wedged": false
+      }
+    },
+    "inventories": {
+      "character-0001": {
+        "brass_key": 1,
+        "silver_seal": 1
+      },
+      "character-0002": {},
+      "character-0003": {},
+      "character-0004": {}
+    },
+    "location": {
+      "dungeon_id": "warren",
+      "facing": "south",
+      "kind": "dungeon",
+      "level_number": 1,
+      "position": [
+        2,
+        1
+      ]
+    },
+    "odometer_thirds": 120,
+    "streams": {
+      "effects": {
+        "inc": 54463505854884268436499565044474679319,
+        "state": 234666931091731457545453861093047882301
+      },
+      "wandering": {
+        "inc": 70820713239686807082382705831793559317,
+        "state": 261639234740669132969799408202064692638
+      }
+    }
+  },
+  "master_seed": 20260805,
+  "refusals": [
+    {
+      "after_commands": 2,
+      "code": "exploration.door.gate_refused",
+      "command": {
+        "command_type": "open_door",
+        "direction": "east"
+      },
+      "params": {
+        "direction": "east",
+        "refusal": "The bronze sentinel folds its arms. Brass, it says. Brass or nothing."
+      }
+    },
+    {
+      "after_commands": 5,
+      "code": "exploration.door.locked",
+      "command": {
+        "command_type": "open_door",
+        "direction": "south"
+      },
+      "params": {}
+    },
+    {
+      "after_commands": 6,
+      "code": "exploration.door.gate_refused",
+      "command": {
+        "command_type": "open_door",
+        "direction": "south"
+      },
+      "params": {
+        "direction": "south",
+        "refusal": "The seal-plate is empty; the door does not care that the lock is undone."
+      }
+    },
+    {
+      "after_commands": 12,
+      "code": "exploration.transition.gate_refused",
+      "command": {
+        "command_type": "use_stairs"
+      },
+      "params": {
+        "refusal": "The ferryman's hand stays out, empty. No token, no crossing."
+      }
+    },
+    {
+      "after_commands": 12,
+      "code": "exploration.door.gate_refused",
+      "command": {
+        "command_type": "open_door",
+        "direction": "east"
+      },
+      "params": {
+        "direction": "east",
+        "refusal": "The sanctum door has no handle on this side."
+      }
+    },
+    {
+      "after_commands": 16,
+      "code": "exploration.move.blocked",
+      "command": {
+        "command_type": "move_party",
+        "direction": "east"
+      },
+      "params": {
+        "direction": "east"
+      }
+    },
+    {
+      "after_commands": 16,
+      "code": "exploration.door.gate_refused",
+      "command": {
+        "command_type": "open_door",
+        "direction": "east"
+      },
+      "params": {
+        "direction": "east",
+        "refusal": "The sanctum door has no handle on this side."
+      }
+    }
+  ],
+  "transcript": [
+    "The party enters dungeon warren (level 1).",
+    "The party moves to (1, 0), facing east.",
+    "character-0001 acquires brass_key, toll_token.",
+    "The door east of (1, 0) opens. The brass key turns in the sentinel's palm and the door swings wide.",
+    "The party moves to (2, 0), facing east.",
+    "The party moves to (3, 0), facing east.",
+    "The door west of (2, 0) swings shut behind the party.",
+    "character-0001 uses up toll_token.",
+    "The party enters level warren (level 2). The ferryman pockets the token and the stair opens onto the dark.",
+    "The party moves to (1, 0), facing east.",
+    "character-0001 acquires silver_seal.",
+    "Wandering check: skipped vs 0-in-6 — nothing comes.",
+    "The party moves to (0, 0), facing west.",
+    "The party enters level warren (level 1).",
+    "The door east of (3, 0) opens.",
+    "The party moves to (4, 0), facing east.",
+    "The party moves to (3, 0), facing west.",
+    "The door east of (3, 0) closes.",
+    "The party moves to (2, 0), facing west.",
+    "The door south of (2, 0) opens. The silver seal drops into its plate and the reliquary opens.",
+    "The party moves to (2, 1), facing south.",
+    "The party enters area reliquary (level 1)."
+  ]
+}
