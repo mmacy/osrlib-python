@@ -1148,9 +1148,17 @@ def _relocate(session, dungeon_id: str, level_number: int, position, facing, *, 
 
 
 def _keyed_encounter_check(session) -> list[Event]:
+    """Open the cell's keyed encounter on first entry.
+
+    Nothing ambushes a party with no one left standing: a wipe earlier in the same
+    command — the chute that killed everyone on the way down — spawns no monsters
+    and opens no encounter for the dead.
+    """
     from osrlib.crawl import encounter as encounter_module
 
     if session.encounter is not None or session.battle is not None:
+        return []
+    if not session.party.living_members():
         return []
     level = _level(session)
     area = level.area_at(_position(session))
@@ -1897,6 +1905,13 @@ def _handle_take_treasure(session, command: TakeTreasure) -> tuple[list[Rejectio
     # whoever is still standing, and a named recipient who went down hands the job
     # back to the party rather than stranding the haul on a corpse.
     carriers = [member for member in carriers if not incapacitated(member)] or session.party.living_members()
+    if not carriers:
+        # The trap took the whole party: looting needs a living looter. Nothing is
+        # instantiated, the cache stays sealed with its contents for whoever comes
+        # back for them, and only the turn the attempt cost passes.
+        turn_events, _ = _spend_turn(session)
+        events.extend(turn_events)
+        return [], events
     from osrlib.core.items import ValuableInstance
     from osrlib.core.treasure import TREASURE_STREAM, instantiate_magic_item
 
@@ -3027,9 +3042,15 @@ def _generate_lair_hoard(session, area, templates) -> list:
 
 
 def _area_treasure_check(session) -> list:
-    """Generate an area's declared treasure on first entry (the authoring surface)."""
+    """Generate an area's declared treasure on first entry (the authoring surface).
+
+    Discovery needs a living discoverer: a party with no one left standing —
+    carried into the cell by the chute that killed it — generates nothing.
+    """
     from osrlib.data import load_treasure_tables
 
+    if not session.party.living_members():
+        return []
     level = _level(session)
     area = level.area_at(_position(session))
     if area is None or area.treasure is None:

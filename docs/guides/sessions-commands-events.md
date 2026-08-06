@@ -38,7 +38,7 @@ log) without touching the kernel; see
 ## Session modes and mode gating
 
 [`SessionMode`][osrlib.crawl.commands.SessionMode] is a small, closed set: `town`,
-`exploring`, `encounter`, `battle`, and `game_over`. Every
+`exploring`, `encounter`, `battle`, `game_over`, and `victory`. Every
 [`Command`][osrlib.crawl.commands.Command] subclass declares which of these modes it's
 legal in as an `allowed_modes` class attribute — data, not a side effect, so it can be
 inspected directly:
@@ -56,19 +56,42 @@ Commands that make sense both at rest and on the move (`ReorderParty`, `LightSou
 `ResolveBattleRound` requires `battle`. A handful, like `DropItems`, span two modes on
 purpose — dropping treasure to distract pursuers works whether the party is still
 exploring or already in an encounter. Referee commands (`GrantItem`, `SetFlag`,
-`SpawnMonsters`, `PlaceParty`, `AdvanceTime`, and the rest of the session-owned
-surface) declare no restriction at all, so they run in every mode, `game_over`
-included — a referee correcting the world doesn't stop just because the party fell.
+`AwardXP`, `AdvanceTime`, and the rest of the session-owned surface) are legal in
+every mode, the two terminal ones included — a referee correcting the world
+doesn't stop just because the party fell, and an adventure's rewards can land
+after it ends. Three of them are the exception, each because it would resume play
+in a session that is over:
+[`PlaceParty`][osrlib.crawl.commands.PlaceParty] teleports the party into
+`exploring` or `town`, and `SpawnMonsters` and `SpawnNpcParty` open an encounter.
+The two spawn commands are illegal in both terminal modes; `PlaceParty` is illegal
+in `victory` alone and stays legal in `game_over`, because carrying the fallen
+party to town is the first step of the documented revival flow —
+`PlaceParty(town)` then
+[`PurchaseHealing`][osrlib.crawl.commands.PurchaseHealing] with
+`service="raise_dead"`, the clock still running on the revival window all the
+while.
 
-The modes form a loop, not a line:
+The modes form a loop with two ways out:
 [`EnterDungeon`][osrlib.crawl.commands.EnterDungeon] moves the party from `town` to the
 dungeon entrance and switches the session to `exploring`; stepping into a keyed area's
 cells, a wandering-monster check, or a referee's `SpawnMonsters` /
 `SpawnNpcParty` opens an encounter and switches to `encounter`; `EngageBattle` opens
 full combat and switches to `battle`; a battle ends back in `encounter` (the party
-broke off and a pursuit begins), in `exploring` (victory — the encounter closes and
-play continues), or, if the whole party falls, in the terminal `game_over`.
-`TravelToTown` is the return trip, switching `exploring` back to `town`.
+broke off and a pursuit begins), in `exploring` (the monsters are beaten — the
+encounter closes and play continues), or, if the whole party falls, in the terminal
+`game_over`. `TravelToTown` is the return trip, switching `exploring` back to `town`.
+
+A lost battle is not the only way a session ends. Any command whose events leave
+the party with nobody standing routes to `game_over` and reports it with the same
+[`GameOverEvent`][osrlib.crawl.events.GameOverEvent] — a save-or-die trap sprung
+by a step into the wrong room, a fall, starvation on a long delve, a poison that
+resolves under a referee's `AdvanceTime`. `victory` is the other terminal mode:
+the session that ended by finishing what it set out to do. Nothing in the library
+enters it yet — the transition arrives with the authored quest layer, when
+completing an adventure's concluding quest is what puts a session there — but its
+contract is already in force, and
+[`SessionMode.terminal`][osrlib.crawl.commands.SessionMode] answers "has this
+session ended?" for either one.
 
 ## Rejections versus exceptions
 

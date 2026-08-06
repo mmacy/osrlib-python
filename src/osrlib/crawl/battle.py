@@ -85,7 +85,6 @@ from osrlib.crawl.events import (
     BattleEndedEvent,
     BattleRoundEvent,
     BattleStartedEvent,
-    GameOverEvent,
     GroupMovedEvent,
     MonsterFledEvent,
     MonstersLeftBehindEvent,
@@ -540,14 +539,18 @@ def start_battle(session, *, party_free_round: bool = False, monsters_free_round
 
 
 def _check_ends(session, *, party_retreating: bool) -> list[Event] | None:
-    """Return the end-of-battle events when a terminal state holds, else `None`."""
+    """Return the end-of-battle events when a terminal state holds, else `None`.
+
+    Defeat ends the battle and nothing more: the session-level wipe check owns the
+    transition to `game_over` and the ending event, so a party lost to a blade
+    trap and a party lost to ogres end the same way.
+    """
     from osrlib.crawl import encounter as encounter_module
 
     if not session.party.living_members():
         session.battle = None
         session.encounter = None
-        session.mode = SessionMode.GAME_OVER
-        return [BattleEndedEvent(code="battle.ended.defeat"), GameOverEvent(reason="the party has fallen")]
+        return [BattleEndedEvent(code="battle.ended.defeat")]
     groups = session.encounter.groups
     done = all(
         group.fled or group.surrendered or not _living_monsters(session, group) or _all_routed(session, group)

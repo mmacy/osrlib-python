@@ -266,6 +266,11 @@ def start_encounter(
 def _end_of_round(session, *, party_lost_beat: bool = False) -> list[Event]:
     """Close one encounter round beat: the clock ticks and the monsters act per stance.
 
+    A round that leaves nobody standing — a poison finishing the last member as
+    the clock ticks — ends there: the monsters take no action, no reaction is
+    re-rolled, and no battle opens. A battle among corpses would resolve to
+    defeat on its first check, for a wipe that was never a battle.
+
     Args:
         session (osrlib.crawl.session.GameSession): The running session.
         party_lost_beat: True when this beat is the surprised party's lost round —
@@ -276,6 +281,8 @@ def _end_of_round(session, *, party_lost_beat: bool = False) -> list[Event]:
         return []
     state.round += 1
     events = session.advance_rounds(1)
+    if not session.party.living_members():
+        return events
     if state.monsters_skip_rounds > 0:
         state.monsters_skip_rounds -= 1
         return events
@@ -466,6 +473,10 @@ def _handle_turn_undead(session, command: TurnUndead) -> tuple[list[Rejection], 
     state.stance = ReactionResult.ATTACKS.value
     events.append(StanceChangedEvent(stance=state.stance))
     events.extend(session.advance_rounds(1))
+    if not session.party.living_members():
+        # The round that answered the symbol left nobody standing: no battle opens
+        # for the dead. The stance change stands — it happened while they lived.
+        return [], events
     events.extend(battle_module.start_battle(session))
     return [], events
 
@@ -563,13 +574,20 @@ def _group_intelligent(session, group: EncounterGroup) -> bool:
 
 
 def _pursuit_round(session, *, dropped_kind: str | None = None) -> list[Event]:
-    """Run one pursuit round: distraction, the gap update, and the terminals."""
+    """Run one pursuit round: distraction, the gap update, and the terminals.
+
+    A round that leaves nobody standing ends there: nobody is running, so no
+    distraction die is rolled, the gap goes unmeasured, and the pursuers catch
+    no one into a battle.
+    """
     from osrlib.crawl.session import ENCOUNTER_STREAM
 
     state = session.encounter
     pursuit = state.pursuit
     pursuit.round += 1
     events = session.advance_rounds(1)
+    if not session.party.living_members():
+        return events
     pursuers = [group for group in state.groups if not group.fled and not group.surrendered]
     if dropped_kind is not None:
         matches = any(_group_intelligent(session, group) == (dropped_kind == "treasure") for group in pursuers)
