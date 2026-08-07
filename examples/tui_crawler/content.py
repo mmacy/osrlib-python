@@ -1,16 +1,19 @@
-"""The authored mini-adventure: a town, a two-level barrow, and the quest MacGuffin.
+"""The authored mini-adventure: a town, a two-level barrow, and the quest that ends it.
 
 Everything here is frozen game content built from the library's authoring models:
 a keyed goblin lair whose treasure ref (`R (C)`) generates a real hoard when the
 encounter first spawns, an `unguarded: true` vault on level 2, a custom wandering
 table whose rows field Basic Adventurers (the level-2 halls are picked clean of
-monsters — rival parties prowl them instead), and the Jade Idol — a named valuable
-in a hand-placed cache — whose recovery the fetch quest in `quest.py` watches.
+monsters — rival parties prowl them instead), the Jade Idol — a bundled item in a
+hand-placed cache, so taking it reports a catalog id — and the fetch quest that
+watches for it, written as adventure data and played by the library's
+[`Interpreter`][osrlib.crawl.interpreter.Interpreter].
 """
 
-from osrlib.core.items import Coins
+from osrlib.core.items import Coins, GearTemplate
 from osrlib.core.tables import EncounterTable, EncounterTableRow, NpcPartyEncounterEntry
 from osrlib.crawl.adventure import Adventure, TownSpec
+from osrlib.crawl.commands import AwardXP, GrantCoins, SetFlag
 from osrlib.crawl.dungeon import (
     AreaSpec,
     AreaTreasureSpec,
@@ -23,14 +26,29 @@ from osrlib.crawl.dungeon import (
     KeyedMonster,
     LevelSpec,
     TransitionSpec,
-    ValuableSpec,
     WanderingSpec,
 )
+from osrlib.crawl.gates import HasItemCondition
+from osrlib.crawl.narrative import NarrativeBlock
+from osrlib.crawl.quests import ObjectiveSpec, QuestSpec, TriggerClause
+from osrlib.crawl.triggers import (
+    FIRST_LIVING_SELECTOR,
+    PARTY_SELECTOR,
+    DungeonEnteredPattern,
+    ItemAcquiredPattern,
+    TownEnteredPattern,
+)
 
+IDOL_ID = "jade-idol"
 IDOL_NAME = "Jade Idol of the Barrow King"
-IDOL_VALUE_GP = 2200
 QUEST_REWARD_GP = 200
-QUEST_BONUS_XP = 600
+QUEST_BONUS_XP = 1200
+
+# --8<-- [start:bundled-idol]
+JADE_IDOL = GearTemplate(id=IDOL_ID, name=IDOL_NAME, cost_gp=0)
+"""The MacGuffin as a bundled item: an id the shop never stocks and the temple wants
+back. Carrying it is a fact the quest can match on and a condition it can test."""
+# --8<-- [end:bundled-idol]
 
 
 def _open_row(level_y: int, width: int) -> dict[str, Edge]:
@@ -57,6 +75,51 @@ def _rival_party_table() -> EncounterTable:
 
 
 # --8<-- [end:wandering-table]
+
+
+# --8<-- [start:fetch-quest]
+def _fetch_quest() -> QuestSpec:
+    """The temple's errand, authored as data: take the idol, bring it home.
+
+    Both clauses are the trigger vocabulary the library already speaks — an
+    acquisition matched on the bundled idol's catalog id, and a homecoming narrowed
+    by a condition that asks whether the party is still carrying it. Walking back
+    empty-handed is not a return; the second objective simply does not fire.
+    """
+    return QuestSpec(
+        id="the-idol",
+        name="The Jade Idol",
+        activation=TriggerClause(pattern=DungeonEnteredPattern(dungeon_id="barrow")),
+        objectives=(
+            ObjectiveSpec(
+                id="recover-idol",
+                when=TriggerClause(pattern=ItemAcquiredPattern(item_id=IDOL_ID)),
+                narrative=NarrativeBlock(progress="The idol comes up out of the hollow, cold as well-water."),
+            ),
+            ObjectiveSpec(
+                id="return-home",
+                when=TriggerClause(
+                    pattern=TownEnteredPattern(),
+                    conditions=(HasItemCondition(item_id=IDOL_ID),),
+                ),
+                narrative=NarrativeBlock(progress="Threshold's gate shuts behind you with the idol inside it."),
+            ),
+        ),
+        rewards=(
+            GrantCoins(character_id=FIRST_LIVING_SELECTOR, coins=Coins(gp=QUEST_REWARD_GP)),
+            AwardXP(character_id=PARTY_SELECTOR, amount=QUEST_BONUS_XP),
+            SetFlag(key="quest.idol", value="recovered"),
+        ),
+        concludes_adventure=True,
+        narrative=NarrativeBlock(
+            offer="The temple wants the Jade Idol off the barrow king's altar and back on its own.",
+            completion="The almoner counts out the reward without looking up. The idol is home.",
+            speaker="the temple almoner",
+        ),
+    )
+
+
+# --8<-- [end:fetch-quest]
 
 
 def build_adventure() -> Adventure:
@@ -88,9 +151,7 @@ def build_adventure() -> Adventure:
                         description="The idol rests in a hollow under the altar stone.",
                         cell=(4, 0),
                         coins=Coins(gp=50),
-                        valuables=(
-                            ValuableSpec(kind="jewellery", name=IDOL_NAME, value_gp=IDOL_VALUE_GP, weight_coins=10),
-                        ),
+                        item_ids=(IDOL_ID,),
                     ),
                 ),
             ),
@@ -107,6 +168,12 @@ def build_adventure() -> Adventure:
             ),
         ),
         wandering=WanderingSpec(chance_in_six=0),
+        # --8<-- [start:level-guidance]
+        guidance=(
+            "Grave goods, not treasure: the barrow king was buried, not hoarded. "
+            "Keep the goblins squalid and the shrine quiet."
+        ),
+        # --8<-- [end:level-guidance]
     )
     level_two = LevelSpec(
         number=2,
@@ -133,6 +200,7 @@ def build_adventure() -> Adventure:
             ),
         ),
         wandering=WanderingSpec(chance_in_six=6, interval_turns=1, table=_rival_party_table()),
+        guidance="Somebody else is always down here first. Rivals are rude, not evil.",
     )
     return Adventure(
         name="The Barrow of the Forgotten King",
@@ -145,4 +213,6 @@ def build_adventure() -> Adventure:
             travel_turns={"barrow": 2},
         ),
         dungeons=(DungeonSpec(id="barrow", name="The Barrow", levels=(level_one, level_two)),),
+        items=(JADE_IDOL,),
+        quests=(_fetch_quest(),),
     )

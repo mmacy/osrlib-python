@@ -11,12 +11,14 @@ from pathlib import Path
 
 from osrlib.core.character import CHARACTER_CREATION_STREAM
 from osrlib.core.events import Visibility
+from osrlib.core.items import Coins
 from osrlib.core.ruleset import Ruleset
 from osrlib.crawl.commands import (
     BattleDeclaration,
     EngageBattle,
     EnterDungeon,
     Evade,
+    GiveItems,
     MoveParty,
     Parley,
     PurchaseEquipment,
@@ -30,12 +32,12 @@ from osrlib.crawl.commands import (
     UseStairs,
     Wait,
 )
+from osrlib.crawl.interpreter import Interpreter
 from osrlib.crawl.session import GameSession
 from osrlib.messages import format_message
 
 from .content import build_adventure
 from .create import interactive_party, scripted_party
-from .quest import FetchQuestListener
 
 _DIRECTIONS = {"n": "north", "s": "south", "e": "east", "w": "west"}
 
@@ -45,7 +47,8 @@ def _run(session, command):
     """Execute one command and print every player-visible event it logged.
 
     Printing the event-log delta (rather than the result's events) shows the
-    quest listener's reactions too: its nested commands append to the same log.
+    interpreter's reactions too: the commands it issues for the adventure's
+    triggers and quests append to the same log.
     """
     mark = len(session.event_log)
     result = session.execute(command)
@@ -185,6 +188,10 @@ def _dispatch(session, line: str) -> bool:
             command = SellTreasure(item_ids=instance_ids)
         else:
             command = SellTreasure(item_ids=tuple(args))
+    elif verb == "give" and len(args) >= 3:
+        # The distribute-the-load move: a purse full of sale coin weighs a coin
+        # apiece, and the party moves at its slowest member's rate.
+        command = GiveItems(character_id=args[0], recipient_id=args[1], coins=Coins(gp=int(args[2])))
     elif verb == "heal" and len(args) >= 2:
         command = PurchaseHealing.model_validate({"character_id": args[0], "service": args[1]})
     elif verb == "use" and args:
@@ -217,11 +224,11 @@ def main(argv: list[str] | None = None) -> int:
         party = scripted_party(creation_stream, ruleset)
     else:
         party = interactive_party(creation_stream, ruleset)
-    # --8<-- [start:register-quest-listener]
+    # --8<-- [start:register-interpreter]
     session = GameSession.new(party, adventure, seed=arguments.seed, ruleset=ruleset)
     session.streams.restore_states(streams.export_states())
-    session.register_listener(FetchQuestListener(session))
-    # --8<-- [end:register-quest-listener]
+    session.register_listener(Interpreter(session))
+    # --8<-- [end:register-interpreter]
 
     print(f"— {adventure.name} —")
     print(adventure.description)

@@ -553,6 +553,14 @@ class LevelSpec(BaseModel):
     transitions: tuple[TransitionSpec, ...] = ()
     wandering: WanderingSpec = WanderingSpec()
     entrance: Position | None = None
+    guidance: str = ""
+    """Ambient steering for a narrating front end while the party is on this level —
+    the tone of the place, what it wants said, what it never says.
+
+    Inert authored data: the engine reads it nowhere, no event carries it, and no
+    rule turns on it. A narrator reaches it through the adventure document, which is
+    referee-side by construction — the player view ships no level internals — so it
+    is trusted like an area's description prose and shown to nobody verbatim."""
 
     def in_bounds(self, position: Position) -> bool:
         """Return whether a cell lies on this level's grid.

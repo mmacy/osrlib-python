@@ -1,6 +1,9 @@
 # The milestone playthrough: creation and outfitting happen before the loop
-# (the scripted party buys its kit from starting gold); this transcript is the
-# delve, the quest, the return, and the award.
+# (the scripted party buys its kit from starting gold). Two trips, because the
+# quest ends the adventure the moment the idol comes home: the first trip is the
+# delve and the town business, the second is the errand itself.
+#
+# Trip one: the goblins, their lair hoard, the rivals in the halls below.
 enter
 move e
 move e
@@ -8,7 +11,6 @@ fight
 take cache
 move e
 move e
-take idol_shrine
 stairs
 move e
 move e
@@ -24,6 +26,25 @@ move w
 move w
 move w
 town
+# Town, while there is still an adventure to come back from: sell the haul, buy
+# the healing, bank the first award.
 sell all
 heal character-0001 cure_light_wounds
+# Coin weighs a coin apiece, and the party moves at its slowest member's rate, so
+# the seller's purse is spread before anybody walks anywhere.
+give character-0001 character-0002 550
+give character-0001 character-0004 550
+status
+# Trip two: the idol, and the walk home that ends it.
+enter
+move e
+move e
+move e
+move e
+take idol_shrine
+move w
+move w
+move w
+move w
+town
 status

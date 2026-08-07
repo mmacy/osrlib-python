@@ -537,7 +537,7 @@ def build_portcullis_adventure() -> Adventure:
     )
 
 
-BARROW_IDOL = GearTemplate(id="votive_idol", name="Votive idol of jade", cost_gp=0, weight_coins=40)
+BARROW_IDOL = GearTemplate(id="votive_idol", name="Votive idol of jade", cost_gp=0)
 """The barrow's MacGuffin, bundled by the adventure so taking it reports a catalog id
 the quest's objective can match."""
 

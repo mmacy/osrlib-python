@@ -8,8 +8,9 @@ carry it without forking the library: **listeners**, which watch every command's
 react by executing more commands, and **flags**, a small piece of session state your game reads
 and writes directly.
 
-This page works through both mechanics as the code implements them, then retells the TUI
-crawler's fetch quest — the worked example both mechanisms exist for. [The complete program](#the-complete-program)
+This page works through both mechanics as the code implements them, then works a fetch quest as a
+game-owned listener — the example both mechanisms exist for, and the shape the library's own
+interpreter takes when the quest is adventure data instead. [The complete program](#the-complete-program)
 at the end is a self-contained, runnable illustration you can read start to finish.
 
 ## Listeners: reacting to committed events
@@ -126,10 +127,10 @@ remembering things itself, the discipline this page opened with.
 The optional `source` stamp (see
 [Sessions, commands, and events](sessions-commands-events.md)) is what ties the vocabulary
 together: a listener that stamps the commands it issues with its own quest or trigger id leaves a
-log that answers *why* every entry is there. The library's own trigger interpreter is built on
+log that answers *why* every entry is there. The library's own interpreter is built on
 exactly this surface, and a game's own listener drives it the same way.
 
-## The trigger interpreter: this pattern, shipped
+## The interpreter: this pattern, shipped
 
 [`Interpreter`][osrlib.crawl.interpreter.Interpreter] is a listener like any other, and it is the
 worked reference for everything above. Register one, once, after the session exists — and again
@@ -140,9 +141,10 @@ session.register_listener(Interpreter(session))
 ```
 
 From then on it watches every command's events, matches them against the adventure's authored
-[triggers](../getting-started/building-an-adventure.md#wiring-the-dungeon-with-triggers), and
-reacts the only way a listener may: by executing referee commands, each stamped
-`source="trigger:{id}"`. Three properties are worth copying into your own listeners:
+[triggers](../getting-started/building-an-adventure.md#wiring-the-dungeon-with-triggers) and its
+[`QuestSpec`][osrlib.crawl.quests.QuestSpec]s, and reacts the only way a listener may: by
+executing referee commands, each stamped `source="trigger:{id}"` or `source="quest:{id}"`. Three
+properties are worth copying into your own listeners:
 
 - **It returns no events.** Every event it causes was logged by a command it executed, and the
   result envelope picks those up from the log. `handle` returns `[], {}` unconditionally.
@@ -157,43 +159,71 @@ reacts the only way a listener may: by executing referee commands, each stamped
   trigger finds it already fired; re-entrant self-invocation is how one trigger's consequences fire
   the next, and a depth bound rather than a latch is what stops a cascade.
 
-## The fetch quest, worked
+## A fetch quest, worked
 
-The TUI crawler (see [the complete front end](../front-ends/tui-crawler.md)) hides a named
-valuable, the Jade Idol, in a hand-placed treasure cache and tracks its recovery with a listener
-registered once, right after the session is created:
-
-```{.python .no-run}
-session = GameSession.new(party, adventure, seed=arguments.seed, ruleset=ruleset)
-session.register_listener(FetchQuestListener(session))
-```
-
-Here is the listener in full, from `examples/tui_crawler/quest.py`:
+Most fetch quests belong in the adventure document, where
+[`QuestSpec`][osrlib.crawl.quests.QuestSpec] says what to fetch and the interpreter above plays
+it — the TUI crawler's Jade Idol is authored exactly that way (see
+[the complete front end](../front-ends/tui-crawler.md)). But the same errand is a fair worked
+example of the game-owned pattern, because everything a quest needs is on this page's surface: a
+listener that watches events, keeps its own objective state, and acts through commands.
 
 ```{.python .no-run}
---8<-- "examples/tui_crawler/quest.py:fetch-quest-listener"
+class FetchQuestListener:
+    """Recover an item and bring it home — a quest tracker as a listener."""
+
+    key = "fetch_quest"
+
+    def __init__(self, session) -> None:
+        self._session = session
+        self._reacting = False
+
+    def _carrier(self):
+        for member in self._session.party.members:
+            if member.inventory.carried_item("jade-idol") is not None:
+                return member
+        return None
+
+    def handle(self, events: Sequence[Event], state: dict) -> tuple[list[Event], dict]:
+        if self._reacting:
+            return [], state
+        state = dict(state)
+        acquired = any(isinstance(event, ItemAcquiredEvent) for event in events)
+        if acquired and not state.get("recovered") and self._carrier() is not None:
+            state["recovered"] = True
+        home = any(
+            isinstance(event, LocationEnteredEvent) and event.location_kind == "town" for event in events
+        )
+        if home and state.get("recovered") and not state.get("completed"):
+            state["completed"] = True
+            self._reacting = True
+            try:
+                self._session.execute(SetFlag(key="quest.idol", value="recovered"))
+                for member in self._session.party.living_members():
+                    self._session.execute(AwardXP(character_id=member.id, amount=1200))
+            finally:
+                self._reacting = False
+        return [], state
 ```
 
 A few things worth calling out:
 
-- `state["reward_granted"]` and `state["completed"]` are the quest's own objective tracking, kept
+- `state["recovered"]` and `state["completed"]` are the quest's own objective tracking, kept
   entirely inside `session.listener_state["fetch_quest"]`. The session has no idea this is a
   quest; it just stores whatever dict `handle` hands back.
-- The reward fires the instant an `ItemAcquiredEvent` shows up in `events` — whenever the idol
-  lands in a party member's pack, not when the party gets back to town. That timing is
-  deliberate: under the default `on_return` XP timing (see [Ruleset options](ruleset-options.md)),
-  the adventure's award is the delta between the party's treasure valuation at the moment of
-  return and at departure. Coin granted while still in the dungeon counts toward that delta;
-  coin granted at the town-return event would arrive after the award already fired.
-- `self._reacting` is the re-entrancy guard from the previous section, earned honestly:
-  `GrantCoins`'s handler emits its own `ItemAcquiredEvent` (a coin grant is an acquisition too),
-  which matches this same listener's trigger condition. Without the guard, the nested `execute`
-  call would run `handle` again while `session.listener_state["fetch_quest"]` still held its
-  pre-reward value, see an apparently ungranted reward, and call `GrantCoins` again — and again,
-  without ever returning.
+- `self._reacting` is the re-entrancy guard from the previous section, earned honestly: the
+  commands this listener issues emit events of their own, and `AwardXP` on the last member would
+  otherwise re-enter `handle` while the state slot still held its pre-completion value.
 - The `handle` method returns `[], state` unconditionally. Every event this listener causes
   travels through `self._session.execute(...)`, which already logs it; there is nothing left for
   the returned-events list to carry.
+- Nothing here reaches into party state to *change* it. The flag and the XP both land as ordinary
+  commands, which is why a save, a load, and a replay all agree about what happened.
+
+The interpreter does all of this for you when the quest is adventure data instead — the objective
+state lives in `session.quests`, the reward commands carry a `source="quest:{id}"` stamp, and the
+listener slot stays empty. Reach for a listener like the one above when a game's own systems own
+the objective, and for [`QuestSpec`][osrlib.crawl.quests.QuestSpec] when the adventure does.
 
 ## The complete program
 

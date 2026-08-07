@@ -124,45 +124,61 @@ magic-user, kitted out from its own starting gold — is what the non-interactiv
 --8<-- "examples/tui_crawler/create.py:scripted-party-fn"
 ```
 
-## The fetch quest: a listener, not a library change
+## The fetch quest: authored data, not front-end code
 
-The barrow's hook — "the temple pays 200 gp for the Jade Idol's return" — is tracked
-entirely in the example's own code. `quest.py` defines a listener and `__main__.py`
-registers it on the session right after creating it, alongside the housekeeping that
-lines up the session's RNG streams with the ones character creation already drew
-from:
-
-```{.python .no-run}
---8<-- "examples/tui_crawler/__main__.py:register-quest-listener"
-```
-
-A registered [`Listener`][osrlib.crawl.session.Listener] runs after every command,
-watching the events that command produced. `FetchQuestListener` watches for an
-[`ItemAcquiredEvent`][osrlib.crawl.events.ItemAcquiredEvent] naming the idol and a
-[`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] back in town. It
-never mutates session state itself — every effect it has goes through the same
-commands any front end could issue, which is why replays and saves stay honest:
+The barrow's hook — "the temple pays 200 gp for the Jade Idol's return" — is part of
+the adventure, not part of the crawler. The idol is a bundled
+[`GearTemplate`][osrlib.core.items.GearTemplate] the shop never stocks, dropped into
+the shrine cache by id, so picking it up reports a catalog id anything can match on:
 
 ```{.python .no-run}
---8<-- "examples/tui_crawler/quest.py:fetch-quest-listener"
+--8<-- "examples/tui_crawler/content.py:bundled-idol"
 ```
 
-The reward is granted the moment the idol is picked up, in the dungeon — not on the
-later town-return event — because that ordering lets the end-of-adventure treasure
-award count the coin. A town-return grant would land one event too late to be
-counted. Watching the transcript, the reward shows up as a second acquisition line
-immediately after the idol itself:
+The quest itself is a [`QuestSpec`][osrlib.crawl.quests.QuestSpec] in the same file —
+an activation clause, two objectives, three rewards, and the marker that says
+finishing it finishes the adventure:
+
+```{.python .no-run}
+--8<-- "examples/tui_crawler/content.py:fetch-quest"
+```
+
+Nothing in the crawler tracks any of it. `__main__.py` registers the library's
+[`Interpreter`][osrlib.crawl.interpreter.Interpreter] on the session right after
+creating it, alongside the housekeeping that lines up the session's RNG streams with
+the ones character creation already drew from:
+
+```{.python .no-run}
+--8<-- "examples/tui_crawler/__main__.py:register-interpreter"
+```
+
+The interpreter is an ordinary [`Listener`][osrlib.crawl.session.Listener]: it runs
+after every command, matches the events against the adventure's triggers and quests,
+and acts the only way anything outside the engine may — by executing referee
+commands, each stamped with the quest it acted for. The transcript shows the beats as
+they land, rendered from typed events by the same formatter as everything else:
 
 ```text
 > take idol_shrine
-  character-0001 acquires valuable-0005 and 50 gp in coin.
+  character-0001 acquires jade-idol and 50 gp in coin.
+  Quest the-idol: objective recover-idol is done. The idol comes up out of the hollow, cold as well-water.
+> town
+  The party enters town town.
+  The adventure ends: 0 XP from monsters and 50 XP from treasure — 12 XP to each of 4 survivor(s).
+  Quest the-idol: objective return-home is done. Threshold's gate shuts behind you with the idol inside it.
+  Quest complete: The Jade Idol. The almoner counts out the reward without looking up. The idol is home.
+  The adventure is over: the-idol is finished.
   character-0001 acquires 200 gp in coin.
 ```
 
-On the walk back to town, the listener sets a flag and awards each survivor bonus
-experience — again through ordinary commands, not by reaching into the party
-directly. [Listeners and flags](../guides/listeners-and-flags.md) covers the listener
-contract and the flag store this pattern relies on in full.
+The homecoming objective is a `town_entered` pattern narrowed by a `has_item`
+condition, so walking back empty-handed is not a return — which is exactly why the
+milestone script makes two trips, doing its selling and healing on the first one.
+The second return ends the adventure in `victory`, and the temple pays afterwards:
+a concluded session takes referee commands but no play.
+[Listeners and flags](../guides/listeners-and-flags.md) covers the listener contract
+the interpreter follows, and [Building an adventure](../getting-started/building-an-adventure.md)
+covers authoring quests of your own.
 
 ## Where next
 

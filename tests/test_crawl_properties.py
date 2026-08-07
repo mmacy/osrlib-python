@@ -56,6 +56,7 @@ DIRECTIONS = list(Direction)
 VIGIL_ID = "the-vigil"
 VIGIL_NAME = "A Vigil Nobody Asked For"
 QUEST_GUIDANCE = "Steer the table toward the barrow road."
+LEVEL_GUIDANCE = "Play the delve as a place somebody else already stripped."
 
 
 def leaky_quest_adventure():
@@ -74,7 +75,13 @@ def leaky_quest_adventure():
         activation=TriggerClause(pattern=TownEnteredPattern()),
         objectives=(ObjectiveSpec(id="keep-watch", when=TriggerClause(pattern=TownEnteredPattern())),),
     )
-    return build_adventure().model_copy(update={"quests": (fetch, vigil)})
+    adventure = build_adventure()
+    # A level that steers a narrator: authored data the engine reads nowhere and the
+    # player view must never carry, whatever the fuzz walks over.
+    delve = adventure.dungeons[0]
+    levels = (delve.levels[0].model_copy(update={"guidance": LEVEL_GUIDANCE}), *delve.levels[1:])
+    dungeons = (delve.model_copy(update={"levels": levels}),)
+    return adventure.model_copy(update={"quests": (fetch, vigil), "dungeons": dungeons})
 
 
 def plant_magic_items(session) -> None:
@@ -448,6 +455,7 @@ def test_the_player_view_never_leaks(seed, commands):
         "the quest list carries the offer beat alone; the completion beat's home is the journal"
     )
     assert QUEST_GUIDANCE not in blob, "steering for a narrator is never shown to the table"
+    assert LEVEL_GUIDANCE not in blob, "a level's ambient guidance is referee-side by construction"
     # Only active quests, only revealed objectives — whatever the fuzz did to the block.
     assert {entry["id"] for entry in parsed["quests"]} == {
         quest_id for quest_id, state in session.quests.items() if state.status == "active"
