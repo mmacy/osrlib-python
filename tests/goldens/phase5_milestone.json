@@ -984,6 +984,7 @@
   "event_log": [
     {
       "code": "exploration.location.entered",
+      "dungeon_id": null,
       "event_type": "location_entered",
       "level_number": 1,
       "location_id": "barrow",
@@ -1009,6 +1010,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "dungeon_id": "barrow",
       "event_type": "location_entered",
       "level_number": 1,
       "location_id": "guard_room",
@@ -1685,6 +1687,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "dungeon_id": "barrow",
       "event_type": "location_entered",
       "level_number": 1,
       "location_id": "shrine",
@@ -1744,6 +1747,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "dungeon_id": null,
       "event_type": "location_entered",
       "level_number": 2,
       "location_id": "barrow",
@@ -1769,6 +1773,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "dungeon_id": "barrow",
       "event_type": "location_entered",
       "level_number": 2,
       "location_id": "vault",
@@ -2978,6 +2983,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "dungeon_id": null,
       "event_type": "location_entered",
       "level_number": 1,
       "location_id": "barrow",
@@ -2987,6 +2993,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "dungeon_id": "barrow",
       "event_type": "location_entered",
       "level_number": 1,
       "location_id": "shrine",
@@ -3004,6 +3011,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "dungeon_id": "barrow",
       "event_type": "location_entered",
       "level_number": 1,
       "location_id": "guard_room",
@@ -3037,6 +3045,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "dungeon_id": null,
       "event_type": "location_entered",
       "level_number": null,
       "location_id": "town",

@@ -131,6 +131,7 @@
   "event_log": [
     {
       "code": "exploration.location.entered",
+      "dungeon_id": null,
       "event_type": "location_entered",
       "level_number": 1,
       "location_id": "warren",
@@ -213,6 +214,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "dungeon_id": null,
       "event_type": "location_entered",
       "level_number": 2,
       "location_id": "warren",
@@ -256,6 +258,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "dungeon_id": null,
       "event_type": "location_entered",
       "level_number": 1,
       "location_id": "warren",
@@ -327,6 +330,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "dungeon_id": "warren",
       "event_type": "location_entered",
       "level_number": 1,
       "location_id": "reliquary",
