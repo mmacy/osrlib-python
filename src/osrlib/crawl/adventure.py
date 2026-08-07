@@ -25,8 +25,19 @@ from osrlib.core.items import (
     WeaponTemplate,
 )
 from osrlib.core.monsters import MonsterCatalog, MonsterTemplate
-from osrlib.crawl.dungeon import DungeonSpec, FeatureSpec, LevelSpec
-from osrlib.crawl.gates import GateSpec, HasItemCondition
+from osrlib.crawl.commands import AwardXP, GrantCoins, GrantItem, PlaceParty, SetDoorState, SpawnMonsters
+from osrlib.crawl.dungeon import DungeonSpec, EdgeKind, FeatureSpec, LevelSpec
+from osrlib.crawl.gates import ConditionSpec, GateSpec, HasItemCondition
+from osrlib.crawl.triggers import (
+    FIRST_LIVING_SELECTOR,
+    PARTY_SELECTOR,
+    AreaEnteredPattern,
+    DungeonEnteredPattern,
+    ItemAcquiredPattern,
+    LevelEnteredPattern,
+    MonsterDefeatedPattern,
+    TriggerSpec,
+)
 from osrlib.data import load_magic_items
 from osrlib.errors import ContentValidationError
 
@@ -75,6 +86,11 @@ class Adventure(BaseModel):
     catalog, or each other — one item id names one thing per session. The town
     shop is the one place they do not reach: it stocks the shipped equipment
     lists.
+
+    `triggers` are the adventure's authored
+    [`TriggerSpec`][osrlib.crawl.triggers.TriggerSpec]s, and the tuple's order *is*
+    document order: triggers matching one event fire in it. An adventure that
+    authors none plays exactly as one that never could.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -86,6 +102,7 @@ class Adventure(BaseModel):
     dungeons: tuple[DungeonSpec, ...] = Field(min_length=1)
     monsters: tuple[MonsterTemplate, ...] = ()
     items: tuple[ItemTemplate, ...] = ()
+    triggers: tuple[TriggerSpec, ...] = ()
 
     @model_validator(mode="after")
     def _dungeon_ids_unique(self) -> Adventure:
@@ -201,6 +218,30 @@ def _validate_feature(
             errors.append(f"{owner}: feature {feature.id!r} references unknown magic item {item_id!r}")
 
 
+def _dangling_condition_item(
+    condition: ConditionSpec, equipment: EquipmentCatalog, magic: MagicItemCatalog
+) -> str | None:
+    """The condition's item id when it names nothing that can ever be carried, else `None`.
+
+    Equipment (base ∪ bundled) or magic item: exactly the union `has_item`
+    evaluates against, so an id neither catalog holds can never be satisfied and is
+    a dangling reference. Every other condition kind answers `None` — flag keys and
+    effect kinds are open domains and get no check, because a flag nobody writes is
+    authoring-tool territory, not a broken document. Gates and bare trigger
+    conditions both ask here, so the two can never disagree about the domain.
+    """
+    if not isinstance(condition, HasItemCondition):
+        return None
+    try:
+        equipment.get(condition.item_id)
+    except ValueError:
+        try:
+            magic.get(condition.item_id)
+        except ValueError:
+            return condition.item_id
+    return None
+
+
 def _validate_gate(
     gate: GateSpec | None,
     owner: str,
@@ -209,23 +250,102 @@ def _validate_gate(
     magic: MagicItemCatalog,
     errors: list[str],
 ) -> None:
-    """Resolve a gate's `has_item` id against the item domain the condition matches.
-
-    Equipment (base ∪ bundled) or magic item: exactly the union `has_item`
-    evaluates against, so an id neither catalog holds can never be satisfied and is
-    a dangling reference. Flag keys and effect kinds are open domains and get no
-    check — a flag nobody writes is authoring-tool territory, not a broken document.
-    """
-    if gate is None or not isinstance(gate.condition, HasItemCondition):
+    """Resolve a gate's `has_item` id against the item domain the condition matches."""
+    if gate is None:
         return
-    item_id = gate.condition.item_id
+    dangling = _dangling_condition_item(gate.condition, equipment, magic)
+    if dangling is not None:
+        errors.append(f"{owner}: {site} gate references unknown item {dangling!r}")
+
+
+def _resolve_level(adventure: Adventure, dungeon_id: str, level_number: int) -> LevelSpec | None:
+    """The level a dungeon id and level number name, or `None` when either dangles."""
     try:
-        equipment.get(item_id)
+        return adventure.dungeon(dungeon_id).level(level_number)
     except ValueError:
+        return None
+
+
+def _validate_trigger(
+    trigger: TriggerSpec,
+    adventure: Adventure,
+    monsters: MonsterCatalog,
+    equipment: EquipmentCatalog,
+    magic: MagicItemCatalog,
+    errors: list[str],
+) -> None:
+    """Resolve one trigger's pattern, condition, and consequence references.
+
+    Flag keys stay unchecked at every site — the flag namespace is open by design,
+    and a key nobody writes is an authoring lint rather than a broken document.
+    """
+    owner = f"trigger {trigger.id!r}"
+    pattern = trigger.when
+    if isinstance(pattern, AreaEnteredPattern | LevelEnteredPattern):
+        level = _resolve_level(adventure, pattern.dungeon_id, pattern.level_number)
+        if level is None:
+            errors.append(f"{owner}: pattern references unknown {pattern.dungeon_id!r} level {pattern.level_number}")
+        elif isinstance(pattern, AreaEnteredPattern) and not any(area.id == pattern.area_id for area in level.areas):
+            errors.append(
+                f"{owner}: pattern references unknown area {pattern.area_id!r} "
+                f"on {pattern.dungeon_id!r} level {pattern.level_number}"
+            )
+    elif isinstance(pattern, DungeonEnteredPattern):
         try:
-            magic.get(item_id)
+            adventure.dungeon(pattern.dungeon_id)
         except ValueError:
-            errors.append(f"{owner}: {site} gate references unknown item {item_id!r}")
+            errors.append(f"{owner}: pattern references unknown dungeon {pattern.dungeon_id!r}")
+    elif isinstance(pattern, ItemAcquiredPattern):
+        if _dangling_condition_item(HasItemCondition(item_id=pattern.item_id), equipment, magic) is not None:
+            errors.append(f"{owner}: pattern references unknown item {pattern.item_id!r}")
+    elif isinstance(pattern, MonsterDefeatedPattern):
+        try:
+            monsters.get(pattern.template_id)
+        except ValueError:
+            errors.append(f"{owner}: pattern references unknown monster {pattern.template_id!r}")
+    for condition in trigger.conditions:
+        dangling = _dangling_condition_item(condition, equipment, magic)
+        if dangling is not None:
+            errors.append(f"{owner}: condition references unknown item {dangling!r}")
+    for position, consequence in enumerate(trigger.consequences):
+        site = f"{owner}: consequence {position}"
+        if isinstance(consequence, GrantItem | GrantCoins | AwardXP):
+            # Character ids are allocated per session, so a document can never name
+            # one: authored consequences address the party through the selectors.
+            if consequence.character_id not in (PARTY_SELECTOR, FIRST_LIVING_SELECTOR):
+                errors.append(
+                    f"{site} names character {consequence.character_id!r}; an authored consequence "
+                    f"addresses {PARTY_SELECTOR!r} or {FIRST_LIVING_SELECTOR!r}"
+                )
+        if isinstance(consequence, GrantItem):
+            try:
+                equipment.get(consequence.item_id)
+            except ValueError:
+                errors.append(f"{site} references unknown item {consequence.item_id!r}")
+        elif isinstance(consequence, SpawnMonsters):
+            try:
+                monsters.get(consequence.template_id)
+            except ValueError:
+                errors.append(f"{site} references unknown monster {consequence.template_id!r}")
+        elif isinstance(consequence, SetDoorState):
+            level = _resolve_level(adventure, consequence.dungeon_id, consequence.level_number)
+            if level is None:
+                errors.append(f"{site} references unknown {consequence.dungeon_id!r} level {consequence.level_number}")
+            elif level.edge((consequence.x, consequence.y), consequence.direction).kind is not EdgeKind.DOOR:
+                errors.append(
+                    f"{site} names no door at ({consequence.x}, {consequence.y}) {consequence.direction.value}"
+                )
+        elif isinstance(consequence, PlaceParty):
+            # A town placement names the adventure's one town and needs no check; the
+            # location model guarantees a dungeon location's fields travel together.
+            location = consequence.location
+            if location.dungeon_id is None or location.level_number is None:
+                continue
+            level = _resolve_level(adventure, location.dungeon_id, location.level_number)
+            if level is None:
+                errors.append(f"{site} references unknown {location.dungeon_id!r} level {location.level_number}")
+            elif location.position is not None and not level.in_bounds(location.position):
+                errors.append(f"{site} places the party out of bounds at {location.position}")
 
 
 def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment: EquipmentCatalog) -> None:
@@ -244,6 +364,14 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
     effective equipment catalog or the magic-item catalog, transition destinations
     resolving to real cells, town travel entries naming real dungeons, and an
     entrance existing somewhere in every dungeon.
+
+    Then, per trigger: ids unique across the adventure; the pattern's area, level,
+    dungeon, item, and monster references resolving; the same item domain for
+    `has_item` conditions; and per consequence, granted item ids, spawned template
+    ids, a door edge at the cell a door write names, a placement landing on the
+    grid, and the rule that a consequence addressing a character does so through a
+    party selector — a session allocates character ids, so a document naming one is
+    naming something that cannot exist when it is read.
 
     Args:
         adventure: The adventure to validate.
@@ -340,5 +468,11 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
                     continue
                 if not target.in_bounds(transition.to_position):
                     errors.append(f"{owner}: transition target cell {transition.to_position} is out of bounds")
+    seen_triggers: set[str] = set()
+    for trigger in adventure.triggers:
+        if trigger.id in seen_triggers:
+            errors.append(f"trigger {trigger.id!r}: id is not unique")
+        seen_triggers.add(trigger.id)
+        _validate_trigger(trigger, adventure, effective, effective_items, magic, errors)
     if errors:
         raise ContentValidationError("adventure validation failed:\n" + "\n".join(errors))

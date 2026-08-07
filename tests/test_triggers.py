@@ -1,19 +1,23 @@
-"""The trigger document surface: patterns and the spec's parse rules.
+"""The trigger document surface: patterns, the spec's parse rules, and validation.
 
 `TestPatternModels` and `TestTriggerSpec` pin what an authored document may say —
 the discriminated pattern union, the consequence sub-union, and the two things a
 trigger may never carry (a consuming condition, a hand-written `source`).
-`TestFlagValuesEqual` pins the shared strict comparison.
+`TestFlagValuesEqual` pins the shared strict comparison. `TestTriggerValidation`
+walks `validate_adventure`'s trigger checks, reference class by reference class.
 """
 
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
+from crawl_fixtures import build_adventure
+from osrlib.crawl.adventure import Adventure
 from osrlib.crawl.commands import (
     CONSEQUENCE_COMMAND_CLASSES,
     AddJournalEntry,
     AdvanceTime,
     ConsequenceCommand,
+    GrantItem,
     MoveParty,
     SetDoorState,
     SetFlag,
@@ -188,3 +192,179 @@ class TestFlagValuesEqual:
         condition = FlagEqualsCondition(key="lever", value=1)
         held = condition_holds(condition, members=[], flags={"lever": True}, ledger=EffectsLedger())
         assert held is flag_values_equal(True, 1) is False
+
+
+def with_triggers(*triggers: TriggerSpec) -> Adventure:
+    """The shared test delve with authored triggers bolted on."""
+    return build_adventure(wandering_chance=0).model_copy(update={"triggers": triggers})
+
+
+class TestTriggerValidation:
+    def validate(self, adventure: Adventure) -> str:
+        from osrlib.crawl.adventure import validate_adventure
+        from osrlib.data import load_equipment, load_monsters
+        from osrlib.errors import ContentValidationError
+
+        with pytest.raises(ContentValidationError) as raised:
+            validate_adventure(adventure, load_monsters(), load_equipment())
+        return str(raised.value)
+
+    def test_a_clean_document_with_every_pattern_kind_validates(self):
+        from osrlib.crawl.adventure import validate_adventure
+        from osrlib.data import load_equipment, load_monsters
+
+        triggers = (
+            TriggerSpec(id="area", when=AreaEnteredPattern(dungeon_id="delve", level_number=1, area_id="room_a")),
+            TriggerSpec(id="level", when=LevelEnteredPattern(dungeon_id="delve", level_number=2)),
+            TriggerSpec(id="dungeon", when=DungeonEnteredPattern(dungeon_id="delve")),
+            TriggerSpec(id="town", when=TownEnteredPattern()),
+            TriggerSpec(id="item", when=ItemAcquiredPattern(item_id="holy_water")),
+            TriggerSpec(id="magic", when=ItemAcquiredPattern(item_id="potion_of_healing")),
+            TriggerSpec(id="monster", when=MonsterDefeatedPattern(template_id="goblin")),
+            TriggerSpec(id="flag", when=FlagSetPattern(key="anything.at.all")),
+        )
+        validate_adventure(with_triggers(*triggers), load_monsters(), load_equipment())
+
+    def test_duplicate_trigger_ids_are_caught(self):
+        adventure = with_triggers(
+            TriggerSpec(id="twice", when=TownEnteredPattern()),
+            TriggerSpec(id="twice", when=TownEnteredPattern()),
+        )
+        assert "trigger 'twice': id is not unique" in self.validate(adventure)
+
+    def test_a_dangling_area_reference_is_caught(self):
+        adventure = with_triggers(
+            TriggerSpec(id="ghost", when=AreaEnteredPattern(dungeon_id="delve", level_number=1, area_id="nowhere"))
+        )
+        message = self.validate(adventure)
+        assert "trigger 'ghost': pattern references unknown area 'nowhere'" in message
+
+    def test_a_dangling_level_reference_is_caught(self):
+        adventure = with_triggers(TriggerSpec(id="deep", when=LevelEnteredPattern(dungeon_id="delve", level_number=9)))
+        assert "trigger 'deep': pattern references unknown 'delve' level 9" in self.validate(adventure)
+
+    def test_a_dangling_dungeon_reference_is_caught(self):
+        adventure = with_triggers(TriggerSpec(id="elsewhere", when=DungeonEnteredPattern(dungeon_id="atlantis")))
+        assert "trigger 'elsewhere': pattern references unknown dungeon 'atlantis'" in self.validate(adventure)
+
+    def test_a_dangling_pattern_item_is_caught(self):
+        adventure = with_triggers(TriggerSpec(id="loot", when=ItemAcquiredPattern(item_id="jade_idol")))
+        assert "trigger 'loot': pattern references unknown item 'jade_idol'" in self.validate(adventure)
+
+    def test_a_dangling_pattern_monster_is_caught(self):
+        adventure = with_triggers(TriggerSpec(id="boss", when=MonsterDefeatedPattern(template_id="tarrasque")))
+        assert "trigger 'boss': pattern references unknown monster 'tarrasque'" in self.validate(adventure)
+
+    def test_a_dangling_condition_item_is_caught(self):
+        adventure = with_triggers(
+            TriggerSpec(
+                id="keyed",
+                when=TownEnteredPattern(),
+                conditions=(HasItemCondition(item_id="jade_idol"),),
+            )
+        )
+        assert "trigger 'keyed': condition references unknown item 'jade_idol'" in self.validate(adventure)
+
+    def test_a_dangling_consequence_item_is_caught(self):
+        adventure = with_triggers(
+            TriggerSpec(
+                id="reward",
+                when=TownEnteredPattern(),
+                consequences=(GrantItem(character_id=PARTY_SELECTOR, item_id="jade_idol"),),
+            )
+        )
+        assert "trigger 'reward': consequence 0 references unknown item 'jade_idol'" in self.validate(adventure)
+
+    def test_a_dangling_consequence_monster_is_caught(self):
+        from osrlib.crawl.commands import SpawnMonsters
+
+        adventure = with_triggers(
+            TriggerSpec(
+                id="ambush",
+                when=TownEnteredPattern(),
+                consequences=(SpawnMonsters(template_id="tarrasque", count_fixed=1, distance_feet=30),),
+            )
+        )
+        assert "trigger 'ambush': consequence 0 references unknown monster 'tarrasque'" in self.validate(adventure)
+
+    def test_a_consequence_door_must_exist_at_the_cell_and_direction(self):
+        adventure = with_triggers(
+            TriggerSpec(
+                id="portcullis",
+                when=TownEnteredPattern(),
+                consequences=(
+                    SetDoorState(dungeon_id="delve", level_number=1, x=0, y=0, direction=Direction.NORTH, open=True),
+                ),
+            )
+        )
+        assert "trigger 'portcullis': consequence 0 names no door at (0, 0) north" in self.validate(adventure)
+
+    def test_a_consequence_door_on_an_unknown_level_is_caught(self):
+        adventure = with_triggers(
+            TriggerSpec(
+                id="portcullis",
+                when=TownEnteredPattern(),
+                consequences=(
+                    SetDoorState(dungeon_id="delve", level_number=9, x=0, y=0, direction=Direction.SOUTH, open=True),
+                ),
+            )
+        )
+        assert "trigger 'portcullis': consequence 0 references unknown 'delve' level 9" in self.validate(adventure)
+
+    def test_a_consequence_placement_must_land_on_the_grid(self):
+        from osrlib.crawl.commands import PlaceParty
+        from osrlib.crawl.dungeon import PartyLocation
+
+        adventure = with_triggers(
+            TriggerSpec(
+                id="teleport",
+                when=TownEnteredPattern(),
+                consequences=(
+                    PlaceParty(
+                        location=PartyLocation(
+                            kind="dungeon",
+                            dungeon_id="delve",
+                            level_number=1,
+                            position=(99, 99),
+                            facing=Direction.EAST,
+                        )
+                    ),
+                ),
+            )
+        )
+        assert "trigger 'teleport': consequence 0 places the party out of bounds" in self.validate(adventure)
+
+    def test_a_literal_character_id_in_a_consequence_is_an_error(self):
+        adventure = with_triggers(
+            TriggerSpec(
+                id="reward",
+                when=TownEnteredPattern(),
+                consequences=(GrantItem(character_id="character-0001", item_id="holy_water"),),
+            )
+        )
+        message = self.validate(adventure)
+        assert "trigger 'reward': consequence 0 names character 'character-0001'" in message
+        assert PARTY_SELECTOR in message and FIRST_LIVING_SELECTOR in message
+
+    def test_the_selectors_are_accepted_on_every_character_addressing_consequence(self):
+        from osrlib.crawl.adventure import validate_adventure
+        from osrlib.crawl.commands import AwardXP, GrantCoins
+        from osrlib.data import load_equipment, load_monsters
+
+        adventure = with_triggers(
+            TriggerSpec(
+                id="reward",
+                when=TownEnteredPattern(),
+                consequences=(
+                    GrantItem(character_id=PARTY_SELECTOR, item_id="holy_water"),
+                    GrantCoins(character_id=FIRST_LIVING_SELECTOR, coins={"gp": 50}),
+                    AwardXP(character_id=PARTY_SELECTOR, amount=100),
+                ),
+            )
+        )
+        validate_adventure(adventure, load_monsters(), load_equipment())
+
+    def test_a_pre_phase_document_parses_with_no_triggers(self):
+        payload = build_adventure(wandering_chance=0).model_dump(mode="json")
+        payload.pop("triggers")
+        assert Adventure.model_validate(payload).triggers == ()
