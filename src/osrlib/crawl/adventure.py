@@ -89,8 +89,9 @@ class Adventure(BaseModel):
 
     `triggers` are the adventure's authored
     [`TriggerSpec`][osrlib.crawl.triggers.TriggerSpec]s, and the tuple's order *is*
-    document order: triggers matching one event fire in it. An adventure that
-    authors none plays exactly as one that never could.
+    document order: triggers matching one event fire in it. A game plays them by
+    registering an [`Interpreter`][osrlib.crawl.interpreter.Interpreter] on its
+    session; an adventure that authors none plays exactly as one that never could.
     """
 
     model_config = ConfigDict(frozen=True)

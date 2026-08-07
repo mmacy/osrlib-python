@@ -23,6 +23,7 @@ from osrlib.core.abilities import AbilityScore
 from osrlib.core.character import Character
 from osrlib.core.items import Coins, GearTemplate
 from osrlib.crawl.adventure import Adventure, TownSpec
+from osrlib.crawl.commands import SetDoorState, SpawnMonsters
 from osrlib.crawl.dungeon import (
     AreaSpec,
     AreaTreasureSpec,
@@ -45,6 +46,7 @@ from osrlib.crawl.dungeon import (
 from osrlib.crawl.gates import GateSpec, HasItemCondition
 from osrlib.crawl.narrative import NarrativeBlock
 from osrlib.crawl.party import Party
+from osrlib.crawl.triggers import AreaEnteredPattern, FlagSetPattern, TriggerSpec
 from osrlib.data import load_classes
 
 __all__ = [
@@ -52,6 +54,7 @@ __all__ = [
     "GATE_SEAL",
     "GATE_SIGIL",
     "GATE_TOKEN",
+    "PORTCULLIS_CRANK",
     "STOCK_ROSTER",
     "build_adventure",
     "build_blade_adventure",
@@ -62,6 +65,7 @@ __all__ = [
     "build_lethal_coffer_adventure",
     "build_open_door_adventure",
     "build_party",
+    "build_portcullis_adventure",
     "build_sightline_adventure",
 ]
 
@@ -361,6 +365,93 @@ def build_gated_adventure() -> Adventure:
         town=TownSpec(name="Threshold", travel_turns={"warren": 1}),
         dungeons=(DungeonSpec(id="warren", name="The Warren", levels=(level_1, level_2)),),
         items=(GATE_KEY, GATE_TOKEN, GATE_SEAL, GATE_SIGIL),
+    )
+
+
+PORTCULLIS_CRANK = GearTemplate(id="portcullis_crank", name="Portcullis crank", cost_gp=0)
+"""The portcullis gate's requirement: a real item the keep never places, so the
+grille answers nothing but the lever's trigger."""
+
+LEVER_KEY = "keep.lever"
+"""The flag the lever writes — the portcullis trigger's pattern."""
+
+PORTCULLIS_FIRED = "Chain rattles in the wall; the counterweight drops."
+"""The portcullis trigger's referee beat."""
+
+PORTCULLIS_JOURNAL = "The east lever gives, and the portcullis grinds up into its slot."
+"""The portcullis trigger's journal form — the players' side of the same moment."""
+
+
+def build_portcullis_adventure() -> Adventure:
+    """Build the one-level keep: a lever, a gated portcullis, and a guarded room.
+
+    Level 1 (5 × 1), entrance (0,0):
+
+    ```text
+        x0     x1     x2   ‖   x3     x4
+    y0  ENT————corr———corr—D—corr———[guardroom]
+    ```
+
+    - The door east of (2,0) is the portcullis: it requires a crank nothing in the
+      keep holds, so nobody opens it by hand.
+    - `portcullis-rises` fires when the lever flag is written and sets that door
+      open, with a referee beat and a journal form.
+    - `guard-ambush` fires when the party steps into `guardroom` at (4,0) — which
+      keeps two goblins of its own, so the trigger's spawn meets an encounter that
+      is already open.
+    """
+    gate = GateSpec(
+        condition=HasItemCondition(item_id="portcullis_crank"),
+        narrative=NarrativeBlock(refusal="The portcullis is a grille of iron. It has no handle on this side."),
+    )
+    edges: dict[str, Edge] = {}
+    _open(edges, (0, 0), Direction.EAST)
+    _open(edges, (1, 0), Direction.EAST)
+    _door(edges, (2, 0), Direction.EAST, requires=gate)
+    _open(edges, (3, 0), Direction.EAST)
+    level = LevelSpec(
+        number=1,
+        width=5,
+        height=1,
+        edges=edges,
+        areas=(
+            AreaSpec(
+                id="guardroom",
+                name="Guardroom",
+                description="Two goblins at a table of scarred oak.",
+                cells=((4, 0),),
+                encounter=KeyedEncounter(monsters=(KeyedMonster(template_id="goblin", count_fixed=2),), aware=True),
+            ),
+        ),
+        entrance=(0, 0),
+        wandering=WanderingSpec(chance_in_six=0),
+    )
+    triggers = (
+        TriggerSpec(
+            id="portcullis-rises",
+            when=FlagSetPattern(key=LEVER_KEY, value="pulled"),
+            consequences=(
+                SetDoorState(dungeon_id="keep", level_number=1, x=2, y=0, direction=Direction.EAST, open=True),
+            ),
+            narrative=NarrativeBlock(fired=PORTCULLIS_FIRED, journal=PORTCULLIS_JOURNAL),
+        ),
+        TriggerSpec(
+            id="guard-ambush",
+            when=AreaEnteredPattern(dungeon_id="keep", level_number=1, area_id="guardroom"),
+            consequences=(SpawnMonsters(template_id="goblin", count_fixed=1, distance_feet=30),),
+            narrative=NarrativeBlock(
+                fired="A third goblin was meant to drop from the rafters.",
+                journal="Something moved in the rafters of the guardroom.",
+            ),
+        ),
+    )
+    return Adventure(
+        name="The Lever Keep",
+        description="A keep whose one door answers a lever and nothing else.",
+        town=TownSpec(name="Threshold", travel_turns={"keep": 1}),
+        dungeons=(DungeonSpec(id="keep", name="The Keep", levels=(level,)),),
+        items=(PORTCULLIS_CRANK,),
+        triggers=triggers,
     )
 
 
