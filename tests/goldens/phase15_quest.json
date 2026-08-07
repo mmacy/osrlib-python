@@ -1,0 +1,449 @@
+{
+  "command_log": [
+    {
+      "command_type": "enter_dungeon",
+      "dungeon_id": "barrow",
+      "source": null
+    },
+    {
+      "command_type": "mark_trigger_fired",
+      "narrative": "The barrow-mouth exhales cold air over the threshold.",
+      "source": "trigger:barrow-mouth",
+      "trigger_id": "barrow-mouth"
+    },
+    {
+      "command_type": "add_journal_entry",
+      "source": "trigger:barrow-mouth",
+      "text": "The barrow takes you in, and the daylight stops at the lintel."
+    },
+    {
+      "command_type": "activate_quest",
+      "quest_id": "the-idol",
+      "source": "quest:the-idol"
+    },
+    {
+      "command_type": "move_party",
+      "direction": "east",
+      "source": null
+    },
+    {
+      "command_type": "move_party",
+      "direction": "east",
+      "source": null
+    },
+    {
+      "command_type": "take_treasure",
+      "feature_id": "reliquary",
+      "recipient_id": null,
+      "source": null
+    },
+    {
+      "command_type": "complete_objective",
+      "objective_id": "recover-idol",
+      "quest_id": "the-idol",
+      "source": "quest:the-idol"
+    },
+    {
+      "command_type": "move_party",
+      "direction": "east",
+      "source": null
+    },
+    {
+      "command_type": "reveal_objective",
+      "objective_id": "speak-the-rite",
+      "quest_id": "the-idol",
+      "source": "quest:the-idol"
+    },
+    {
+      "command_type": "set_flag",
+      "key": "barrow.rite",
+      "source": null,
+      "value": "spoken"
+    },
+    {
+      "command_type": "complete_objective",
+      "objective_id": "speak-the-rite",
+      "quest_id": "the-idol",
+      "source": "quest:the-idol"
+    },
+    {
+      "command_type": "complete_quest",
+      "quest_id": "the-idol",
+      "source": "quest:the-idol"
+    },
+    {
+      "command_type": "record_note",
+      "source": "quest:the-idol",
+      "text": "quest the-idol: reward 0 (spawn_monsters) dropped (session.command.wrong_mode)"
+    },
+    {
+      "character_id": "character-0001",
+      "coins": {
+        "cp": 0,
+        "ep": 0,
+        "gp": 100,
+        "pp": 0,
+        "sp": 0
+      },
+      "command_type": "grant_coins",
+      "source": "quest:the-idol"
+    },
+    {
+      "amount": 100,
+      "character_id": "character-0001",
+      "command_type": "award_xp",
+      "source": "quest:the-idol"
+    },
+    {
+      "amount": 100,
+      "character_id": "character-0002",
+      "command_type": "award_xp",
+      "source": "quest:the-idol"
+    },
+    {
+      "amount": 100,
+      "character_id": "character-0003",
+      "command_type": "award_xp",
+      "source": "quest:the-idol"
+    },
+    {
+      "amount": 100,
+      "character_id": "character-0004",
+      "command_type": "award_xp",
+      "source": "quest:the-idol"
+    },
+    {
+      "command_type": "set_flag",
+      "key": "quest.idol",
+      "source": "quest:the-idol",
+      "value": "recovered"
+    },
+    {
+      "character_id": "character-0001",
+      "command_type": "grant_item",
+      "item_id": "torch",
+      "quantity": 6,
+      "source": null
+    }
+  ],
+  "event_log": [
+    {
+      "code": "exploration.location.entered",
+      "dungeon_id": null,
+      "event_type": "location_entered",
+      "level_number": 1,
+      "location_id": "barrow",
+      "location_kind": "dungeon",
+      "narrative": null,
+      "visibility": "player"
+    },
+    {
+      "code": "session.trigger.fired",
+      "event_type": "trigger_fired",
+      "narrative": "The barrow-mouth exhales cold air over the threshold.",
+      "trigger_id": "barrow-mouth",
+      "visibility": "referee"
+    },
+    {
+      "code": "session.journal.entry_added",
+      "event_type": "journal_entry_added",
+      "rounds": 60,
+      "text": "The barrow takes you in, and the daylight stops at the lintel.",
+      "visibility": "player"
+    },
+    {
+      "code": "session.quest.activated",
+      "event_type": "quest_activated",
+      "name": "The Votive Idol",
+      "narrative": "Sister Halda wants the ninth idol back in the temple, rite and all.",
+      "quest_id": "the-idol",
+      "visibility": "player"
+    },
+    {
+      "code": "exploration.party.moved",
+      "event_type": "party_moved",
+      "facing": "east",
+      "visibility": "player",
+      "x": 1,
+      "y": 0
+    },
+    {
+      "code": "exploration.party.moved",
+      "event_type": "party_moved",
+      "facing": "east",
+      "visibility": "player",
+      "x": 2,
+      "y": 0
+    },
+    {
+      "code": "exploration.location.entered",
+      "dungeon_id": "barrow",
+      "event_type": "location_entered",
+      "level_number": 1,
+      "location_id": "shrine",
+      "location_kind": "area",
+      "narrative": null,
+      "visibility": "player"
+    },
+    {
+      "character_id": "character-0001",
+      "code": "exploration.item.acquired",
+      "coins_gp_value": 0,
+      "event_type": "item_acquired",
+      "item_ids": [
+        "votive_idol"
+      ],
+      "visibility": "player"
+    },
+    {
+      "code": "session.quest.objective_completed",
+      "event_type": "objective_completed",
+      "narrative": "The idol comes out of its niche as if it were waiting.",
+      "objective_id": "recover-idol",
+      "quest_id": "the-idol",
+      "visibility": "player"
+    },
+    {
+      "code": "exploration.party.moved",
+      "event_type": "party_moved",
+      "facing": "east",
+      "visibility": "player",
+      "x": 3,
+      "y": 0
+    },
+    {
+      "code": "exploration.location.entered",
+      "dungeon_id": "barrow",
+      "event_type": "location_entered",
+      "level_number": 1,
+      "location_id": "crypt",
+      "location_kind": "area",
+      "narrative": null,
+      "visibility": "player"
+    },
+    {
+      "code": "session.quest.objective_revealed",
+      "event_type": "objective_revealed",
+      "narrative": "The slab wants words said over it before the idol may leave.",
+      "objective_id": "speak-the-rite",
+      "quest_id": "the-idol",
+      "visibility": "player"
+    },
+    {
+      "code": "session.flag.set",
+      "event_type": "flag_set",
+      "key": "barrow.rite",
+      "value": "spoken",
+      "visibility": "referee"
+    },
+    {
+      "code": "session.quest.objective_completed",
+      "event_type": "objective_completed",
+      "narrative": "The rite is spoken, and the cold goes out of the air.",
+      "objective_id": "speak-the-rite",
+      "quest_id": "the-idol",
+      "visibility": "player"
+    },
+    {
+      "code": "session.quest.completed",
+      "event_type": "quest_completed",
+      "name": "The Votive Idol",
+      "narrative": "The barrow is quiet. The idol is yours to carry home.",
+      "quest_id": "the-idol",
+      "visibility": "player"
+    },
+    {
+      "code": "session.adventure.completed",
+      "event_type": "adventure_completed",
+      "narrative": "The barrow is quiet. The idol is yours to carry home.",
+      "quest_id": "the-idol",
+      "visibility": "player"
+    },
+    {
+      "code": "session.note.recorded",
+      "event_type": "note_recorded",
+      "text": "quest the-idol: reward 0 (spawn_monsters) dropped (session.command.wrong_mode)",
+      "visibility": "referee"
+    },
+    {
+      "character_id": "character-0001",
+      "code": "exploration.item.acquired",
+      "coins_gp_value": 100,
+      "event_type": "item_acquired",
+      "item_ids": [],
+      "visibility": "player"
+    },
+    {
+      "award": 100,
+      "character_id": "character-0001",
+      "code": "session.xp.awarded",
+      "event_type": "xp_awarded",
+      "level_after": 1,
+      "modified_award": 100,
+      "visibility": "player"
+    },
+    {
+      "award": 100,
+      "character_id": "character-0002",
+      "code": "session.xp.awarded",
+      "event_type": "xp_awarded",
+      "level_after": 1,
+      "modified_award": 100,
+      "visibility": "player"
+    },
+    {
+      "award": 100,
+      "character_id": "character-0003",
+      "code": "session.xp.awarded",
+      "event_type": "xp_awarded",
+      "level_after": 1,
+      "modified_award": 105,
+      "visibility": "player"
+    },
+    {
+      "award": 100,
+      "character_id": "character-0004",
+      "code": "session.xp.awarded",
+      "event_type": "xp_awarded",
+      "level_after": 1,
+      "modified_award": 100,
+      "visibility": "player"
+    },
+    {
+      "code": "session.flag.set",
+      "event_type": "flag_set",
+      "key": "quest.idol",
+      "value": "recovered",
+      "visibility": "referee"
+    },
+    {
+      "character_id": "character-0001",
+      "code": "exploration.item.acquired",
+      "coins_gp_value": 0,
+      "event_type": "item_acquired",
+      "item_ids": [
+        "torch",
+        "torch",
+        "torch",
+        "torch",
+        "torch",
+        "torch"
+      ],
+      "visibility": "player"
+    }
+  ],
+  "final_state": {
+    "clock_rounds": 120,
+    "fired_triggers": [
+      "barrow-mouth"
+    ],
+    "flags": {
+      "barrow.rite": "spoken",
+      "quest.idol": "recovered"
+    },
+    "journal": [
+      {
+        "rounds": 60,
+        "text": "The barrow takes you in, and the daylight stops at the lintel."
+      },
+      {
+        "rounds": 60,
+        "text": "Sister Halda wants the ninth idol back in the temple, rite and all."
+      },
+      {
+        "rounds": 120,
+        "text": "The idol comes out of its niche as if it were waiting."
+      },
+      {
+        "rounds": 120,
+        "text": "The slab wants words said over it before the idol may leave."
+      },
+      {
+        "rounds": 120,
+        "text": "The rite is spoken, and the cold goes out of the air."
+      },
+      {
+        "rounds": 120,
+        "text": "The barrow is quiet. The idol is yours to carry home."
+      }
+    ],
+    "location": {
+      "dungeon_id": "barrow",
+      "facing": "east",
+      "kind": "dungeon",
+      "level_number": 1,
+      "position": [
+        3,
+        0
+      ]
+    },
+    "mode": "victory",
+    "quests": {
+      "the-idol": {
+        "objectives": {
+          "recover-idol": {
+            "complete": true,
+            "revealed": true
+          },
+          "speak-the-rite": {
+            "complete": true,
+            "revealed": true
+          }
+        },
+        "status": "completed"
+      }
+    },
+    "streams": {
+      "advancement": {
+        "inc": 81519380686667632471505458847724587839,
+        "state": 37413501398006455255140525940021900694
+      },
+      "effects": {
+        "inc": 67667495646694457942346934119804494363,
+        "state": 209558149184381732606578434468736245994
+      }
+    }
+  },
+  "master_seed": 20260815,
+  "refusals": [
+    {
+      "after_commands": 20,
+      "code": "session.command.wrong_mode",
+      "command": {
+        "command_type": "move_party",
+        "direction": "west",
+        "source": null
+      },
+      "params": {
+        "command": "move_party",
+        "mode": "victory"
+      }
+    }
+  ],
+  "transcript": [
+    "The party enters dungeon barrow (level 1).",
+    "Trigger barrow-mouth fired. The barrow-mouth exhales cold air over the threshold.",
+    "Journal: The barrow takes you in, and the daylight stops at the lintel.",
+    "A new quest: The Votive Idol. Sister Halda wants the ninth idol back in the temple, rite and all.",
+    "The party moves to (1, 0), facing east.",
+    "The party moves to (2, 0), facing east.",
+    "The party enters area shrine (level 1).",
+    "character-0001 acquires votive_idol.",
+    "Quest the-idol: objective recover-idol is done. The idol comes out of its niche as if it were waiting.",
+    "The party moves to (3, 0), facing east.",
+    "The party enters area crypt (level 1).",
+    "Quest the-idol: a new objective, speak-the-rite. The slab wants words said over it before the idol may leave.",
+    "Flag barrow.rite = 'spoken'.",
+    "Quest the-idol: objective speak-the-rite is done. The rite is spoken, and the cold goes out of the air.",
+    "Quest complete: The Votive Idol. The barrow is quiet. The idol is yours to carry home.",
+    "The adventure is over: the-idol is finished. The barrow is quiet. The idol is yours to carry home.",
+    "Referee note: quest the-idol: reward 0 (spawn_monsters) dropped (session.command.wrong_mode)",
+    "character-0001 acquires 100 gp in coin.",
+    "character-0001 gains 100 XP (base 100), now level 1.",
+    "character-0002 gains 100 XP (base 100), now level 1.",
+    "character-0003 gains 105 XP (base 100), now level 1.",
+    "character-0004 gains 100 XP (base 100), now level 1.",
+    "Flag quest.idol = 'recovered'.",
+    "character-0001 acquires torch, torch, torch, torch, torch, torch."
+  ]
+}

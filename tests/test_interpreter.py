@@ -1,12 +1,15 @@
-"""The interpreter: matching, firing, selectors, drops, and the cascade bound.
+"""The interpreter: matching, firing, quests, selectors, drops, and the cascade bound.
 
 `TestMatching` pins each pattern against events that fit and events that don't,
 straight through the private matcher. `TestFiring` covers what decides whether a
 match becomes a firing — fired-state, conditions, document and batch order — and
 `TestSelectors`, `TestDrops`, and `TestCascadeDepth` cover what a firing issues and
-what happens when part of it cannot land. `TestReplayEquivalence` is the standing
-guarantee: a session with the interpreter registered and a replay of its log with no
-listeners at all reach the same world.
+what happens when part of it cannot land. `TestQuestWalk`, `TestQuestRewards`, and
+`TestQuestFiat` do the same for the quest surface: the order the walk goes in, what a
+completion pays, and where the interpreter's discipline stops and a referee's ruling
+begins. `TestReplayEquivalence` is the standing guarantee: a session with the
+interpreter registered and a replay of its log with no listeners at all reach the same
+world.
 """
 
 import json
@@ -20,7 +23,10 @@ from osrlib.core.events import Visibility
 from osrlib.core.items import Coins, MagicItemInstance
 from osrlib.crawl.adventure import Adventure, TownSpec
 from osrlib.crawl.commands import (
+    ActivateQuest,
     AwardXP,
+    CompleteObjective,
+    CompleteQuest,
     EnterDungeon,
     GrantCoins,
     GrantItem,
@@ -51,7 +57,8 @@ from osrlib.crawl.events import (
 from osrlib.crawl.gates import FlagEqualsCondition, HasItemCondition
 from osrlib.crawl.interpreter import Interpreter, _matches
 from osrlib.crawl.narrative import NarrativeBlock
-from osrlib.crawl.session import GameSession
+from osrlib.crawl.quests import ObjectiveSpec, QuestSpec, TriggerClause
+from osrlib.crawl.session import GameSession, ObjectiveState
 from osrlib.crawl.triggers import (
     FIRST_LIVING_SELECTOR,
     PARTY_SELECTOR,
@@ -495,6 +502,287 @@ class TestCascadeDepth:
         session.execute(SetFlag(key="step1", value=True))
         note = next(command for command in session.command_log if command.command_type == "record_note")
         assert note.source == "trigger:chain-6"
+
+    def test_a_quest_advancement_past_the_bound_is_recorded_and_not_issued(self):
+        late = errand(id="late", activation=flag_clause("step6"))
+        session = played(with_quests(late, adventure=with_triggers(*self.chain())))
+        session.execute(SetFlag(key="step1", value=True))
+        assert session.quests["late"].status == "inactive", "no state moves past the bound"
+        assert notes(session) == [
+            "trigger chain-6: not fired, the cascade reached depth 5 past the limit of 4",
+            "quest late: not activated, the cascade reached depth 5 past the limit of 4",
+        ]
+        assert [command for command in session.command_log if command.command_type == "activate_quest"] == []
+
+    def test_a_suppressed_quest_advancement_waits_for_its_clause_to_match_again(self):
+        late = errand(id="late", activation=flag_clause("step6"))
+        session = played(with_quests(late, adventure=with_triggers(*self.chain())))
+        session.execute(SetFlag(key="step1", value=True))
+        # The edge is gone; the quest is not spent, so the next write activates it.
+        session.execute(SetFlag(key="step6", value=True))
+        assert session.quests["late"].status == "active"
+
+    def test_the_quest_truncation_note_carries_the_quests_stamp(self):
+        late = errand(id="late", activation=flag_clause("step6"))
+        session = played(with_quests(late, adventure=with_triggers(*self.chain())))
+        session.execute(SetFlag(key="step1", value=True))
+        notes_logged = [command for command in session.command_log if command.command_type == "record_note"]
+        assert [command.source for command in notes_logged] == ["trigger:chain-6", "quest:late"]
+
+
+def with_quests(*quests: QuestSpec, adventure: Adventure | None = None) -> Adventure:
+    """The shared delve (or another adventure) with authored quests bolted on."""
+    base = adventure if adventure is not None else build_adventure(wandering_chance=0)
+    return base.model_copy(update={"quests": quests})
+
+
+def flag_clause(key: str, value=None) -> TriggerClause:
+    """The clause the quest tests drive: a flag write the game can make on demand."""
+    return TriggerClause(pattern=FlagSetPattern(key=key, value=value))
+
+
+def errand(**overrides) -> QuestSpec:
+    """A two-objective quest: one visible, one hidden behind its own reveal clause."""
+    quest = QuestSpec(
+        id="errand",
+        name="An Errand",
+        activation=flag_clause("start"),
+        objectives=(
+            ObjectiveSpec(id="visible", when=flag_clause("done-1")),
+            ObjectiveSpec(id="secret", when=flag_clause("done-2"), hidden=True, reveal_when=flag_clause("hint")),
+        ),
+    )
+    return quest.model_copy(update=overrides) if overrides else quest
+
+
+def issued(session: GameSession, source: str) -> list[str]:
+    """The command types one owner issued, in log order."""
+    return [command.command_type for command in session.command_log if command.source == source]
+
+
+class TestQuestWalk:
+    """Activation, reveals, completions, and the order the walk goes in."""
+
+    def test_the_walk_activates_reveals_completes_and_then_completes_the_quest(self):
+        session = played(with_quests(errand()))
+        session.execute(SetFlag(key="start", value=True))
+        assert session.quests["errand"].status == "active"
+        session.execute(SetFlag(key="hint", value=True))
+        assert session.quests["errand"].objectives["secret"].revealed
+        session.execute(SetFlag(key="done-1", value=True))
+        assert session.quests["errand"].status == "active", "the all rule still wants the second objective"
+        session.execute(SetFlag(key="done-2", value=True))
+        assert session.quests["errand"].status == "completed"
+        assert issued(session, "quest:errand") == [
+            "activate_quest",
+            "reveal_objective",
+            "complete_objective",
+            "complete_objective",
+            "complete_quest",
+        ]
+
+    def test_triggers_go_first_and_then_quests_in_document_order(self):
+        trigger = TriggerSpec(id="watcher", when=FlagSetPattern(key="start"))
+        session = played(with_quests(errand(id="second"), errand(id="first"), adventure=with_triggers(trigger)))
+        session.execute(SetFlag(key="start", value=True))
+        stamps = [command.source for command in session.command_log if command.source is not None]
+        assert stamps == ["trigger:watcher", "quest:second", "quest:first"]
+
+    def test_one_event_activates_a_quest_and_completes_an_objective_of_it(self):
+        quest = errand(
+            activation=flag_clause("start"),
+            objectives=(ObjectiveSpec(id="visible", when=flag_clause("start")),),
+        )
+        session = played(with_quests(quest))
+        session.execute(SetFlag(key="start", value=True))
+        assert issued(session, "quest:errand") == ["activate_quest", "complete_objective", "complete_quest"]
+        assert session.quests["errand"].status == "completed"
+
+    def test_a_hidden_objective_that_simply_lands_needs_no_reveal(self):
+        quest = errand(objectives=(ObjectiveSpec(id="secret", when=flag_clause("done-2"), hidden=True),))
+        session = played(with_quests(quest))
+        session.execute(SetFlag(key="start", value=True))
+        session.execute(SetFlag(key="done-2", value=True))
+        assert issued(session, "quest:errand") == ["activate_quest", "complete_objective", "complete_quest"]
+        assert session.quests["errand"].objectives["secret"] == ObjectiveState(revealed=True, complete=True)
+
+    def test_the_any_rule_completes_early_and_leaves_the_rest_incomplete(self):
+        session = played(with_quests(errand(completion="any")))
+        session.execute(SetFlag(key="start", value=True))
+        session.execute(SetFlag(key="done-1", value=True))
+        assert session.quests["errand"].status == "completed"
+        assert session.quests["errand"].objectives["secret"] == ObjectiveState(revealed=False, complete=False)
+        assert issued(session, "quest:errand") == ["activate_quest", "complete_objective", "complete_quest"]
+
+    def test_an_inactive_quest_ignores_its_objectives_clauses(self):
+        session = played(with_quests(errand()))
+        session.execute(SetFlag(key="done-1", value=True))
+        assert session.quests["errand"].status == "inactive"
+        assert issued(session, "quest:errand") == [], "an unoffered quest watches nothing"
+
+    def test_a_quest_clause_reads_its_conditions_live(self):
+        quest = errand(
+            activation=TriggerClause(
+                pattern=FlagSetPattern(key="start"), conditions=(HasItemCondition(item_id="holy_water"),)
+            )
+        )
+        session = played(with_quests(quest))
+        session.execute(SetFlag(key="start", value=True))
+        assert session.quests["errand"].status == "inactive", "the condition did not hold"
+        session.execute(GrantItem(character_id="character-0001", item_id="holy_water"))
+        session.execute(SetFlag(key="start", value=True))
+        assert session.quests["errand"].status == "active"
+
+    def test_an_earlier_firing_satisfies_a_later_quests_condition_in_the_same_batch(self):
+        opener = TriggerSpec(
+            id="opener", when=FlagSetPattern(key="start"), consequences=(SetFlag(key="power", value="on"),)
+        )
+        quest = errand(
+            activation=TriggerClause(
+                pattern=FlagSetPattern(key="start"), conditions=(FlagEqualsCondition(key="power", value="on"),)
+            )
+        )
+        session = played(with_quests(quest, adventure=with_triggers(opener)))
+        session.execute(SetFlag(key="start", value=True))
+        assert session.quests["errand"].status == "active", "the trigger ran first and its flag was already written"
+
+    def test_the_quest_events_match_no_pattern_so_nothing_watches_them(self):
+        # The lifecycle events are the table's news, not an observable: an author who
+        # wants one quest to start another writes a flag reward and a flag clause.
+        watcher = TriggerSpec(id="watcher", when=FlagSetPattern(key="quest.errand"), repeatable=True)
+        session = played(with_quests(errand(), adventure=with_triggers(watcher)))
+        session.execute(SetFlag(key="start", value=True))
+        session.execute(SetFlag(key="done-1", value=True))
+        assert session.fired_triggers == []
+
+
+class TestQuestRewards:
+    """What a completion pays, in what order, and what happens when a reward cannot land."""
+
+    def paying(self, *rewards, **overrides) -> QuestSpec:
+        return errand(
+            objectives=(ObjectiveSpec(id="visible", when=flag_clause("done-1")),), rewards=rewards, **overrides
+        )
+
+    def test_rewards_land_after_the_completion_in_authored_order_with_selectors_expanded(self):
+        quest = self.paying(
+            AwardXP(character_id=PARTY_SELECTOR, amount=50),
+            GrantCoins(character_id=FIRST_LIVING_SELECTOR, coins=Coins(gp=25)),
+            SetFlag(key="quest.errand", value="done"),
+        )
+        session = played(with_quests(quest))
+        kill(session.member("character-0002"))
+        session.execute(SetFlag(key="start", value=True))
+        session.execute(SetFlag(key="done-1", value=True))
+        assert issued(session, "quest:errand") == [
+            "activate_quest",
+            "complete_objective",
+            "complete_quest",
+            "award_xp",
+            "award_xp",
+            "award_xp",
+            "grant_coins",
+            "set_flag",
+        ]
+        awards = [command for command in session.command_log if command.command_type == "award_xp"]
+        assert [command.character_id for command in awards] == ["character-0001", "character-0003", "character-0004"]
+        coins = next(command for command in session.command_log if command.command_type == "grant_coins")
+        assert coins.character_id == "character-0001", "@first is the lead survivor"
+        assert session.flags["quest.errand"] == "done"
+
+    def test_every_command_a_quest_issues_carries_its_stamp(self):
+        quest = self.paying(AwardXP(character_id=PARTY_SELECTOR, amount=50))
+        session = played(with_quests(quest))
+        session.execute(SetFlag(key="start", value=True))
+        session.execute(SetFlag(key="done-1", value=True))
+        machine_issued = [command for command in session.command_log if command.source is not None]
+        assert machine_issued, "the walk issued something"
+        assert {command.source for command in machine_issued} == {"quest:errand"}
+
+    def test_the_authored_reward_is_never_mutated_by_the_stamp_or_the_selector(self):
+        quest = self.paying(AwardXP(character_id=PARTY_SELECTOR, amount=50))
+        session = played(with_quests(quest))
+        session.execute(SetFlag(key="start", value=True))
+        session.execute(SetFlag(key="done-1", value=True))
+        authored = session.adventure.quests[0].rewards[0]
+        assert authored.source is None and authored.character_id == PARTY_SELECTOR
+
+    def test_a_reward_that_would_resume_play_drops_in_victory_with_its_note(self):
+        quest = self.paying(
+            SpawnMonsters(template_id="goblin", count_fixed=2, distance_feet=30),
+            AwardXP(character_id=PARTY_SELECTOR, amount=50),
+            concludes_adventure=True,
+        )
+        session = played(with_quests(quest))
+        session.execute(EnterDungeon(dungeon_id="delve"))
+        session.execute(SetFlag(key="start", value=True))
+        session.execute(SetFlag(key="done-1", value=True))
+        assert session.mode.value == "victory", "the concluding completion ended the adventure first"
+        assert notes(session) == ["quest errand: reward 0 (spawn_monsters) dropped (session.command.wrong_mode)"]
+        assert [command for command in session.command_log if command.command_type == "spawn_monsters"] == []
+        assert [command.command_type for command in session.command_log][-4:] == [
+            "award_xp",
+            "award_xp",
+            "award_xp",
+            "award_xp",
+        ], "the reward after the dropped one still landed, on every living member"
+
+    def test_first_with_nobody_standing_drops_and_says_so(self):
+        quest = self.paying(GrantCoins(character_id=FIRST_LIVING_SELECTOR, coins=Coins(gp=25)))
+        session = played(with_quests(quest))
+        for member in session.party.members:
+            kill(member)
+        session.execute(SetFlag(key="start", value=True))
+        session.execute(SetFlag(key="done-1", value=True))
+        assert notes(session) == ["quest errand: reward 0 (grant_coins) dropped (no living member for @first)"]
+
+    def test_a_reward_cascades_into_the_triggers_that_watch_it(self):
+        bell = TriggerSpec(
+            id="bell", when=FlagSetPattern(key="quest.errand"), consequences=(SetFlag(key="rung", value=True),)
+        )
+        quest = self.paying(SetFlag(key="quest.errand", value="done"))
+        session = played(with_quests(quest, adventure=with_triggers(bell)))
+        session.execute(SetFlag(key="start", value=True))
+        session.execute(SetFlag(key="done-1", value=True))
+        assert session.fired_triggers == ["bell"]
+        assert session.flags["rung"] is True
+
+
+class TestQuestFiat:
+    """Where the interpreter's discipline stops and the referee's ruling begins."""
+
+    def paying(self) -> QuestSpec:
+        return errand(
+            objectives=(ObjectiveSpec(id="visible", when=flag_clause("done-1")),),
+            rewards=(AwardXP(character_id=PARTY_SELECTOR, amount=50),),
+        )
+
+    def test_a_completion_by_hand_is_a_ruling_by_hand(self):
+        session = played(with_quests(self.paying()))
+        session.execute(SetFlag(key="start", value=True))
+        session.execute(CompleteObjective(quest_id="errand", objective_id="visible"))
+        assert session.quests["errand"].status == "active", "the interpreter checks the rule only after its own"
+        assert [command for command in session.command_log if command.command_type == "complete_quest"] == []
+        session.execute(CompleteQuest(quest_id="errand"))
+        assert session.quests["errand"].status == "completed"
+        assert [command for command in session.command_log if command.command_type == "award_xp"] == [], (
+            "rewards are the interpreter reading the quest, not the command's own doing"
+        )
+
+    def test_a_quest_with_no_interpreter_registered_advances_only_by_hand_and_grants_nothing(self):
+        session = GameSession.new(build_party(), with_quests(self.paying()), seed=31)
+        session.execute(SetFlag(key="start", value=True))
+        assert session.quests["errand"].status == "inactive", "quests are inert content until a listener plays them"
+        session.execute(ActivateQuest(quest_id="errand"))
+        session.execute(CompleteObjective(quest_id="errand", objective_id="visible"))
+        session.execute(CompleteQuest(quest_id="errand"))
+        assert session.quests["errand"].status == "completed"
+        assert [command.command_type for command in session.command_log] == [
+            "set_flag",
+            "activate_quest",
+            "complete_objective",
+            "complete_quest",
+        ]
 
 
 class TestTheResultEnvelope:
