@@ -5,7 +5,7 @@ import json
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from crawl_fixtures import build_adventure, build_gated_adventure, build_party
+from crawl_fixtures import build_adventure, build_gated_adventure, build_party, build_portcullis_adventure
 from osrlib.core.events import Visibility
 from osrlib.core.items import Coins
 from osrlib.crawl.commands import (
@@ -15,6 +15,7 @@ from osrlib.crawl.commands import (
     GrantItem,
     LightSource,
     MoveParty,
+    SetFlag,
 )
 from osrlib.crawl.dungeon import Direction, PartyLocation
 from osrlib.crawl.session import GameSession
@@ -151,7 +152,19 @@ def command_strategy():
                 fields[field_name] = st.builds(Coins, gp=st.integers(min_value=0, max_value=50))
             elif field_name in ("feature_id", "dungeon_id", "spell_id", "template_id", "key"):
                 fields[field_name] = st.sampled_from(
-                    ["delve", "warren", "chest", "niche", "vault", "pile", "sleep", "goblin", "lever"]
+                    [
+                        "delve",
+                        "warren",
+                        "keep",
+                        "chest",
+                        "niche",
+                        "vault",
+                        "pile",
+                        "sleep",
+                        "goblin",
+                        "lever",
+                        "keep.lever",
+                    ]
                 )
             elif field_name == "service":
                 fields[field_name] = st.sampled_from(["cure_light_wounds", "remove_curse", "raise_dead"])
@@ -164,7 +177,9 @@ def command_strategy():
             elif field_name == "mode":
                 fields[field_name] = st.sampled_from(["hd_budget", "damage", "illuminate"])
             elif field_name == "value":
-                fields[field_name] = st.sampled_from([True, 7, "open"])
+                # "pulled" is the value an authored trigger watches for, so the fuzz
+                # reaches the firing path as well as the flag store.
+                fields[field_name] = st.sampled_from([True, 7, "open", "pulled"])
             elif field_name == "trigger_id":
                 # "lever-east" is listed twice on purpose: the doubled weight makes a
                 # re-mark of an already-marked trigger likely within a short sequence.
@@ -243,6 +258,46 @@ def test_gated_content_only_ever_rejects_and_never_leaks_its_wiring(seed, comman
     blob = session.view(Visibility.PLAYER).model_dump_json()
     for wiring in ("requires", "condition_type", "has_item", "guidance", "sentinel", "ferryman"):
         assert wiring not in blob
+
+
+@settings(max_examples=25, deadline=None, suppress_health_check=[HealthCheck.too_slow])
+@given(
+    seed=st.integers(min_value=0, max_value=2**32),
+    commands=st.lists(command_strategy(), min_size=1, max_size=25),
+)
+def test_triggered_content_never_raises_and_never_leaks_its_wiring(seed, commands):
+    """The fuzz contract with the interpreter registered: a keep whose door answers a lever.
+
+    The interpreter reacts to whatever the fuzz produces by issuing its own commands,
+    so this drives the firing path, the drop-and-note path, and the cascade bound
+    together — none of which may raise — and then reads the player view, which must
+    show the journal beats and none of the wiring behind them.
+    """
+    from osrlib.crawl.interpreter import Interpreter
+
+    session = GameSession.new(build_party(), build_portcullis_adventure(), seed=seed)
+    session.register_listener(Interpreter(session))
+    # The prologue guarantees one real firing before the fuzz starts; what the fuzz
+    # then does to a keep with its portcullis up is the point.
+    session.execute(EnterDungeon(dungeon_id="keep"))
+    session.execute(SetFlag(key="keep.lever", value="pulled"))
+    assert session.fired_triggers == ["portcullis-rises"]
+    for command in commands:
+        session.execute(command)  # must never raise
+    assert session.listener_state == {Interpreter.key: {}}, "the interpreter holds nothing, whatever it saw"
+    blob = session.view(Visibility.PLAYER).model_dump_json()
+    for wiring in (
+        "pattern_type",
+        "consequences",
+        "fired_triggers",
+        "portcullis-rises",
+        "guard-ambush",
+        "Chain rattles",  # the fired beat is the referee's line
+        "requires",
+        "condition_type",
+        "guidance",
+    ):
+        assert wiring not in blob, wiring
 
 
 @settings(max_examples=10, deadline=None, suppress_health_check=[HealthCheck.too_slow])

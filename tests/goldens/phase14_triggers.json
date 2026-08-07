@@ -1,0 +1,340 @@
+{
+  "command_log": [
+    {
+      "command_type": "enter_dungeon",
+      "dungeon_id": "keep",
+      "source": null
+    },
+    {
+      "command_type": "move_party",
+      "direction": "east",
+      "source": null
+    },
+    {
+      "command_type": "move_party",
+      "direction": "east",
+      "source": null
+    },
+    {
+      "command_type": "set_flag",
+      "key": "keep.lever",
+      "source": null,
+      "value": "pulled"
+    },
+    {
+      "command_type": "mark_trigger_fired",
+      "narrative": "Chain rattles in the wall; the counterweight drops.",
+      "source": "trigger:portcullis-rises",
+      "trigger_id": "portcullis-rises"
+    },
+    {
+      "command_type": "set_door_state",
+      "direction": "east",
+      "discovered": null,
+      "dungeon_id": "keep",
+      "level_number": 1,
+      "open": true,
+      "source": "trigger:portcullis-rises",
+      "unlocked": null,
+      "wedged": null,
+      "x": 2,
+      "y": 0
+    },
+    {
+      "command_type": "add_journal_entry",
+      "source": "trigger:portcullis-rises",
+      "text": "The east lever gives, and the portcullis grinds up into its slot."
+    },
+    {
+      "command_type": "move_party",
+      "direction": "east",
+      "source": null
+    },
+    {
+      "command_type": "move_party",
+      "direction": "east",
+      "source": null
+    },
+    {
+      "command_type": "mark_trigger_fired",
+      "narrative": "A third goblin was meant to drop from the rafters.",
+      "source": "trigger:guard-ambush",
+      "trigger_id": "guard-ambush"
+    },
+    {
+      "command_type": "record_note",
+      "source": "trigger:guard-ambush",
+      "text": "trigger guard-ambush: consequence 0 (spawn_monsters) dropped (session.command.encounter_in_progress)"
+    },
+    {
+      "command_type": "add_journal_entry",
+      "source": "trigger:guard-ambush",
+      "text": "Something moved in the rafters of the guardroom."
+    }
+  ],
+  "event_log": [
+    {
+      "code": "exploration.location.entered",
+      "dungeon_id": null,
+      "event_type": "location_entered",
+      "level_number": 1,
+      "location_id": "keep",
+      "location_kind": "dungeon",
+      "narrative": null,
+      "visibility": "player"
+    },
+    {
+      "code": "exploration.party.moved",
+      "event_type": "party_moved",
+      "facing": "east",
+      "visibility": "player",
+      "x": 1,
+      "y": 0
+    },
+    {
+      "code": "exploration.party.moved",
+      "event_type": "party_moved",
+      "facing": "east",
+      "visibility": "player",
+      "x": 2,
+      "y": 0
+    },
+    {
+      "code": "session.flag.set",
+      "event_type": "flag_set",
+      "key": "keep.lever",
+      "value": "pulled",
+      "visibility": "referee"
+    },
+    {
+      "code": "session.trigger.fired",
+      "event_type": "trigger_fired",
+      "narrative": "Chain rattles in the wall; the counterweight drops.",
+      "trigger_id": "portcullis-rises",
+      "visibility": "referee"
+    },
+    {
+      "character_id": null,
+      "code": "exploration.door.opened",
+      "direction": "east",
+      "event_type": "door",
+      "narrative": null,
+      "visibility": "referee",
+      "x": 2,
+      "y": 0
+    },
+    {
+      "code": "session.journal.entry_added",
+      "event_type": "journal_entry_added",
+      "rounds": 60,
+      "text": "The east lever gives, and the portcullis grinds up into its slot.",
+      "visibility": "player"
+    },
+    {
+      "code": "exploration.party.moved",
+      "event_type": "party_moved",
+      "facing": "east",
+      "visibility": "player",
+      "x": 3,
+      "y": 0
+    },
+    {
+      "code": "exploration.party.moved",
+      "event_type": "party_moved",
+      "facing": "east",
+      "visibility": "player",
+      "x": 4,
+      "y": 0
+    },
+    {
+      "code": "exploration.location.entered",
+      "dungeon_id": "keep",
+      "event_type": "location_entered",
+      "level_number": 1,
+      "location_id": "guardroom",
+      "location_kind": "area",
+      "narrative": null,
+      "visibility": "player"
+    },
+    {
+      "cache_ref": "cache-0001",
+      "code": "treasure.hoard.generated",
+      "coins_gp_value": 20,
+      "event_type": "hoard_generated",
+      "magic_item_ids": [],
+      "treasure_types": [
+        "C"
+      ],
+      "valuable_ids": [],
+      "visibility": "referee"
+    },
+    {
+      "code": "encounter.surprise.rolled",
+      "event_type": "surprise_rolled",
+      "roll": null,
+      "side": "monsters",
+      "surprised": false,
+      "threshold": 2,
+      "visibility": "referee"
+    },
+    {
+      "code": "encounter.surprise.rolled",
+      "event_type": "surprise_rolled",
+      "roll": 3,
+      "side": "party",
+      "surprised": true,
+      "threshold": 3,
+      "visibility": "referee"
+    },
+    {
+      "code": "encounter.started",
+      "count": 2,
+      "distance_feet": 40,
+      "event_type": "encounter_started",
+      "monster_name": "Goblin",
+      "monsters_surprised": false,
+      "party_surprised": true,
+      "visibility": "player"
+    },
+    {
+      "code": "encounter.reaction.rolled",
+      "event_type": "reaction_rolled",
+      "modifier": 0,
+      "result": "uncertain",
+      "roll": 7,
+      "total": 7,
+      "visibility": "referee"
+    },
+    {
+      "code": "encounter.stance.changed",
+      "event_type": "stance_changed",
+      "stance": "uncertain",
+      "visibility": "player"
+    },
+    {
+      "code": "encounter.reaction.rolled",
+      "event_type": "reaction_rolled",
+      "modifier": 0,
+      "result": "uncertain",
+      "roll": 7,
+      "total": 7,
+      "visibility": "referee"
+    },
+    {
+      "code": "session.trigger.fired",
+      "event_type": "trigger_fired",
+      "narrative": "A third goblin was meant to drop from the rafters.",
+      "trigger_id": "guard-ambush",
+      "visibility": "referee"
+    },
+    {
+      "code": "session.note.recorded",
+      "event_type": "note_recorded",
+      "text": "trigger guard-ambush: consequence 0 (spawn_monsters) dropped (session.command.encounter_in_progress)",
+      "visibility": "referee"
+    },
+    {
+      "code": "session.journal.entry_added",
+      "event_type": "journal_entry_added",
+      "rounds": 61,
+      "text": "Something moved in the rafters of the guardroom.",
+      "visibility": "player"
+    }
+  ],
+  "final_state": {
+    "clock_rounds": 61,
+    "doors": {
+      "keep:1:3,0:west": {
+        "discovered": false,
+        "open": true,
+        "opened_by_party": false,
+        "unlocked": false,
+        "wedged": false
+      }
+    },
+    "fired_triggers": [
+      "portcullis-rises",
+      "guard-ambush"
+    ],
+    "flags": {
+      "keep.lever": "pulled"
+    },
+    "journal": [
+      {
+        "rounds": 60,
+        "text": "The east lever gives, and the portcullis grinds up into its slot."
+      },
+      {
+        "rounds": 61,
+        "text": "Something moved in the rafters of the guardroom."
+      }
+    ],
+    "location": {
+      "dungeon_id": "keep",
+      "facing": "east",
+      "kind": "dungeon",
+      "level_number": 1,
+      "position": [
+        4,
+        0
+      ]
+    },
+    "mode": "encounter",
+    "streams": {
+      "effects": {
+        "inc": 180038854346277849538965952521149149593,
+        "state": 16146687859000645448365573807897689872
+      },
+      "encounter": {
+        "inc": 294016909799287458598601567891839646743,
+        "state": 195005871530580866225427265757904205789
+      },
+      "monster_spawn": {
+        "inc": 122248844825476364257671620342058704215,
+        "state": 288998010088381104956447344210552317964
+      },
+      "treasure": {
+        "inc": 241878447094209998521488183906797731573,
+        "state": 271297742964503649748437485890025818459
+      }
+    }
+  },
+  "master_seed": 20260808,
+  "refusals": [
+    {
+      "after_commands": 3,
+      "code": "exploration.door.gate_refused",
+      "command": {
+        "command_type": "open_door",
+        "direction": "east",
+        "source": null
+      },
+      "params": {
+        "direction": "east",
+        "refusal": "The portcullis is a grille of iron. It has no handle on this side."
+      }
+    }
+  ],
+  "transcript": [
+    "The party enters dungeon keep (level 1).",
+    "The party moves to (1, 0), facing east.",
+    "The party moves to (2, 0), facing east.",
+    "Flag keep.lever = 'pulled'.",
+    "Trigger portcullis-rises fired. Chain rattles in the wall; the counterweight drops.",
+    "The door east of (2, 0) opens.",
+    "Journal: The east lever gives, and the portcullis grinds up into its slot.",
+    "The party moves to (3, 0), facing east.",
+    "The party moves to (4, 0), facing east.",
+    "The party enters area guardroom (level 1).",
+    "Treasure generated at cache-0001 (C): 20 gp in coin, 0 valuable(s), 0 magic item(s).",
+    "Surprise (monsters): no roll, surprised on 1-2 — not surprised.",
+    "Surprise (party): rolled 3, surprised on 1-3 — surprised.",
+    "Encounter: 2 × Goblin at 40' — the party is surprised.",
+    "Reaction roll: 7+0 = 7 — uncertain.",
+    "The monsters' bearing: uncertain.",
+    "Reaction roll: 7+0 = 7 — uncertain.",
+    "Trigger guard-ambush fired. A third goblin was meant to drop from the rafters.",
+    "Referee note: trigger guard-ambush: consequence 0 (spawn_monsters) dropped (session.command.encounter_in_progress)",
+    "Journal: Something moved in the rafters of the guardroom."
+  ]
+}

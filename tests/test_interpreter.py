@@ -18,7 +18,7 @@ from crawl_fixtures import build_portcullis_adventure as build_keep
 from osrlib.core.effects import kill
 from osrlib.core.events import Visibility
 from osrlib.core.items import Coins, MagicItemInstance
-from osrlib.crawl.adventure import Adventure
+from osrlib.crawl.adventure import Adventure, TownSpec
 from osrlib.crawl.commands import (
     AwardXP,
     EnterDungeon,
@@ -30,8 +30,17 @@ from osrlib.crawl.commands import (
     PlaceParty,
     SetFlag,
     SpawnMonsters,
+    UseStairs,
 )
-from osrlib.crawl.dungeon import Direction, PartyLocation
+from osrlib.crawl.dungeon import (
+    AreaSpec,
+    Direction,
+    DungeonSpec,
+    LevelSpec,
+    PartyLocation,
+    TransitionSpec,
+    WanderingSpec,
+)
 from osrlib.crawl.events import (
     FlagSetEvent,
     ItemAcquiredEvent,
@@ -62,6 +71,43 @@ def with_triggers(*triggers: TriggerSpec, adventure: Adventure | None = None) ->
     """The shared delve (or another adventure) with authored triggers bolted on."""
     base = adventure if adventure is not None else build_adventure(wandering_chance=0)
     return base.model_copy(update={"triggers": triggers})
+
+
+def build_tower() -> Adventure:
+    """A two-cell tower whose stair lands the party inside a keyed area.
+
+    One command — `UseStairs` — therefore reports two crossings in one batch: the
+    level arrival, then the area the party landed in.
+    """
+    upper = LevelSpec(
+        number=1,
+        width=1,
+        height=1,
+        entrance=(0, 0),
+        transitions=(
+            TransitionSpec(
+                kind="stairs_down",
+                position=(0, 0),
+                to_dungeon_id="tower",
+                to_level_number=2,
+                to_position=(0, 0),
+                to_facing=Direction.EAST,
+            ),
+        ),
+        wandering=WanderingSpec(chance_in_six=0),
+    )
+    lower = LevelSpec(
+        number=2,
+        width=1,
+        height=1,
+        areas=(AreaSpec(id="cellar", name="Cellar", cells=((0, 0),)),),
+        wandering=WanderingSpec(chance_in_six=0),
+    )
+    return Adventure(
+        name="The Tower",
+        town=TownSpec(name="Threshold", travel_turns={"tower": 1}),
+        dungeons=(DungeonSpec(id="tower", name="The Tower", levels=(upper, lower)),),
+    )
 
 
 def played(adventure: Adventure, seed: int = 31) -> GameSession:
@@ -229,14 +275,25 @@ class TestFiring:
         assert [command.trigger_id for command in marks] == ["once", "again", "again", "again"]
         assert session.fired_triggers == ["once", "again"], "state records that a trigger has fired, not how often"
 
-    def test_triggers_fire_in_document_order_and_events_in_batch_order(self):
-        first = TriggerSpec(id="first", when=FlagSetPattern(key="bell"), repeatable=True)
-        second = TriggerSpec(id="second", when=FlagSetPattern(key="bell"), repeatable=True)
-        both = TriggerSpec(id="both", when=TownEnteredPattern(), repeatable=True)
-        session = played(with_triggers(second, first, both))
+    def test_two_triggers_on_one_event_fire_in_document_order(self):
+        first = TriggerSpec(id="first", when=FlagSetPattern(key="bell"))
+        second = TriggerSpec(id="second", when=FlagSetPattern(key="bell"))
+        session = played(with_triggers(second, first))
         session.execute(SetFlag(key="bell", value=True))
-        marks = [command.trigger_id for command in session.command_log if command.command_type == "mark_trigger_fired"]
-        assert marks == ["second", "first"], "document order, not alphabetical and not registration"
+        assert session.fired_triggers == ["second", "first"], "document order, not alphabetical, not registration"
+
+    def test_two_events_in_one_command_fire_in_the_order_they_happened(self):
+        # `UseStairs` reports the level crossing and then the area the party landed
+        # in. The area trigger is written first in the document and still fires
+        # second, because the batch's order outranks the document's.
+        area = TriggerSpec(
+            id="area-written-first", when=AreaEnteredPattern(dungeon_id="tower", level_number=2, area_id="cellar")
+        )
+        level = TriggerSpec(id="level-written-second", when=LevelEnteredPattern(dungeon_id="tower", level_number=2))
+        session = played(with_triggers(area, level, adventure=build_tower()))
+        session.execute(EnterDungeon(dungeon_id="tower"))
+        session.execute(UseStairs())
+        assert session.fired_triggers == ["level-written-second", "area-written-first"]
 
     def test_evaluate_as_you_go_lets_an_earlier_firing_satisfy_a_later_condition(self):
         opener = TriggerSpec(

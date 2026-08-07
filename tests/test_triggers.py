@@ -364,7 +364,23 @@ class TestTriggerValidation:
         )
         validate_adventure(adventure, load_monsters(), load_equipment())
 
-    def test_a_pre_phase_document_parses_with_no_triggers(self):
+    def test_a_document_written_before_triggers_parses_with_none(self):
         payload = build_adventure(wandering_chance=0).model_dump(mode="json")
         payload.pop("triggers")
         assert Adventure.model_validate(payload).triggers == ()
+
+    def test_a_save_written_before_triggers_loads_unchanged(self):
+        import json
+
+        from crawl_fixtures import build_party
+        from osrlib.crawl.commands import EnterDungeon
+        from osrlib.crawl.session import GameSession
+        from osrlib.persistence import load_game, save_game, session_state
+
+        session = GameSession.new(build_party(), build_adventure(wandering_chance=0), seed=5)
+        session.execute(EnterDungeon(dungeon_id="delve"))
+        document = json.loads(json.dumps(save_game(session)))
+        del document["payload"]["adventure"]["triggers"]
+        restored = load_game(document)
+        assert restored.adventure.triggers == ()
+        assert session_state(restored) == session_state(session)
