@@ -1,5 +1,7 @@
 # Sessions, commands, and events
 
+You want the player's action to change the world exactly once, legally, and to hear
+about everything it caused — that loop is this page.
 A [`GameSession`][osrlib.crawl.session.GameSession] is a running game. It owns every
 piece of mutable state — the party, the dungeon map as explored so far, the RNG
 streams, the clock, the live monster registry, the mode — and it exposes exactly one

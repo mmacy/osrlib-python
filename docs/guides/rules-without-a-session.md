@@ -1,6 +1,8 @@
-# The kernel à la carte
+# Using the rules without a session
 
-`osrlib.core` is the rules kernel: dice, combat, treasure, spells, and the printed
+You want to roll dice, resolve an attack, or generate a hoard from a script — no
+session, no adventure, no game loop. That is what `osrlib.core`, the rules **kernel**,
+is for: dice, combat, treasure, spells, and the printed
 tables, as pure functions over frozen models. None of it depends on a running game — the
 dungeon-crawl framework in `osrlib.crawl` is one consumer of the kernel, built entirely on
 top of it, and a mass-combat simulator, a balance harness, or a content-validation script is

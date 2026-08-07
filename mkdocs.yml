@@ -80,7 +80,7 @@ nav:
       - Sessions, commands, and events: guides/sessions-commands-events.md
       - Views and visibility: guides/views-and-visibility.md
       - Determinism, saves, and replay: guides/determinism-saves-replay.md
-      - The kernel à la carte: guides/kernel-a-la-carte.md
+      - Using the rules without a session: guides/rules-without-a-session.md
       - Listeners and flags: guides/listeners-and-flags.md
       - Gates, triggers, and quests: guides/gates-triggers-quests.md
       - Authoring custom classes, spells, monsters, and items: guides/authoring-custom-content.md

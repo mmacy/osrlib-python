@@ -1,5 +1,7 @@
 # Determinism, saves, and replay
 
+You want a bug report you can reproduce, a golden test that never flakes, and a save
+you can trust.
 osrlib's central promise is that a game is a pure function of its seed and its command
 sequence: every random draw comes from a named [`RngStream`][osrlib.core.rng.RngStream] forked
 from a session's master seed, so **the same seed, the same sequence of commands, and the same
@@ -232,8 +234,8 @@ assert migrated.npcs == {}
 
 ## Where next
 
-- [The kernel à la carte](kernel-a-la-carte.md) — the streams and kernel functions this
-  determinism contract is built from.
+- [Using the rules without a session](rules-without-a-session.md) — the streams and kernel
+  functions this determinism contract is built from.
 - [RNG streams](../reference/rng-streams.md) — every named stream and what it governs.
 - [Sessions, commands, and events](sessions-commands-events.md) — the command loop that
   produces the command log this page replays.
