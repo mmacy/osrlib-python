@@ -107,7 +107,7 @@ player view whole, while the trigger that wrote it does not reach it at all.
 
 ```{.python .no-run}
 # The beat is for the table; the trigger that produced it is referee-only wiring.
-assert [entry.text for entry in journal_view.journal] == ["The lever grinds."]
+assert [entry.text for entry in journal_view.journal][-1] == "The lever grinds."
 assert "lever-east" not in journal_view.model_dump_json()
 assert referee_state["fired_triggers"] == ["lever-east"]
 ```
