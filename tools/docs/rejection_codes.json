@@ -123,10 +123,13 @@
   "session.command.no_living_members": "The party tried to take treasure from a cache or pile, but every party member is dead, leaving no one to carry it.",
   "session.command.not_in_dungeon": "The referee tried to spawn monsters or an NPC party while the party wasn't standing on a dungeon grid cell.",
   "session.command.out_of_bounds": "The party was placed at a dungeon position that falls outside the mapped area of that level.",
+  "session.command.quest_state": "A quest lifecycle command contradicts the state the quest is already in: activating a quest that is active or finished, revealing an objective that is already visible or already complete, completing an objective that is already complete, or revealing or completing anything on a quest that isn't active.",
   "session.command.unknown_item": "The command referenced an item id that doesn't exist in the equipment catalog, or, when identifying an item, a magic item the named member isn't carrying.",
   "session.command.unknown_location": "The command referenced a dungeon id or level number that doesn't exist in the adventure, or the target dungeon has no level with an entrance defined.",
   "session.command.unknown_member": "The command referenced a character id that doesn't belong to any member of the current party.",
   "session.command.unknown_monster": "The referee tried to spawn monsters using a template id that doesn't exist in the monster catalog.",
+  "session.command.unknown_objective": "A quest lifecycle command referenced an objective id that the named quest doesn't define.",
+  "session.command.unknown_quest": "A quest lifecycle command referenced a quest id that the adventure doesn't define; quest ids resolve against the adventure's own quest specs.",
   "session.command.wrong_mode": "The command isn't legal in the session's current mode, such as sending a battle-only command while the session isn't in battle.",
   "town.sell.no_fixed_value": "The party tried to sell a magic item, which carries no fixed market value a shop will pay for."
 }

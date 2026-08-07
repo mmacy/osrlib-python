@@ -11,7 +11,8 @@ kernel leaves to its caller: the [`RngStreams`][osrlib.core.rng.RngStreams]
 [`EffectsLedger`][osrlib.core.effects.EffectsLedger], the
 [`GameClock`][osrlib.core.clock.GameClock], the entity registry (characters and
 live monster instances), the flag store, the trigger fired-marks, the journal, the
-listener-state store, the command and event logs, the mode, and the crawl state.
+quest state, the listener-state store, the command and event logs, the mode, and
+the crawl state.
 
 `execute(command)` runs a pure validation pre-phase: a rejected command consumes
 no RNG draws, no clock time, mutates nothing, and is excluded from the command
@@ -30,7 +31,7 @@ events, never from raw session internals.
 # are handled at the bottom of this module.
 
 from collections.abc import Mapping, Sequence
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -54,17 +55,21 @@ from osrlib.core.ruleset import Ruleset
 from osrlib.core.validation import Rejection
 from osrlib.crawl.adventure import Adventure, _effective_equipment, _effective_monsters, validate_adventure
 from osrlib.crawl.commands import (
+    ActivateQuest,
     AddJournalEntry,
     AdvanceTime,
     AwardXP,
     Command,
     CommandResult,
+    CompleteObjective,
+    CompleteQuest,
     GrantCoins,
     GrantItem,
     IdentifyItem,
     MarkTriggerFired,
     PlaceParty,
     RecordNote,
+    RevealObjective,
     RollDice,
     SessionMode,
     SetDoorState,
@@ -74,6 +79,7 @@ from osrlib.crawl.commands import (
 )
 from osrlib.crawl.dungeon import DungeonState, edge_ref
 from osrlib.crawl.events import (
+    AdventureCompletedEvent,
     CharacterLeveledUpEvent,
     DiceRolledEvent,
     DoorEvent,
@@ -85,11 +91,16 @@ from osrlib.crawl.events import (
     LocationEnteredEvent,
     MonstersSpawnedEvent,
     NoteRecordedEvent,
+    ObjectiveCompletedEvent,
+    ObjectiveRevealedEvent,
+    QuestActivatedEvent,
+    QuestCompletedEvent,
     TimeAdvancedEvent,
     TriggerFiredEvent,
     XpAwardedEvent,
 )
 from osrlib.crawl.party import Party
+from osrlib.crawl.quests import ObjectiveSpec, QuestSpec
 from osrlib.data import load_equipment, load_monsters
 from osrlib.errors import ContentValidationError
 from osrlib.versioning import SCHEMA_VERSION, engine_version
@@ -112,6 +123,8 @@ __all__ = [
     "LIGHT_EFFECT_KINDS",
     "Listener",
     "MONSTER_ACTION_STREAM",
+    "ObjectiveState",
+    "QuestState",
     "WANDERING_STREAM",
 ]
 
@@ -166,6 +179,40 @@ class JournalEntry(BaseModel):
 
     text: str = Field(min_length=1)
     rounds: int = Field(ge=0)
+
+
+class ObjectiveState(BaseModel):
+    """One objective's live state: whether the party can see it, and whether it is done.
+
+    Both flags are monotonic — hidden becomes revealed and incomplete becomes
+    complete, never the other way — because the quest vocabulary authors no repeat.
+    Completing an objective also reveals it: an objective the party finished before
+    anyone announced it is a thing they can now be told about.
+    """
+
+    model_config = ConfigDict(validate_assignment=True)
+
+    revealed: bool
+    complete: bool
+
+
+class QuestState(BaseModel):
+    """One quest's live state: its status, and the state of each of its objectives.
+
+    `status` runs `inactive` → `active` → `completed` and never backwards. A quest
+    with no authored activation is seeded `active` at session construction — it is a
+    standing charge, and there is no command channel before the first command — while
+    the rest wait for [`ActivateQuest`][osrlib.crawl.commands.ActivateQuest].
+
+    `objectives` is keyed by objective id in the order
+    [`QuestSpec.objectives`][osrlib.crawl.quests.QuestSpec] authored them, so every
+    walk over the block is deterministic.
+    """
+
+    model_config = ConfigDict(validate_assignment=True)
+
+    status: Literal["inactive", "active", "completed"]
+    objectives: dict[str, ObjectiveState]
 
 
 class DefeatedMonsterRecord(BaseModel):
@@ -269,12 +316,13 @@ class GameSession:
     command on `command_log`, and `save_game`/`load_game` round-trip the whole
     session deterministically: same seed, same commands, same game.
 
-    The trigger fired-marks (`fired_triggers`, in first-fired order) and the
-    `journal` are engine-owned session state beside the flag store: the lifecycle
-    commands [`MarkTriggerFired`][osrlib.crawl.commands.MarkTriggerFired] and
-    [`AddJournalEntry`][osrlib.crawl.commands.AddJournalEntry] are their only
-    writers, so a replay — which runs with no listeners registered — rebuilds both
-    by re-executing the command log.
+    The trigger fired-marks (`fired_triggers`, in first-fired order), the `journal`,
+    and the quest block (`quests`) are engine-owned session state beside the flag
+    store: the lifecycle commands
+    [`MarkTriggerFired`][osrlib.crawl.commands.MarkTriggerFired],
+    [`AddJournalEntry`][osrlib.crawl.commands.AddJournalEntry], and the four quest
+    commands are their only writers, so a replay — which runs with no listeners
+    registered — rebuilds all three by re-executing the command log.
     """
 
     def __init__(
@@ -320,6 +368,21 @@ class GameSession:
         self.flags: dict[str, str | int | bool] = {}
         self.fired_triggers: list[str] = []
         self.journal: list[JournalEntry] = []
+        # One state block per authored quest, in document order, seeded here so that
+        # every path which builds a session — new, load, replay — starts from the
+        # same block. A quest with no activation clause is a standing charge, active
+        # from round 0 because there is no command channel before the first command;
+        # the rest wait to be activated. Objectives start visible unless hidden.
+        self.quests: dict[str, QuestState] = {
+            quest.id: QuestState(
+                status="active" if quest.activation is None else "inactive",
+                objectives={
+                    objective.id: ObjectiveState(revealed=not objective.hidden, complete=False)
+                    for objective in quest.objectives
+                },
+            )
+            for quest in adventure.quests
+        }
         self.listener_state: dict[str, dict] = {}
         self.listeners: list[Listener] = []
         self.command_log: list[Command] = []
@@ -1027,6 +1090,149 @@ def _handle_record_note(session: GameSession, command: RecordNote) -> tuple[list
     return [], [NoteRecordedEvent(text=command.text)]
 
 
+# ---------------------------------------------------------------------- quest handlers
+#
+# Pure bookkeeping, all four: no draw, no clock, no interaction with the wipe check.
+# Ids resolve against the adventure's quest specs and the state block seeded from
+# them, and every guard is a rejection — so the accepted log holds a state-consistent
+# sequence and a replay never meets a refusal.
+
+
+def _quest_pair(session: GameSession, quest_id: str) -> tuple[QuestSpec, QuestState] | None:
+    """The quest's authored spec and its live state, or `None` when the id names neither."""
+    try:
+        spec = session.adventure.quest(quest_id)
+    except ValueError:
+        return None
+    state = session.quests.get(quest_id)
+    return None if state is None else (spec, state)
+
+
+def _objective_pair(
+    spec: QuestSpec, state: QuestState, objective_id: str
+) -> tuple[ObjectiveSpec, ObjectiveState] | None:
+    """The objective's authored spec and its live state, or `None` when the quest has none."""
+    objective = next((entry for entry in spec.objectives if entry.id == objective_id), None)
+    objective_state = state.objectives.get(objective_id)
+    return None if objective is None or objective_state is None else (objective, objective_state)
+
+
+def _unknown_quest(quest_id: str) -> tuple[list[Rejection], list[Event]]:
+    """The closed domain's answer to an id no quest of the adventure holds."""
+    return [Rejection(code="session.command.unknown_quest", params={"quest": quest_id})], []
+
+
+def _unknown_objective(quest_id: str, objective_id: str) -> tuple[list[Rejection], list[Event]]:
+    """The same answer one level down: the quest is real, this objective of it is not."""
+    return [
+        Rejection(code="session.command.unknown_objective", params={"quest": quest_id, "objective": objective_id})
+    ], []
+
+
+def _quest_state_refused(params: dict[str, int | str | tuple[int | str, ...]]) -> tuple[list[Rejection], list[Event]]:
+    """A lifecycle command that contradicts the state it found, which names it."""
+    return [Rejection(code="session.command.quest_state", params=params)], []
+
+
+def _append_quest_beat(session: GameSession, text: str) -> None:
+    """Append a quest beat to the journal, stamped with the clock it landed at.
+
+    The same [`JournalEntry`][osrlib.crawl.session.JournalEntry] construction
+    [`AddJournalEntry`][osrlib.crawl.commands.AddJournalEntry] makes, and no
+    [`JournalEntryAddedEvent`][osrlib.crawl.events.JournalEntryAddedEvent] behind it:
+    the quest's own lifecycle event *is* this beat's event, and emitting both would
+    show the table one line twice. An unauthored beat appends nothing.
+    """
+    if text:
+        session.journal.append(JournalEntry(text=text, rounds=session.clock.rounds))
+
+
+def _handle_activate_quest(session: GameSession, command: ActivateQuest) -> tuple[list[Rejection], list[Event]]:
+    pair = _quest_pair(session, command.quest_id)
+    if pair is None:
+        return _unknown_quest(command.quest_id)
+    spec, state = pair
+    if state.status != "inactive":
+        return _quest_state_refused({"quest": command.quest_id, "state": state.status})
+    state.status = "active"
+    beat = spec.narrative.offer if spec.narrative is not None else ""
+    _append_quest_beat(session, beat)
+    return [], [QuestActivatedEvent(quest_id=spec.id, name=spec.name, narrative=beat or None)]
+
+
+def _handle_reveal_objective(session: GameSession, command: RevealObjective) -> tuple[list[Rejection], list[Event]]:
+    pair = _quest_pair(session, command.quest_id)
+    if pair is None:
+        return _unknown_quest(command.quest_id)
+    spec, state = pair
+    found = _objective_pair(spec, state, command.objective_id)
+    if found is None:
+        return _unknown_objective(command.quest_id, command.objective_id)
+    objective, objective_state = found
+    if state.status != "active":
+        return _quest_state_refused({"quest": command.quest_id, "state": state.status})
+    # A completed objective is a revealed one, so the more specific state answers first.
+    if objective_state.complete or objective_state.revealed:
+        return _quest_state_refused(
+            {
+                "quest": command.quest_id,
+                "objective": command.objective_id,
+                "state": "complete" if objective_state.complete else "revealed",
+            }
+        )
+    objective_state.revealed = True
+    beat = objective.narrative.offer if objective.narrative is not None else ""
+    _append_quest_beat(session, beat)
+    return [], [ObjectiveRevealedEvent(quest_id=spec.id, objective_id=objective.id, narrative=beat or None)]
+
+
+def _handle_complete_objective(session: GameSession, command: CompleteObjective) -> tuple[list[Rejection], list[Event]]:
+    pair = _quest_pair(session, command.quest_id)
+    if pair is None:
+        return _unknown_quest(command.quest_id)
+    spec, state = pair
+    found = _objective_pair(spec, state, command.objective_id)
+    if found is None:
+        return _unknown_objective(command.quest_id, command.objective_id)
+    objective, objective_state = found
+    if state.status != "active":
+        return _quest_state_refused({"quest": command.quest_id, "state": state.status})
+    if objective_state.complete:
+        return _quest_state_refused({"quest": command.quest_id, "objective": command.objective_id, "state": "complete"})
+    objective_state.complete = True
+    # Completing surfaces a hidden objective: no separate reveal, and the player view
+    # never has to explain a quest that finished something it never mentioned.
+    objective_state.revealed = True
+    beat = objective.narrative.progress if objective.narrative is not None else ""
+    _append_quest_beat(session, beat)
+    return [], [ObjectiveCompletedEvent(quest_id=spec.id, objective_id=objective.id, narrative=beat or None)]
+
+
+def _handle_complete_quest(session: GameSession, command: CompleteQuest) -> tuple[list[Rejection], list[Event]]:
+    pair = _quest_pair(session, command.quest_id)
+    if pair is None:
+        return _unknown_quest(command.quest_id)
+    spec, state = pair
+    # The quest must be active, and that is the whole test: the completion rule is
+    # the issuer's discipline, not the handler's, because ruling a quest done is the
+    # referee's call.
+    if state.status != "active":
+        return _quest_state_refused({"quest": command.quest_id, "state": state.status})
+    state.status = "completed"
+    beat = spec.narrative.completion if spec.narrative is not None else ""
+    _append_quest_beat(session, beat)
+    events: list[Event] = [QuestCompletedEvent(quest_id=spec.id, name=spec.name, narrative=beat or None)]
+    if spec.concludes_adventure and not session.mode.terminal:
+        # The one entrance to victory. A concluded session holds no live play state,
+        # the same rule a party wipe applies; a session that has already ended
+        # advances the quest and transitions nothing.
+        session.encounter = None
+        session.battle = None
+        session.mode = SessionMode.VICTORY
+        events.append(AdventureCompletedEvent(quest_id=spec.id, narrative=beat or None))
+    return [], events
+
+
 def _handle_spawn_monsters(session: GameSession, command: SpawnMonsters) -> tuple[list[Rejection], list[Event]]:
     from osrlib.core.dice import roll
     from osrlib.crawl import encounter as encounter_module
@@ -1212,6 +1418,10 @@ _REFEREE_HANDLERS = {
     PlaceParty: _handle_place_party,
     AdvanceTime: _handle_advance_time,
     RollDice: _handle_roll_dice,
+    ActivateQuest: _handle_activate_quest,
+    RevealObjective: _handle_reveal_objective,
+    CompleteObjective: _handle_complete_objective,
+    CompleteQuest: _handle_complete_quest,
 }
 
 _HANDLERS_CACHE: dict | None = None

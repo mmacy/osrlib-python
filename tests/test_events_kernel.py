@@ -152,6 +152,13 @@ def sample_event(event_class, code):
         "TriggerFiredEvent": dict(trigger_id="lever-east"),
         "JournalEntryAddedEvent": dict(text="The lever grinds; somewhere below, a portcullis rises.", rounds=12),
         "NoteRecordedEvent": dict(text="The east lever is the only one that answers."),
+        "QuestActivatedEvent": dict(quest_id="the-idol", name="The Jade Idol", narrative="Sister Halda wants it back."),
+        "ObjectiveRevealedEvent": dict(quest_id="the-idol", objective_id="return-home"),
+        "ObjectiveCompletedEvent": dict(
+            quest_id="the-idol", objective_id="recover-idol", narrative="The idol is lighter than it looks."
+        ),
+        "QuestCompletedEvent": dict(quest_id="the-idol", name="The Jade Idol", narrative="The bells answer."),
+        "AdventureCompletedEvent": dict(quest_id="the-idol"),
     }
     return event_class(code=code, **samples[event_class.__name__])
 

@@ -180,6 +180,13 @@ def command_strategy():
                 # "pulled" is the value an authored trigger watches for, so the fuzz
                 # reaches the firing path as well as the flag store.
                 fields[field_name] = st.sampled_from([True, 7, "open", "pulled"])
+            elif field_name == "quest_id":
+                # Quest ids are a closed domain, so the fuzz drives the authored id
+                # of the quest fixture (see test_quests.py) and an id no document
+                # holds: the guards must reject both kinds without raising.
+                fields[field_name] = st.sampled_from(["the-idol", "the-idol", "no-such-quest"])
+            elif field_name == "objective_id":
+                fields[field_name] = st.sampled_from(["recover-idol", "return-home", "no-such-objective"])
             elif field_name == "trigger_id":
                 # "lever-east" is listed twice on purpose: the doubled weight makes a
                 # re-mark of an already-marked trigger likely within a short sequence.

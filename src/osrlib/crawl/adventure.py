@@ -28,6 +28,7 @@ from osrlib.core.monsters import MonsterCatalog, MonsterTemplate
 from osrlib.crawl.commands import AwardXP, GrantCoins, GrantItem, PlaceParty, SetDoorState, SpawnMonsters
 from osrlib.crawl.dungeon import DungeonSpec, EdgeKind, FeatureSpec, LevelSpec
 from osrlib.crawl.gates import ConditionSpec, GateSpec, HasItemCondition
+from osrlib.crawl.quests import QuestSpec
 from osrlib.crawl.triggers import (
     FIRST_LIVING_SELECTOR,
     PARTY_SELECTOR,
@@ -92,6 +93,12 @@ class Adventure(BaseModel):
     document order: triggers matching one event fire in it. A game plays them by
     registering an [`Interpreter`][osrlib.crawl.interpreter.Interpreter] on its
     session; an adventure that authors none plays exactly as one that never could.
+
+    `quests` are the adventure's authored
+    [`QuestSpec`][osrlib.crawl.quests.QuestSpec]s, in document order too: a session
+    seeds one state block per quest at construction, in this order, and every walk
+    over them follows it. Quest ids and trigger ids are separate namespaces — they
+    live in separate state blocks — so a quest and a trigger may share an id.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -104,6 +111,7 @@ class Adventure(BaseModel):
     monsters: tuple[MonsterTemplate, ...] = ()
     items: tuple[ItemTemplate, ...] = ()
     triggers: tuple[TriggerSpec, ...] = ()
+    quests: tuple[QuestSpec, ...] = ()
 
     @model_validator(mode="after")
     def _dungeon_ids_unique(self) -> Adventure:
@@ -128,6 +136,26 @@ class Adventure(BaseModel):
             if dungeon.id == dungeon_id:
                 return dungeon
         raise ValueError(f"unknown dungeon id {dungeon_id!r}")
+
+    def quest(self, quest_id: str) -> QuestSpec:
+        """Return the quest with `quest_id`.
+
+        The resolution behind the quest lifecycle commands' closed id domain: an id
+        this cannot answer names no quest of this adventure.
+
+        Args:
+            quest_id: The quest id.
+
+        Returns:
+            The quest spec.
+
+        Raises:
+            ValueError: If no quest has that id.
+        """
+        for quest in self.quests:
+            if quest.id == quest_id:
+                return quest
+        raise ValueError(f"unknown quest id {quest_id!r}")
 
 
 def _effective_monsters(adventure: Adventure, base: MonsterCatalog) -> tuple[MonsterCatalog, tuple[str, ...]]:

@@ -35,6 +35,10 @@ REFEREE_COMMANDS = {
     "mark_trigger_fired",
     "add_journal_entry",
     "record_note",
+    "activate_quest",
+    "reveal_objective",
+    "complete_objective",
+    "complete_quest",
 }
 
 # The referee commands a terminal session withholds, each because it would resume
@@ -102,6 +106,10 @@ def sample_command(command_class):
         "MarkTriggerFired": dict(trigger_id="lever-east"),
         "AddJournalEntry": dict(text="The lever grinds; somewhere below, a portcullis rises."),
         "RecordNote": dict(text="The east lever is the only one that answers."),
+        "ActivateQuest": dict(quest_id="the-idol"),
+        "RevealObjective": dict(quest_id="the-idol", objective_id="return-home"),
+        "CompleteObjective": dict(quest_id="the-idol", objective_id="recover-idol"),
+        "CompleteQuest": dict(quest_id="the-idol"),
     }
     return command_class(**samples[command_class.__name__])
 
@@ -170,11 +178,15 @@ class TestConsequenceCensus:
     def test_the_exclusions_are_the_lifecycle_family_identify_item_and_roll_dice(self):
         types = {cls.model_fields["command_type"].default for cls in CONSEQUENCE_COMMAND_CLASSES}
         assert REFEREE_COMMANDS - types == {
-            # The interpreter's own vocabulary: it marks, journals, and annotates
-            # on the author's behalf.
+            # The interpreter's own vocabulary: it marks, journals, annotates, and
+            # advances quest state on the author's behalf.
             "mark_trigger_fired",
             "add_journal_entry",
             "record_note",
+            "activate_quest",
+            "reveal_objective",
+            "complete_objective",
+            "complete_quest",
             # Session-scoped instance ids no document can know.
             "identify_item",
             # A draw no authored construct reads.
