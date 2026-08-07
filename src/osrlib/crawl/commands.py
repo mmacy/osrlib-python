@@ -38,6 +38,7 @@ from osrlib.crawl.dungeon import Direction, PartyLocation
 __all__ = [
     "ALL_COMMAND_CLASSES",
     "CONSEQUENCE_COMMAND_CLASSES",
+    "ActivateQuest",
     "AddJournalEntry",
     "AdvanceTime",
     "AnyCommand",
@@ -47,6 +48,8 @@ __all__ = [
     "CloseDoor",
     "Command",
     "CommandResult",
+    "CompleteObjective",
+    "CompleteQuest",
     "ConsequenceCommand",
     "DropItems",
     "EngageBattle",
@@ -77,6 +80,7 @@ __all__ = [
     "ReorderParty",
     "ResolveBattleRound",
     "Rest",
+    "RevealObjective",
     "RollDice",
     "Search",
     "SessionMode",
@@ -1848,6 +1852,14 @@ class MarkTriggerFired(Command):
     trigger is accepted and changes nothing: session state records that a trigger
     *has* fired, while each mark in the command log records *one* firing.
 
+    `trigger_id` is an **open domain**: a mark records that something fired, needs no
+    authored trigger behind it, and a game drives it with ids from its own systems.
+    The quest lifecycle commands invert that deliberately —
+    [`ActivateQuest`][osrlib.crawl.commands.ActivateQuest] and its three siblings
+    resolve their ids against the adventure's quest specs, because the state they
+    advance is projected into the player view and an id with no spec behind it has
+    nothing to show.
+
     Modes:
         `town`, `exploring`, `encounter`, `battle`, `game_over`, `victory`
 
@@ -1918,6 +1930,170 @@ class RecordNote(Command):
     text: str = Field(min_length=1)
 
 
+class ActivateQuest(Command):
+    """Referee: put an authored quest into play.
+
+    The first of the four commands that drive an adventure's quest state — a
+    per-quest status (`inactive` → `active` → `completed`) and, under it, a
+    revealed/complete pair per objective. That state is engine-owned session state
+    beside the flag store, and these four are its only writers, so a replay rebuilds
+    it by re-executing the log.
+
+    Quest and objective ids are a **closed domain**: they resolve against the
+    adventure's [`QuestSpec`][osrlib.crawl.quests.QuestSpec]s, and an id no quest
+    spec holds is rejected. That is the deliberate opposite of
+    [`MarkTriggerFired`][osrlib.crawl.commands.MarkTriggerFired]'s open trigger id:
+    a mark is bookkeeping a game may drive with ids from its own systems, while an
+    activated quest is projected into the player view with a name, an offer, and an
+    objective list — an id with no quest behind it has none of them.
+
+    An accepted activation appends the quest's `offer` beat to the journal when its
+    author wrote one, and the event carries the same line; the append emits no
+    [`JournalEntryAddedEvent`][osrlib.crawl.events.JournalEntryAddedEvent], because
+    the lifecycle event *is* that beat's event. Quest state is monotonic, so only an
+    `inactive` quest activates. Referee commands are legal in every mode, terminal
+    modes included.
+
+    Modes:
+        `town`, `exploring`, `encounter`, `battle`, `game_over`, `victory`
+
+    Rejections:
+        - `session.command.unknown_quest` — `quest_id` names no quest of the
+          adventure.
+        - `session.command.quest_state` — the quest is already active or already
+          completed; the rejection names the quest and the state that refused it.
+
+    Events:
+        [`QuestActivatedEvent`][osrlib.crawl.events.QuestActivatedEvent] with the
+        quest id, the quest's name, and the offer beat.
+    """
+
+    command_type: Literal["activate_quest"] = "activate_quest"
+    quest_id: str = Field(min_length=1)
+
+
+class RevealObjective(Command):
+    """Referee: surface a hidden objective of an active quest.
+
+    A hidden objective is absent from the player view until it is revealed or until
+    it completes — completing an objective reveals it, so a quest whose hidden
+    objective simply lands needs no reveal at all. Ids are the closed domain
+    [`ActivateQuest`][osrlib.crawl.commands.ActivateQuest] documents.
+
+    An accepted reveal appends the objective's `offer` beat to the journal when its
+    author wrote one, and the event carries the same line; no
+    [`JournalEntryAddedEvent`][osrlib.crawl.events.JournalEntryAddedEvent] follows,
+    because the lifecycle event is that beat's event. Referee commands are legal in
+    every mode, terminal modes included.
+
+    Modes:
+        `town`, `exploring`, `encounter`, `battle`, `game_over`, `victory`
+
+    Rejections:
+        - `session.command.unknown_quest` — `quest_id` names no quest of the
+          adventure.
+        - `session.command.unknown_objective` — `objective_id` names no objective of
+          that quest.
+        - `session.command.quest_state` — the quest is not active, or the objective
+          is already visible or already complete; the rejection names the quest and
+          the state that refused it.
+
+    Events:
+        [`ObjectiveRevealedEvent`][osrlib.crawl.events.ObjectiveRevealedEvent] with
+        the quest id, the objective id, and the objective's offer beat.
+    """
+
+    command_type: Literal["reveal_objective"] = "reveal_objective"
+    quest_id: str = Field(min_length=1)
+    objective_id: str = Field(min_length=1)
+
+
+class CompleteObjective(Command):
+    """Referee: mark one objective of an active quest done.
+
+    Completing surfaces a hidden objective on the way: an objective the party
+    finished before it was ever announced is revealed and complete in one step, with
+    no separate [`RevealObjective`][osrlib.crawl.commands.RevealObjective]. Ids are
+    the closed domain [`ActivateQuest`][osrlib.crawl.commands.ActivateQuest]
+    documents.
+
+    Completing the last objective a quest's completion rule needs does *not*
+    complete the quest: [`CompleteQuest`][osrlib.crawl.commands.CompleteQuest] is its
+    own command, so whoever drives the quest layer decides when the rule is
+    satisfied. An accepted completion appends the objective's `progress` beat to the
+    journal when its author wrote one, and the event carries the same line; no
+    [`JournalEntryAddedEvent`][osrlib.crawl.events.JournalEntryAddedEvent] follows.
+    Referee commands are legal in every mode, terminal modes included.
+
+    Modes:
+        `town`, `exploring`, `encounter`, `battle`, `game_over`, `victory`
+
+    Rejections:
+        - `session.command.unknown_quest` — `quest_id` names no quest of the
+          adventure.
+        - `session.command.unknown_objective` — `objective_id` names no objective of
+          that quest.
+        - `session.command.quest_state` — the quest is not active, or the objective
+          is already complete; the rejection names the quest and the state that
+          refused it.
+
+    Events:
+        [`ObjectiveCompletedEvent`][osrlib.crawl.events.ObjectiveCompletedEvent] with
+        the quest id, the objective id, and the objective's progress beat.
+    """
+
+    command_type: Literal["complete_objective"] = "complete_objective"
+    quest_id: str = Field(min_length=1)
+    objective_id: str = Field(min_length=1)
+
+
+class CompleteQuest(Command):
+    """Referee: finish an active quest — and, on the concluding quest, the adventure.
+
+    The quest must be active, and that is the whole test: the completion rule is
+    *not* checked here. Ruling a quest done is the referee's call, and an authored
+    quest layer is simply a disciplined issuer that checks the rule before issuing.
+    Ids are the closed domain
+    [`ActivateQuest`][osrlib.crawl.commands.ActivateQuest] documents.
+
+    Rewards are not this command's business: whoever completes the quest issues the
+    authored rewards afterwards as ordinary commands of their own, so a completion
+    driven by hand grants nothing and every reward that does land is a line in the
+    log. The completion appends the quest's `completion` beat to the journal when
+    its author wrote one, and the events carry the same line; no
+    [`JournalEntryAddedEvent`][osrlib.crawl.events.JournalEntryAddedEvent] follows.
+
+    **The victory transition.** Completing a quest whose spec carries
+    `concludes_adventure` from a non-terminal mode clears any open encounter and
+    battle — a concluded session holds no live play state — and switches the session
+    to `victory`. This is the one entrance to that mode. From a terminal mode
+    (`game_over` or `victory`) the quest still completes and still journals, but
+    nothing transitions and no adventure-completed event lands: an ended session
+    never ends again, so the record shows a fallen party finishing the job without
+    resurrecting the adventure around it. Referee commands are legal in every mode,
+    terminal modes included.
+
+    Modes:
+        `town`, `exploring`, `encounter`, `battle`, `game_over`, `victory`
+
+    Rejections:
+        - `session.command.unknown_quest` — `quest_id` names no quest of the
+          adventure.
+        - `session.command.quest_state` — the quest is inactive or already
+          completed; the rejection names the quest and the state that refused it.
+
+    Events:
+        [`QuestCompletedEvent`][osrlib.crawl.events.QuestCompletedEvent] with the
+        quest id, the quest's name, and the completion beat, followed by
+        [`AdventureCompletedEvent`][osrlib.crawl.events.AdventureCompletedEvent]
+        carrying the same beat when the quest concludes the adventure and the
+        session had not already ended.
+    """
+
+    command_type: Literal["complete_quest"] = "complete_quest"
+    quest_id: str = Field(min_length=1)
+
+
 ALL_COMMAND_CLASSES: tuple[type[Command], ...] = (
     MoveParty,
     TurnParty,
@@ -1969,6 +2145,10 @@ ALL_COMMAND_CLASSES: tuple[type[Command], ...] = (
     MarkTriggerFired,
     AddJournalEntry,
     RecordNote,
+    ActivateQuest,
+    RevealObjective,
+    CompleteObjective,
+    CompleteQuest,
 )
 """Every command class — the discriminated union's members, in a stable wire order."""
 
@@ -1992,13 +2172,18 @@ CONSEQUENCE_COMMAND_CLASSES: tuple[type[Command], ...] = (
 """The referee commands an adventure document may carry as authored consequences, in a
 stable wire order.
 
-Three referee commands sit outside the surface, each for its own reason:
+Referee commands sit outside the surface for one of three reasons:
 
 - [`MarkTriggerFired`][osrlib.crawl.commands.MarkTriggerFired],
-  [`AddJournalEntry`][osrlib.crawl.commands.AddJournalEntry], and
-  [`RecordNote`][osrlib.crawl.commands.RecordNote] are the vocabulary the trigger
-  interpreter writes its own bookkeeping in — it marks, journals, and annotates on the
-  author's behalf, so an authored copy would double the record.
+  [`AddJournalEntry`][osrlib.crawl.commands.AddJournalEntry],
+  [`RecordNote`][osrlib.crawl.commands.RecordNote],
+  [`ActivateQuest`][osrlib.crawl.commands.ActivateQuest],
+  [`RevealObjective`][osrlib.crawl.commands.RevealObjective],
+  [`CompleteObjective`][osrlib.crawl.commands.CompleteObjective], and
+  [`CompleteQuest`][osrlib.crawl.commands.CompleteQuest] are the vocabulary the
+  trigger and quest interpreter writes its own bookkeeping in — it marks, journals,
+  annotates, and advances quest state on the author's behalf, so an authored copy
+  would double the record.
 - [`IdentifyItem`][osrlib.crawl.commands.IdentifyItem] addresses a magic item by its
   session-scoped instance id, which no document can know.
 - [`RollDice`][osrlib.crawl.commands.RollDice] produces a result no authored construct

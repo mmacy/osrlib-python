@@ -2332,14 +2332,22 @@ def _validate_carried(member, item_ids: tuple[str, ...], coins: Coins) -> list[R
 
     The member must carry every named item and coin, and no revealed cursed item
     may leave its bearer.
+
+    A magic instance id names one instance, so naming it twice in one command asks
+    for something the member does not carry: the whole instance leaves on the first
+    naming, and the second has nothing behind it.
     """
     counts: dict[str, int] = {}
+    named_magic: set[str] = set()
     for item_id in item_ids:
         magic = member.inventory.magic_item(item_id)
         if magic is not None:
             if magic.cursed_revealed:
                 # A revealed cursed item pins to its bearer until *remove curse*.
                 return [Rejection(code="items.curse.stuck", params={"item": item_id})]
+            if item_id in named_magic:
+                return [Rejection(code="exploration.item.not_carried", params={"item": item_id})]
+            named_magic.add(item_id)
             continue
         if any(valuable.instance_id == item_id for valuable in member.inventory.valuables):
             continue

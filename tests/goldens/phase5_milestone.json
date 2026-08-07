@@ -1,13 +1,19 @@
 {
   "checkpoints": {
-    "mid_delve": 11,
-    "post_award": 43
+    "first_return": 37,
+    "mid_delve": 12,
+    "post_award": 61
   },
   "command_log": [
     {
       "command_type": "enter_dungeon",
       "dungeon_id": "barrow",
       "source": null
+    },
+    {
+      "command_type": "activate_quest",
+      "quest_id": "the-idol",
+      "source": "quest:the-idol"
     },
     {
       "command_type": "move_party",
@@ -361,24 +367,6 @@
     {
       "command_type": "move_party",
       "direction": "east",
-      "source": null
-    },
-    {
-      "command_type": "take_treasure",
-      "feature_id": "idol_shrine",
-      "recipient_id": null,
-      "source": null
-    },
-    {
-      "character_id": "character-0002",
-      "coins": {
-        "cp": 0,
-        "ep": 0,
-        "gp": 200,
-        "pp": 0,
-        "sp": 0
-      },
-      "command_type": "grant_coins",
       "source": null
     },
     {
@@ -936,40 +924,9 @@
       "source": null
     },
     {
-      "command_type": "set_flag",
-      "key": "quest.idol",
-      "source": null,
-      "value": "recovered"
-    },
-    {
-      "amount": 600,
-      "character_id": "character-0001",
-      "command_type": "award_xp",
-      "source": null
-    },
-    {
-      "amount": 600,
-      "character_id": "character-0002",
-      "command_type": "award_xp",
-      "source": null
-    },
-    {
-      "amount": 600,
-      "character_id": "character-0003",
-      "command_type": "award_xp",
-      "source": null
-    },
-    {
-      "amount": 600,
-      "character_id": "character-0004",
-      "command_type": "award_xp",
-      "source": null
-    },
-    {
       "command_type": "sell_treasure",
       "item_ids": [
-        "valuable-0001",
-        "valuable-0002"
+        "valuable-0001"
       ],
       "source": null
     },
@@ -978,6 +935,148 @@
       "command_type": "purchase_healing",
       "service": "cure_light_wounds",
       "source": null
+    },
+    {
+      "character_id": "character-0001",
+      "coins": {
+        "cp": 0,
+        "ep": 0,
+        "gp": 550,
+        "pp": 0,
+        "sp": 0
+      },
+      "command_type": "give_items",
+      "item_ids": [],
+      "recipient_id": "character-0002",
+      "source": null
+    },
+    {
+      "character_id": "character-0001",
+      "coins": {
+        "cp": 0,
+        "ep": 0,
+        "gp": 550,
+        "pp": 0,
+        "sp": 0
+      },
+      "command_type": "give_items",
+      "item_ids": [],
+      "recipient_id": "character-0004",
+      "source": null
+    },
+    {
+      "command_type": "enter_dungeon",
+      "dungeon_id": "barrow",
+      "source": null
+    },
+    {
+      "command_type": "move_party",
+      "direction": "east",
+      "source": null
+    },
+    {
+      "command_type": "move_party",
+      "direction": "east",
+      "source": null
+    },
+    {
+      "command_type": "move_party",
+      "direction": "east",
+      "source": null
+    },
+    {
+      "command_type": "move_party",
+      "direction": "east",
+      "source": null
+    },
+    {
+      "command_type": "take_treasure",
+      "feature_id": "idol_shrine",
+      "recipient_id": null,
+      "source": null
+    },
+    {
+      "command_type": "complete_objective",
+      "objective_id": "recover-idol",
+      "quest_id": "the-idol",
+      "source": "quest:the-idol"
+    },
+    {
+      "command_type": "move_party",
+      "direction": "west",
+      "source": null
+    },
+    {
+      "command_type": "move_party",
+      "direction": "west",
+      "source": null
+    },
+    {
+      "command_type": "move_party",
+      "direction": "west",
+      "source": null
+    },
+    {
+      "command_type": "move_party",
+      "direction": "west",
+      "source": null
+    },
+    {
+      "command_type": "travel_to_town",
+      "source": null
+    },
+    {
+      "command_type": "complete_objective",
+      "objective_id": "return-home",
+      "quest_id": "the-idol",
+      "source": "quest:the-idol"
+    },
+    {
+      "command_type": "complete_quest",
+      "quest_id": "the-idol",
+      "source": "quest:the-idol"
+    },
+    {
+      "character_id": "character-0001",
+      "coins": {
+        "cp": 0,
+        "ep": 0,
+        "gp": 200,
+        "pp": 0,
+        "sp": 0
+      },
+      "command_type": "grant_coins",
+      "source": "quest:the-idol"
+    },
+    {
+      "amount": 1200,
+      "character_id": "character-0001",
+      "command_type": "award_xp",
+      "source": "quest:the-idol"
+    },
+    {
+      "amount": 1200,
+      "character_id": "character-0002",
+      "command_type": "award_xp",
+      "source": "quest:the-idol"
+    },
+    {
+      "amount": 1200,
+      "character_id": "character-0003",
+      "command_type": "award_xp",
+      "source": "quest:the-idol"
+    },
+    {
+      "amount": 1200,
+      "character_id": "character-0004",
+      "command_type": "award_xp",
+      "source": "quest:the-idol"
+    },
+    {
+      "command_type": "set_flag",
+      "key": "quest.idol",
+      "source": "quest:the-idol",
+      "value": "recovered"
     }
   ],
   "defeated_monsters": [],
@@ -990,6 +1089,14 @@
       "location_id": "barrow",
       "location_kind": "dungeon",
       "narrative": null,
+      "visibility": "player"
+    },
+    {
+      "code": "session.quest.activated",
+      "event_type": "quest_activated",
+      "name": "The Jade Idol",
+      "narrative": "The temple wants the Jade Idol off the barrow king's altar and back on its own.",
+      "quest_id": "the-idol",
       "visibility": "player"
     },
     {
@@ -1696,56 +1803,6 @@
       "visibility": "player"
     },
     {
-      "character_id": "character-0001",
-      "code": "exploration.item.acquired",
-      "coins_gp_value": 13,
-      "event_type": "item_acquired",
-      "item_ids": [],
-      "visibility": "player"
-    },
-    {
-      "character_id": "character-0002",
-      "code": "exploration.item.acquired",
-      "coins_gp_value": 13,
-      "event_type": "item_acquired",
-      "item_ids": [
-        "valuable-0002"
-      ],
-      "visibility": "player"
-    },
-    {
-      "character_id": "character-0003",
-      "code": "exploration.item.acquired",
-      "coins_gp_value": 12,
-      "event_type": "item_acquired",
-      "item_ids": [],
-      "visibility": "player"
-    },
-    {
-      "character_id": "character-0004",
-      "code": "exploration.item.acquired",
-      "coins_gp_value": 12,
-      "event_type": "item_acquired",
-      "item_ids": [],
-      "visibility": "player"
-    },
-    {
-      "chance": 0,
-      "code": "exploration.wandering.checked",
-      "encounter": false,
-      "event_type": "wandering_check",
-      "roll": null,
-      "visibility": "referee"
-    },
-    {
-      "character_id": "character-0002",
-      "code": "exploration.item.acquired",
-      "coins_gp_value": 200,
-      "event_type": "item_acquired",
-      "item_ids": [],
-      "visibility": "player"
-    },
-    {
       "code": "exploration.location.entered",
       "dungeon_id": null,
       "event_type": "location_entered",
@@ -2327,6 +2384,17 @@
       "coins_gp_value": 0,
       "event_type": "item_acquired",
       "item_ids": [
+        "battle_axe",
+        "dagger"
+      ],
+      "visibility": "player"
+    },
+    {
+      "character_id": "character-0002",
+      "code": "exploration.item.acquired",
+      "coins_gp_value": 0,
+      "event_type": "item_acquired",
+      "item_ids": [
         "shield",
         "rations_standard",
         "rations_standard",
@@ -2356,9 +2424,7 @@
         "torch",
         "torch",
         "torch",
-        "chainmail",
-        "battle_axe",
-        "dagger"
+        "chainmail"
       ],
       "visibility": "player"
     },
@@ -3057,105 +3123,50 @@
       "code": "session.xp.adventure_award",
       "event_type": "adventure_xp_award",
       "monster_xp": 110,
-      "share": 1092,
+      "share": 480,
       "survivors": [
         "character-0001",
         "character-0002",
         "character-0003",
         "character-0004"
       ],
-      "treasure_xp": 4260,
+      "treasure_xp": 1810,
       "visibility": "player"
     },
     {
-      "award": 1092,
+      "award": 480,
       "character_id": "character-0001",
       "code": "session.xp.awarded",
       "event_type": "xp_awarded",
       "level_after": 1,
-      "modified_award": 1146,
+      "modified_award": 504,
       "visibility": "player"
     },
     {
-      "award": 1092,
+      "award": 480,
       "character_id": "character-0002",
       "code": "session.xp.awarded",
       "event_type": "xp_awarded",
       "level_after": 1,
-      "modified_award": 873,
+      "modified_award": 384,
       "visibility": "player"
     },
     {
-      "award": 1092,
+      "award": 480,
       "character_id": "character-0003",
       "code": "session.xp.awarded",
       "event_type": "xp_awarded",
-      "level_after": 2,
-      "modified_award": 1201,
+      "level_after": 1,
+      "modified_award": 528,
       "visibility": "player"
     },
     {
-      "character_id": "character-0003",
-      "code": "session.level.gained",
-      "con_applied": true,
-      "event_type": "leveled_up",
-      "hp_gained": 4,
-      "hp_roll": 4,
-      "level_after": 2,
-      "level_before": 1,
-      "title": "Footpad",
-      "visibility": "player"
-    },
-    {
-      "award": 1092,
+      "award": 480,
       "character_id": "character-0004",
       "code": "session.xp.awarded",
       "event_type": "xp_awarded",
       "level_after": 1,
-      "modified_award": 1201,
-      "visibility": "player"
-    },
-    {
-      "code": "session.flag.set",
-      "event_type": "flag_set",
-      "key": "quest.idol",
-      "value": "recovered",
-      "visibility": "referee"
-    },
-    {
-      "award": 600,
-      "character_id": "character-0001",
-      "code": "session.xp.awarded",
-      "event_type": "xp_awarded",
-      "level_after": 1,
-      "modified_award": 630,
-      "visibility": "player"
-    },
-    {
-      "award": 600,
-      "character_id": "character-0002",
-      "code": "session.xp.awarded",
-      "event_type": "xp_awarded",
-      "level_after": 1,
-      "modified_award": 480,
-      "visibility": "player"
-    },
-    {
-      "award": 600,
-      "character_id": "character-0003",
-      "code": "session.xp.awarded",
-      "event_type": "xp_awarded",
-      "level_after": 2,
-      "modified_award": 660,
-      "visibility": "player"
-    },
-    {
-      "award": 600,
-      "character_id": "character-0004",
-      "code": "session.xp.awarded",
-      "event_type": "xp_awarded",
-      "level_after": 1,
-      "modified_award": 660,
+      "modified_award": 528,
       "visibility": "player"
     },
     {
@@ -3165,16 +3176,6 @@
       "gp_value": 1600,
       "instance_ids": [
         "valuable-0001"
-      ],
-      "visibility": "player"
-    },
-    {
-      "character_id": "character-0002",
-      "code": "town.treasure.sold",
-      "event_type": "treasure_sold",
-      "gp_value": 2200,
-      "instance_ids": [
-        "valuable-0002"
       ],
       "visibility": "player"
     },
@@ -3214,9 +3215,319 @@
       "max_hp": 6,
       "target_id": "character-0001",
       "visibility": "referee"
+    },
+    {
+      "character_id": "character-0001",
+      "code": "exploration.item.given",
+      "coins_gp_value": 550,
+      "event_type": "items_given",
+      "item_ids": [],
+      "recipient_id": "character-0002",
+      "visibility": "player"
+    },
+    {
+      "character_id": "character-0001",
+      "code": "exploration.item.given",
+      "coins_gp_value": 550,
+      "event_type": "items_given",
+      "item_ids": [],
+      "recipient_id": "character-0004",
+      "visibility": "player"
+    },
+    {
+      "code": "exploration.location.entered",
+      "dungeon_id": null,
+      "event_type": "location_entered",
+      "level_number": 1,
+      "location_id": "barrow",
+      "location_kind": "dungeon",
+      "narrative": null,
+      "visibility": "player"
+    },
+    {
+      "code": "exploration.party.moved",
+      "event_type": "party_moved",
+      "facing": "east",
+      "visibility": "player",
+      "x": 1,
+      "y": 0
+    },
+    {
+      "code": "exploration.party.moved",
+      "event_type": "party_moved",
+      "facing": "east",
+      "visibility": "player",
+      "x": 2,
+      "y": 0
+    },
+    {
+      "code": "exploration.location.entered",
+      "dungeon_id": "barrow",
+      "event_type": "location_entered",
+      "level_number": 1,
+      "location_id": "guard_room",
+      "location_kind": "area",
+      "narrative": null,
+      "visibility": "player"
+    },
+    {
+      "code": "exploration.party.moved",
+      "event_type": "party_moved",
+      "facing": "east",
+      "visibility": "player",
+      "x": 3,
+      "y": 0
+    },
+    {
+      "code": "exploration.party.moved",
+      "event_type": "party_moved",
+      "facing": "east",
+      "visibility": "player",
+      "x": 4,
+      "y": 0
+    },
+    {
+      "code": "exploration.location.entered",
+      "dungeon_id": "barrow",
+      "event_type": "location_entered",
+      "level_number": 1,
+      "location_id": "shrine",
+      "location_kind": "area",
+      "narrative": null,
+      "visibility": "player"
+    },
+    {
+      "character_id": "character-0001",
+      "code": "exploration.item.acquired",
+      "coins_gp_value": 13,
+      "event_type": "item_acquired",
+      "item_ids": [],
+      "visibility": "player"
+    },
+    {
+      "character_id": "character-0002",
+      "code": "exploration.item.acquired",
+      "coins_gp_value": 13,
+      "event_type": "item_acquired",
+      "item_ids": [],
+      "visibility": "player"
+    },
+    {
+      "character_id": "character-0003",
+      "code": "exploration.item.acquired",
+      "coins_gp_value": 12,
+      "event_type": "item_acquired",
+      "item_ids": [
+        "jade-idol"
+      ],
+      "visibility": "player"
+    },
+    {
+      "character_id": "character-0004",
+      "code": "exploration.item.acquired",
+      "coins_gp_value": 12,
+      "event_type": "item_acquired",
+      "item_ids": [],
+      "visibility": "player"
+    },
+    {
+      "code": "session.quest.objective_completed",
+      "event_type": "objective_completed",
+      "narrative": "The idol comes up out of the hollow, cold as well-water.",
+      "objective_id": "recover-idol",
+      "quest_id": "the-idol",
+      "visibility": "player"
+    },
+    {
+      "code": "exploration.party.moved",
+      "event_type": "party_moved",
+      "facing": "west",
+      "visibility": "player",
+      "x": 3,
+      "y": 0
+    },
+    {
+      "code": "exploration.location.entered",
+      "dungeon_id": "barrow",
+      "event_type": "location_entered",
+      "level_number": 1,
+      "location_id": "guard_room",
+      "location_kind": "area",
+      "narrative": null,
+      "visibility": "player"
+    },
+    {
+      "code": "exploration.party.moved",
+      "event_type": "party_moved",
+      "facing": "west",
+      "visibility": "player",
+      "x": 2,
+      "y": 0
+    },
+    {
+      "code": "exploration.party.moved",
+      "event_type": "party_moved",
+      "facing": "west",
+      "visibility": "player",
+      "x": 1,
+      "y": 0
+    },
+    {
+      "code": "exploration.party.moved",
+      "event_type": "party_moved",
+      "facing": "west",
+      "visibility": "player",
+      "x": 0,
+      "y": 0
+    },
+    {
+      "code": "exploration.location.entered",
+      "dungeon_id": null,
+      "event_type": "location_entered",
+      "level_number": null,
+      "location_id": "town",
+      "location_kind": "town",
+      "narrative": null,
+      "visibility": "player"
+    },
+    {
+      "code": "session.xp.adventure_award",
+      "event_type": "adventure_xp_award",
+      "monster_xp": 0,
+      "share": 12,
+      "survivors": [
+        "character-0001",
+        "character-0002",
+        "character-0003",
+        "character-0004"
+      ],
+      "treasure_xp": 50,
+      "visibility": "player"
+    },
+    {
+      "award": 12,
+      "character_id": "character-0001",
+      "code": "session.xp.awarded",
+      "event_type": "xp_awarded",
+      "level_after": 1,
+      "modified_award": 12,
+      "visibility": "player"
+    },
+    {
+      "award": 12,
+      "character_id": "character-0002",
+      "code": "session.xp.awarded",
+      "event_type": "xp_awarded",
+      "level_after": 1,
+      "modified_award": 9,
+      "visibility": "player"
+    },
+    {
+      "award": 12,
+      "character_id": "character-0003",
+      "code": "session.xp.awarded",
+      "event_type": "xp_awarded",
+      "level_after": 1,
+      "modified_award": 13,
+      "visibility": "player"
+    },
+    {
+      "award": 12,
+      "character_id": "character-0004",
+      "code": "session.xp.awarded",
+      "event_type": "xp_awarded",
+      "level_after": 1,
+      "modified_award": 13,
+      "visibility": "player"
+    },
+    {
+      "code": "session.quest.objective_completed",
+      "event_type": "objective_completed",
+      "narrative": "Threshold's gate shuts behind you with the idol inside it.",
+      "objective_id": "return-home",
+      "quest_id": "the-idol",
+      "visibility": "player"
+    },
+    {
+      "code": "session.quest.completed",
+      "event_type": "quest_completed",
+      "name": "The Jade Idol",
+      "narrative": "The almoner counts out the reward without looking up. The idol is home.",
+      "quest_id": "the-idol",
+      "visibility": "player"
+    },
+    {
+      "code": "session.adventure.completed",
+      "event_type": "adventure_completed",
+      "narrative": "The almoner counts out the reward without looking up. The idol is home.",
+      "quest_id": "the-idol",
+      "visibility": "player"
+    },
+    {
+      "character_id": "character-0001",
+      "code": "exploration.item.acquired",
+      "coins_gp_value": 200,
+      "event_type": "item_acquired",
+      "item_ids": [],
+      "visibility": "player"
+    },
+    {
+      "award": 1200,
+      "character_id": "character-0001",
+      "code": "session.xp.awarded",
+      "event_type": "xp_awarded",
+      "level_after": 1,
+      "modified_award": 1260,
+      "visibility": "player"
+    },
+    {
+      "award": 1200,
+      "character_id": "character-0002",
+      "code": "session.xp.awarded",
+      "event_type": "xp_awarded",
+      "level_after": 1,
+      "modified_award": 960,
+      "visibility": "player"
+    },
+    {
+      "award": 1200,
+      "character_id": "character-0003",
+      "code": "session.xp.awarded",
+      "event_type": "xp_awarded",
+      "level_after": 2,
+      "modified_award": 1320,
+      "visibility": "player"
+    },
+    {
+      "character_id": "character-0003",
+      "code": "session.level.gained",
+      "con_applied": true,
+      "event_type": "leveled_up",
+      "hp_gained": 4,
+      "hp_roll": 4,
+      "level_after": 2,
+      "level_before": 1,
+      "title": "Footpad",
+      "visibility": "player"
+    },
+    {
+      "award": 1200,
+      "character_id": "character-0004",
+      "code": "session.xp.awarded",
+      "event_type": "xp_awarded",
+      "level_after": 1,
+      "modified_award": 1320,
+      "visibility": "player"
+    },
+    {
+      "code": "session.flag.set",
+      "event_type": "flag_set",
+      "key": "quest.idol",
+      "value": "recovered",
+      "visibility": "referee"
     }
   ],
-  "final_clock_rounds": 660,
+  "final_clock_rounds": 900,
   "final_stream_states": {
     "advancement": {
       "inc": 43677341557666270100197892308947072293,
@@ -3266,13 +3577,29 @@
   "flags": {
     "quest.idol": "recovered"
   },
-  "listener_state": {
-    "fetch_quest": {
-      "completed": true,
-      "reward_granted": true
+  "journal": [
+    {
+      "rounds": 120,
+      "text": "The temple wants the Jade Idol off the barrow king's altar and back on its own."
+    },
+    {
+      "rounds": 780,
+      "text": "The idol comes up out of the hollow, cold as well-water."
+    },
+    {
+      "rounds": 900,
+      "text": "Threshold's gate shuts behind you with the idol inside it."
+    },
+    {
+      "rounds": 900,
+      "text": "The almoner counts out the reward without looking up. The idol is home."
     }
+  ],
+  "listener_state": {
+    "osrlib.interpreter": {}
   },
   "master_seed": 21,
+  "mode": "victory",
   "party_document": {
     "engine_version": "1.4.0",
     "kind": "party",
@@ -3625,8 +3952,24 @@
       "xp": 1861
     }
   ],
+  "quests": {
+    "the-idol": {
+      "objectives": {
+        "recover-idol": {
+          "complete": true,
+          "revealed": true
+        },
+        "return-home": {
+          "complete": true,
+          "revealed": true
+        }
+      },
+      "status": "completed"
+    }
+  },
   "transcript": [
     "The party enters dungeon barrow (level 1).",
+    "A new quest: The Jade Idol. The temple wants the Jade Idol off the barrow king's altar and back on its own.",
     "The party moves to (1, 0), facing east.",
     "The party moves to (2, 0), facing east.",
     "The party enters area guard_room (level 1).",
@@ -3688,12 +4031,6 @@
     "The party moves to (3, 0), facing east.",
     "The party moves to (4, 0), facing east.",
     "The party enters area shrine (level 1).",
-    "character-0001 acquires 13 gp in coin.",
-    "character-0002 acquires valuable-0002 and 13 gp in coin.",
-    "character-0003 acquires 12 gp in coin.",
-    "character-0004 acquires 12 gp in coin.",
-    "Wandering check: skipped vs 0-in-6 — nothing comes.",
-    "character-0002 acquires 200 gp in coin.",
     "The party enters level barrow (level 2).",
     "The party moves to (1, 0), facing east.",
     "The party moves to (2, 0), facing east.",
@@ -3746,7 +4083,8 @@
     "npc-0001 (npc:dwarf) is slain.",
     "npc-0002 (npc:magic_user) is slain.",
     "The encounter ends (victory).",
-    "character-0001 acquires shield, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, waterskin, waterskin, torch, torch, torch, torch, torch, torch, torch, torch, torch, torch, torch, torch, chainmail, battle_axe, dagger.",
+    "character-0001 acquires battle_axe, dagger.",
+    "character-0002 acquires shield, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, waterskin, waterskin, torch, torch, torch, torch, torch, torch, torch, torch, torch, torch, torch, torch, chainmail.",
     "Wandering check: 2 vs 6-in-6 — an encounter!",
     "An NPC party (basic, lawful) takes the field: npc-0003 (halfling 3), npc-0004 (fighter 3).",
     "Surprise (monsters): rolled 6, surprised on 1-2 — not surprised.",
@@ -3808,22 +4146,50 @@
     "The party moves to (1, 0), facing west.",
     "The party moves to (0, 0), facing west.",
     "The party enters town town.",
-    "The adventure ends: 110 XP from monsters and 4260 XP from treasure — 1092 XP to each of 4 survivor(s).",
-    "character-0001 gains 1146 XP (base 1092), now level 1.",
-    "character-0002 gains 873 XP (base 1092), now level 1.",
-    "character-0003 gains 1201 XP (base 1092), now level 2.",
-    "character-0003 advances to level 2 (Footpad): +4 hp (rolled 4).",
-    "character-0004 gains 1201 XP (base 1092), now level 1.",
-    "Flag quest.idol = 'recovered'.",
-    "character-0001 gains 630 XP (base 600), now level 1.",
-    "character-0002 gains 480 XP (base 600), now level 1.",
-    "character-0003 gains 660 XP (base 600), now level 2.",
-    "character-0004 gains 660 XP (base 600), now level 1.",
+    "The adventure ends: 110 XP from monsters and 1810 XP from treasure — 480 XP to each of 4 survivor(s).",
+    "character-0001 gains 504 XP (base 480), now level 1.",
+    "character-0002 gains 384 XP (base 480), now level 1.",
+    "character-0003 gains 528 XP (base 480), now level 1.",
+    "character-0004 gains 528 XP (base 480), now level 1.",
     "character-0001 sells 1 valuable(s) for 1600 gp.",
-    "character-0002 sells 1 valuable(s) for 2200 gp.",
     "character-0001 purchases cure_light_wounds at the temple for 25 gp.",
     "town-cleric casts cure_light_wounds [heal] at character-0001.",
     "character-0001 regains 2 hit points (magical).",
-    "character-0001 is at 6/6 hit points."
+    "character-0001 is at 6/6 hit points.",
+    "character-0001 gives 550 gp in coin to character-0002.",
+    "character-0001 gives 550 gp in coin to character-0004.",
+    "The party enters dungeon barrow (level 1).",
+    "The party moves to (1, 0), facing east.",
+    "The party moves to (2, 0), facing east.",
+    "The party enters area guard_room (level 1).",
+    "The party moves to (3, 0), facing east.",
+    "The party moves to (4, 0), facing east.",
+    "The party enters area shrine (level 1).",
+    "character-0001 acquires 13 gp in coin.",
+    "character-0002 acquires 13 gp in coin.",
+    "character-0003 acquires jade-idol and 12 gp in coin.",
+    "character-0004 acquires 12 gp in coin.",
+    "Quest the-idol: objective recover-idol is done. The idol comes up out of the hollow, cold as well-water.",
+    "The party moves to (3, 0), facing west.",
+    "The party enters area guard_room (level 1).",
+    "The party moves to (2, 0), facing west.",
+    "The party moves to (1, 0), facing west.",
+    "The party moves to (0, 0), facing west.",
+    "The party enters town town.",
+    "The adventure ends: 0 XP from monsters and 50 XP from treasure — 12 XP to each of 4 survivor(s).",
+    "character-0001 gains 12 XP (base 12), now level 1.",
+    "character-0002 gains 9 XP (base 12), now level 1.",
+    "character-0003 gains 13 XP (base 12), now level 1.",
+    "character-0004 gains 13 XP (base 12), now level 1.",
+    "Quest the-idol: objective return-home is done. Threshold's gate shuts behind you with the idol inside it.",
+    "Quest complete: The Jade Idol. The almoner counts out the reward without looking up. The idol is home.",
+    "The adventure is over: the-idol is finished. The almoner counts out the reward without looking up. The idol is home.",
+    "character-0001 acquires 200 gp in coin.",
+    "character-0001 gains 1260 XP (base 1200), now level 1.",
+    "character-0002 gains 960 XP (base 1200), now level 1.",
+    "character-0003 gains 1320 XP (base 1200), now level 2.",
+    "character-0003 advances to level 2 (Footpad): +4 hp (rolled 4).",
+    "character-0004 gains 1320 XP (base 1200), now level 1.",
+    "Flag quest.idol = 'recovered'."
   ]
 }

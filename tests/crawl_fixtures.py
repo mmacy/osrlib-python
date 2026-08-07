@@ -23,7 +23,7 @@ from osrlib.core.abilities import AbilityScore
 from osrlib.core.character import Character
 from osrlib.core.items import Coins, GearTemplate
 from osrlib.crawl.adventure import Adventure, TownSpec
-from osrlib.crawl.commands import SetDoorState, SpawnMonsters
+from osrlib.crawl.commands import AwardXP, GrantCoins, SetDoorState, SetFlag, SpawnMonsters
 from osrlib.crawl.dungeon import (
     AreaSpec,
     AreaTreasureSpec,
@@ -46,10 +46,23 @@ from osrlib.crawl.dungeon import (
 from osrlib.crawl.gates import GateSpec, HasItemCondition
 from osrlib.crawl.narrative import NarrativeBlock
 from osrlib.crawl.party import Party
-from osrlib.crawl.triggers import AreaEnteredPattern, FlagSetPattern, TriggerSpec
+from osrlib.crawl.quests import ObjectiveSpec, QuestSpec, TriggerClause
+from osrlib.crawl.triggers import (
+    FIRST_LIVING_SELECTOR,
+    PARTY_SELECTOR,
+    AreaEnteredPattern,
+    DungeonEnteredPattern,
+    FlagSetPattern,
+    ItemAcquiredPattern,
+    TownEnteredPattern,
+    TriggerSpec,
+)
 from osrlib.data import load_classes
 
 __all__ = [
+    "BARROW_IDOL",
+    "BARROW_MOUTH_FIRED",
+    "BARROW_MOUTH_JOURNAL",
     "GATE_KEY",
     "GATE_SEAL",
     "GATE_SIGIL",
@@ -58,11 +71,24 @@ __all__ = [
     "PORTCULLIS_CRANK",
     "PORTCULLIS_FIRED",
     "PORTCULLIS_JOURNAL",
+    "QUEST_COMPLETION",
+    "QUEST_ID",
+    "QUEST_NAME",
+    "QUEST_OFFER",
+    "QUEST_RECOVER",
+    "QUEST_RECOVER_PROGRESS",
+    "QUEST_RETURN",
+    "QUEST_RETURN_OFFER",
+    "QUEST_RETURN_PROGRESS",
+    "QUEST_SPEAKER",
+    "RITE_KEY",
     "STOCK_ROSTER",
     "build_adventure",
+    "build_barrow_adventure",
     "build_blade_adventure",
     "build_chute_adventure",
     "build_double_trap_adventure",
+    "build_fetch_quest",
     "build_gas_trap_adventure",
     "build_gated_adventure",
     "build_lethal_coffer_adventure",
@@ -71,6 +97,25 @@ __all__ = [
     "build_portcullis_adventure",
     "build_sightline_adventure",
 ]
+
+
+QUEST_ID = "the-idol"
+"""The fetch quest's id — the one the fuzzer's `quest_id` strategy samples."""
+
+QUEST_NAME = "The Jade Idol"
+
+QUEST_RECOVER = "recover-idol"
+"""The visible objective: the idol comes out of the delve."""
+
+QUEST_RETURN = "return-home"
+"""The hidden objective: revealed in room_a, completed by walking home carrying it."""
+
+QUEST_OFFER = "Sister Halda wants the idol back before the new moon."
+QUEST_SPEAKER = "Sister Halda"
+QUEST_COMPLETION = "The idol sits on the altar where it began."
+QUEST_RECOVER_PROGRESS = "The idol is lighter than it looks."
+QUEST_RETURN_OFFER = "And then there is the matter of walking out alive."
+QUEST_RETURN_PROGRESS = "Threshold's gate closes behind you, the idol in the pack."
 
 
 def _open(edges: dict, position, direction) -> None:
@@ -188,6 +233,40 @@ def build_adventure(wandering_chance: int = 1) -> Adventure:
         town=TownSpec(name="Threshold", services=("inn", "trader"), travel_turns={"delve": 6}),
         dungeons=(DungeonSpec(id="delve", name="The Delve", levels=(level_1, level_2)),),
     )
+
+
+def build_fetch_quest(**overrides) -> QuestSpec:
+    """The shared fetch quest over the delve: one visible objective, one hidden.
+
+    Every reference resolves against `build_adventure`'s delve, so it can be bolted
+    onto that adventure with `model_copy(update={"quests": (build_fetch_quest(),)})`
+    — the way a test gives a session quests without touching the shared fixture the
+    goldens embed. Its ids are the ones the fuzzer's quest strategies sample.
+    """
+    quest = QuestSpec(
+        id=QUEST_ID,
+        name=QUEST_NAME,
+        activation=TriggerClause(pattern=DungeonEnteredPattern(dungeon_id="delve")),
+        objectives=(
+            ObjectiveSpec(
+                id=QUEST_RECOVER,
+                when=TriggerClause(pattern=ItemAcquiredPattern(item_id="holy_water")),
+                narrative=NarrativeBlock(progress=QUEST_RECOVER_PROGRESS),
+            ),
+            ObjectiveSpec(
+                id=QUEST_RETURN,
+                when=TriggerClause(pattern=TownEnteredPattern(), conditions=(HasItemCondition(item_id="holy_water"),)),
+                hidden=True,
+                reveal_when=TriggerClause(
+                    pattern=AreaEnteredPattern(dungeon_id="delve", level_number=1, area_id="room_a")
+                ),
+                narrative=NarrativeBlock(offer=QUEST_RETURN_OFFER, progress=QUEST_RETURN_PROGRESS),
+            ),
+        ),
+        rewards=(AwardXP(character_id=PARTY_SELECTOR, amount=200),),
+        narrative=NarrativeBlock(offer=QUEST_OFFER, completion=QUEST_COMPLETION, speaker=QUEST_SPEAKER),
+    )
+    return quest.model_copy(update=overrides) if overrides else quest
 
 
 def build_blade_adventure() -> Adventure:
@@ -455,6 +534,127 @@ def build_portcullis_adventure() -> Adventure:
         dungeons=(DungeonSpec(id="keep", name="The Keep", levels=(level,)),),
         items=(PORTCULLIS_CRANK,),
         triggers=triggers,
+    )
+
+
+BARROW_IDOL = GearTemplate(id="votive_idol", name="Votive idol of jade", cost_gp=0)
+"""The barrow's MacGuffin, bundled by the adventure so taking it reports a catalog id
+the quest's objective can match."""
+
+RITE_KEY = "barrow.rite"
+"""The flag the party's rite writes — the hidden objective's completion clause."""
+
+BARROW_MOUTH_FIRED = "The barrow-mouth exhales cold air over the threshold."
+BARROW_MOUTH_JOURNAL = "The barrow takes you in, and the daylight stops at the lintel."
+
+
+def build_barrow_adventure() -> Adventure:
+    """Build the one-level barrow the authored quest runs end to end in.
+
+    Level 1 (4 × 1), entrance (0,0):
+
+    ```text
+        x0     x1     x2          x3
+    y0  ENT————corr———[shrine]———[crypt]
+    ```
+
+    - `barrow-mouth` is an ordinary trigger on the same crossing that activates the
+      quest, so the order the two surfaces run in is visible in the log.
+    - The shrine at (2,0) keeps the `reliquary` cache, and the cache holds the
+      bundled idol: taking it reports the catalog id the first objective watches.
+    - The crypt at (3,0) reveals the hidden second objective, which completes when
+      the game writes the rite flag.
+    - The quest concludes the adventure, and pays after the transition: the spawn
+      reward is illegal in `victory` and drops with a note, and the three after it
+      land.
+    """
+    edges: dict[str, Edge] = {}
+    _open(edges, (0, 0), Direction.EAST)
+    _open(edges, (1, 0), Direction.EAST)
+    _open(edges, (2, 0), Direction.EAST)
+    level = LevelSpec(
+        number=1,
+        width=4,
+        height=1,
+        edges=edges,
+        areas=(
+            AreaSpec(
+                id="shrine",
+                name="Shrine of the Nine",
+                description="Nine niches, eight of them empty.",
+                cells=((2, 0),),
+                features=(
+                    FeatureSpec(
+                        id="reliquary",
+                        kind="treasure_cache",
+                        description="A reliquary of blackened silver.",
+                        cell=(2, 0),
+                        item_ids=(BARROW_IDOL.id,),
+                    ),
+                ),
+            ),
+            AreaSpec(
+                id="crypt",
+                name="Crypt of the Ninth",
+                description="A slab, a name worn smooth, and room enough to kneel.",
+                cells=((3, 0),),
+            ),
+        ),
+        entrance=(0, 0),
+        wandering=WanderingSpec(chance_in_six=0),
+    )
+    quest = QuestSpec(
+        id="the-idol",
+        name="The Votive Idol",
+        activation=TriggerClause(pattern=DungeonEnteredPattern(dungeon_id="barrow")),
+        objectives=(
+            ObjectiveSpec(
+                id="recover-idol",
+                when=TriggerClause(pattern=ItemAcquiredPattern(item_id=BARROW_IDOL.id)),
+                narrative=NarrativeBlock(progress="The idol comes out of its niche as if it were waiting."),
+            ),
+            ObjectiveSpec(
+                id="speak-the-rite",
+                when=TriggerClause(pattern=FlagSetPattern(key=RITE_KEY, value="spoken")),
+                hidden=True,
+                reveal_when=TriggerClause(
+                    pattern=AreaEnteredPattern(dungeon_id="barrow", level_number=1, area_id="crypt")
+                ),
+                narrative=NarrativeBlock(
+                    offer="The slab wants words said over it before the idol may leave.",
+                    progress="The rite is spoken, and the cold goes out of the air.",
+                ),
+            ),
+        ),
+        rewards=(
+            # Illegal once the adventure has concluded: it drops with a note, and the
+            # three rewards after it still land.
+            SpawnMonsters(template_id="goblin", count_fixed=1, distance_feet=30),
+            GrantCoins(character_id=FIRST_LIVING_SELECTOR, coins=Coins(gp=100)),
+            AwardXP(character_id=PARTY_SELECTOR, amount=100),
+            SetFlag(key="quest.idol", value="recovered"),
+        ),
+        concludes_adventure=True,
+        narrative=NarrativeBlock(
+            offer="Sister Halda wants the ninth idol back in the temple, rite and all.",
+            completion="The barrow is quiet. The idol is yours to carry home.",
+            speaker="Sister Halda",
+        ),
+    )
+    return Adventure(
+        name="The Barrow of the Ninth",
+        description="A shrine, a crypt, and one errand that ends the adventure.",
+        town=TownSpec(name="Threshold", travel_turns={"barrow": 1}),
+        dungeons=(DungeonSpec(id="barrow", name="The Barrow", levels=(level,)),),
+        items=(BARROW_IDOL,),
+        triggers=(
+            TriggerSpec(
+                id="barrow-mouth",
+                when=DungeonEnteredPattern(dungeon_id="barrow"),
+                narrative=NarrativeBlock(fired=BARROW_MOUTH_FIRED, journal=BARROW_MOUTH_JOURNAL),
+            ),
+        ),
+        quests=(quest,),
     )
 
 

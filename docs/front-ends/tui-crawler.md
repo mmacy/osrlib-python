@@ -38,21 +38,25 @@ the transcript too:
 
 Every event carries a [`Visibility`][osrlib.core.events.Visibility]; filtering on
 `Visibility.PLAYER` here is what keeps referee-only bookkeeping out of the player's
-terminal. Running the milestone transcript (`--seed 203 --script
+terminal. Running the milestone transcript (`--seed 21 --script
 examples/tui_crawler/scripts/milestone.txt`) opens like this:
 
 ```text
 > enter
   The party enters dungeon barrow (level 1).
+  A new quest: The Jade Idol. The temple wants the Jade Idol off the barrow king's altar and back on its own.
 > move e
   The party moves to (1, 0), facing east.
 > move e
   The party moves to (2, 0), facing east.
   The party enters area guard_room (level 1).
-  Encounter: 2 × Goblin at 50' — the party is surprised.
+  Encounter: 2 × Goblin at 20' — the party is surprised.
   The monsters' bearing: uncertain.
-  The monsters' bearing: hostile.
 ```
+
+The second line is already the delta loop earning its keep: crossing the threshold
+activated the adventure's quest, and what printed it was a command the interpreter
+issued *inside* the player's `enter`.
 
 Every printed line is [`format_message`][osrlib.messages.format_message] rendering a
 typed event — a different front end could format the same events into JSON, a chat
@@ -77,11 +81,12 @@ covers what a `PlayerView` includes and how it differs from the referee's.
 
 ## The authored adventure
 
-`content.py` builds the game's whole world: a town and a two-level barrow, assembled
-from the same authoring models [Building an adventure](../getting-started/building-an-adventure.md)
-walks through. A keyed area binds descriptive text, an encounter, and a feature to a
-set of cells — here, the shrine room holding the quest's MacGuffin, a named valuable
-tucked inside a treasure cache:
+`content.py` builds the game's whole world: a town, a two-level barrow, and the errand
+that ends it, assembled from the same authoring models
+[Building an adventure](../getting-started/building-an-adventure.md) walks through. A
+keyed area binds descriptive text, an encounter, and a feature to a set of cells —
+here, the shrine room whose cache holds the quest's MacGuffin, named by id so that
+taking it is something the quest can match on:
 
 ```{.python .no-run}
 --8<-- "examples/tui_crawler/content.py:idol-shrine-area"
@@ -124,45 +129,104 @@ magic-user, kitted out from its own starting gold — is what the non-interactiv
 --8<-- "examples/tui_crawler/create.py:scripted-party-fn"
 ```
 
-## The fetch quest: a listener, not a library change
+## The fetch quest: authored data, not front-end code
 
-The barrow's hook — "the temple pays 200 gp for the Jade Idol's return" — is tracked
-entirely in the example's own code. `quest.py` defines a listener and `__main__.py`
-registers it on the session right after creating it, alongside the housekeeping that
-lines up the session's RNG streams with the ones character creation already drew
-from:
-
-```{.python .no-run}
---8<-- "examples/tui_crawler/__main__.py:register-quest-listener"
-```
-
-A registered [`Listener`][osrlib.crawl.session.Listener] runs after every command,
-watching the events that command produced. `FetchQuestListener` watches for an
-[`ItemAcquiredEvent`][osrlib.crawl.events.ItemAcquiredEvent] naming the idol and a
-[`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] back in town. It
-never mutates session state itself — every effect it has goes through the same
-commands any front end could issue, which is why replays and saves stay honest:
+The barrow's hook — "the temple pays 200 gp for the Jade Idol's return" — is part of
+the adventure, not part of the crawler. The idol is a bundled
+[`GearTemplate`][osrlib.core.items.GearTemplate] the shop never stocks, dropped into
+the shrine cache by id, so picking it up reports a catalog id anything can match on:
 
 ```{.python .no-run}
---8<-- "examples/tui_crawler/quest.py:fetch-quest-listener"
+--8<-- "examples/tui_crawler/content.py:bundled-idol"
 ```
 
-The reward is granted the moment the idol is picked up, in the dungeon — not on the
-later town-return event — because that ordering lets the end-of-adventure treasure
-award count the coin. A town-return grant would land one event too late to be
-counted. Watching the transcript, the reward shows up as a second acquisition line
-immediately after the idol itself:
+The quest itself is a [`QuestSpec`][osrlib.crawl.quests.QuestSpec] in the same file —
+an activation clause, two objectives, three rewards, and the marker that says
+finishing it finishes the adventure:
+
+```{.python .no-run}
+--8<-- "examples/tui_crawler/content.py:fetch-quest"
+```
+
+Nothing in the crawler tracks any of it. `__main__.py` registers the library's
+[`Interpreter`][osrlib.crawl.interpreter.Interpreter] on the session right after
+creating it, alongside the housekeeping that lines up the session's RNG streams with
+the ones character creation already drew from:
+
+```{.python .no-run}
+--8<-- "examples/tui_crawler/__main__.py:register-interpreter"
+```
+
+The interpreter is an ordinary [`Listener`][osrlib.crawl.session.Listener]: it runs
+after every command, matches the events against the adventure's triggers and quests,
+and acts the only way anything outside the engine may — by executing referee
+commands, each stamped with the quest it acted for. Two moments from the end of the same
+milestone run show it, rendered from typed events by the same formatter as everything
+else. Emptying the shrine cache:
 
 ```text
 > take idol_shrine
-  character-0001 acquires valuable-0005 and 50 gp in coin.
-  character-0001 acquires 200 gp in coin.
+  character-0001 acquires 13 gp in coin.
+  character-0002 acquires 13 gp in coin.
+  character-0003 acquires jade-idol and 12 gp in coin.
+  character-0004 acquires 12 gp in coin.
+  Quest the-idol: objective recover-idol is done. The idol comes up out of the hollow, cold as well-water.
 ```
 
-On the walk back to town, the listener sets a flag and awards each survivor bonus
-experience — again through ordinary commands, not by reaching into the party
-directly. [Listeners and flags](../guides/listeners-and-flags.md) covers the listener
-contract and the flag store this pattern relies on in full.
+Then, four `move w` steps later, the homecoming:
+
+```text
+> town
+  The party enters town town.
+  The adventure ends: 0 XP from monsters and 50 XP from treasure — 12 XP to each of 4 survivor(s).
+  character-0001 gains 12 XP (base 12), now level 1.
+  character-0002 gains 9 XP (base 12), now level 1.
+  character-0003 gains 13 XP (base 12), now level 1.
+  character-0004 gains 13 XP (base 12), now level 1.
+  Quest the-idol: objective return-home is done. Threshold's gate shuts behind you with the idol inside it.
+  Quest complete: The Jade Idol. The almoner counts out the reward without looking up. The idol is home.
+  The adventure is over: the-idol is finished. The almoner counts out the reward without looking up. The idol is home.
+  character-0001 acquires 200 gp in coin.
+  character-0001 gains 1260 XP (base 1200), now level 1.
+  character-0002 gains 960 XP (base 1200), now level 1.
+  character-0003 gains 1320 XP (base 1200), now level 2.
+  character-0003 advances to level 2 (Footpad): +4 hp (rolled 4).
+  character-0004 gains 1320 XP (base 1200), now level 1.
+```
+
+Two details of that output are the whole chapter in miniature. The cache spreads across
+the party by the ordinary loot rules, so the thief is the one carrying the idol when the
+party walks home — and the objective's `has_item` condition asks whether *the party*
+carries it, not who. And the completion beat appears twice, on the quest's own event and
+again on the adventure's, because each event carries the authored line and the formatter
+appends whatever beat rides the event it is given.
+
+### Why the milestone makes two trips
+
+The homecoming objective is a `town_entered` pattern narrowed by a `has_item`
+condition, so walking back empty-handed is not a return — the objective simply does
+not fire. That one clause is what gives `scripts/milestone.txt` its shape:
+
+1. **Down**, for the goblins, their lair hoard, and the rival party prowling level 2.
+2. **Home without the idol.** The return banks the end-of-adventure award, and the
+   party sells its haul and buys a temple healing — town commands that are legal here
+   and nowhere later, because the adventure has not ended yet. Coin weighs a coin
+   apiece, so the seller spreads the purse with `give` before anybody walks again.
+3. **Down again**, for the idol alone.
+4. **Home with it**, which completes the second objective, completes the quest, and
+   — the quest carrying `concludes_adventure=True` — ends the session in `victory`.
+   The rewards land *after* that transition: the 200 gp, the party's XP, and the
+   `quest.idol` flag the crawler prints on its way out.
+
+A concluded session still takes referee commands and refuses play, so the closing
+`status` reads `[victory]` and any further `move` would be `wrong_mode`. Two beats of
+authoring discipline fall out of that ordering and are worth copying: put the town
+business before the concluding return, and put the story's thanks in `AwardXP` rather
+than in coin, because the last award has already fired by the time the temple pays.
+
+[Listeners and flags](../guides/listeners-and-flags.md) covers the listener contract
+the interpreter follows, and [Building an adventure](../getting-started/building-an-adventure.md)
+covers authoring quests of your own.
 
 ## Where next
 

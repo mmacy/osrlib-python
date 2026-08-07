@@ -350,6 +350,13 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
     "session.trigger.fired": lambda event: f"Trigger {event.trigger_id} fired.",
     "session.journal.entry_added": lambda event: f"Journal: {event.text}",
     "session.note.recorded": lambda event: f"Referee note: {event.text}",
+    "session.quest.activated": lambda event: f"A new quest: {event.name}.",
+    "session.quest.objective_revealed": lambda event: f"Quest {event.quest_id}: a new objective, {event.objective_id}.",
+    "session.quest.objective_completed": lambda event: (
+        f"Quest {event.quest_id}: objective {event.objective_id} is done."
+    ),
+    "session.quest.completed": lambda event: f"Quest complete: {event.name}.",
+    "session.adventure.completed": lambda event: f"The adventure is over: {event.quest_id} is finished.",
 }
 
 

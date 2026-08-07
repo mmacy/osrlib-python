@@ -23,6 +23,7 @@ from osrlib.core.events import KERNEL_EVENT_CLASSES, Event, Visibility
 
 __all__ = [
     "ALL_EVENT_CLASSES",
+    "AdventureCompletedEvent",
     "AdventureXpAwardEvent",
     "AnyEvent",
     "BattleEndedEvent",
@@ -61,9 +62,13 @@ __all__ = [
     "MonstersSpawnedEvent",
     "NoteRecordedEvent",
     "NpcPartySpawnedEvent",
+    "ObjectiveCompletedEvent",
+    "ObjectiveRevealedEvent",
     "PartyMovedEvent",
     "ProvisionsEvent",
     "PursuitEvent",
+    "QuestActivatedEvent",
+    "QuestCompletedEvent",
     "RestedEvent",
     "SearchCompletedEvent",
     "SpellDeclaredEvent",
@@ -842,6 +847,15 @@ class JournalEntryAddedEvent(Event):
     content data in a structured field, not engine-baked English — the event still
     carries its message code and its facts — and `rounds` is the clock position the
     entry landed at, the same stamp the stored entry carries.
+
+    It is not the only event a growing journal emits. A quest beat appends its entry
+    and reports itself through its own lifecycle event — the whole set is this event
+    plus [`QuestActivatedEvent`][osrlib.crawl.events.QuestActivatedEvent],
+    [`ObjectiveRevealedEvent`][osrlib.crawl.events.ObjectiveRevealedEvent],
+    [`ObjectiveCompletedEvent`][osrlib.crawl.events.ObjectiveCompletedEvent], and
+    [`QuestCompletedEvent`][osrlib.crawl.events.QuestCompletedEvent] — because
+    emitting both for one beat would report the same line to the table twice. A
+    client that wants the whole journal reads it from the view.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"session.journal.entry_added"})
@@ -866,6 +880,98 @@ class NoteRecordedEvent(Event):
     code: str = "session.note.recorded"
     visibility: Visibility = Visibility.REFEREE
     text: str
+
+
+class QuestActivatedEvent(Event):
+    """An authored quest came into play — the table's news, not the wiring behind it.
+
+    Player-visible: a quest the party has taken on is theirs to know, while the
+    clause that started it stays behind the screen with the trigger and flag events.
+    `narrative` is the quest's authored offer beat, `None` when unauthored — content
+    data in a structured field, not engine-baked English, appended verbatim by the
+    default formatter after the templated line. The same beat is appended to the
+    journal, so this event and its entry are one report of one moment.
+    """
+
+    allowed_codes: ClassVar[frozenset[str]] = frozenset({"session.quest.activated"})
+
+    event_type: Literal["quest_activated"] = "quest_activated"
+    code: str = "session.quest.activated"
+    visibility: Visibility = Visibility.PLAYER
+    quest_id: str
+    name: str
+    narrative: str | None = None
+
+
+class ObjectiveRevealedEvent(Event):
+    """A hidden objective surfaced: the party can see what it is being asked for.
+
+    `narrative` is the objective's authored offer beat, `None` when unauthored, and
+    the journal carries the same line.
+    """
+
+    allowed_codes: ClassVar[frozenset[str]] = frozenset({"session.quest.objective_revealed"})
+
+    event_type: Literal["objective_revealed"] = "objective_revealed"
+    code: str = "session.quest.objective_revealed"
+    visibility: Visibility = Visibility.PLAYER
+    quest_id: str
+    objective_id: str
+    narrative: str | None = None
+
+
+class ObjectiveCompletedEvent(Event):
+    """One objective of a quest is done — including one nobody had announced yet.
+
+    `narrative` is the objective's authored progress beat, `None` when unauthored,
+    and the journal carries the same line.
+    """
+
+    allowed_codes: ClassVar[frozenset[str]] = frozenset({"session.quest.objective_completed"})
+
+    event_type: Literal["objective_completed"] = "objective_completed"
+    code: str = "session.quest.objective_completed"
+    visibility: Visibility = Visibility.PLAYER
+    quest_id: str
+    objective_id: str
+    narrative: str | None = None
+
+
+class QuestCompletedEvent(Event):
+    """A quest is finished, however the ruling was reached.
+
+    `narrative` is the quest's authored completion beat, `None` when unauthored, and
+    the journal carries the same line. Rewards, when the quest pays any, land as
+    their own commands and their own events after this one.
+    """
+
+    allowed_codes: ClassVar[frozenset[str]] = frozenset({"session.quest.completed"})
+
+    event_type: Literal["quest_completed"] = "quest_completed"
+    code: str = "session.quest.completed"
+    visibility: Visibility = Visibility.PLAYER
+    quest_id: str
+    name: str
+    narrative: str | None = None
+
+
+class AdventureCompletedEvent(Event):
+    """The adventure is over in triumph: the session is in `victory`.
+
+    Follows the [`QuestCompletedEvent`][osrlib.crawl.events.QuestCompletedEvent] of
+    the quest that concludes the adventure, and carries the same completion beat.
+    The transition happens once and only from a session still in play — a party that
+    finishes the job after it has already fallen completes the quest and gets no
+    ending event.
+    """
+
+    allowed_codes: ClassVar[frozenset[str]] = frozenset({"session.adventure.completed"})
+
+    event_type: Literal["adventure_completed"] = "adventure_completed"
+    code: str = "session.adventure.completed"
+    visibility: Visibility = Visibility.PLAYER
+    quest_id: str
+    narrative: str | None = None
 
 
 CRAWL_EVENT_CLASSES: tuple[type[Event], ...] = (
@@ -919,6 +1025,11 @@ CRAWL_EVENT_CLASSES: tuple[type[Event], ...] = (
     TriggerFiredEvent,
     JournalEntryAddedEvent,
     NoteRecordedEvent,
+    QuestActivatedEvent,
+    ObjectiveRevealedEvent,
+    ObjectiveCompletedEvent,
+    QuestCompletedEvent,
+    AdventureCompletedEvent,
 )
 """Every crawl event class, in declaration order."""
 

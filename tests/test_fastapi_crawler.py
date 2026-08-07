@@ -14,8 +14,10 @@ import pytest
 from fastapi.testclient import TestClient
 
 from osrlib.core.character import CHARACTER_CREATION_STREAM, party_to_document
+from osrlib.core.items import ValuableInstance
 from osrlib.core.rng import RngStreams
 from osrlib.core.ruleset import Ruleset
+from osrlib.crawl.commands import SessionMode
 from osrlib.versioning import SCHEMA_VERSION, engine_version
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -168,10 +170,17 @@ class TestHandshake:
 
 class TestScriptedPlaythrough:
     def test_the_shortened_barrow_script(self, client):
-        """Create, delve, fight the keyed goblins, loot the idol, return, award."""
+        """Create, delve, fight the keyed goblins, take the idol, come home to victory."""
         session_id = create_session(client)
         result = run(client, session_id, {"command_type": "enter_dungeon", "dungeon_id": "barrow"})
         assert result["accepted"], result
+        # The threshold activates the adventure's quest — authored data, played by
+        # the interpreter the server registers, projected in the player's own view.
+        activated = [event for event in result["events"] if event["code"] == "session.quest.activated"]
+        assert activated and activated[0]["name"] == "The Jade Idol"
+        view = get_view(client, session_id)
+        assert [quest["id"] for quest in view["quests"]] == ["the-idol"]
+        assert [objective["state"] for objective in view["quests"][0]["objectives"]] == ["incomplete", "incomplete"]
         # East twice: the guard room's keyed goblins spawn an encounter.
         run(client, session_id, {"command_type": "move_party", "direction": "east"})
         run(client, session_id, {"command_type": "move_party", "direction": "east"})
@@ -190,26 +199,55 @@ class TestScriptedPlaythrough:
         assert result["accepted"], result
         acquired = [event for event in result["events"] if event["code"] == "exploration.item.acquired"]
         assert acquired, result["events"]
+        # The idol is a bundled item, so the acquisition reports a catalog id and the
+        # quest's first objective completes on it. The cache's 50 gp is all the coin
+        # that changes hands here: the temple pays on delivery.
+        completed = [event for event in result["events"] if event["code"] == "session.quest.objective_completed"]
+        assert [event["objective_id"] for event in completed] == ["recover-idol"]
         view = get_view(client, session_id)
-        # The cache's 50 gp plus the fetch quest's 200 gp reward, granted by the
-        # listener's nested command (visible in the view — nested events log
-        # server-side rather than riding the outer result envelope).
         gold_after = sum(member["inventory"]["purse"]["gp"] for member in view["party"])
-        assert gold_after == gold_before + 250
-        carried = [valuable["name"] for member in view["party"] for valuable in member["inventory"]["valuables"]]
-        assert "Jade Idol of the Barrow King" in carried
-        # Home: west to the entrance, then the town travel fires the award.
+        assert gold_after == gold_before + 50
+        carried = [
+            instance["template"]["id"]
+            for member in view["party"]
+            for instance in member["inventory"]["items"]
+            if instance.get("template")
+        ]
+        assert "jade-idol" in carried
+        assert [objective["state"] for objective in view["quests"][0]["objectives"]] == ["complete", "incomplete"]
+        # Home: west to the entrance, then the town travel fires the award — and,
+        # behind it, the homecoming that completes the quest and ends the adventure.
         for _ in range(4):
             run(client, session_id, {"command_type": "move_party", "direction": "west"})
         result = run(client, session_id, {"command_type": "travel_to_town"})
         assert result["accepted"], result
         award = [event for event in result["events"] if event["code"] == "session.xp.adventure_award"]
         assert award and award[0]["treasure_xp"] > 0
-        # Town services over the wire: sell the valuables, buy a healing.
+        codes = [event["code"] for event in result["events"]]
+        assert codes.index("session.xp.adventure_award") < codes.index("session.quest.completed")
+        assert "session.adventure.completed" in codes
+        view = get_view(client, session_id)
+        assert view["mode"] == "victory"
+        assert view["quests"] == [], "a finished quest leaves the list; its record is the journal"
+        assert any("The almoner counts out the reward" in entry["text"] for entry in view["journal"])
+
+    def test_town_services_over_the_wire(self, client):
+        """Sell and heal on a session the errand has not ended yet."""
+        session_id = create_session(client)
+        # A valuable the party never had to delve for: the walkthrough above carries
+        # the idol home instead, and a concluded adventure sells nothing.
+        session, _lock = _sessions[session_id]
+        member = session.party.members[0]
+        member.inventory.valuables.append(
+            ValuableInstance(instance_id="valuable-7001", kind="gem", value_gp=120, weight_coins=1)
+        )
         view = get_view(client, session_id)
         instance_ids = [
-            valuable["instance_id"] for member in view["party"] for valuable in member["inventory"]["valuables"]
+            valuable["instance_id"]
+            for member_view in view["party"]
+            for valuable in member_view["inventory"]["valuables"]
         ]
+        assert instance_ids == ["valuable-7001"]
         result = run(client, session_id, {"command_type": "sell_treasure", "item_ids": instance_ids})
         assert result["accepted"], result
         result = run(
@@ -218,6 +256,20 @@ class TestScriptedPlaythrough:
             {"command_type": "purchase_healing", "character_id": "character-0001", "service": "cure_light_wounds"},
         )
         assert result["accepted"], result
+
+    def test_the_town_is_closed_once_the_adventure_is_won(self, client):
+        """Victory is terminal over the wire too: play refuses, the record stands."""
+        session_id = create_session(client)
+        session, _lock = _sessions[session_id]
+        session.mode = SessionMode.VICTORY
+        result = run(
+            client,
+            session_id,
+            {"command_type": "purchase_healing", "character_id": "character-0001", "service": "cure_light_wounds"},
+        )
+        assert not result["accepted"]
+        assert [rejection["code"] for rejection in result["rejections"]] == ["session.command.wrong_mode"]
+        assert get_view(client, session_id)["mode"] == "victory"
 
     def test_save_and_restore_round_trip(self, client):
         session_id = create_session(client)
@@ -378,6 +430,10 @@ class TestWireLeaks:
         # Referee-visibility outcomes never appear in command results.
         assert "exploration.detection.rolled" not in blob
         assert '"referee"' not in blob
+        # Authored wiring the adventure carries: the quest's clauses and rewards, and
+        # the levels' ambient narrator guidance, are the game's side of the screen.
+        assert "guidance" not in blob and "Grave goods" not in blob
+        assert "pattern_type" not in blob and "rewards" not in blob
         # Unexplored geometry and monster HP ride the same guarantee: /view
         # returns session.view(Visibility.PLAYER) verbatim, whose projection the
         # leak property test (test_crawl_properties.test_the_player_view_never_leaks)

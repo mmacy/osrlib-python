@@ -66,7 +66,9 @@ remaining duration (except a potion's — RAW has the referee track that secretl
 the view reports it as unknown); fatigue, exhaustion, and deprivation status; the
 session journal as written ([`JournalEntry`][osrlib.crawl.session.JournalEntry] — the
 beats in order of discovery, each carrying the clock position it landed at, while the
-trigger fired-marks behind them stay out of the view entirely); and, when
+trigger fired-marks behind them stay out of the view entirely); the quests in play
+([`QuestView`][osrlib.crawl.views.QuestView] — id, name, the offer beat and its speaker
+attribution, and the revealed objectives with their ids and states); and, when
 one is running, the current encounter or battle's public shape
 ([`EncounterView`][osrlib.crawl.views.EncounterView] and
 [`EncounterGroupView`][osrlib.crawl.views.EncounterGroupView] — a monster group's id,
@@ -105,10 +107,38 @@ player view whole, while the trigger that wrote it does not reach it at all.
 
 ```{.python .no-run}
 # The beat is for the table; the trigger that produced it is referee-only wiring.
-assert [entry.text for entry in journal_view.journal] == ["The lever grinds."]
+assert [entry.text for entry in journal_view.journal][-1] == "The lever grinds."
 assert "lever-east" not in journal_view.model_dump_json()
 assert referee_state["fired_triggers"] == ["lever-east"]
 ```
+
+Quests draw the same line, one level finer. `PlayerView.quests` carries the **active**
+quests only, in document order: a quest nobody has been given yet is absent, because an
+activation clause is wiring like any other, and a finished one leaves the list, because
+its record is the journal. Under each, only the **revealed** objectives appear — a hidden
+objective's id is not in the projection at all until something surfaces it, which is why
+`ObjectiveView.state` needs only `"incomplete"` and `"complete"`. Nothing else about a
+quest crosses: no clause, no pattern, no condition, no reward, and no `guidance` from any
+narrative block or level.
+
+```{.python .no-run}
+# Active quests only, revealed objectives only, and none of the wiring behind them.
+quest_view = player_view.quests[0]
+assert (quest_view.id, quest_view.speaker) == ("the-lamps", "Sister Halda")
+assert [entry.id for entry in quest_view.objectives] == ["find-the-lever"]
+assert "name-the-dead" not in player_view.model_dump_json()
+```
+
+### What tells a client the journal grew
+
+[`JournalEntryAddedEvent`][osrlib.crawl.events.JournalEntryAddedEvent] is not the only
+event a growing journal emits. A quest beat's entry *is* the line the quest displayed, so
+it reports itself through its own lifecycle event and no journal event follows — emitting
+both would show the table one line twice. A client that renders incrementally therefore
+watches five codes rather than one: `session.journal.entry_added`,
+`session.quest.activated`, `session.quest.objective_revealed`,
+`session.quest.objective_completed`, and `session.quest.completed`. A client that would
+rather not track any of them reads `PlayerView.journal`, which is always the whole record.
 
 ## Never trust the client
 
@@ -140,11 +170,16 @@ from osrlib.crawl.commands import (
     MarkTriggerFired,
     RecordNote,
     SessionMode,
+    SetFlag,
     SpawnMonsters,
 )
 from osrlib.crawl.dungeon import DungeonSpec, LevelSpec
+from osrlib.crawl.interpreter import Interpreter
+from osrlib.crawl.narrative import NarrativeBlock
 from osrlib.crawl.party import Party
+from osrlib.crawl.quests import ObjectiveSpec, QuestSpec, TriggerClause
 from osrlib.crawl.session import GameSession
+from osrlib.crawl.triggers import DungeonEnteredPattern, FlagSetPattern
 
 rules = Ruleset()
 creation = RngStreams(master_seed=13).get(CHARACTER_CREATION_STREAM)
@@ -160,8 +195,29 @@ party = Party(members=[hero.character])
 level = LevelSpec(number=1, width=1, height=1, entrance=(0, 0))
 crypt = DungeonSpec(id="crypt", name="The Old Crypt", levels=(level,))
 town = TownSpec(name="Threshold", travel_turns={"crypt": 1})
-adventure = Adventure(name="A First Delve", town=town, dungeons=(crypt,))
+
+# One errand, offered at the threshold: one objective the party is told about, and
+# one it is not.
+errand = QuestSpec(
+    id="the-lamps",
+    name="The Unlit Lamps",
+    activation=TriggerClause(pattern=DungeonEnteredPattern(dungeon_id="crypt")),
+    objectives=(
+        ObjectiveSpec(
+            id="find-the-lever",
+            when=TriggerClause(pattern=FlagSetPattern(key="crypt.lever")),
+            narrative=NarrativeBlock(progress="The lamps come up one by one."),
+        ),
+        ObjectiveSpec(id="name-the-dead", when=TriggerClause(pattern=FlagSetPattern(key="crypt.name")), hidden=True),
+    ),
+    narrative=NarrativeBlock(
+        offer="Light the crypt's lamps before the moon sets.",
+        speaker="Sister Halda",
+    ),
+)
+adventure = Adventure(name="A First Delve", town=town, dungeons=(crypt,), quests=(errand,))
 session = GameSession.new(party, adventure, seed=13)
+session.register_listener(Interpreter(session))
 
 session.execute(EnterDungeon(dungeon_id="crypt"))
 
@@ -190,9 +246,34 @@ journal_view = session.view(Visibility.PLAYER)
 referee_state = session.view(Visibility.REFEREE).state
 
 # The beat is for the table; the trigger that produced it is referee-only wiring.
-assert [entry.text for entry in journal_view.journal] == ["The lever grinds."]
+assert [entry.text for entry in journal_view.journal][-1] == "The lever grinds."
 assert "lever-east" not in journal_view.model_dump_json()
 assert referee_state["fired_triggers"] == ["lever-east"]
+
+# The quest activated at the threshold, and its offer opened the journal.
+quest_view = journal_view.quests[0]
+assert (quest_view.id, quest_view.name) == ("the-lamps", "The Unlit Lamps")
+assert quest_view.narrative == "Light the crypt's lamps before the moon sets."
+assert quest_view.speaker == "Sister Halda"
+assert journal_view.journal[0].text == quest_view.narrative
+
+# Only the revealed objective is projected, and none of the wiring behind it.
+assert [(entry.id, entry.state) for entry in quest_view.objectives] == [("find-the-lever", "incomplete")]
+blob = journal_view.model_dump_json()
+assert "name-the-dead" not in blob  # a hidden objective has no view at all
+assert "pattern_type" not in blob and "crypt.lever" not in blob
+
+# The flag that objective watches: the quest completes it, journals its beat, and
+# reports the beat through its own event — no journal event follows.
+lit = session.execute(SetFlag(key="crypt.lever", value=True))
+codes = [event.code for event in lit.events]
+assert "session.quest.objective_completed" in codes
+assert "session.journal.entry_added" not in codes
+assert session.journal[-1].text == "The lamps come up one by one."
+
+after = session.view(Visibility.PLAYER)
+assert [(entry.id, entry.state) for entry in after.quests[0].objectives] == [("find-the-lever", "complete")]
+assert session.quests["the-lamps"].status == "active"  # the hidden objective is still open
 ```
 
 ## Where next
