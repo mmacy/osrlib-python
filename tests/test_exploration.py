@@ -1387,6 +1387,42 @@ class TestGiveItems:
         )
         assert result.accepted
 
+    def test_naming_one_magic_instance_twice_is_not_carrying_it_twice(self):
+        # A magic instance id names one instance, and the whole instance leaves on the
+        # first naming: the second has nothing behind it, so the command rejects in the
+        # validation pre-phase rather than half-running.
+        from osrlib.core.items import MagicItemInstance
+
+        session = quiet_session()
+        entered(session)
+        giver = session.member("character-0001")
+        giver.inventory.items.append(MagicItemInstance(instance_id="magic-item-7001", template_id="potion_of_healing"))
+        result = session.execute(
+            GiveItems(
+                character_id="character-0001",
+                recipient_id="character-0002",
+                item_ids=("magic-item-7001", "magic-item-7001"),
+            )
+        )
+        assert not result.accepted
+        assert result.rejections[0].code == "exploration.item.not_carried"
+        assert giver.inventory.magic_item("magic-item-7001") is not None, "a rejected command mutates nothing"
+        assert session.member("character-0002").inventory.magic_item("magic-item-7001") is None
+
+    def test_dropping_one_magic_instance_twice_rejects_the_same_way(self):
+        from osrlib.core.items import MagicItemInstance
+
+        session = quiet_session()
+        entered(session)
+        member = session.member("character-0001")
+        member.inventory.items.append(MagicItemInstance(instance_id="magic-item-7002", template_id="potion_of_healing"))
+        result = session.execute(
+            DropItems(character_id="character-0001", item_ids=("magic-item-7002", "magic-item-7002"))
+        )
+        assert not result.accepted
+        assert result.rejections[0].code == "exploration.item.not_carried"
+        assert member.inventory.magic_item("magic-item-7002") is not None
+
 
 class TestLocationEffects:
     def test_burning_oil_pool_damages_passers_through(self):
