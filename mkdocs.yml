@@ -41,6 +41,9 @@ markdown_extensions:
   - pymdownx.snippets:
       base_path: [.]
       check_paths: true
+      # Sections excerpted from inside functions render at the page margin, not at
+      # their source indentation.
+      dedent_subsections: true
 
 # The design documents live in docs/ beside the site pages but are not part of the
 # published site; the adaptations register (adaptations.md) is a site page and stays.
@@ -79,6 +82,7 @@ nav:
       - Determinism, saves, and replay: guides/determinism-saves-replay.md
       - The kernel à la carte: guides/kernel-a-la-carte.md
       - Listeners and flags: guides/listeners-and-flags.md
+      - Gates, triggers, and quests: guides/gates-triggers-quests.md
       - Authoring custom classes, spells, monsters, and items: guides/authoring-custom-content.md
       - Ruleset options: guides/ruleset-options.md
   - Front ends:
