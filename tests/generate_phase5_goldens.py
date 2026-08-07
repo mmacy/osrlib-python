@@ -10,10 +10,11 @@ Three golden files:
   same seed and text script `test_example_crawler.py` drives through the actual
   binary) resolved through `GameSession.execute`: creation from the session's
   own streams, the delve with its generated lair hoard, the rival NPC party
-  fought and looted, the MacGuffin and the quest listener's reactions, the
-  return, the award, and the level-up — with the accepted-command log, the full
-  event stream, the formatted transcript, per-stream final states, and
-  checkpoints mid-delve and post-award.
+  fought and looted, the first return with its award and town business, the
+  second trip for the MacGuffin, and the homecoming that completes the authored
+  quest into victory — with the accepted-command log, the full event stream, the
+  formatted transcript, per-stream final states, the quest block, and
+  checkpoints mid-delve, at the first return, and after the final one.
 
 Run `uv run python tests/generate_phase5_goldens.py` and explain any golden
 change in the commit message.
@@ -55,16 +56,17 @@ def _example():
     """Import the example package lazily — the repo root joins sys.path here.
 
     The example is not an installed package; the milestone golden reuses its
-    content, creation script, dispatcher, and quest listener directly.
+    content, creation script, and dispatcher directly. The quest is part of the
+    content now, so there is nothing else of the example's to import: the library's
+    own interpreter plays it.
     """
     if str(REPO_ROOT) not in sys.path:
         sys.path.insert(0, str(REPO_ROOT))
     from examples.tui_crawler.__main__ import _dispatch
     from examples.tui_crawler.content import build_adventure
     from examples.tui_crawler.create import scripted_party
-    from examples.tui_crawler.quest import FetchQuestListener
 
-    return _dispatch, build_adventure, scripted_party, FetchQuestListener
+    return _dispatch, build_adventure, scripted_party
 
 
 # ------------------------------------------------------------------ hoards
@@ -114,7 +116,7 @@ def build_npc_golden() -> dict:
 # ------------------------------------------------------------------ the milestone
 
 
-def milestone_session(seed: int, *, listener: bool) -> tuple[GameSession, dict]:
+def milestone_session(seed: int, *, interpreting: bool) -> tuple[GameSession, dict]:
     """Build the session exactly as the example binary does.
 
     Creation draws ride the session's own creation stream (the example's
@@ -122,22 +124,25 @@ def milestone_session(seed: int, *, listener: bool) -> tuple[GameSession, dict]:
 
     Args:
         seed: The master seed.
-        listener: Register the example's quest listener. The scripted run wants
-            it; a command-log replay must not — the listener's commands are in
-            the log, and a registered listener would re-issue them.
+        interpreting: Register the library interpreter that plays the adventure's
+            quest. The scripted run wants it; a command-log replay must not — the
+            commands it issued are in the log, and a registered interpreter would
+            issue them a second time.
 
     Returns:
         The fresh session and the starting party's stamped document.
     """
-    _, build_adventure, scripted_party, quest_listener = _example()
+    from osrlib.crawl.interpreter import Interpreter
+
+    _, build_adventure, scripted_party = _example()
     ruleset = Ruleset()
     streams = RngStreams(master_seed=seed)
     party = scripted_party(streams.get(CHARACTER_CREATION_STREAM), ruleset)
     party_document = party_to_document(party.members)
     session = GameSession.new(party, build_adventure(), seed=seed, ruleset=ruleset)
     session.streams.restore_states(streams.export_states())
-    if listener:
-        session.register_listener(quest_listener(session))
+    if interpreting:
+        session.register_listener(Interpreter(session))
     return session, party_document
 
 
@@ -146,11 +151,14 @@ def run_milestone(seed: int) -> tuple[GameSession, dict, dict[str, int]]:
 
     Returns:
         The finished session, the starting party document, and the checkpoint
-        indices (accepted-command counts) mid-delve and post-award.
+        indices (accepted-command counts): mid-delve, at the first return with the
+        town business still ahead of it, and after the final return that ends the
+        adventure.
     """
-    dispatch, _, _, _ = _example()
-    session, party_document = milestone_session(seed, listener=True)
+    dispatch, _, _ = _example()
+    session, party_document = milestone_session(seed, interpreting=True)
     checkpoints: dict[str, int] = {}
+    returns: list[int] = []
     captured = io.StringIO()
     with contextlib.redirect_stdout(captured):
         for line in SCRIPT_PATH.read_text(encoding="utf-8").splitlines():
@@ -160,7 +168,13 @@ def run_milestone(seed: int) -> tuple[GameSession, dict, dict[str, int]]:
             if stripped == "take cache" and "mid_delve" not in checkpoints:
                 checkpoints["mid_delve"] = len(session.command_log)
             elif stripped == "town":
-                checkpoints["post_award"] = len(session.command_log)
+                returns.append(len(session.command_log))
+    if len(returns) != 2:
+        raise RuntimeError(f"the two-trip script must come home twice, not {len(returns)} times")
+    # Named rather than last-write-wins: the script comes home twice, and the two
+    # returns are different beats — the first banks an award with the town business
+    # and the whole second trip still ahead of it, the second ends the adventure.
+    checkpoints["first_return"], checkpoints["post_award"] = returns
     for marker in ("(refused:", "(unknown command", "(no cache here)", "(nothing to sell)"):
         if marker in captured.getvalue():
             raise RuntimeError(f"the milestone script hit {marker!r} — the transcript no longer runs clean")
@@ -169,7 +183,7 @@ def run_milestone(seed: int) -> tuple[GameSession, dict, dict[str, int]]:
 
 def replay_milestone(seed: int, commands) -> GameSession:
     """Replay an accepted-command log against the example's construction, listener-free."""
-    session, _ = milestone_session(seed, listener=False)
+    session, _ = milestone_session(seed, interpreting=False)
     for entry in commands:
         command = entry if isinstance(entry, Command) else parse_command(entry)
         result = session.execute(command)
@@ -193,11 +207,25 @@ def build_milestone_golden(seed: int) -> dict:
         "session.xp.awarded",
         "town.treasure.sold",
         "town.healing.purchased",
+        "session.quest.activated",
+        "session.quest.objective_completed",
+        "session.quest.completed",
+        "session.adventure.completed",
     ):
         if required not in codes:
             raise RuntimeError(f"milestone beat missing from the run: {required}")
+    quest = session.quests["the-idol"]
+    if quest.status != "completed" or not all(objective.complete for objective in quest.objectives.values()):
+        raise RuntimeError(f"the authored quest did not finish: {quest}")
+    if session.mode.value != "victory":
+        raise RuntimeError(f"the concluding quest left the session in {session.mode.value}")
     if session.flags.get("quest.idol") != "recovered":
         raise RuntimeError("the quest flag never set")
+    if session.listener_state != {"osrlib.interpreter": {}}:
+        raise RuntimeError(f"the interpreter kept state: {session.listener_state}")
+    awards = [entry for entry in session.event_log if getattr(entry, "code", None) == "session.xp.adventure_award"]
+    if len(awards) != 2:
+        raise RuntimeError(f"the two-trip script banks two awards, not {len(awards)}")
     if max(member.level for member in session.party.members) < 2:
         raise RuntimeError("nobody levelled up")
     return {
@@ -214,6 +242,9 @@ def build_milestone_golden(seed: int) -> dict:
         "final_clock_rounds": session.clock.rounds,
         "defeated_monsters": [record.model_dump(mode="json") for record in session.defeated_monsters],
         "flags": dict(session.flags),
+        "mode": session.mode.value,
+        "quests": {quest_id: state.model_dump(mode="json") for quest_id, state in session.quests.items()},
+        "journal": [entry.model_dump(mode="json") for entry in session.journal],
         "listener_state": {key: dict(value) for key, value in session.listener_state.items()},
         "party_summary": [
             {"id": member.id, "name": member.name, "class_id": member.class_id, "level": member.level, "xp": member.xp}

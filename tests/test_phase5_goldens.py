@@ -9,13 +9,13 @@ Three golden files, regenerated with `uv run python tests/generate_phase5_golden
 - the milestone golden — the example adventure's scripted playthrough (the same
   seed and script `test_example_crawler.py` drives through the actual binary)
   resolved through `GameSession.execute`: creation, the delve with its generated
-  lair hoard, the rival NPC party fought and looted, the MacGuffin and the quest
-  listener, the return, the award, the level-up. The full event stream and
+  lair hoard, the rival NPC party fought and looted, the first return with its
+  award and town business, the second trip for the MacGuffin, and the homecoming
+  that completes the authored quest into victory. The full event stream and
   formatted transcript assert byte-for-byte, final stream states scope per RNG
   stream, and the checkpoints satisfy `load(save) == state == replay(seed,
-  commands)` — the replay listener-free, since the listener's commands are in
-  the log; its private state is the game's, not the kernel's, and is asserted
-  separately.
+  commands)` — the replay listener-free, since the commands the interpreter issued
+  are in the log; its listener slot is empty and asserted separately.
 """
 
 import json
@@ -114,15 +114,30 @@ class TestMilestoneScriptedRun:
         assert canonical(logged) == canonical(golden["command_log"]), REGENERATE_HINT
         assert checkpoints == golden["checkpoints"], REGENERATE_HINT
 
-    def test_listener_state_and_flags_match(self, golden, scripted):
+    def test_the_interpreter_holds_nothing_and_the_flag_reward_landed(self, golden, scripted):
         session, _, _ = scripted
-        assert (
-            session.listener_state
-            == golden["listener_state"]
-            == {"fetch_quest": {"reward_granted": True, "completed": True}}
-        )
+        assert session.listener_state == golden["listener_state"] == {"osrlib.interpreter": {}}
         assert session.flags == golden["flags"]
-        assert session.flags["quest.idol"] == "recovered"
+        assert session.flags["quest.idol"] == "recovered", "the quest's own flag reward, not the example's code"
+
+    def test_the_authored_quest_finished_and_closed_the_adventure(self, golden, scripted):
+        session, _, _ = scripted
+        assert golden["quests"] == {
+            "the-idol": {
+                "status": "completed",
+                "objectives": {
+                    "recover-idol": {"revealed": True, "complete": True},
+                    "return-home": {"revealed": True, "complete": True},
+                },
+            }
+        }
+        assert {quest_id: state.model_dump(mode="json") for quest_id, state in session.quests.items()} == (
+            golden["quests"]
+        )
+        assert session.mode.value == golden["mode"] == "victory"
+        assert [entry["text"] for entry in golden["journal"]] == [entry.text for entry in session.journal]
+        assert golden["journal"][0]["text"].startswith("The temple wants the Jade Idol")
+        assert golden["journal"][-1]["text"].startswith("The almoner counts out the reward")
 
     def test_save_load_round_trips_the_listener_run(self, scripted):
         session, _, _ = scripted
@@ -148,7 +163,7 @@ class TestMilestoneReplay:
 
     def test_final_clock_summary_and_records(self, golden, replayed):
         assert replayed.clock.rounds == golden["final_clock_rounds"]
-        assert replayed.mode.value == "town"
+        assert replayed.mode.value == "victory", "the concluding quest ends the adventure on the replay too"
         defeated = [record.model_dump(mode="json") for record in replayed.defeated_monsters]
         assert defeated == golden["defeated_monsters"]
         summary = [
@@ -162,9 +177,9 @@ class TestMilestoneReplay:
         session, _, _ = scripted
         original = session_state(session)
         replay = session_state(replayed)
-        assert original.pop("listener_state") == {"fetch_quest": {"reward_granted": True, "completed": True}}
+        assert original.pop("listener_state") == {"osrlib.interpreter": {}}
         assert replay.pop("listener_state") == {}
-        assert original == replay
+        assert original == replay, "quest state included: a replay rebuilds it from the log"
 
     def test_the_milestone_beats_are_in_the_stream(self, golden):
         codes = {event.get("code") for event in golden["event_log"]}
@@ -174,24 +189,49 @@ class TestMilestoneReplay:
             "encounter.npc_party.spawned",  # the rival adventurers (referee-visibility roster)
             "battle.ended.victory",
             "battle.monster.defeated",
-            "session.flag.set",  # the quest listener's reaction
+            "session.flag.set",  # the quest's flag reward
             "session.xp.adventure_award",  # the end-of-adventure valuation delta
             "session.xp.awarded",
             "town.treasure.sold",
             "town.healing.purchased",
+            "session.quest.activated",  # the threshold crossing, matched as authored data
+            "session.quest.objective_completed",
+            "session.quest.completed",
+            "session.adventure.completed",  # the one entrance to victory
         ):
             assert required in codes, f"missing milestone beat {required}"
 
     def test_npc_defeats_fed_the_award_as_level_for_hd(self, golden):
         # The award clears the defeat ledger on return, so the beat lives in the
         # event stream: NPC adventurers fell under npc: template ids, and their
-        # level-as-HD XP is inside the award's monster total.
+        # level-as-HD XP is inside the first award's monster total.
         defeats = [event for event in golden["event_log"] if event.get("code") == "battle.monster.defeated"]
         npc_defeats = [event for event in defeats if event["template_id"].startswith("npc:")]
         assert npc_defeats, "no NPC adventurers fell in the milestone"
-        award = next(event for event in golden["event_log"] if event.get("code") == "session.xp.adventure_award")
-        assert award["monster_xp"] == sum(event["xp"] for event in defeats)
+        awards = [event for event in golden["event_log"] if event.get("code") == "session.xp.adventure_award"]
+        assert len(awards) == 2, "one award per trip"
+        assert awards[0]["monster_xp"] == sum(event["xp"] for event in defeats)
+        assert awards[1]["monster_xp"] == 0, "nothing died on the errand"
         assert golden["defeated_monsters"] == []  # the ledger reset with the award
+
+    def test_the_reward_is_paid_on_delivery_and_earns_no_treasure_xp(self, golden):
+        # The economy the two-trip script pins: the idol is mundane gear (worth no
+        # treasure XP by RAW), and the coin reward lands in town after the second
+        # award has already fired — so the quest's own XP award is what carries the
+        # temple's thanks.
+        events = golden["event_log"]
+        completed = next(index for index, event in enumerate(events) if event.get("code") == "session.quest.completed")
+        award_indices = [
+            index for index, event in enumerate(events) if event.get("code") == "session.xp.adventure_award"
+        ]
+        assert all(index < completed for index in award_indices), "both awards precede the completion"
+        reward = next(
+            event
+            for event in events[completed:]
+            if event.get("code") == "exploration.item.acquired" and event.get("coins_gp_value") == 200
+        )
+        assert reward["character_id"] == "character-0001", "@first is the lead survivor"
+        assert events[-1]["code"] != "session.xp.adventure_award", "no third trip, no third award"
 
     def test_the_command_log_round_trips(self, golden):
         for entry in golden["command_log"]:
@@ -199,7 +239,7 @@ class TestMilestoneReplay:
 
 
 class TestCheckpoints:
-    @pytest.mark.parametrize("name", ("mid_delve", "post_award"))
+    @pytest.mark.parametrize("name", ("mid_delve", "first_return", "post_award"))
     def test_load_equals_replay_and_continues_identically(self, golden, replayed, name):
         index = golden["checkpoints"][name]
         prefix = replay_milestone(golden["master_seed"], golden["command_log"][:index])
