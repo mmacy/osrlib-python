@@ -43,6 +43,7 @@ __all__ = [
     "HasItemCondition",
     "condition_holds",
     "first_holder",
+    "flag_values_equal",
 ]
 
 
@@ -65,8 +66,10 @@ class HasItemCondition(BaseModel):
 class FlagEqualsCondition(BaseModel):
     """A session flag holds `value` — the lever that opens the portcullis.
 
-    The comparison is strict: an absent key equals nothing (`False` included), and
-    a stored `True` never matches an authored `1`.
+    The comparison is
+    [`flag_values_equal`][osrlib.crawl.gates.flag_values_equal] and it is strict: an
+    absent key equals nothing (`False` included), and a stored `True` never matches
+    an authored `1`.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -154,11 +157,38 @@ def condition_holds(
     if isinstance(condition, FlagEqualsCondition):
         if condition.key not in flags:
             return False
-        stored = flags[condition.key]
-        # `True == 1` in Python, so boolness has to match too: an authored 1 must
-        # not be satisfied by a flag somebody set to True.
-        return stored == condition.value and isinstance(stored, bool) == isinstance(condition.value, bool)
+        return flag_values_equal(flags[condition.key], condition.value)
     return any(member.id is not None and ledger.active_on(member.id, condition.kind) for member in members)
+
+
+def flag_values_equal(stored: str | int | bool, expected: str | int | bool) -> bool:
+    """Compare two flag values the one strict way the engine compares them.
+
+    Equality plus matching boolness. `True == 1` in Python, so a flag somebody set
+    to `True` must not satisfy an authored `1`, and the reverse: the two are
+    different values in an authored document even though Python calls them equal.
+    Every surface that asks "does this flag hold that value" —
+    [`FlagEqualsCondition`][osrlib.crawl.gates.FlagEqualsCondition] on a gate, an
+    authored trigger's flag pattern — asks through here, so a condition and a
+    pattern can never disagree about what equality means.
+
+    Args:
+        stored: The value the flag store holds (or the value an event reports written).
+        expected: The value the author wrote.
+
+    Returns:
+        True when the two are the same value.
+
+    Examples:
+        ```python
+        from osrlib.crawl.gates import flag_values_equal
+
+        assert flag_values_equal("open", "open")
+        assert not flag_values_equal(True, 1)
+        assert not flag_values_equal(1, True)
+        ```
+    """
+    return stored == expected and isinstance(stored, bool) == isinstance(expected, bool)
 
 
 def first_holder(members: Sequence[Character], item_id: str) -> Character | None:

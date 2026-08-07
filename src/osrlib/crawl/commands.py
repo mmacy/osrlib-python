@@ -37,6 +37,7 @@ from osrlib.crawl.dungeon import Direction, PartyLocation
 
 __all__ = [
     "ALL_COMMAND_CLASSES",
+    "CONSEQUENCE_COMMAND_CLASSES",
     "AddJournalEntry",
     "AdvanceTime",
     "AnyCommand",
@@ -46,6 +47,7 @@ __all__ = [
     "CloseDoor",
     "Command",
     "CommandResult",
+    "ConsequenceCommand",
     "DropItems",
     "EngageBattle",
     "EnterDungeon",
@@ -1968,6 +1970,55 @@ AnyCommand = Annotated[
     Field(discriminator="command_type"),
 ]
 """Any command, discriminated by `command_type`."""
+
+CONSEQUENCE_COMMAND_CLASSES: tuple[type[Command], ...] = (
+    GrantItem,
+    GrantCoins,
+    AwardXP,
+    SetFlag,
+    SpawnMonsters,
+    SpawnNpcParty,
+    SetDoorState,
+    PlaceParty,
+    AdvanceTime,
+)
+"""The referee commands an adventure document may carry as authored consequences, in a
+stable wire order.
+
+Three referee commands sit outside the surface, each for its own reason:
+
+- [`MarkTriggerFired`][osrlib.crawl.commands.MarkTriggerFired],
+  [`AddJournalEntry`][osrlib.crawl.commands.AddJournalEntry], and
+  [`RecordNote`][osrlib.crawl.commands.RecordNote] are the vocabulary the trigger
+  interpreter writes its own bookkeeping in — it marks, journals, and annotates on the
+  author's behalf, so an authored copy would double the record.
+- [`IdentifyItem`][osrlib.crawl.commands.IdentifyItem] addresses a magic item by its
+  session-scoped instance id, which no document can know.
+- [`RollDice`][osrlib.crawl.commands.RollDice] produces a result no authored construct
+  reads, so an authored roll would be a no-op that moved the adjudication stream.
+
+The `character_id` of a grant or an award is a party selector in an authored
+consequence — never a literal id, for the same unknowability reason `IdentifyItem` is
+excluded; see [`osrlib.crawl.triggers`][osrlib.crawl.triggers] for the selector
+vocabulary."""
+
+ConsequenceCommand = Annotated[
+    GrantItem
+    | GrantCoins
+    | AwardXP
+    | SetFlag
+    | SpawnMonsters
+    | SpawnNpcParty
+    | SetDoorState
+    | PlaceParty
+    | AdvanceTime,
+    Field(discriminator="command_type"),
+]
+"""An authored consequence, discriminated by `command_type` — the sub-union over
+[`CONSEQUENCE_COMMAND_CLASSES`][osrlib.crawl.commands.CONSEQUENCE_COMMAND_CLASSES],
+spelled out so a static type checker can read it. A document naming any other command
+type fails to parse, which is the whole enforcement: typing a field with this union
+needs no validator behind it."""
 
 
 @cache
