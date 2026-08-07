@@ -10,7 +10,7 @@ seed replay identically, and adding new draws to one subsystem never shifts anot
 subsystem's rolls.
 
 Each stream is identified by a plain string key, such as `"combat"` or `"treasure"`.
-Code that uses the kernel functions directly — à la carte, outside of a running game —
+Code that uses the kernel functions directly — standalone, outside of a running game —
 passes an explicit stream into each function call. A [`GameSession`][osrlib.crawl.session.GameSession]
 does this wiring for you: it owns an `RngStreams` container built from the session's
 master seed and hands out the correctly named stream wherever a kernel function needs
