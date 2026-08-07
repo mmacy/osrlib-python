@@ -84,6 +84,62 @@ Locks and gates are separate layers, and a door that carries both requires both:
 
 A [`NarrativeBlock`][osrlib.crawl.narrative.NarrativeBlock] holds the authored text for the mechanical object it hangs on. Gates read two of its beats: `refusal`, returned in the rejection, and `success`, which rides the successful command's event — the [`DoorEvent`][osrlib.crawl.events.DoorEvent] for a door, the [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] for a transition that crosses into a new level or dungeon. [`format_message`][osrlib.messages.format_message] appends the beat verbatim, so it shows up in a bare transcript. A transition whose destination is its own level crosses no boundary and emits no arrival event, so a success beat there has nowhere to display. The block's other fields — `journal`, `guidance` for an LLM narrator, `speaker` — are read by the surfaces that consume them; none of them ever reach the player view, which carries no gate wiring at all.
 
+## Wiring the dungeon with triggers
+
+A gate asks "may the party do this?" every time it tries. A trigger asks the opposite question, once: "did this just happen?" A [`TriggerSpec`][osrlib.crawl.triggers.TriggerSpec] binds an observable event pattern to referee-command consequences — the lever that opens the portcullis, the idol whose theft wakes the temple, the room whose first crossing writes a line in the party's journal:
+
+```{.python .no-run}
+sentinel_wakes = TriggerSpec(
+    id="sentinel-wakes",
+    when=ItemAcquiredPattern(item_id="brass_key"),
+    consequences=(SetFlag(key="barrow.key_found", value=True),),
+    narrative=NarrativeBlock(
+        fired="The sentinel's head turns a few degrees, and stops.",
+        journal="The brass key is ours. Something in the barrow noticed.",
+    ),
+)
+```
+
+Triggers are inert content on their own. They play when your game registers the library's [`Interpreter`][osrlib.crawl.interpreter.Interpreter] on the session — once, right after the session is built (and again after loading a save, since listeners are code and a save carries data):
+
+```{.python .no-run}
+session = GameSession.new(Party(members=[hero.character]), adventure, seed=11)
+session.register_listener(Interpreter(session))
+```
+
+### What a trigger watches
+
+`when` is one pattern from a small union, each naming an event the engine already emits:
+
+- [`AreaEnteredPattern`][osrlib.crawl.triggers.AreaEnteredPattern] — the party stepped into a keyed area. Area ids are scoped to their level, so the pattern names the whole triple: `dungeon_id`, `level_number`, `area_id`.
+- [`LevelEnteredPattern`][osrlib.crawl.triggers.LevelEnteredPattern] — the party arrived on a level, by stair or by walking in from town.
+- [`DungeonEnteredPattern`][osrlib.crawl.triggers.DungeonEnteredPattern] and [`TownEnteredPattern`][osrlib.crawl.triggers.TownEnteredPattern] — the coarser crossings; the town pattern needs no fields, since an adventure has one town.
+- [`ItemAcquiredPattern`][osrlib.crawl.triggers.ItemAcquiredPattern] — a member acquired an item with that catalog id, from a cache, a grant, or another member's hands.
+- [`MonsterDefeatedPattern`][osrlib.crawl.triggers.MonsterDefeatedPattern] — a monster of that template was defeated: slain, routed, and surrendered all count. Defeats are reported when the battle ends, so "the portcullis opens the instant the boss falls" is not authorable — it opens when the fighting stops.
+- [`FlagSetPattern`][osrlib.crawl.triggers.FlagSetPattern] — a flag was written. This is the lever: your game (or another trigger) executes [`SetFlag`][osrlib.crawl.commands.SetFlag], and the trigger watching that key fires. The match is on the value the write carried, and `value=None` matches any value at all.
+
+`conditions` narrows it further with the same [condition union the gates use](#gating-a-door-or-a-stair) — all of them must hold, evaluated live at the moment of the match, so a trigger can ask "…and only if somebody is still carrying the talisman". One difference from a gate: a trigger's condition may not set `consumes=True`. A trigger reacts to something that has already happened, and there is no attempt of its own to charge a toll against.
+
+By default a trigger fires once ever, and the fired-mark is session state that survives a save, a load, and a replay. `repeatable=True` opts into firing every time the pattern matches.
+
+### What a firing does
+
+The interpreter issues ordinary referee commands, every one of them stamped `source="trigger:{id}"` so the command log answers *why* on its own:
+
+1. [`MarkTriggerFired`][osrlib.crawl.commands.MarkTriggerFired], first, carrying the `fired` beat.
+2. Your `consequences`, in the order you wrote them.
+3. [`AddJournalEntry`][osrlib.crawl.commands.AddJournalEntry], last, when the narrative block carries a `journal` form.
+
+Consequences are drawn from [`ConsequenceCommand`][osrlib.crawl.commands.ConsequenceCommand] — `GrantItem`, `GrantCoins`, `AwardXP`, `SetFlag`, `SpawnMonsters`, `SpawnNpcParty`, `SetDoorState`, `PlaceParty`, `AdvanceTime`. Anything else fails to parse. A consequence that hands something to a character names it with a party selector rather than an id: [`PARTY_SELECTOR`][osrlib.crawl.triggers.PARTY_SELECTOR] (`"@party"`) becomes one command per living member in marching order, and [`FIRST_LIVING_SELECTOR`][osrlib.crawl.triggers.FIRST_LIVING_SELECTOR] (`"@first"`) the lead survivor. Character ids are allocated per session, so a document that named one would be naming something that does not exist when it is read — validation rejects it.
+
+The two beats have two different audiences, and the rule is worth stating plainly: **`fired` is the referee's line and `journal` is the players'.** The `fired` text rides a referee-visibility event, because content wiring is your game's secret; the journal entry is player-visible and ships verbatim in the [`PlayerView`][osrlib.crawl.views.PlayerView]. If you want the table to read something when a trigger fires, write the journal form.
+
+### When something doesn't land
+
+Nothing about a trigger firing is all-or-nothing. A consequence the session rejects — a spawn arriving to find an encounter already open, a grant naming an item the catalog lost — is dropped by itself, the consequences after it still run, and a [`RecordNote`][osrlib.crawl.commands.RecordNote] records the trigger, the consequence's position and type, and the rejection code. There is no retry and no queue: a consequence that fired later, out of order, would be impossible to debug.
+
+Cascades are bounded. A trigger's own events are one level deeper than the event that fired it, matching stops below depth five, and a firing the bound suppresses is recorded as a note rather than a mark — so a once-only trigger cut short there is still fireable later. Flag-chains are perfectly good wiring; the bound is the guarantee that a loop in them ends.
+
 ## The dungeon, the town, and the root
 
 The level slots into a [`DungeonSpec`][osrlib.crawl.dungeon.DungeonSpec], and the dungeon into an [`Adventure`][osrlib.crawl.adventure.Adventure] beside the [`TownSpec`][osrlib.crawl.adventure.TownSpec] — the safe base where the party rests, buys equipment, and sells treasure. `travel_turns` maps each dungeon id to the town-to-entrance travel cost in exploration turns:
@@ -96,10 +152,11 @@ adventure = Adventure(
     town=town,
     dungeons=(barrow,),
     items=(GearTemplate(id="brass_key", name="Brass key", cost_gp=0),),
+    triggers=(sentinel_wakes,),
 )
 ```
 
-`items` bundles the adventure's own item templates — the brass key the sentinel wants is content, not shipped equipment. See [authoring custom content](../guides/authoring-custom-content.md) for the whole bundling contract.
+`items` bundles the adventure's own item templates — the brass key the sentinel wants is content, not shipped equipment. See [authoring custom content](../guides/authoring-custom-content.md) for the whole bundling contract. `triggers` is the adventure's wiring, and the tuple's order is document order: when two triggers match the same event, they fire in the order you wrote them.
 
 ## Validate before play
 
@@ -121,7 +178,7 @@ from osrlib.core.items import GearTemplate
 from osrlib.core.rng import RngStreams
 from osrlib.core.ruleset import Ruleset
 from osrlib.crawl.adventure import Adventure, TownSpec, validate_adventure
-from osrlib.crawl.commands import EnterDungeon, GrantItem, MoveParty, OpenDoor, SessionMode
+from osrlib.crawl.commands import EnterDungeon, GrantItem, MoveParty, OpenDoor, SessionMode, SetFlag
 from osrlib.crawl.dungeon import (
     AreaSpec,
     Direction,
@@ -134,9 +191,11 @@ from osrlib.crawl.dungeon import (
     LevelSpec,
 )
 from osrlib.crawl.gates import GateSpec, HasItemCondition
+from osrlib.crawl.interpreter import Interpreter
 from osrlib.crawl.narrative import NarrativeBlock
 from osrlib.crawl.party import Party
 from osrlib.crawl.session import GameSession
+from osrlib.crawl.triggers import ItemAcquiredPattern, TriggerSpec
 from osrlib.data import load_equipment, load_monsters
 
 sentinel = GateSpec(
@@ -169,6 +228,16 @@ level = LevelSpec(
     ),
 )
 
+sentinel_wakes = TriggerSpec(
+    id="sentinel-wakes",
+    when=ItemAcquiredPattern(item_id="brass_key"),
+    consequences=(SetFlag(key="barrow.key_found", value=True),),
+    narrative=NarrativeBlock(
+        fired="The sentinel's head turns a few degrees, and stops.",
+        journal="The brass key is ours. Something in the barrow noticed.",
+    ),
+)
+
 barrow = DungeonSpec(id="barrow", name="The Barrow", levels=(level,))
 town = TownSpec(name="Threshold", travel_turns={"barrow": 2})
 adventure = Adventure(
@@ -176,6 +245,7 @@ adventure = Adventure(
     town=town,
     dungeons=(barrow,),
     items=(GearTemplate(id="brass_key", name="Brass key", cost_gp=0),),
+    triggers=(sentinel_wakes,),
 )
 
 # Validation catches unknown ids and broken geometry before play ever starts.
@@ -185,6 +255,7 @@ rules = Ruleset()
 creation = RngStreams(master_seed=11).get(CHARACTER_CREATION_STREAM)
 hero = create_character(name="Brakka", class_id="dwarf", alignment=Alignment.LAWFUL, ruleset=rules, stream=creation)
 session = GameSession.new(Party(members=[hero.character]), adventure, seed=11)
+session.register_listener(Interpreter(session))
 
 session.execute(EnterDungeon(dungeon_id="barrow"))
 session.execute(MoveParty(direction=Direction.EAST))
@@ -196,7 +267,21 @@ assert not refused.accepted
 assert refused.rejections[0].code == "exploration.door.gate_refused"
 assert refused.rejections[0].params["refusal"].startswith("The bronze sentinel")
 
-session.execute(GrantItem(character_id="character-0001", item_id="brass_key"))
+# The key lands, and the trigger watching for it fires inside the same command:
+# the result carries the acquisition and everything the trigger caused after it.
+granted = session.execute(GrantItem(character_id="character-0001", item_id="brass_key"))
+assert [event.code for event in granted.events] == [
+    "exploration.item.acquired",
+    "session.trigger.fired",
+    "session.flag.set",
+    "session.journal.entry_added",
+]
+assert session.fired_triggers == ["sentinel-wakes"]
+assert session.flags["barrow.key_found"] is True
+assert session.journal[0].text == "The brass key is ours. Something in the barrow noticed."
+# Every command the trigger issued says whose idea it was.
+assert session.command_log[-1].source == "trigger:sentinel-wakes"
+
 opened = session.execute(OpenDoor(direction=Direction.EAST))
 assert opened.accepted
 assert opened.events[0].narrative == "The brass key turns in the sentinel's palm and the door swings wide."

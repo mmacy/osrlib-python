@@ -31,6 +31,13 @@ far and appending its own reactions to both the result and the log. The
 `CommandResult` a caller receives after an accepted command carries the *complete*
 chain — the handler's events and every listener's events, in the order they happened.
 
+That includes what a listener causes by executing further commands. Those nested
+commands log their own events, and `execute` folds everything logged while a listener
+ran into the result — each event exactly once, in log order. So one `MoveParty` can
+come back carrying the move, the portcullis a trigger opened in response, and the
+journal entry that recorded it, and a front end renders all of it from one envelope
+without ever reading `session.event_log`.
+
 Listeners are how a game adds its own reactive rules (a quest tracker, an achievement
 log) without touching the kernel; see
 [Listeners and flags](listeners-and-flags.md) for the extension point itself.
@@ -48,6 +55,12 @@ session.execute(AddJournalEntry(text="The lever grinds.", source="trigger:lever-
 assert session.command_log[-1].source == "trigger:lever-east"
 assert session.view(Visibility.PLAYER).journal[-1].text == "The lever grinds."
 ```
+
+The library's [`Interpreter`][osrlib.crawl.interpreter.Interpreter] stamps every command
+it issues this way, so a log left behind by authored content reads as a transcript with
+attributions: this grant came from `trigger:idol-lifted`, that door opened for
+`trigger:portcullis-rises`, and the `record_note` beside them says which consequence was
+dropped and why.
 
 ## Session modes and mode gating
 

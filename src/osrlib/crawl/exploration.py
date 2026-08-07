@@ -847,10 +847,17 @@ def wandering_check(session, *, resting: bool = False) -> tuple[list[Event], boo
 
 
 def _boundary_events(session, old_area, new_position) -> list[Event]:
+    dungeon_id, _, _ = _dungeon_coords(session)
     level = _level(session)
     area = level.area_at(new_position)
     if area is not None and area is not old_area:
-        return [LocationEnteredEvent(location_kind="area", location_id=area.id, level_number=level.number)]
+        # Area ids are level-scoped, so the crossing carries the whole triple:
+        # dungeon, level, area. The other kinds name themselves.
+        return [
+            LocationEnteredEvent(
+                location_kind="area", location_id=area.id, level_number=level.number, dungeon_id=dungeon_id
+            )
+        ]
     return []
 
 

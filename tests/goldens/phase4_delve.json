@@ -2171,6 +2171,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "dungeon_id": null,
       "event_type": "location_entered",
       "level_number": 1,
       "location_id": "halls",
@@ -2261,6 +2262,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "dungeon_id": "halls",
       "event_type": "location_entered",
       "level_number": 1,
       "location_id": "pit_hall",
@@ -2404,6 +2406,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "dungeon_id": "halls",
       "event_type": "location_entered",
       "level_number": 1,
       "location_id": "guard_room",
@@ -4327,6 +4330,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "dungeon_id": null,
       "event_type": "location_entered",
       "level_number": 2,
       "location_id": "halls",
@@ -4362,6 +4366,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "dungeon_id": "halls",
       "event_type": "location_entered",
       "level_number": 2,
       "location_id": "crypt",
@@ -5011,6 +5016,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "dungeon_id": "halls",
       "event_type": "location_entered",
       "level_number": 2,
       "location_id": "kennel_a",
@@ -5173,6 +5179,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "dungeon_id": "halls",
       "event_type": "location_entered",
       "level_number": 2,
       "location_id": "kennel_b",
@@ -6029,6 +6036,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "dungeon_id": null,
       "event_type": "location_entered",
       "level_number": 1,
       "location_id": "halls",
@@ -6054,6 +6062,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "dungeon_id": "halls",
       "event_type": "location_entered",
       "level_number": 1,
       "location_id": "guard_room",
@@ -8077,6 +8086,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "dungeon_id": null,
       "event_type": "location_entered",
       "level_number": null,
       "location_id": "town",

@@ -12,6 +12,7 @@
     },
     {
       "command_type": "mark_trigger_fired",
+      "narrative": null,
       "source": "trigger:lever-east",
       "trigger_id": "lever-east"
     },
@@ -33,6 +34,7 @@
     },
     {
       "command_type": "mark_trigger_fired",
+      "narrative": null,
       "source": "trigger:lever-east",
       "trigger_id": "lever-east"
     },
@@ -57,6 +59,7 @@
   "event_log": [
     {
       "code": "exploration.location.entered",
+      "dungeon_id": null,
       "event_type": "location_entered",
       "level_number": 1,
       "location_id": "delve",
@@ -75,6 +78,7 @@
     {
       "code": "session.trigger.fired",
       "event_type": "trigger_fired",
+      "narrative": null,
       "trigger_id": "lever-east",
       "visibility": "referee"
     },
@@ -101,6 +105,7 @@
     {
       "code": "session.trigger.fired",
       "event_type": "trigger_fired",
+      "narrative": null,
       "trigger_id": "lever-east",
       "visibility": "referee"
     },

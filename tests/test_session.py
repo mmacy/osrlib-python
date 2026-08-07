@@ -16,6 +16,7 @@ from osrlib.crawl.commands import (
     EnterDungeon,
     GrantCoins,
     GrantItem,
+    LightSource,
     ListenAtDoor,
     MoveParty,
     OpenDoor,
@@ -439,6 +440,175 @@ class TestListeners:
         session.register_listener(Second())
         session.execute(SetFlag(key="lever", value=True))
         assert order == [("first", 1), ("second", 2)]
+
+    def test_a_command_issuing_listeners_events_ride_the_result_in_log_order(self):
+        class Portcullis:
+            key = "portcullis"
+
+            def __init__(self, session):
+                self._session = session
+
+            def handle(self, events, state):
+                for event in events:
+                    if isinstance(event, FlagSetEvent) and event.key == "lever":
+                        self._session.execute(AddJournalEntry(text="Something grinds open below."))
+                return [], state
+
+        session = make_session()
+        session.register_listener(Portcullis(session))
+        result = session.execute(SetFlag(key="lever", value=True))
+        codes = [event.code for event in result.events]
+        assert codes == ["session.flag.set", "session.journal.entry_added"]
+        # Logged once, and the envelope is the log's tail — the nested command's
+        # event is not duplicated by riding the result.
+        assert [getattr(event, "code", None) for event in session.event_log] == codes
+
+    def test_a_nested_cascade_rides_the_result_once_each_in_log_order(self):
+        class Cascade:
+            key = "cascade"
+
+            def __init__(self, session):
+                self._session = session
+
+            def handle(self, events, state):
+                for event in events:
+                    if isinstance(event, FlagSetEvent) and event.key.startswith("step") and event.key < "step3":
+                        following = f"step{int(event.key[-1]) + 1}"
+                        self._session.execute(SetFlag(key=following, value=True))
+                return [], state
+
+        session = make_session()
+        session.register_listener(Cascade(session))
+        result = session.execute(SetFlag(key="step1", value=True))
+        assert [event.key for event in result.events] == ["step1", "step2", "step3"]
+        assert [event.key for event in session.event_log] == ["step1", "step2", "step3"]
+
+    def test_a_later_listener_sees_a_nested_commands_events_exactly_once(self):
+        """The dispatch input and the result envelope are two different lists.
+
+        A nested `execute` runs the whole listener loop itself, so the second
+        listener already saw the nested command's events at the nested level. Handing
+        them to it again at the outer level would double every reaction downstream of
+        a command-issuing listener.
+        """
+        seen: list[str] = []
+
+        class Relay:
+            key = "relay"
+
+            def __init__(self, session):
+                self._session = session
+
+            def handle(self, events, state):
+                for event in events:
+                    if isinstance(event, FlagSetEvent) and event.key == "lever":
+                        self._session.execute(SetFlag(key="relayed", value=True))
+                return [], state
+
+        class Counter:
+            key = "counter"
+
+            def handle(self, events, state):
+                seen.extend(event.key for event in events if isinstance(event, FlagSetEvent))
+                return [], state
+
+        session = make_session()
+        session.register_listener(Relay(session))
+        session.register_listener(Counter())
+        result = session.execute(SetFlag(key="lever", value=True))
+        # Two dispatches reached the counter: the nested command's, then the outer
+        # one's — and the outer one carries no copy of the nested event.
+        assert seen == ["relayed", "lever"]
+        assert [event.key for event in result.events] == ["lever", "relayed"]
+        assert [event.key for event in session.event_log] == ["lever", "relayed"]
+
+    def test_a_repeatable_trigger_behind_a_relay_listener_fires_once(self):
+        from osrlib.crawl.interpreter import Interpreter
+        from osrlib.crawl.triggers import FlagSetPattern, TriggerSpec
+
+        # The trigger watches the key the *relay* writes, so a nested event handed
+        # back to the outer dispatch would match a second time.
+        trigger = TriggerSpec(
+            id="bell",
+            when=FlagSetPattern(key="relayed"),
+            repeatable=True,
+            consequences=(SetFlag(key="rung", value=1),),
+        )
+        session = GameSession.new(build_party(), build_adventure().model_copy(update={"triggers": (trigger,)}), seed=11)
+
+        class Relay:
+            key = "relay"
+
+            def __init__(self, session):
+                self._session = session
+
+            def handle(self, events, state):
+                for event in events:
+                    if isinstance(event, FlagSetEvent) and event.key == "relayed":
+                        return [], state
+                    if isinstance(event, FlagSetEvent) and event.key == "lever":
+                        self._session.execute(SetFlag(key="relayed", value=True))
+                return [], state
+
+        session.register_listener(Relay(session))
+        session.register_listener(Interpreter(session))
+        session.execute(SetFlag(key="lever", value=True))
+        marks = [command for command in session.command_log if command.command_type == "mark_trigger_fired"]
+        assert len(marks) == 1, "one write of the lever key is one firing, relay or no relay"
+
+    def test_an_emit_only_listener_is_unchanged_by_the_splice(self):
+        class Echo:
+            key = "echo"
+
+            def handle(self, events, state):
+                return [FlagSetEvent(key="echo", value=len(events))], state
+
+        session = make_session()
+        session.register_listener(Echo())
+        result = session.execute(SetFlag(key="lever", value=True))
+        assert [event.key for event in result.events] == ["lever", "echo"]
+        assert [event.key for event in session.event_log] == ["lever", "echo"]
+
+    def test_sight_persists_before_the_listeners_so_a_relocation_replays(self):
+        from osrlib.crawl.commands import Command
+        from osrlib.persistence import session_state
+
+        teleport = PlaceParty(
+            location=PartyLocation(
+                kind="dungeon", dungeon_id="delve", level_number=2, position=(2, 0), facing=Direction.EAST
+            )
+        )
+
+        class Teleporter:
+            key = "teleporter"
+
+            def __init__(self, session):
+                self._session = session
+
+            def handle(self, events, state):
+                if any(getattr(event, "code", None) == "exploration.party.moved" for event in events):
+                    self._session.execute(teleport)
+                return [], state
+
+        def outfitted(seed: int = 11) -> GameSession:
+            session = make_session(seed)
+            outfit(session)
+            session.execute(EnterDungeon(dungeon_id="delve"))
+            for _ in range(20):
+                lit = session.execute(LightSource(character_id="character-0001", item_id="torch"))
+                if any(event.code == "exploration.light.lit" for event in lit.events):
+                    break
+            return session
+
+        live = outfitted()
+        live.register_listener(Teleporter(live))
+        live.execute(MoveParty(direction=Direction.EAST))
+
+        replayed = outfitted()
+        for command in list(live.command_log)[len(replayed.command_log) :]:
+            assert isinstance(command, Command)
+            replayed.execute(command)
+        assert session_state(replayed)["dungeon_state"]["seen"] == session_state(live)["dungeon_state"]["seen"]
 
 
 class TestDeathRecords:

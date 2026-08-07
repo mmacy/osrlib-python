@@ -7,8 +7,10 @@ import pytest
 from osrlib.core.validation import Rejection
 from osrlib.crawl.commands import (
     ALL_COMMAND_CLASSES,
+    CONSEQUENCE_COMMAND_CLASSES,
     BattleDeclaration,
     CommandResult,
+    ConsequenceCommand,
     MoveParty,
     ResolveBattleRound,
     SessionMode,
@@ -156,6 +158,50 @@ class TestModes:
         # in battle it is a declaration kind, and exploration has no candidates.
         turn_undead = next(cls for cls in ALL_COMMAND_CLASSES if cls.__name__ == "TurnUndead")
         assert turn_undead.allowed_modes == frozenset({SessionMode.ENCOUNTER})
+
+
+class TestConsequenceCensus:
+    """The authored-consequence sub-union against the referee census it draws from."""
+
+    def test_every_consequence_is_a_referee_command(self):
+        types = {cls.model_fields["command_type"].default for cls in CONSEQUENCE_COMMAND_CLASSES}
+        assert types <= REFEREE_COMMANDS
+
+    def test_the_exclusions_are_the_lifecycle_family_identify_item_and_roll_dice(self):
+        types = {cls.model_fields["command_type"].default for cls in CONSEQUENCE_COMMAND_CLASSES}
+        assert REFEREE_COMMANDS - types == {
+            # The interpreter's own vocabulary: it marks, journals, and annotates
+            # on the author's behalf.
+            "mark_trigger_fired",
+            "add_journal_entry",
+            "record_note",
+            # Session-scoped instance ids no document can know.
+            "identify_item",
+            # A draw no authored construct reads.
+            "roll_dice",
+        }
+
+    def test_the_consequence_classes_are_a_subset_of_the_command_census(self):
+        assert set(CONSEQUENCE_COMMAND_CLASSES) <= set(ALL_COMMAND_CLASSES)
+        names = [cls.__name__ for cls in CONSEQUENCE_COMMAND_CLASSES]
+        assert len(set(names)) == len(names)
+
+    def test_the_character_addressing_consequences_are_exactly_three(self):
+        # Two sites enumerate this trio by hand and must grow together when it does:
+        # `Interpreter._expand` (which turns a party selector into concrete commands)
+        # and `_validate_trigger` in adventure.py (which rejects a literal id). A new
+        # consequence class carrying `character_id` that skipped both would silently
+        # take a selector string as a character id.
+        addressing = {cls.__name__ for cls in CONSEQUENCE_COMMAND_CLASSES if "character_id" in cls.model_fields}
+        assert addressing == {"GrantItem", "GrantCoins", "AwardXP"}
+
+    def test_the_union_members_are_the_census_in_order(self):
+        # The union is spelled out for the type checker; this is the tripwire that
+        # keeps the two spellings the same list.
+        from typing import get_args
+
+        union, _field = get_args(ConsequenceCommand)
+        assert get_args(union) == CONSEQUENCE_COMMAND_CLASSES
 
 
 class TestSpawnMonstersValidation:

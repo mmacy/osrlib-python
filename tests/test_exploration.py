@@ -1470,6 +1470,37 @@ class TestWandering:
         assert surprise.roll is None and surprise.surprised is False
 
 
+class TestLocationBoundaryFacts:
+    """Every crossing event names where it happened, without asking the session."""
+
+    def _entered(self, result, kind: str):
+        return next(
+            event
+            for event in result.events
+            if event.code == "exploration.location.entered" and event.location_kind == kind
+        )
+
+    def test_an_area_entry_carries_the_whole_triple(self):
+        session = quiet_session()
+        entered(session)
+        place(session, (1, 0), level_number=2)
+        result = session.execute(MoveParty(direction=Direction.EAST))
+        assert result.accepted
+        event = self._entered(result, "area")
+        assert (event.dungeon_id, event.level_number, event.location_id) == ("delve", 2, "crypt")
+
+    def test_level_dungeon_and_town_entries_leave_the_field_unset(self):
+        session = quiet_session()
+        dungeon = self._entered(session.execute(EnterDungeon(dungeon_id="delve")), "dungeon")
+        assert (dungeon.location_id, dungeon.level_number, dungeon.dungeon_id) == ("delve", 1, None)
+        place(session, (4, 1))
+        level = self._entered(session.execute(UseStairs()), "level")
+        assert (level.location_id, level.level_number, level.dungeon_id) == ("delve", 2, None)
+        place(session, (0, 0))
+        town = self._entered(session.execute(TravelToTown()), "town")
+        assert (town.location_id, town.level_number, town.dungeon_id) == ("town", None, None)
+
+
 class TestStairsAndTravel:
     def test_stairs_relocate_and_cost_one_unexplored_cell(self):
         session = quiet_session()

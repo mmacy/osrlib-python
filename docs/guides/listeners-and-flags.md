@@ -48,6 +48,13 @@ by executing its own commands must return an empty list. A nested `session.execu
 already appends that command's events to the session's event log itself; returning them again
 from `handle` would log the same event twice.
 
+Returning nothing costs the caller nothing. `execute` notes where the event log ends before it
+calls each listener and folds everything logged while that listener ran into the result it hands
+back — the nested commands' events, however deeply they nest, each exactly once and in log order,
+followed by whatever the listener authored. So the `CommandResult` from a player's `MoveParty`
+carries the portcullis grinding open and the journal entry that recorded it, and a front end
+renders the whole chain from one envelope.
+
 The nested-`execute` call matters for a second reason: it re-enters the entire dispatch pipeline,
 listener loop included. If a listener issues a command from inside `handle`, every registered
 listener — itself included — runs again against *that* command's events, with whatever `state`
@@ -119,8 +126,36 @@ remembering things itself, the discipline this page opened with.
 The optional `source` stamp (see
 [Sessions, commands, and events](sessions-commands-events.md)) is what ties the vocabulary
 together: a listener that stamps the commands it issues with its own quest or trigger id leaves a
-log that answers *why* every entry is there. A library-shipped trigger and quest interpreter will
-be built on exactly this surface when it arrives; a game's own listener can drive it today.
+log that answers *why* every entry is there. The library's own trigger interpreter is built on
+exactly this surface, and a game's own listener drives it the same way.
+
+## The trigger interpreter: this pattern, shipped
+
+[`Interpreter`][osrlib.crawl.interpreter.Interpreter] is a listener like any other, and it is the
+worked reference for everything above. Register one, once, after the session exists — and again
+after loading a save, because listeners are code and a save carries data:
+
+```{.python .no-run}
+session.register_listener(Interpreter(session))
+```
+
+From then on it watches every command's events, matches them against the adventure's authored
+[triggers](../getting-started/building-an-adventure.md#wiring-the-dungeon-with-triggers), and
+reacts the only way a listener may: by executing referee commands, each stamped
+`source="trigger:{id}"`. Three properties are worth copying into your own listeners:
+
+- **It returns no events.** Every event it causes was logged by a command it executed, and the
+  result envelope picks those up from the log. `handle` returns `[], {}` unconditionally.
+- **It keeps no state.** Its `listener_state` slot exists — `register_listener` creates one — and
+  stays the empty dict for the life of the session. Fired-marks live in `session.fired_triggers`,
+  beats in `session.journal`, everything else in the world the commands changed. That is what
+  makes a triggered game replay exactly: a replay runs with no listeners at all, and re-executing
+  the log rebuilds every one of those blocks.
+- **It has no re-entrancy guard, on purpose.** The fetch quest below needs one because its trigger
+  condition can look unsatisfied from inside its own reaction. The interpreter instead records the
+  fired-mark *before* running a trigger's consequences, so a consequence that re-matches its own
+  trigger finds it already fired; re-entrant self-invocation is how one trigger's consequences fire
+  the next, and a depth bound rather than a latch is what stops a cascade.
 
 ## The fetch quest, worked
 
