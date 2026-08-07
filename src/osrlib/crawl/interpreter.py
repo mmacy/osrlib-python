@@ -282,8 +282,7 @@ class Interpreter:
                 for command in self._expand(consequence, trigger, position):
                     result = self._issue(command, trigger.id)
                     if not result.accepted:
-                        code = result.rejections[0].code if result.rejections else "unknown"
-                        self._note_drop(trigger, position, command, code)
+                        self._note_drop(trigger, position, command, result.rejections[0].code)
             if narrative is not None and narrative.journal:
                 self._issue(AddJournalEntry(text=narrative.journal), trigger.id)
         finally:

@@ -483,6 +483,79 @@ class TestListeners:
         assert [event.key for event in result.events] == ["step1", "step2", "step3"]
         assert [event.key for event in session.event_log] == ["step1", "step2", "step3"]
 
+    def test_a_later_listener_sees_a_nested_commands_events_exactly_once(self):
+        """The dispatch input and the result envelope are two different lists.
+
+        A nested `execute` runs the whole listener loop itself, so the second
+        listener already saw the nested command's events at the nested level. Handing
+        them to it again at the outer level would double every reaction downstream of
+        a command-issuing listener.
+        """
+        seen: list[str] = []
+
+        class Relay:
+            key = "relay"
+
+            def __init__(self, session):
+                self._session = session
+
+            def handle(self, events, state):
+                for event in events:
+                    if isinstance(event, FlagSetEvent) and event.key == "lever":
+                        self._session.execute(SetFlag(key="relayed", value=True))
+                return [], state
+
+        class Counter:
+            key = "counter"
+
+            def handle(self, events, state):
+                seen.extend(event.key for event in events if isinstance(event, FlagSetEvent))
+                return [], state
+
+        session = make_session()
+        session.register_listener(Relay(session))
+        session.register_listener(Counter())
+        result = session.execute(SetFlag(key="lever", value=True))
+        # Two dispatches reached the counter: the nested command's, then the outer
+        # one's — and the outer one carries no copy of the nested event.
+        assert seen == ["relayed", "lever"]
+        assert [event.key for event in result.events] == ["lever", "relayed"]
+        assert [event.key for event in session.event_log] == ["lever", "relayed"]
+
+    def test_a_repeatable_trigger_behind_a_relay_listener_fires_once(self):
+        from osrlib.crawl.interpreter import Interpreter
+        from osrlib.crawl.triggers import FlagSetPattern, TriggerSpec
+
+        # The trigger watches the key the *relay* writes, so a nested event handed
+        # back to the outer dispatch would match a second time.
+        trigger = TriggerSpec(
+            id="bell",
+            when=FlagSetPattern(key="relayed"),
+            repeatable=True,
+            consequences=(SetFlag(key="rung", value=1),),
+        )
+        session = GameSession.new(build_party(), build_adventure().model_copy(update={"triggers": (trigger,)}), seed=11)
+
+        class Relay:
+            key = "relay"
+
+            def __init__(self, session):
+                self._session = session
+
+            def handle(self, events, state):
+                for event in events:
+                    if isinstance(event, FlagSetEvent) and event.key == "relayed":
+                        return [], state
+                    if isinstance(event, FlagSetEvent) and event.key == "lever":
+                        self._session.execute(SetFlag(key="relayed", value=True))
+                return [], state
+
+        session.register_listener(Relay(session))
+        session.register_listener(Interpreter(session))
+        session.execute(SetFlag(key="lever", value=True))
+        marks = [command for command in session.command_log if command.command_type == "mark_trigger_fired"]
+        assert len(marks) == 1, "one write of the lever key is one firing, relay or no relay"
+
     def test_an_emit_only_listener_is_unchanged_by_the_splice(self):
         class Echo:
             key = "echo"

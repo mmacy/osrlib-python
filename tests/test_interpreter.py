@@ -436,14 +436,13 @@ class TestDrops:
     def test_a_literal_character_id_lands_as_an_ordinary_rejection(self):
         # Hand-built content that never went through validation: the id flows
         # through untouched and the machinery degrades into a drop-and-note.
-        trigger = TriggerSpec.model_construct(
+        trigger = TriggerSpec(
             id="misaddressed",
             when=FlagSetPattern(key="bell"),
-            conditions=(),
-            repeatable=False,
             consequences=(AwardXP(character_id="character-9999", amount=10),),
-            narrative=None,
         )
+        # The spec parses; it is `validate_adventure` that rejects the literal id, and
+        # this trigger reaches the session behind its back.
         session = GameSession.new(build_party(), build_adventure(wandering_chance=0), seed=31)
         session.adventure = session.adventure.model_copy(update={"triggers": (trigger,)})
         session.register_listener(Interpreter(session))

@@ -186,6 +186,15 @@ class TestConsequenceCensus:
         names = [cls.__name__ for cls in CONSEQUENCE_COMMAND_CLASSES]
         assert len(set(names)) == len(names)
 
+    def test_the_character_addressing_consequences_are_exactly_three(self):
+        # Two sites enumerate this trio by hand and must grow together when it does:
+        # `Interpreter._expand` (which turns a party selector into concrete commands)
+        # and `_validate_trigger` in adventure.py (which rejects a literal id). A new
+        # consequence class carrying `character_id` that skipped both would silently
+        # take a selector string as a character id.
+        addressing = {cls.__name__ for cls in CONSEQUENCE_COMMAND_CLASSES if "character_id" in cls.model_fields}
+        assert addressing == {"GrantItem", "GrantCoins", "AwardXP"}
+
     def test_the_union_members_are_the_census_in_order(self):
         # The union is spelled out for the type checker; this is the tripwire that
         # keeps the two spellings the same list.
