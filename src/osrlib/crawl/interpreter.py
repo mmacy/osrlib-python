@@ -22,6 +22,7 @@ from osrlib.crawl.commands import (
     AddJournalEntry,
     AwardXP,
     Command,
+    CommandResult,
     GrantCoins,
     GrantItem,
     MarkTriggerFired,
@@ -316,7 +317,7 @@ class Interpreter:
             trigger.id,
         )
 
-    def _issue(self, command: Command, trigger_id: str):
+    def _issue(self, command: Command, trigger_id: str) -> CommandResult:
         """Execute one command on the trigger's behalf, stamped with its id.
 
         Commands are frozen, so the stamp is a copy — the authored consequence in the
