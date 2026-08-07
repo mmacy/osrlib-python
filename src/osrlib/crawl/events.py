@@ -100,7 +100,9 @@ class LocationEnteredEvent(Event):
 
     `location_kind` is `area`, `level`, `dungeon`, or `town`; `location_id` is the
     area or dungeon id (`"town"` for town). `level_number` rides level and dungeon
-    entries.
+    entries, and `dungeon_id` rides area entries — an area id is scoped to its
+    level, so an area entry needs all three to name where the party is, while level
+    and dungeon entries carry the dungeon id in `location_id` and town has neither.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"exploration.location.entered"})
@@ -111,6 +113,7 @@ class LocationEnteredEvent(Event):
     location_kind: str
     location_id: str
     level_number: int | None = None
+    dungeon_id: str | None = None
     narrative: str | None = None
     """The authored success text of the gate on the transition that was taken, when the
     author wrote one. Authored text on an event is content data in a structured field,
@@ -815,6 +818,12 @@ class TriggerFiredEvent(Event):
     Emitted for every [`MarkTriggerFired`][osrlib.crawl.commands.MarkTriggerFired],
     a mark of an already-fired trigger included: session state records that a
     trigger has fired, and these events record each firing.
+
+    `narrative` is the trigger's authored beat for the firing — content data in a
+    structured field, not engine-baked English: the event still carries its message
+    code and its facts, and the default formatter appends the line verbatim after
+    the templated one. It rides a referee-visibility event because trigger wiring is
+    the game's secret; a beat written for the table is a journal entry.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"session.trigger.fired"})
@@ -823,6 +832,7 @@ class TriggerFiredEvent(Event):
     code: str = "session.trigger.fired"
     visibility: Visibility = Visibility.REFEREE
     trigger_id: str
+    narrative: str | None = None
 
 
 class JournalEntryAddedEvent(Event):

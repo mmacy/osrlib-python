@@ -109,6 +109,25 @@ class TestMarkTriggerFired:
         with pytest.raises(ValidationError):
             MarkTriggerFired(trigger_id="")
 
+    def test_the_beat_rides_the_event_verbatim_behind_the_screen(self):
+        from osrlib.messages import format_message
+
+        beat = "The counterweight drops somewhere in the wall."
+        session = make_session()
+        result = session.execute(MarkTriggerFired(trigger_id="lever-east", narrative=beat))
+        event = next(event for event in result.events if isinstance(event, TriggerFiredEvent))
+        assert event.narrative == beat
+        assert event.visibility is Visibility.REFEREE
+        assert format_message(event).endswith(beat)
+
+    def test_an_unwritten_beat_is_absent_and_never_empty(self):
+        session = make_session()
+        result = session.execute(MarkTriggerFired(trigger_id="lever-east"))
+        event = next(event for event in result.events if isinstance(event, TriggerFiredEvent))
+        assert event.narrative is None
+        with pytest.raises(ValidationError):
+            MarkTriggerFired(trigger_id="lever-east", narrative="")
+
 
 class TestAddJournalEntry:
     def test_entries_append_in_order_stamped_with_the_clock(self):

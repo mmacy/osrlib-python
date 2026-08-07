@@ -237,6 +237,11 @@ class Listener(Protocol):
     commands. `handle` receives the accumulated events of the command (earlier
     listeners' included) and the listener's own state snapshot, and returns the
     events to append plus the new state (snapshotted into saves under `key`).
+
+    A listener that reacts by executing commands returns no events: those commands
+    logged their own, and the result envelope picks them up from the log. Returning
+    them again would log them twice. The returned list is for events a listener
+    *authors* directly.
     """
 
     key: str
@@ -408,6 +413,11 @@ class GameSession:
         whatever killed the party, and from whichever mode. A session already in a
         terminal mode is left alone.
 
+        The result carries everything the command caused, in event-log order: the
+        handler's own events, then, per listener in registration order, the events
+        of the commands that listener executed — however deeply nested — followed by
+        the events it authored itself.
+
         Args:
             command: The command to execute.
 
@@ -470,12 +480,19 @@ class GameSession:
             events.extend(self._end_on_party_wipe())
         self.event_log.extend(events)
         accumulated = list(events)
+        self._persist_sight()
         for listener in self.listeners:
+            mark = len(self.event_log)
             emitted, state = listener.handle(tuple(accumulated), self.listener_state.get(listener.key, {}))
             self.listener_state[listener.key] = state
+            # Everything the listener's own commands logged while it ran — their
+            # events and any deeper listener reactions, each already in the log
+            # exactly once, in log order — then the events it authored itself.
+            # (The log holds serialized entries only for a session restored from a
+            # save; nothing executing appends one.)
+            accumulated.extend(entry for entry in self.event_log[mark:] if isinstance(entry, Event))
             accumulated.extend(emitted)
             self.event_log.extend(emitted)
-        self._persist_sight()
         return CommandResult(accepted=True, events=tuple(accumulated))
 
     def _persist_sight(self) -> None:
@@ -487,6 +504,13 @@ class GameSession:
         [`mark_seen`][osrlib.crawl.dungeon.DungeonState.mark_seen] with what
         `_light_reveal` shows from the party's cell. Rejected commands change no
         state, so they never reach it.
+
+        It runs *before* the listeners, so that the map a live session remembers is
+        the map a replay rebuilds. A listener that relocates the party — an authored
+        teleport — executes its own command, which folds its own destination in
+        turn; folding this command's reveal afterwards instead would fold the
+        destination's view over the move the party actually made, while a replay,
+        running the same commands with no listeners, folds both in order.
         """
         from osrlib.crawl.exploration import _light_reveal
 
@@ -975,7 +999,7 @@ def _handle_mark_trigger_fired(session: GameSession, command: MarkTriggerFired) 
     # marked and the log is the record of each one.
     if command.trigger_id not in session.fired_triggers:
         session.fired_triggers.append(command.trigger_id)
-    return [], [TriggerFiredEvent(trigger_id=command.trigger_id)]
+    return [], [TriggerFiredEvent(trigger_id=command.trigger_id, narrative=command.narrative)]
 
 
 def _handle_add_journal_entry(session: GameSession, command: AddJournalEntry) -> tuple[list[Rejection], list[Event]]:

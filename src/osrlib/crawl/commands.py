@@ -1856,11 +1856,18 @@ class MarkTriggerFired(Command):
 
     Events:
         [`TriggerFiredEvent`][osrlib.crawl.events.TriggerFiredEvent] with the
-        trigger id, for every mark.
+        trigger id and the beat, for every mark.
     """
 
     command_type: Literal["mark_trigger_fired"] = "mark_trigger_fired"
     trigger_id: str = Field(min_length=1)
+    narrative: str | None = Field(default=None, min_length=1)
+    """The authored beat for the firing, carried out on the event at referee
+    visibility. Trigger internals are the game's secret, so this is the referee's
+    line about the wiring; the players' line is a journal entry
+    ([`AddJournalEntry`][osrlib.crawl.commands.AddJournalEntry]). Authored text on a
+    command is content data in a structured field — the command still carries its
+    type and its facts."""
 
 
 class AddJournalEntry(Command):
