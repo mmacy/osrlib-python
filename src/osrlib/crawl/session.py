@@ -918,8 +918,7 @@ class GameSession:
             events: The just-executed command's events, in order.
 
         Returns:
-            True when a party member died in them — the edge
-            [`_end_on_party_wipe`][osrlib.crawl.session.GameSession._end_on_party_wipe]
+            True when a party member died in them — the edge the party-wipe check
             triggers on, identified by this same walk. Monsters and NPC
             adventurers carry non-member ids and never count.
         """

@@ -6,9 +6,18 @@ rest. It is a marker offering safe rest and equipment purchase through the
 kernel, not a simulated town. Content prose lives in these models — events
 carry ids and front ends resolve prose against the adventure.
 
+Beyond the dungeons, the document carries the adventure's own content and
+behavior: `monsters` and `items` bundle templates that resolve beside the shipped
+catalogs for that session, `triggers` is the authored wiring
+([`TriggerSpec`][osrlib.crawl.triggers.TriggerSpec]), and `quests` the authored
+errands ([`QuestSpec`][osrlib.crawl.quests.QuestSpec]) — with gates
+([`GateSpec`][osrlib.crawl.gates.GateSpec]) riding the dungeon geometry's doors
+and transitions.
+
 [`validate_adventure`][osrlib.crawl.adventure.validate_adventure] is the fail-fast
 content gate: dangling references (transition targets, monster template ids,
-item ids, area cells out of bounds) raise
+item ids, area cells out of bounds, gate item ids, trigger and quest references —
+patterns, conditions, consequence targets, selectors) raise
 [`ContentValidationError`][osrlib.errors.ContentValidationError] before a session
 ever runs the content.
 """
