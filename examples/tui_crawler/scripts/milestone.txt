@@ -47,4 +47,5 @@ move w
 move w
 move w
 town
+journal
 status

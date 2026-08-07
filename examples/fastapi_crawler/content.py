@@ -21,6 +21,7 @@ from osrlib.persistence import load_game
 __all__ = ["new_session", "restore_session"]
 
 
+# --8<-- [start:new-session]
 def new_session(party: Party, *, seed: int) -> GameSession:
     """Create a session serving the barrow, with the adventure's quest in play.
 
@@ -36,6 +37,10 @@ def new_session(party: Party, *, seed: int) -> GameSession:
     return session
 
 
+# --8<-- [end:new-session]
+
+
+# --8<-- [start:restore-session]
 def restore_session(document: Mapping[str, object]) -> GameSession:
     """Restore a session from a save document, re-registering the interpreter.
 
@@ -52,3 +57,6 @@ def restore_session(document: Mapping[str, object]) -> GameSession:
     session = load_game(document)
     session.register_listener(Interpreter(session))
     return session
+
+
+# --8<-- [end:restore-session]

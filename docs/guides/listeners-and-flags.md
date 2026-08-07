@@ -141,7 +141,7 @@ session.register_listener(Interpreter(session))
 ```
 
 From then on it watches every command's events, matches them against the adventure's authored
-[triggers](../getting-started/building-an-adventure.md#wiring-the-dungeon-with-triggers) and its
+[triggers](gates-triggers-quests.md#wiring-the-dungeon-with-triggers) and its
 [`QuestSpec`][osrlib.crawl.quests.QuestSpec]s, and reacts the only way a listener may: by
 executing referee commands, each stamped `source="trigger:{id}"` or `source="quest:{id}"`. Three
 properties are worth copying into your own listeners:
@@ -157,16 +157,19 @@ properties are worth copying into your own listeners:
   condition can look unsatisfied from inside its own reaction. The interpreter instead records the
   fired-mark *before* running a trigger's consequences, so a consequence that re-matches its own
   trigger finds it already fired; re-entrant self-invocation is how one trigger's consequences fire
-  the next, and a depth bound rather than a latch is what stops a cascade.
+  the next, and a depth bound rather than a latch is what stops a cascade (see
+  [When something doesn't land](gates-triggers-quests.md#when-something-doesnt-land)).
 
 ## A fetch quest, worked
 
 Most fetch quests belong in the adventure document, where
 [`QuestSpec`][osrlib.crawl.quests.QuestSpec] says what to fetch and the interpreter above plays
-it — the TUI crawler's Jade Idol is authored exactly that way (see
+it — [Gates, triggers, and quests](gates-triggers-quests.md#authoring-a-quest) teaches that
+surface, and the TUI crawler's Jade Idol is authored exactly that way (see
 [the complete front end](../front-ends/tui-crawler.md)). But the same errand is a fair worked
 example of the game-owned pattern, because everything a quest needs is on this page's surface: a
-listener that watches events, keeps its own objective state, and acts through commands.
+listener that watches events, keeps its own objective state, and acts through commands. The
+[complete program](#the-complete-program) below carries this listener whole and runs it.
 
 ```{.python .no-run}
 class FetchQuestListener:
@@ -191,9 +194,7 @@ class FetchQuestListener:
         acquired = any(isinstance(event, ItemAcquiredEvent) for event in events)
         if acquired and not state.get("recovered") and self._carrier() is not None:
             state["recovered"] = True
-        home = any(
-            isinstance(event, LocationEnteredEvent) and event.location_kind == "town" for event in events
-        )
+        home = any(isinstance(event, LocationEnteredEvent) and event.location_kind == "town" for event in events)
         if home and state.get("recovered") and not state.get("completed"):
             state["completed"] = True
             self._reacting = True
@@ -227,8 +228,11 @@ the objective, and for [`QuestSpec`][osrlib.crawl.quests.QuestSpec] when the adv
 
 ## The complete program
 
-A minimal listener that counts party moves, exercised against a couple of commands (one of them
-rejected), plus a flag set and read back two ways:
+Three listeners on one small session: the move counter from the top of the page, the fetch
+quest worked above (exercised end to end — the idol acquired, the walk home, the flag and the
+XP landing as commands), and the library's interpreter, registered beside them — legal and
+inert here, since this adventure authors no triggers or quests. Plus a flag set and read back
+two ways, and the lifecycle vocabulary:
 
 ```python
 from collections.abc import Sequence
@@ -236,19 +240,24 @@ from collections.abc import Sequence
 from osrlib.core.alignment import Alignment
 from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character
 from osrlib.core.events import Event, Visibility
+from osrlib.core.items import GearTemplate
 from osrlib.core.rng import RngStreams
 from osrlib.core.ruleset import Ruleset
 from osrlib.crawl.adventure import Adventure, TownSpec
 from osrlib.crawl.commands import (
     AddJournalEntry,
+    AwardXP,
     EnterDungeon,
+    GrantItem,
     MarkTriggerFired,
     MoveParty,
     RecordNote,
     SetFlag,
+    TravelToTown,
 )
 from osrlib.crawl.dungeon import Direction, DungeonSpec, Edge, EdgeKind, LevelSpec
-from osrlib.crawl.events import PartyMovedEvent
+from osrlib.crawl.events import ItemAcquiredEvent, LocationEnteredEvent, PartyMovedEvent
+from osrlib.crawl.interpreter import Interpreter
 from osrlib.crawl.party import Party
 from osrlib.crawl.session import GameSession
 
@@ -265,14 +274,55 @@ class MoveCounter:
         return [], state
 
 
-# The quickstart's one-corridor crypt: two cells joined west-east.
+class FetchQuestListener:
+    """Recover an item and bring it home — a quest tracker as a listener."""
+
+    key = "fetch_quest"
+
+    def __init__(self, session) -> None:
+        self._session = session
+        self._reacting = False
+
+    def _carrier(self):
+        for member in self._session.party.members:
+            if member.inventory.carried_item("jade-idol") is not None:
+                return member
+        return None
+
+    def handle(self, events: Sequence[Event], state: dict) -> tuple[list[Event], dict]:
+        if self._reacting:
+            return [], state
+        state = dict(state)
+        acquired = any(isinstance(event, ItemAcquiredEvent) for event in events)
+        if acquired and not state.get("recovered") and self._carrier() is not None:
+            state["recovered"] = True
+        home = any(isinstance(event, LocationEnteredEvent) and event.location_kind == "town" for event in events)
+        if home and state.get("recovered") and not state.get("completed"):
+            state["completed"] = True
+            self._reacting = True
+            try:
+                self._session.execute(SetFlag(key="quest.idol", value="recovered"))
+                for member in self._session.party.living_members():
+                    self._session.execute(AwardXP(character_id=member.id, amount=1200))
+            finally:
+                self._reacting = False
+        return [], state
+
+
+# The quickstart's one-corridor crypt, plus the idol the fetch quest wants: a
+# bundled item, so acquiring it reports a catalog id the listener can look for.
 crypt = DungeonSpec(
     id="crypt",
     name="The Old Crypt",
     levels=(LevelSpec(number=1, width=2, height=1, entrance=(0, 0), edges={"1,0:west": Edge(kind=EdgeKind.OPEN)}),),
 )
 town = TownSpec(name="Threshold", travel_turns={"crypt": 1})
-adventure = Adventure(name="A First Delve", town=town, dungeons=(crypt,))
+adventure = Adventure(
+    name="A First Delve",
+    town=town,
+    dungeons=(crypt,),
+    items=(GearTemplate(id="jade-idol", name="Jade idol", cost_gp=0),),
+)
 
 rules = Ruleset()
 creation = RngStreams(master_seed=7).get(CHARACTER_CREATION_STREAM)
@@ -281,6 +331,8 @@ party = Party(members=[fighter.character])
 
 session = GameSession.new(party, adventure, seed=7)
 session.register_listener(MoveCounter())
+session.register_listener(FetchQuestListener(session))
+session.register_listener(Interpreter(session))
 
 session.execute(EnterDungeon(dungeon_id="crypt"))
 session.execute(MoveParty(direction=Direction.EAST))
@@ -312,6 +364,19 @@ assert session.fired_triggers == ["crypt.lever"]
 assert [entry.text for entry in session.journal] == ["The lever grinds."]
 assert session.view(Visibility.PLAYER).journal == tuple(session.journal)
 assert session.command_log[-1].source is None  # the note was the referee's own
+
+# The fetch quest, end to end: the idol lands in a pack, and the walk home
+# completes the errand — the flag and the XP both landing as ordinary commands.
+hero = session.party.members[0]
+granted = session.execute(GrantItem(character_id=hero.id, item_id="jade-idol"))
+assert granted.accepted
+assert session.listener_state["fetch_quest"] == {"recovered": True}
+
+home = session.execute(TravelToTown())
+assert home.accepted
+assert session.listener_state["fetch_quest"] == {"recovered": True, "completed": True}
+assert session.flags["quest.idol"] == "recovered"
+assert hero.xp > 0  # the award applied, prime-requisite modifier and all
 ```
 
 ## Where next

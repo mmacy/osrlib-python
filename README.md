@@ -2,9 +2,9 @@
 
 A Python library implementing the classic 1981 B/X (Basic/Expert) fantasy adventure game rules for turn-based, grid-based dungeon crawlers in the style of the original Bard's Tale. The rules are sourced from the [Old-School Essentials System Reference Document](https://oldschoolessentials.necroticgnome.com/srd/), an Open Game Content restatement of the B/X rules. osrlib is the rules authority and game-state engine; your game supplies presentation, input, and content.
 
-The library is headless and sans-I/O — it never renders, prompts, sleeps, or touches the network — and every game it runs is deterministic: the same seed and the same commands always replay the same game. Four kinds of consumer are first-class: a web or mobile backend (FastAPI over HTTP), a terminal game (a local TUI crawler), an LLM referee or narrator driven by structured events and typed commands, and scripts or simulations using the kernel à la carte.
+The library is headless and sans-I/O — it never renders, prompts, sleeps, or touches the network — and every game it runs is deterministic: the same seed and the same commands always replay the same game. Adventures carry their own content and behavior — bundled items, gated doors, triggers, and quests — and the library ships the interpreter that plays them through to a victory ending. Four kinds of consumer are first-class: a web or mobile backend (FastAPI over HTTP), a terminal game (a local TUI crawler), an LLM referee or narrator driven by structured events and typed commands, and scripts or simulations that call the rules kernel with no session at all.
 
-**Status:** released — [osrlib on PyPI](https://pypi.org/project/osrlib/). The public API is frozen, and the [documentation site](https://mmacy.github.io/osrlib-python/) is the place to learn the library — quickstart, guides, front-end walk-throughs, and a full reference for every command, event, rejection code, and content id.
+**Status:** released — [osrlib on PyPI](https://pypi.org/project/osrlib/). The public API is frozen, and the [documentation site](https://mmacy.github.io/osrlib-python/) is the place to learn the library — quickstart, guides, front-end walk-throughs, and a full reference for every public symbol, command, event, rejection code, message code, RNG stream, and content id.
 
 ## Installation
 
@@ -68,7 +68,7 @@ restored = load_game(document)
 assert save_game(restored) == document
 ```
 
-The [documentation site](https://mmacy.github.io/osrlib-python/) walks this example step by step, then builds out from it: [building an adventure](https://mmacy.github.io/osrlib-python/getting-started/building-an-adventure/), the [session and event loop](https://mmacy.github.io/osrlib-python/guides/sessions-commands-events/), and complete [front-end walk-throughs](https://mmacy.github.io/osrlib-python/front-ends/tui-crawler/) for the two example games in `examples/`.
+The [documentation site](https://mmacy.github.io/osrlib-python/) walks this example step by step, then builds out from it: [building an adventure](https://mmacy.github.io/osrlib-python/getting-started/building-an-adventure/), the [session and event loop](https://mmacy.github.io/osrlib-python/guides/sessions-commands-events/), [gates, triggers, and quests](https://mmacy.github.io/osrlib-python/guides/gates-triggers-quests/) — the authored layer above — and complete [front-end walk-throughs](https://mmacy.github.io/osrlib-python/front-ends/tui-crawler/) for the two example games in `examples/`.
 
 ## Determinism
 
@@ -86,7 +86,7 @@ rolls_b = [roll("2d6×10", streams_b.get("treasure")).total for _ in range(3)]
 assert rolls_a == rolls_b  # same seed + same key → identical sequences
 ```
 
-Successive rolls on one stream differ, of course; reproducibility across derivations is the contract. Saved games replay from the seed and the command log, so a loaded game is bit-for-bit the game you saved.
+Successive rolls on one stream differ, of course; reproducibility across derivations is the contract. A saved game restores from its serialized state alone — no re-execution — while `replay_game` separately rebuilds the identical session by re-executing the seed and the command log from scratch; that the two paths always agree is the determinism guarantee, exercised as a standing test.
 
 ## SRD data pipeline
 

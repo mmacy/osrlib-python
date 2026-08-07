@@ -44,18 +44,23 @@ _DIRECTIONS = {"n": "north", "s": "south", "e": "east", "w": "west"}
 
 # --8<-- [start:render-events]
 def _run(session, command):
-    """Execute one command and print every player-visible event it logged.
+    """Execute one command and print every player-visible event it came back with.
 
-    Printing the event-log delta (rather than the result's events) shows the
-    interpreter's reactions too: the commands it issues for the adventure's
-    triggers and quests append to the same log.
+    The result envelope already carries the whole chain — everything a nested
+    listener-issued command logged, the interpreter's reactions included, folds
+    into `result.events` in log order — so rendering is a plain iteration.
+    A rejection prints its code, and the authored refusal text when a gate wrote
+    one.
     """
-    mark = len(session.event_log)
     result = session.execute(command)
     if not result.accepted:
-        print("  (refused: " + ", ".join(rejection.code for rejection in result.rejections) + ")")
+        reasons = []
+        for rejection in result.rejections:
+            refusal = rejection.params.get("refusal")
+            reasons.append(f"{rejection.code} — {refusal}" if refusal else rejection.code)
+        print("  (refused: " + ", ".join(reasons) + ")")
         return result
-    for event in session.event_log[mark:]:
+    for event in result.events:
         if event.visibility is Visibility.PLAYER:
             print("  " + format_message(event))
     return result
@@ -117,6 +122,20 @@ def _status(session) -> None:
         purse = member.inventory["purse"]
         valuables = ", ".join(v["name"] or v["kind"] for v in member.inventory["valuables"])
         print(f"    gold {purse['gp']} gp" + (f"; carrying {valuables}" if valuables else ""))
+    # Active quests only: a completed quest leaves the projection, its record kept
+    # by the journal.
+    for quest in view.quests:
+        objectives = ", ".join(f"{objective.id} {objective.state}" for objective in quest.objectives)
+        print(f"  Quest: {quest.name}" + (f" — {objectives}" if objectives else ""))
+
+
+def _journal(session) -> None:
+    view = session.view(Visibility.PLAYER)
+    if not view.journal:
+        print("  (the journal is empty)")
+        return
+    for entry in view.journal:
+        print(f"  [round {entry.rounds}] {entry.text}")
 
 
 # --8<-- [end:player-view]
@@ -132,6 +151,9 @@ def _dispatch(session, line: str) -> bool:
         return False
     if verb == "status":
         _status(session)
+        return True
+    if verb == "journal":
+        _journal(session)
         return True
     if verb == "fight":
         _fight(session)

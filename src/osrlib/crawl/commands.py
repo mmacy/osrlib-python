@@ -171,6 +171,11 @@ class CommandResult(BaseModel):
     A rejected command consumes no RNG draws, no clock time, mutates nothing, and
     is excluded from the command log — its result carries the rejections and no
     events.
+
+    An accepted command's `events` carries the complete chain: the handler's own
+    events, plus everything the nested commands a listener issued logged while it
+    ran — each event exactly once, in log order — so a front end renders the whole
+    reaction from one envelope without reading `session.event_log`.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -1548,6 +1553,10 @@ class GrantItem(Command):
 
     command_type: Literal["grant_item"] = "grant_item"
     character_id: str
+    """In an authored consequence or reward, this field takes the party selectors
+    (`"@party"`, `"@first"`), expanded to literal member ids by the interpreter
+    before issue; issued directly, it must be a literal member id or the command
+    rejects."""
     item_id: str
     quantity: int = Field(default=1, ge=1)
 
@@ -1570,6 +1579,10 @@ class GrantCoins(Command):
 
     command_type: Literal["grant_coins"] = "grant_coins"
     character_id: str
+    """In an authored consequence or reward, this field takes the party selectors
+    (`"@party"`, `"@first"`), expanded to literal member ids by the interpreter
+    before issue; issued directly, it must be a literal member id or the command
+    rejects."""
     coins: Coins
 
 
@@ -1596,6 +1609,10 @@ class AwardXP(Command):
 
     command_type: Literal["award_xp"] = "award_xp"
     character_id: str
+    """In an authored consequence or reward, this field takes the party selectors
+    (`"@party"`, `"@first"`), expanded to literal member ids by the interpreter
+    before issue; issued directly, it must be a literal member id or the command
+    rejects."""
     amount: int = Field(ge=0)
 
 

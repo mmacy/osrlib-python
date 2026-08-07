@@ -3,9 +3,10 @@
 The barrow crawler is a complete, playable game built on osrlib and nothing else — no
 curses, no Textual, no web framework, just `input()`, `print()`, and the standard
 library. It exists to make one claim concrete: everything a session needs to run —
-rules, dice, state, the event log — lives in the library, and everything a front end
-supplies — rendering, input handling, authored content, even a whole quest — is
-ordinary application code written against the public surface. The same
+rules, dice, state, the event log — lives in the library, everything a front end
+supplies — rendering, input handling — is ordinary application code written against
+the public surface, and the game's content, its fetch quest included, is authored
+adventure data the library's own interpreter plays. The same
 [`GameSession`][osrlib.crawl.session.GameSession] this example drives could sit behind
 a web API or a graphical client instead; nothing about it assumes a terminal.
 
@@ -27,10 +28,12 @@ is entirely the game's problem — the library has no idea `"move e"` is a sente
 `_DIRECTIONS` maps single letters to the compass words
 [`MoveParty`][osrlib.crawl.commands.MoveParty] expects. Once a command exists,
 running it is the same three steps as everywhere else in osrlib — execute, check
-acceptance, format the events — with one addition: the crawler prints the *delta* of
-the session's event log rather than just the result's own events, so a quest
-listener's reactions (nested commands it executes on the game's behalf) show up in
-the transcript too:
+acceptance, format the events. The loop is a plain iteration over `result.events`
+because the envelope already carries everything: whatever a nested listener-issued
+command logged — the interpreter's reactions above all — folds into the result, in
+log order, so a front end never needs to read `session.event_log` to see the whole
+chain. A rejection prints its code, plus the authored refusal text when a gate wrote
+one — the one rejection family carrying words the player is meant to read:
 
 ```{.python .no-run}
 --8<-- "examples/tui_crawler/__main__.py:render-events"
@@ -54,9 +57,10 @@ examples/tui_crawler/scripts/milestone.txt`) opens like this:
   The monsters' bearing: uncertain.
 ```
 
-The second line is already the delta loop earning its keep: crossing the threshold
-activated the adventure's quest, and what printed it was a command the interpreter
-issued *inside* the player's `enter`.
+The second line is already the result envelope earning its keep: crossing the
+threshold activated the adventure's quest, and what printed it was a command the
+interpreter issued *inside* the player's `enter` — folded into the same result the
+`enter` came back with.
 
 Every printed line is [`format_message`][osrlib.messages.format_message] rendering a
 typed event — a different front end could format the same events into JSON, a chat
@@ -65,8 +69,9 @@ message, or nothing at all (see [the message code reference](../reference/messag
 ## The player's view
 
 The event-level `Visibility` check above hides individual referee-only lines. The
-crawler's status command takes a coarser approach: it asks the session for a whole
-snapshot built for players, rather than reaching into referee-only state itself:
+crawler's `status` and `journal` commands take a coarser approach: they ask the
+session for a whole snapshot built for players, rather than reaching into
+referee-only state themselves:
 
 ```{.python .no-run}
 --8<-- "examples/tui_crawler/__main__.py:player-view"
@@ -74,7 +79,14 @@ snapshot built for players, rather than reaching into referee-only state itself:
 
 [`GameSession.view`][osrlib.crawl.session.GameSession.view] returns a frozen
 `PlayerView` when called with `Visibility.PLAYER` — hit points, gold, and carried
-valuables, and nothing a referee-only view would add. The crawler never touches
+valuables, and nothing a referee-only view would add. `_status` also walks
+`PlayerView.quests`: the **active** quests only, each with its revealed objectives
+and their states, which is why the closing status after victory lists no quest at
+all — a finished quest leaves the projection, and its record is the journal.
+`_journal` renders `PlayerView.journal`, the authored record in order of discovery,
+each beat stamped with the clock round it landed at. Both verbs are pure view
+reads: they execute no command, draw nothing, and log nothing, so a script may
+sprinkle them anywhere without changing the game. The crawler never touches
 `session.party` or `session.monsters` directly to render status; it renders the same
 view any other front end would get by asking for one. [Views and visibility](../guides/views-and-visibility.md)
 covers what a `PlayerView` includes and how it differs from the referee's.
@@ -84,9 +96,10 @@ covers what a `PlayerView` includes and how it differs from the referee's.
 `content.py` builds the game's whole world: a town, a two-level barrow, and the errand
 that ends it, assembled from the same authoring models
 [Building an adventure](../getting-started/building-an-adventure.md) walks through. A
-keyed area binds descriptive text, an encounter, and a feature to a set of cells —
-here, the shrine room whose cache holds the quest's MacGuffin, named by id so that
-taking it is something the quest can match on:
+keyed area binds content — descriptive text, an encounter, features — to a set of
+cells; the shrine below binds prose and the cache that holds the quest's MacGuffin,
+named by id so that taking it is something the quest can match on (the goblins are
+keyed to a different room):
 
 ```{.python .no-run}
 --8<-- "examples/tui_crawler/content.py:idol-shrine-area"
@@ -160,7 +173,9 @@ the ones character creation already drew from:
 The interpreter is an ordinary [`Listener`][osrlib.crawl.session.Listener]: it runs
 after every command, matches the events against the adventure's triggers and quests,
 and acts the only way anything outside the engine may — by executing referee
-commands, each stamped with the quest it acted for. Two moments from the end of the same
+commands, each stamped with what it acted for: `source="quest:the-idol"` on every
+command this quest causes, `source="trigger:{id}"` when an authored trigger fires,
+so the command log answers *why* on its own. Two moments from the end of the same
 milestone run show it, rendered from typed events by the same formatter as everything
 else. Emptying the shrine cache:
 
@@ -219,19 +234,32 @@ not fire. That one clause is what gives `scripts/milestone.txt` its shape:
    `quest.idol` flag the crawler prints on its way out.
 
 A concluded session still takes referee commands and refuses play, so the closing
-`status` reads `[victory]` and any further `move` would be `wrong_mode`. Two beats of
-authoring discipline fall out of that ordering and are worth copying: put the town
-business before the concluding return, and put the story's thanks in `AwardXP` rather
-than in coin, because the last award has already fired by the time the temple pays.
+`status` reads `[victory]` and any further `move` would be `wrong_mode`.
+[`SessionMode.terminal`][osrlib.crawl.commands.SessionMode] is the loop condition a
+front end checks — true in `victory` and `game_over` alike, it answers "has this
+session ended?" in one read, and [the LLM referee page](llm-referees.md#the-schemas-are-the-tool-definitions)
+shows it guarding an agent loop. This crawler deliberately does *not* break on it:
+the loop stays open after victory so the script's closing `journal` and `status` can
+still be read, which is exactly the referee-side access a terminal mode preserves.
+
+Two beats of authoring discipline fall out of the reward ordering and are worth
+copying. Put the town business before the concluding return, while play commands are
+still legal. And put the story's thanks in `AwardXP` rather than in coin: under the
+default on-return timing, treasure converts to XP when the party comes home, and the
+concluding return's award has already resolved by the time the rewards issue — so
+the temple's 200 gp arrives as real, spendable coin, but no XP will ever be minted
+from it.
 
 [Listeners and flags](../guides/listeners-and-flags.md) covers the listener contract
-the interpreter follows, and [Building an adventure](../getting-started/building-an-adventure.md)
+the interpreter follows, and [Gates, triggers, and quests](../guides/gates-triggers-quests.md)
 covers authoring quests of your own.
 
 ## Where next
 
 - [Building an adventure](../getting-started/building-an-adventure.md) — the dungeon
   geometry and authoring models the barrow is built from.
+- [Gates, triggers, and quests](../guides/gates-triggers-quests.md) — the authored
+  layer behind the fetch quest, and how to write your own.
 - [Views and visibility](../guides/views-and-visibility.md) — what a player's view
   includes, and how it's built from referee-only state.
 - [Listeners and flags](../guides/listeners-and-flags.md) — registering listeners,

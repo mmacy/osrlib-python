@@ -170,7 +170,9 @@ else:
 - [The adaptations register](../adaptations.md) — the reasoning and rule text behind every
   documented adaptation, plus the settled readings of ambiguous SRD text that apply regardless of
   any flag.
-- [Listeners and flags](listeners-and-flags.md) — the game-defined state a `Ruleset` doesn't cover:
-  quests, triggers, and other content-specific logic.
+- [Listeners and flags](listeners-and-flags.md) — session flags and game-owned listeners, the
+  game-defined state a `Ruleset` doesn't cover.
+- [Gates, triggers, and quests](gates-triggers-quests.md) — authored triggers and quests, the
+  behavior an adventure document carries with it.
 - [Sessions, commands, and events](sessions-commands-events.md) — how a `Ruleset` reaches a running
   session and stays fixed for its lifetime.

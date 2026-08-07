@@ -1,7 +1,10 @@
 """Authored gates: the condition vocabulary, the gate model, and pure evaluation.
 
 A gate is an authored predicate the engine checks when the party *attempts*
-something — opening a door, taking a stair. It is a stateless content object:
+something — opening a door, taking a stair. Its two carriers are the `requires`
+fields of [`DoorSpec`][osrlib.crawl.dungeon.DoorSpec] and
+[`TransitionSpec`][osrlib.crawl.dungeon.TransitionSpec] — a gate hangs nowhere
+else. It is a stateless content object:
 [`condition_holds`][osrlib.crawl.gates.condition_holds] reads live session state
 at the moment of the attempt and stores nothing, so a key dropped or sold stops
 opening its door and evaluation never drifts from the truth.

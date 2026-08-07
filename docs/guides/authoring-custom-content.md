@@ -11,7 +11,10 @@ ids for exactly this reason — nothing in the kernel restricts them to the valu
 happen to use. This page builds one small custom class and one custom spell for it ([the complete
 program](#the-complete-program) runs every step shown along the way), then [a custom monster bundled
 into an adventure](#bundling-custom-monsters-with-an-adventure) and [the items an adventure carries
-with it](#bundling-custom-items-with-an-adventure) for the crawl layer.
+with it](#bundling-custom-items-with-an-adventure) for the crawl layer. Its scope is the content
+catalogs — the *things* a game and its adventures can contain. Authored *behavior* — the gated door,
+the trigger, the quest — is a different surface, taught in
+[Gates, triggers, and quests](gates-triggers-quests.md).
 
 ## The shape of a class definition
 
@@ -715,8 +718,10 @@ this page named.
 
 ## Where next
 
-- [Building an adventure](../getting-started/building-an-adventure.md) — validating monster and
-  equipment ids the same catalog-driven way, for the crawl layer instead of a character sheet.
+- [Building an adventure](../getting-started/building-an-adventure.md) — the dungeon geometry and
+  keyed content the bundled monsters and items above bind into.
+- [Gates, triggers, and quests](gates-triggers-quests.md) — authored behavior: the gate that wants
+  a bundled key, the trigger that matches a bundled id, the quest that ends the adventure.
 - [Sessions, commands, and events](sessions-commands-events.md) — running a character, custom class or
   not, through an actual session once it exists.
 - [The API reference](../reference/api/index.md) — the full model and function reference for everything

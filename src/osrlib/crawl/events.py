@@ -127,13 +127,7 @@ class LocationEnteredEvent(Event):
 
 
 class DoorEvent(Event):
-    """A door changed state; the edge is named by its cell and direction.
-
-    `narrative` carries the authored success text of the door's gate when the
-    opening satisfied one — content data in a structured field, not engine-baked
-    English: the event still carries its message code and its facts, and the
-    default formatter appends the line verbatim after the templated one.
-    """
+    """A door changed state; the edge is named by its cell and direction."""
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset(
         {
@@ -154,6 +148,10 @@ class DoorEvent(Event):
     direction: str
     character_id: str | None = None
     narrative: str | None = None
+    """The authored success text of the door's gate, when the opening satisfied one.
+    Authored text on an event is content data in a structured field, not engine-baked
+    English: the event still carries its message code and its facts, and the default
+    formatter appends this line verbatim after the templated one."""
 
 
 class ListenedEvent(Event):

@@ -149,6 +149,7 @@ class ObjectiveView(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     id: str
+    """The objective's authored id, scoped to its quest."""
     state: str
     """`"incomplete"` or `"complete"`."""
 
@@ -166,7 +167,9 @@ class QuestView(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     id: str
+    """The quest's authored id."""
     name: str
+    """The quest's authored display name."""
     narrative: str
     speaker: str
     objectives: tuple[ObjectiveView, ...]

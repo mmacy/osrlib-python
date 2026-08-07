@@ -71,7 +71,7 @@ Events carry structured fields and a message code, never baked prose — [`forma
 
 ## Save and load
 
-The whole session serializes to a JSON-compatible dict. Loading replays the command log against the same seed, so a loaded game is bit-for-bit the game you saved:
+The whole session serializes to a JSON-compatible dict, and loading restores it from that state alone — nothing is re-executed. Replay is the separate [`replay_game`][osrlib.persistence.replay_game] path, which rebuilds the same session by re-running the seed and the command log from scratch; that the two paths always land in the identical state is the determinism guarantee (see [Determinism, saves, and replay](../guides/determinism-saves-replay.md)):
 
 ```{.python .no-run}
 # The whole session round-trips through JSON: same seed, same commands, same game.
@@ -130,7 +130,8 @@ assert save_game(restored) == document
 
 ## Where next
 
-- [Building an adventure](building-an-adventure.md) — the dungeon geometry and content models, one at a time.
+- [Building an adventure](building-an-adventure.md) — the dungeon itself: the grid and its edges, keyed areas, and the content that binds to them.
+- [Gates, triggers, and quests](../guides/gates-triggers-quests.md) — the authored layer: a door that needs a key, a lever that opens a portcullis, an errand that ends the adventure.
 - [Sessions, commands, and events](../guides/sessions-commands-events.md) — the command loop in depth: modes, rejections, the event log.
-- [Determinism, saves, and replay](../guides/determinism-saves-replay.md) — what the seed guarantees and how loading works.
+- [Determinism, saves, and replay](../guides/determinism-saves-replay.md) — what the seed guarantees and how saves and replay meet in the middle.
 - [The TUI crawler](../front-ends/tui-crawler.md) — a complete example game built on everything above.

@@ -232,7 +232,7 @@ A save file contains the full game state (including registered listener state an
 
 - A saved game restores from state alone; the logs are records, not dependencies. The event log may therefore be compacted (save = state + optional log tail) without affecting correctness.
 - A replay is seed + accepted-command log, and is valid only under the same engine version — any rules change may legitimately alter outcomes, and replaying under a different engine version is an explicit, detectable error rather than silent divergence.
-- Replays reproduce engine state exactly with or without listeners, because listeners never mutate game state: their reactions were issued as ordinary commands and are already in the log. Re-registering the same listeners during a replay reproduces their state too.
+- Replays reproduce engine state exactly with or without listeners, because listeners never mutate game state: their reactions were issued as ordinary commands and are already in the log. Re-registering an observe-only listener during a replay reproduces its state too; a listener that reacts by issuing commands — the interpreter above all — must not be registered during a replay, because the log already carries every command it issued live and a second issuer would issue them again.
 - A standing test guarantees that `load(save)` and `replay(seed, commands)` produce identical state for every golden scenario.
 
 Schema versioning: saves, commands, and events share a single monotonically increasing integer `schema_version`, independent of the package version.

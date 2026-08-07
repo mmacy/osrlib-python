@@ -56,6 +56,7 @@ _saves: dict[str, dict] = {}
 # --8<-- [end:session-store]
 
 
+# --8<-- [start:create-session-model]
 class CreateSession(BaseModel):
     """The `POST /sessions` body: a stamped party document, or a save id to restore.
 
@@ -72,6 +73,9 @@ class CreateSession(BaseModel):
         if (self.party_document is None) == (self.save_id is None):
             raise ValueError("exactly one of party_document or save_id is required")
         return self
+
+
+# --8<-- [end:create-session-model]
 
 
 # --8<-- [start:error-mapping]

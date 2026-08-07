@@ -1,6 +1,8 @@
-# The kernel à la carte
+# Using the rules without a session
 
-`osrlib.core` is the rules kernel: dice, combat, treasure, spells, and the printed
+You want to roll dice, resolve an attack, or generate a hoard from a script — no
+session, no adventure, no game loop. That is what `osrlib.core`, the rules **kernel**,
+is for: dice, combat, treasure, spells, and the printed
 tables, as pure functions over frozen models. None of it depends on a running game — the
 dungeon-crawl framework in `osrlib.crawl` is one consumer of the kernel, built entirely on
 top of it, and a mass-combat simulator, a balance harness, or a content-validation script is
@@ -10,7 +12,7 @@ anything built against `osrlib.core` keeps working no matter what the crawl laye
 Away from a session you bring your own [`RngStreams`][osrlib.core.rng.RngStreams] and pass the
 stream each function asks for explicitly — there's no default stream and no hidden global RNG.
 [The RNG streams reference](../reference/rng-streams.md) lists the stream keys a running
-[`GameSession`][osrlib.crawl.session.GameSession] uses by convention, but à la carte code isn't
+[`GameSession`][osrlib.crawl.session.GameSession] uses by convention, but standalone code isn't
 bound by them: a stream's name is just a label, and determinism only requires that the same
 name draw the same sequence for a given master seed. This page tours four corners of the
 kernel: rolling dice, resolving an attack, generating treasure, and looking up a reaction.
@@ -93,7 +95,7 @@ straight off the SRD's tables (see [the treasure type index][treasure-types-inde
 its full contents — coins, gems, jewellery, and magic items — end to end from one stream, in
 printed order, with an `IdAllocator` minting ids for whatever it generates. `tier` picks the
 Basic or Expert magic-item columns; a session derives it from the party's highest living level,
-but à la carte code just states it outright:
+but standalone code just states it outright:
 
 ```{.python .no-run}
 # Roll a treasure type letter's contents directly -- no dungeon, no keyed area.

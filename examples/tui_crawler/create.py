@@ -1,6 +1,6 @@
 """Party creation for the crawler: interactive prompts, or the fixed script party.
 
-Both paths drive the Phase 1 creation kernel; the game owns prompting and choice,
+Both paths drive the library's creation kernel; the game owns prompting and choice,
 the kernel owns the dice and the rules.
 """
 

@@ -1,9 +1,12 @@
 """Authored narrative attached to mechanical objects: the three-audience block.
 
 A [`NarrativeBlock`][osrlib.crawl.narrative.NarrativeBlock] is content a game's
-author hangs on a mechanical object — a gate today, a trigger or a quest as those
-land — and it is inert data: it decides nothing and is evaluated by nobody. Its
-three audiences are:
+author hangs on a mechanical object — a gate
+([`GateSpec`][osrlib.crawl.gates.GateSpec]), a trigger
+([`TriggerSpec`][osrlib.crawl.triggers.TriggerSpec]), a quest or one of its
+objectives ([`QuestSpec`][osrlib.crawl.quests.QuestSpec],
+[`ObjectiveSpec`][osrlib.crawl.quests.ObjectiveSpec]) — and it is inert data: it
+decides nothing and is evaluated by nobody. Its three audiences are:
 
 - **Display beats**, shown verbatim by a deterministic renderer. The default
   English formatter ([`format_message`][osrlib.messages.format_message]) appends
@@ -79,11 +82,21 @@ class NarrativeBlock(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     refusal: str = ""
+    """A gate's refusal line, returned in the rejection when the attempt is refused."""
     success: str = ""
+    """A gate's success line, riding the successful command's event."""
     fired: str = ""
+    """A trigger's firing line — the referee's beat, on a referee-visibility event."""
     offer: str = ""
+    """A quest's activation line, or an objective's reveal line; shown and journaled."""
     progress: str = ""
+    """An objective's completion line; shown and journaled. Unread on a quest block."""
     completion: str = ""
+    """A quest's completion line; shown and journaled. Unread on an objective block."""
     journal: str = ""
+    """The written-record form, for carriers whose display beat the players never see
+    (a trigger's `fired`). Unread by quests, which journal the display text they showed."""
     guidance: str = ""
+    """Steering for an LLM narrator while the carrier is in play; never displayed."""
     speaker: str = ""
+    """An attribution ("the bronze sentinel") a renderer may put in front of a beat."""

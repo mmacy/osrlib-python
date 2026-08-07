@@ -1,6 +1,6 @@
 # The FastAPI pattern
 
-The library's second example front end puts the [TUI crawler's](tui-crawler.md) barrow adventure behind an HTTP API — the same authored content behind a terminal and a web server, which is the point: osrlib doesn't care what's on the other side of the [`GameSession`][osrlib.crawl.session.GameSession]. This page teaches the server patterns the example exists to demonstrate: the per-session lock, player visibility enforced at the wire, saves that never leave the server, and the mapping from osrlib's typed exceptions to HTTP statuses — this last one makes the page the home of [`osrlib.errors`][osrlib.errors]. Run instructions live in [the example's README on GitHub](https://github.com/mmacy/osrlib-python/tree/main/examples/fastapi_crawler).
+The library's second example front end puts the [TUI crawler's](tui-crawler.md) barrow adventure behind an HTTP API — the same authored content behind a terminal and a web server, which is the point: osrlib doesn't care what's on the other side of the [`GameSession`][osrlib.crawl.session.GameSession]. This page teaches the server patterns the example exists to demonstrate: the per-session lock, the interpreter registered on both session paths, player visibility enforced at the wire, saves that never leave the server, and the mapping from osrlib's typed exceptions to HTTP statuses — this last one makes the page the home of [`osrlib.errors`][osrlib.errors]. Run instructions live in [the example's README on GitHub](https://github.com/mmacy/osrlib-python/tree/main/examples/fastapi_crawler).
 
 The example is small — five endpoints in `examples/fastapi_crawler/app.py` — and every server fragment below is excerpted directly from that file, so the page cannot drift from the code it teaches. Server fragments don't run standalone; the page's one self-contained runnable block is [the exception demonstration](#the-exception-hierarchy-and-the-status-map).
 
@@ -19,6 +19,12 @@ The session's lock is held across every `execute` and every view read, so one se
 A session begins with a stamped party document — the JSON envelope [`party_to_document`][osrlib.core.character.party_to_document] produces and [`party_from_document`][osrlib.core.character.party_from_document] validates — or with a save id from an earlier server-side snapshot. Exactly one of the two, which the request model enforces before the handler ever runs:
 
 ```{.python .no-run}
+--8<-- "examples/fastapi_crawler/app.py:create-session-model"
+```
+
+The handler then branches on which field arrived:
+
+```{.python .no-run}
 --8<-- "examples/fastapi_crawler/app.py:create-session"
 ```
 
@@ -27,9 +33,25 @@ Two details carry the trust story:
 - **The master seed is a server secret.** By default the server draws it (`secrets.randbits(63)`) and no response ever contains it — a client that knows the seed can predict every roll the dungeon will ever make. The optional `seed` field exists for reproducible demos and tests; even when the client supplies it, it never comes back.
 - **The response is the schema handshake.** `schema_version` and `engine_version` come from [`osrlib.versioning`][osrlib.versioning], so a client can detect a server whose wire schema is ahead of its own before sending anything else. [Determinism, saves, and replay](../guides/determinism-saves-replay.md) covers what each version stamp guarantees.
 
+## The served content and its interpreter
+
+The barrow is authored content — gated doors, a fetch quest, the works — and content plays only when the [`Interpreter`][osrlib.crawl.interpreter.Interpreter] is registered on the session (see [Gates, triggers, and quests](../guides/gates-triggers-quests.md)). The server owns that wiring in `content.py`, and it happens on **both** entry paths. A fresh session registers the interpreter the moment it is built:
+
+```{.python .no-run}
+--8<-- "examples/fastapi_crawler/content.py:new-session"
+```
+
+And a restored one registers it again, because a save carries data and a listener is code — the save has the quest's state, the fired-marks, and the journal, but nothing in it can *react* until the code is re-attached:
+
+```{.python .no-run}
+--8<-- "examples/fastapi_crawler/content.py:restore-session"
+```
+
+That pair is the page's own lesson — listeners are code, saves are data — made concrete: forget the second registration and a restored barrow still validates, still loads, and silently stops playing its triggers and quests.
+
 ## The command endpoint
 
-One endpoint accepts every command in the engine's registry — all 44 of them, each a typed model with its own JSON Schema (see [the command schema reference](../reference/commands/index.md)). [`parse_command`][osrlib.crawl.commands.parse_command] turns the wire payload into a typed command, returning `None` for a `command_type` it has never heard of:
+One endpoint accepts every command in the engine's registry, each a typed model with its own JSON Schema (see [the command schema reference](../reference/commands/index.md)). [`parse_command`][osrlib.crawl.commands.parse_command] turns the wire payload into a typed command, returning `None` for a `command_type` it has never heard of:
 
 ```{.python .no-run}
 --8<-- "examples/fastapi_crawler/app.py:execute-command"
@@ -111,7 +133,9 @@ The only game-state read the API offers is the player projection — [`session.v
 --8<-- "examples/fastapi_crawler/app.py:player-view"
 ```
 
-There is no referee-view endpoint at all, and that absence is the pattern: never trust the client. The [`PlayerView`][osrlib.crawl.views.PlayerView] is an enumerated whitelist — explored cells, public character sheets, masked magic items, monster groups without hit points — so unexplored geometry, undiscovered secret doors, monster internals, session flags, and the seed can't leak, because they were never in the projection to begin with. A client that renders only what this endpoint returns literally cannot cheat. [Views and visibility](../guides/views-and-visibility.md) walks the whitelist field by field.
+There is no referee-view endpoint at all, and that absence is the pattern: never trust the client. The [`PlayerView`][osrlib.crawl.views.PlayerView] is an enumerated whitelist — explored cells, public character sheets, masked magic items, monster groups without hit points, the journal as written, and the active quests with their revealed objectives — so unexplored geometry, undiscovered secret doors, monster internals, session flags, and the seed can't leak, because they were never in the projection to begin with. A client that renders only what this endpoint returns literally cannot cheat. [Views and visibility](../guides/views-and-visibility.md) walks the whitelist field by field.
+
+The authored layer reaches a web client through two more channels the command endpoint already serves. The player-visible quest and journal events — a quest activated, an objective completed, a beat added — cross in the response's `events` like any other, so an incremental client can render story progress without re-fetching the view. And a gate's refusal crosses in `rejections[].params.refusal`: authored words the player is meant to read, riding an ordinary `accepted: false` response, so a web client's rejection renderer should print that field when it is present (see [Gates, triggers, and quests](../guides/gates-triggers-quests.md)).
 
 ## Saves stay on the server
 
@@ -121,7 +145,7 @@ A save document contains everything the wire withholds — the master seed, refe
 --8<-- "examples/fastapi_crawler/app.py:save-session"
 ```
 
-Restoring is the `save_id` path through `POST /sessions` [above](#creating-and-restoring-sessions): the server calls [`load_game`][osrlib.persistence.load_game], re-registers its listeners (listeners are live game objects, so a restored session needs them attached again), and hands back a fresh session id. The in-memory store is a deliberate simplification — swapping in a database changes nothing about the pattern.
+Restoring is the `save_id` path through `POST /sessions` [above](#creating-and-restoring-sessions): the server calls [`load_game`][osrlib.persistence.load_game], re-registers the [`Interpreter`][osrlib.crawl.interpreter.Interpreter] — the one listener this server runs, shown in [the served content section](#the-served-content-and-its-interpreter) — and hands back a fresh session id. The in-memory store is a deliberate simplification — swapping in a database changes nothing about the pattern.
 
 ## Where next
 

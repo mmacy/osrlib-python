@@ -29,6 +29,11 @@ The pieces:
 Document order is the order of the [`Adventure.triggers`][osrlib.crawl.adventure.Adventure]
 tuple: triggers matching one event fire in that order, and a trigger's consequences
 execute in authored order.
+
+Triggers are inert content on their own. The
+[`Interpreter`][osrlib.crawl.interpreter.Interpreter] is the shipped listener that
+plays them: registered on a session, it matches every command's events against the
+adventure's triggers and issues each firing's commands.
 """
 
 from typing import Annotated, Literal
@@ -185,6 +190,9 @@ document that carries a trigger."""
 
 class TriggerSpec(BaseModel):
     """One authored trigger: when it fires, what must hold, and what happens.
+
+    A spec is inert data; the [`Interpreter`][osrlib.crawl.interpreter.Interpreter]
+    is the shipped listener that plays it.
 
     Once-only by default — the fired-mark that
     [`MarkTriggerFired`][osrlib.crawl.commands.MarkTriggerFired] writes is session

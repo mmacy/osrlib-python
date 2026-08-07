@@ -42,6 +42,13 @@ These are contracts, not suggestions — see the corresponding spec sections bef
 - **Schema discipline.** Serialized models follow the `schema_version` rules: additive-only within a version; renames, removals, and semantic changes bump it.
 - **Frozen data.** SRD data models are frozen; play spawns mutable instances from templates.
 
+## Documentation conventions
+
+- **No numeric surface counts in prose.** Never write "all 44 commands" or "68 events" — the registries and the generated reference pages carry the numbers, and prose counts drift the moment a surface grows.
+- **The one-way bridge.** Common, jobs-to-be-done language *locates* a concept (navigation labels, headings, opening sentences); the project term is introduced once, job first ("osrlib calls this a gate"), and from that sentence on the docs commit to the term. No page maintains a parallel vocabulary.
+- **The voice gradient.** The funnel top — README, index, quickstart, guide openings — is written plain, every sentence doing instruction; the register stays rich in guide interiors, walkthroughs, and reference prose, where the reader has bought in.
+- **Transcripts are captured, never composed.** Any quoted program output — TUI transcripts, command output — is re-captured from a real run after every change that could affect it, and never hand-edited.
+
 ## Testing expectations
 
 - Table fidelity tests assert against SRD values directly; golden-seed scenario tests are scoped per RNG stream.

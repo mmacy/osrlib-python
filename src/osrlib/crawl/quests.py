@@ -22,6 +22,14 @@ order is its position in
 [`QuestSpec.objectives`][osrlib.crawl.quests.QuestSpec] — the order a session's quest
 state ([`QuestState`][osrlib.crawl.session.QuestState]) keys its objectives in, so
 every walk over either is deterministic.
+
+A spec is inert data; the [`Interpreter`][osrlib.crawl.interpreter.Interpreter] is
+the shipped listener that plays it, advancing quest state through its only four
+writers — the lifecycle commands
+[`ActivateQuest`][osrlib.crawl.commands.ActivateQuest],
+[`RevealObjective`][osrlib.crawl.commands.RevealObjective],
+[`CompleteObjective`][osrlib.crawl.commands.CompleteObjective], and
+[`CompleteQuest`][osrlib.crawl.commands.CompleteQuest].
 """
 
 from typing import Literal

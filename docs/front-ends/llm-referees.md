@@ -1,6 +1,6 @@
 # LLM referees
 
-An LLM-driven referee — a model that reads the game and decides what happens next — is a first-class consumer of osrlib, not an afterthought. The engine's shape is already the agent loop's shape: typed commands in, typed events out, a full-knowledge view to observe, and a deterministic core that makes every run reproducible. The pieces such an agent needs all ship today; a complete example agent is on the roadmap. This page assembles the pieces: [the complete program](#the-complete-program) at the end runs as written, and every fragment along the way is an excerpt of it.
+An LLM-driven referee — a model that reads the game and decides what happens next — is a first-class consumer of osrlib, not an afterthought. The engine's shape is already the agent loop's shape: typed commands in, typed events out, a full-knowledge view to observe, and a deterministic core that makes every run reproducible. Everything such an agent would consume ships today: the schemas, the referee surface, the authored-content story, and the determinism guarantee. This page assembles the pieces: [the complete program](#the-complete-program) at the end runs as written, and every fragment along the way is an excerpt of it.
 
 ## The schemas are the tool definitions
 
@@ -21,7 +21,7 @@ assert len(observations["oneOf"]) == len(ALL_EVENT_CLASSES)
 assert json.loads(json.dumps(tools)) == tools  # plain JSON Schema, ready for a tool registry
 ```
 
-Forty-four commands, sixty-eight events, one discriminator field each — an agent framework that accepts JSON Schema tool definitions can load the command union as-is and let the model emit any command in the game, with validation for free. The loop such an agent runs is short (this is a sketch, not a framework):
+The whole command surface and the whole event surface, one discriminator field each — an agent framework that accepts JSON Schema tool definitions can load the command union as-is and let the model emit any command in the game, with validation for free. The loop such an agent runs is short (this is a sketch, not a framework):
 
 ```{.python .no-run}
 # Sketch: the agent loop, framework left to the reader.
@@ -62,6 +62,8 @@ Player commands let the model drive the party's turn; referee commands let it *r
 - [`GrantItem`][osrlib.crawl.commands.GrantItem], [`GrantCoins`][osrlib.crawl.commands.GrantCoins], [`AwardXP`][osrlib.crawl.commands.AwardXP] — place rewards directly
 - [`SetDoorState`][osrlib.crawl.commands.SetDoorState] — rewrite any door's state anywhere: lock it, wedge it, reveal it
 - [`PlaceParty`][osrlib.crawl.commands.PlaceParty] and [`AdvanceTime`][osrlib.crawl.commands.AdvanceTime] — teleport the party, advance the clock
+- [`AddJournalEntry`][osrlib.crawl.commands.AddJournalEntry] and [`RecordNote`][osrlib.crawl.commands.RecordNote] — the agent's durable in-world memory: a journal entry speaks to the players and ships in their view, a note is the referee's own margin and stays behind the screen
+- [`ActivateQuest`][osrlib.crawl.commands.ActivateQuest], [`RevealObjective`][osrlib.crawl.commands.RevealObjective], [`CompleteObjective`][osrlib.crawl.commands.CompleteObjective], [`CompleteQuest`][osrlib.crawl.commands.CompleteQuest] — advance authored quest state by hand, with one sharp edge: `CompleteQuest` pays nothing. Whoever completes a quest issues its rewards afterwards — the interpreter does exactly that — so a hand-issued completion that expects the payout to follow on its own will strand the party unpaid
 
 ```{.python .no-run}
 # Referee commands are the authorial surface: record a fact, then spring an ambush.
@@ -74,7 +76,7 @@ The rejection contract matters as much here as it does for players: a rejected c
 
 ## Narrate from codes, not prose
 
-Events never carry baked prose. Each carries a stable message `code` — a compact fact like `session.monsters.spawned` or `encounter.surprise.rolled` — plus typed fields; [the message code reference](../reference/message-codes.md) lists every shipped code with its emitting event class and default template, and each event's fields are on [its schema page](../reference/events/index.md). That is exactly what a narrator model wants: ground truth it can render freely without parsing English back into facts. When a plain default line is enough, [`format_message`][osrlib.messages.format_message] renders one for any event:
+Events never carry *engine-baked* prose. Each carries a stable message `code` — a compact fact like `session.monsters.spawned` or `encounter.surprise.rolled` — plus typed fields; [the message code reference](../reference/message-codes.md) lists every shipped code with its emitting event class and default template, and each event's fields are on [its schema page](../reference/events/index.md). That is exactly what a narrator model wants: ground truth it can render freely without parsing English back into facts. The one kind of English an event does carry is *authored* narrative — a beat the adventure's author wrote, riding a structured field, which the next section teaches the narrator to treat differently from its own words. When a plain default line is enough, [`format_message`][osrlib.messages.format_message] renders one for any event, appending any authored beat verbatim:
 
 ```{.python .no-run}
 # Every event also renders to a default English line the model can lean on.
@@ -83,6 +85,24 @@ assert all(lines)
 ```
 
 A practical narrator prompt sends the structured events (or their codes and fields) as the facts to narrate, and keeps the model's creativity in the telling — the dice already decided what happened.
+
+## Narrating authored content
+
+An adventure written for the authored layer ([Gates, triggers, and quests](../guides/gates-triggers-quests.md)) arrives with material aimed squarely at a narrating referee, and an agent serving one should use all of it.
+
+**Register the library's [`Interpreter`][osrlib.crawl.interpreter.Interpreter] and do no bookkeeping.** One `session.register_listener(Interpreter(session))` after the session is built (and again after a load), and the triggers, the quests, the fired-marks, and the rewards all play themselves as ordinary logged commands. The agent referees; the adventure runs its own wiring.
+
+**`guidance` is steering, never script.** [`NarrativeBlock`][osrlib.crawl.narrative.NarrativeBlock] carries a `guidance` field on any authored object, and [`LevelSpec.guidance`][osrlib.crawl.dungeon.LevelSpec] holds whole-level ambience that hangs on no object at all — the TUI barrow's first level reads:
+
+```{.python .no-run}
+--8<-- "examples/tui_crawler/content.py:level-guidance"
+```
+
+A referee-side narrator reads these straight off the adventure document it is refereeing and never prints them verbatim — the same trust posture as an area's description prose, which already flows into narration. No event carries guidance and no view ships it; it is the author talking to the narrator.
+
+**Authored beats are text to weave, not paraphrase.** A quest's offer and completion, an objective's progress, a gate's success and refusal arrive as structured fields on player-visible events and rejections, with `speaker` attribution when the author wrote one ("the temple almoner"). Those are the table's words: deliver them as written, in the speaker's voice, and put the model's creativity around them rather than over them.
+
+**[`Command.source`][osrlib.crawl.commands.Command] keeps the agent's hands visible.** Every command the interpreter issues is stamped `trigger:{id}` or `quest:{id}`, so an agent that stamps its own referee commands — or simply leaves them unstamped — leaves a log where its choices and the adventure's consequences never blur. That attribution is what completes the eval story below: replay a trajectory and the log itself says which grants were the model's ideas and which were the adventure playing out.
 
 ## Determinism is the eval story
 
@@ -192,6 +212,7 @@ assert [e.model_dump(mode="json") for e in rerun.events] == [e.model_dump(mode="
 
 ## Where next
 
+- [Gates, triggers, and quests](../guides/gates-triggers-quests.md) — the authoring side of the guidance and beats this page narrates.
 - [Views and visibility](../guides/views-and-visibility.md) — the referee/player projection line this page builds on.
 - [Determinism, saves, and replay](../guides/determinism-saves-replay.md) — the reproducibility guarantee behind the eval story.
 - [The FastAPI pattern](fastapi-pattern.md) — the other side of the doctrine: serving players who must *not* see what the referee sees.

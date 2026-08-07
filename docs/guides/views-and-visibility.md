@@ -31,7 +31,11 @@ field, alongside the event's message code, never engine-baked English. The wirin
 produced the beat is not: a fired trigger
 ([`TriggerFiredEvent`][osrlib.crawl.events.TriggerFiredEvent]) and a referee note
 ([`NoteRecordedEvent`][osrlib.crawl.events.NoteRecordedEvent]) are referee-visibility,
-exactly as a flag write is, because content wiring is the game's secret.
+exactly as a flag write is, because content wiring is the game's secret. Player-visible
+events and the player view are two of the three channels authored words reach a player
+by; the third is a gate's `refusal` beat riding an ordinary rejection, which a front
+end should render like any other refusal (see
+[Gates, triggers, and quests](gates-triggers-quests.md)).
 
 Most front ends never need to do that filtering by hand, though, because osrlib also
 ships two ready-made projections of the *whole session*, one per audience, and either
@@ -129,7 +133,7 @@ assert [entry.id for entry in quest_view.objectives] == ["find-the-lever"]
 assert "name-the-dead" not in player_view.model_dump_json()
 ```
 
-### What tells a client the journal grew
+## What tells a client the journal grew
 
 [`JournalEntryAddedEvent`][osrlib.crawl.events.JournalEntryAddedEvent] is not the only
 event a growing journal emits. A quest beat's entry *is* the line the quest displayed, so
@@ -280,6 +284,10 @@ assert session.quests["the-lamps"].status == "active"  # the hidden objective is
 
 - [Sessions, commands, and events](sessions-commands-events.md) — the command loop
   that produces the state these views project.
+- [Listeners and flags](listeners-and-flags.md) — the flag store and listener state
+  this page keeps out of the player view, and where each one lives.
+- [Gates, triggers, and quests](gates-triggers-quests.md) — the authored layer behind
+  the journal, the quest projections, and the refusal beat.
 - [The FastAPI pattern](../front-ends/fastapi-pattern.md) — the player view as the
   wire contract, end to end.
 - [LLM referees](../front-ends/llm-referees.md) — a narrator built on the referee
