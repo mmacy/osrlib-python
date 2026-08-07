@@ -96,7 +96,7 @@ Out of scope (deferred to the phase that picks each up):
 2. Work item 3 (`Adventure.triggers`, validation) with its tests — the document shape exists before anything reads it.
 3. Work items 4 and 5 (the session seams; the additive fields) with their tests and the planned golden regenerations, one commit for the regens with the diff explained.
 4. Work item 6 (the interpreter) with the matching units and integration tests.
-5. Work items 8 and 9 remainder (docs sweep, the spec sentence, changelog, the phase golden; the full gate on both OSes).
+5. Work items 8 and 9 remainder (docs sweep, the spec amendment, changelog, the phase golden; the full gate on both OSes).
 
 ## Definition of done
 
