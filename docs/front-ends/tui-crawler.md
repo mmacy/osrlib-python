@@ -38,21 +38,25 @@ the transcript too:
 
 Every event carries a [`Visibility`][osrlib.core.events.Visibility]; filtering on
 `Visibility.PLAYER` here is what keeps referee-only bookkeeping out of the player's
-terminal. Running the milestone transcript (`--seed 203 --script
+terminal. Running the milestone transcript (`--seed 21 --script
 examples/tui_crawler/scripts/milestone.txt`) opens like this:
 
 ```text
 > enter
   The party enters dungeon barrow (level 1).
+  A new quest: The Jade Idol. The temple wants the Jade Idol off the barrow king's altar and back on its own.
 > move e
   The party moves to (1, 0), facing east.
 > move e
   The party moves to (2, 0), facing east.
   The party enters area guard_room (level 1).
-  Encounter: 2 × Goblin at 50' — the party is surprised.
+  Encounter: 2 × Goblin at 20' — the party is surprised.
   The monsters' bearing: uncertain.
-  The monsters' bearing: hostile.
 ```
+
+The second line is already the delta loop earning its keep: crossing the threshold
+activated the adventure's quest, and what printed it was a command the interpreter
+issued *inside* the player's `enter`.
 
 Every printed line is [`format_message`][osrlib.messages.format_message] rendering a
 typed event — a different front end could format the same events into JSON, a chat
@@ -77,11 +81,12 @@ covers what a `PlayerView` includes and how it differs from the referee's.
 
 ## The authored adventure
 
-`content.py` builds the game's whole world: a town and a two-level barrow, assembled
-from the same authoring models [Building an adventure](../getting-started/building-an-adventure.md)
-walks through. A keyed area binds descriptive text, an encounter, and a feature to a
-set of cells — here, the shrine room holding the quest's MacGuffin, a named valuable
-tucked inside a treasure cache:
+`content.py` builds the game's whole world: a town, a two-level barrow, and the errand
+that ends it, assembled from the same authoring models
+[Building an adventure](../getting-started/building-an-adventure.md) walks through. A
+keyed area binds descriptive text, an encounter, and a feature to a set of cells —
+here, the shrine room whose cache holds the quest's MacGuffin, named by id so that
+taking it is something the quest can match on:
 
 ```{.python .no-run}
 --8<-- "examples/tui_crawler/content.py:idol-shrine-area"
@@ -171,11 +176,29 @@ they land, rendered from typed events by the same formatter as everything else:
   character-0001 acquires 200 gp in coin.
 ```
 
+### Why the milestone makes two trips
+
 The homecoming objective is a `town_entered` pattern narrowed by a `has_item`
-condition, so walking back empty-handed is not a return — which is exactly why the
-milestone script makes two trips, doing its selling and healing on the first one.
-The second return ends the adventure in `victory`, and the temple pays afterwards:
-a concluded session takes referee commands but no play.
+condition, so walking back empty-handed is not a return — the objective simply does
+not fire. That one clause is what gives `scripts/milestone.txt` its shape:
+
+1. **Down**, for the goblins, their lair hoard, and the rival party prowling level 2.
+2. **Home without the idol.** The return banks the end-of-adventure award, and the
+   party sells its haul and buys a temple healing — town commands that are legal here
+   and nowhere later, because the adventure has not ended yet. Coin weighs a coin
+   apiece, so the seller spreads the purse with `give` before anybody walks again.
+3. **Down again**, for the idol alone.
+4. **Home with it**, which completes the second objective, completes the quest, and
+   — the quest carrying `concludes_adventure=True` — ends the session in `victory`.
+   The rewards land *after* that transition: the 200 gp, the party's XP, and the
+   `quest.idol` flag the crawler prints on its way out.
+
+A concluded session still takes referee commands and refuses play, so the closing
+`status` reads `[victory]` and any further `move` would be `wrong_mode`. Two beats of
+authoring discipline fall out of that ordering and are worth copying: put the town
+business before the concluding return, and put the story's thanks in `AwardXP` rather
+than in coin, because the last award has already fired by the time the temple pays.
+
 [Listeners and flags](../guides/listeners-and-flags.md) covers the listener contract
 the interpreter follows, and [Building an adventure](../getting-started/building-an-adventure.md)
 covers authoring quests of your own.

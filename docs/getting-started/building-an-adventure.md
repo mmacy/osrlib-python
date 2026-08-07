@@ -140,6 +140,71 @@ Nothing about a trigger firing is all-or-nothing. A consequence the session reje
 
 Cascades are bounded. A trigger's own events are one level deeper than the event that fired it, matching stops below depth five, and a firing the bound suppresses is recorded as a note rather than a mark — so a once-only trigger cut short there is still fireable later. Flag-chains are perfectly good wiring; the bound is the guarantee that a loop in them ends.
 
+## Authoring a quest
+
+A trigger fires and is done with you. A quest keeps score: it has a state the engine owns, objectives that complete in any order, and an ending. A [`QuestSpec`][osrlib.crawl.quests.QuestSpec] is authored beside the triggers, in the same adventure document, and played by the same [`Interpreter`][osrlib.crawl.interpreter.Interpreter] — you register nothing extra.
+
+Nothing in the vocabulary is new. Everywhere a quest asks "did this happen?", it asks with a [`TriggerClause`][osrlib.crawl.quests.TriggerClause]: one of the patterns above, plus the conditions that must hold when it matches. The field is `pattern` rather than `when`, so an objective's completion clause reads `objective.when.pattern`.
+
+Here is a whole quest — the TUI crawler's fetch errand, verbatim from the example:
+
+```{.python .no-run}
+--8<-- "examples/tui_crawler/content.py:fetch-quest"
+```
+
+### Matching on a thing the party carries
+
+The idol that quest wants is a bundled item, not a named valuable, and that is deliberate: an acquisition reports mundane items by catalog id, so a bundled id is something [`ItemAcquiredPattern`][osrlib.crawl.triggers.ItemAcquiredPattern] can match and [`HasItemCondition`][osrlib.crawl.gates.HasItemCondition] can test.
+
+```{.python .no-run}
+--8<-- "examples/tui_crawler/content.py:bundled-idol"
+```
+
+Drop it into a cache by id (`item_ids=("jade-idol",)`) and hand it to `Adventure.items`, and the whole errand becomes matchable: *took it* is a pattern, *still carrying it* is a condition. A `town_entered` clause narrowed by `has_item` is the walked-home-with-it test, and walking home without it simply does not fire.
+
+### Activation, and the quest that needs none
+
+`activation` is a clause like any other: when it matches, the quest becomes active, its `offer` beat displays and lands in the journal, and its objectives start watching. Omit it and the quest is active from session start — a standing charge the party carries from round 0. That one has no activation event and no offer entry in the journal, because there is no command channel before the first command; its offer simply stands in the first player view.
+
+### Hidden objectives and reveals
+
+`objectives` holds at least one, in the order you write them, and each is an [`ObjectiveSpec`][osrlib.crawl.quests.ObjectiveSpec] with a completion clause of its own. `hidden=True` keeps an objective out of the player view until something surfaces it — either a `reveal_when` clause of its own, or its own completion, because finishing an objective reveals it. A hidden objective with no reveal clause is a normal shape: the party learns about it by doing it. A `reveal_when` on an objective that was never hidden is rejected at parse, being wiring nothing would read.
+
+### The completion rule and the ending
+
+`completion` is `"all"` (the default — every objective) or `"any"` (the first one to land, leaving the rest incomplete). The rule is checked the moment an objective completes, and a satisfied rule completes the quest.
+
+`concludes_adventure=True` marks the quest whose completion ends the adventure: the session clears any open encounter or battle and enters `victory`, a terminal mode where play commands are refused and referee commands still work. That is the one entrance to victory, so author it once, on the quest that is the point of the module.
+
+### Rewards
+
+`rewards` are the same [`ConsequenceCommand`][osrlib.crawl.commands.ConsequenceCommand] surface a trigger's consequences use, issued in authored order *after* the quest completes, each stamped `source="quest:{id}"`. They address characters through the same selectors — `@party` and `@first` — and validation rejects a literal character id for the same reason it does on a trigger.
+
+Two consequences of the ordering are worth authoring around. On a concluding quest the session is already in `victory` when the rewards issue, so a reward that would resume play — `SpawnMonsters`, `SpawnNpcParty`, `PlaceParty` — is refused and dropped with a note; grants, awards, and flags land fine. And coin paid on the doorstep earns no treasure XP: the end-of-adventure award has already fired by then, so put the story's thanks in `AwardXP` rather than expecting a purse to convert itself.
+
+### Which beat goes where
+
+Quests read four display beats from their narrative blocks, and the mapping is worth keeping straight:
+
+| Moment | Block | Field |
+|---|---|---|
+| The quest activates | quest | `offer` |
+| A hidden objective is revealed | objective | `offer` |
+| An objective completes | objective | `progress` |
+| The quest completes | quest | `completion` |
+
+Each of those beats rides its own player-visible event *and* appends to the journal, as itself — a quest's journal is the transcript of what the table was shown, so quest blocks leave the `journal` field to the carriers whose display beat the players never see (a trigger's `fired`). A quest block's `progress` and an objective block's `completion` are read by nobody; they are silently unread, not rejected.
+
+### Steering a narrator
+
+`guidance` on any narrative block is text a narrating front end may steer by and no renderer ever prints. Levels get one of their own for the ambience that hangs on no object at all:
+
+```{.python .no-run}
+--8<-- "examples/tui_crawler/content.py:level-guidance"
+```
+
+[`LevelSpec.guidance`][osrlib.crawl.dungeon.LevelSpec] is inert authored data: the engine reads it nowhere, no event carries it, and it applies while the party is on the level. Like every other level internal it is referee-side by construction — the player view ships no part of it.
+
 ## The dungeon, the town, and the root
 
 The level slots into a [`DungeonSpec`][osrlib.crawl.dungeon.DungeonSpec], and the dungeon into an [`Adventure`][osrlib.crawl.adventure.Adventure] beside the [`TownSpec`][osrlib.crawl.adventure.TownSpec] — the safe base where the party rests, buys equipment, and sells treasure. `travel_turns` maps each dungeon id to the town-to-entrance travel cost in exploration turns:
@@ -153,10 +218,11 @@ adventure = Adventure(
     dungeons=(barrow,),
     items=(GearTemplate(id="brass_key", name="Brass key", cost_gp=0),),
     triggers=(sentinel_wakes,),
+    quests=(recover_the_key,),
 )
 ```
 
-`items` bundles the adventure's own item templates — the brass key the sentinel wants is content, not shipped equipment. See [authoring custom content](../guides/authoring-custom-content.md) for the whole bundling contract. `triggers` is the adventure's wiring, and the tuple's order is document order: when two triggers match the same event, they fire in the order you wrote them.
+`items` bundles the adventure's own item templates — the brass key the sentinel wants is content, not shipped equipment. See [authoring custom content](../guides/authoring-custom-content.md) for the whole bundling contract. `triggers` is the adventure's wiring and `quests` its errands, and both tuples are document order: when two triggers match the same event they fire in the order you wrote them, and the interpreter walks the triggers of an event before its quests.
 
 ## Validate before play
 
@@ -194,8 +260,9 @@ from osrlib.crawl.gates import GateSpec, HasItemCondition
 from osrlib.crawl.interpreter import Interpreter
 from osrlib.crawl.narrative import NarrativeBlock
 from osrlib.crawl.party import Party
+from osrlib.crawl.quests import ObjectiveSpec, QuestSpec, TriggerClause
 from osrlib.crawl.session import GameSession
-from osrlib.crawl.triggers import ItemAcquiredPattern, TriggerSpec
+from osrlib.crawl.triggers import DungeonEnteredPattern, ItemAcquiredPattern, TriggerSpec
 from osrlib.data import load_equipment, load_monsters
 
 sentinel = GateSpec(
@@ -238,6 +305,24 @@ sentinel_wakes = TriggerSpec(
     ),
 )
 
+recover_the_key = QuestSpec(
+    id="the-key",
+    name="The Brass Key",
+    activation=TriggerClause(pattern=DungeonEnteredPattern(dungeon_id="barrow")),
+    objectives=(
+        ObjectiveSpec(
+            id="find-the-key",
+            when=TriggerClause(pattern=ItemAcquiredPattern(item_id="brass_key")),
+            narrative=NarrativeBlock(progress="The key came out of the spoil heap, green with age."),
+        ),
+    ),
+    rewards=(SetFlag(key="barrow.errand", value="done"),),
+    narrative=NarrativeBlock(
+        offer="Bring the brass key back up, and the sentinel's door is somebody else's problem.",
+        completion="The key is out of the barrow. The errand is closed.",
+    ),
+)
+
 barrow = DungeonSpec(id="barrow", name="The Barrow", levels=(level,))
 town = TownSpec(name="Threshold", travel_turns={"barrow": 2})
 adventure = Adventure(
@@ -246,6 +331,7 @@ adventure = Adventure(
     dungeons=(barrow,),
     items=(GearTemplate(id="brass_key", name="Brass key", cost_gp=0),),
     triggers=(sentinel_wakes,),
+    quests=(recover_the_key,),
 )
 
 # Validation catches unknown ids and broken geometry before play ever starts.
@@ -258,6 +344,10 @@ session = GameSession.new(Party(members=[hero.character]), adventure, seed=11)
 session.register_listener(Interpreter(session))
 
 session.execute(EnterDungeon(dungeon_id="barrow"))
+# Crossing the threshold activated the quest, and its offer opened the journal.
+assert session.quests["the-key"].status == "active"
+assert session.journal[0].text.startswith("Bring the brass key back up")
+
 session.execute(MoveParty(direction=Direction.EAST))
 session.execute(MoveParty(direction=Direction.EAST))
 
@@ -267,20 +357,30 @@ assert not refused.accepted
 assert refused.rejections[0].code == "exploration.door.gate_refused"
 assert refused.rejections[0].params["refusal"].startswith("The bronze sentinel")
 
-# The key lands, and the trigger watching for it fires inside the same command:
-# the result carries the acquisition and everything the trigger caused after it.
+# The key lands, and everything watching for it reacts inside the same command:
+# the trigger first, then the quest, then the quest's reward.
 granted = session.execute(GrantItem(character_id="character-0001", item_id="brass_key"))
 assert [event.code for event in granted.events] == [
     "exploration.item.acquired",
     "session.trigger.fired",
     "session.flag.set",
     "session.journal.entry_added",
+    "session.quest.objective_completed",
+    "session.quest.completed",
+    "session.flag.set",
 ]
 assert session.fired_triggers == ["sentinel-wakes"]
 assert session.flags["barrow.key_found"] is True
-assert session.journal[0].text == "The brass key is ours. Something in the barrow noticed."
-# Every command the trigger issued says whose idea it was.
-assert session.command_log[-1].source == "trigger:sentinel-wakes"
+assert session.journal[1].text == "The brass key is ours. Something in the barrow noticed."
+# One objective, the `all` rule: finishing it finished the quest, and the reward
+# landed after the completion.
+assert session.quests["the-key"].status == "completed"
+assert session.flags["barrow.errand"] == "done"
+# Every command a trigger or a quest issued says whose idea it was.
+assert {command.source for command in session.command_log if command.source} == {
+    "trigger:sentinel-wakes",
+    "quest:the-key",
+}
 
 opened = session.execute(OpenDoor(direction=Direction.EAST))
 assert opened.accepted

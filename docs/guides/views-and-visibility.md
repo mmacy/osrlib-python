@@ -66,7 +66,9 @@ remaining duration (except a potion's — RAW has the referee track that secretl
 the view reports it as unknown); fatigue, exhaustion, and deprivation status; the
 session journal as written ([`JournalEntry`][osrlib.crawl.session.JournalEntry] — the
 beats in order of discovery, each carrying the clock position it landed at, while the
-trigger fired-marks behind them stay out of the view entirely); and, when
+trigger fired-marks behind them stay out of the view entirely); the quests in play
+([`QuestView`][osrlib.crawl.views.QuestView] — id, name, the offer beat and its speaker
+attribution, and the revealed objectives with their ids and states); and, when
 one is running, the current encounter or battle's public shape
 ([`EncounterView`][osrlib.crawl.views.EncounterView] and
 [`EncounterGroupView`][osrlib.crawl.views.EncounterGroupView] — a monster group's id,
@@ -109,6 +111,34 @@ assert [entry.text for entry in journal_view.journal] == ["The lever grinds."]
 assert "lever-east" not in journal_view.model_dump_json()
 assert referee_state["fired_triggers"] == ["lever-east"]
 ```
+
+Quests draw the same line, one level finer. `PlayerView.quests` carries the **active**
+quests only, in document order: a quest nobody has been given yet is absent, because an
+activation clause is wiring like any other, and a finished one leaves the list, because
+its record is the journal. Under each, only the **revealed** objectives appear — a hidden
+objective's id is not in the projection at all until something surfaces it, which is why
+`ObjectiveView.state` needs only `"incomplete"` and `"complete"`. Nothing else about a
+quest crosses: no clause, no pattern, no condition, no reward, and no `guidance` from any
+narrative block or level.
+
+```{.python .no-run}
+# Active quests only, revealed objectives only, and none of the wiring behind them.
+quest = player_view.quests[0]
+assert (quest.id, quest.speaker) == ("the-idol", "the temple almoner")
+assert [objective.id for objective in quest.objectives] == ["recover-idol"]
+assert "reveal_when" not in player_view.model_dump_json()
+```
+
+### What tells a client the journal grew
+
+[`JournalEntryAddedEvent`][osrlib.crawl.events.JournalEntryAddedEvent] is not the only
+event a growing journal emits. A quest beat's entry *is* the line the quest displayed, so
+it reports itself through its own lifecycle event and no journal event follows — emitting
+both would show the table one line twice. A client that renders incrementally therefore
+watches five codes rather than one: `session.journal.entry_added`,
+`session.quest.activated`, `session.quest.objective_revealed`,
+`session.quest.objective_completed`, and `session.quest.completed`. A client that would
+rather not track any of them reads `PlayerView.journal`, which is always the whole record.
 
 ## Never trust the client
 

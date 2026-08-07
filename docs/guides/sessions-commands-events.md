@@ -57,10 +57,48 @@ assert session.view(Visibility.PLAYER).journal[-1].text == "The lever grinds."
 ```
 
 The library's [`Interpreter`][osrlib.crawl.interpreter.Interpreter] stamps every command
-it issues this way, so a log left behind by authored content reads as a transcript with
+it issues this way — `trigger:{id}` for a trigger's firing, `quest:{id}` for everything
+a quest causes — so a log left behind by authored content reads as a transcript with
 attributions: this grant came from `trigger:idol-lifted`, that door opened for
-`trigger:portcullis-rises`, and the `record_note` beside them says which consequence was
-dropped and why.
+`trigger:portcullis-rises`, the coins came from `quest:the-idol`, and the `record_note`
+beside them says which consequence was dropped and why.
+
+## The lifecycle commands
+
+Seven referee commands exist for the authored layer to keep its own books with. Three
+of them are the trigger and journal vocabulary —
+[`MarkTriggerFired`][osrlib.crawl.commands.MarkTriggerFired],
+[`AddJournalEntry`][osrlib.crawl.commands.AddJournalEntry], and
+[`RecordNote`][osrlib.crawl.commands.RecordNote]. The other four advance quest state:
+
+- [`ActivateQuest`][osrlib.crawl.commands.ActivateQuest] puts a quest in play.
+- [`RevealObjective`][osrlib.crawl.commands.RevealObjective] surfaces a hidden objective.
+- [`CompleteObjective`][osrlib.crawl.commands.CompleteObjective] marks one done — and
+  reveals it on the way, since an objective the party finished is one it can be told about.
+- [`CompleteQuest`][osrlib.crawl.commands.CompleteQuest] finishes the quest, and on a
+  quest marked as concluding the adventure, ends the session in `victory`.
+
+They are ordinary commands: legal in every mode, logged, replayed, and stamped like any
+other. What they write — per-quest status and per-objective flags in `session.quests` —
+is engine-owned session state, so a replay with no listeners registered rebuilds it by
+re-executing the log.
+
+Their ids are a **closed domain**, and this is the one place the lifecycle family is not
+uniform. `MarkTriggerFired.trigger_id` is open: a mark records that something fired, needs
+no authored trigger behind it, and a game drives it with ids from its own systems. The
+four quest commands invert that — they resolve `quest_id` and `objective_id` against the
+adventure's own [`QuestSpec`][osrlib.crawl.quests.QuestSpec]s and reject an id no spec
+holds (`session.command.unknown_quest`, `session.command.unknown_objective`), because the
+state they advance is projected into the player view, and an id with no spec behind it has
+no name, no offer, and no objective list to show. A command that contradicts the state it
+finds — activating a quest already active, completing an objective already complete —
+rejects with `session.command.quest_state` naming the quest and the state that refused it.
+
+One asymmetry is deliberate: `CompleteQuest` requires the quest to be active and does
+*not* check its completion rule. Ruling a quest done is the referee's call; the
+interpreter is simply a disciplined issuer that checks the rule before it issues. For the
+same reason, rewards are not the command's doing — whoever completes a quest issues its
+rewards afterwards, which is why a hand-driven completion grants nothing.
 
 ## Session modes and mode gating
 
@@ -83,11 +121,8 @@ Commands that make sense both at rest and on the move (`ReorderParty`, `LightSou
 `ResolveBattleRound` requires `battle`. A handful, like `DropItems`, span two modes on
 purpose — dropping treasure to distract pursuers works whether the party is still
 exploring or already in an encounter. Referee commands (`GrantItem`, `SetFlag`,
-`AwardXP`, `AdvanceTime`, the lifecycle trio
-[`MarkTriggerFired`][osrlib.crawl.commands.MarkTriggerFired],
-[`AddJournalEntry`][osrlib.crawl.commands.AddJournalEntry] and
-[`RecordNote`][osrlib.crawl.commands.RecordNote], and the rest of the
-session-owned surface) are legal in
+`AwardXP`, `AdvanceTime`, the seven [lifecycle commands](#the-lifecycle-commands), and
+the rest of the session-owned surface) are legal in
 every mode, the two terminal ones included — a referee correcting the world
 doesn't stop just because the party fell, and an adventure's rewards can land
 after it ends. Three of them are the exception, each because it would resume play
