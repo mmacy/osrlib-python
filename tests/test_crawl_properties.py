@@ -5,11 +5,21 @@ import json
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from crawl_fixtures import build_adventure, build_gated_adventure, build_party, build_portcullis_adventure
+from crawl_fixtures import (
+    QUEST_COMPLETION,
+    QUEST_ID,
+    QUEST_OFFER,
+    build_adventure,
+    build_fetch_quest,
+    build_gated_adventure,
+    build_party,
+    build_portcullis_adventure,
+)
 from osrlib.core.events import Visibility
 from osrlib.core.items import Coins
 from osrlib.crawl.commands import (
     ALL_COMMAND_CLASSES,
+    ActivateQuest,
     BattleDeclaration,
     EnterDungeon,
     GrantItem,
@@ -18,7 +28,10 @@ from osrlib.crawl.commands import (
     SetFlag,
 )
 from osrlib.crawl.dungeon import Direction, PartyLocation
+from osrlib.crawl.narrative import NarrativeBlock
+from osrlib.crawl.quests import ObjectiveSpec, QuestSpec, TriggerClause
 from osrlib.crawl.session import GameSession
+from osrlib.crawl.triggers import TownEnteredPattern
 
 CHARACTER_IDS = ["character-0001", "character-0002", "character-0003", "character-0004", "character-0099"]
 ITEM_IDS = [
@@ -39,6 +52,29 @@ ITEM_IDS = [
     "magic-item-9003",
 ]
 DIRECTIONS = list(Direction)
+
+VIGIL_ID = "the-vigil"
+VIGIL_NAME = "A Vigil Nobody Asked For"
+QUEST_GUIDANCE = "Steer the table toward the barrow road."
+
+
+def leaky_quest_adventure():
+    """The shared delve with two quests: the fetch quest, and one the fuzz cannot reach.
+
+    The fuzz's `quest_id` strategy samples the fetch quest's id alone, so the vigil
+    can never leave `inactive` — which is what makes "an inactive quest never reaches
+    the player view" a pin rather than a coincidence.
+    """
+    fetch = build_fetch_quest(
+        narrative=NarrativeBlock(offer=QUEST_OFFER, completion=QUEST_COMPLETION, guidance=QUEST_GUIDANCE)
+    )
+    vigil = QuestSpec(
+        id=VIGIL_ID,
+        name=VIGIL_NAME,
+        activation=TriggerClause(pattern=TownEnteredPattern()),
+        objectives=(ObjectiveSpec(id="keep-watch", when=TriggerClause(pattern=TownEnteredPattern())),),
+    )
+    return build_adventure().model_copy(update={"quests": (fetch, vigil)})
 
 
 def plant_magic_items(session) -> None:
@@ -329,9 +365,13 @@ def test_randomly_driven_sessions_save_and_load_round_trip(seed, commands):
 )
 def test_the_player_view_never_leaks(seed, commands):
     """The leak property test — fuzzed sessions, not one fixture (pinned)."""
-    session = GameSession.new(build_party(), build_adventure(), seed=seed)
+    session = GameSession.new(build_party(), leaky_quest_adventure(), seed=seed)
     session.execute(GrantItem(character_id="character-0001", item_id="torch", quantity=6))
     session.execute(GrantItem(character_id="character-0001", item_id="tinder_box"))
+    # The fetch quest is activated up front so a quest projection is certainly in the
+    # blob below, whatever the fuzz then does to it; the vigil is authored and never
+    # activated, because the fuzz's quest ids reach only the fetch quest.
+    session.execute(ActivateQuest(quest_id=QUEST_ID))
     # Unidentified magic items ride along under ids the fuzz never uses (the
     # 8000s — ITEM_IDS carries only the 9000s), so these must stay masked
     # whatever the command sequence does.
@@ -390,8 +430,33 @@ def test_the_player_view_never_leaks(seed, commands):
     # Gate wiring is content wiring, and content wiring is the game's secret: the
     # edge projection carries kind and door state only, never the condition that
     # guards the door, its narrative block, or the guidance inside it.
-    for wiring in ("requires", "condition_type", "has_item", "guidance", "refusal", "narrative"):
+    for wiring in ("requires", "condition_type", "has_item", "guidance", "refusal"):
         assert wiring not in blob
+    # The view carries chosen beats as flat strings — a quest's offer under
+    # `narrative`, nothing else — and never a narrative block: no field name of one
+    # is ever a key here.
+    for block_field in ('"refusal"', '"success"', '"fired"', '"offer"', '"progress"', '"completion"', '"guidance"'):
+        assert block_field not in blob
+    # Quest wiring is the game's secret exactly as trigger wiring is: no clause, no
+    # pattern, no reward, and no quest the party has not been given. (A clause dump
+    # always carries `pattern_type`, and a condition dump `condition_type` above, so
+    # the bare `conditions` key — which a member's own sheet owns — needs no pin.)
+    for wiring in ("pattern_type", "reveal_when", "activation", "rewards", "concludes_adventure", "award_xp"):
+        assert wiring not in blob
+    assert VIGIL_ID not in blob and VIGIL_NAME not in blob, "an inactive quest is not the party's business"
+    assert QUEST_COMPLETION not in json.dumps(parsed["quests"]), (
+        "the quest list carries the offer beat alone; the completion beat's home is the journal"
+    )
+    assert QUEST_GUIDANCE not in blob, "steering for a narrator is never shown to the table"
+    # Only active quests, only revealed objectives — whatever the fuzz did to the block.
+    assert {entry["id"] for entry in parsed["quests"]} == {
+        quest_id for quest_id, state in session.quests.items() if state.status == "active"
+    }
+    for quest_view in parsed["quests"]:
+        state = session.quests[quest_view["id"]]
+        assert [entry["id"] for entry in quest_view["objectives"]] == [
+            objective_id for objective_id, objective in state.objectives.items() if objective.revealed
+        ]
 
 
 def test_odometer_never_drifts_from_the_closed_form():

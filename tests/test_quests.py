@@ -3,10 +3,13 @@
 `TestTriggerClause`, `TestObjectiveSpec`, and `TestQuestSpec` pin what an authored
 document may say — the clause reusing the trigger vocabulary, and the four things a
 quest may never carry (a consuming condition, a reveal clause on a visible objective,
-no objectives at all, a hand-written `source` on a reward). `TestSeeding` pins the
-block a session is born with. The lifecycle classes walk the four commands: every
-guard and its rejection, the journal beats they append, the events they emit, the
-victory transition and its stickiness, and the persistence of the whole block.
+no objectives at all, a hand-written `source` on a reward). `TestQuestValidation`
+walks `validate_adventure`'s quest checks, reference class by reference class.
+`TestSeeding` pins the block a session is born with. The lifecycle classes walk the
+four commands: every guard and its rejection, the journal beats they append, the
+events they emit, the victory transition and its stickiness, and the persistence of
+the whole block. `TestPlayerViewQuests` pins what the table is shown — active quests
+and revealed objectives — and everything behind them that it is not.
 """
 
 import json
@@ -16,7 +19,21 @@ from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 from pydantic import ValidationError
 
-from crawl_fixtures import build_adventure, build_party
+from crawl_fixtures import (
+    QUEST_COMPLETION,
+    QUEST_ID,
+    QUEST_NAME,
+    QUEST_OFFER,
+    QUEST_RECOVER,
+    QUEST_RECOVER_PROGRESS,
+    QUEST_RETURN,
+    QUEST_RETURN_OFFER,
+    QUEST_RETURN_PROGRESS,
+    QUEST_SPEAKER,
+    build_adventure,
+    build_fetch_quest,
+    build_party,
+)
 from osrlib.core.events import Visibility
 from osrlib.crawl.adventure import Adventure
 from osrlib.crawl.commands import (
@@ -54,48 +71,18 @@ from osrlib.crawl.triggers import (
 from osrlib.persistence import load_game, save_game, session_state
 from test_crawl_properties import command_strategy
 
-QUEST_ID = "the-idol"
-RECOVER = "recover-idol"
-RETURN = "return-home"
-
-OFFER = "Sister Halda wants the idol back before the new moon."
-COMPLETION = "The idol sits on the altar where it began."
-RECOVER_PROGRESS = "The idol is lighter than it looks."
-RETURN_OFFER = "And then there is the matter of walking out alive."
-RETURN_PROGRESS = "Threshold's gate closes behind you, the idol in the pack."
+# The shared fetch quest's ids and beats, under the short names this module reads by.
+RECOVER = QUEST_RECOVER
+RETURN = QUEST_RETURN
+OFFER = QUEST_OFFER
+COMPLETION = QUEST_COMPLETION
+RECOVER_PROGRESS = QUEST_RECOVER_PROGRESS
+RETURN_OFFER = QUEST_RETURN_OFFER
+RETURN_PROGRESS = QUEST_RETURN_PROGRESS
 
 TERMINAL_MODES = (SessionMode.GAME_OVER, SessionMode.VICTORY)
 
-
-def build_quest(**overrides) -> QuestSpec:
-    """The fetch quest the lifecycle tests drive: one visible objective, one hidden."""
-    quest = QuestSpec(
-        id=QUEST_ID,
-        name="The Jade Idol",
-        activation=TriggerClause(pattern=DungeonEnteredPattern(dungeon_id="delve")),
-        objectives=(
-            ObjectiveSpec(
-                id=RECOVER,
-                when=TriggerClause(pattern=ItemAcquiredPattern(item_id="holy_water")),
-                narrative=NarrativeBlock(progress=RECOVER_PROGRESS),
-            ),
-            ObjectiveSpec(
-                id=RETURN,
-                when=TriggerClause(
-                    pattern=TownEnteredPattern(),
-                    conditions=(HasItemCondition(item_id="holy_water"),),
-                ),
-                hidden=True,
-                reveal_when=TriggerClause(
-                    pattern=AreaEnteredPattern(dungeon_id="delve", level_number=1, area_id="room_a")
-                ),
-                narrative=NarrativeBlock(offer=RETURN_OFFER, progress=RETURN_PROGRESS),
-            ),
-        ),
-        rewards=(AwardXP(character_id=PARTY_SELECTOR, amount=200),),
-        narrative=NarrativeBlock(offer=OFFER, completion=COMPLETION),
-    )
-    return quest.model_copy(update=overrides) if overrides else quest
+build_quest = build_fetch_quest
 
 
 def with_quests(*quests: QuestSpec) -> Adventure:
@@ -249,6 +236,173 @@ class TestQuestSpec:
         payload = build_adventure(wandering_chance=0).model_dump(mode="json")
         payload.pop("quests")
         assert Adventure.model_validate(payload).quests == ()
+
+
+def quest_with(**fields) -> QuestSpec:
+    """A minimal parse-valid quest over the delve, with the named fields replaced."""
+    base = {
+        "id": "errand",
+        "name": "An Errand",
+        "objectives": (ObjectiveSpec(id="do-it", when=TriggerClause(pattern=TownEnteredPattern())),),
+    }
+    return QuestSpec(**(base | fields))
+
+
+def clause(pattern, *conditions) -> TriggerClause:
+    return TriggerClause(pattern=pattern, conditions=tuple(conditions))
+
+
+class TestQuestValidation:
+    """`validate_adventure`'s quest walk, reference class by reference class."""
+
+    def validate(self, adventure: Adventure) -> str:
+        from osrlib.crawl.adventure import validate_adventure
+        from osrlib.data import load_equipment, load_monsters
+        from osrlib.errors import ContentValidationError
+
+        with pytest.raises(ContentValidationError) as raised:
+            validate_adventure(adventure, load_monsters(), load_equipment())
+        return str(raised.value)
+
+    def accept(self, adventure: Adventure) -> None:
+        from osrlib.crawl.adventure import validate_adventure
+        from osrlib.data import load_equipment, load_monsters
+
+        validate_adventure(adventure, load_monsters(), load_equipment())
+
+    def test_a_clean_quest_document_validates(self):
+        # Every clause the fetch quest carries — activation, both completions, the
+        # reveal — and its reward resolve against the delve.
+        self.accept(with_quests(build_quest()))
+
+    def test_duplicate_quest_ids_are_caught(self):
+        message = self.validate(with_quests(quest_with(id="twice"), quest_with(id="twice")))
+        assert "quest 'twice': id is not unique" in message
+
+    def test_a_quest_and_a_trigger_may_share_an_id(self):
+        from osrlib.crawl.triggers import TriggerSpec
+
+        adventure = with_quests(quest_with(id="homecoming")).model_copy(
+            update={"triggers": (TriggerSpec(id="homecoming", when=TownEnteredPattern()),)}
+        )
+        self.accept(adventure)
+
+    def test_a_dangling_activation_dungeon_is_caught(self):
+        adventure = with_quests(quest_with(activation=clause(DungeonEnteredPattern(dungeon_id="atlantis"))))
+        assert "quest 'errand': pattern references unknown dungeon 'atlantis'" in self.validate(adventure)
+
+    def test_a_dangling_activation_area_is_caught(self):
+        activation = clause(AreaEnteredPattern(dungeon_id="delve", level_number=1, area_id="nowhere"))
+        message = self.validate(with_quests(quest_with(activation=activation)))
+        assert "quest 'errand': pattern references unknown area 'nowhere'" in message
+
+    def test_a_dangling_activation_level_is_caught(self):
+        from osrlib.crawl.triggers import LevelEnteredPattern
+
+        activation = clause(LevelEnteredPattern(dungeon_id="delve", level_number=9))
+        assert "quest 'errand': pattern references unknown 'delve' level 9" in self.validate(
+            with_quests(quest_with(activation=activation))
+        )
+
+    def test_a_dangling_activation_item_is_caught(self):
+        activation = clause(ItemAcquiredPattern(item_id="jade_idol"))
+        assert "quest 'errand': pattern references unknown item 'jade_idol'" in self.validate(
+            with_quests(quest_with(activation=activation))
+        )
+
+    def test_a_dangling_activation_monster_is_caught(self):
+        from osrlib.crawl.triggers import MonsterDefeatedPattern
+
+        activation = clause(MonsterDefeatedPattern(template_id="tarrasque"))
+        assert "quest 'errand': pattern references unknown monster 'tarrasque'" in self.validate(
+            with_quests(quest_with(activation=activation))
+        )
+
+    def test_a_dangling_activation_condition_item_is_caught(self):
+        activation = clause(TownEnteredPattern(), HasItemCondition(item_id="jade_idol"))
+        assert "quest 'errand': condition references unknown item 'jade_idol'" in self.validate(
+            with_quests(quest_with(activation=activation))
+        )
+
+    def test_a_dangling_objective_pattern_is_caught(self):
+        objective = ObjectiveSpec(id="recover", when=clause(ItemAcquiredPattern(item_id="jade_idol")))
+        message = self.validate(with_quests(quest_with(objectives=(objective,))))
+        assert "quest 'errand' objective 'recover': pattern references unknown item 'jade_idol'" in message
+
+    def test_a_dangling_objective_condition_item_is_caught(self):
+        objective = ObjectiveSpec(
+            id="recover", when=clause(TownEnteredPattern(), HasItemCondition(item_id="jade_idol"))
+        )
+        message = self.validate(with_quests(quest_with(objectives=(objective,))))
+        assert "quest 'errand' objective 'recover': condition references unknown item 'jade_idol'" in message
+
+    def test_a_dangling_reveal_clause_is_named_apart_from_the_completion(self):
+        objective = ObjectiveSpec(
+            id="recover",
+            when=clause(TownEnteredPattern()),
+            hidden=True,
+            reveal_when=clause(DungeonEnteredPattern(dungeon_id="atlantis")),
+        )
+        message = self.validate(with_quests(quest_with(objectives=(objective,))))
+        assert "quest 'errand' objective 'recover' reveal: pattern references unknown dungeon 'atlantis'" in message
+
+    def test_a_dangling_reward_item_is_caught(self):
+        from osrlib.crawl.commands import GrantItem
+
+        rewards = (GrantItem(character_id=PARTY_SELECTOR, item_id="jade_idol"),)
+        assert "quest 'errand': reward 0 references unknown item 'jade_idol'" in self.validate(
+            with_quests(quest_with(rewards=rewards))
+        )
+
+    def test_a_dangling_reward_monster_is_caught(self):
+        rewards = (SpawnMonsters(template_id="tarrasque", count_fixed=1, distance_feet=30),)
+        assert "quest 'errand': reward 0 references unknown monster 'tarrasque'" in self.validate(
+            with_quests(quest_with(rewards=rewards))
+        )
+
+    def test_a_reward_door_write_must_name_a_real_door(self):
+        from osrlib.crawl.commands import SetDoorState
+        from osrlib.crawl.dungeon import Direction
+
+        rewards = (SetDoorState(dungeon_id="delve", level_number=1, x=0, y=0, direction=Direction.NORTH, open=True),)
+        assert "quest 'errand': reward 0 names no door at (0, 0) north" in self.validate(
+            with_quests(quest_with(rewards=rewards))
+        )
+
+    def test_a_literal_character_id_in_a_reward_is_an_error(self):
+        rewards = (AwardXP(character_id="character-0001", amount=100),)
+        message = self.validate(with_quests(quest_with(rewards=rewards)))
+        assert "quest 'errand': reward 0 names character 'character-0001'" in message
+        assert PARTY_SELECTOR in message
+
+    def test_the_selectors_are_accepted_on_a_reward(self):
+        from osrlib.crawl.commands import GrantCoins, GrantItem
+        from osrlib.crawl.triggers import FIRST_LIVING_SELECTOR
+
+        rewards = (
+            GrantItem(character_id=PARTY_SELECTOR, item_id="holy_water"),
+            GrantCoins(character_id=FIRST_LIVING_SELECTOR, coins={"gp": 50}),
+            AwardXP(character_id=PARTY_SELECTOR, amount=100),
+        )
+        self.accept(with_quests(quest_with(rewards=rewards)))
+
+    def test_every_clause_of_one_quest_reports_its_own_dangling_reference(self):
+        # One walk, every clause: the activation, the completion, and the reveal each
+        # name themselves, so an author fixes all three from one run.
+        objective = ObjectiveSpec(
+            id="recover",
+            when=clause(DungeonEnteredPattern(dungeon_id="brigadoon")),
+            hidden=True,
+            reveal_when=clause(DungeonEnteredPattern(dungeon_id="carcosa")),
+        )
+        message = self.validate(
+            with_quests(
+                quest_with(activation=clause(DungeonEnteredPattern(dungeon_id="atlantis")), objectives=(objective,))
+            )
+        )
+        assert "quest 'errand': pattern references unknown dungeon 'atlantis'" in message
+        assert "quest 'errand' objective 'recover': pattern references unknown dungeon 'brigadoon'" in message
+        assert "quest 'errand' objective 'recover' reveal: pattern references unknown dungeon 'carcosa'" in message
 
 
 class TestSeeding:
@@ -620,6 +774,88 @@ class TestPersistence:
         state = self.played().view(Visibility.REFEREE).state
         assert state["quests"][QUEST_ID]["status"] == "active"
         assert state["quests"][QUEST_ID]["objectives"][RECOVER] == {"revealed": True, "complete": True}
+
+
+GUIDANCE = "Steer the table toward the barrow road."
+
+
+class TestPlayerViewQuests:
+    """What the table is shown of a quest: the charge, its speaker, and where it stands."""
+
+    def quests(self, session: GameSession):
+        return session.view(Visibility.PLAYER).quests
+
+    def test_an_inactive_quest_is_not_the_partys_business(self):
+        session = make_session(build_quest())
+        assert self.quests(session) == ()
+
+    def test_an_active_quest_ships_its_name_offer_and_speaker(self):
+        view = self.quests(active_session())[0]
+        assert (view.id, view.name) == (QUEST_ID, QUEST_NAME)
+        assert view.narrative == OFFER
+        assert view.speaker == QUEST_SPEAKER
+
+    def test_unauthored_prose_ships_as_empty_strings_never_none(self):
+        view = self.quests(active_session(build_quest(narrative=None)))[0]
+        assert view.narrative == "" and view.speaker == ""
+
+    def test_only_revealed_objectives_appear_in_authored_order(self):
+        session = active_session()
+        assert [objective.id for objective in self.quests(session)[0].objectives] == [RECOVER]
+        assert session.execute(RevealObjective(quest_id=QUEST_ID, objective_id=RETURN)).accepted
+        assert [objective.id for objective in self.quests(session)[0].objectives] == [RECOVER, RETURN]
+
+    def test_an_objectives_state_is_incomplete_until_it_is_done(self):
+        session = active_session()
+        assert self.quests(session)[0].objectives[0].state == "incomplete"
+        assert session.execute(CompleteObjective(quest_id=QUEST_ID, objective_id=RECOVER)).accepted
+        assert self.quests(session)[0].objectives[0].state == "complete"
+
+    def test_a_completed_hidden_objective_appears_because_completing_reveals_it(self):
+        session = active_session()
+        assert session.execute(CompleteObjective(quest_id=QUEST_ID, objective_id=RETURN)).accepted
+        shown = {objective.id: objective.state for objective in self.quests(session)[0].objectives}
+        assert shown == {RECOVER: "incomplete", RETURN: "complete"}
+
+    def test_a_completed_quest_leaves_the_list_and_its_record_stays_in_the_journal(self):
+        session = active_session()
+        assert session.execute(CompleteQuest(quest_id=QUEST_ID)).accepted
+        view = session.view(Visibility.PLAYER)
+        assert view.quests == ()
+        assert [entry.text for entry in view.journal] == [OFFER, COMPLETION]
+
+    def test_quests_ship_in_document_order(self):
+        first = build_quest(id="first", activation=None)
+        second = build_quest(id="second", activation=None)
+        session = make_session(first, second)
+        assert [quest.id for quest in self.quests(session)] == ["first", "second"]
+
+    def test_the_view_carries_no_quest_wiring(self):
+        vigil = build_quest(id="the-vigil", name="A Vigil Nobody Asked For")
+        session = active_session(
+            build_quest(narrative=NarrativeBlock(offer=OFFER, completion=COMPLETION, guidance=GUIDANCE))
+        )
+        assert not session.quests[QUEST_ID].objectives[RETURN].revealed, "the hidden objective is still hidden"
+        blob = session.view(Visibility.PLAYER).model_dump_json()
+        for wiring in (
+            "pattern_type",
+            "reveal_when",
+            "activation",
+            "rewards",
+            "concludes_adventure",
+            "hidden",
+            "award_xp",
+        ):
+            assert wiring not in blob, wiring
+        assert RETURN not in blob, "a hidden objective the party has not been told about has no view"
+        assert GUIDANCE not in blob, "steering for a narrator is never shown to the table"
+        assert COMPLETION not in blob, "the completion beat lands when the quest does, in the journal"
+        assert OFFER in blob, "the offer is the whole point of shipping the quest"
+        # And the inactive quest beside it leaks neither id nor name.
+        with_vigil = make_session(build_quest(), vigil)
+        assert with_vigil.execute(ActivateQuest(quest_id=QUEST_ID)).accepted
+        blob = with_vigil.view(Visibility.PLAYER).model_dump_json()
+        assert "the-vigil" not in blob and "A Vigil Nobody Asked For" not in blob
 
 
 @settings(max_examples=25, deadline=None, suppress_health_check=[HealthCheck.too_slow])

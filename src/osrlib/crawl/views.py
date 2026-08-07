@@ -10,14 +10,16 @@ the party's light has shown it, and what its light reveals right now (secret
 doors only if discovered — an undiscovered secret door renders as wall), known
 piles and emptied caches in explored space, active effects on party members
 with remaining durations, the elapsed clock, the mode, the journal (the appended
-beats verbatim, each with the clock position it landed at), the current
+beats verbatim, each with the clock position it landed at), the active quests with
+their revealed objectives, the current
 encounter/battle public state (names,
 counts, distances, visible conditions — never HP), fatigue/exhaustion/deprivation
 status, and the adventure's public prose. It never carries unexplored geometry,
 undiscovered traps or secret doors, monster HP or stat internals,
 referee-visibility roll outcomes, session flags, trigger fired-marks, referee
-notes, RNG state, or the seed — the seed lives only in the save, and neither view
-carries it.
+notes, quest wiring (activation clauses, patterns, conditions, rewards, hidden
+objectives, inactive quests), RNG state, or the seed — the seed lives only in the
+save, and neither view carries it.
 
 The referee view carries everything else the save does, minus RNG internals and
 the seed, for LLM referees and tests. A front end must never trust the client:
@@ -40,8 +42,10 @@ __all__ = [
     "ExploredLevelView",
     "MemberEffectView",
     "MemberView",
+    "ObjectiveView",
     "PileView",
     "PlayerView",
+    "QuestView",
     "RefereeView",
     "build_player_view",
     "build_referee_view",
@@ -134,6 +138,41 @@ class EncounterView(BaseModel):
     pursuit_gap_feet: int | None = None
 
 
+class ObjectiveView(BaseModel):
+    """One revealed objective as the players know it: what it is called, and whether it is done.
+
+    Hidden objectives have no view at all — an objective nobody has been told about
+    is absent from the list, not listed as unknown — so `state` needs only the two
+    values a visible objective can be in.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    id: str
+    state: str
+    """`"incomplete"` or `"complete"`."""
+
+
+class QuestView(BaseModel):
+    """One active quest as the players know it: the charge, who gave it, and where it stands.
+
+    `narrative` is the quest's authored offer beat and `speaker` its attribution,
+    both empty when unauthored: a wire client holds no adventure document to resolve
+    either from, so the projection carries the words themselves. The wiring that
+    starts a quest, checks it off, and pays it — clauses, patterns, conditions,
+    rewards — never appears; that is the game's secret exactly as a trigger's is.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    id: str
+    name: str
+    narrative: str
+    speaker: str
+    objectives: tuple[ObjectiveView, ...]
+    """The revealed objectives, in the order the quest authored them."""
+
+
 class PlayerView(BaseModel):
     """The safe projection: an enumerated whitelist of exactly the fields a player may see."""
 
@@ -159,6 +198,10 @@ class PlayerView(BaseModel):
     """The session journal, shipped as written: the players' own record of the
     adventure, in order of discovery, each beat carrying the clock position it landed
     at. The wiring behind the beats — trigger fired-marks, referee notes — stays out."""
+    quests: tuple[QuestView, ...]
+    """The quests in play, in the order the adventure authored them: active ones only.
+    A quest nobody has taken on yet is not the party's business, and a finished one
+    leaves the list — its record is the journal, which keeps every beat it wrote."""
     encounter: EncounterView | None = None
 
 
@@ -328,8 +371,38 @@ def build_player_view(session) -> PlayerView:
         exhausted=exhausted,
         deprivation=deprivation,
         journal=tuple(session.journal),
+        quests=tuple(_quest_views(session)),
         encounter=_encounter_view(session),
     )
+
+
+def _quest_views(session):
+    """The active quests, in document order, each with its revealed objectives.
+
+    Walks the authored specs rather than the state block, so the order the view
+    ships is the order the adventure wrote — and a quest the block does not know is
+    simply absent, the same way an unresolvable level is.
+    """
+    for quest in session.adventure.quests:
+        state = session.quests.get(quest.id)
+        if state is None or state.status != "active":
+            continue
+        objectives = []
+        for objective in quest.objectives:
+            objective_state = state.objectives.get(objective.id)
+            if objective_state is None or not objective_state.revealed:
+                continue
+            objectives.append(
+                ObjectiveView(id=objective.id, state="complete" if objective_state.complete else "incomplete")
+            )
+        narrative = quest.narrative
+        yield QuestView(
+            id=quest.id,
+            name=quest.name,
+            narrative=narrative.offer if narrative is not None else "",
+            speaker=narrative.speaker if narrative is not None else "",
+            objectives=tuple(objectives),
+        )
 
 
 def _visible_cell_refs(session) -> set[str]:

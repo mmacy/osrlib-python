@@ -23,7 +23,7 @@ from osrlib.core.abilities import AbilityScore
 from osrlib.core.character import Character
 from osrlib.core.items import Coins, GearTemplate
 from osrlib.crawl.adventure import Adventure, TownSpec
-from osrlib.crawl.commands import SetDoorState, SpawnMonsters
+from osrlib.crawl.commands import AwardXP, SetDoorState, SpawnMonsters
 from osrlib.crawl.dungeon import (
     AreaSpec,
     AreaTreasureSpec,
@@ -46,7 +46,16 @@ from osrlib.crawl.dungeon import (
 from osrlib.crawl.gates import GateSpec, HasItemCondition
 from osrlib.crawl.narrative import NarrativeBlock
 from osrlib.crawl.party import Party
-from osrlib.crawl.triggers import AreaEnteredPattern, FlagSetPattern, TriggerSpec
+from osrlib.crawl.quests import ObjectiveSpec, QuestSpec, TriggerClause
+from osrlib.crawl.triggers import (
+    PARTY_SELECTOR,
+    AreaEnteredPattern,
+    DungeonEnteredPattern,
+    FlagSetPattern,
+    ItemAcquiredPattern,
+    TownEnteredPattern,
+    TriggerSpec,
+)
 from osrlib.data import load_classes
 
 __all__ = [
@@ -58,11 +67,22 @@ __all__ = [
     "PORTCULLIS_CRANK",
     "PORTCULLIS_FIRED",
     "PORTCULLIS_JOURNAL",
+    "QUEST_COMPLETION",
+    "QUEST_ID",
+    "QUEST_NAME",
+    "QUEST_OFFER",
+    "QUEST_RECOVER",
+    "QUEST_RECOVER_PROGRESS",
+    "QUEST_RETURN",
+    "QUEST_RETURN_OFFER",
+    "QUEST_RETURN_PROGRESS",
+    "QUEST_SPEAKER",
     "STOCK_ROSTER",
     "build_adventure",
     "build_blade_adventure",
     "build_chute_adventure",
     "build_double_trap_adventure",
+    "build_fetch_quest",
     "build_gas_trap_adventure",
     "build_gated_adventure",
     "build_lethal_coffer_adventure",
@@ -71,6 +91,25 @@ __all__ = [
     "build_portcullis_adventure",
     "build_sightline_adventure",
 ]
+
+
+QUEST_ID = "the-idol"
+"""The fetch quest's id — the one the fuzzer's `quest_id` strategy samples."""
+
+QUEST_NAME = "The Jade Idol"
+
+QUEST_RECOVER = "recover-idol"
+"""The visible objective: the idol comes out of the delve."""
+
+QUEST_RETURN = "return-home"
+"""The hidden objective: revealed in room_a, completed by walking home carrying it."""
+
+QUEST_OFFER = "Sister Halda wants the idol back before the new moon."
+QUEST_SPEAKER = "Sister Halda"
+QUEST_COMPLETION = "The idol sits on the altar where it began."
+QUEST_RECOVER_PROGRESS = "The idol is lighter than it looks."
+QUEST_RETURN_OFFER = "And then there is the matter of walking out alive."
+QUEST_RETURN_PROGRESS = "Threshold's gate closes behind you, the idol in the pack."
 
 
 def _open(edges: dict, position, direction) -> None:
@@ -188,6 +227,40 @@ def build_adventure(wandering_chance: int = 1) -> Adventure:
         town=TownSpec(name="Threshold", services=("inn", "trader"), travel_turns={"delve": 6}),
         dungeons=(DungeonSpec(id="delve", name="The Delve", levels=(level_1, level_2)),),
     )
+
+
+def build_fetch_quest(**overrides) -> QuestSpec:
+    """The shared fetch quest over the delve: one visible objective, one hidden.
+
+    Every reference resolves against `build_adventure`'s delve, so it can be bolted
+    onto that adventure with `model_copy(update={"quests": (build_fetch_quest(),)})`
+    — the way a test gives a session quests without touching the shared fixture the
+    goldens embed. Its ids are the ones the fuzzer's quest strategies sample.
+    """
+    quest = QuestSpec(
+        id=QUEST_ID,
+        name=QUEST_NAME,
+        activation=TriggerClause(pattern=DungeonEnteredPattern(dungeon_id="delve")),
+        objectives=(
+            ObjectiveSpec(
+                id=QUEST_RECOVER,
+                when=TriggerClause(pattern=ItemAcquiredPattern(item_id="holy_water")),
+                narrative=NarrativeBlock(progress=QUEST_RECOVER_PROGRESS),
+            ),
+            ObjectiveSpec(
+                id=QUEST_RETURN,
+                when=TriggerClause(pattern=TownEnteredPattern(), conditions=(HasItemCondition(item_id="holy_water"),)),
+                hidden=True,
+                reveal_when=TriggerClause(
+                    pattern=AreaEnteredPattern(dungeon_id="delve", level_number=1, area_id="room_a")
+                ),
+                narrative=NarrativeBlock(offer=QUEST_RETURN_OFFER, progress=QUEST_RETURN_PROGRESS),
+            ),
+        ),
+        rewards=(AwardXP(character_id=PARTY_SELECTOR, amount=200),),
+        narrative=NarrativeBlock(offer=QUEST_OFFER, completion=QUEST_COMPLETION, speaker=QUEST_SPEAKER),
+    )
+    return quest.model_copy(update=overrides) if overrides else quest
 
 
 def build_blade_adventure() -> Adventure:

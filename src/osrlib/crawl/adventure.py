@@ -25,7 +25,15 @@ from osrlib.core.items import (
     WeaponTemplate,
 )
 from osrlib.core.monsters import MonsterCatalog, MonsterTemplate
-from osrlib.crawl.commands import AwardXP, GrantCoins, GrantItem, PlaceParty, SetDoorState, SpawnMonsters
+from osrlib.crawl.commands import (
+    AwardXP,
+    ConsequenceCommand,
+    GrantCoins,
+    GrantItem,
+    PlaceParty,
+    SetDoorState,
+    SpawnMonsters,
+)
 from osrlib.crawl.dungeon import DungeonSpec, EdgeKind, FeatureSpec, LevelSpec
 from osrlib.crawl.gates import ConditionSpec, GateSpec, HasItemCondition
 from osrlib.crawl.quests import QuestSpec
@@ -37,6 +45,7 @@ from osrlib.crawl.triggers import (
     ItemAcquiredPattern,
     LevelEnteredPattern,
     MonsterDefeatedPattern,
+    TriggerPattern,
     TriggerSpec,
 )
 from osrlib.data import load_magic_items
@@ -295,21 +304,27 @@ def _resolve_level(adventure: Adventure, dungeon_id: str, level_number: int) -> 
         return None
 
 
-def _validate_trigger(
-    trigger: TriggerSpec,
+def _validate_clause(
+    pattern: TriggerPattern,
+    conditions: tuple[ConditionSpec, ...],
+    owner: str,
     adventure: Adventure,
     monsters: MonsterCatalog,
     equipment: EquipmentCatalog,
     magic: MagicItemCatalog,
     errors: list[str],
 ) -> None:
-    """Resolve one trigger's pattern, condition, and consequence references.
+    """Resolve one matching clause's pattern and condition references.
+
+    The one body behind every clause in a document — a trigger's `when` and
+    `conditions`, a quest's activation, an objective's completion, a hidden
+    objective's reveal — so the two authoring surfaces can never drift apart on what
+    resolves. `owner` is the subject the error lines name (`trigger 'lever-east'`,
+    `quest 'the-idol' objective 'return-home'`).
 
     Flag keys stay unchecked at every site — the flag namespace is open by design,
     and a key nobody writes is an authoring lint rather than a broken document.
     """
-    owner = f"trigger {trigger.id!r}"
-    pattern = trigger.when
     if isinstance(pattern, AreaEnteredPattern | LevelEnteredPattern):
         level = _resolve_level(adventure, pattern.dungeon_id, pattern.level_number)
         if level is None:
@@ -332,49 +347,120 @@ def _validate_trigger(
             monsters.get(pattern.template_id)
         except ValueError:
             errors.append(f"{owner}: pattern references unknown monster {pattern.template_id!r}")
-    for condition in trigger.conditions:
+    for condition in conditions:
         dangling = _dangling_condition_item(condition, equipment, magic)
         if dangling is not None:
             errors.append(f"{owner}: condition references unknown item {dangling!r}")
+
+
+def _validate_consequence(
+    consequence: ConsequenceCommand,
+    site: str,
+    adventure: Adventure,
+    monsters: MonsterCatalog,
+    equipment: EquipmentCatalog,
+    magic: MagicItemCatalog,
+    errors: list[str],
+) -> None:
+    """Resolve one authored consequence's references and its character addressing.
+
+    The one body behind every consequence in a document — a trigger's consequences
+    and a quest's rewards alike. `site` is the subject the error lines name
+    (`trigger 'reward': consequence 0`, `quest 'the-idol': reward 0`).
+    """
+    if isinstance(consequence, GrantItem | GrantCoins | AwardXP):
+        # Character ids are allocated per session, so a document can never name
+        # one: authored consequences address the party through the selectors.
+        if consequence.character_id not in (PARTY_SELECTOR, FIRST_LIVING_SELECTOR):
+            errors.append(
+                f"{site} names character {consequence.character_id!r}; an authored consequence "
+                f"addresses {PARTY_SELECTOR!r} or {FIRST_LIVING_SELECTOR!r}"
+            )
+    if isinstance(consequence, GrantItem):
+        try:
+            equipment.get(consequence.item_id)
+        except ValueError:
+            errors.append(f"{site} references unknown item {consequence.item_id!r}")
+    elif isinstance(consequence, SpawnMonsters):
+        try:
+            monsters.get(consequence.template_id)
+        except ValueError:
+            errors.append(f"{site} references unknown monster {consequence.template_id!r}")
+    elif isinstance(consequence, SetDoorState):
+        level = _resolve_level(adventure, consequence.dungeon_id, consequence.level_number)
+        if level is None:
+            errors.append(f"{site} references unknown {consequence.dungeon_id!r} level {consequence.level_number}")
+        elif level.edge((consequence.x, consequence.y), consequence.direction).kind is not EdgeKind.DOOR:
+            errors.append(f"{site} names no door at ({consequence.x}, {consequence.y}) {consequence.direction.value}")
+    elif isinstance(consequence, PlaceParty):
+        # A town placement names the adventure's one town and needs no check; the
+        # location model guarantees a dungeon location's fields travel together.
+        location = consequence.location
+        if location.dungeon_id is None or location.level_number is None:
+            return
+        level = _resolve_level(adventure, location.dungeon_id, location.level_number)
+        if level is None:
+            errors.append(f"{site} references unknown {location.dungeon_id!r} level {location.level_number}")
+        elif location.position is not None and not level.in_bounds(location.position):
+            errors.append(f"{site} places the party out of bounds at {location.position}")
+
+
+def _validate_trigger(
+    trigger: TriggerSpec,
+    adventure: Adventure,
+    monsters: MonsterCatalog,
+    equipment: EquipmentCatalog,
+    magic: MagicItemCatalog,
+    errors: list[str],
+) -> None:
+    """Resolve one trigger's pattern, condition, and consequence references."""
+    owner = f"trigger {trigger.id!r}"
+    _validate_clause(trigger.when, trigger.conditions, owner, adventure, monsters, equipment, magic, errors)
     for position, consequence in enumerate(trigger.consequences):
-        site = f"{owner}: consequence {position}"
-        if isinstance(consequence, GrantItem | GrantCoins | AwardXP):
-            # Character ids are allocated per session, so a document can never name
-            # one: authored consequences address the party through the selectors.
-            if consequence.character_id not in (PARTY_SELECTOR, FIRST_LIVING_SELECTOR):
-                errors.append(
-                    f"{site} names character {consequence.character_id!r}; an authored consequence "
-                    f"addresses {PARTY_SELECTOR!r} or {FIRST_LIVING_SELECTOR!r}"
-                )
-        if isinstance(consequence, GrantItem):
-            try:
-                equipment.get(consequence.item_id)
-            except ValueError:
-                errors.append(f"{site} references unknown item {consequence.item_id!r}")
-        elif isinstance(consequence, SpawnMonsters):
-            try:
-                monsters.get(consequence.template_id)
-            except ValueError:
-                errors.append(f"{site} references unknown monster {consequence.template_id!r}")
-        elif isinstance(consequence, SetDoorState):
-            level = _resolve_level(adventure, consequence.dungeon_id, consequence.level_number)
-            if level is None:
-                errors.append(f"{site} references unknown {consequence.dungeon_id!r} level {consequence.level_number}")
-            elif level.edge((consequence.x, consequence.y), consequence.direction).kind is not EdgeKind.DOOR:
-                errors.append(
-                    f"{site} names no door at ({consequence.x}, {consequence.y}) {consequence.direction.value}"
-                )
-        elif isinstance(consequence, PlaceParty):
-            # A town placement names the adventure's one town and needs no check; the
-            # location model guarantees a dungeon location's fields travel together.
-            location = consequence.location
-            if location.dungeon_id is None or location.level_number is None:
-                continue
-            level = _resolve_level(adventure, location.dungeon_id, location.level_number)
-            if level is None:
-                errors.append(f"{site} references unknown {location.dungeon_id!r} level {location.level_number}")
-            elif location.position is not None and not level.in_bounds(location.position):
-                errors.append(f"{site} places the party out of bounds at {location.position}")
+        _validate_consequence(
+            consequence, f"{owner}: consequence {position}", adventure, monsters, equipment, magic, errors
+        )
+
+
+def _validate_quest(
+    quest: QuestSpec,
+    adventure: Adventure,
+    monsters: MonsterCatalog,
+    equipment: EquipmentCatalog,
+    magic: MagicItemCatalog,
+    errors: list[str],
+) -> None:
+    """Resolve one quest's clause and reward references, clause by clause.
+
+    Every clause a quest carries walks the shared clause check: the activation, each
+    objective's completion, and each hidden objective's reveal — the reveal named
+    apart from the completion so an error line says which of the two dangles. Rewards
+    walk the shared consequence check, so a quest's reward and a trigger's consequence
+    are held to the same references and the same party-selector rule.
+    """
+    owner = f"quest {quest.id!r}"
+    if quest.activation is not None:
+        _validate_clause(
+            quest.activation.pattern, quest.activation.conditions, owner, adventure, monsters, equipment, magic, errors
+        )
+    for objective in quest.objectives:
+        site = f"{owner} objective {objective.id!r}"
+        _validate_clause(
+            objective.when.pattern, objective.when.conditions, site, adventure, monsters, equipment, magic, errors
+        )
+        if objective.reveal_when is not None:
+            _validate_clause(
+                objective.reveal_when.pattern,
+                objective.reveal_when.conditions,
+                f"{site} reveal",
+                adventure,
+                monsters,
+                equipment,
+                magic,
+                errors,
+            )
+    for position, reward in enumerate(quest.rewards):
+        _validate_consequence(reward, f"{owner}: reward {position}", adventure, monsters, equipment, magic, errors)
 
 
 def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment: EquipmentCatalog) -> None:
@@ -401,6 +487,14 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
     grid, and the rule that a consequence addressing a character does so through a
     party selector — a session allocates character ids, so a document naming one is
     naming something that cannot exist when it is read.
+
+    Then, per quest: ids unique across the adventure (quest ids and trigger ids are
+    separate namespaces, and nothing here cross-checks them); per clause — the
+    activation, each objective's completion, each hidden objective's reveal — the
+    same pattern and condition references a trigger's clause resolves; and per
+    reward, the same references and the same party-selector rule a consequence gets.
+    The two surfaces share one clause check and one consequence check, so neither can
+    grow a reference the other fails to resolve.
 
     Args:
         adventure: The adventure to validate.
@@ -503,5 +597,11 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
             errors.append(f"trigger {trigger.id!r}: id is not unique")
         seen_triggers.add(trigger.id)
         _validate_trigger(trigger, adventure, effective, effective_items, magic, errors)
+    seen_quests: set[str] = set()
+    for quest in adventure.quests:
+        if quest.id in seen_quests:
+            errors.append(f"quest {quest.id!r}: id is not unique")
+        seen_quests.add(quest.id)
+        _validate_quest(quest, adventure, effective, effective_items, magic, errors)
     if errors:
         raise ContentValidationError("adventure validation failed:\n" + "\n".join(errors))

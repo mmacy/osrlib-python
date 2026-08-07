@@ -643,9 +643,17 @@ class TestDeathRecords:
 
 class TestViews:
     def test_player_view_carries_the_whitelist(self):
-        session = make_session()
+        from crawl_fixtures import QUEST_ID, QUEST_NAME, QUEST_RECOVER, build_fetch_quest
+        from osrlib.crawl.commands import ActivateQuest
+
+        session = GameSession.new(
+            build_party(),
+            build_adventure(wandering_chance=0).model_copy(update={"quests": (build_fetch_quest(),)}),
+            seed=11,
+        )
         outfit(session)
         session.execute(EnterDungeon(dungeon_id="delve"))
+        session.execute(ActivateQuest(quest_id=QUEST_ID))
         session.execute(AddJournalEntry(text="Down the stair, into the dark."))
         view = session.view(Visibility.PLAYER)
         assert view.party[0].current_hp == 6
@@ -653,7 +661,9 @@ class TestViews:
         assert view.location.position == (0, 0)
         level_view = view.explored[0]
         assert (0, 0) in level_view.cells
-        assert [entry.text for entry in view.journal] == ["Down the stair, into the dark."]
+        assert [entry.text for entry in view.journal][-1] == "Down the stair, into the dark."
+        assert [(quest.id, quest.name) for quest in view.quests] == [(QUEST_ID, QUEST_NAME)]
+        assert [objective.id for objective in view.quests[0].objectives] == [QUEST_RECOVER]
 
     def test_player_view_never_leaks_the_basics(self):
         session = make_session(seed=99)
