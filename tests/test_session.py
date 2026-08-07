@@ -9,6 +9,7 @@ from osrlib.core.clock import ROUNDS_PER_DAY, TimeUnit
 from osrlib.core.events import Visibility
 from osrlib.core.items import Coins
 from osrlib.crawl.commands import (
+    AddJournalEntry,
     AdvanceTime,
     AwardXP,
     CloseDoor,
@@ -475,12 +476,14 @@ class TestViews:
         session = make_session()
         outfit(session)
         session.execute(EnterDungeon(dungeon_id="delve"))
+        session.execute(AddJournalEntry(text="Down the stair, into the dark."))
         view = session.view(Visibility.PLAYER)
         assert view.party[0].current_hp == 6
         assert view.mode == "exploring"
         assert view.location.position == (0, 0)
         level_view = view.explored[0]
         assert (0, 0) in level_view.cells
+        assert [entry.text for entry in view.journal] == ["Down the stair, into the dark."]
 
     def test_player_view_never_leaks_the_basics(self):
         session = make_session(seed=99)

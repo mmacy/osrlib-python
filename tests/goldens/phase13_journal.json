@@ -1,0 +1,180 @@
+{
+  "command_log": [
+    {
+      "command_type": "enter_dungeon",
+      "dungeon_id": "delve",
+      "source": null
+    },
+    {
+      "command_type": "move_party",
+      "direction": "east",
+      "source": null
+    },
+    {
+      "command_type": "mark_trigger_fired",
+      "source": "trigger:lever-east",
+      "trigger_id": "lever-east"
+    },
+    {
+      "command_type": "set_flag",
+      "key": "crypt.portcullis",
+      "source": "trigger:lever-east",
+      "value": "open"
+    },
+    {
+      "command_type": "add_journal_entry",
+      "source": "trigger:lever-east",
+      "text": "The east lever gives; somewhere below, a portcullis grinds upward."
+    },
+    {
+      "command_type": "rest",
+      "kind": "turn",
+      "source": null
+    },
+    {
+      "command_type": "mark_trigger_fired",
+      "source": "trigger:lever-east",
+      "trigger_id": "lever-east"
+    },
+    {
+      "command_type": "add_journal_entry",
+      "source": "trigger:lever-east",
+      "text": "The lever, hauled a second time, only grinds."
+    },
+    {
+      "command_type": "record_note",
+      "source": null,
+      "text": "The portcullis was already up: the second pull changed nothing."
+    },
+    {
+      "character_id": "character-0001",
+      "command_type": "grant_item",
+      "item_id": "silver_dagger",
+      "quantity": 1,
+      "source": "quest:the-jade-idol"
+    }
+  ],
+  "event_log": [
+    {
+      "code": "exploration.location.entered",
+      "event_type": "location_entered",
+      "level_number": 1,
+      "location_id": "delve",
+      "location_kind": "dungeon",
+      "narrative": null,
+      "visibility": "player"
+    },
+    {
+      "code": "exploration.party.moved",
+      "event_type": "party_moved",
+      "facing": "east",
+      "visibility": "player",
+      "x": 1,
+      "y": 0
+    },
+    {
+      "code": "session.trigger.fired",
+      "event_type": "trigger_fired",
+      "trigger_id": "lever-east",
+      "visibility": "referee"
+    },
+    {
+      "code": "session.flag.set",
+      "event_type": "flag_set",
+      "key": "crypt.portcullis",
+      "value": "open",
+      "visibility": "referee"
+    },
+    {
+      "code": "session.journal.entry_added",
+      "event_type": "journal_entry_added",
+      "rounds": 360,
+      "text": "The east lever gives; somewhere below, a portcullis grinds upward.",
+      "visibility": "player"
+    },
+    {
+      "code": "exploration.rest.rested",
+      "event_type": "rested",
+      "kind": "turn",
+      "visibility": "player"
+    },
+    {
+      "code": "session.trigger.fired",
+      "event_type": "trigger_fired",
+      "trigger_id": "lever-east",
+      "visibility": "referee"
+    },
+    {
+      "code": "session.journal.entry_added",
+      "event_type": "journal_entry_added",
+      "rounds": 420,
+      "text": "The lever, hauled a second time, only grinds.",
+      "visibility": "player"
+    },
+    {
+      "code": "session.note.recorded",
+      "event_type": "note_recorded",
+      "text": "The portcullis was already up: the second pull changed nothing.",
+      "visibility": "referee"
+    },
+    {
+      "character_id": "character-0001",
+      "code": "exploration.item.acquired",
+      "coins_gp_value": 0,
+      "event_type": "item_acquired",
+      "item_ids": [
+        "silver_dagger"
+      ],
+      "visibility": "player"
+    }
+  ],
+  "final_state": {
+    "clock_rounds": 420,
+    "fired_triggers": [
+      "lever-east"
+    ],
+    "flags": {
+      "crypt.portcullis": "open"
+    },
+    "journal": [
+      {
+        "rounds": 360,
+        "text": "The east lever gives; somewhere below, a portcullis grinds upward."
+      },
+      {
+        "rounds": 420,
+        "text": "The lever, hauled a second time, only grinds."
+      }
+    ],
+    "location": {
+      "dungeon_id": "delve",
+      "facing": "east",
+      "kind": "dungeon",
+      "level_number": 1,
+      "position": [
+        1,
+        0
+      ]
+    },
+    "mode": "exploring",
+    "streams": {
+      "effects": {
+        "inc": 259550629418758129033878154670639456931,
+        "state": 82891674844845924114032831778237792946
+      }
+    }
+  },
+  "master_seed": 20260807,
+  "transcript": [
+    "The party enters dungeon delve (level 1).",
+    "The party moves to (1, 0), facing east.",
+    "Trigger lever-east fired.",
+    "Flag crypt.portcullis = 'open'.",
+    "Journal: The east lever gives; somewhere below, a portcullis grinds upward.",
+    "The party rests (turn).",
+    "Trigger lever-east fired.",
+    "Journal: The lever, hauled a second time, only grinds.",
+    "Referee note: The portcullis was already up: the second pull changed nothing.",
+    "character-0001 acquires silver_dagger."
+  ]
+}

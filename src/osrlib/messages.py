@@ -347,6 +347,9 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
     "adjudication.dice_rolled": lambda event: (
         f"Referee rolls {event.expression}: [{', '.join(str(die) for die in event.rolls)}] — total {event.total}."
     ),
+    "session.trigger.fired": lambda event: f"Trigger {event.trigger_id} fired.",
+    "session.journal.entry_added": lambda event: f"Journal: {event.text}",
+    "session.note.recorded": lambda event: f"Referee note: {event.text}",
 }
 
 

@@ -149,6 +149,9 @@ def sample_event(event_class, code):
         "AdventureXpAwardEvent": dict(monster_xp=100, treasure_xp=250, share=87, survivors=("character-0001",)),
         "TreasureSoldEvent": dict(character_id="character-0001", instance_ids=("valuable-0001",), gp_value=500),
         "HealingPurchasedEvent": dict(character_id="character-0001", service="cure_light_wounds", cost_gp=25),
+        "TriggerFiredEvent": dict(trigger_id="lever-east"),
+        "JournalEntryAddedEvent": dict(text="The lever grinds; somewhere below, a portcullis rises.", rounds=12),
+        "NoteRecordedEvent": dict(text="The east lever is the only one that answers."),
     }
     return event_class(code=code, **samples[event_class.__name__])
 

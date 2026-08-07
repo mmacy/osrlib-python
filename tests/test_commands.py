@@ -30,6 +30,9 @@ REFEREE_COMMANDS = {
     "advance_time",
     "identify_item",
     "roll_dice",
+    "mark_trigger_fired",
+    "add_journal_entry",
+    "record_note",
 }
 
 # The referee commands a terminal session withholds, each because it would resume
@@ -94,6 +97,9 @@ def sample_command(command_class):
         "SellTreasure": dict(item_ids=("valuable-0001",)),
         "PurchaseHealing": dict(character_id="character-0001", service="cure_light_wounds"),
         "RollDice": dict(expression="2d6"),
+        "MarkTriggerFired": dict(trigger_id="lever-east"),
+        "AddJournalEntry": dict(text="The lever grinds; somewhere below, a portcullis rises."),
+        "RecordNote": dict(text="The east lever is the only one that answers."),
     }
     return command_class(**samples[command_class.__name__])
 

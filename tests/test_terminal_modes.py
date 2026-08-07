@@ -27,15 +27,18 @@ from osrlib.core.effects import Condition, EffectDefinition
 from osrlib.core.ruleset import Ruleset
 from osrlib.crawl.commands import (
     ALL_COMMAND_CLASSES,
+    AddJournalEntry,
     AdvanceTime,
     AwardXP,
     EnterDungeon,
     Evade,
     GrantCoins,
     GrantItem,
+    MarkTriggerFired,
     MoveParty,
     PlaceParty,
     PurchaseHealing,
+    RecordNote,
     Rest,
     RollDice,
     SessionMode,
@@ -169,6 +172,9 @@ class TestVictoryAtTheExecutedSeam:
             SetFlag(key="idol_returned", value=True),
             AdvanceTime(n=1, unit="turn"),
             RollDice(expression="2d6"),
+            MarkTriggerFired(trigger_id="idol-returned"),
+            AddJournalEntry(text="The idol sits on the altar where it began."),
+            RecordNote(text="The reward landed after the ending."),
         ]
         for command in accepted:
             assert session.execute(command).accepted, command.command_type

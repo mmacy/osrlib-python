@@ -35,6 +35,20 @@ Listeners are how a game adds its own reactive rules (a quest tracker, an achiev
 log) without touching the kernel; see
 [Listeners and flags](listeners-and-flags.md) for the extension point itself.
 
+Every command also carries an optional `source`: a string naming the authored object —
+a trigger or quest id — or the game system on whose behalf the command was issued.
+Execution never reads it, so a stamped command does exactly what the unstamped one
+does; it rides the command into the log and survives a save, a load, and a replay. The
+log therefore records not just *who* acted but *on whose behalf*, which is what makes
+"why did the party get that item?" answerable from the log alone:
+
+```{.python .no-run}
+# The source stamp annotates the log and changes nothing about execution.
+session.execute(AddJournalEntry(text="The lever grinds.", source="trigger:lever-east"))
+assert session.command_log[-1].source == "trigger:lever-east"
+assert session.view(Visibility.PLAYER).journal[-1].text == "The lever grinds."
+```
+
 ## Session modes and mode gating
 
 [`SessionMode`][osrlib.crawl.commands.SessionMode] is a small, closed set: `town`,
@@ -56,7 +70,11 @@ Commands that make sense both at rest and on the move (`ReorderParty`, `LightSou
 `ResolveBattleRound` requires `battle`. A handful, like `DropItems`, span two modes on
 purpose — dropping treasure to distract pursuers works whether the party is still
 exploring or already in an encounter. Referee commands (`GrantItem`, `SetFlag`,
-`AwardXP`, `AdvanceTime`, and the rest of the session-owned surface) are legal in
+`AwardXP`, `AdvanceTime`, the lifecycle trio
+[`MarkTriggerFired`][osrlib.crawl.commands.MarkTriggerFired],
+[`AddJournalEntry`][osrlib.crawl.commands.AddJournalEntry] and
+[`RecordNote`][osrlib.crawl.commands.RecordNote], and the rest of the
+session-owned surface) are legal in
 every mode, the two terminal ones included — a referee correcting the world
 doesn't stop just because the party fell, and an adventure's rewards can land
 after it ends. Three of them are the exception, each because it would resume play
@@ -216,10 +234,11 @@ crawl events together and is what the session's own log uses.
 ```python
 from osrlib.core.alignment import Alignment
 from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character
+from osrlib.core.events import Visibility
 from osrlib.core.rng import RngStreams
 from osrlib.core.ruleset import Ruleset
 from osrlib.crawl.adventure import Adventure, TownSpec
-from osrlib.crawl.commands import EnterDungeon, MoveParty, SessionMode, parse_command
+from osrlib.crawl.commands import AddJournalEntry, EnterDungeon, MoveParty, SessionMode, parse_command
 from osrlib.crawl.dungeon import Direction, DungeonSpec, Edge, EdgeKind, LevelSpec
 from osrlib.crawl.events import parse_any_event
 from osrlib.crawl.party import Party
@@ -273,6 +292,11 @@ result = session.execute(MoveParty(direction=Direction.EAST))
 assert result.accepted
 lines = [format_message(event) for event in result.events]
 assert lines  # every accepted command's events format to a default English line
+
+# The source stamp annotates the log and changes nothing about execution.
+session.execute(AddJournalEntry(text="The lever grinds.", source="trigger:lever-east"))
+assert session.command_log[-1].source == "trigger:lever-east"
+assert session.view(Visibility.PLAYER).journal[-1].text == "The lever grinds."
 
 # Commands and events round-trip through their wire discriminator; unknown types parse to None.
 move_payload = MoveParty(direction=Direction.EAST).model_dump(mode="json")

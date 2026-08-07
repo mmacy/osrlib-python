@@ -10,8 +10,8 @@ kernel leaves to its caller: the [`RngStreams`][osrlib.core.rng.RngStreams]
 (master seed), the [`IdAllocator`][osrlib.core.monsters.IdAllocator], the
 [`EffectsLedger`][osrlib.core.effects.EffectsLedger], the
 [`GameClock`][osrlib.core.clock.GameClock], the entity registry (characters and
-live monster instances), the flag store, the listener-state store, the command
-and event logs, the mode, and the crawl state.
+live monster instances), the flag store, the trigger fired-marks, the journal, the
+listener-state store, the command and event logs, the mode, and the crawl state.
 
 `execute(command)` runs a pure validation pre-phase: a rejected command consumes
 no RNG draws, no clock time, mutates nothing, and is excluded from the command
@@ -32,7 +32,7 @@ events, never from raw session internals.
 from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any, Protocol
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from osrlib.core.alignment import Alignment
 from osrlib.core.character import ADVANCEMENT_STREAM, Character
@@ -54,6 +54,7 @@ from osrlib.core.ruleset import Ruleset
 from osrlib.core.validation import Rejection
 from osrlib.crawl.adventure import Adventure, _effective_equipment, _effective_monsters, validate_adventure
 from osrlib.crawl.commands import (
+    AddJournalEntry,
     AdvanceTime,
     AwardXP,
     Command,
@@ -61,7 +62,9 @@ from osrlib.crawl.commands import (
     GrantCoins,
     GrantItem,
     IdentifyItem,
+    MarkTriggerFired,
     PlaceParty,
+    RecordNote,
     RollDice,
     SessionMode,
     SetDoorState,
@@ -77,10 +80,13 @@ from osrlib.crawl.events import (
     FlagSetEvent,
     GameOverEvent,
     ItemAcquiredEvent,
+    JournalEntryAddedEvent,
     LightEvent,
     LocationEnteredEvent,
     MonstersSpawnedEvent,
+    NoteRecordedEvent,
     TimeAdvancedEvent,
+    TriggerFiredEvent,
     XpAwardedEvent,
 )
 from osrlib.crawl.party import Party
@@ -102,6 +108,7 @@ __all__ = [
     "ENCOUNTER_STREAM",
     "EXPLORATION_STREAM",
     "GameSession",
+    "JournalEntry",
     "LIGHT_EFFECT_KINDS",
     "Listener",
     "MONSTER_ACTION_STREAM",
@@ -143,6 +150,22 @@ class DeathRecord(BaseModel):
 
     round: int
     cause: str
+
+
+class JournalEntry(BaseModel):
+    """One journal beat: the authored text and the clock position it landed at.
+
+    The journal is append-only — entries are never rewritten and never derived from
+    other state — and each entry carries its own `rounds` stamp because the moment
+    of appending is the only moment it can be captured: a front end renders "when"
+    from the view alone, and a save compacted of its event log still knows when
+    every beat landed.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    text: str = Field(min_length=1)
+    rounds: int = Field(ge=0)
 
 
 class DefeatedMonsterRecord(BaseModel):
@@ -234,6 +257,13 @@ class GameSession:
     session flags. Everything that happened is on `event_log`, every accepted
     command on `command_log`, and `save_game`/`load_game` round-trip the whole
     session deterministically: same seed, same commands, same game.
+
+    The trigger fired-marks (`fired_triggers`, in first-fired order) and the
+    `journal` are engine-owned session state beside the flag store: the lifecycle
+    commands [`MarkTriggerFired`][osrlib.crawl.commands.MarkTriggerFired] and
+    [`AddJournalEntry`][osrlib.crawl.commands.AddJournalEntry] are their only
+    writers, so a replay — which runs with no listeners registered — rebuilds both
+    by re-executing the command log.
     """
 
     def __init__(
@@ -277,6 +307,8 @@ class GameSession:
         self.monsters: dict[str, MonsterInstance] = {}
         self.npcs: dict[str, Character] = {}
         self.flags: dict[str, str | int | bool] = {}
+        self.fired_triggers: list[str] = []
+        self.journal: list[JournalEntry] = []
         self.listener_state: dict[str, dict] = {}
         self.listeners: list[Listener] = []
         self.command_log: list[Command] = []
@@ -937,6 +969,25 @@ def _handle_set_flag(session: GameSession, command: SetFlag) -> tuple[list[Rejec
     return [], [FlagSetEvent(key=command.key, value=command.value)]
 
 
+def _handle_mark_trigger_fired(session: GameSession, command: MarkTriggerFired) -> tuple[list[Rejection], list[Event]]:
+    # Fired-marks answer "has this trigger fired", so a repeat mark adds nothing;
+    # the event fires every time, because a repeatable trigger's every firing is
+    # marked and the log is the record of each one.
+    if command.trigger_id not in session.fired_triggers:
+        session.fired_triggers.append(command.trigger_id)
+    return [], [TriggerFiredEvent(trigger_id=command.trigger_id)]
+
+
+def _handle_add_journal_entry(session: GameSession, command: AddJournalEntry) -> tuple[list[Rejection], list[Event]]:
+    entry = JournalEntry(text=command.text, rounds=session.clock.rounds)
+    session.journal.append(entry)
+    return [], [JournalEntryAddedEvent(text=entry.text, rounds=entry.rounds)]
+
+
+def _handle_record_note(session: GameSession, command: RecordNote) -> tuple[list[Rejection], list[Event]]:
+    return [], [NoteRecordedEvent(text=command.text)]
+
+
 def _handle_spawn_monsters(session: GameSession, command: SpawnMonsters) -> tuple[list[Rejection], list[Event]]:
     from osrlib.core.dice import roll
     from osrlib.crawl import encounter as encounter_module
@@ -1112,6 +1163,9 @@ _REFEREE_HANDLERS = {
     GrantCoins: _handle_grant_coins,
     AwardXP: _handle_award_xp,
     SetFlag: _handle_set_flag,
+    MarkTriggerFired: _handle_mark_trigger_fired,
+    AddJournalEntry: _handle_add_journal_entry,
+    RecordNote: _handle_record_note,
     SpawnMonsters: _handle_spawn_monsters,
     SpawnNpcParty: _handle_spawn_npc_party,
     SetDoorState: _handle_set_door_state,
