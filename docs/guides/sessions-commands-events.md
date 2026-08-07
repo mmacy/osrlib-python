@@ -5,9 +5,11 @@ piece of mutable state — the party, the dungeon map as explored so far, the RN
 streams, the clock, the live monster registry, the mode — and it exposes exactly one
 way to change any of it: [`execute`][osrlib.crawl.session.GameSession.execute]. Hand it
 a command, get back a [`CommandResult`][osrlib.crawl.commands.CommandResult]. Nothing
-else in the public API mutates a session. This page walks the loop in depth: the modes
-that gate which commands are legal, the difference between a rejected command and a
-raised exception, and the event log those accepted commands leave behind. The complete
+else in the public API mutates a session. This page walks the loop in depth: the shape
+of one command's execution and the `source` stamp that records on whose behalf it ran,
+the modes that gate which commands are legal, the lifecycle commands the authored layer
+keeps its books with, the difference between a rejected command and a raised exception,
+and the event log those accepted commands leave behind. The complete
 program appears [at the end of the page](#the-complete-program); every fragment along
 the way is an excerpt of it.
 
@@ -58,47 +60,11 @@ assert session.view(Visibility.PLAYER).journal[-1].text == "The lever grinds."
 
 The library's [`Interpreter`][osrlib.crawl.interpreter.Interpreter] stamps every command
 it issues this way — `trigger:{id}` for a trigger's firing, `quest:{id}` for everything
-a quest causes — so a log left behind by authored content reads as a transcript with
-attributions: this grant came from `trigger:idol-lifted`, that door opened for
+a quest causes (see [Gates, triggers, and quests](gates-triggers-quests.md) for how
+those are authored) — so a log left behind by authored content reads as a transcript
+with attributions: this grant came from `trigger:idol-lifted`, that door opened for
 `trigger:portcullis-rises`, the coins came from `quest:the-idol`, and the `record_note`
 beside them says which consequence was dropped and why.
-
-## The lifecycle commands
-
-Seven referee commands exist for the authored layer to keep its own books with. Three
-of them are the trigger and journal vocabulary —
-[`MarkTriggerFired`][osrlib.crawl.commands.MarkTriggerFired],
-[`AddJournalEntry`][osrlib.crawl.commands.AddJournalEntry], and
-[`RecordNote`][osrlib.crawl.commands.RecordNote]. The other four advance quest state:
-
-- [`ActivateQuest`][osrlib.crawl.commands.ActivateQuest] puts a quest in play.
-- [`RevealObjective`][osrlib.crawl.commands.RevealObjective] surfaces a hidden objective.
-- [`CompleteObjective`][osrlib.crawl.commands.CompleteObjective] marks one done — and
-  reveals it on the way, since an objective the party finished is one it can be told about.
-- [`CompleteQuest`][osrlib.crawl.commands.CompleteQuest] finishes the quest, and on a
-  quest marked as concluding the adventure, ends the session in `victory`.
-
-They are ordinary commands: legal in every mode, logged, replayed, and stamped like any
-other. What they write — per-quest status and per-objective flags in `session.quests` —
-is engine-owned session state, so a replay with no listeners registered rebuilds it by
-re-executing the log.
-
-Their ids are a **closed domain**, and this is the one place the lifecycle family is not
-uniform. `MarkTriggerFired.trigger_id` is open: a mark records that something fired, needs
-no authored trigger behind it, and a game drives it with ids from its own systems. The
-four quest commands invert that — they resolve `quest_id` and `objective_id` against the
-adventure's own [`QuestSpec`][osrlib.crawl.quests.QuestSpec]s and reject an id no spec
-holds (`session.command.unknown_quest`, `session.command.unknown_objective`), because the
-state they advance is projected into the player view, and an id with no spec behind it has
-no name, no offer, and no objective list to show. A command that contradicts the state it
-finds — activating a quest already active, completing an objective already complete —
-rejects with `session.command.quest_state` naming the quest and the state that refused it.
-
-One asymmetry is deliberate: `CompleteQuest` requires the quest to be active and does
-*not* check its completion rule. Ruling a quest done is the referee's call; the
-interpreter is simply a disciplined issuer that checks the rule before it issues. For the
-same reason, rewards are not the command's doing — whoever completes a quest issues its
-rewards afterwards, which is why a hand-driven completion grants nothing.
 
 ## Session modes and mode gating
 
@@ -152,12 +118,50 @@ the party with nobody standing routes to `game_over` and reports it with the sam
 [`GameOverEvent`][osrlib.crawl.events.GameOverEvent] — a save-or-die trap sprung
 by a step into the wrong room, a fall, starvation on a long delve, a poison that
 resolves under a referee's `AdvanceTime`. `victory` is the other terminal mode:
-the session that ended by finishing what it set out to do. Nothing in the library
-enters it yet — the transition arrives with the authored quest layer, when
-completing an adventure's concluding quest is what puts a session there — but its
-contract is already in force, and
-[`SessionMode.terminal`][osrlib.crawl.commands.SessionMode] answers "has this
-session ended?" for either one.
+the session that ended by finishing what it set out to do. It has exactly one
+entrance — [`CompleteQuest`](#the-lifecycle-commands) on a quest authored
+`concludes_adventure=True`, which is how the interpreter ends an adventure whose
+concluding quest completes (see
+[the completion rule and the ending](gates-triggers-quests.md#the-completion-rule-and-the-ending))
+— and [`SessionMode.terminal`][osrlib.crawl.commands.SessionMode] answers "has
+this session ended?" for either one.
+
+## The lifecycle commands
+
+Seven referee commands exist for the authored layer to keep its own books with. Three
+of them are the trigger and journal vocabulary —
+[`MarkTriggerFired`][osrlib.crawl.commands.MarkTriggerFired],
+[`AddJournalEntry`][osrlib.crawl.commands.AddJournalEntry], and
+[`RecordNote`][osrlib.crawl.commands.RecordNote]. The other four advance quest state:
+
+- [`ActivateQuest`][osrlib.crawl.commands.ActivateQuest] puts a quest in play.
+- [`RevealObjective`][osrlib.crawl.commands.RevealObjective] surfaces a hidden objective.
+- [`CompleteObjective`][osrlib.crawl.commands.CompleteObjective] marks one done — and
+  reveals it on the way, since an objective the party finished is one it can be told about.
+- [`CompleteQuest`][osrlib.crawl.commands.CompleteQuest] finishes the quest, and on a
+  quest marked as concluding the adventure, ends the session in `victory`.
+
+They are ordinary commands: legal in every mode, logged, replayed, and stamped like any
+other. What they write — per-quest status and per-objective flags in `session.quests` —
+is engine-owned session state, so a replay with no listeners registered rebuilds it by
+re-executing the log.
+
+Their ids are a **closed domain**, and this is the one place the lifecycle family is not
+uniform. `MarkTriggerFired.trigger_id` is open: a mark records that something fired, needs
+no authored trigger behind it, and a game drives it with ids from its own systems. The
+four quest commands invert that — they resolve `quest_id` and `objective_id` against the
+adventure's own [`QuestSpec`][osrlib.crawl.quests.QuestSpec]s and reject an id no spec
+holds (`session.command.unknown_quest`, `session.command.unknown_objective`), because the
+state they advance is projected into the player view, and an id with no spec behind it has
+no name, no offer, and no objective list to show. A command that contradicts the state it
+finds — activating a quest already active, completing an objective already complete —
+rejects with `session.command.quest_state` naming the quest and the state that refused it.
+
+One asymmetry is deliberate: `CompleteQuest` requires the quest to be active and does
+*not* check its completion rule. Ruling a quest done is the referee's call; the
+interpreter is simply a disciplined issuer that checks the rule before it issues. For the
+same reason, rewards are not the command's doing — whoever completes a quest issues its
+rewards afterwards, which is why a hand-driven completion grants nothing.
 
 ## Rejections versus exceptions
 
@@ -169,6 +173,13 @@ exactly the facts a front end needs to render the refusal, never baked English p
 Moving into a wall, trying to pick a lock without thieves' tools, casting a spell in
 the wrong mode: these are all rejections, and `CommandResult.rejections` is where they
 land.
+
+One rejection family carries authored player-facing text on top of its code: a gate
+refusal (`exploration.door.gate_refused`, `exploration.transition.gate_refused`)
+ships the author's `refusal` beat in its `params` — content data in a structured
+field, not engine-baked English — so a front end that renders rejections should show
+that line to the player. [Gates, triggers, and quests](gates-triggers-quests.md)
+teaches the gate that authors it.
 
 ```{.python .no-run}
 # The party starts in town: MoveParty is out of mode and comes back rejected, not raised.

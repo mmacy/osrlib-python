@@ -31,8 +31,13 @@ assert save_game(session_a) == save_game(session_b)
 [`save_game`][osrlib.persistence.save_game] serializes a running
 [`GameSession`][osrlib.crawl.session.GameSession] to a JSON-compatible dict: the party, the
 embedded adventure content, dungeon state, the clock, every exported RNG stream position, the
-master seed, the accepted-command log, and — unless called with `include_event_log=False` — the
-event log. [`load_game`][osrlib.persistence.load_game] reconstructs a session from that dict by
+master seed, the session-state blocks the extension and authored layers write — the flag store,
+each registered listener's state slot, the trigger fired-marks, the journal, and quest state
+(see [Listeners and flags](listeners-and-flags.md) and
+[Gates, triggers, and quests](gates-triggers-quests.md)) — the accepted-command log, and —
+unless called with `include_event_log=False` — the event log. So the answer to "does my
+authored progress survive?" is yes, all of it, by construction.
+[`load_game`][osrlib.persistence.load_game] reconstructs a session from that dict by
 restoring each piece exactly, RNG stream positions included, so a loaded game continues drawing
 from precisely where the saved game left off:
 
@@ -53,7 +58,8 @@ is safe to compact a save with — state reconstructs exactly whether the log ri
 adventure, and the accepted-command log, and re-executes every command from scratch through a
 fresh session — no saved state at all. It raises
 [`ReplayVersionError`][osrlib.errors.ReplayVersionError] when the log's recorded engine version
-doesn't match the running engine, and
+doesn't match the running engine — a check that runs only when the caller passes the version a
+save recorded, through the `recorded_engine_version` argument — and
 [`ContentValidationError`][osrlib.errors.ContentValidationError] if a logged command is rejected
 on replay — a divergence, since the log holds only commands that were accepted the first time.
 
@@ -83,6 +89,23 @@ assert save_game(replayed, include_event_log=False) == save_game(session_a, incl
 ever joined a session — because [`GameSession.new`][osrlib.crawl.session.GameSession.new]
 assigns member ids itself, in party order, the same way both times.
 
+### Replay runs with no listeners
+
+`replay_game` builds its session with **no listeners registered**, and that is sufficient:
+every reaction a listener issued live — the interpreter's trigger consequences, a game
+listener's awards — was an ordinary command, accepted and logged, so re-executing the log
+rebuilds its every effect. The commands are already there; nothing needs to react again.
+
+The corollary is worth scoping precisely, because the two halves point in opposite
+directions. After [`load_game`][osrlib.persistence.load_game], re-register your listeners
+before executing *new* commands — a restored session that will keep playing needs its code
+attached again. During a *replay*, the rule splits by what the listener does: one that only
+observes — accumulating `listener_state`, returning annotation events — may be registered and
+reproduces its state exactly, but one that reacts by **issuing commands** — the
+[`Interpreter`][osrlib.crawl.interpreter.Interpreter] above all — must not be, because the log
+already carries every command it issued live, and a second issuer would issue them again and
+diverge from the recorded game.
+
 ## Schema versions and migrations
 
 This page is the documented home of [`osrlib.versioning`][osrlib.versioning]. Every serialized
@@ -90,7 +113,7 @@ document — saves, commands, events — is wrapped in an envelope carrying a `k
 `schema_version`, and an `engine_version`, produced by
 [`stamp_document`][osrlib.versioning.stamp_document] and read back by
 [`check_document`][osrlib.versioning.check_document].
-[`SCHEMA_VERSION`][osrlib.versioning.SCHEMA_VERSION] is currently `2`, and it's one integer
+[`SCHEMA_VERSION`][osrlib.versioning.SCHEMA_VERSION] is currently `3`, and it's one integer
 shared by every document kind, independent of the package's own release version.
 
 The promise a schema version makes is additive-only: within one version, only new event types
@@ -98,10 +121,12 @@ and new optional fields are allowed to appear. Anything else — a rename, a rem
 what a field means — bumps `SCHEMA_VERSION`, and a bump comes with a migration:
 [`load_game`][osrlib.persistence.load_game] runs a document's payload through the ordered chain
 in [`MIGRATIONS`][osrlib.persistence.MIGRATIONS] before touching it, so a document stamped at an
-older schema version still loads. Version 1's single migration is concrete: it drops a
+older schema version still loads. Both shipped migrations are concrete. The 1 → 2 step drops a
 `recovered_treasure` field the version-2 payload no longer carries, and adds the empty `npcs`
-list that arrived with version 2. A document saved back at the current floor, schema version 1,
-loads the same way a fresh one does:
+list that arrived with version 2. The 2 → 3 step is a lossless rewrite: version 3 rejects
+`trigger="enter"` on a treasure trap — a value the cache path never read — so the migration
+rewrites it to `"open"`, the one springing action a cache has. A document saved at the floor,
+schema version 1, runs the whole chain and loads the same way a fresh one does:
 
 ```{.python .no-run}
 # A version-1 document -- no "npcs" key, and the ledger field version 2 dropped --
