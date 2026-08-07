@@ -1,8 +1,8 @@
 # The barrow crawler
 
 A minimal terminal dungeon crawl on osrlib and the plain standard library — no
-curses, no Textual, no dependencies. It is the Phase 5 milestone: character
-creation to leveling up, entirely through `GameSession.execute`.
+curses, no Textual, no dependencies. It plays a complete adventure end to end —
+character creation to leveling up — entirely through `GameSession.execute`.
 
 ## Running it
 
@@ -25,7 +25,8 @@ town                 # return to town from the entrance
 sell all             # sell carried valuables at full value
 give character-0001 character-0002 550  # hand coin to a companion (coin weighs!)
 heal character-0002 cure_light_wounds   # buy a temple service
-status               # party summary
+status               # party summary, active quests included
+journal              # the party's journal, in order of discovery
 quit
 ```
 

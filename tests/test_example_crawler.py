@@ -53,6 +53,10 @@ class TestMilestonePlaythrough:
         # The level-up and the quest flag.
         assert "Highest level reached: 2" in out
         assert "quest.idol = 'recovered'" in out
+        # The status view renders the active quest, and the journal verb prints
+        # the authored record with its clock stamps.
+        assert "Quest: The Jade Idol — recover-idol incomplete, return-home incomplete" in out
+        assert "[round 120] The temple wants the Jade Idol off the barrow king's altar" in out
         # The adventure is over, and the closing status says so.
         assert "[victory]" in out
 
