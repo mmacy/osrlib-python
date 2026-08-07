@@ -32,7 +32,7 @@ quit
 Non-interactive mode replays a transcript with a fixed party and seed:
 
 ```sh
-uv run python -m examples.tui_crawler --seed 5 --script examples/tui_crawler/scripts/milestone.txt
+uv run python -m examples.tui_crawler --seed 21 --script examples/tui_crawler/scripts/milestone.txt
 ```
 
 That transcript is the milestone playthrough, in two trips: the delve, a generated

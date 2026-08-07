@@ -359,7 +359,6 @@ def _validate_consequence(
     adventure: Adventure,
     monsters: MonsterCatalog,
     equipment: EquipmentCatalog,
-    magic: MagicItemCatalog,
     errors: list[str],
 ) -> None:
     """Resolve one authored consequence's references and its character addressing.
@@ -417,9 +416,7 @@ def _validate_trigger(
     owner = f"trigger {trigger.id!r}"
     _validate_clause(trigger.when, trigger.conditions, owner, adventure, monsters, equipment, magic, errors)
     for position, consequence in enumerate(trigger.consequences):
-        _validate_consequence(
-            consequence, f"{owner}: consequence {position}", adventure, monsters, equipment, magic, errors
-        )
+        _validate_consequence(consequence, f"{owner}: consequence {position}", adventure, monsters, equipment, errors)
 
 
 def _validate_quest(
@@ -460,7 +457,7 @@ def _validate_quest(
                 errors,
             )
     for position, reward in enumerate(quest.rewards):
-        _validate_consequence(reward, f"{owner}: reward {position}", adventure, monsters, equipment, magic, errors)
+        _validate_consequence(reward, f"{owner}: reward {position}", adventure, monsters, equipment, errors)
 
 
 def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment: EquipmentCatalog) -> None:

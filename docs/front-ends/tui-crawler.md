@@ -160,21 +160,46 @@ the ones character creation already drew from:
 The interpreter is an ordinary [`Listener`][osrlib.crawl.session.Listener]: it runs
 after every command, matches the events against the adventure's triggers and quests,
 and acts the only way anything outside the engine may — by executing referee
-commands, each stamped with the quest it acted for. The transcript shows the beats as
-they land, rendered from typed events by the same formatter as everything else:
+commands, each stamped with the quest it acted for. Two moments from the end of the same
+milestone run show it, rendered from typed events by the same formatter as everything
+else. Emptying the shrine cache:
 
 ```text
 > take idol_shrine
-  character-0001 acquires jade-idol and 50 gp in coin.
+  character-0001 acquires 13 gp in coin.
+  character-0002 acquires 13 gp in coin.
+  character-0003 acquires jade-idol and 12 gp in coin.
+  character-0004 acquires 12 gp in coin.
   Quest the-idol: objective recover-idol is done. The idol comes up out of the hollow, cold as well-water.
+```
+
+Then, four `move w` steps later, the homecoming:
+
+```text
 > town
   The party enters town town.
   The adventure ends: 0 XP from monsters and 50 XP from treasure — 12 XP to each of 4 survivor(s).
+  character-0001 gains 12 XP (base 12), now level 1.
+  character-0002 gains 9 XP (base 12), now level 1.
+  character-0003 gains 13 XP (base 12), now level 1.
+  character-0004 gains 13 XP (base 12), now level 1.
   Quest the-idol: objective return-home is done. Threshold's gate shuts behind you with the idol inside it.
   Quest complete: The Jade Idol. The almoner counts out the reward without looking up. The idol is home.
-  The adventure is over: the-idol is finished.
+  The adventure is over: the-idol is finished. The almoner counts out the reward without looking up. The idol is home.
   character-0001 acquires 200 gp in coin.
+  character-0001 gains 1260 XP (base 1200), now level 1.
+  character-0002 gains 960 XP (base 1200), now level 1.
+  character-0003 gains 1320 XP (base 1200), now level 2.
+  character-0003 advances to level 2 (Footpad): +4 hp (rolled 4).
+  character-0004 gains 1320 XP (base 1200), now level 1.
 ```
+
+Two details of that output are the whole chapter in miniature. The cache spreads across
+the party by the ordinary loot rules, so the thief is the one carrying the idol when the
+party walks home — and the objective's `has_item` condition asks whether *the party*
+carries it, not who. And the completion beat appears twice, on the quest's own event and
+again on the adventure's, because each event carries the authored line and the formatter
+appends whatever beat rides the event it is given.
 
 ### Why the milestone makes two trips
 
