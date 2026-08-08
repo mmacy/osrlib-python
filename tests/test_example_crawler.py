@@ -55,7 +55,7 @@ class TestMilestonePlaythrough:
         assert "quest.idol = 'recovered'" in out
         # The status view renders the active quest, and the journal verb prints
         # the authored record with its clock stamps.
-        assert "Quest: The Jade Idol — recover-idol incomplete, return-home incomplete" in out
+        assert "Quest: The Jade Idol — Recover the idol incomplete, Bring it home incomplete" in out
         assert "[round 120] The temple wants the Jade Idol off the barrow king's altar" in out
         # The adventure is over, and the closing status says so.
         assert "[victory]" in out
@@ -66,10 +66,10 @@ class TestMilestonePlaythrough:
         # Every beat is the library's, rendered by the default formatter: the
         # example registers an interpreter and authors no quest code at all.
         assert "A new quest: The Jade Idol." in out
-        assert "Quest the-idol: objective recover-idol is done." in out
-        assert "Quest the-idol: objective return-home is done." in out
+        assert "Quest The Jade Idol: objective Recover the idol is done." in out
+        assert "Quest The Jade Idol: objective Bring it home is done." in out
         assert "Quest complete: The Jade Idol." in out
-        assert "The adventure is over: the-idol is finished." in out
+        assert "The adventure is over: The Jade Idol is finished." in out
         # The authored beats ride those events verbatim.
         assert "The temple wants the Jade Idol off the barrow king's altar" in out
         assert "The almoner counts out the reward without looking up." in out

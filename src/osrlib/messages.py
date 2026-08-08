@@ -6,10 +6,10 @@ to a plain English line — pure string templating keyed by the event's outcome-
 the code string itself rather than raising, so a transcript stays printable even when
 it holds event types this version of the library doesn't recognize.
 
-Templates reference entity IDs, not names — events carry structured facts and IDs
-only. A front end or narrator that wants prose with names resolves IDs itself and
-localizes freely; this formatter exists so a bare kernel transcript is readable without
-one.
+Templates reference what the event carries: entity IDs, and — where an event resolves
+one at emission, as the quest and objective events do — an authored display name. A
+front end or narrator that wants richer prose resolves IDs itself and localizes
+freely; this formatter exists so a bare kernel transcript is readable without one.
 """
 
 from collections.abc import Callable
@@ -351,12 +351,16 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
     "session.journal.entry_added": lambda event: f"Journal: {event.text}",
     "session.note.recorded": lambda event: f"Referee note: {event.text}",
     "session.quest.activated": lambda event: f"A new quest: {event.name}.",
-    "session.quest.objective_revealed": lambda event: f"Quest {event.quest_id}: a new objective, {event.objective_id}.",
+    # The quest and objective names fall back to the ids so an event logged before
+    # the name fields existed still formats — the engine always fills them.
+    "session.quest.objective_revealed": lambda event: (
+        f"Quest {event.quest_name or event.quest_id}: a new objective, {event.name or event.objective_id}."
+    ),
     "session.quest.objective_completed": lambda event: (
-        f"Quest {event.quest_id}: objective {event.objective_id} is done."
+        f"Quest {event.quest_name or event.quest_id}: objective {event.name or event.objective_id} is done."
     ),
     "session.quest.completed": lambda event: f"Quest complete: {event.name}.",
-    "session.adventure.completed": lambda event: f"The adventure is over: {event.quest_id} is finished.",
+    "session.adventure.completed": lambda event: f"The adventure is over: {event.name or event.quest_id} is finished.",
 }
 
 

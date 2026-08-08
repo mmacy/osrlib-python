@@ -198,9 +198,11 @@
     {
       "code": "session.quest.objective_completed",
       "event_type": "objective_completed",
+      "name": "Recover the idol",
       "narrative": "The idol comes out of its niche as if it were waiting.",
       "objective_id": "recover-idol",
       "quest_id": "the-idol",
+      "quest_name": "The Votive Idol",
       "visibility": "player"
     },
     {
@@ -224,9 +226,11 @@
     {
       "code": "session.quest.objective_revealed",
       "event_type": "objective_revealed",
+      "name": "Speak the rite",
       "narrative": "The slab wants words said over it before the idol may leave.",
       "objective_id": "speak-the-rite",
       "quest_id": "the-idol",
+      "quest_name": "The Votive Idol",
       "visibility": "player"
     },
     {
@@ -239,9 +243,11 @@
     {
       "code": "session.quest.objective_completed",
       "event_type": "objective_completed",
+      "name": "Speak the rite",
       "narrative": "The rite is spoken, and the cold goes out of the air.",
       "objective_id": "speak-the-rite",
       "quest_id": "the-idol",
+      "quest_name": "The Votive Idol",
       "visibility": "player"
     },
     {
@@ -255,6 +261,7 @@
     {
       "code": "session.adventure.completed",
       "event_type": "adventure_completed",
+      "name": "The Votive Idol",
       "narrative": "The barrow is quiet. The idol is yours to carry home.",
       "quest_id": "the-idol",
       "visibility": "player"
@@ -429,14 +436,14 @@
     "The party moves to (2, 0), facing east.",
     "The party enters area shrine (level 1).",
     "character-0001 acquires votive_idol.",
-    "Quest the-idol: objective recover-idol is done. The idol comes out of its niche as if it were waiting.",
+    "Quest The Votive Idol: objective Recover the idol is done. The idol comes out of its niche as if it were waiting.",
     "The party moves to (3, 0), facing east.",
     "The party enters area crypt (level 1).",
-    "Quest the-idol: a new objective, speak-the-rite. The slab wants words said over it before the idol may leave.",
+    "Quest The Votive Idol: a new objective, Speak the rite. The slab wants words said over it before the idol may leave.",
     "Flag barrow.rite = 'spoken'.",
-    "Quest the-idol: objective speak-the-rite is done. The rite is spoken, and the cold goes out of the air.",
+    "Quest The Votive Idol: objective Speak the rite is done. The rite is spoken, and the cold goes out of the air.",
     "Quest complete: The Votive Idol. The barrow is quiet. The idol is yours to carry home.",
-    "The adventure is over: the-idol is finished. The barrow is quiet. The idol is yours to carry home.",
+    "The adventure is over: The Votive Idol is finished. The barrow is quiet. The idol is yours to carry home.",
     "Referee note: quest the-idol: reward 0 (spawn_monsters) dropped (session.command.wrong_mode)",
     "character-0001 acquires 100 gp in coin.",
     "character-0001 gains 100 XP (base 100), now level 1.",

@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- An objective now has a display name everywhere the id used to stand alone (#65). `ObjectiveSpec.name` is the authored label — optional and defaulting empty, additive within schema 3, so every existing document loads unchanged; empty means unauthored, and everything that shows a label falls back to the objective's id. `ObjectiveView.name` carries that resolved label, so the view's promise of "what it is called" is finally true and a quest log built from `PlayerView.quests` never captions a checkbox with `find-the-lever`. `ObjectiveRevealedEvent` and `ObjectiveCompletedEvent` carry `name` (the objective's resolved label) and `quest_name` (the owning quest's name — the symmetry `QuestActivatedEvent` already shipped), `AdventureCompletedEvent` carries the concluding quest's `name`, and the default formatter's templates print the names in place of the raw ids: `Quest The Jade Idol: objective Recover the idol is done.` The new event fields default empty purely so a log written before they existed still parses — the engine always fills them, and the templates fall back to the ids for those older events, which is exactly the old wording. The bundled examples and fixtures author names for their objectives, and the two quest-bearing scenario goldens moved with the added fields and the renamed transcript lines; no draw sequence changed.
+
 ## [1.5.0] - 2026-08-07
 
 ### Added

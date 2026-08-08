@@ -81,8 +81,8 @@ referee-only state themselves:
 `PlayerView` when called with `Visibility.PLAYER` — hit points, gold, and carried
 valuables, and nothing a referee-only view would add. `_status` also walks
 `PlayerView.quests`: the **active** quests only, each with its revealed objectives
-and their states, which is why the closing status after victory lists no quest at
-all — a finished quest leaves the projection, and its record is the journal.
+by display name and state, which is why the closing status after victory lists no
+quest at all — a finished quest leaves the projection, and its record is the journal.
 `_journal` renders `PlayerView.journal`, the authored record in order of discovery,
 each beat stamped with the clock round it landed at. Both verbs are pure view
 reads: they execute no command, draw nothing, and log nothing, so a script may
@@ -185,7 +185,7 @@ else. Emptying the shrine cache:
   character-0002 acquires 13 gp in coin.
   character-0003 acquires jade-idol and 12 gp in coin.
   character-0004 acquires 12 gp in coin.
-  Quest the-idol: objective recover-idol is done. The idol comes up out of the hollow, cold as well-water.
+  Quest The Jade Idol: objective Recover the idol is done. The idol comes up out of the hollow, cold as well-water.
 ```
 
 Then, four `move w` steps later, the homecoming:
@@ -198,9 +198,9 @@ Then, four `move w` steps later, the homecoming:
   character-0002 gains 9 XP (base 12), now level 1.
   character-0003 gains 13 XP (base 12), now level 1.
   character-0004 gains 13 XP (base 12), now level 1.
-  Quest the-idol: objective return-home is done. Threshold's gate shuts behind you with the idol inside it.
+  Quest The Jade Idol: objective Bring it home is done. Threshold's gate shuts behind you with the idol inside it.
   Quest complete: The Jade Idol. The almoner counts out the reward without looking up. The idol is home.
-  The adventure is over: the-idol is finished. The almoner counts out the reward without looking up. The idol is home.
+  The adventure is over: The Jade Idol is finished. The almoner counts out the reward without looking up. The idol is home.
   character-0001 acquires 200 gp in coin.
   character-0001 gains 1260 XP (base 1200), now level 1.
   character-0002 gains 960 XP (base 1200), now level 1.

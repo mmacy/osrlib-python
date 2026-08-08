@@ -125,7 +125,7 @@ def _status(session) -> None:
     # Active quests only: a completed quest leaves the projection, its record kept
     # by the journal.
     for quest in view.quests:
-        objectives = ", ".join(f"{objective.id} {objective.state}" for objective in quest.objectives)
+        objectives = ", ".join(f"{objective.name} {objective.state}" for objective in quest.objectives)
         print(f"  Quest: {quest.name}" + (f" — {objectives}" if objectives else ""))
 
 

@@ -1182,7 +1182,15 @@ def _handle_reveal_objective(session: GameSession, command: RevealObjective) -> 
     objective_state.revealed = True
     beat = objective.narrative.offer if objective.narrative is not None else ""
     _append_quest_beat(session, beat)
-    return [], [ObjectiveRevealedEvent(quest_id=spec.id, objective_id=objective.id, narrative=beat or None)]
+    return [], [
+        ObjectiveRevealedEvent(
+            quest_id=spec.id,
+            quest_name=spec.name,
+            objective_id=objective.id,
+            name=objective.name or objective.id,
+            narrative=beat or None,
+        )
+    ]
 
 
 def _handle_complete_objective(session: GameSession, command: CompleteObjective) -> tuple[list[Rejection], list[Event]]:
@@ -1204,7 +1212,15 @@ def _handle_complete_objective(session: GameSession, command: CompleteObjective)
     objective_state.revealed = True
     beat = objective.narrative.progress if objective.narrative is not None else ""
     _append_quest_beat(session, beat)
-    return [], [ObjectiveCompletedEvent(quest_id=spec.id, objective_id=objective.id, narrative=beat or None)]
+    return [], [
+        ObjectiveCompletedEvent(
+            quest_id=spec.id,
+            quest_name=spec.name,
+            objective_id=objective.id,
+            name=objective.name or objective.id,
+            narrative=beat or None,
+        )
+    ]
 
 
 def _handle_complete_quest(session: GameSession, command: CompleteQuest) -> tuple[list[Rejection], list[Event]]:
@@ -1228,7 +1244,7 @@ def _handle_complete_quest(session: GameSession, command: CompleteQuest) -> tupl
         session.encounter = None
         session.battle = None
         session.mode = SessionMode.VICTORY
-        events.append(AdventureCompletedEvent(quest_id=spec.id, narrative=beat or None))
+        events.append(AdventureCompletedEvent(quest_id=spec.id, name=spec.name, narrative=beat or None))
     return [], events
 
 
