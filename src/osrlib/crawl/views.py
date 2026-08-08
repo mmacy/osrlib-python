@@ -150,6 +150,10 @@ class ObjectiveView(BaseModel):
 
     id: str
     """The objective's authored id, scoped to its quest."""
+    name: str
+    """The objective's display label: its authored `name`, or its id when the
+    document authors none — never empty, because the view's job is what it is
+    called."""
     state: str
     """`"incomplete"` or `"complete"`."""
 
@@ -396,7 +400,11 @@ def _quest_views(session):
             if objective_state is None or not objective_state.revealed:
                 continue
             objectives.append(
-                ObjectiveView(id=objective.id, state="complete" if objective_state.complete else "incomplete")
+                ObjectiveView(
+                    id=objective.id,
+                    name=objective.name or objective.id,
+                    state="complete" if objective_state.complete else "incomplete",
+                )
             )
         narrative = quest.narrative
         yield QuestView(

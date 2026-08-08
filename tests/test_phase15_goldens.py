@@ -108,6 +108,7 @@ class TestMilestoneBeats:
             event for event in golden["event_log"] if event.get("code") == "session.quest.objective_completed"
         )
         assert completed["objective_id"] == "recover-idol"
+        assert (completed["name"], completed["quest_name"]) == ("Recover the idol", "The Votive Idol")
         assert completed["narrative"].startswith("The idol comes out of its niche")
 
     def test_the_crypt_reveals_the_hidden_objective_and_the_rite_completes_it(self, golden):
@@ -115,6 +116,7 @@ class TestMilestoneBeats:
             event for event in golden["event_log"] if event.get("code") == "session.quest.objective_revealed"
         )
         assert revealed["objective_id"] == "speak-the-rite"
+        assert (revealed["name"], revealed["quest_name"]) == ("Speak the rite", "The Votive Idol")
         assert revealed["narrative"].startswith("The slab wants words said over it")
         # Written by the game, matched by the objective's own clause.
         assert "session.flag.set" in codes(golden)
@@ -131,6 +133,7 @@ class TestMilestoneBeats:
         ended = emitted.index("session.adventure.completed")
         assert ended == completed + 1, "the quest finishes, and the adventure closes behind it"
         completion, ending = golden["event_log"][completed], golden["event_log"][ended]
+        assert completion["name"] == ending["name"] == "The Votive Idol"
         assert completion["narrative"] == ending["narrative"] == "The barrow is quiet. The idol is yours to carry home."
         assert (completion["visibility"], ending["visibility"]) == ("player", "player")
         assert golden["final_state"]["mode"] == "victory"

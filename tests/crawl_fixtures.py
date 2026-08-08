@@ -76,8 +76,10 @@ __all__ = [
     "QUEST_NAME",
     "QUEST_OFFER",
     "QUEST_RECOVER",
+    "QUEST_RECOVER_NAME",
     "QUEST_RECOVER_PROGRESS",
     "QUEST_RETURN",
+    "QUEST_RETURN_NAME",
     "QUEST_RETURN_OFFER",
     "QUEST_RETURN_PROGRESS",
     "QUEST_SPEAKER",
@@ -107,8 +109,12 @@ QUEST_NAME = "The Jade Idol"
 QUEST_RECOVER = "recover-idol"
 """The visible objective: the idol comes out of the delve."""
 
+QUEST_RECOVER_NAME = "Recover the idol"
+
 QUEST_RETURN = "return-home"
 """The hidden objective: revealed in room_a, completed by walking home carrying it."""
+
+QUEST_RETURN_NAME = "Walk it home"
 
 QUEST_OFFER = "Sister Halda wants the idol back before the new moon."
 QUEST_SPEAKER = "Sister Halda"
@@ -250,11 +256,13 @@ def build_fetch_quest(**overrides) -> QuestSpec:
         objectives=(
             ObjectiveSpec(
                 id=QUEST_RECOVER,
+                name=QUEST_RECOVER_NAME,
                 when=TriggerClause(pattern=ItemAcquiredPattern(item_id="holy_water")),
                 narrative=NarrativeBlock(progress=QUEST_RECOVER_PROGRESS),
             ),
             ObjectiveSpec(
                 id=QUEST_RETURN,
+                name=QUEST_RETURN_NAME,
                 when=TriggerClause(pattern=TownEnteredPattern(), conditions=(HasItemCondition(item_id="holy_water"),)),
                 hidden=True,
                 reveal_when=TriggerClause(
@@ -610,11 +618,13 @@ def build_barrow_adventure() -> Adventure:
         objectives=(
             ObjectiveSpec(
                 id="recover-idol",
+                name="Recover the idol",
                 when=TriggerClause(pattern=ItemAcquiredPattern(item_id=BARROW_IDOL.id)),
                 narrative=NarrativeBlock(progress="The idol comes out of its niche as if it were waiting."),
             ),
             ObjectiveSpec(
                 id="speak-the-rite",
+                name="Speak the rite",
                 when=TriggerClause(pattern=FlagSetPattern(key=RITE_KEY, value="spoken")),
                 hidden=True,
                 reveal_when=TriggerClause(

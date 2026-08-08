@@ -25,8 +25,10 @@ from crawl_fixtures import (
     QUEST_NAME,
     QUEST_OFFER,
     QUEST_RECOVER,
+    QUEST_RECOVER_NAME,
     QUEST_RECOVER_PROGRESS,
     QUEST_RETURN,
+    QUEST_RETURN_NAME,
     QUEST_RETURN_OFFER,
     QUEST_RETURN_PROGRESS,
     QUEST_SPEAKER,
@@ -73,7 +75,9 @@ from test_crawl_properties import command_strategy
 
 # The shared fetch quest's ids and beats, under the short names this module reads by.
 RECOVER = QUEST_RECOVER
+RECOVER_NAME = QUEST_RECOVER_NAME
 RETURN = QUEST_RETURN
+RETURN_NAME = QUEST_RETURN_NAME
 OFFER = QUEST_OFFER
 COMPLETION = QUEST_COMPLETION
 RECOVER_PROGRESS = QUEST_RECOVER_PROGRESS
@@ -139,9 +143,15 @@ class TestObjectiveSpec:
 
     def test_defaults_are_the_visible_shape(self):
         objective = ObjectiveSpec(id="recover", when=TriggerClause(pattern=TownEnteredPattern()))
+        assert objective.name == ""
         assert not objective.hidden
         assert objective.reveal_when is None
         assert objective.narrative is None
+
+    def test_a_document_written_before_objective_names_parses_with_the_empty_default(self):
+        payload = build_quest().objectives[0].model_dump(mode="json")
+        payload.pop("name")
+        assert ObjectiveSpec.model_validate(payload).name == ""
 
     def test_a_hidden_objective_needs_no_reveal_clause(self):
         objective = ObjectiveSpec(id="secret", when=TriggerClause(pattern=TownEnteredPattern()), hidden=True)
@@ -652,8 +662,21 @@ class TestEvents:
             COMPLETION,
             COMPLETION,
         ]
-        assert emitted[0].name == emitted[3].name == "The Jade Idol"
+        assert emitted[0].name == emitted[3].name == emitted[4].name == "The Jade Idol"
         assert emitted[1].objective_id == RETURN and emitted[2].objective_id == RECOVER
+        # The objective events carry the display labels resolved: the objective's
+        # name and its quest's, so no renderer has to reach for the document.
+        assert emitted[1].name == RETURN_NAME and emitted[2].name == RECOVER_NAME
+        assert emitted[1].quest_name == emitted[2].quest_name == QUEST_NAME
+
+    def test_an_unauthored_objective_name_rides_the_events_as_the_id(self):
+        quest = build_quest(
+            objectives=tuple(objective.model_copy(update={"name": ""}) for objective in build_quest().objectives)
+        )
+        session = active_session(quest)
+        result = session.execute(CompleteObjective(quest_id=QUEST_ID, objective_id=RECOVER))
+        event = next(event for event in result.events if isinstance(event, ObjectiveCompletedEvent))
+        assert event.name == RECOVER
 
     def test_the_beat_rides_the_event_verbatim_through_the_formatter(self):
         from osrlib.messages import format_message
@@ -662,6 +685,41 @@ class TestEvents:
         result = session.execute(CompleteQuest(quest_id=QUEST_ID))
         event = next(event for event in result.events if isinstance(event, QuestCompletedEvent))
         assert format_message(event) == f"Quest complete: The Jade Idol. {COMPLETION}"
+
+    def test_the_objective_templates_print_names_never_ids(self):
+        from osrlib.messages import format_message
+
+        session = active_session(build_quest(concludes_adventure=True))
+        revealed = next(
+            event
+            for event in session.execute(RevealObjective(quest_id=QUEST_ID, objective_id=RETURN)).events
+            if isinstance(event, ObjectiveRevealedEvent)
+        )
+        assert format_message(revealed) == f"Quest {QUEST_NAME}: a new objective, {RETURN_NAME}. {RETURN_OFFER}"
+        completed = next(
+            event
+            for event in session.execute(CompleteObjective(quest_id=QUEST_ID, objective_id=RECOVER)).events
+            if isinstance(event, ObjectiveCompletedEvent)
+        )
+        assert format_message(completed) == f"Quest {QUEST_NAME}: objective {RECOVER_NAME} is done. {RECOVER_PROGRESS}"
+        ended = next(
+            event
+            for event in session.execute(CompleteQuest(quest_id=QUEST_ID)).events
+            if isinstance(event, AdventureCompletedEvent)
+        )
+        assert format_message(ended) == f"The adventure is over: {QUEST_NAME} is finished. {COMPLETION}"
+
+    def test_an_event_logged_before_the_name_fields_formats_by_falling_back_to_the_ids(self):
+        from osrlib.messages import format_message
+
+        # A schema-3 log written before the fields existed parses with the empty
+        # defaults, and the formatter falls back to the ids — the old wording.
+        old = ObjectiveCompletedEvent.model_validate(
+            {"event_type": "objective_completed", "quest_id": QUEST_ID, "objective_id": RECOVER}
+        )
+        assert format_message(old) == f"Quest {QUEST_ID}: objective {RECOVER} is done."
+        older = AdventureCompletedEvent.model_validate({"event_type": "adventure_completed", "quest_id": QUEST_ID})
+        assert format_message(older) == f"The adventure is over: {QUEST_ID} is finished."
 
 
 class TestVictory:
@@ -805,6 +863,19 @@ class TestPlayerViewQuests:
         assert session.execute(RevealObjective(quest_id=QUEST_ID, objective_id=RETURN)).accepted
         assert [objective.id for objective in self.quests(session)[0].objectives] == [RECOVER, RETURN]
 
+    def test_an_objective_ships_its_display_name(self):
+        view = self.quests(active_session())[0].objectives[0]
+        assert (view.id, view.name) == (RECOVER, RECOVER_NAME)
+
+    def test_an_unauthored_objective_name_falls_back_to_the_id(self):
+        # The view's job is what the objective is called, so it never ships an
+        # empty label: an unauthored name degrades to the authored id.
+        quest = build_quest(
+            objectives=tuple(objective.model_copy(update={"name": ""}) for objective in build_quest().objectives)
+        )
+        view = self.quests(active_session(quest))[0].objectives[0]
+        assert view.name == RECOVER
+
     def test_an_objectives_state_is_incomplete_until_it_is_done(self):
         session = active_session()
         assert self.quests(session)[0].objectives[0].state == "incomplete"
@@ -848,6 +919,7 @@ class TestPlayerViewQuests:
         ):
             assert wiring not in blob, wiring
         assert RETURN not in blob, "a hidden objective the party has not been told about has no view"
+        assert RETURN_NAME not in blob, "and its display name is exactly as secret as its id"
         assert GUIDANCE not in blob, "steering for a narrator is never shown to the table"
         assert COMPLETION not in blob, "the completion beat lands when the quest does, in the journal"
         assert OFFER in blob, "the offer is the whole point of shipping the quest"

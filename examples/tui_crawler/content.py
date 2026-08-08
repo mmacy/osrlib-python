@@ -93,11 +93,13 @@ def _fetch_quest() -> QuestSpec:
         objectives=(
             ObjectiveSpec(
                 id="recover-idol",
+                name="Recover the idol",
                 when=TriggerClause(pattern=ItemAcquiredPattern(item_id=IDOL_ID)),
                 narrative=NarrativeBlock(progress="The idol comes up out of the hollow, cold as well-water."),
             ),
             ObjectiveSpec(
                 id="return-home",
+                name="Bring it home",
                 when=TriggerClause(
                     pattern=TownEnteredPattern(),
                     conditions=(HasItemCondition(item_id=IDOL_ID),),

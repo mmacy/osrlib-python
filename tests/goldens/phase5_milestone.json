@@ -3333,9 +3333,11 @@
     {
       "code": "session.quest.objective_completed",
       "event_type": "objective_completed",
+      "name": "Recover the idol",
       "narrative": "The idol comes up out of the hollow, cold as well-water.",
       "objective_id": "recover-idol",
       "quest_id": "the-idol",
+      "quest_name": "The Jade Idol",
       "visibility": "player"
     },
     {
@@ -3443,9 +3445,11 @@
     {
       "code": "session.quest.objective_completed",
       "event_type": "objective_completed",
+      "name": "Bring it home",
       "narrative": "Threshold's gate shuts behind you with the idol inside it.",
       "objective_id": "return-home",
       "quest_id": "the-idol",
+      "quest_name": "The Jade Idol",
       "visibility": "player"
     },
     {
@@ -3459,6 +3463,7 @@
     {
       "code": "session.adventure.completed",
       "event_type": "adventure_completed",
+      "name": "The Jade Idol",
       "narrative": "The almoner counts out the reward without looking up. The idol is home.",
       "quest_id": "the-idol",
       "visibility": "player"
@@ -3601,7 +3606,7 @@
   "master_seed": 21,
   "mode": "victory",
   "party_document": {
-    "engine_version": "1.4.0",
+    "engine_version": "1.5.0",
     "kind": "party",
     "payload": {
       "characters": [
@@ -4169,7 +4174,7 @@
     "character-0002 acquires 13 gp in coin.",
     "character-0003 acquires jade-idol and 12 gp in coin.",
     "character-0004 acquires 12 gp in coin.",
-    "Quest the-idol: objective recover-idol is done. The idol comes up out of the hollow, cold as well-water.",
+    "Quest The Jade Idol: objective Recover the idol is done. The idol comes up out of the hollow, cold as well-water.",
     "The party moves to (3, 0), facing west.",
     "The party enters area guard_room (level 1).",
     "The party moves to (2, 0), facing west.",
@@ -4181,9 +4186,9 @@
     "character-0002 gains 9 XP (base 12), now level 1.",
     "character-0003 gains 13 XP (base 12), now level 1.",
     "character-0004 gains 13 XP (base 12), now level 1.",
-    "Quest the-idol: objective return-home is done. Threshold's gate shuts behind you with the idol inside it.",
+    "Quest The Jade Idol: objective Bring it home is done. Threshold's gate shuts behind you with the idol inside it.",
     "Quest complete: The Jade Idol. The almoner counts out the reward without looking up. The idol is home.",
-    "The adventure is over: the-idol is finished. The almoner counts out the reward without looking up. The idol is home.",
+    "The adventure is over: The Jade Idol is finished. The almoner counts out the reward without looking up. The idol is home.",
     "character-0001 acquires 200 gp in coin.",
     "character-0001 gains 1260 XP (base 1200), now level 1.",
     "character-0002 gains 960 XP (base 1200), now level 1.",

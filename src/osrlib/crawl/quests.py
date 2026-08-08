@@ -91,10 +91,16 @@ class TriggerClause(BaseModel):
 
 
 class ObjectiveSpec(BaseModel):
-    """One objective: how it completes, whether it starts hidden, and its text.
+    """One objective: what it is called, how it completes, whether it starts hidden, and its text.
 
     Objectives are monotonic — hidden becomes revealed, incomplete becomes complete,
     and neither goes back — because the quest vocabulary authors no repeat.
+
+    `name` is the objective's display label, the words a quest log shows beside its
+    checkbox. It defaults empty — a document written before the field existed loads
+    unchanged, additive within the schema version — and empty means unauthored:
+    everywhere a label is shown (the view, the lifecycle events, the default
+    formatter), an unauthored name falls back to the objective's id.
 
     A hidden objective with no `reveal_when` is a normal shape: it surfaces when it
     completes, because completing an objective reveals it. `reveal_when` on an
@@ -112,6 +118,7 @@ class ObjectiveSpec(BaseModel):
 
         recover = ObjectiveSpec(
             id="recover-idol",
+            name="Recover the flask",
             when=TriggerClause(pattern=ItemAcquiredPattern(item_id="holy_water")),
             narrative=NarrativeBlock(progress="The flask is yours; the shrine is quiet again."),
         )
@@ -122,6 +129,7 @@ class ObjectiveSpec(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     id: str = Field(min_length=1)
+    name: str = ""
     when: TriggerClause
     hidden: bool = False
     reveal_when: TriggerClause | None = None

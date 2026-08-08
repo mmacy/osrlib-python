@@ -72,7 +72,7 @@ session journal as written ([`JournalEntry`][osrlib.crawl.session.JournalEntry] 
 beats in order of discovery, each carrying the clock position it landed at, while the
 trigger fired-marks behind them stay out of the view entirely); the quests in play
 ([`QuestView`][osrlib.crawl.views.QuestView] — id, name, the offer beat and its speaker
-attribution, and the revealed objectives with their ids and states); and, when
+attribution, and the revealed objectives with their ids, display names, and states); and, when
 one is running, the current encounter or battle's public shape
 ([`EncounterView`][osrlib.crawl.views.EncounterView] and
 [`EncounterGroupView`][osrlib.crawl.views.EncounterGroupView] — a monster group's id,
@@ -130,6 +130,7 @@ narrative block or level.
 quest_view = player_view.quests[0]
 assert (quest_view.id, quest_view.speaker) == ("the-lamps", "Sister Halda")
 assert [entry.id for entry in quest_view.objectives] == ["find-the-lever"]
+assert quest_view.objectives[0].name == "Find the lever"  # the authored name, or the id when unauthored
 assert "name-the-dead" not in player_view.model_dump_json()
 ```
 

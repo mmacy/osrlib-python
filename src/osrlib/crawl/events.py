@@ -904,8 +904,12 @@ class QuestActivatedEvent(Event):
 class ObjectiveRevealedEvent(Event):
     """A hidden objective surfaced: the party can see what it is being asked for.
 
-    `narrative` is the objective's authored offer beat, `None` when unauthored, and
-    the journal carries the same line.
+    `name` is the objective's display label — its authored name, or its id when the
+    document authors none — and `quest_name` the owning quest's name, both resolved
+    at emission so a renderer holds no document to look them up in. Both default
+    empty only because an event logged before the fields existed still parses; the
+    engine always fills them. `narrative` is the objective's authored offer beat,
+    `None` when unauthored, and the journal carries the same line.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"session.quest.objective_revealed"})
@@ -914,15 +918,21 @@ class ObjectiveRevealedEvent(Event):
     code: str = "session.quest.objective_revealed"
     visibility: Visibility = Visibility.PLAYER
     quest_id: str
+    quest_name: str = ""
     objective_id: str
+    name: str = ""
     narrative: str | None = None
 
 
 class ObjectiveCompletedEvent(Event):
     """One objective of a quest is done — including one nobody had announced yet.
 
-    `narrative` is the objective's authored progress beat, `None` when unauthored,
-    and the journal carries the same line.
+    `name` is the objective's display label — its authored name, or its id when the
+    document authors none — and `quest_name` the owning quest's name, both resolved
+    at emission so a renderer holds no document to look them up in. Both default
+    empty only because an event logged before the fields existed still parses; the
+    engine always fills them. `narrative` is the objective's authored progress beat,
+    `None` when unauthored, and the journal carries the same line.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"session.quest.objective_completed"})
@@ -931,7 +941,9 @@ class ObjectiveCompletedEvent(Event):
     code: str = "session.quest.objective_completed"
     visibility: Visibility = Visibility.PLAYER
     quest_id: str
+    quest_name: str = ""
     objective_id: str
+    name: str = ""
     narrative: str | None = None
 
 
@@ -958,6 +970,8 @@ class AdventureCompletedEvent(Event):
 
     Follows the [`QuestCompletedEvent`][osrlib.crawl.events.QuestCompletedEvent] of
     the quest that concludes the adventure, and carries the same completion beat.
+    `name` is that quest's authored display name, defaulting empty only because an
+    event logged before the field existed still parses; the engine always fills it.
     The transition happens once and only from a session still in play — a party that
     finishes the job after it has already fallen completes the quest and gets no
     ending event.
@@ -969,6 +983,7 @@ class AdventureCompletedEvent(Event):
     code: str = "session.adventure.completed"
     visibility: Visibility = Visibility.PLAYER
     quest_id: str
+    name: str = ""
     narrative: str | None = None
 
 
