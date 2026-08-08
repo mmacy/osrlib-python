@@ -20,3 +20,4 @@ dist/
 
 # mkdocs build output
 site/
+.playwright-cli/**
