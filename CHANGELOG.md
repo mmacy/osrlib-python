@@ -4,7 +4,7 @@ All notable changes to osrlib are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The package version is the public API promise; `schema_version`, the integer stamped into saves, commands, and events, is the separate serialization axis defined by [the specification](docs/spec.md).
 
-## [Unreleased]
+## [1.6.0] - 2026-08-08
 
 ### Added
 
