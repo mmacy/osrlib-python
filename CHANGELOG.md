@@ -4,6 +4,13 @@ All notable changes to osrlib are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The package version is the public API promise; `schema_version`, the integer stamped into saves, commands, and events, is the separate serialization axis defined by [the specification](docs/spec.md).
 
+## [1.7.0] - 2026-08-21
+
+### Added
+
+- The player's encounter view now states the shape of the round the engine is asking a front end to declare. [`EncounterView`][osrlib.crawl.views.EncounterView] adds four id tuples beside the monster groups — `declarers` (living and able to act, the exact roster a [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound] must name), `front_rank` (the living members at the current formation width, or every living member with `formation_width_limit` off), `immobile` (declarers who cannot move), and `reloading` (members who fired a `reload` weapon last round, empty unless the `weapon_reload` flag is on). Each one corresponds to exactly one rejection that would otherwise bounce a whole round — `roster_mismatch`, `not_in_front_rank`, `cannot_move`, `combat.attack.reload` — so a front end can offer only the declarations the engine will accept instead of guessing. `front_rank` is the reason the set exists: the width is 3 inside a keyed area and 2 in a corridor, a distinction no wire client could derive, and a front end that assumed "the first two" both denied a legal attack in a room and offered an illegal one in a passage. All four are additive with empty defaults and derived from state a player already sees; no draw sequence, no rejection, and no golden moved.
+- An identified enchanted arm's public combat facts now reach the player view. [`MemberView`][osrlib.crawl.views.MemberView]'s masked inventory adds `qualities` and `missile_ranges` to an identified magic item that resolves to a base weapon — a shield or a suit of armour gains neither field, and an unidentified item still shows only its category display name. Both fields are rulebook facts about a weapon the player has already identified, and without them an enchanted dagger was unclassifiable where a plain dagger was not: a front end could not tell whether declaring the enchanted one at 5 feet meant a throw or a swing.
+
 ## [1.6.0] - 2026-08-08
 
 ### Added

@@ -76,7 +76,9 @@ attribution, and the revealed objectives with their ids, display names, and stat
 one is running, the current encounter or battle's public shape
 ([`EncounterView`][osrlib.crawl.views.EncounterView] and
 [`EncounterGroupView`][osrlib.crawl.views.EncounterGroupView] — a monster group's id,
-label, living count, distance, and visible conditions, but never its hit points).
+label, living count, distance, and visible conditions, but never its hit points),
+together with the round's own shape as the table knows it: who must declare, who
+stands in the front rank, who is held fast, and who is still reloading.
 Unidentified magic items are masked to a category-level description rather than their
 true name — see [`MagicItemCategory`][osrlib.core.items.MagicItemCategory] — so even a
 character's own inventory doesn't leak what a `detect magic` hasn't earned them yet.
