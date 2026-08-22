@@ -125,7 +125,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The documentation site: quickstart, guides, front-end walk-throughs, and a full reference for every command, event, rejection code, message code, RNG stream, and content id.
 - The typed surface: complete type hints under `py.typed`, checked in CI.
 
-[Unreleased]: https://github.com/mmacy/osrlib-python/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/mmacy/osrlib-python/compare/v1.7.0...HEAD
+[1.7.0]: https://github.com/mmacy/osrlib-python/compare/v1.6.0...v1.7.0
+[1.6.0]: https://github.com/mmacy/osrlib-python/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/mmacy/osrlib-python/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/mmacy/osrlib-python/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/mmacy/osrlib-python/compare/v1.2.1...v1.3.0
