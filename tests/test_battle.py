@@ -656,7 +656,7 @@ class TestDeclarationShape:
 
 
 class TestIdentifiedArmCombatFacts:
-    """An identified enchanted arm reports the reach a front end needs to classify the arm."""
+    """An identified enchanted arm reports the reach that lets a front end classify the arm."""
 
     def test_an_identified_dagger_shows_its_qualities_and_ranges(self):
         from osrlib.core.items import MagicItemInstance

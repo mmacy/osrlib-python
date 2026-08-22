@@ -82,7 +82,9 @@ def _first_weapon_id(member) -> str | None:
 def _battle_round(session) -> ResolveBattleRound:
     """One auto-declared battle round: front rank attacks, the rest close or hold.
 
-    The rank comes from the player view rather than a guess at its width. How many
+    Both the roster and the rank come from the player view rather than a guess.
+    The round must name exactly the members able to act — a slept member named
+    alongside the rest bounces the whole round (`roster_mismatch`) — and how many
     can fight abreast depends on the space the party stands in — two in a ten-foot
     passage, more in a room — so a front end that assumed the first two would both
     waste a legal attack and, in a narrow place, declare an illegal one and lose
@@ -90,10 +92,10 @@ def _battle_round(session) -> ResolveBattleRound:
     """
     view = session.view(Visibility.PLAYER)
     group = next(entry for entry in session.encounter.groups if not entry.fled and not entry.surrendered)
-    living = session.party.living_members()
+    members = {member.id: member for member in session.party.members}
     front = view.encounter.front_rank
     declarations = []
-    for member in living:
+    for member in (members[member_id] for member_id in view.encounter.declarers):
         weapon_id = _first_weapon_id(member)
         if group.distance_feet > 5:
             declarations.append(

@@ -209,7 +209,7 @@ Then, four `move w` steps later, the homecoming:
 Two details of that output are the whole chapter in miniature. The cache spreads across
 the party by the ordinary loot rules, so which character walks home with the idol is
 whatever the split decided — here the fighter, and the cleric is not in the list at all,
-having died in the vault — and the objective's `has_item` condition asks whether *the
+having died in the vault — and the objective's `has_item` condition tests whether *the
 party* holds the idol, not who. And the completion beat appears twice, on the quest's own event and
 again on the adventure's, because each event carries the authored line and the formatter
 appends whatever beat rides the event it is given.
