@@ -319,7 +319,7 @@ Out of scope for 1.0 (tracked for later): wilderness and sea adventuring, strong
 - `deprivation_penalties` (default off) — adaptation: penalties for going without food/water
 - `xp_award_timing` (default `on_return`) — `on_return` per RAW, or `immediate` for continuous CRPG play
 - `aoe_friendly_fire` (default on) — adaptation knob: areas overlapping a melee catch friends
-- `formation_width_limit` (default on) — adaptation knob: corridor width caps combatants fighting abreast
+- `formation_width_limit` (default on) — adaptation knob: the width of the space the party stands in caps combatants fighting abreast
 
 Flags are read at resolution time, so a `Ruleset` is fixed for the life of a session (it participates in saves and replays).
 

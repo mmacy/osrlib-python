@@ -13,8 +13,9 @@ missiles, magic, melee — with slow-weapon actors last. The combat space is the
 abstract per-group range track (the Bard's Tale convention), as a documented
 adaptation — see the adaptations register: each monster group sits at a distance
 from the party, closing at encounter rate and meleeing at 5'; party ranks derive
-from marching order under the `formation_width_limit` flag (width 3 inside a keyed
-area, 2 in a corridor).
+from marching order under the `formation_width_limit` flag, whose width is the
+frontage the party's own space offers — five feet to a combatant, so two in a
+ten-foot passage and a room's shorter side in a room.
 
 The machine detects spell disruption (a declared caster is successfully attacked,
 or fails a save, after initiative resolves against them but before their action),
@@ -81,6 +82,7 @@ from osrlib.core.spells import (
 )
 from osrlib.core.validation import Rejection
 from osrlib.crawl.commands import BattleDeclaration, ResolveBattleRound, SessionMode
+from osrlib.crawl.dungeon import Direction, EdgeKind, Position
 from osrlib.crawl.events import (
     BattleEndedEvent,
     BattleRoundEvent,
@@ -95,6 +97,7 @@ from osrlib.data import load_classes, load_spells
 __all__ = [
     "ActionPolicy",
     "BattleState",
+    "FIGHTER_FRONTAGE_FEET",
     "FLEE_EXIT_FEET",
     "HANDLERS",
     "MELEE_RANGE_FEET",
@@ -355,15 +358,102 @@ def _living_monsters(session, group) -> list:
     ]
 
 
+FIGHTER_FRONTAGE_FEET = 5
+"""Feet of frontage one combatant needs to fight side by side.
+
+RAW prints one number for this and leaves the rest to judgement: "The referee
+should judge the number of opponents that can attack a single combatant, bearing
+in mind the combatant's size and the available space around them. **10' passage:**
+Enough space for at most 2–3 characters to fight side-by-side." osrlib pins the
+conservative end of that range — two in ten feet, so five feet each — and then
+applies it to whatever space the party actually stands in.
+"""
+
+
+def _fighting_space(level, position: Position) -> set[Position]:
+    """The cells the party can form a line across, flooded out from where it stands.
+
+    The flood crosses open edges only. It stops at a wall; at a door, because a
+    doorway is a threshold rather than room to fight abreast; and wherever the
+    space itself changes, which is what keeps a room's open mouth onto a corridor
+    from counting the corridor as part of the room. Corridor cells belong to no
+    area, so the flood's own connectivity is what separates one passage from
+    another.
+
+    Args:
+        level (osrlib.crawl.dungeon.LevelSpec): The level being fought on.
+        position: The cell the party occupies.
+
+    Returns:
+        The connected cells of that one space, including `position`.
+    """
+    space = level.area_at(position)
+    seen = {position}
+    frontier = [position]
+    while frontier:
+        cell = frontier.pop()
+        for direction in Direction:
+            if level.edge(cell, direction).kind is not EdgeKind.OPEN:
+                continue
+            step = direction.vector
+            neighbour = (cell[0] + step[0], cell[1] + step[1])
+            if neighbour in seen or not level.in_bounds(neighbour):
+                continue
+            if level.area_at(neighbour) is not space:
+                continue
+            seen.add(neighbour)
+            frontier.append(neighbour)
+    return seen
+
+
+def _frontage_cells(level, position: Position) -> int:
+    """How thick the party's fighting space is, in cells.
+
+    The measure is the widest square of unbroken space that includes the party's
+    cell — how much room there is here, not how far the space reaches. A passage
+    one cell wide gives one however long it runs, and gives one at a crossroads
+    too, where two such passages meet and the floor is still ten feet across in
+    every direction. A room gives its shorter side, and an irregular cave gives
+    whatever it offers around the party.
+
+    Reach is the wrong measure and looks right on rooms: for a rectangle the
+    shorter run through a cell *is* the shorter side, so measuring runs agrees
+    everywhere it is tested on rooms and then reports a corridor junction as a
+    fifty-foot hall.
+
+    Args:
+        level (osrlib.crawl.dungeon.LevelSpec): The level being fought on.
+        position: The cell the party occupies.
+
+    Returns:
+        The square's side in cells, at least 1.
+    """
+    space = _fighting_space(level, position)
+    x, y = position
+    side = 1
+    while True:
+        wider = side + 1
+        corners = ((left, top) for left in range(x - wider + 1, x + 1) for top in range(y - wider + 1, y + 1))
+        if not any(
+            all((left + dx, top + dy) in space for dx in range(wider) for dy in range(wider)) for left, top in corners
+        ):
+            return side
+        side = wider
+
+
 def _formation_width(session) -> int | None:
-    """Rank width: 3 inside a keyed area, 2 in corridor; `None` with the flag off."""
+    """Rank width: how many combatants the party's own frontage holds abreast.
+
+    `None` with the `formation_width_limit` flag off, which lifts the cap
+    entirely.
+    """
     if not session.ruleset.formation_width_limit:
         return None
     from osrlib.crawl import exploration
 
     level = exploration._level(session)
-    area = level.area_at(exploration._position(session))
-    return 3 if area is not None else 2
+    frontage_feet = _frontage_cells(level, exploration._position(session)) * exploration._CELL_FEET
+    return max(1, frontage_feet // FIGHTER_FRONTAGE_FEET)
 
 
 def _party_ranks(session) -> list[list]:
