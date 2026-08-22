@@ -2,6 +2,7 @@
 
 from crawl_fixtures import build_adventure, build_party
 from osrlib.core.effects import ActiveCondition, Condition, EffectDefinition, ModifierSpec, has_condition
+from osrlib.core.events import Visibility
 from osrlib.core.ruleset import Ruleset
 from osrlib.core.tables import ReactionResult
 from osrlib.crawl import battle as battle_module
@@ -516,6 +517,160 @@ class TestFormationWidth:
         assert battle_module._formation_width(session) == 3  # inside room_a
         session.ruleset = Ruleset(formation_width_limit=False)
         assert battle_module._formation_width(session) is None
+
+
+class TestDeclarationShape:
+    """The encounter view's four id tuples must agree with what the validator accepts.
+
+    Each field exists so a front end can offer only legal declarations; a field that
+    disagreed with `_validate_declaration` would be worse than no field at all, so
+    every test here reads the view and then puts its claim to the engine.
+    """
+
+    def test_front_rank_widens_in_a_room_and_the_third_member_may_swing(self):
+        from osrlib.crawl.commands import PlaceParty
+        from osrlib.crawl.dungeon import PartyLocation
+
+        session = battle_session(distance=5, engage=False)
+        assert session.view(Visibility.PLAYER).encounter.front_rank == ("character-0001", "character-0002")
+        # Stand the party inside keyed room_a, where the formation is three wide.
+        # A teleport is illegal with an encounter open, so the encounter is stashed
+        # across the move rather than re-rolled — the same monsters either way.
+        encounter, mode = session.encounter, session.mode
+        session.encounter = None
+        session.mode = SessionMode("exploring")
+        session.execute(
+            PlaceParty(
+                location=PartyLocation(
+                    kind="dungeon", dungeon_id="delve", level_number=1, position=(2, 1), facing=Direction.SOUTH
+                )
+            )
+        )
+        session.encounter, session.mode = encounter, mode
+        session.execute(EngageBattle())
+        view = session.view(Visibility.PLAYER)
+        assert view.encounter.front_rank == ("character-0001", "character-0002", "character-0003")
+        result = session.execute(
+            ResolveBattleRound(
+                declarations=hold_all(
+                    session,
+                    extra=(
+                        BattleDeclaration(
+                            character_id="character-0003", action="attack", target_group_id=group_id(session)
+                        ),
+                    ),
+                )
+            )
+        )
+        assert result.accepted
+
+    def test_front_rank_holds_every_living_member_with_the_flag_off(self):
+        session = battle_session(distance=5, ruleset=Ruleset(formation_width_limit=False))
+        view = session.view(Visibility.PLAYER)
+        assert view.encounter.front_rank == tuple(member.id for member in session.party.living_members())
+
+    def test_declarers_drops_a_sleeping_member_and_the_living_roster_rejects(self):
+        session = battle_session(distance=5)
+        session.party.members[2].conditions = (ActiveCondition(condition=Condition.ASLEEP, effect_id="effect-9999"),)
+        view = session.view(Visibility.PLAYER)
+        assert "character-0003" not in view.encounter.declarers
+        assert view.encounter.declarers == tuple(
+            member.id for member in session.party.living_members() if member.id != "character-0003"
+        )
+        living_roster = tuple(
+            BattleDeclaration(character_id=member.id, action="hold") for member in session.party.living_members()
+        )
+        rejected = session.execute(ResolveBattleRound(declarations=living_roster))
+        assert not rejected.accepted
+        assert any(rejection.code == "battle.declaration.roster_mismatch" for rejection in rejected.rejections)
+        declared = tuple(
+            BattleDeclaration(character_id=member_id, action="hold") for member_id in view.encounter.declarers
+        )
+        assert session.execute(ResolveBattleRound(declarations=declared)).accepted
+
+    def test_immobile_names_an_entangled_declarer_whose_move_rejects(self):
+        session = battle_session(distance=40)
+        session.party.members[2].conditions = (ActiveCondition(condition=Condition.ENTANGLED, effect_id="effect-9999"),)
+        view = session.view(Visibility.PLAYER)
+        assert view.encounter.immobile == ("character-0003",)
+        assert "character-0003" in view.encounter.declarers
+        result = session.execute(
+            ResolveBattleRound(
+                declarations=hold_all(
+                    session,
+                    extra=(
+                        BattleDeclaration(
+                            character_id="character-0003",
+                            action="move",
+                            move="close",
+                            target_group_id=group_id(session),
+                        ),
+                    ),
+                )
+            )
+        )
+        assert not result.accepted
+        assert any(rejection.code == "battle.declaration.cannot_move" for rejection in result.rejections)
+
+    def test_reloading_names_the_crossbow_that_just_fired(self):
+        session = battle_session(distance=40, ruleset=Ruleset(weapon_reload=True))
+        shoot = BattleDeclaration(
+            character_id="character-0002", action="attack", target_group_id=group_id(session), weapon_id="crossbow"
+        )
+        assert session.view(Visibility.PLAYER).encounter.reloading == ()
+        assert session.execute(ResolveBattleRound(declarations=hold_all(session, extra=(shoot,)))).accepted
+        assert session.view(Visibility.PLAYER).encounter.reloading == ("character-0002",)
+        again = session.execute(ResolveBattleRound(declarations=hold_all(session, extra=(shoot,))))
+        assert not again.accepted
+        assert any(rejection.code == "combat.attack.reload" for rejection in again.rejections)
+
+    def test_reloading_stays_empty_with_the_reload_flag_off(self):
+        session = battle_session(distance=40)  # the flag is an SRD option, default off
+        shoot = BattleDeclaration(
+            character_id="character-0002", action="attack", target_group_id=group_id(session), weapon_id="crossbow"
+        )
+        assert session.execute(ResolveBattleRound(declarations=hold_all(session, extra=(shoot,)))).accepted
+        assert session.view(Visibility.PLAYER).encounter.reloading == ()
+        assert session.execute(ResolveBattleRound(declarations=hold_all(session, extra=(shoot,)))).accepted
+
+
+class TestIdentifiedArmCombatFacts:
+    """An identified enchanted arm reports the reach a front end needs to classify the arm."""
+
+    def test_an_identified_dagger_shows_its_qualities_and_ranges(self):
+        from osrlib.core.items import MagicItemInstance
+
+        session = battle_session(distance=40)
+        member = session.party.members[0]
+        arm = MagicItemInstance(instance_id="magic-item-0001", template_id="dagger_plus_1", identified=True)
+        member.inventory.wielded.append(arm)
+        wielded = session.view(Visibility.PLAYER).party[0].inventory["wielded"][-1]
+        assert wielded["instance_id"] == "magic-item-0001"
+        # A dagger is the hybrid case: melee and missile both, so the classification
+        # a front end has to make turns on the distance, not on the weapon alone.
+        assert set(wielded["qualities"]) == {"melee", "missile"}
+        assert wielded["missile_ranges"]["long"]["max_feet"] == 30
+
+    def test_an_unidentified_arm_stays_masked(self):
+        from osrlib.core.items import MagicItemInstance
+
+        session = battle_session(distance=40)
+        member = session.party.members[0]
+        member.inventory.wielded.append(MagicItemInstance(instance_id="magic-item-0001", template_id="dagger_plus_1"))
+        wielded = session.view(Visibility.PLAYER).party[0].inventory["wielded"][-1]
+        assert "qualities" not in wielded
+        assert "missile_ranges" not in wielded
+
+    def test_a_shield_has_no_combat_facts_to_show(self):
+        from osrlib.core.items import MagicItemInstance
+
+        session = battle_session(distance=40)
+        member = session.party.members[0]
+        member.inventory.items.append(
+            MagicItemInstance(instance_id="magic-item-0001", template_id="shield_plus_1", identified=True)
+        )
+        carried = session.view(Visibility.PLAYER).party[0].inventory["items"][-1]
+        assert "qualities" not in carried
 
 
 class TestMoraleAndEnds:

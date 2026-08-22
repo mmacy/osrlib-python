@@ -127,7 +127,17 @@ class EncounterGroupView(BaseModel):
 
 
 class EncounterView(BaseModel):
-    """The current encounter or battle's public state."""
+    """The current encounter or battle's public state.
+
+    Four id tuples — `declarers`, `front_rank`, `immobile`, and `reloading` —
+    describe the round's shape as the players know it at the table: who is able to
+    act, who stands close enough to swing, who is held fast, and who is still
+    cranking a windlass. Each one corresponds to a rejection the engine would
+    otherwise raise against the whole round, so a front end that reads all four can
+    offer only the declarations the engine will accept. Without them a front end
+    must guess at the rank width and learn it guessed wrong by losing the party's
+    turn.
+    """
 
     model_config = ConfigDict(frozen=True)
 
@@ -136,6 +146,26 @@ class EncounterView(BaseModel):
     in_battle: bool
     battle_round: int | None = None
     pursuit_gap_feet: int | None = None
+    declarers: tuple[str, ...] = ()
+    """Every member who must declare this round, in marching order: living and able
+    to act. A [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound] naming
+    any other roster — a slept or paralysed member included — is rejected whole
+    (`battle.declaration.roster_mismatch`)."""
+    front_rank: tuple[str, ...] = ()
+    """The living members close enough to attack in melee, in marching order — the
+    party's first rank at the current formation width, or every living member when
+    the `formation_width_limit` flag is off. A melee attack declared for anyone else
+    is rejected (`battle.declaration.not_in_front_rank`), and inside melee reach a
+    weapon that is both melee and missile counts as a melee weapon."""
+    immobile: tuple[str, ...] = ()
+    """The declarers who cannot move this round — entangled, in practice, since the
+    states that stop a move otherwise stop a declaration. Their `close` and
+    `withdraw` moves are rejected (`battle.declaration.cannot_move`)."""
+    reloading: tuple[str, ...] = ()
+    """The members who may not fire a `reload` weapon this round, because they fired
+    one last round (`combat.attack.reload`). Empty when the ruleset's `weapon_reload`
+    flag is off, so a front end can combine this list with the weapon's own
+    qualities and needs to know nothing about the flag."""
 
 
 class ObjectiveView(BaseModel):
@@ -236,15 +266,21 @@ def _masked_magic_item(instance: MagicItemInstance) -> dict:
 
     An unidentified item shows only its category display name (an enchanted arm
     shows its base — "a sword with a faint aura", the concession because *detect
-    magic* exists); an identified one shows its true name and id. Charges,
-    sentience, and per-item state never appear at any identification level: by
-    RAW, charges are undiscoverable.
+    magic* exists); an identified one shows its true name and id, and — for an arm —
+    the `qualities` and `missile_ranges` of the mundane weapon underneath it: how
+    far the arm reaches, and in what manner. Both fields are rulebook facts about a
+    weapon the player has already identified, and a front end needs them to tell a
+    melee declaration from a missile one; without them an enchanted dagger is
+    unclassifiable where a plain dagger is not. Charges, sentience, and per-item
+    state never appear at any identification level: by RAW, charges are
+    undiscoverable.
     """
+    from osrlib.core.combat import attack_facet
     from osrlib.data import load_equipment
 
     template = magic_item_template(instance)
     if instance.identified:
-        return {
+        payload = {
             "instance_type": "magic_item",
             "instance_id": instance.instance_id,
             "template_id": instance.template_id,
@@ -253,6 +289,12 @@ def _masked_magic_item(instance: MagicItemInstance) -> dict:
             "identified": True,
             "cursed": instance.cursed_revealed,
         }
+        facet = attack_facet(instance)
+        if facet is not None:
+            payload["qualities"] = [quality.value for quality in facet.qualities]
+            if facet.missile_ranges is not None:
+                payload["missile_ranges"] = facet.missile_ranges.model_dump(mode="json")
+        return payload
     display = _MASKED_CATEGORY_NAMES.get(template.category)
     if display is None:
         base_id = instance.base_item_id or template.base_item_id
@@ -480,6 +522,9 @@ def _canonical_edge(cell: Position, direction: Direction) -> str:
 
 
 def _encounter_view(session) -> EncounterView | None:
+    from osrlib.core.combat import cannot_move
+    from osrlib.crawl.battle import _able_declarers, _party_front_rank
+
     state = session.encounter
     if state is None:
         return None
@@ -500,12 +545,19 @@ def _encounter_view(session) -> EncounterView | None:
                 visible_conditions=tuple(conditions),
             )
         )
+    declarers = _able_declarers(session)
+    battle = session.battle
+    fired = battle.fired_last_round if battle is not None and session.ruleset.weapon_reload else ()
     return EncounterView(
         groups=tuple(groups),
         stance=state.stance,
-        in_battle=session.battle is not None,
-        battle_round=session.battle.round if session.battle is not None else None,
+        in_battle=battle is not None,
+        battle_round=battle.round if battle is not None else None,
         pursuit_gap_feet=state.pursuit.gap_feet if state.pursuit is not None else None,
+        declarers=tuple(member.id for member in declarers),
+        front_rank=tuple(member.id for member in _party_front_rank(session)),
+        immobile=tuple(member.id for member in declarers if cannot_move(member)),
+        reloading=tuple(fired),
     )
 
 
