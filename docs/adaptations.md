@@ -885,10 +885,13 @@ until three rested turns. Locked by `test_encounter.py::TestEvasionAndPursuit`.
 
 Battle declarations arrive as one command per round with one declaration per
 living, able member, rejected whole on any invalid declaration (partial acceptance
-would tangle the replay contract). Formation width is 3 in a keyed area and 2 in
-corridor under `formation_width_limit` (RAW's "2–3 characters in a 10' passage"
-pinned to 2, rooms at 3); ranks recompute from the living marching order at round
-start and melee reaches the front rank only, both directions, with no
+would tangle the replay contract). Formation width is the frontage the party's own space
+offers under `formation_width_limit`: the widest square of unbroken floor that
+includes the party's cell, at five feet of frontage each — RAW's "2–3 characters
+in a 10' passage" pinned to its conservative end and then applied to whatever
+space the party stands in, so a ten-foot passage holds two however long it runs
+and a room holds its shorter side. Ranks recompute from the living marching order
+at round start and melee reaches the front rank only, both directions, with no
 firing-into-melee penalty (none exists in the SRD). The party moves as a
 formation — individual members cannot leave it (the Bard's Tale convention):
 all-retreat moves off at the full encounter rate (Combat.md's "full encounter
@@ -1262,10 +1265,20 @@ members among a monster group's candidates. Locked by
 
 ### `formation_width_limit` (default on)
 
-Corridor width caps combatants fighting abreast: rank width 3 inside a keyed area
-and 2 in corridor cells (RAW's "2–3 characters in a 10' passage"). Off lifts the
-cap — every combatant may melee and area footprints are unbounded. Locked by
-`test_battle.py::TestFormationWidth`.
+Available space caps combatants fighting abreast. RAW prints one number and leaves
+the rest to judgement — "The referee should judge the number of opponents that can
+attack a single combatant, bearing in mind the combatant's size and the available
+space around them. **10' passage:** Enough space for at most 2–3 characters to
+fight side-by-side" — so osrlib pins the conservative end, two in ten feet, and
+measures the space instead of naming a number per kind of cell. The rank width is
+the widest square of unbroken floor including the party's cell, five feet of
+frontage to a combatant: two in a one-cell passage however far it runs and at a
+junction of two such passages, four in a room two cells square, eight in one four
+cells across. The flood stops at walls, at doors (a doorway is a threshold, not
+room to fight abreast), and where the space changes, so a room's open mouth never
+counts the corridor beyond it. The same cap bounds how much of an area effect's
+footprint a formation absorbs. Off lifts the cap — every combatant may melee and
+area footprints are unbounded. Locked by `test_battle.py::TestFormationWidth`.
 
 ### `magic_item_death_save` (default on)
 

@@ -181,10 +181,9 @@ else. Emptying the shrine cache:
 
 ```text
 > take idol_shrine
-  character-0001 acquires 13 gp in coin.
-  character-0002 acquires 13 gp in coin.
-  character-0003 acquires jade-idol and 12 gp in coin.
-  character-0004 acquires 12 gp in coin.
+  character-0001 acquires jade-idol and 17 gp in coin.
+  character-0003 acquires 17 gp in coin.
+  character-0004 acquires 16 gp in coin.
   Quest The Jade Idol: objective Recover the idol is done. The idol comes up out of the hollow, cold as well-water.
 ```
 
@@ -193,26 +192,25 @@ Then, four `move w` steps later, the homecoming:
 ```text
 > town
   The party enters town town.
-  The adventure ends: 0 XP from monsters and 50 XP from treasure — 12 XP to each of 4 survivor(s).
-  character-0001 gains 12 XP (base 12), now level 1.
-  character-0002 gains 9 XP (base 12), now level 1.
-  character-0003 gains 13 XP (base 12), now level 1.
-  character-0004 gains 13 XP (base 12), now level 1.
+  The adventure ends: 0 XP from monsters and 50 XP from treasure — 16 XP to each of 3 survivor(s).
+  character-0001 gains 16 XP (base 16), now level 1.
+  character-0003 gains 17 XP (base 16), now level 1.
+  character-0004 gains 17 XP (base 16), now level 1.
   Quest The Jade Idol: objective Bring it home is done. Threshold's gate shuts behind you with the idol inside it.
   Quest complete: The Jade Idol. The almoner counts out the reward without looking up. The idol is home.
   The adventure is over: The Jade Idol is finished. The almoner counts out the reward without looking up. The idol is home.
   character-0001 acquires 200 gp in coin.
   character-0001 gains 1260 XP (base 1200), now level 1.
-  character-0002 gains 960 XP (base 1200), now level 1.
   character-0003 gains 1320 XP (base 1200), now level 2.
   character-0003 advances to level 2 (Footpad): +4 hp (rolled 4).
   character-0004 gains 1320 XP (base 1200), now level 1.
 ```
 
 Two details of that output are the whole chapter in miniature. The cache spreads across
-the party by the ordinary loot rules, so the thief is the one carrying the idol when the
-party walks home — and the objective's `has_item` condition asks whether *the party*
-carries it, not who. And the completion beat appears twice, on the quest's own event and
+the party by the ordinary loot rules, so which character walks home with the idol is
+whatever the split decided — here the fighter, and the cleric is not in the list at all,
+having died in the vault — and the objective's `has_item` condition tests whether *the
+party* holds the idol, not who. And the completion beat appears twice, on the quest's own event and
 again on the adventure's, because each event carries the authored line and the formatter
 appends whatever beat rides the event it is given.
 

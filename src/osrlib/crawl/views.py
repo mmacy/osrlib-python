@@ -135,8 +135,7 @@ class EncounterView(BaseModel):
     cranking a windlass. Each one corresponds to a rejection the engine would
     otherwise raise against the whole round, so a front end that reads all four can
     offer only the declarations the engine will accept. Without them a front end
-    must guess at the rank width and learn it guessed wrong by losing the party's
-    turn.
+    has to assume a rank width, and a wrong assumption costs the party its turn.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -165,7 +164,7 @@ class EncounterView(BaseModel):
     """The members who may not fire a `reload` weapon this round, because they fired
     one last round (`combat.attack.reload`). Empty when the ruleset's `weapon_reload`
     flag is off, so a front end can combine this list with the weapon's own
-    qualities and needs to know nothing about the flag."""
+    qualities and need not read the flag at all."""
 
 
 class ObjectiveView(BaseModel):
@@ -269,8 +268,8 @@ def _masked_magic_item(instance: MagicItemInstance) -> dict:
     magic* exists); an identified one shows its true name and id, and — for an arm —
     the `qualities` and `missile_ranges` of the mundane weapon underneath it: how
     far the arm reaches, and in what manner. Both fields are rulebook facts about a
-    weapon the player has already identified, and a front end needs them to tell a
-    melee declaration from a missile one; without them an enchanted dagger is
+    weapon the player has already identified, and they are what lets a front end
+    tell a melee declaration from a missile one; without them an enchanted dagger is
     unclassifiable where a plain dagger is not. Charges, sentience, and per-item
     state never appear at any identification level: by RAW, charges are
     undiscoverable.

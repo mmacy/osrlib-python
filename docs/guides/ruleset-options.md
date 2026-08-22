@@ -32,7 +32,7 @@ reference, that page is the source of truth.
 | `xp_award_timing` | `XpAwardTiming`, `ON_RETURN` | XP pays out on return to town, or immediately as it's earned. |
 | `deprivation_penalties` | `bool`, `False` | Attach mechanical penalties to hunger and thirst. |
 | `aoe_friendly_fire` | `bool`, `True` | An area effect at melee range can catch the party's front rank. |
-| `formation_width_limit` | `bool`, `True` | Cap how many combatants can fight in the same rank at once. |
+| `formation_width_limit` | `bool`, `True` | Cap the rank at what the party's own fighting space holds abreast. |
 
 ## SRD optional rules
 
@@ -108,10 +108,13 @@ rank in the blast, alongside the monsters. Off keeps party members out of every 
 candidate list, full stop.
 
 **`formation_width_limit`** (default on) — caps how many combatants can fight in the same rank at
-once: three abreast inside a keyed room or cave, two inside a bare corridor cell, following OSE's
-own note about how many characters a 10-foot passage holds side by side. The same cap bounds how
-much of an area effect's footprint a formation absorbs. Off removes the cap entirely — every
-combatant in the front rank fights, and an area effect's footprint is unbounded by formation width.
+once, at what the space the party stands in actually holds. OSE gives one number and leaves the
+rest to the referee: a 10-foot passage holds at most 2–3 side by side. osrlib takes the
+conservative end of that, five feet of frontage each, and measures the room — the widest square of
+unbroken floor around the party. A one-cell passage holds two however far it runs, a room two cells
+square holds four, and one four cells across holds eight. The same cap bounds how much of an area
+effect's footprint a formation absorbs. Off removes the cap entirely — every combatant in the front
+rank fights, and an area effect's footprint is unbounded by formation width.
 
 ## Constructing a Ruleset
 

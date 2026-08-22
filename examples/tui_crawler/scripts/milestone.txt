@@ -31,8 +31,9 @@ town
 sell all
 heal character-0001 cure_light_wounds
 # Coin weighs a coin apiece, and the party moves at its slowest member's rate, so
-# the seller's purse is spread before anybody walks anywhere.
-give character-0001 character-0002 550
+# the seller's purse is spread before anybody walks anywhere. The cleric fell in
+# the vault and coin does a corpse no good, so the load goes to the two who walk.
+give character-0001 character-0003 550
 give character-0001 character-0004 550
 status
 # Trip two: the idol, and the walk home that ends it.

@@ -497,26 +497,45 @@ class TestAreaFootprint:
 
 
 class TestFormationWidth:
-    def test_three_in_areas_two_in_corridor_none_with_the_flag_off(self):
+    """Rank width is the frontage the party's own space offers, not a flat number per kind."""
+
+    def _stand_at(self, session, position):
+        """Teleport the party to a cell, which the referee command allows only out of an encounter."""
         from osrlib.crawl.commands import PlaceParty
         from osrlib.crawl.dungeon import PartyLocation
 
-        session = battle_session(engage=False)
-        assert battle_module._formation_width(session) == 2  # entrance corridor
-        # Clear the pending encounter so the referee teleport is legal, then
-        # stand the party inside the keyed room.
         session.encounter = None
         session.mode = SessionMode("exploring")
         session.execute(
             PlaceParty(
                 location=PartyLocation(
-                    kind="dungeon", dungeon_id="delve", level_number=1, position=(2, 1), facing=Direction.SOUTH
+                    kind="dungeon", dungeon_id="delve", level_number=1, position=position, facing=Direction.SOUTH
                 )
             )
         )
-        assert battle_module._formation_width(session) == 3  # inside room_a
+
+    def test_a_corridor_holds_two_and_a_room_its_shorter_side(self):
+        session = battle_session(engage=False)
+        assert battle_module._formation_width(session) == 2  # entrance corridor: RAW's 10' passage
+        self._stand_at(session, (2, 1))
+        assert battle_module._formation_width(session) == 4  # room_a is 2 cells square
         session.ruleset = Ruleset(formation_width_limit=False)
         assert battle_module._formation_width(session) is None
+
+    def test_frontage_is_thickness_and_not_how_far_the_space_runs(self):
+        """A one-cell passage holds two however long it runs — reach is the wrong measure."""
+        level = build_adventure(wandering_chance=0).dungeons[0].levels[0]
+        corridor = (2, 0)
+        space = battle_module._fighting_space(level, corridor)
+        assert level.area_at(corridor) is None
+        assert len(space) > 1, "the fixture's entrance corridor runs further than one cell"
+        assert battle_module._frontage_cells(level, corridor) == 1
+
+    def test_a_room_stops_at_its_own_walls_and_doors(self):
+        """The flood never counts the corridor outside a room as part of the room."""
+        level = build_adventure(wandering_chance=0).dungeons[0].levels[0]
+        space = battle_module._fighting_space(level, (2, 1))
+        assert space == {(2, 1), (3, 1), (2, 2), (3, 2)}
 
 
 class TestDeclarationShape:
@@ -527,7 +546,7 @@ class TestDeclarationShape:
     every test here reads the view and then puts its claim to the engine.
     """
 
-    def test_front_rank_widens_in_a_room_and_the_third_member_may_swing(self):
+    def test_front_rank_widens_in_a_room_and_the_rear_member_may_swing(self):
         from osrlib.crawl.commands import PlaceParty
         from osrlib.crawl.dungeon import PartyLocation
 
@@ -549,7 +568,9 @@ class TestDeclarationShape:
         session.encounter, session.mode = encounter, mode
         session.execute(EngageBattle())
         view = session.view(Visibility.PLAYER)
-        assert view.encounter.front_rank == ("character-0001", "character-0002", "character-0003")
+        # room_a is two cells square: twenty feet of frontage, four abreast, which
+        # is the whole of the stock party.
+        assert view.encounter.front_rank == tuple(member.id for member in session.party.living_members())
         result = session.execute(
             ResolveBattleRound(
                 declarations=hold_all(
@@ -635,7 +656,7 @@ class TestDeclarationShape:
 
 
 class TestIdentifiedArmCombatFacts:
-    """An identified enchanted arm reports the reach a front end needs to classify the arm."""
+    """An identified enchanted arm reports the reach that lets a front end classify the arm."""
 
     def test_an_identified_dagger_shows_its_qualities_and_ranges(self):
         from osrlib.core.items import MagicItemInstance

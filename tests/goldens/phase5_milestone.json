@@ -2,7 +2,7 @@
   "checkpoints": {
     "first_return": 37,
     "mid_delve": 12,
-    "post_award": 61
+    "post_award": 60
   },
   "command_log": [
     {
@@ -686,7 +686,7 @@
         },
         {
           "action": "attack",
-          "character_id": "character-0002",
+          "character_id": "character-0003",
           "item_id": null,
           "move": null,
           "reversed": false,
@@ -694,19 +694,7 @@
           "spell_mode": null,
           "target_group_id": "group-0003",
           "targets": [],
-          "weapon_id": "mace"
-        },
-        {
-          "action": "hold",
-          "character_id": "character-0003",
-          "item_id": null,
-          "move": null,
-          "reversed": false,
-          "spell_id": null,
-          "spell_mode": null,
-          "target_group_id": null,
-          "targets": [],
-          "weapon_id": null
+          "weapon_id": "sword"
         },
         {
           "action": "hold",
@@ -740,7 +728,7 @@
         },
         {
           "action": "attack",
-          "character_id": "character-0002",
+          "character_id": "character-0003",
           "item_id": null,
           "move": null,
           "reversed": false,
@@ -748,19 +736,7 @@
           "spell_mode": null,
           "target_group_id": "group-0003",
           "targets": [],
-          "weapon_id": "mace"
-        },
-        {
-          "action": "hold",
-          "character_id": "character-0003",
-          "item_id": null,
-          "move": null,
-          "reversed": false,
-          "spell_id": null,
-          "spell_mode": null,
-          "target_group_id": null,
-          "targets": [],
-          "weapon_id": null
+          "weapon_id": "sword"
         },
         {
           "action": "hold",
@@ -794,7 +770,7 @@
         },
         {
           "action": "attack",
-          "character_id": "character-0002",
+          "character_id": "character-0003",
           "item_id": null,
           "move": null,
           "reversed": false,
@@ -802,19 +778,7 @@
           "spell_mode": null,
           "target_group_id": "group-0003",
           "targets": [],
-          "weapon_id": "mace"
-        },
-        {
-          "action": "hold",
-          "character_id": "character-0003",
-          "item_id": null,
-          "move": null,
-          "reversed": false,
-          "spell_id": null,
-          "spell_mode": null,
-          "target_group_id": null,
-          "targets": [],
-          "weapon_id": null
+          "weapon_id": "sword"
         },
         {
           "action": "hold",
@@ -837,18 +801,6 @@
         {
           "action": "move",
           "character_id": "character-0001",
-          "item_id": null,
-          "move": "close",
-          "reversed": false,
-          "spell_id": null,
-          "spell_mode": null,
-          "target_group_id": "group-0003",
-          "targets": [],
-          "weapon_id": null
-        },
-        {
-          "action": "move",
-          "character_id": "character-0002",
           "item_id": null,
           "move": "close",
           "reversed": false,
@@ -947,7 +899,7 @@
       },
       "command_type": "give_items",
       "item_ids": [],
-      "recipient_id": "character-0002",
+      "recipient_id": "character-0003",
       "source": null
     },
     {
@@ -1051,12 +1003,6 @@
     {
       "amount": 1200,
       "character_id": "character-0001",
-      "command_type": "award_xp",
-      "source": "quest:the-idol"
-    },
-    {
-      "amount": 1200,
-      "character_id": "character-0002",
       "command_type": "award_xp",
       "source": "quest:the-idol"
     },
@@ -1244,12 +1190,12 @@
       "attack_name": "weapon",
       "attacker_id": "monster-0001",
       "code": "combat.attack.missed",
-      "defender_ac": 5,
-      "defender_id": "character-0003",
+      "defender_ac": 4,
+      "defender_id": "character-0002",
       "event_type": "attack_rolled",
       "modifier": 0,
       "natural": null,
-      "required": 14,
+      "required": 15,
       "roll": 1,
       "total": 1,
       "visibility": "player"
@@ -1310,7 +1256,7 @@
       "attacker_id": "monster-0001",
       "code": "combat.attack.missed",
       "defender_ac": 4,
-      "defender_id": "character-0002",
+      "defender_id": "character-0001",
       "event_type": "attack_rolled",
       "modifier": 0,
       "natural": null,
@@ -1323,12 +1269,12 @@
       "attack_name": "weapon",
       "attacker_id": "monster-0002",
       "code": "combat.attack.hit",
-      "defender_ac": 5,
-      "defender_id": "character-0003",
+      "defender_ac": 4,
+      "defender_id": "character-0002",
       "event_type": "attack_rolled",
       "modifier": 0,
       "natural": null,
-      "required": 14,
+      "required": 15,
       "roll": 17,
       "total": 17,
       "visibility": "player"
@@ -1343,7 +1289,7 @@
       "rolls": [
         1
       ],
-      "target_id": "character-0003",
+      "target_id": "character-0002",
       "visibility": "player"
     },
     {
@@ -1351,7 +1297,7 @@
       "current_hp": 2,
       "event_type": "hit_points_reported",
       "max_hp": 3,
-      "target_id": "character-0003",
+      "target_id": "character-0002",
       "visibility": "referee"
     },
     {
@@ -1424,7 +1370,7 @@
       "attacker_id": "monster-0001",
       "code": "combat.attack.missed",
       "defender_ac": 4,
-      "defender_id": "character-0001",
+      "defender_id": "character-0002",
       "event_type": "attack_rolled",
       "modifier": 0,
       "natural": null,
@@ -1437,12 +1383,12 @@
       "attack_name": "weapon",
       "attacker_id": "monster-0002",
       "code": "combat.attack.hit",
-      "defender_ac": 5,
-      "defender_id": "character-0003",
+      "defender_ac": 4,
+      "defender_id": "character-0001",
       "event_type": "attack_rolled",
       "modifier": 0,
       "natural": null,
-      "required": 14,
+      "required": 15,
       "roll": 17,
       "total": 17,
       "visibility": "player"
@@ -1457,15 +1403,15 @@
       "rolls": [
         1
       ],
-      "target_id": "character-0003",
+      "target_id": "character-0001",
       "visibility": "player"
     },
     {
       "code": "combat.state.hit_points",
-      "current_hp": 1,
+      "current_hp": 5,
       "event_type": "hit_points_reported",
-      "max_hp": 3,
-      "target_id": "character-0003",
+      "max_hp": 6,
+      "target_id": "character-0001",
       "visibility": "referee"
     },
     {
@@ -2005,12 +1951,12 @@
       "attack_name": "Dagger",
       "attacker_id": "npc-0002",
       "code": "combat.attack.missed",
-      "defender_ac": 5,
-      "defender_id": "character-0003",
+      "defender_ac": 4,
+      "defender_id": "character-0002",
       "event_type": "attack_rolled",
       "modifier": 0,
       "natural": null,
-      "required": 14,
+      "required": 15,
       "roll": 9,
       "total": 9,
       "visibility": "player"
@@ -2545,7 +2491,7 @@
       "attacker_id": "npc-0003",
       "code": "combat.attack.hit",
       "defender_ac": 4,
-      "defender_id": "character-0001",
+      "defender_id": "character-0002",
       "event_type": "attack_rolled",
       "modifier": 2,
       "natural": null,
@@ -2564,15 +2510,37 @@
       "rolls": [
         2
       ],
-      "target_id": "character-0001",
+      "target_id": "character-0002",
       "visibility": "player"
     },
     {
       "code": "combat.state.hit_points",
-      "current_hp": 4,
+      "current_hp": 0,
       "event_type": "hit_points_reported",
-      "max_hp": 6,
-      "target_id": "character-0001",
+      "max_hp": 3,
+      "target_id": "character-0002",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.condition.gained",
+      "condition": "dead",
+      "effect_id": null,
+      "event_type": "condition_gained",
+      "target_id": "character-0002",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.death.died",
+      "event_type": "death",
+      "target_id": "character-0002",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 0,
+      "event_type": "hit_points_reported",
+      "max_hp": 3,
+      "target_id": "character-0002",
       "visibility": "referee"
     },
     {
@@ -2620,7 +2588,6 @@
       "order": [
         "group-0003",
         "character-0001",
-        "character-0002",
         "character-0003",
         "character-0004"
       ],
@@ -2645,7 +2612,7 @@
       "attacker_id": "npc-0004",
       "code": "combat.attack.missed",
       "defender_ac": 4,
-      "defender_id": "character-0002",
+      "defender_id": "character-0001",
       "event_type": "attack_rolled",
       "modifier": 1,
       "natural": null,
@@ -2690,8 +2657,8 @@
       "visibility": "referee"
     },
     {
-      "attack_name": "Mace",
-      "attacker_id": "character-0002",
+      "attack_name": "Sword",
+      "attacker_id": "character-0003",
       "code": "combat.attack.missed",
       "defender_ac": 6,
       "defender_id": "npc-0003",
@@ -2734,7 +2701,6 @@
       "order": [
         "group-0003",
         "character-0001",
-        "character-0002",
         "character-0003",
         "character-0004"
       ],
@@ -2744,12 +2710,12 @@
       "attack_name": "Sword",
       "attacker_id": "npc-0003",
       "code": "combat.attack.missed",
-      "defender_ac": 5,
-      "defender_id": "character-0003",
+      "defender_ac": 4,
+      "defender_id": "character-0001",
       "event_type": "attack_rolled",
       "modifier": 1,
       "natural": null,
-      "required": 14,
+      "required": 15,
       "roll": 1,
       "total": 2,
       "visibility": "player"
@@ -2758,12 +2724,12 @@
       "attack_name": "Sword",
       "attacker_id": "npc-0004",
       "code": "combat.attack.missed",
-      "defender_ac": 5,
-      "defender_id": "character-0003",
+      "defender_ac": 4,
+      "defender_id": "character-0001",
       "event_type": "attack_rolled",
       "modifier": 1,
       "natural": null,
-      "required": 14,
+      "required": 15,
       "roll": 1,
       "total": 2,
       "visibility": "player"
@@ -2804,8 +2770,8 @@
       "visibility": "referee"
     },
     {
-      "attack_name": "Mace",
-      "attacker_id": "character-0002",
+      "attack_name": "Sword",
+      "attacker_id": "character-0003",
       "code": "combat.attack.missed",
       "defender_ac": 6,
       "defender_id": "npc-0003",
@@ -2847,7 +2813,6 @@
       "mode": "side",
       "order": [
         "character-0001",
-        "character-0002",
         "character-0003",
         "character-0004",
         "group-0003"
@@ -2912,8 +2877,8 @@
       "visibility": "referee"
     },
     {
-      "attack_name": "Mace",
-      "attacker_id": "character-0002",
+      "attack_name": "Sword",
+      "attacker_id": "character-0003",
       "code": "combat.attack.missed",
       "defender_ac": 5,
       "defender_id": "npc-0004",
@@ -2989,7 +2954,6 @@
       "order": [
         "group-0003",
         "character-0001",
-        "character-0002",
         "character-0003",
         "character-0004"
       ],
@@ -3123,10 +3087,9 @@
       "code": "session.xp.adventure_award",
       "event_type": "adventure_xp_award",
       "monster_xp": 110,
-      "share": 480,
+      "share": 640,
       "survivors": [
         "character-0001",
-        "character-0002",
         "character-0003",
         "character-0004"
       ],
@@ -3134,39 +3097,30 @@
       "visibility": "player"
     },
     {
-      "award": 480,
+      "award": 640,
       "character_id": "character-0001",
       "code": "session.xp.awarded",
       "event_type": "xp_awarded",
       "level_after": 1,
-      "modified_award": 504,
+      "modified_award": 672,
       "visibility": "player"
     },
     {
-      "award": 480,
-      "character_id": "character-0002",
-      "code": "session.xp.awarded",
-      "event_type": "xp_awarded",
-      "level_after": 1,
-      "modified_award": 384,
-      "visibility": "player"
-    },
-    {
-      "award": 480,
+      "award": 640,
       "character_id": "character-0003",
       "code": "session.xp.awarded",
       "event_type": "xp_awarded",
       "level_after": 1,
-      "modified_award": 528,
+      "modified_award": 704,
       "visibility": "player"
     },
     {
-      "award": 480,
+      "award": 640,
       "character_id": "character-0004",
       "code": "session.xp.awarded",
       "event_type": "xp_awarded",
       "level_after": 1,
-      "modified_award": 528,
+      "modified_award": 704,
       "visibility": "player"
     },
     {
@@ -3201,7 +3155,7 @@
       "visibility": "player"
     },
     {
-      "amount": 2,
+      "amount": 1,
       "code": "combat.healing.applied",
       "event_type": "healing_applied",
       "source": "magical",
@@ -3222,7 +3176,7 @@
       "coins_gp_value": 550,
       "event_type": "items_given",
       "item_ids": [],
-      "recipient_id": "character-0002",
+      "recipient_id": "character-0003",
       "visibility": "player"
     },
     {
@@ -3299,23 +3253,7 @@
     {
       "character_id": "character-0001",
       "code": "exploration.item.acquired",
-      "coins_gp_value": 13,
-      "event_type": "item_acquired",
-      "item_ids": [],
-      "visibility": "player"
-    },
-    {
-      "character_id": "character-0002",
-      "code": "exploration.item.acquired",
-      "coins_gp_value": 13,
-      "event_type": "item_acquired",
-      "item_ids": [],
-      "visibility": "player"
-    },
-    {
-      "character_id": "character-0003",
-      "code": "exploration.item.acquired",
-      "coins_gp_value": 12,
+      "coins_gp_value": 17,
       "event_type": "item_acquired",
       "item_ids": [
         "jade-idol"
@@ -3323,9 +3261,17 @@
       "visibility": "player"
     },
     {
+      "character_id": "character-0003",
+      "code": "exploration.item.acquired",
+      "coins_gp_value": 17,
+      "event_type": "item_acquired",
+      "item_ids": [],
+      "visibility": "player"
+    },
+    {
       "character_id": "character-0004",
       "code": "exploration.item.acquired",
-      "coins_gp_value": 12,
+      "coins_gp_value": 16,
       "event_type": "item_acquired",
       "item_ids": [],
       "visibility": "player"
@@ -3396,10 +3342,9 @@
       "code": "session.xp.adventure_award",
       "event_type": "adventure_xp_award",
       "monster_xp": 0,
-      "share": 12,
+      "share": 16,
       "survivors": [
         "character-0001",
-        "character-0002",
         "character-0003",
         "character-0004"
       ],
@@ -3407,39 +3352,30 @@
       "visibility": "player"
     },
     {
-      "award": 12,
+      "award": 16,
       "character_id": "character-0001",
       "code": "session.xp.awarded",
       "event_type": "xp_awarded",
       "level_after": 1,
-      "modified_award": 12,
+      "modified_award": 16,
       "visibility": "player"
     },
     {
-      "award": 12,
-      "character_id": "character-0002",
-      "code": "session.xp.awarded",
-      "event_type": "xp_awarded",
-      "level_after": 1,
-      "modified_award": 9,
-      "visibility": "player"
-    },
-    {
-      "award": 12,
+      "award": 16,
       "character_id": "character-0003",
       "code": "session.xp.awarded",
       "event_type": "xp_awarded",
       "level_after": 1,
-      "modified_award": 13,
+      "modified_award": 17,
       "visibility": "player"
     },
     {
-      "award": 12,
+      "award": 16,
       "character_id": "character-0004",
       "code": "session.xp.awarded",
       "event_type": "xp_awarded",
       "level_after": 1,
-      "modified_award": 13,
+      "modified_award": 17,
       "visibility": "player"
     },
     {
@@ -3483,15 +3419,6 @@
       "event_type": "xp_awarded",
       "level_after": 1,
       "modified_award": 1260,
-      "visibility": "player"
-    },
-    {
-      "award": 1200,
-      "character_id": "character-0002",
-      "code": "session.xp.awarded",
-      "event_type": "xp_awarded",
-      "level_after": 1,
-      "modified_award": 960,
       "visibility": "player"
     },
     {
@@ -3560,7 +3487,7 @@
     },
     "monster_action": {
       "inc": 46342144612551853195774728794526618795,
-      "state": 171183477169863727975987935011308910408
+      "state": 149075435766120041798982209233745057685
     },
     "monster_spawn": {
       "inc": 90076630143872539436531717779739965705,
@@ -3606,7 +3533,7 @@
   "master_seed": 21,
   "mode": "victory",
   "party_document": {
-    "engine_version": "1.5.0",
+    "engine_version": "1.7.0",
     "kind": "party",
     "payload": {
       "characters": [
@@ -3933,28 +3860,28 @@
       "id": "character-0001",
       "level": 1,
       "name": "Brakka",
-      "xp": 1776
+      "xp": 1948
     },
     {
       "class_id": "cleric",
       "id": "character-0002",
       "level": 1,
       "name": "Wynn",
-      "xp": 1353
+      "xp": 0
     },
     {
       "class_id": "thief",
       "id": "character-0003",
       "level": 2,
       "name": "Sable",
-      "xp": 1861
+      "xp": 2041
     },
     {
       "class_id": "magic_user",
       "id": "character-0004",
       "level": 1,
       "name": "Elandril",
-      "xp": 1861
+      "xp": 2041
     }
   ],
   "quests": {
@@ -3989,22 +3916,22 @@
     "Battle round 1 begins.",
     "Initiative (side): party 4, monsters 2. Order: character-0001, character-0002, character-0003, character-0004, group-0001.",
     "group-0001 is now 5' away.",
-    "monster-0001 misses character-0003 with weapon: rolled 1+0 = 1, needing 14.",
+    "monster-0001 misses character-0002 with weapon: rolled 1+0 = 1, needing 15.",
     "monster-0002 misses character-0001 with weapon: rolled 9+0 = 9, needing 15.",
     "Battle round 2 begins.",
     "Initiative (side): party 2, monsters 4. Order: group-0001, character-0001, character-0002, character-0003, character-0004.",
-    "monster-0001 misses character-0002 with weapon: rolled 5+0 = 5, needing 15.",
-    "monster-0002 hits character-0003 with weapon: rolled 17+0 = 17, needing 14.",
-    "character-0003 takes 1 damage from monster-0002.",
-    "character-0003 is at 2/3 hit points.",
+    "monster-0001 misses character-0001 with weapon: rolled 5+0 = 5, needing 15.",
+    "monster-0002 hits character-0002 with weapon: rolled 17+0 = 17, needing 15.",
+    "character-0002 takes 1 damage from monster-0002.",
+    "character-0002 is at 2/3 hit points.",
     "character-0001 misses monster-0001 with Sword: rolled 1+1 = 2, needing 13.",
     "character-0002 misses monster-0001 with Mace: rolled 9+0 = 9, needing 13.",
     "Battle round 3 begins.",
     "Initiative (side): party 2, monsters 6. Order: group-0001, character-0001, character-0002, character-0003, character-0004.",
-    "monster-0001 misses character-0001 with weapon: rolled 3+0 = 3, needing 15.",
-    "monster-0002 hits character-0003 with weapon: rolled 17+0 = 17, needing 14.",
-    "character-0003 takes 1 damage from monster-0002.",
-    "character-0003 is at 1/3 hit points.",
+    "monster-0001 misses character-0002 with weapon: rolled 3+0 = 3, needing 15.",
+    "monster-0002 hits character-0001 with weapon: rolled 17+0 = 17, needing 15.",
+    "character-0001 takes 1 damage from monster-0002.",
+    "character-0001 is at 5/6 hit points.",
     "character-0001 misses monster-0001 with Sword: rolled 4+1 = 5, needing 13.",
     "character-0002 hits monster-0001 with Mace: rolled 19+0 = 19, needing 13.",
     "monster-0001 takes 3 damage from character-0002.",
@@ -4056,7 +3983,7 @@
     "Battle round 1 begins.",
     "Initiative (side): party 4, monsters 5. Order: group-0002, character-0001, character-0002, character-0003, character-0004.",
     "group-0002 is now 5' away.",
-    "npc-0002 misses character-0003 with Dagger: rolled 9+0 = 9, needing 14.",
+    "npc-0002 misses character-0002 with Dagger: rolled 9+0 = 9, needing 15.",
     "group-0002 is now 5' away.",
     "Battle round 2 begins.",
     "Initiative (side): party 4, monsters 5. Order: group-0002, character-0001, character-0002, character-0003, character-0004.",
@@ -4100,42 +4027,45 @@
     "Battle is joined!",
     "Battle round 1 begins.",
     "Initiative (side): party 1, monsters 6. Order: group-0003, character-0001, character-0002, character-0003, character-0004.",
-    "npc-0003 hits character-0001 with Sling: rolled 17+2 = 19, needing 15.",
-    "character-0001 takes 2 damage from npc-0003.",
-    "character-0001 is at 4/6 hit points.",
+    "npc-0003 hits character-0002 with Sling: rolled 17+2 = 19, needing 15.",
+    "character-0002 takes 2 damage from npc-0003.",
+    "character-0002 is at 0/3 hit points.",
+    "character-0002 is dead.",
+    "character-0002 is killed.",
+    "character-0002 is at 0/3 hit points.",
     "group-0003 is now 5' away.",
     "group-0003 is now 5' away.",
     "Battle round 2 begins.",
-    "Initiative (side): party 1, monsters 2. Order: group-0003, character-0001, character-0002, character-0003, character-0004.",
+    "Initiative (side): party 1, monsters 2. Order: group-0003, character-0001, character-0003, character-0004.",
     "npc-0003 misses character-0001 with Sword: rolled 9+1 = 10, needing 15.",
-    "npc-0004 misses character-0002 with Sword: rolled 8+1 = 9, needing 15.",
+    "npc-0004 misses character-0001 with Sword: rolled 8+1 = 9, needing 15.",
     "character-0001 hits npc-0003 with Sword: rolled 18+1 = 19, needing 13.",
     "npc-0003 takes 2 damage from character-0001.",
     "npc-0003 is at 11/13 hit points.",
-    "character-0002 misses npc-0003 with Mace: rolled 6+0 = 6, needing 13.",
+    "character-0003 misses npc-0003 with Sword: rolled 6+0 = 6, needing 13.",
     "Battle round 3 begins.",
-    "Initiative (side): party 1, monsters 3. Order: group-0003, character-0001, character-0002, character-0003, character-0004.",
-    "npc-0003 misses character-0003 with Sword: rolled 1+1 = 2, needing 14.",
-    "npc-0004 misses character-0003 with Sword: rolled 1+1 = 2, needing 14.",
+    "Initiative (side): party 1, monsters 3. Order: group-0003, character-0001, character-0003, character-0004.",
+    "npc-0003 misses character-0001 with Sword: rolled 1+1 = 2, needing 15.",
+    "npc-0004 misses character-0001 with Sword: rolled 1+1 = 2, needing 15.",
     "character-0001 hits npc-0003 with Sword: rolled 13+1 = 14, needing 13.",
     "npc-0003 takes 9 damage from character-0001.",
     "npc-0003 is at 2/13 hit points.",
-    "character-0002 misses npc-0003 with Mace: rolled 12+0 = 12, needing 13.",
+    "character-0003 misses npc-0003 with Sword: rolled 12+0 = 12, needing 13.",
     "Battle round 4 begins.",
-    "Initiative (side): party 6, monsters 5. Order: character-0001, character-0002, character-0003, character-0004, group-0003.",
+    "Initiative (side): party 6, monsters 5. Order: character-0001, character-0003, character-0004, group-0003.",
     "character-0001 hits npc-0003 with Sword: rolled 16+1 = 17, needing 13.",
     "npc-0003 takes 3 damage from character-0001.",
     "npc-0003 is at 0/13 hit points.",
     "npc-0003 is dead.",
     "npc-0003 is killed.",
     "npc-0003 is at 0/13 hit points.",
-    "character-0002 misses npc-0004 with Mace: rolled 7+0 = 7, needing 14.",
+    "character-0003 misses npc-0004 with Sword: rolled 7+0 = 7, needing 14.",
     "Morale check for group-0003 (ML 9): rolled 9+0 — they fight on.",
     "Morale check for group-0003 (ML 9): rolled 12+0 — they flee or surrender.",
     "group-0003 flees the battle!",
     "group-0003 is now 65' away.",
     "Battle round 5 begins.",
-    "Initiative (side): party 2, monsters 6. Order: group-0003, character-0001, character-0002, character-0003, character-0004.",
+    "Initiative (side): party 2, monsters 6. Order: group-0003, character-0001, character-0003, character-0004.",
     "group-0003 is now 125' away.",
     "The battle is won.",
     "npc-0003 (npc:halfling) is slain.",
@@ -4151,17 +4081,16 @@
     "The party moves to (1, 0), facing west.",
     "The party moves to (0, 0), facing west.",
     "The party enters town town.",
-    "The adventure ends: 110 XP from monsters and 1810 XP from treasure — 480 XP to each of 4 survivor(s).",
-    "character-0001 gains 504 XP (base 480), now level 1.",
-    "character-0002 gains 384 XP (base 480), now level 1.",
-    "character-0003 gains 528 XP (base 480), now level 1.",
-    "character-0004 gains 528 XP (base 480), now level 1.",
+    "The adventure ends: 110 XP from monsters and 1810 XP from treasure — 640 XP to each of 3 survivor(s).",
+    "character-0001 gains 672 XP (base 640), now level 1.",
+    "character-0003 gains 704 XP (base 640), now level 1.",
+    "character-0004 gains 704 XP (base 640), now level 1.",
     "character-0001 sells 1 valuable(s) for 1600 gp.",
     "character-0001 purchases cure_light_wounds at the temple for 25 gp.",
     "town-cleric casts cure_light_wounds [heal] at character-0001.",
-    "character-0001 regains 2 hit points (magical).",
+    "character-0001 regains 1 hit points (magical).",
     "character-0001 is at 6/6 hit points.",
-    "character-0001 gives 550 gp in coin to character-0002.",
+    "character-0001 gives 550 gp in coin to character-0003.",
     "character-0001 gives 550 gp in coin to character-0004.",
     "The party enters dungeon barrow (level 1).",
     "The party moves to (1, 0), facing east.",
@@ -4170,10 +4099,9 @@
     "The party moves to (3, 0), facing east.",
     "The party moves to (4, 0), facing east.",
     "The party enters area shrine (level 1).",
-    "character-0001 acquires 13 gp in coin.",
-    "character-0002 acquires 13 gp in coin.",
-    "character-0003 acquires jade-idol and 12 gp in coin.",
-    "character-0004 acquires 12 gp in coin.",
+    "character-0001 acquires jade-idol and 17 gp in coin.",
+    "character-0003 acquires 17 gp in coin.",
+    "character-0004 acquires 16 gp in coin.",
     "Quest The Jade Idol: objective Recover the idol is done. The idol comes up out of the hollow, cold as well-water.",
     "The party moves to (3, 0), facing west.",
     "The party enters area guard_room (level 1).",
@@ -4181,17 +4109,15 @@
     "The party moves to (1, 0), facing west.",
     "The party moves to (0, 0), facing west.",
     "The party enters town town.",
-    "The adventure ends: 0 XP from monsters and 50 XP from treasure — 12 XP to each of 4 survivor(s).",
-    "character-0001 gains 12 XP (base 12), now level 1.",
-    "character-0002 gains 9 XP (base 12), now level 1.",
-    "character-0003 gains 13 XP (base 12), now level 1.",
-    "character-0004 gains 13 XP (base 12), now level 1.",
+    "The adventure ends: 0 XP from monsters and 50 XP from treasure — 16 XP to each of 3 survivor(s).",
+    "character-0001 gains 16 XP (base 16), now level 1.",
+    "character-0003 gains 17 XP (base 16), now level 1.",
+    "character-0004 gains 17 XP (base 16), now level 1.",
     "Quest The Jade Idol: objective Bring it home is done. Threshold's gate shuts behind you with the idol inside it.",
     "Quest complete: The Jade Idol. The almoner counts out the reward without looking up. The idol is home.",
     "The adventure is over: The Jade Idol is finished. The almoner counts out the reward without looking up. The idol is home.",
     "character-0001 acquires 200 gp in coin.",
     "character-0001 gains 1260 XP (base 1200), now level 1.",
-    "character-0002 gains 960 XP (base 1200), now level 1.",
     "character-0003 gains 1320 XP (base 1200), now level 2.",
     "character-0003 advances to level 2 (Footpad): +4 hp (rolled 4).",
     "character-0004 gains 1320 XP (base 1200), now level 1.",
