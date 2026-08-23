@@ -12,10 +12,13 @@ authors = [{ name = "Marsh Macy" }]
 requires-python = ">=3.14"
 dependencies = ["pydantic>=2"]
 keywords = [
+    # No "old-school-essentials" here: PyPI keywords are a search surface, and the
+    # name is Product Identity under the SRD's own designation. Attribution belongs
+    # in the OGL section 15 notice and the README disclaimer, not in discovery terms.
+    "basic-expert",
     "bx",
     "dungeon-crawler",
     "game-engine",
-    "old-school-essentials",
     "osr",
     "rpg",
     "srd",
