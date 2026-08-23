@@ -1,6 +1,6 @@
 # Agent guide for osrlib
 
-osrlib is a Python library implementing the Old-School Essentials (OSE) SRD rules — a restatement of the 1981 B/X D&D rules — for turn-based, grid-based dungeon crawlers in the style of the original Bard's Tale.
+osrlib is a Python library implementing the classic 1981 B/X (Basic/Expert) fantasy adventure game rules for turn-based, grid-based dungeon crawlers in the style of the original Bard's Tale. The rules are sourced from the Old-School Essentials SRD, an Open Game Content restatement of B/X — name the ruleset B/X and reserve the trademark for attribution, as README.md does.
 
 ## Start here
 
