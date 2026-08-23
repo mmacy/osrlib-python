@@ -4,6 +4,12 @@ All notable changes to osrlib are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The package version is the public API promise; `schema_version`, the integer stamped into saves, commands, and events, is the separate serialization axis defined by [the specification](docs/spec.md).
 
+## [1.7.1] - 2026-08-23
+
+### Changed
+
+- The trademark is now reserved for attribution and kept out of the surfaces that advertise the library. The SRD's own designation makes "Old-School Essentials" Product Identity, and OGL section 7 bars using Product Identity "including as an indication as to compatibility" — while section 6 compels the section 15 notice that names the SRD outright, so the license itself distinguishes crediting a source from trading on a mark. The README already drew that line; two surfaces had not. The PyPI keyword `old-school-essentials` is dropped, with `basic-expert` added so the ruleset stays discoverable under its own name: a keyword is a bare search token whose only function is to match queries for the mark, carrying no attributive content. The package docstring, which is also the top-line summary of the generated API reference, described osrlib as an "Old-School Essentials (B/X) rules engine" and now leads with B/X, matching the project description and the docs site. Attribution is untouched — the README's source sentence and its independence disclaimer, `docs/index.md`, the docs site description, the two documentation generators, and every mention in `LICENSE-OGL.md` and `srd/` all stand as they were. No behavior, API, or data changed; the only runtime-visible edit is a module docstring.
+
 ## [1.7.0] - 2026-08-22
 
 ### Added
@@ -125,7 +131,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The documentation site: quickstart, guides, front-end walk-throughs, and a full reference for every command, event, rejection code, message code, RNG stream, and content id.
 - The typed surface: complete type hints under `py.typed`, checked in CI.
 
-[Unreleased]: https://github.com/mmacy/osrlib-python/compare/v1.7.0...HEAD
+[Unreleased]: https://github.com/mmacy/osrlib-python/compare/v1.7.1...HEAD
+[1.7.1]: https://github.com/mmacy/osrlib-python/compare/v1.7.0...v1.7.1
 [1.7.0]: https://github.com/mmacy/osrlib-python/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/mmacy/osrlib-python/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/mmacy/osrlib-python/compare/v1.4.0...v1.5.0
