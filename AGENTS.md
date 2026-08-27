@@ -18,7 +18,7 @@ Each roadmap phase in `docs/spec.md` ships as two PRs — a plan, then an implem
 - Python ≥ 3.14. Package management with `uv` exclusively (`uv add`, `uv sync`, `uv run`) — never `pip`.
 - Format with `ruff format`, lint with `ruff check`, test with `pytest` (not unittest).
 - Type hints use built-in generics (`list[str]`, `dict[str, int]`). Do not import `List`/`Dict`/`Tuple` from `typing` and do not use `from __future__ import annotations`.
-- Docstrings are Google style, written in Markdown. Maximum line length 120.
+- Docstrings are Google style, written in Markdown. Maximum line length 120. That limit is a Python source rule enforced by `ruff`, and it has never applied to the `.md` files under `docs/`.
 
 ## Greenfield discipline
 
@@ -47,6 +47,7 @@ These are contracts, not suggestions — see the corresponding spec sections bef
 - **No numeric surface counts in prose.** Never write "all 44 commands" or "68 events" — the registries and the generated reference pages carry the numbers, and prose counts drift the moment a surface grows.
 - **The one-way bridge.** Common, jobs-to-be-done language *locates* a concept (navigation labels, headings, opening sentences); the project term is introduced once, job first ("osrlib calls this a gate"), and from that sentence on the docs commit to the term. No page maintains a parallel vocabulary.
 - **The voice gradient.** The funnel top — README, index, quickstart, guide openings — is written plain, every sentence doing instruction; the register stays rich in guide interiors, walkthroughs, and reference prose, where the reader has bought in.
+- **One paragraph per line.** Markdown prose is never hard-wrapped: a paragraph, a list item, or a table row is one line however long it runs, and the editor soft-wraps it. Reflowed prose turns a one-word edit into a paragraph-sized diff, which buries the change under the rewrap. The 120-character limit in the toolchain section governs Python source, not these files.
 - **Transcripts are captured, never composed.** Any quoted program output — TUI transcripts, command output — is re-captured from a real run after every change that could affect it, and never hand-edited.
 
 ## Testing expectations
