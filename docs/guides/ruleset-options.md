@@ -30,7 +30,7 @@ source of truth for the reasoning behind its default and for the mechanical beha
 | `xp_award_timing` | `XpAwardTiming`, `ON_RETURN` | XP pays out on return to town, or immediately as it's earned. |
 | `deprivation_penalties` | `bool`, `False` | Attach mechanical penalties to hunger and thirst. |
 | `aoe_friendly_fire` | `bool`, `True` | An area effect at melee range can catch the party's front rank. |
-| `formation_width_limit` | `bool`, `True` | Cap the front rank at what the party's own fighting space holds side by side. |
+| `formation_width_limit` | `bool`, `True` | Cap the front rank at how many fit side by side in the party's own fighting space. |
 
 ## SRD optional rules
 
@@ -103,13 +103,13 @@ in the blast, alongside the monsters. Off keeps party members out of every area 
 list.
 
 **`formation_width_limit`** (default on): caps how many combatants can fight in the same rank at
-once, at what the space the party stands in actually holds. OSE gives one number and leaves the rest
-to the referee: a 10-foot passage holds at most 2-3 side by side. osrlib takes the conservative end
-of that, five feet of frontage each, and measures the room, meaning the widest square of unbroken
-floor around the party. A one-cell passage holds two however far it runs, a room two cells square
-holds four, and a room four cells across holds eight. The same cap bounds how much of an area
-effect's footprint a formation absorbs. Off removes the cap: every combatant in the front rank
-fights, and formation width no longer bounds an area effect's footprint.
+once, at what actually fits in the space the party stands in. OSE gives one number and leaves the
+rest to the referee: at most 2-3 fit side by side in a 10-foot passage. osrlib takes the
+conservative end of that, five feet of frontage each, and measures the room, meaning the widest
+square of unbroken floor around the party. Two fit in a one-cell passage however far it runs, four
+in a room two cells square, and eight in a room four cells across. The same cap bounds how much of
+an area effect's footprint a formation absorbs. Off removes the cap: every combatant in the front
+rank fights, and formation width no longer bounds an area effect's footprint.
 
 ## Constructing a `Ruleset`
 
