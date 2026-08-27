@@ -1,8 +1,8 @@
 # Quickstart
 
-This page runs the whole loop once: roll characters, form a party, build the smallest possible adventure, start a session, execute commands, read the events, and round-trip the game through a save. The complete program appears [at the end of the page](#the-complete-program) — every fragment along the way is an excerpt of it.
+Roll characters, form a party, build the smallest possible adventure, start a session, execute commands, read the events, and round-trip the game through a save. That's the whole loop, and you run it once here. [The complete program](#the-complete-program) is at the end of the page, and every fragment along the way is an excerpt of it.
 
-Install [osrlib from PyPI](https://pypi.org/project/osrlib/) with [uv](https://docs.astral.sh/uv/) or pip. The library requires Python ≥ 3.14.
+Install [osrlib from PyPI](https://pypi.org/project/osrlib/) with [uv](https://docs.astral.sh/uv/) or pip. You'll need Python ≥ 3.14.
 
 ```sh
 uv add osrlib
@@ -16,7 +16,7 @@ pip install osrlib
 
 ## Roll the party
 
-Character creation follows the SRD's procedure — roll ability scores, choose a class, roll hit points and starting gold — and [`create_character`][osrlib.core.character.create_character] runs it in one call. Every random draw in osrlib comes from a named stream forked from a master seed, so the same seed always rolls the same characters:
+Character creation follows the SRD's procedure: roll ability scores, choose a class, roll hit points and starting gold. [`create_character`][osrlib.core.character.create_character] runs the whole procedure in one call. Every random draw in osrlib comes from a named stream forked from a master seed, so the same seed always produces the same characters:
 
 ```{.python .no-run}
 # Roll two 1st-level characters; every random draw comes from a named, seeded stream.
@@ -27,11 +27,11 @@ cleric = create_character(name="Osric", class_id="cleric", alignment=Alignment.L
 party = Party(members=[fighter.character, cleric.character])
 ```
 
-`class_id` takes any id from [`load_classes`][osrlib.data.load_classes] — see [the class id index][classes-index]. The result bundles the created [`Character`][osrlib.core.character.Character] with the raw rolls, which is why the party is built from `fighter.character`.
+`class_id` takes any id from [`load_classes`][osrlib.data.load_classes], listed in [the class id index][classes-index]. The result bundles the created [`Character`][osrlib.core.character.Character] with the raw rolls, which is why you build the party from `fighter.character`.
 
 ## Build the smallest adventure
 
-An [`Adventure`][osrlib.crawl.adventure.Adventure] is a town plus one or more dungeons. A dungeon level is a grid of 10-foot cells; edges between cells are walls unless declared open or a door. This one is a single corridor — two cells joined west–east:
+An [`Adventure`][osrlib.crawl.adventure.Adventure] is a town plus one or more dungeons. A dungeon level is a grid of 10-foot cells, and every edge between two cells is a wall unless you declare it open or a door. The dungeon you build here is a single corridor, two cells joined west-east:
 
 ```{.python .no-run}
 # The smallest adventure: a town and a one-corridor dungeon, two cells joined west-east.
@@ -44,11 +44,11 @@ town = TownSpec(name="Threshold", travel_turns={"crypt": 1})
 adventure = Adventure(name="A First Delve", town=town, dungeons=(crypt,))
 ```
 
-The edge key `"1,0:west"` names the west side of cell `(1, 0)` — the boundary between the two cells. [Building an adventure](building-an-adventure.md) walks the geometry and the content models in full.
+The edge key `"1,0:west"` names the west side of cell `(1, 0)`, the boundary between the two cells. For the geometry and the content models in full, see [Building an adventure](building-an-adventure.md).
 
 ## Start the session and move
 
-A [`GameSession`][osrlib.crawl.session.GameSession] starts in town. [`EnterDungeon`][osrlib.crawl.commands.EnterDungeon] places the party at the entrance and switches the session to `exploring` — most dungeon commands are rejected until that happens:
+A [`GameSession`][osrlib.crawl.session.GameSession] starts in town. [`EnterDungeon`][osrlib.crawl.commands.EnterDungeon] places the party at the entrance and switches the session to `exploring`, the only mode where movement and door commands are legal:
 
 ```{.python .no-run}
 # A session starts in town; entering the dungeon switches it to exploring.
@@ -57,7 +57,7 @@ session.execute(EnterDungeon(dungeon_id="crypt"))
 assert session.mode is SessionMode.EXPLORING
 ```
 
-Game state changes only through commands, and every rules resolution comes back as typed events. A rejected command changes nothing — rejection is a normal in-fiction outcome, not an exception (see [the rejection code reference](../reference/rejection-codes.md)):
+Game state changes only through commands, and every rules resolution comes back as typed events. A rejected command changes nothing. Rejection is a normal in-fiction outcome, not an exception (see [the rejection code reference](../reference/rejection-codes.md)):
 
 ```{.python .no-run}
 # Commands in, events out: every rules resolution is a typed event with a message code.
@@ -67,11 +67,11 @@ lines = [format_message(event) for event in result.events]
 assert lines  # every event formats to a default English line
 ```
 
-Events carry structured fields and a message code, never baked prose — [`format_message`][osrlib.messages.format_message] is the default English formatter, and front ends can supply their own (see [the message code reference](../reference/message-codes.md)).
+Events have structured fields and a message code, never baked prose. [`format_message`][osrlib.messages.format_message] is the default English formatter, and your front end can supply its own (see [the message code reference](../reference/message-codes.md)).
 
 ## Save and load
 
-The whole session serializes to a JSON-compatible dict, and loading restores it from that state alone — nothing is re-executed. Replay is the separate [`replay_game`][osrlib.persistence.replay_game] path, which rebuilds the same session by re-running the seed and the command log from scratch; that the two paths always land in the identical state is the determinism guarantee (see [Determinism, saves, and replay](../guides/determinism-saves-replay.md)):
+The whole session serializes to a JSON-compatible dict. Loading restores the session from that state alone and re-executes nothing. Replay is the separate [`replay_game`][osrlib.persistence.replay_game] path, which rebuilds the same session by re-executing the command log from the same seed. Load and replay always land in the identical state, and that's the determinism guarantee (see [Determinism, saves, and replay](../guides/determinism-saves-replay.md)):
 
 ```{.python .no-run}
 # The whole session round-trips through JSON: same seed, same commands, same game.
@@ -130,8 +130,8 @@ assert save_game(restored) == document
 
 ## Where next
 
-- [Building an adventure](building-an-adventure.md) — the dungeon itself: the grid and its edges, keyed areas, and the content that binds to them.
-- [Gates, triggers, and quests](../guides/gates-triggers-quests.md) — the authored layer: a door that needs a key, a lever that opens a portcullis, an errand that ends the adventure.
-- [Sessions, commands, and events](../guides/sessions-commands-events.md) — the command loop in depth: modes, rejections, the event log.
-- [Determinism, saves, and replay](../guides/determinism-saves-replay.md) — what the seed guarantees and how saves and replay meet in the middle.
-- [The TUI crawler](../front-ends/tui-crawler.md) — a complete example game built on everything above.
+- [Building an adventure](building-an-adventure.md) - the dungeon itself: the grid and its edges, keyed areas, and the content that binds to those areas.
+- [Gates, triggers, and quests](../guides/gates-triggers-quests.md) - the authored layer: a door that needs a key, a lever that opens a portcullis, an errand that ends the adventure.
+- [Sessions, commands, and events](../guides/sessions-commands-events.md) - the command loop in depth: modes, rejections, the event log.
+- [Determinism, saves, and replay](../guides/determinism-saves-replay.md) - what the seed guarantees and how saves and replay reach the same state.
+- [The TUI crawler](../front-ends/tui-crawler.md) - a complete example game built on everything above.
