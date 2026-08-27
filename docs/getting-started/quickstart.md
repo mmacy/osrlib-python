@@ -1,6 +1,6 @@
 # Quickstart
 
-Roll characters, form a party, build the smallest possible adventure, start a session, execute commands, read the events, and round-trip the game through a save. That's the whole loop, and you run it once here. [The complete program](#the-complete-program) is at the end of the page, and every fragment along the way is an excerpt of it.
+Roll characters, form a party, build the smallest possible adventure, start a session, execute commands, read the events, and round-trip the game through a save. That's the whole loop, and you run it once here. [The complete program](#the-complete-program) is at the end of the page, and every snippet along the way comes from it.
 
 Install [osrlib from PyPI](https://pypi.org/project/osrlib/) with [uv](https://docs.astral.sh/uv/) or pip. You'll need Python ≥ 3.14.
 

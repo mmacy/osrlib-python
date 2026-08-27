@@ -1,6 +1,6 @@
 # Building an adventure
 
-Adventures are plain data: frozen [pydantic](https://docs.pydantic.dev/) models you assemble in code, or load from your own file format, and hand to the session. [The complete program](#the-complete-program) at the end runs as written, and every code fragment before it is an excerpt.
+Adventures are plain data: frozen [pydantic](https://docs.pydantic.dev/) models you assemble in code, or load from your own file format, and hand to the session. [The complete program](#the-complete-program) at the end runs as written, and every code snippet before it comes from that program.
 
 The shape of the tree:
 
@@ -50,9 +50,9 @@ Cells not covered by any area are corridor. An [`AreaSpec`][osrlib.crawl.dungeon
 
 A [`KeyedEncounter`][osrlib.crawl.dungeon.KeyedEncounter] lists its monsters by template id, each with a fixed count or count dice. A template id is any id from [`load_monsters`][osrlib.data.load_monsters], listed in [the monster id index][monsters-index], or the id of a monster the adventure bundles (see [Bundling custom monsters with an adventure](../guides/authoring-custom-content.md#bundling-custom-monsters-with-an-adventure)). You can also pin the monsters' awareness, stance, or alignment. Left unpinned, surprise and reactions roll normally when the party walks in.
 
-Beyond encounters, an area (or the level itself) can hold:
+Beyond encounters, an area (or the level itself) can contain:
 
-- [`FeatureSpec`][osrlib.crawl.dungeon.FeatureSpec] - a treasure cache, a construction trick, or custom content for your front end. A cache holds hand-placed items, magic items (any id from [the magic item id index][magic-items-index], like a `sword_plus_1` in a chest), coins, and named valuables ([`ValuableSpec`][osrlib.crawl.dungeon.ValuableSpec]).
+- [`FeatureSpec`][osrlib.crawl.dungeon.FeatureSpec] - a treasure cache, a construction trick, or custom content for your front end. A cache contains hand-placed items, magic items (any id from [the magic item id index][magic-items-index], like a `sword_plus_1` in a chest), coins, and named valuables ([`ValuableSpec`][osrlib.crawl.dungeon.ValuableSpec]).
 - [`TrapSpec`][osrlib.crawl.dungeon.TrapSpec] - room traps on areas, treasure traps on caches. A room trap springs when the party steps in or, with `trigger="open"`, when the party opens one of the area's doors.
 - [`AreaTreasureSpec`][osrlib.crawl.dungeon.AreaTreasureSpec] - generated treasure: explicit treasure type letters (see [the treasure type index][treasure-types-index]) or the level's unguarded-treasure band.
 - [`TransitionSpec`][osrlib.crawl.dungeon.TransitionSpec] - stairs, trapdoors, and chutes between levels. Transitions live on the level, not the area.
@@ -72,7 +72,7 @@ adventure = Adventure(
 )
 ```
 
-The root also holds the adventure's *behavior* on the `items`, `triggers`, and `quests` fields: its own item templates, its triggers, and its quests. To learn about all three, see [Gates, triggers, and quests](../guides/gates-triggers-quests.md).
+The root also contains the adventure's *behavior* on the `items`, `triggers`, and `quests` fields: its own item templates, its triggers, and its quests. To learn about all three, see [Gates, triggers, and quests](../guides/gates-triggers-quests.md).
 
 ## Validate before play
 
@@ -164,7 +164,7 @@ assert len(session.monsters) == 2
 
 ## Where next
 
-- [Gates, triggers, and quests](../guides/gates-triggers-quests.md) - the authored behavior this dungeon's data can hold: the gated door, the trigger wiring, and the quest that ends the adventure.
+- [Gates, triggers, and quests](../guides/gates-triggers-quests.md) - the authored behavior this dungeon's data can contain: the gated door, the trigger wiring, and the quest that ends the adventure.
 - [The TUI crawler](../front-ends/tui-crawler.md) builds a complete authored adventure: a two-level barrow with a fetch quest, a custom wandering table, and a hand-placed MacGuffin. [The FastAPI pattern](../front-ends/fastapi-pattern.md) serves the same barrow over HTTP.
 - [Sessions, commands, and events](../guides/sessions-commands-events.md) - what happens after the encounter starts.
 - [Authoring custom classes, spells, monsters, and items](../guides/authoring-custom-content.md) - extending the content catalogs themselves.
