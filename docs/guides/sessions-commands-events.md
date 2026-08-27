@@ -6,7 +6,7 @@ the clock, the live monster registry, the mode), and it exposes exactly one way 
 any of it: [`execute`][osrlib.crawl.session.GameSession.execute]. Hand it a command, get
 back a [`CommandResult`][osrlib.crawl.commands.CommandResult]. Nothing else in the public
 API mutates a session. [The complete program](#the-complete-program) is at the end of the
-page, and every fragment along the way is an excerpt of it.
+page, and every snippet along the way comes from it.
 
 ## The command loop
 
@@ -25,7 +25,7 @@ when a command clears every check does anything change. The session appends the 
 the command log and its events to the event log, then runs any registered listeners in
 registration order, each one seeing the events so far and appending its own reactions to
 both the result and the log. The `CommandResult` you get back from an accepted command
-holds the *complete* chain: the handler's events and every listener's events, in the order
+contains the *complete* chain: the handler's events and every listener's events, in the order
 they happened.
 
 That includes what a listener causes by executing further commands. Those nested
@@ -144,7 +144,7 @@ needs no authored trigger behind it, and your game drives it with ids from its o
 systems.
 The four quest commands invert that. They resolve `quest_id` and `objective_id` against
 the adventure's own [`QuestSpec`][osrlib.crawl.quests.QuestSpec]s, a **closed domain**,
-and reject an id no spec holds (`session.command.unknown_quest`,
+and reject an id that matches no spec (`session.command.unknown_quest`,
 `session.command.unknown_objective`). The state they advance is projected into the player
 view, and an id with no spec behind it has no name, no offer, and no objective list to
 show. A command that contradicts the state it finds (activating a quest already active,
@@ -162,7 +162,7 @@ is why a hand-driven completion grants nothing.
 A rejected command is a normal outcome, not a failure. Validation is a pure pre-phase:
 it never draws randomness, never advances the clock, never mutates anything, and a
 rejected command never enters the command log. [`Rejection`][osrlib.core.validation.Rejection]
-is a small structured model (a dotted snake_case `code` plus `params`) that holds exactly
+is a small structured model (a dotted snake_case `code` plus `params`) that contains exactly
 the facts your front end needs to render the refusal, never baked English prose.
 Moving into a wall, trying to pick a lock without thieves' tools, casting a spell in
 the wrong mode: these are all rejections, and `CommandResult.rejections` is where they

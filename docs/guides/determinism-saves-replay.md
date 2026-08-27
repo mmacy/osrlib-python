@@ -8,7 +8,7 @@ always produce the same game.**
 You get three things out of that guarantee. A bug report needs only a seed and a short command
 log to reproduce a failure exactly. Golden tests can assert on exact game state instead of
 approximate behavior. And a saved game reconstructs byte-for-byte, or replays from scratch, and
-lands in the identical place either way. Every fragment below is an excerpt from [the complete
+lands in the identical place either way. Every snippet below comes from [the complete
 program](#the-complete-program) at the end, and running that program checks every claim made
 here.
 
@@ -66,7 +66,7 @@ fresh session, with no saved state at all. It raises
 doesn't match the running engine. That check runs only when you pass the version a save
 recorded (through the `recorded_engine_version` argument). It raises
 [`ContentValidationError`][osrlib.errors.ContentValidationError] if a logged command is rejected
-on replay. That's a divergence, since the log holds only commands that were accepted the first
+on replay. That's a divergence, since the log contains only commands that were accepted the first
 time.
 
 Both paths are deterministic, so they agree: restoring a session from its save, and replaying
@@ -111,13 +111,13 @@ session and feeding it the log through `execute`, and then it turns on what the 
 listener that only observes, by accumulating `listener_state` and returning annotation events,
 can be registered and reproduces its state exactly. A listener that reacts by **issuing
 commands**, and the [`Interpreter`][osrlib.crawl.interpreter.Interpreter] above all, must
-**not** be registered. The log already holds every command that listener issued live, and a
+**not** be registered. The log already contains every command that listener issued live, and a
 second issuer would issue them again and diverge from the recorded game.
 
 ## Schema versions and migrations
 
 The version helpers live in [`osrlib.versioning`][osrlib.versioning]. Every serialized document
-(a save, a command, an event) goes into an envelope that holds a `kind`, a `schema_version`, and
+(a save, a command, an event) goes into an envelope that contains a `kind`, a `schema_version`, and
 an `engine_version`. [`stamp_document`][osrlib.versioning.stamp_document] produces the envelope
 and [`check_document`][osrlib.versioning.check_document] reads it back.
 [`SCHEMA_VERSION`][osrlib.versioning.SCHEMA_VERSION] is currently `3`, one integer shared by
@@ -132,7 +132,7 @@ stamped at an older schema version still loads.
 
 Two migrations have shipped. The step from version 1 to version 2 drops a `recovered_treasure`
 field that a version-2 payload no longer includes, and adds the empty `npcs` list that arrived
-with version 2. A payload holds the NPC roster as a list, and `load_game` rebuilds it into the
+with version 2. A payload contains the NPC roster as a list, and `load_game` rebuilds it into the
 session's `npcs` dict keyed by id, which is what the assertion below reads back. The step from
 version 2 to version 3 is a lossless rewrite: version 3 rejects
 `trigger="enter"` on a treasure trap, a value the cache path never read, so the migration

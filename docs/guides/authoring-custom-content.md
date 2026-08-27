@@ -53,7 +53,7 @@ WARDEN = ClassDefinition.model_validate(
 [`ArmourPolicy`][osrlib.core.classes.ArmourPolicy] names the allowed armour kind (`any`,
 `leather_only`, or `none`) and whether shields are allowed. A
 [`WeaponPolicy`][osrlib.core.classes.WeaponPolicy] is either `any` with no id list, or
-`allowed`/`forbidden` with an explicit `weapon_ids` list. Its `manual_notes` field holds the
+`allowed`/`forbidden` with an explicit `weapon_ids` list. Its `manual_notes` field contains the
 referee-judgment stature prose that can't be mechanized, the way the dwarf and halfling pages state
 it. `languages` are the tongues every member of the class speaks natively. `may_not_lower` adds
 class-specific floors to the adjustment step on top of the prime-requisite rule: the warden above
@@ -446,12 +446,12 @@ assert warden.memorized_spells == ()
 ## Bundling custom monsters with an adventure
 
 Monsters take a different transport than classes and spells, because the crawl layer already has a
-document that holds content: the adventure. `Adventure.monsters` bundles your own
+document that contains content: the adventure. `Adventure.monsters` bundles your own
 [`MonsterTemplate`][osrlib.core.monsters.MonsterTemplate]s with the adventure document, and every
 session running that adventure resolves them everywhere it resolves a shipped template id: keyed
 encounters, [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters], inline wandering tables, listen
 checks, and [`GameSession.spawn`][osrlib.crawl.session.GameSession.spawn]. No loader reassignment, no
-registration. The document holds the content, and
+registration. The document contains the content, and
 [`GameSession.effective_monsters`][osrlib.crawl.session.GameSession.effective_monsters] is the shipped
 catalog plus the bundle. Downstream of spawning, nothing is different for a bundled monster. A spawned
 [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] embeds its full template, so combat, morale,
@@ -554,7 +554,7 @@ above is the supported path.
 
 ## Bundling custom items with an adventure
 
-Items travel with the adventure exactly the way monsters do. `Adventure.items` holds your own
+Items travel with the adventure exactly the way monsters do. `Adventure.items` contains your own
 [`WeaponTemplate`][osrlib.core.items.WeaponTemplate],
 [`ArmourTemplate`][osrlib.core.items.ArmourTemplate], [`GearTemplate`][osrlib.core.items.GearTemplate],
 and [`AmmunitionTemplate`][osrlib.core.items.AmmunitionTemplate]s, the same models the shipped
@@ -696,12 +696,12 @@ the shipped classes' own policies, and a custom class of your own can name your 
 
 There's no merge path into the shipped content. `load_classes` and `load_spells` are cached loaders
 that read the generated `classes.json` and `spells.json` shipped inside the package. There's no append
-or register call, so an extended catalog is always a value your own code builds and holds: `classes`
+or register call, so an extended catalog is always a value your own code builds and keeps: `classes`
 and `spells` above, never something fed back into the loaders themselves. `load_monsters` and
 `load_equipment` are just as closed. Bundling
 ([monsters](#bundling-custom-monsters-with-an-adventure),
 [items](#bundling-custom-items-with-an-adventure)) unions per session through the adventure document
-that holds the templates, and the shipped catalog objects never change.
+that contains the templates, and the shipped catalog objects never change.
 
 [`create_character`][osrlib.core.character.create_character], the one-call wrapper used in
 [the quickstart](../getting-started/quickstart.md), resolves its `class_id` argument through
@@ -719,7 +719,7 @@ object or nothing but a stream, and they run the identical procedure `create_cha
 
 The `load_classes` reassignment above is a plain module attribute, not a supported extension API with
 its own function or parameter. There's nothing to call except swapping the name, and nothing checks
-that you swapped it back. If your game holds custom classes, reassign it once at startup and keep your
+that you swapped it back. If your game has custom classes, reassign it once at startup and keep your
 extended catalog as the only `load_classes` your characters ever see for the life of the process, the
 same way the [complete program](#the-complete-program) above does. Spells need no equivalent seam.
 Nothing resolves a spell by id off a character the way `Character.definition` resolves a class, so

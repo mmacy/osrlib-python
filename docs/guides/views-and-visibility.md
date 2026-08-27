@@ -10,7 +10,7 @@ Visibility shows up in two places: on individual events, and on the two whole-st
 projections a [`GameSession`][osrlib.crawl.session.GameSession] can build. Over a
 network that split becomes a boundary you enforce on the server, because a client must
 never see more than the player is meant to. [The complete example](#the-complete-example) is at
-the end of the page, and every fragment along the way is an excerpt of it.
+the end of the page, and every snippet along the way comes from it.
 
 ## Visibility on events
 
@@ -88,7 +88,7 @@ beats stay out of the view entirely.
 The quests in play appear as [`QuestView`][osrlib.crawl.views.QuestView] values with an
 id, a name, the offer beat and its speaker attribution, and the revealed objectives
 with their ids, display names, and states. When an encounter or battle is running, the
-view also holds its public shape
+view also contains its public shape
 ([`EncounterView`][osrlib.crawl.views.EncounterView] and
 [`EncounterGroupView`][osrlib.crawl.views.EncounterGroupView]): a monster group's id,
 label, living count, distance, and visible conditions, but never its hit points.
@@ -98,15 +98,15 @@ declare, who stands in the front rank, who is held fast, and who is still reload
 [`RefereeView`][osrlib.crawl.views.RefereeView] is the opposite: everything except the
 RNG stream states and the master seed. Its single `state` field is the same serialized
 shape [`session_state`][osrlib.persistence.session_state] produces for a save, so it
-holds full monster instances with real hit points, the flag store, the NPC roster,
+contains full monster instances with real hit points, the flag store, the NPC roster,
 session counters, and the complete event log with referee-visibility events in it. Use
 it for LLM referees and tools that need the truth rather than a player's approximation
 of it. Never send it to a wire client.
 
 ## The split in practice
 
-The clearest way to see the split is a spawned monster. The referee view's state holds
-the monster's live hit points. The player-facing encounter group holds only what the
+The clearest way to see the split is a spawned monster. The referee view's state contains
+the monster's live hit points. The player-facing encounter group contains only what the
 party could plausibly perceive: how many are still standing, how far away they are, and
 what conditions show.
 
@@ -130,7 +130,7 @@ assert "lever-east" not in journal_view.model_dump_json()
 assert referee_state["fired_triggers"] == ["lever-east"]
 ```
 
-Quests draw the same line, one level finer. `PlayerView.quests` holds the **active**
+Quests draw the same line, one level finer. `PlayerView.quests` contains the **active**
 quests only, in document order. A quest nobody has been given yet is absent, because an
 activation clause is wiring like any other, and a finished quest leaves the list,
 because its record is the journal. Under each quest, only the **revealed** objectives
@@ -172,7 +172,7 @@ against a local copy of the session, could read monster hit points straight off 
 wire or replay commands the real game state never sanctioned. That's exactly the
 information and control B/X reserves for the person running the table.
 [The FastAPI pattern](../front-ends/fastapi-pattern.md) walks through this boundary end
-to end. You hold one session per game on the server and pass every response through the
+to end. You keep one session per game on the server and pass every response through the
 player view before it leaves the process.
 
 ## The complete example

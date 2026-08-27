@@ -9,7 +9,7 @@ react by executing more commands, and **flags**, a small piece of session state 
 and writes directly.
 
 If you'd like to jump right to the code, [the complete program](#the-complete-program) at the end
-is self-contained and runnable, and every fragment along the way is an excerpt of it.
+is self-contained and runnable, and every snippet along the way comes from it.
 
 ## Listeners: reacting to committed events
 
@@ -65,7 +65,7 @@ its own reaction over and over. The fetch quest below includes exactly that guar
 
 ## listener_state: what survives, what doesn't
 
-A listener's state dict is the only part of it a save file holds. `register_listener` reserves
+A listener's state dict is the only part of it a save file contains. `register_listener` reserves
 an empty slot for the listener's key on registration, and every save and load round-trips
 `listener_state` verbatim as plain JSON-compatible data. The listener *object* itself never
 serializes, because it's code and not data, so after loading a saved game you must call
@@ -91,7 +91,7 @@ value. Flags are referee-only state: like listener state, they round-trip throug
 [`PlayerView`][osrlib.crawl.views.PlayerView] a player-facing front end reads. For more
 information, see [Views and visibility](views-and-visibility.md). A front end that needs a flag's
 value back (to decide whether to narrate the portcullis creaking open, for example) reads
-`session.flags` directly when it holds the session, or
+`session.flags` directly when it has the session, or
 `session.view(Visibility.REFEREE).state["flags"]` when it works from views alone.
 
 ## Lifecycle commands: fired-marks, the journal, and notes
@@ -131,7 +131,7 @@ exactly this surface, and a listener you write uses it the same way.
 
 [`Interpreter`][osrlib.crawl.interpreter.Interpreter] is a listener like any other, and it's the
 worked reference for everything above. Register one, once, after the session exists, and again
-after loading a save, because listeners are code and a save holds only data:
+after loading a save, because listeners are code and a save contains only data:
 
 ```{.python .no-run}
 session.register_listener(Interpreter(session))
@@ -215,7 +215,7 @@ A few points about the listener above:
   `handle` while the state slot still held its pre-completion value.
 - The `handle` method returns `[], state` unconditionally. Every event this listener causes
   travels through `self._session.execute(...)`, which already logs it, so there's nothing left for
-  the returned-events list to hold.
+  the returned-events list to contain.
 - Nothing here reaches into party state to *change* it. The flag and the XP both land as ordinary
   commands, which is why a save, a load, and a replay all agree about what happened.
 
@@ -383,7 +383,7 @@ assert hero.xp > 0  # the award applied, prime-requisite modifier and all
   alongside a custom wandering table and a two-level barrow.
 - [Ruleset options](ruleset-options.md) - the flags the engine itself reads, as opposed to the
   ones you define.
-- [Determinism, saves, and replay](determinism-saves-replay.md) - what a save file holds and
+- [Determinism, saves, and replay](determinism-saves-replay.md) - what a save file contains and
   what it doesn't.
 - [Views and visibility](views-and-visibility.md) - the player and referee projections, and why
   flags live only in the referee one.

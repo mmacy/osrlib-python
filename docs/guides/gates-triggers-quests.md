@@ -1,15 +1,15 @@
 # Gates, triggers, and quests
 
-You want a door that needs a key, a lever that opens a portcullis across the map, an errand that ends the adventure when the party finishes it. You author all three as data: a **gate** guards an attempt, a **trigger** reacts to an event, and a **quest** keeps score toward an ending. All three live in the adventure document beside the dungeons they wire. Nothing plays them until your game registers the library's [`Interpreter`][osrlib.crawl.interpreter.Interpreter], a listener like the ones in [Listeners and flags](listeners-and-flags.md). The library ships it because you need one for every authored adventure. [The complete program](#the-complete-program) at the end runs as written, and every fragment along the way is an excerpt of it. Where a fragment comes from [the TUI crawler's](../front-ends/tui-crawler.md) authored adventure instead, the text says so.
+You want a door that needs a key, a lever that opens a portcullis across the map, an errand that ends the adventure when the party finishes it. You author all three as data: a **gate** guards an attempt, a **trigger** reacts to an event, and a **quest** keeps score toward an ending. All three live in the adventure document beside the dungeons they wire. Nothing plays them until your game registers the library's [`Interpreter`][osrlib.crawl.interpreter.Interpreter], a listener like the ones in [Listeners and flags](listeners-and-flags.md). The library ships it because you need one for every authored adventure. [The complete program](#the-complete-program) at the end runs as written, and every snippet along the way comes from it. Where a snippet comes from [the TUI crawler's](../front-ends/tui-crawler.md) authored adventure instead, the text says so.
 
 The door itself, the edge and its [`DoorSpec`][osrlib.crawl.dungeon.DoorSpec], is dungeon geometry. [Building an adventure](../getting-started/building-an-adventure.md#the-grid-and-its-edges) covers it, along with the keyed areas and transitions you hang these conditions on.
 
 ## Gating a door or a stair
 
-A door or a level transition can hold a [`GateSpec`][osrlib.crawl.gates.GateSpec] on its `requires` field: an authored condition the party must satisfy for the attempt to be legal. The engine evaluates the condition live, at the moment the party tries the door, and stores nothing, so a key that gets dropped or sold stops opening it:
+A door or a level transition can have a [`GateSpec`][osrlib.crawl.gates.GateSpec] on its `requires` field: an authored condition the party must satisfy for the attempt to be legal. The engine evaluates the condition live, at the moment the party tries the door, and stores nothing, so a key that gets dropped or sold stops opening it:
 
-- [`HasItemCondition`][osrlib.crawl.gates.HasItemCondition] - some member's carried inventory holds an item with that catalog id. Any member's pack counts, equipped slots included. The id must resolve against the equipment catalog (bundled items included, see [authoring custom content](authoring-custom-content.md)) or the magic-item catalog. A gate naming an unknown id fails validation.
-- [`FlagEqualsCondition`][osrlib.crawl.gates.FlagEqualsCondition] - a session flag holds a value. Your game sets flags with [`SetFlag`][osrlib.crawl.commands.SetFlag], so this is the lever-opens-the-portcullis wiring. The comparison is strict: an absent key matches nothing, not even `False`, and a stored `True` never satisfies an authored `1`.
+- [`HasItemCondition`][osrlib.crawl.gates.HasItemCondition] - some member's carried inventory contains an item with that catalog id. Any member's pack counts, equipped slots included. The id must resolve against the equipment catalog (bundled items included, see [authoring custom content](authoring-custom-content.md)) or the magic-item catalog. A gate naming an unknown id fails validation.
+- [`FlagEqualsCondition`][osrlib.crawl.gates.FlagEqualsCondition] - a session flag equals a value. Your game sets flags with [`SetFlag`][osrlib.crawl.commands.SetFlag], so this is the lever-opens-the-portcullis wiring. The comparison is strict: an absent key matches nothing, not even `False`, and a stored `True` never satisfies an authored `1`.
 - [`EffectActiveCondition`][osrlib.crawl.gates.EffectActiveCondition] - an active effect of that kind is attached to a party member. Use it when the talisman has to be invoked rather than merely carried.
 
 A refused attempt is an ordinary rejection, `exploration.door.gate_refused` or `exploration.transition.gate_refused`, with the gate's authored refusal text in it. It costs nothing: no dice, no game time, no items, and no change to the door.
@@ -28,7 +28,7 @@ Locks and gates are separate layers, and a door with both requires both. The eng
 
 `consumes=True` turns a `has_item` condition into a toll: each time the gated command succeeds, one instance leaves the first holder in marching order, reported by [`ItemConsumedEvent`][osrlib.crawl.events.ItemConsumedEvent] just before the door or arrival event. Every success charges again, so a consumed key-door that swings shut takes another key. Coins are not items and can't be tolled. To charge one, mint a token as a bundled item and gate on that.
 
-A [`NarrativeBlock`][osrlib.crawl.narrative.NarrativeBlock] holds the authored text for the mechanical object it hangs on. Gates read two of its beats: `refusal`, returned in the rejection, and `success`, which goes on the successful command's event, the [`DoorEvent`][osrlib.crawl.events.DoorEvent] for a door and the [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] for a transition that crosses into a new level or dungeon. [`format_message`][osrlib.messages.format_message] appends the beat verbatim, so it shows up in a bare transcript. A transition whose destination is its own level crosses no boundary and emits no arrival event, so a success beat there has nowhere to display. The block's other fields are `journal`, `guidance` for an LLM narrator, and `speaker`, each read by the surface that consumes it. A gate's `journal` beat has no consumer at all: journaling a door is [a trigger's](#wiring-the-dungeon-with-triggers) job. No part of a gate's narrative block reaches the player view, which holds no gate wiring at all.
+A [`NarrativeBlock`][osrlib.crawl.narrative.NarrativeBlock] contains the authored text for the mechanical object it hangs on. Gates read two of its beats: `refusal`, returned in the rejection, and `success`, which goes on the successful command's event, the [`DoorEvent`][osrlib.crawl.events.DoorEvent] for a door and the [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] for a transition that crosses into a new level or dungeon. [`format_message`][osrlib.messages.format_message] appends the beat verbatim, so it shows up in a bare transcript. A transition whose destination is its own level crosses no boundary and emits no arrival event, so a success beat there has nowhere to display. The block's other fields are `journal`, `guidance` for an LLM narrator, and `speaker`, each read by the surface that consumes it. A gate's `journal` beat has no consumer at all: journaling a door is [a trigger's](#wiring-the-dungeon-with-triggers) job. No part of a gate's narrative block reaches the player view, which contains no gate wiring at all.
 
 ## Wiring the dungeon with triggers
 
@@ -46,9 +46,9 @@ sentinel_wakes = TriggerSpec(
 )
 ```
 
-Triggers live in the adventure document alongside the content they wire. `Adventure.items` holds the adventure's own item templates: the brass key the sentinel wants is content, not shipped equipment (see [authoring custom content](authoring-custom-content.md) for the whole bundling contract). `Adventure.triggers` holds the wiring, and the tuple is document order. When two triggers match the same event, they fire in the order you wrote them.
+Triggers live in the adventure document alongside the content they wire. `Adventure.items` contains the adventure's own item templates: the brass key the sentinel wants is content, not shipped equipment (see [authoring custom content](authoring-custom-content.md) for the whole bundling contract). `Adventure.triggers` contains the wiring, and the tuple is document order. When two triggers match the same event, they fire in the order you wrote them.
 
-Triggers are inert content on their own. They play once your game registers the library's [`Interpreter`][osrlib.crawl.interpreter.Interpreter] on the session. Register it right after you build the session, and again after you load a save, because listeners are code and a save holds only data:
+Triggers are inert content on their own. They play once your game registers the library's [`Interpreter`][osrlib.crawl.interpreter.Interpreter] on the session. Register it right after you build the session, and again after you load a save, because listeners are code and a save contains only data:
 
 ```{.python .no-run}
 session = GameSession.new(Party(members=[hero.character]), adventure, seed=11)
@@ -118,7 +118,7 @@ Drop the idol into a cache by id (`item_ids=("jade-idol",)`) and add its templat
 
 ### Hidden objectives and reveals
 
-`objectives` holds at least one [`ObjectiveSpec`][osrlib.crawl.quests.ObjectiveSpec], in the order you write them, and each one has a completion clause of its own. `hidden=True` keeps an objective out of the player view until either its own `reveal_when` clause matches or the party completes it, because completing an objective reveals it. A hidden objective with no reveal clause is a normal shape: the party learns about it by doing it. A `reveal_when` on an objective that was never hidden is rejected at parse, because nothing would read that wiring.
+`objectives` contains at least one [`ObjectiveSpec`][osrlib.crawl.quests.ObjectiveSpec], in the order you write them, and each one has a completion clause of its own. `hidden=True` keeps an objective out of the player view until either its own `reveal_when` clause matches or the party completes it, because completing an objective reveals it. A hidden objective with no reveal clause is a normal shape: the party learns about it by doing it. A `reveal_when` on an objective that was never hidden is rejected at parse, because nothing would read that wiring.
 
 ### The completion rule and the ending
 
@@ -318,7 +318,7 @@ assert len(session.monsters) == 2
 
 ## Where next
 
-- [The TUI crawler](../front-ends/tui-crawler.md) - the fetch quest this page excerpts, in its full adventure context: a two-level barrow, a concluding quest, and the victory ending.
+- [The TUI crawler](../front-ends/tui-crawler.md) - the fetch quest this page shows, in its full adventure context: a two-level barrow, a concluding quest, and the victory ending.
 - [Sessions, commands, and events](sessions-commands-events.md) - the lifecycle commands the interpreter issues, and the victory mode a concluding quest enters.
 - [Determinism, saves, and replay](determinism-saves-replay.md) - how fired-marks, the journal, and quest state survive a save and rebuild under replay.
 - [Views and visibility](views-and-visibility.md) - what a quest projects into the player view, and what stays the game's secret.

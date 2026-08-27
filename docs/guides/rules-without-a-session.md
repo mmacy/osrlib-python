@@ -16,8 +16,8 @@ the stream each function takes explicitly. There's no default stream and no hidd
 bound by them. A stream's name is just a label, and determinism only requires that the same
 name draw the same sequence for a given master seed.
 [The complete program](#the-complete-program) at the end rolls dice, resolves an attack,
-generates treasure, and looks up a reaction in one script. Every code fragment above it is an
-excerpt from that script.
+generates treasure, and looks up a reaction in one script. Every code snippet above it comes
+from that script.
 
 ## The dice grammar
 
@@ -29,7 +29,7 @@ the multiplier, which reads differently than ordinary arithmetic precedence: `2d
 `(2d6 + 1) × 10`, the B/X treasure-roll convention, not `2d6 + 10`.
 [`parse`][osrlib.core.dice.parse] turns the string into a frozen
 [`DiceExpression`][osrlib.core.dice.DiceExpression]. [`roll`][osrlib.core.dice.roll] draws from
-an explicit stream and returns a [`RollResult`][osrlib.core.dice.RollResult] that holds both the
+an explicit stream and returns a [`RollResult`][osrlib.core.dice.RollResult] that contains both the
 individual dice and the total:
 
 ```{.python .no-run}
@@ -85,7 +85,7 @@ else:
     assert attack.damage is None
 ```
 
-`resolve_attack` returns an [`AttackResult`][osrlib.core.combat.AttackResult] that holds the same
+`resolve_attack` returns an [`AttackResult`][osrlib.core.combat.AttackResult] that contains the same
 typed events a session would append to its log. Read those events directly, or format them with
 [`format_message`][osrlib.messages.format_message], entirely outside any session.
 
