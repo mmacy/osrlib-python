@@ -1,25 +1,27 @@
 # Determinism, saves, and replay
 
-You want a bug report you can reproduce, a golden test that never flakes, and a save
-you can trust.
-osrlib's central promise is that a game is a pure function of its seed and its command
-sequence: every random draw comes from a named [`RngStream`][osrlib.core.rng.RngStream] forked
-from a session's master seed, so **the same seed, the same sequence of commands, and the same
-engine version always produce the same game.** That guarantee pays for itself several times
-over: a bug report needs only a seed and a short command log to reproduce exactly, golden tests
-can assert on exact game state instead of approximate behavior, and a saved game reconstructs
-byte-for-byte — or replays from scratch — and lands in the identical place either way. [The
-complete program](#the-complete-program) at the end of this page runs every claim made here;
-every fragment above it is an excerpt.
+In osrlib, a game is a pure function of its seed and its command sequence. Every random
+draw comes from a named [`RngStream`][osrlib.core.rng.RngStream] forked from a session's
+master seed, so **the same seed, the same sequence of commands, and the same engine version
+always produce the same game.**
+
+You get three things out of that guarantee. A bug report needs only a seed and a short command
+log to reproduce a failure exactly. Golden tests can assert on exact game state instead of
+approximate behavior. And a saved game reconstructs byte-for-byte, or replays from scratch, and
+lands in the identical place either way. Every fragment below is an excerpt from [the complete
+program](#the-complete-program) at the end, and running that program checks every claim made
+here.
 
 ## The determinism contract
 
-Randomness in osrlib never comes from the stdlib `random` module or a module-level default —
-every roll takes an explicit stream, and every stream is one of the small named set forked from
-the session's master seed (see [RNG streams](../reference/rng-streams.md) for the full list and
-what each one governs). Two sessions built from the same seed and driven through the same
-accepted commands consume every stream in the same order and land on the same draws, so their
-saves are byte-for-byte identical, not merely equivalent in effect:
+Randomness in osrlib never comes from the stdlib `random` module or a module-level default.
+Every roll takes an explicit stream, and every stream is one of the small named set forked from
+the session's master seed. See [RNG streams](../reference/rng-streams.md) for the full list and
+what each stream governs.
+
+Two sessions built from the same seed and driven through the same accepted commands consume
+every stream in the same order and land on the same draws. Their saves are byte-for-byte
+identical, not just equivalent in effect:
 
 ```{.python .no-run}
 # Same seed, same commands: two independently built sessions save identically.
@@ -33,15 +35,16 @@ assert save_game(session_a) == save_game(session_b)
 [`save_game`][osrlib.persistence.save_game] serializes a running
 [`GameSession`][osrlib.crawl.session.GameSession] to a JSON-compatible dict: the party, the
 embedded adventure content, dungeon state, the clock, every exported RNG stream position, the
-master seed, the session-state blocks the extension and authored layers write — the flag store,
-each registered listener's state slot, the trigger fired-marks, the journal, and quest state
-(see [Listeners and flags](listeners-and-flags.md) and
-[Gates, triggers, and quests](gates-triggers-quests.md)) — the accepted-command log, and —
-unless called with `include_event_log=False` — the event log. So the answer to "does my
-authored progress survive?" is yes, all of it, by construction.
-[`load_game`][osrlib.persistence.load_game] reconstructs a session from that dict by
-restoring each piece exactly, RNG stream positions included, so a loaded game continues drawing
-from precisely where the saved game left off:
+master seed, the session-state blocks the extension and authored layers write (the flag store,
+each registered listener's state slot, the trigger fired-marks, the journal, and quest state),
+the accepted-command log, and the event log. Pass `include_event_log=False` to leave the event
+log out. Your authored progress survives, all of it, by construction. For more about the
+session-state blocks, see [Listeners and flags](listeners-and-flags.md) and
+[Gates, triggers, and quests](gates-triggers-quests.md).
+
+[`load_game`][osrlib.persistence.load_game] reconstructs a session from that dict by restoring
+each piece exactly, RNG stream positions included, so a loaded game continues drawing from
+precisely where the saved game left off:
 
 ```{.python .no-run}
 # The whole session round-trips through JSON: save -> load -> save is the identity.
@@ -50,26 +53,26 @@ restored = load_game(document)
 assert save_game(restored) == document
 ```
 
-The event log is the one piece a save doesn't need: it's a record for a front end to display,
-never a dependency `load_game` reconstructs state from, which is why `include_event_log=False`
-is safe to compact a save with — state reconstructs exactly whether the log rides along or not.
+The event log is the one piece a save doesn't need. It's a record for a front end to display,
+never a dependency `load_game` reconstructs state from, so `include_event_log=False` is safe to
+compact a save with: state reconstructs exactly whether the log is in the save or not.
 
 ## Replay from a seed and a command log
 
 [`replay_game`][osrlib.persistence.replay_game] takes the same seed, the starting party, the
 adventure, and the accepted-command log, and re-executes every command from scratch through a
-fresh session — no saved state at all. It raises
+fresh session, with no saved state at all. It raises
 [`ReplayVersionError`][osrlib.errors.ReplayVersionError] when the log's recorded engine version
-doesn't match the running engine — a check that runs only when the caller passes the version a
-save recorded, through the `recorded_engine_version` argument — and
+doesn't match the running engine. That check runs only when you pass the version a save
+recorded (through the `recorded_engine_version` argument). It raises
 [`ContentValidationError`][osrlib.errors.ContentValidationError] if a logged command is rejected
-on replay — a divergence, since the log holds only commands that were accepted the first time.
+on replay. That's a divergence, since the log holds only commands that were accepted the first
+time.
 
-Because both paths are deterministic, they meet in the middle: restoring a session from its
-save, and replaying the same seed against the same command log, land in the identical state.
-That equivalence is the standing test the engine holds itself to, and it's also the practical
-payoff for consumers — a bug report, an audit trail, or a spectator replay needs only the tiny
-seed-plus-commands pair, not a full save file:
+Both paths are deterministic, so they agree: restoring a session from its save, and replaying
+the same seed against the same command log, land in the identical state. osrlib's test suite
+asserts that equivalence. The practical payoff is that a bug report, an audit trail, or a
+spectator replay needs only the seed and the commands, not a full save file:
 
 ```{.python .no-run}
 # load(save) and replay(seed, commands) are two different paths to the identical state:
@@ -86,47 +89,53 @@ replayed = replay_game(
 assert save_game(replayed, include_event_log=False) == save_game(session_a, include_event_log=False)
 ```
 
-`replay_game` wants the *pre-session* party document —
-[`party_to_document`][osrlib.core.character.party_to_document]'s output from before the party
-ever joined a session — because [`GameSession.new`][osrlib.crawl.session.GameSession.new]
-assigns member ids itself, in party order, the same way both times.
+Pass `replay_game` the *pre-session* party document, the output
+[`party_to_document`][osrlib.core.character.party_to_document] gives you before the party ever
+joined a session, because [`GameSession.new`][osrlib.crawl.session.GameSession.new] assigns
+member ids itself, in party order, the same way both times.
 
 ### Replay runs with no listeners
 
-`replay_game` builds its session with **no listeners registered**, and that is sufficient:
-every reaction a listener issued live — the interpreter's trigger consequences, a game
-listener's awards — was an ordinary command, accepted and logged, so re-executing the log
-rebuilds its every effect. The commands are already there; nothing needs to react again.
+`replay_game` builds its session with **no listeners registered**, and that's enough. Every
+reaction a listener issued live, like the interpreter's trigger consequences or a game
+listener's awards, was an ordinary command that the session accepted and logged, so
+re-executing the log rebuilds every one of those effects. The commands are already in the log,
+and nothing needs to react again.
 
-The corollary is worth scoping precisely, because the two halves point in opposite
-directions. After [`load_game`][osrlib.persistence.load_game], re-register your listeners
-before executing *new* commands — a restored session that will keep playing needs its code
-attached again. During a *replay*, the rule splits by what the listener does: one that only
-observes — accumulating `listener_state`, returning annotation events — may be registered and
-reproduces its state exactly, but one that reacts by **issuing commands** — the
-[`Interpreter`][osrlib.crawl.interpreter.Interpreter] above all — must not be, because the log
-already carries every command it issued live, and a second issuer would issue them again and
-diverge from the recorded game.
+The rule for a load and the rule for a replay point in opposite directions. After
+[`load_game`][osrlib.persistence.load_game], re-register your listeners before you execute
+*new* commands: a restored session that keeps playing needs its code attached again.
+`replay_game` gives you no such choice, because it builds the session itself and takes no
+listeners at all. The choice comes up only when you drive a replay by hand, building your own
+session and feeding it the log through `execute`, and then it turns on what the listener does. A
+listener that only observes, by accumulating `listener_state` and returning annotation events,
+can be registered and reproduces its state exactly. A listener that reacts by **issuing
+commands**, and the [`Interpreter`][osrlib.crawl.interpreter.Interpreter] above all, must
+**not** be registered. The log already holds every command that listener issued live, and a
+second issuer would issue them again and diverge from the recorded game.
 
 ## Schema versions and migrations
 
-This page is the documented home of [`osrlib.versioning`][osrlib.versioning]. Every serialized
-document — saves, commands, events — is wrapped in an envelope carrying a `kind`, a
-`schema_version`, and an `engine_version`, produced by
-[`stamp_document`][osrlib.versioning.stamp_document] and read back by
-[`check_document`][osrlib.versioning.check_document].
-[`SCHEMA_VERSION`][osrlib.versioning.SCHEMA_VERSION] is currently `3`, and it's one integer
-shared by every document kind, independent of the package's own release version.
+The version helpers live in [`osrlib.versioning`][osrlib.versioning]. Every serialized document
+(a save, a command, an event) goes into an envelope that holds a `kind`, a `schema_version`, and
+an `engine_version`. [`stamp_document`][osrlib.versioning.stamp_document] produces the envelope
+and [`check_document`][osrlib.versioning.check_document] reads it back.
+[`SCHEMA_VERSION`][osrlib.versioning.SCHEMA_VERSION] is currently `3`, one integer shared by
+every document kind, independent of the package's own release version.
 
-The promise a schema version makes is additive-only: within one version, only new event types
-and new optional fields are allowed to appear. Anything else — a rename, a removal, a change in
-what a field means — bumps `SCHEMA_VERSION`, and a bump comes with a migration:
+A schema version is additive-only: within one version, only new event types and new optional
+fields can appear. Anything else, like a rename, a removal, or a change in what a field means,
+bumps `SCHEMA_VERSION`, and a bump comes with a migration.
 [`load_game`][osrlib.persistence.load_game] runs a document's payload through the ordered chain
-in [`MIGRATIONS`][osrlib.persistence.MIGRATIONS] before touching it, so a document stamped at an
-older schema version still loads. Both shipped migrations are concrete. The 1 → 2 step drops a
-`recovered_treasure` field the version-2 payload no longer carries, and adds the empty `npcs`
-list that arrived with version 2. The 2 → 3 step is a lossless rewrite: version 3 rejects
-`trigger="enter"` on a treasure trap — a value the cache path never read — so the migration
+in [`MIGRATIONS`][osrlib.persistence.MIGRATIONS] before it rebuilds anything, so a document
+stamped at an older schema version still loads.
+
+Two migrations have shipped. The step from version 1 to version 2 drops a `recovered_treasure`
+field that a version-2 payload no longer includes, and adds the empty `npcs` list that arrived
+with version 2. A payload holds the NPC roster as a list, and `load_game` rebuilds it into the
+session's `npcs` dict keyed by id, which is what the assertion below reads back. The step from
+version 2 to version 3 is a lossless rewrite: version 3 rejects
+`trigger="enter"` on a treasure trap, a value the cache path never read, so the migration
 rewrites it to `"open"`, the one springing action a cache has. A document saved at the floor,
 schema version 1, runs the whole chain and loads the same way a fresh one does:
 
@@ -147,9 +156,10 @@ assert migrated.npcs == {}
 ```
 
 [`engine_version`][osrlib.versioning.engine_version] stamps the exact installed package version
-alongside the schema version — separate from it on purpose. `SCHEMA_VERSION` governs whether a
-*document* still parses; the engine version governs whether a *replay* still produces the same
-draws, since `replay_game` refuses to run a command log recorded under a different engine.
+alongside the schema version, and the two are separate on purpose. `SCHEMA_VERSION` governs
+whether a *document* still parses. The engine version governs whether a *replay* still produces
+the same draws: pass `replay_game` the recorded engine version and it refuses a log recorded
+under a different one.
 
 ## The complete program
 
@@ -234,8 +244,8 @@ assert migrated.npcs == {}
 
 ## Where next
 
-- [Using the rules without a session](rules-without-a-session.md) — the streams and kernel
+- [Using the rules without a session](rules-without-a-session.md) - the streams and kernel
   functions this determinism contract is built from.
-- [RNG streams](../reference/rng-streams.md) — every named stream and what it governs.
-- [Sessions, commands, and events](sessions-commands-events.md) — the command loop that
-  produces the command log this page replays.
+- [RNG streams](../reference/rng-streams.md) - every named stream and what it governs.
+- [Sessions, commands, and events](sessions-commands-events.md) - the command loop that
+  produces the command log `replay_game` re-executes.
