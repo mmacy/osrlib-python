@@ -108,11 +108,10 @@ assert aldis.memorized_spells == ()  # the cast spent the copy
 ```
 """
 
-# Import direction, mirroring the alignment.py lesson: the data loaders import these
-# models and character.py imports the loaders, so this module never imports
-# character.py — casting, memorization, and turning take caster objects duck-typed
-# (the combatant convention), and character.py imports MemorizedSpell from here,
-# never the reverse.
+# Import direction: the data loaders import these models and character.py imports
+# the loaders, so this module must never import character.py. Casting, memorization,
+# and turning therefore take caster objects duck-typed, per the combatant
+# convention, and character.py imports MemorizedSpell from here, never the reverse.
 
 from collections.abc import Mapping, Sequence
 from typing import Any, Literal
@@ -2567,8 +2566,8 @@ def _eligible(target: Any, mode: SpellMode) -> bool:
         return False
     hit_dice = _monster_hit_dice(target)
     if params.get("hd_bonus_required"):
-        # *Sleep* mode 1: "a single creature with 4+1 Hit Dice" — pinned as a
-        # monster with HD count `hd_count` and a positive fixed modifier.
+        # *Sleep* mode 1 reads "a single creature with 4+1 Hit Dice" as a monster
+        # whose HD count equals `hd_count` and whose HD modifier is positive.
         if hit_dice is None or hit_dice.count != _int_param(params, "hd_count", 4) or hit_dice.modifier <= 0:
             return False
     if params.get("excludes_hd_4_plus") and hit_dice is not None and hit_dice.count == 4 and hit_dice.modifier > 0:
@@ -2606,8 +2605,8 @@ def _select_cast_targets(
         return select_targets(
             TargetingMode.UP_TO_N, eligible, stream=stream, count=targeting.count, count_dice=targeting.count_dice
         )
-    # Area modes: every supplied candidate; a radius ward centered on the caster
-    # (*protection from evil 10' radius*) covers the caster too.
+    # Area modes take every supplied candidate. A radius ward centered on the caster,
+    # such as *protection from evil 10' radius*, covers the caster too.
     if (
         mode.effect is not None
         and mode.effect.params.get("includes_caster")
@@ -2775,10 +2774,10 @@ def _condition_definition(
         fields["expiry"] = str(params["expiry"])
     if "escape_dice" in params:
         if isinstance(target, str):
-            # A location-bound web (cast at a cell): the cell keeps the
-            # spell's own duration — the web sits there — and the escape params
-            # ride the effect for the crawl's enter hook, which attaches the
-            # per-creature entangled countdown on entry (pinned).
+            # A web cast at a cell keeps the spell's own duration, since the web
+            # stays put, and carries the escape params on the effect. The crawl
+            # layer's enter hook reads them and attaches the per-creature entangled
+            # countdown when someone walks in.
             fields["params"] = {
                 **fields["params"],
                 "escape_dice": str(params["escape_dice"]),
@@ -2786,9 +2785,9 @@ def _condition_definition(
             }
             fields["condition"] = None
         else:
-            # *Web*'s escape countdown by STR, pinned: normal strength rolls the
-            # escape dice; the augmented and giant tiers are caller/context
-            # assertions.
+            # *Web*'s escape countdown goes by strength. Normal strength rolls the
+            # escape dice. The augmented and giant tiers come from the caller's
+            # context rather than from any effect osrlib grants.
             tier = context.strength_tiers.get(_target_ref(target))
             if tier == "augmented":
                 fields.update(duration_unit=TimeUnit.ROUND, duration_amount=int(params["augmented_strength_rounds"]))
@@ -2883,8 +2882,8 @@ def _resolve_damage(
     params = effect.params
     caster_id = _entity_id(caster)
     element = str(params["element"]) if "element" in params else None
-    # Spell damage is magical and presents the `magic` key: a wight's
-    # silver-or-magic gate admits *magic missile*, a gargoyle's magic-only gate
+    # Spell damage is magical and presents the `magic` key, so a wight's
+    # silver-or-magic gate admits *magic missile* and a gargoyle's magic-only gate
     # admits *fire ball*.
     source = DamageSource(
         keys=("magic",),
@@ -2894,10 +2893,10 @@ def _resolve_damage(
         destructive=bool(params.get("destructive", False)),
     )
     if "missiles_base" in params:
-        # *Magic missile*: one supplied target per missile (repeats stack); each
-        # missile hits unerringly — no attack roll, no save (pinned) — and rolls
-        # its own damage, resolved instantly at cast (the 1-turn duration is
-        # holding prose, pinned).
+        # *Magic missile* takes one supplied target per missile, and repeating a
+        # target stacks the missiles on it. Each missile hits without an attack roll
+        # and allows no save, and rolls its own damage. The whole thing resolves at
+        # cast and attaches nothing, so the printed 1-turn duration never applies.
         for target in selected:
             if check_immunity(target, source, ruleset=ruleset, attacker=caster):
                 state.events.extend(_absorbed_events(target, caster_id, source))
@@ -2963,7 +2962,7 @@ def _resolve_damage(
         result = roll(dice, stream)
         amount = result.total
         if passed and save is not None and save.on_save == "half":
-            amount //= 2  # halving floors (pinned)
+            amount //= 2  # integer division, so a halved total rounds down
         if amount < 1:
             continue
         state.events.extend(
@@ -3015,8 +3014,8 @@ def _resolve_cure(
             if not matches:
                 continue
             if "magical_fear_save" in params and definition.condition is Condition.AFRAID:
-                # *Remove fear* versus magical fear: the subject saves with +1 per
-                # caster level to shake it; a failed save keeps the fear.
+                # Against magical fear, *remove fear* lets the subject save with +1
+                # per caster level to shake it. A failed save keeps the fear.
                 result = saving_throw(
                     target,
                     SaveCategory(str(params["magical_fear_save"])),
@@ -3031,19 +3030,19 @@ def _resolve_cure(
             state.affect(target)
         if params.get("revives_poison_dead") and not isinstance(target, str):
             window = _int_param(params, "revive_window_rounds", 10)
-            # The page's revival usage is titled "Characters" — only a Character is
-            # revivable (pinned). The kernel has no cause-of-death model: supplying
-            # `rounds_since_death` IS the caller's attestation that the target died
-            # of poison within that many rounds (the session supplies it from its
-            # death records); omit it for any other death.
+            # The page titles its revival usage "Characters", so only a Character is
+            # revivable here. osrlib records no cause of death, so supplying
+            # `rounds_since_death` is itself the caller's assertion that the target
+            # died of poison that many rounds ago. The session takes it from its own
+            # death records, and omits it for a death by any other means.
             if (
                 getattr(target, "definition", None) is not None
                 and has_condition(target, Condition.DEAD)
                 and context.rounds_since_death is not None
                 and context.rounds_since_death <= window
             ):
-                # Revival, pinned: the poison death is undone and the subject
-                # stands at 1 hp (RAW names no hit point total).
+                # Revival undoes the poison death and stands the subject up at 1 hp.
+                # RAW names no hit point total, so osrlib sets the lowest one.
                 state.events.extend(remove_condition(target, Condition.DEAD, None))
                 target.current_hp = 1
                 state.events.append(
@@ -3092,8 +3091,8 @@ def _resolve_attachment(
         if effect is None:
             continue
         if "images_dice" in params:
-            # *Mirror image*'s 1d4 images live in effect state — attach-time
-            # randomness, drawn from the effects stream per the convention.
+            # *Mirror image*'s 1d4 images live in effect state. The count is rolled
+            # as the effect attaches, so it comes from the effects stream.
             effect.state["images"] = roll(str(params["images_dice"]), effects_stream).total
         state.affect(target)
 
@@ -3611,7 +3610,7 @@ def turn_undead(
     for _, monster in ordered:
         cost = effective_hd(monster)
         if cost > remaining:
-            break  # excess is wasted, not reallocated (pinned)
+            break  # the rest of the pool is wasted, never spent on another monster
         affected.append(monster)
         remaining -= cost
     if not affected and ordered:
