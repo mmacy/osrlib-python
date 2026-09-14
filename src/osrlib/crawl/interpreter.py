@@ -1,19 +1,39 @@
 """The interpreter: the listener that plays an adventure's authored triggers and quests.
 
-[`Interpreter`][osrlib.crawl.interpreter.Interpreter] is an ordinary listener the
-game registers on its session
-([`GameSession.register_listener`][osrlib.crawl.session.GameSession.register_listener]).
-It watches the events of every accepted command, matches them against the adventure's
+[`Interpreter`][osrlib.crawl.interpreter.Interpreter] is what turns the authored hooks in
+an adventure document into things that happen at the table.
+
+Where the interpreter sits. It reads the `triggers` and `quests` of the
+[`Adventure`][osrlib.crawl.adventure.Adventure] the session is playing, and it is an
+ordinary listener your game registers with
+[`GameSession.register_listener`][osrlib.crawl.session.GameSession.register_listener]. It
+watches the events of every accepted command, matches them against the adventure's
 [`TriggerSpec`][osrlib.crawl.triggers.TriggerSpec]s and
-[`QuestSpec`][osrlib.crawl.quests.QuestSpec]s, and acts the only way anything outside
-the engine may act: by executing ordinary referee commands, each stamped with the
-trigger or quest it acted for.
+[`QuestSpec`][osrlib.crawl.quests.QuestSpec]s, and acts the only way anything outside the
+engine may act: by executing ordinary referee commands, each stamped with the trigger or
+quest it acted for. What it does shows up in the event stream as
+[`TriggerFiredEvent`][osrlib.crawl.events.TriggerFiredEvent],
+[`JournalEntryAddedEvent`][osrlib.crawl.events.JournalEntryAddedEvent],
+[`QuestActivatedEvent`][osrlib.crawl.events.QuestActivatedEvent],
+[`ObjectiveRevealedEvent`][osrlib.crawl.events.ObjectiveRevealedEvent],
+[`ObjectiveCompletedEvent`][osrlib.crawl.events.ObjectiveCompletedEvent],
+[`QuestCompletedEvent`][osrlib.crawl.events.QuestCompletedEvent],
+[`AdventureCompletedEvent`][osrlib.crawl.events.AdventureCompletedEvent], and
+[`NoteRecordedEvent`][osrlib.crawl.events.NoteRecordedEvent], plus whatever the
+consequences and rewards themselves emit.
 
 That discipline is what keeps an authored game replayable. The interpreter emits no
-events of its own and remembers nothing between commands, so a replay — which runs
-with no listeners at all — rebuilds the same world by re-executing the same log. Every
-effect a trigger or a quest has is a command in that log, and every one of those
-commands says whose idea it was.
+events of its own and keeps nothing between commands, so a replay, which runs with no
+listeners at all, rebuilds the same world by re-executing the same log. Every effect a
+trigger or a quest has is a command in that log, and every one of those commands says
+whose idea it was.
+
+Write your own listener instead when you want something the authored vocabulary does not
+cover. The guide
+[Listeners and flags](https://mmacy.github.io/osrlib-python/guides/listeners-and-flags/)
+covers the listener contract, and
+[Gates, triggers, and quests](https://mmacy.github.io/osrlib-python/guides/gates-triggers-quests/)
+covers what this one plays.
 """
 
 from collections.abc import Sequence
@@ -57,9 +77,10 @@ __all__ = [
 ]
 
 _MAX_MATCH_DEPTH = 4
-"""The deepest events a trigger or a quest clause still matches. The events of a
+"""The deepest events a firing or a quest advancement still acts on. The events of a
 player's command are depth 0, and what a firing or a quest advancement issues is one
-deeper than the event that caused it."""
+level deeper than the event that caused it, so an event deeper than this is evaluated
+and then recorded as a note instead of being acted on."""
 
 
 class _Owner(NamedTuple):
@@ -73,10 +94,11 @@ class _Owner(NamedTuple):
     """`"trigger"` or `"quest"`."""
 
     id: str
+    """The authored id of that trigger or quest."""
 
     @property
     def stamp(self) -> str:
-        """The `source` every command this owner causes carries: `trigger:{id}`, `quest:{id}`."""
+        """The `source` on every command this owner causes: `trigger:{id}`, `quest:{id}`."""
         return f"{self.kind}:{self.id}"
 
     @property
@@ -97,7 +119,7 @@ def _matches_area_entered(pattern: AreaEnteredPattern, event: Event) -> bool:
 
 
 def _matches_level_entered(pattern: LevelEnteredPattern, event: Event) -> bool:
-    """The party arrived on that level of that dungeon — by stair or by dungeon entry.
+    """The party arrived on that level of that dungeon, by stair or by dungeon entry.
 
     A crossing reports the coarsest boundary it passed, so a party coming in from town
     reports a dungeon entry and never a level entry beneath it. Both kinds match here:
@@ -148,16 +170,16 @@ def _matches_item_acquired(pattern: ItemAcquiredPattern, event: Event, session: 
 
 
 def _matches_monster_defeated(pattern: MonsterDefeatedPattern, event: Event) -> bool:
-    """A monster of that template was defeated — slain, routed, or surrendered alike."""
+    """A monster of that template was defeated: slain, routed, or surrendered alike."""
     return isinstance(event, MonsterDefeatedEvent) and event.template_id == pattern.template_id
 
 
 def _matches_flag_set(pattern: FlagSetPattern, event: Event) -> bool:
-    """That flag was written — with that value, or with any value at all.
+    """That flag was written, with that value or with any value at all.
 
-    The comparison is against the value the write carried, not the value the flag
-    holds now: a trigger watches the edge, and a consequence earlier in the same batch
-    may already have written the key again.
+    The comparison is against the value the write set, not the value the flag has now: a
+    trigger watches the edge, and a consequence earlier in the same batch may already have
+    written the key again.
     """
     if not isinstance(event, FlagSetEvent) or event.key != pattern.key:
         return False
@@ -195,96 +217,156 @@ class Interpreter:
     session.register_listener(Interpreter(session))
     ```
 
-    Registering twice fires everything twice — the same rule every listener follows —
+    Registering twice fires everything twice, which is the rule every listener follows,
     and a session restored from a save needs the registration again, because listeners
-    are code and a save carries data. Nothing migrates: the interpreter's slot in
-    `listener_state` is empty and stays empty forever.
+    are code and a save contains data. Nothing migrates: the interpreter's slot in
+    `listener_state` is empty and stays empty for the life of the session.
 
-    **What it does with a command's events.** It walks them in the order they
-    happened and, per event, the adventure's triggers in document order and then its
-    quests in document order — one rule, and the only order there is. A trigger
-    matches when its pattern fits the event, its fired-state allows it (once-only
-    unless `repeatable`), and every one of its conditions holds against session state
-    right now. A match fires immediately, before the walk moves on, so a later
-    trigger's conditions see what an earlier firing has already changed.
+    What it does with a command's events. It walks them in the order they happened and,
+    per event, the adventure's triggers in document order and then its quests in document
+    order, which is the only order it ever uses. A trigger matches when its
+    pattern fits the event, its fired-state allows it (once-only unless `repeatable`), and
+    every one of its conditions holds against session state right now. A match fires
+    immediately, before the walk moves on, so a later trigger's conditions see what an
+    earlier firing has already changed.
 
-    **What a firing issues**, all of it stamped `source="trigger:{id}"`:
+    What a firing issues, all of it stamped `source="trigger:{id}"`:
 
-    1. [`MarkTriggerFired`][osrlib.crawl.commands.MarkTriggerFired], carrying the
-       `fired` beat. The mark goes in first, which is what makes once-only safe
-       against a trigger whose own consequences would match it again.
+    1. [`MarkTriggerFired`][osrlib.crawl.commands.MarkTriggerFired], which includes the
+       `fired` beat. The mark goes in first, which is what makes once-only safe against
+       a trigger whose own consequences would match it again.
     2. The consequences, in authored order, with `@party` and `@first` expanded to the
-       living members they name — so the log records concrete character ids and
-       replays exactly.
+       living members they name, so the log records concrete character ids and replays
+       exactly.
     3. [`AddJournalEntry`][osrlib.crawl.commands.AddJournalEntry] when the trigger's
-       narrative carries a journal form, last, so the beat is stamped with the clock
-       the consequences left behind.
+       narrative includes a journal form, last, so the beat is stamped with the clock the
+       consequences left behind.
 
-    **What a quest walk issues**, all of it stamped `source="quest:{id}"`. A quest
-    clause ([`TriggerClause`][osrlib.crawl.quests.TriggerClause]) is matched exactly
-    the way a trigger is — the same patterns, the same live conditions — and the walk
+    What a quest walk issues, all of it stamped `source="quest:{id}"`. A quest clause
+    ([`TriggerClause`][osrlib.crawl.quests.TriggerClause]) is matched exactly the way a
+    trigger is, through the same patterns and the same live conditions, and the walk
     goes:
 
     1. An inactive quest whose activation clause matches gets
-       [`ActivateQuest`][osrlib.crawl.commands.ActivateQuest], and the walk carries on
-       into the objectives of the quest it just activated: the same event that starts
-       a quest can finish something in it.
+       [`ActivateQuest`][osrlib.crawl.commands.ActivateQuest], and the walk continues
+       into the objectives of the quest it just activated: the same event that starts a
+       quest can finish something in it.
     2. An active quest's objectives walk in authored order. A hidden, unrevealed,
        incomplete objective whose `reveal_when` matches gets
-       [`RevealObjective`][osrlib.crawl.commands.RevealObjective]; an incomplete
+       [`RevealObjective`][osrlib.crawl.commands.RevealObjective], and an incomplete
        objective whose `when` matches gets
-       [`CompleteObjective`][osrlib.crawl.commands.CompleteObjective]. An objective
-       that completes without ever being revealed needs no reveal — completing shows
+       [`CompleteObjective`][osrlib.crawl.commands.CompleteObjective]. An objective that
+       completes without ever being revealed needs no reveal, because completing shows
        it.
-    3. The moment a completion lands, the quest's completion rule is checked against
-       live state (`all` or `any`), and a satisfied rule gets
-       [`CompleteQuest`][osrlib.crawl.commands.CompleteQuest] followed by the rewards
-       in authored order, selectors expanded exactly as a trigger's consequences are.
-       On a quest that concludes the adventure the session is in `victory` before the
-       first reward is issued, which is why a reward that would resume play there
-       drops with a note.
+    3. The moment a completion lands, the quest's completion rule is checked against live
+       state (`all` or `any`), and a satisfied rule gets
+       [`CompleteQuest`][osrlib.crawl.commands.CompleteQuest] followed by the rewards in
+       authored order, selectors expanded exactly as a trigger's consequences are. On a
+       quest that concludes the adventure the session is in `victory` before the first
+       reward is issued, which is why a reward that would resume play there drops with a
+       note.
 
-    Everything is evaluated as the walk goes: a flag an earlier firing wrote satisfies
-    a later clause's condition in the same batch, and a quest completed earlier in the
-    walk is completed for everything after it.
+    Everything is evaluated as the walk goes: a flag an earlier firing wrote satisfies a
+    later clause's condition in the same batch, and a quest completed earlier in the walk
+    is completed for everything after it.
 
-    **Where the interpreter's discipline stops and the referee's ruling begins.** The
-    completion rule is checked only after a completion the interpreter itself issued,
-    and no pattern matches the quest events, so a referee who completes the last
-    objective by hand completes the quest by hand too. For the same reason a
-    hand-driven [`CompleteQuest`][osrlib.crawl.commands.CompleteQuest] grants no
-    rewards: rewards are this listener reading the quest, and what a replay re-executes
-    is the reward commands themselves.
+    Where the interpreter's discipline stops and the referee's ruling begins. The
+    completion rule is checked only after a completion the interpreter itself issued, and
+    no pattern matches the quest events, so a game that completes the last objective by
+    hand completes the quest by hand too. For the same reason a hand-driven
+    [`CompleteQuest`][osrlib.crawl.commands.CompleteQuest] grants no rewards: rewards are
+    this listener reading the quest, and what a replay re-executes is the reward commands
+    themselves.
 
-    **When something does not work out**, the run continues and the log says why. A
-    rejected consequence or reward is dropped on its own — a spawn that meets an open
-    encounter, a grant to a character who is not there — and a
+    When something does not work out, the run continues and the log says why. A rejected
+    consequence or reward is dropped on its own, whether it is a spawn that meets an open
+    encounter or a grant to a character who is not there, and a
     [`RecordNote`][osrlib.crawl.commands.RecordNote] records the trigger or quest, the
-    slot's position and type, and the rejection. If a wipe mid-cascade ends the
-    session, the remaining commands land or drop by the ordinary rules of a terminal
-    mode. And a cascade is bounded: what a firing or a quest advancement issues is one
-    deeper than the event that caused it, matching stops below depth five, and every
-    advancement the bound suppresses is recorded as a note instead of being issued —
-    no state moves, so a once-only trigger cut short here is still fireable later, and
-    a suppressed quest advancement waits for its clause to match again. Clauses are
-    edge-triggered on both surfaces: the suppressed edge is gone.
+    slot's position and type, and the rejection. If a wipe mid-cascade ends the session,
+    the remaining commands land or drop by the ordinary rules of a terminal mode. A
+    cascade is bounded too: what a firing or a quest advancement issues is one level
+    deeper than the event that caused it, and an event at depth five or deeper issues
+    nothing further. Matching itself carries on at that depth, so the walk still evaluates
+    every trigger and every clause and records each suppressed advancement as a note
+    instead of issuing it. No state moves when that happens, so a once-only trigger cut
+    short here is still fireable later, and a suppressed quest advancement waits for its
+    clause to match again. Clauses are edge-triggered on both surfaces, so the suppressed
+    edge itself is gone.
 
-    **What it never does.** It returns no events, because everything it causes is
-    already logged by the commands it executed, and it keeps no memory between
-    commands. Read what a trigger or a quest did from the command log, the journal,
+    What it never does. It returns no events, because everything it causes is already
+    logged by the commands it executed, and it keeps no memory between commands. Read
+    what a trigger or a quest did from the command log, the journal,
     `session.fired_triggers`, and `session.quests`, all of which a replay rebuilds.
+
+    Examples:
+        ```python
+        from osrlib.core.alignment import Alignment
+        from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character
+        from osrlib.core.rng import RngStreams
+        from osrlib.core.ruleset import Ruleset
+        from osrlib.crawl.adventure import Adventure, TownSpec
+        from osrlib.crawl.commands import EnterDungeon, SetFlag
+        from osrlib.crawl.dungeon import DungeonSpec, LevelSpec
+        from osrlib.crawl.interpreter import Interpreter
+        from osrlib.crawl.narrative import NarrativeBlock
+        from osrlib.crawl.party import Party
+        from osrlib.crawl.session import GameSession
+        from osrlib.crawl.triggers import DungeonEnteredPattern, TriggerSpec
+
+        rules = Ruleset()
+        rng = RngStreams(master_seed=7).get(CHARACTER_CREATION_STREAM)
+        hero = create_character(
+            name="Hild",
+            class_id="fighter",
+            alignment=Alignment.LAWFUL,
+            ruleset=rules,
+            stream=rng,
+        )
+        level = LevelSpec(number=1, width=1, height=1, entrance=(0, 0))
+        crypt = DungeonSpec(id="crypt", name="The Old Crypt", levels=(level,))
+        door_shuts = TriggerSpec(
+            id="the-door-shuts",
+            when=DungeonEnteredPattern(dungeon_id="crypt"),
+            consequences=(SetFlag(key="crypt.entered", value=True),),
+            narrative=NarrativeBlock(
+                fired="The door shuts behind the party.",
+                journal="The crypt door shut behind us.",
+            ),
+        )
+        adventure = Adventure(
+            name="A First Delve",
+            town=TownSpec(name="Threshold"),
+            dungeons=(crypt,),
+            triggers=(door_shuts,),
+        )
+        session = GameSession.new(Party(members=[hero.character]), adventure, seed=7)
+        session.register_listener(Interpreter(session))
+        session.execute(EnterDungeon(dungeon_id="crypt"))
+
+        print(session.fired_triggers)
+        # ['the-door-shuts']
+        print(session.flags)
+        # {'crypt.entered': True}
+        print([entry.text for entry in session.journal])
+        # ['The crypt door shut behind us.']
+        ```
     """
 
     key = "osrlib.interpreter"
-    """The listener key; its state entry exists because registration creates one, and
-    is the empty dict for the life of the session."""
+    """The listener key, which names this listener's slot in the session's
+    `listener_state`. Registration creates the entry, and it is the empty dict for the
+    life of the session, because the interpreter keeps no memory between commands."""
 
     def __init__(self, session: GameSession) -> None:
         """Bind the interpreter to the session it watches and issues commands through.
 
+        Construct it after the session exists, pass it straight to
+        [`GameSession.register_listener`][osrlib.crawl.session.GameSession.register_listener],
+        and do the same again after loading a save. One interpreter serves one session.
+
         Args:
-            session: The session; its adventure's triggers and quests are read once
-                here, being frozen content.
+            session: The session to play. Its adventure's triggers and quests are read
+                once here, being frozen content.
         """
         self._session = session
         self._triggers = session.adventure.triggers
@@ -294,13 +376,18 @@ class Interpreter:
     def handle(self, events: Sequence[Event], state: dict) -> tuple[list[Event], dict]:
         """Match one command's events and act on what they crossed.
 
+        The session calls this after every accepted command, and you do not call it
+        yourself. It is here because it is the listener contract every listener
+        implements, and reading it tells you what the session hands a listener of your
+        own.
+
         Args:
             events: The command's accumulated events, in the order they happened.
             state: The listener's state slot, always the empty dict.
 
         Returns:
-            No events and the empty state — everything the interpreter does is a
-            command it executed, and it remembers nothing.
+            No events and the empty state. Everything the interpreter does is a command
+            it executed, and it remembers nothing between commands.
         """
         depth = self._depth
         for event in events:
@@ -369,7 +456,7 @@ class Interpreter:
         """Walk one quest against one event: activation, reveals, completions, the rule.
 
         Everything the walk issues runs one level deeper than the event that caused it,
-        exactly as a firing does; past the bound the walk still evaluates every clause
+        exactly as a firing does. Past the bound the walk still evaluates every clause
         and records what it would have issued instead of issuing it.
         """
         owner = _Owner("quest", quest.id)
@@ -429,7 +516,7 @@ class Interpreter:
     # ------------------------------------------------------------------ issuing
 
     def _issue_authored(self, authored: Sequence[Command], owner: _Owner, slot: str) -> None:
-        """Issue an authored sequence — a trigger's consequences, a quest's rewards.
+        """Issue an authored sequence: a trigger's consequences, or a quest's rewards.
 
         In authored order, selectors expanded to the members they name, each command
         standing or dropping on its own so one rejection never stops the rest.
@@ -465,7 +552,7 @@ class Interpreter:
         self._issue(RecordNote(text=f"{owner.label}: {site} ({command.command_type}) dropped ({reason})"), owner)
 
     def _truncated(self, owner: _Owner, what: str, depth: int) -> None:
-        """Record what the cascade bound suppressed; nothing moved, so it can happen again."""
+        """Record what the cascade bound suppressed. Nothing moved, so it can happen again."""
         self._issue(
             RecordNote(
                 text=(f"{owner.label}: {what}, the cascade reached depth {depth} past the limit of {_MAX_MATCH_DEPTH}")
@@ -476,7 +563,7 @@ class Interpreter:
     def _issue(self, command: Command, owner: _Owner) -> CommandResult:
         """Execute one command on the trigger's or quest's behalf, stamped with its id.
 
-        Commands are frozen, so the stamp is a copy — the authored consequence in the
-        document is never touched.
+        Commands are frozen, so the stamp is a copy, and the authored consequence in
+        the document is never touched.
         """
         return self._session.execute(command.model_copy(update={"source": owner.stamp}))
