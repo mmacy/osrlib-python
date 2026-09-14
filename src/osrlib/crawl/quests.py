@@ -244,7 +244,12 @@ class QuestSpec(BaseModel):
     rejected at parse, because the issuing quest stamps it."""
     completion: Literal["all", "any"] = "all"
     """The completion rule: `"all"` requires every objective, `"any"` takes the first one
-    to land."""
+    to land.
+
+    The quest walk stops at the completion it issues, so when one event would complete two
+    objectives at once, the second one is left incomplete and finishes on the next event
+    that matches its clause. Under `"any"` that is what usually happens, since the first
+    objective to land finishes the quest and the rest stay open."""
     concludes_adventure: bool = False
     """Whether finishing this quest ends the adventure. The session moves to `victory`
     and emits an

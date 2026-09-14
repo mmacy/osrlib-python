@@ -119,8 +119,14 @@ class NarrativeBlock(BaseModel):
     which in practice means a trigger's `fired`. Unread by quests, which journal the
     display text they showed."""
     guidance: str = ""
-    """Steering for an LLM narrator while the carrier is in play. It is never displayed
-    as written."""
+    """Steering for an LLM narrator while the carrier is in play, and never displayed as
+    written.
+
+    Inert authored data, the way a quest's `progress` beat is: osrlib reads it nowhere, no
+    event includes it, and no rule turns on it. A narrator reaches it through the adventure
+    document, which stays on the referee's side of the screen, so read it from the
+    authored model yourself when you write the narration. The same field on
+    [`LevelSpec`][osrlib.crawl.dungeon.LevelSpec] does the same job for a whole level."""
     speaker: str = ""
     """An attribution, such as "the bronze sentinel", that a renderer may put in front of
     a beat. [`QuestView.speaker`][osrlib.crawl.views.QuestView] ships a quest's to the

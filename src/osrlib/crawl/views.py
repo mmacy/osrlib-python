@@ -6,8 +6,10 @@ in one frozen object.
 Where the views sit. A command changes the session state that
 [`GameSession`][osrlib.crawl.session.GameSession] keeps, and
 [`build_player_view`][osrlib.crawl.views.build_player_view] and
-[`build_referee_view`][osrlib.crawl.views.build_referee_view] read that state, and only
-that state, to build these projections. They never read the event log.
+[`build_referee_view`][osrlib.crawl.views.build_referee_view] read that state to build
+these projections. The player view is built from session state alone and never from the
+event log; the referee view is the save's own serialization, so it includes the event log
+along with everything else the save keeps.
 [`GameSession.view`][osrlib.crawl.session.GameSession.view] is the entry point most games
 call, with a [`Visibility`][osrlib.core.events.Visibility] to pick which one. Events tell
 you what just happened, and a view tells you what is true now. The ids a view includes,
@@ -26,7 +28,8 @@ state, fatigue, exhaustion, and deprivation status, and the adventure's public p
 It never includes unexplored geometry, undiscovered traps or secret doors, monster hit
 points or stat internals, referee-visibility roll outcomes, session flags, trigger
 fired-marks, referee notes, quest wiring such as activation clauses, patterns,
-conditions, rewards, hidden objectives, and inactive quests, RNG state, or the master
+conditions, rewards, and hidden objectives, the quests that are not active, meaning both
+the ones nobody has taken on yet and the ones already finished, RNG state, or the master
 seed, which lives only in the save and reaches neither view.
 
 The referee view includes everything else the save does, minus RNG internals and the seed,
@@ -422,8 +425,13 @@ class RefereeView(BaseModel):
 
     state: dict
     """The whole session state as the save serializes it, including the event log, minus
-    the RNG stream positions and the master seed. The keys are the save's keys, so
-    `state["flags"]` is the flag store and `state["command_log"]` the command log."""
+    the RNG stream positions and the master seed.
+
+    The keys are the save's keys, so `state["flags"]` is the flag store,
+    `state["command_log"]` the command log, and `state["dungeon_state"]` the map overlay.
+    [`session_state`][osrlib.persistence.session_state] is the function that builds the
+    dict and names every key, and [`osrlib.persistence`][osrlib.persistence] describes
+    what a save holds."""
 
 
 _MASKED_CATEGORY_NAMES = {

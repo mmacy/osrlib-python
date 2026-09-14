@@ -270,6 +270,11 @@ class Interpreter:
     later clause's condition in the same batch, and a quest completed earlier in the walk
     is completed for everything after it.
 
+    A quest walk stops at the completion it issues. The rewards go out and the walk
+    returns, so an objective later in the tuple whose clause also matches this event is
+    left incomplete, and it completes on the next event that matches it. Under the `any`
+    rule that is the usual case, since the first objective to land finishes the quest.
+
     Where the interpreter's discipline stops and the referee's ruling begins. The
     completion rule is checked only after a completion the interpreter itself issued, and
     no pattern matches the quest events, so a game that completes the last objective by
@@ -286,12 +291,15 @@ class Interpreter:
     the remaining commands land or drop by the ordinary rules of a terminal mode. A
     cascade is bounded too: what a firing or a quest advancement issues is one level
     deeper than the event that caused it, and an event at depth five or deeper issues
-    nothing further. Matching itself carries on at that depth, so the walk still evaluates
-    every trigger and every clause and records each suppressed advancement as a note
-    instead of issuing it. No state moves when that happens, so a once-only trigger cut
-    short here is still fireable later, and a suppressed quest advancement waits for its
-    clause to match again. Clauses are edge-triggered on both surfaces, so the suppressed
-    edge itself is gone.
+    nothing further. Matching itself carries on at that depth. Every trigger is still
+    evaluated, and so is every clause of a quest that is already active, with each
+    suppressed advancement recorded as a note instead of being issued. The exception is a
+    quest the event would have activated: that walk records one note for the activation it
+    did not issue and stops there, so the objective clauses of that quest are not evaluated
+    for this event. No state moves in any of these cases, so a once-only trigger cut short
+    here is still fireable later, and a suppressed quest advancement waits for its clause
+    to match again. Clauses are edge-triggered on both surfaces, so the suppressed edge
+    itself is gone.
 
     What it never does. It returns no events, because everything it causes is already
     logged by the commands it executed, and it keeps no memory between commands. Read
