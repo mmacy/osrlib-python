@@ -1,8 +1,10 @@
 """The exploration turn: movement, doors, searching, traps, light, rest, and wandering checks.
 
 These handlers cover the commands of the two session modes outside combat: `exploring`, where the
-party walks a dungeon, and `town`, where it shops, rests, and buys healing. You don't call a handler
-here yourself. You build one of the command models in
+party walks a dungeon, and `town`, where it shops, rests, and buys healing. Two of them also serve
+`encounter` mode, because the party can hand out and use gear while monsters stand in front of it:
+[`DropItems`][osrlib.crawl.commands.DropItems] and [`UseItem`][osrlib.crawl.commands.UseItem]. You
+don't call a handler here yourself. You build one of the command models in
 [`osrlib.crawl.commands`][osrlib.crawl.commands], like [`MoveParty`][osrlib.crawl.commands.MoveParty],
 [`Search`][osrlib.crawl.commands.Search] or [`Rest`][osrlib.crawl.commands.Rest], and pass it to
 [`GameSession.execute`][osrlib.crawl.session.GameSession.execute]. The session looks the command's
@@ -609,9 +611,14 @@ def exploration_rate(session) -> int:
 
     A party moves at the pace of its slowest living member, so that member's movement rate is the
     party's. Read it to show a movement allowance, to work out how much ground a turn buys, or to
-    find out whether the party can move at all: a rate of 0 means some living member is carrying too
-    much to move, and while that holds the session rejects a
-    [`MoveParty`][osrlib.crawl.commands.MoveParty] with `exploration.move.cannot_move`.
+    find out whether the party can move at all. A rate of 0 means one of two things: a living member
+    is carrying too much to move, or no member is living. While either holds, the session rejects a
+    [`MoveParty`][osrlib.crawl.commands.MoveParty] with `exploration.move.cannot_move` and the
+    reason `overloaded`, whichever of the two put the rate at 0.
+
+    For one character's own movement allowance rather than the party's, call
+    [`Character.movement_rate`][osrlib.core.character.Character.movement_rate], which is what this
+    reads for each member. A front end showing a per-character rate wants that one.
 
     You don't spend the rate yourself. The session charges each step against it on an odometer and
     advances the clock a turn when the odometer fills. The value changes as the party's load does,
@@ -4026,12 +4033,16 @@ against a price before you send the command. The spell id is the entry the purch
 through, which is why *remove curse* maps to `remove_curse_c`, the cleric list's version of that
 spell rather than the magic-user list's.
 
+Adding a key here doesn't add a service. The list of service names lives on
+[`PurchaseHealing.service`][osrlib.crawl.commands.PurchaseHealing], which rejects any name that
+isn't one of them, so a command for your new service never reaches the handler that would price it.
+
 The service names and the prices are a documented adaptation over the SRD's open-ended base-town
 prose (see the adaptations register). Nothing here models availability. The size of the town, the
 standing of its temple, and whether a cleric is in today are game questions left to your front end.
-To charge your own prices, take the payment yourself and use the referee commands. Don't edit this
-mapping: the purchase handler reads it at the moment of sale, and every session in the process
-shares it.
+To charge your own prices, take the payment yourself and use the referee commands. Don't edit the
+prices here either: the purchase handler reads them at the moment of sale, and every session in the
+process shares them.
 
 ```python
 from osrlib.crawl.exploration import HEALING_SERVICES
