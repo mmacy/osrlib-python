@@ -572,19 +572,24 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
     never start on content that would fail partway through a delve. It changes nothing and returns
     nothing, so a clean adventure comes back unchanged.
 
-    It checks the following, roughly in the order the message lists them. Bundled monster ids,
-    against the shipped catalog and each other. Bundled item ids, against the equipment catalog, the shipped
-    magic-item catalog, and each other. Then, for each level: area cells and feature cells on the
-    grid, feature ids unique across the level, cache item ids and magic item ids resolving, keyed
-    encounter template ids resolving and any fixed alignment being one the template allows, inline
-    wandering-table monster ids resolving, the item ids named by `has_item` gates on doors and
-    transitions resolving, transitions landing on real cells of real levels, the town's travel entries
-    naming real dungeons, and every dungeon having an entrance on some level. Then, for each trigger:
-    its id unique, the area, level, dungeon, item, and monster its pattern names resolving, and for
-    each consequence the item it grants, the monster it spawns, a door actually standing at the cell a
-    door-state consequence names, and a placement landing on the grid. Then, for each quest: its id unique, and the
-    same checks over every clause it has (its activation, each objective's completion, each hidden
-    objective's reveal) and every reward it pays.
+    It checks the following, in the order the message lists them. First the bundled ids: monster ids
+    against the shipped catalog and each other, then item ids against the equipment catalog, the
+    shipped magic-item catalog, and each other. Then the town's travel entries naming real dungeons,
+    and every dungeon having an entrance on some level.
+
+    Then, for each level: feature ids unique across the level and none of them the reserved id
+    `"pile"`, the entrance on the grid, area ids unique, area cells on the grid, keyed encounter
+    template ids resolving and any fixed alignment being one the template allows, feature cells on
+    the grid with their cache item ids and magic item ids resolving, every level-scope feature having
+    a cell, inline wandering-table monster ids resolving, the item ids named by `has_item` gates on
+    doors and transitions resolving, and transitions standing on the grid and landing on real cells of
+    real levels.
+
+    Then, for each trigger: its id unique, the area, level, dungeon, item, and monster its pattern
+    names resolving, and for each consequence the item it grants, the monster it spawns, a door
+    actually standing at the cell a door-state consequence names, and a placement landing on the grid.
+    Then, for each quest: its id unique, and the same checks over every clause it has (its activation,
+    each objective's completion, each hidden objective's reveal) and every reward it pays.
 
     One rule is about authoring rather than about a dangling id. A consequence that addresses a
     character has to do so through a party selector, because character ids are allocated when a

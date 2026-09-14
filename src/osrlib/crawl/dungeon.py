@@ -41,7 +41,7 @@ print(edge_key((0, 0), Direction.EAST))
 # 1,0:west
 
 print(crypt.level(1).edge((0, 0), Direction.NORTH).kind)
-# EdgeKind.WALL
+# wall
 ```
 """
 
@@ -489,8 +489,9 @@ class TrapEffect(BaseModel):
         manual: Prose for a trap the rules do not resolve.
 
     Raises:
-        ValueError: If a duration is given with no `condition`, if `volley_dice` is given with no
-            `damage_dice`, or if `transition` carries a gate.
+        ValueError: If `damage_dice`, `volley_dice`, or `condition_duration_dice` is not a dice
+            expression the grammar accepts, if a duration is given with no `condition`, if
+            `volley_dice` is given with no `damage_dice`, or if `transition` carries a gate.
 
     Examples:
         ```python
@@ -1142,10 +1143,10 @@ class LevelSpec(BaseModel):
             edges={"1,0:west": Edge(kind=EdgeKind.OPEN)},
         )
         print(corridor.edge((0, 0), Direction.EAST).kind)
-        # EdgeKind.OPEN
+        # open
 
         print(corridor.edge((0, 0), Direction.NORTH).kind)
-        # EdgeKind.WALL
+        # wall
         ```
     """
 
@@ -1180,9 +1181,11 @@ class LevelSpec(BaseModel):
     turns off the compiled table for this level's number."""
     entrance: Position | None = None
     """The cell the party arrives at from town, or `None` for a level with no way in from outside.
-    [`EnterDungeon`][osrlib.crawl.commands.EnterDungeon] and
-    [`TravelToTown`][osrlib.crawl.commands.TravelToTown] both use it. Some level of every dungeon
-    needs one, and `validate_adventure` refuses a dungeon where no level has any."""
+    [`EnterDungeon`][osrlib.crawl.commands.EnterDungeon] puts the party here facing north, whatever
+    the geometry around the cell looks like, and
+    [`TravelToTown`][osrlib.crawl.commands.TravelToTown] refuses to leave unless the party is
+    standing on it. Some level of every dungeon needs one, and `validate_adventure` refuses a dungeon
+    where no level has any."""
     guidance: str = ""
     """Ambient steering for a narrating front end while the party is on this level: the tone of the
     place, what you want said about it, what you never want said.
@@ -1314,7 +1317,7 @@ class DungeonSpec(BaseModel):
     """The dungeon's levels, at least one, with unique `number`s. Look one up with
     [`level`][osrlib.crawl.dungeon.DungeonSpec.level] rather than by position. The order does matter
     in one place: [`EnterDungeon`][osrlib.crawl.commands.EnterDungeon] lands the party on the first
-    level in this tuple that has an `entrance`."""
+    level in this tuple that has an `entrance`, facing north."""
 
     @model_validator(mode="after")
     def _level_numbers_unique(self) -> DungeonSpec:
