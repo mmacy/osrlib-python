@@ -247,8 +247,10 @@ class Ruleset(BaseModel):
     """Cap how many combatants can fight side by side, by how wide the passage is.
 
     An adaptation, on by default, an adaptation being a default osrlib supplies where the
-    tabletop game hands the decision to a referee. Turn it on and three may fight abreast
-    inside a keyed area, two in a corridor cell, following the SRD's note about two or
-    three characters fighting side by side in a ten-foot passage. Turn it off and the cap
-    lifts, so every combatant may melee.
+    tabletop game hands the decision to a referee. The cap is the party's frontage divided
+    by the five feet one combatant needs, and frontage is ten feet per dungeon cell, so two
+    may fight abreast in a one-cell corridor and four in a room two cells across. That
+    follows the SRD's note about two or three characters fighting side by side in a
+    ten-foot passage, taking the lower of the two numbers. Turn it off and the cap lifts,
+    so every combatant may melee.
     """

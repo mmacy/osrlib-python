@@ -280,9 +280,9 @@ class TurningTable(BaseModel):
         """Say what happens when this cleric tries to turn these undead.
 
         Get the column from [`turning_column`][osrlib.core.tables.turning_column], which
-        returns None for undead too powerful to be turned at all. There's nothing to look
-        up in that case. A cleric above level 10 reads the `11+` row, which is what the
-        printed table intends.
+        returns None when the undead's Hit Dice run past the table's last column. There's
+        nothing to look up in that case, and the attempt fails. A cleric above level 10
+        reads the `11+` row, which is what the printed table intends.
 
         This is the lookup alone. [`turn_undead`][osrlib.core.spells.turn_undead] rolls
         the 2d6 a `"number"` outcome calls for and works out how many undead are
@@ -1033,8 +1033,10 @@ def monster_save_band_label(hit_dice: MonsterHitDice) -> str:
     check one you were given.
 
     A bonus hit-point modifier doesn't move a monster up a band, because the bands are
-    counted in whole Hit Dice: a troll at 6+3 saves on the band for 4 to 6. A monster below
-    one Hit Die, or one with a flat hit-point total, saves as a normal human.
+    counted in whole Hit Dice: a troll at 6+3 saves on the band for 4 to 6. Two kinds of
+    monster save as a normal human: one whose Hit Dice count is below 1, and one whose hit
+    die is a d4, which is how the compiled data writes half a Hit Die. A monster with flat
+    hit points per Hit Die, such as a hydra, still saves on the band for its count.
 
     Args:
         hit_dice: The monster's Hit Dice.
@@ -1127,11 +1129,13 @@ def xp_band_label(hit_dice: MonsterHitDice) -> str:
     the table.
 
     A bonus modifier moves a monster to the `+` version of its row, which is worth more. A
-    negative modifier drops it to the row below, so a goblin at 1-1 Hit Dice is awarded from
-    the "Less than 1" row. The rule about attacking as one Hit Die higher is for bonuses
-    only. Anything below one Hit Die, or with a flat hit-point total, is also "Less than
-    1". Above 21 Hit Dice everything lands on the last row, and `monster_xp` adds to it from
-    there.
+    negative modifier drops it to the row below, so a goblin at 1-1 Hit Dice is awarded
+    from the "Less than 1" row. The rule about attacking as one Hit Die higher is for
+    bonuses only. A monster whose hit die is a d4, which is how the compiled data writes
+    half a Hit Die, is "Less than 1" whatever its count, and so is one whose count works out
+    below 1. A monster with flat hit points per Hit Die, such as a hydra, is awarded from
+    the row for its count. Above 21 Hit Dice everything lands on the last row, and
+    `monster_xp` adds to it from there.
 
     Args:
         hit_dice: The monster's Hit Dice.

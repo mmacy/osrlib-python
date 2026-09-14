@@ -620,9 +620,10 @@ def ability_check(score: int, stream: RngStream, modifier: int = 0) -> AbilityCh
     the thief skills on the class definition for a thief's own work.
 
     The roll is a d20, and the check succeeds on a modified roll at or under the score, so
-    a higher score succeeds more often. The SRD suggests −4 for an easy task and +4 for a
-    difficult one. A natural 1 always succeeds and a natural 20 always fails, which is the
-    opposite way round from an attack roll.
+    a higher score succeeds more often. The SRD leaves the difficulty to the referee and
+    gives two numbers for it: "a –4 modifier for an easy task or +4 for a difficult task".
+    A natural 1 always succeeds and a natural 20 always fails, which is the opposite way
+    round from an attack roll.
 
     Args:
         score: The ability score to check against, from 3 to 18.
@@ -669,12 +670,13 @@ def open_doors_check(chance: int, stream: RngStream) -> OpenDoorsResult:
     Get the chance from
     [`AbilityTables.open_doors_chance`][osrlib.core.abilities.AbilityTables.open_doors_chance]
     for the character's strength. A d6 at or under the chance opens the door. The function
-    rolls and reports, and nothing else: whether the door then opens, how much noise the
-    attempt made, and how much time it cost are yours to apply.
+    rolls and reports, and nothing else: opening the door, and whatever the attempt costs
+    the party, are yours to apply.
 
-    In a running game [`ForceDoor`][osrlib.crawl.commands.ForceDoor] does all of that for
-    you, with the events to match, so call this function when you're working outside a
-    session.
+    In a running game [`ForceDoor`][osrlib.crawl.commands.ForceDoor] applies those
+    consequences for you. It marks the party as having made noise, opens the door on a
+    success and springs any trap rigged to it, and on a failure alerts the area beyond, all
+    with the events to match. Call this function when you're working outside a session.
 
     Args:
         chance: The chance in 6, from 0 to 6.
