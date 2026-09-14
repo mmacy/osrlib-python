@@ -39,8 +39,10 @@ kernel functions directly when you want one resolution and no session at all. Th
 rules without a session walks that path.
 
 The combat space is the abstract per-group range track, the Bard's Tale convention, as a documented
-adaptation (see the adaptations register): each monster group sits at a distance from the party,
-closes at its encounter rate, and fights at
+adaptation (see the
+[adaptations register](https://mmacy.github.io/osrlib-python/adaptations/), the page listing where
+osrlib commits to one reading of an ambiguous rule or supplies a default behind a `Ruleset` flag).
+Each monster group sits at a distance from the party, closes at its encounter rate, and fights at
 [`MELEE_RANGE_FEET`][osrlib.crawl.battle.MELEE_RANGE_FEET]. Party ranks derive from marching order
 under the ruleset's `formation_width_limit` flag, and the width is the frontage the party's own space
 offers at [`FIGHTER_FRONTAGE_FEET`][osrlib.crawl.battle.FIGHTER_FRONTAGE_FEET] to a combatant: two
@@ -48,13 +50,16 @@ abreast in a ten-foot passage, and a room's shorter side in a room.
 
 The machine detects spell disruption, meaning a declared caster who is successfully attacked or fails
 a save after initiative resolves against them and before their own action. It checks morale on its
-own, with no command for it. It ends each single-use protection as it is spent: invisibility breaks
-when the member attacks, casts, turns undead, or unleashes a device or a scroll, a *mirror image*
-figment pops when an attack lands on one, a protection ward breaks when the party melees the monster
-it barred, and a concentration spell's effects release when its caster does anything else. Area
-footprints resolve deterministically: an area's capacity in creatures is `ceil(span / 10) × width`,
-filled in stable spawn order, cones reach-limited, with the engaged party front rank appended under
-the ruleset's `aoe_friendly_fire` flag.
+own, with no command for it. It ends each single-use protection as it is spent. Invisibility breaks
+when the member attacks, throws or unleashes an item, or turns undead, and the kernel's
+[`cast_spell`][osrlib.core.spells.cast_spell] is what breaks it on a cast. An incoming attack on a
+target under *mirror image* pops one figment instead, hit or miss, because no attack roll is made at
+all. A protection ward breaks when the party melees a monster it barred, unless the ward's effect
+definition carries an `unbreakable` param, which no ward in the shipped spell data does. A
+concentration spell's effects release when its caster declares anything other than `cast`,
+`turn_undead`, or `hold`. Area footprints resolve deterministically: an area's capacity in creatures
+is `ceil(span / 10) × width`, filled in stable spawn order, cones reach-limited, with the engaged
+party front rank appended under the ruleset's `aoe_friendly_fire` flag.
 
 The monster and NPC-party sides act through a pluggable
 [`ActionPolicy`][osrlib.crawl.battle.ActionPolicy] you can substitute per encounter side.
@@ -245,6 +250,14 @@ class BattleState(BaseModel):
     treasure stay on `session.encounter`, and this holds only what the fight itself has to remember.
     It serializes with the session, so a saved game resumes mid-battle. Read it and render from it.
     The round handler is what writes every field.
+
+    To change a fight while it runs, send a referee command from
+    [`osrlib.crawl.commands`][osrlib.crawl.commands] rather than writing to this model. Every referee
+    command is legal in `battle` mode, so a referee can grant an item, award experience, set a flag,
+    or advance the clock mid-fight, and the change replays from a save because the command goes
+    through the command log. [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] and
+    [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] are the exception: both reject while an
+    encounter is open, so a fresh side cannot join a fight already underway.
     """
 
     model_config = ConfigDict(validate_assignment=True)
@@ -273,8 +286,8 @@ class BattleState(BaseModel):
     warded character by *protection from evil* may attack them anyway once it is on this list, which is
     RAW's own clause."""
     concentration: dict[str, list[str]] = {}
-    """Per caster id, the effect ids a concentration spell is holding up. Any other action by that
-    caster releases them."""
+    """Per caster id, the effect ids a concentration spell is holding up. They release as soon as that
+    caster declares anything other than `cast`, `turn_undead`, or `hold`."""
 
 
 class MonsterAction(BaseModel):
@@ -423,7 +436,10 @@ class ScriptedPolicy:
     [`MELEE_RANGE_FEET`][osrlib.crawl.battle.MELEE_RANGE_FEET] closes, and once at that range each
     monster picks its target uniformly from the party rank it can reach. Monster missile routines have
     no structured range data, so osrlib treats them the way it treats melee, closing first and then
-    attacking, as a documented adaptation (see the adaptations register). These groups never cast,
+    attacking, as a documented adaptation (see the
+    [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/), the page listing where
+    osrlib commits to one reading of an ambiguous rule or supplies a default behind a `Ruleset`
+    flag). These groups never cast,
     because monster spell casting is tagged for manual resolution in the data.
 
     Substitute a policy of your own when you want a side to hold a chokepoint, concentrate its
@@ -481,8 +497,11 @@ class NpcPartyPolicy:
 
     A group whose members are NPC adventurers rather than monsters runs on one of these unless you
     registered something else for it on `session.action_policies`. The OSE SRD gives no tactics of its
-    own for an opposing party of adventurers, so osrlib supplies these, as a documented adaptation (see
-    the adaptations register).
+    own for an opposing party of adventurers, so osrlib supplies these, as a documented adaptation
+    (see the
+    [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/), the page listing where
+    osrlib commits to one reading of an ambiguous rule or supplies a default behind a `Ruleset`
+    flag).
 
     Each living member picks the first of these that applies. A caster holding a memorized healing
     spell heals the group's most wounded member below half hit points, taking the lowest ratio of
@@ -857,8 +876,11 @@ NPC_PARTY_MORALE = 9
 
 Monsters have a morale score in their stat block, but adventurers in the OSE SRD do not, so osrlib
 uses the score printed for the Veteran, its own low-level adventurer monster, rather than inventing
-one. This is a documented adaptation (see the adaptations register). A score of 9 holds on a 2d6 total
-of 9 or less once the situational modifier is added, and breaks above that.
+one. This is a documented adaptation (see the
+[adaptations register](https://mmacy.github.io/osrlib-python/adaptations/), the page listing where
+osrlib commits to one reading of an ambiguous rule or supplies a default behind a `Ruleset` flag).
+A score of 9 holds on a 2d6 total of 9 or less once the situational modifier is added, and breaks
+above that.
 
 The battle machinery reads this value directly, so every NPC adventurer group in the game checks
 against the same score and there is no per-group override.
@@ -1019,7 +1041,7 @@ def _check_ends(session, *, party_retreating: bool) -> list[Event] | None:
         session.battle = None
         # Only a group still willing and able to run chases: not the broken and
         # not the shaken (they are fleeing themselves), and not a group whose
-        # living members all lie helpless — retreat from those simply succeeds.
+        # living members all lie helpless, because retreat from those succeeds.
         pursuers = [
             group
             for group in groups
@@ -1213,7 +1235,7 @@ def _cast_targets(session, declaration: BattleDeclaration, spell) -> tuple[list,
         if entity is None:
             return [], None, [Rejection(code="magic.cast.unknown_target", params={"target": target_ref})]
         if has_condition(entity, Condition.INVISIBLE):
-            # You know what you can't see — this rejection leaks nothing.
+            # You know what you can't see, so this rejection leaks nothing.
             return [], None, [Rejection(code="battle.declaration.invisible_target", params={"target": target_ref})]
         targets.append(entity)
         if isinstance(entity, MonsterInstance):
@@ -1226,7 +1248,9 @@ def _cast_targets(session, declaration: BattleDeclaration, spell) -> tuple[list,
 def _area_span_feet(shape: str | None, dimensions: dict, gap_feet: int) -> int:
     """The deterministic footprint span: diameter, length, or reach-limited length.
 
-    A documented adaptation (see the adaptations register): the OSE SRD leaves how
+    A documented adaptation (see the
+    [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/)):
+    the OSE SRD leaves how
     an area effect covers a group of creatures to the referee, so osrlib maps shape
     and dimensions to a span in feet here, deterministically.
     """
@@ -1519,8 +1543,8 @@ def _handle_resolve_battle_round(session, command: ResolveBattleRound) -> tuple[
         by_member[declaration.character_id] = (member, declaration)
         rejections.extend(_validate_declaration(session, declaration, member))
     if rejections:
-        # The whole command rejects listing every rejection — partial acceptance
-        # would tangle the replay contract (pinned).
+        # The whole command rejects listing every rejection. Partial acceptance
+        # would tangle the replay contract (see the adaptations register).
         return rejections, []
 
     state.round += 1
@@ -1535,8 +1559,8 @@ def _handle_resolve_battle_round(session, command: ResolveBattleRound) -> tuple[
                 SpellDeclaredEvent(caster_id=member.id, spell_id=declaration.spell_id, reversed=declaration.reversed)
             )
     # NPC sides choose at declaration time: their casts post and are disruptable
-    # exactly like the party's (pinned) — the policy draw moves to the top of the
-    # round, still on the monster_action stream.
+    # exactly like the party's (see the adaptations register). The policy draw
+    # moves to the top of the round, still on the monster_action stream.
     npc_actions = _declare_npc_actions(session, state, pending_casters, events)
 
     # Initiative: side blocks, party versus the monster side.
@@ -1619,7 +1643,7 @@ def _handle_resolve_battle_round(session, command: ResolveBattleRound) -> tuple[
             events.extend(end)
             break
 
-    # Slow-weapon actors act last, after both sides' blocks (the pinned ordering).
+    # Slow-weapon actors act last, after both sides' blocks (see the adaptations register).
     if session.battle is not None:
         for member, declaration in slow_attacks:
             if incapacitated(member):
@@ -1657,8 +1681,9 @@ def _party_movement(session, by_member) -> list[Event]:
     """Consolidated formation movement, in order of precedence: retreat, withdrawal, close.
 
     The party moves as a single formation and an individual member cannot leave
-    it, as a documented adaptation (see the adaptations register, under the Bard's
-    Tale convention). Every member retreating moves the party off at the full encounter
+    it, as a documented adaptation (see the
+    [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/),
+    under the Bard's Tale convention). Every member retreating moves the party off at the full encounter
     rate, the OSE SRD's "full encounter movement rate", and the running pursuit
     begins once the battle converts. Every member withdrawing backs the party off
     at half encounter rate. Otherwise the first `close` declaration in marching
@@ -1702,7 +1727,8 @@ def _party_movement(session, by_member) -> list[Event]:
 def _party_move_multiplier(session) -> int:
     """*Haste*'s movement multiplier applies only when every living party member is under it.
 
-    A documented adaptation (see the adaptations register).
+    A documented adaptation (see the
+    [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/)).
     """
     living = session.party.living_members()
     if not living:
@@ -1719,7 +1745,7 @@ def _party_attacks(session, by_member, *, missile: bool, slow_attacks, fired, fi
             continue
         if declaration.action == "use_item":
             if member.inventory.magic_item(declaration.item_id or "") is not None:
-                continue  # magic items resolve in the magic phase (pinned)
+                continue  # magic items resolve in the magic phase (see the adaptations register)
             events.extend(_resolve_use_item(session, member, declaration, fire_damaged))
             continue
         group = _group_by_id(session, declaration.target_group_id)
@@ -1756,7 +1782,7 @@ def _resolve_party_attack(session, member, declaration, fired, fire_damaged) -> 
         pool = _monster_pool(session, group)
         if not pool:
             break
-        target = pool[0]  # the first living, visible monster in the reachable rank (pinned)
+        target = pool[0]  # the first living, visible monster in the reachable rank
         context = AttackContext(
             distance_feet=group.distance_feet if missile else MELEE_RANGE_FEET,
             fired_last_round=member.id in state.fired_last_round,
@@ -1786,8 +1812,8 @@ def _resolve_party_attack(session, member, declaration, fired, fire_damaged) -> 
     if isinstance(weapon, MagicItemInstance):
         from osrlib.crawl import exploration
 
-        # The first attack roll with an enchanted arm identifies it — and reveals
-        # a curse, which sticks (pinned).
+        # The first attack roll with an enchanted arm identifies it, and reveals
+        # a curse, which sticks (see the adaptations register).
         events.extend(exploration._identify_item_events(session, member, weapon))
     if missile and weapon is not None:
         facet = _declaration_facet(weapon)
@@ -1923,7 +1949,7 @@ def _resolve_use_item(session, member, declaration, fire_damaged) -> list[Event]
     instance = exploration._consume_item(member, declaration.item_id)
     if not isinstance(instance, ItemInstance) or not isinstance(instance.template, GearTemplate):
         # Unreachable: the declaration validator proved the item is gear carrying a
-        # combat facet — holy water, a flask of burning oil — before the round ran.
+        # combat facet (holy water, a flask of burning oil) before the round ran.
         return []
     template = instance.template
     context = AttackContext(distance_feet=group.distance_feet, lit=True)
@@ -1976,13 +2002,13 @@ def _party_magic(session, by_member, pending_casters, disrupted, acted, state) -
             events.extend(_resolve_magic_item_use(session, member, declaration, state))
             if category is not MagicItemCategory.POTION:
                 # Unleashing a device or scroll is an attack for invisibility's
-                # purposes (pinned); drinking is not.
+                # purposes (see the adaptations register). Drinking is not.
                 events.extend(_break_invisibility(session, member))
             acted.add(member.id)
             continue
         if declaration.action == "turn_undead":
-            # Turning resolves in the magic phase but is never disruptable —
-            # a class ability, not a spell (pinned).
+            # Turning resolves in the magic phase but is never disruptable: it is
+            # a class ability, not a spell (see the adaptations register).
             candidates = [
                 session.combatant(monster_id) for group in session.encounter.groups for monster_id in group.monster_ids
             ]
@@ -2033,11 +2059,12 @@ def _party_magic(session, by_member, pending_casters, disrupted, acted, state) -
         from osrlib.crawl import exploration
 
         # The stationary *silence* form anchors in battle too: the battle's
-        # location is the party's position (pinned).
+        # location is the party's position (see the adaptations register).
         events.extend(exploration._stationary_silence(session, spell, result, targets))
         _track_concentration(session, member.id, spell, result, state)
         acted.add(member.id)
-    # Any other declared action releases the actor's concentration (pinned).
+    # Any declaration other than these three releases the actor's concentration
+    # (see the adaptations register).
     for member, declaration in by_member.values():
         if declaration.action not in ("cast", "turn_undead", "hold"):
             events.extend(_release_concentration(session, member.id, state))
@@ -2181,8 +2208,8 @@ def _monster_block(
             events.extend(_group_morale(session, group, fire_damaged))
         if group.fleeing or _group_all_shaken(session, group):
             if not any(not cannot_move(monster) for monster in _living_monsters(session, group)):
-                # A broken side that cannot run — slept or webbed mid-flight —
-                # lies where it is; flight resumes only if someone can move again.
+                # A broken side that cannot run, slept or webbed mid-flight, lies
+                # where it is. Flight resumes only if someone can move again.
                 continue
             events.extend(_leave_helpless_behind(session, group))
             rate = _pursuer_full_rate(session, group)
@@ -2413,8 +2440,8 @@ def _group_morale(session, group, fire_damaged) -> list[Event]:
     if all(incapacitated(member) for member in members):
         # No one on the side is awake to break: a morale check is a decision, and
         # a side that is entirely asleep, paralysed, or petrified makes none. The
-        # triggers stay pending — unconsumed — so a member who can act again
-        # judges them then.
+        # triggers stay pending, unconsumed, so a member who can act again judges
+        # them then.
         return []
     triggers = morale_triggers(members)
     acted = state.morale_acted.setdefault(group.id, [])

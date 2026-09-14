@@ -39,8 +39,10 @@ attack at the end of the next encounter round unless the party has begun evading
 the stance by parley. A 6 to 8 is uncertain, so the monsters hold and posture, and the reaction
 re-rolls next round with no modifier. A 9 to 11 is indifferent, and the party may pass, parley, or
 withdraw freely. A 12 or more is friendly. Only the attacking and hostile stances pursue an evading
-party, as a documented adaptation (see the adaptations register): RAW leaves pursuit itself to the
-referee, and osrlib keys it to low reactions.
+party, as a documented adaptation (see the
+[adaptations register](https://mmacy.github.io/osrlib-python/adaptations/), the page listing where
+osrlib commits to one reading of an ambiguous rule or supplies a default behind a `Ruleset` flag).
+RAW leaves pursuit itself to the referee, and osrlib keys it to low reactions.
 
 The distance roll is bounded by the space it happens in. RAW rolls 2d6 × 10' only "if there is
 uncertainty", and the walls around the party's cell resolve that uncertainty, so the rolled distance
@@ -302,8 +304,10 @@ def start_encounter(
     party". A keyed area marked aware, a failed attempt to force a door, and a party carrying a light
     each skip the monsters' roll as well, and a successful listen marks the party aware. The party is
     surprised on a d6 of 1 or 2, and on 1 to 3 when it carries no light and not every living member
-    has infravision, as a documented adaptation (see the adaptations register, under the blind-party
-    adaptation).
+    has infravision, as a documented adaptation (see the
+    [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/), the page listing
+    where osrlib commits to one reading of an ambiguous rule or supplies a default behind a
+    `Ruleset` flag, under the blind-party adaptation).
 
     Args:
         session (osrlib.crawl.session.GameSession): The running session. Its party must be standing on
@@ -422,7 +426,7 @@ def start_encounter(
         rolled_tens: int = stream.randbelow(6) + 1 + stream.randbelow(6) + 1
         distance_feet = rolled_tens * 10
         # RAW rolls 2d6 × 10' only "if there is uncertainty"; otherwise "the
-        # situation in which the encounter occurs" fixes the distance — and the
+        # situation in which the encounter occurs" fixes the distance, and the
         # walls the party is standing between are that situation. The roll is
         # therefore capped at the cell's longest straight sight line: a corridor
         # keeps the full hundred and twenty feet, while a twenty-foot room cannot
@@ -449,7 +453,7 @@ def start_encounter(
         party_surprised=party_surprised,
         monsters_surprised=monsters_surprised,
     )
-    # Both sides surprised is momentary confusion — no advantage either way (RAW).
+    # Both sides surprised is momentary confusion, with no advantage either way (RAW).
     both = party_surprised and monsters_surprised
     if monsters_surprised and not both:
         state.monsters_skip_rounds = 1
@@ -492,7 +496,7 @@ def start_encounter(
         state.hostile_deadline = 1 + state.monsters_skip_rounds
     if party_surprised and not both:
         # The surprised side cannot act that round: the monsters take one beat
-        # before the party's first command — and a battle opening on that beat
+        # before the party's first command, and a battle opening on that beat
         # begins with their surprise round.
         events.extend(_end_of_round(session, party_lost_beat=True))
     return events
@@ -566,8 +570,9 @@ def _handle_parley(session, command: Parley) -> tuple[list[Rejection], list[Even
     member, rejections = exploration._member_able(session, command.character_id)
     if rejections:
         return rejections, []
-    # Any number of re-rolls, each a fresh roll with the speaker's CHA (pinned —
-    # RAW invites negotiation and gives no cap; a hostile result self-limits).
+    # Any number of re-rolls, each a fresh roll with the speaker's CHA. RAW invites
+    # negotiation and gives no cap, and a hostile result self-limits (see the
+    # adaptations register).
     reaction = roll_reaction(modifier=member.npc_reaction_modifier, stream=session.streams.get(ENCOUNTER_STREAM))
     events = list(reaction.events)
     if reaction.result.value != state.stance:
@@ -610,8 +615,9 @@ def _handle_evade(session, command: Evade) -> tuple[list[Rejection], list[Event]
     state.evading = True
     events: list[Event] = []
     if dropped_kind == "treasure":
-        # Fleeing for their lives, the party scatters its coin (pinned): every
-        # living member's purse empties onto the trail, unrecoverable.
+        # Fleeing for their lives, the party scatters its coin (see the adaptations
+        # register): every living member's purse empties onto the trail,
+        # unrecoverable.
         for member in session.party.living_members():
             purse = member.inventory.purse
             if purse.total_coins:
@@ -702,7 +708,7 @@ def _handle_turn_undead(session, command: TurnUndead) -> tuple[list[Rejection], 
         events.extend(end_encounter(session, "turned"))
         return [], events
     # Presenting the symbol is an aggressive act: surviving unturned monsters
-    # attack (pinned, registered) — battle begins at once.
+    # attack (see the adaptations register), and battle begins at once.
     from osrlib.crawl import battle as battle_module
 
     state.stance = ReactionResult.ATTACKS.value
@@ -710,7 +716,7 @@ def _handle_turn_undead(session, command: TurnUndead) -> tuple[list[Rejection], 
     events.extend(session.advance_rounds(1))
     if not session.party.living_members():
         # The round that answered the symbol left nobody standing: no battle opens
-        # for the dead. The stance change stands — it happened while they lived.
+        # for the dead. The stance change stands, because it happened while they lived.
         return [], events
     events.extend(battle_module.start_battle(session))
     return [], events
@@ -905,8 +911,8 @@ def _drop_loot(session, state: EncounterState) -> list[Event]:
                 if bundle is not None and not bundle.empty:
                     dropped.append(bundle)
                 if getattr(combatant, "definition", None) is not None:
-                    # A defeated NPC's kit and magic items are the loot — victory
-                    # over an Expert party is the campaign's magic-item faucet.
+                    # A defeated NPC's kit and magic items are the loot: victory over
+                    # an Expert party is where the campaign's magic items come from.
                     npc_spoils.append(combatant)
             elif has_condition(combatant, Condition.TURNED) or any_routed:
                 any_routed = True
@@ -977,8 +983,10 @@ def end_encounter(session, outcome: str) -> list[Event]:
     Call this when the encounter is over on terms your own content decided: the party talked its way
     past, or walked away, or the standoff finished. You seldom call it yourself, because a
     victory, an evasion, an escape, and a successful turning all call it from inside the encounter and
-    battle handlers. On return `session.encounter` is None and the session is back in `exploring`
-    mode, unless the party is dead, in which case the session's own wipe check has already taken over.
+    battle handlers. There must be an encounter open when you call it: with `session.encounter` set to
+    None it raises `AttributeError` on the first line, because nothing guards the dereference. On
+    return `session.encounter` is None and the session is back in `exploring` mode, unless the party
+    is dead, in which case the session's own wipe check has already taken over.
 
     Every monster that ended slain, routed (fled, still fleeing, or turned), or surrendered gets a
     [`MonsterDefeatedEvent`][osrlib.crawl.events.MonsterDefeatedEvent] and a record on
@@ -992,7 +1000,8 @@ def end_encounter(session, outcome: str) -> list[Event]:
     The clock advances to whichever is later: the next turn boundary, or one full turn after the
     encounter opened. An encounter that opened mid-turn is therefore charged its full turn and can
     close mid-turn, since the boundary clause only guarantees the boundary is reached. The wandering
-    monster cadence stays suspended across the whole encounter.
+    monster cadence stays suspended across the whole encounter. That whole-turn charge absorbs any
+    part-turn of walking the party had banked, so `session.odometer_thirds` resets to 0.
 
     Args:
         session (osrlib.crawl.session.GameSession): The running session, with `session.encounter` set.
@@ -1005,6 +1014,9 @@ def end_encounter(session, outcome: str) -> list[Event]:
         The defeat events, the immediate experience award when the ruleset uses one, the
             [`EncounterEndedEvent`][osrlib.crawl.events.EncounterEndedEvent], and the events of the
             clock advance that follows it.
+
+    Raises:
+        AttributeError: If no encounter is open on the session.
 
     Examples:
         ```python
@@ -1072,7 +1084,7 @@ def end_encounter(session, outcome: str) -> list[Event]:
                 continue
             if getattr(combatant, "definition", None) is not None:
                 # A defeated NPC adventurer is worth level-as-HD XP, recorded
-                # under `npc:<class_id>` (pinned, registered).
+                # under `npc:<class_id>` (see the adaptations register).
                 from osrlib.core.npc import npc_defeat_xp
 
                 template_id = f"npc:{combatant.class_id}"
