@@ -1,32 +1,61 @@
 """Class definitions, level progression, XP awards, and leveling up.
 
-The seven Classic classes compile from the OSE SRD's class pages into
-[`ClassDefinition`][osrlib.core.classes.ClassDefinition] models, loaded frozen via
-[`load_classes`][osrlib.data.load_classes]. A definition is pure data: requirements,
-prime requisites, XP-modifier tiers, a per-level progression table (hit dice, THAC0,
-saves, and spell-slot capacity), armour and weapon policies, and structured ability
-tags — so an Advanced class is additive data rather than a code change. `race` is an
-open, validated identity string, populated from the class in Classic play — no rules
-procedure consumes it, so a new race is data too.
+[`load_classes`][osrlib.data.load_classes] gives you the catalog of playable classes as frozen
+[`ClassDefinition`][osrlib.core.classes.ClassDefinition] models, compiled from the OSE SRD's class
+pages. Look one up by id with [`ClassCatalog.get`][osrlib.core.classes.ClassCatalog.get]; see
+[the class id index][classes-index] for the ids. Hand the definition you get to
+[`create_character`][osrlib.core.character.create_character], and afterwards read it back off a
+character through [`definition`][osrlib.core.character.Character.definition].
 
-XP-modifier tiers are one uniform representation for every class: ordered tiers of
-`{modifier_pct, minimum scores}`, evaluated best-first — the first tier whose minimum
-scores all hold wins. osrlib reads this as the standard single-prime-requisite table's
-intended behavior: its penalty rows only make sense under first-match evaluation. Elf
-and halfling carry exactly their stated bonus tiers, which per RAW include no penalty
-rows, as a documented adaptation (see the adaptations register).
+A definition is a frozen template, and a character is the mutable state of one person playing it.
+Nothing in play ever writes to a definition. It contains the ability requirements, the prime requisites, the
+experience-modifier tiers, a row per level with hit dice, THAC0, saving throws, and spell capacity,
+the armour and weapon policies, and the class's abilities as tags the rules procedures read. All of
+it is data, so a class the SRD did not print is a data file rather than a code change.
 
-Saves, THAC0, and spell slots are always read from the progression row for the
-character's level, never stored as separate derived fields —
-[`ClassDefinition.row`][osrlib.core.classes.ClassDefinition.row] is the pure
-recompute-from-level lookup whose inverse is energy drain
-([`drain_levels`][osrlib.core.classes.drain_levels]).
+Nothing a character derives from its class is stored on the character. Read the progression row for
+the current level with [`ClassDefinition.row`][osrlib.core.classes.ClassDefinition.row] and you
+always get the values that match, which is why leveling up and being drained of levels both need
+only change the level.
 
-Advancement lives here too: [`apply_xp`][osrlib.core.classes.apply_xp] awards XP and
-levels a character up when a threshold is crossed,
-[`level_up`][osrlib.core.classes.level_up] performs the level-up roll directly, and
-[`drain_levels`][osrlib.core.classes.drain_levels] reverses it. Character creation
-itself lives in [`osrlib.core.character`][osrlib.core.character].
+Advancement lives here. [`apply_xp`][osrlib.core.classes.apply_xp] is the one you usually want: it
+applies the class's experience modifier, adds the award, and levels the character up when a
+threshold is crossed. [`level_up`][osrlib.core.classes.level_up] does the level gain on its own
+when the game hands out a level directly, and [`drain_levels`][osrlib.core.classes.drain_levels]
+reverses it for the undead that drain levels. Creating a character in the first place is
+[`osrlib.core.character`][osrlib.core.character].
+
+Two other procedures read class data, so they live here too:
+[`thief_skill_check`][osrlib.core.classes.thief_skill_check] rolls the thief's skills, and
+[`detection_check`][osrlib.core.classes.detection_check] with
+[`detection_chance`][osrlib.core.classes.detection_chance] rolls the chance-in-6 checks for
+listening at doors, finding secret doors, and spotting traps.
+
+Typical usage:
+
+```python
+from osrlib.core.alignment import Alignment
+from osrlib.core.character import ADVANCEMENT_STREAM, CHARACTER_CREATION_STREAM, create_character
+from osrlib.core.classes import apply_xp, level_title
+from osrlib.core.rng import RngStreams
+from osrlib.core.ruleset import Ruleset
+from osrlib.data import load_classes
+
+streams = RngStreams(master_seed=2)
+fighter = load_classes().get("fighter")
+character = create_character(
+    name="Rurik",
+    class_id="fighter",
+    alignment=Alignment.LAWFUL,
+    ruleset=Ruleset(),
+    stream=streams.get(CHARACTER_CREATION_STREAM),
+).character
+result = apply_xp(character, fighter, 2500, streams.get(ADVANCEMENT_STREAM))
+print(result.level_before, result.level_after, character.max_hp)
+# 1 2 10
+print(level_title(fighter, character.level), character.thac0, character.saves.death)
+# Warrior 19 12
+```
 """
 
 from enum import StrEnum
@@ -80,22 +109,48 @@ PERCENTILE_THIEF_SKILLS = (
     "open_locks",
     "pick_pockets",
 )
-"""The six d% roll-under thief skills; `hear_noise` is the seventh, rolled on 1d6."""
+"""The names of the six thief skills rolled on percentile dice.
+
+Pass any of these as the `skill` argument of
+[`thief_skill_check`][osrlib.core.classes.thief_skill_check], which rolls d% and succeeds on a
+result at or under the level's chance. The thief's seventh skill, `"hear_noise"`, is not here
+because it rolls 1d6 instead. That function takes it too.
+
+Iterate this tuple to show a thief's whole percentile skill list, reading each level's numbers off
+[`ThiefSkillRow`][osrlib.core.classes.ThiefSkillRow] by the same names.
+"""
 
 
 class HitDice(BaseModel):
-    """A progression row's Hit Dice: `count` dice of `die` sides plus a flat `bonus`.
+    """How many hit dice a class rolls at one level, and of what size.
 
-    Above name level the SRD notates flat bonuses with an asterisk (`9d8+2*`) meaning
-    CON modifiers no longer apply — the asterisk is data, carried as `con_applies`.
+    Read it off [`ProgressionRow.hit_dice`][osrlib.core.classes.ProgressionRow].
+    [`level_up`][osrlib.core.classes.level_up] and
+    [`drain_levels`][osrlib.core.classes.drain_levels] compare this level's row against the next
+    one to decide whether a level change rolls a die or moves a flat bonus. Frozen.
+
+    A class stops gaining dice at name level and gains a flat number of hit points per level after
+    that. The SRD marks those levels with an asterisk, as in `9d8+2*`, meaning the CON modifier no
+    longer applies to the gain.
     """
 
     model_config = ConfigDict(frozen=True)
 
     count: int = Field(ge=1)
+    """How many dice are rolled. At least 1."""
+
     die: int
+    """The size of each die, which is the class's hit die: d4 for the magic-user and thief, d6 for the cleric, elf, and
+    halfling, d8 for the dwarf and fighter.
+    """
+
     bonus: int = Field(default=0, ge=0)
+    """Flat hit points added on top of the dice, which is how levels past name level grow. Never negative."""
+
     con_applies: bool = True
+    """Whether the CON modifier applies to a die gained at this level. False above name level, where the gain is the
+    flat bonus and CON has stopped counting.
+    """
 
     @model_validator(mode="after")
     def _die_must_be_rollable(self) -> HitDice:
@@ -105,43 +160,89 @@ class HitDice(BaseModel):
 
 
 class SavingThrows(BaseModel):
-    """The five save values: death/poison, wands, paralysis/petrify, breath, spells/rods/staves."""
+    """The five saving throw target numbers.
+
+    Roll 1d20 against the field that matches the threat and succeed on that number or higher, so
+    lower is better. Read a character's current set from
+    [`Character.saves`][osrlib.core.character.Character] or a monster's from
+    [`MonsterInstance.saves`][osrlib.core.monsters.MonsterInstance]. The saving-throw procedures in
+    [`osrlib.core.combat`][osrlib.core.combat] read them for you. Frozen.
+
+    """
 
     model_config = ConfigDict(frozen=True)
 
     death: int = Field(ge=2, le=20)
+    """Against death rays and poison, the deadliest category."""
+
     wands: int = Field(ge=2, le=20)
+    """Against the effects of magic wands."""
+
     paralysis: int = Field(ge=2, le=20)
+    """Against paralysis and turning to stone."""
+
     breath: int = Field(ge=2, le=20)
+    """Against a dragon's or other creature's breath attack."""
+
     spells: int = Field(ge=2, le=20)
+    """Against spells, magic rods, and staves."""
 
 
 class ProgressionRow(BaseModel):
-    """One level of a class progression table, exactly as the SRD prints it.
+    """Everything a class is at one level: the experience it costs, and what it grants.
 
-    THAC0 is dual-format in the SRD (`19 [0]`); both the descending value and the
-    bracketed attack bonus are carried. `spell_slots[i]` is the number of memorizable
-    spells of spell level `i + 1`; the tuple is empty for non-casters.
+    Get one from [`ClassDefinition.row`][osrlib.core.classes.ClassDefinition.row] for the level you
+    care about. This is where a character's THAC0, attack bonus, saving throws, and spell capacity
+    come from, recomputed from the level every time rather than stored, which is why
+    [`level_up`][osrlib.core.classes.level_up] and
+    [`drain_levels`][osrlib.core.classes.drain_levels] need only change the level. Frozen.
     """
 
     model_config = ConfigDict(frozen=True)
 
     level: int = Field(ge=1)
+    """The level this row describes, counting from 1."""
+
     xp: int = Field(ge=0)
+    """The experience points needed to reach this level. Level 1 is 0, and the numbers rise from there."""
+
     hit_dice: HitDice
+    """The dice this level's hit points are rolled on; see [`HitDice`][osrlib.core.classes.HitDice]."""
+
     thac0: int = Field(ge=2, le=20)
+    """The number needed to hit armour class 0 under descending armour class."""
+
     attack_bonus: int = Field(ge=0)
+    """The same attack, expressed as the bonus added to the roll under ascending armour class."""
+
     saves: SavingThrows
+    """The five saving throw targets at this level; see [`SavingThrows`][osrlib.core.classes.SavingThrows]."""
+
     spell_slots: tuple[int, ...] = ()
+    """How many spells of each level the class may memorize, with the first entry being first-level spells. Empty for a
+    class that casts nothing.
+    """
 
 
 class XpTier(BaseModel):
-    """One XP-modifier tier: the modifier applies when every minimum holds."""
+    """One band of the class's experience-modifier table: a percentage, and the scores that earn it.
+
+    A class rewards a character whose prime requisite is high and penalizes one whose prime
+    requisite is low, by adjusting every experience award up or down.
+    [`xp_modifier_pct`][osrlib.core.classes.xp_modifier_pct] walks a class's tiers in order and
+    returns the first one whose minimums the character meets, so read the tiers rather than this
+    model on its own. Frozen.
+    """
 
     model_config = ConfigDict(frozen=True)
 
     modifier_pct: int
+    """The adjustment as a signed percentage, like `10` for a tenth more experience or `-20` for a fifth less."""
+
     minimums: dict[AbilityScore, int]
+    """The lowest score in each named ability that earns this tier. Every entry must hold for the tier to apply. At
+    least one ability is named.
+    """
 
     @model_validator(mode="after")
     def _minimums_must_be_scores(self) -> XpTier:
@@ -154,20 +255,38 @@ class XpTier(BaseModel):
 
 
 class ArmourPolicyKind(StrEnum):
-    """What armour a class may wear."""
+    """What armour a class is allowed to wear.
+
+    Read it as [`ArmourPolicy.kind`][osrlib.core.classes.ArmourPolicy].
+    [`validate_equip`][osrlib.core.items.validate_equip] enforces it when a character tries to put
+    something on. The wire values are `"any"`, `"leather_only"`, and `"none"`.
+    """
 
     ANY = "any"
+    """Any armour, which is what the cleric, dwarf, elf, fighter, and halfling wear."""
+
     LEATHER_ONLY = "leather_only"
+    """Leather armour and nothing heavier, which is the thief's limit."""
+
     NONE = "none"
+    """No armour at all, which is the magic-user's limit. Shields are out too."""
 
 
 class ArmourPolicy(BaseModel):
-    """A class's armour policy: the allowed kinds plus whether shields are allowed."""
+    """What armour and shields a class may use.
+
+    Read it as [`ClassDefinition.armour`][osrlib.core.classes.ClassDefinition];
+    [`validate_equip`][osrlib.core.items.validate_equip] checks against it. The magic-user wears
+    nothing, the thief wears leather only, and everyone else wears anything. Frozen.
+    """
 
     model_config = ConfigDict(frozen=True)
 
     kind: ArmourPolicyKind
+    """Which armour the class may wear; see [`ArmourPolicyKind`][osrlib.core.classes.ArmourPolicyKind]."""
+
     shields_allowed: bool
+    """Whether the class may carry a shield. A class that can wear no armour cannot carry one either."""
 
     @model_validator(mode="after")
     def _no_armour_means_no_shields(self) -> ArmourPolicy:
@@ -177,29 +296,50 @@ class ArmourPolicy(BaseModel):
 
 
 class WeaponPolicyKind(StrEnum):
-    """How a class's weapon list is expressed."""
+    """Whether a class's weapon list names what it may use or what it may not.
+
+    Read it as [`WeaponPolicy.kind`][osrlib.core.classes.WeaponPolicy]. `"any"` lists nothing and
+    permits everything, `"allowed"` lists the only weapons permitted, and `"forbidden"` lists the
+    only ones refused. The wire values are those three strings.
+    """
 
     ANY = "any"
+    """Any weapon. The class lists none, because none are refused."""
+
     ALLOWED = "allowed"
+    """Only the listed weapons, which is how the cleric is limited to blunt weapons."""
+
     FORBIDDEN = "forbidden"
+    """Anything but the listed weapons, which is how the dwarf and halfling are kept off the long bow."""
 
 
 class WeaponPolicy(BaseModel):
-    """A class's weapon policy.
+    """What weapons a class may wield.
 
-    `weapon_ids` is the explicit allow list (cleric: the five blunt weapons) or the
-    forbidden list (dwarf and halfling: `long_bow`, `two_handed_sword`), and is empty
-    for `any`. `manual_notes` keeps referee-judgment stature prose (the dwarf's "small
-    or normal sized", the halfling's "appropriate to stature") that cannot be
-    mechanized. The policy governs the weapons list only; gear combat facets are exempt
-    (see [`validate_equip`][osrlib.core.items.validate_equip]).
+    Read it as [`ClassDefinition.weapons`][osrlib.core.classes.ClassDefinition];
+    [`validate_equip`][osrlib.core.items.validate_equip] checks against it. It governs weapons
+    only. A piece of gear a character swings in a pinch, like a torch, is not on the weapons
+    list and is not refused by it. Frozen.
     """
 
     model_config = ConfigDict(frozen=True)
 
     kind: WeaponPolicyKind
+    """Whether `weapon_ids` is the permitted list, the refused list, or unused; see
+    [`WeaponPolicyKind`][osrlib.core.classes.WeaponPolicyKind].
+    """
+
     weapon_ids: tuple[str, ...] = ()
+    """The weapon ids the policy names, from [`load_equipment`][osrlib.data.load_equipment]; see [the equipment
+    index][equipment-index]. The cleric's five blunt weapons are an example of a permitted list, and the long bow and
+    two-handed sword the dwarf and halfling are refused are an example of the other. Empty when the class may use
+    anything.
+    """
+
     manual_notes: tuple[str, ...] = ()
+    """The SRD's prose restrictions that no rule can settle, like the dwarf's weapons being "small or normal sized".
+    Show them to the referee. Nothing enforces them.
+    """
 
     @model_validator(mode="after")
     def _ids_must_match_kind(self) -> WeaponPolicy:
@@ -211,74 +351,164 @@ class WeaponPolicy(BaseModel):
 
 
 class ThiefSkillRow(BaseModel):
-    """One level of the thief skill table.
+    """A thief's seven skill chances at one level.
 
-    Skills are d% roll-under percentages except `hear_noise`, an X-in-6 upper bound
-    (the SRD's `1–2` is stored as 2). Pick pockets can exceed 100 at high level; the
-    over-100 arithmetic belongs to the skill-check procedure.
+    Read the row for a thief's level out of
+    [`ClassDefinition.thief_skills`][osrlib.core.classes.ClassDefinition], or let
+    [`thief_skill_check`][osrlib.core.classes.thief_skill_check] find it and roll for you. Frozen.
+
+    Six of the seven are percentages rolled on d%, succeeding at or under the number.
+    `hear_noise` is the odd one out: it is a chance in 6 rolled on 1d6, and the SRD's "1-2" is
+    stored here as 2. Pick pockets passes 100 at high level, and the check caps the effective
+    chance at 99 so a theft is never certain.
     """
 
     model_config = ConfigDict(frozen=True)
 
     level: int = Field(ge=1)
+    """The thief level this row describes."""
+
     climb_sheer_surfaces: int = Field(ge=0)
+    """Percent chance to climb a sheer surface. It starts high, at 87 for a first-level thief, because a thief can climb
+    from the start.
+    """
+
     find_remove_treasure_traps: int = Field(ge=0)
+    """Percent chance to find or disarm a trap on a treasure container, which is not the same as spotting a trap in a
+    room.
+    """
+
     hear_noise: int = Field(ge=1, le=6)
+    """Chance in 6 of hearing something through a door, rolled on 1d6."""
+
     hide_in_shadows: int = Field(ge=0)
+    """Percent chance to go unseen while staying still in shadow."""
+
     move_silently: int = Field(ge=0)
+    """Percent chance to move without being heard."""
+
     open_locks: int = Field(ge=0)
+    """Percent chance to pick a lock, which needs thieves' tools."""
+
     pick_pockets: int = Field(ge=0)
+    """Percent chance to take something from a person unnoticed."""
 
 
 class ClassAbility(BaseModel):
-    """A structured class-ability tag plus the SRD prose it came from.
+    """One thing a class can do, as a tag the rules read plus the SRD text it came from.
 
-    `params` carries the mechanizable numbers (`{"range_feet": 60}` for infravision);
-    `manual` marks abilities that need referee judgment and stay prose. The combat,
-    magic, and crawl procedures consume these tags.
+    Read them off [`ClassDefinition.abilities`][osrlib.core.classes.ClassDefinition]. The combat,
+    magic, and exploration procedures look for the tags they recognize and read the numbers out of
+    `params`, so a class ability is data rather than a branch in the code. Frozen.
+
+    Some abilities cannot be reduced to a number. Those are marked manual, and a front end shows
+    the prose to the referee rather than acting on it.
     """
 
     model_config = ConfigDict(frozen=True)
 
     tag: str
+    """The identifier the rules match on, like `"infravision"`, `"detect_secret_doors"`, or `"back_stab"`."""
+
     name: str
+    """The ability's name as the SRD prints it, for display."""
+
     prose: str
+    """The SRD's own description, which is what to show a player or referee."""
+
     manual: bool = False
+    """True when nothing in osrlib acts on this ability and the prose is the whole of it."""
+
     params: dict[str, int | str] = {}
+    """The numbers the rules read, like `{"range_feet": 60}` for infravision or `{"chance_in_six": 2}` for a detection
+    ability. Empty when there are none.
+    """
 
 
 class ClassDefinition(BaseModel):
-    """A character class, compiled from its SRD page.
+    """A playable character class: the template a [`Character`][osrlib.core.character.Character] plays.
 
-    Frozen SRD data: play never mutates a class definition. `race` is an open,
-    validated identity string — no rules procedure consumes it (racial mechanics
-    resolve through structured ability tags), so Advanced races are additive data,
-    not code. `requirements` are minimum scores checked at class choice;
-    `may_not_lower` carries adjustment-step restrictions (the thief's STR).
-    `level_titles[i]` is the title at level `i + 1`; the SRD's title lists run only
-    through name level, so they are shorter than the progression and levels beyond
-    them have no title entry.
+    Get one from [`load_classes`][osrlib.data.load_classes]`().get(class_id)`; see
+    [the class id index][classes-index] for the ids. A character stores only the id, and
+    [`Character.definition`][osrlib.core.character.Character.definition] looks the definition back
+    up, so read it from there rather than keeping a copy alongside.
+
+    It is frozen, and play never writes to it: a definition is shared by every character of that
+    class, while the mutable state of one played person lives on the
+    [`Character`][osrlib.core.character.Character]. Everything here is data compiled from the SRD's
+    class pages, which is why adding a class means adding data rather than code.
     """
 
     model_config = ConfigDict(frozen=True)
 
     id: str
+    """The class id, like `"fighter"`, which is what a character stores."""
+
     name: str
+    """The class's name as the SRD prints it, for display."""
+
     race: str = Field(pattern=r"^[a-z][a-z0-9_]*$")
+    """The people this class belongs to, as a lowercase identifier, like `"human"` or `"dwarf"`. Creation copies it onto
+    the character. No rule reads it: what a people can do comes through `abilities` instead.
+    """
+
     requirements: dict[AbilityScore, int] = {}
+    """The lowest ability scores a character needs to take this class, checked by
+    [`validate_class_choice`][osrlib.core.character.validate_class_choice]. Empty for the human classes. The demi-human
+    classes each require a 9 in one or two abilities.
+    """
+
     prime_requisites: tuple[AbilityScore, ...]
+    """The abilities that set the experience modifier. One for most classes, two for the elf and the halfling."""
+
     xp_tiers: tuple[XpTier, ...]
+    """The experience-modifier bands, best first; see [`xp_modifier_pct`][osrlib.core.classes.xp_modifier_pct], which
+    reads them.
+    """
+
     hit_die: int
+    """The size of the class's hit die, which is 4, 6, or 8."""
+
     max_level: int = Field(ge=1)
+    """The highest level this class reaches. The human classes reach 14, and the demi-human classes stop lower."""
+
     armour: ArmourPolicy
+    """What armour and shields the class may use; see [`ArmourPolicy`][osrlib.core.classes.ArmourPolicy]."""
+
     weapons: WeaponPolicy
+    """What weapons the class may wield; see [`WeaponPolicy`][osrlib.core.classes.WeaponPolicy]."""
+
     languages: tuple[str, ...]
+    """The language ids the class speaks for free, Common first. A character's full list, including the alignment tongue
+    and any extras, is [`Character.languages`][osrlib.core.character.Character.languages].
+    """
+
     may_not_lower: tuple[AbilityScore, ...] = ()
+    """Abilities the creation-time adjustment may not take points from, which for the thief is STR."""
+
     abilities: tuple[ClassAbility, ...] = ()
+    """What the class can do, as tags the rules read; see [`ClassAbility`][osrlib.core.classes.ClassAbility]."""
+
     thief_skills: tuple[ThiefSkillRow, ...] = ()
+    """A row per level of the thief's seven skills, empty for every class but the thief; see
+    [`ThiefSkillRow`][osrlib.core.classes.ThiefSkillRow].
+    """
+
     level_titles: tuple[str, ...] = ()
+    """The title a character has at each level, with the first entry being level 1. The SRD prints titles only up to
+    name level, so this is shorter than the progression, and
+    [`level_title`][osrlib.core.classes.level_title] returns `None` past the end rather than raising.
+    """
+
     progression: tuple[ProgressionRow, ...]
+    """A row per level from 1 to `max_level`, in order. Read one with
+    [`row`][osrlib.core.classes.ClassDefinition.row] rather than indexing.
+    """
+
     overrides_applied: tuple[str, ...] = ()
+    """The names of the compile-time corrections applied to this class's SRD page. Provenance for anyone checking the
+    data against the SRD. Nothing in play reads it.
+    """
 
     @model_validator(mode="after")
     def _progression_must_cover_levels(self) -> ClassDefinition:
@@ -304,19 +534,36 @@ class ClassDefinition(BaseModel):
         return self
 
     def row(self, level: int) -> ProgressionRow:
-        """Return the progression row for `level` — the pure recompute-from-level lookup.
+        """Return what this class grants at `level`.
 
-        Saves, THAC0, attack bonus, and spell slots are read from here, never stored:
-        energy drain is this function's inverse, not a redesign.
+        This is where a character's THAC0, attack bonus, saving throws, hit dice, and spell
+        capacity come from. Nothing derived is stored on a character, so reading the row for the
+        current level always gives values that match it, and changing the level is all that
+        leveling up or being drained has to do.
+
+        Read the convenience properties on
+        [`Character`][osrlib.core.character.Character] instead when you have a character in hand:
+        `character.thac0`, `character.saves`, and the rest call this for you. Call it directly to
+        look ahead, like asking what the next level costs in experience.
 
         Args:
-            level: The character level, 1 through the class maximum.
+            level: The level to read, from 1 through `max_level`.
 
         Returns:
-            The progression row.
+            The progression row for that level.
 
         Raises:
-            ValueError: If `level` is outside the class's range.
+            ValueError: If `level` is below 1 or above the class's maximum.
+
+        Examples:
+            ```python
+            from osrlib.data import load_classes
+
+            fighter = load_classes().get("fighter")
+            row = fighter.row(3)
+            print(row.xp, row.thac0, row.hit_dice.count, row.saves.death)
+            # 4000 19 3 12
+            ```
         """
         if not 1 <= level <= self.max_level:
             raise ValueError(f"{self.id} levels are 1-{self.max_level}, got {level}")
@@ -324,11 +571,17 @@ class ClassDefinition(BaseModel):
 
 
 class ClassCatalog(BaseModel):
-    """The loaded class list, with id lookup."""
+    """Every playable class, as returned by [`load_classes`][osrlib.data.load_classes].
+
+    Look a class up by id with [`get`][osrlib.core.classes.ClassCatalog.get], or iterate `classes`
+    to build a menu of what a player may choose. The catalog is loaded once and cached, so calling
+    the loader again is free. Frozen.
+    """
 
     model_config = ConfigDict(frozen=True)
 
     classes: tuple[ClassDefinition, ...]
+    """The class definitions, in the order the data file lists them. Ids are unique."""
 
     @model_validator(mode="after")
     def _ids_must_be_unique(self) -> ClassCatalog:
@@ -338,17 +591,28 @@ class ClassCatalog(BaseModel):
         return self
 
     def get(self, class_id: str) -> ClassDefinition:
-        """Return the class definition for `class_id`.
+        """Return the class with `class_id`.
 
         Args:
-            class_id: The class id to look up, e.g. `"fighter"` — see
-                [the class id index][classes-index].
+            class_id: The id to look up, like `"fighter"`; see
+                [the class id index][classes-index] for all of them.
 
         Returns:
             The class definition.
 
         Raises:
-            ValueError: If no class has that id.
+            ValueError: If no class has that id. The message names the id you passed.
+
+        Examples:
+            ```python
+            from osrlib.data import load_classes
+
+            catalog = load_classes()
+            print(catalog.get("halfling").max_level)
+            # 8
+            print([definition.id for definition in catalog.classes])
+            # ['cleric', 'dwarf', 'elf', 'fighter', 'halfling', 'magic_user', 'thief']
+            ```
         """
         for definition in self.classes:
             if definition.id == class_id:
@@ -357,57 +621,111 @@ class ClassCatalog(BaseModel):
 
 
 class LevelUpResult(BaseModel):
-    """The outcome of gaining one level.
+    """What happened when a character gained a level.
 
-    While HD count still grows, `hp_roll` is the raw die (CON applies when
-    `con_applied`, minimum 1 hp gained); above name level the gain is the flat-bonus
-    delta with no roll and no CON.
+    Returned by [`level_up`][osrlib.core.classes.level_up], and set on
+    [`XpAwardResult.level_up`][osrlib.core.classes.XpAwardResult] when an experience award caused
+    the gain. Show it to tell a player what their new level got them. Frozen.
     """
 
     model_config = ConfigDict(frozen=True)
 
     new_level: int
+    """The level the character now has."""
+
     hp_roll: int | None
+    """The raw hit die that was thrown, or `None` above name level, where the class gains a flat number of hit points
+    and rolls nothing.
+    """
+
     hp_gained: int
+    """The hit points added to both maximum and current. At least 1 while dice are still being rolled, however poor the
+    die and the CON modifier were together.
+    """
+
     con_applied: bool
+    """Whether the CON modifier counted toward the gain. False above name level."""
 
 
 class XpAwardResult(BaseModel):
-    """The outcome of applying an XP award.
+    """What happened when a character received an experience award.
 
-    `modified_award` is the award after the class XP-modifier percentage, floored.
-    `clamped` reports the one-level-per-award rule firing: XP that would reach two or
-    more levels above the starting level stops at 1 XP below the second level's
-    threshold.
+    Returned by [`apply_xp`][osrlib.core.classes.apply_xp]. It contains enough to show a player the
+    whole story: what the award was, what their class made of it, and whether it took them up a
+    level. Frozen.
     """
 
     model_config = ConfigDict(frozen=True)
 
     award: int
+    """The award as it was handed in, before the class modifier."""
+
     modifier_pct: int
+    """The class's experience modifier for this character's scores, as a signed percentage; see
+    [`xp_modifier_pct`][osrlib.core.classes.xp_modifier_pct].
+    """
+
     modified_award: int
+    """The award after the modifier, rounded down."""
+
     xp_before: int
+    """The character's experience before the award."""
+
     xp_after: int
+    """The character's experience after it, which is what is now stored."""
+
     level_before: int
+    """The level the character had before the award."""
+
     level_after: int
+    """The level they have after it. At most one higher, because a single award never grants two levels."""
+
     clamped: bool
+    """True when the award was cut back to keep the character below the level after next. An award big enough to jump
+    two levels stops 1 experience point short of the second threshold, and the rest is lost.
+    """
+
     level_up: LevelUpResult | None
+    """What the level gain granted, or `None` when no level was gained; see
+    [`LevelUpResult`][osrlib.core.classes.LevelUpResult].
+    """
 
 
 def xp_modifier_pct(definition: ClassDefinition, scores: dict[AbilityScore, int]) -> int:
-    """Return the class XP-modifier percentage for a score set.
+    """Return how much a class adjusts this character's experience awards, as a percentage.
 
-    Tiers are evaluated best-first; the first tier whose minimums all hold wins.
-    osrlib reads this as the standard table's intended behavior — its penalty rows
-    only make sense under first-match evaluation. With no matching tier the modifier
-    is zero, which is how the multi-prime-requisite classes carry no penalties per RAW.
+    A class rewards a high prime requisite and penalizes a low one by changing every experience
+    award. [`apply_xp`][osrlib.core.classes.apply_xp] calls this for you, so call it yourself only
+    to show a player the number on a character sheet, or to let them see what raising a score at
+    creation would buy them.
+
+    The tiers are stored best first, and the first one whose minimums the character meets wins.
+    A character who meets none gets no adjustment, which is how the elf and the halfling end up
+    with a bonus band and no penalty band, as the SRD prints them.
 
     Args:
-        definition: The class definition.
-        scores: The character's final ability scores.
+        definition: The character's class.
+        scores: The character's final ability scores, after any creation-time adjustment.
 
     Returns:
-        The XP modifier as a signed percentage (`+10`, `-20`, `0`).
+        The adjustment as a signed percentage: `10` for a tenth more, `-20` for a fifth less, `0`
+        for no change.
+
+    Examples:
+        ```python
+        from osrlib.core.abilities import AbilityScore
+        from osrlib.core.classes import xp_modifier_pct
+        from osrlib.data import load_classes
+
+        fighter = load_classes().get("fighter")
+        scores = dict.fromkeys(AbilityScore, 12)
+        scores[AbilityScore.STR] = 16
+        print(xp_modifier_pct(fighter, scores))
+        # 10
+        scores[AbilityScore.STR] = 5
+        print(xp_modifier_pct(fighter, scores))
+        # -20
+        ```
     """
     for tier in definition.xp_tiers:
         if all(scores[ability] >= minimum for ability, minimum in tier.minimums.items()):
@@ -416,17 +734,33 @@ def xp_modifier_pct(definition: ClassDefinition, scores: dict[AbilityScore, int]
 
 
 def level_title(definition: ClassDefinition, level: int) -> str | None:
-    """Return the class's level title at `level`, or `None` beyond the printed list.
+    """Return what a character of this class and level is called, like "Veteran".
 
-    `level_titles[i]` is the title at level `i + 1`; the SRD's title lists run only
-    through name level, so levels past the list have no title.
+    Use it wherever you show a character's standing: a sheet, a party roster, the line a front end
+    prints when someone levels up.
+
+    The SRD prints titles only up to name level, the level at which a character may build a
+    stronghold, so a character past that has no title and this returns `None`. Show the class name
+    instead when it does.
 
     Args:
-        definition: The [`ClassDefinition`][osrlib.core.classes.ClassDefinition].
-        level: The character level, 1 or greater.
+        definition: The character's class.
+        level: The level to name, 1 or higher.
 
     Returns:
-        The title, or `None` when the class's title list doesn't reach `level`.
+        The title, or `None` when the class's list does not reach that level.
+
+    Examples:
+        ```python
+        from osrlib.core.classes import level_title
+        from osrlib.data import load_classes
+
+        fighter = load_classes().get("fighter")
+        print(level_title(fighter, 1), level_title(fighter, 4))
+        # Veteran Hero
+        print(level_title(fighter, 11))
+        # None
+        ```
     """
     if 1 <= level <= len(definition.level_titles):
         return definition.level_titles[level - 1]
@@ -434,27 +768,65 @@ def level_title(definition: ClassDefinition, level: int) -> str | None:
 
 
 def level_up(character: Character, definition: ClassDefinition, stream: RngStream) -> LevelUpResult:
-    """Advance a character one level, rolling hit points per the SRD.
+    """Raise a character one level and roll the hit points that come with it.
 
-    While the HD count still grows, the gain is a new hit die roll plus the CON
-    modifier, minimum 1. Above name level the gain is the flat-bonus delta between the
-    progression rows — no roll, no CON. Both max and current hit points increase by
-    the gain: leveling adds hit points but heals no damage already taken. Saves,
-    THAC0, and spell slots are never stored — read them from
-    [`ClassDefinition.row`][osrlib.core.classes.ClassDefinition.row].
+    Use [`apply_xp`][osrlib.core.classes.apply_xp] for ordinary play, which awards experience and
+    calls this when a threshold is crossed. Call this directly when a level is granted outright
+    rather than earned: building a character above first level, a referee's ruling, restoring a
+    level a wight took.
+
+    While the class is still gaining hit dice, the character rolls one and adds the CON modifier,
+    gaining at least 1 hit point however the dice fall. Past name level the class gains a fixed
+    number of hit points instead, with no roll and no CON. Either way both maximum and current hit
+    points rise by the gain, so a level heals nothing: a wounded character is still wounded, with
+    a higher ceiling.
+
+    Nothing else needs updating. THAC0, saving throws, and spell capacity are read from the
+    progression row for the new level, so they change on their own.
 
     Args:
-        character: The character to advance; mutated in place.
-        definition: The character's class definition.
-        stream: The RNG stream for the hit die roll, conventionally
-            [`ADVANCEMENT_STREAM`][osrlib.core.character.ADVANCEMENT_STREAM].
+        character: The character to advance. Mutated in place: its level, maximum hit points, and
+            current hit points all change.
+        definition: The character's class. It must be the character's own class.
+        stream: The stream for the hit die, conventionally
+            `streams.get(`[`ADVANCEMENT_STREAM`][osrlib.core.character.ADVANCEMENT_STREAM]`)`. No
+            draw is taken past name level.
 
     Returns:
-        The level-up outcome, including the raw hit die roll if one was made.
+        What the level gained, including the raw die when one was thrown.
 
     Raises:
-        ValueError: If the definition doesn't match the character's class, or the
-            character is already at the class's maximum level.
+        ValueError: If `definition` is not the character's class, or the character is already at
+            the class's maximum level.
+
+    Examples:
+        ```python
+        from osrlib.core.alignment import Alignment
+        from osrlib.core.character import (
+            ADVANCEMENT_STREAM,
+            CHARACTER_CREATION_STREAM,
+            create_character,
+        )
+        from osrlib.core.classes import level_up
+        from osrlib.core.rng import RngStreams
+        from osrlib.core.ruleset import Ruleset
+        from osrlib.data import load_classes
+
+        streams = RngStreams(master_seed=2)
+        fighter = load_classes().get("fighter")
+        character = create_character(
+            name="Rurik",
+            class_id="fighter",
+            alignment=Alignment.LAWFUL,
+            ruleset=Ruleset(),
+            stream=streams.get(CHARACTER_CREATION_STREAM),
+        ).character
+        result = level_up(character, fighter, streams.get(ADVANCEMENT_STREAM))
+        print(result.new_level, result.hp_roll, result.hp_gained)
+        # 2 1 2
+        print(character.level, character.max_hp, character.thac0)
+        # 2 10 19
+        ```
     """
     if definition.id != character.class_id:
         raise ValueError(f"class definition {definition.id!r} does not match character class {character.class_id!r}")
@@ -479,70 +851,118 @@ def level_up(character: Character, definition: ClassDefinition, stream: RngStrea
 
 
 class SkillCheckResult(BaseModel):
-    """A thief skill check's outcome.
+    """How a thief skill check came out.
 
-    `chance` is the effective target after modifiers (the pick-pockets ≥1%-failure
-    cap applied). `noticed` is set only for pick pockets: a roll of more than twice
-    the effective chance means the attempted theft is noticed (RAW) — what the
-    victim does about it is a game procedure.
+    Returned by [`thief_skill_check`][osrlib.core.classes.thief_skill_check]. Frozen.
     """
 
     model_config = ConfigDict(frozen=True)
 
     skill: str
+    """The skill that was rolled, as its name."""
+
     roll: int
+    """The die result: d% for the six percentile skills, 1d6 for `hear_noise`."""
+
     chance: int
+    """The number the roll had to come in at or under, after any modifier you passed. Pick pockets is capped here at 99,
+    so a theft always has some chance of failing.
+    """
+
     passed: bool
+    """Whether the check succeeded."""
+
     noticed: bool | None = None
+    """For pick pockets only: True when the roll came in at more than twice the chance, which means the victim noticed
+    the attempt. `None` for every other skill. What a noticed thief then faces is the game's business, not the kernel's.
+    """
 
 
 class DetectionResult(BaseModel):
-    """An X-in-6 detection check's outcome.
+    """How a chance-in-6 detection check came out.
 
-    `roll` is `None` for a zero chance: no die is consumed, since there is nothing to
-    roll under — for example, a non-dwarf searching for construction tricks simply
-    fails without a roll.
+    Returned by [`detection_check`][osrlib.core.classes.detection_check]. Frozen.
     """
 
     model_config = ConfigDict(frozen=True)
 
     chance: int
+    """The chance in 6 the roll had to come in at or under."""
+
     roll: int | None = None
+    """The 1d6 result, or `None` when the chance was zero and no die was thrown. A character with no chance at all, such
+    as anyone but a dwarf looking for a shift in the stonework, fails without rolling.
+    """
+
     passed: bool
+    """Whether the check succeeded."""
 
 
 def thief_skill_check(
     character: Character, definition: ClassDefinition, skill: str, *, modifier_pct: int = 0, stream: RngStream
 ) -> SkillCheckResult:
-    """Roll one thief skill check — an à la carte plain result, no events.
+    """Roll one of a thief's skills and return how it came out.
 
-    The six percentile skills roll d% with success on a result less than or equal
-    to the level row's chance; `hear_noise` rolls 1d6 against its X-in-6 bound. The
-    crawl procedures emit the events (and hide the referee-rolled outcomes); this
-    function just resolves the dice.
+    Call it when a thief tries something their skills cover: climbing a wall, listening at a door,
+    lifting a purse. It rolls and reports, nothing more. It emits no events and hides nothing, so
+    a front end that shows players only what their characters would know must decide for itself
+    what to reveal. Inside a crawl, the commands in
+    [`osrlib.crawl.exploration`][osrlib.crawl.exploration] call it and emit the events for you.
 
-    Pick pockets, per its RAW bullet: the caller folds the victim's over-5th-level
-    penalty into `modifier_pct` (−5% per victim level above 5th — the kernel never
-    sees the victim), the effective chance caps at 99 ("always at least a 1% chance
-    of failure"), and a roll of more than twice the effective chance sets `noticed`.
+    The six skills in
+    [`PERCENTILE_THIEF_SKILLS`][osrlib.core.classes.PERCENTILE_THIEF_SKILLS] roll d% and succeed at
+    or under the chance for the thief's level. `"hear_noise"` rolls 1d6 against a chance in 6
+    instead, and ignores `modifier_pct`.
+
+    Pick pockets has two rules of its own. Stealing from someone above fifth level is harder, by
+    5% per level above the fifth, and you fold that into `modifier_pct` yourself, because the
+    kernel never sees the victim. The chance then caps at 99, so a theft is never certain, and a
+    roll of more than twice the chance means the victim noticed.
 
     Args:
-        character: The rolling thief.
-        definition: The character's class definition; must carry a thief skill
-            table.
-        skill: A percentile skill name from
-            [`PERCENTILE_THIEF_SKILLS`][osrlib.core.classes.PERCENTILE_THIEF_SKILLS],
-            or `"hear_noise"`.
-        modifier_pct: A percentage adjustment to the percentile chance (ignored for
-            `hear_noise`).
-        stream: The RNG stream, conventionally the crawl's `"exploration"` stream.
+        character: The thief making the attempt. Their level chooses the row.
+        definition: The character's class, which must have a thief skill table.
+        skill: One of the names in
+            [`PERCENTILE_THIEF_SKILLS`][osrlib.core.classes.PERCENTILE_THIEF_SKILLS], or
+            `"hear_noise"`.
+        modifier_pct: A percentage added to the chance before rolling, negative to make the
+            attempt harder. Ignored for `"hear_noise"`.
+        stream: The stream to draw from, conventionally the crawl's `"exploration"` stream. One
+            draw is taken.
 
     Returns:
-        The check outcome.
+        The roll, the chance it was measured against, and whether it passed.
 
     Raises:
-        ValueError: If the class has no thief skills or the skill name is unknown —
-            gating who may attempt a skill is the caller's validation.
+        ValueError: If the class has no thief skills, or the skill name is not one this function
+            knows. Deciding who is allowed to try a skill is yours to do before calling.
+
+    Examples:
+        ```python
+        from osrlib.core.alignment import Alignment
+        from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character
+        from osrlib.core.classes import thief_skill_check
+        from osrlib.core.rng import RngStreams
+        from osrlib.core.ruleset import Ruleset
+        from osrlib.data import load_classes
+
+        thief = load_classes().get("thief")
+        character = create_character(
+            name="Nim",
+            class_id="thief",
+            alignment=Alignment.NEUTRAL,
+            ruleset=Ruleset(),
+            stream=RngStreams(master_seed=4).get(CHARACTER_CREATION_STREAM),
+        ).character
+        stream = RngStreams(master_seed=1).get("exploration")
+        result = thief_skill_check(character, thief, "climb_sheer_surfaces", stream=stream)
+        print(result.roll, result.chance, result.passed)
+        # 65 87 True
+        stream = RngStreams(master_seed=9).get("exploration")
+        theft = thief_skill_check(character, thief, "pick_pockets", stream=stream)
+        print(theft.roll, theft.chance, theft.passed, theft.noticed)
+        # 100 20 False True
+        ```
     """
     if not definition.thief_skills:
         raise ValueError(f"{definition.id} has no thief skill table")
@@ -561,20 +981,39 @@ def thief_skill_check(
 
 
 def detection_check(chance_in_six: int, *, stream: RngStream) -> DetectionResult:
-    """Roll the shared X-in-6 detection check: searching, listening, demi-human tags.
+    """Roll a chance-in-6 check: 1d6, succeeding at or under the chance.
 
-    A zero (or negative) chance consumes no draw and fails: the OSE SRD grants
-    construction-trick perception to dwarves alone, and a character without it has
-    nothing to roll under.
+    This is the one roll behind searching a wall for a secret door, listening at a door, spotting
+    a trap in a room, and a dwarf noticing that the stonework is wrong. Get the chance from
+    [`detection_chance`][osrlib.core.classes.detection_chance], which works out what this
+    character's chance at this kind of search is, then pass it here.
+
+    A chance of zero, or below, fails without throwing a die and takes no draw from the stream.
+    Anyone but a dwarf looking for a shift in the stonework has no chance at all, and rolling for
+    them would both mislead the player and shift every later draw.
 
     Args:
-        chance_in_six: The X-in-6 chance, from
-            [`detection_chance`][osrlib.core.classes.detection_chance] or a class
-            tag.
-        stream: The RNG stream, conventionally the crawl's `"exploration"` stream.
+        chance_in_six: The chance to roll at or under, usually from
+            [`detection_chance`][osrlib.core.classes.detection_chance].
+        stream: The stream to draw from, conventionally the crawl's `"exploration"` stream. One
+            draw is taken unless the chance is zero.
 
     Returns:
-        The check outcome.
+        The roll and whether it passed, with `roll` left `None` when no die was thrown.
+
+    Examples:
+        ```python
+        from osrlib.core.classes import detection_check
+        from osrlib.core.rng import RngStreams
+
+        stream = RngStreams(master_seed=4).get("exploration")
+        result = detection_check(2, stream=stream)
+        print(result.roll, result.passed)
+        # 2 True
+        nothing = detection_check(0, stream=stream)
+        print(nothing.roll, nothing.passed)
+        # None False
+        ```
     """
     if chance_in_six <= 0:
         return DetectionResult(chance=chance_in_six, passed=False)
@@ -590,27 +1029,56 @@ def _ability_chance(definition: ClassDefinition, tag: str) -> int | None:
 
 
 def detection_chance(character: Character, definition: ClassDefinition, kind: str) -> int:
-    """Resolve a character's X-in-6 chance for one detection kind.
+    """Return this character's chance in 6 at one kind of search.
 
-    Precedence, applied in this order: listening uses the thief's `hear_noise` row
-    when present, else the class's `listening_at_doors` param, else the universal
-    1-in-6; secret doors use `detect_secret_doors` (elf 2) else 1; room traps use
-    `detect_room_traps` (dwarf 2) else 1; construction tricks use
-    `detect_construction_tricks` (dwarf 2) else **zero** — the OSE SRD grants the
-    perception to dwarves alone, and "as a dwarf you can sense" has no baseline for
-    others, unlike the universal 1-in-6 search chances the SRD states for all PCs.
+    Call it before [`detection_check`][osrlib.core.classes.detection_check], which rolls against
+    the number it gives you. It reads the class's abilities and, for a thief listening, the level's
+    skill row, so it answers for whoever is searching without you having to know which classes are
+    good at what.
+
+    Listening at doors takes the thief's `hear_noise` chance when the character is a thief, else
+    the class's own listening ability, else the 1 in 6 anyone gets. Searching for a secret door
+    takes the class's `detect_secret_doors` ability, which the elf has at 2, else 1. Looking for a
+    trap in a room takes `detect_room_traps`, which the dwarf has at 2, else 1. Noticing a shift
+    in the stonework takes `detect_construction_tricks`, which the dwarf has at 2, and everyone
+    else gets zero: the SRD gives this perception to dwarves and states no chance for anyone else,
+    unlike the searches it opens to every character.
 
     Args:
-        character: The detecting character.
-        definition: The character's class definition.
-        kind: One of `"listening"`, `"secret_doors"`, `"room_traps"`, or
+        character: The character searching. Their level chooses a thief's skill row.
+        definition: The character's class.
+        kind: What they are searching for: `"listening"`, `"secret_doors"`, `"room_traps"`, or
             `"construction"`.
 
     Returns:
-        The X-in-6 chance (0 means no chance at all).
+        The chance in 6. Zero means the character cannot do it at all, and
+        [`detection_check`][osrlib.core.classes.detection_check] fails it without a roll.
 
     Raises:
-        ValueError: If the kind is unknown.
+        ValueError: If `kind` is not one of the four.
+
+    Examples:
+        ```python
+        from osrlib.core.alignment import Alignment
+        from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character
+        from osrlib.core.classes import detection_chance
+        from osrlib.core.rng import RngStreams
+        from osrlib.core.ruleset import Ruleset
+        from osrlib.data import load_classes
+
+        dwarf = load_classes().get("dwarf")
+        character = create_character(
+            name="Thora",
+            class_id="dwarf",
+            alignment=Alignment.LAWFUL,
+            ruleset=Ruleset(),
+            stream=RngStreams(master_seed=1).get(CHARACTER_CREATION_STREAM),
+        ).character
+        print(detection_chance(character, dwarf, "room_traps"))
+        # 2
+        print(detection_chance(character, dwarf, "secret_doors"))
+        # 1
+        ```
     """
     if kind == "listening":
         if definition.thief_skills:
@@ -630,24 +1098,40 @@ def detection_chance(character: Character, definition: ClassDefinition, kind: st
 
 
 class DrainResult(BaseModel):
-    """The outcome of energy drain.
+    """What an energy drain took from a character.
 
-    `hp_rolls` are the raw hit dice rolled for the drained levels (empty above name
-    level, where the loss is the flat-bonus delta). `slain` marks the terminal case:
-    a person drained of all levels dies, and `spawn_consequence` carries the SRD's
-    spawn prose as a structured-but-manual field — the kernel kills, the game
-    narrates.
+    Returned by [`drain_levels`][osrlib.core.classes.drain_levels]. Frozen.
     """
 
     model_config = ConfigDict(frozen=True)
 
     levels_lost: int
+    """How many levels the drain removed. When the drain killed the character, the level that killed them is counted
+    here.
+    """
+
     new_level: int = Field(ge=0)
+    """The level the character now has, or 0 when the drain killed them."""
+
     hp_rolls: tuple[int, ...] = ()
+    """The raw hit dice thrown for the levels lost, in order. Empty above name level, where the loss is a fixed number
+    of hit points and nothing is rolled.
+    """
+
     hp_lost: int
+    """The hit points taken from both maximum and current."""
+
     xp_after: int | None = None
+    """The experience the character is left with, or `None` when the drain killed them."""
+
     slain: bool = False
+    """True when the drain took the character's last level and killed them."""
+
     events: tuple[Event, ...] = ()
+    """What to publish: a [`LevelDrainedEvent`][osrlib.core.events.LevelDrainedEvent] and, depending on the outcome, a
+    hit point report, the death events, and any spells forgotten because the character's capacity shrank. Feed them to
+    your event sink in order.
+    """
 
 
 def drain_levels(
@@ -659,41 +1143,82 @@ def drain_levels(
     stream: RngStream,
     spawn_consequence: str | None = None,
 ) -> DrainResult:
-    """Drain experience levels — the inverse of [`level_up`][osrlib.core.classes.level_up].
+    """Take experience levels away from a character, undoing what [`level_up`][osrlib.core.classes.level_up] did.
 
-    Saves, THAC0, and spell slots need no reversal because they derive from
-    [`row`][osrlib.core.classes.ClassDefinition.row]; only stored state reverses.
-    Per level drained, mirroring `level_up` exactly in reverse: above name level
-    subtract the flat-bonus delta (no roll, no CON); otherwise roll the class hit die
-    plus the CON modifier (minimum 1 per die) and subtract it from max and current
-    hit points — rolling the lost die is osrlib's RAW-faithful reading of "loses one
-    Hit Die of hit points" that keeps the model stateless.
+    Call it when an undead creature that drains levels lands a hit: the wight takes one level, the
+    spectre and the vampire take two. Read the monster's `energy_drain` ability with
+    [`MonsterTemplate.ability`][osrlib.core.monsters.MonsterTemplate.ability] for the number of
+    levels and the experience policy, then pass them here. The attack itself resolves in
+    [`osrlib.core.combat`][osrlib.core.combat]. This is the consequence.
 
-    Floors: drain never reduces max HP below 1 or current HP below 1 while the
-    character retains a level — death by drain happens only by losing the last
-    level ("a person drained of all levels"), the terminal state. XP is set once
-    after all levels drain, by policy: `halfway` is the floored midpoint of the
-    former and new levels' thresholds (the wight); `level_minimum` is the new
-    level's threshold exactly (wraith, spectre, vampire).
+    Each level is taken exactly as it was given. Below name level the character throws the hit die
+    they would have rolled and loses that many hit points plus their CON modifier, at least 1.
+    Above name level they lose the fixed number of hit points the class grants there, with no roll.
+    Rolling the die back is what lets the model stay stateless: a character keeps no record of
+    which dice built their hit points, so the drain rolls a fresh one. THAC0, saving throws, and
+    spell capacity need nothing done to them, because they are read from the level.
+
+    A character never drops below 1 maximum or 1 current hit point while they still have a level.
+    Death comes only from losing the last one, which is the SRD's person drained of all levels: the
+    result reports `slain`, the events include the death, and any spells that no longer fit the
+    shrunken capacity are forgotten newest first.
+
+    Experience is rewritten once, after every level is taken. Under `"halfway"` the character keeps
+    the midpoint between the threshold they had reached and the one they fell back to. Under
+    `"level_minimum"` they keep exactly the new level's threshold.
 
     Args:
-        character: The drained character; mutated in place.
-        definition: The character's class definition.
-        levels: How many levels the drain removes (the spectre and vampire drain
-            two, applying the procedure twice).
-        xp_policy: `"halfway"` or `"level_minimum"` — per-monster data from the
-            `energy_drain` tag.
-        stream: The RNG stream for the lost hit die rolls, conventionally
-            [`ADVANCEMENT_STREAM`][osrlib.core.character.ADVANCEMENT_STREAM] — the
-            same subsystem as the gains it reverses.
-        spawn_consequence: The monster's spawn prose, carried on the drain event.
+        character: The character being drained. Mutated in place: level, experience, and both hit
+            point totals change.
+        definition: The character's class. It must be the character's own class.
+        levels: How many levels to take. The procedure runs once per level.
+        xp_policy: `"halfway"` or `"level_minimum"`, from the monster's `energy_drain` ability.
+        stream: The stream for the hit dice thrown back, conventionally
+            `streams.get(`[`ADVANCEMENT_STREAM`][osrlib.core.character.ADVANCEMENT_STREAM]`)`, the
+            same stream the gains came from.
+        spawn_consequence: What the victim becomes, in the monster's own words, put on the drain
+            event for a front end to show. Nothing acts on it.
 
     Returns:
-        The drain outcome, including the terminal death when all levels are lost.
+        What was lost, and the events to publish.
 
     Raises:
-        ValueError: If the definition doesn't match the character's class, `levels`
-            is not positive, or the policy is unknown.
+        ValueError: If `definition` is not the character's class, if `levels` is not positive, or
+            if `xp_policy` is neither of the two.
+
+    Examples:
+        ```python
+        from osrlib.core.alignment import Alignment
+        from osrlib.core.character import (
+            ADVANCEMENT_STREAM,
+            CHARACTER_CREATION_STREAM,
+            create_character,
+        )
+        from osrlib.core.classes import apply_xp, drain_levels
+        from osrlib.core.rng import RngStreams
+        from osrlib.core.ruleset import Ruleset
+        from osrlib.data import load_classes
+
+        streams = RngStreams(master_seed=2)
+        fighter = load_classes().get("fighter")
+        character = create_character(
+            name="Rurik",
+            class_id="fighter",
+            alignment=Alignment.LAWFUL,
+            ruleset=Ruleset(),
+            stream=streams.get(CHARACTER_CREATION_STREAM),
+        ).character
+        advancement = streams.get(ADVANCEMENT_STREAM)
+        apply_xp(character, fighter, 2500, advancement)
+        print(character.level, character.xp, character.max_hp)
+        # 2 2500 10
+
+        result = drain_levels(character, fighter, levels=1, xp_policy="halfway", stream=advancement)
+        print(result.levels_lost, result.new_level, result.hp_lost, result.slain)
+        # 1 1 9 False
+        print(character.level, character.xp, character.max_hp)
+        # 1 1000 1
+        ```
     """
     if definition.id != character.class_id:
         raise ValueError(f"class definition {definition.id!r} does not match character class {character.class_id!r}")
@@ -724,9 +1249,9 @@ def drain_levels(
         hp_lost += lost
     events: list[Event] = []
     if slain:
-        # The killing level counts as lost: a level-1 victim loses 1 level, a
-        # spectre draining a level-2 fighter reports 2 (the model's level floor of 1
-        # stays — the character is dead, not level 0).
+        # The level that killed them counts as lost, so a level-1 victim loses 1 and a spectre
+        # draining a level-2 fighter reports 2. The stored level stays at 1 because the model
+        # floors it there. The character is dead, not level 0.
         levels_lost = former_level - character.level + 1
         character.xp = 0
         events.append(
@@ -772,9 +1297,9 @@ def drain_levels(
         )
     )
     if getattr(character, "memorized_spells", ()):
-        # The drain/memorization interplay: memorized copies in excess of the shrunk
-        # slots are forgotten newest-first. Runtime imports because the spells module
-        # sits above this one in the import graph (spells → combat → classes).
+        # Memorized spells beyond what the shrunken slots can fit are forgotten, newest first.
+        # The imports are here rather than at the top because spells imports combat, which
+        # imports this module.
         from osrlib.core.spells import forget_excess_memorized
         from osrlib.data import load_spells
 
@@ -790,27 +1315,63 @@ def drain_levels(
 
 
 def apply_xp(character: Character, definition: ClassDefinition, award: int, stream: RngStream) -> XpAwardResult:
-    """Apply an XP award: class modifier, the one-level-per-award rule, and leveling.
+    """Give a character experience points, and level them up if the award takes them over a threshold.
 
-    The class XP-modifier percentage applies first, with the result floored. Then the
-    rule exactly as written: XP that would reach two or more levels above the
-    starting level is clamped to 1 XP below the second level's threshold, and the
-    character gains one level. At the class's maximum level no further levels are
-    gained but XP keeps accumulating, unclamped — there is no next threshold to hold
-    the character under.
+    This is how characters advance. Split the experience a party earned among its members however
+    your game divides it, then call this once per member. It applies the class's modifier, stores
+    the new total, and calls [`level_up`][osrlib.core.classes.level_up] when the character has
+    crossed the next threshold, all in one step, so you never have to check thresholds yourself.
+
+    A single award never grants two levels. An award large enough to reach the level after next is
+    cut back to one point short of that second threshold, and the excess is lost, so a character
+    who kills a dragon at first level ends up at second and has to earn the rest. The result says
+    when that happened.
+
+    At the class's maximum level the character stops gaining levels but keeps accumulating
+    experience, uncut, because there is no further threshold to keep them under.
 
     Args:
-        character: The character receiving the award; mutated in place.
-        definition: The character's class definition.
-        award: The unmodified XP award. Non-negative.
-        stream: The RNG stream for a level-up hit die roll.
+        character: The character receiving the award. Mutated in place: experience, and on a level
+            gain the level and hit points too.
+        definition: The character's class. It must be the character's own class.
+        award: The experience to award, before the class modifier. Not negative.
+        stream: The stream for a hit die if the award levels the character up, conventionally
+            `streams.get(`[`ADVANCEMENT_STREAM`][osrlib.core.character.ADVANCEMENT_STREAM]`)`. No
+            draw is taken when no level is gained.
 
     Returns:
-        The award outcome, including the level-up result when one occurred.
+        The whole story of the award: what it was, what the class made of it, and what the
+        character gained.
 
     Raises:
-        ValueError: If the definition doesn't match the character's class or the
-            award is negative.
+        ValueError: If `definition` is not the character's class, or `award` is negative.
+
+    Examples:
+        ```python
+        from osrlib.core.alignment import Alignment
+        from osrlib.core.character import (
+            ADVANCEMENT_STREAM,
+            CHARACTER_CREATION_STREAM,
+            create_character,
+        )
+        from osrlib.core.classes import apply_xp
+        from osrlib.core.rng import RngStreams
+        from osrlib.core.ruleset import Ruleset
+        from osrlib.data import load_classes
+
+        streams = RngStreams(master_seed=2)
+        fighter = load_classes().get("fighter")
+        character = create_character(
+            name="Rurik",
+            class_id="fighter",
+            alignment=Alignment.LAWFUL,
+            ruleset=Ruleset(),
+            stream=streams.get(CHARACTER_CREATION_STREAM),
+        ).character
+        result = apply_xp(character, fighter, 10000, streams.get(ADVANCEMENT_STREAM))
+        print(result.modified_award, result.xp_after, result.level_after, result.clamped)
+        # 10000 3999 2 True
+        ```
     """
     if definition.id != character.class_id:
         raise ValueError(f"class definition {definition.id!r} does not match character class {character.class_id!r}")
