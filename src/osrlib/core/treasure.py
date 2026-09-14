@@ -136,17 +136,14 @@ class TreasureSection(StrEnum):
 
     The wire values are lowercase and serialize into the compiled treasure data. Changing
     them is a `schema_version` bump.
-
-    Attributes:
-        HOARD: Types A to O: the treasure in a monster's lair, generated once for the lair.
-        INDIVIDUAL: Types P to T: what one monster carries, generated once per monster.
-        GROUP: Types U and V: what a group carries between them, generated once for the
-            group.
     """
 
     HOARD = "hoard"
+    """Types A to O: the treasure in a monster's lair, generated once for the lair."""
     INDIVIDUAL = "individual"
+    """Types P to T: what one monster carries, generated once per monster."""
     GROUP = "group"
+    """Types U and V: what a group carries between them, generated once for the group."""
 
 
 class CoinDenomination(StrEnum):
@@ -155,20 +152,18 @@ class CoinDenomination(StrEnum):
     A coin entry names one of these, and generation adds the rolled amount to the matching
     field of [`Coins`][osrlib.core.items.Coins]. The values are the same strings those models
     use for their fields, so a denomination can be used as a key.
-
-    Attributes:
-        PP: Platinum, worth 5 gp.
-        GP: Gold.
-        EP: Electrum, worth half a gold piece.
-        SP: Silver, ten to the gold piece.
-        CP: Copper, a hundred to the gold piece.
     """
 
     PP = "pp"
+    """Platinum, worth 5 gp."""
     GP = "gp"
+    """Gold."""
     EP = "ep"
+    """Electrum, worth half a gold piece."""
     SP = "sp"
+    """Silver, ten to the gold piece."""
     CP = "cp"
+    """Copper, a hundred to the gold piece."""
 
 
 class MagicItemType(StrEnum):
@@ -184,26 +179,24 @@ class MagicItemType(StrEnum):
 
     The wire values are lowercase and serialize into the compiled treasure data. Changing
     them is a `schema_version` bump.
-
-    Attributes:
-        ARMOUR: Enchanted armour and shields.
-        MISC: Miscellaneous magic items.
-        POTION: Potions.
-        RING: Rings.
-        ROD_STAFF_WAND: The rod, staff, and wand row, which covers all three.
-        SCROLL: The scroll row, which covers treasure maps as well as spell scrolls.
-        SWORD: Enchanted swords.
-        WEAPON: Every other enchanted weapon.
     """
 
     ARMOUR = "armour"
+    """Enchanted armour and shields."""
     MISC = "misc"
+    """Miscellaneous magic items."""
     POTION = "potion"
+    """Potions."""
     RING = "ring"
+    """Rings."""
     ROD_STAFF_WAND = "rod_staff_wand"
+    """The rod, staff, and wand row, which covers all three."""
     SCROLL = "scroll"
+    """The scroll row, which covers treasure maps as well as spell scrolls."""
     SWORD = "sword"
+    """Enchanted swords."""
     WEAPON = "weapon"
+    """Every other enchanted weapon."""
 
 
 class CoinQuantity(BaseModel):
@@ -213,17 +206,14 @@ class CoinQuantity(BaseModel):
     `1d6 × 1,000 gp` arrives here as dice of `1d6×1000` and a denomination of gold. Roll it
     with [`roll`][osrlib.core.dice.roll] if you are generating by hand. The generation
     functions do it for you.
-
-    Attributes:
-        denomination: Which coins. See
-            [`CoinDenomination`][osrlib.core.treasure.CoinDenomination].
-        dice: How many, as a dice expression.
     """
 
     model_config = ConfigDict(frozen=True)
 
     denomination: CoinDenomination
+    """Which coins. See [`CoinDenomination`][osrlib.core.treasure.CoinDenomination]."""
     dice: str
+    """How many, as a dice expression."""
 
     @field_validator("dice")
     @classmethod
@@ -246,24 +236,22 @@ class MagicAllotment(BaseModel):
 
     Exactly one of `count` and `count_dice` sizes the clause. Only an `any` clause has
     exclusions, because a clause that names its type has nothing to exclude.
-
-    Attributes:
-        kind: `"any"`, `"category"`, or `"pool"`.
-        categories: The types the clause names. See
-            [`MagicItemType`][osrlib.core.treasure.MagicItemType]. Empty for `any`, one for
-            `category`, two or more for `pool`.
-        count: A fixed number of items, or `None` when the count is rolled.
-        count_dice: The number of items as a dice expression, or `None` when it is fixed.
-        exclude: Types an `any` clause re-rolls. Empty on the other kinds.
     """
 
     model_config = ConfigDict(frozen=True)
 
     kind: Literal["any", "category", "pool"]
+    """`"any"`, `"category"`, or `"pool"`."""
     categories: tuple[MagicItemType, ...] = ()
+    """The types the clause names. See [`MagicItemType`][osrlib.core.treasure.MagicItemType]. Empty for `any`, one for
+    `category`, two or more for `pool`.
+    """
     count: int | None = None
+    """A fixed number of items, or `None` when the count is rolled."""
     count_dice: str | None = None
+    """The number of items as a dice expression, or `None` when it is fixed."""
     exclude: tuple[MagicItemType, ...] = ()
+    """Types an `any` clause re-rolls. Empty on the other kinds."""
 
     @field_validator("count_dice")
     @classmethod
@@ -295,27 +283,22 @@ class TreasureEntry(BaseModel):
     mixture. Generate a list of them with
     [`generate_treasure_entries`][osrlib.core.treasure.generate_treasure_entries], which is
     also how you generate the hoard a treasure map leads to.
-
-    Attributes:
-        chance_pct: The percentage chance the entry is present at all. 0 means it always is,
-            which is how the entries printed without a chance are stored.
-        coins: The coins this entry yields, or `None`. See
-            [`CoinQuantity`][osrlib.core.treasure.CoinQuantity].
-        gems_dice: How many gems, as a dice expression, or `None`. Each gem's value is
-            rolled separately on the gem table.
-        jewellery_dice: How many pieces of jewellery, as a dice expression, or `None`. Each
-            piece's value is rolled separately.
-        magic: The magic item clauses, or empty. See
-            [`MagicAllotment`][osrlib.core.treasure.MagicAllotment].
     """
 
     model_config = ConfigDict(frozen=True)
 
     chance_pct: int = Field(default=0, ge=0, le=100)
+    """The percentage chance the entry is present at all. 0 means it always is, which is how the entries printed without
+    a chance are stored.
+    """
     coins: CoinQuantity | None = None
+    """The coins this entry yields, or `None`. See [`CoinQuantity`][osrlib.core.treasure.CoinQuantity]."""
     gems_dice: str | None = None
+    """How many gems, as a dice expression, or `None`. Each gem's value is rolled separately on the gem table."""
     jewellery_dice: str | None = None
+    """How many pieces of jewellery, as a dice expression, or `None`. Each piece's value is rolled separately."""
     magic: tuple[MagicAllotment, ...] = ()
+    """The magic item clauses, or empty. See [`MagicAllotment`][osrlib.core.treasure.MagicAllotment]."""
 
     @field_validator("gems_dice", "jewellery_dice")
     @classmethod
@@ -347,40 +330,35 @@ class TreasureTypeTable(BaseModel):
     skip straight to the result with
     [`generate_treasure`][osrlib.core.treasure.generate_treasure]. Read the entries when you
     want to show a referee what a letter can produce before rolling it.
-
-    Attributes:
-        letter: The type letter, for example `"A"`. See [the treasure type index][treasure-types-index].
-        kind: Whether the letter is lair treasure, carried by one monster, or carried by a
-            group. See [`TreasureSection`][osrlib.core.treasure.TreasureSection].
-        average_gp: The average value of a hoard of this type in gold pieces, as the rules
-            print it. A planning figure for an adventure author, not something generation
-            aims at.
-        entries: The printed lines, in order. See
-            [`TreasureEntry`][osrlib.core.treasure.TreasureEntry].
     """
 
     model_config = ConfigDict(frozen=True)
 
     letter: str = Field(min_length=1, max_length=1)
+    """The type letter, for example `"A"`. See [the treasure type index][treasure-types-index]."""
     kind: TreasureSection
+    """Whether the letter is lair treasure, carried by one monster, or carried by a group. See
+    [`TreasureSection`][osrlib.core.treasure.TreasureSection].
+    """
     average_gp: float = Field(ge=0)
+    """The average value of a hoard of this type in gold pieces, as the rules print it. A planning figure for an
+    adventure author, not something generation aims at.
+    """
     entries: tuple[TreasureEntry, ...] = Field(min_length=1)
+    """The printed lines, in order. See [`TreasureEntry`][osrlib.core.treasure.TreasureEntry]."""
 
 
 class GemValueBand(BaseModel):
-    """One band of the gem value table: the d20 rolls that make a gem worth a given amount.
-
-    Attributes:
-        roll_min: The lowest d20 result in this band.
-        roll_max: The highest.
-        value_gp: What a gem rolled in this band is worth, in gold pieces.
-    """
+    """One band of the gem value table: the d20 rolls that make a gem worth a given amount."""
 
     model_config = ConfigDict(frozen=True)
 
     roll_min: int = Field(ge=1, le=20)
+    """The lowest d20 result in this band."""
     roll_max: int = Field(ge=1, le=20)
+    """The highest d20 result in this band."""
     value_gp: int = Field(ge=1)
+    """What a gem rolled in this band is worth, in gold pieces."""
 
     @model_validator(mode="after")
     def _band_must_be_ordered(self) -> GemValueBand:
@@ -397,22 +375,19 @@ class GemValueTable(BaseModel):
     [`ValuableInstance`][osrlib.core.items.ValuableInstance] whose value never changes
     afterwards. Roll a gem yourself with
     [`value_for_roll`][osrlib.core.treasure.GemValueTable.value_for_roll].
-
-    Attributes:
-        bands: The gem value bands, covering the whole d20. See
-            [`GemValueBand`][osrlib.core.treasure.GemValueBand].
-        jewellery_dice: What one piece of jewellery is worth, as a dice expression.
-        manual_notes: The rules the referee applies by hand, as printed: that rough
-            treatment can halve a piece of jewellery's value, and that several gems may be
-            combined into fewer, larger ones. osrlib does neither. Show these to the referee
-            if your game applies them.
     """
 
     model_config = ConfigDict(frozen=True)
 
     bands: tuple[GemValueBand, ...] = Field(min_length=1)
+    """The gem value bands, covering the whole d20. See [`GemValueBand`][osrlib.core.treasure.GemValueBand]."""
     jewellery_dice: str
+    """What one piece of jewellery is worth, as a dice expression."""
     manual_notes: tuple[str, ...] = ()
+    """The rules the referee applies by hand, as printed: that rough treatment can halve a piece of jewellery's value,
+    and that several gems may be combined into fewer, larger ones. osrlib does neither. Show these to the referee if
+    your game applies them.
+    """
 
     @field_validator("jewellery_dice")
     @classmethod
@@ -464,23 +439,20 @@ class MagicItemTypeRow(BaseModel):
     The rules print two columns, B for Basic play and X for Expert, and a type's odds differ
     between them: scrolls and swords get likelier in Expert play, potions less likely. A
     printed `00` is read as 100, so both columns close at 100.
-
-    Attributes:
-        category: The type this row selects. See
-            [`MagicItemType`][osrlib.core.treasure.MagicItemType].
-        basic_min: The lowest d% roll that selects it in the B column.
-        basic_max: The highest.
-        expert_min: The lowest d% roll that selects it in the X column.
-        expert_max: The highest.
     """
 
     model_config = ConfigDict(frozen=True)
 
     category: MagicItemType
+    """The type this row selects. See [`MagicItemType`][osrlib.core.treasure.MagicItemType]."""
     basic_min: int = Field(ge=1, le=100)
+    """The lowest d% roll that selects it in the B column."""
     basic_max: int = Field(ge=1, le=100)
+    """The highest d% roll that selects it in the B column."""
     expert_min: int = Field(ge=1, le=100)
+    """The lowest d% roll that selects it in the X column."""
     expert_max: int = Field(ge=1, le=100)
+    """The highest d% roll that selects it in the X column."""
 
 
 class MagicItemTypeTable(BaseModel):
@@ -492,15 +464,14 @@ class MagicItemTypeTable(BaseModel):
     [`MagicItemCatalog.sub_table`][osrlib.core.items.MagicItemCatalog.sub_table] returns. Or
     let [`generate_magic_item`][osrlib.core.treasure.generate_magic_item] do both and
     instantiate the item.
-
-    Attributes:
-        rows: The rows, in printed order, each column covering the whole d%. See
-            [`MagicItemTypeRow`][osrlib.core.treasure.MagicItemTypeRow].
     """
 
     model_config = ConfigDict(frozen=True)
 
     rows: tuple[MagicItemTypeRow, ...] = Field(min_length=1)
+    """The rows, in printed order, each column covering the whole d%. See
+    [`MagicItemTypeRow`][osrlib.core.treasure.MagicItemTypeRow].
+    """
 
     @model_validator(mode="after")
     def _columns_cover_the_d100(self) -> MagicItemTypeTable:
@@ -545,22 +516,20 @@ class MagicItemTypeTable(BaseModel):
 
 
 class StockingRow(BaseModel):
-    """One row of the room stocking table: what is in a room, and how likely treasure is with it.
-
-    Attributes:
-        roll_min: The lowest d6 result in this row.
-        roll_max: The highest.
-        contents: What is in the room: `"empty"`, `"monster"`, `"special"`, or `"trap"`.
-        treasure_chance_in_six: How many faces of a d6 mean treasure as well, for example 3 for a
-            3-in-6 chance. 0 where the table prints no chance, and no die is rolled then.
-    """
+    """One row of the room stocking table: what is in a room, and how likely treasure is with it."""
 
     model_config = ConfigDict(frozen=True)
 
     roll_min: int = Field(ge=1, le=6)
+    """The lowest d6 result in this row."""
     roll_max: int = Field(ge=1, le=6)
+    """The highest d6 result in this row."""
     contents: Literal["empty", "monster", "special", "trap"]
+    """What is in the room: `"empty"`, `"monster"`, `"special"`, or `"trap"`."""
     treasure_chance_in_six: int = Field(ge=0, le=6)
+    """How many faces of a d6 mean treasure as well, for example 3 for a 3-in-6 chance. 0 where the table prints no
+    chance, and no die is rolled then.
+    """
 
 
 class StockingTable(BaseModel):
@@ -573,15 +542,12 @@ class StockingTable(BaseModel):
 
     This is an authoring tool, not something play calls: it is how you fill a dungeon level
     before anyone explores it.
-
-    Attributes:
-        rows: The rows, covering the whole d6. See
-            [`StockingRow`][osrlib.core.treasure.StockingRow].
     """
 
     model_config = ConfigDict(frozen=True)
 
     rows: tuple[StockingRow, ...] = Field(min_length=1)
+    """The rows, covering the whole d6. See [`StockingRow`][osrlib.core.treasure.StockingRow]."""
 
     @model_validator(mode="after")
     def _rows_cover_the_d6(self) -> StockingTable:
@@ -617,21 +583,18 @@ class UnguardedTreasureBand(BaseModel):
 
     Deeper levels have more, so the table is banded by level. The entries have the same
     shape as a treasure type's.
-
-    Attributes:
-        label: The band as the table prints it, for example `"Level 2–3"`.
-        min_level: The shallowest dungeon level in the band.
-        max_level: The deepest.
-        entries: The printed lines, in order. See
-            [`TreasureEntry`][osrlib.core.treasure.TreasureEntry].
     """
 
     model_config = ConfigDict(frozen=True)
 
     label: str = Field(min_length=1)
+    """The band as the table prints it, for example `"Level 2–3"`."""
     min_level: int = Field(ge=1)
+    """The shallowest dungeon level in the band."""
     max_level: int = Field(ge=1)
+    """The deepest dungeon level in the band."""
     entries: tuple[TreasureEntry, ...] = Field(min_length=1)
+    """The printed lines, in order. See [`TreasureEntry`][osrlib.core.treasure.TreasureEntry]."""
 
     @model_validator(mode="after")
     def _band_must_be_ordered(self) -> UnguardedTreasureBand:
@@ -647,15 +610,14 @@ class UnguardedTreasureTable(BaseModel):
     [`generate_unguarded_treasure`][osrlib.core.treasure.generate_unguarded_treasure], which
     picks the band and generates from it. Levels past the deepest printed band use that band,
     so a level 12 cache is as rich as a level 9 one and no richer.
-
-    Attributes:
-        bands: The bands, in level order and contiguous from level 1. See
-            [`UnguardedTreasureBand`][osrlib.core.treasure.UnguardedTreasureBand].
     """
 
     model_config = ConfigDict(frozen=True)
 
     bands: tuple[UnguardedTreasureBand, ...] = Field(min_length=1)
+    """The bands, in level order and contiguous from level 1. See
+    [`UnguardedTreasureBand`][osrlib.core.treasure.UnguardedTreasureBand].
+    """
 
     @model_validator(mode="after")
     def _bands_must_be_contiguous_from_one(self) -> UnguardedTreasureTable:
@@ -696,29 +658,24 @@ class TreasureTables(BaseModel):
     It is frozen, cached, and shared. The generation functions load it themselves, so you
     need this only to read a table: to show a referee what a letter can produce, or to roll
     a table by hand.
-
-    Attributes:
-        treasure_types: Every treasure type, A through V. See
-            [`TreasureTypeTable`][osrlib.core.treasure.TreasureTypeTable]. Reach one by
-            letter with
-            [`treasure_type`][osrlib.core.treasure.TreasureTables.treasure_type].
-        gems: What gems and jewellery are worth. See
-            [`GemValueTable`][osrlib.core.treasure.GemValueTable].
-        magic_item_types: Which kind of magic item a roll produces. See
-            [`MagicItemTypeTable`][osrlib.core.treasure.MagicItemTypeTable].
-        stocking: What is in a room when you stock a dungeon. See
-            [`StockingTable`][osrlib.core.treasure.StockingTable].
-        unguarded: What an unguarded cache contains, by level. See
-            [`UnguardedTreasureTable`][osrlib.core.treasure.UnguardedTreasureTable].
     """
 
     model_config = ConfigDict(frozen=True)
 
     treasure_types: tuple[TreasureTypeTable, ...]
+    """Every treasure type, A through V. See [`TreasureTypeTable`][osrlib.core.treasure.TreasureTypeTable]. Reach one by
+    letter with [`treasure_type`][osrlib.core.treasure.TreasureTables.treasure_type].
+    """
     gems: GemValueTable
+    """What gems and jewellery are worth. See [`GemValueTable`][osrlib.core.treasure.GemValueTable]."""
     magic_item_types: MagicItemTypeTable
+    """Which kind of magic item a roll produces. See [`MagicItemTypeTable`][osrlib.core.treasure.MagicItemTypeTable]."""
     stocking: StockingTable
+    """What is in a room when you stock a dungeon. See [`StockingTable`][osrlib.core.treasure.StockingTable]."""
     unguarded: UnguardedTreasureTable
+    """What an unguarded cache contains, by level. See
+    [`UnguardedTreasureTable`][osrlib.core.treasure.UnguardedTreasureTable].
+    """
 
     @model_validator(mode="after")
     def _letters_must_be_unique(self) -> TreasureTables:
@@ -762,25 +719,21 @@ class RoomContentsResult(BaseModel):
     Returned by [`roll_room_contents`][osrlib.core.treasure.roll_room_contents]. It reports
     both rolls so an adventure author can see how a room was decided, and so a tool that
     stocks a level can log it.
-
-    Attributes:
-        roll: The d6 that chose the contents.
-        row: The row it selected. See [`StockingRow`][osrlib.core.treasure.StockingRow].
-        treasure_roll: The d6 rolled for treasure, or `None` when the row gives no chance
-            of treasure and no die was rolled.
-        treasure_present: True when the room has treasure as well as its contents. Which
-            treasure is yours to decide: generate it with
-            [`generate_unguarded_treasure`][osrlib.core.treasure.generate_unguarded_treasure]
-            for an empty or trapped room, or from the monster's own type when a monster is
-            there.
     """
 
     model_config = ConfigDict(frozen=True)
 
     roll: int
+    """The d6 that chose the contents."""
     row: StockingRow
+    """The row it selected. See [`StockingRow`][osrlib.core.treasure.StockingRow]."""
     treasure_roll: int | None = None
+    """The d6 rolled for treasure, or `None` when the row gives no chance of treasure and no die was rolled."""
     treasure_present: bool = False
+    """True when the room has treasure as well as its contents. Which treasure is yours to decide: generate it with
+    [`generate_unguarded_treasure`][osrlib.core.treasure.generate_unguarded_treasure] for an empty or trapped room, or
+    from the monster's own type when a monster is there.
+    """
 
 
 class TreasureRefPlan(BaseModel):
@@ -797,23 +750,20 @@ class TreasureRefPlan(BaseModel):
     or describes it below, the referee writes it, and those parts are left out of the plan.
     So are the two adjustments the rules leave to the referee: reducing a hoard for a small
     lair, and changing a hoard's value by hand.
-
-    Attributes:
-        lair: Letters to generate once for the lair, in the order the stat block lists them.
-        individual: Letters to generate once per monster.
-        group: Letters to generate once for the group.
-        extra_gp: Flat gold pieces the entry adds to the lair hoard.
-        multiplier: How many times to run the whole generation, for an entry like the
-            noble's `V × 3`. 1 for everything else.
     """
 
     model_config = ConfigDict(frozen=True)
 
     lair: tuple[str, ...] = ()
+    """Letters to generate once for the lair, in the order the stat block lists them."""
     individual: tuple[str, ...] = ()
+    """Letters to generate once per monster."""
     group: tuple[str, ...] = ()
+    """Letters to generate once for the group."""
     extra_gp: int = 0
+    """Flat gold pieces the entry adds to the lair hoard."""
     multiplier: int = 1
+    """How many times to run the whole generation, for an entry like the noble's `V × 3`. 1 for everything else."""
 
 
 def plan_treasure_ref(ref: TreasureRef) -> TreasureRefPlan:
@@ -923,6 +873,7 @@ def _int_param(params: Mapping[str, Any], key: str, default: int = 0) -> int:
 
 
 def _generate_valuable(kind: Literal["gem", "jewellery"], *, stream: RngStream, allocator: Any) -> ValuableInstance:
+    """Roll one gem's or one piece of jewellery's value and return it as an owned instance."""
     from osrlib.core.items import ValuableInstance
     from osrlib.data import load_equipment, load_treasure_tables
 
@@ -993,6 +944,7 @@ def _generate_sentience(*, stream: RngStream) -> SwordSentience | None:
 
 
 def _roll_language_count(bands: Sequence[SwordTableBand], stream: RngStream) -> int:
+    """Roll how many languages a speaking sword knows, resolving the roll-twice instruction."""
     total = 0
     pending = 1
     while pending:
