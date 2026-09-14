@@ -1,21 +1,69 @@
 """B/X (1981 Basic/Expert) rules engine for turn-based dungeon crawlers.
 
-osrlib is the rules authority and game-state engine; the game supplies presentation,
-input, and content. The library is headless and sans-I/O: it never renders, prompts,
-sleeps, or touches the network, and all randomness flows through named deterministic
-streams (see [`osrlib.core.rng`][osrlib.core.rng]).
+osrlib applies the rules and keeps the state of a game. It draws nothing, asks a player
+nothing, waits for nothing, and makes no network calls. You hand it a command, it resolves
+the rules, and it returns typed events saying what happened. Turning those into something a
+player reads is your program's job. Every random draw comes from a named, seeded stream, so
+the same seed and the same commands replay the same game.
 
-Every symbol has exactly one import home: the kernel under `osrlib.core`, the crawl
-framework under `osrlib.crawl`, and the shared services at the top level —
-[`osrlib.data`][osrlib.data] (compiled SRD catalogs), [`osrlib.errors`][osrlib.errors]
-(the typed exception hierarchy), [`osrlib.messages`][osrlib.messages] (message-code
-formatting), [`osrlib.persistence`][osrlib.persistence] (saves and replay), and
-[`osrlib.versioning`][osrlib.versioning] (schema and engine version stamping). The
-package root re-exports nothing.
+Every name has one import home and the package root re-exports nothing, so you import from
+the module that defines the symbol. The modules fall into three layers.
 
-The quickstart below crosses the whole loop — characters, party, adventure, session,
-commands, events, save, and load. Full documentation, including a stepwise version of
-this example: https://mmacy.github.io/osrlib-python/
+The kernel, under `osrlib.core`, is the rules on their own: no session, no dungeon, no
+adventure. Use it directly to roll a character, resolve an attack, or price a sword with no
+game running.
+
+- [`osrlib.core.rng`][osrlib.core.rng]: a master seed in, one named stream per subsystem out.
+- [`osrlib.core.ruleset`][osrlib.core.ruleset]: the optional rules you switch on, in one model the kernel reads.
+- [`osrlib.core.dice`][osrlib.core.dice]: a dice expression in, a parsed expression or a roll and its own dice out.
+- [`osrlib.core.alignment`][osrlib.core.alignment]: the three alignments, shared by characters and monsters.
+- [`osrlib.core.abilities`][osrlib.core.abilities]: an ability score in, the modifier or chance the tables grant it out.
+- [`osrlib.core.classes`][osrlib.core.classes]: a class definition and a character in, titles, XP, advancement out.
+- [`osrlib.core.character`][osrlib.core.character]: creation choices and a stream in, a character or refusals out.
+- [`osrlib.core.items`][osrlib.core.items]: templates and an inventory in, purchases, equipment, and encumbrance out.
+- [`osrlib.core.spells`][osrlib.core.spells]: a caster and a spell in, memorization, casting, and turning undead out.
+- [`osrlib.core.monsters`][osrlib.core.monsters]: a monster template in, a spawned instance with its own hit points out.
+- [`osrlib.core.combat`][osrlib.core.combat]: combatants and a stream in, initiative, attacks, damage, and saves out.
+- [`osrlib.core.effects`][osrlib.core.effects]: a condition or effect in, a ledger that ticks and expires it out.
+- [`osrlib.core.treasure`][osrlib.core.treasure]: a treasure type and a stream in, coins, valuables, magic items out.
+- [`osrlib.core.tables`][osrlib.core.tables]: hit dice or an armour class in, the printed row for it out.
+- [`osrlib.core.npc`][osrlib.core.npc]: a party level and a stream in, a generated NPC adventuring party out.
+- [`osrlib.core.clock`][osrlib.core.clock]: rounds in, turns and days out, with the boundaries each crossing reports.
+- [`osrlib.core.events`][osrlib.core.events]: the base class every event inherits, and the contract its code follows.
+- [`osrlib.core.validation`][osrlib.core.validation]: the refusal value a rules check hands back instead of raising.
+
+The crawl framework, under `osrlib.crawl`, is the game around those rules: a party in a
+mapped dungeon, driven by commands. Start at the session and work outwards.
+
+- [`osrlib.crawl.dungeon`][osrlib.crawl.dungeon]: cells, edges, doors, areas, and traps in, a mapped dungeon out.
+- [`osrlib.crawl.adventure`][osrlib.crawl.adventure]: dungeons and a town in, one adventure a session can play out.
+- [`osrlib.crawl.party`][osrlib.crawl.party]: characters in, marching order, group movement, and combat ranks out.
+- [`osrlib.crawl.session`][osrlib.crawl.session]: a party, an adventure, and a seed in, a game taking commands out.
+- [`osrlib.crawl.commands`][osrlib.crawl.commands]: every command you can execute, each with the modes it is legal in.
+- [`osrlib.crawl.events`][osrlib.crawl.events]: every event a command can emit, and the parser that reads one back.
+- [`osrlib.crawl.views`][osrlib.crawl.views]: a session in, what a player may see or what a referee may see out.
+- [`osrlib.crawl.exploration`][osrlib.crawl.exploration]: movement, doors, searching, light, rest, and wandering checks.
+- [`osrlib.crawl.encounter`][osrlib.crawl.encounter]: a meeting in, surprise, distance, reaction, evasion, pursuit out.
+- [`osrlib.crawl.battle`][osrlib.crawl.battle]: an encounter that came to blows in, a round-by-round battle out.
+- [`osrlib.crawl.stocking`][osrlib.crawl.stocking]: an empty area and a stream in, its monsters and treasure out.
+- [`osrlib.crawl.gates`][osrlib.crawl.gates]: a condition and a session in, whether the way opens out.
+- [`osrlib.crawl.triggers`][osrlib.crawl.triggers]: an event pattern in, a match against what just happened out.
+- [`osrlib.crawl.quests`][osrlib.crawl.quests]: objectives and the clauses that complete them, as authored content.
+- [`osrlib.crawl.narrative`][osrlib.crawl.narrative]: the authored text on a mechanical object, one block per audience.
+- [`osrlib.crawl.interpreter`][osrlib.crawl.interpreter]: a listener you register in, an adventure playing itself out.
+- [`osrlib.crawl.content_pack`][osrlib.crawl.content_pack]: keyed room content out of one adventure and into another.
+
+The shared services sit at the top level and serve both layers.
+
+- [`osrlib.data`][osrlib.data]: a content id in, the frozen rules entry behind it out.
+- [`osrlib.errors`][osrlib.errors]: the exceptions the library raises, and which failure each one stands for.
+- [`osrlib.messages`][osrlib.messages]: an event in, a line of default English out.
+- [`osrlib.persistence`][osrlib.persistence]: a session in, a save document out, and back again by loading or replaying.
+- [`osrlib.versioning`][osrlib.versioning]: the two version stamps on every document, and the envelope for them.
+
+The quickstart below runs the whole loop: characters, party, adventure, session, commands,
+events, save, and load. For the documentation, including a stepwise walk through this
+example, see https://mmacy.github.io/osrlib-python/
 
 ```python
 from osrlib.core.alignment import Alignment
