@@ -1,37 +1,139 @@
-"""The range-track battle state machine and the pluggable monster action policy.
+"""Run a fight round by round on the range track, with a pluggable policy driving the monsters.
 
-[`start_battle`][osrlib.crawl.battle.start_battle] opens battle — from the
-encounter procedure's own stance handling, a pursuit collapsing to melee range, or
-the party's own choice through the
-[`EngageBattle`][osrlib.crawl.commands.EngageBattle] command — and each round after
-that runs through
-[`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound], which carries one
-[`BattleDeclaration`][osrlib.crawl.commands.BattleDeclaration] per living, able
-party member. A round wraps the kernel's combat functions in the OSE SRD's
-sequence: declaration, initiative, then per side — monster morale, movement,
-missiles, magic, melee — with slow-weapon actors last. The combat space is the
-abstract per-group range track (the Bard's Tale convention), as a documented
-adaptation — see the adaptations register: each monster group sits at a distance
-from the party, closing at encounter rate and meleeing at 5'; party ranks derive
-from marching order under the `formation_width_limit` flag, whose width is the
-frontage the party's own space offers — five feet to a combatant, so two in a
-ten-foot passage and a room's shorter side in a room.
+This module takes over once [`osrlib.crawl.encounter`][osrlib.crawl.encounter] has decided there is a
+fight. [`start_battle`][osrlib.crawl.battle.start_battle] is the entry point, and the encounter
+procedure calls it for you: from an attacking stance, from a hostile group's deadline arriving,
+from a chase that closed to arm's length, and from the party's own
+[`EngageBattle`][osrlib.crawl.commands.EngageBattle] command. After it returns the session is in
+`battle` mode, `session.battle` holds a [`BattleState`][osrlib.crawl.battle.BattleState], and each
+round is one [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound] command with one
+[`BattleDeclaration`][osrlib.crawl.commands.BattleDeclaration] per living, able party member,
+dispatched through [`HANDLERS`][osrlib.crawl.battle.HANDLERS]. No command ends the battle. It ends
+from inside, when the party is wiped, when every monster group is dead or routed or has surrendered,
+or when the whole party retreats. A victory hands control straight to
+[`end_encounter`][osrlib.crawl.encounter.end_encounter].
 
-The machine detects spell disruption (a declared caster is successfully attacked,
-or fails a save, after initiative resolves against them but before their action),
-auto-invokes morale, consumes marker conditions and battle-bound spell effects, and
-resolves area footprints deterministically: an area's capacity in creatures is
-`ceil(span / 10) × width`, filled in stable spawn order, cones reach-limited, with
-the engaged party front rank appended under `aoe_friendly_fire`.
+The results reach a front end as events from [`osrlib.crawl.events`][osrlib.crawl.events]:
+[`BattleStartedEvent`][osrlib.crawl.events.BattleStartedEvent],
+[`BattleRoundEvent`][osrlib.crawl.events.BattleRoundEvent] opening each round,
+[`SpellDeclaredEvent`][osrlib.crawl.events.SpellDeclaredEvent] for every cast declared that round,
+[`GroupMovedEvent`][osrlib.crawl.events.GroupMovedEvent] as the range track changes,
+[`MonsterFledEvent`][osrlib.crawl.events.MonsterFledEvent] when a side breaks,
+[`MonstersLeftBehindEvent`][osrlib.crawl.events.MonstersLeftBehindEvent] for the helpless a fleeing
+side abandons, and [`BattleEndedEvent`][osrlib.crawl.events.BattleEndedEvent] reporting victory,
+defeat, or flight. The kernel's own attack, damage, saving throw, initiative, and morale events come
+back interleaved with those.
 
-Monster and NPC-party sides act through a pluggable
-[`ActionPolicy`][osrlib.crawl.battle.ActionPolicy], substitutable per encounter
-side; the shipped [`ScriptedPolicy`][osrlib.crawl.battle.ScriptedPolicy] and
-[`NpcPartyPolicy`][osrlib.crawl.battle.NpcPartyPolicy] draw only from the
-`monster_action` stream, so swapping in a custom policy never shifts attack or
-damage draws. Initiative still resolves in side blocks — the sides order by their
-best individual total, since the SRD's phase sequence runs per side, not per
-combatant.
+A round wraps the kernel in the OSE SRD's sequence: declaration, initiative, then per side morale,
+movement, missiles, magic, and melee, with slow-weapon actors last. Every resolution step is a
+function in [`osrlib.core.combat`][osrlib.core.combat] or
+[`osrlib.core.spells`][osrlib.core.spells], among them
+[`roll_initiative`][osrlib.core.combat.roll_initiative],
+[`resolve_attack`][osrlib.core.combat.resolve_attack],
+[`resolve_breath`][osrlib.core.combat.resolve_breath],
+[`morale_triggers`][osrlib.core.combat.morale_triggers], and
+[`cast_spell`][osrlib.core.spells.cast_spell]. What this module adds to them is the ordering, the state
+it hands each of them (the RNG streams, the effects ledger, the clock, the entity registry), the
+range track the kernel has no notion of, and the party's formation. Call those
+kernel functions directly when you want one resolution and no session at all. The guide on using the
+rules without a session walks that path.
+
+The combat space is the abstract per-group range track, the Bard's Tale convention, as a documented
+adaptation (see the
+[adaptations register](https://mmacy.github.io/osrlib-python/adaptations/), the page listing where
+osrlib commits to one reading of an ambiguous rule or supplies a default behind a `Ruleset` flag).
+Each monster group sits at a distance from the party, closes at its encounter rate, and fights at
+[`MELEE_RANGE_FEET`][osrlib.crawl.battle.MELEE_RANGE_FEET]. Party ranks derive from marching order
+under the ruleset's `formation_width_limit` flag, and the width is the frontage the party's own space
+offers at [`FIGHTER_FRONTAGE_FEET`][osrlib.crawl.battle.FIGHTER_FRONTAGE_FEET] to a combatant: two
+abreast in a ten-foot passage, and a room's shorter side in a room.
+
+The machine detects spell disruption, meaning a declared caster who is successfully attacked or fails
+a save after initiative resolves against them and before their own action. It checks morale on its
+own, with no command for it. It ends each single-use protection as it is spent. Invisibility breaks
+when the member attacks, throws or unleashes an item, or turns undead, and the kernel's
+[`cast_spell`][osrlib.core.spells.cast_spell] is what breaks it on a cast. An incoming attack on a
+target under *mirror image* pops one figment instead, hit or miss, because no attack roll is made at
+all. A protection ward breaks when the party melees a monster it barred, unless the ward's effect
+definition carries an `unbreakable` param, which no ward in the shipped spell data does. A
+concentration spell's effects release when its caster declares anything other than `cast`,
+`turn_undead`, or `hold`. Area footprints resolve deterministically: an area's capacity in creatures
+is `ceil(span / 10) × width`, filled in stable spawn order, cones reach-limited, with the engaged
+party front rank appended under the ruleset's `aoe_friendly_fire` flag.
+
+The monster and NPC-party sides act through a pluggable
+[`ActionPolicy`][osrlib.crawl.battle.ActionPolicy] you can substitute per encounter side.
+[`ScriptedPolicy`][osrlib.crawl.battle.ScriptedPolicy] and
+[`NpcPartyPolicy`][osrlib.crawl.battle.NpcPartyPolicy] ship as the defaults, and both draw only from
+the `monster_action` stream, so a policy of your own never shifts an attack or damage draw. Initiative
+still resolves in side blocks, because the SRD's phase sequence runs per side rather than per
+combatant, and the sides order by their best individual total.
+
+Typical usage:
+
+```python
+from osrlib.core.alignment import Alignment
+from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character
+from osrlib.core.rng import RngStreams
+from osrlib.core.ruleset import Ruleset
+from osrlib.crawl.adventure import Adventure, TownSpec
+from osrlib.crawl.commands import (
+    BattleDeclaration,
+    EngageBattle,
+    EnterDungeon,
+    ResolveBattleRound,
+    SessionMode,
+    SpawnMonsters,
+)
+from osrlib.crawl.dungeon import DungeonSpec, Edge, EdgeKind, LevelSpec
+from osrlib.crawl.party import Party
+from osrlib.crawl.session import GameSession
+
+rules = Ruleset()
+draw = RngStreams(master_seed=7).get(CHARACTER_CREATION_STREAM)
+members = [
+    create_character(
+        name=name,
+        class_id="fighter",
+        alignment=Alignment.LAWFUL,
+        ruleset=rules,
+        stream=draw,
+    ).character
+    for name in ("Hild", "Osric")
+]
+level = LevelSpec(
+    number=1,
+    width=2,
+    height=1,
+    entrance=(0, 0),
+    edges={"1,0:west": Edge(kind=EdgeKind.OPEN)},
+)
+crypt = DungeonSpec(id="crypt", name="The Old Crypt", levels=(level,))
+town = TownSpec(name="Threshold", travel_turns={"crypt": 1})
+adventure = Adventure(name="A First Delve", town=town, dungeons=(crypt,))
+session = GameSession.new(Party(members=members), adventure, seed=7)
+session.execute(EnterDungeon(dungeon_id="crypt"))
+
+# Spawn a group already within reach, then choose to fight it.
+session.execute(SpawnMonsters(template_id="goblin", count_fixed=2, distance_feet=5))
+session.execute(EngageBattle())
+assert session.mode is SessionMode.BATTLE
+assert session.battle.round == 0
+
+# One command is one round: a declaration per living, able member, every group named by id.
+group_id = session.encounter.groups[0].id
+result = session.execute(
+    ResolveBattleRound(
+        declarations=tuple(
+            BattleDeclaration(character_id=member.id, action="attack", target_group_id=group_id) for member in members
+        )
+    )
+)
+assert result.accepted
+assert session.battle.round == 1
+assert result.events[0].code == "battle.round.started"
+assert "combat.initiative.rolled" in [event.code for event in result.events]
+```
 """
 
 import math
@@ -110,70 +212,254 @@ __all__ = [
 
 
 def _int_param(params: Mapping[str, Any], key: str, default: int = 0) -> int:
-    """Read an integer param — schema-validated data whose union the checker can't key by name."""
+    """Read an integer param out of schema-validated data whose union the type checker can't key by name."""
     return int(params.get(key, default))
 
 
 MELEE_RANGE_FEET = 5
+"""The gap, in feet, at which a group on the range track is close enough to trade blows.
+
+A group closing on the party stops here rather than at zero, a melee attack declared against a group
+further off than this is rejected, and a monster's melee resolves with this as the distance handed to
+the kernel. It is also where the monster groups stand when a chase collapses into a fight and the
+pursuers catch the party.
+
+The abstract track has no distance between this and zero, so treat the value as fixed rather than as a
+setting: every reach and range check in the module reads it. To give a weapon longer reach, put the
+range data on the weapon, which is what
+[`validate_attack`][osrlib.core.combat.validate_attack] reads.
+"""
+
 FLEE_EXIT_FEET = 120
+"""How far, in feet, a routed group runs before the battle lets it go.
+
+A group that breaks morale turns and runs its full movement rate each round. Once its distance passes
+this, the group is marked fled: it takes no further action, an attack declared against it is rejected
+as naming an unknown group, and a battle in which every group has fled, surrendered, or died ends in
+victory. Inside that window the party can still chase it down or shoot it in the back, which is what
+the window is for. A group that is merely afraid rather than broken counts as routed on the same
+terms, once it too is past this distance.
+"""
 
 
 class BattleState(BaseModel):
-    """The serialized battle overlay; the groups live on the encounter state."""
+    """A battle in progress: the round counter and the per-round bookkeeping a fight needs to keep.
+
+    You get this from `session.battle`, which is None whenever no battle is running. It is an overlay
+    on the encounter rather than a replacement for it: the monster groups, their distances, and their
+    treasure stay on `session.encounter`, and this holds only what the fight itself has to remember.
+    It serializes with the session, so a saved game resumes mid-battle. Read it and render from it.
+    The round handler is what writes every field.
+
+    To change a fight while it runs, send a referee command from
+    [`osrlib.crawl.commands`][osrlib.crawl.commands] rather than writing to this model. Every referee
+    command is legal in `battle` mode, so a referee can grant an item, award experience, set a flag,
+    or advance the clock mid-fight, and the change replays from a save because the command goes
+    through the command log. [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] and
+    [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] are the exception: both reject while an
+    encounter is open, so a fresh side cannot join a fight already underway.
+    """
 
     model_config = ConfigDict(validate_assignment=True)
 
     round: int = 0
+    """Rounds resolved so far. It is 0 between [`start_battle`][osrlib.crawl.battle.start_battle] and
+    the first [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound], except that a monsters'
+    free round counts as round 1."""
     started_round: int
+    """The session clock's round count when the battle opened."""
     monsters_hold_rounds: int = 0
+    """Rounds the monster side still owes to the party's surprise. A round in which this is above zero
+    spends one and the monsters do nothing at all."""
     morale: MoraleTracker = MoraleTracker()
+    """The kernel's [`MoraleTracker`][osrlib.core.combat.MoraleTracker] for this battle. It records each
+    group's held checks, and a group that has held two stops checking."""
     morale_acted: dict[str, list[str]] = {}
+    """The morale triggers already spent, per group id. Each trigger fires one check per group per
+    battle, so a side that has already checked on losing its leader does not check again for the same
+    reason."""
     fired_last_round: list[str] = []
+    """The ids of party members who loosed a missile last round, which is what the kernel's reload rule
+    reads."""
     melee_engagements: dict[str, list[str]] = {}
+    """Per party member id, the monsters that member has actually closed with. A monster barred from a
+    warded character by *protection from evil* may attack them anyway once it is on this list, which is
+    RAW's own clause."""
     concentration: dict[str, list[str]] = {}
+    """Per caster id, the effect ids a concentration spell is holding up. They release as soon as that
+    caster declares anything other than `cast`, `turn_undead`, or `hold`."""
 
 
 class MonsterAction(BaseModel):
-    """One combatant's chosen action for the round (monster or NPC adventurer)."""
+    """One monster's or NPC adventurer's chosen action for a round: what an action policy returns.
+
+    An [`ActionPolicy`][osrlib.crawl.battle.ActionPolicy] builds a list of these and the round handler
+    resolves them in order. The model is frozen, so build a new one rather than editing one. Nothing
+    validates a policy's output ahead of time: an action the situation does not allow, like a melee against
+    a target that died earlier in the round, is skipped when the handler reaches it.
+    """
 
     model_config = ConfigDict(frozen=True)
 
     monster_id: str
+    """The acting combatant's entity id, which must be one of its own group's `monster_ids`."""
     kind: str  # close | breath | melee | hold | npc_shoot | npc_cast | npc_drink
+    """What the combatant does. `"close"` advances the whole group one encounter rate toward the party
+    and stops at [`MELEE_RANGE_FEET`][osrlib.crawl.battle.MELEE_RANGE_FEET], and only the first such
+    action in a round moves the group. `"melee"` attacks `target_id`. `"breath"` looses the monster's
+    breath weapon over the party. `"hold"` does nothing. `"npc_shoot"`, `"npc_cast"`, and `"npc_drink"`
+    are the NPC adventurer actions: a missile attack on `target_id`, a cast of `spell_id`, and a
+    swallowed potion named by `item_id`."""
     target_id: str | None = None
+    """The target's entity id for `"melee"`, `"npc_shoot"`, and a single-target `"npc_cast"`. None for
+    an area spell, which takes its own targets from the footprint rule."""
     spell_id: str | None = None
+    """The spell to cast, for `"npc_cast"`."""
     spell_mode: str | None = None
+    """Which mode of that spell to use, for `"npc_cast"`."""
     item_id: str | None = None
+    """The magic item instance id to use, for `"npc_drink"`."""
 
 
 class ActionPolicy(Protocol):
-    """The pluggable monster brain — substituted per encounter side by games.
+    """The monster side's brain: what decides, each round, what one monster group does.
 
-    Policies draw only from the `monster_action` stream, so a policy change never
-    shifts attack or damage draws. A policy may return any actions the kernel
-    validates; the default never casts (monster casting tags are `manual` data).
+    Write a class with a `choose` method matching this protocol when you want tactics of your own, and
+    register it for a group by its id on `session.action_policies`, a plain dict the session keeps and
+    never serializes. A group with no entry there gets
+    [`ScriptedPolicy`][osrlib.crawl.battle.ScriptedPolicy], or
+    [`NpcPartyPolicy`][osrlib.crawl.battle.NpcPartyPolicy] when its members are NPC adventurers. Since
+    policies are code rather than state, re-register yours after loading a save, the way you
+    re-register listeners.
+
+    Every policy draws only from the `monster_action` stream, so a policy of your own never shifts an
+    attack or damage roll and the rest of the fight stays reproducible from the same seed. Return
+    whatever actions your tactics call for: the round handler skips one the situation no longer allows
+    rather than raising. The shipped policies never cast, because monster casting is tagged for manual
+    resolution in the data.
+
+    Examples:
+        ```python
+        from osrlib.core.alignment import Alignment
+        from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character
+        from osrlib.core.rng import RngStreams
+        from osrlib.core.ruleset import Ruleset
+        from osrlib.crawl.adventure import Adventure, TownSpec
+        from osrlib.crawl.battle import MonsterAction
+        from osrlib.crawl.commands import (
+            BattleDeclaration,
+            EngageBattle,
+            EnterDungeon,
+            ResolveBattleRound,
+            SpawnMonsters,
+        )
+        from osrlib.crawl.dungeon import DungeonSpec, Edge, EdgeKind, LevelSpec
+        from osrlib.crawl.party import Party
+        from osrlib.crawl.session import GameSession
+
+        rules = Ruleset()
+        draw = RngStreams(master_seed=7).get(CHARACTER_CREATION_STREAM)
+        hild = create_character(
+            name="Hild",
+            class_id="fighter",
+            alignment=Alignment.LAWFUL,
+            ruleset=rules,
+            stream=draw,
+        ).character
+        level = LevelSpec(
+            number=1,
+            width=2,
+            height=1,
+            entrance=(0, 0),
+            edges={"1,0:west": Edge(kind=EdgeKind.OPEN)},
+        )
+        crypt = DungeonSpec(id="crypt", name="The Old Crypt", levels=(level,))
+        town = TownSpec(name="Threshold", travel_turns={"crypt": 1})
+        adventure = Adventure(name="A First Delve", town=town, dungeons=(crypt,))
+        session = GameSession.new(Party(members=[hild]), adventure, seed=7)
+        session.execute(EnterDungeon(dungeon_id="crypt"))
+        session.execute(SpawnMonsters(template_id="goblin", count_fixed=2, distance_feet=30))
+        session.execute(EngageBattle())
+
+        # Monsters that hold their ground and never swing.
+        class StandStillPolicy:
+            def choose(self, session, group, stream):
+                return [MonsterAction(monster_id=monster_id, kind="hold") for monster_id in group.monster_ids]
+
+        # Register the policy for one group, by group id.
+        group = session.encounter.groups[0]
+        session.action_policies[group.id] = StandStillPolicy()
+
+        result = session.execute(
+            ResolveBattleRound(
+                declarations=(BattleDeclaration(character_id=hild.id, action="hold"),),
+            )
+        )
+        assert result.accepted
+        assert group.distance_feet == 30  # the goblins never close
+        assert hild.current_hp == hild.max_hp  # and never swing
+        ```
     """
 
     def choose(self, session, group, stream) -> list[MonsterAction]:
-        """Choose this round's actions for one group's living, able monsters."""
+        """Choose this round's actions for one monster group.
+
+        The round handler calls this once per group per round, after morale has resolved and before
+        anything on that side moves or attacks.
+
+        Args:
+            session (osrlib.crawl.session.GameSession): The running session. Read the party, the
+                registry, and the effects ledger through it, and don't mutate it here.
+            group (osrlib.crawl.encounter.EncounterGroup): The group to act. Its `distance_feet` is the
+                current gap and its `monster_ids` are its members, dead ones included.
+            stream (osrlib.core.rng.RngStream): The `monster_action` stream. Take every random choice
+                from it and from nothing else, or you break the determinism of the rest of the fight.
+
+        Returns:
+            The actions to resolve, in the order they should resolve. Return an empty list for a group
+                that does nothing. Skip the dead and the incapacitated: the handler ignores actions for
+                them anyway.
+        """
         ...
 
 
 class ScriptedPolicy:
-    """The default [`ActionPolicy`][osrlib.crawl.battle.ActionPolicy]: scripted breath, then close-and-melee.
+    """The default [`ActionPolicy`][osrlib.crawl.battle.ActionPolicy] for monsters: breath, then close and melee.
 
-    Monsters with a scripted pattern in their data follow it: an `uses_per_day`
-    breath weapon opens with breath, then breath or melee with equal chance while
-    daily uses remain (the dragons, per the OSE SRD); a `per_round_chance_in_six`
-    gate rolls each round (the hellhound). Otherwise a group beyond 5' closes; at
-    5' it melees, each monster picking its target uniformly from the reachable
-    party rank. Monster missile routines carry no structured range data, so osrlib
-    treats them the same as melee — close, then attack at 5' — as a documented
-    adaptation (see the adaptations register). Groups never cast.
+    Every monster group runs on one of these unless you registered something else for it on
+    `session.action_policies`, so you construct one yourself only to wrap it.
+
+    Monsters whose data includes a scripted pattern follow it. A breath weapon with a daily use count
+    opens with breath, then takes breath or melee with equal chance while uses remain, which is how the
+    OSE SRD's dragons fight. A breath weapon gated on a chance in six rolls that gate each round, as
+    the hellhound's does. Otherwise a group further off than
+    [`MELEE_RANGE_FEET`][osrlib.crawl.battle.MELEE_RANGE_FEET] closes, and once at that range each
+    monster picks its target uniformly from the party rank it can reach. Monster missile routines have
+    no structured range data, so osrlib treats them the way it treats melee, closing first and then
+    attacking, as a documented adaptation (see the
+    [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/), the page listing where
+    osrlib commits to one reading of an ambiguous rule or supplies a default behind a `Ruleset`
+    flag). These groups never cast,
+    because monster spell casting is tagged for manual resolution in the data.
+
+    Substitute a policy of your own when you want a side to hold a chokepoint, concentrate its
+    attacks, back off, or cast. [`NpcPartyPolicy`][osrlib.crawl.battle.NpcPartyPolicy] is the shipped
+    example of a policy that does more than this one.
     """
 
     def choose(self, session, group, stream) -> list[MonsterAction]:
-        """Choose actions for the group (see [`ActionPolicy`][osrlib.crawl.battle.ActionPolicy])."""
+        """Choose this round's actions for one monster group.
+
+        Args:
+            session (osrlib.crawl.session.GameSession): The running session.
+            group (osrlib.crawl.encounter.EncounterGroup): The group to act.
+            stream (osrlib.core.rng.RngStream): The `monster_action` stream.
+
+        Returns:
+            One [`MonsterAction`][osrlib.crawl.battle.MonsterAction] per living monster that can act,
+                in the group's own member order. Incapacitated and confused monsters get none, because
+                the round handler runs confusion itself.
+        """
         actions: list[MonsterAction] = []
         pool = _party_target_pool(session)
         for monster in _living_monsters(session, group):
@@ -207,26 +493,44 @@ class ScriptedPolicy:
 
 
 class NpcPartyPolicy:
-    """The default [`ActionPolicy`][osrlib.crawl.battle.ActionPolicy] for NPC adventurer sides.
+    """The default [`ActionPolicy`][osrlib.crawl.battle.ActionPolicy] for a group of NPC adventurers.
 
-    The OSE SRD gives no tactics of its own for an opposing party of adventurers, so
-    osrlib supplies one, as a documented adaptation (see the adaptations register).
+    A group whose members are NPC adventurers rather than monsters runs on one of these unless you
+    registered something else for it on `session.action_policies`. The OSE SRD gives no tactics of its
+    own for an opposing party of adventurers, so osrlib supplies these, as a documented adaptation
+    (see the
+    [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/), the page listing where
+    osrlib commits to one reading of an ambiguous rule or supplies a default behind a `Ruleset`
+    flag).
 
-    Per living member each round, in priority order: (1) a caster holding a
-    memorized cure spell heals the group's most-wounded member below half hp
-    (lowest hp ratio, ties by id); (1½) a member below half hp with no cure left
-    in the group drinks a carried healing potion — the one item-use the default
-    policy performs; (2) a caster holding a memorized wired offensive spell casts
-    it — highest spell level first, ties by spell id — at the party (areas through
-    the footprint rule, single-target picks uniform from the reachable rank);
-    (3) a member with a missile weapon and a gap beyond 5' shoots; (4) otherwise
-    close and melee, the monster default. Policy draws come only from the
-    `monster_action` stream; NPC casts post declarations and are disruptable
-    exactly like party casts (RAW's trigger doesn't care which side declares).
+    Each living member picks the first of these that applies. A caster holding a memorized healing
+    spell heals the group's most wounded member below half hit points, taking the lowest ratio of
+    current to maximum and breaking ties by id. A member below half hit points whose group has no
+    healing spell left drinks a healing potion it carries, which is the only item use these tactics
+    make. A caster holding a memorized attack spell that osrlib resolves without a referee casts it at
+    the party, highest spell level first and ties broken by spell id, taking area targets through the
+    footprint rule and a single target uniformly from the rank it can reach. A member with a missile
+    weapon shoots while the gap is wider than
+    [`MELEE_RANGE_FEET`][osrlib.crawl.battle.MELEE_RANGE_FEET]. Failing all of that, the member closes
+    and melees, the same as a monster.
+
+    These casts post their declarations at the top of the round and are disruptable exactly as the
+    party's are, because RAW's disruption trigger does not care which side declared. Every choice draws
+    from the `monster_action` stream alone.
     """
 
     def choose(self, session, group, stream) -> list[MonsterAction]:
-        """Choose this round's actions (see [`ActionPolicy`][osrlib.crawl.battle.ActionPolicy])."""
+        """Choose this round's actions for one group of NPC adventurers.
+
+        Args:
+            session (osrlib.crawl.session.GameSession): The running session.
+            group (osrlib.crawl.encounter.EncounterGroup): The group to act.
+            stream (osrlib.core.rng.RngStream): The `monster_action` stream.
+
+        Returns:
+            One [`MonsterAction`][osrlib.crawl.battle.MonsterAction] per living member that can act, in
+                the group's own member order. Incapacitated and confused members get none.
+        """
         from osrlib.data import load_spells
 
         actions: list[MonsterAction] = []
@@ -295,7 +599,7 @@ def _npc_cure_spell(npc, catalog):
 
 
 def _npc_offensive_spell(npc, catalog):
-    """The best memorized wired offensive spell: highest level first, ties by id."""
+    """The best memorized attack spell osrlib resolves without a referee: highest level first, ties by id."""
     best = None
     for copy in getattr(npc, "memorized_spells", ()):
         if copy.reversed:
@@ -324,7 +628,7 @@ def _npc_healing_potion(npc):
 
 
 def _npc_wielded(npc, *, missile: bool, distance_feet: int = MELEE_RANGE_FEET):
-    """The NPC's first wielded weapon fitting the range — template or magic instance."""
+    """The NPC's first wielded weapon that fits the range, either a template or a magic instance."""
     for instance in npc.inventory.wielded:
         attack = instance if isinstance(instance, MagicItemInstance) else instance.template
         facet = _declaration_facet(attack)
@@ -350,7 +654,7 @@ def _breath_usable(monster: MonsterInstance, distance_feet: int) -> bool:
 
 
 def _living_monsters(session, group) -> list:
-    """The group's living combatants — monsters or NPC adventurers."""
+    """The group's living combatants, monsters or NPC adventurers alike."""
     return [
         session.combatant(monster_id)
         for monster_id in group.monster_ids
@@ -359,26 +663,34 @@ def _living_monsters(session, group) -> list:
 
 
 FIGHTER_FRONTAGE_FEET = 5
-"""Feet of frontage one combatant needs to fight side by side.
+"""Feet of frontage one combatant needs in order to fight side by side with the next.
 
-RAW prints one number for this and leaves the rest to judgement: "The referee
-should judge the number of opponents that can attack a single combatant, bearing
-in mind the combatant's size and the available space around them. **10' passage:**
-Enough space for at most 2–3 characters to fight side-by-side." osrlib pins the
-conservative end of that range — two in ten feet, so five feet each — and then
-applies it to whatever space the party actually stands in.
+The party's front rank is as wide as its own fighting space divided by this, so a ten-foot passage
+holds two abreast and a room holds as many as its shorter side allows. A member outside the front rank
+is rejected for declaring a melee attack. The rank check does not apply to a missile attack, so the
+back ranks can still shoot.
+
+RAW prints one number for this and leaves the rest to judgement: "The referee should judge the number
+of opponents that can attack a single combatant, bearing in mind the combatant's size and the
+available space around them. **10' passage:** Enough space for at most 2-3 characters to fight
+side-by-side." osrlib takes the conservative end of that range, two in ten feet and so five feet each,
+and then applies it to whatever space the party is actually standing in.
+
+To play without a width limit, turn off the ruleset's `formation_width_limit` flag, which puts every
+living member in the front rank. Changing this constant instead would move the frontage of every space
+in the game at once.
 """
 
 
 def _fighting_space(level, position: Position) -> set[Position]:
     """The cells the party can form a line across, flooded out from where it stands.
 
-    The flood crosses open edges only. It stops at a wall; at a door, because a
-    doorway is a threshold rather than room to fight abreast; and wherever the
-    space itself changes, which is what keeps a room's open mouth onto a corridor
-    from counting the corridor as part of the room. Corridor cells belong to no
-    area, so the flood's own connectivity is what separates one passage from
-    another.
+    The flood crosses open edges only. It stops at a wall. It stops at a door,
+    because a doorway is a threshold rather than room to fight abreast. It stops
+    wherever the space itself changes, which is what keeps a room's open mouth
+    onto a corridor from counting the corridor as part of the room. Corridor cells
+    belong to no area, so the flood's own connectivity is what separates one
+    passage from another.
 
     Args:
         level (osrlib.crawl.dungeon.LevelSpec): The level being fought on.
@@ -410,7 +722,7 @@ def _frontage_cells(level, position: Position) -> int:
     """How thick the party's fighting space is, in cells.
 
     The measure is the widest square of unbroken space that includes the party's
-    cell — how much room there is here, not how far the space reaches. A passage
+    cell: how much room there is here, not how far the space reaches. A passage
     one cell wide gives one however long it runs, and gives one at a crossroads
     too, where two such passages meet and the floor is still ten feet across in
     every direction. A room gives its shorter side, and an irregular cave gives
@@ -442,10 +754,10 @@ def _frontage_cells(level, position: Position) -> int:
 
 
 def _formation_width(session) -> int | None:
-    """Rank width: how many combatants the party's own frontage holds abreast.
+    """Rank width: how many combatants fit abreast in the party's own frontage.
 
-    `None` with the `formation_width_limit` flag off, which lifts the cap
-    entirely.
+    Returns `None` when the `formation_width_limit` flag is off, which lifts the
+    cap entirely.
     """
     if not session.ruleset.formation_width_limit:
         return None
@@ -478,12 +790,14 @@ def _ally_protection_bonus(session, defender) -> int:
     """The Ring of Protection 5' Radius: a rank-mate's ring shields the defender.
 
     The battle space has no adjacency finer than the rank, so "allies within 5'"
-    is the wearer's rank. The wearer's own +1 rides the equipped-item channel —
-    only allies collect the aura here — and multiple rings never stack.
+    is the wearer's rank. The wearer's own +1 arrives with the rest of its
+    equipped items, so only allies collect the aura here, and multiple rings
+    never stack.
 
     Args:
         session (osrlib.crawl.session.GameSession): The battle's session.
-        defender: The combatant under attack; non-members collect nothing.
+        defender: The combatant under attack. A combatant in no rank collects
+            nothing.
 
     Returns:
         1 when a living rank-mate wears the radius ring, else 0.
@@ -505,8 +819,8 @@ def _reachable_targets(session, monster: MonsterInstance, pool: list) -> list:
     """Filter the pool by the *protection from evil* melee ban.
 
     A monster whose template bears a warded category may not initiate melee
-    against a warded target of differing alignment; the ban breaks for a target
-    who has engaged the barred creature in melee (RAW's own clause).
+    against a warded target of differing alignment. The ban breaks for a target
+    who has engaged the barred creature in melee, which is RAW's own clause.
     """
     state = session.battle
     if _ward_bars_monster(session, monster):
@@ -558,9 +872,19 @@ def _monster_pool(session, group) -> list[MonsterInstance]:
 
 
 NPC_PARTY_MORALE = 9
-"""NPC adventurer groups check morale at ML 9, the Veteran stat block's printed
-score. osrlib anchors on the OSE SRD's own low-level-adventurer monster rather than
-an invented number, as a documented adaptation (see the adaptations register)."""
+"""The morale score a group of NPC adventurers checks against, on the usual 2 to 12 scale.
+
+Monsters have a morale score in their stat block, but adventurers in the OSE SRD do not, so osrlib
+uses the score printed for the Veteran, its own low-level adventurer monster, rather than inventing
+one. This is a documented adaptation (see the
+[adaptations register](https://mmacy.github.io/osrlib-python/adaptations/), the page listing where
+osrlib commits to one reading of an ambiguous rule or supplies a default behind a `Ruleset` flag).
+A score of 9 holds on a 2d6 total of 9 or less once the situational modifier is added, and breaks
+above that.
+
+The battle machinery reads this value directly, so every NPC adventurer group in the game checks
+against the same score and there is no per-group override.
+"""
 
 
 def _group_morale_score(session, group) -> int | None:
@@ -592,20 +916,82 @@ def _haste_multiplier(session, entity_id: str, key: str) -> int:
 
 
 def start_battle(session, *, party_free_round: bool = False, monsters_free_round: bool = False) -> list[Event]:
-    """Open battle from the current encounter: the range track takes over.
+    """Open battle on the session's current encounter: the range track takes over.
 
-    ML 2 groups rout when battle starts (RAW). A surprise advantage becomes a free
-    round: the monsters' free round resolves immediately (machine-run, the party
-    cannot act); the party's free round holds the monsters through the first
-    `ResolveBattleRound`.
+    Call this when your own code decides the talking is over. There must be an open encounter on the
+    session, because the fight runs on that encounter's groups and their distances. On return the
+    session is in `battle` mode and `session.battle` holds a
+    [`BattleState`][osrlib.crawl.battle.BattleState]. From there, each round is one
+    [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound] command.
+
+    Use [`EngageBattle`][osrlib.crawl.commands.EngageBattle] instead when the party is the one choosing
+    to fight. That command goes through the session's command log, so the fight replays from a save,
+    and it works out the surprise arguments and a mid-chase turn-and-fight for you. The encounter
+    procedure calls this function itself for every other opening, so a front end that only issues
+    commands never calls it at all.
+
+    A group whose morale score is 2 routs the moment battle starts, per RAW, which can end the battle
+    before a round has run. A surprise advantage becomes one free round for the side that holds it: the
+    monsters' free round resolves inside this call, with the party unable to answer, while the party's
+    free round holds the monsters through the first `ResolveBattleRound`.
 
     Args:
-        session (osrlib.crawl.session.GameSession): The running session.
-        party_free_round: The monsters were surprised.
-        monsters_free_round: The party was surprised with a hostile/attacking stance.
+        session (osrlib.crawl.session.GameSession): The running session, with `session.encounter` set.
+        party_free_round: True when the monsters were surprised. The monster side then sits out the
+            first round.
+        monsters_free_round: True when the party was surprised and the stance is hostile or attacking.
+            The monsters act once inside this call, before the party's first declaration.
 
     Returns:
-        The battle-opening events.
+        The opening events: [`BattleStartedEvent`][osrlib.crawl.events.BattleStartedEvent], a
+            [`MonsterFledEvent`][osrlib.crawl.events.MonsterFledEvent] for each group that routed on
+            sight, whatever a monsters' free round resolved, and a
+            [`BattleEndedEvent`][osrlib.crawl.events.BattleEndedEvent] already when the opening itself
+            left a terminal state.
+
+    Examples:
+        ```python
+        from osrlib.core.alignment import Alignment
+        from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character
+        from osrlib.core.rng import RngStreams
+        from osrlib.core.ruleset import Ruleset
+        from osrlib.crawl.adventure import Adventure, TownSpec
+        from osrlib.crawl.battle import start_battle
+        from osrlib.crawl.commands import EnterDungeon, SessionMode, SpawnMonsters
+        from osrlib.crawl.dungeon import DungeonSpec, Edge, EdgeKind, LevelSpec
+        from osrlib.crawl.party import Party
+        from osrlib.crawl.session import GameSession
+
+        rules = Ruleset()
+        draw = RngStreams(master_seed=7).get(CHARACTER_CREATION_STREAM)
+        hild = create_character(
+            name="Hild",
+            class_id="fighter",
+            alignment=Alignment.LAWFUL,
+            ruleset=rules,
+            stream=draw,
+        ).character
+        level = LevelSpec(
+            number=1,
+            width=2,
+            height=1,
+            entrance=(0, 0),
+            edges={"1,0:west": Edge(kind=EdgeKind.OPEN)},
+        )
+        crypt = DungeonSpec(id="crypt", name="The Old Crypt", levels=(level,))
+        town = TownSpec(name="Threshold", travel_turns={"crypt": 1})
+        adventure = Adventure(name="A First Delve", town=town, dungeons=(crypt,))
+        session = GameSession.new(Party(members=[hild]), adventure, seed=7)
+        session.execute(EnterDungeon(dungeon_id="crypt"))
+        session.execute(SpawnMonsters(template_id="goblin", count_fixed=2, distance_feet=30))
+
+        # The party caught the goblins flat-footed, so it gets the first round free.
+        events = start_battle(session, party_free_round=True)
+        assert [event.code for event in events] == ["battle.started"]
+        assert session.mode is SessionMode.BATTLE
+        assert session.battle.round == 0
+        assert session.battle.monsters_hold_rounds == 1
+        ```
     """
     state = BattleState(started_round=session.clock.rounds, monsters_hold_rounds=1 if party_free_round else 0)
     session.battle = state
@@ -631,9 +1017,9 @@ def start_battle(session, *, party_free_round: bool = False, monsters_free_round
 def _check_ends(session, *, party_retreating: bool) -> list[Event] | None:
     """Return the end-of-battle events when a terminal state holds, else `None`.
 
-    Defeat ends the battle and nothing more: the session-level wipe check owns the
-    transition to `game_over` and the ending event, so a party lost to a blade
-    trap and a party lost to ogres end the same way.
+    Defeat ends the battle and nothing more. The session's own wipe check makes
+    the transition to `game_over` and posts the ending event, so a party lost to a
+    blade trap and a party lost to ogres end the same way.
     """
     from osrlib.crawl import encounter as encounter_module
 
@@ -655,7 +1041,7 @@ def _check_ends(session, *, party_retreating: bool) -> list[Event] | None:
         session.battle = None
         # Only a group still willing and able to run chases: not the broken and
         # not the shaken (they are fleeing themselves), and not a group whose
-        # living members all lie helpless — retreat from those simply succeeds.
+        # living members all lie helpless, because retreat from those succeeds.
         pursuers = [
             group
             for group in groups
@@ -849,7 +1235,7 @@ def _cast_targets(session, declaration: BattleDeclaration, spell) -> tuple[list,
         if entity is None:
             return [], None, [Rejection(code="magic.cast.unknown_target", params={"target": target_ref})]
         if has_condition(entity, Condition.INVISIBLE):
-            # You know what you can't see — this rejection leaks nothing.
+            # You know what you can't see, so this rejection leaks nothing.
             return [], None, [Rejection(code="battle.declaration.invisible_target", params={"target": target_ref})]
         targets.append(entity)
         if isinstance(entity, MonsterInstance):
@@ -862,7 +1248,9 @@ def _cast_targets(session, declaration: BattleDeclaration, spell) -> tuple[list,
 def _area_span_feet(shape: str | None, dimensions: dict, gap_feet: int) -> int:
     """The deterministic footprint span: diameter, length, or reach-limited length.
 
-    A documented adaptation (see the adaptations register): the OSE SRD leaves how
+    A documented adaptation (see the
+    [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/)):
+    the OSE SRD leaves how
     an area effect covers a group of creatures to the referee, so osrlib maps shape
     and dimensions to a span in feet here, deterministically.
     """
@@ -876,7 +1264,7 @@ def _area_span_feet(shape: str | None, dimensions: dict, gap_feet: int) -> int:
 
 
 def _area_candidates(session, group, shape: str | None, dimensions: dict) -> list:
-    """Fill an area's capacity in stable spawn order; friendly fire appends the front rank."""
+    """Fill an area's capacity in stable spawn order. Friendly fire appends the party's front rank."""
     span = _area_span_feet(shape, dimensions, group.distance_feet)
     width = _formation_width(session)
     if width is None:
@@ -895,10 +1283,11 @@ def _area_candidates(session, group, shape: str | None, dimensions: dict) -> lis
 def _validate_magic_item_declaration(session, declaration: BattleDeclaration, member, instance) -> list[Rejection]:
     """The `use_item` declaration widened: potions, scrolls, and devices (magic phase).
 
-    Potions drink on the drinker (self); wands, staves, and rods target a group and
-    resolve in the magic phase alongside casts — devices unleash magical effects,
-    and resolving them there keeps the missile/melee ordering clean; scroll reads
-    resolve in the magic phase too, through the declaration's spell fields.
+    A potion targets the drinker. Wands, staves, and rods target a group and
+    resolve in the magic phase alongside casts, because they unleash magical
+    effects and resolving them there keeps the missile and melee ordering clean.
+    A scroll read resolves in the magic phase too, through the declaration's
+    spell fields.
     """
     from osrlib.crawl import exploration
 
@@ -1018,7 +1407,7 @@ def _resolve_magic_item_use(session, member, declaration: BattleDeclaration, sta
 
 
 class _ScrollFields:
-    """A duck-typed `UseItem`-shaped carrier for the exploration scroll reader."""
+    """A duck-typed stand-in shaped like `UseItem`, for the exploration scroll reader."""
 
     def __init__(self, *, spell_id, mode, targets, target_id) -> None:
         self.spell_id = spell_id
@@ -1154,8 +1543,8 @@ def _handle_resolve_battle_round(session, command: ResolveBattleRound) -> tuple[
         by_member[declaration.character_id] = (member, declaration)
         rejections.extend(_validate_declaration(session, declaration, member))
     if rejections:
-        # The whole command rejects listing every rejection — partial acceptance
-        # would tangle the replay contract (pinned).
+        # The whole command rejects listing every rejection. Partial acceptance
+        # would tangle the replay contract (see the adaptations register).
         return rejections, []
 
     state.round += 1
@@ -1170,8 +1559,8 @@ def _handle_resolve_battle_round(session, command: ResolveBattleRound) -> tuple[
                 SpellDeclaredEvent(caster_id=member.id, spell_id=declaration.spell_id, reversed=declaration.reversed)
             )
     # NPC sides choose at declaration time: their casts post and are disruptable
-    # exactly like the party's (pinned) — the policy draw moves to the top of the
-    # round, still on the monster_action stream.
+    # exactly like the party's (see the adaptations register). The policy draw
+    # moves to the top of the round, still on the monster_action stream.
     npc_actions = _declare_npc_actions(session, state, pending_casters, events)
 
     # Initiative: side blocks, party versus the monster side.
@@ -1254,7 +1643,7 @@ def _handle_resolve_battle_round(session, command: ResolveBattleRound) -> tuple[
             events.extend(end)
             break
 
-    # Slow-weapon actors act last, after both sides' blocks (the pinned ordering).
+    # Slow-weapon actors act last, after both sides' blocks (see the adaptations register).
     if session.battle is not None:
         for member, declaration in slow_attacks:
             if incapacitated(member):
@@ -1291,13 +1680,15 @@ def _party_is_retreating(session, by_member) -> bool:
 def _party_movement(session, by_member) -> list[Event]:
     """Consolidated formation movement, in order of precedence: retreat, withdrawal, close.
 
-    The party moves as a single formation — individual members cannot leave it,
-    as a documented adaptation (see the adaptations register; the Bard's Tale
-    convention): every member retreating moves off at the full encounter rate
-    (the OSE SRD's "full encounter movement rate" — the running pursuit begins
-    once the battle converts); every member withdrawing backs off at half
-    encounter rate; else the first `close` declaration in marching order advances
-    the formation on its named group at encounter rate, stopping at 5'.
+    The party moves as a single formation and an individual member cannot leave
+    it, as a documented adaptation (see the
+    [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/),
+    under the Bard's Tale convention). Every member retreating moves the party off at the full encounter
+    rate, the OSE SRD's "full encounter movement rate", and the running pursuit
+    begins once the battle converts. Every member withdrawing backs the party off
+    at half encounter rate. Otherwise the first `close` declaration in marching
+    order advances the formation on its named group at encounter rate, stopping
+    at 5'.
     """
     declarations = [declaration for _, declaration in by_member.values()]
     events: list[Event] = []
@@ -1334,9 +1725,10 @@ def _party_movement(session, by_member) -> list[Event]:
 
 
 def _party_move_multiplier(session) -> int:
-    """*Haste*'s movement multiplier applies only when every living party member bears it.
+    """*Haste*'s movement multiplier applies only when every living party member is under it.
 
-    A documented adaptation (see the adaptations register).
+    A documented adaptation (see the
+    [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/)).
     """
     living = session.party.living_members()
     if not living:
@@ -1353,7 +1745,7 @@ def _party_attacks(session, by_member, *, missile: bool, slow_attacks, fired, fi
             continue
         if declaration.action == "use_item":
             if member.inventory.magic_item(declaration.item_id or "") is not None:
-                continue  # magic items resolve in the magic phase (pinned)
+                continue  # magic items resolve in the magic phase (see the adaptations register)
             events.extend(_resolve_use_item(session, member, declaration, fire_damaged))
             continue
         group = _group_by_id(session, declaration.target_group_id)
@@ -1390,7 +1782,7 @@ def _resolve_party_attack(session, member, declaration, fired, fire_damaged) -> 
         pool = _monster_pool(session, group)
         if not pool:
             break
-        target = pool[0]  # the first living, visible monster in the reachable rank (pinned)
+        target = pool[0]  # the first living, visible monster in the reachable rank
         context = AttackContext(
             distance_feet=group.distance_feet if missile else MELEE_RANGE_FEET,
             fired_last_round=member.id in state.fired_last_round,
@@ -1420,8 +1812,8 @@ def _resolve_party_attack(session, member, declaration, fired, fire_damaged) -> 
     if isinstance(weapon, MagicItemInstance):
         from osrlib.crawl import exploration
 
-        # The first attack roll with an enchanted arm identifies it — and reveals
-        # a curse, which sticks (pinned).
+        # The first attack roll with an enchanted arm identifies it, and reveals
+        # a curse, which sticks (see the adaptations register).
         events.extend(exploration._identify_item_events(session, member, weapon))
     if missile and weapon is not None:
         facet = _declaration_facet(weapon)
@@ -1434,10 +1826,11 @@ def _resolve_party_attack(session, member, declaration, fired, fire_damaged) -> 
 def _on_hit_drain(session, weapon: MagicItemInstance, target) -> list[Event]:
     """The energy-drain sword's on-hit drain: automatic on every hit.
 
-    1d4+4 total drains were rolled at generation; once exhausted, the sword is a
-    plain +1. The drain's lost-die rolls ride the advancement stream, since drain
-    reverses advancement; the sword's own entry in the OSE SRD sets XP to the
-    lowest amount for the new level (`level_minimum`), unlike the wight's halfway.
+    The sword rolled 1d4+4 total drains when it was generated, and once those are
+    spent it is a plain +1. The lost-die rolls come from the advancement stream,
+    because a drain reverses advancement. The sword's own entry in the OSE SRD
+    sets XP to the lowest amount for the new level (`level_minimum`), where the
+    wight's entry sets it halfway.
     """
     template = magic_item_template(weapon)
     if template.effect is None or template.effect.kind != "on_hit_drain":
@@ -1478,9 +1871,9 @@ def _party_wards(session) -> list:
 def _ward_bars_monster(session, monster) -> bool:
     """Whether a protection-scroll ward bars a monster from initiating melee.
 
-    A ward bars matching monsters up to its rolled per-HD-band count (1–3, 4–5,
-    and 6+ HD bands), counted in spawn order among the encounter's matching
-    monsters — or all of them for the elementals form.
+    A ward bars matching monsters up to its rolled per-HD-band count (the 1-3,
+    4-5, and 6+ HD bands), counted in spawn order among the encounter's matching
+    monsters. The elementals form bars every one of them.
     """
     wards = _party_wards(session)
     if not wards:
@@ -1534,7 +1927,7 @@ def _encounter_monsters(session) -> list[MonsterInstance]:
 
 
 def _break_party_wards(session, target) -> list[Event]:
-    """Melee against a warded monster breaks the circle — the ward releases."""
+    """Melee against a warded monster breaks the circle, and the ward releases."""
     events: list[Event] = []
     for ward in _party_wards(session):
         if _ward_matches(target, ward.definition.params) and not ward.definition.params.get("unbreakable"):
@@ -1556,7 +1949,7 @@ def _resolve_use_item(session, member, declaration, fire_damaged) -> list[Event]
     instance = exploration._consume_item(member, declaration.item_id)
     if not isinstance(instance, ItemInstance) or not isinstance(instance.template, GearTemplate):
         # Unreachable: the declaration validator proved the item is gear carrying a
-        # combat facet — holy water, a flask of burning oil — before the round ran.
+        # combat facet (holy water, a flask of burning oil) before the round ran.
         return []
     template = instance.template
     context = AttackContext(distance_feet=group.distance_feet, lit=True)
@@ -1609,13 +2002,13 @@ def _party_magic(session, by_member, pending_casters, disrupted, acted, state) -
             events.extend(_resolve_magic_item_use(session, member, declaration, state))
             if category is not MagicItemCategory.POTION:
                 # Unleashing a device or scroll is an attack for invisibility's
-                # purposes (pinned); drinking is not.
+                # purposes (see the adaptations register). Drinking is not.
                 events.extend(_break_invisibility(session, member))
             acted.add(member.id)
             continue
         if declaration.action == "turn_undead":
-            # Turning resolves in the magic phase but is never disruptable —
-            # a class ability, not a spell (pinned).
+            # Turning resolves in the magic phase but is never disruptable: it is
+            # a class ability, not a spell (see the adaptations register).
             candidates = [
                 session.combatant(monster_id) for group in session.encounter.groups for monster_id in group.monster_ids
             ]
@@ -1666,11 +2059,12 @@ def _party_magic(session, by_member, pending_casters, disrupted, acted, state) -
         from osrlib.crawl import exploration
 
         # The stationary *silence* form anchors in battle too: the battle's
-        # location is the party's position (pinned).
+        # location is the party's position (see the adaptations register).
         events.extend(exploration._stationary_silence(session, spell, result, targets))
         _track_concentration(session, member.id, spell, result, state)
         acted.add(member.id)
-    # Any other declared action releases the actor's concentration (pinned).
+    # Any declaration other than these three releases the actor's concentration
+    # (see the adaptations register).
     for member, declaration in by_member.values():
         if declaration.action not in ("cast", "turn_undead", "hold"):
             events.extend(_release_concentration(session, member.id, state))
@@ -1698,11 +2092,11 @@ def _release_concentration(session, caster_id: str, state) -> list[Event]:
 def _confused_party_overrides(session, by_member, fire_damaged) -> list[Event]:
     """A confused party member's declaration is overridden by the behavior roll.
 
-    Mirroring the monster override: the above-2-HD re-save runs first on the
-    magic stream (characters count their level), then `attack_caster_group`
-    sends them at the nearest monster group's front rank when engaged (uniform
-    pick, combat stream); `attack_own_group` at a fellow party member;
-    `no_action` babbles.
+    This mirrors the monster override. The re-save for anyone above 2 HD runs
+    first on the magic stream, with a character counting their level. Then
+    `attack_caster_group` sends the member at the nearest monster group's front
+    rank when engaged, picked uniformly on the combat stream, `attack_own_group`
+    sends them at a fellow party member, and `no_action` leaves them babbling.
     """
     events: list[Event] = []
     for member, _ in by_member.values():
@@ -1814,8 +2208,8 @@ def _monster_block(
             events.extend(_group_morale(session, group, fire_damaged))
         if group.fleeing or _group_all_shaken(session, group):
             if not any(not cannot_move(monster) for monster in _living_monsters(session, group)):
-                # A broken side that cannot run — slept or webbed mid-flight —
-                # lies where it is; flight resumes only if someone can move again.
+                # A broken side that cannot run, slept or webbed mid-flight, lies
+                # where it is. Flight resumes only if someone can move again.
                 continue
             events.extend(_leave_helpless_behind(session, group))
             rate = _pursuer_full_rate(session, group)
@@ -1902,7 +2296,7 @@ def _declare_npc_actions(session, state, pending_casters: dict, events: list[Eve
 
 
 def _resolve_npc_attack(session, npc, target, group, *, missile: bool, retreating: bool) -> list[Event]:
-    """An NPC adventurer's weapon attack — the party's own kernel path."""
+    """An NPC adventurer's weapon attack, resolved through the kernel path the party uses."""
     weapon = _npc_wielded(npc, missile=missile, distance_feet=group.distance_feet)
     events: list[Event] = []
     if session.ledger.active_on(getattr(target, "id", ""), "mirror_image"):
@@ -2003,13 +2397,13 @@ def _pursuer_full_rate(session, group) -> int:
 def _leave_helpless_behind(session, group) -> list[Event]:
     """Split a routing group's immobile living members into a stay-behind group.
 
-    Fleeing is movement, and a member who cannot move cannot run: the runners keep
-    the original group — its flags, and the shared group bundle they carry off
-    ("routed ones flee with theirs") — while the helpless become a fresh
-    non-fleeing group where the side broke, at the current distance, their
-    individual treasure bundles still on them. Dead members also stay with the
-    runners' group record: outcome classification and loot drops key off the
-    `dead` condition before any group flag, so their bookkeeping is unchanged.
+    Fleeing is movement, and a member who cannot move cannot run. The runners keep
+    the original group, its flags, and the shared group bundle they carry off
+    ("routed ones flee with theirs"). The helpless become a fresh non-fleeing
+    group where the side broke, at the current distance, with their individual
+    treasure bundles still on them. Dead members also stay in the runners' group
+    record, because outcome classification and loot drops read the `dead`
+    condition before any group flag, so their bookkeeping is unchanged.
     """
     from osrlib.crawl.encounter import EncounterGroup
 
@@ -2034,9 +2428,9 @@ def _leave_helpless_behind(session, group) -> list[Event]:
 def _group_morale(session, group, fire_damaged) -> list[Event]:
     """Morale auto-invoked: the kernel's triggers through the per-battle tracker.
 
-    Conditional alternates resolve by round context — fear-of-fire, for example,
-    when the round's damage included fire — and the spell morale modifier folds
-    in per the usual morale-modifier rule.
+    A conditional alternate resolves from the round's context. Fear of fire, for
+    example, applies when the round's damage included fire. The spell morale
+    modifier folds in under the usual morale-modifier rule.
     """
     state = session.battle
     score = _group_morale_score(session, group)
@@ -2046,8 +2440,8 @@ def _group_morale(session, group, fire_damaged) -> list[Event]:
     if all(incapacitated(member) for member in members):
         # No one on the side is awake to break: a morale check is a decision, and
         # a side that is entirely asleep, paralysed, or petrified makes none. The
-        # triggers stay pending — unconsumed — so a member who can act again
-        # judges them then.
+        # triggers stay pending, unconsumed, so a member who can act again judges
+        # them then.
         return []
     triggers = morale_triggers(members)
     acted = state.morale_acted.setdefault(group.id, [])
@@ -2076,9 +2470,9 @@ def _group_morale(session, group, fire_damaged) -> list[Event]:
 def _confused_overrides(session, group, actions) -> list[Event]:
     """The machine-run confusion beat: re-save, then the 2d6 behavior roll.
 
-    The re-save runs on the magic stream and the behavior roll (and its own-group
-    target pick) on the combat stream — machine-run round rolls, distinct from the
-    ledger's own tick-time effects.
+    The re-save runs on the magic stream, and the behavior roll and its own-group
+    target pick run on the combat stream. These are machine-run round rolls,
+    distinct from the ledger's own tick-time effects.
     """
     events: list[Event] = []
     for monster in _living_monsters(session, group):
@@ -2194,7 +2588,7 @@ def _resolve_breath(session, monster, group) -> list[Event]:
 
 
 def _watch_disruption(events, pending_casters, disrupted, acted) -> None:
-    """The RAW trigger, machine-found: hit or failed save before the caster acts."""
+    """The RAW disruption trigger, found by the machine: a hit or a failed save before the caster acts."""
     for event in events:
         target = getattr(event, "defender_id", None) or getattr(event, "target_id", None)
         if target not in pending_casters or target in acted or target in disrupted:
@@ -2208,3 +2602,16 @@ def _watch_disruption(events, pending_casters, disrupted, acted) -> None:
 HANDLERS = {
     ResolveBattleRound: _handle_resolve_battle_round,
 }
+"""The battle commands this module handles, keyed by command class.
+
+[`GameSession.execute`][osrlib.crawl.session.GameSession.execute] merges this map with the
+exploration, encounter, and referee maps and dispatches on the command's class, so a front end never
+reads it. Read it to see which commands the battle machine owns, and go through
+[`GameSession.execute`][osrlib.crawl.session.GameSession.execute] rather than calling a handler
+directly: a handler skips the mode gate, the command log, the listeners, and the pure validation phase
+that makes a rejected command cost no draw, no time, and no change to the game.
+
+The value takes `(session, command)` and returns a `(rejections, events)` pair. Battle has one command
+because a round is resolved as a whole: every party member declares, and the machine runs both sides
+in the SRD's phase order.
+"""
