@@ -24,10 +24,15 @@ Which commands the session accepts depends on where the party is. A
 `exploring`, `encounter`, `battle`, and the two the session ends in. Each command
 class declares the modes it's legal in as an `allowed_modes` class attribute, and a
 command sent in the wrong mode comes back refused with `session.command.wrong_mode`
-before any other check runs. Referee commands, the ones a game's own systems issue
-rather than a player, are legal in every mode apart from those that would restart
-play in a session that has already ended, and they're logged and replayed like any
-other command.
+before any other check runs.
+
+Referee commands, the ones a game's own systems issue rather than a player, are
+legal in every mode, and they're logged and replayed like any other command. Three
+are the exception, because they would restart play in a session that has already
+ended: [`PlaceParty`][osrlib.crawl.commands.PlaceParty] is illegal in `victory`, and
+[`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] and
+[`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] are illegal in `victory` and
+`game_over` alike.
 
 Every command class documents its contract in three sections: `Modes:` for the
 session modes that accept it, `Rejections:` for the codes it can come back with, and
@@ -324,9 +329,39 @@ class MoveParty(Command):
 
     Events:
         [`PartyMovedEvent`][osrlib.crawl.events.PartyMovedEvent] with the new position
-        and facing. Entering a new cell can also trigger area descriptions, keyed
-        encounters, traps, treasure discovery, wandering-monster checks, light
-        burn-down, and doors swinging shut, each reported by its own event.
+        and facing. Arriving in the new cell can set off more, each with its own
+        event. A [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent]
+        lands when the party crosses into a new area, level, or dungeon, and a
+        [`DoorEvent`][osrlib.crawl.events.DoorEvent] for each door the party opened
+        swinging shut behind it. The area's treasure rolls as a
+        [`HoardGeneratedEvent`][osrlib.crawl.events.HoardGeneratedEvent]. A room
+        trap's spring check posts a
+        [`DetectionRolledEvent`][osrlib.crawl.events.DetectionRolledEvent] and a
+        [`TrapEvent`][osrlib.crawl.events.TrapEvent], and a trap that springs
+        resolves at once.
+
+        A cell under a burning-oil pool or a *web* catches the party as it arrives
+        ([`DamageDealtEvent`][osrlib.core.events.DamageDealtEvent],
+        [`HitPointsReportedEvent`][osrlib.core.events.HitPointsReportedEvent],
+        [`DeathEvent`][osrlib.core.events.DeathEvent],
+        [`EffectAttachedEvent`][osrlib.core.events.EffectAttachedEvent],
+        [`ConditionGainedEvent`][osrlib.core.events.ConditionGainedEvent]). A keyed
+        encounter opens on arrival with
+        [`SurpriseRolledEvent`][osrlib.crawl.events.SurpriseRolledEvent]s,
+        [`EncounterStartedEvent`][osrlib.crawl.events.EncounterStartedEvent],
+        [`ReactionRolledEvent`][osrlib.core.events.ReactionRolledEvent], and
+        [`StanceChangedEvent`][osrlib.crawl.events.StanceChangedEvent], and an
+        attacks stance opens battle at once
+        ([`BattleStartedEvent`][osrlib.crawl.events.BattleStartedEvent]).
+
+        The step accrues toward the turn clock, and crossing a turn boundary brings
+        its bookkeeping:
+        [`EffectExpiredEvent`][osrlib.core.events.EffectExpiredEvent] with a
+        [`LightEvent`][osrlib.crawl.events.LightEvent] for a light burning out,
+        [`FatigueEvent`][osrlib.crawl.events.FatigueEvent] on the rest cadence,
+        [`ProvisionsEvent`][osrlib.crawl.events.ProvisionsEvent] on a day boundary,
+        and [`WanderingCheckEvent`][osrlib.crawl.events.WanderingCheckEvent] on the
+        wandering cadence.
     """
 
     allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.EXPLORING})
@@ -431,7 +466,18 @@ class OpenDoor(Command):
         gate's condition consumes what it asks for, then
         [`DoorEvent`][osrlib.crawl.events.DoorEvent] with code
         `exploration.door.opened` (with the gate's success text when its author
-        wrote one), then the trap events when a door trap's spring check runs.
+        wrote one). A door trap's spring check then posts a
+        [`DetectionRolledEvent`][osrlib.crawl.events.DetectionRolledEvent] and a
+        [`TrapEvent`][osrlib.crawl.events.TrapEvent], and a trap that springs
+        resolves at once: a
+        [`SavingThrowRolledEvent`][osrlib.core.events.SavingThrowRolledEvent] when
+        it allows a save,
+        [`DamageDealtEvent`][osrlib.core.events.DamageDealtEvent] and
+        [`HitPointsReportedEvent`][osrlib.core.events.HitPointsReportedEvent] for
+        damage, [`EffectAttachedEvent`][osrlib.core.events.EffectAttachedEvent] and
+        [`ConditionGainedEvent`][osrlib.core.events.ConditionGainedEvent] for a
+        condition it inflicts, and
+        [`DeathEvent`][osrlib.core.events.DeathEvent] when it kills outright.
     """
 
     allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.EXPLORING})
@@ -765,8 +811,17 @@ class RemoveTreasureTrap(Command):
         [`DetectionRolledEvent`][osrlib.crawl.events.DetectionRolledEvent] with the
         skill roll, then a [`TrapEvent`][osrlib.crawl.events.TrapEvent]:
         `exploration.trap.removed` on success, `exploration.trap.sprung` on failure.
-        The sprung trap resolves at once against the thief (saving throws, damage,
-        conditions, each its own event). One turn passes.
+        The sprung trap resolves at once against the thief, each step its own event:
+        a [`SavingThrowRolledEvent`][osrlib.core.events.SavingThrowRolledEvent] when
+        the trap allows a save,
+        [`DamageDealtEvent`][osrlib.core.events.DamageDealtEvent] and
+        [`HitPointsReportedEvent`][osrlib.core.events.HitPointsReportedEvent] for
+        damage, [`EffectAttachedEvent`][osrlib.core.events.EffectAttachedEvent] and
+        [`ConditionGainedEvent`][osrlib.core.events.ConditionGainedEvent] for a
+        condition, [`DeathEvent`][osrlib.core.events.DeathEvent] when it kills
+        outright, and
+        [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] when it
+        drops the party somewhere else. One turn passes.
     """
 
     allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.EXPLORING})
@@ -790,7 +845,7 @@ class TakeTreasure(Command):
     authored cache, an engine-generated cache, or the literal `pile` for goods
     dropped on the cell.
 
-    By default the haul **spreads across the living members**: items go to a
+    By default the haul spreads across the living members: items go to a
     character whose class can use them (the fighter takes the plate mail, the
     magic-user the arcane scroll), gems and jewellery divide by worth, and coins
     divide evenly denomination by denomination. Nothing is ever loaded past the
@@ -1434,9 +1489,23 @@ class UseStairs(Command):
         threshold, then
         [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] when the
         level or dungeon changes, with the gate's success text when its author
-        wrote one. Arrival then runs the cell's entry checks (area treasure, room
-        traps, keyed encounters), each reporting its own events, and the movement
-        cost accrues toward the turn clock.
+        wrote one. Leaving a level shuts the doors the party opened on it
+        ([`DoorEvent`][osrlib.crawl.events.DoorEvent]s).
+
+        Arrival then runs the destination cell's entry checks, the same ones
+        [`MoveParty`][osrlib.crawl.commands.MoveParty] runs: a
+        [`HoardGeneratedEvent`][osrlib.crawl.events.HoardGeneratedEvent] for area
+        treasure, a
+        [`DetectionRolledEvent`][osrlib.crawl.events.DetectionRolledEvent] and a
+        [`TrapEvent`][osrlib.crawl.events.TrapEvent] for a room trap with its
+        resolution, and a keyed encounter's opening
+        ([`SurpriseRolledEvent`][osrlib.crawl.events.SurpriseRolledEvent]s,
+        [`EncounterStartedEvent`][osrlib.crawl.events.EncounterStartedEvent],
+        [`ReactionRolledEvent`][osrlib.core.events.ReactionRolledEvent],
+        [`StanceChangedEvent`][osrlib.crawl.events.StanceChangedEvent], and
+        [`BattleStartedEvent`][osrlib.crawl.events.BattleStartedEvent] on an attacks
+        stance). The movement cost accrues toward the turn clock, and a turn
+        boundary brings the same bookkeeping a step does.
     """
 
     allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.EXPLORING})
@@ -1461,10 +1530,27 @@ class EnterDungeon(Command):
           the dungeon has no entrance level.
 
     Events:
-        [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] for the
-        dungeon, after the travel time's own events. Arrival runs the entrance
-        cell's entry checks (area treasure, room traps, keyed encounters), each
-        reporting its own events.
+        The travel time's own bookkeeping first:
+        [`EffectExpiredEvent`][osrlib.core.events.EffectExpiredEvent] with a
+        [`LightEvent`][osrlib.crawl.events.LightEvent] for a light burning out, and
+        [`ProvisionsEvent`][osrlib.crawl.events.ProvisionsEvent] on a day boundary.
+        Travel runs no wandering cadence and no rest cadence, so no
+        [`WanderingCheckEvent`][osrlib.crawl.events.WanderingCheckEvent] or
+        [`FatigueEvent`][osrlib.crawl.events.FatigueEvent] lands on the road.
+
+        Then [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] for
+        the dungeon, and the entrance cell's entry checks: a
+        [`HoardGeneratedEvent`][osrlib.crawl.events.HoardGeneratedEvent] for area
+        treasure, a
+        [`DetectionRolledEvent`][osrlib.crawl.events.DetectionRolledEvent] and a
+        [`TrapEvent`][osrlib.crawl.events.TrapEvent] for a room trap with its
+        resolution, and a keyed encounter's opening
+        ([`SurpriseRolledEvent`][osrlib.crawl.events.SurpriseRolledEvent]s,
+        [`EncounterStartedEvent`][osrlib.crawl.events.EncounterStartedEvent],
+        [`ReactionRolledEvent`][osrlib.core.events.ReactionRolledEvent],
+        [`StanceChangedEvent`][osrlib.crawl.events.StanceChangedEvent], and
+        [`BattleStartedEvent`][osrlib.crawl.events.BattleStartedEvent] on an attacks
+        stance).
     """
 
     allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.TOWN})
@@ -1689,11 +1775,27 @@ class Evade(Command):
     Events:
         [`ItemsDroppedEvent`][osrlib.crawl.events.ItemsDroppedEvent]s for scattered
         bait, then [`EvasionEvent`][osrlib.crawl.events.EvasionEvent] with code
-        `encounter.evasion.succeeded`, which ends the encounter
-        ([`EncounterEndedEvent`][osrlib.crawl.events.EncounterEndedEvent]), or
+        `encounter.evasion.succeeded`, which ends the encounter, or
         `encounter.evasion.pursuit`, after which
-        [`PursuitEvent`][osrlib.crawl.events.PursuitEvent] rounds follow: escape,
-        exhaustion at the round cap, or battle at the party's heels.
+        [`PursuitEvent`][osrlib.crawl.events.PursuitEvent] rounds follow. A pursuit
+        ends in escape, in exhaustion at the round cap
+        ([`ExhaustionEvent`][osrlib.crawl.events.ExhaustionEvent] with the
+        [`EffectAttachedEvent`][osrlib.core.events.EffectAttachedEvent] and
+        [`ConditionGainedEvent`][osrlib.core.events.ConditionGainedEvent] behind
+        it), or in battle at the party's heels
+        ([`BattleStartedEvent`][osrlib.crawl.events.BattleStartedEvent]).
+
+        A concluded encounter posts
+        [`EncounterEndedEvent`][osrlib.crawl.events.EncounterEndedEvent], a
+        [`MonsterDefeatedEvent`][osrlib.crawl.events.MonsterDefeatedEvent] per
+        monster slain, routed, or surrendered,
+        [`EffectReleasedEvent`][osrlib.core.events.EffectReleasedEvent]s for the
+        effects it releases, and, under the immediate XP timing,
+        [`XpAwardedEvent`][osrlib.crawl.events.XpAwardedEvent] and
+        [`CharacterLeveledUpEvent`][osrlib.crawl.events.CharacterLeveledUpEvent].
+        The clock it owes runs with the usual
+        [`LightEvent`][osrlib.crawl.events.LightEvent] and
+        [`ProvisionsEvent`][osrlib.crawl.events.ProvisionsEvent] bookkeeping.
     """
 
     allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.ENCOUNTER})
@@ -1759,7 +1861,24 @@ class Wait(Command):
         attacking or expired-patience hostile stance opens battle
         ([`BattleStartedEvent`][osrlib.crawl.events.BattleStartedEvent]). During a
         pursuit a [`PursuitEvent`][osrlib.crawl.events.PursuitEvent] round resolves
-        instead.
+        instead, which can end in
+        [`ExhaustionEvent`][osrlib.crawl.events.ExhaustionEvent] at the round cap
+        (with the [`EffectAttachedEvent`][osrlib.core.events.EffectAttachedEvent]
+        and [`ConditionGainedEvent`][osrlib.core.events.ConditionGainedEvent] behind
+        it) or in battle.
+
+        An encounter that concludes posts
+        [`EncounterEndedEvent`][osrlib.crawl.events.EncounterEndedEvent], a
+        [`MonsterDefeatedEvent`][osrlib.crawl.events.MonsterDefeatedEvent] per
+        monster slain, routed, or surrendered,
+        [`EffectReleasedEvent`][osrlib.core.events.EffectReleasedEvent]s, and, under
+        the immediate XP timing,
+        [`XpAwardedEvent`][osrlib.crawl.events.XpAwardedEvent] and
+        [`CharacterLeveledUpEvent`][osrlib.crawl.events.CharacterLeveledUpEvent].
+        The round itself runs the usual
+        [`EffectExpiredEvent`][osrlib.core.events.EffectExpiredEvent],
+        [`LightEvent`][osrlib.crawl.events.LightEvent], and
+        [`ProvisionsEvent`][osrlib.crawl.events.ProvisionsEvent] bookkeeping.
     """
 
     allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.ENCOUNTER})
@@ -1930,16 +2049,68 @@ class ResolveBattleRound(Command):
           `exploration.action.requires_light`, `combat.attack.out_of_reach`.
 
     Events:
-        [`BattleRoundEvent`][osrlib.crawl.events.BattleRoundEvent] opens the round,
-        declared casts post as
-        [`SpellDeclaredEvent`][osrlib.crawl.events.SpellDeclaredEvent]s, and
-        [`InitiativeRolledEvent`][osrlib.core.events.InitiativeRolledEvent] orders
-        the sides. The phases then report themselves (movement, missiles, magic,
-        melee): attack and damage rolls, saving throws, casts and disruptions,
-        morale checks, routs and defeats, each its own event. A terminal round
-        appends [`BattleEndedEvent`][osrlib.crawl.events.BattleEndedEvent] and the
-        encounter's conclusion, or
-        [`GameOverEvent`][osrlib.crawl.events.GameOverEvent] on a party wipe.
+        Opening the round:
+        [`BattleRoundEvent`][osrlib.crawl.events.BattleRoundEvent], a
+        [`SpellDeclaredEvent`][osrlib.crawl.events.SpellDeclaredEvent] per declared
+        cast, and
+        [`InitiativeRolledEvent`][osrlib.core.events.InitiativeRolledEvent] for the
+        side order.
+
+        Movement: [`GroupMovedEvent`][osrlib.crawl.events.GroupMovedEvent] as the
+        gap changes.
+
+        Missiles and melee:
+        [`AttackRolledEvent`][osrlib.core.events.AttackRolledEvent],
+        [`DamageDealtEvent`][osrlib.core.events.DamageDealtEvent],
+        [`DamageAbsorbedEvent`][osrlib.core.events.DamageAbsorbedEvent],
+        [`HitPointsReportedEvent`][osrlib.core.events.HitPointsReportedEvent],
+        [`SavingThrowRolledEvent`][osrlib.core.events.SavingThrowRolledEvent],
+        [`EquipmentDestroyedEvent`][osrlib.core.events.EquipmentDestroyedEvent],
+        [`LevelDrainedEvent`][osrlib.core.events.LevelDrainedEvent] with
+        [`SpellForgottenEvent`][osrlib.core.events.SpellForgottenEvent] when a drain
+        costs a caster prepared spells, and
+        [`DeathEvent`][osrlib.core.events.DeathEvent].
+
+        Magic: [`SpellCastEvent`][osrlib.core.events.SpellCastEvent],
+        [`TargetsSelectedEvent`][osrlib.core.events.TargetsSelectedEvent] when the
+        spell picks its own targets,
+        [`SpellDisruptedEvent`][osrlib.core.events.SpellDisruptedEvent],
+        [`MagicDispelledEvent`][osrlib.core.events.MagicDispelledEvent],
+        [`UndeadTurnedEvent`][osrlib.core.events.UndeadTurnedEvent], and the effects
+        a spell leaves behind
+        ([`EffectAttachedEvent`][osrlib.core.events.EffectAttachedEvent],
+        [`EffectReleasedEvent`][osrlib.core.events.EffectReleasedEvent],
+        [`ConditionGainedEvent`][osrlib.core.events.ConditionGainedEvent],
+        [`ConditionRemovedEvent`][osrlib.core.events.ConditionRemovedEvent],
+        [`HealingAppliedEvent`][osrlib.core.events.HealingAppliedEvent]).
+
+        Items: [`ItemUsedEvent`][osrlib.crawl.events.ItemUsedEvent], with
+        [`ItemIdentifiedEvent`][osrlib.crawl.events.ItemIdentifiedEvent] and
+        [`CurseRevealedEvent`][osrlib.crawl.events.CurseRevealedEvent] at first
+        meaningful use.
+
+        Morale: [`MoraleCheckedEvent`][osrlib.core.events.MoraleCheckedEvent],
+        [`MonsterFledEvent`][osrlib.crawl.events.MonsterFledEvent] for a group that
+        breaks, and
+        [`MonstersLeftBehindEvent`][osrlib.crawl.events.MonstersLeftBehindEvent]
+        when the runners leave members who cannot move behind them.
+
+        Closing the round, the clock's own bookkeeping:
+        [`EffectExpiredEvent`][osrlib.core.events.EffectExpiredEvent],
+        [`EffectTickedEvent`][osrlib.core.events.EffectTickedEvent],
+        [`MonsterRevivedEvent`][osrlib.core.events.MonsterRevivedEvent],
+        [`LightEvent`][osrlib.crawl.events.LightEvent], and
+        [`ProvisionsEvent`][osrlib.crawl.events.ProvisionsEvent].
+
+        A terminal round appends
+        [`BattleEndedEvent`][osrlib.crawl.events.BattleEndedEvent] and the
+        encounter's conclusion
+        ([`EncounterEndedEvent`][osrlib.crawl.events.EncounterEndedEvent],
+        [`MonsterDefeatedEvent`][osrlib.crawl.events.MonsterDefeatedEvent]s, and,
+        under the immediate XP timing,
+        [`XpAwardedEvent`][osrlib.crawl.events.XpAwardedEvent] and
+        [`CharacterLeveledUpEvent`][osrlib.crawl.events.CharacterLeveledUpEvent]),
+        or [`GameOverEvent`][osrlib.crawl.events.GameOverEvent] on a party wipe.
     """
 
     allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.BATTLE})
@@ -2510,7 +2681,7 @@ class RevealObjective(Command):
 
     A hidden objective is absent from the player view until it is revealed or until
     it completes. Completing an objective reveals it, so a quest whose hidden
-    objective simply lands needs no reveal. Ids are the closed domain
+    objective is finished before anyone announces it needs no reveal. Ids are the closed domain
     [`ActivateQuest`][osrlib.crawl.commands.ActivateQuest] documents.
 
     An accepted reveal appends the objective's `offer` beat to the journal when its
@@ -2836,7 +3007,7 @@ def parse_command(data: Mapping[str, object]) -> Command | None:
         command = parse_command(wire)
         assert command == SetFlag(key="portcullis_open", value=True)
 
-        # A command type this engine does not know is skipped, not an error.
+        # A command type this engine doesn't know is skipped, not an error.
         assert parse_command({"command_type": "teleport_party"}) is None
         ```
     """
