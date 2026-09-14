@@ -231,10 +231,10 @@ constant, which the whole module reads.
 _HELPLESS = (Condition.PARALYSED, Condition.ASLEEP)
 _CANNOT_ACT = (Condition.DEAD, Condition.PETRIFIED, Condition.PARALYSED, Condition.ASLEEP)
 
-# The three dual-listed gear items carry pinned damage-source semantics: holy water's
-# combat facet presents the `holy` key (admitted only by undead targets), and torch
-# and burning oil deal fire damage (they are burning brands — this is what routes
-# them into the troll's non-regenerable ledger).
+# The three dual-listed gear items have fixed damage-source semantics. Holy water's
+# combat facet presents the `holy` key, which only undead targets admit, and torch
+# and burning oil deal fire damage because they're burning brands, which is what
+# routes them into the troll's non-regenerable ledger.
 _HOLY_ITEM_ID = "holy_water"
 _FIRE_ITEM_IDS = ("torch", "oil_flask")
 
@@ -288,39 +288,6 @@ class AttackContext(BaseModel):
     session fills it in from its own battle state, so a caller working inside one never
     builds an `AttackContext` by hand.
 
-    Attributes:
-        distance_feet: How far apart attacker and defender are. `None` states nothing,
-            which resolves as melee at reach with no range-band modifier. A distance
-            over [`MELEE_REACH_FEET`][osrlib.core.combat.MELEE_REACH_FEET] makes a
-            melee-and-missile weapon a missile use, and makes a melee-only attack a
-            rejection.
-        situational_modifier: The referee adjustment added to the attack roll: cover at
-            −1 to −4, the dozing dragon's +2, and the like.
-        defender_ally_ac_bonus: An AC bonus an ally grants the defender, like the Ring of
-            Protection 5' Radius shielding the wearer's rank-mates. Adjacency is your
-            spatial judgment, so the value arrives as context.
-        behind_target: The attacker strikes from behind. The defender's shield doesn't
-            count, and with `target_unaware` this is the thief's back-stab position.
-        target_unaware: The defender is unaware of the attack. With `behind_target` it
-            enables the back-stab attack bonus and damage multiplier.
-        defender_retreating: The defender is withdrawing. The attacker gains +2 and the
-            defender's shield doesn't count.
-        braced: The attacker has set a brace-quality weapon against a charge, which
-            doubles its damage.
-        charging: The attacker is charging with a charge-quality weapon, which doubles
-            its damage.
-        fired_last_round: The weapon was fired in the previous round. Under the
-            `weapon_reload` ruleset flag a reload-quality weapon is then rejected.
-        attacker_large: The attacker is a large creature, which turns on the defender's
-            `defensive_bonus` class ability (the halfling's AC bonus against large
-            opponents).
-        lit: The thrown oil flask is alight. Unlit oil deals no damage and no fire.
-        fixed_damage_option: Which entry of a monster attack's `fixed_damage_options` to
-            use, for monsters whose attack lists more than one fixed amount.
-        monster_missile: The monster's attack is a small missile, like a hobgoblin's
-            arrow, so *protection from normal missiles* blocks it. Monster attacks are
-            never marked automatically, because the hurled boulder is the counter-case.
-
     Examples:
         ```python
         from osrlib.core.combat import AttackContext
@@ -337,18 +304,79 @@ class AttackContext(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     distance_feet: int | None = None
+    """How far apart attacker and defender are.
+
+    `None` states nothing, which resolves as melee at reach with no range-band modifier. A
+    distance over [`MELEE_REACH_FEET`][osrlib.core.combat.MELEE_REACH_FEET] makes a
+    melee-and-missile weapon a missile use, and makes a melee-only attack a rejection.
+    """
+
     situational_modifier: int = 0
+    """The referee adjustment added to the attack roll.
+
+    Cover at −1 to −4, the dozing dragon's +2, and the like.
+    """
+
     defender_ally_ac_bonus: int = 0
+    """An AC bonus an ally grants the defender.
+
+    The Ring of Protection 5' Radius shielding the wearer's rank-mates is one. Adjacency
+    is your spatial judgment, so the value arrives as context.
+    """
+
     behind_target: bool = False
+    """The attacker strikes from behind.
+
+    The defender's shield doesn't count, and with `target_unaware` this is the thief's
+    back-stab position.
+    """
+
     target_unaware: bool = False
+    """The defender is unaware of the attack.
+
+    With `behind_target` it enables the back-stab attack bonus and damage multiplier.
+    """
+
     defender_retreating: bool = False
+    """The defender is withdrawing.
+
+    The attacker gains +2 and the defender's shield doesn't count.
+    """
+
     braced: bool = False
+    """The attacker has set a brace-quality weapon against a charge, which doubles its damage."""
+
     charging: bool = False
+    """The attacker is charging with a charge-quality weapon, which doubles its damage."""
+
     fired_last_round: bool = False
+    """The weapon was fired in the previous round.
+
+    Under the `weapon_reload` ruleset flag a reload-quality weapon is then rejected.
+    """
+
     attacker_large: bool = False
+    """The attacker is a large creature.
+
+    This turns on the defender's `defensive_bonus` class ability, which is the halfling's
+    AC bonus against large opponents.
+    """
+
     lit: bool = False
+    """The thrown oil flask is alight. Unlit oil deals no damage and no fire."""
+
     fixed_damage_option: int = 0
+    """Which entry of a monster attack's `fixed_damage_options` to use.
+
+    It matters only for monsters whose attack lists more than one fixed amount.
+    """
+
     monster_missile: bool = False
+    """The monster's attack is a small missile, so *protection from normal missiles* blocks it.
+
+    A hobgoblin's arrow is one. Monster attacks are never marked automatically, because
+    the hurled boulder is the counter-case.
+    """
 
 
 class DamageSource(BaseModel):
@@ -360,26 +388,6 @@ class DamageSource(BaseModel):
     [`check_immunity`][osrlib.core.combat.check_immunity] to ask whether the defender
     absorbs it, and to [`deal_damage`][osrlib.core.combat.deal_damage] to apply it. The
     model is frozen.
-
-    Attributes:
-        keys: The material and enchantment keys the source presents: `silver`, `magic`,
-            `holy`. A defender's `harmed_only_by` gate admits a source that presents one
-            of the keys it names.
-        element: The energy element (`fire`, `cold`, `lightning`, and the like), or `None`
-            for a physical source. Energy defenses, per-die reductions, and a regenerating
-            monster's non-regenerable ledger all key off it.
-        magical: Whether the source is magical. A nonmagical source is absorbed by a
-            defense that turns aside anything but magic.
-        kind: The delivery: `weapon`, `unarmed`, `splash`, `breath`, `falling`, `effect`,
-            or `spell`. It selects the saving throw category when a destructive death
-            makes the victim's magic items save.
-        destructive: Whether the source destroys the victim's equipment on a killing
-            blow, as breath weapons and *lightning bolt* do.
-        missile: Whether the source is a small missile, which *protection from normal
-            missiles* blocks. Character weapon missiles and thrown splash items are marked
-            automatically, and monster attacks never are, because the hurled boulder is
-            the counter-case. `AttackContext.monster_missile` is how you say a hobgoblin's
-            arrow is one.
 
     Examples:
         ```python
@@ -397,11 +405,45 @@ class DamageSource(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     keys: tuple[str, ...] = ()
+    """The material and enchantment keys the source presents: `silver`, `magic`, `holy`.
+
+    A defender's `harmed_only_by` gate admits a source that presents one of the keys it
+    names.
+    """
+
     element: str | None = None
+    """The energy element (`fire`, `cold`, `lightning`, and the like), or `None` for a physical source.
+
+    Energy defenses, per-die reductions, and a regenerating monster's non-regenerable
+    ledger all key off it.
+    """
+
     magical: bool = False
+    """Whether the source is magical.
+
+    A nonmagical source is absorbed by a defense that turns aside anything but magic.
+    """
+
     kind: str = "weapon"
+    """The delivery: `weapon`, `unarmed`, `splash`, `breath`, `falling`, `effect`, or `spell`.
+
+    It selects the saving throw category when a destructive death makes the victim's magic
+    items save.
+    """
+
     destructive: bool = False
+    """Whether the source destroys the victim's equipment on a killing blow.
+
+    Breath weapons and *lightning bolt* do.
+    """
+
     missile: bool = False
+    """Whether the source is a small missile, which *protection from normal missiles* blocks.
+
+    Character weapon missiles and thrown splash items are marked automatically, and monster
+    attacks never are, because the hurled boulder is the counter-case.
+    `AttackContext.monster_missile` is how you say a hobgoblin's arrow is one.
+    """
 
 
 class AttackRollResult(BaseModel):
@@ -410,33 +452,45 @@ class AttackRollResult(BaseModel):
     Returned by [`attack_roll`][osrlib.core.combat.attack_roll], and on the `attack_roll`
     field of an [`AttackResult`][osrlib.core.combat.AttackResult]. Read `hit` to branch,
     and the rest to show the player the arithmetic. The model is frozen.
-
-    Attributes:
-        hit: Whether the attack landed.
-        auto: Whether the hit needed no roll, which happens against a helpless defender
-            in melee and against a defender the rules hit without a roll. The roll
-            fields are all `None` when this is true and no draw was taken.
-        roll: The natural 1d20.
-        modifier: The signed total of every modifier applied to the roll.
-        total: `roll` plus `modifier`.
-        required: The number `total` had to reach, from the attack matrix or from
-            `THAC0 − AC` under the `thac0_arithmetic` ruleset flag.
-        natural: The natural roll when the always-hits-on-20 or always-misses-on-1 rule
-            overrode the arithmetic, and `None` when the arithmetic stood on its own. Use
-            it to tell a lucky hit from an ordinary one.
-        events: The events this roll produced, ready to append to a session's log.
     """
 
     model_config = ConfigDict(frozen=True)
 
     hit: bool
+    """Whether the attack landed."""
+
     auto: bool = False
+    """Whether the hit needed no roll.
+
+    That happens against a helpless defender in melee, and against a defender the rules hit
+    without a roll. The roll fields are all `None` when this is true, and no draw was taken.
+    """
+
     roll: int | None = None
+    """The natural 1d20."""
+
     modifier: int = 0
+    """The signed total of every modifier applied to the roll."""
+
     total: int | None = None
+    """`roll` plus `modifier`."""
+
     required: int | None = None
+    """The number `total` had to reach.
+
+    It comes from the attack matrix, or from `THAC0 − AC` under the `thac0_arithmetic`
+    ruleset flag.
+    """
+
     natural: int | None = None
+    """The natural roll when the always-hits-on-20 or always-misses-on-1 rule overrode the arithmetic.
+
+    `None` when the arithmetic stood on its own. Use it to tell a lucky hit from an
+    ordinary one.
+    """
+
     events: tuple[Event, ...] = ()
+    """The events this roll produced, ready to append to a session's log."""
 
 
 class AttackResult(BaseModel):
@@ -446,24 +500,28 @@ class AttackResult(BaseModel):
     [`resolve_splash_attack`][osrlib.core.combat.resolve_splash_attack]. The defender has
     already taken the damage by the time you have one of these. The result reports what
     happened instead of asking you to apply it. The model is frozen.
-
-    Attributes:
-        attack_roll: The roll that opened the resolution.
-        absorbed: Whether the defender's defenses turned the damage aside entirely, so
-            no damage was rolled. A hit can be absorbed. A miss never is.
-        damage: The hit points the defender lost, or `None` when nothing was rolled: a
-            miss, an absorbed hit, or a sleeping defender killed outright by a blade. An
-            unlit oil flask that hits reports 0.
-        events: Every event the resolution produced, in order, ready to append to a
-            session's log.
     """
 
     model_config = ConfigDict(frozen=True)
 
     attack_roll: AttackRollResult
+    """The roll that opened the resolution."""
+
     absorbed: bool = False
+    """Whether the defender's defenses turned the damage aside entirely, so no damage was rolled.
+
+    A hit can be absorbed. A miss never is.
+    """
+
     damage: int | None = None
+    """The hit points the defender lost, or `None` when nothing was rolled.
+
+    Nothing is rolled on a miss, on an absorbed hit, or when a sleeping defender is killed
+    outright by a blade. An unlit oil flask that hits reports 0.
+    """
+
     events: tuple[Event, ...] = ()
+    """Every event the resolution produced, in order, ready to append to a session's log."""
 
 
 class SaveResult(BaseModel):
@@ -472,26 +530,31 @@ class SaveResult(BaseModel):
     Returned by [`saving_throw`][osrlib.core.combat.saving_throw]. Read `passed` to
     branch. The saving throw itself changes nothing, so applying the consequence is
     yours. The model is frozen.
-
-    Attributes:
-        passed: Whether the save succeeded.
-        auto: Whether the target passed without a roll, which happens when an energy
-            defense auto-saves against a magical form of its own element. The roll
-            fields are all `None` when this is true and no draw was taken.
-        roll: The natural 1d20.
-        modifier: The signed total of every modifier applied, including the caller's.
-        required: The number `roll` plus `modifier` had to reach.
-        events: The events this save produced, ready to append to a session's log.
     """
 
     model_config = ConfigDict(frozen=True)
 
     passed: bool
+    """Whether the save succeeded."""
+
     auto: bool = False
+    """Whether the target passed without a roll.
+
+    That happens when an energy defense auto-saves against a magical form of its own
+    element. The roll fields are all `None` when this is true, and no draw was taken.
+    """
+
     roll: int | None = None
+    """The natural 1d20."""
+
     modifier: int = 0
+    """The signed total of every modifier applied, including the one you passed."""
+
     required: int | None = None
+    """The number `roll` plus `modifier` had to reach."""
+
     events: tuple[Event, ...] = ()
+    """The events this save produced, ready to append to a session's log."""
 
 
 class MoraleResult(BaseModel):
@@ -501,26 +564,34 @@ class MoraleResult(BaseModel):
     [`MoraleTracker.check`][osrlib.core.combat.MoraleTracker.check]. Acting on a broken
     side (fleeing, surrendering) is yours. The check only reports the verdict. The model
     is frozen.
-
-    Attributes:
-        held: Whether the side keeps fighting. A side with morale 2 never does, so
-            `held` is false for it even though no roll was made.
-        exempt: Whether the score put the side outside the roll, at morale 2 (never
-            fights) or morale 12 (never checks). The roll fields are `None` when this is
-            true and no draw was taken.
-        roll: The natural 2d6.
-        modifier: The situational adjustment actually applied, after the clamp to ±2.
-        events: The events this check produced. They have referee visibility, because
-            players learn a side's nerve from its behaviour.
     """
 
     model_config = ConfigDict(frozen=True)
 
     held: bool
+    """Whether the side keeps fighting.
+
+    A side with morale 2 never does, so this is false for it even though no roll was made.
+    """
+
     exempt: bool = False
+    """Whether the score put the side outside the roll.
+
+    Morale 2 never fights and morale 12 never checks. The roll fields are `None` when this
+    is true, and no draw was taken.
+    """
+
     roll: int | None = None
+    """The natural 2d6."""
+
     modifier: int = 0
+    """The situational adjustment that was applied, after the clamp to ±2."""
+
     events: tuple[Event, ...] = ()
+    """The events this check produced.
+
+    They have referee visibility, because players learn a side's nerve from its behaviour.
+    """
 
 
 class Participant(BaseModel):
@@ -529,28 +600,36 @@ class Participant(BaseModel):
     Build one per combatant and pass the sequence to
     [`roll_initiative`][osrlib.core.combat.roll_initiative], in the order you want ties
     and equal ranks resolved. The model is frozen.
-
-    Attributes:
-        key: The combatant's stable identifier, which comes back in the acting order.
-            Use the entity id you already track, so you can map the order onto your own
-            objects.
-        side: The side the combatant fights on. Under side initiative, everyone sharing
-            a side acts on that side's single roll.
-        slow: Whether the combatant wields a slow weapon. Slow actors always act after
-            every non-slow actor, whatever they rolled.
-        modifier: The individual-initiative modifier, used only when the
-            `individual_initiative` ruleset flag is on. Compute it with
-            [`participant_modifier`][osrlib.core.combat.participant_modifier], which
-            gives characters their DEX modifier plus the halfling's class bonus and
-            monsters whatever modifier you supply.
     """
 
     model_config = ConfigDict(frozen=True)
 
     key: str
+    """The combatant's stable identifier, which comes back in the acting order.
+
+    Use the entity id you already track, so you can map the order onto your own objects.
+    """
+
     side: str
+    """The side the combatant fights on.
+
+    Under side initiative, everyone sharing a side acts on that side's single roll.
+    """
+
     slow: bool = False
+    """Whether the combatant wields a slow weapon.
+
+    Slow actors always act after every non-slow actor, whatever they rolled.
+    """
+
     modifier: int = 0
+    """The individual-initiative modifier.
+
+    It's used only when the `individual_initiative` ruleset flag is on. Compute it with
+    [`participant_modifier`][osrlib.core.combat.participant_modifier], which gives
+    characters their DEX modifier plus the halfling's class bonus, and monsters whatever
+    modifier you supply.
+    """
 
 
 class InitiativeResult(BaseModel):
@@ -558,24 +637,29 @@ class InitiativeResult(BaseModel):
 
     Returned by [`roll_initiative`][osrlib.core.combat.roll_initiative]. Iterate `order`
     to run the round. The model is frozen.
-
-    Attributes:
-        mode: `side` when one roll covered each side, `individual` when each participant
-            rolled its own, following the `individual_initiative` ruleset flag.
-        entries: One [`InitiativeRoll`][osrlib.core.events.InitiativeRoll] per key that
-            rolled, a side under side initiative and a participant under individual
-            initiative. Its `rolls` tuple contains every die the key threw, so a tie that
-            was re-rolled shows all of its attempts.
-        order: Every participant's key, in acting order. Slow actors come last.
-        events: The events this resolution produced, ready to append to a session's log.
     """
 
     model_config = ConfigDict(frozen=True)
 
     mode: str
+    """`side` when one roll covered each side, `individual` when each participant rolled its own.
+
+    The `individual_initiative` ruleset flag selects which.
+    """
+
     entries: tuple[InitiativeRoll, ...]
+    """One [`InitiativeRoll`][osrlib.core.events.InitiativeRoll] per key that rolled.
+
+    That's a side under side initiative and a participant under individual initiative. Its
+    `rolls` tuple contains every die the key threw, so a tie that was re-rolled shows all
+    of its attempts.
+    """
+
     order: tuple[str, ...]
+    """Every participant's key, in acting order. Slow actors come last."""
+
     events: tuple[Event, ...] = ()
+    """The events this resolution produced, ready to append to a session's log."""
 
 
 class SaveCategory(StrEnum):
@@ -589,21 +673,22 @@ class SaveCategory(StrEnum):
     The wire values are lowercase and match the fields of
     [`SavingThrows`][osrlib.core.classes.SavingThrows]. They serialize into saves, so
     changing them is a `schema_version` bump.
-
-    Attributes:
-        DEATH: Death ray or poison, and the fallback category for anything with no
-            category of its own.
-        WANDS: Magic wands, and the category devices save under.
-        PARALYSIS: Paralysis or petrification, which is what a petrifying gaze forces.
-        BREATH: Breath attacks. The WIS magic-save modifier does not apply to this one.
-        SPELLS: Spells, rods, and staves.
     """
 
     DEATH = "death"
+    """Death ray or poison, and the fallback category for anything with no category of its own."""
+
     WANDS = "wands"
+    """Magic wands, and the category devices save under."""
+
     PARALYSIS = "paralysis"
+    """Paralysis or petrification, which is what a petrifying gaze forces."""
+
     BREATH = "breath"
+    """Breath attacks. The WIS magic-save modifier doesn't apply to this one."""
+
     SPELLS = "spells"
+    """Spells, rods, and staves."""
 
 
 class TargetingMode(StrEnum):
@@ -617,25 +702,28 @@ class TargetingMode(StrEnum):
 
     The wire values are lowercase and travel in events. Changing them is a
     `schema_version` bump.
-
-    Attributes:
-        SELF: The caster or user only. The first candidate is taken.
-        SINGLE: One creature. The first candidate is taken.
-        UP_TO_N: The first N candidates in your order, with N either fixed or rolled
-            (*hold person*'s 1d4).
-        HD_BUDGET: Candidates taken weakest first until the Hit Dice budget runs out, as
-            *sleep* spends its dice. A candidate too large for what is left is skipped
-            and the selection continues.
-        AREA: Every candidate. The footprint is yours to resolve.
-        GAZE: Every candidate, for a gaze that reaches everyone engaged with the gazer.
     """
 
     SELF = "self"
+    """The caster or user only. The first candidate is taken."""
+
     SINGLE = "single"
+    """One creature. The first candidate is taken."""
+
     UP_TO_N = "up_to_n"
+    """The first N candidates in your order, with N either fixed or rolled (*hold person*'s 1d4)."""
+
     HD_BUDGET = "hd_budget"
+    """Candidates taken weakest first until the Hit Dice budget runs out, as *sleep* spends its dice.
+
+    A candidate too large for what's left is skipped and the selection continues.
+    """
+
     AREA = "area"
+    """Every candidate. The footprint is yours to resolve."""
+
     GAZE = "gaze"
+    """Every candidate, for a gaze that reaches everyone engaged with the gazer."""
 
 
 def _int_param(params: Mapping[str, Any], key: str, default: int = 0) -> int:
@@ -1003,8 +1091,8 @@ def damage_source_for(attacker: Any, attack: Attack, context: AttackContext) -> 
         kind = "monster"
         missile = context.monster_missile
     elif isinstance(attack, MagicItemInstance):
-        # An enchanted arm counts as magical for the graded-immunity checks,
-        # cursed forms included (pinned).
+        # An enchanted arm counts as magical for the immunity checks, cursed
+        # forms included.
         keys.append("magic")
         magical = True
         if _is_missile_use(attack, context):
@@ -1148,14 +1236,15 @@ def _defender_descending_ac(defender: Any, context: AttackContext, *, missile: b
         if params is not None:
             ac -= int(params.get("ac_bonus", 0))
     # AC-set modifiers (*shield*): the effective AC is the better of the defender's
-    # own and the set value, never worse (pinned) — for descending AC, the minimum.
+    # own and the set value, never worse, which for descending AC is the minimum.
     set_kind = "ac_set_vs_missile" if missile else "ac_set"
     for value in modifier_values(defender, set_kind):
         ac = min(ac, value)
     # AC-bonus modifiers (the potion of invulnerability's ±2) improve or worsen
-    # descending AC directly; equipped-item AC rides the character's own property.
+    # descending AC directly. Equipped armour and shields are already in the
+    # character's own `armour_class` property.
     ac -= modifier_total(defender, "ac_bonus")
-    # An ally's aura (the 5'-radius protection ring), asserted by the caller.
+    # An ally's aura (the 5'-radius protection ring), which the caller asserts.
     ac -= context.defender_ally_ac_bonus
     return ac
 
@@ -1268,10 +1357,11 @@ def attack_roll(
         modifier += 2
     # An enchanted arm's bonus (versus-clauses swapping in their alternate).
     modifier += _magic_weapon_bonus(attack, defender)
-    # Spell stat modifiers: the attacker's own bonuses (*bless*/*blight*) and the
-    # defender's ward penalty on attackers of another alignment (*protection from
-    # evil*), each under the cumulative rule — plus the defender's equipped-item
-    # penalties (the Displacer Cloak's melee-only −2), outside the caps.
+    # Spell stat modifiers: the attacker's own bonuses (*bless* and *blight*) and
+    # the defender's ward penalty on attackers of another alignment (*protection
+    # from evil*), each under the cumulative rule. Then the defender's
+    # equipped-item penalties (the Displacer Cloak's melee-only −2), which sit
+    # outside the caps.
     modifier += modifier_total(attacker, "attack_bonus")
     modifier += modifier_total(
         defender, "attack_penalty_of_attackers", versus_differs=alignments_differ(attacker, defender), melee=not missile
@@ -1284,8 +1374,8 @@ def attack_roll(
     thac0 = attacker.thac0
     girdle = _item_effect_params(attacker, "giant_strength")
     if girdle is not None:
-        # The girdle's wearer attacks as an 8 HD monster — unless the character's
-        # own probabilities are already better (RAW).
+        # The girdle's wearer attacks as an 8 HD monster, unless the character's
+        # own probabilities are already better.
         from osrlib.core.tables import thac0_for_hd
 
         thac0 = min(thac0, thac0_for_hd(int(girdle["attack_as_hd"]))[0])
@@ -1502,15 +1592,15 @@ def damage_roll(
             result = roll(attack.damage, stream)
             rolls, amount = result.rolls, result.total
         else:
-            # An effect-only attack (the wight's touch) deals no hit point damage;
-            # its effect tags resolve separately.
+            # An effect-only attack (the wight's touch) deals no hit point damage.
+            # Its effect tags resolve separately.
             return RollResult(rolls=(), modifier=0, multiplier=1, total=0)
     elif attack is None:
         result = roll("1d2", stream)
         rolls, amount = result.rolls, result.total
     elif girdle is not None and not ruleset.variable_weapon_damage:
-        # The girdle's printed 2d8 replaces the flat 1d6 with the flag off — the
-        # one wired item whose mechanics branch on a `Ruleset` flag.
+        # The girdle's printed 2d8 replaces the flat 1d6 with the flag off. It's
+        # the one wired item whose mechanics branch on a `Ruleset` flag.
         result = roll(str(girdle["flat_damage_dice"]), stream)
         rolls, amount = result.rolls, result.total
     else:
@@ -1525,9 +1615,9 @@ def damage_roll(
         amount += melee_modifier_for(attacker)
     # An enchanted arm's damage bonus (the versus alternate against a match).
     amount += _magic_weapon_bonus(attack, defender)
-    # Spell stat modifiers join the pre-doubling sum (pinned): *bless*'s flat bonus
-    # on any attack, *striking*'s extra die on weapon attacks only (never unarmed,
-    # never a monster's natural attack).
+    # Spell stat modifiers join the sum before the doublings: *bless*'s flat bonus
+    # on any attack, *striking*'s extra die on weapon attacks only, never on an
+    # unarmed strike or a monster's natural attack.
     amount += modifier_total(attacker, "damage_bonus")
     if attack is not None and not isinstance(attack, MonsterAttack):
         striking = modifier_dice(attacker, "weapon_damage_dice_bonus")
@@ -1541,10 +1631,10 @@ def damage_roll(
     if context.charging and WeaponQuality.CHARGE in qualities:
         amount *= 2
     if not isinstance(attack, MonsterAttack):
-        # Item damage multipliers double after the flat bonuses, beside the
-        # quality doublings (pinned): giant strength on weapon attacks, growth on
-        # melee attacks (unarmed included), the girdle's double under the
-        # variable-damage default.
+        # Item damage multipliers apply after the flat bonuses, beside the quality
+        # doublings: giant strength on weapon attacks, growth on melee attacks
+        # (unarmed included), and the girdle's double under the variable-damage
+        # default.
         if attack is not None:
             multiplier = modifier_total(attacker, "damage_multiplier")
             if multiplier > 1:
@@ -1654,11 +1744,11 @@ def deal_damage(
             keys = {key.value for key in reduction.keys}
             if not keys or any(key in keys for key in source.keys) or (source.element in keys):
                 amount = max(1, amount // reduction.divisor)
-    # Element-scoped per-die reduction (*resist cold/fire*, the fire-resistance
-    # ring and potion): 1 point per damage die rolled, each die inflicting a
-    # minimum of 1. Sources that rolled no dice (fixed damage, a dragon's
-    # current-hp breath) have no dice to reduce (pinned — the page's rule is per
-    # die rolled). Item channels join outside the spell caps.
+    # Element-scoped per-die reduction (*resist cold*, *resist fire*, the
+    # fire-resistance ring and potion): 1 point per damage die rolled, each die
+    # inflicting a minimum of 1. A source that rolled no dice (fixed damage, a
+    # dragon's current-hp breath) has no dice to reduce, because the rule is per
+    # die rolled. Item bonuses join outside the spell caps.
     if source.element is not None and rolls:
         per_die = modifier_total(target, "damage_reduction_per_die", element=source.element)
         per_die += _item_modifier_total(target, "damage_reduction_per_die", element=source.element)
@@ -1693,8 +1783,8 @@ def deal_damage(
     )
     events.append(HitPointsReportedEvent(target_id=target_id, current_hp=target.current_hp, max_hp=target.max_hp))
     if target.current_hp == 0 and not already_dead:
-        # "Permanent" is the reviving regenerator's marker: the troll is permanently
-        # dead only when the non-regenerable ledger alone reaches max HP (pinned).
+        # "Permanent" marks a regenerator that can revive: the troll is permanently
+        # dead only when the non-regenerable ledger alone reaches max HP.
         permanent = (
             regeneration is not None
             and regeneration.get("revive") is not None
@@ -1916,7 +2006,7 @@ def resolve_attack(
     if not rolled.hit:
         return AttackResult(attack_roll=rolled, events=tuple(events))
     if isinstance(attack, GearTemplate) and attack.id == "oil_flask" and not context.lit:
-        # Unlit oil deals no damage (pinned); the caller may compile a pool instead.
+        # Unlit oil deals no damage. The caller may compile a pool instead.
         return AttackResult(attack_roll=rolled, damage=0, events=tuple(events))
     source = damage_source_for(attacker, attack, context)
     if check_immunity(defender, source, ruleset=ruleset, attacker=attacker):
@@ -1925,9 +2015,9 @@ def resolve_attack(
         )
         return AttackResult(attack_roll=rolled, absorbed=True, events=tuple(events))
     if has_condition(defender, Condition.ASLEEP) and _is_bladed(attack) and not _is_missile_use(attack, context):
-        # The sleeping condition's dies-to-a-blade hook (pinned): "A single attack
-        # with a bladed weapon can kill" — the melee hit kills outright, no damage
-        # roll; the immunity gate above still applies first.
+        # The sleeping condition's dies-to-a-blade hook: "A single attack with a
+        # bladed weapon can kill", so the melee hit kills outright with no damage
+        # roll. The immunity gate above still applies first.
         events.extend(kill(defender))
         return AttackResult(attack_roll=rolled, events=tuple(events))
     damage = damage_roll(attacker, attack, context=context, ruleset=ruleset, stream=stream, defender=defender)
@@ -2355,24 +2445,30 @@ class ReactionRollResult(BaseModel):
 
     Returned by [`roll_reaction`][osrlib.core.combat.roll_reaction]. What the monsters do
     about their reaction is yours. The model is frozen.
-
-    Attributes:
-        result: The band the total fell in, from hostile through friendly.
-        roll: The natural 2d6.
-        modifier: The modifier you supplied.
-        total: `roll` plus `modifier`. It can fall outside 2 to 12, in which case the
-            table's outermost band applies.
-        events: The events this roll produced. They have referee visibility, because
-            players read a monster's mood from its behaviour.
     """
 
     model_config = ConfigDict(frozen=True)
 
     result: ReactionResult
+    """The band the total fell in, from hostile through friendly."""
+
     roll: int
+    """The natural 2d6."""
+
     modifier: int = 0
+    """The modifier you supplied."""
+
     total: int
+    """`roll` plus `modifier`.
+
+    It can fall outside 2 to 12, in which case the table's outermost band applies.
+    """
+
     events: tuple[Event, ...] = ()
+    """The events this roll produced.
+
+    They have referee visibility, because players read a monster's mood from its behaviour.
+    """
 
 
 def roll_reaction(*, modifier: int = 0, stream: RngStream) -> ReactionRollResult:
@@ -2435,15 +2531,15 @@ class MoraleTracker(BaseModel):
     Unlike the result models in this module, a tracker is mutable, because its job is to
     keep a count across the encounter. Throw it away when the encounter ends. A new
     encounter starts the count again.
-
-    Attributes:
-        passed: How many checks each subject has held, keyed by the same subject key you
-            pass to `check`. A subject at 2 is never checked again.
     """
 
     model_config = ConfigDict(validate_assignment=True)
 
     passed: dict[str, int] = {}
+    """How many checks each subject has held, keyed by the same subject key you pass to `check`.
+
+    A subject at 2 is never checked again.
+    """
 
     def check(self, subject: str, score: int, *, modifier: int = 0, stream: RngStream) -> MoraleResult | None:
         """Check morale unless the subject has already passed twice.
@@ -2726,8 +2822,8 @@ def saving_throw(
         target, "save_bonus", element=element, versus_differs=versus_differs, save_category=category.value
     )
     # Equipped-item save bonuses (rings of protection and fire resistance, the
-    # Displacer Cloak's category-scoped +2) — the query-time item channel, exempt
-    # from the spell cumulative caps.
+    # Displacer Cloak's category-scoped +2). These are read from the equipped
+    # inventory at query time and are exempt from the cumulative caps on spells.
     modifier += _item_modifier_total(target, "save_bonus", element=element, save_category=category.value)
     rolled = stream.randbelow(20) + 1
     passed = rolled + modifier >= required
@@ -2802,8 +2898,8 @@ def apply_healing(target: Any, amount: int, *, source: str = "magical") -> list[
         return [HealingAppliedEvent(code="combat.healing.blocked", target_id=target_id, amount=0, source=source)]
     if source == "magical" and has_modifier(target, "magical_healing_half"):
         # The cursed scroll's slow healing: "healing spells only cure half the
-        # normal number of hit points" — half, floored, unlike *cause disease*'s
-        # outright block.
+        # normal number of hit points", so half, floored, unlike *cause
+        # disease*'s outright block.
         amount //= 2
     healed = min(amount, target.max_hp - target.current_hp)
     target.current_hp += healed
@@ -3428,10 +3524,10 @@ def resolve_breath(
     if params.get("uses_per_day") is not None:
         monster.breath_uses_today += 1
     element = str(params.get("element")) if params.get("element") is not None else None
-    # Breath weapons are destructive deaths (pinned): the SRD's destruction-of-items
+    # Breath weapons are destructive deaths: the SRD's destruction-of-items
     # examples ("a lightning bolt spell or a dragon's breath") illustrate energy
-    # deaths generally, so the hellhound's and chimera's fire kills destroy
-    # equipment too, not just the dragons'.
+    # deaths generally, so a hellhound's or a chimera's fire kill destroys
+    # equipment too, not just a dragon's.
     source = DamageSource(element=element, kind="breath", destructive=True)
     events: list[Event] = []
     save_or_die = params.get("outcome") == "death"
