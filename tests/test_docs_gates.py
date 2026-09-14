@@ -212,3 +212,21 @@ class TestReferenceDriftGates:
                 if name.endswith("_STREAM") and f"`{name}`" not in page:
                     missing.append(f"{info.name}.{name}")
         assert not missing, f"stream constants absent from docs/reference/rng-streams.md: {missing}"
+
+    def test_the_api_overview_tables_every_exporting_module_once(self):
+        import importlib
+        import pkgutil
+
+        import osrlib
+
+        overview = osrlib.__doc__ or ""
+        rows = re.findall(r"^\| \[`(osrlib\.[\w.]+)`\]\[\] \|", overview, re.M)
+        exporting = sorted(
+            info.name
+            for info in pkgutil.walk_packages(osrlib.__path__, "osrlib.")
+            if getattr(importlib.import_module(info.name), "__all__", None)
+        )
+        assert sorted(rows) == exporting, (
+            f"missing from the package docstring tables: {sorted(set(exporting) - set(rows))}; "
+            f"tabled but not exporting or duplicated: {sorted(set(rows) - set(exporting))}"
+        )
