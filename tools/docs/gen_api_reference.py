@@ -52,17 +52,15 @@ for layer_title, _prefix in _LAYERS:
             for symbol in exported:
                 page.write(f"        - {symbol}\n")
 
+# The overview page is the package docstring: it introduces each layer and tables its
+# modules in the order a reader meets them, with a link to every module page.
 with mkdocs_gen_files.open("reference/api/index.md", "w") as index:
     index.write("# API reference\n\n")
-    index.write("::: osrlib\n    options:\n      members: false\n\n")
-    index.write("One page per module, each rendering that module's public (importable) surface:\n\n")
-    for layer_title, _ in _LAYERS:
-        index.write(f"\n## {layer_title}\n\n")
-        for name, exported in modules:
-            if _layer(name) == layer_title:
-                path = name.replace(".", "/") + ".md"
-                summary = importlib.import_module(name).__doc__.strip().splitlines()[0].rstrip(".")
-                index.write(f"- [`{name}`]({path}) — {summary} ({len(exported)} symbols)\n")
+    index.write("::: osrlib\n")
+    index.write("    options:\n")
+    index.write("      members: false\n")
+    index.write("      heading_level: 1\n")
+    index.write("      show_root_toc_entry: false\n")
 
 with mkdocs_gen_files.open("reference/api/SUMMARY.md", "w") as summary:
     summary.write("\n".join(summary_lines) + "\n")
