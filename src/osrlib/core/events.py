@@ -440,14 +440,16 @@ class MoraleCheckedEvent(Event):
     [`check_morale`][osrlib.core.combat.check_morale] emits one of these when a fight gives a side reason to
     reconsider. A broken side flees or surrenders, and acting on that is the caller's job.
 
-    Some morale scores never roll at all. A score of 2 means the creature never fights, and 12 means it never
-    checks, and both report as exempt with no roll.
+    Some morale scores never roll. A score of 2 or less never fights and a score of 12 or more never checks,
+    and both report `combat.morale.exempt` with no roll. Read `score` to tell them apart: at 2 or less the side
+    is already broken, and at 12 or more it holds.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset(
         {"combat.morale.held", "combat.morale.broke", "combat.morale.exempt"}
     )
-    """The three outcomes: the side held, the side broke, or the score exempted it from checking."""
+    """The three codes: the side held, the side broke, or the score exempted it from rolling. The exempt code
+    covers both exemptions, so `score` is what separates them."""
 
     event_type: Literal["morale_checked"] = "morale_checked"
     """The wire name for this event type."""
@@ -459,7 +461,8 @@ class MoraleCheckedEvent(Event):
     """Whose morale was checked, by the side key the caller passed in."""
 
     score: int
-    """The side's morale score, from 2 to 12."""
+    """The side's morale score. Anything from 3 to 11 rolls. A score of 2 or less exempts the side and leaves it
+    broken, and 12 or more exempts it and leaves it holding."""
 
     roll: int | None = None
     """The 2d6 total, before modifiers. `None` when the score exempted the side from rolling."""
@@ -635,9 +638,9 @@ class EffectExpiredEvent(Event):
     """An effect ran out of time and stopped.
 
     [`EffectsLedger.advance`][osrlib.core.effects.EffectsLedger.advance] emits this when the clock reaches an
-    effect's expiry round. Any condition or modifier it granted comes off in the same breath, and an effect with
-    an expiry outcome, like a delayed poison, resolves that outcome here too. An effect you ended early
-    reports as [`EffectReleasedEvent`][osrlib.core.events.EffectReleasedEvent] instead.
+    effect's expiry round. This event goes out first, then the condition and modifiers come off, and an effect
+    with an expiry outcome, like a delayed poison, resolves that outcome last. An effect you ended early reports
+    as [`EffectReleasedEvent`][osrlib.core.events.EffectReleasedEvent] instead.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"effects.effect.expired"})
@@ -732,9 +735,15 @@ class HealingAppliedEvent(Event):
 class DeathEvent(Event):
     """A creature has been killed.
 
-    [`kill`][osrlib.core.effects.kill] emits this, whether death came from damage, from a failed save, or from an
-    effect running out. It arrives after the [`ConditionGainedEvent`][osrlib.core.events.ConditionGainedEvent]
-    for `dead` and before the hit point report.
+    [`kill`][osrlib.core.effects.kill] emits this, whether death came from damage, from a failed save, or from
+    an effect running out, and there it arrives after the
+    [`ConditionGainedEvent`][osrlib.core.events.ConditionGainedEvent] for `dead` and before the hit point
+    report.
+
+    [`deal_damage`][osrlib.core.combat.deal_damage] emits a second one, with the permanent code, the first time
+    a monster that is already dead takes enough damage of the kind it cannot regenerate to reach its full hit
+    points. That one comes after the [`HitPointsReportedEvent`][osrlib.core.events.HitPointsReportedEvent] and
+    has no condition event with it, because the monster was already carrying `dead`.
 
     The code tells you whether the death can be undone. An ordinary death can be, by magic or by regeneration.
     A permanent one cannot, which is what fire and acid do to a troll.
@@ -860,9 +869,11 @@ class HitPointsReportedEvent(Event):
     Anything that moves hit points emits one of these right after it: damage, healing, death, energy drain, a
     regeneration tick. Follow them and you always know the true state without reading the creature objects.
 
-    This is the only event that reports hit points, and it's referee-visible on purpose, because B/X keeps
-    monster hit points hidden. Show the players what happened from
-    [`DamageDealtEvent`][osrlib.core.events.DamageDealtEvent] and its kin instead.
+    This is the only event that reports a creature's standing current and maximum. The others report the
+    change alone: [`DamageDealtEvent`][osrlib.core.events.DamageDealtEvent] the size of a hit,
+    [`LevelDrainedEvent`][osrlib.core.events.LevelDrainedEvent] the maximum a drain took off. It's
+    referee-visible on purpose, because B/X keeps monster hit points hidden, so show the players the change
+    events instead.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"combat.state.hit_points"})

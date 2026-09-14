@@ -139,10 +139,14 @@ class Condition(StrEnum):
     timed effect owns.
 
     Some members drive rules in [`osrlib.core.combat`][osrlib.core.combat] and
-    [`osrlib.core.spells`][osrlib.core.spells], and the rest are vocabulary the rest of the game acts on. The
-    member docstrings below say which is which, so you know whether granting one changes a roll or only tells
-    your interface what to show. A condition a creature's template lists in its `condition_immunities` is never
-    granted to it.
+    [`osrlib.core.spells`][osrlib.core.spells], and the rest are states the rest of the game acts on. The member
+    docstrings below say which is which, so you know whether granting one changes a roll or only tells your
+    interface what to show.
+
+    One rule covers every member. A creature whose template lists a condition in its defenses'
+    `condition_immunities` never takes that condition, whether you call
+    [`grant_condition`][osrlib.core.effects.grant_condition] or attach an effect that brings it, so the member
+    that looks inert to the rest of the core rules still decides which monsters a spell can touch.
 
     The values are the lowercase strings, and they serialize into creatures and saved games. A renamed value is a
     `schema_version` bump, not an edit.
@@ -150,7 +154,8 @@ class Condition(StrEnum):
 
     PARALYSED = "paralysed"
     """Frozen in place. The creature cannot attack, cast, or move, it counts toward a side's morale check for
-    half the side being incapacitated, and a melee attack against it hits automatically."""
+    half the side being incapacitated, and a melee attack against it hits automatically. *Cure light wounds*
+    cures it."""
 
     ASLEEP = "asleep"
     """Unconscious. Everything `paralysed` does, and one more rule of its own: a melee hit with a bladed weapon
@@ -161,33 +166,40 @@ class Condition(StrEnum):
     `combat.attack.attacker_blind`."""
 
     CHARMED = "charmed"
-    """Under a charm. Nothing in the core rules reads it: the charmed creature's obedience is yours to play out,
-    and the periodic save that can end the charm rides the effect's tick instead."""
+    """Under a charm. The monsters that cannot be charmed, the undead and the golems among them, list it in
+    their `condition_immunities`, so a charm aimed at one of those takes hold of nothing. Past that, the charmed
+    creature's obedience is yours to play out, and the recurring save that can end the charm rides the effect's
+    `charm_resave` tick."""
 
     PETRIFIED = "petrified"
     """Turned to stone. Everything `paralysed` does, and it suspends the creature's other effects, which neither
-    tick nor age until the stone is undone. Stone is not dead, so the creature is recoverable."""
+    tick nor age until the stone is undone. Stone is not dead: *stone to flesh* cures it and the creature picks
+    up where it left off."""
 
     DISEASED = "diseased"
     """Sick with a disease. Magical healing is refused outright, and natural rest heals on the slower cadence the
     effect names, or not at all when you pass no ledger to
-    [`natural_healing`][osrlib.core.combat.natural_healing]."""
+    [`natural_healing`][osrlib.core.combat.natural_healing]. *Cure disease* cures it."""
 
     EXHAUSTED = "exhausted"
     """Spent from a forced march or a night without rest. The penalties ride the effect's modifiers rather than
-    the condition, so nothing in the core rules reads the condition and your interface can show it."""
+    the condition, so past the immunity rule nothing in the core rules turns on it and your interface can show
+    it."""
 
     LYCANTHROPY_INCUBATION = "lycanthropy_incubation"
     """Infected by a lycanthrope's bite and not yet transformed. Vocabulary only: nothing in the core rules
-    grants it or reads it, and the transformation is yours to run."""
+    grants it, nothing past the immunity rule turns on it, and the transformation is yours to run."""
 
     AVERTED_EYES = "averted_eyes"
     """Fighting with eyes turned away from a gaze attack. [`resolve_gaze`][osrlib.core.combat.resolve_gaze] skips
     the creature, and the attack penalty for fighting blind is yours to pass in the attack context."""
 
     POISONED = "poisoned"
-    """Poisoned. Vocabulary only: nothing in the core rules reads it, because a poison's bite is its effect, whose
-    `expiry` of `death` kills when the onset runs out."""
+    """Poisoned. The monsters that cannot be poisoned, the undead and the cave locust among them, list it in
+    their `condition_immunities`, so a poison aimed at one of those takes hold of nothing, and *neutralize
+    poison* cures it and can bring back a character who died of poison within the last ten rounds. The killing
+    is the effect's rather than the condition's: a poison that kills carries an `expiry` of `death`, which fires
+    when the onset runs out."""
 
     DEAD = "dead"
     """Killed. Granted by [`kill`][osrlib.core.effects.kill] rather than by any effect, so its `effect_id` is
@@ -203,7 +215,8 @@ class Condition(StrEnum):
     can still attack and cast."""
 
     AFRAID = "afraid"
-    """Panicked by a fear effect. Nothing in the core rules reads it. The battle machine in
+    """Panicked by a fear effect. *Remove fear* cures it, and when the fear was magical the subject first saves
+    versus spells at +1 for each level of the curing caster, keeping the fear on a failure. The battle machine in
     [`osrlib.crawl.battle`][osrlib.crawl.battle] treats the creature as routed."""
 
     FEEBLEMINDED = "feebleminded"
@@ -211,16 +224,18 @@ class Condition(StrEnum):
     casting with `magic.cast.caster_incapacitated`."""
 
     INVISIBLE = "invisible"
-    """Unseen. Nothing in the core rules reads it. The battle machine leaves the creature out of the ranks an
-    enemy picks targets from."""
+    """Unseen. Past the immunity rule nothing in the core rules turns on it. The battle machine leaves the
+    creature out of the ranks an enemy picks targets from."""
 
     TURNED = "turned"
-    """Driven off by a cleric's turning. Nothing in the core rules reads it. The battle and encounter machines
-    treat the creature as fleeing."""
+    """Driven off by a cleric's turning, which is where it comes from:
+    [`turn_undead`][osrlib.core.spells.turn_undead] attaches the effect that grants it. Past the immunity rule
+    nothing in the core rules turns on it, and the battle and encounter machines treat the creature as
+    fleeing."""
 
     CONFUSED = "confused"
-    """Acting at random. Nothing in the core rules reads it. The battle machine chooses the creature's action
-    instead of letting you choose."""
+    """Acting at random. Past the immunity rule nothing in the core rules turns on it. The battle machine
+    chooses the creature's action instead of letting you choose."""
 
     WEAKENED = "weakened"
     """Drained of strength. It blocks attacking, blocks casting, and blocks all healing."""
@@ -957,10 +972,13 @@ class EffectDefinition(BaseModel):
     nothing at all, and the attach returns no effect."""
 
     expiry: str | None = None
-    """The name of an outcome the ledger resolves when the duration runs out, instead of the effect ending on
-    its own. There are three. `"death"` kills the bearer, which is how a delayed poison works.
-    `"splash_damage"` deals the second application of burning oil or holy water. `"weakness_strength_set"`
-    replaces the finished onset with the curse itself. Any other name raises `ValueError` at expiry."""
+    """The name of an outcome the ledger resolves when the duration runs out, on top of the ordinary ending
+    rather than in place of it. The effect is dropped, the
+    [`EffectExpiredEvent`][osrlib.core.events.EffectExpiredEvent] goes out, the condition and modifiers come
+    off, and the outcome runs last. There are three. `"death"` kills the bearer, which is how a delayed poison
+    works. `"splash_damage"` deals the second application of burning oil or holy water.
+    `"weakness_strength_set"` replaces the finished onset with the curse itself. Any other name raises
+    `ValueError` at expiry."""
 
     condition: Condition | None = None
     """A [`Condition`][osrlib.core.effects.Condition] granted when the effect attaches and taken back when it
