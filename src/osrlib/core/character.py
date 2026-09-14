@@ -1233,7 +1233,7 @@ def create_character(
             [the language id index][languages-index]. An INT of 12 or less allows none.
         purchases: What to buy from the starting gold, as `(item_id, lots)` pairs bought in the
             order given. `item_id` comes from [`load_equipment`][osrlib.data.load_equipment]; see
-            [the equipment index][equipment-index]. A lot is the catalog's unit of sale: weapons
+            [the equipment id index][equipment-index]. A lot is the catalog's unit of sale: weapons
             and armour sell one at a time, so `lots` is how many, while gear and ammunition
             sell in fixed bundles, and one lot of torches is six torches.
         equip_ids: Which of the bought items to wear or wield, in order. An item must have been

@@ -148,8 +148,10 @@ class HitDice(BaseModel):
     """Flat hit points added on top of the dice, which is how levels past name level grow. Never negative."""
 
     con_applies: bool = True
-    """Whether the CON modifier applies to a die gained at this level. False above name level, where the gain is the
-    flat bonus and CON has stopped counting.
+    """Whether the CON modifier applies to a die gained at this level.
+
+    The SRD clears it at the levels it marks with an asterisk, as in `9d8+2*`. It is read separately from whether a die
+    is rolled at all, which depends on `count` rising from the row below.
     """
 
     @model_validator(mode="after")
@@ -330,10 +332,10 @@ class WeaponPolicy(BaseModel):
     """
 
     weapon_ids: tuple[str, ...] = ()
-    """The weapon ids the policy names, from [`load_equipment`][osrlib.data.load_equipment]; see [the equipment
-    index][equipment-index]. The cleric's five blunt weapons are an example of a permitted list, and the long bow and
-    two-handed sword the dwarf and halfling are refused are an example of the other. Empty when the class may use
-    anything.
+    """The weapon ids the policy names, from [`load_equipment`][osrlib.data.load_equipment]; see
+    [the equipment id index][equipment-index]. The cleric's five blunt weapons are an example of a permitted list, and
+    the long bow and two-handed sword the dwarf and halfling are refused are an example of the other. Empty when the
+    class may use anything.
     """
 
     manual_notes: tuple[str, ...] = ()
@@ -634,8 +636,8 @@ class LevelUpResult(BaseModel):
     """The level the character now has."""
 
     hp_roll: int | None
-    """The raw hit die that was thrown, or `None` above name level, where the class gains a flat number of hit points
-    and rolls nothing.
+    """The raw hit die that was thrown, or `None` when the new level added no hit die and the gain was the difference
+    between the two rows' flat bonuses.
     """
 
     hp_gained: int
@@ -644,7 +646,12 @@ class LevelUpResult(BaseModel):
     """
 
     con_applied: bool
-    """Whether the CON modifier counted toward the gain. False above name level."""
+    """Whether the CON modifier counted toward the gain.
+
+    It follows the new progression row's `con_applies`, which the SRD clears at the levels it marks with an asterisk,
+    and it is always False when no die was rolled. Read it rather than working it out from the level, because the two
+    are separate settings in the data.
+    """
 
 
 class XpAwardResult(BaseModel):
@@ -775,11 +782,23 @@ def level_up(character: Character, definition: ClassDefinition, stream: RngStrea
     rather than earned: building a character above first level, a referee's ruling, restoring a
     level a wight took.
 
-    While the class is still gaining hit dice, the character rolls one and adds the CON modifier,
-    gaining at least 1 hit point however the dice fall. Past name level the class gains a fixed
-    number of hit points instead, with no roll and no CON. Either way both maximum and current hit
-    points rise by the gain, so a level heals nothing: a wounded character is still wounded, with
-    a higher ceiling.
+    Two things about the new level's progression row decide what the gain is, and they are read
+    separately. Whether a die is rolled depends on the row having more hit dice than the row below
+    it: when it does, the character rolls one, and when it does not, the gain is the difference
+    between the two rows' flat bonuses and no die is thrown. Whether the CON modifier counts
+    depends on the new row's `con_applies`, which the SRD clears at the levels it marks with an
+    asterisk. A rolled die with CON cleared gains the raw die alone, and
+    [`con_applied`][osrlib.core.classes.LevelUpResult.con_applied] on the result says which way it
+    went.
+
+    For the classes osrlib ships, both settings change over at name level, so a character rolls
+    with CON up to name level and takes a flat gain without CON after it. A class added as data can
+    set them independently, which is why the result reports them rather than leaving you to work
+    one out from the other.
+
+    A rolled gain is floored at 1 hit point, however poor the die and the CON modifier are
+    together. Both maximum and current hit points rise by the gain, so a level heals nothing: a
+    wounded character is still wounded, with a higher ceiling.
 
     Nothing else needs updating. THAC0, saving throws, and spell capacity are read from the
     progression row for the new level, so they change on their own.
@@ -790,7 +809,7 @@ def level_up(character: Character, definition: ClassDefinition, stream: RngStrea
         definition: The character's class. It must be the character's own class.
         stream: The stream for the hit die, conventionally
             `streams.get(`[`ADVANCEMENT_STREAM`][osrlib.core.character.ADVANCEMENT_STREAM]`)`. No
-            draw is taken past name level.
+            draw is taken when the new row adds no hit die.
 
     Returns:
         What the level gained, including the raw die when one was thrown.
@@ -927,8 +946,11 @@ def thief_skill_check(
             `"hear_noise"`.
         modifier_pct: A percentage added to the chance before rolling, negative to make the
             attempt harder. Ignored for `"hear_noise"`.
-        stream: The stream to draw from, conventionally the crawl's `"exploration"` stream. One
-            draw is taken.
+        stream: The stream to draw from, conventionally the one a crawl names
+            [`EXPLORATION_STREAM`][osrlib.crawl.session.EXPLORATION_STREAM], whose key is
+            `"exploration"`. One draw is taken. The example below spells the key out rather than
+            importing the constant, because this module sits in the core layer and never reaches
+            up into the crawl layer.
 
     Returns:
         The roll, the chance it was measured against, and whether it passed.
@@ -995,8 +1017,11 @@ def detection_check(chance_in_six: int, *, stream: RngStream) -> DetectionResult
     Args:
         chance_in_six: The chance to roll at or under, usually from
             [`detection_chance`][osrlib.core.classes.detection_chance].
-        stream: The stream to draw from, conventionally the crawl's `"exploration"` stream. One
-            draw is taken unless the chance is zero.
+        stream: The stream to draw from, conventionally the one a crawl names
+            [`EXPLORATION_STREAM`][osrlib.crawl.session.EXPLORATION_STREAM], whose key is
+            `"exploration"`. One draw is taken unless the chance is zero. The example below spells
+            the key out rather than importing the constant, because this module sits in the core
+            layer and never reaches up into the crawl layer.
 
     Returns:
         The roll and whether it passed, with `roll` left `None` when no die was thrown.
@@ -1114,8 +1139,10 @@ class DrainResult(BaseModel):
     """The level the character now has, or 0 when the drain killed them."""
 
     hp_rolls: tuple[int, ...] = ()
-    """The raw hit dice thrown for the levels lost, in order. Empty above name level, where the loss is a fixed number
-    of hit points and nothing is rolled.
+    """The raw hit dice thrown for the levels lost, in order.
+
+    A level whose row carries no extra hit die throws nothing, so this is shorter than `levels_lost` when the drain
+    crossed such a level, and empty when every level it took was one of them.
     """
 
     hp_lost: int
@@ -1151,12 +1178,15 @@ def drain_levels(
     levels and the experience policy, then pass them here. The attack itself resolves in
     [`osrlib.core.combat`][osrlib.core.combat]. This is the consequence.
 
-    Each level is taken exactly as it was given. Below name level the character throws the hit die
-    they would have rolled and loses that many hit points plus their CON modifier, at least 1.
-    Above name level they lose the fixed number of hit points the class grants there, with no roll.
-    Rolling the die back is what lets the model stay stateless: a character keeps no record of
-    which dice built their hit points, so the drain rolls a fresh one. THAC0, saving throws, and
-    spell capacity need nothing done to them, because they are read from the level.
+    Each level is taken exactly as it was given, reading the same two settings
+    [`level_up`][osrlib.core.classes.level_up] reads. When the level being lost had more hit dice
+    than the level below it, the character throws that die and loses the result plus their CON
+    modifier, at least 1, with CON counting only when the row it came from says it does. When the
+    two rows have the same number of dice, the loss is the difference between their flat bonuses
+    and no die is thrown. Rolling the die back is what lets the model stay stateless: a character
+    keeps no record of which dice built their hit points, so the drain rolls a fresh one. THAC0,
+    saving throws, and spell capacity need nothing done to them, because they are read from the
+    level.
 
     A character never drops below 1 maximum or 1 current hit point while they still have a level.
     Death comes only from losing the last one, which is the SRD's person drained of all levels: the

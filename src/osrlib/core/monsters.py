@@ -502,25 +502,47 @@ class NumberAppearing(BaseModel):
 class TreasureRef(BaseModel):
     """What treasure a monster has, as the stat block prints it.
 
-    Read it as [`MonsterTemplate.treasure`][osrlib.core.monsters.MonsterTemplate], then generate
-    the hoard with [`generate_treasure`][osrlib.core.treasure.generate_treasure], which takes a
-    treasure type letter; see [the treasure type index][treasure-types-index]. A creature with no
-    treasure has an empty reference. Frozen.
+    Read it as [`MonsterTemplate.treasure`][osrlib.core.monsters.MonsterTemplate], then pass it to
+    [`plan_treasure_ref`][osrlib.core.treasure.plan_treasure_ref], which sorts the letters into
+    lair, per-creature, and per-group treasure and carries `parenthetical`, `extra_gp`, and
+    `multiplier` through. Generate each letter in the plan with
+    [`generate_treasure`][osrlib.core.treasure.generate_treasure]; see
+    [the treasure type index][treasure-types-index] for the letters.
+
+    Go through the plan rather than looping `letters` into
+    [`generate_treasure`][osrlib.core.treasure.generate_treasure] yourself. A loop over `letters`
+    alone drops the bracketed letters, the flat gold, and the multiplier without telling you, and
+    it treats a per-creature letter as though it were a lair hoard.
+
+    A creature with no treasure has an empty reference. Frozen.
     """
 
     model_config = ConfigDict(frozen=True)
 
     letters: tuple[str, ...] = ()
-    """The treasure type letters, like `("D",)`. More than one means roll each."""
+    """The treasure type letters, like `("D",)`.
+
+    More than one means every one of them is generated.
+    [`plan_treasure_ref`][osrlib.core.treasure.plan_treasure_ref] sorts them by section, so a lair
+    letter, a per-creature letter, and a per-group letter in the same reference each land in the
+    right place.
+    """
 
     parenthetical: tuple[str, ...] = ()
-    """The letters the SRD prints in brackets. They are rolled as lair treasure alongside the primary letters."""
+    """The letters the SRD prints in brackets.
+
+    [`plan_treasure_ref`][osrlib.core.treasure.plan_treasure_ref] adds them to the lair treasure
+    whatever section they belong to, so a bandit's `U (A)` puts U on the group and A in the lair.
+    """
 
     extra_gp: int = Field(default=0, ge=0)
-    """Gold pieces the stat block adds on top of the rolled treasure."""
+    """Gold pieces the stat block adds on top of the rolled treasure, into the lair hoard."""
 
     multiplier: int = Field(default=1, ge=1)
-    """What the rolled treasure is multiplied by. 1 unless the SRD says otherwise."""
+    """How many times the whole listed generation repeats, as with a noble's `V × 3`.
+
+    1 unless the SRD says otherwise.
+    """
 
     special: tuple[str, ...] = ()
     """Valuables that are not treasure types at all, like an elephant's tusks or a bee's honey. Nothing generates these;

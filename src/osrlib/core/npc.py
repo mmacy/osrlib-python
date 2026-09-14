@@ -41,13 +41,14 @@ Typical usage:
 from osrlib.core.monsters import IdAllocator
 from osrlib.core.npc import NPC_PARTY_STREAM, generate_npc_party
 from osrlib.core.rng import RngStreams
+from osrlib.core.treasure import TREASURE_STREAM
 
 streams = RngStreams(master_seed=5)
 party = generate_npc_party(
     "basic",
     count=3,
     npc_stream=streams.get(NPC_PARTY_STREAM),
-    treasure_stream=streams.get("treasure"),
+    treasure_stream=streams.get(TREASURE_STREAM),
     allocator=IdAllocator(),
 )
 print(party.alignment.value)
@@ -304,7 +305,7 @@ def _roll_expert_items(
         instances = generate_magic_item(category, tier="expert", stream=treasure_stream, allocator=allocator)
         for instance in instances:
             if not _item_usable(member, definition, instance):
-                continue  # unusable rolls are ignored, no re-roll (RAW)
+                continue  # An item nobody can use is dropped, with no re-roll, as written.
             member.inventory.items.append(instance)
             _maybe_equip_upgrade(member, definition, instance)
 
@@ -325,11 +326,16 @@ def generate_npc_party(
 
     The band shares one alignment, rolled once, so their reaction to the players and their
     vulnerability to alignment-gated wards have a single answer. Then each member in turn gets a
-    class and a level from the SRD's table, ability scores rolled 3d6 in order, hit points rolled
-    per level through [`level_up`][osrlib.core.classes.level_up], experience set to the threshold
-    for their level, an equipment kit their class can use, and, if they cast, spells prepared at
-    random from their class's list. An Expert band wears heavier armour and each member gets a 5%
-    chance per level at each kind of magic item they could use.
+    class and a level from the SRD's table, ability scores rolled 3d6 in order, hit points,
+    experience set to the threshold for their level, an equipment kit their class can use, and, if
+    they cast, spells prepared at random from their class's list. An Expert band wears heavier
+    armour and each member gets a 5% chance per level at each kind of magic item they could use.
+
+    Hit points come in two parts, which matters if you are counting draws. The first level's hit
+    die is rolled here, directly, with the CON modifier added and the total floored at 1. Every
+    level after the first goes through [`level_up`][osrlib.core.classes.level_up], one call per
+    level, and each of those calls takes a draw only when that level's row adds a hit die. An
+    Expert dwarf rolled at level 11 or 12 passes name level, so its top levels take no draw.
 
     Members are not checked against their class's ability requirements, because the SRD rolls their
     class before their scores. An elf here may have an INT a player character would not be allowed.
@@ -359,13 +365,14 @@ def generate_npc_party(
         from osrlib.core.monsters import IdAllocator
         from osrlib.core.npc import NPC_PARTY_STREAM, generate_npc_party, npc_defeat_xp
         from osrlib.core.rng import RngStreams
+        from osrlib.core.treasure import TREASURE_STREAM
 
         streams = RngStreams(master_seed=5)
         party = generate_npc_party(
             "basic",
             count=2,
             npc_stream=streams.get(NPC_PARTY_STREAM),
-            treasure_stream=streams.get("treasure"),
+            treasure_stream=streams.get(TREASURE_STREAM),
             allocator=IdAllocator(),
         )
         print(party.kind, party.alignment.value)
