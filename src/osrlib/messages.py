@@ -1,15 +1,42 @@
-"""The default English message formatter.
+"""Turn an event into a line of English.
 
-[`format_message`][osrlib.messages.format_message] renders any [`Event`][osrlib.core.events.Event]
-to a plain English line — pure string templating keyed by the event's outcome-bearing
-`code`, no I/O. It is a total function: an event whose code has no template formats to
-the code string itself rather than raising, so a transcript stays printable even when
-it holds event types this version of the library doesn't recognize.
+osrlib never puts prose in an event. A [`GameSession`][osrlib.crawl.session.GameSession]
+answers a command with typed events made of structured facts, like who attacked, what they
+rolled, and how much damage landed, and your front end decides what a player reads. This
+module is the answer that comes in the box.
+[`format_message`][osrlib.messages.format_message] takes an event and returns a plain
+English sentence, so you can print a session's output before you've written any rendering of
+your own.
 
-Templates reference what the event carries: entity IDs, and — where an event resolves
-one at emission, as the quest and objective events do — an authored display name. A
-front end or narrator that wants richer prose resolves IDs itself and localizes
-freely; this formatter exists so a bare kernel transcript is readable without one.
+The event's `code` decides what you get. It's a dotted name like `combat.attack.hit` that
+says which outcome the event records. Every event class declares the codes it can use, and
+this module keeps one template per code.
+[The message-code reference][message-codes] lists every code that ships, the event class
+behind it, the event's default visibility, and the template itself. Read that page when
+you're deciding which codes your front end handles differently.
+
+Use this formatter for a log, a transcript, a debugging view, or the first working version
+of a game. Replace it when you want wording of your own, and you replace the whole of it:
+read the event's fields and write your own line, or hand the event to a narrator. There's
+nothing here to configure, no way to register a template, and no translation, because a
+front end that cares about wording already has the structured fields it needs to write any
+wording it likes. Entity ids come out as ids, since only your game knows the name behind
+`orc-1`. The quest and objective events are the exception, and include a display name the
+adventure's author wrote.
+
+Formatting is string work. It reads no files, makes no calls, and changes nothing, so it's
+safe on any event from any source.
+
+Typical usage:
+
+```python
+from osrlib.core.events import DamageDealtEvent
+from osrlib.messages import format_message
+
+event = DamageDealtEvent(target_id="orc-1", attacker_id="hild", amount=5)
+print(format_message(event))
+# orc-1 takes 5 damage from hild.
+```
 """
 
 from collections.abc import Callable
@@ -101,8 +128,8 @@ def _turning(event: UndeadTurnedEvent, outcome: str) -> str:
     return f"{event.caster_id} presents the holy symbol (rolled {event.roll}{pool}) — {outcome}."
 
 
-# The registry dispatches on the event's `code`, so each template statically knows
-# its concrete event class — `Any` is the honest typing of code-keyed dispatch.
+# The registry dispatches on the event's `code`, so each template already knows its concrete
+# event class. `Any` is the accurate annotation for dispatch keyed on a string.
 _TEMPLATES: dict[str, Callable[[Any], str]] = {
     "combat.initiative.rolled": _initiative,
     "combat.attack.hit": _attack_hit,
@@ -351,8 +378,8 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
     "session.journal.entry_added": lambda event: f"Journal: {event.text}",
     "session.note.recorded": lambda event: f"Referee note: {event.text}",
     "session.quest.activated": lambda event: f"A new quest: {event.name}.",
-    # The quest and objective names fall back to the ids so an event logged before
-    # the name fields existed still formats — the engine always fills them.
+    # The quest and objective names fall back to the ids, so an event that doesn't include
+    # them still formats. The session fills them in when it emits these events.
     "session.quest.objective_revealed": lambda event: (
         f"Quest {event.quest_name or event.quest_id}: a new objective, {event.name or event.objective_id}."
     ),
@@ -365,30 +392,49 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
 
 
 def format_message(event: Event) -> str:
-    """Format an event as a default English message.
+    """Format an event as a line of default English.
 
-    Total: an event whose code has no template formats to the code string itself —
-    never raises — so logs carrying event types this function doesn't recognize stay
-    printable.
+    Call it on each event in a [`CommandResult`][osrlib.crawl.commands.CommandResult]'s
+    `events`, or on each entry in a session's event log, to get a transcript a person can
+    read. Filter on the event's `visibility` first if you're showing the result to a player,
+    so referee-only events stay hidden.
 
-    An event carrying a non-empty `narrative` field — the authored beat a gate's
-    success rides — has that text appended verbatim after the templated line. This
-    formatter is the library's deterministic renderer, and authored text is shown
-    exactly as written.
+    On an event osrlib built, it doesn't raise and it doesn't return an empty string. An
+    event whose code has no template comes back as the code itself, so a log written by a
+    newer osrlib than the one reading it still prints, one plain line per event, instead of
+    failing part way through. An event you assemble by hand can still raise `AttributeError`,
+    because a template reads the fields its own event class declares: give an event a code
+    from another class and the field that template wants isn't there.
+
+    Some events include a `narrative`, the sentence an adventure's author wrote for that
+    moment. When one is there it's appended to the templated line, word for word, because the
+    wording of authored text belongs to the author.
+
+    Write your own formatter as soon as you want control of the wording. This one prints
+    entity ids as ids, writes only English, and has no hook for changing a template. Every
+    fact it uses is a typed field on the event, so your version reads the same fields and
+    uses your own game's names.
 
     Args:
-        event: The event to format.
+        event: Any event, from a command result, a session's event log, or a save you loaded.
 
     Returns:
-        The formatted English line, or the event's code when no template exists.
+        One line, with no trailing newline: the template for the event's code, followed by
+            the event's `narrative` when it has one, or the bare code when no template
+            matches.
 
     Examples:
         ```python
-        from osrlib.core.events import DamageDealtEvent
+        from osrlib.core.events import DamageDealtEvent, Event, Visibility
         from osrlib.messages import format_message
 
         event = DamageDealtEvent(target_id="orc-1", attacker_id="hild", amount=5)
-        assert format_message(event) == "orc-1 takes 5 damage from hild."
+        print(format_message(event))
+        # orc-1 takes 5 damage from hild.
+
+        unknown = Event(code="future.thing.happened", visibility=Visibility.PLAYER)
+        print(format_message(unknown))
+        # future.thing.happened
         ```
     """
     template = _TEMPLATES.get(event.code)
