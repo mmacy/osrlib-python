@@ -25,12 +25,14 @@ from these templates instead, the way
 [`spawn_monster`][osrlib.core.monsters.spawn_monster] spawns a
 [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] from a template.
 
-The data files ship inside this package, built from the Old-School Essentials SRD before
-release, and a loader reads only what the installed package includes. They aren't the
-extension point. To add content of your own, construct the frozen model yourself and pass it
-to the same kernel functions the shipped entries go to, and bundle a custom monster or item
-template with the [`Adventure`][osrlib.crawl.adventure.Adventure] that uses it. A file
-that's missing, or that fails model validation, raises
+The data files ship inside this package, and a loader reads only what the installed package
+includes. The project's compiler generates them from the Old-School Essentials SRD before
+each release, and nobody edits them by hand, so a patch you apply to a JSON file in an
+installed copy is gone at the next upgrade. They aren't the extension point. To add content
+of your own, construct the frozen model yourself and pass it to the same kernel functions the
+shipped entries go to, and bundle a custom monster or item template with the
+[`Adventure`][osrlib.crawl.adventure.Adventure] that uses it. A file that's missing, or that
+fails model validation, raises
 [`ContentValidationError`][osrlib.errors.ContentValidationError] rather than returning a
 half-built catalog.
 
@@ -133,8 +135,9 @@ class LanguageCatalog(BaseModel):
     languages: tuple[Language, ...]
     """Every language in the catalog, in the order the data file lists them.
 
-    Common comes first, then the languages a high-INT character may choose. Filter on
-    [`Language.choosable`][osrlib.data.Language.choosable] to get the choosable ones.
+    The shipped file is in alphabetical order by id, and Common sits among the rest. Filter
+    on [`Language.choosable`][osrlib.data.Language.choosable] for the ones a high-INT
+    character may take.
     """
 
     @model_validator(mode="after")

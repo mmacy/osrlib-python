@@ -399,9 +399,12 @@ def format_message(event: Event) -> str:
     read. Filter on the event's `visibility` first if you're showing the result to a player,
     so referee-only events stay hidden.
 
-    It doesn't raise, and it doesn't return an empty string. An event whose code has no
-    template comes back as the code itself, so a log written by a newer osrlib than the one
-    reading it still prints, one plain line per event, instead of failing part way through.
+    On an event osrlib built, it doesn't raise and it doesn't return an empty string. An
+    event whose code has no template comes back as the code itself, so a log written by a
+    newer osrlib than the one reading it still prints, one plain line per event, instead of
+    failing part way through. An event you assemble by hand can still raise `AttributeError`,
+    because a template reads the fields its own event class declares: give an event a code
+    from another class and the field that template wants isn't there.
 
     Some events include a `narrative`, the sentence an adventure's author wrote for that
     moment. When one is there it's appended to the templated line, word for word, because the

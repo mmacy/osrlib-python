@@ -15,8 +15,11 @@ nothing but the master seed, the party as it stood before play began, the advent
 ruleset, and the list of commands the player issued, and runs the whole game again from the
 first command. Because every random draw in osrlib comes from a seeded stream, the second
 run lands on the same rolls as the first, and the session it produces matches the one a load
-of the same game produces, field for field. Replay is for auditing a game, reproducing a bug
-report, or checking that a rules change moved nothing it shouldn't have.
+of the same game produces, field for field. That match depends on the party document being
+the one you took before any session touched the party, because
+[`GameSession.new`][osrlib.crawl.session.GameSession.new] assigns the member ids itself.
+Replay is for auditing a game, reproducing a bug report, or checking that a rules change
+moved nothing it shouldn't have.
 
 A save contains the session's whole state: the party, the adventure content, the explored
 dungeon, the clock, the active effects, the spawned monsters and NPCs, flags, fired
@@ -185,8 +188,12 @@ def session_state(session: GameSession, *, include_event_log: bool = True) -> di
     Call `save_game` instead whenever you mean to store the result, because a payload with no
     envelope has no version stamps, and nothing can tell later which osrlib wrote it.
 
-    Nothing on the session changes, and the result shares no mutable structure with it, so
-    you can keep it, edit it, and serialize it whenever you like.
+    Nothing on the session changes, and the dicts and lists the session's own models produce
+    are fresh, so you can keep the result, edit it, and serialize it whenever you like. One
+    part is shared: an event log entry that arrived as a raw dict, which
+    [`load_game`][osrlib.persistence.load_game] keeps for an event type this osrlib doesn't
+    recognize, goes into the payload by reference, and editing it edits the session's entry
+    too.
 
     Args:
         session: The session to serialize. It may be in any mode, mid-encounter or
