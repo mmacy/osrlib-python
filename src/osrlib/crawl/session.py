@@ -688,8 +688,10 @@ class GameSession:
         """Turns since the last wandering check. Reaching the level's interval fires the check and
         resets this."""
         self.noise_since_check = False
-        """Whether the party has made noise since the last wandering check, like failing to
-        force a door. Noise raises the next check's chance by one and then clears."""
+        """Whether the party has made noise since the last wandering check, which any attempt to
+        force a door does, whether or not the door opens. Noise raises the next check's chance by
+        one and then clears. A failed attempt also alerts the area beyond the door, which is what
+        denies the party surprise there."""
         self.sleep_count = 0
         """How many nights or days the party has slept through. Preparing spells needs a sleep the
         caster hasn't already prepared from."""
