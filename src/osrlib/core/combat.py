@@ -306,9 +306,11 @@ class AttackContext(BaseModel):
     distance_feet: int | None = None
     """How far apart attacker and defender are.
 
-    `None` states nothing, which resolves as melee at reach with no range-band modifier. A
-    distance over [`MELEE_REACH_FEET`][osrlib.core.combat.MELEE_REACH_FEET] makes a
-    melee-and-missile weapon a missile use, and makes a melee-only attack a rejection.
+    `None` states nothing. A melee weapon, and a weapon that's both melee and missile, then
+    resolve as melee at reach. A missile-only weapon resolves as a missile use with no
+    range-band modifier, because it can't be anything else. A distance over
+    [`MELEE_REACH_FEET`][osrlib.core.combat.MELEE_REACH_FEET] makes a melee-and-missile
+    weapon a missile use, and makes a melee-only attack a rejection.
     """
 
     situational_modifier: int = 0
@@ -462,8 +464,10 @@ class AttackRollResult(BaseModel):
     auto: bool = False
     """Whether the hit needed no roll.
 
-    That happens against a helpless defender in melee, and against a defender the rules hit
-    without a roll. The roll fields are all `None` when this is true, and no draw was taken.
+    That happens in melee against a defender that's paralysed or asleep, and against any
+    defender whose `armour_class` is `None`, which is how a monster template says no hit
+    roll is required. Green slime and yellow mould are the two that do. The roll fields are
+    all `None` when this is true, and no draw was taken.
     """
 
     roll: int | None = None
@@ -876,8 +880,9 @@ def attack_facet(attack: Attack) -> WeaponTemplate | CombatFacet | None:
 
     Returns:
         The facet with the dice, qualities, and ranges. `None` for an unarmed attack, a
-            monster's natural attack, and a gear item with no fighting stats, none of which
-            has a facet to return.
+            monster's natural attack, a gear item with no fighting stats, and a magic item
+            whose template names no base weapon, which is most of them: armour, rings,
+            potions, and the rest. None of those has a facet to return.
 
     Examples:
         ```python
@@ -1272,8 +1277,11 @@ def attack_roll(
     armour class takes its own adjustments the same way, so a shield doesn't count from
     behind and an ally's ward does.
 
-    A helpless defender, meaning paralysed or asleep, is hit automatically in melee: no
-    roll is taken and no draw is consumed. So is a defender the rules hit without a roll.
+    Two defenders are hit automatically, with no roll taken and no draw consumed: one
+    that's paralysed or asleep and struck in melee, and one whose `armour_class` is `None`,
+    which is how a monster template says no hit roll is required. Green slime and yellow
+    mould are the two monsters that say it.
+
     A natural 20 always hits and a natural 1 always misses. The target number comes from
     the attack matrix, or from unclamped `THAC0 − AC` under the `thac0_arithmetic`
     ruleset flag.
@@ -1555,8 +1563,9 @@ def damage_roll(
             wight's touch, returns a total of 0, because its effect isn't damage.
 
     Raises:
-        ValueError: If the attack is a gear item with no combat facet, like a lantern,
-            which has no damage dice to roll.
+        ValueError: If the attack has no combat facet to roll damage from. That's a gear
+            item with no fighting stats, like a lantern, and a magic item whose template
+            names no base weapon, like a suit of Armour +1.
 
     Examples:
         ```python
@@ -1693,7 +1702,8 @@ def deal_damage(
     and never take a die below 1, so a source that rolled no dice has nothing to reduce.
     Hit points then fall, floored at 0. Fire and acid against a regenerating monster whose
     regeneration they block also accrue in its non-regenerable ledger, capped at its
-    maximum, and that monster is permanently dead only when the ledger alone reaches the
+    maximum. Such a monster dies permanently only when its regeneration names a `revive`
+    entry, meaning it's the kind that gets back up, and the ledger alone reaches the
     maximum. At 0 hit points the target dies, and a destructive source then destroys what
     it carried.
 
@@ -1715,8 +1725,10 @@ def deal_damage(
             kill a target carrying magic items.
 
     Returns:
-        The damage, hit point, and death events, in order, ready to append to a session's
-            log.
+        The events in order, ready to append to a session's log: `DamageDealtEvent`, then
+            `HitPointsReportedEvent`, then on a killing blow the death events, and last an
+            `EquipmentDestroyedEvent` when a destructive source killed a target that was
+            carrying something.
 
     Examples:
         ```python
@@ -1958,8 +1970,11 @@ def resolve_attack(
         context: The situation you assert. `AttackContext()` is the plain melee case.
         ruleset: The ruleset in play.
         stream: The stream every draw in the resolution comes from, conventionally
-            [`COMBAT_STREAM`][osrlib.core.combat.COMBAT_STREAM]. A miss costs one draw, a
-            hit costs the attack roll plus the damage dice.
+            [`COMBAT_STREAM`][osrlib.core.combat.COMBAT_STREAM]. An automatic hit costs no
+            draw. A miss, an absorbed hit, a sleeping defender killed by a blade, and an
+            unlit oil flask each cost the attack roll alone. An ordinary hit costs the
+            attack roll plus the damage dice, and the extra dice on top of those when the
+            attacker is under *striking*.
         clock: The game clock. When passed, the damage stamps the defender's
             `last_damaged_round`, which is what delays a regenerating monster's healing.
 
@@ -2394,7 +2409,8 @@ def check_morale(subject: str, score: int, *, modifier: int = 0, stream: RngStre
     Args:
         subject: The side or group key, which appears in the event so a listener can name
             the side whose nerve broke.
-        score: The morale score, from 2 to 12.
+        score: The morale score, which is 2 to 12 on a stat block. Any integer is accepted:
+            2 or below is exempt and never fights, 12 or above is exempt and always does.
         modifier: The situational adjustment, clamped to ±2 however large a value you
             pass.
         stream: The stream the 2d6 comes from, conventionally
@@ -2551,7 +2567,9 @@ class MoraleTracker(BaseModel):
         Args:
             subject: The side or group key. The tracker counts per subject, so two groups
                 of goblins with different keys are counted apart.
-            score: The morale score, from 2 to 12.
+            score: The morale score, which is 2 to 12 on a stat block. Any integer is
+                accepted, and 2 or below and 12 or above are exempt, as in
+                [`check_morale`][osrlib.core.combat.check_morale].
             modifier: The situational adjustment, clamped to ±2.
             stream: The stream the 2d6 comes from, conventionally
                 [`COMBAT_STREAM`][osrlib.core.combat.COMBAT_STREAM]. No draw is taken
@@ -2677,18 +2695,21 @@ def morale_modifier(combatant: Any) -> int:
 
     Examples:
         ```python
-        from osrlib.core.combat import check_morale, morale_modifier
+        from osrlib.core.combat import COMBAT_STREAM, check_morale, morale_modifier
         from osrlib.core.monsters import MONSTER_SPAWN_STREAM, spawn_monster
         from osrlib.core.rng import RngStreams
         from osrlib.data import load_monsters
 
-        spawn = RngStreams(master_seed=3).get(MONSTER_SPAWN_STREAM)
+        streams = RngStreams(master_seed=3)
+        spawn = streams.get(MONSTER_SPAWN_STREAM)
         goblin = spawn_monster(load_monsters().get("goblin"), id="goblin-1", stream=spawn)
         assert morale_modifier(goblin) == 0  # nothing has blessed or blighted it
 
         outnumbered = -1
         adjustment = outnumbered + morale_modifier(goblin)
-        assert check_morale("goblins", 7, modifier=adjustment, stream=spawn).modifier == -1
+        checked = check_morale("goblins", 7, modifier=adjustment, stream=streams.get(COMBAT_STREAM))
+        assert checked.modifier == -1
+        assert checked.roll == 8 and checked.held  # 8 - 1 is within the morale score of 7
         ```
     """
     return modifier_total(combatant, "morale_bonus")
@@ -3026,9 +3047,12 @@ def drain_monster_hd(monster: Any, *, levels: int = 1, stream: RngStream) -> lis
     two for you from the draining monster's tag. This mutates the monster.
 
     The drain works the way character drain does. The instance re-derives its THAC0 and
-    saving throws from the reduced Hit Dice, and loses a rolled d8, minimum 1, from both
-    its maximum and its current hit points per die drained. A monster drained below 1 Hit
-    Die dies, and the killing die counts as lost in the event.
+    saving throws from the reduced Hit Dice, and loses a rolled d8 from both its maximum
+    and its current hit points per die drained. Neither total falls below 1, so a monster
+    is never drained to death by hit point loss.
+
+    A monster already at 1 Hit Die is killed instead. No die is rolled for that step, no
+    Hit Dice come off, and the event counts the last one as lost.
 
     Args:
         monster: The drained [`MonsterInstance`][osrlib.core.monsters.MonsterInstance].
@@ -3037,10 +3061,14 @@ def drain_monster_hd(monster: Any, *, levels: int = 1, stream: RngStream) -> lis
         stream: The stream the lost-hit-point d8s come from. Drain reverses advancement,
             so it draws from
             [`ADVANCEMENT_STREAM`][osrlib.core.character.ADVANCEMENT_STREAM] rather than
-            the combat stream. One draw per die actually drained.
+            the combat stream. One draw per Hit Die actually removed, and none for the step
+            that kills.
 
     Returns:
-        The drain, hit point, and death events.
+        A surviving monster gets a `LevelDrainedEvent` coded `combat.drain.drained` and a
+            `HitPointsReportedEvent`. A killed one gets a `LevelDrainedEvent` coded
+            `combat.drain.slain` and then the death events, which end with their own
+            `HitPointsReportedEvent` reporting 0.
 
     Examples:
         ```python
@@ -3487,7 +3515,10 @@ def resolve_breath(
             `last_damaged_round`.
 
     Returns:
-        The save and damage events, per target in order.
+        The events per target, in the order the targets were given. A target whose defenses
+            absorb the breath gets a `DamageAbsorbedEvent` and never saves. Any other target
+            gets its `SavingThrowRolledEvent`, then the damage and death events when damage
+            lands.
 
     Raises:
         ValueError: If the monster has no breath weapon, or its daily uses are spent.
