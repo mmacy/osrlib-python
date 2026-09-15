@@ -38,11 +38,14 @@ def _crossref(cls: type) -> str:
     return f"[`{cls.__name__}`][{cls.__module__}.{cls.__name__}]"
 
 
-# Matches a mkdocstrings cross-reference, backticked or not: `` [`Name`][mod.path.Name] ``
-# or `[Name][mod.path.Name]`. The backreference keeps the backticks (or their absence) on
-# the replacement, so `` [`Name`][...] `` becomes `` `Name` `` and `[Name][...]` becomes
-# plain `Name`.
-_CROSSREF = re.compile(r"\[(`?)([^\[\]]+?)\1\]\[[A-Za-z_][\w.]*\]")
+# Matches a markdown reference, backticked or not: `` [`Name`][mod.path.Name] ``, a
+# mkdocstrings cross-reference, or `[the spell id index][spells-index]`, an autorefs
+# heading link. Neither resolves inside a fenced code block, so both are markup a JSON
+# Schema description has to shed; the label itself can be any run of non-space,
+# non-bracket characters, hyphens included. The backreference keeps the backticks (or
+# their absence) on the replacement, so `` [`Name`][...] `` becomes `` `Name` `` and
+# `[some text][...]` becomes plain `some text`.
+_CROSSREF = re.compile(r"\[(`?)([^\[\]]+?)\1\]\[[^\]\s]+\]")
 
 
 def _plain_prose(text: str) -> str:
@@ -89,11 +92,22 @@ _FIELD_DOC_CACHE: dict[str, dict[str, dict[str, str]]] = {}
 
 
 def _field_description(cls: type, field_name: str) -> str:
-    """The prose for one property, from the nearest ancestor that documents it."""
+    """The prose for one property, from the nearest ancestor that documents it.
+
+    A class with no locatable source file (a dynamically built one, say) simply has no
+    attribute docstring to read, so it is skipped rather than raising: the caller falls
+    back to whatever description the schema already carried.
+    """
     for klass in cls.__mro__:
         if klass is BaseModel or not issubclass(klass, BaseModel):
             continue
-        doc = _module_field_docstrings(inspect.getsourcefile(klass)).get(klass.__name__, {}).get(field_name)
+        try:
+            filename = inspect.getsourcefile(klass)
+        except TypeError:
+            filename = None
+        if filename is None:
+            continue
+        doc = _module_field_docstrings(filename).get(klass.__name__, {}).get(field_name)
         if doc:
             return _plain_prose(doc)
     return ""
@@ -138,13 +152,16 @@ def _describe_schema(schema: dict, registry: dict[str, type], cls: type | None =
     Covers the schema's own top level (when `cls` names the single class it describes) and
     every `$defs` entry (a discriminated union's variants, and any nested model or enum they
     reference), so this handles both a single command's or event's own schema and the combined
-    `commands.json` / `events.json` artifacts with one function.
+    `commands.json` / `events.json` artifacts with one function. A property keeps whatever
+    description the schema already gave it (from `Field(description=...)`, or from an
+    attribute docstring the `ast` reader can't read, such as an f-string) when no attribute
+    docstring is found for it, rather than being overwritten with an empty string.
     """
     if cls is not None:
         if "description" in schema:
             schema["description"] = _plain_prose(schema["description"])
         for field_name, prop in schema.get("properties", {}).items():
-            prop["description"] = _field_description(cls, field_name)
+            _set_description(prop, _field_description(cls, field_name))
     for name, definition in schema.get("$defs", {}).items():
         if "description" in definition:
             definition["description"] = _plain_prose(definition["description"])
@@ -152,8 +169,21 @@ def _describe_schema(schema: dict, registry: dict[str, type], cls: type | None =
         if member is None:
             continue
         for field_name, prop in definition.get("properties", {}).items():
-            prop["description"] = _field_description(member, field_name)
+            _set_description(prop, _field_description(member, field_name))
     return schema
+
+
+def _set_description(prop: dict, description: str) -> None:
+    """Give a property its attribute-docstring prose, or clean up what it already had.
+
+    A found attribute docstring wins outright. Otherwise the property keeps whatever
+    description pydantic already gave it (from `Field(description=...)`, say), with any
+    cross-reference markup in that description reduced the same way.
+    """
+    if description:
+        prop["description"] = description
+    elif "description" in prop:
+        prop["description"] = _plain_prose(prop["description"])
 
 
 # Every model and enum reachable from a command's or an event's own fields: the closure that
