@@ -1971,3 +1971,46 @@ class TestFatigueReachesEveryUnrestedMember:
         assert gained and gained[-1].code == "exploration.fatigue.gained"
         assert all(len(session.ledger.active_on(member.id, exploration.FATIGUE_KIND)) == 1 for member in members)
         assert exploration.check_fatigue(session) == []
+
+
+class TestDiscoveringASecretDoorRefundsBothCells:
+    """A secret door is one edge shared by two cells, and a `room_traps` search from either cell covers
+    it, so discovering the door refunds the `room_traps` attempts of both cells, whichever side the
+    discovery came from and however it came (a search or `SetDoorState`)."""
+
+    SEED = 3  # member 0002's secret-door search from (3,1) finds the east door
+
+    @staticmethod
+    def searched_far_side_then_stand_near(seed: int) -> GameSession:
+        session = quiet_session(seed=seed)
+        entered(session)
+        place(session, (4, 1), facing=Direction.WEST)  # the corridor beyond room_a's secret door
+        assert session.execute(Search(character_id="character-0001", kind="room_traps")).accepted
+        place(session, (3, 1), facing=Direction.EAST)  # inside room_a, the door's other side
+        return session
+
+    @pytest.mark.xfail(reason="chunk: refund-both-cells")
+    def test_a_search_from_the_near_side_refunds_the_far_side(self):
+        session = self.searched_far_side_then_stand_near(self.SEED)
+        found = session.execute(Search(character_id="character-0002", kind="secret_doors"))
+        assert "secret_door:east" in next(e for e in found.events if e.code == "exploration.search.found").found
+        place(session, (4, 1), facing=Direction.WEST)
+        again = session.execute(Search(character_id="character-0001", kind="room_traps"))
+        assert again.accepted, [rejection.code for rejection in again.rejections]
+
+    @pytest.mark.xfail(reason="chunk: refund-both-cells")
+    def test_a_referee_discovery_refunds_the_far_side(self):
+        session = self.searched_far_side_then_stand_near(self.SEED)
+        assert session.execute(
+            SetDoorState(dungeon_id="delve", level_number=1, x=3, y=1, direction=Direction.EAST, discovered=True)
+        ).accepted
+        place(session, (4, 1), facing=Direction.WEST)
+        again = session.execute(Search(character_id="character-0001", kind="room_traps"))
+        assert again.accepted, [rejection.code for rejection in again.rejections]
+
+    def test_a_cell_beyond_the_door_that_never_searched_is_unaffected(self):
+        session = self.searched_far_side_then_stand_near(self.SEED)
+        assert session.execute(
+            SetDoorState(dungeon_id="delve", level_number=1, x=3, y=1, direction=Direction.EAST, discovered=True)
+        ).accepted
+        assert session.dungeon_state.search_attempts.get("cell:delve:1:3,1:secret_doors", []) == []
