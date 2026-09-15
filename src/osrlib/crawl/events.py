@@ -1382,6 +1382,14 @@ class HealingPurchasedEvent(Event):
     """Which service was bought, as the key the town's price list uses."""
     cost_gp: int
     """What it cost, in gold pieces."""
+    payers: tuple[str, ...] = ()
+    """Whose purses paid, in the order they were charged: the treated member first, then the rest
+    of the party in marching order, dead members included, each purse emptied before the next is
+    touched, until the fee was covered. Empty only on a log written before the temple charged the
+    party as a whole."""
+    payments_gp: tuple[int, ...] = ()
+    """What each purse in `payers` paid, in gold pieces and in the same order. The entries sum to
+    `cost_gp`."""
 
 
 class FlagSetEvent(Event):
