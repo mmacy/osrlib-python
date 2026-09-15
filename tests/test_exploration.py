@@ -983,7 +983,7 @@ class TestDoorTraps:
         result = session.execute(Search(character_id="character-0001", kind="room_traps"))
         assert result.accepted
         completed = next(event for event in result.events if event.code == "exploration.search.found")
-        assert "room_trap:blade_room" in completed.found
+        assert "room_trap:blade_room:east" in completed.found
         assert self.BLADE in session.dungeon_state.found_traps
         # The vault's trap sits behind the undiscovered secret door on this same
         # cell: finding it would leak the door, so it stays hidden.
@@ -994,7 +994,7 @@ class TestDoorTraps:
         exploration._materialize_door(session, Direction.SOUTH).discovered = True
         result = session.execute(Search(character_id="character-0001", kind="room_traps"))
         completed = next(event for event in result.events if event.code == "exploration.search.found")
-        assert set(completed.found) == {"room_trap:blade_room", "room_trap:vault"}
+        assert set(completed.found) == {"room_trap:blade_room:east", "room_trap:vault:south"}
         assert "blades:1:vault" in session.dungeon_state.found_traps
 
     def test_a_forced_door_springs_the_trap_on_the_forcer(self):
