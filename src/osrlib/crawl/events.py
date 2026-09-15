@@ -1364,7 +1364,9 @@ class HealingPurchasedEvent(Event):
     """A temple service was paid for and cast.
 
     Emitted by [`PurchaseHealing`][osrlib.crawl.commands.PurchaseHealing] in town,
-    followed by the kernel events of the spell itself.
+    followed by the kernel events of the spell itself. The temple charges the party,
+    so `payers` and `payments_gp` say which purses covered the fee and what each one
+    put in.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"town.healing.purchased"})
@@ -1377,7 +1379,8 @@ class HealingPurchasedEvent(Event):
     visibility: Visibility = Visibility.PLAYER
     """Player visibility: the party bought it."""
     character_id: str
-    """The member the service was cast on, and whose purse paid for it."""
+    """The member the service was cast on. Their purse is charged first, but the party covers
+    whatever is left, so read `payers` for who actually paid."""
     service: str
     """Which service was bought, as the key the town's price list uses."""
     cost_gp: int

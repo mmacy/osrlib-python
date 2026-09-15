@@ -10,6 +10,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- The temple now charges the party for a healing service rather than the patient (#73, part of #108). [`PurchaseHealing`][osrlib.crawl.commands.PurchaseHealing] draws the fee from the treated member's purse first and then from the other members in marching order, dead members included, emptying each purse in whole gold pieces before it touches the next; a party whose purses together fall short is refused with `items.purchase.insufficient_funds` and keeps every coin, the funds check staying the pure pre-phase it was. The old rule made `raise_dead` unbuyable in practice: the patient is a corpse, nothing hands a corpse coin, and a party that splits its treasure never holds 1,500 gp in one purse, so the documented salvage flow — game over, `PlaceParty` to town, raise dead — could not be funded even by a party whose pooled wealth cleared the 1,500 gp fee several times over. [`HealingPurchasedEvent`][osrlib.crawl.events.HealingPurchasedEvent] gains `payers` and `payments_gp`, which name the purses charged and what each one put in, additive within the schema with empty defaults so an older log still parses, and the default English line names the other payers only when the patient could not cover the fee alone. The service names are now one exported type, [`HealingService`][osrlib.crawl.commands.HealingService], which both the command field and the `HEALING_SERVICES` price list use, so the offered list and the accepted list cannot drift apart. No draw sequence changed; the phase 5 milestone golden moved only by the two added event fields.
+
 ### Fixed
 
 ## [1.7.1] - 2026-08-23
