@@ -9,8 +9,6 @@ drifting apart. A view is a snapshot: the session moving on after the view was b
 it.
 """
 
-import pytest
-
 from crawl_fixtures import build_adventure, build_party
 from osrlib.core.clock import TimeUnit
 from osrlib.core.events import Visibility
@@ -55,13 +53,11 @@ def expected_payload(session: GameSession) -> dict:
 
 
 class TestTheRefereeViewIsTyped:
-    @pytest.mark.xfail(reason="chunk: typed-referee-view")
     def test_the_fields_are_the_save_groups_minus_the_withheld_two(self):
         session = played_session()
         assert set(RefereeView.model_fields) == set(expected_payload(session))
         assert "state" not in RefereeView.model_fields
 
-    @pytest.mark.xfail(reason="chunk: typed-referee-view")
     def test_the_view_dumps_as_the_save_does(self):
         session = played_session()
         view = build_referee_view(session)
@@ -71,7 +67,6 @@ class TestTheRefereeViewIsTyped:
         session = played_session()
         assert session.view(Visibility.REFEREE) == build_referee_view(session)
 
-    @pytest.mark.xfail(reason="chunk: typed-referee-view")
     def test_the_groups_are_the_sessions_own_models(self):
         session = played_session()
         view = build_referee_view(session)
@@ -90,7 +85,6 @@ class TestTheRefereeViewIsTyped:
         assert view.command_log[-1].command_type == "spawn_monsters"
         assert [event.code for event in view.event_log] == [event.code for event in session.event_log]
 
-    @pytest.mark.xfail(reason="chunk: typed-referee-view")
     def test_the_view_is_a_snapshot(self):
         session = played_session()
         view = build_referee_view(session)
