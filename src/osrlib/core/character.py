@@ -90,7 +90,7 @@ from osrlib.core.classes import ClassDefinition, SavingThrows
 from osrlib.core.dice import RollResult, roll
 from osrlib.core.effects import ActiveCondition, ActiveModifier
 from osrlib.core.items import Inventory, ItemInstance, equip, movement_rate_feet, purchase, validate_purchase
-from osrlib.core.rng import RngStream
+from osrlib.core.rng import RngStream, StreamName
 from osrlib.core.ruleset import Ruleset
 from osrlib.core.spells import MemorizedSpell, SpellCatalog, caster_profile
 from osrlib.core.validation import Rejection
@@ -118,7 +118,7 @@ __all__ = [
     "validate_starting_spells",
 ]
 
-CHARACTER_CREATION_STREAM = "character_creation"
+CHARACTER_CREATION_STREAM = StreamName.CHARACTER_CREATION
 """The stream key every session uses for creation draws.
 
 A stream key names one independent random-number sequence inside an
@@ -134,7 +134,7 @@ records, for example when you roll throwaway characters beside a live game. Pass
 produced it.
 """
 
-ADVANCEMENT_STREAM = "advancement"
+ADVANCEMENT_STREAM = StreamName.ADVANCEMENT
 """The stream key every session uses for in-play advancement draws.
 
 Pass `streams.get(ADVANCEMENT_STREAM)` as the `stream` argument of
