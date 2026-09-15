@@ -2098,8 +2098,9 @@ def _party_magic(session, by_member, pending_casters, disrupted, acted, state) -
     `magic.cast.disrupted` rather than `magic.cast.fizzled`. Disruption is the blow that landed, and it
     is the outcome the table saw.
 
-    Every other declaration is judged again immediately before it resolves, with the checks it passed at
-    the top of the round, and one that now fails any of them fizzles instead of reaching the kernel.
+    A cast, and a scroll read inside `_resolve_scroll_cast`, is judged again immediately before it resolves,
+    with the checks it passed at the top of the round, and one that now fails any of them fizzles instead of
+    reaching the kernel. A device use and a turning are not judged again.
     """
     events: list[Event] = []
     for member, declaration in by_member.values():
