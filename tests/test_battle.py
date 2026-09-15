@@ -1153,3 +1153,201 @@ class TestAScrollDeclarationIsJudgedAtTheScrollsLevel:
         accepted = session.execute(ResolveBattleRound(declarations=self._declaration(session, scroll, goblins[:1])))
         assert accepted.accepted, [rejection.code for rejection in accepted.rejections]
         assert reader.inventory.magic_item(scroll.instance_id) is None
+
+
+class TestAFormationMoveNeedsEveryDeclarer:
+    """The party moves as one formation and a member cannot leave it (the adaptations register, battle
+    section). A `fighting_withdrawal` or a `retreat` is therefore a legal declaration only when every
+    declarer makes the same one. A round in which some declare it and some do not is refused whole with
+    `battle.declaration.formation_split`, one rejection per defensive move declared, whose params name
+    the `move`, the `declared` members who chose it, and the `others` who did not, each tuple in
+    marching order. The refusal costs no draw, no round, no distance, and no event, as every other
+    illegal declaration costs nothing. `close` is not a formation move in this sense: the first `close`
+    in marching order advances the formation for everyone, so a lone `close` stays legal.
+    """
+
+    @pytest.mark.xfail(reason="chunk: formation-split")
+    @pytest.mark.parametrize("move", ["fighting_withdrawal", "retreat"])
+    def test_a_lone_defensive_move_is_refused_whole(self, move):
+        from osrlib.core.combat import COMBAT_STREAM
+
+        session = battle_session(distance=40)
+        combat_before = session.streams.get(COMBAT_STREAM).export_state()
+        round_before = session.battle.round
+        distance_before = session.encounter.groups[0].distance_feet
+        lone = BattleDeclaration(character_id="character-0001", action="move", move=move)
+        result = session.execute(ResolveBattleRound(declarations=hold_all(session, extra=(lone,))))
+        assert not result.accepted
+        assert result.events == ()
+        split = [rejection for rejection in result.rejections if rejection.code == "battle.declaration.formation_split"]
+        assert len(split) == 1
+        assert split[0].params["move"] == move
+        assert tuple(split[0].params["declared"]) == ("character-0001",)
+        assert tuple(split[0].params["others"]) == ("character-0002", "character-0003", "character-0004")
+        assert session.streams.get(COMBAT_STREAM).export_state() == combat_before
+        assert session.battle.round == round_before
+        assert session.encounter.groups[0].distance_feet == distance_before
+
+    @pytest.mark.xfail(reason="chunk: formation-split")
+    def test_a_majority_does_not_carry_the_minority(self):
+        session = battle_session(distance=40)
+        retreating = tuple(
+            BattleDeclaration(character_id=member_id, action="move", move="retreat")
+            for member_id in ("character-0001", "character-0002", "character-0003")
+        )
+        result = session.execute(ResolveBattleRound(declarations=hold_all(session, extra=retreating)))
+        assert not result.accepted
+        split = [rejection for rejection in result.rejections if rejection.code == "battle.declaration.formation_split"]
+        assert len(split) == 1
+        assert tuple(split[0].params["declared"]) == ("character-0001", "character-0002", "character-0003")
+        assert tuple(split[0].params["others"]) == ("character-0004",)
+        assert session.battle is not None and session.battle.round == 0
+
+    @pytest.mark.xfail(reason="chunk: formation-split")
+    def test_two_defensive_moves_in_one_round_are_refused_once_each(self):
+        session = battle_session(distance=40)
+        first = BattleDeclaration(character_id="character-0001", action="move", move="retreat")
+        second = BattleDeclaration(character_id="character-0002", action="move", move="fighting_withdrawal")
+        result = session.execute(ResolveBattleRound(declarations=hold_all(session, extra=(first, second))))
+        assert not result.accepted
+        split = sorted(
+            (rejection.params["move"], tuple(rejection.params["declared"]), tuple(rejection.params["others"]))
+            for rejection in result.rejections
+            if rejection.code == "battle.declaration.formation_split"
+        )
+        assert split == [
+            ("fighting_withdrawal", ("character-0002",), ("character-0001", "character-0003", "character-0004")),
+            ("retreat", ("character-0001",), ("character-0002", "character-0003", "character-0004")),
+        ]
+
+    def test_every_declarer_withdrawing_moves_the_formation(self):
+        session = battle_session(distance=40)
+        declarations = tuple(
+            BattleDeclaration(character_id=member.id, action="move", move="fighting_withdrawal")
+            for member in session.party.living_members()
+        )
+        result = session.execute(ResolveBattleRound(declarations=declarations))
+        assert result.accepted, [rejection.code for rejection in result.rejections]
+        # The monsters close again in their own block, so read the withdrawal off its event.
+        distances = [event.distance_feet for event in result.events if event.code == "battle.group.moved"]
+        assert any(after > before for before, after in zip([40, *distances], distances, strict=False))
+
+    def test_a_lone_close_stays_legal(self):
+        session = battle_session(distance=40)
+        close = BattleDeclaration(
+            character_id="character-0001", action="move", move="close", target_group_id=group_id(session)
+        )
+        result = session.execute(ResolveBattleRound(declarations=hold_all(session, extra=(close,))))
+        assert result.accepted, [rejection.code for rejection in result.rejections]
+        assert session.encounter.groups[0].distance_feet < 40
+
+    def test_the_only_declarer_may_retreat_alone(self):
+        from osrlib.core.combat import DamageSource, deal_damage
+
+        session = battle_session(distance=40)
+        for member_id in ("character-0002", "character-0003", "character-0004"):
+            deal_damage(session.member(member_id), 99, source=DamageSource())
+        assert [member.id for member in session.party.living_members()] == ["character-0001"]
+        lone = BattleDeclaration(character_id="character-0001", action="move", move="retreat")
+        result = session.execute(ResolveBattleRound(declarations=(lone,)))
+        assert result.accepted, [rejection.code for rejection in result.rejections]
+        assert "battle.group.moved" in [event.code for event in result.events]
+
+
+class TestTheMagicPhaseRechecksADeclaration:
+    """A declaration is judged twice: once when the round is accepted, and again in the magic phase just
+    before it resolves, with the same checks the declaration passed, because the phases before it can
+    change what it was judged on. A cast or scroll read the re-check refuses is not cast and never raises
+    out of the round. The caster loses the memorized copy, or the scroll its spell, exactly as a
+    disruption loses it, and the round reports it with a
+    [`SpellDisruptedEvent`][osrlib.core.events.SpellDisruptedEvent] at code `magic.cast.fizzled` whose
+    `reason` field holds the first rejection code the re-check produced.
+
+    The reachable case is *silence 15' radius*. A creature that passes its save leaves the area anchored
+    on the party's cell (the adaptations register), so an ally's silence that resolves earlier in the
+    same magic phase silences a caster whose declaration was accepted with no silence on the cell.
+    """
+
+    @staticmethod
+    def _round_with_silence_then_missile(seed: int):
+        from osrlib.core.spells import MemorizedSpell, memorize_spells
+        from osrlib.data import load_classes, load_spells
+
+        session = battle_session(count=2, distance=40, seed=seed)
+        if session.mode.value != "battle":
+            return None, None
+        cleric = session.member("character-0003")
+        cleric.level = 4
+        memorize_spells(
+            cleric, load_classes().get("cleric"), load_spells(), [MemorizedSpell(spell_id="silence_15_radius")]
+        )
+        caster = session.member("character-0004")
+        caster.spell_book = ("magic_missile",)
+        memorize_spells(
+            caster, load_classes().get("magic_user"), load_spells(), [MemorizedSpell(spell_id="magic_missile")]
+        )
+        goblin = session.encounter.groups[0].monster_ids[0]
+        silence = BattleDeclaration(
+            character_id="character-0003",
+            action="cast",
+            spell_id="silence_15_radius",
+            spell_mode="creature",
+            targets=(goblin,),
+        )
+        missile = BattleDeclaration(
+            character_id="character-0004",
+            action="cast",
+            spell_id="magic_missile",
+            spell_mode="missiles",
+            targets=(goblin,),
+        )
+        result = session.execute(ResolveBattleRound(declarations=hold_all(session, extra=(silence, missile))))
+        return session, result
+
+    @pytest.mark.xfail(reason="chunk: magic-phase-recheck")
+    def test_a_cast_silenced_by_an_earlier_ally_fizzles_instead_of_resolving(self):
+        from osrlib.core.events import SpellDisruptedEvent
+        from osrlib.crawl import exploration
+
+        fizzled_seeds: list[int] = []
+        resolved_seeds: list[int] = []
+        for seed in range(60):
+            session, result = self._round_with_silence_then_missile(seed)
+            if session is None or not result.accepted:
+                continue
+            caster_events = [event for event in result.events if getattr(event, "caster_id", None) == "character-0004"]
+            silenced = bool(session.ledger.active_on(exploration._cell_ref(session), "silence"))
+            if silenced:
+                fizzles = [event for event in caster_events if event.code == "magic.cast.fizzled"]
+                assert len(fizzles) == 1, [event.code for event in caster_events]
+                fizzle = fizzles[0]
+                assert isinstance(fizzle, SpellDisruptedEvent)
+                assert fizzle.spell_id == "magic_missile"
+                assert fizzle.reason == "magic.cast.silenced_area"
+                assert fizzle.visibility is Visibility.PLAYER
+                assert not any(event.code in ("magic.cast.cast", "magic.cast.no_effect") for event in caster_events)
+                assert not session.member("character-0004").memorized_spells  # lost, as a disruption loses it
+                fizzled_seeds.append(seed)
+            else:
+                assert any(event.code in ("magic.cast.cast", "magic.cast.no_effect") for event in caster_events)
+                assert not any(event.code == "magic.cast.fizzled" for event in caster_events)
+                resolved_seeds.append(seed)
+        assert fizzled_seeds, "no seed anchored the silence on the party's cell"
+        assert resolved_seeds, "no seed let the missile resolve"
+
+    @pytest.mark.xfail(reason="chunk: magic-phase-recheck")
+    def test_the_fizzle_code_is_declared_and_has_a_template(self):
+        from osrlib.core.events import SpellDisruptedEvent
+        from osrlib.messages import format_message
+
+        assert "magic.cast.fizzled" in SpellDisruptedEvent.allowed_codes
+        event = SpellDisruptedEvent(
+            code="magic.cast.fizzled",
+            caster_id="character-0004",
+            spell_id="magic_missile",
+            reason="magic.cast.out_of_range",
+        )
+        assert event.reason == "magic.cast.out_of_range"
+        assert SpellDisruptedEvent(caster_id="character-0004", spell_id="magic_missile").reason is None
+        message = format_message(event)
+        assert message and message != event.code and "magic_missile" in message
