@@ -442,3 +442,18 @@ class TestPersistence:
         assert not restored.execute(PlaceParty(location={"kind": "town"})).accepted
         assert restored.execute(SetFlag(key="epilogue", value="told")).accepted
         assert restored.mode is SessionMode.VICTORY
+
+
+class TestATrapSlideSaysSo:
+    @pytest.mark.xfail(reason="chunk: event-provenance")
+    def test_a_chute_arrival_is_via_trap(self):
+        session = GameSession.new(build_party(), build_chute_adventure(), seed=4)
+        assert session.execute(EnterDungeon(dungeon_id="shaft")).accepted
+        result = session.execute(MoveParty(direction=Direction.EAST))
+        assert result.accepted
+        arrival = next(
+            event
+            for event in result.events
+            if getattr(event, "code", None) == "exploration.location.entered" and event.location_kind == "level"
+        )
+        assert (arrival.via, arrival.transition_ref) == ("trap", None)

@@ -217,6 +217,17 @@ class LocationEnteredEvent(Event):
     opens only for a key. This is content rather than prose the engine wrote: the event still has
     its code and its facts, and [`format_message`][osrlib.messages.format_message] appends this line
     after the templated one."""
+    via: str | None = None
+    """How the party got there, on level and dungeon entries: the kind of the transition it took
+    (`"stairs_down"`, `"stairs_up"`, `"trapdoor"`, or `"chute"`), `"trap"` for a trap that dropped
+    the party through the floor, `"entrance"` for [`EnterDungeon`][osrlib.crawl.commands.EnterDungeon],
+    and `"placed"` for [`PlaceParty`][osrlib.crawl.commands.PlaceParty]. `None` on area and town
+    entries, and on a log written before the engine stated it."""
+    transition_ref: str | None = None
+    """The cell of the authored transition the party took, as
+    [`cell_ref`][osrlib.crawl.dungeon.cell_ref] gives it, so a consumer can find the
+    [`TransitionSpec`][osrlib.crawl.dungeon.TransitionSpec] and the gate on it. Filled on a level or
+    dungeon entry made through [`UseStairs`][osrlib.crawl.commands.UseStairs], `None` otherwise."""
 
 
 class DoorEvent(Event):
@@ -376,8 +387,10 @@ class SearchCompletedEvent(Event):
     `"treasure_traps"` for a treasure feature inspected by a thief."""
     found: tuple[str, ...] = ()
     """What turned up, as references like `"secret_door:north"`, `"room_trap:<area id>"`, or
-    `"construction:<feature id>"`, and empty when nothing did. A found secret door becomes
-    passable, and a found trap no longer springs on the party."""
+    `"construction:<feature id>"`, and empty when nothing did. A room trap found through a door
+    from the searched cell carries the door's direction as a third segment,
+    `"room_trap:<area id>:<direction>"`, and one found inside its own area carries none. A found
+    secret door becomes passable, and a found trap no longer springs on the party."""
 
 
 class TrapEvent(Event):
@@ -417,6 +430,10 @@ class TrapEvent(Event):
     character_id: str | None = None
     """The member who set it off, found it, or removed it, or `None` when the trap fired on the
     party as a whole."""
+    direction: str | None = None
+    """For a trap found through a door from the searched cell, the direction of that door from the
+    cell, as a [`Direction`][osrlib.crawl.dungeon.Direction] value. `None` for a trap found inside
+    its own area, and on every code but `exploration.trap.found`."""
 
 
 class ItemAcquiredEvent(Event):
@@ -451,6 +468,12 @@ class ItemAcquiredEvent(Event):
     coins_gp_value: int = 0
     """The coins acquired, converted to their value in gold pieces, and zero when only items
     changed hands."""
+    origin: str | None = None
+    """Where the goods came from: `"treasure"` for a share of a haul taken with
+    [`TakeTreasure`][osrlib.crawl.commands.TakeTreasure], `"purchase"` for gear bought with
+    [`PurchaseEquipment`][osrlib.crawl.commands.PurchaseEquipment], and `"grant"` for a referee's
+    [`GrantItem`][osrlib.crawl.commands.GrantItem] or [`GrantCoins`][osrlib.crawl.commands.GrantCoins].
+    The engine always fills it; `None` only on a log written before it did."""
 
 
 class ItemConsumedEvent(Event):
