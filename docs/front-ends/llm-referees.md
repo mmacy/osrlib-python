@@ -4,7 +4,7 @@ An LLM-driven referee (a model that reads the game and decides what happens next
 
 ## The schemas are the tool definitions
 
-The reference section ships two raw artifacts alongside its pages: [commands.json](../reference/commands/commands.json) and [events.json](../reference/events/events.json). Each is a complete surface, command or event, as a discriminated-union JSON Schema keyed on `command_type` or `event_type`. They are generated from the same registries the engine executes, so they cannot drift from what a session will actually accept and emit. [The command schema reference](../reference/commands/index.md) and [the event schema reference](../reference/events/index.md) render the same schemas page by page for human readers.
+The reference section ships two raw artifacts alongside its pages: [commands.json](../reference/commands/commands.json) and [events.json](../reference/events/events.json). The command surface is a discriminated-union JSON Schema keyed on `command_type`, and the event surface is one keyed on `event_type`. They are generated from the same registries the engine executes, so they cannot drift from what a session will actually accept and emit. [The command schema reference](../reference/commands/index.md) and [the event schema reference](../reference/events/index.md) render the same schemas page by page for human readers.
 
 The same unions are importable as [`AnyCommand`][osrlib.crawl.commands.AnyCommand] and [`AnyEvent`][osrlib.crawl.events.AnyEvent], so a Python agent can build its tool definitions in-process instead of shipping files around:
 
@@ -45,7 +45,7 @@ dumped = view.model_dump()
 assert "master_seed" not in dumped and "rng_streams" not in dumped
 ```
 
-The event stream is privileged the same way. [`GameSession.execute`][osrlib.crawl.session.GameSession.execute] returns its events unfiltered, and each event is stamped with a visibility: referee-visibility events include the hidden rolls (surprise, reaction, secret-door detection) that a player-facing front end must strip at its wire, as [the FastAPI pattern](fastapi-pattern.md) does. An in-process referee agent reads them all. They are its perception of what the dice just did.
+The event stream is unfiltered for the same reason. [`GameSession.execute`][osrlib.crawl.session.GameSession.execute] returns its events unfiltered, and each event is stamped with a visibility: referee-visibility events include the hidden rolls (surprise, reaction, secret-door detection) that a player-facing front end must strip at its wire, as [the FastAPI pattern](fastapi-pattern.md) does. An in-process referee agent reads them all. They are its perception of what the dice just did.
 
 ```{.python .no-run}
 # The unfiltered event stream is the observation: referee events carry the hidden rolls.
@@ -73,7 +73,7 @@ result = session.execute(SpawnMonsters(template_id="goblin", count_fixed=2, dist
 assert result.accepted
 ```
 
-The rejection contract matters as much here as it does for players: a rejected command changes nothing and comes back with a machine-readable code saying why (see [the rejection code reference](../reference/rejection-codes.md)), so a model that asks for something illegal gets structured feedback to correct against instead of a stack trace.
+The rejection contract matters as much here as it does for players: a rejected command changes nothing and explains itself with a machine-readable code (see [the rejection code reference](../reference/rejection-codes.md)), so a model that asks for something illegal gets structured feedback to correct against instead of a stack trace.
 
 ## Narrate from codes, not prose
 
