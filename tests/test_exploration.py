@@ -1924,7 +1924,9 @@ class TestDiscoveringASecretDoorRefundsTheCellsTrapSearch:
     def test_a_search_that_finds_the_door_refunds_the_room_trap_attempts(self):
         session = self.before_the_blade_door(self.SEED)
         first = session.execute(Search(character_id="character-0001", kind="room_traps"))
-        assert "room_trap:blade_room" in next(e for e in first.events if e.code == "exploration.search.found").found
+        assert (
+            "room_trap:blade_room:east" in next(e for e in first.events if e.code == "exploration.search.found").found
+        )
         found_door = session.execute(Search(character_id="character-0002", kind="secret_doors"))
         assert "secret_door:south" in next(e for e in found_door.events if e.code == "exploration.search.found").found
         again = session.execute(Search(character_id="character-0001", kind="room_traps"))

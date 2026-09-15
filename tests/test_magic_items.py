@@ -672,7 +672,7 @@ class TestScrollReadsAreJudgedAtTheScrollsLevel:
 
     @pytest.mark.xfail(reason="chunk: exploration-fixes")
     def test_a_high_level_reader_is_refused_the_missiles_of_their_own_level(self):
-        from osrlib.crawl.session import MAGIC_STREAM
+        from osrlib.core.spells import MAGIC_STREAM
 
         session, member, scroll = session_with_item(
             "spell_scroll_1", state={"spell_list": "magic_user", "spells": ("magic_missile",)}
