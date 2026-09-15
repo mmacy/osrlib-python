@@ -1,12 +1,13 @@
 """The attribute surface a character or a monster instance offers the rules, as protocols.
 
-Every rules function in [`osrlib.core.combat`][osrlib.core.combat], [`osrlib.core.spells`][osrlib.core.spells],
+A rules function in [`osrlib.core.combat`][osrlib.core.combat], [`osrlib.core.spells`][osrlib.core.spells],
 and [`osrlib.core.effects`][osrlib.core.effects] takes the creature it acts on as one of the three protocols
-here. A [`Character`][osrlib.core.character.Character] and a [`MonsterInstance`][osrlib.core.monsters.MonsterInstance]
-satisfy them structurally, so you pass either without a cast, and pyright checks that whatever else you pass
-has the attributes the function reads. Nothing here is instantiated. Read a protocol to learn what a function
-needs from its argument, and annotate your own code with it when you write a function that takes either kind
-of creature.
+here, unless what it reads needs a single concrete type, in which case it takes that type and says so in its
+own entry. A [`Character`][osrlib.core.character.Character] and a
+[`MonsterInstance`][osrlib.core.monsters.MonsterInstance] satisfy the protocols structurally, so you pass
+either without a cast, and pyright checks that whatever else you pass has the attributes the function
+reads. Nothing here is instantiated. Read a protocol to learn what a function needs from its argument, and
+annotate your own code with it when you write a function that takes either kind of creature.
 
 [`Creature`][osrlib.core.creature.Creature] is the base: an id, a name, hit points, conditions, and stat
 modifiers. [`Combatant`][osrlib.core.creature.Combatant] adds the combat numbers an attack or a saving throw reads.

@@ -3490,7 +3490,7 @@ class TurnUndeadResult(BaseModel):
     """
 
 
-def validate_turn_undead(cleric: Creature, definition: ClassDefinition) -> list[Rejection]:
+def validate_turn_undead(cleric: Caster, definition: ClassDefinition) -> list[Rejection]:
     """Ask whether a character may attempt to turn undead, without rolling.
 
     Call this to decide whether to offer turning as an action at all. Then call
@@ -3508,7 +3508,7 @@ def validate_turn_undead(cleric: Creature, definition: ClassDefinition) -> list[
     that wants the stricter reading checks inventory itself.
 
     Args:
-        cleric: The [`Creature`][osrlib.core.creature.Creature] attempting the turning, a
+        cleric: The [`Caster`][osrlib.core.creature.Caster] attempting the turning, a
             [`Character`][osrlib.core.character.Character] with a cleric's class definition. Read, never
             written.
         definition: Their class, as a [`ClassDefinition`][osrlib.core.classes.ClassDefinition] from

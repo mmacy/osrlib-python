@@ -1717,10 +1717,14 @@ def deal_damage(
     and never take a die below 1, so a source that rolled no dice has nothing to reduce.
     Hit points then fall, floored at 0. Fire and acid against a regenerating monster whose
     regeneration they block also accrue in its non-regenerable ledger, capped at its
-    maximum. Such a monster dies permanently only when its regeneration names a `revive`
-    entry, meaning it's the kind that gets back up, and the ledger alone reaches the
-    maximum. At 0 hit points the target dies, and a destructive source then destroys what
-    it carried.
+    maximum. Only a [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] has a
+    regeneration ability, so a target that reaches that step is one, and the field written
+    there is the instance's `nonregen_damage`. A monster instance also records the round it
+    was last damaged whenever you pass a `clock`, which is what a revival countdown is
+    measured from. Such a monster dies permanently only when its regeneration names a
+    `revive` entry, meaning it's the kind that gets back up, and the ledger alone reaches
+    the maximum. At 0 hit points the target dies, and a destructive source then destroys
+    what it carried.
 
     Args:
         target: The [`Combatant`][osrlib.core.creature.Combatant] taking the damage, which a
@@ -1858,9 +1862,9 @@ def destroy_equipment(
     survival. The rolls themselves are silent, and the event reports the outcome.
 
     Args:
-        target: The victim, a [`Combatant`][osrlib.core.creature.Combatant] that a
-            [`Character`][osrlib.core.character.Character] or a
-            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] satisfies. Its inventory is
+        target: The victim, a [`Combatant`][osrlib.core.creature.Combatant], which a
+            [`Character`][osrlib.core.character.Character] and a
+            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy. Its inventory is
             emptied except for saved magic items, and what it wielded, wore, and had on its
             fingers is cleared.
         source: The destructive damage source, which selects the saving throw category.
@@ -2199,8 +2203,8 @@ def resolve_splash_attack(
         attacker: The throwing [`Combatant`][osrlib.core.creature.Combatant], which a
             [`Character`][osrlib.core.character.Character] and a
             [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy.
-        defender: The target, a `Combatant` that a `Character` or a `MonsterInstance`
-            satisfies. Mutated in place when damage lands.
+        defender: The target, a `Combatant`, which a `Character` and a `MonsterInstance`
+            both satisfy. Mutated in place when damage lands.
         attack: The splash gear item, which is holy water or a flask of oil.
         context: The situation you assert. Oil does nothing unless `lit` is true.
         ruleset: The ruleset in play.
@@ -2758,9 +2762,9 @@ def morale_triggers(members: Sequence[Creature]) -> list[str]:
     ones you've already acted on.
 
     Args:
-        members: The side's creatures, each a [`Creature`][osrlib.core.creature.Creature] that
-            a [`Character`][osrlib.core.character.Character] or a
-            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] satisfies. An empty side
+        members: The side's creatures, each a [`Creature`][osrlib.core.creature.Creature],
+            which a [`Character`][osrlib.core.character.Character] and a
+            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy. An empty side
             raises nothing.
 
     Returns:
@@ -3167,7 +3171,11 @@ def resolve_energy_drain(attacker: MonsterInstance, target: Creature, *, stream:
     leaves the drain to you. It reads the attacker's `energy_drain` tag for how many levels
     to take and which XP policy to use, then applies character drain or
     [`drain_monster_hd`][osrlib.core.combat.drain_monster_hd] according to what the target
-    is. The tag's own text describes what the victim becomes, and that text appears in the
+    is. What it is shows in its class definition: a
+    [`Character`][osrlib.core.character.Character] has one and loses experience levels
+    through [`drain_levels`][osrlib.core.classes.drain_levels], and a
+    [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] has none and loses Hit Dice.
+    The tag's own text describes what the victim becomes, and that text appears in the
     drain event.
 
     Args:
@@ -3216,7 +3224,8 @@ def resolve_energy_drain(attacker: MonsterInstance, target: Creature, *, stream:
     if getattr(target, "definition", None) is not None:
         # A class definition is a character's, and its absence is what marks a monster.
         # The branch has settled which the target is; the casts say so, since a `getattr`
-        # test proves nothing to the type checker.
+        # test proves nothing to the type checker. The type name stays quoted because
+        # `Character` is imported for type checking alone and `cast` never evaluates it.
         character = cast("Character", target)
         # The params gate above proves the ability is there. The second lookup is for its
         # prose, which the params don't carry.
@@ -3395,9 +3404,9 @@ def resolve_gaze(
     Args:
         gazer: The gazing [`Creature`][osrlib.core.creature.Creature], which in the SRD's monsters is always a
             [`MonsterInstance`][osrlib.core.monsters.MonsterInstance]. Nothing is read from it.
-        engaged: The creatures in melee with it, each a [`Combatant`][osrlib.core.creature.Combatant]
-            that a [`Character`][osrlib.core.character.Character] or a `MonsterInstance`
-            satisfies.
+        engaged: The creatures in melee with it, each a [`Combatant`][osrlib.core.creature.Combatant],
+            which a [`Character`][osrlib.core.character.Character] and a `MonsterInstance` both
+            satisfy.
         stream: The stream the saves draw from, conventionally
             [`COMBAT_STREAM`][osrlib.core.combat.COMBAT_STREAM]. One draw per combatant
             that has to save.
@@ -3541,9 +3550,9 @@ def resolve_breath(
     Args:
         monster: The breathing [`MonsterInstance`][osrlib.core.monsters.MonsterInstance].
             Its `breath_uses_today` goes up when the breath has a daily limit.
-        targets: The creatures caught in the breath, each a [`Combatant`][osrlib.core.creature.Combatant]
-            that a [`Character`][osrlib.core.character.Character] or a `MonsterInstance`
-            satisfies. Mutated in place.
+        targets: The creatures caught in the breath, each a [`Combatant`][osrlib.core.creature.Combatant],
+            which a [`Character`][osrlib.core.character.Character] and a `MonsterInstance` both
+            satisfy. Mutated in place.
         ruleset: The ruleset in play.
         stream: The stream every draw comes from, conventionally
             [`COMBAT_STREAM`][osrlib.core.combat.COMBAT_STREAM]: one save per target, the
