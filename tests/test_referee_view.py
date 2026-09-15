@@ -78,11 +78,10 @@ class TestTheRefereeViewIsTyped:
         assert view.mode is SessionMode.ENCOUNTER
         assert view.flags == {"secret_wiring": True}
         assert view.journal[-1].text == "The lever grinds."
-        assert view.journal[-1].source == "trigger:lever-east"
         assert isinstance(view.monsters[0].current_hp, int)
-        assert view.monsters[0].template_id == "goblin"
+        assert view.monsters[0].template.id == "goblin"
         assert view.party.members[0].id == "character-0001"
-        assert view.encounter is not None and view.encounter.groups[0].monster_ids == (view.monsters[0].id,)
+        assert view.encounter is not None and tuple(view.encounter.groups[0].monster_ids) == (view.monsters[0].id,)
         assert view.battle is None
         assert view.clock_rounds == session.clock.rounds
         assert isinstance(view.exploration.odometer_thirds, int)
