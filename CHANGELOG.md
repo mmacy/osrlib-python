@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- An unidentified enchanted arm's public combat facts now reach the player view, matching an identified one. [`MemberView`][osrlib.crawl.views.MemberView]'s masked inventory adds `qualities` and `missile_ranges` to an unidentified magic item that resolves to a base weapon — a shield or a ring gains neither field. The item's masked display string already names the base weapon ("a dagger with a faint aura"), so the two fields reveal nothing the display didn't already: they are rulebook facts about the mundane weapon underneath, not about the enchantment, and the bonus, any curse, the template id, and the true name all stay hidden. Without them a front end could not tell a melee declaration from a missile one for an item it cannot yet name.
+
 ### Changed
 
 ### Fixed

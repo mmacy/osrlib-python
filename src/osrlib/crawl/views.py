@@ -117,7 +117,11 @@ class MemberView(BaseModel):
     """The member's pack, in the shape the inventory serializes, with the keys `items`,
     `purse`, `valuables`, `worn_armour`, `shield`, `wielded`, and `rings`. Magic items
     are masked until identified: an unidentified one shows a category display name
-    instead of its true name, and charges never appear at any identification level."""
+    instead of its true name, and an unidentified arm additionally carries the
+    `qualities` and `missile_ranges` of the mundane weapon its display name already
+    names, exactly as an identified one does, so a front end can classify a declaration
+    without knowing the arm's bonus, curse, or template id. Charges never appear at any
+    identification level."""
     memorized_spells: tuple[dict, ...]
     """The prepared spells, one dumped
     [`MemorizedSpell`][osrlib.core.spells.MemorizedSpell] per copy, in memorization
@@ -448,20 +452,24 @@ _MASKED_CATEGORY_NAMES = {
 def _masked_magic_item(instance: MagicItemInstance) -> dict:
     """One magic item as the player sees it, masked until identified.
 
-    An unidentified item shows only its category display name, and an enchanted arm shows
-    its base instead, as in "a sword with a faint aura", the concession made because
-    *detect magic* exists. An identified one shows its true name and id, and for an arm
-    the `qualities` and `missile_ranges` of the mundane weapon underneath it: how far the
-    arm reaches, and in what manner. Both are rulebook facts about a weapon the player
-    has already identified, and they are what lets a front end tell a melee declaration
+    An unidentified item shows its category display name, and an enchanted arm shows its
+    base instead, as in "a sword with a faint aura", the concession made because *detect
+    magic* exists. That display string already names the base weapon, so an unidentified
+    arm also shows the `qualities` and `missile_ranges` of the mundane weapon underneath
+    it, exactly as an identified one does: how far the arm reaches, and in what manner.
+    Both are rulebook facts about the weapon the display string already names, not facts
+    about the enchantment, and they are what lets a front end tell a melee declaration
     from a missile one. Without them an enchanted dagger is unclassifiable where a plain
-    dagger is not. Charges, sentience, and per-item state never appear at any
-    identification level, because by the rules as written charges are undiscoverable.
+    dagger is not. An identified item additionally shows its true name, id, and whether a
+    curse has been revealed. The bonus, the curse, the template id, and the name stay
+    hidden until identified, and charges, sentience, and per-item state never appear at
+    any identification level, because by the rules as written charges are undiscoverable.
     """
     from osrlib.core.combat import attack_facet
     from osrlib.data import load_equipment
 
     template = magic_item_template(instance)
+    facet = attack_facet(instance)
     if instance.identified:
         payload = {
             "instance_type": "magic_item",
@@ -472,24 +480,24 @@ def _masked_magic_item(instance: MagicItemInstance) -> dict:
             "identified": True,
             "cursed": instance.cursed_revealed,
         }
-        facet = attack_facet(instance)
-        if facet is not None:
-            payload["qualities"] = [quality.value for quality in facet.qualities]
-            if facet.missile_ranges is not None:
-                payload["missile_ranges"] = facet.missile_ranges.model_dump(mode="json")
-        return payload
-    display = _MASKED_CATEGORY_NAMES.get(template.category)
-    if display is None:
-        base_id = instance.base_item_id or template.base_item_id
-        base_name = load_equipment().get(base_id).name.lower() if base_id is not None else "arm"
-        display = f"a {base_name} with a faint aura"
-    return {
-        "instance_type": "magic_item",
-        "instance_id": instance.instance_id,
-        "display": display,
-        "quantity": instance.quantity,
-        "identified": False,
-    }
+    else:
+        display = _MASKED_CATEGORY_NAMES.get(template.category)
+        if display is None:
+            base_id = instance.base_item_id or template.base_item_id
+            base_name = load_equipment().get(base_id).name.lower() if base_id is not None else "arm"
+            display = f"a {base_name} with a faint aura"
+        payload = {
+            "instance_type": "magic_item",
+            "instance_id": instance.instance_id,
+            "display": display,
+            "quantity": instance.quantity,
+            "identified": False,
+        }
+    if facet is not None:
+        payload["qualities"] = [quality.value for quality in facet.qualities]
+        if facet.missile_ranges is not None:
+            payload["missile_ranges"] = facet.missile_ranges.model_dump(mode="json")
+    return payload
 
 
 def _masked_instance(instance) -> dict:
