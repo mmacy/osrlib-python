@@ -162,7 +162,7 @@ from osrlib.core.combat import (
 )
 from osrlib.core.dice import roll
 from osrlib.core.effects import EFFECTS_STREAM, Condition, has_condition
-from osrlib.core.events import AttackRolledEvent, Event, SavingThrowRolledEvent
+from osrlib.core.events import AttackRolledEvent, Event, SavingThrowRolledEvent, SpellDisruptedEvent
 from osrlib.core.items import (
     GearTemplate,
     ItemInstance,
@@ -1472,11 +1472,10 @@ def _resolve_scroll_cast(session, member, instance, template, declaration: Battl
     spell_id = declaration.spell_id or remaining[0]
     spell = load_spells().get(spell_id)
     mode = declaration.spell_mode or spell.modes[0].key
-    targets, distance, rejections = _cast_targets(
-        session, declaration.model_copy(update={"spell_id": spell_id, "spell_mode": mode}), spell
-    )
-    if rejections:
-        return []
+    # The declaration is judged again, with the checks it passed at the top of the round,
+    # because the phases before this one can change what those checks read (see the
+    # adaptations register). The scroll is spent afterwards either way: the reader read it.
+    rejections = _validate_magic_item_declaration(session, declaration, member, instance)
     left = tuple(spell_name for spell_name in remaining if spell_name != spell_id) + tuple(
         spell_id for _ in range(remaining.count(spell_id) - 1)
     )
@@ -1487,6 +1486,12 @@ def _resolve_scroll_cast(session, member, instance, template, declaration: Battl
     events: list[Event] = []
     events.extend(exploration._identify_item_events(session, member, instance))
     events.append(ItemUsedEvent(code="items.scroll.read", character_id=member.id, instance_id=instance.instance_id))
+    if rejections:
+        events.append(_fizzle_event(member.id, spell_id, reversed=declaration.reversed, reason=rejections[0].code))
+        return events
+    targets, distance, _ = _cast_targets(
+        session, declaration.model_copy(update={"spell_id": spell_id, "spell_mode": mode}), spell
+    )
     definition = load_classes().get(member.class_id)
     from osrlib.core.spells import caster_profile
 
@@ -2038,6 +2043,33 @@ def _break_invisibility(session, member) -> list[Event]:
     return events
 
 
+def _fizzle_event(caster_id: str, spell_id: str, *, reversed: bool, reason: str) -> SpellDisruptedEvent:
+    """Report a declaration the magic phase's re-check refused, at `magic.cast.fizzled`.
+
+    `reason` is the first rejection code the re-check produced, which is what tells a front end why the
+    spell failed. A refused declaration never raises out of the round, so this event is the whole outcome.
+    """
+    return SpellDisruptedEvent(
+        code="magic.cast.fizzled", caster_id=caster_id, spell_id=spell_id, reversed=reversed, reason=reason
+    )
+
+
+def _fizzle_cast(session, member, declaration: BattleDeclaration, reason: str, state) -> list[Event]:
+    """Lose a declared cast the magic phase's re-check refused, the way a disruption loses it.
+
+    The caster gives up the memorized copy through
+    [`disrupt_casting`][osrlib.core.spells.disrupt_casting], so the declared form is what goes, and
+    concentration releases as it does on any other action. A caster who no longer has a copy to give up,
+    because the round took it some other way, keeps the event and loses nothing twice.
+    """
+    spell_id = declaration.spell_id or ""
+    if any(copy.spell_id == spell_id for copy in getattr(member, "memorized_spells", ())):
+        disrupt_casting(member, spell_id, reversed=declaration.reversed)
+    events: list[Event] = [_fizzle_event(member.id, spell_id, reversed=declaration.reversed, reason=reason)]
+    events.extend(_release_concentration(session, member.id, state))
+    return events
+
+
 def _party_magic(session, by_member, pending_casters, disrupted, acted, state) -> list[Event]:
     events: list[Event] = []
     for member, declaration in by_member.values():
@@ -2081,6 +2113,14 @@ def _party_magic(session, by_member, pending_casters, disrupted, acted, state) -
         if member.id in disrupted:
             events.extend(disrupt_casting(member, declaration.spell_id, reversed=declaration.reversed))
             events.extend(_release_concentration(session, member.id, state))
+            acted.add(member.id)
+            continue
+        # The declaration is judged again, with the checks it passed at the top of the
+        # round, because the phases before this one can change what those checks read
+        # (see the adaptations register). Nothing is spent and nothing is drawn first.
+        recheck = _validate_declaration(session, declaration, member)
+        if recheck:
+            events.extend(_fizzle_cast(session, member, declaration, recheck[0].code, state))
             acted.add(member.id)
             continue
         spell = load_spells().get(declaration.spell_id)
