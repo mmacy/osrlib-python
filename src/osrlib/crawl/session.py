@@ -710,6 +710,7 @@ class GameSession:
         """The battle under way, or `None`. It contains the round number and the per-battle
         trackers."""
         self._provisions_day = 0
+        self._handlers: dict[type[Command], Any] | None = None
         # Runtime extension points a game re-registers like listeners. Policies are
         # code, so they are never serialized.
         self.action_policies: dict[str, object] = {}
@@ -839,6 +840,28 @@ class GameSession:
 
     # ------------------------------------------------------------------ dispatch
 
+    def _handler_table(self) -> Mapping[type[Command], Any]:
+        """Return this session's command-to-handler table, built once and cached on the instance.
+
+        Assembled lazily, on this session's first dispatch, by merging the private handler tables of
+        the exploration, encounter, and battle modules with this module's own referee handlers. The
+        import happens inside the call rather than at the top of this module because those three
+        modules import [`GameSession`][osrlib.crawl.session.GameSession] from here at their own top
+        level: importing them before this module has finished defining the class would fail. Each
+        session builds and keeps its own table, so replacing a handler on one session never reaches
+        another.
+        """
+        if self._handlers is None:
+            from osrlib.crawl import battle, encounter, exploration
+
+            self._handlers = {
+                **_REFEREE_HANDLERS,
+                **exploration._HANDLERS,
+                **encounter._HANDLERS,
+                **battle._HANDLERS,
+            }
+        return self._handlers
+
     def execute(self, command: Command) -> CommandResult:
         """Execute one command and return everything it caused.
 
@@ -920,7 +943,7 @@ class GameSession:
                     ),
                 ),
             )
-        handler = _handlers().get(type(command))
+        handler = self._handler_table().get(type(command))
         if handler is None:
             raise ValueError(f"no handler for command type {command.command_type!r}")
         rejections, events = handler(self, command)
@@ -1959,20 +1982,3 @@ _REFEREE_HANDLERS = {
     CompleteObjective: _handle_complete_objective,
     CompleteQuest: _handle_complete_quest,
 }
-
-_HANDLERS_CACHE: dict | None = None
-
-
-def _handlers() -> Mapping[type[Command], Any]:
-    """The command-type to handler map, assembled lazily to avoid import cycles."""
-    global _HANDLERS_CACHE
-    if _HANDLERS_CACHE is None:
-        from osrlib.crawl import battle, encounter, exploration
-
-        _HANDLERS_CACHE = {
-            **_REFEREE_HANDLERS,
-            **exploration.HANDLERS,
-            **encounter.HANDLERS,
-            **battle.HANDLERS,
-        }
-    return _HANDLERS_CACHE

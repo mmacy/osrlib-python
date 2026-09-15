@@ -8,7 +8,7 @@ from a chase that closed to arm's length, and from the party's own
 `battle` mode, `session.battle` holds a [`BattleState`][osrlib.crawl.battle.BattleState], and each
 round is one [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound] command with one
 [`BattleDeclaration`][osrlib.crawl.commands.BattleDeclaration] per living, able party member,
-dispatched through [`HANDLERS`][osrlib.crawl.battle.HANDLERS]. No command ends the battle. It ends
+dispatched through the session's private handler table. No command ends the battle. It ends
 from inside, when the party is wiped, when every monster group is dead or routed, or when the whole
 party retreats. A victory hands control straight to
 [`end_encounter`][osrlib.crawl.encounter.end_encounter].
@@ -200,7 +200,6 @@ __all__ = [
     "BattleState",
     "FIGHTER_FRONTAGE_FEET",
     "FLEE_EXIT_FEET",
-    "HANDLERS",
     "MELEE_RANGE_FEET",
     "MonsterAction",
     "NPC_PARTY_MORALE",
@@ -2648,17 +2647,17 @@ def _watch_disruption(events, pending_casters, disrupted, acted) -> None:
             disrupted.add(target)
 
 
-HANDLERS = {
+_HANDLERS = {
     ResolveBattleRound: _handle_resolve_battle_round,
 }
 """The battle commands this module handles, keyed by command class.
 
-[`GameSession.execute`][osrlib.crawl.session.GameSession.execute] merges this map with the
-exploration, encounter, and referee maps and dispatches on the command's class, so a front end never
-reads it. Read it to see which commands the battle machine owns, and go through
-[`GameSession.execute`][osrlib.crawl.session.GameSession.execute] rather than calling a handler
-directly: a handler skips the mode gate, the command log, the listeners, and the pure validation phase
-that makes a rejected command cost no draw, no time, and no change to the game.
+[`GameSession`][osrlib.crawl.session.GameSession] folds this map into its own private handler table
+the first time it dispatches a command, alongside the exploration, encounter, and referee maps. There
+is no registration point here: the only documented way to run a command is
+[`GameSession.execute`][osrlib.crawl.session.GameSession.execute], which picks the handler, runs the
+mode gate, and does the command log, listener, and validation-phase bookkeeping a handler alone would
+skip.
 
 The value takes `(session, command)` and returns a `(rejections, events)` pair. Battle has one command
 because a round is resolved as a whole: every party member declares, and the machine runs both sides
