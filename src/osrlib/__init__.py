@@ -31,6 +31,7 @@ framework does above it.
 | [`osrlib.core.items`][] | Templates and an inventory in, purchases, equipment, and encumbrance out. |
 | [`osrlib.core.spells`][] | A caster and a spell in, memorization, casting, and turning undead out. |
 | [`osrlib.core.monsters`][] | A monster template in, a spawned instance with its own hit points out. |
+| [`osrlib.core.creature`][] | A character or a monster in, the attribute surface the rules read out, as protocols. |
 | [`osrlib.core.combat`][] | Combatants and a stream in, initiative, attacks, damage, and saves out. |
 | [`osrlib.core.effects`][] | A condition or effect in, a ledger that ticks and expires it out. |
 | [`osrlib.core.treasure`][] | A treasure type and a stream in, coins, valuables, and magic items out. |
