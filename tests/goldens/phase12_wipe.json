@@ -31,6 +31,8 @@
       "location_id": "vault",
       "location_kind": "dungeon",
       "narrative": null,
+      "transition_ref": null,
+      "via": "entrance",
       "visibility": "player"
     },
     {
@@ -49,6 +51,8 @@
       "location_id": "gas_room",
       "location_kind": "area",
       "narrative": null,
+      "transition_ref": null,
+      "via": null,
       "visibility": "player"
     },
     {
@@ -64,6 +68,7 @@
     {
       "character_id": "character-0001",
       "code": "exploration.trap.sprung",
+      "direction": null,
       "event_type": "trap",
       "trap_ref": "vault:1:gas_room",
       "visibility": "player"

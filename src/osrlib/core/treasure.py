@@ -996,6 +996,16 @@ def _roll_powers(
         bucket.append(result)
 
 
+def _require_tier(tier: str) -> None:
+    """Refuse an unknown tier before anything is drawn.
+
+    Every generation entry point calls this first, because a kernel function checks its
+    arguments before its first draw: a bad tier costs no draws and returns no hoard.
+    """
+    if tier not in ("basic", "expert"):
+        raise ValueError(f"tier must be 'basic' or 'expert', got {tier!r}")
+
+
 def _generate_scroll_spells(template: Any, *, tier: str, stream: RngStream) -> dict[str, Any]:
     """Roll a spell scroll's contents: the 1-in-4 chance of a divine scroll, then each spell.
 
@@ -1083,8 +1093,7 @@ def instantiate_magic_item(
     from osrlib.core.items import MagicItemCategory, MagicItemInstance
     from osrlib.data import load_magic_items
 
-    if tier not in ("basic", "expert"):
-        raise ValueError(f"tier must be 'basic' or 'expert', got {tier!r}")
+    _require_tier(tier)
     row_params: Mapping[str, Any] = params if params is not None else {}
     catalog = load_magic_items()
     template = catalog.get(item_id)
@@ -1173,8 +1182,7 @@ def generate_magic_item(
     """
     from osrlib.data import load_magic_items, load_treasure_tables
 
-    if tier not in ("basic", "expert"):
-        raise ValueError(f"tier must be 'basic' or 'expert', got {tier!r}")
+    _require_tier(tier)
     tables = load_treasure_tables()
     catalog = load_magic_items()
     if category is None:
@@ -1229,9 +1237,9 @@ def generate_treasure_entries(
         empty, and entries that failed their presence roll contribute nothing.
 
     Raises:
-        ValueError: If `tier` is neither `"basic"` nor `"expert"` and the entries reach a
-            magic item, which is where the tier is read. Entries of coins, gems, and
-            jewellery alone never look at it.
+        ValueError: If `tier` is neither `"basic"` nor `"expert"`. The tier is checked
+            before the first draw, so a refused call costs no draws and returns nothing,
+            whether or not the entries would have reached a magic item.
 
     Examples:
         ```python
@@ -1250,6 +1258,7 @@ def generate_treasure_entries(
     """
     from osrlib.core.items import Coins, GeneratedTreasure
 
+    _require_tier(tier)
     coin_totals: dict[str, int] = {}
     valuables = []
     magic_items = []
@@ -1326,9 +1335,9 @@ def generate_treasure(
         empty.
 
     Raises:
-        ValueError: If no treasure type has that letter. An unknown `tier` raises as well,
-            but only once the roll reaches a magic item, because that is where the tier is
-            read.
+        ValueError: If no treasure type has that letter, or if `tier` is neither
+            `"basic"` nor `"expert"`. Both are checked before the first draw, so a refused
+            call costs no draws and returns no hoard.
 
     Examples:
         ```python
@@ -1384,8 +1393,9 @@ def generate_unguarded_treasure(
         alone.
 
     Raises:
-        ValueError: If `dungeon_level` is below 1. An unknown `tier` raises only once the
-            roll reaches a magic item.
+        ValueError: If `dungeon_level` is below 1, or if `tier` is neither `"basic"` nor
+            `"expert"`. Both are checked before the first draw, so a refused call costs no
+            draws and returns no cache.
 
     Examples:
         ```python

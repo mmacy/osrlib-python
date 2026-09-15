@@ -139,6 +139,7 @@ from osrlib.crawl.commands import (
     ExtinguishSource,
     ForceDoor,
     GiveItems,
+    HealingService,
     InspectTreasure,
     LearnSpell,
     LightSource,
@@ -1481,17 +1482,34 @@ def _resolve_trap(session, trap: TrapSpec, *, triggerer) -> list[Event]:
                 effect.transition.to_level_number,
                 effect.transition.to_position,
                 effect.transition.to_facing,
+                via="trap",
             )
         )
     return events
 
 
-def _relocate(session, dungeon_id: str, level_number: int, position, facing, *, narrative=None) -> list[Event]:
+def _relocate(
+    session,
+    dungeon_id: str,
+    level_number: int,
+    position,
+    facing,
+    *,
+    narrative=None,
+    via: str | None = None,
+    transition_ref: str | None = None,
+) -> list[Event]:
     """Move the party to a cell (transitions, slides): explore, events, hooks.
 
     `narrative` is the authored success beat of the gate the party satisfied to get
     here, and it goes out on the level- or dungeon-crossing event. A relocation that
     crosses no boundary emits no such event, so there is nowhere to put a beat.
+
+    `via` and `transition_ref` are the caller's account of the crossing: the kind of
+    the transition taken and the cell it stands on for `UseStairs`, `"trap"` for a
+    slide, `"entrance"` for the way in. Each caller knows both and states them, so no
+    consumer has to work backwards from where the party ended up. They ride the same
+    crossing event the beat does, and a relocation within one level drops them with it.
     """
     state = session.dungeon_state
     old_location = state.location
@@ -1512,13 +1530,23 @@ def _relocate(session, dungeon_id: str, level_number: int, position, facing, *, 
     if old_location.kind != "dungeon" or old_location.dungeon_id != dungeon_id:
         events.append(
             LocationEnteredEvent(
-                location_kind="dungeon", location_id=dungeon_id, level_number=level_number, narrative=narrative
+                location_kind="dungeon",
+                location_id=dungeon_id,
+                level_number=level_number,
+                narrative=narrative,
+                via=via,
+                transition_ref=transition_ref,
             )
         )
     elif old_location.level_number != level_number:
         events.append(
             LocationEnteredEvent(
-                location_kind="level", location_id=dungeon_id, level_number=level_number, narrative=narrative
+                location_kind="level",
+                location_id=dungeon_id,
+                level_number=level_number,
+                narrative=narrative,
+                via=via,
+                transition_ref=transition_ref,
             )
         )
     events.extend(leave_events)
@@ -1704,6 +1732,10 @@ def _handle_use_stairs(session, command: UseStairs) -> tuple[list[Rejection], li
             transition.to_position,
             transition.to_facing,
             narrative=_gate_success(transition.requires),
+            via=transition.kind,
+            # The cell the party leaves from, which is the cell the transition stands
+            # on: that is what finds the spec again, gate and all, on the far side.
+            transition_ref=_cell_ref(session, transition.position),
         )
     )
     events.extend(_accrue_movement(session, 30))
@@ -1724,7 +1756,9 @@ def _handle_enter_dungeon(session, command: EnterDungeon) -> tuple[list[Rejectio
     travel = session.adventure.town.travel_turns.get(command.dungeon_id, 0)
     events, _ = session.advance_turns(travel, field=False)
     session.mode = SessionMode.EXPLORING
-    events.extend(_relocate(session, dungeon.id, entrance_level.number, entrance_level.entrance, Direction.NORTH))
+    events.extend(
+        _relocate(session, dungeon.id, entrance_level.number, entrance_level.entrance, Direction.NORTH, via="entrance")
+    )
     return [], events
 
 
@@ -2090,10 +2124,14 @@ def _reveal(session, kind: str, events: list[Event]) -> list[str]:
                     _materialize_door(session, direction).discovered = True
                     found.append(f"secret_door:{direction.value}")
     elif kind == "room_traps":
-        candidates = []
+        # Each candidate carries the door it was found through, or `None` for the
+        # trap in the searcher's own area. The bearing is a fact only this walk has,
+        # and a renderer that had to rebuild it would have to rebuild the guards below
+        # with it, so the find states it: on the token and on the event.
+        candidates: list[tuple[AreaSpec, Direction | None]] = []
         own = level.area_at(position)
         if own is not None and own.trap is not None:
-            candidates.append(own)
+            candidates.append((own, None))
         # A door trap threatens from the corridor side too: the searched cell's
         # door edges count as part of it, so an open-trigger trap in the area
         # beyond is findable before the door is ever opened. An undiscovered
@@ -2108,13 +2146,14 @@ def _reveal(session, kind: str, events: list[Event]) -> list[str]:
                 continue
             for area in _areas_at_door(level, position, direction):
                 if area is not own and area.trap is not None and area.trap.trigger == "open":
-                    candidates.append(area)
-        for candidate in candidates:
+                    candidates.append((area, direction))
+        for candidate, direction_found in candidates:
             trap_ref = _area_ref(session, candidate.id)
             if trap_ref not in state.found_traps and trap_ref not in state.sprung_traps:
                 state.found_traps.append(trap_ref)
-                found.append(f"room_trap:{candidate.id}")
-                events.append(TrapEvent(code="exploration.trap.found", trap_ref=trap_ref))
+                bearing = None if direction_found is None else direction_found.value
+                found.append(f"room_trap:{candidate.id}" + (f":{bearing}" if bearing is not None else ""))
+                events.append(TrapEvent(code="exploration.trap.found", trap_ref=trap_ref, direction=bearing))
     elif kind == "construction":
         for feature in _features_here(session):
             if feature.kind != "construction_trick":
@@ -2643,7 +2682,10 @@ def _distribute_haul(session, carriers, haul: DropPile) -> tuple[list[Event], Dr
         taken_cp += taken_coins.value_cp
         events.append(
             ItemAcquiredEvent(
-                character_id=member.id, item_ids=tuple(taken_ids[index]), coins_gp_value=taken_coins.value_gp
+                character_id=member.id,
+                item_ids=tuple(taken_ids[index]),
+                coins_gp_value=taken_coins.value_gp,
+                origin="treasure",
             )
         )
     return events, leftovers, taken_cp, taken_valuables
@@ -3070,7 +3112,7 @@ def _handle_purchase_equipment(session, command: PurchaseEquipment) -> tuple[lis
 
     for template in templates:
         purchase(member.inventory, template, 1)
-    return [], [ItemAcquiredEvent(character_id=member.id, item_ids=tuple(command.item_ids))]
+    return [], [ItemAcquiredEvent(character_id=member.id, item_ids=tuple(command.item_ids), origin="purchase")]
 
 
 # ---------------------------------------------------------------------- rest and magic
@@ -4021,7 +4063,7 @@ def _handle_use_item(session, command: UseItem) -> tuple[list[Rejection], list[E
 
 # ---------------------------------------------------------------------- town services
 
-HEALING_SERVICES: dict[str, tuple[str, int]] = {
+HEALING_SERVICES: dict[HealingService, tuple[str, int]] = {
     "cure_light_wounds": ("cure_light_wounds", 25),
     "cure_serious_wounds": ("cure_serious_wounds", 100),
     "cure_disease": ("cure_disease", 150),
@@ -4031,15 +4073,12 @@ HEALING_SERVICES: dict[str, tuple[str, int]] = {
 }
 """The temple's healing services: each service name mapped to its spell id and its price in gp.
 
-The keys are exactly the names [`PurchaseHealing`][osrlib.crawl.commands.PurchaseHealing] accepts in
-its `service` field, so read this to build a price list for a town screen and to check a purse
-against a price before you send the command. The spell id is the entry the purchase resolves
-through, which is why *remove curse* maps to `remove_curse_c`, the cleric list's version of that
-spell rather than the magic-user list's.
-
-Adding a key here doesn't add a service. The list of service names lives on
-[`PurchaseHealing.service`][osrlib.crawl.commands.PurchaseHealing], which rejects any name that
-isn't one of them, so a command for your new service never reaches the handler that would price it.
+The keys are typed [`HealingService`][osrlib.crawl.commands.HealingService], the same closed set
+[`PurchaseHealing`][osrlib.crawl.commands.PurchaseHealing] accepts in its `service` field, so read
+this to build a price list for a town screen and to check the party's coin against a price before
+you send the command. The spell id is the entry the purchase resolves through, which is why *remove
+curse* maps to `remove_curse_c`, the cleric list's version of that spell rather than the magic-user
+list's.
 
 The service names and the prices are a documented adaptation over the SRD's open-ended base-town
 prose (see the adaptations register). Nothing here models availability. The size of the town, the
@@ -4110,6 +4149,42 @@ def _handle_sell_treasure(session, command: SellTreasure) -> tuple[list[Rejectio
     return [], events
 
 
+def _healing_payers(session, patient: Character, cost_gp: int) -> list[tuple[Character, int]] | None:
+    """Plan which purses cover a temple fee, in the order the temple charges them.
+
+    The treated member pays first, then the rest of the party in marching order, dead
+    members included. A purse pays in whole gold pieces only, because
+    [`CoinPurse.spend`][osrlib.core.items.CoinPurse.spend] prices in gold, so it puts in as
+    much of what is still owed as its gold covers and keeps whatever it is worth below a gold
+    piece. The last purse charged pays the outstanding remainder alone, and the purses
+    behind it are never opened.
+
+    Planning and charging are separate so the funds check stays a pure validation step: a
+    party whose whole gold pieces fall short is refused before any purse is opened.
+
+    Args:
+        session: The session whose party pays.
+        patient: The member being treated, charged first whether alive or dead.
+        cost_gp: The fee in whole gold pieces.
+
+    Returns:
+        The (member, gold pieces) pairs to charge in order, or None when the whole gold
+        pieces in the party's purses together fall short of the fee.
+    """
+    order = [patient] + [member for member in session.party.members if member.id != patient.id]
+    plan: list[tuple[Character, int]] = []
+    outstanding = cost_gp
+    for member in order:
+        if outstanding <= 0:
+            break
+        share = min(outstanding, member.inventory.purse.value_cp // 100)
+        if share <= 0:
+            continue
+        plan.append((member, share))
+        outstanding -= share
+    return None if outstanding > 0 else plan
+
+
 def _handle_purchase_healing(session, command: PurchaseHealing) -> tuple[list[Rejection], list[Event]]:
     try:
         member = session.member(command.character_id)
@@ -4117,7 +4192,8 @@ def _handle_purchase_healing(session, command: PurchaseHealing) -> tuple[list[Re
         return [Rejection(code="session.command.unknown_member", params={"character": command.character_id})], []
     spell_id, cost_gp = HEALING_SERVICES[command.service]
     spell = load_spells().get(spell_id)
-    if not member.inventory.purse.can_afford(cost_gp):
+    payers = _healing_payers(session, member, cost_gp)
+    if payers is None:
         return [
             Rejection(code="items.purchase.insufficient_funds", params={"item": command.service, "cost_gp": cost_gp})
         ], []
@@ -4139,8 +4215,17 @@ def _handle_purchase_healing(session, command: PurchaseHealing) -> tuple[list[Re
     )
     if cast_rejections:
         return cast_rejections, []
-    member.inventory.purse.spend(cost_gp)
-    events: list[Event] = [HealingPurchasedEvent(character_id=member.id, service=command.service, cost_gp=cost_gp)]
+    for payer, share in payers:
+        payer.inventory.purse.spend(share)
+    events: list[Event] = [
+        HealingPurchasedEvent(
+            character_id=member.id,
+            service=command.service,
+            cost_gp=cost_gp,
+            payers=tuple(payer.id or payer.name for payer, _ in payers),
+            payments_gp=tuple(share for _, share in payers),
+        )
+    ]
     result = cast_spell(
         temple_cleric,
         spell,
