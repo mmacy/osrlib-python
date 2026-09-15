@@ -2043,10 +2043,12 @@ class BattleDeclaration(BaseModel):
     and a single member can't leave it, so `fighting_withdrawal` and `retreat` are legal only
     when every member the round expects to declare names the same one. A round some declare one
     in and the rest don't is refused whole with `battle.declaration.formation_split`, one
-    rejection per move the round split on, naming who chose it and who didn't. `close` is exempt,
-    because the first one in marching order advances the whole formation anyway. A fighting
-    withdrawal is a move on its own: the member who declares it makes no attack that round,
-    because the formation moves together and a member declares one thing per round.
+    rejection per move the round split on, naming who chose it and who didn't. `close` is not a
+    defensive move and needs no agreement, so the first one in marching order advances the whole
+    formation whenever the round is accepted, and a `close` declared beside a `fighting_withdrawal`
+    or a `retreat` is one of the others that split the round. A fighting withdrawal is a move on
+    its own: the member who declares it makes no attack that round, because the formation moves
+    together and a member declares one thing per round.
     [The adaptations register](https://mmacy.github.io/osrlib-python/adaptations/)
     states that reading in full."""
     item_id: str | None = None
@@ -2077,7 +2079,11 @@ class ResolveBattleRound(Command):
         - Move declarations: `battle.declaration.missing_move`,
           `battle.declaration.unknown_group`, `battle.declaration.cannot_move`, and
           `battle.declaration.formation_split` when a `fighting_withdrawal` or a
-          `retreat` is not the whole formation's, one per move the round split on.
+          `retreat` is not the whole formation's. There is one per defensive move the
+          round split on, and its `others` names every other declarer of the round, the
+          one who chose the other defensive move included, so a round that splits on
+          both moves comes back with two, the fighting withdrawal's first and the
+          retreat's second, each naming the other's declarers.
         - Attack declarations: `battle.declaration.unknown_group`,
           `battle.declaration.no_target`, `battle.declaration.weapon_not_wielded`,
           `battle.declaration.not_in_front_rank`, and the kernel attack checks

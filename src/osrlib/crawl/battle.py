@@ -1117,8 +1117,10 @@ def _group_by_id(session, group_id: str | None):
 _DEFENSIVE_MOVES = ("fighting_withdrawal", "retreat")
 """The two `move` values the whole formation has to agree on, the SRD's two ways out of melee.
 
-`close` is not one of them: the first `close` in marching order advances the formation for
-everyone, so one declarer is enough.
+The order is the order the rejections come back in, the fighting withdrawal's first. `close` is not
+one of them, because it needs no agreement: the first `close` in marching order advances the
+formation whenever the round is accepted, and a `close` declared beside a defensive move is one of
+the others that split the round.
 """
 
 
@@ -1139,7 +1141,11 @@ def _formation_split_rejections(declarers, declarations: Sequence[BattleDeclarat
     Returns:
         One `battle.declaration.formation_split` rejection per defensive move at least one declarer
         chose and at least one did not, naming the `move`, the `declared` ids, and the `others`,
-        each id tuple in marching order. Empty when the formation agrees.
+        each id tuple in marching order. `others` is every other declarer of the round, the one who
+        chose the other defensive move included, so a round that splits on both moves comes back
+        with two rejections, each naming the other's declarers among its `others`. Those two arrive
+        in the order `_DEFENSIVE_MOVES` lists them, the fighting withdrawal first and the retreat
+        second. Empty when the formation agrees.
     """
     moves = {declaration.character_id: declaration.move for declaration in declarations if declaration.action == "move"}
     order = [member.id for member in declarers]
