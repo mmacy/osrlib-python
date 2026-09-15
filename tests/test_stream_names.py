@@ -1,11 +1,8 @@
 """Every RNG stream name has one home: `StreamName` in `osrlib.core.rng`.
 
-The thirteen stream keys are split today between eight `*_STREAM` constants in the kernel and five in
-`crawl/session.py`, and kernel functions draw from crawl-named streams by string literal, so the rule
-that the kernel never imports the crawl layer holds only because a string is not an import. With one
-`StrEnum` in `core/rng.py`, the constants keep their names and take their values from it, no module
-spells a stream name out, and the published stream page cannot list a key the enum lacks. The string
-values do not change, so no draw sequence and no golden file moves.
+The public `*_STREAM` constants keep their names and take their values from the enum, no module
+draws from a stream by a string literal, and the published stream page lists exactly the enum's
+keys. The string values are the enum's values, so no seed material, draw sequence, or golden moves.
 """
 
 import ast
