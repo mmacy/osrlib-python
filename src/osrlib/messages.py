@@ -54,10 +54,32 @@ from osrlib.core.events import (
     SpellsMemorizedEvent,
     UndeadTurnedEvent,
 )
+from osrlib.crawl.events import HealingPurchasedEvent
 
 __all__ = [
     "format_message",
 ]
+
+
+def _entered(event: Any) -> str:
+    """The arrival line, which reads a stairs crossing as the climb or descent it was.
+
+    The event's `via` is the only source of the direction: the party's current level says nothing
+    about where it came from, and a log re-rendered later would read every crossing against the
+    wrong cell. The kinds that state no direction of their own (a trapdoor, a chute, a trap, the
+    entrance, a referee's placement) keep the plain arrival line. A stairs crossing into another
+    dungeon still says which dungeon, since the level number alone would hide the bigger move.
+    """
+    verb = {"stairs_up": "climbs", "stairs_down": "descends"}.get(event.via or "")
+    if verb is not None and event.level_number is not None:
+        if event.location_kind == "dungeon":
+            return f"The party {verb} into {event.location_id}, level {event.level_number}."
+        return f"The party {verb} to level {event.level_number} of {event.location_id}."
+    return (
+        f"The party enters {event.location_kind} {event.location_id}"
+        + (f" (level {event.level_number})" if event.level_number is not None else "")
+        + "."
+    )
 
 
 def _initiative(event: InitiativeRolledEvent) -> str:
@@ -106,6 +128,11 @@ def _morale(event: MoraleCheckedEvent, outcome: str) -> str:
     return f"Morale check for {event.subject} (ML {event.score}): rolled {event.roll}{event.modifier:+d} — {outcome}."
 
 
+def _morale_held(event: MoraleCheckedEvent) -> bool:
+    """Whether the side keeps fighting, from `held` or, on a log written before that field, from the score."""
+    return event.score >= 12 if event.held is None else event.held
+
+
 def _memorized(event: SpellsMemorizedEvent) -> str:
     prepared = ", ".join(f"{copy.spell_id} (reversed)" if copy.reversed else copy.spell_id for copy in event.prepared)
     return f"{event.caster_id} memorizes: {prepared or 'nothing'}."
@@ -121,6 +148,14 @@ def _cast(event: SpellCastEvent) -> str:
 def _cast_no_effect(event: SpellCastEvent) -> str:
     spell = f"{event.spell_id} (reversed)" if event.reversed else event.spell_id
     return f"{event.caster_id} casts {spell} [{event.mode}] — it has no effect."
+
+
+def _healing_purchased(event: HealingPurchasedEvent) -> str:
+    line = f"{event.character_id} purchases {event.service} at the temple for {event.cost_gp} gp"
+    if len(event.payers) > 1:
+        paid = zip(event.payers, event.payments_gp, strict=True)
+        line += ", paid by " + ", ".join(f"{payer} {amount} gp" for payer, amount in paid)
+    return line + "."
 
 
 def _turning(event: UndeadTurnedEvent, outcome: str) -> str:
@@ -144,7 +179,7 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
     "combat.morale.broke": lambda event: _morale(event, "they flee or surrender"),
     "combat.morale.exempt": lambda event: (
         f"Morale check for {event.subject} (ML {event.score}): no roll — "
-        + ("they never check morale." if event.score == 12 else "they never fight.")
+        + ("they never check morale." if _morale_held(event) else "they never fight.")
     ),
     "encounter.reaction.rolled": lambda event: (
         f"Reaction roll: {event.roll}{event.modifier:+d} = {event.total} — {event.result}."
@@ -190,11 +225,7 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
     ),
     "exploration.party.moved": lambda event: f"The party moves to ({event.x}, {event.y}), facing {event.facing}.",
     "exploration.party.turned": lambda event: f"The party turns to face {event.facing}.",
-    "exploration.location.entered": lambda event: (
-        f"The party enters {event.location_kind} {event.location_id}"
-        + (f" (level {event.level_number})" if event.level_number is not None else "")
-        + "."
-    ),
+    "exploration.location.entered": _entered,
     "exploration.door.opened": lambda event: f"The door {event.direction} of ({event.x}, {event.y}) opens.",
     "exploration.door.closed": lambda event: f"The door {event.direction} of ({event.x}, {event.y}) closes.",
     "exploration.door.forced": lambda event: (
@@ -232,7 +263,12 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
         f"A trap springs ({event.trap_ref})" + (f" on {event.character_id}" if event.character_id else "") + "!"
     ),
     "exploration.trap.safe": lambda event: f"The known trap ({event.trap_ref}) does not go off.",
-    "exploration.trap.found": lambda event: (event.character_id or "The party") + f" finds a trap ({event.trap_ref}).",
+    "exploration.trap.found": lambda event: (
+        (event.character_id or "The party")
+        + f" finds a trap ({event.trap_ref})"
+        + (f" beyond the {event.direction} door" if event.direction else "")
+        + "."
+    ),
     "exploration.trap.removed": lambda event: (
         (event.character_id or "The party") + f" removes the trap ({event.trap_ref})."
     ),
@@ -352,9 +388,7 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
     "town.treasure.sold": lambda event: (
         f"{event.character_id} sells {len(event.instance_ids)} valuable(s) for {event.gp_value} gp."
     ),
-    "town.healing.purchased": lambda event: (
-        f"{event.character_id} purchases {event.service} at the temple for {event.cost_gp} gp."
-    ),
+    "town.healing.purchased": _healing_purchased,
     "session.flag.set": lambda event: f"Flag {event.key} = {event.value!r}.",
     "session.monsters.spawned": lambda event: (
         f"Spawned {len(event.monster_ids)} × {event.template_id}: {', '.join(event.monster_ids)}."

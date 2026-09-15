@@ -126,6 +126,7 @@ __all__ = [
     "GiveItems",
     "GrantCoins",
     "GrantItem",
+    "HealingService",
     "IdentifyItem",
     "InspectTreasure",
     "LearnSpell",
@@ -718,7 +719,10 @@ class Search(Command):
         roll, a [`TrapEvent`][osrlib.crawl.events.TrapEvent] when a room trap is
         found, then
         [`SearchCompletedEvent`][osrlib.crawl.events.SearchCompletedEvent] naming
-        what turned up. One turn passes with its usual follow-on events.
+        what turned up. A trap found through a door names that door on both: the
+        trap event's `direction` and a third segment on the search token,
+        `"room_trap:<area id>:<direction>"`. A trap found inside its own area names
+        no door. One turn passes with its usual follow-on events.
     """
 
     allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.EXPLORING})
@@ -820,8 +824,8 @@ class RemoveTreasureTrap(Command):
         [`ConditionGainedEvent`][osrlib.core.events.ConditionGainedEvent] for a
         condition, [`DeathEvent`][osrlib.core.events.DeathEvent] when it kills
         outright, and
-        [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] when it
-        drops the party somewhere else. One turn passes.
+        [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent], `via`
+        `"trap"`, when it drops the party somewhere else. One turn passes.
     """
 
     allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.EXPLORING})
@@ -875,7 +879,8 @@ class TakeTreasure(Command):
 
     Events:
         One [`ItemAcquiredEvent`][osrlib.crawl.events.ItemAcquiredEvent] per member
-        who took something, listing their goods and coin value, in marching order,
+        who took something, listing their goods and coin value with `origin`
+        `"treasure"`, in marching order,
         and an [`ItemsLeftBehindEvent`][osrlib.crawl.events.ItemsLeftBehindEvent]
         when the party could not carry it all. An unresolved treasure trap rolls first
         ([`DetectionRolledEvent`][osrlib.crawl.events.DetectionRolledEvent], a
@@ -1489,7 +1494,10 @@ class UseStairs(Command):
         threshold, then
         [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] when the
         level or dungeon changes, with the gate's success text when its author
-        wrote one. Leaving a level shuts the doors the party opened on it
+        wrote one. That arrival names the crossing it rode: `via` is the
+        transition's `kind`, and `transition_ref` is the cell the transition stands
+        on, which is the cell the party left. Leaving a level shuts the doors the
+        party opened on it
         ([`DoorEvent`][osrlib.crawl.events.DoorEvent]s).
 
         Arrival then runs the destination cell's entry checks, the same ones
@@ -1539,7 +1547,7 @@ class EnterDungeon(Command):
         [`FatigueEvent`][osrlib.crawl.events.FatigueEvent] lands on the road.
 
         Then [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] for
-        the dungeon, and the entrance cell's entry checks: a
+        the dungeon, `via` `"entrance"`, and the entrance cell's entry checks: a
         [`HoardGeneratedEvent`][osrlib.crawl.events.HoardGeneratedEvent] for area
         treasure, a
         [`DetectionRolledEvent`][osrlib.crawl.events.DetectionRolledEvent] and a
@@ -1617,7 +1625,7 @@ class PurchaseEquipment(Command):
 
     Events:
         [`ItemAcquiredEvent`][osrlib.crawl.events.ItemAcquiredEvent] listing the
-        purchases.
+        purchases, `origin` `"purchase"`.
     """
 
     allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.TOWN})
@@ -1669,6 +1677,24 @@ class SellTreasure(Command):
     fixed price and come back as `town.sell.no_fixed_value`."""
 
 
+HealingService = Literal[
+    "cure_light_wounds",
+    "cure_serious_wounds",
+    "cure_disease",
+    "neutralize_poison",
+    "remove_curse",
+    "raise_dead",
+]
+"""The temple's services, as the names
+[`PurchaseHealing.service`][osrlib.crawl.commands.PurchaseHealing] accepts.
+
+This is the closed set: the command rejects any other name, and
+[`HEALING_SERVICES`][osrlib.crawl.exploration.HEALING_SERVICES] keys its price list by this
+same type, so the list a town screen offers and the names the session accepts cannot drift
+apart. Annotate a front end's own service parameter with it to get the same check from your
+type checker."""
+
+
 class PurchaseHealing(Command):
     """Buy a temple healing service in town (zero time).
 
@@ -1677,8 +1703,22 @@ class PurchaseHealing(Command):
     wounds* 25 gp, *cure serious wounds* 100 gp, *cure disease* 150 gp,
     *neutralize poison* 150 gp, *remove curse* 200 gp, *raise dead* 1,500 gp. Each
     resolves through the kernel spell path with an abstract temple cleric at the
-    minimum level able to cast the spell. The named character is the target and
-    pays from their own purse.
+    minimum level able to cast the spell.
+
+    The temple charges the party, not the patient. The fee is drawn from the treated
+    member's purse first and then from the other members' purses in marching order,
+    dead members included. Each purse pays in whole gold pieces, as much of what is
+    still owed as its gold covers, so a purse that cannot cover the rest hands over
+    all of its gold and keeps only what it is worth below a gold piece, and the last
+    purse charged pays the outstanding remainder alone. Because the coin below a
+    gold piece in a purse can never go toward the fee, what the party can spend is
+    the whole gold pieces in its purses, not their total worth: two members holding
+    12 gp and 5 sp each are worth 25 gp between them and are still refused a 25 gp
+    service, keeping every coin.
+
+    Charging the party is what makes *raise dead* buyable at all: the patient is
+    dead, nothing can hand a corpse coin, and a party that splits its treasure never
+    has 1,500 gp in one purse.
 
     Modes:
         `town`
@@ -1686,32 +1726,26 @@ class PurchaseHealing(Command):
     Rejections:
         - `session.command.wrong_mode` - the party is not in town.
         - `session.command.unknown_member` - `character_id` names no party member.
-        - `items.purchase.insufficient_funds` - the character's purse cannot cover
-          the service.
+        - `items.purchase.insufficient_funds` - the whole gold pieces in the party's
+          purses together fall short of the fee. Coin below a gold piece in a purse
+          cannot go toward it, so a party worth the price in mixed coin can still be
+          refused.
 
     Events:
-        [`HealingPurchasedEvent`][osrlib.crawl.events.HealingPurchasedEvent], then
-        the service spell's own resolution events (healing, effect releases, a
-        revival's outcome).
+        [`HealingPurchasedEvent`][osrlib.crawl.events.HealingPurchasedEvent], naming
+        which purses paid and how much each one paid, then the service spell's own
+        resolution events (healing, effect releases, a revival's outcome).
     """
 
     allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.TOWN})
 
     command_type: Literal["purchase_healing"] = "purchase_healing"
     character_id: str
-    """Who is treated, by [`MemberView.id`][osrlib.crawl.views.MemberView.id]. The same member
-    pays from their own purse, so move coins with
-    [`GiveItems`][osrlib.crawl.commands.GiveItems] first when somebody else is footing the
-    bill. A dead member is a legal target, and the fee still comes out of that member's purse:
-    `raise_dead` is what the temple is for."""
-    service: Literal[
-        "cure_light_wounds",
-        "cure_serious_wounds",
-        "cure_disease",
-        "neutralize_poison",
-        "remove_curse",
-        "raise_dead",
-    ]
+    """Who is treated, by [`MemberView.id`][osrlib.crawl.views.MemberView.id]. This member's
+    purse is charged first and the rest of the party covers whatever is left, so there is no
+    need to move coin around before buying. A dead member is a legal target, and a corpse with
+    an empty purse is still treatable: `raise_dead` is what the temple is for."""
+    service: HealingService
     """Which service to buy. The prices are fixed: `cure_light_wounds` 25 gp,
     `cure_serious_wounds` 100 gp, `cure_disease` 150 gp, `neutralize_poison` 150 gp,
     `remove_curse` 200 gp, and `raise_dead` 1,500 gp. Each resolves as the matching spell cast
@@ -2144,7 +2178,7 @@ class GrantItem(Command):
 
     Events:
         [`ItemAcquiredEvent`][osrlib.crawl.events.ItemAcquiredEvent] with the
-        granted items.
+        granted items, `origin` `"grant"`.
     """
 
     command_type: Literal["grant_item"] = "grant_item"
@@ -2178,7 +2212,8 @@ class GrantCoins(Command):
 
     Events:
         [`ItemAcquiredEvent`][osrlib.crawl.events.ItemAcquiredEvent] with the coin
-        value.
+        value, `origin` `"grant"`, so a reward counted out per member never reads as
+        a haul split across the party.
     """
 
     command_type: Literal["grant_coins"] = "grant_coins"
@@ -2445,7 +2480,8 @@ class PlaceParty(Command):
 
     Events:
         [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] for the
-        destination.
+        destination, a dungeon one carrying `via` `"placed"`, so a log never reads
+        a referee's teleport as a walk down the stairs.
     """
 
     allowed_modes: ClassVar[frozenset[SessionMode]] = _ALL_MODES - frozenset({SessionMode.VICTORY})

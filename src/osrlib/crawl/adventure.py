@@ -50,7 +50,7 @@ from osrlib.crawl.commands import (
     SetDoorState,
     SpawnMonsters,
 )
-from osrlib.crawl.dungeon import DungeonSpec, EdgeKind, FeatureSpec, LevelSpec
+from osrlib.crawl.dungeon import AreaSpec, Direction, DungeonSpec, EdgeKind, FeatureSpec, LevelSpec
 from osrlib.crawl.gates import ConditionSpec, GateSpec, HasItemCondition
 from osrlib.crawl.quests import QuestSpec
 from osrlib.crawl.triggers import (
@@ -337,6 +337,19 @@ def _effective_equipment(adventure: Adventure, base: EquipmentCatalog) -> tuple[
     return effective, tuple(colliding)
 
 
+def _area_has_boundary_door(area: AreaSpec, level: LevelSpec) -> bool:
+    """Return whether any edge of any of `area`'s cells is a door.
+
+    This is what an `open`-trigger room trap needs to ever fire: the springing action is a door of
+    the area swinging, so an area with no door edge at all can never roll for it. Every edge of every
+    cell counts, interior or exterior, read through [`LevelSpec.edge`][osrlib.crawl.dungeon.LevelSpec.edge]
+    so the same wall/door answer the engine itself would get. A door that `starts_open` still counts:
+    nothing here reads `starts_open`, because a referee command or a trigger can close it later,
+    which is exactly the opening this check exists to guarantee stays possible.
+    """
+    return any(level.edge(cell, direction).kind is EdgeKind.DOOR for cell in area.cells for direction in Direction)
+
+
 def _validate_feature(
     feature: FeatureSpec,
     level: LevelSpec,
@@ -578,12 +591,15 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
     and every dungeon having an entrance on some level.
 
     Then, for each level: feature ids unique across the level and none of them the reserved id
-    `"pile"`, the entrance on the grid, area ids unique, area cells on the grid, keyed encounter
-    template ids resolving and any fixed alignment being one the template allows, feature cells on
-    the grid with their cache item ids and magic item ids resolving, every level-scope feature having
-    a cell, inline wandering-table monster ids resolving, the item ids named by `has_item` gates on
-    doors and transitions resolving, and transitions standing on the grid and landing on real cells of
-    real levels.
+    `"pile"`, the entrance on the grid, area ids unique, no area id colliding with a feature id (the
+    two share the trap-reference namespace, so a collision would cross-contaminate found, sprung, and
+    removed trap state), area cells on the grid, an `open`-trigger room trap having a door on its
+    area's boundary (an `enter`-trigger trap needs none, and a door that starts open still counts),
+    keyed encounter template ids resolving and any fixed alignment being one the template allows,
+    feature cells on the grid with their cache item ids and magic item ids resolving, every
+    level-scope feature having a cell, inline wandering-table monster ids resolving, the item ids
+    named by `has_item` gates on doors and transitions resolving, and transitions standing on the grid
+    and landing on real cells of real levels.
 
     Then, for each trigger: its id unique, the area, level, dungeon, item, and monster its pattern
     names resolving, and for each consequence the item it grants, the monster it spawns, a door
@@ -672,10 +688,16 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
             area_ids = [area.id for area in level.areas]
             if len(set(area_ids)) != len(area_ids):
                 errors.append(f"{owner}: area ids are not unique")
+            feature_id_set = set(feature_ids)
+            for area_id in area_ids:
+                if area_id in feature_id_set:
+                    errors.append(f"{owner}: id {area_id!r} names both an area and a feature")
             for area in level.areas:
                 for cell in area.cells:
                     if not level.in_bounds(cell):
                         errors.append(f"{owner}: area {area.id!r} cell {cell} is out of bounds")
+                if area.trap is not None and area.trap.trigger == "open" and not _area_has_boundary_door(area, level):
+                    errors.append(f"{owner}: area {area.id!r} has an open-trigger trap and no door on its boundary")
                 if area.encounter is not None:
                     for keyed in area.encounter.monsters:
                         try:

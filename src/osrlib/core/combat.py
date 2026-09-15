@@ -2418,8 +2418,10 @@ def check_morale(subject: str, score: int, *, modifier: int = 0, stream: RngStre
             check, none on an exempt one.
 
     Returns:
-        The outcome. Its events have referee visibility, because players read a side's
-            nerve from its behaviour rather than from a number.
+        The outcome. Its event states the verdict in `held` on every code, exempt checks
+            included, so a listener never has to read it back off the score. The events have
+            referee visibility, because players read a side's nerve from its behaviour rather
+            than from a number.
 
     Examples:
         ```python
@@ -2438,10 +2440,10 @@ def check_morale(subject: str, score: int, *, modifier: int = 0, stream: RngStre
         ```
     """
     if score <= 2:
-        event = MoraleCheckedEvent(code="combat.morale.exempt", subject=subject, score=score)
+        event = MoraleCheckedEvent(code="combat.morale.exempt", subject=subject, score=score, held=False)
         return MoraleResult(held=False, exempt=True, events=(event,))
     if score >= 12:
-        event = MoraleCheckedEvent(code="combat.morale.exempt", subject=subject, score=score)
+        event = MoraleCheckedEvent(code="combat.morale.exempt", subject=subject, score=score, held=True)
         return MoraleResult(held=True, exempt=True, events=(event,))
     modifier = max(-2, min(2, modifier))
     rolled = stream.randbelow(6) + 1 + stream.randbelow(6) + 1
@@ -2452,6 +2454,7 @@ def check_morale(subject: str, score: int, *, modifier: int = 0, stream: RngStre
         score=score,
         roll=rolled,
         modifier=modifier,
+        held=held,
     )
     return MoraleResult(held=held, roll=rolled, modifier=modifier, events=(event,))
 

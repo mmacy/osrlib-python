@@ -1513,9 +1513,11 @@ class GameSession:
             referee = session.view(Visibility.REFEREE)
             print(player.mode, player.party[0].name)
             # exploring Hild
+
             # The referee sees the session flags; the player whitelist has no such field.
             print("flags" in referee.state, "flags" in player.model_dump())
             # True False
+
             # Neither view carries the master seed.
             print("master_seed" in referee.state)
             # False
@@ -1542,7 +1544,9 @@ def _handle_grant_item(session: GameSession, command: GrantItem) -> tuple[list[R
         return [Rejection(code="session.command.unknown_item", params={"item": command.item_id})], []
     member.inventory.items.append(ItemInstance(template=template, quantity=command.quantity))
     events: list[Event] = [
-        ItemAcquiredEvent(character_id=_member_id(member), item_ids=(command.item_id,) * command.quantity)
+        ItemAcquiredEvent(
+            character_id=_member_id(member), item_ids=(command.item_id,) * command.quantity, origin="grant"
+        )
     ]
     return [], events
 
@@ -1555,7 +1559,9 @@ def _handle_grant_coins(session: GameSession, command: GrantCoins) -> tuple[list
     purse = member.inventory.purse
     for denomination in ("pp", "gp", "ep", "sp", "cp"):
         setattr(purse, denomination, getattr(purse, denomination) + getattr(command.coins, denomination))
-    events: list[Event] = [ItemAcquiredEvent(character_id=_member_id(member), coins_gp_value=command.coins.value_gp)]
+    events: list[Event] = [
+        ItemAcquiredEvent(character_id=_member_id(member), coins_gp_value=command.coins.value_gp, origin="grant")
+    ]
     return [], events
 
 
@@ -1891,7 +1897,11 @@ def _handle_place_party(session: GameSession, command: PlaceParty) -> tuple[list
         session.dungeon_state.location = location
         session.dungeon_state.mark_explored(dungeon_id, level_number, position)
         session.mode = SessionMode.EXPLORING
-        events.append(LocationEnteredEvent(location_kind="dungeon", location_id=dungeon_id, level_number=level_number))
+        events.append(
+            LocationEnteredEvent(
+                location_kind="dungeon", location_id=dungeon_id, level_number=level_number, via="placed"
+            )
+        )
     else:
         session.dungeon_state.location = location
         session.mode = SessionMode.TOWN

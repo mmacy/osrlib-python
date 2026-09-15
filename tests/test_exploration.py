@@ -983,7 +983,7 @@ class TestDoorTraps:
         result = session.execute(Search(character_id="character-0001", kind="room_traps"))
         assert result.accepted
         completed = next(event for event in result.events if event.code == "exploration.search.found")
-        assert "room_trap:blade_room" in completed.found
+        assert "room_trap:blade_room:east" in completed.found
         assert self.BLADE in session.dungeon_state.found_traps
         # The vault's trap sits behind the undiscovered secret door on this same
         # cell: finding it would leak the door, so it stays hidden.
@@ -994,7 +994,7 @@ class TestDoorTraps:
         exploration._materialize_door(session, Direction.SOUTH).discovered = True
         result = session.execute(Search(character_id="character-0001", kind="room_traps"))
         completed = next(event for event in result.events if event.code == "exploration.search.found")
-        assert set(completed.found) == {"room_trap:blade_room", "room_trap:vault"}
+        assert set(completed.found) == {"room_trap:blade_room:east", "room_trap:vault:south"}
         assert "blades:1:vault" in session.dungeon_state.found_traps
 
     def test_a_forced_door_springs_the_trap_on_the_forcer(self):
@@ -1795,3 +1795,102 @@ class TestSeenPersistence:
         assert (4, 1) not in {tuple(cell) for cell in session.dungeon_state.seen["delve:1"]}
         place(session, (0, 0))  # walk away
         assert (4, 1) not in self._cells(session)
+
+
+class TestArrivalStatesTheMeans:
+    """A level or dungeon entry says how the party got there, and which authored transition it took.
+
+    A renderer wants "descends" or "climbs" in its line, and a narrator wants the gate on the
+    stairs the party took; both are facts the emission site has in hand. `via` is the transition's
+    kind, or `"trap"`, `"entrance"`, or `"placed"`; `transition_ref` is the transition's cell as
+    `cell_ref` gives it, filled only for `UseStairs`.
+    """
+
+    @staticmethod
+    def _entered(result, kind: str):
+        return next(
+            event
+            for event in result.events
+            if event.code == "exploration.location.entered" and event.location_kind == kind
+        )
+
+    def test_stairs_down_name_the_transition_taken(self):
+        session = quiet_session()
+        entered(session)
+        place(session, (4, 1))
+        event = self._entered(session.execute(UseStairs()), "level")
+        assert (event.via, event.transition_ref) == ("stairs_down", "cell:delve:1:4,1")
+
+    def test_stairs_up_read_as_a_climb(self):
+        session = quiet_session()
+        entered(session)
+        place(session, (0, 0), level_number=2)
+        event = self._entered(session.execute(UseStairs()), "level")
+        assert (event.level_number, event.via, event.transition_ref) == (1, "stairs_up", "cell:delve:2:0,0")
+
+    def test_the_entrance_and_a_referee_placement_say_so(self):
+        session = quiet_session()
+        arrival = self._entered(session.execute(EnterDungeon(dungeon_id="delve")), "dungeon")
+        assert (arrival.via, arrival.transition_ref) == ("entrance", None)
+        result = session.execute(
+            PlaceParty(
+                location=PartyLocation(
+                    kind="dungeon", dungeon_id="delve", level_number=2, position=(1, 0), facing=Direction.EAST
+                )
+            )
+        )
+        placed = self._entered(result, "dungeon")
+        assert (placed.via, placed.transition_ref) == ("placed", None)
+
+    def test_an_area_entry_has_no_means(self):
+        session = quiet_session()
+        entered(session)
+        place(session, (1, 0), level_number=2)
+        event = self._entered(session.execute(MoveParty(direction=Direction.EAST)), "area")
+        assert (event.via, event.transition_ref) == (None, None)
+
+
+class TestADoorEdgeFindNamesItsDoor:
+    """A room trap found through a door says which door, at emission, so no renderer has to re-walk the cell."""
+
+    @staticmethod
+    def before_the_blade_door(seed: int) -> GameSession:
+        session = GameSession.new(build_party(), build_blade_adventure(), seed=seed)
+        session.execute(GrantItem(character_id="character-0001", item_id="torch", quantity=6))
+        session.execute(GrantItem(character_id="character-0001", item_id="tinder_box"))
+        entered(session, dungeon_id="blades")
+        session.execute(MoveParty(direction=Direction.EAST))  # to (1,0), before the blade room's door
+        assert peek(session, EXPLORATION_STREAM, 6) == 1  # this seed's searcher succeeds
+        return session
+
+    def test_a_find_through_a_door_carries_the_bearing(self):
+        session = self.before_the_blade_door(SEED_SEARCH_PASSES)
+        result = session.execute(Search(character_id="character-0001", kind="room_traps"))
+        completed = next(event for event in result.events if event.code == "exploration.search.found")
+        assert completed.found == ("room_trap:blade_room:east",)
+        trap = next(event for event in result.events if event.code == "exploration.trap.found")
+        assert (trap.trap_ref, trap.direction) == ("blades:1:blade_room", "east")
+
+    def test_a_find_inside_the_area_carries_none(self):
+        session = self.before_the_blade_door(SEED_SEARCH_PASSES)
+        place(session, (2, 0), facing=Direction.WEST, dungeon_id="blades")  # inside the blade room
+        result = session.execute(Search(character_id="character-0001", kind="room_traps"))
+        completed = next(event for event in result.events if event.code == "exploration.search.found")
+        assert completed.found == ("room_trap:blade_room",)
+        trap = next(event for event in result.events if event.code == "exploration.trap.found")
+        assert (trap.trap_ref, trap.direction) == ("blades:1:blade_room", None)
+
+
+class TestAcquisitionOrigin:
+    """An `ItemAcquiredEvent` says where the goods came from, so a haul split across the party and a
+    reward paid per head never read the same."""
+
+    def test_a_treasure_share_is_treasure(self):
+        session = quiet_session(seed=4)
+        entered(session)
+        place(session, (3, 2))
+        result = session.execute(TakeTreasure(feature_id="chest"))
+        assert result.accepted
+        acquired = [event for event in result.events if event.code == "exploration.item.acquired"]
+        assert acquired
+        assert {event.origin for event in acquired} == {"treasure"}

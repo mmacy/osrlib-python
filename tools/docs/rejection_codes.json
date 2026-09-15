@@ -79,7 +79,7 @@
   "items.equip.two_handed_with_shield": "The character tried to equip a two-handed weapon while a shield is already equipped, or a shield while a two-handed weapon is already wielded, and the two cannot be used together.",
   "items.equip.weapon_forbidden": "The character tried to equip a weapon that the class's weapon policy explicitly excludes.",
   "items.equip.weapon_not_allowed": "The character tried to equip a weapon that isn't on the class's list of permitted weapons.",
-  "items.purchase.insufficient_funds": "The character tried to buy equipment or pay for a temple healing service whose total cost is more coin than the character's purse currently holds.",
+  "items.purchase.insufficient_funds": "The character tried to buy equipment costing more than the character's purse holds, or the party tried to pay for a temple healing service that the whole gold pieces in its purses together cannot cover.",
   "items.purchase.not_stocked": "The character tried to buy an item the adventure bundles rather than one the shipped equipment lists carry; the town shop stocks the shipped lists only, and bundled items are found in the dungeon rather than bought.",
   "items.ring.hands_full": "The character tried to equip a third magic ring while already wearing the maximum of two.",
   "items.scroll.no_such_spell": "The character tried to read a spell from a scroll that isn't among the spells still inscribed on it.",
