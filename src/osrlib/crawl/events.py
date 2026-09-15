@@ -1390,7 +1390,9 @@ class HealingPurchasedEvent(Event):
     """A temple service was paid for and cast.
 
     Emitted by [`PurchaseHealing`][osrlib.crawl.commands.PurchaseHealing] in town,
-    followed by the kernel events of the spell itself.
+    followed by the kernel events of the spell itself. The temple charges the party,
+    so `payers` and `payments_gp` say which purses covered the fee and what each one
+    put in.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"town.healing.purchased"})
@@ -1403,11 +1405,21 @@ class HealingPurchasedEvent(Event):
     visibility: Visibility = Visibility.PLAYER
     """Player visibility: the party bought it."""
     character_id: str
-    """The member the service was cast on, and whose purse paid for it."""
+    """The member the service was cast on. Their purse is charged first, but the party covers
+    whatever is left, so read `payers` for who actually paid."""
     service: str
     """Which service was bought, as the key the town's price list uses."""
     cost_gp: int
     """What it cost, in gold pieces."""
+    payers: tuple[str, ...] = ()
+    """Whose purses paid, in the order they were charged: the treated member first, then the rest
+    of the party in marching order, dead members included. Each purse listed paid in whole gold
+    pieces, all its gold if the fee was still outstanding after it and the remainder alone if it
+    was the last one charged. Members whose purses were never opened are absent. Empty on a log
+    written before the field existed."""
+    payments_gp: tuple[int, ...] = ()
+    """What each purse in `payers` paid, in gold pieces and in the same order. The entries sum to
+    `cost_gp`."""
 
 
 class FlagSetEvent(Event):
