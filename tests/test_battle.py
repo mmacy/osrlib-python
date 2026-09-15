@@ -1301,7 +1301,6 @@ class TestTheMagicPhaseRechecksADeclaration:
         result = session.execute(ResolveBattleRound(declarations=hold_all(session, extra=(silence, missile))))
         return session, result
 
-    @pytest.mark.xfail(reason="chunk: magic-phase-recheck")
     def test_a_cast_silenced_by_an_earlier_ally_fizzles_instead_of_resolving(self):
         from osrlib.core.events import SpellDisruptedEvent
         from osrlib.crawl import exploration
@@ -1332,7 +1331,6 @@ class TestTheMagicPhaseRechecksADeclaration:
         assert fizzled_seeds, "no seed anchored the silence on the party's cell"
         assert resolved_seeds, "no seed let the missile resolve"
 
-    @pytest.mark.xfail(reason="chunk: magic-phase-recheck")
     def test_the_fizzle_code_is_declared_and_has_a_template(self):
         from osrlib.core.events import SpellDisruptedEvent
         from osrlib.messages import format_message
