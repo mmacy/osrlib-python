@@ -1,5 +1,8 @@
 """Battle machine tests: rounds, disruption, effect consumption, footprints, morale."""
 
+import pytest
+from pydantic import ValidationError
+
 from crawl_fixtures import build_adventure, build_party
 from osrlib.core.effects import ActiveCondition, Condition, EffectDefinition, ModifierSpec, has_condition
 from osrlib.core.events import Visibility
@@ -1015,3 +1018,19 @@ class TestConfusedPartyResave:
             assert not has_condition(session.member("character-0001"), Condition.CONFUSED)
         else:
             assert has_condition(session.member("character-0001"), Condition.CONFUSED)
+
+
+class TestWithdrawIsNotADeclaration:
+    """`withdraw` names no rule. The SRD's two defensive moves are the fighting withdrawal
+    (half encounter rate, attacks kept) and the retreat (full rate, no attack, easier to hit),
+    and `BattleDeclaration.move` admits exactly those two beside `close`.
+    """
+
+    @pytest.mark.xfail(reason="chunk: battle-withdraw")
+    def test_a_withdraw_declaration_fails_to_parse(self):
+        with pytest.raises(ValidationError):
+            BattleDeclaration(character_id="character-0001", action="move", move="withdraw")
+
+    def test_the_two_defensive_moves_parse(self):
+        for move in ("fighting_withdrawal", "retreat"):
+            assert BattleDeclaration(character_id="character-0001", action="move", move=move).move == move

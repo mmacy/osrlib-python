@@ -171,7 +171,7 @@ def command_strategy():
                 weapon_id=st.sampled_from([None, "sword", "crossbow"]),
                 spell_id=st.sampled_from([None, "sleep", "fire_ball"]),
                 spell_mode=st.sampled_from([None, "hd_budget", "damage"]),
-                move=st.sampled_from([None, "close", "withdraw", "retreat"]),
+                move=st.sampled_from([None, "close", "fighting_withdrawal", "retreat"]),
                 item_id=st.sampled_from([None, "holy_water"]),
             )
             samples.append(st.builds(command_class, declarations=st.tuples(declaration)))
