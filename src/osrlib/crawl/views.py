@@ -500,10 +500,14 @@ class RefereeView(BaseModel):
     and the stream positions live only in the save, because knowing them would let a player predict
     every roll to come.
 
-    The view is a snapshot of the moment it was built: it contains copies of the session's mutable state,
-    so play going on afterwards leaves it as it was, and the model is frozen, so nothing updates it in
-    place. Build a fresh one after each command. Copying the adventure and the event log makes a long
-    session's view an expensive object, so build it when you need it rather than once per command.
+    The view is a snapshot of the moment it was built: the session's mutable state is copied into it, so
+    play going on afterwards leaves the view as it was, and editing what you find on a view changes
+    nothing on the session. Being frozen fixes the view's fields rather than their contents, so
+    rebinding `view.flags` raises while `view.flags["key"] = 1` and `view.monsters[0].current_hp = 0`
+    edit the view's own copies and are allowed. Build a fresh view after each command rather than
+    editing one. The command log, the event log, and the journal are shared with the session instead of
+    copied, because a command, an event, and a journal entry are frozen records of something that has
+    already happened.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -521,7 +525,9 @@ class RefereeView(BaseModel):
     """The whole authored document, as an [`Adventure`][osrlib.crawl.adventure.Adventure]: the town, the
     dungeons with their complete geometry and keyed areas, the triggers, and the quests. It is the map
     with nothing hidden, so draw the party's map from
-    [`PlayerView.explored`][osrlib.crawl.views.PlayerView.explored] instead."""
+    [`PlayerView.explored`][osrlib.crawl.views.PlayerView.explored] instead. The document is frozen and
+    the view copies it even so, because the tree under it contains dicts a caller can edit in place, the
+    town's travel turns and each level's edges among them."""
     mode: SessionMode
     """The [`SessionMode`][osrlib.crawl.commands.SessionMode] the session is in, which decides the
     commands it will accept right now."""
@@ -609,7 +615,9 @@ class RefereeView(BaseModel):
     """Everything that has happened, in order, each entry the [`Event`][osrlib.core.events.Event]
     subclass that was emitted, including the referee-visibility events a player never sees. An entry
     restored from a save whose event type this library has no class for stays the raw mapping it
-    arrived as, so check for a `dict` before reading an entry's attributes."""
+    arrived as, so check for a `dict` before reading an entry's attributes. The union is what keeps a
+    raw entry raw: an `Event` instance validates as the event, while a mapping, which a model refuses
+    under strict validation, falls to the `dict` arm and passes through unchanged."""
 
 
 _MASKED_CATEGORY_NAMES = {
@@ -998,9 +1006,11 @@ def build_referee_view(session) -> RefereeView:
 
     The call reads session state and mutates nothing. What it returns is a snapshot rather than a
     window: the session's mutable models are copied into it, so the session playing on afterwards
-    leaves the view as it was. The copying is what makes it expensive, because it takes in the whole
-    adventure and the whole event log, so build a view when you need one rather than once per
-    command.
+    leaves the view as it was, and editing what you find on the view changes nothing on the session.
+    A frozen model whose own containers cannot be edited goes in as it is, which covers the ruleset,
+    the commands, the events, the journal entries, and the death and defeat records. The adventure is
+    frozen as well and is copied anyway, because the authored tree contains dicts a caller can edit in
+    place, the town's travel turns and each level's edges among them.
 
     Args:
         session (osrlib.crawl.session.GameSession): The running session.
@@ -1046,7 +1056,7 @@ def build_referee_view(session) -> RefereeView:
         ```
     """
     return RefereeView(
-        ruleset=session.ruleset.model_copy(deep=True),
+        ruleset=session.ruleset,
         party=session.party.model_copy(deep=True),
         adventure=session.adventure.model_copy(deep=True),
         mode=session.mode,
@@ -1061,8 +1071,8 @@ def build_referee_view(session) -> RefereeView:
         journal=tuple(session.journal),
         quests={quest_id: state.model_copy(deep=True) for quest_id, state in session.quests.items()},
         listener_state={key: deepcopy(value) for key, value in session.listener_state.items()},
-        death_records={key: record.model_copy(deep=True) for key, record in session.death_records.items()},
-        defeated_monsters=tuple(record.model_copy(deep=True) for record in session.defeated_monsters),
+        death_records=dict(session.death_records),
+        defeated_monsters=tuple(session.defeated_monsters),
         deprivation={key: state.model_copy(deep=True) for key, state in session.deprivation.items()},
         treasure_snapshot_cp=session.treasure_snapshot_cp,
         exploration=ExplorationCounters(
