@@ -445,7 +445,6 @@ class TestPersistence:
 
 
 class TestATrapSlideSaysSo:
-    @pytest.mark.xfail(reason="chunk: event-provenance")
     def test_a_chute_arrival_is_via_trap(self):
         session = GameSession.new(build_party(), build_chute_adventure(), seed=4)
         assert session.execute(EnterDungeon(dungeon_id="shaft")).accepted

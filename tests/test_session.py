@@ -764,7 +764,6 @@ class TestTownGuards:
 
 
 class TestAcquisitionOrigin:
-    @pytest.mark.xfail(reason="chunk: event-provenance")
     def test_grants_are_grants_and_purchases_are_purchases(self):
         from osrlib.crawl.commands import PurchaseEquipment
 

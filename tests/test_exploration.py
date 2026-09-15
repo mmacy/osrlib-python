@@ -1814,7 +1814,6 @@ class TestArrivalStatesTheMeans:
             if event.code == "exploration.location.entered" and event.location_kind == kind
         )
 
-    @pytest.mark.xfail(reason="chunk: event-provenance")
     def test_stairs_down_name_the_transition_taken(self):
         session = quiet_session()
         entered(session)
@@ -1822,7 +1821,6 @@ class TestArrivalStatesTheMeans:
         event = self._entered(session.execute(UseStairs()), "level")
         assert (event.via, event.transition_ref) == ("stairs_down", "cell:delve:1:4,1")
 
-    @pytest.mark.xfail(reason="chunk: event-provenance")
     def test_stairs_up_read_as_a_climb(self):
         session = quiet_session()
         entered(session)
@@ -1830,7 +1828,6 @@ class TestArrivalStatesTheMeans:
         event = self._entered(session.execute(UseStairs()), "level")
         assert (event.level_number, event.via, event.transition_ref) == (1, "stairs_up", "cell:delve:2:0,0")
 
-    @pytest.mark.xfail(reason="chunk: event-provenance")
     def test_the_entrance_and_a_referee_placement_say_so(self):
         session = quiet_session()
         arrival = self._entered(session.execute(EnterDungeon(dungeon_id="delve")), "dungeon")
@@ -1866,7 +1863,6 @@ class TestADoorEdgeFindNamesItsDoor:
         assert peek(session, EXPLORATION_STREAM, 6) == 1  # this seed's searcher succeeds
         return session
 
-    @pytest.mark.xfail(reason="chunk: event-provenance")
     def test_a_find_through_a_door_carries_the_bearing(self):
         session = self.before_the_blade_door(SEED_SEARCH_PASSES)
         result = session.execute(Search(character_id="character-0001", kind="room_traps"))
@@ -1889,7 +1885,6 @@ class TestAcquisitionOrigin:
     """An `ItemAcquiredEvent` says where the goods came from, so a haul split across the party and a
     reward paid per head never read the same."""
 
-    @pytest.mark.xfail(reason="chunk: event-provenance")
     def test_a_treasure_share_is_treasure(self):
         session = quiet_session(seed=4)
         entered(session)
