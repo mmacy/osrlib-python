@@ -1732,7 +1732,7 @@ class TestLightReveal:
         entered(session)  # (1, 0) is revealed to the player, never walked
         assert (1, 0) in self._cells(session)
         referee = session.view(Visibility.REFEREE)
-        walked = {tuple(cell) for cell in referee.state["dungeon_state"]["explored"]["delve:1"]}
+        walked = {tuple(cell) for cell in referee.dungeon_state.explored["delve:1"]}
         assert (1, 0) not in walked  # sight is the player's alone; the referee sees only footprints
         assert (0, 0) in walked
 

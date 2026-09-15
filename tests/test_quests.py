@@ -829,9 +829,10 @@ class TestPersistence:
         assert session_state(replayed) == session_state(restored)
 
     def test_the_referee_view_carries_the_block(self):
-        state = self.played().view(Visibility.REFEREE).state
-        assert state["quests"][QUEST_ID]["status"] == "active"
-        assert state["quests"][QUEST_ID]["objectives"][RECOVER] == {"revealed": True, "complete": True}
+        quests = self.played().view(Visibility.REFEREE).quests
+        assert quests[QUEST_ID].status == "active"
+        objective = quests[QUEST_ID].objectives[RECOVER]
+        assert (objective.revealed, objective.complete) == (True, True)
 
 
 GUIDANCE = "Steer the table toward the barrow road."

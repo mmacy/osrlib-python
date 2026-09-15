@@ -3749,6 +3749,7 @@
       "caster_id": "character-0005",
       "code": "magic.cast.disrupted",
       "event_type": "spell_disrupted",
+      "reason": null,
       "reversed": false,
       "spell_id": "magic_missile",
       "visibility": "player"

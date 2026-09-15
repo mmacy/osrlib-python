@@ -5,8 +5,6 @@ table a session dispatches from lives on the session rather than in a module glo
 table entry after the first command cannot silently do nothing, and two sessions never share a cache.
 """
 
-import pytest
-
 from crawl_fixtures import build_adventure, build_party
 from osrlib.core.clock import TimeUnit
 from osrlib.crawl import battle, encounter, exploration
@@ -16,13 +14,11 @@ from osrlib.crawl.session import GameSession
 
 
 class TestDispatchHasNoModuleState:
-    @pytest.mark.xfail(reason="chunk: handler-privacy")
     def test_the_procedure_tables_are_private(self):
         for module in (exploration, encounter, battle):
             assert "HANDLERS" not in module.__all__, module.__name__
             assert not hasattr(module, "HANDLERS"), module.__name__
 
-    @pytest.mark.xfail(reason="chunk: handler-privacy")
     def test_the_session_module_holds_no_merged_table(self):
         assert not hasattr(session_module, "_HANDLERS_CACHE")
         assert "HANDLERS" not in session_module.__all__

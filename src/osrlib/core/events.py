@@ -1022,20 +1022,30 @@ class SpellCastEvent(Event):
 
 
 class SpellDisruptedEvent(Event):
-    """A caster was interrupted and the spell came to nothing.
+    """A declared spell came to nothing, and the caster lost it anyway.
 
-    [`disrupt_casting`][osrlib.core.spells.disrupt_casting] emits this when a caster who declared a spell is hit,
-    or otherwise stopped, before it goes off. The memorized copy is lost exactly as if it had been cast.
+    Two things produce one, and `code` tells them apart.
+    [`disrupt_casting`][osrlib.core.spells.disrupt_casting] emits `magic.cast.disrupted` when a caster who
+    declared a spell is hit, or otherwise stopped, before it goes off. The battle round emits
+    `magic.cast.fizzled` when it judges the declaration again in the magic phase, just before the spell would
+    resolve, and any one of the checks it passed at the top of the round no longer passes, because the phases
+    between the two changed what that check reads. An ally's *silence 15' radius* anchoring on the party's
+    cell and the party's last torch going out as its bearer dies are two that happen; the rule is the whole
+    set of checks, not a list of cases. `reason` carries the rejection code behind a fizzle.
+
+    Either way nothing resolved and the memorized copy is gone, exactly as if the spell had been cast, so tell
+    the player the spell failed and the prepared copy is spent. A scroll read that fizzles spends the scroll
+    the same way, and the caster loses no memorized copy, because a read never used one.
     """
 
-    allowed_codes: ClassVar[frozenset[str]] = frozenset({"magic.cast.disrupted"})
-    """The only code this event uses."""
+    allowed_codes: ClassVar[frozenset[str]] = frozenset({"magic.cast.disrupted", "magic.cast.fizzled"})
+    """The two codes this event uses: `magic.cast.disrupted` and `magic.cast.fizzled`."""
 
     event_type: Literal["spell_disrupted"] = "spell_disrupted"
     """The wire name for this event type."""
 
     code: str = "magic.cast.disrupted"
-    """Fixed at `magic.cast.disrupted`."""
+    """Which of the two failures this is, defaulting to `magic.cast.disrupted`."""
 
     visibility: Visibility = Visibility.PLAYER
     """Player visibility: the caster's spell visibly fails."""
@@ -1048,6 +1058,18 @@ class SpellDisruptedEvent(Event):
 
     reversed: bool = False
     """True when the lost copy was the spell's reversed form."""
+
+    reason: str | None = None
+    """Why a `magic.cast.fizzled` spell failed: the first rejection code the magic phase's re-check produced.
+
+    Any check a declaration passes at the top of the round can produce it, so read the code rather than
+    assuming a case: an ally's silence on the party's cell reads `magic.cast.silenced_area`, and a scroll
+    read left in the dark reads `exploration.action.requires_light`. Match on this the way you match on a
+    [`Rejection`][osrlib.core.validation.Rejection]'s own code, and
+    [the rejection code reference][rejection-codes] says what each one means. `None` on a
+    `magic.cast.disrupted` event, which needs no reason beyond the blow that landed, and on a log written
+    before the field existed.
+    """
 
 
 class SpellForgottenEvent(Event):

@@ -695,9 +695,10 @@ class TestViews:
         session = make_session()
         session.execute(SetFlag(key="secret_wiring", value=True))
         view = session.view(Visibility.REFEREE)
-        assert view.state["flags"] == {"secret_wiring": True}
-        assert "rng_streams" not in view.state
-        assert "master_seed" not in view.state
+        assert view.flags == {"secret_wiring": True}
+        dumped = view.model_dump(mode="json")
+        assert "rng_streams" not in dumped
+        assert "master_seed" not in dumped
 
     def test_monster_hp_never_in_player_view(self):
         session = make_session()

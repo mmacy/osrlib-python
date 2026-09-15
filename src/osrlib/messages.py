@@ -214,6 +214,7 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
     "magic.cast.disrupted": lambda event: (
         f"{event.caster_id}'s casting of {event.spell_id} is disrupted — the spell is lost."
     ),
+    "magic.cast.fizzled": lambda event: f"{event.caster_id}'s casting of {event.spell_id} fizzles — the spell is lost.",
     "magic.memory.forgotten": lambda event: f"{event.caster_id} forgets {event.spell_id}.",
     "magic.book.added": lambda event: f"{event.caster_id} adds {event.spell_id} to their spell book.",
     "magic.turning.turned": lambda event: _turning(event, "the undead are turned"),

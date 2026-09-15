@@ -8,7 +8,7 @@ from a chase that closed to arm's length, and from the party's own
 `battle` mode, `session.battle` holds a [`BattleState`][osrlib.crawl.battle.BattleState], and each
 round is one [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound] command with one
 [`BattleDeclaration`][osrlib.crawl.commands.BattleDeclaration] per living, able party member,
-dispatched through [`HANDLERS`][osrlib.crawl.battle.HANDLERS]. No command ends the battle. It ends
+dispatched through the session's private handler table. No command ends the battle. It ends
 from inside, when the party is wiped, when every monster group is dead or routed, or when the whole
 party retreats. A victory hands control straight to
 [`end_encounter`][osrlib.crawl.encounter.end_encounter].
@@ -136,7 +136,7 @@ assert "combat.initiative.rolled" in [event.code for event in result.events]
 """
 
 import math
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any, Protocol
 
 from pydantic import BaseModel, ConfigDict
@@ -162,7 +162,7 @@ from osrlib.core.combat import (
 )
 from osrlib.core.dice import roll
 from osrlib.core.effects import EFFECTS_STREAM, Condition, has_condition
-from osrlib.core.events import AttackRolledEvent, Event, SavingThrowRolledEvent
+from osrlib.core.events import AttackRolledEvent, Event, SavingThrowRolledEvent, SpellDisruptedEvent
 from osrlib.core.items import (
     GearTemplate,
     ItemInstance,
@@ -200,7 +200,6 @@ __all__ = [
     "BattleState",
     "FIGHTER_FRONTAGE_FEET",
     "FLEE_EXIT_FEET",
-    "HANDLERS",
     "MELEE_RANGE_FEET",
     "MonsterAction",
     "NPC_PARTY_MORALE",
@@ -1114,7 +1113,63 @@ def _group_by_id(session, group_id: str | None):
     return None
 
 
+_DEFENSIVE_MOVES = ("fighting_withdrawal", "retreat")
+"""The two `move` values the whole formation has to agree on, the SRD's two ways out of melee.
+
+The order is the order the rejections come back in, the fighting withdrawal's first. `close` is not
+one of them, because it needs no agreement: the first `close` in marching order advances the
+formation whenever the round is accepted, and a `close` declared beside a defensive move is one of
+the others that split the round.
+"""
+
+
+def _formation_split_rejections(declarers, declarations: Sequence[BattleDeclaration]) -> list[Rejection]:
+    """Refuse a defensive move that some of the round's declarers made and the rest did not.
+
+    The party moves as one formation and a member cannot leave it (see the
+    [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/), under the Bard's
+    Tale convention), so a `fighting_withdrawal` or a `retreat` is a legal declaration only when
+    every declarer makes the same one. A round whose only declarer declares one is legal, because
+    everyone agreed, and a member who cannot declare at all, being dead or incapacitated, is no
+    declarer and does not count.
+
+    Args:
+        declarers: The living, able members the round expects, in marching order.
+        declarations: The round's declarations, one per declarer, in the order the caller sent them.
+
+    Returns:
+        One `battle.declaration.formation_split` rejection per defensive move at least one declarer
+        chose and at least one did not, naming the `move`, the `declared` ids, and the `others`,
+        each id tuple in marching order. `others` is every other declarer of the round, the one who
+        chose the other defensive move included, so a round that splits on both moves comes back
+        with two rejections, each naming the other's declarers among its `others`. Those two arrive
+        in the order `_DEFENSIVE_MOVES` lists them, the fighting withdrawal first and the retreat
+        second. Empty when the formation agrees.
+    """
+    moves = {declaration.character_id: declaration.move for declaration in declarations if declaration.action == "move"}
+    order = [member.id for member in declarers]
+    rejections: list[Rejection] = []
+    for move in _DEFENSIVE_MOVES:
+        declared = tuple(member_id for member_id in order if moves.get(member_id) == move)
+        others = tuple(member_id for member_id in order if moves.get(member_id) != move)
+        if declared and others:
+            rejections.append(
+                Rejection(
+                    code="battle.declaration.formation_split",
+                    params={"move": move, "declared": declared, "others": others},
+                )
+            )
+    return rejections
+
+
 def _validate_declaration(session, declaration: BattleDeclaration, member) -> list[Rejection]:
+    """Judge one declaration against the state it names, and return every reason it cannot stand.
+
+    This runs twice on the declarations the round accepts. Once in the validation pre-phase, where a
+    rejection refuses the whole command, and again in the magic phase, immediately before a `cast`
+    resolves, because the phases between the two can change what these checks read. It reads state and
+    takes no draw, so running it a second time costs nothing and changes nothing.
+    """
     state = session.battle
     if declaration.action == "hold":
         return []
@@ -1283,6 +1338,11 @@ def _validate_magic_item_declaration(session, declaration: BattleDeclaration, me
     effects and resolving them there keeps the missile and melee ordering clean.
     A scroll read resolves in the magic phase too, through the declaration's
     spell fields.
+
+    For a scroll this runs twice, as `_validate_declaration`'s `cast` branch does: once in the
+    validation pre-phase, and again in the magic phase immediately before the read resolves, because the
+    phases between the two can change what these checks read. It reads state and takes no draw, so the
+    second run costs nothing and changes nothing.
     """
     from osrlib.crawl import exploration
 
@@ -1413,6 +1473,14 @@ class _ScrollFields:
 
 
 def _resolve_scroll_cast(session, member, instance, template, declaration: BattleDeclaration) -> list[Event]:
+    """Read one spell off a scroll in the magic phase, at the scroll's own caster level.
+
+    The declaration is judged again first, before anything is spent, and a refused one still spends the
+    scroll: the read itself is emitted and the spell struck off, and only then is the fizzle reported,
+    because the reader did read it and the ink is gone either way. A thief reading an arcane scroll rolls
+    the printed error chance after that, and a failed roll burns the spell with nothing to report: that
+    miscast is the scroll's own, not a refused declaration, so it carries no `magic.cast.fizzled` event.
+    """
     from osrlib.core.spells import CastContext, cast_from_scroll
     from osrlib.crawl import exploration
     from osrlib.crawl.events import ItemUsedEvent
@@ -1423,11 +1491,10 @@ def _resolve_scroll_cast(session, member, instance, template, declaration: Battl
     spell_id = declaration.spell_id or remaining[0]
     spell = load_spells().get(spell_id)
     mode = declaration.spell_mode or spell.modes[0].key
-    targets, distance, rejections = _cast_targets(
-        session, declaration.model_copy(update={"spell_id": spell_id, "spell_mode": mode}), spell
-    )
-    if rejections:
-        return []
+    # The declaration is judged again, with the checks it passed at the top of the round,
+    # because the phases before this one can change what those checks read (see the
+    # adaptations register). The scroll is spent afterwards either way: the reader read it.
+    rejections = _validate_magic_item_declaration(session, declaration, member, instance)
     left = tuple(spell_name for spell_name in remaining if spell_name != spell_id) + tuple(
         spell_id for _ in range(remaining.count(spell_id) - 1)
     )
@@ -1438,6 +1505,12 @@ def _resolve_scroll_cast(session, member, instance, template, declaration: Battl
     events: list[Event] = []
     events.extend(exploration._identify_item_events(session, member, instance))
     events.append(ItemUsedEvent(code="items.scroll.read", character_id=member.id, instance_id=instance.instance_id))
+    if rejections:
+        events.append(_fizzle_event(member.id, spell_id, reversed=declaration.reversed, reason=rejections[0].code))
+        return events
+    targets, distance, _ = _cast_targets(
+        session, declaration.model_copy(update={"spell_id": spell_id, "spell_mode": mode}), spell
+    )
     definition = load_classes().get(member.class_id)
     from osrlib.core.spells import caster_profile
 
@@ -1538,6 +1611,7 @@ def _handle_resolve_battle_round(session, command: ResolveBattleRound) -> tuple[
         member = session.member(declaration.character_id)
         by_member[declaration.character_id] = (member, declaration)
         rejections.extend(_validate_declaration(session, declaration, member))
+    rejections.extend(_formation_split_rejections(declarers, command.declarations))
     if rejections:
         # The whole command rejects listing every rejection. Partial acceptance
         # would tangle the replay contract (see the adaptations register).
@@ -1686,6 +1760,10 @@ def _party_movement(session, by_member) -> list[Event]:
     its own, so the withdrawing party attacks nobody that round. Otherwise the first
     `close` declaration in marching order advances the formation on its named
     group at encounter rate, stopping at 5'.
+
+    A round the formation does not agree on never gets here: `_formation_split_rejections` refuses a
+    defensive move some declarers made and the rest did not, in the validation pre-phase, with
+    `battle.declaration.formation_split`.
     """
     declarations = [declaration for _, declaration in by_member.values()]
     events: list[Event] = []
@@ -1984,7 +2062,44 @@ def _break_invisibility(session, member) -> list[Event]:
     return events
 
 
+def _fizzle_event(caster_id: str, spell_id: str, *, reversed: bool, reason: str) -> SpellDisruptedEvent:
+    """Report a declaration the magic phase's re-check refused, at `magic.cast.fizzled`.
+
+    `reason` is the first rejection code the re-check produced, which is what tells a front end why the
+    spell failed. A refused declaration never raises out of the round, so this event is the whole outcome.
+    """
+    return SpellDisruptedEvent(
+        code="magic.cast.fizzled", caster_id=caster_id, spell_id=spell_id, reversed=reversed, reason=reason
+    )
+
+
+def _fizzle_cast(session, member, spell_id: str, *, reversed: bool, reason: str, state) -> list[Event]:
+    """Lose a declared cast the magic phase's re-check refused, the way a disruption loses it.
+
+    The caster gives up the memorized copy through
+    [`disrupt_casting`][osrlib.core.spells.disrupt_casting], so the declared form is what goes, and
+    concentration releases as it does on any other action. A caster with no copy left to give up keeps the
+    event and loses nothing twice, which is what stops an earlier phase that already took the copy, such as
+    an energy drain, from raising here.
+    """
+    if any(copy.spell_id == spell_id for copy in member.memorized_spells):
+        disrupt_casting(member, spell_id, reversed=reversed)
+    events: list[Event] = [_fizzle_event(member.id, spell_id, reversed=reversed, reason=reason)]
+    events.extend(_release_concentration(session, member.id, state))
+    return events
+
+
 def _party_magic(session, by_member, pending_casters, disrupted, acted, state) -> list[Event]:
+    """Resolve the party's magic phase: item uses, turning, and casts, in the order the declarations arrived.
+
+    A caster the round already disrupted is reported as disrupted and takes no further part, and that
+    check runs before the re-check below, so a caster who was both hit and silenced reports
+    `magic.cast.disrupted` rather than `magic.cast.fizzled`. Disruption is the blow that landed, and it
+    is the outcome the table saw.
+
+    Every other declaration is judged again immediately before it resolves, with the checks it passed at
+    the top of the round, and one that now fails any of them fizzles instead of reaching the kernel.
+    """
     events: list[Event] = []
     for member, declaration in by_member.values():
         if declaration.action not in ("cast", "turn_undead", "use_item"):
@@ -2027,6 +2142,23 @@ def _party_magic(session, by_member, pending_casters, disrupted, acted, state) -
         if member.id in disrupted:
             events.extend(disrupt_casting(member, declaration.spell_id, reversed=declaration.reversed))
             events.extend(_release_concentration(session, member.id, state))
+            acted.add(member.id)
+            continue
+        # The declaration is judged again, with the checks it passed at the top of the
+        # round, because the phases before this one can change what those checks read
+        # (see the adaptations register). Nothing is spent and nothing is drawn first.
+        recheck = _validate_declaration(session, declaration, member)
+        if recheck:
+            events.extend(
+                _fizzle_cast(
+                    session,
+                    member,
+                    declaration.spell_id,
+                    reversed=declaration.reversed,
+                    reason=recheck[0].code,
+                    state=state,
+                )
+            )
             acted.add(member.id)
             continue
         spell = load_spells().get(declaration.spell_id)
@@ -2594,17 +2726,17 @@ def _watch_disruption(events, pending_casters, disrupted, acted) -> None:
             disrupted.add(target)
 
 
-HANDLERS = {
+_HANDLERS = {
     ResolveBattleRound: _handle_resolve_battle_round,
 }
 """The battle commands this module handles, keyed by command class.
 
-[`GameSession.execute`][osrlib.crawl.session.GameSession.execute] merges this map with the
-exploration, encounter, and referee maps and dispatches on the command's class, so a front end never
-reads it. Read it to see which commands the battle machine owns, and go through
-[`GameSession.execute`][osrlib.crawl.session.GameSession.execute] rather than calling a handler
-directly: a handler skips the mode gate, the command log, the listeners, and the pure validation phase
-that makes a rejected command cost no draw, no time, and no change to the game.
+[`GameSession`][osrlib.crawl.session.GameSession] folds this map into its own private handler table
+the first time it dispatches a command, alongside the exploration, encounter, and referee maps. There
+is no registration point here: the only documented way to run a command is
+[`GameSession.execute`][osrlib.crawl.session.GameSession.execute], which picks the handler, runs the
+mode gate, and does the command log, listener, and validation-phase bookkeeping a handler alone would
+skip.
 
 The value takes `(session, command)` and returns a `(rejections, events)` pair. Battle has one command
 because a round is resolved as a whole: every party member declares, and the machine runs both sides

@@ -224,6 +224,7 @@
       "caster_id": "pc-mu",
       "code": "magic.cast.disrupted",
       "event_type": "spell_disrupted",
+      "reason": null,
       "reversed": false,
       "spell_id": "fire_ball",
       "visibility": "player"

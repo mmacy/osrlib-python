@@ -1166,7 +1166,6 @@ class TestAFormationMoveNeedsEveryDeclarer:
     in marching order advances the formation for everyone, so a lone `close` stays legal.
     """
 
-    @pytest.mark.xfail(reason="chunk: formation-split")
     @pytest.mark.parametrize("move", ["fighting_withdrawal", "retreat"])
     def test_a_lone_defensive_move_is_refused_whole(self, move):
         from osrlib.core.combat import COMBAT_STREAM
@@ -1188,7 +1187,6 @@ class TestAFormationMoveNeedsEveryDeclarer:
         assert session.battle.round == round_before
         assert session.encounter.groups[0].distance_feet == distance_before
 
-    @pytest.mark.xfail(reason="chunk: formation-split")
     def test_a_majority_does_not_carry_the_minority(self):
         session = battle_session(distance=40)
         retreating = tuple(
@@ -1203,7 +1201,6 @@ class TestAFormationMoveNeedsEveryDeclarer:
         assert tuple(split[0].params["others"]) == ("character-0004",)
         assert session.battle is not None and session.battle.round == 0
 
-    @pytest.mark.xfail(reason="chunk: formation-split")
     def test_two_defensive_moves_in_one_round_are_refused_once_each(self):
         session = battle_session(distance=40)
         first = BattleDeclaration(character_id="character-0001", action="move", move="retreat")
@@ -1304,7 +1301,6 @@ class TestTheMagicPhaseRechecksADeclaration:
         result = session.execute(ResolveBattleRound(declarations=hold_all(session, extra=(silence, missile))))
         return session, result
 
-    @pytest.mark.xfail(reason="chunk: magic-phase-recheck")
     def test_a_cast_silenced_by_an_earlier_ally_fizzles_instead_of_resolving(self):
         from osrlib.core.events import SpellDisruptedEvent
         from osrlib.crawl import exploration
@@ -1335,7 +1331,6 @@ class TestTheMagicPhaseRechecksADeclaration:
         assert fizzled_seeds, "no seed anchored the silence on the party's cell"
         assert resolved_seeds, "no seed let the missile resolve"
 
-    @pytest.mark.xfail(reason="chunk: magic-phase-recheck")
     def test_the_fizzle_code_is_declared_and_has_a_template(self):
         from osrlib.core.events import SpellDisruptedEvent
         from osrlib.messages import format_message

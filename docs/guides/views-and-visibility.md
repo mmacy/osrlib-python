@@ -31,16 +31,16 @@ Active effects on party members come with their remaining duration, except a pot
 
 The quests in play appear as [`QuestView`][osrlib.crawl.views.QuestView] values with an id, a name, the offer beat and its speaker attribution, and the revealed objectives with their ids, display names, and states. When an encounter or battle is running, the view also contains its public shape ([`EncounterView`][osrlib.crawl.views.EncounterView] and [`EncounterGroupView`][osrlib.crawl.views.EncounterGroupView]): a monster group's id, label, living count, distance, and visible conditions, but never its hit points. Alongside it, the view reports the round's own shape as the table knows it: who must declare, who stands in the front rank, who is held fast, and who is still reloading.
 
-[`RefereeView`][osrlib.crawl.views.RefereeView] is the opposite: everything except the RNG stream states and the master seed. Its single `state` field is the same serialized shape [`session_state`][osrlib.persistence.session_state] produces for a save, so it contains full monster instances with real hit points, the flag store, the NPC roster, session counters, and the complete event log with referee-visibility events in it. Use it for LLM referees and tools that need the truth rather than a player's approximation of it. Never send it to a wire client.
+[`RefereeView`][osrlib.crawl.views.RefereeView] is the opposite: everything except the RNG stream states and the master seed. It has one field per group [`session_state`][osrlib.persistence.session_state] writes for a save, each one the session's own model, so `view.monsters` contains full [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] values with real hit points, and `view.flags`, `view.npcs`, `view.exploration`, and `view.event_log` are the flag store, the NPC roster, the session counters, and the complete event log with referee-visibility events in it. Dumping the view to JSON gives that save payload back without the two withheld keys. Use it for LLM referees and tools that need the truth rather than a player's approximation of it. Never send it to a wire client.
 
 ## The split in practice
 
-The clearest way to see the split is a spawned monster. The referee view's state contains the monster's live hit points. The player-facing encounter group contains only what the party could plausibly perceive: how many are still standing, how far away they are, and what conditions show.
+The clearest way to see the split is a spawned monster. The referee view contains the monster's live hit points. The player-facing encounter group contains only what the party could plausibly perceive: how many are still standing, how far away they are, and what conditions show.
 
 ```{.python .no-run}
-# The referee sees the goblin's hit points; the player view never carries them.
-referee_monster = referee_view.state["monsters"][0]
-assert "current_hp" in referee_monster
+# The referee sees the goblin's hit points; the player view never contains them.
+referee_monster = referee_view.monsters[0]
+assert referee_monster.current_hp > 0
 
 player_group = player_view.encounter.groups[0]
 assert player_group.count == 1
@@ -53,7 +53,7 @@ The authored layer shows the same split from the other side. The journal reaches
 # The beat is for the table; the trigger that produced it is referee-only wiring.
 assert [entry.text for entry in journal_view.journal][-1] == "The lever grinds."
 assert "lever-east" not in journal_view.model_dump_json()
-assert referee_state["fired_triggers"] == ["lever-east"]
+assert referee_after.fired_triggers == ("lever-east",)
 ```
 
 Quests draw the same line, one level finer. `PlayerView.quests` contains the **active** quests only, in document order. A quest nobody has been given yet is absent, because an activation clause is wiring like any other, and a finished quest leaves the list, because its record is the journal. Under each quest, only the **revealed** objectives appear. A hidden objective's id is not in the projection at all until its `reveal_when` clause fires or the objective completes, which is why `ObjectiveView.state` needs only `"incomplete"` and `"complete"`. Nothing else about a quest reaches the player view: no clause, no pattern, no condition, no reward, and no `guidance` from any narrative block or level.
@@ -149,9 +149,9 @@ assert session.mode is SessionMode.ENCOUNTER
 player_view = session.view(Visibility.PLAYER)
 referee_view = session.view(Visibility.REFEREE)
 
-# The referee sees the goblin's hit points; the player view never carries them.
-referee_monster = referee_view.state["monsters"][0]
-assert "current_hp" in referee_monster
+# The referee sees the goblin's hit points; the player view never contains them.
+referee_monster = referee_view.monsters[0]
+assert referee_monster.current_hp > 0
 
 player_group = player_view.encounter.groups[0]
 assert player_group.count == 1
@@ -163,12 +163,12 @@ session.execute(AddJournalEntry(text="The lever grinds.", source="trigger:lever-
 session.execute(RecordNote(text="The east lever is the only one that answers."))
 
 journal_view = session.view(Visibility.PLAYER)
-referee_state = session.view(Visibility.REFEREE).state
+referee_after = session.view(Visibility.REFEREE)
 
 # The beat is for the table; the trigger that produced it is referee-only wiring.
 assert [entry.text for entry in journal_view.journal][-1] == "The lever grinds."
 assert "lever-east" not in journal_view.model_dump_json()
-assert referee_state["fired_triggers"] == ["lever-east"]
+assert referee_after.fired_triggers == ("lever-east",)
 
 # The quest activated at the threshold, and its offer opened the journal.
 quest_view = journal_view.quests[0]
