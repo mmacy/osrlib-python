@@ -16,7 +16,7 @@ import pytest
 
 REPO = Path(__file__).resolve().parent.parent
 
-_CROSSREF = re.compile(r"\]\[[A-Za-z_][\w.]*\]")
+_CROSSREF = re.compile(r"\]\[[^\]\s]+\]")
 
 
 @pytest.fixture(scope="module")
