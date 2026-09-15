@@ -8,8 +8,8 @@ don't call a handler here yourself. You build one of the command models in
 [`osrlib.crawl.commands`][osrlib.crawl.commands], like [`MoveParty`][osrlib.crawl.commands.MoveParty],
 [`Search`][osrlib.crawl.commands.Search] or [`Rest`][osrlib.crawl.commands.Rest], and pass it to
 [`GameSession.execute`][osrlib.crawl.session.GameSession.execute]. The session looks the command's
-class up in [`HANDLERS`][osrlib.crawl.exploration.HANDLERS] and runs the handler it finds, which is
-one function taking `(session, command)` and returning `(rejections, events)`. You get back a
+class up in its own private handler table and runs the handler it finds, which is one function
+taking `(session, command)` and returning `(rejections, events)`. You get back a
 [`CommandResult`][osrlib.crawl.commands.CommandResult] that contains either
 [`Rejection`][osrlib.core.validation.Rejection] models saying why the command was refused, or the
 event models of [`osrlib.crawl.events`][osrlib.crawl.events] saying what happened. Validation is a
@@ -214,7 +214,6 @@ __all__ = [
     "EXHAUSTED_DEFINITION",
     "EXHAUSTED_KIND",
     "FATIGUE_KIND",
-    "HANDLERS",
     "HEALING_SERVICES",
     "check_fatigue",
     "consume_provisions",
@@ -4321,7 +4320,7 @@ def _temple_cleric(spell) -> Character:
     )
 
 
-HANDLERS = {
+_HANDLERS = {
     MoveParty: _handle_move_party,
     TurnParty: _handle_turn_party,
     ReorderParty: _handle_reorder_party,
@@ -4355,26 +4354,10 @@ HANDLERS = {
 }
 """The command classes this module handles, each mapped to the function that handles it.
 
-Read it to find out which commands the exploration and town handlers take.
-[`GameSession.execute`][osrlib.crawl.session.GameSession.execute] merges this mapping with the
-encounter, battle, and referee mappings the first time it dispatches, then looks your command's
-class up in the result. A command class that is not a key here is handled by the encounter or battle
-procedure, or is one of the referee commands. Which session modes a command is legal in is a
-separate question, answered by the command's `allowed_modes`, and `execute` returns
-`session.command.wrong_mode` when the session is in a mode the command doesn't allow.
-
-Send commands through `execute` rather than calling a handler out of this mapping. A handler takes
-`(session, command)` and returns `(rejections, events)`, but it is only the middle of the command
-path, and calling it directly skips the mode check, the command log that makes a game replayable,
-the listeners, and the party-death bookkeeping that `execute` runs around it. Replacing an entry
-here does not redirect dispatch either, because the session builds its merged mapping once and keeps
-it.
-
-```python
-from osrlib.crawl.commands import MoveParty, Parley
-from osrlib.crawl.exploration import HANDLERS
-
-assert MoveParty in HANDLERS
-assert Parley not in HANDLERS  # the encounter procedure handles that one
-```
+[`GameSession`][osrlib.crawl.session.GameSession] folds this mapping into its own private handler
+table the first time it dispatches a command, alongside the encounter, battle, and referee mappings.
+There is no registration point here: the table is private to this module, and the only documented
+way to run a command is [`GameSession.execute`][osrlib.crawl.session.GameSession.execute], which
+picks the handler, runs the mode check, and does the logging and bookkeeping a handler alone would
+skip.
 """
