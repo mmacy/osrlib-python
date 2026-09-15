@@ -1,5 +1,7 @@
 """Battle machine tests: rounds, disruption, effect consumption, footprints, morale."""
 
+import pytest
+
 from crawl_fixtures import build_adventure, build_party
 from osrlib.core.effects import ActiveCondition, Condition, EffectDefinition, ModifierSpec, has_condition
 from osrlib.core.events import Visibility
@@ -672,15 +674,17 @@ class TestIdentifiedArmCombatFacts:
         assert set(wielded["qualities"]) == {"melee", "missile"}
         assert wielded["missile_ranges"]["long"]["max_feet"] == 30
 
-    def test_an_unidentified_arm_stays_masked(self):
+    def test_an_unidentified_arm_keeps_its_name_masked(self):
         from osrlib.core.items import MagicItemInstance
 
         session = battle_session(distance=40)
         member = session.party.members[0]
         member.inventory.wielded.append(MagicItemInstance(instance_id="magic-item-0001", template_id="dagger_plus_1"))
         wielded = session.view(Visibility.PLAYER).party[0].inventory["wielded"][-1]
-        assert "qualities" not in wielded
-        assert "missile_ranges" not in wielded
+        assert wielded["identified"] is False
+        assert wielded["display"] == "a dagger with a faint aura"
+        assert "template_id" not in wielded
+        assert "name" not in wielded
 
     def test_a_shield_has_no_combat_facts_to_show(self):
         from osrlib.core.items import MagicItemInstance
@@ -1015,3 +1019,51 @@ class TestConfusedPartyResave:
             assert not has_condition(session.member("character-0001"), Condition.CONFUSED)
         else:
             assert has_condition(session.member("character-0001"), Condition.CONFUSED)
+
+
+class TestUnidentifiedArmCombatFacts:
+    """An unidentified arm already names its base weapon ("a dagger with a faint aura"), so it shows
+    the base's `qualities` and `missile_ranges` too. Those are rulebook facts about the mundane
+    weapon the display string names; the enchantment, its bonus, and any curse stay hidden."""
+
+    @pytest.mark.xfail(reason="chunk: unidentified-arm-view")
+    def test_an_unidentified_dagger_shows_its_base_weapon_facts(self):
+        from osrlib.core.items import MagicItemInstance
+
+        session = battle_session(distance=40)
+        member = session.party.members[0]
+        member.inventory.wielded.append(MagicItemInstance(instance_id="magic-item-0001", template_id="dagger_plus_1"))
+        wielded = session.view(Visibility.PLAYER).party[0].inventory["wielded"][-1]
+        assert wielded["identified"] is False
+        assert set(wielded["qualities"]) == {"melee", "missile"}
+        assert wielded["missile_ranges"]["long"]["max_feet"] == 30
+        assert "template_id" not in wielded
+        assert "name" not in wielded
+
+    @pytest.mark.xfail(reason="chunk: unidentified-arm-view")
+    def test_a_cursed_arm_shows_its_mundane_base_and_nothing_more(self):
+        from osrlib.core.items import MagicItemInstance
+
+        session = battle_session(distance=40)
+        member = session.party.members[0]
+        cursed = MagicItemInstance(
+            instance_id="magic-item-0001", template_id="sword_minus_1_cursed", base_item_id="sword"
+        )
+        member.inventory.wielded.append(cursed)
+        wielded = session.view(Visibility.PLAYER).party[0].inventory["wielded"][-1]
+        assert wielded["display"] == "a sword with a faint aura"
+        assert wielded["qualities"] == ["melee"]
+        assert "missile_ranges" not in wielded
+        assert "cursed" not in wielded
+        assert "template_id" not in wielded
+
+    def test_an_unidentified_shield_still_has_no_combat_facts(self):
+        from osrlib.core.items import MagicItemInstance
+
+        session = battle_session(distance=40)
+        member = session.party.members[0]
+        member.inventory.items.append(MagicItemInstance(instance_id="magic-item-0001", template_id="shield_plus_1"))
+        shield = session.view(Visibility.PLAYER).party[0].inventory["items"][-1]
+        assert shield["identified"] is False
+        assert "qualities" not in shield
+        assert "missile_ranges" not in shield
