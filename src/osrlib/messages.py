@@ -61,15 +61,18 @@ __all__ = [
 
 
 def _entered(event: Any) -> str:
-    """The arrival line, which reads a stair crossing as the climb or descent it was.
+    """The arrival line, which reads a stairs crossing as the climb or descent it was.
 
     The event's `via` is the only source of the direction: the party's current level says nothing
     about where it came from, and a log re-rendered later would read every crossing against the
-    wrong cell. The kinds that do not state a direction of their own — a trapdoor, a chute, a trap,
-    the entrance, a referee's placement — keep the plain arrival line.
+    wrong cell. The kinds that state no direction of their own (a trapdoor, a chute, a trap, the
+    entrance, a referee's placement) keep the plain arrival line. A stairs crossing into another
+    dungeon still says which dungeon, since the level number alone would hide the bigger move.
     """
     verb = {"stairs_up": "climbs", "stairs_down": "descends"}.get(event.via or "")
-    if verb and event.level_number is not None:
+    if verb is not None and event.level_number is not None:
+        if event.location_kind == "dungeon":
+            return f"The party {verb} into {event.location_id}, level {event.level_number}."
         return f"The party {verb} to level {event.level_number} of {event.location_id}."
     return (
         f"The party enters {event.location_kind} {event.location_id}"

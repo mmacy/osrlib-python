@@ -433,9 +433,10 @@ class TrapEvent(Event):
     """The member who set it off, found it, or removed it, or `None` when the trap fired on the
     party as a whole."""
     direction: str | None = None
-    """For a trap found through a door from the searched cell, the direction of that door from the
-    cell, as a [`Direction`][osrlib.crawl.dungeon.Direction] value. `None` for a trap found inside
-    its own area, and on every code but `exploration.trap.found`."""
+    """The direction of the door a room trap was found through, from the searched cell, as a
+    [`Direction`][osrlib.crawl.dungeon.Direction] value. Set for that find alone: a room trap found
+    inside its own area, a treasure trap found on a cache, and every code but
+    `exploration.trap.found` all carry `None`."""
 
 
 class ItemAcquiredEvent(Event):

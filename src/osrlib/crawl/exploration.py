@@ -2151,7 +2151,7 @@ def _reveal(session, kind: str, events: list[Event]) -> list[str]:
             if trap_ref not in state.found_traps and trap_ref not in state.sprung_traps:
                 state.found_traps.append(trap_ref)
                 bearing = None if direction_found is None else direction_found.value
-                found.append(f"room_trap:{candidate.id}" + (f":{bearing}" if bearing else ""))
+                found.append(f"room_trap:{candidate.id}" + (f":{bearing}" if bearing is not None else ""))
                 events.append(TrapEvent(code="exploration.trap.found", trap_ref=trap_ref, direction=bearing))
     elif kind == "construction":
         for feature in _features_here(session):
