@@ -12,8 +12,6 @@ import ast
 import re
 from pathlib import Path
 
-import pytest
-
 REPO = Path(__file__).resolve().parent.parent
 SRC = REPO / "src" / "osrlib"
 
@@ -67,7 +65,6 @@ def _stream_key_literals(source: str) -> list[str]:
     return found
 
 
-@pytest.mark.xfail(reason="chunk: stream-names")
 def test_the_enum_names_every_stream_and_the_constants_take_their_values_from_it():
     from enum import StrEnum
 
@@ -97,7 +94,6 @@ def test_the_enum_names_every_stream_and_the_constants_take_their_values_from_it
         assert constant == key
 
 
-@pytest.mark.xfail(reason="chunk: stream-names")
 def test_no_module_outside_rng_uses_a_stream_name_literal():
     offenders = []
     for path in sorted(SRC.rglob("*.py")):
@@ -108,7 +104,6 @@ def test_no_module_outside_rng_uses_a_stream_name_literal():
     assert offenders == []
 
 
-@pytest.mark.xfail(reason="chunk: stream-names")
 def test_the_stream_page_lists_exactly_the_enum():
     page = (REPO / "docs" / "reference" / "rng-streams.md").read_text(encoding="utf-8")
     listed = set(re.findall(r'^\| `"([a-z_]+)"` \|', page, re.M))
