@@ -58,6 +58,8 @@ osrlib/
 │   │                    # petrification, location-bound areas (oil pools, webs)
 │   ├── monsters.py      # monster stat blocks, special-ability & category tags,
 │   │                    # NA/treasure refs
+│   ├── creature.py      # Creature, Combatant, and Caster: the protocols the rules read
+│   │                    # a character or a monster instance through
 │   ├── items.py         # weapons (qualities, materials), armour, gear, magic items,
 │   │                    # encumbrance
 │   ├── treasure.py      # treasure types A–V, hoard generation, coin/gem/magic rolls
@@ -122,7 +124,7 @@ for event in result.events:
 view = session.view(Visibility.PLAYER)
 ```
 
-The player view is a safe projection: party status, explored map cells, known active effects, active quests (id, name, display narrative with the block's speaker attribution beside it, since a wire client holds no adventure document to resolve one from, and visible objectives with their ids, display names, and states), and the journal. It never contains unexplored geometry, trap locations, monster HP, referee-only roll outcomes, session flags, hidden objectives, gate or trigger wiring, or the seed. `Visibility.REFEREE` returns everything, for LLM referees, debugging, and tests.
+The player view is a safe projection: party status, explored map cells, known active effects, active quests (id, name, display narrative with the block's speaker attribution beside it, since a wire client holds no adventure document to resolve one from, and visible objectives with their ids, display names, and states), and the journal. It never contains unexplored geometry, trap locations, monster HP, referee-only roll outcomes, session flags, hidden objectives, gate or trigger wiring, or the seed. `Visibility.REFEREE` returns everything, for LLM referees, debugging, and tests: a `RefereeView` with one typed field per group the save keeps, whose JSON dump is the save payload minus the master seed and the RNG stream states.
 
 Full game state, referee-visibility events, and the master seed are server-side secrets: a backend forwards views and player-visible events to clients, never raw state.
 
@@ -277,7 +279,7 @@ The kernel implements B/X procedures rules-as-written:
 - Equipment destruction when death comes from a destructive attack (lightning bolt, dragon breath), with magic items saving to survive on the owner's save values plus the item's own combat bonus (the SRD makes this save referee-optional; it defaults on behind a `Ruleset` flag)
 - Energy drain: level loss as the symmetric counterpart of leveling — HP, saves, THAC0, and spell slots recomputed, XP set halfway between the old and new levels, and the drained-to-zero terminal state
 - Morale (2d6 vs ML at first death and half-side casualties; ML 2 or less never fights, ML 12 or more never checks, two passed checks end checking), NPC/monster reaction (2d6, CHA-modified)
-- Spell memorization and casting for divine and arcane casters; spell disruption (a declared caster who is hit or fails a save before acting loses the spell as if cast); turning undead
+- Spell memorization and casting for divine and arcane casters; spell disruption (a declared caster who is hit or fails a save before acting loses the spell as if cast, and so does a caster whose declaration the magic phase judges again and refuses); turning undead
 - Thief skills as a percentile subsystem (climb sheer surfaces, find/remove treasure traps, hide in shadows, move silently, open locks, pick pockets; hear noise on d6), plus back-stab, read languages, and scroll use
 - Demi-human class abilities: infravision, detection checks (secret doors, construction tricks, room traps), ghoul-paralysis immunity, halfling hiding (2-in-6 in dungeons, 90% outdoors) and missile/AC/initiative bonuses
 - Monster category tags consumed by targeting and effects: person (human-like, up to 4+1 HD — the *charm person*/*hold person* domain), undead (turning target, mind-effect immunities, exempt from *sleep*), enchanted. *Sleep* itself is not person-limited: it takes any living creature within its HD bounds
@@ -300,7 +302,7 @@ The crawl framework implements the dungeon adventuring procedures:
 - Area-of-effect resolution against that combat space: geometric shapes map deterministically to groups and party ranks (how many of a group a 20'-radius *fire ball* catches, which ranks a breath weapon reaches), including friendly fire when an area overlaps a melee — a documented adaptation with `Ruleset` knobs
 - Monster actions resolve through a pluggable action policy: the default follows scripted patterns where the SRD defines them (a dragon opens with breath, then breath or melee with equal chance, three breaths per day) and otherwise picks attacks by range; games and LLM referees can substitute a policy per encounter side
 - Evasion and pursuit: evasion only before combat begins, speed comparison, pursuit in rounds at running speed, dropped-treasure and food distractions (3-in-6 for intelligent monsters), running exhaustion after 30 rounds (−2 to attacks, damage, and AC until rested 3 turns)
-- Battle state machine wrapping kernel combat: declared spells tracked for disruption, morale checks, fleeing and pursuit outcomes, victory/TPK
+- Battle state machine wrapping kernel combat: declared spells tracked for disruption, a cast or scroll-read declaration judged again in the magic phase before it resolves, a fighting withdrawal or retreat legal only when every declarer makes it, morale checks, fleeing and pursuit outcomes, victory/TPK
 - XP awarded at adventure end per RAW (survive and return to safety), with an immediate-award `Ruleset` adaptation for continuous CRPG play
 
 Out of scope for 1.0 (tracked for later): wilderness and sea adventuring, strongholds and domain play, hirelings/retainers as full NPCs, magical research, procedural dungeon generation (the SRD stocking tables ship as data; the generator that consumes them comes later), Advanced Fantasy content.

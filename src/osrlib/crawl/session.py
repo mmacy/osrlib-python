@@ -1042,7 +1042,7 @@ class GameSession:
         entities.update(self.npcs)
         return entities
 
-    def combatant(self, combatant_id: str) -> object | None:
+    def combatant(self, combatant_id: str) -> MonsterInstance | Character | None:
         """Return the monster or NPC adventurer with this id, or `None`.
 
         An [`EncounterGroup`][osrlib.crawl.encounter.EncounterGroup] holds ids that can be either,
