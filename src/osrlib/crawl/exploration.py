@@ -126,6 +126,7 @@ from osrlib.core.spells import (
     caster_profile,
     memorize_spells,
     validate_cast,
+    validate_scroll_cast,
 )
 from osrlib.core.tables import select_encounter_individuals
 from osrlib.core.validation import Rejection
@@ -3739,21 +3740,6 @@ def _thief_scroll_use(definition) -> dict | None:
     return None
 
 
-def _scroll_caster(member, spell):
-    """The reader as the kernel will judge them: their own body at the scroll's caster level.
-
-    A scroll resolves at the lowest class level able to cast the inscribed spell, and
-    [`cast_from_scroll`][osrlib.core.spells.cast_from_scroll] checks legality at that level too. The
-    crawl asks [`validate_cast`][osrlib.core.spells.validate_cast] about this caster, so the crawl
-    refuses exactly what the kernel would refuse, before the scroll is spent. The two checks that
-    scale with caster level, how many targets a mode demands and how far a per-level range reaches,
-    therefore follow the scroll rather than the reader.
-    """
-    from osrlib.core.spells import _ScrollReader, minimum_caster_level
-
-    return _ScrollReader(member, minimum_caster_level(spell))
-
-
 def _use_scroll(session, member, instance: MagicItemInstance, template, command) -> tuple[list[Rejection], list]:
     light_rejections = _requires_light(session, member, infravision_suffices=False)
     if light_rejections:
@@ -3858,11 +3844,13 @@ def _use_scroll(session, member, instance: MagicItemInstance, template, command)
             else:
                 return [Rejection(code="magic.cast.unknown_target", params={"target": target_ref})], []
         context = _cast_context(session, targets, in_combat=False)
-        cast_rejections = validate_cast(
-            _scroll_caster(member, spell),
+        # The kernel's own pre-check: a caster at the scroll's level, which is the level
+        # `cast_from_scroll` resolves at, so the crawl refuses what the kernel would refuse
+        # and the refusal lands before the scroll is spent.
+        cast_rejections = validate_scroll_cast(
+            member,
             spell,
             mode,
-            profile=None,
             targets=targets,
             context=context,
             ledger=session.ledger,
