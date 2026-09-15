@@ -258,7 +258,6 @@ class TestTrapContentChecks:
             update={"dungeons": (dungeon.model_copy(update={"levels": (level, dungeon.levels[1])}),)}
         )
 
-    @pytest.mark.xfail(reason="chunk: adventure-trap-validation")
     def test_an_area_and_a_feature_cannot_share_an_id(self):
         adventure = build_adventure()
         level = adventure.dungeon("delve").level(1)
@@ -269,7 +268,6 @@ class TestTrapContentChecks:
         with pytest.raises(ContentValidationError, match="id 'pit_room' names both an area and a feature"):
             validate_adventure(bad, load_monsters(), load_equipment())
 
-    @pytest.mark.xfail(reason="chunk: adventure-trap-validation")
     def test_an_open_trigger_room_trap_needs_a_door_on_its_boundary(self):
         adventure = build_adventure()
         level = adventure.dungeon("delve").level(1)
