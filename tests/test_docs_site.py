@@ -38,13 +38,11 @@ def _schema_definitions(site: Path, artifact: str) -> dict:
 class TestLayerFrontPages:
     """`osrlib.core` and `osrlib.crawl` carry a package docstring each; the site publishes both."""
 
-    @pytest.mark.xfail(reason="chunk: docs-tooling")
     def test_the_kernel_front_page_is_published(self, site: Path):
         page = site / "reference" / "api" / "osrlib" / "core" / "index.html"
         assert page.exists()
         assert "The rules kernel" in page.read_text(encoding="utf-8")
 
-    @pytest.mark.xfail(reason="chunk: docs-tooling")
     def test_the_crawl_front_page_is_published(self, site: Path):
         page = site / "reference" / "api" / "osrlib" / "crawl" / "index.html"
         assert page.exists()
@@ -59,7 +57,6 @@ class TestSchemaProse:
     its attribute docstring gives it.
     """
 
-    @pytest.mark.xfail(reason="chunk: docs-tooling")
     @pytest.mark.parametrize("artifact", ["commands/commands.json", "events/events.json"])
     def test_descriptions_carry_no_crossref_markup(self, site: Path, artifact: str):
         offenders = []
@@ -71,7 +68,6 @@ class TestSchemaProse:
                     offenders.append(f"{name}.{field}")
         assert offenders == []
 
-    @pytest.mark.xfail(reason="chunk: docs-tooling")
     def test_every_property_is_described(self, site: Path):
         missing = []
         for artifact in ("commands/commands.json", "events/events.json"):
@@ -81,7 +77,6 @@ class TestSchemaProse:
                         missing.append(f"{name}.{field}")
         assert missing == []
 
-    @pytest.mark.xfail(reason="chunk: docs-tooling")
     def test_the_catalog_pages_render_no_crossref_markup(self, site: Path):
         offenders = []
         for catalog in ("commands", "events"):
