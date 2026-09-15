@@ -29,15 +29,15 @@ Casting one is a supported operation, the slot is consumed and the event is emit
 or narrator resolves what happens.
 
 The daily flow is prepare, then cast. [`memorize_spells`][osrlib.core.spells.memorize_spells]
-prepares a caster's list, and arcane casters choose from a spell book grown with
-[`add_spell_to_book`][osrlib.core.spells.add_spell_to_book]. Then
+prepares a caster's list, and an arcane caster prepares from a spell book, which
+[`add_spell_to_book`][osrlib.core.spells.add_spell_to_book] adds to. Then
 [`validate_cast`][osrlib.core.spells.validate_cast] checks legality and
 [`cast_spell`][osrlib.core.spells.cast_spell] consumes the memorized copy and resolves the mode.
 [`cast_from_scroll`][osrlib.core.spells.cast_from_scroll] resolves an inscribed spell with no
 memorized copy behind it, checked first by
 [`validate_scroll_cast`][osrlib.core.spells.validate_scroll_cast], and
-[`disrupt_casting`][osrlib.core.spells.disrupt_casting] loses a copy when a declared cast is
-broken. Clerics also turn undead here:
+[`disrupt_casting`][osrlib.core.spells.disrupt_casting] takes a copy away from a caster whose
+declared cast was broken before they could make it. Clerics also turn undead here:
 [`validate_turn_undead`][osrlib.core.spells.validate_turn_undead], then
 [`turn_undead`][osrlib.core.spells.turn_undead].
 
@@ -2256,9 +2256,9 @@ def minimum_caster_level(spell: SpellTemplate) -> int:
     of that spell's level, read off the compiled class progressions. So the answer moves if you add
     a class whose progression reaches that spell level sooner.
 
-    The tabletop rules do not say what level a scroll's spell was inscribed at. osrlib takes the
-    weakest reading that still works, which keeps a found scroll from outdoing the caster who finds
-    it. A game that wants scrolls to have their own caster level resolves them with
+    The tabletop rules do not say what level a scroll's spell was inscribed at. osrlib reads a
+    scroll at the lowest level that could cast it, so a scroll the party finds never outdoes the
+    caster who found it. A game that wants scrolls to have their own caster level resolves them with
     [`cast_spell`][osrlib.core.spells.cast_spell] against a caster of that level instead.
 
     Args:
@@ -2268,8 +2268,8 @@ def minimum_caster_level(spell: SpellTemplate) -> int:
         The caster level, 1 or higher.
 
     Raises:
-        ValueError: If no class on the spell's list ever gains a slot of its level, which means the
-            spell and the classes that should cast it disagree.
+        ValueError: If no class drawing on the spell's list ever gains a slot of the spell's level,
+            which means the spell's level is higher than any of those classes ever prepares.
 
     Examples:
         ```python
@@ -2309,11 +2309,11 @@ def validate_scroll_cast(
 ) -> list[Rejection]:
     """Ask whether a scroll read is legal, without reading it.
 
-    This is [`validate_cast`][osrlib.core.spells.validate_cast] for a spell coming off a page, and it
-    is the check [`cast_from_scroll`][osrlib.core.spells.cast_from_scroll] itself makes. Call it to
-    decide whether to offer a read, and call it before any read you are about to make, because
-    `cast_from_scroll` raises on an illegal read and the scroll is your own to spend: a refusal you
-    saw first costs nothing, and one you did not costs the scroll.
+    This is [`validate_cast`][osrlib.core.spells.validate_cast] for a spell coming off a page, and
+    it is the check [`cast_from_scroll`][osrlib.core.spells.cast_from_scroll] makes before it
+    resolves anything. Call it to decide whether to offer a read, and call it before any read you
+    are about to make. `cast_from_scroll` raises on an illegal read, and osrlib has no model of the
+    scroll, so your own inventory is what decides whether the refused attempt still used it up.
 
     The difference from `validate_cast` is the caster the question is asked about. A scroll resolves
     at the lowest class level able to cast the inscribed spell, from
@@ -2323,9 +2323,10 @@ def validate_scroll_cast(
     a *magic missile* scroll supplies one target and is refused three, and how far a per-level range
     reaches. The memorized-copy check is skipped, since the scroll is the copy.
 
-    Two things it does not answer, because they are not the kernel's to judge: whether this reader
-    may read this scroll at all, which is where a thief's scroll-use ability and the arcane and
-    divine divide come in, and whether there is light to read by. The crawl layer checks both.
+    Two things it does not answer, because they depend on the game around the spell rather than on
+    the spell: whether this reader may read this scroll at all, which is where a thief's scroll-use
+    ability and the arcane and divine divide come in, and whether there is light to read by. The
+    crawl layer checks both of those.
 
     Args:
         reader: The character reading the scroll, a
@@ -2425,8 +2426,8 @@ def cast_from_scroll(
     The read runs at one caster level throughout: the level
     [`minimum_caster_level`][osrlib.core.spells.minimum_caster_level] gives for the spell, whatever
     level the reader is. Legality and resolution both use it, so a *fire ball* off a scroll always
-    burns for 5d6, a per-level duration is figured from that same level, and the two things that
-    scale with caster level at the gate follow the scroll rather than the reader:
+    burns for 5d6, a per-level duration is figured from that same level, and the two legality checks
+    that scale with caster level follow the scroll rather than the reader:
 
     - How many targets a mode demands. *Magic missile* wants one target per missile, and a scroll's
       level grants one, so even a 6th-level reader supplies one target and is refused three.
@@ -2434,8 +2435,8 @@ def cast_from_scroll(
       figured from the scroll's level when you assert a `distance_feet` in the
       [`CastContext`][osrlib.core.spells.CastContext].
 
-    Everything the spell does to the reader, a condition, a modifier, a wound, lands on the reader
-    either way.
+    A condition, a modifier, or a wound the spell puts on its caster lands on the reader, the same
+    as it would from a spell they had memorized.
 
     Args:
         reader: The character reading the scroll, a

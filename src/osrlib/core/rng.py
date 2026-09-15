@@ -9,19 +9,19 @@ from the seed you give it and hands out the right stream for each rule, so durin
 ordinary play you never touch this module.
 
 A stream is named by a plain string, and each name draws its own independent sequence.
-That's the point: rolling a hundred treasure hoards doesn't change what the next attack
-rolls. Add a new draw to one subsystem and no other subsystem's results move, which is
-what lets a saved game replay and a bug reproduce.
-[`StreamName`][osrlib.core.rng.StreamName] holds every name a running session uses, and
-each `*_STREAM` constant in the library is one of its members. [The RNG streams
-reference][rng-streams] says what each one covers. Standalone code isn't bound to those
-names. A name is a label, and all that matters is that you ask for the same one each
-time.
+Rolling a hundred treasure hoards doesn't change what the next attack rolls. Add a new
+draw to one subsystem and no other subsystem's results move, which is what lets a saved
+game replay and a bug reproduce.
+[`StreamName`][osrlib.core.rng.StreamName] names every stream a running session draws
+from, and each `*_STREAM` constant in the library is one of its members. [The RNG
+streams reference][rng-streams] says what each one covers. Standalone code isn't bound
+to those names. A name is a label, and all that matters is that you ask for the same one
+each time.
 
 Two draws made with the same master seed and the same stream name come out the same, in
-this release and in every later one. That promise fixes every choice here. The generator
-is PCG64, in the `pcg_setseq_128_xsl_rr_64` form with 128 bits of state and a 64-bit
-output, the same generator numpy calls `PCG64` rather than its `PCG64DXSM`. Each
+this release and in every later one. The generator is PCG64, in the
+`pcg_setseq_128_xsl_rr_64` form with 128 bits of state and a 64-bit output, the same
+generator numpy calls `PCG64` rather than its `PCG64DXSM`. Each
 [`next_uint64`][osrlib.core.rng.RngStream.next_uint64] advances the state first and then
 takes the output from the new state, following the C implementation numpy follows.
 Streams are forked from the master seed as
@@ -76,20 +76,21 @@ _SEED_BOUND = 1 << 128
 
 
 class StreamName(StrEnum):
-    """Every stream name the library draws from, written down once.
+    """Every stream name a running session draws from.
 
     A member is its own string, so `StreamName.COMBAT` and `"combat"` are the same stream to
     [`RngStreams.get`][osrlib.core.rng.RngStreams.get] and the same key in a save file. Draw with a
-    member rather than a key you spell out: a mistyped key raises nothing, it forks a stream of its
-    own and draws plausible numbers from it, and a replay cannot tell you that happened.
+    member rather than a string you type out. A mistyped name raises no error:
+    [`get`][osrlib.core.rng.RngStreams.get] forks a stream of its own for it and draws plausible
+    numbers from that stream instead of the one you meant.
 
     Each public `*_STREAM` constant takes its value from the member named beside it, so the constant
     and the member are one object. [The RNG streams reference][rng-streams] says what each stream
     covers and which rules draw on it.
 
-    A rule of your own is not held to these names. Any string you hand
-    [`RngStreams.get`][osrlib.core.rng.RngStreams.get] gets a stream of its own, and these are the
-    names a session replays.
+    A rule you write yourself isn't limited to these names. Any string you hand
+    [`RngStreams.get`][osrlib.core.rng.RngStreams.get] gets a stream of its own. These are the names
+    a session replays.
 
     Examples:
         ```python

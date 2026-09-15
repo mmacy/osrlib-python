@@ -64,11 +64,11 @@ __all__ = [
 def _entered(event: Any) -> str:
     """The arrival line, which reads a stairs crossing as the climb or descent it was.
 
-    The event's `via` is the only source of the direction: the party's current level says nothing
-    about where it came from, and a log re-rendered later would read every crossing against the
-    wrong cell. The kinds that state no direction of their own (a trapdoor, a chute, a trap, the
+    The event's `via` is the only source of the direction. Nothing else in the event says which way
+    the party went, and where the party stands now is no help to a line rendered from the log after
+    the fact. The kinds that state no direction of their own (a trapdoor, a chute, a trap, the
     entrance, a referee's placement) keep the plain arrival line. A stairs crossing into another
-    dungeon still says which dungeon, since the level number alone would hide the bigger move.
+    dungeon still names the dungeon, since the level number alone would hide the bigger move.
     """
     verb = {"stairs_up": "climbs", "stairs_down": "descends"}.get(event.via or "")
     if verb is not None and event.level_number is not None:
@@ -129,7 +129,7 @@ def _morale(event: MoraleCheckedEvent, outcome: str) -> str:
 
 
 def _morale_held(event: MoraleCheckedEvent) -> bool:
-    """Whether the side keeps fighting, from `held` or, on a log written before that field, from the score."""
+    """Whether the side keeps fighting: `held`, or the score on an event from an older save."""
     return event.score >= 12 if event.held is None else event.held
 
 
@@ -151,6 +151,7 @@ def _cast_no_effect(event: SpellCastEvent) -> str:
 
 
 def _healing_purchased(event: HealingPurchasedEvent) -> str:
+    """The temple line, which names the other purses when the rest of the party chipped in."""
     line = f"{event.character_id} purchases {event.service} at the temple for {event.cost_gp} gp"
     if len(event.payers) > 1:
         paid = zip(event.payers, event.payments_gp, strict=True)

@@ -1871,8 +1871,8 @@ def _handle_set_door_state(session: GameSession, command: SetDoorState) -> tuple
     if command.wedged is not None:
         state.wedged = command.wedged
     if command.discovered is not None:
-        # A door the referee reveals is discovered the same way a search reveals it, so the
-        # cell's room-trap searches come back with the trap the door was hiding.
+        # A door the referee reveals is discovered the same way a search reveals it, so both
+        # cells the edge joins get their room-trap searches back.
         secret = edge.door is not None and edge.door.kind == "secret"
         discovering = secret and command.discovered and not state.discovered
         state.discovered = command.discovered

@@ -1682,8 +1682,8 @@ def _party_movement(session, by_member) -> list[Event]:
     under the Bard's Tale convention). Every member retreating moves the party off at the full encounter
     rate, the OSE SRD's "full encounter movement rate", and the running pursuit
     begins once the battle converts. Every member declaring a fighting withdrawal
-    backs the party off at half encounter rate, and that declaration is a move
-    alone, so the withdrawing party attacks nobody that round. Otherwise the first
+    backs the party off at half encounter rate, and that declaration is a move on
+    its own, so the withdrawing party attacks nobody that round. Otherwise the first
     `close` declaration in marching order advances the formation on its named
     group at encounter rate, stopping at 5'.
     """

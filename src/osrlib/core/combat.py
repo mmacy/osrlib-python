@@ -342,7 +342,8 @@ class AttackContext(BaseModel):
     defender_retreating: bool = False
     """The defender is retreating.
 
-    The attacker gains +2 and the defender's shield doesn't count.
+    The attacker gains +2 and the defender's shield doesn't count. The crawl layer sets it for
+    a monster group that has broken and run, and for a party that declared a retreat.
     """
 
     braced: bool = False
@@ -2419,7 +2420,7 @@ def check_morale(subject: str, score: int, *, modifier: int = 0, stream: RngStre
 
     Returns:
         The outcome. Its event states the verdict in `held` on every code, exempt checks
-            included, so a listener never has to read it back off the score. The events have
+            included, so a listener never has to work it out from the score. The events have
             referee visibility, because players read a side's nerve from its behaviour rather
             than from a number.
 

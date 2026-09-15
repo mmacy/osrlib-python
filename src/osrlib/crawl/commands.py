@@ -699,14 +699,14 @@ class Search(Command):
     suffices). Each character gets one attempt per cell per kind, ever. A
     `room_traps` search covers the cell's door edges too: an `open`-trigger trap
     in an area beyond a known door is findable from this side of it, and a found
-    trap never springs. A secret door is one edge shared by two cells, and an
-    undiscovered one hides its trap along with itself from both sides equally, so
-    discovering it clears the `room_traps` attempts of both cells the edge joins,
-    not only the cell the discovery was made from, and every member on either side
-    may search their cell again for the trap the door was hiding. The referee's
-    [`SetDoorState`][osrlib.crawl.commands.SetDoorState] with `discovered=True`
-    refunds them the same way. Attempts of other kinds, and attempts on every other
-    cell, stand.
+    trap never springs. A secret door is one edge shared by two cells, and while it
+    is undiscovered the trap behind it is out of reach from both of them. So
+    discovering the door clears the `room_traps` attempts on both cells the edge
+    joins, not only on the cell the party searched from, and every member on either
+    side may search their own cell again for the trap the door stood in front of.
+    The referee's [`SetDoorState`][osrlib.crawl.commands.SetDoorState] with
+    `discovered=True` gives the attempts back the same way. Attempts of other kinds,
+    and attempts on every other cell, stand.
 
     Modes:
         `exploring`
@@ -725,8 +725,8 @@ class Search(Command):
         roll, a [`TrapEvent`][osrlib.crawl.events.TrapEvent] when a room trap is
         found, then
         [`SearchCompletedEvent`][osrlib.crawl.events.SearchCompletedEvent] naming
-        what turned up. A trap found through a door names that door on both: the
-        trap event's `direction` and a third segment on the search token,
+        what turned up. A trap found through a door names that door twice: in the
+        trap event's `direction`, and as a third segment on the search token,
         `"room_trap:<area id>:<direction>"`. A trap found inside its own area names
         no door. One turn passes with its usual follow-on events.
     """
@@ -1402,7 +1402,7 @@ class UseItem(Command):
           the scroll's own level, the level
           [`cast_from_scroll`][osrlib.core.spells.cast_from_scroll] resolves it
           at, so a 6th-level reader of a *magic missile* scroll supplies one
-          target and is refused three, and the refusal comes before the scroll is
+          target and is refused three. The refusal comes before the scroll is
           spent.
         - Devices: `items.device.inert` (no charges left),
           `items.use.target_required`, `items.use.unknown_target`, and
@@ -1505,7 +1505,7 @@ class UseStairs(Command):
         threshold, then
         [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] when the
         level or dungeon changes, with the gate's success text when its author
-        wrote one. That arrival names the crossing it rode: `via` is the
+        wrote one. That arrival names the crossing the party took: `via` is the
         transition's `kind`, and `transition_ref` is the cell the transition stands
         on, which is the cell the party left. Leaving a level shuts the doors the
         party opened on it
@@ -1716,20 +1716,20 @@ class PurchaseHealing(Command):
     resolves through the kernel spell path with an abstract temple cleric at the
     minimum level able to cast the spell.
 
-    The temple charges the party, not the patient. The fee is drawn from the treated
-    member's purse first and then from the other members' purses in marching order,
-    dead members included. Each purse pays in whole gold pieces, as much of what is
-    still owed as its gold covers, so a purse that cannot cover the rest hands over
-    all of its gold and keeps only what it is worth below a gold piece, and the last
-    purse charged pays the outstanding remainder alone. Because the coin below a
-    gold piece in a purse can never go toward the fee, what the party can spend is
-    the whole gold pieces in its purses, not their total worth: two members holding
-    12 gp and 5 sp each are worth 25 gp between them and are still refused a 25 gp
-    service, keeping every coin.
+    The temple charges the party, not the patient. The fee comes out of the treated
+    member's purse first and then out of the other members' purses in marching order,
+    dead members included. A purse pays in whole gold pieces, as much of what is still
+    owed as its gold covers, so a purse that cannot cover the rest hands over all of
+    its gold and keeps only what it is worth below a gold piece. The last purse
+    charged pays the remainder, and the purses behind it stay shut.
 
-    Charging the party is what makes *raise dead* buyable at all: the patient is
-    dead, nothing can hand a corpse coin, and a party that splits its treasure never
-    has 1,500 gp in one purse.
+    The coin below a gold piece in a purse cannot go toward the fee, so what the party
+    can spend is the whole gold pieces in its purses rather than their total worth. Two
+    members holding 12 gp and 5 sp each are worth 25 gp between them, and they are
+    still refused a 25 gp service and keep every coin.
+
+    Charging the party is what makes *raise dead* buyable: the patient is dead, and a
+    party that shares out its treasure rarely leaves 1,500 gp in one member's purse.
 
     Modes:
         `town`
@@ -2041,9 +2041,10 @@ class BattleDeclaration(BaseModel):
     full rate, and a round in which every member retreats ends the battle and turns it into a
     pursuit, or into a clean escape when nothing can chase. The party moves as one formation
     and a single member can't leave it, so a move resolves when everyone declares the same one,
-    apart from `close`. A fighting withdrawal is a move and nothing else here: the member who
-    declares it makes no attack that round, the adaptation the register records under the
-    battle round."""
+    apart from `close`. A fighting withdrawal is a move on its own: the member who declares it
+    makes no attack that round, because the formation moves together and a member declares one
+    thing per round. [The adaptations register](https://mmacy.github.io/osrlib-python/adaptations/)
+    states that reading in full."""
     item_id: str | None = None
     """Which item a `use_item` declaration uses: a magic item's per-instance id for a wand, staff,
     or rod, or a mundane item's catalog id for something thrown at a group, like a flask of
@@ -2223,7 +2224,7 @@ class GrantCoins(Command):
 
     Events:
         [`ItemAcquiredEvent`][osrlib.crawl.events.ItemAcquiredEvent] with the coin
-        value, `origin` `"grant"`, so a reward counted out per member never reads as
+        value, `origin` `"grant"`, so a reward counted out per member doesn't read as
         a haul split across the party.
     """
 
@@ -2461,7 +2462,9 @@ class SetDoorState(Command):
     behind the party."""
     discovered: bool | None = None
     """Whether the party has found the door. `None` leaves it as it is. This is what makes a
-    secret door visible without a search, and clearing it hides one again."""
+    secret door visible without a search, and clearing it hides one again. Revealing a secret
+    door gives every member on both cells the edge joins their `room_traps` search back, the
+    same as finding it with [`Search`][osrlib.crawl.commands.Search]."""
     unlocked: bool | None = None
     """Whether the lock has been undone. `None` leaves it as it is. Setting it opens a locked door
     to [`OpenDoor`][osrlib.crawl.commands.OpenDoor] without a thief."""
@@ -2491,8 +2494,8 @@ class PlaceParty(Command):
 
     Events:
         [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] for the
-        destination, a dungeon one carrying `via` `"placed"`, so a log never reads
-        a referee's teleport as a walk down the stairs.
+        destination, a dungeon one with `via` `"placed"`, so a log doesn't read a
+        referee's teleport as a walk down the stairs.
     """
 
     allowed_modes: ClassVar[frozenset[SessionMode]] = _ALL_MODES - frozenset({SessionMode.VICTORY})

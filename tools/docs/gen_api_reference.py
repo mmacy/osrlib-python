@@ -1,8 +1,8 @@
 """Generate the API reference: one page per exporting module, rendering its `__all__` surface.
 
 Runs under mkdocs-gen-files at build time. Page-per-module mirrors the one-home-per-symbol
-import contract, and rendering exactly `__all__` (kept honest by the standing completeness
-gate in the test suite) keeps the reference and the import surface identical. The `osrlib.core`
+import contract, and rendering exactly `__all__`, which the suite's completeness gate checks
+against the modules, keeps the reference and the import surface identical. The `osrlib.core`
 and `osrlib.crawl` packages set no `__all__` of their own, so each gets a front page here
 instead, rendering its package docstring at the top of its layer's section. Emits a
 `SUMMARY.md` consumed by mkdocs-literate-nav.
