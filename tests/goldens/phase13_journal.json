@@ -65,6 +65,8 @@
       "location_id": "delve",
       "location_kind": "dungeon",
       "narrative": null,
+      "transition_ref": null,
+      "via": "entrance",
       "visibility": "player"
     },
     {
@@ -130,6 +132,7 @@
       "item_ids": [
         "silver_dagger"
       ],
+      "origin": "grant",
       "visibility": "player"
     }
   ],

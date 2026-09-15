@@ -1035,6 +1035,8 @@
       "location_id": "barrow",
       "location_kind": "dungeon",
       "narrative": null,
+      "transition_ref": null,
+      "via": "entrance",
       "visibility": "player"
     },
     {
@@ -1069,6 +1071,8 @@
       "location_id": "guard_room",
       "location_kind": "area",
       "narrative": null,
+      "transition_ref": null,
+      "via": null,
       "visibility": "player"
     },
     {
@@ -1720,6 +1724,7 @@
       "item_ids": [
         "valuable-0001"
       ],
+      "origin": "treasure",
       "visibility": "player"
     },
     {
@@ -1746,6 +1751,8 @@
       "location_id": "shrine",
       "location_kind": "area",
       "narrative": null,
+      "transition_ref": null,
+      "via": null,
       "visibility": "player"
     },
     {
@@ -1756,6 +1763,8 @@
       "location_id": "barrow",
       "location_kind": "level",
       "narrative": null,
+      "transition_ref": "cell:barrow:1:4,0",
+      "via": "stairs_down",
       "visibility": "player"
     },
     {
@@ -1782,6 +1791,8 @@
       "location_id": "vault",
       "location_kind": "area",
       "narrative": null,
+      "transition_ref": null,
+      "via": null,
       "visibility": "player"
     },
     {
@@ -1802,6 +1813,7 @@
       "coins_gp_value": 52,
       "event_type": "item_acquired",
       "item_ids": [],
+      "origin": "treasure",
       "visibility": "player"
     },
     {
@@ -1810,6 +1822,7 @@
       "coins_gp_value": 52,
       "event_type": "item_acquired",
       "item_ids": [],
+      "origin": "treasure",
       "visibility": "player"
     },
     {
@@ -1818,6 +1831,7 @@
       "coins_gp_value": 52,
       "event_type": "item_acquired",
       "item_ids": [],
+      "origin": "treasure",
       "visibility": "player"
     },
     {
@@ -1826,6 +1840,7 @@
       "coins_gp_value": 52,
       "event_type": "item_acquired",
       "item_ids": [],
+      "origin": "treasure",
       "visibility": "player"
     },
     {
@@ -2333,6 +2348,7 @@
         "battle_axe",
         "dagger"
       ],
+      "origin": "treasure",
       "visibility": "player"
     },
     {
@@ -2372,6 +2388,7 @@
         "torch",
         "chainmail"
       ],
+      "origin": "treasure",
       "visibility": "player"
     },
     {
@@ -3019,6 +3036,8 @@
       "location_id": "barrow",
       "location_kind": "level",
       "narrative": null,
+      "transition_ref": "cell:barrow:2:0,0",
+      "via": "stairs_up",
       "visibility": "player"
     },
     {
@@ -3029,6 +3048,8 @@
       "location_id": "shrine",
       "location_kind": "area",
       "narrative": null,
+      "transition_ref": null,
+      "via": null,
       "visibility": "player"
     },
     {
@@ -3047,6 +3068,8 @@
       "location_id": "guard_room",
       "location_kind": "area",
       "narrative": null,
+      "transition_ref": null,
+      "via": null,
       "visibility": "player"
     },
     {
@@ -3081,6 +3104,8 @@
       "location_id": "town",
       "location_kind": "town",
       "narrative": null,
+      "transition_ref": null,
+      "via": null,
       "visibility": "player"
     },
     {
@@ -3196,6 +3221,8 @@
       "location_id": "barrow",
       "location_kind": "dungeon",
       "narrative": null,
+      "transition_ref": null,
+      "via": "entrance",
       "visibility": "player"
     },
     {
@@ -3222,6 +3249,8 @@
       "location_id": "guard_room",
       "location_kind": "area",
       "narrative": null,
+      "transition_ref": null,
+      "via": null,
       "visibility": "player"
     },
     {
@@ -3248,6 +3277,8 @@
       "location_id": "shrine",
       "location_kind": "area",
       "narrative": null,
+      "transition_ref": null,
+      "via": null,
       "visibility": "player"
     },
     {
@@ -3258,6 +3289,7 @@
       "item_ids": [
         "jade-idol"
       ],
+      "origin": "treasure",
       "visibility": "player"
     },
     {
@@ -3266,6 +3298,7 @@
       "coins_gp_value": 17,
       "event_type": "item_acquired",
       "item_ids": [],
+      "origin": "treasure",
       "visibility": "player"
     },
     {
@@ -3274,6 +3307,7 @@
       "coins_gp_value": 16,
       "event_type": "item_acquired",
       "item_ids": [],
+      "origin": "treasure",
       "visibility": "player"
     },
     {
@@ -3302,6 +3336,8 @@
       "location_id": "guard_room",
       "location_kind": "area",
       "narrative": null,
+      "transition_ref": null,
+      "via": null,
       "visibility": "player"
     },
     {
@@ -3336,6 +3372,8 @@
       "location_id": "town",
       "location_kind": "town",
       "narrative": null,
+      "transition_ref": null,
+      "via": null,
       "visibility": "player"
     },
     {
@@ -3410,6 +3448,7 @@
       "coins_gp_value": 200,
       "event_type": "item_acquired",
       "item_ids": [],
+      "origin": "grant",
       "visibility": "player"
     },
     {
@@ -3963,7 +4002,7 @@
     "The party moves to (3, 0), facing east.",
     "The party moves to (4, 0), facing east.",
     "The party enters area shrine (level 1).",
-    "The party enters level barrow (level 2).",
+    "The party descends to level 2 of barrow.",
     "The party moves to (1, 0), facing east.",
     "The party moves to (2, 0), facing east.",
     "The party enters area vault (level 2).",
@@ -4073,7 +4112,7 @@
     "The encounter ends (victory).",
     "The party moves to (1, 0), facing west.",
     "The party moves to (0, 0), facing west.",
-    "The party enters level barrow (level 1).",
+    "The party climbs to level 1 of barrow.",
     "The party enters area shrine (level 1).",
     "The party moves to (3, 0), facing west.",
     "The party enters area guard_room (level 1).",

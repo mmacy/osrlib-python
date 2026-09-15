@@ -187,8 +187,10 @@ class LocationEnteredEvent(Event):
     Which fields are filled depends on the scale, because an area id is unique only
     within its level: an area entry names the area, its level number, and its dungeon,
     a level or dungeon entry names the dungeon in `location_id` with the level number
-    beside it, and a town entry names neither. Use it to swap the screen's header, and
-    read the text the party can see from
+    beside it, and a town entry names neither. A level or dungeon entry also says how the
+    party got there, in `via` and, for a transition it took, `transition_ref`, so a line
+    written from the event alone can say the party climbed rather than descended. Use it
+    to swap the screen's header, and read the text the party can see from
     [`GameSession.view`][osrlib.crawl.session.GameSession.view].
     """
 
