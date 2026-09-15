@@ -1,6 +1,5 @@
 """Battle machine tests: rounds, disruption, effect consumption, footprints, morale."""
 
-import pytest
 
 from crawl_fixtures import build_adventure, build_party
 from osrlib.core.effects import ActiveCondition, Condition, EffectDefinition, ModifierSpec, has_condition
