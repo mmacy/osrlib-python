@@ -1026,7 +1026,6 @@ class TestUnidentifiedArmCombatFacts:
     the base's `qualities` and `missile_ranges` too. Those are rulebook facts about the mundane
     weapon the display string names; the enchantment, its bonus, and any curse stay hidden."""
 
-    @pytest.mark.xfail(reason="chunk: unidentified-arm-view")
     def test_an_unidentified_dagger_shows_its_base_weapon_facts(self):
         from osrlib.core.items import MagicItemInstance
 
@@ -1040,7 +1039,6 @@ class TestUnidentifiedArmCombatFacts:
         assert "template_id" not in wielded
         assert "name" not in wielded
 
-    @pytest.mark.xfail(reason="chunk: unidentified-arm-view")
     def test_a_cursed_arm_shows_its_mundane_base_and_nothing_more(self):
         from osrlib.core.items import MagicItemInstance
 
@@ -1074,7 +1072,6 @@ class TestCategoryMaskedItemsShowNoWeaponFacts:
     as six other staves. Showing the staff's qualities on that one alone would name it. The weapon
     facts attach only when the display string itself was built from the base weapon."""
 
-    @pytest.mark.xfail(reason="chunk: unidentified-arm-view")
     def test_an_unidentified_staff_of_striking_stays_a_staff(self):
         from osrlib.core.items import MagicItemInstance
 
