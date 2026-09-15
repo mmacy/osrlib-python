@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- `validate_adventure` now catches two authorable configurations that saved clean but could never fire (#46, #47). An area id colliding with a feature id on the same level is rejected: the two share the trap-reference namespace `"<dungeon>:<level>:<id>"` that gates found, sprung, and removed trap state, so an untouched cache trap could read as already sprung because a room trap sharing its id had gone off. An `open`-trigger room trap on an area none of whose boundary edges is a door is rejected too, because opening a door is the only action that springs one and an area with no door edge could never roll for it; a door that `starts_open` still counts, since a referee command or a trigger can close it later. Neither check touches an `enter`-trigger trap, which springs on the party stepping into the area and needs no door at all.
+
 ### Changed
 
 ### Fixed
