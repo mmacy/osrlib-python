@@ -11,10 +11,12 @@ ordinary play you never touch this module.
 A stream is named by a plain string, and each name draws its own independent sequence.
 That's the point: rolling a hundred treasure hoards doesn't change what the next attack
 rolls. Add a new draw to one subsystem and no other subsystem's results move, which is
-what lets a saved game replay and a bug reproduce. [The RNG streams
-reference][rng-streams] lists the names a running session uses and what each one covers.
-Standalone code isn't bound to those names. A name is a label, and all that matters is
-that you ask for the same one each time.
+what lets a saved game replay and a bug reproduce.
+[`StreamName`][osrlib.core.rng.StreamName] holds every name a running session uses, and
+each `*_STREAM` constant in the library is one of its members. [The RNG streams
+reference][rng-streams] says what each one covers. Standalone code isn't bound to those
+names. A name is a label, and all that matters is that you ask for the same one each
+time.
 
 Two draws made with the same master seed and the same stream name come out the same, in
 this release and in every later one. That promise fixes every choice here. The generator
@@ -51,6 +53,7 @@ assert roll("1d20", RngStreams(master_seed=42).get("combat")).total == 14
 """
 
 import hashlib
+from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -58,6 +61,7 @@ __all__ = [
     "RngStream",
     "RngStreamState",
     "RngStreams",
+    "StreamName",
     "derive_init_pair",
 ]
 
@@ -69,6 +73,87 @@ _PCG_MULTIPLIER = 0x2360ED051FC65DA44385DF649FCCF645
 
 _SEED_BYTES = 16
 _SEED_BOUND = 1 << 128
+
+
+class StreamName(StrEnum):
+    """Every stream name the library draws from, written down once.
+
+    A member is its own string, so `StreamName.COMBAT` and `"combat"` are the same stream to
+    [`RngStreams.get`][osrlib.core.rng.RngStreams.get] and the same key in a save file. Draw with a
+    member rather than a key you spell out: a mistyped key raises nothing, it forks a stream of its
+    own and draws plausible numbers from it, and a replay cannot tell you that happened.
+
+    Each public `*_STREAM` constant takes its value from the member named beside it, so the constant
+    and the member are one object. [The RNG streams reference][rng-streams] says what each stream
+    covers and which rules draw on it.
+
+    A rule of your own is not held to these names. Any string you hand
+    [`RngStreams.get`][osrlib.core.rng.RngStreams.get] gets a stream of its own, and these are the
+    names a session replays.
+
+    Examples:
+        ```python
+        from osrlib.core.rng import RngStreams, StreamName
+
+        streams = RngStreams(master_seed=42)
+
+        # A member is its own string, so the member and the written-out key are one stream.
+        assert StreamName.COMBAT == "combat"
+        assert streams.get(StreamName.COMBAT) is streams.get("combat")
+        ```
+    """
+
+    CHARACTER_CREATION = "character_creation"
+    """Creation draws: ability scores, the first-level hit die, and starting gold. Its public name is
+    [`CHARACTER_CREATION_STREAM`][osrlib.core.character.CHARACTER_CREATION_STREAM]."""
+
+    ADVANCEMENT = "advancement"
+    """Hit dice rolled when a character gains or loses a level. Its public name is
+    [`ADVANCEMENT_STREAM`][osrlib.core.character.ADVANCEMENT_STREAM]."""
+
+    COMBAT = "combat"
+    """Battle resolution: attacks, damage, saves, morale, initiative, reactions. Its public name is
+    [`COMBAT_STREAM`][osrlib.core.combat.COMBAT_STREAM]."""
+
+    EFFECTS = "effects"
+    """Draws inside the effects engine: onsets, rolled durations, revival countdowns. Its public name
+    is [`EFFECTS_STREAM`][osrlib.core.effects.EFFECTS_STREAM]."""
+
+    MONSTER_SPAWN = "monster_spawn"
+    """Hit points rolled as a monster instance is spawned from its template. Its public name is
+    [`MONSTER_SPAWN_STREAM`][osrlib.core.monsters.MONSTER_SPAWN_STREAM]."""
+
+    NPC_PARTY = "npc_party"
+    """NPC adventuring parties: composition, class and level, scores, hit points, spells. Its public
+    name is [`NPC_PARTY_STREAM`][osrlib.core.npc.NPC_PARTY_STREAM]."""
+
+    MAGIC = "magic"
+    """Spell resolution: targeting, damage, forced saves, dispel survival, turning undead. Its public
+    name is [`MAGIC_STREAM`][osrlib.core.spells.MAGIC_STREAM]."""
+
+    TREASURE = "treasure"
+    """Treasure generation, from the presence roll to each coin, gem, and magic item. Its public name
+    is [`TREASURE_STREAM`][osrlib.core.treasure.TREASURE_STREAM]."""
+
+    WANDERING = "wandering"
+    """Wandering monsters: the check die, the table roll, group counts, variant picks. Its public name
+    is [`WANDERING_STREAM`][osrlib.crawl.session.WANDERING_STREAM]."""
+
+    ENCOUNTER = "encounter"
+    """Encounter setup: surprise, distance, reaction, distraction, commanded group counts. Its public
+    name is [`ENCOUNTER_STREAM`][osrlib.crawl.session.ENCOUNTER_STREAM]."""
+
+    EXPLORATION = "exploration"
+    """Exploration: forcing doors, listening, searching, traps, tinder, thief skills. Its public name
+    is [`EXPLORATION_STREAM`][osrlib.crawl.session.EXPLORATION_STREAM]."""
+
+    MONSTER_ACTION = "monster_action"
+    """A monster action policy's own draws: which action a group takes and at whom. Its public name is
+    [`MONSTER_ACTION_STREAM`][osrlib.crawl.session.MONSTER_ACTION_STREAM]."""
+
+    ADJUDICATION = "adjudication"
+    """The referee's freeform dice, kept off every stream a rule draws from. Its public name is
+    [`ADJUDICATION_STREAM`][osrlib.crawl.session.ADJUDICATION_STREAM]."""
 
 
 def derive_init_pair(master_seed: int, key: str) -> tuple[int, int]:

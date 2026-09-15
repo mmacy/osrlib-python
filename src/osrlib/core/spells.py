@@ -161,7 +161,7 @@ from osrlib.core.events import (
     UndeadTurnedEvent,
 )
 from osrlib.core.monsters import MonsterTemplate
-from osrlib.core.rng import RngStream
+from osrlib.core.rng import RngStream, StreamName
 from osrlib.core.ruleset import Ruleset
 from osrlib.core.tables import turning_column
 from osrlib.core.validation import Rejection
@@ -200,7 +200,7 @@ __all__ = [
     "validate_turn_undead",
 ]
 
-MAGIC_STREAM = "magic"
+MAGIC_STREAM = StreamName.MAGIC
 """The name of the RNG stream every spell-resolution draw comes from.
 
 Pass `streams.get(MAGIC_STREAM)` as the `stream` argument of

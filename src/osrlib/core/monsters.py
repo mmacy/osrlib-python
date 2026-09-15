@@ -62,7 +62,7 @@ from osrlib.core.alignment import Alignment
 from osrlib.core.classes import SavingThrows
 from osrlib.core.dice import parse
 from osrlib.core.effects import ActiveCondition, ActiveModifier, Condition
-from osrlib.core.rng import RngStream
+from osrlib.core.rng import RngStream, StreamName
 
 __all__ = [
     "MONSTER_SPAWN_STREAM",
@@ -91,7 +91,7 @@ __all__ = [
     "spawn_monster",
 ]
 
-MONSTER_SPAWN_STREAM = "monster_spawn"
+MONSTER_SPAWN_STREAM = StreamName.MONSTER_SPAWN
 """The stream key every session uses for rolling a spawned monster's hit points.
 
 A stream key names one independent random-number sequence inside an

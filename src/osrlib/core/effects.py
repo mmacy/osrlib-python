@@ -89,7 +89,7 @@ from osrlib.core.events import (
     HitPointsReportedEvent,
     MonsterRevivedEvent,
 )
-from osrlib.core.rng import RngStream
+from osrlib.core.rng import RngStream, StreamName
 
 __all__ = [
     "EFFECTS_STREAM",
@@ -112,7 +112,7 @@ __all__ = [
     "remove_condition",
 ]
 
-EFFECTS_STREAM = "effects"
+EFFECTS_STREAM = StreamName.EFFECTS
 """The random-number stream name for effect-internal draws: rolled durations, onsets, and revival countdowns.
 
 Build an [`RngStreams`][osrlib.core.rng.RngStreams] from your session's master seed and pass
