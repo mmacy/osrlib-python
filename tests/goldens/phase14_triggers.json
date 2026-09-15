@@ -81,6 +81,8 @@
       "location_id": "keep",
       "location_kind": "dungeon",
       "narrative": null,
+      "transition_ref": null,
+      "via": "entrance",
       "visibility": "player"
     },
     {
@@ -154,6 +156,8 @@
       "location_id": "guardroom",
       "location_kind": "area",
       "narrative": null,
+      "transition_ref": null,
+      "via": null,
       "visibility": "player"
     },
     {

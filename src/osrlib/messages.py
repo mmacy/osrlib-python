@@ -61,6 +61,27 @@ __all__ = [
 ]
 
 
+def _entered(event: Any) -> str:
+    """The arrival line, which reads a stairs crossing as the climb or descent it was.
+
+    The event's `via` is the only source of the direction: the party's current level says nothing
+    about where it came from, and a log re-rendered later would read every crossing against the
+    wrong cell. The kinds that state no direction of their own (a trapdoor, a chute, a trap, the
+    entrance, a referee's placement) keep the plain arrival line. A stairs crossing into another
+    dungeon still says which dungeon, since the level number alone would hide the bigger move.
+    """
+    verb = {"stairs_up": "climbs", "stairs_down": "descends"}.get(event.via or "")
+    if verb is not None and event.level_number is not None:
+        if event.location_kind == "dungeon":
+            return f"The party {verb} into {event.location_id}, level {event.level_number}."
+        return f"The party {verb} to level {event.level_number} of {event.location_id}."
+    return (
+        f"The party enters {event.location_kind} {event.location_id}"
+        + (f" (level {event.level_number})" if event.level_number is not None else "")
+        + "."
+    )
+
+
 def _initiative(event: InitiativeRolledEvent) -> str:
     rolled = ", ".join(f"{entry.key} {entry.total}" for entry in event.entries)
     return f"Initiative ({event.mode}): {rolled}. Order: {', '.join(event.order)}."
@@ -199,11 +220,7 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
     ),
     "exploration.party.moved": lambda event: f"The party moves to ({event.x}, {event.y}), facing {event.facing}.",
     "exploration.party.turned": lambda event: f"The party turns to face {event.facing}.",
-    "exploration.location.entered": lambda event: (
-        f"The party enters {event.location_kind} {event.location_id}"
-        + (f" (level {event.level_number})" if event.level_number is not None else "")
-        + "."
-    ),
+    "exploration.location.entered": _entered,
     "exploration.door.opened": lambda event: f"The door {event.direction} of ({event.x}, {event.y}) opens.",
     "exploration.door.closed": lambda event: f"The door {event.direction} of ({event.x}, {event.y}) closes.",
     "exploration.door.forced": lambda event: (
@@ -241,7 +258,12 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
         f"A trap springs ({event.trap_ref})" + (f" on {event.character_id}" if event.character_id else "") + "!"
     ),
     "exploration.trap.safe": lambda event: f"The known trap ({event.trap_ref}) does not go off.",
-    "exploration.trap.found": lambda event: (event.character_id or "The party") + f" finds a trap ({event.trap_ref}).",
+    "exploration.trap.found": lambda event: (
+        (event.character_id or "The party")
+        + f" finds a trap ({event.trap_ref})"
+        + (f" beyond the {event.direction} door" if event.direction else "")
+        + "."
+    ),
     "exploration.trap.removed": lambda event: (
         (event.character_id or "The party") + f" removes the trap ({event.trap_ref})."
     ),

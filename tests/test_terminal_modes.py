@@ -444,6 +444,20 @@ class TestPersistence:
         assert restored.mode is SessionMode.VICTORY
 
 
+class TestATrapSlideSaysSo:
+    def test_a_chute_arrival_is_via_trap(self):
+        session = GameSession.new(build_party(), build_chute_adventure(), seed=4)
+        assert session.execute(EnterDungeon(dungeon_id="shaft")).accepted
+        result = session.execute(MoveParty(direction=Direction.EAST))
+        assert result.accepted
+        arrival = next(
+            event
+            for event in result.events
+            if getattr(event, "code", None) == "exploration.location.entered" and event.location_kind == "level"
+        )
+        assert (arrival.via, arrival.transition_ref) == ("trap", None)
+
+
 class TestAWipeCanFundItsOwnRaising:
     """The documented salvage flow, game over to town to `raise_dead`, is payable by a party whose
     coin is spread across its dead: the temple charges the purses in marching order."""

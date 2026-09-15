@@ -719,7 +719,10 @@ class Search(Command):
         roll, a [`TrapEvent`][osrlib.crawl.events.TrapEvent] when a room trap is
         found, then
         [`SearchCompletedEvent`][osrlib.crawl.events.SearchCompletedEvent] naming
-        what turned up. One turn passes with its usual follow-on events.
+        what turned up. A trap found through a door names that door on both: the
+        trap event's `direction` and a third segment on the search token,
+        `"room_trap:<area id>:<direction>"`. A trap found inside its own area names
+        no door. One turn passes with its usual follow-on events.
     """
 
     allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.EXPLORING})
@@ -821,8 +824,8 @@ class RemoveTreasureTrap(Command):
         [`ConditionGainedEvent`][osrlib.core.events.ConditionGainedEvent] for a
         condition, [`DeathEvent`][osrlib.core.events.DeathEvent] when it kills
         outright, and
-        [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] when it
-        drops the party somewhere else. One turn passes.
+        [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent], `via`
+        `"trap"`, when it drops the party somewhere else. One turn passes.
     """
 
     allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.EXPLORING})
@@ -876,7 +879,8 @@ class TakeTreasure(Command):
 
     Events:
         One [`ItemAcquiredEvent`][osrlib.crawl.events.ItemAcquiredEvent] per member
-        who took something, listing their goods and coin value, in marching order,
+        who took something, listing their goods and coin value with `origin`
+        `"treasure"`, in marching order,
         and an [`ItemsLeftBehindEvent`][osrlib.crawl.events.ItemsLeftBehindEvent]
         when the party could not carry it all. An unresolved treasure trap rolls first
         ([`DetectionRolledEvent`][osrlib.crawl.events.DetectionRolledEvent], a
@@ -1490,7 +1494,10 @@ class UseStairs(Command):
         threshold, then
         [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] when the
         level or dungeon changes, with the gate's success text when its author
-        wrote one. Leaving a level shuts the doors the party opened on it
+        wrote one. That arrival names the crossing it rode: `via` is the
+        transition's `kind`, and `transition_ref` is the cell the transition stands
+        on, which is the cell the party left. Leaving a level shuts the doors the
+        party opened on it
         ([`DoorEvent`][osrlib.crawl.events.DoorEvent]s).
 
         Arrival then runs the destination cell's entry checks, the same ones
@@ -1540,7 +1547,7 @@ class EnterDungeon(Command):
         [`FatigueEvent`][osrlib.crawl.events.FatigueEvent] lands on the road.
 
         Then [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] for
-        the dungeon, and the entrance cell's entry checks: a
+        the dungeon, `via` `"entrance"`, and the entrance cell's entry checks: a
         [`HoardGeneratedEvent`][osrlib.crawl.events.HoardGeneratedEvent] for area
         treasure, a
         [`DetectionRolledEvent`][osrlib.crawl.events.DetectionRolledEvent] and a
@@ -1618,7 +1625,7 @@ class PurchaseEquipment(Command):
 
     Events:
         [`ItemAcquiredEvent`][osrlib.crawl.events.ItemAcquiredEvent] listing the
-        purchases.
+        purchases, `origin` `"purchase"`.
     """
 
     allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.TOWN})
@@ -2170,7 +2177,7 @@ class GrantItem(Command):
 
     Events:
         [`ItemAcquiredEvent`][osrlib.crawl.events.ItemAcquiredEvent] with the
-        granted items.
+        granted items, `origin` `"grant"`.
     """
 
     command_type: Literal["grant_item"] = "grant_item"
@@ -2204,7 +2211,8 @@ class GrantCoins(Command):
 
     Events:
         [`ItemAcquiredEvent`][osrlib.crawl.events.ItemAcquiredEvent] with the coin
-        value.
+        value, `origin` `"grant"`, so a reward counted out per member never reads as
+        a haul split across the party.
     """
 
     command_type: Literal["grant_coins"] = "grant_coins"
@@ -2471,7 +2479,8 @@ class PlaceParty(Command):
 
     Events:
         [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] for the
-        destination.
+        destination, a dungeon one carrying `via` `"placed"`, so a log never reads
+        a referee's teleport as a walk down the stairs.
     """
 
     allowed_modes: ClassVar[frozenset[SessionMode]] = _ALL_MODES - frozenset({SessionMode.VICTORY})
