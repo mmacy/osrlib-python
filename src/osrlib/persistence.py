@@ -161,7 +161,28 @@ def _migrate_2_to_3(payload: dict) -> dict:
     return payload
 
 
-MIGRATIONS: dict[int, Callable[[dict], dict]] = {1: _migrate_1_to_2, 2: _migrate_2_to_3}
+def _migrate_3_to_4(payload: dict) -> dict:
+    """Migrate a schema 3 payload to schema 4 by rewriting a logged `withdraw` declaration into a hold.
+
+    Schema 4 drops `"withdraw"` from
+    [`BattleDeclaration.move`][osrlib.crawl.commands.BattleDeclaration.move], leaving the two
+    defensive moves the OSE SRD prints. The round resolver never moved the formation for a
+    `withdraw`, so a member who declared one stood there, and the migration records that: the
+    declaration becomes `action="hold"` with no move. The command log is the only place a
+    declaration is stored, since a battle keeps its round bookkeeping and not the round's
+    declarations.
+    """
+    for entry in payload.get("command_log", ()):
+        if entry.get("command_type") != "resolve_battle_round":
+            continue
+        for declaration in entry.get("declarations", ()):
+            if declaration.get("action") == "move" and declaration.get("move") == "withdraw":
+                declaration["action"] = "hold"
+                declaration["move"] = None
+    return payload
+
+
+MIGRATIONS: dict[int, Callable[[dict], dict]] = {1: _migrate_1_to_2, 2: _migrate_2_to_3, 3: _migrate_3_to_4}
 """The steps that bring an old save payload forward, one schema version at a time.
 
 `MIGRATIONS[n]` rewrites a payload written at schema version `n` into the shape version

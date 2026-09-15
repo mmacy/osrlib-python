@@ -283,8 +283,9 @@ class EncounterView(BaseModel):
     weapon that is both melee and missile counts as a melee weapon."""
     immobile: tuple[str, ...] = ()
     """The declarers who cannot move this round, which in practice means the entangled,
-    since the states that stop a move otherwise stop a declaration as well. Their `close`
-    and `withdraw` moves are rejected with `battle.declaration.cannot_move`."""
+    since the states that stop a move otherwise stop a declaration as well. A `move`
+    declaration of any kind from one of them is rejected with
+    `battle.declaration.cannot_move`."""
     reloading: tuple[str, ...] = ()
     """The members who may not fire a `reload` weapon this round, because they fired one
     last round (`combat.attack.reload`). Empty when the ruleset's `weapon_reload` flag is

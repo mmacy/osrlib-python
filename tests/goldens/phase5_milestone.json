@@ -3533,7 +3533,7 @@
   "master_seed": 21,
   "mode": "victory",
   "party_document": {
-    "engine_version": "1.7.0",
+    "engine_version": "1.7.1",
     "kind": "party",
     "payload": {
       "characters": [
@@ -3852,7 +3852,7 @@
         }
       ]
     },
-    "schema_version": 3
+    "schema_version": 4
   },
   "party_summary": [
     {
