@@ -1389,7 +1389,6 @@ class TestScrollLegalityRunsAtTheScrollsLevel:
     and is refused three. The refusal, like every kernel refusal, costs no draw.
     """
 
-    @pytest.mark.xfail(reason="chunk: kernel-validation")
     def test_a_high_level_reader_supplies_the_scrolls_missile_count(self):
         from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character
         from osrlib.core.effects import EFFECTS_STREAM

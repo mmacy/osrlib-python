@@ -317,19 +317,16 @@ class TestTierIsCheckedBeforeTheFirstDraw:
             call(stream)
         assert stream.export_state() == before
 
-    @pytest.mark.xfail(reason="chunk: kernel-validation")
     def test_generate_treasure(self):
         self._rejects_without_drawing(
             lambda stream: generate_treasure("A", tier="bogus", stream=stream, allocator=IdAllocator())
         )
 
-    @pytest.mark.xfail(reason="chunk: kernel-validation")
     def test_generate_unguarded_treasure(self):
         self._rejects_without_drawing(
             lambda stream: generate_unguarded_treasure(1, tier="bogus", stream=stream, allocator=IdAllocator())
         )
 
-    @pytest.mark.xfail(reason="chunk: kernel-validation")
     def test_generate_treasure_entries(self):
         from osrlib.core.treasure import generate_treasure_entries
 

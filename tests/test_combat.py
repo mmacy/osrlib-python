@@ -904,7 +904,6 @@ class TestMoraleEventStatesItsVerdict:
     """`MoraleCheckedEvent.held` says which way the check went on every code, so `combat.morale.exempt`
     no longer needs the score read beside it to tell a side that never fights from one that never breaks."""
 
-    @pytest.mark.xfail(reason="chunk: kernel-validation")
     def test_the_two_exemptions_say_which_way_they_went(self):
         from osrlib.core.combat import COMBAT_STREAM
         from osrlib.core.rng import RngStreams
@@ -915,7 +914,6 @@ class TestMoraleEventStatesItsVerdict:
         assert (broken.events[0].code, broken.events[0].held) == ("combat.morale.exempt", False)
         assert (steady.events[0].code, steady.events[0].held) == ("combat.morale.exempt", True)
 
-    @pytest.mark.xfail(reason="chunk: kernel-validation")
     def test_a_rolled_check_reports_its_own_verdict(self):
         from osrlib.core.combat import COMBAT_STREAM
         from osrlib.core.rng import RngStreams
