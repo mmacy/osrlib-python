@@ -175,14 +175,16 @@ def _migrate_3_to_4(payload: dict) -> dict:
     only place a declaration is stored, since a battle keeps its round bookkeeping and not the
     round's declarations.
 
-    Schema 4 also drops two fields nothing ever wrote, the surrender flag on an encounter group and
-    `discovered_features` on the dungeon state, and with them a character's computed `literacy`
-    property, which was never a field and never reached a payload at all. Neither field needs
-    clearing here. The models that read those payloads ignore a key they do not declare, so a
-    schema 3 save carrying either one loads with the value dropped and nothing else changed. The
-    message code that flag's event carried, `battle.side` followed by the flag's own name, is gone
-    with it: [`MonsterFledEvent`][osrlib.crawl.events.MonsterFledEvent] no longer accepts that code,
-    so an event naming it fails to parse. No log contains one, because nothing ever set the flag.
+    Schema 4 also drops two fields nothing ever wrote, the boolean on
+    [`EncounterGroup`][osrlib.crawl.encounter.EncounterGroup] that marked a monster group as having
+    given itself up and `discovered_features` on the dungeon state, and with them a character's
+    computed `literacy` property, which was never a field and never reached a payload at all.
+    Neither field needs clearing here. The models that read those payloads ignore a key they do not
+    declare, so a schema 3 save carrying either one loads with the value dropped and nothing else
+    changed. The message code that outcome had, `battle.side` followed by the name of that removed
+    `EncounterGroup` field, is gone with it:
+    [`MonsterFledEvent`][osrlib.crawl.events.MonsterFledEvent] no longer accepts the code, so an
+    event naming it fails to parse. No log contains one, because nothing ever set the field.
     """
     for entry in payload.get("command_log", ()):
         if entry.get("command_type") != "resolve_battle_round":

@@ -342,8 +342,9 @@ class AttackContext(BaseModel):
     defender_retreating: bool = False
     """The defender is retreating.
 
-    The attacker gains +2 and the defender's shield doesn't count. The crawl layer sets it for
-    a monster group that has broken and run, and for a party that declared a retreat.
+    The attacker gains +2 and the defender's shield doesn't count. The crawl layer, the
+    [`osrlib.crawl`][osrlib.crawl] package that runs a session, sets it for a monster group that
+    has broken and run, and for a party that declared a retreat.
     """
 
     braced: bool = False

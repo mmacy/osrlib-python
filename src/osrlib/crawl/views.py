@@ -118,12 +118,13 @@ class MemberView(BaseModel):
     `purse`, `valuables`, `worn_armour`, `shield`, `wielded`, and `rings`. Magic items
     are masked until identified: an unidentified one shows a category display name
     instead of its true name. When that display name was built from a base weapon ("a
-    dagger with a faint aura"), the entry also includes the `qualities` and
-    `missile_ranges` of that mundane weapon, exactly as an identified one does, so a
-    front end can classify a declaration without being told the arm's bonus, curse, or
-    template id. An item whose display comes from its category instead, such as a
-    staff, includes neither field even when it resolves to a weapon, because the
-    display never named that weapon. Charges never appear at any identification
+    dagger with a faint aura"), the entry also includes the `qualities` of that mundane
+    weapon, exactly as an identified one does, so a front end can classify a declaration
+    without being told the arm's bonus, curse, or template id. The `missile_ranges` key
+    comes with it only for a weapon the rules give ranges to, so read the key as absent
+    on a sword rather than empty. An item whose display comes from its category instead,
+    such as a staff, includes neither field even when it resolves to a weapon, because
+    the display never named that weapon. Charges never appear at any identification
     level."""
     memorized_spells: tuple[dict, ...]
     """The prepared spells, one dumped
@@ -459,9 +460,11 @@ def _masked_magic_item(instance: MagicItemInstance) -> dict:
     An unidentified item shows its category display name, and an enchanted arm shows its
     base instead, as in "a sword with a faint aura", the concession made because *detect
     magic* exists. A display string built from that base weapon already names the weapon,
-    so the unidentified item also shows the `qualities` and `missile_ranges` of the
-    mundane weapon underneath it, exactly as an identified one does: how far the arm
-    reaches, and in what manner. A staff, wand, or other item whose display comes from
+    so the unidentified item also shows the `qualities` of the mundane weapon underneath
+    it, exactly as an identified one does, and its `missile_ranges` when the rules give
+    that weapon ranges: how far the arm reaches, and in what manner. A weapon with no
+    printed ranges, a sword among them, gets the `qualities` key and no `missile_ranges`
+    key at all. A staff, wand, or other item whose display comes from
     its category instead shows neither field, even when it resolves to a weapon, because
     the display never named that weapon and the fields would single the item out among
     the items that show the same string. A `staff_of_striking` reads "a staff", and so

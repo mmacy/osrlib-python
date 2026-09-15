@@ -224,7 +224,7 @@ class LocationEnteredEvent(Event):
     (`"stairs_down"`, `"stairs_up"`, `"trapdoor"`, or `"chute"`), `"trap"` for a trap that dropped
     the party through the floor, `"entrance"` for [`EnterDungeon`][osrlib.crawl.commands.EnterDungeon],
     and `"placed"` for [`PlaceParty`][osrlib.crawl.commands.PlaceParty]. It is `None` on area and
-    town entries, and on an event loaded from a save stamped at an earlier schema version."""
+    town entries, and on an event loaded from a save written before the field existed."""
     transition_ref: str | None = None
     """The cell of the authored transition the party took, as
     [`cell_ref`][osrlib.crawl.dungeon.cell_ref] gives it, so a consumer can find the
@@ -400,7 +400,11 @@ class TrapEvent(Event):
 
     Emitted by the commands that can set a trap off or look for one:
     [`MoveParty`][osrlib.crawl.commands.MoveParty],
-    [`OpenDoor`][osrlib.crawl.commands.OpenDoor],
+    [`UseStairs`][osrlib.crawl.commands.UseStairs] and
+    [`EnterDungeon`][osrlib.crawl.commands.EnterDungeon], which run the arrival cell's
+    entry checks the same way a step does,
+    [`OpenDoor`][osrlib.crawl.commands.OpenDoor] and
+    [`ForceDoor`][osrlib.crawl.commands.ForceDoor],
     [`Search`][osrlib.crawl.commands.Search],
     [`TakeTreasure`][osrlib.crawl.commands.TakeTreasure],
     [`InspectTreasure`][osrlib.crawl.commands.InspectTreasure], and
@@ -486,7 +490,7 @@ class ItemAcquiredEvent(Event):
     [`PurchaseEquipment`][osrlib.crawl.commands.PurchaseEquipment], and `"grant"` for a referee's
     [`GrantItem`][osrlib.crawl.commands.GrantItem] or [`GrantCoins`][osrlib.crawl.commands.GrantCoins].
     Every command that emits this event fills it, so it is `None` only on an event loaded from a save
-    stamped at an earlier schema version."""
+    written before the field existed."""
 
 
 class ItemConsumedEvent(Event):
@@ -1424,7 +1428,7 @@ class HealingPurchasedEvent(Event):
     of the party in marching order, dead members included. A purse pays in whole gold pieces, as
     much of the outstanding fee as its gold covers, so the last purse charged pays what is left and
     the purses behind it are never opened. A member whose purse stayed shut is absent. It is empty
-    on an event loaded from a save stamped at an earlier schema version."""
+    on an event loaded from a save written before the field existed."""
     payments_gp: tuple[int, ...] = ()
     """What each purse in `payers` paid, in gold pieces and in the same order. The entries sum to
     `cost_gp`."""

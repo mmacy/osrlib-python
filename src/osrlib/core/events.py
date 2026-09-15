@@ -474,8 +474,8 @@ class MoraleCheckedEvent(Event):
     """Whether the side keeps fighting, on every code: a rolled check's verdict, `True` for a score of
     12 or more, and `False` for a score of 2 or less.
     [`check_morale`][osrlib.core.combat.check_morale] sets it on every event it emits, so render the
-    outcome from this field rather than from the code and the score together. It is `None` on a morale
-    event loaded from a save stamped at an earlier schema version, because no migration fills it in."""
+    outcome from this field rather than from the code and the score together. It is `None` on an event
+    loaded from a save written before the field existed, because no migration fills it in."""
 
 
 class ReactionRolledEvent(Event):

@@ -2145,8 +2145,8 @@ def _reveal(session, kind: str, events: list[Event]) -> list[str]:
     Appends the reveal events to `events` and returns the reference tokens for what turned up,
     which are the tokens `_handle_search` puts in
     [`SearchCompletedEvent.found`][osrlib.crawl.events.SearchCompletedEvent]. Discovering a secret
-    door also clears the room-trap search attempts on the cell across it, through
-    `_refund_trap_search`.
+    door also clears the room-trap search attempts on both cells its edge joins, this one and the
+    one across it, through `_refund_trap_search`.
     """
     level = _level(session)
     position = _position(session)

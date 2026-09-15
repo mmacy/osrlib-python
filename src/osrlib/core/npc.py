@@ -170,8 +170,8 @@ class NpcParty(BaseModel):
 
     treasure: GeneratedTreasure
     """What the band carries between them, rolled once for the group rather than per member. In a crawl the band
-    carries it as one bundle: the members who are slain drop it on the party's cell as a pile, and a band that
-    runs away takes it with them.
+    carries it as one bundle, which drops on the party's cell as a pile once the whole band is slain. A band with
+    a member who ran takes it with them.
     """
 
 

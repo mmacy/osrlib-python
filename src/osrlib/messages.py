@@ -129,7 +129,7 @@ def _morale(event: MoraleCheckedEvent, outcome: str) -> str:
 
 
 def _morale_held(event: MoraleCheckedEvent) -> bool:
-    """Whether the side keeps fighting: `held`, or the score on an event from an older save."""
+    """Whether the side keeps fighting: `held`, or the score on an event from a save written before that field."""
     return event.score >= 12 if event.held is None else event.held
 
 

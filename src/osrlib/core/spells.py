@@ -2326,7 +2326,8 @@ def validate_scroll_cast(
     Two things it does not answer, because they depend on the game around the spell rather than on
     the spell: whether this reader may read this scroll at all, which is where a thief's scroll-use
     ability and the arcane and divine divide come in, and whether there is light to read by. The
-    crawl layer checks both of those.
+    crawl layer, the [`osrlib.crawl`][osrlib.crawl] package that runs a session, checks both of
+    those.
 
     Args:
         reader: The character reading the scroll, a
