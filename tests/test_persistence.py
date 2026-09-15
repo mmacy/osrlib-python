@@ -254,12 +254,10 @@ class TestSchemaFourRetiresWithdraw:
     happened in every round that logged one: the member held.
     """
 
-    @pytest.mark.xfail(reason="chunk: battle-withdraw")
     def test_the_library_writes_schema_four_and_migrates_three(self):
         assert SCHEMA_VERSION == 4
         assert 3 in MIGRATIONS
 
-    @pytest.mark.xfail(reason="chunk: battle-withdraw")
     def test_a_logged_withdraw_declaration_loads_as_a_hold(self):
         session, _ = drive_session()
         document = save_game(session)

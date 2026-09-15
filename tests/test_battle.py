@@ -1028,7 +1028,6 @@ class TestWithdrawIsNotADeclaration:
     and `BattleDeclaration.move` admits exactly those two beside `close`.
     """
 
-    @pytest.mark.xfail(reason="chunk: battle-withdraw")
     def test_a_withdraw_declaration_fails_to_parse(self):
         with pytest.raises(ValidationError):
             BattleDeclaration(character_id="character-0001", action="move", move="withdraw")
