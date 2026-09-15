@@ -28,9 +28,9 @@ The handler then branches on which field arrived:
 --8<-- "examples/fastapi_crawler/app.py:create-session"
 ```
 
-The trust model rests on two details:
+Two details of that handler matter:
 
-- **The master seed is a server secret.** By default the server draws it (`secrets.randbits(63)`) and no response contains it, because a client with the seed can predict every roll the engine will make. The optional `seed` field exists for reproducible demos and tests, and even when the client supplies it, the server never sends it back.
+- **The master seed is a server secret.** By default the server draws it (`secrets.randbits(63)`) and no response ever contains it, because a client with the seed can predict every roll the engine will make. The optional `seed` field exists for reproducible demos and tests, and even when the client supplies it, the server never sends it back.
 - **The response is the schema handshake.** `schema_version` and `engine_version` come from [`osrlib.versioning`][osrlib.versioning], so a client can detect a server whose wire schema is ahead of its own before sending anything else. [Determinism, saves, and replay](../guides/determinism-saves-replay.md) covers what each version stamp guarantees.
 
 ## The served content and its interpreter
