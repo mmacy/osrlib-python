@@ -898,3 +898,29 @@ class TestHealingAndFalling:
         assert len(result.rolls) == 2
         result = falling_damage(30, FixedStream([3, 4, 5]))
         assert len(result.rolls) == 3
+
+
+class TestMoraleEventStatesItsVerdict:
+    """`MoraleCheckedEvent.held` says which way the check went on every code, so `combat.morale.exempt`
+    no longer needs the score read beside it to tell a side that never fights from one that never breaks."""
+
+    @pytest.mark.xfail(reason="chunk: kernel-validation")
+    def test_the_two_exemptions_say_which_way_they_went(self):
+        from osrlib.core.combat import COMBAT_STREAM
+        from osrlib.core.rng import RngStreams
+
+        stream = RngStreams(master_seed=3).get(COMBAT_STREAM)
+        broken = check_morale("rabble", 2, stream=stream)
+        steady = check_morale("skeletons", 12, stream=stream)
+        assert (broken.events[0].code, broken.events[0].held) == ("combat.morale.exempt", False)
+        assert (steady.events[0].code, steady.events[0].held) == ("combat.morale.exempt", True)
+
+    @pytest.mark.xfail(reason="chunk: kernel-validation")
+    def test_a_rolled_check_reports_its_own_verdict(self):
+        from osrlib.core.combat import COMBAT_STREAM
+        from osrlib.core.rng import RngStreams
+
+        stream = RngStreams(master_seed=3).get(COMBAT_STREAM)
+        for score in (3, 7, 11):
+            result = check_morale("goblins", score, stream=stream)
+            assert result.events[0].held is result.held

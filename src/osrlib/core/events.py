@@ -470,6 +470,12 @@ class MoraleCheckedEvent(Event):
     modifier: int = 0
     """The situational adjustment applied, which B/X caps at plus or minus 2."""
 
+    held: bool | None = None
+    """Whether the side keeps fighting, on every code: a rolled check's verdict, `True` for a score of
+    12 or more, and `False` for a score of 2 or less. The engine always fills it, so a consumer renders
+    the outcome from this field rather than from the code and the score together. `None` only on a
+    log written before the field existed."""
+
 
 class ReactionRolledEvent(Event):
     """How a monster takes to meeting the party.

@@ -1379,3 +1379,53 @@ class TestAttachOnlyCensus:
         effect = harness.ledger.active_on(ally.id, "bless")[0]
         assert effect.definition.dispellable is True
         assert effect.caster_level == 4
+
+
+class TestScrollLegalityRunsAtTheScrollsLevel:
+    """A scroll spell is cast at the spell's minimum caster level, so the legality checks run there too.
+
+    The target count and the per-level range are figured from the level the cast resolves at. A
+    6th-level magic-user reading a *magic missile* scroll conjures one missile, supplies one target,
+    and is refused three. The refusal, like every kernel refusal, costs no draw.
+    """
+
+    @pytest.mark.xfail(reason="chunk: kernel-validation")
+    def test_a_high_level_reader_supplies_the_scrolls_missile_count(self):
+        from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character
+        from osrlib.core.effects import EFFECTS_STREAM
+        from osrlib.core.monsters import MONSTER_SPAWN_STREAM
+        from osrlib.core.spells import MAGIC_STREAM, cast_from_scroll
+        from osrlib.data import load_monsters, load_spells
+
+        rules = Ruleset()
+        streams = RngStreams(master_seed=5)
+        zelia = create_character(
+            name="Zelia",
+            class_id="magic_user",
+            alignment=Alignment.NEUTRAL,
+            ruleset=rules,
+            stream=streams.get(CHARACTER_CREATION_STREAM),
+            starting_spell_ids=["read_magic"],
+        ).character
+        zelia.level = 6  # three missiles from memory; one off a 1st-level scroll
+        template = load_monsters().get("goblin")
+        goblins = [
+            spawn_monster(template, id=f"monster-000{number}", stream=streams.get(MONSTER_SPAWN_STREAM))
+            for number in (1, 2, 3)
+        ]
+        missile = load_spells().get("magic_missile")
+        common = dict(
+            ledger=EffectsLedger(),
+            clock=GameClock(),
+            allocator=IdAllocator(),
+            registry={goblin.id: goblin for goblin in goblins},
+            ruleset=rules,
+            stream=streams.get(MAGIC_STREAM),
+            effects_stream=streams.get(EFFECTS_STREAM),
+        )
+        before = streams.get(MAGIC_STREAM).export_state()
+        with pytest.raises(ValueError, match="magic.cast.target_count"):
+            cast_from_scroll(zelia, missile, "missiles", targets=goblins, **common)
+        assert streams.get(MAGIC_STREAM).export_state() == before
+        outcome = cast_from_scroll(zelia, missile, "missiles", targets=goblins[:1], **common)
+        assert outcome.affected_ids == ("monster-0001",)
