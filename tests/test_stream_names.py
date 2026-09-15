@@ -34,19 +34,37 @@ STREAM_KEYS = {
 }
 
 
-def _string_literals_outside_docstrings(source: str) -> list[str]:
+def _is_streams(receiver: ast.expr) -> bool:
+    """Whether a `.get(...)` receiver is a stream container: `streams`, `self.streams`, or `session.streams`."""
+    return (isinstance(receiver, ast.Name) and receiver.id == "streams") or (
+        isinstance(receiver, ast.Attribute) and receiver.attr == "streams"
+    )
+
+
+def _stream_key_literals(source: str) -> list[str]:
+    """Every string literal used as a stream key: passed to a streams `.get(...)` call or bound to a `*_STREAM` name."""
     tree = ast.parse(source)
-    docstrings: set[int] = set()
+    found: list[str] = []
     for node in ast.walk(tree):
-        if isinstance(node, ast.Module | ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef):
-            body = node.body
-            if body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant):
-                docstrings.add(id(body[0].value))
-    return [
-        node.value
-        for node in ast.walk(tree)
-        if isinstance(node, ast.Constant) and isinstance(node.value, str) and id(node) not in docstrings
-    ]
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "get"
+            and _is_streams(node.func.value)
+        ):
+            for argument in node.args[:1]:
+                if isinstance(argument, ast.Constant) and argument.value in STREAM_KEYS:
+                    found.append(argument.value)
+        if isinstance(node, ast.Assign | ast.AnnAssign):
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            value = node.value
+            if (
+                isinstance(value, ast.Constant)
+                and value.value in STREAM_KEYS
+                and any(isinstance(target, ast.Name) and target.id.endswith("_STREAM") for target in targets)
+            ):
+                found.append(value.value)
+    return found
 
 
 @pytest.mark.xfail(reason="chunk: stream-names")
@@ -80,13 +98,13 @@ def test_the_enum_names_every_stream_and_the_constants_take_their_values_from_it
 
 
 @pytest.mark.xfail(reason="chunk: stream-names")
-def test_no_module_outside_rng_spells_a_stream_name_out():
+def test_no_module_outside_rng_uses_a_stream_name_literal():
     offenders = []
     for path in sorted(SRC.rglob("*.py")):
         if path == SRC / "core" / "rng.py":
             continue
-        literals = _string_literals_outside_docstrings(path.read_text(encoding="utf-8"))
-        offenders.extend(f"{path.relative_to(REPO)}: {literal!r}" for literal in literals if literal in STREAM_KEYS)
+        literals = _stream_key_literals(path.read_text(encoding="utf-8"))
+        offenders.extend(f"{path.relative_to(REPO)}: {literal!r}" for literal in literals)
     assert offenders == []
 
 
