@@ -3138,6 +3138,12 @@
       "code": "town.healing.purchased",
       "cost_gp": 25,
       "event_type": "healing_purchased",
+      "payers": [
+        "character-0001"
+      ],
+      "payments_gp": [
+        25
+      ],
       "service": "cure_light_wounds",
       "visibility": "player"
     },

@@ -139,6 +139,7 @@ from osrlib.crawl.commands import (
     ExtinguishSource,
     ForceDoor,
     GiveItems,
+    HealingService,
     InspectTreasure,
     LearnSpell,
     LightSource,
@@ -4021,7 +4022,7 @@ def _handle_use_item(session, command: UseItem) -> tuple[list[Rejection], list[E
 
 # ---------------------------------------------------------------------- town services
 
-HEALING_SERVICES: dict[str, tuple[str, int]] = {
+HEALING_SERVICES: dict[HealingService, tuple[str, int]] = {
     "cure_light_wounds": ("cure_light_wounds", 25),
     "cure_serious_wounds": ("cure_serious_wounds", 100),
     "cure_disease": ("cure_disease", 150),
@@ -4031,15 +4032,12 @@ HEALING_SERVICES: dict[str, tuple[str, int]] = {
 }
 """The temple's healing services: each service name mapped to its spell id and its price in gp.
 
-The keys are exactly the names [`PurchaseHealing`][osrlib.crawl.commands.PurchaseHealing] accepts in
-its `service` field, so read this to build a price list for a town screen and to check a purse
-against a price before you send the command. The spell id is the entry the purchase resolves
-through, which is why *remove curse* maps to `remove_curse_c`, the cleric list's version of that
-spell rather than the magic-user list's.
-
-Adding a key here doesn't add a service. The list of service names lives on
-[`PurchaseHealing.service`][osrlib.crawl.commands.PurchaseHealing], which rejects any name that
-isn't one of them, so a command for your new service never reaches the handler that would price it.
+The keys are typed [`HealingService`][osrlib.crawl.commands.HealingService], the same closed set
+[`PurchaseHealing`][osrlib.crawl.commands.PurchaseHealing] accepts in its `service` field, so read
+this to build a price list for a town screen and to check the party's coin against a price before
+you send the command. The spell id is the entry the purchase resolves through, which is why *remove
+curse* maps to `remove_curse_c`, the cleric list's version of that spell rather than the magic-user
+list's.
 
 The service names and the prices are a documented adaptation over the SRD's open-ended base-town
 prose (see the adaptations register). Nothing here models availability. The size of the town, the
@@ -4110,6 +4108,42 @@ def _handle_sell_treasure(session, command: SellTreasure) -> tuple[list[Rejectio
     return [], events
 
 
+def _healing_payers(session, patient: Character, cost_gp: int) -> list[tuple[Character, int]] | None:
+    """Plan which purses cover a temple fee, in the order the temple charges them.
+
+    The treated member pays first, then the rest of the party in marching order, dead
+    members included. A purse pays in whole gold pieces only, because
+    [`CoinPurse.spend`][osrlib.core.items.CoinPurse.spend] prices in gold, so it puts in as
+    much of what is still owed as its gold covers and keeps whatever it is worth below a gold
+    piece. The last purse charged pays the outstanding remainder alone, and the purses
+    behind it are never opened.
+
+    Planning and charging are separate so the funds check stays a pure validation step: a
+    party whose whole gold pieces fall short is refused before any purse is opened.
+
+    Args:
+        session: The session whose party pays.
+        patient: The member being treated, charged first whether alive or dead.
+        cost_gp: The fee in whole gold pieces.
+
+    Returns:
+        The (member, gold pieces) pairs to charge in order, or None when the whole gold
+        pieces in the party's purses together fall short of the fee.
+    """
+    order = [patient] + [member for member in session.party.members if member.id != patient.id]
+    plan: list[tuple[Character, int]] = []
+    outstanding = cost_gp
+    for member in order:
+        if outstanding <= 0:
+            break
+        share = min(outstanding, member.inventory.purse.value_cp // 100)
+        if share <= 0:
+            continue
+        plan.append((member, share))
+        outstanding -= share
+    return None if outstanding > 0 else plan
+
+
 def _handle_purchase_healing(session, command: PurchaseHealing) -> tuple[list[Rejection], list[Event]]:
     try:
         member = session.member(command.character_id)
@@ -4117,7 +4151,8 @@ def _handle_purchase_healing(session, command: PurchaseHealing) -> tuple[list[Re
         return [Rejection(code="session.command.unknown_member", params={"character": command.character_id})], []
     spell_id, cost_gp = HEALING_SERVICES[command.service]
     spell = load_spells().get(spell_id)
-    if not member.inventory.purse.can_afford(cost_gp):
+    payers = _healing_payers(session, member, cost_gp)
+    if payers is None:
         return [
             Rejection(code="items.purchase.insufficient_funds", params={"item": command.service, "cost_gp": cost_gp})
         ], []
@@ -4139,8 +4174,17 @@ def _handle_purchase_healing(session, command: PurchaseHealing) -> tuple[list[Re
     )
     if cast_rejections:
         return cast_rejections, []
-    member.inventory.purse.spend(cost_gp)
-    events: list[Event] = [HealingPurchasedEvent(character_id=member.id, service=command.service, cost_gp=cost_gp)]
+    for payer, share in payers:
+        payer.inventory.purse.spend(share)
+    events: list[Event] = [
+        HealingPurchasedEvent(
+            character_id=member.id,
+            service=command.service,
+            cost_gp=cost_gp,
+            payers=tuple(payer.id or payer.name for payer, _ in payers),
+            payments_gp=tuple(share for _, share in payers),
+        )
+    ]
     result = cast_spell(
         temple_cleric,
         spell,

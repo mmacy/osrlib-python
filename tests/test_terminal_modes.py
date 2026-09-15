@@ -442,3 +442,24 @@ class TestPersistence:
         assert not restored.execute(PlaceParty(location={"kind": "town"})).accepted
         assert restored.execute(SetFlag(key="epilogue", value="told")).accepted
         assert restored.mode is SessionMode.VICTORY
+
+
+class TestAWipeCanFundItsOwnRaising:
+    """The documented salvage flow, game over to town to `raise_dead`, is payable by a party whose
+    coin is spread across its dead: the temple charges the purses in marching order."""
+
+    def test_pooled_corpse_purses_pay_for_the_first_raising(self):
+        session, _ = trap_wipe_session()
+        assert session.execute(PlaceParty(location={"kind": "town"})).accepted
+        members = session.party.members
+        assert not session.party.living_members()
+        for member in members:
+            for denomination in ("pp", "gp", "ep", "sp", "cp"):
+                setattr(member.inventory.purse, denomination, 0)
+        # 1,600 gp spread four ways: no single corpse can pay, the party can.
+        for member in members:
+            assert session.execute(GrantCoins(character_id=str(member.id), coins={"gp": 400})).accepted
+        raised = session.execute(PurchaseHealing(character_id=str(members[0].id), service="raise_dead"))
+        assert raised.accepted, [rejection.code for rejection in raised.rejections]
+        assert session.party.living_members() == [members[0]]
+        assert [member.inventory.purse.gp for member in members] == [0, 0, 0, 100]

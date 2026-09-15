@@ -238,3 +238,13 @@ class TestCommandResult:
         result = CommandResult(accepted=True)
         with pytest.raises(ValueError):
             result.accepted = False
+
+
+def test_the_temple_price_list_and_the_purchase_command_name_the_same_services():
+    """`HEALING_SERVICES` and `PurchaseHealing.service` are one closed set stated twice; this keeps them equal."""
+    from typing import get_args
+
+    from osrlib.crawl.commands import PurchaseHealing
+    from osrlib.crawl.exploration import HEALING_SERVICES
+
+    assert set(get_args(PurchaseHealing.model_fields["service"].annotation)) == set(HEALING_SERVICES)

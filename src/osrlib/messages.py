@@ -54,6 +54,7 @@ from osrlib.core.events import (
     SpellsMemorizedEvent,
     UndeadTurnedEvent,
 )
+from osrlib.crawl.events import HealingPurchasedEvent
 
 __all__ = [
     "format_message",
@@ -121,6 +122,14 @@ def _cast(event: SpellCastEvent) -> str:
 def _cast_no_effect(event: SpellCastEvent) -> str:
     spell = f"{event.spell_id} (reversed)" if event.reversed else event.spell_id
     return f"{event.caster_id} casts {spell} [{event.mode}] — it has no effect."
+
+
+def _healing_purchased(event: HealingPurchasedEvent) -> str:
+    line = f"{event.character_id} purchases {event.service} at the temple for {event.cost_gp} gp"
+    if len(event.payers) > 1:
+        paid = zip(event.payers, event.payments_gp, strict=True)
+        line += ", paid by " + ", ".join(f"{payer} {amount} gp" for payer, amount in paid)
+    return line + "."
 
 
 def _turning(event: UndeadTurnedEvent, outcome: str) -> str:
@@ -352,9 +361,7 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
     "town.treasure.sold": lambda event: (
         f"{event.character_id} sells {len(event.instance_ids)} valuable(s) for {event.gp_value} gp."
     ),
-    "town.healing.purchased": lambda event: (
-        f"{event.character_id} purchases {event.service} at the temple for {event.cost_gp} gp."
-    ),
+    "town.healing.purchased": _healing_purchased,
     "session.flag.set": lambda event: f"Flag {event.key} = {event.value!r}.",
     "session.monsters.spawned": lambda event: (
         f"Spawned {len(event.monster_ids)} × {event.template_id}: {', '.join(event.monster_ids)}."
