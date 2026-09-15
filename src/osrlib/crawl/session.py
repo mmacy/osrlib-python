@@ -1513,9 +1513,11 @@ class GameSession:
             referee = session.view(Visibility.REFEREE)
             print(player.mode, player.party[0].name)
             # exploring Hild
+
             # The referee sees the session flags; the player whitelist has no such field.
             print("flags" in referee.state, "flags" in player.model_dump())
             # True False
+
             # Neither view carries the master seed.
             print("master_seed" in referee.state)
             # False
