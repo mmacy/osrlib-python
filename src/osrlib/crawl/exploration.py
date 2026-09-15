@@ -126,6 +126,7 @@ from osrlib.core.spells import (
     caster_profile,
     memorize_spells,
     validate_cast,
+    validate_scroll_cast,
 )
 from osrlib.core.tables import select_encounter_individuals
 from osrlib.core.validation import Rejection
@@ -713,7 +714,7 @@ def check_fatigue(session) -> list[Event]:
     The SRD's dungeon rule is that a party rests one turn in every six, and a party that presses on
     takes −1 to attack rolls and −1 to damage rolls until it does. This is the check for that rule:
     it reads the session's `turns_since_rest` counter, and when the counter has reached the
-    threshold it attaches the fatigue effect to every living member.
+    threshold it attaches the fatigue effect to every living member who doesn't already carry it.
 
     [`GameSession.advance_turns`][osrlib.crawl.session.GameSession.advance_turns] calls this once
     for every turn of time the party spends in the field, so a front end that moves time by
@@ -731,9 +732,10 @@ def check_fatigue(session) -> list[Event]:
 
     Returns:
         The attachment events, closed by a [`FatigueEvent`][osrlib.crawl.events.FatigueEvent] with
-        code `exploration.fatigue.gained`. The list is empty before the threshold, and empty when
-        any living member is already fatigued, so calling this again during the same unrested
-        stretch attaches nothing.
+        code `exploration.fatigue.gained`, when at least one member gained the effect on this call.
+        The list is empty before the threshold, and empty when every living member is already
+        fatigued, so calling this again during the same unrested stretch attaches nothing. A member
+        who joins an already-tired party gains the effect on the next call.
 
     Examples:
         ```python
@@ -780,11 +782,13 @@ def check_fatigue(session) -> list[Event]:
     """
     if session.turns_since_rest < _fatigue_threshold(session):
         return []
-    living = session.party.living_members()
-    if any(session.ledger.active_on(member.id, FATIGUE_KIND) for member in living):
-        return []
     events: list[Event] = []
-    for member in living:
+    attached = False
+    for member in session.party.living_members():
+        # Per member, not per party: someone who joined partway through the unrested
+        # stretch, or who lost the effect some other way, is as tired as everyone else.
+        if session.ledger.active_on(member.id, FATIGUE_KIND):
+            continue
         _, attach_events = session.ledger.attach(
             _FATIGUE_DEFINITION,
             member.id,
@@ -793,6 +797,9 @@ def check_fatigue(session) -> list[Event]:
             registry=session.registry(),
         )
         events.extend(attach_events)
+        attached = True
+    if not attached:
+        return []
     events.append(FatigueEvent(code="exploration.fatigue.gained"))
     return events
 
@@ -2110,6 +2117,24 @@ def _handle_search(session, command: Search) -> tuple[list[Rejection], list[Even
     return [], events
 
 
+def _refund_trap_search(session, dungeon_id: str, level_number: int, position: Position) -> None:
+    """Clear one cell's `room_traps` search attempts, so every member may search that cell again.
+
+    Call this when a secret door on the cell is discovered. A `room_traps` search covers the searched
+    cell's door edges, and an undiscovered secret door hides the trap beyond it along with itself, so a
+    member who searched while the door was hidden had no chance at that trap. The discovery is new
+    information about the cell and their attempt comes back. Attempts of other kinds, and attempts on
+    other cells, stand.
+
+    Args:
+        session (osrlib.crawl.session.GameSession): The running session.
+        dungeon_id: The dungeon the cell is in.
+        level_number: The 1-based level number.
+        position: The cell whose attempts are refunded.
+    """
+    session.dungeon_state.search_attempts.pop(f"{cell_ref(dungeon_id, level_number, position)}:room_traps", None)
+
+
 def _reveal(session, kind: str, events: list[Event]) -> list[str]:
     """Reveal every hidden feature of one kind on the current cell, and only the cell."""
     level = _level(session)
@@ -2123,6 +2148,10 @@ def _reveal(session, kind: str, events: list[Event]) -> list[str]:
                 if not _door_state(session, direction).discovered:
                     _materialize_door(session, direction).discovered = True
                     found.append(f"secret_door:{direction.value}")
+        if found:
+            # The door that just appeared may have a trapped area behind it, which was
+            # unfindable while the door was wall. Everyone gets their trap search back.
+            _refund_trap_search(session, *_dungeon_coords(session))
     elif kind == "room_traps":
         # Each candidate carries the door it was found through, or `None` for the
         # trap in the searcher's own area. The bearing is a fact only this walk has,
@@ -3815,11 +3844,13 @@ def _use_scroll(session, member, instance: MagicItemInstance, template, command)
             else:
                 return [Rejection(code="magic.cast.unknown_target", params={"target": target_ref})], []
         context = _cast_context(session, targets, in_combat=False)
-        cast_rejections = validate_cast(
+        # The kernel's own pre-check: a caster at the scroll's level, which is the level
+        # `cast_from_scroll` resolves at, so the crawl refuses what the kernel would refuse
+        # and the refusal lands before the scroll is spent.
+        cast_rejections = validate_scroll_cast(
             member,
             spell,
             mode,
-            profile=None,
             targets=targets,
             context=context,
             ledger=session.ledger,

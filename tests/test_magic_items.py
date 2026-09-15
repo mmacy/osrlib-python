@@ -657,3 +657,48 @@ class TestRadiusRing:
         )
         assert shielded.events[0].defender_ac == bare.events[0].defender_ac - 1
         assert shielded.required == bare.required + 1
+
+
+class TestScrollReadsAreJudgedAtTheScrollsLevel:
+    """The crawl checks a scroll read against a caster at the scroll's level, as the kernel does.
+
+    `cast_from_scroll` validates and resolves at the spell's minimum caster level. The crawl's
+    own pre-check has to ask about the same caster, or a declaration the crawl accepts raises
+    from the kernel after the scroll is already spent. A rejected read costs no draw, spends no
+    scroll, and emits nothing.
+    """
+
+    def test_a_high_level_reader_is_refused_the_missiles_of_their_own_level(self):
+        from osrlib.core.spells import MAGIC_STREAM
+
+        session, member, scroll = session_with_item(
+            "spell_scroll_1", state={"spell_list": "magic_user", "spells": ("magic_missile",)}
+        )
+        member.class_id = "magic_user"
+        member.level = 6  # three missiles from memory; one off a 1st-level scroll
+        others = [other.id for other in session.party.members[1:4]]
+        before = session.streams.get(MAGIC_STREAM).export_state()
+        refused = session.execute(
+            UseItem(
+                character_id=member.id,
+                item_id=scroll.instance_id,
+                spell_id="magic_missile",
+                mode=scroll_mode("magic_missile"),
+                targets=tuple(others),
+            )
+        )
+        assert not refused.accepted
+        assert [rejection.code for rejection in refused.rejections] == ["magic.cast.target_count"]
+        assert refused.events == ()
+        assert session.streams.get(MAGIC_STREAM).export_state() == before
+        assert member.inventory.magic_item(scroll.instance_id) is not None
+        accepted = session.execute(
+            UseItem(
+                character_id=member.id,
+                item_id=scroll.instance_id,
+                spell_id="magic_missile",
+                mode=scroll_mode("magic_missile"),
+                targets=(others[0],),
+            )
+        )
+        assert accepted.accepted, [rejection.code for rejection in accepted.rejections]

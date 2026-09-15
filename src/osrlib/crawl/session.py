@@ -1871,7 +1871,13 @@ def _handle_set_door_state(session: GameSession, command: SetDoorState) -> tuple
     if command.wedged is not None:
         state.wedged = command.wedged
     if command.discovered is not None:
+        # A door the referee reveals is discovered the same way a search reveals it, so the
+        # cell's room-trap searches come back with the trap the door was hiding.
+        secret = edge.door is not None and edge.door.kind == "secret"
+        discovering = secret and command.discovered and not state.discovered
         state.discovered = command.discovered
+        if discovering:
+            exploration._refund_trap_search(session, command.dungeon_id, command.level_number, (command.x, command.y))
     if command.unlocked is not None:
         state.unlocked = command.unlocked
     return [], events

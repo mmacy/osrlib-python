@@ -1303,7 +1303,7 @@ def _validate_magic_item_declaration(session, declaration: BattleDeclaration, me
         if spell_id not in remaining:
             return [Rejection(code="items.scroll.no_such_spell", params={"spell": spell_id})]
         definition = load_classes().get(member.class_id)
-        from osrlib.core.spells import caster_profile, validate_cast
+        from osrlib.core.spells import caster_profile
 
         profile = caster_profile(definition)
         divine_scroll = instance.state.get("spell_list") == "cleric"
@@ -1321,13 +1321,14 @@ def _validate_magic_item_declaration(session, declaration: BattleDeclaration, me
         )
         if rejections:
             return rejections
-        from osrlib.core.spells import CastContext
+        from osrlib.core.spells import CastContext, validate_scroll_cast
 
-        return validate_cast(
+        # The kernel's own pre-check, at the scroll's caster level, so a declaration that
+        # passes here cannot raise out of `cast_from_scroll` in the magic phase.
+        return validate_scroll_cast(
             member,
             spell,
             mode,
-            profile=None,
             targets=targets,
             context=CastContext(in_combat=True, distance_feet=distance),
             ledger=session.ledger,
