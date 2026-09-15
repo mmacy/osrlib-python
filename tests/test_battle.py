@@ -1067,3 +1067,21 @@ class TestUnidentifiedArmCombatFacts:
         assert shield["identified"] is False
         assert "qualities" not in shield
         assert "missile_ranges" not in shield
+
+
+class TestCategoryMaskedItemsShowNoWeaponFacts:
+    """A staff of striking resolves to a weapon, but its display is the category's ("a staff"), the same
+    as six other staves. Showing the staff's qualities on that one alone would name it. The weapon
+    facts attach only when the display string itself was built from the base weapon."""
+
+    @pytest.mark.xfail(reason="chunk: unidentified-arm-view")
+    def test_an_unidentified_staff_of_striking_stays_a_staff(self):
+        from osrlib.core.items import MagicItemInstance
+
+        session = battle_session(distance=40)
+        member = session.party.members[0]
+        member.inventory.items.append(MagicItemInstance(instance_id="magic-item-0001", template_id="staff_of_striking"))
+        staff = session.view(Visibility.PLAYER).party[0].inventory["items"][-1]
+        assert staff["display"] == "a staff"
+        assert "qualities" not in staff
+        assert "missile_ranges" not in staff
