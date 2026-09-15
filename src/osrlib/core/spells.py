@@ -41,8 +41,9 @@ declared cast was broken before they could make it. Clerics also turn undead her
 [`validate_turn_undead`][osrlib.core.spells.validate_turn_undead], then
 [`turn_undead`][osrlib.core.spells.turn_undead].
 
-Casters are [`Character`][osrlib.core.character.Character] objects. Targets arrive duck-typed per
-the combatant convention (see [`osrlib.core.combat`][osrlib.core.combat]) as characters,
+Casters are [`Caster`][osrlib.core.creature.Caster] values, which a
+[`Character`][osrlib.core.character.Character] satisfies and a monster does not. Targets are
+[`Creature`][osrlib.core.creature.Creature] values, characters or
 [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] objects, or location strings for effects
 a game attaches to places rather than to creatures.
 
@@ -112,8 +113,8 @@ assert aldis.memorized_spells == ()  # the cast spent the copy
 
 # Import direction: the data loaders import these models and character.py imports
 # the loaders, so this module must never import character.py. Casting, memorization,
-# and turning therefore take caster objects duck-typed, per the combatant
-# convention, and character.py imports MemorizedSpell from here, never the reverse.
+# and turning therefore take their caster as the `Caster` protocol, which a character
+# satisfies, and character.py imports MemorizedSpell from here, never the reverse.
 
 from collections.abc import Mapping, Sequence
 from typing import Any, Literal
@@ -121,6 +122,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from osrlib.core.abilities import AbilityScore
+from osrlib.core.alignment import Alignment
 from osrlib.core.classes import ClassDefinition
 from osrlib.core.clock import ROUNDS_PER_DAY, GameClock, TimeUnit
 from osrlib.core.combat import (
@@ -137,8 +139,11 @@ from osrlib.core.combat import (
     saving_throw,
     select_targets,
 )
+from osrlib.core.creature import Caster, Creature
 from osrlib.core.dice import parse, roll
 from osrlib.core.effects import (
+    ActiveCondition,
+    ActiveModifier,
     Condition,
     EffectDefinition,
     EffectsLedger,
@@ -162,7 +167,7 @@ from osrlib.core.events import (
     TurningTypeOutcome,
     UndeadTurnedEvent,
 )
-from osrlib.core.monsters import MonsterTemplate
+from osrlib.core.monsters import MonsterInstance, MonsterTemplate
 from osrlib.core.rng import RngStream, StreamName
 from osrlib.core.ruleset import Ruleset
 from osrlib.core.tables import turning_column
@@ -1166,7 +1171,7 @@ class MemorizationResult(BaseModel):
 
 
 def memorize_spells(
-    caster: Any, definition: ClassDefinition, catalog: SpellCatalog, selections: Sequence[MemorizedSpell]
+    caster: Caster, definition: ClassDefinition, catalog: SpellCatalog, selections: Sequence[MemorizedSpell]
 ) -> MemorizationResult:
     """Fill a caster's spell slots for the day, replacing whatever was memorized before.
 
@@ -1189,8 +1194,9 @@ def memorize_spells(
     them, so if you drive the rules yourself you decide when preparation is allowed.
 
     Args:
-        caster: The caster preparing spells, a [`Character`][osrlib.core.character.Character] whose
-            `memorized_spells` this replaces. Nothing is written when the call is rejected.
+        caster: The [`Caster`][osrlib.core.creature.Caster] preparing spells, which a
+            [`Character`][osrlib.core.character.Character] satisfies. Its `memorized_spells` is what this
+            replaces. Nothing is written when the call is rejected.
         definition: The caster's class, as a
             [`ClassDefinition`][osrlib.core.classes.ClassDefinition] from
             [`load_classes`][osrlib.data.load_classes]. Its progression row at the caster's level
@@ -1328,7 +1334,7 @@ class SpellBookResult(BaseModel):
         return not self.rejections
 
 
-def open_book_capacity(caster: Any, definition: ClassDefinition, catalog: SpellCatalog) -> tuple[int, ...]:
+def open_book_capacity(caster: Caster, definition: ClassDefinition, catalog: SpellCatalog) -> tuple[int, ...]:
     """Return how many more spells fit in an arcane caster's book, at each spell level.
 
     Ask this before you offer a player a spell to learn, so the menu only shows levels with room in
@@ -1346,8 +1352,9 @@ def open_book_capacity(caster: Any, definition: ClassDefinition, catalog: SpellC
     until their levels come back.
 
     Args:
-        caster: The caster, a [`Character`][osrlib.core.character.Character]. Its `spell_book` and
-            `level` are read and nothing is written.
+        caster: The [`Caster`][osrlib.core.creature.Caster], which a
+            [`Character`][osrlib.core.character.Character] satisfies. Its `spell_book` and `level` are read
+            and nothing is written.
         definition: The caster's class, as a
             [`ClassDefinition`][osrlib.core.classes.ClassDefinition] from
             [`load_classes`][osrlib.data.load_classes].
@@ -1400,7 +1407,7 @@ def open_book_capacity(caster: Any, definition: ClassDefinition, catalog: SpellC
 
 
 def add_spell_to_book(
-    caster: Any, definition: ClassDefinition, catalog: SpellCatalog, spell_id: str
+    caster: Caster, definition: ClassDefinition, catalog: SpellCatalog, spell_id: str
 ) -> SpellBookResult:
     """Write a spell into an arcane caster's spell book.
 
@@ -1421,9 +1428,9 @@ def add_spell_to_book(
     also passes no time.
 
     Args:
-        caster: The caster learning the spell, a [`Character`][osrlib.core.character.Character] with
-            an arcane class. Its `spell_book` grows by one id. Nothing is written when the call is
-            rejected.
+        caster: The [`Caster`][osrlib.core.creature.Caster] learning the spell, a
+            [`Character`][osrlib.core.character.Character] with an arcane class. Its `spell_book` grows by one
+            id. Nothing is written when the call is rejected.
         definition: The caster's class, as a
             [`ClassDefinition`][osrlib.core.classes.ClassDefinition] from
             [`load_classes`][osrlib.data.load_classes].
@@ -1498,7 +1505,7 @@ def add_spell_to_book(
     return SpellBookResult(events=(SpellBookUpdatedEvent(caster_id=_entity_id(caster), spell_id=spell_id),))
 
 
-def forget_excess_memorized(caster: Any, definition: ClassDefinition, catalog: SpellCatalog) -> list[Event]:
+def forget_excess_memorized(caster: Caster, definition: ClassDefinition, catalog: SpellCatalog) -> list[Event]:
     """Drop memorized copies the caster no longer has the slots for.
 
     Call this after anything that lowers a caster's level, which in B/X means energy drain. Their
@@ -1515,8 +1522,9 @@ def forget_excess_memorized(caster: Any, definition: ClassDefinition, catalog: S
     that is decidable from the list itself and gives the same answer on every replay.
 
     Args:
-        caster: The caster who lost levels, a [`Character`][osrlib.core.character.Character]. Its
-            `memorized_spells` shrinks. A caster with nothing memorized is left alone.
+        caster: The [`Caster`][osrlib.core.creature.Caster] who lost levels, which a
+            [`Character`][osrlib.core.character.Character] satisfies. Its `memorized_spells` shrinks. A caster
+            with nothing memorized is left alone.
         definition: The caster's class, as a
             [`ClassDefinition`][osrlib.core.classes.ClassDefinition] from
             [`load_classes`][osrlib.data.load_classes]. Its row at the caster's new level supplies
@@ -1714,13 +1722,13 @@ def _memorized_index(caster: Any, spell: SpellTemplate, reversed: bool, profile:
 
 
 def validate_cast(
-    caster: Any,
+    caster: Caster,
     spell: SpellTemplate,
     mode: str,
     *,
     profile: CasterProfile | None,
     reversed: bool = False,
-    targets: Sequence[object] = (),
+    targets: Sequence[Creature | str] = (),
     context: CastContext | None = None,
     ledger: EffectsLedger | None = None,
 ) -> list[Rejection]:
@@ -1750,7 +1758,8 @@ def validate_cast(
     inventory itself.
 
     Args:
-        caster: The caster, a [`Character`][osrlib.core.character.Character]. Read, never written.
+        caster: The [`Caster`][osrlib.core.creature.Caster], which a
+            [`Character`][osrlib.core.character.Character] satisfies. Read, never written.
         spell: The [`SpellTemplate`][osrlib.core.spells.SpellTemplate] to cast, from
             [`SpellCatalog.get`][osrlib.core.spells.SpellCatalog.get].
         mode: Which usage of the spell, by its
@@ -1762,12 +1771,10 @@ def validate_cast(
             the form it was prepared in. Pass `None` to skip the memorized-copy check entirely, for
             a scroll read, where the scroll is the copy.
         reversed: True to cast the spell's reversed form.
-        targets: The candidate targets, per the combatant convention (see
-            [`osrlib.core.combat`][osrlib.core.combat]):
-            [`Character`][osrlib.core.character.Character] or
-            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] objects, or location strings
-            for spells your game attaches to a place rather than a creature. Only the count is
-            examined here.
+        targets: The candidate targets: [`Creature`][osrlib.core.creature.Creature] values, which a
+            `Character` and a [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy, or
+            location strings for spells your game attaches to a place rather than a creature. Only the count
+            is examined here.
         context: The [`CastContext`][osrlib.core.spells.CastContext] with what you assert about the
             situation. `None` asserts nothing.
         ledger: The [`EffectsLedger`][osrlib.core.effects.EffectsLedger], consulted for effects on
@@ -1964,13 +1971,13 @@ class _CastState:
 
 
 def cast_spell(
-    caster: Any,
+    caster: Caster,
     spell: SpellTemplate,
     mode: str,
     *,
     profile: CasterProfile,
     reversed: bool = False,
-    targets: Sequence[object] = (),
+    targets: Sequence[Creature | str] = (),
     context: CastContext | None = None,
     ledger: EffectsLedger,
     clock: GameClock,
@@ -2010,20 +2017,18 @@ def cast_spell(
     from `effects_stream`.
 
     Args:
-        caster: The caster, a [`Character`][osrlib.core.character.Character] with a matching
-            memorized copy. Its `memorized_spells` loses that copy.
+        caster: The [`Caster`][osrlib.core.creature.Caster] with a matching memorized copy, which a
+            [`Character`][osrlib.core.character.Character] satisfies. Its `memorized_spells` loses that copy.
         spell: The [`SpellTemplate`][osrlib.core.spells.SpellTemplate] to cast, from
             [`SpellCatalog.get`][osrlib.core.spells.SpellCatalog.get].
         mode: Which usage of the spell, by its [`SpellMode.key`][osrlib.core.spells.SpellMode].
         profile: The caster's [`CasterProfile`][osrlib.core.spells.CasterProfile], from
             [`caster_profile`][osrlib.core.spells.caster_profile].
         reversed: True to cast the spell's reversed form.
-        targets: The candidate targets in your own order, per the combatant convention (see
-            [`osrlib.core.combat`][osrlib.core.combat]):
-            [`Character`][osrlib.core.character.Character] or
-            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] objects, or location strings
-            for spells your game attaches to a place. Casting drops the ineligible ones and then
-            applies the mode's targeting to the rest, so passing more candidates than the spell can
+        targets: The candidate targets in your own order: [`Creature`][osrlib.core.creature.Creature] values,
+            which a `Character` and a [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy,
+            or location strings for spells your game attaches to a place. Casting drops the ineligible ones
+            and then applies the mode's targeting to the rest, so passing more candidates than the spell can
             take is normal for an area or group mode.
         context: The [`CastContext`][osrlib.core.spells.CastContext] with what you assert about the
             situation. `None` asserts nothing.
@@ -2138,11 +2143,11 @@ def cast_spell(
 
 
 def _perform_cast(
-    caster: Any,
+    caster: Caster,
     spell: SpellTemplate,
     spell_mode: SpellMode,
     reversed: bool,
-    targets: Sequence[object],
+    targets: Sequence[Creature | str],
     *,
     context: CastContext,
     ledger: EffectsLedger,
@@ -2218,22 +2223,34 @@ def _perform_cast(
 
 
 class _ScrollReader:
-    """A duck-typed caster proxy: the reader's body at the scroll's caster level.
+    """A caster proxy: the reader's body at the scroll's caster level.
 
     Attribute reads and writes pass through to the reader, so conditions and modifiers land on the
-    real character. Only `level` is overridden, because a scroll spell resolves at the minimum class
-    level able to cast it.
+    real character. Only `level` is answered here, because a scroll spell resolves at the minimum
+    class level able to cast it. The proxy is passed where a
+    [`Caster`][osrlib.core.creature.Caster] is expected, so it declares that surface rather than
+    leaving every member to `__getattr__`.
     """
 
-    __slots__ = ("_level", "_reader")
+    __slots__ = ("_reader", "level")
 
-    def __init__(self, reader: Any, level: int) -> None:
+    # Forwarded to the reader at runtime, and declared here so the type checker sees the
+    # caster surface the proxy stands in for.
+    id: str | None
+    name: str
+    alignment: Alignment | None
+    current_hp: int
+    max_hp: int
+    conditions: tuple[ActiveCondition, ...]
+    stat_modifiers: tuple[ActiveModifier, ...]
+    spell_book: tuple[str, ...]
+    memorized_spells: tuple[MemorizedSpell, ...]
+    level: int
+    """The scroll's caster level, which is the one thing the proxy answers for itself."""
+
+    def __init__(self, reader: Caster, level: int) -> None:
         object.__setattr__(self, "_reader", reader)
-        object.__setattr__(self, "_level", level)
-
-    @property
-    def level(self) -> int:
-        return object.__getattribute__(self, "_level")
+        object.__setattr__(self, "level", level)
 
     def __getattr__(self, name: str):
         return getattr(object.__getattribute__(self, "_reader"), name)
@@ -2298,12 +2315,12 @@ def minimum_caster_level(spell: SpellTemplate) -> int:
 
 
 def validate_scroll_cast(
-    reader: Any,
+    reader: Caster,
     spell: SpellTemplate,
     mode: str,
     *,
     reversed: bool = False,
-    targets: Sequence[object] = (),
+    targets: Sequence[Creature | str] = (),
     context: CastContext | None = None,
     ledger: EffectsLedger | None = None,
 ) -> list[Rejection]:
@@ -2330,16 +2347,16 @@ def validate_scroll_cast(
     those.
 
     Args:
-        reader: The character reading the scroll, a
-            [`Character`][osrlib.core.character.Character]. Read, never written.
+        reader: The [`Caster`][osrlib.core.creature.Caster] reading the scroll, which a
+            [`Character`][osrlib.core.character.Character] satisfies. Read, never written.
         spell: The inscribed [`SpellTemplate`][osrlib.core.spells.SpellTemplate], from
             [`SpellCatalog.get`][osrlib.core.spells.SpellCatalog.get].
         mode: Which usage of the spell, by its [`SpellMode.key`][osrlib.core.spells.SpellMode]. A key
             the chosen form does not have is a rejection, not an exception.
         reversed: True to ask about the spell's reversed form.
-        targets: The candidate targets, per the combatant convention (see
-            [`osrlib.core.combat`][osrlib.core.combat]). Only the count is examined. `None` means no
-            targets, the same as an empty sequence.
+        targets: The candidate targets, [`Creature`][osrlib.core.creature.Creature] values or location
+            strings, as [`cast_from_scroll`][osrlib.core.spells.cast_from_scroll] takes them. Only the count
+            is examined. Leave it out for a spell with no targets.
         context: The [`CastContext`][osrlib.core.spells.CastContext] with what you assert about the
             situation. `None` asserts nothing.
         ledger: The [`EffectsLedger`][osrlib.core.effects.EffectsLedger], consulted for effects on the
@@ -2395,12 +2412,12 @@ def validate_scroll_cast(
 
 
 def cast_from_scroll(
-    reader: Any,
+    reader: Caster,
     spell: SpellTemplate,
     mode: str,
     *,
     reversed: bool = False,
-    targets: Sequence[object] = (),
+    targets: Sequence[Creature | str] = (),
     context: CastContext | None = None,
     ledger: EffectsLedger,
     clock: GameClock,
@@ -2440,18 +2457,16 @@ def cast_from_scroll(
     as it would from a spell they had memorized.
 
     Args:
-        reader: The character reading the scroll, a
-            [`Character`][osrlib.core.character.Character]. Nothing is taken from their memorized
+        reader: The [`Caster`][osrlib.core.creature.Caster] reading the scroll, which a
+            [`Character`][osrlib.core.character.Character] satisfies. Nothing is taken from their memorized
             spells.
         spell: The inscribed [`SpellTemplate`][osrlib.core.spells.SpellTemplate], from
             [`SpellCatalog.get`][osrlib.core.spells.SpellCatalog.get].
         mode: Which usage of the spell, by its [`SpellMode.key`][osrlib.core.spells.SpellMode].
         reversed: True to cast the spell's reversed form.
-        targets: The candidate targets in your own order, per the combatant convention (see
-            [`osrlib.core.combat`][osrlib.core.combat]):
-            [`Character`][osrlib.core.character.Character] or
-            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] objects, or location strings
-            for spells your game attaches to a place.
+        targets: The candidate targets in your own order: [`Creature`][osrlib.core.creature.Creature] values,
+            which a `Character` and a [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy,
+            or location strings for spells your game attaches to a place.
         context: The [`CastContext`][osrlib.core.spells.CastContext] with what you assert about the
             situation. `None` asserts nothing.
         ledger: The [`EffectsLedger`][osrlib.core.effects.EffectsLedger] that ongoing effects attach
@@ -2554,7 +2569,7 @@ def cast_from_scroll(
     )
 
 
-def disrupt_casting(caster: Any, spell_id: str, *, reversed: bool = False) -> list[Event]:
+def disrupt_casting(caster: Caster, spell_id: str, *, reversed: bool = False) -> list[Event]:
     """Take away a spell a caster declared but never got to cast.
 
     A caster who announces a spell and is then hit, or fails a save, before their turn comes round
@@ -2567,8 +2582,8 @@ def disrupt_casting(caster: Any, spell_id: str, *, reversed: bool = False) -> li
     which is what lets a divine caster's declared reversal cost them a normally prepared copy.
 
     Args:
-        caster: The caster who was interrupted, a [`Character`][osrlib.core.character.Character].
-            Its `memorized_spells` loses one copy.
+        caster: The [`Caster`][osrlib.core.creature.Caster] who was interrupted, which a
+            [`Character`][osrlib.core.character.Character] satisfies. Its `memorized_spells` loses one copy.
         spell_id: The id of the spell they had declared. For the ids the shipped catalog uses, see
             [the spell id index][spells-index].
         reversed: True when the declared cast was of the reversed form.
@@ -2679,8 +2694,8 @@ def _eligible(target: Any, mode: SpellMode) -> bool:
 
 
 def _select_cast_targets(
-    caster: Any, mode: SpellMode, targets: Sequence[object], stream: RngStream
-) -> tuple[list[object], list[Event]]:
+    caster: Caster, mode: SpellMode, targets: Sequence[Creature | str], stream: RngStream
+) -> tuple[list[Any], list[Event]]:
     """Filter eligibility, then resolve the targeting mode over the survivors.
 
     Eligibility filtering happens inside resolution, never as a rejection, so ineligible candidates
@@ -2692,7 +2707,7 @@ def _select_cast_targets(
         return list(targets), []
     if targeting.mode is TargetingMode.SELF:
         return [caster], []
-    eligible = [target for target in targets if _eligible(target, mode)]
+    eligible: list[Any] = [target for target in targets if _eligible(target, mode)]
     if targeting.mode is TargetingMode.SINGLE or (mode.effect is not None and "missiles_base" in mode.effect.params):
         return eligible, []
     if targeting.mode is TargetingMode.HD_BUDGET:
@@ -3475,7 +3490,7 @@ class TurnUndeadResult(BaseModel):
     """
 
 
-def validate_turn_undead(cleric: Any, definition: ClassDefinition) -> list[Rejection]:
+def validate_turn_undead(cleric: Creature, definition: ClassDefinition) -> list[Rejection]:
     """Ask whether a character may attempt to turn undead, without rolling.
 
     Call this to decide whether to offer turning as an action at all. Then call
@@ -3493,8 +3508,9 @@ def validate_turn_undead(cleric: Any, definition: ClassDefinition) -> list[Rejec
     that wants the stricter reading checks inventory itself.
 
     Args:
-        cleric: The character attempting the turning, a
-            [`Character`][osrlib.core.character.Character]. Read, never written.
+        cleric: The [`Creature`][osrlib.core.creature.Creature] attempting the turning, a
+            [`Character`][osrlib.core.character.Character] with a cleric's class definition. Read, never
+            written.
         definition: Their class, as a [`ClassDefinition`][osrlib.core.classes.ClassDefinition] from
             [`load_classes`][osrlib.data.load_classes].
 
@@ -3542,9 +3558,9 @@ def validate_turn_undead(cleric: Any, definition: ClassDefinition) -> list[Rejec
 
 
 def turn_undead(
-    cleric: Any,
+    cleric: Caster,
     definition: ClassDefinition,
-    candidates: Sequence[Any],
+    candidates: Sequence[MonsterInstance],
     *,
     ledger: EffectsLedger,
     clock: GameClock,
@@ -3581,7 +3597,9 @@ def turn_undead(
     find out what is undead.
 
     Args:
-        cleric: The character turning, a [`Character`][osrlib.core.character.Character].
+        cleric: The [`Caster`][osrlib.core.creature.Caster] turning, which a
+            [`Character`][osrlib.core.character.Character] satisfies. Its `level` picks the row of the turning
+            table.
         definition: Their class, as a [`ClassDefinition`][osrlib.core.classes.ClassDefinition] from
             [`load_classes`][osrlib.data.load_classes]. It must have the `turn_undead` tag.
         candidates: The monsters present, as

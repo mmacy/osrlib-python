@@ -70,7 +70,7 @@ print(torches.quantity, inventory.purse.gp, movement_rate_feet(inventory, Rulese
 
 from collections.abc import Mapping
 from enum import StrEnum
-from typing import Annotated, Any, Literal
+from typing import TYPE_CHECKING, Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -81,6 +81,9 @@ from osrlib.core.rng import RngStream
 from osrlib.core.ruleset import EncumbranceMode, Ruleset
 from osrlib.core.treasure import MagicItemType, TreasureEntry
 from osrlib.core.validation import Rejection
+
+if TYPE_CHECKING:
+    from osrlib.core.character import Character
 
 __all__ = [
     "AmmunitionTemplate",
@@ -2141,7 +2144,14 @@ class SwordControlResult(BaseModel):
     """True when the sword's total is higher and it takes charge. A tie goes to the wielder."""
 
 
-def sword_control_check(character: Any, sword: MagicItemInstance, *, stream: RngStream) -> SwordControlResult:
+# The annotation stays quoted because `Character` is imported for type checking alone,
+# and this signature is read at runtime, where a bare forward reference cannot resolve.
+def sword_control_check(
+    character: "Character",  # noqa: UP037
+    sword: MagicItemInstance,
+    *,
+    stream: RngStream,
+) -> SwordControlResult:
     """Resolve one contest of wills between a sentient sword and the character holding it.
 
     A sentient sword can try to take charge of its wielder. This runs that contest and
@@ -2155,9 +2165,8 @@ def sword_control_check(character: Any, sword: MagicItemInstance, *, stream: Rng
     their hit points. The sword takes charge when its total is strictly higher.
 
     Args:
-        character: The wielder. Any object with ability scores, hit points, and an
-            alignment satisfies it. In practice a
-            [`Character`][osrlib.core.character.Character]. Nothing is mutated.
+        character: The wielder, a [`Character`][osrlib.core.character.Character]: the contest reads the
+            ability scores that no monster has. Nothing is mutated.
         sword: The sword, which must have a
             [`SwordSentience`][osrlib.core.items.SwordSentience].
         stream: The RNG stream the situational dice come from. Pass a session stream so
