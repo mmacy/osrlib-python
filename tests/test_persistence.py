@@ -21,7 +21,7 @@ from osrlib.crawl.commands import (
 from osrlib.crawl.dungeon import Direction
 from osrlib.crawl.session import GameSession
 from osrlib.errors import ContentValidationError, ReplayVersionError, SaveVersionError
-from osrlib.persistence import _migrate, load_game, replay_game, save_game, session_state
+from osrlib.persistence import MIGRATIONS, _migrate, load_game, replay_game, save_game, session_state
 from osrlib.versioning import SCHEMA_VERSION, engine_version
 
 SEED = 424_242
@@ -245,3 +245,33 @@ class TestUnknownEventPreservation:
         # And it reserializes losslessly.
         again = save_game(restored)
         assert again["payload"]["event_log"][-1] == alien
+
+
+class TestSchemaFourRetiresWithdraw:
+    """Schema 4 removes `withdraw` from `BattleDeclaration.move`, a value the resolver never acted on.
+
+    Removing a wire value is a schema bump by the spec's rule, and the migration records what
+    happened in every round that logged one: the member held.
+    """
+
+    def test_the_library_writes_schema_four_and_migrates_three(self):
+        assert SCHEMA_VERSION == 4
+        assert 3 in MIGRATIONS
+
+    def test_a_logged_withdraw_declaration_loads_as_a_hold(self):
+        session, _ = drive_session()
+        document = save_game(session)
+        document["schema_version"] = 3
+        document["payload"]["command_log"].append(
+            {
+                "command_type": "resolve_battle_round",
+                "declarations": [
+                    {"character_id": "character-0001", "action": "move", "move": "withdraw"},
+                    {"character_id": "character-0002", "action": "move", "move": "retreat"},
+                ],
+            }
+        )
+        restored = load_game(document)
+        declared = [(d.action, d.move) for d in restored.command_log[-1].declarations]
+        assert declared == [("hold", None), ("move", "retreat")]
+        assert save_game(restored)["schema_version"] == SCHEMA_VERSION

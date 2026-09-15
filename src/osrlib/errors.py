@@ -42,7 +42,7 @@ Examples:
         print(f"too new: {error}")
     except OsrlibError:
         print("unreadable")
-    # too new: document schema_version 999 is newer than the supported 3
+    # too new: document schema_version 999 is newer than the supported 4
     ```
 """
 
