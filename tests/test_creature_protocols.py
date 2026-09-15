@@ -9,8 +9,6 @@ sequence of one, in place of `Any` and `object`.
 import inspect
 import typing
 
-import pytest
-
 from osrlib.core import combat, effects, items, spells
 from osrlib.core.alignment import Alignment
 from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character
@@ -123,7 +121,6 @@ def _mentions_a_duck(annotation) -> bool:
 
 
 class TestTheKernelSignaturesNameTheProtocols:
-    @pytest.mark.xfail(reason="chunk: kernel-protocols")
     def test_no_public_creature_parameter_is_any_or_object(self):
         ducks = [
             f"{module}.{function}({parameter.name}: {parameter.annotation})"
@@ -132,7 +129,6 @@ class TestTheKernelSignaturesNameTheProtocols:
         ]
         assert ducks == [], "\n".join(ducks)
 
-    @pytest.mark.xfail(reason="chunk: kernel-protocols")
     def test_the_flagship_functions_take_a_combatant_or_a_caster(self):
         assert inspect.signature(combat.attack_roll).parameters["attacker"].annotation is Combatant
         assert inspect.signature(combat.attack_roll).parameters["defender"].annotation is Combatant
