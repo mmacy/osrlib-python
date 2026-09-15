@@ -81,8 +81,8 @@ Version 3 narrowed a treasure trap's `trigger` to `"open"`, the one action that 
 cache. Earlier documents could say `"enter"`, which nothing ever read, and the migration
 rewrites it, and a content pack gets the same trigger rewrite when it loads. Version 4
 dropped `"withdraw"` from a battle declaration's `move`, a value the round resolver never
-moved anybody for, and the migration rewrites a logged one into the hold it played as. No
-step loses anything.
+moved anybody for, and the migration clears it off a logged declaration, leaving a member
+who declared it holding. No step loses anything.
 
 This is a fact about the library, not a setting. Assigning to it changes what your documents
 claim to be without changing what's in them.

@@ -340,7 +340,7 @@ class AttackContext(BaseModel):
     """
 
     defender_retreating: bool = False
-    """The defender is withdrawing.
+    """The defender is retreating.
 
     The attacker gains +2 and the defender's shield doesn't count.
     """

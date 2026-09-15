@@ -6754,7 +6754,7 @@
   },
   "master_seed": 20260715,
   "party_document": {
-    "engine_version": "1.7.1",
+    "engine_version": "1.7.0",
     "kind": "party",
     "payload": {
       "characters": [

@@ -162,23 +162,28 @@ def _migrate_2_to_3(payload: dict) -> dict:
 
 
 def _migrate_3_to_4(payload: dict) -> dict:
-    """Migrate a schema 3 payload to schema 4 by rewriting a logged `withdraw` declaration into a hold.
+    """Migrate a schema 3 payload to schema 4 by clearing a logged `withdraw` off every declaration.
 
     Schema 4 drops `"withdraw"` from
     [`BattleDeclaration.move`][osrlib.crawl.commands.BattleDeclaration.move], leaving the two
-    defensive moves the OSE SRD prints. The round resolver never moved the formation for a
-    `withdraw`, so a member who declared one stood there, and the migration records that: the
-    declaration becomes `action="hold"` with no move. The command log is the only place a
-    declaration is stored, since a battle keeps its round bookkeeping and not the round's
-    declarations.
+    defensive moves the OSE SRD prints, so a declaration that still carries the value no longer
+    parses. Schema 3 let any declaration carry it, since nothing cross-validated `move` against
+    `action`, and the migration clears it wherever it sits. A `move` declaration becomes
+    `action="hold"` with no move, which is what that round played as: the round resolver had no
+    branch for a `withdraw`, so the member who declared one stood there. On any other action the
+    `move` field was never read, so it is cleared and the action stands. The command log is the
+    only place a declaration is stored, since a battle keeps its round bookkeeping and not the
+    round's declarations.
     """
     for entry in payload.get("command_log", ()):
         if entry.get("command_type") != "resolve_battle_round":
             continue
         for declaration in entry.get("declarations", ()):
-            if declaration.get("action") == "move" and declaration.get("move") == "withdraw":
+            if declaration.get("move") != "withdraw":
+                continue
+            if declaration.get("action") == "move":
                 declaration["action"] = "hold"
-                declaration["move"] = None
+            declaration["move"] = None
     return payload
 
 
