@@ -10,8 +10,8 @@ monster instances already in the session registry, and it hands the fighting its
 the session is in `encounter` mode and each of [`Parley`][osrlib.crawl.commands.Parley],
 [`Evade`][osrlib.crawl.commands.Evade], [`Wait`][osrlib.crawl.commands.Wait],
 [`TurnUndead`][osrlib.crawl.commands.TurnUndead], and
-[`EngageBattle`][osrlib.crawl.commands.EngageBattle] runs one encounter round through
-[`HANDLERS`][osrlib.crawl.encounter.HANDLERS], with the monsters acting per their stance after it.
+[`EngageBattle`][osrlib.crawl.commands.EngageBattle] runs one encounter round through the session's
+private handler table, with the monsters acting per their stance after it.
 [`end_encounter`][osrlib.crawl.encounter.end_encounter] closes the encounter and puts the session
 back in `exploring`.
 
@@ -124,7 +124,6 @@ from osrlib.data import load_classes
 __all__ = [
     "EncounterGroup",
     "EncounterState",
-    "HANDLERS",
     "PURSUIT_ROUND_CAP",
     "PursuitState",
     "end_encounter",
@@ -217,8 +216,8 @@ class EncounterState(BaseModel):
 
     You get this from `session.encounter`, which is None whenever no encounter is open. It serializes
     with the session, so a saved game restores mid-encounter. Treat it as something to read and render
-    from, not to edit: the handlers in [`HANDLERS`][osrlib.crawl.encounter.HANDLERS] and the battle
-    machinery own every field on it.
+    from, not to edit: this module's own command handlers and the battle machinery own every field on
+    it.
     """
 
     model_config = ConfigDict(validate_assignment=True)
@@ -1124,7 +1123,7 @@ def end_encounter(session, outcome: str) -> list[Event]:
     return events
 
 
-HANDLERS = {
+_HANDLERS = {
     Parley: _handle_parley,
     Evade: _handle_evade,
     EngageBattle: _handle_engage_battle,
@@ -1133,15 +1132,15 @@ HANDLERS = {
 }
 """The encounter commands this module handles, keyed by command class.
 
-[`GameSession.execute`][osrlib.crawl.session.GameSession.execute] merges this map with the
-exploration, battle, and referee maps and dispatches on the command's class, so a front end never
-reads it. Read it to see which commands the encounter procedure owns, and call
-[`GameSession.execute`][osrlib.crawl.session.GameSession.execute] rather than a handler directly: a
-handler skips the mode gate, the command log, the listeners, and the rejection pre-phase that make a
-rejected command cost nothing.
+[`GameSession`][osrlib.crawl.session.GameSession] folds this map into its own private handler table
+the first time it dispatches a command, alongside the exploration, battle, and referee maps. There is
+no registration point here: the only documented way to run a command is
+[`GameSession.execute`][osrlib.crawl.session.GameSession.execute], which picks the handler, runs the
+mode gate, and does the command log, listener, and rejection pre-phase bookkeeping a handler alone
+would skip.
 
 Each value takes `(session, command)` and returns a `(rejections, events)` pair.
-[`DropItems`][osrlib.crawl.commands.DropItems] is not listed here even though it works during an
+[`DropItems`][osrlib.crawl.commands.DropItems] is not among them even though it works during an
 encounter: [`osrlib.crawl.exploration`][osrlib.crawl.exploration] owns that command and forwards it
 here when an encounter is open.
 """

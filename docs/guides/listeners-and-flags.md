@@ -44,7 +44,7 @@ Flags solve a smaller version of the same problem: content wiring that isn't a r
 session.execute(SetFlag(key="crypt.lever_pulled", value=True))
 ```
 
-`SetFlag` is accepted in every session mode and always succeeds. Its handler writes the value into `session.flags` and emits a [`FlagSetEvent`][osrlib.crawl.events.FlagSetEvent] with the key and the value. Flags are referee-only state: like listener state, they round-trip through saves (under `session.flags`), but neither flags nor listener state appear in the whitelisted [`PlayerView`][osrlib.crawl.views.PlayerView] a player-facing front end reads. For more information, see [Views and visibility](views-and-visibility.md). A front end that needs a flag's value back (to decide whether to narrate the portcullis creaking open, for example) reads `session.flags` directly when it has the session, or `session.view(Visibility.REFEREE).state["flags"]` when it works from views alone.
+`SetFlag` is accepted in every session mode and always succeeds. Its handler writes the value into `session.flags` and emits a [`FlagSetEvent`][osrlib.crawl.events.FlagSetEvent] with the key and the value. Flags are referee-only state: like listener state, they round-trip through saves (under `session.flags`), but neither flags nor listener state appear in the whitelisted [`PlayerView`][osrlib.crawl.views.PlayerView] a player-facing front end reads. For more information, see [Views and visibility](views-and-visibility.md). A front end that needs a flag's value back (to decide whether to narrate the portcullis creaking open, for example) reads `session.flags` directly when it has the session, or `session.view(Visibility.REFEREE).flags` when it works from views alone.
 
 ## Lifecycle commands: fired-marks, the journal, and notes
 
@@ -240,8 +240,8 @@ session.execute(SetFlag(key="crypt.lever_pulled", value=True))
 assert session.flags == {"crypt.lever_pulled": True}
 
 # A front end working from views alone reads flags off the referee view instead.
-referee_state = session.view(Visibility.REFEREE).state
-assert referee_state["flags"] == {"crypt.lever_pulled": True}
+referee_view = session.view(Visibility.REFEREE)
+assert referee_view.flags == {"crypt.lever_pulled": True}
 
 # The lifecycle vocabulary: mark the trigger, write the beat, annotate the margin. The
 # source stamp says on whose behalf each command was issued.

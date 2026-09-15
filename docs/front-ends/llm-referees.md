@@ -34,14 +34,15 @@ while not session.mode.terminal:  # the party fell, or the adventure is won
 
 ## The referee sees everything
 
-The observation side is [`GameSession.view`][osrlib.crawl.session.GameSession.view] with [`Visibility.REFEREE`][osrlib.core.events.Visibility], which returns a [`RefereeView`][osrlib.crawl.views.RefereeView]: the full session state — party internals, monster hit points, session flags, door states, the complete event log — with exactly two things withheld, the RNG internals and the master seed (those live only in the save document). The player view is the opposite discipline, an enumerated whitelist; [Views and visibility](../guides/views-and-visibility.md) draws the line precisely.
+The observation side is [`GameSession.view`][osrlib.crawl.session.GameSession.view] with [`Visibility.REFEREE`][osrlib.core.events.Visibility], which returns a [`RefereeView`][osrlib.crawl.views.RefereeView]: the full session state — party internals, monster hit points, session flags, door states, the complete event log — with exactly two things withheld, the RNG internals and the master seed (those live only in the save document). Each group is a field of its own, typed as the session's own model, so an agent reads `view.monsters[0].current_hp` and `view.flags["key"]` off it and serializes the whole observation with `view.model_dump(mode="json")`. The player view is the opposite discipline, an enumerated whitelist; [Views and visibility](../guides/views-and-visibility.md) draws the line precisely.
 
 ```{.python .no-run}
 # The referee view is full state — flags, monster internals — minus RNG state and the seed.
 view = session.view(Visibility.REFEREE)
-assert view.state["flags"] == {"ambush_sprung": True}
-assert all(monster["current_hp"] >= 0 for monster in view.state["monsters"])
-assert "master_seed" not in view.state and "rng_streams" not in view.state
+assert view.flags == {"ambush_sprung": True}
+assert all(monster.current_hp >= 0 for monster in view.monsters)
+dumped = view.model_dump()
+assert "master_seed" not in dumped and "rng_streams" not in dumped
 ```
 
 The event stream carries the same privilege. [`GameSession.execute`][osrlib.crawl.session.GameSession.execute] returns its events unfiltered, and each event is stamped with a visibility: referee-visibility events carry the hidden rolls — surprise, reaction, secret-door detection — that a player-facing front end must strip at its wire (as [the FastAPI pattern](fastapi-pattern.md) does). An in-process referee agent reads them all; they are its perception of what the dice just did.
@@ -198,9 +199,10 @@ assert all(lines)
 
 # The referee view is full state — flags, monster internals — minus RNG state and the seed.
 view = session.view(Visibility.REFEREE)
-assert view.state["flags"] == {"ambush_sprung": True}
-assert all(monster["current_hp"] >= 0 for monster in view.state["monsters"])
-assert "master_seed" not in view.state and "rng_streams" not in view.state
+assert view.flags == {"ambush_sprung": True}
+assert all(monster.current_hp >= 0 for monster in view.monsters)
+dumped = view.model_dump()
+assert "master_seed" not in dumped and "rng_streams" not in dumped
 
 # Determinism is the eval story: same seed, same commands, same trajectory.
 replay = new_session(seed=7)
