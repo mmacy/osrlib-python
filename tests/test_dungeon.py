@@ -3,12 +3,14 @@
 import pytest
 
 from crawl_fixtures import build_adventure, build_party
+from osrlib.core.items import Coins
 from osrlib.core.ruleset import Ruleset
 from osrlib.crawl.adventure import validate_adventure
 from osrlib.crawl.dungeon import (
     Direction,
     DungeonState,
     EdgeKind,
+    FeatureSpec,
     PartyLocation,
     cell_ref,
     edge_key,
@@ -236,3 +238,61 @@ class TestParty:
         assert [member.name for member in party.members] == ["Elara", "Wynn", "Sable", "Brakk"]
         with pytest.raises(ValueError):
             party.reorder(["character-0001"])
+
+
+class TestTrapContentChecks:
+    """Two authorable trap configurations `validate_adventure` reports before play.
+
+    Area ids and feature ids share the trap-reference namespace (`"<dungeon>:<level>:<id>"`), so an
+    area and a feature with the same id on one level would cross-contaminate found, sprung, and
+    removed state; the check rejects the collision. And an `open`-trigger room trap springs only
+    when a door on the area's boundary is opened, so an area with no door edge at all can never
+    fire it; the check rejects that too. A door that `starts_open` still counts, because a referee
+    command or a trigger can close it.
+    """
+
+    @staticmethod
+    def _with_level_1(adventure, level):
+        dungeon = adventure.dungeon("delve")
+        return adventure.model_copy(
+            update={"dungeons": (dungeon.model_copy(update={"levels": (level, dungeon.levels[1])}),)}
+        )
+
+    @pytest.mark.xfail(reason="chunk: adventure-trap-validation")
+    def test_an_area_and_a_feature_cannot_share_an_id(self):
+        adventure = build_adventure()
+        level = adventure.dungeon("delve").level(1)
+        twin = FeatureSpec(
+            id="pit_room", kind="treasure_cache", description="A coffer.", cell=(0, 0), coins=Coins(gp=1)
+        )
+        bad = self._with_level_1(adventure, level.model_copy(update={"features": (twin,)}))
+        with pytest.raises(ContentValidationError, match="id 'pit_room' names both an area and a feature"):
+            validate_adventure(bad, load_monsters(), load_equipment())
+
+    @pytest.mark.xfail(reason="chunk: adventure-trap-validation")
+    def test_an_open_trigger_room_trap_needs_a_door_on_its_boundary(self):
+        adventure = build_adventure()
+        level = adventure.dungeon("delve").level(1)
+        pit_room = level.areas[0]
+        assert pit_room.id == "pit_room"  # one cell, (1,1), reached through an open edge and nothing else
+        doorless = pit_room.model_copy(update={"trap": pit_room.trap.model_copy(update={"trigger": "open"})})
+        bad = self._with_level_1(adventure, level.model_copy(update={"areas": (doorless, *level.areas[1:])}))
+        with pytest.raises(ContentValidationError, match="area 'pit_room' has an open-trigger trap and no door"):
+            validate_adventure(bad, load_monsters(), load_equipment())
+
+    def test_an_enter_trigger_trap_needs_no_door(self):
+        validate_adventure(build_adventure(), load_monsters(), load_equipment())
+
+    def test_a_door_that_starts_open_still_counts_as_a_door(self):
+        adventure = build_adventure()
+        level = adventure.dungeon("delve").level(1)
+        room = next(area for area in level.areas if area.id == "room_a")
+        trapped = room.model_copy(update={"trap": level.areas[0].trap.model_copy(update={"trigger": "open"})})
+        key = edge_key((2, 0), Direction.SOUTH)  # the stuck door into room_a
+        door = level.edges[key]
+        edges = {
+            **level.edges,
+            key: door.model_copy(update={"door": door.door.model_copy(update={"starts_open": True})}),
+        }
+        good_level = level.model_copy(update={"areas": (level.areas[0], trapped), "edges": edges})
+        validate_adventure(self._with_level_1(adventure, good_level), load_monsters(), load_equipment())
