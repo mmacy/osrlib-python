@@ -1989,7 +1989,6 @@ class TestDiscoveringASecretDoorRefundsBothCells:
         place(session, (3, 1), facing=Direction.EAST)  # inside room_a, the door's other side
         return session
 
-    @pytest.mark.xfail(reason="chunk: refund-both-cells")
     def test_a_search_from_the_near_side_refunds_the_far_side(self):
         session = self.searched_far_side_then_stand_near(self.SEED)
         found = session.execute(Search(character_id="character-0002", kind="secret_doors"))
@@ -1998,7 +1997,6 @@ class TestDiscoveringASecretDoorRefundsBothCells:
         again = session.execute(Search(character_id="character-0001", kind="room_traps"))
         assert again.accepted, [rejection.code for rejection in again.rejections]
 
-    @pytest.mark.xfail(reason="chunk: refund-both-cells")
     def test_a_referee_discovery_refunds_the_far_side(self):
         session = self.searched_far_side_then_stand_near(self.SEED)
         assert session.execute(
