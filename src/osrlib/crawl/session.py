@@ -1463,7 +1463,8 @@ class GameSession:
         enumerated whitelist of exactly what a player may be shown, so a front end built on it
         cannot leak the map it hasn't explored, the monster hit points, or the referee's rolls.
         The referee view contains the rest, for a referee screen, an LLM running the game, or a
-        test.
+        test, one typed field per group the save keeps: `view.monsters[0].current_hp` and
+        `view.flags["key"]` read off it with the models this reference documents.
 
         A networked game keeps the session and the referee view on the server and sends the client
         the player view, or the player-visibility events. Neither view contains the master seed,
@@ -1514,11 +1515,11 @@ class GameSession:
             # exploring Hild
 
             # The referee sees the session flags; the player whitelist has no such field.
-            print("flags" in referee.state, "flags" in player.model_dump())
-            # True False
+            print(referee.flags, "flags" in player.model_dump())
+            # {} False
 
             # Neither view carries the master seed.
-            print("master_seed" in referee.state)
+            print("master_seed" in referee.model_dump())
             # False
             ```
         """

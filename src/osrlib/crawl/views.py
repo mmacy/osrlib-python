@@ -8,8 +8,8 @@ Where the views sit. A command changes the session state that
 [`build_player_view`][osrlib.crawl.views.build_player_view] and
 [`build_referee_view`][osrlib.crawl.views.build_referee_view] read that state to build
 these projections. The player view is built from session state alone and never from the
-event log; the referee view is the save's own serialization, so it includes the event log
-along with everything else the save keeps.
+event log; the referee view has one typed field per group the save keeps, so it includes
+the event log along with everything else, each group as the session's own model.
 [`GameSession.view`][osrlib.crawl.session.GameSession.view] is the entry point most games
 call, with a [`Visibility`][osrlib.core.events.Visibility] to pick which one. Events tell
 you what just happened, and a view tells you what is true now. The ids a view includes,
@@ -33,25 +33,46 @@ the ones nobody has taken on yet and the ones already finished, RNG state, or th
 seed, which lives only in the save and reaches neither view.
 
 The referee view includes everything else the save does, minus RNG internals and the seed,
-for LLM referees and tests. Never trust the client with it: a networked game keeps the
-session and the referee view on the server and sends only the player view, or
-player-visibility events, over the wire. The guide
+for LLM referees and tests. Its fields are the groups
+[`session_state`][osrlib.persistence.session_state] writes, so `view.monsters[0].current_hp`
+and `view.flags["key"]` read with the types this reference documents, and
+`view.model_dump(mode="json")` is that save payload without the two withheld keys. Never
+trust the client with it: a networked game keeps the session and the referee view on the
+server and sends only the player view, or player-visibility events, over the wire. The guide
 [Views and visibility](https://mmacy.github.io/osrlib-python/guides/views-and-visibility/)
 walks the whole projection in a running front end.
 """
 
-from pydantic import BaseModel, ConfigDict
+from copy import deepcopy
 
-from osrlib.core.effects import Condition, has_condition
+from pydantic import BaseModel, ConfigDict, SerializeAsAny
+
+from osrlib.core.character import Character
+from osrlib.core.effects import Condition, EffectsLedger, has_condition
+from osrlib.core.events import Event
 from osrlib.core.items import MagicItemCategory, MagicItemInstance, magic_item_template
-from osrlib.crawl.dungeon import Direction, EdgeKind, PartyLocation, Position, cell_ref, edge_ref
+from osrlib.core.monsters import IdAllocator, MonsterInstance
+from osrlib.core.ruleset import Ruleset
+from osrlib.crawl.adventure import Adventure
+from osrlib.crawl.battle import BattleState
+from osrlib.crawl.commands import Command, SessionMode
+from osrlib.crawl.dungeon import Direction, DungeonState, EdgeKind, PartyLocation, Position, cell_ref, edge_ref
+from osrlib.crawl.encounter import EncounterState
 from osrlib.crawl.exploration import EXHAUSTED_KIND, FATIGUE_KIND, _light_reveal
-from osrlib.crawl.session import JournalEntry
+from osrlib.crawl.party import Party
+from osrlib.crawl.session import (
+    DeathRecord,
+    DefeatedMonsterRecord,
+    DeprivationState,
+    JournalEntry,
+    QuestState,
+)
 
 __all__ = [
     "EdgeView",
     "EncounterGroupView",
     "EncounterView",
+    "ExplorationCounters",
     "ExploredLevelView",
     "MemberEffectView",
     "MemberView",
@@ -419,28 +440,176 @@ class PlayerView(BaseModel):
     one."""
 
 
-class RefereeView(BaseModel):
-    """The full state projection minus RNG internals, for LLM referees and tests.
+class ExplorationCounters(BaseModel):
+    """The crawl bookkeeping a session keeps between commands: distance, rest, wandering, noise, sleep, supplies.
 
-    Build one with [`build_referee_view`][osrlib.crawl.views.build_referee_view], or with
-    [`GameSession.view`][osrlib.crawl.session.GameSession.view] and `Visibility.REFEREE`.
-    Use it behind the screen: for the context an LLM referee reasons over, for a
-    debugging panel, for a test that asserts on state a player may not see. Never send it
-    to a player's client, which is what [`PlayerView`][osrlib.crawl.views.PlayerView] is
-    for.
+    You get one from [`RefereeView.exploration`][osrlib.crawl.views.RefereeView]. These are the counters
+    [`GameSession`][osrlib.crawl.session.GameSession] keeps as attributes of its own and a save writes
+    under its `exploration` key, gathered here under the names the session gives them. They are the
+    referee's bookkeeping and none of them reaches [`PlayerView`][osrlib.crawl.views.PlayerView], which
+    reports the party's fatigue, exhaustion, and deprivation as status rather than as the counts behind
+    it.
     """
 
     model_config = ConfigDict(frozen=True)
 
-    state: dict
-    """The whole session state as the save serializes it, including the event log, minus
-    the RNG stream positions and the master seed.
+    odometer_thirds: int
+    """How much of the current turn the party's steps have used up, in thirds of its movement rate. A
+    full turn's worth advances the clock and resets this to zero."""
+    turns_since_rest: int
+    """Turns since the party last rested, which is what the fatigue cadence counts. A
+    [`Rest`][osrlib.crawl.commands.Rest] resets it."""
+    wandering_counter: int
+    """Turns since the last wandering-monster check. Reaching the level's interval fires the check and
+    resets this to zero."""
+    noise_since_check: bool
+    """Whether the party has made noise since the last wandering check, which any attempt to force a
+    door does, whether or not the door opens. Noise raises the next check's chance by one and then
+    clears."""
+    sleep_count: int
+    """How many nights or days the party has slept through. Preparing spells needs a sleep the caster
+    has not already prepared from."""
+    last_prepared_sleep: dict[str, int]
+    """The `sleep_count` at which each caster last prepared spells, keyed by character id. It is what
+    enforces one preparation per sleep."""
+    alerted_areas: tuple[str, ...]
+    """The keyed areas whose occupants have been alerted, as area references. Monsters that heard the
+    party coming are not surprised when it walks in."""
+    heard_areas: tuple[str, ...]
+    """The keyed areas the party has heard something in, as area references. A party that knows what
+    stands behind the door is not surprised by it."""
+    provisions_day: int
+    """The last whole game day whose food and water upkeep has been settled, counting from the start of
+    the session. Each day boundary charges the party once and then raises this."""
 
-    The keys are the save's keys, so `state["flags"]` is the flag store,
-    `state["command_log"]` the command log, and `state["dungeon_state"]` the map overlay.
-    [`session_state`][osrlib.persistence.session_state] is the function that builds the
-    dict and names every key, and [`osrlib.persistence`][osrlib.persistence] describes
-    what a save holds."""
+
+class RefereeView(BaseModel):
+    """The full state projection minus RNG internals, one typed field per group the save keeps.
+
+    Build one with [`build_referee_view`][osrlib.crawl.views.build_referee_view], or with
+    [`GameSession.view`][osrlib.crawl.session.GameSession.view] and `Visibility.REFEREE`. Use it behind
+    the screen: for the context an LLM referee reasons over, for a debugging panel, for a test that
+    asserts on state a player may not see. Never send it to a player's client, and draw nothing a player
+    sees from it, because that is what [`PlayerView`][osrlib.crawl.views.PlayerView] is for.
+
+    Each field is the session's own model rather than a dict, so you read
+    `view.monsters[0].current_hp` and `view.flags["key"]` with the types this reference documents, and
+    each field's docstring names the model to read next. The fields are the groups
+    [`session_state`][osrlib.persistence.session_state] writes, minus the master seed and the RNG stream
+    positions, so `view.model_dump(mode="json")` is that save payload without those two keys. The seed
+    and the stream positions live only in the save, because knowing them would let a player predict
+    every roll to come.
+
+    The view is a snapshot of the moment it was built: it contains copies of the session's mutable state,
+    so play going on afterwards leaves it as it was, and the model is frozen, so nothing updates it in
+    place. Build a fresh one after each command. Copying the adventure and the event log makes a long
+    session's view an expensive object, so build it when you need it rather than once per command.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    ruleset: Ruleset
+    """The options this session plays under, as a [`Ruleset`][osrlib.core.ruleset.Ruleset]: the flags
+    that decide which optional rules are on."""
+    party: Party
+    """The party, as a [`Party`][osrlib.crawl.party.Party] of full
+    [`Character`][osrlib.core.character.Character] sheets in marching order, the dead included. Every
+    number is here, the spell book and the true names of magic items among them, so render a player's
+    own sheet from [`PlayerView.party`][osrlib.crawl.views.PlayerView.party] instead, which masks what
+    the party has not identified."""
+    adventure: Adventure
+    """The whole authored document, as an [`Adventure`][osrlib.crawl.adventure.Adventure]: the town, the
+    dungeons with their complete geometry and keyed areas, the triggers, and the quests. It is the map
+    with nothing hidden, so draw the party's map from
+    [`PlayerView.explored`][osrlib.crawl.views.PlayerView.explored] instead."""
+    mode: SessionMode
+    """The [`SessionMode`][osrlib.crawl.commands.SessionMode] the session is in, which decides the
+    commands it will accept right now."""
+    clock_rounds: int
+    """The elapsed game clock in rounds, counting from the start of the session."""
+    allocator: IdAllocator
+    """The id source, as an [`IdAllocator`][osrlib.core.monsters.IdAllocator]: the counter each
+    `<kind>-NNNN` id is handed out from, which is what makes two runs of the same commands name things
+    identically."""
+    ledger: EffectsLedger
+    """The live effects, as an [`EffectsLedger`][osrlib.core.effects.EffectsLedger]: spells running,
+    conditions, a torch burning down, each with the round it expires at. It contains the effects anchored
+    to dungeon cells as well as the ones on members, and it contains a potion's true duration, which the
+    rules keep from the players."""
+    dungeon_state: DungeonState
+    """What play has written over the authored map, as a
+    [`DungeonState`][osrlib.crawl.dungeon.DungeonState]: where the party stands, the cells it has walked
+    and seen, door state, found and sprung traps, drop piles, and generated caches."""
+    monsters: tuple[MonsterInstance, ...]
+    """Every creature spawned this session, as
+    [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] values in the order they were spawned, the
+    defeated ones included, so a later event can still name what it was. Hit points and stat internals
+    are here, which is the line the player view draws: the party sees only
+    [`EncounterGroupView`][osrlib.crawl.views.EncounterGroupView]."""
+    npcs: tuple[Character, ...]
+    """The NPC adventurers in play, as [`Character`][osrlib.core.character.Character] sheets in the order
+    they joined. They are characters rather than monsters, and they fight by the party's own rules."""
+    flags: dict[str, str | int | bool]
+    """The session flag store, keyed as the game chose: the memory
+    [`SetFlag`][osrlib.crawl.commands.SetFlag] writes and an adventure's gates and triggers read. Flags
+    are content wiring, so no flag ever reaches a player view."""
+    fired_triggers: tuple[str, ...]
+    """The ids of the triggers that have fired, in the order they first fired. It answers "has this
+    fired before", and it is referee-only wiring: the beat a trigger wrote reaches the players through
+    the journal instead."""
+    journal: tuple[JournalEntry, ...]
+    """The adventure's beats, as [`JournalEntry`][osrlib.crawl.session.JournalEntry] values in the order
+    they were written. The players read the same list, and
+    [`PlayerView.journal`][osrlib.crawl.views.PlayerView.journal] is where a front end reads it."""
+    quests: dict[str, QuestState]
+    """Every authored quest's live state, as [`QuestState`][osrlib.crawl.session.QuestState] values keyed
+    by quest id, in the order the adventure authored them: the inactive and completed quests as well as
+    the active ones, and every objective whether revealed or hidden. The players' own reading is
+    [`PlayerView.quests`][osrlib.crawl.views.PlayerView.quests]."""
+    listener_state: dict[str, dict]
+    """Each registered listener's state, keyed by its `key`, in the shape that listener's `handle`
+    returned. The session stores it and never interprets it, so what the keys mean is the game's
+    business."""
+    death_records: dict[str, DeathRecord]
+    """When and how each dead party member died, as [`DeathRecord`][osrlib.crawl.session.DeathRecord]
+    values keyed by character id. *Raise dead* reads the day count from here and *neutralize poison*
+    the round window."""
+    defeated_monsters: tuple[DefeatedMonsterRecord, ...]
+    """The creatures defeated since the last experience award, as
+    [`DefeatedMonsterRecord`][osrlib.crawl.session.DefeatedMonsterRecord] values in the order they fell.
+    [`GameSession.award_adventure_xp`][osrlib.crawl.session.GameSession.award_adventure_xp] adds up their
+    `xp` and clears the list."""
+    deprivation: dict[str, DeprivationState]
+    """Each member's food and water counts, as
+    [`DeprivationState`][osrlib.crawl.session.DeprivationState] values keyed by character id, one per
+    member a day boundary has charged and the members on zero among them.
+    [`PlayerView.deprivation`][osrlib.crawl.views.PlayerView.deprivation] reports the same counts for the
+    members going short alone."""
+    treasure_snapshot_cp: int | None
+    """What the party's treasure was worth in copper pieces when it left town, or `None` when no delve
+    is under way. The adventure award pays for the difference between this and what comes back."""
+    exploration: ExplorationCounters
+    """The crawl bookkeeping, as [`ExplorationCounters`][osrlib.crawl.views.ExplorationCounters]:
+    distance walked, turns since rest, the wandering cadence, noise, sleep, and provisions."""
+    encounter: EncounterState | None
+    """The encounter under way, as an [`EncounterState`][osrlib.crawl.encounter.EncounterState], or
+    `None` when nothing is happening. It contains each group's monster ids, its distance, the stance the
+    reaction roll settled, and any chase in progress. The players' reading of the same encounter is
+    [`PlayerView.encounter`][osrlib.crawl.views.PlayerView.encounter]."""
+    battle: BattleState | None
+    """The battle under way, as a [`BattleState`][osrlib.crawl.battle.BattleState], or `None` outside
+    one. It contains the round number and the per-battle trackers, including who fired a reloading weapon
+    last round."""
+    command_log: tuple[SerializeAsAny[Command], ...]
+    """Every accepted command, in order, each one the [`Command`][osrlib.crawl.commands.Command]
+    subclass it was issued as, so its own fields are there to read. Refused commands are absent, because
+    they changed nothing, and [`replay_game`][osrlib.persistence.replay_game] re-executes this list from
+    the master seed to rebuild the session."""
+    event_log: tuple[SerializeAsAny[Event] | dict, ...]
+    """Everything that has happened, in order, each entry the [`Event`][osrlib.core.events.Event]
+    subclass that was emitted, including the referee-visibility events a player never sees. An entry
+    restored from a save whose event type this library has no class for stays the raw mapping it
+    arrived as, so check for a `dict` before reading an entry's attributes."""
 
 
 _MASKED_CATEGORY_NAMES = {
@@ -816,23 +985,28 @@ def _encounter_view(session) -> EncounterView | None:
 
 
 def build_referee_view(session) -> RefereeView:
-    """Build the referee view: everything but RNG internals and the seed.
+    """Build the referee view: every group the save keeps, typed, minus the seed and the RNG streams.
 
-    Use it for the context an LLM referee reasons over, for a debugging panel, or for a
-    test that asserts on state a player may not see.
-    [`GameSession.view`][osrlib.crawl.session.GameSession.view] with `Visibility.REFEREE`
-    calls this for you. Never hand the result to a player's client: that is what
-    [`build_player_view`][osrlib.crawl.views.build_player_view] is for.
+    Use it for the context an LLM referee reasons over, for a debugging panel, or for a test that
+    asserts on state a player may not see.
+    [`GameSession.view`][osrlib.crawl.session.GameSession.view] with `Visibility.REFEREE` calls this
+    for you, so use that when you already hold the session and reach for this function when you want
+    the builder itself. Never hand the result to a player's client: that is what
+    [`build_player_view`][osrlib.crawl.views.build_player_view] is for. To store a session rather
+    than read it, call [`save_game`][osrlib.persistence.save_game], which keeps the seed and the
+    stream positions a restored game needs.
 
-    The state it returns is the save's own serialization, including the event log, so a
-    view of a long session is a large object. Build it when you need it rather than once
-    per command.
+    The call reads session state and mutates nothing. What it returns is a snapshot rather than a
+    window: the session's mutable models are copied into it, so the session playing on afterwards
+    leaves the view as it was. The copying is what makes it expensive, because it takes in the whole
+    adventure and the whole event log, so build a view when you need one rather than once per
+    command.
 
     Args:
         session (osrlib.crawl.session.GameSession): The running session.
 
     Returns:
-        The full-state projection, minus the RNG stream positions and the master seed.
+        The frozen full-state projection, minus the master seed and the RNG stream positions.
 
     Examples:
         ```python
@@ -841,6 +1015,7 @@ def build_referee_view(session) -> RefereeView:
         from osrlib.core.rng import RngStreams
         from osrlib.core.ruleset import Ruleset
         from osrlib.crawl.adventure import Adventure, TownSpec
+        from osrlib.crawl.commands import SetFlag
         from osrlib.crawl.dungeon import DungeonSpec, LevelSpec
         from osrlib.crawl.party import Party
         from osrlib.crawl.session import GameSession
@@ -859,17 +1034,50 @@ def build_referee_view(session) -> RefereeView:
         crypt = DungeonSpec(id="crypt", name="The Old Crypt", levels=(level,))
         adventure = Adventure(name="A First Delve", town=TownSpec(name="Threshold"), dungeons=(crypt,))
         session = GameSession.new(Party(members=[hero.character]), adventure, seed=7)
+        session.execute(SetFlag(key="gate_raised", value=True))
 
         referee = build_referee_view(session)
-        print(referee.state["mode"], referee.state["clock_rounds"])
+        print(referee.mode, referee.clock_rounds)
         # town 0
-        assert "flags" in referee.state  # the wiring a player never sees
-        assert "master_seed" not in referee.state  # the seed lives only in the save
+        print(referee.party.members[0].id, referee.party.members[0].current_hp)
+        # character-0001 3
+        print(referee.flags)  # the wiring a player never sees
+        # {'gate_raised': True}
         ```
     """
-    from osrlib.persistence import session_state
-
-    state = session_state(session, include_event_log=True)
-    state.pop("rng_streams", None)
-    state.pop("master_seed", None)
-    return RefereeView(state=state)
+    return RefereeView(
+        ruleset=session.ruleset.model_copy(deep=True),
+        party=session.party.model_copy(deep=True),
+        adventure=session.adventure.model_copy(deep=True),
+        mode=session.mode,
+        clock_rounds=session.clock.rounds,
+        allocator=session.allocator.model_copy(deep=True),
+        ledger=session.ledger.model_copy(deep=True),
+        dungeon_state=session.dungeon_state.model_copy(deep=True),
+        monsters=tuple(instance.model_copy(deep=True) for instance in session.monsters.values()),
+        npcs=tuple(npc.model_copy(deep=True) for npc in session.npcs.values()),
+        flags=dict(session.flags),
+        fired_triggers=tuple(session.fired_triggers),
+        journal=tuple(session.journal),
+        quests={quest_id: state.model_copy(deep=True) for quest_id, state in session.quests.items()},
+        listener_state={key: deepcopy(value) for key, value in session.listener_state.items()},
+        death_records={key: record.model_copy(deep=True) for key, record in session.death_records.items()},
+        defeated_monsters=tuple(record.model_copy(deep=True) for record in session.defeated_monsters),
+        deprivation={key: state.model_copy(deep=True) for key, state in session.deprivation.items()},
+        treasure_snapshot_cp=session.treasure_snapshot_cp,
+        exploration=ExplorationCounters(
+            odometer_thirds=session.odometer_thirds,
+            turns_since_rest=session.turns_since_rest,
+            wandering_counter=session.wandering_counter,
+            noise_since_check=session.noise_since_check,
+            sleep_count=session.sleep_count,
+            last_prepared_sleep=dict(session.last_prepared_sleep),
+            alerted_areas=tuple(session.alerted_areas),
+            heard_areas=tuple(session.heard_areas),
+            provisions_day=session._provisions_day,
+        ),
+        encounter=session.encounter.model_copy(deep=True) if session.encounter is not None else None,
+        battle=session.battle.model_copy(deep=True) if session.battle is not None else None,
+        command_log=tuple(session.command_log),
+        event_log=tuple(deepcopy(entry) if isinstance(entry, dict) else entry for entry in session.event_log),
+    )
