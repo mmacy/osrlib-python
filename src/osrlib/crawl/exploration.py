@@ -2117,22 +2117,25 @@ def _handle_search(session, command: Search) -> tuple[list[Rejection], list[Even
     return [], events
 
 
-def _refund_trap_search(session, dungeon_id: str, level_number: int, position: Position) -> None:
-    """Clear one cell's `room_traps` search attempts, so every member may search that cell again.
+def _refund_trap_search(session, dungeon_id: str, level_number: int, position: Position, direction: Direction) -> None:
+    """Clear both cells' `room_traps` search attempts, so every member on either side may search again.
 
-    Call this when a secret door on the cell is discovered. A `room_traps` search covers the searched
-    cell's door edges, and an undiscovered secret door hides the trap beyond it along with itself, so a
-    member who searched while the door was hidden had no chance at that trap. The discovery is new
-    information about the cell and their attempt comes back. Attempts of other kinds, and attempts on
-    other cells, stand.
+    Call this when the secret door on `position`'s `direction` side is discovered. A secret door is
+    one edge shared by two cells, and a `room_traps` search from either cell covers that edge: an
+    undiscovered secret door hides the trap beyond it along with itself, from both sides equally. A
+    member who searched the far cell while the door still read as wall had no chance at that trap
+    either, so the discovery refunds both cells, not only the one it was named from. Attempts of
+    other kinds, and attempts on every other cell, stand.
 
     Args:
         session (osrlib.crawl.session.GameSession): The running session.
-        dungeon_id: The dungeon the cell is in.
+        dungeon_id: The dungeon the edge is in.
         level_number: The 1-based level number.
-        position: The cell whose attempts are refunded.
+        position: The cell the discovery was named from.
+        direction: Which side of `position` the door sits on. The cell across it shares the edge.
     """
-    session.dungeon_state.search_attempts.pop(f"{cell_ref(dungeon_id, level_number, position)}:room_traps", None)
+    for cell in (position, step(position, direction)):
+        session.dungeon_state.search_attempts.pop(f"{cell_ref(dungeon_id, level_number, cell)}:room_traps", None)
 
 
 def _reveal(session, kind: str, events: list[Event]) -> list[str]:
@@ -2142,16 +2145,20 @@ def _reveal(session, kind: str, events: list[Event]) -> list[str]:
     state = session.dungeon_state
     found: list[str] = []
     if kind == "secret_doors":
+        discovered_directions: list[Direction] = []
         for direction in Direction:
             edge = level.edge(position, direction)
             if edge.kind is EdgeKind.DOOR and edge.door.kind == "secret":
                 if not _door_state(session, direction).discovered:
                     _materialize_door(session, direction).discovered = True
                     found.append(f"secret_door:{direction.value}")
-        if found:
+                    discovered_directions.append(direction)
+        dungeon_id, level_number, _ = _dungeon_coords(session)
+        for direction in discovered_directions:
             # The door that just appeared may have a trapped area behind it, which was
-            # unfindable while the door was wall. Everyone gets their trap search back.
-            _refund_trap_search(session, *_dungeon_coords(session))
+            # unfindable while the door was wall, on either of the two cells it joins.
+            # Everyone on both sides gets their trap search back.
+            _refund_trap_search(session, dungeon_id, level_number, position, direction)
     elif kind == "room_traps":
         # Each candidate carries the door it was found through, or `None` for the
         # trap in the searcher's own area. The bearing is a fact only this walk has,
