@@ -131,7 +131,7 @@ assert save_game(restored) == document
 ## Where next
 
 - [Building an adventure](building-an-adventure.md) - the dungeon itself: the grid and its edges, keyed areas, and the content that binds to those areas.
-- [Gates, triggers, and quests](../guides/gates-triggers-quests.md) - the authored layer: a door that needs a key, a lever that opens a portcullis, an errand that ends the adventure.
+- [Gates, triggers, and quests](../guides/gates-triggers-quests.md) - the authored layer: a door that opens only with the right key, a lever that opens a portcullis, an errand that ends the adventure.
 - [Sessions, commands, and events](../guides/sessions-commands-events.md) - the command loop in depth: modes, rejections, the event log.
 - [Determinism, saves, and replay](../guides/determinism-saves-replay.md) - what the seed guarantees and how saves and replay reach the same state.
 - [The TUI crawler](../front-ends/tui-crawler.md) - a complete example game built on everything above.
