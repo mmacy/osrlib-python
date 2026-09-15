@@ -18,11 +18,15 @@ plus the specialized resolutions (breath weapons, gazes, splash weapons, energy 
 and the shared targeting model ([`select_targets`][osrlib.core.combat.select_targets]).
 
 Combatant-typed parameters (`attacker`, `defender`, `target`, and kin) follow one
-convention across the whole library: they accept a
-[`Character`][osrlib.core.character.Character] or a
-[`MonsterInstance`][osrlib.core.monsters.MonsterInstance]. Both expose THAC0, attack
-bonus, armour class, saving throws, hit points, and conditions, and these functions
-read only those shared fields. NPC adventurers are `Character` instances, so there's no
+convention across the whole library: each takes a protocol from
+[`osrlib.core.creature`][osrlib.core.creature], and a
+[`Character`][osrlib.core.character.Character] and a
+[`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy it. A function
+that reads THAC0, armour class, or saving throws takes
+[`Combatant`][osrlib.core.creature.Combatant]; one that reads only hit points,
+conditions, and stat modifiers takes [`Creature`][osrlib.core.creature.Creature]; and
+one that needs what only a monster carries, such as the daily breath count, takes
+`MonsterInstance` itself. NPC adventurers are `Character` instances, so there's no
 third combatant type.
 
 Resolutions also take an [`AttackContext`][osrlib.core.combat.AttackContext] that
@@ -94,12 +98,13 @@ assert not morale.held  # 2d6 showed 9 against the orc's morale score of 6
 
 from collections.abc import Mapping, Sequence
 from enum import StrEnum
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
 from pydantic import BaseModel, ConfigDict
 
 from osrlib.core.classes import SavingThrows
 from osrlib.core.clock import GameClock, TimeUnit
+from osrlib.core.creature import Combatant, Creature
 from osrlib.core.dice import RollResult, roll
 from osrlib.core.effects import (
     Condition,
@@ -138,11 +143,14 @@ from osrlib.core.items import (
     equipped_item_modifiers,
     magic_item_template,
 )
-from osrlib.core.monsters import Element, MonsterAttack
+from osrlib.core.monsters import Element, MonsterAbility, MonsterAttack, MonsterInstance
 from osrlib.core.rng import RngStream, StreamName
 from osrlib.core.ruleset import Ruleset
 from osrlib.core.tables import ReactionResult, reaction_result, to_hit_ac
 from osrlib.core.validation import Rejection
+
+if TYPE_CHECKING:
+    from osrlib.core.character import Character
 
 __all__ = [
     "Attack",
@@ -742,7 +750,7 @@ def _entity_id(combatant: Any) -> str:
     return identifier if identifier is not None else getattr(combatant, "name", "unknown")
 
 
-def alignments_differ(source: Any, target: Any) -> bool:
+def alignments_differ(source: Creature, target: Creature) -> bool:
     """Return whether two combatants' operative alignments differ, for warding gates.
 
     The wards that turn aside creatures "of another alignment", *protection from evil* and
@@ -756,9 +764,10 @@ def alignments_differ(source: Any, target: Any) -> bool:
 
     Args:
         source: The creature the ward is checked against, usually the attacker. A
-            [`Character`][osrlib.core.character.Character] or a
-            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance].
-        target: The warded creature, a `Character` or a `MonsterInstance`.
+            [`Creature`][osrlib.core.creature.Creature], which a
+            [`Character`][osrlib.core.character.Character] and a
+            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy.
+        target: The warded `Creature`, a `Character` or a `MonsterInstance`.
 
     Returns:
         True when the alignments differ or either is unresolved.
@@ -950,7 +959,7 @@ def _strength_set_value(combatant: Any) -> int | None:
     return None
 
 
-def melee_modifier_for(combatant: Any) -> int:
+def melee_modifier_for(combatant: Combatant) -> int:
     """Return a combatant's melee attack-and-damage modifier, `strength_set` aware.
 
     [`attack_roll`][osrlib.core.combat.attack_roll] and
@@ -963,9 +972,9 @@ def melee_modifier_for(combatant: Any) -> int:
     melee modifier from. Monsters have no STR score and keep their intrinsic 0.
 
     Args:
-        combatant: The attacking combatant, a
-            [`Character`][osrlib.core.character.Character] or a
-            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance].
+        combatant: The attacking [`Combatant`][osrlib.core.creature.Combatant], which a
+            [`Character`][osrlib.core.character.Character] and a
+            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy.
 
     Returns:
         The signed melee modifier, applied to both the attack roll and the damage.
@@ -1036,7 +1045,7 @@ def _range_band_modifier(attack: Attack, context: AttackContext) -> int | None:
     return None
 
 
-def damage_source_for(attacker: Any, attack: Attack, context: AttackContext) -> DamageSource:
+def damage_source_for(attacker: Creature, attack: Attack, context: AttackContext) -> DamageSource:
     """Build the damage source an attack presents to the defender's defenses.
 
     [`resolve_attack`][osrlib.core.combat.resolve_attack] builds one for you on every hit.
@@ -1056,9 +1065,9 @@ def damage_source_for(attacker: Any, attack: Attack, context: AttackContext) -> 
     Whether the source counts as a small missile is recorded here for the immunity gate.
 
     Args:
-        attacker: The attacking combatant, a
-            [`Character`][osrlib.core.character.Character] or a
-            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance].
+        attacker: The attacking [`Creature`][osrlib.core.creature.Creature], which a
+            [`Character`][osrlib.core.character.Character] and a
+            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy.
         attack: The weapon, facet, gear item, or monster attack (`None` for unarmed).
         context: The attack context. Set `lit` when the oil flask is alight, and
             `distance_feet` when a melee-and-missile weapon is thrown.
@@ -1140,7 +1149,7 @@ def _is_bladed(attack: Attack) -> bool:
 
 
 def validate_attack(
-    attacker: Any, defender: Any, attack: Attack, context: AttackContext, *, ruleset: Ruleset
+    attacker: Creature, defender: Creature, attack: Attack, context: AttackContext, *, ruleset: Ruleset
 ) -> list[Rejection]:
     """Validate an attack: the pure pre-phase, with no RNG draws and no mutation.
 
@@ -1157,10 +1166,12 @@ def validate_attack(
     reason.
 
     Args:
-        attacker: The attacking combatant, a
-            [`Character`][osrlib.core.character.Character] or a
-            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance].
-        defender: The defending combatant, a `Character` or a `MonsterInstance`.
+        attacker: The attacking [`Creature`][osrlib.core.creature.Creature], which a
+            [`Character`][osrlib.core.character.Character] and a
+            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy. Only its
+            conditions are read here.
+        defender: The defending `Creature`, a `Character` or a `MonsterInstance`. Nothing is
+            read from it.
         attack: The weapon, facet, gear item, or monster attack (`None` for unarmed).
         context: The situation you assert. This reads `distance_feet` and
             `fired_last_round`.
@@ -1257,8 +1268,8 @@ def _defender_descending_ac(defender: Any, context: AttackContext, *, missile: b
 
 
 def attack_roll(
-    attacker: Any,
-    defender: Any,
+    attacker: Combatant,
+    defender: Combatant,
     attack: Attack,
     *,
     context: AttackContext,
@@ -1289,10 +1300,10 @@ def attack_roll(
     ruleset flag.
 
     Args:
-        attacker: The attacking combatant, a
-            [`Character`][osrlib.core.character.Character] or a
-            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance].
-        defender: The defending combatant, a `Character` or a `MonsterInstance`.
+        attacker: The attacking [`Combatant`][osrlib.core.creature.Combatant], which a
+            [`Character`][osrlib.core.character.Character] and a
+            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy.
+        defender: The defending `Combatant`, a `Character` or a `MonsterInstance`.
         attack: The weapon, facet, gear item, or monster attack (`None` for unarmed).
         context: The situation you assert.
         ruleset: The ruleset in play.
@@ -1422,7 +1433,9 @@ def attack_roll(
     )
 
 
-def check_immunity(defender: Any, source: DamageSource, *, ruleset: Ruleset, attacker: Any | None = None) -> bool:
+def check_immunity(
+    defender: Creature, source: DamageSource, *, ruleset: Ruleset, attacker: Creature | None = None
+) -> bool:
     """Return True when the defender's defenses absorb the source: no damage is rolled.
 
     [`resolve_attack`][osrlib.core.combat.resolve_attack] and
@@ -1445,12 +1458,12 @@ def check_immunity(defender: Any, source: DamageSource, *, ruleset: Ruleset, att
     arrow isn't.
 
     Args:
-        defender: The defending combatant, a
-            [`Character`][osrlib.core.character.Character] or a
-            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance].
+        defender: The defending [`Creature`][osrlib.core.creature.Creature], which a
+            [`Character`][osrlib.core.character.Character] and a
+            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy.
         source: The damage source presented.
         ruleset: The ruleset in play.
-        attacker: The attacking combatant, a `Character` or a `MonsterInstance`. Only
+        attacker: The attacking `Creature`, a `Character` or a `MonsterInstance`. Only
             `hd5_counts_as_magical` reads it, and the flag cannot apply without it.
 
     Returns:
@@ -1516,13 +1529,13 @@ def check_immunity(defender: Any, source: DamageSource, *, ruleset: Ruleset, att
 
 
 def damage_roll(
-    attacker: Any,
+    attacker: Combatant,
     attack: Attack,
     *,
     context: AttackContext,
     ruleset: Ruleset,
     stream: RngStream,
-    defender: Any | None = None,
+    defender: Creature | None = None,
 ) -> RollResult:
     """Roll an attack's damage: dice, STR for melee, doublings, minimum 1.
 
@@ -1547,17 +1560,17 @@ def damage_roll(
     default, and its printed 2d8 with the flag off.
 
     Args:
-        attacker: The attacking combatant, a
-            [`Character`][osrlib.core.character.Character] or a
-            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance].
+        attacker: The attacking [`Combatant`][osrlib.core.creature.Combatant], which a
+            [`Character`][osrlib.core.character.Character] and a
+            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy.
         attack: The weapon, facet, gear item, or monster attack (`None` for unarmed).
         context: The situation you assert. Its `braced`, `charging`, `behind_target`, and
             `target_unaware` fields drive the doublings.
         ruleset: The ruleset in play.
         stream: The stream to draw the damage dice from, conventionally
             [`COMBAT_STREAM`][osrlib.core.combat.COMBAT_STREAM].
-        defender: The defender, a `Character` or a `MonsterInstance`. Only an enchanted
-            arm's versus clause reads it, so an ordinary weapon needs no defender.
+        defender: The defending `Creature`, a `Character` or a `MonsterInstance`. Only an
+            enchanted arm's versus clause reads it, so an ordinary weapon needs no defender.
 
     Returns:
         The damage roll. `rolls` contains the individual dice and `total` the final amount,
@@ -1678,7 +1691,7 @@ def _item_effect_params(combatant: Any, effect_kind: str) -> dict[str, Any] | No
 
 
 def deal_damage(
-    target: Any,
+    target: Combatant,
     amount: int,
     *,
     source: DamageSource,
@@ -1704,15 +1717,20 @@ def deal_damage(
     and never take a die below 1, so a source that rolled no dice has nothing to reduce.
     Hit points then fall, floored at 0. Fire and acid against a regenerating monster whose
     regeneration they block also accrue in its non-regenerable ledger, capped at its
-    maximum. Such a monster dies permanently only when its regeneration names a `revive`
-    entry, meaning it's the kind that gets back up, and the ledger alone reaches the
-    maximum. At 0 hit points the target dies, and a destructive source then destroys what
-    it carried.
+    maximum. Only a [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] has a
+    regeneration ability, so a target that reaches that step is one, and the field written
+    there is the instance's `nonregen_damage`. A monster instance also records the round it
+    was last damaged whenever you pass a `clock`, which is what a revival countdown is
+    measured from. Such a monster dies permanently only when its regeneration names a
+    `revive` entry, meaning it's the kind that gets back up, and the ledger alone reaches
+    the maximum. At 0 hit points the target dies, and a destructive source then destroys
+    what it carried.
 
     Args:
-        target: The creature taking damage, a
-            [`Character`][osrlib.core.character.Character] or a
-            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance]. Mutated in place.
+        target: The [`Combatant`][osrlib.core.creature.Combatant] taking the damage, which a
+            [`Character`][osrlib.core.character.Character] and a
+            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy. Mutated in
+            place, and its saving throws are rolled when a destructive source kills it.
         amount: The rolled amount, before reductions.
         source: The damage source, which selects the reductions, the ledger, and whether
             a kill destroys equipment.
@@ -1773,7 +1791,11 @@ def deal_damage(
     already_dead = has_condition(target, Condition.DEAD)
     target.current_hp = max(0, target.current_hp - amount)
     if clock is not None and hasattr(target, "last_damaged_round"):
-        target.last_damaged_round = clock.rounds
+        # The round stamp and the non-regenerable ledger below are a monster instance's
+        # alone. What proves the target is one, this `hasattr` and the regeneration
+        # ability, is invisible to the type checker, so each use names the type the
+        # branch already established.
+        cast(MonsterInstance, target).last_damaged_round = clock.rounds
     regeneration = _monster_ability_params(target, "regeneration")
     blocked = False
     newly_permanent = False
@@ -1781,9 +1803,10 @@ def deal_damage(
         blocked_by = tuple(str(element) for element in regeneration.get("blocked_by", ()))
         blocked = source.element in blocked_by
         if blocked:
-            before = target.nonregen_damage
-            target.nonregen_damage = min(target.max_hp, target.nonregen_damage + amount)
-            newly_permanent = before < target.max_hp <= target.nonregen_damage
+            regenerator = cast(MonsterInstance, target)
+            before = regenerator.nonregen_damage
+            regenerator.nonregen_damage = min(regenerator.max_hp, regenerator.nonregen_damage + amount)
+            newly_permanent = before < regenerator.max_hp <= regenerator.nonregen_damage
     keys = source.keys if source.element is None or source.element in source.keys else (*source.keys, source.element)
     events.append(
         DamageDealtEvent(
@@ -1802,7 +1825,7 @@ def deal_damage(
         permanent = (
             regeneration is not None
             and regeneration.get("revive") is not None
-            and target.nonregen_damage >= target.max_hp
+            and cast(MonsterInstance, target).nonregen_damage >= target.max_hp
         )
         events.extend(kill(target, permanent=permanent))
         if source.destructive:
@@ -1816,7 +1839,7 @@ _DEATH_SAVE_CATEGORIES = {"breath": SaveCategory.BREATH, "spell": SaveCategory.S
 
 
 def destroy_equipment(
-    target: Any,
+    target: Combatant,
     *,
     source: DamageSource | None = None,
     ruleset: Ruleset | None = None,
@@ -1839,10 +1862,11 @@ def destroy_equipment(
     survival. The rolls themselves are silent, and the event reports the outcome.
 
     Args:
-        target: The victim, a [`Character`][osrlib.core.character.Character] or a
-            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance]. Its inventory is
-            emptied except for saved magic items, and what it wielded, wore, and had on
-            its fingers is cleared.
+        target: The victim, a [`Combatant`][osrlib.core.creature.Combatant], which a
+            [`Character`][osrlib.core.character.Character] and a
+            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy. Its inventory is
+            emptied except for saved magic items, and what it wielded, wore, and had on its
+            fingers is cleared.
         source: The destructive damage source, which selects the saving throw category.
             `None` means the death category.
         ruleset: The ruleset in play. `None` skips the save and everything burns.
@@ -1928,8 +1952,8 @@ def destroy_equipment(
 
 
 def resolve_attack(
-    attacker: Any,
-    defender: Any,
+    attacker: Combatant,
+    defender: Combatant,
     attack: Attack,
     *,
     context: AttackContext,
@@ -1963,10 +1987,10 @@ def resolve_attack(
     [`burning_oil_pool_definition`][osrlib.core.combat.burning_oil_pool_definition].
 
     Args:
-        attacker: The attacking combatant, a
-            [`Character`][osrlib.core.character.Character] or a
-            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance].
-        defender: The defending combatant, a `Character` or a `MonsterInstance`. Mutated
+        attacker: The attacking [`Combatant`][osrlib.core.creature.Combatant], which a
+            [`Character`][osrlib.core.character.Character] and a
+            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy.
+        defender: The defending `Combatant`, a `Character` or a `MonsterInstance`. Mutated
             in place when damage lands.
         attack: The weapon, facet, gear item, or monster attack (`None` for unarmed).
         context: The situation you assert. `AttackContext()` is the plain melee case.
@@ -2151,8 +2175,8 @@ def burning_oil_pool_definition() -> EffectDefinition:
 
 
 def resolve_splash_attack(
-    attacker: Any,
-    defender: Any,
+    attacker: Combatant,
+    defender: Combatant,
     attack: GearTemplate,
     *,
     context: AttackContext,
@@ -2176,11 +2200,11 @@ def resolve_splash_attack(
     and a free one would give away what B/X keeps hidden until it matters.
 
     Args:
-        attacker: The throwing combatant, a
-            [`Character`][osrlib.core.character.Character] or a
-            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance].
-        defender: The target, a `Character` or a `MonsterInstance`. Mutated in place when
-            damage lands.
+        attacker: The throwing [`Combatant`][osrlib.core.creature.Combatant], which a
+            [`Character`][osrlib.core.character.Character] and a
+            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy.
+        defender: The target, a `Combatant`, which a `Character` and a `MonsterInstance`
+            both satisfy. Mutated in place when damage lands.
         attack: The splash gear item, which is holy water or a flask of oil.
         context: The situation you assert. Oil does nothing unless `lit` is true.
         ruleset: The ruleset in play.
@@ -2251,7 +2275,7 @@ def resolve_splash_attack(
     return result
 
 
-def participant_modifier(combatant: Any, *, monster_modifier: int = 0) -> int:
+def participant_modifier(combatant: Combatant, *, monster_modifier: int = 0) -> int:
     """Return a combatant's individual-initiative modifier.
 
     Use it to fill the `modifier` field of a
@@ -2265,8 +2289,9 @@ def participant_modifier(combatant: Any, *, monster_modifier: int = 0) -> int:
     modifiers to the referee.
 
     Args:
-        combatant: The combatant, a [`Character`][osrlib.core.character.Character] or a
-            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance].
+        combatant: The [`Combatant`][osrlib.core.creature.Combatant] rolling, which a
+            [`Character`][osrlib.core.character.Character] and a
+            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy.
         monster_modifier: The modifier to use for a monster. Ignored for characters.
 
     Returns:
@@ -2608,7 +2633,7 @@ class MoraleTracker(BaseModel):
         return result
 
 
-def incapacitated(combatant: Any) -> bool:
+def incapacitated(combatant: Creature) -> bool:
     """Return whether a combatant counts as incapacitated for morale triggers.
 
     [`morale_triggers`][osrlib.core.combat.morale_triggers] counts a side's incapacitated
@@ -2621,8 +2646,9 @@ def incapacitated(combatant: Any) -> bool:
     petrified, or asleep.
 
     Args:
-        combatant: The combatant, a [`Character`][osrlib.core.character.Character] or a
-            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance].
+        combatant: The [`Creature`][osrlib.core.creature.Creature] to ask about, which a
+            [`Character`][osrlib.core.character.Character] and a
+            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy.
 
     Returns:
         True when incapacitated.
@@ -2645,7 +2671,7 @@ def incapacitated(combatant: Any) -> bool:
     return any(has_condition(combatant, condition) for condition in _CANNOT_ACT)
 
 
-def cannot_move(combatant: Any) -> bool:
+def cannot_move(combatant: Creature) -> bool:
     """Return whether a combatant cannot move.
 
     Ask this before letting a combatant move, flee, or close to melee. It's
@@ -2655,8 +2681,9 @@ def cannot_move(combatant: Any) -> bool:
     calls it for you.
 
     Args:
-        combatant: The combatant, a [`Character`][osrlib.core.character.Character] or a
-            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance].
+        combatant: The [`Creature`][osrlib.core.creature.Creature] to ask about, which a
+            [`Character`][osrlib.core.character.Character] and a
+            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy.
 
     Returns:
         True when movement is impossible.
@@ -2680,7 +2707,7 @@ def cannot_move(combatant: Any) -> bool:
     return incapacitated(combatant) or has_condition(combatant, Condition.ENTANGLED)
 
 
-def morale_modifier(combatant: Any) -> int:
+def morale_modifier(combatant: Creature) -> int:
     """Return a combatant's spell morale modifier, from *bless*, *blight*, and their kin.
 
     [`check_morale`][osrlib.core.combat.check_morale] takes a side key and a score, never a
@@ -2690,9 +2717,9 @@ def morale_modifier(combatant: Any) -> int:
     there's one adjustment rule rather than a second channel for spells.
 
     Args:
-        combatant: The creature whose morale is being checked, a
-            [`Character`][osrlib.core.character.Character] or a
-            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance].
+        combatant: The [`Creature`][osrlib.core.creature.Creature] whose morale is being checked, which a
+            [`Character`][osrlib.core.character.Character] and a
+            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy.
 
     Returns:
         The signed modifier, already totalled across every active effect and 0 when none
@@ -2720,7 +2747,7 @@ def morale_modifier(combatant: Any) -> int:
     return modifier_total(combatant, "morale_bonus")
 
 
-def morale_triggers(members: Sequence[object]) -> list[str]:
+def morale_triggers(members: Sequence[Creature]) -> list[str]:
     """Return the morale triggers a side's current state raises.
 
     Call this after each round to learn whether a side should check morale, then call
@@ -2735,9 +2762,10 @@ def morale_triggers(members: Sequence[object]) -> list[str]:
     ones you've already acted on.
 
     Args:
-        members: The side's combatants, [`Character`][osrlib.core.character.Character] or
-            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] objects. An empty
-            side raises nothing.
+        members: The side's creatures, each a [`Creature`][osrlib.core.creature.Creature],
+            which a [`Character`][osrlib.core.character.Character] and a
+            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy. An empty side
+            raises nothing.
 
     Returns:
         The raised trigger keys.
@@ -2768,13 +2796,13 @@ def morale_triggers(members: Sequence[object]) -> list[str]:
 
 
 def saving_throw(
-    target: Any,
+    target: Combatant,
     category: SaveCategory,
     *,
     modifier: int = 0,
     magical: bool = False,
     element: str | None = None,
-    source: Any | None = None,
+    source: Creature | None = None,
     stream: RngStream,
 ) -> SaveResult:
     """Roll a saving throw: 1d20 at or above the target's value for the category.
@@ -2797,16 +2825,16 @@ def saving_throw(
     against magical forms of its own element, passes without a roll and without a draw.
 
     Args:
-        target: The saving combatant, a
-            [`Character`][osrlib.core.character.Character] or a
-            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance].
+        target: The saving [`Combatant`][osrlib.core.creature.Combatant], which a
+            [`Character`][osrlib.core.character.Character] and a
+            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy.
         category: The saving throw category.
         modifier: Your adjustment, added to everything the target supplies.
         magical: Whether the effect is magical. It turns on the WIS modifier and is what
             an auto-saving energy defense keys off.
         element: The effect's element, read by auto-save defenses and by element-scoped
             save bonuses.
-        source: The creature whose attack or ability forced the save, a `Character` or a
+        source: The `Creature` whose attack or ability forced the save, a `Character` or a
             `MonsterInstance`. Only alignment-scoped save bonuses read it.
         stream: The stream the d20 comes from, conventionally
             [`COMBAT_STREAM`][osrlib.core.combat.COMBAT_STREAM]. One draw, or none on an
@@ -2864,7 +2892,7 @@ def saving_throw(
     return SaveResult(passed=passed, roll=rolled, modifier=modifier, required=required, events=(event,))
 
 
-def apply_healing(target: Any, amount: int, *, source: str = "magical") -> list[Event]:
+def apply_healing(target: Creature, amount: int, *, source: str = "magical") -> list[Event]:
     """Apply instantaneous healing, capped at max HP.
 
     This mutates the target and draws nothing: roll the amount first if the healing is
@@ -2883,9 +2911,9 @@ def apply_healing(target: Any, amount: int, *, source: str = "magical") -> list[
     than blocking it.
 
     Args:
-        target: The creature to heal, a
-            [`Character`][osrlib.core.character.Character] or a
-            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance]. Mutated in place.
+        target: The [`Creature`][osrlib.core.creature.Creature] to heal, which a
+            [`Character`][osrlib.core.character.Character] and a
+            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy. Mutated in place.
         amount: The healing amount, which must not be negative. Healing past the maximum
             is capped, not an error.
         source: The healing kind: `magical`, which is the default, `natural`, or
@@ -2935,7 +2963,7 @@ def apply_healing(target: Any, amount: int, *, source: str = "magical") -> list[
     ]
 
 
-def natural_healing(target: Any, stream: RngStream, *, ledger: EffectsLedger | None = None) -> list[Event]:
+def natural_healing(target: Creature, stream: RngStream, *, ledger: EffectsLedger | None = None) -> list[Event]:
     """Apply one full day of complete rest: 1d3 hit points.
 
     Call this once per day of uninterrupted rest. Whether the rest was uninterrupted is
@@ -2952,9 +2980,9 @@ def natural_healing(target: Any, stream: RngStream, *, ledger: EffectsLedger | N
     the slowest one wins. A diseased target with no ledger to count on doesn't heal.
 
     Args:
-        target: The resting creature, a
-            [`Character`][osrlib.core.character.Character] or a
-            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance]. Mutated in place.
+        target: The resting [`Creature`][osrlib.core.creature.Creature], which a
+            [`Character`][osrlib.core.character.Character] and a
+            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy. Mutated in place.
         stream: The stream the 1d3 comes from. Natural healing is effect-internal
             randomness, so it draws from
             [`EFFECTS_STREAM`][osrlib.core.effects.EFFECTS_STREAM], not the combat
@@ -3043,7 +3071,7 @@ def falling_damage(feet: int, stream: RngStream) -> RollResult | None:
     return roll(f"{dice}d6", stream)
 
 
-def drain_monster_hd(monster: Any, *, levels: int = 1, stream: RngStream) -> list[Event]:
+def drain_monster_hd(monster: MonsterInstance, *, levels: int = 1, stream: RngStream) -> list[Event]:
     """Drain a monster's Hit Dice, which is what "experience level (or Hit Die)" means.
 
     Call this when something drains a monster rather than a character. For a character,
@@ -3135,7 +3163,7 @@ def drain_monster_hd(monster: Any, *, levels: int = 1, stream: RngStream) -> lis
     return events
 
 
-def resolve_energy_drain(attacker: Any, target: Any, *, stream: RngStream) -> list[Event]:
+def resolve_energy_drain(attacker: MonsterInstance, target: Creature, *, stream: RngStream) -> list[Event]:
     """Drain a victim's levels or Hit Dice from a drain-tagged monster's touch.
 
     Call this after a wight, wraith, spectre, or vampire lands a hit, since
@@ -3143,15 +3171,19 @@ def resolve_energy_drain(attacker: Any, target: Any, *, stream: RngStream) -> li
     leaves the drain to you. It reads the attacker's `energy_drain` tag for how many levels
     to take and which XP policy to use, then applies character drain or
     [`drain_monster_hd`][osrlib.core.combat.drain_monster_hd] according to what the target
-    is. The tag's own text describes what the victim becomes, and that text appears in the
+    is. What it is shows in its class definition: a
+    [`Character`][osrlib.core.character.Character] has one and loses experience levels
+    through [`drain_levels`][osrlib.core.classes.drain_levels], and a
+    [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] has none and loses Hit Dice.
+    The tag's own text describes what the victim becomes, and that text appears in the
     drain event.
 
     Args:
         attacker: The draining [`MonsterInstance`][osrlib.core.monsters.MonsterInstance],
             which must have an `energy_drain` tag.
-        target: The drained combatant, a
-            [`Character`][osrlib.core.character.Character] or a `MonsterInstance`.
-            Mutated in place.
+        target: The drained [`Creature`][osrlib.core.creature.Creature], a
+            [`Character`][osrlib.core.character.Character] or a `MonsterInstance`. Which one it is
+            decides whether levels or Hit Dice come off. Mutated in place.
         stream: The stream the lost-hit-point dice come from. Drain reverses advancement,
             so it draws from
             [`ADVANCEMENT_STREAM`][osrlib.core.character.ADVANCEMENT_STREAM] rather than
@@ -3190,20 +3222,27 @@ def resolve_energy_drain(attacker: Any, target: Any, *, stream: RngStream) -> li
         raise ValueError(f"{_entity_id(attacker)} has no energy_drain ability")
     levels = int(params.get("levels", 1))
     if getattr(target, "definition", None) is not None:
-        ability = attacker.template.ability("energy_drain")
+        # A class definition is a character's, and its absence is what marks a monster.
+        # The branch has settled which the target is; the casts say so, since a `getattr`
+        # test proves nothing to the type checker. The type name stays quoted because
+        # `Character` is imported for type checking alone and `cast` never evaluates it.
+        character = cast("Character", target)
+        # The params gate above proves the ability is there. The second lookup is for its
+        # prose, which the params don't carry.
+        ability = cast(MonsterAbility, attacker.template.ability("energy_drain"))
         result = drain_levels(
-            target,
-            target.definition,
+            character,
+            character.definition,
             levels=levels,
             xp_policy=str(params.get("xp_policy", "level_minimum")),
             stream=stream,
             spawn_consequence=ability.prose,
         )
         return list(result.events)
-    return drain_monster_hd(target, levels=levels, stream=stream)
+    return drain_monster_hd(cast(MonsterInstance, target), levels=levels, stream=stream)
 
 
-def effective_hd(combatant: Any) -> int:
+def effective_hd(combatant: Creature) -> int:
     """Return a combatant's effective Hit Dice for the HD-budget targeting mode.
 
     [`select_targets`][osrlib.core.combat.select_targets] spends its budget in these units,
@@ -3215,8 +3254,9 @@ def effective_hd(combatant: Any) -> int:
     its level.
 
     Args:
-        combatant: The combatant, a [`Character`][osrlib.core.character.Character] or a
-            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance].
+        combatant: The [`Creature`][osrlib.core.creature.Creature] to measure, which a
+            [`Character`][osrlib.core.character.Character] and a
+            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy.
 
     Returns:
         The effective Hit Dice, never below 1.
@@ -3244,13 +3284,13 @@ def effective_hd(combatant: Any) -> int:
 
 def select_targets(
     mode: TargetingMode,
-    candidates: Sequence[object],
+    candidates: Sequence[Creature],
     *,
     stream: RngStream,
     count: int | None = None,
     count_dice: str | None = None,
     hd_budget: int | None = None,
-) -> tuple[list[object], list[Event]]:
+) -> tuple[list[Creature], list[Event]]:
     """Resolve the shared targeting model against an explicit candidate list.
 
     Spells, breath weapons, and thrown weapons all choose their victims through this one
@@ -3272,9 +3312,9 @@ def select_targets(
 
     Args:
         mode: The targeting mode.
-        candidates: The candidates, in the order you want ties and precedence broken.
-            Each a [`Character`][osrlib.core.character.Character] or a
-            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance].
+        candidates: The candidates, in the order you want ties and precedence broken. Each a
+            [`Creature`][osrlib.core.creature.Creature], which a [`Character`][osrlib.core.character.Character]
+            and a [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy.
         stream: The stream a rolled count draws from, conventionally
             [`COMBAT_STREAM`][osrlib.core.combat.COMBAT_STREAM]. Only `count_dice` draws.
         count: The fixed N for `up_to_n`.
@@ -3313,7 +3353,7 @@ def select_targets(
         assert [target.id for target in selected] == ["goblin-1", "goblin-2"]
         ```
     """
-    selected: list[object]
+    selected: list[Creature]
     if mode in (TargetingMode.SELF, TargetingMode.SINGLE):
         selected = list(candidates[:1])
     elif mode is TargetingMode.UP_TO_N:
@@ -3339,8 +3379,8 @@ def select_targets(
 
 
 def resolve_gaze(
-    gazer: object,
-    engaged: Sequence[object],
+    gazer: Creature,
+    engaged: Sequence[Combatant],
     *,
     stream: RngStream,
     ledger: EffectsLedger,
@@ -3362,9 +3402,11 @@ def resolve_gaze(
     counterplay with a mirror stays a matter for the referee.
 
     Args:
-        gazer: The gazing [`MonsterInstance`][osrlib.core.monsters.MonsterInstance].
-        engaged: The combatants in melee with it, each a
-            [`Character`][osrlib.core.character.Character] or a `MonsterInstance`.
+        gazer: The gazing [`Creature`][osrlib.core.creature.Creature], which in the SRD's monsters is always a
+            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance]. Nothing is read from it.
+        engaged: The creatures in melee with it, each a [`Combatant`][osrlib.core.creature.Combatant],
+            which a [`Character`][osrlib.core.character.Character] and a `MonsterInstance` both
+            satisfy.
         stream: The stream the saves draw from, conventionally
             [`COMBAT_STREAM`][osrlib.core.combat.COMBAT_STREAM]. One draw per combatant
             that has to save.
@@ -3421,7 +3463,7 @@ def resolve_gaze(
     return events
 
 
-def validate_breath(monster: Any) -> list[Rejection]:
+def validate_breath(monster: MonsterInstance) -> list[Rejection]:
     """Validate a breath weapon use against the per-monster daily limit.
 
     Call this before [`resolve_breath`][osrlib.core.combat.resolve_breath], which raises
@@ -3475,8 +3517,8 @@ def validate_breath(monster: Any) -> list[Rejection]:
 
 
 def resolve_breath(
-    monster: Any,
-    targets: Sequence[object],
+    monster: MonsterInstance,
+    targets: Sequence[Combatant],
     *,
     ruleset: Ruleset,
     stream: RngStream,
@@ -3508,9 +3550,9 @@ def resolve_breath(
     Args:
         monster: The breathing [`MonsterInstance`][osrlib.core.monsters.MonsterInstance].
             Its `breath_uses_today` goes up when the breath has a daily limit.
-        targets: The combatants caught in the breath, each a
-            [`Character`][osrlib.core.character.Character] or a `MonsterInstance`.
-            Mutated in place.
+        targets: The creatures caught in the breath, each a [`Combatant`][osrlib.core.creature.Combatant],
+            which a [`Character`][osrlib.core.character.Character] and a `MonsterInstance` both
+            satisfy. Mutated in place.
         ruleset: The ruleset in play.
         stream: The stream every draw comes from, conventionally
             [`COMBAT_STREAM`][osrlib.core.combat.COMBAT_STREAM]: one save per target, the

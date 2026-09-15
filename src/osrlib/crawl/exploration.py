@@ -97,6 +97,7 @@ from osrlib.core.combat import (
     natural_healing,
     saving_throw,
 )
+from osrlib.core.creature import Creature
 from osrlib.core.dice import roll
 from osrlib.core.effects import EFFECTS_STREAM, Condition, EffectDefinition, ModifierSpec
 from osrlib.core.events import Event, SavingThrowRolledEvent
@@ -3220,7 +3221,7 @@ def _handle_cast_spell(session, command: CastSpell) -> tuple[list[Rejection], li
     if _location(session).kind == "dungeon" and session.ledger.active_on(_cell_ref(session), "silence"):
         return [Rejection(code="magic.cast.silenced_area", params={"caster": member.id})], []
     registry = session.registry()
-    targets: list[object] = []
+    targets: list[Creature | str] = []
     for target_ref in command.targets:
         if target_ref.startswith("cell:"):
             targets.append(target_ref)
@@ -3848,7 +3849,7 @@ def _use_scroll(session, member, instance: MagicItemInstance, template, command)
                 return [Rejection(code="items.scroll.wrong_caster", params={"item": instance.instance_id})], []
         mode = command.mode or spell.modes[0].key
         registry = session.registry()
-        targets: list[object] = []
+        targets: list[Creature | str] = []
         target_refs = command.targets or ((command.target_id,) if command.target_id else ())
         for target_ref in target_refs:
             if target_ref.startswith("cell:"):
@@ -4013,7 +4014,7 @@ def _use_device(session, member, instance: MagicItemInstance, template, command)
                 return [Rejection(code="items.use.unknown_target", params={"target": command.target_id or ""})], []
     if effect_spec is not None and effect_spec.kind == "striking":
         return [Rejection(code="items.use.battle_only", params={"item": instance.instance_id})], []
-    target = None
+    target: Any = None
     if effect_spec is not None and effect_spec.kind == "healing":
         # Resolve the touch target before anything mutates: a rejected command
         # mutates nothing, and identification below is a mutation.

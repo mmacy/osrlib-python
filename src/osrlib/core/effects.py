@@ -30,9 +30,10 @@ Effect-internal randomness (rolled durations, onset delays, a troll's revival co
 named by [`EFFECTS_STREAM`][osrlib.core.effects.EFFECTS_STREAM], so adding a draw to combat never shifts an
 effect's roll.
 
-The `target`, `combatant`, and `registry` parameters below are duck-typed: any object with the attributes the
-call reads works, and in play that means a [`Character`][osrlib.core.character.Character] or a
-[`MonsterInstance`][osrlib.core.monsters.MonsterInstance].
+The `target` parameters below take [`Creature`][osrlib.core.creature.Creature], the protocol that names the
+hit points, conditions, and stat modifiers these calls read. A [`Character`][osrlib.core.character.Character]
+and a [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy it, and a `registry` maps entity
+ids to those same creatures.
 
 Typical usage:
 
@@ -75,6 +76,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from osrlib.core.clock import ROUNDS_PER_DAY, ROUNDS_PER_TURN, GameClock, TimeUnit
+from osrlib.core.creature import Creature
 from osrlib.core.dice import parse, roll
 from osrlib.core.events import (
     ConditionGainedEvent,
@@ -279,7 +281,7 @@ def _int_param(params: Mapping[str, Any], key: str, default: int = 0) -> int:
     return int(params.get(key, default))
 
 
-def has_condition(target: Any, condition: Condition) -> bool:
+def has_condition(target: Creature, condition: Condition) -> bool:
     """Return whether a creature currently has a condition.
 
     This is the read side of the condition layer, and the call combat itself makes. Use it wherever your code
@@ -290,8 +292,9 @@ def has_condition(target: Any, condition: Condition) -> bool:
     tuple of [`ActiveCondition`][osrlib.core.effects.ActiveCondition] records directly.
 
     Args:
-        target: The creature to check. Any object with a `conditions` tuple works, and an object without one
-            reads as having no conditions.
+        target: The [`Creature`][osrlib.core.creature.Creature] to check, which a
+            [`Character`][osrlib.core.character.Character] and a
+            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy.
         condition: The condition to look for.
 
     Returns:
@@ -321,7 +324,7 @@ def _entity_id(target: Any) -> str:
     return identifier if identifier is not None else getattr(target, "name", "unknown")
 
 
-def grant_condition(target: Any, condition: Condition, effect_id: str | None) -> list[Event]:
+def grant_condition(target: Creature, condition: Condition, effect_id: str | None) -> list[Event]:
     """Put a condition on a creature and return the event that says so.
 
     Call this for a state no timed effect owns, the way [`kill`][osrlib.core.effects.kill] does for `dead`. When
@@ -340,7 +343,10 @@ def grant_condition(target: Any, condition: Condition, effect_id: str | None) ->
     record.
 
     Args:
-        target: The creature to affect. Its `conditions` tuple is replaced in place.
+        target: The [`Creature`][osrlib.core.creature.Creature] to affect, which a
+            [`Character`][osrlib.core.character.Character] and a
+            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy. Its `conditions` tuple is
+            replaced in place.
         condition: The condition to grant.
         effect_id: The id of the effect that owns the condition and will take it back, or `None` for a state no
             effect owns.
@@ -378,7 +384,7 @@ def grant_condition(target: Any, condition: Condition, effect_id: str | None) ->
     return [ConditionGainedEvent(target_id=_entity_id(target), condition=condition.value, effect_id=effect_id)]
 
 
-def remove_condition(target: Any, condition: Condition, effect_id: str | None) -> list[Event]:
+def remove_condition(target: Creature, condition: Condition, effect_id: str | None) -> list[Event]:
     """Take back the condition one effect granted, and return the event that says so.
 
     This is the other half of [`grant_condition`][osrlib.core.effects.grant_condition], and it matches on the
@@ -391,7 +397,10 @@ def remove_condition(target: Any, condition: Condition, effect_id: str | None) -
     [`EffectsLedger.release`][osrlib.core.effects.EffectsLedger.release].
 
     Args:
-        target: The creature to affect. Its `conditions` tuple is replaced in place.
+        target: The [`Creature`][osrlib.core.creature.Creature] to affect, which a
+            [`Character`][osrlib.core.character.Character] and a
+            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy. Its `conditions` tuple is
+            replaced in place.
         condition: The condition to take back.
         effect_id: The id the condition was granted under, or `None` for a state no effect owns.
 
@@ -444,7 +453,7 @@ def _remove_modifiers(target: Any, effect_id: str) -> None:
         target.stat_modifiers = remaining
 
 
-def kill(target: Any, *, permanent: bool = False) -> list[Event]:
+def kill(target: Creature, *, permanent: bool = False) -> list[Event]:
     """Kill a creature outright: hit points to zero, the `dead` condition, and the death events.
 
     B/X kills a creature the moment it is reduced to zero hit points or fewer, and
@@ -456,7 +465,10 @@ def kill(target: Any, *, permanent: bool = False) -> list[Event]:
     twice is safe: a creature that's already dead returns no events and isn't killed again.
 
     Args:
-        target: The creature to kill. Its `current_hp` and `conditions` are written in place.
+        target: The [`Creature`][osrlib.core.creature.Creature] to kill, which a
+            [`Character`][osrlib.core.character.Character] and a
+            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy. Its `current_hp` and
+            `conditions` are written in place.
         permanent: True when a regenerating creature can no longer come back, which for a troll means its
             non-regenerable damage has reached its maximum hit points. It changes the death event's code, not the
             outcome.
@@ -647,7 +659,7 @@ class ActiveModifier(ModifierSpec):
 
 
 def modifier_values(
-    target: Any,
+    target: Creature,
     kind: str,
     *,
     element: str | None = None,
@@ -668,8 +680,9 @@ def modifier_values(
     and a melee-only modifier only when you pass `melee=True`.
 
     Args:
-        target: The creature to read modifiers from. An object with no `stat_modifiers` tuple reads as having
-            none.
+        target: The [`Creature`][osrlib.core.creature.Creature] to read modifiers from, which a
+            [`Character`][osrlib.core.character.Character] and a
+            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy.
         kind: The statistic to look for, one of [`MODIFIER_KINDS`][osrlib.core.effects.MODIFIER_KINDS].
         element: The damage or save element in play, like `"fire"`. Leave it None outside an elemental roll.
         versus_differs: True when the other creature in the roll has a different alignment from the target.
@@ -730,7 +743,7 @@ def _matching_modifiers(
 
 
 def modifier_total(
-    target: Any,
+    target: Creature,
     kind: str,
     *,
     element: str | None = None,
@@ -751,7 +764,9 @@ def modifier_total(
     [`modifier_values`][osrlib.core.effects.modifier_values].
 
     Args:
-        target: The creature to total modifiers for.
+        target: The [`Creature`][osrlib.core.creature.Creature] to total modifiers for, which a
+            [`Character`][osrlib.core.character.Character] and a
+            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy.
         kind: The statistic to total, one of [`MODIFIER_KINDS`][osrlib.core.effects.MODIFIER_KINDS].
         element: The damage or save element in play, like `"fire"`. Leave it None outside an elemental roll.
         versus_differs: True when the other creature in the roll has a different alignment from the target.
@@ -805,7 +820,7 @@ def modifier_total(
     return bonus + penalty + sum(item_values)
 
 
-def modifier_dice(target: Any, kind: str) -> str | None:
+def modifier_dice(target: Creature, kind: str) -> str | None:
     """Return the dice expression of a creature's dice-valued modifier of one kind.
 
     A few modifiers grant dice instead of a flat number, *striking*'s extra `"1d6"` of weapon damage among them.
@@ -816,7 +831,9 @@ def modifier_dice(target: Any, kind: str) -> str | None:
     two *strikings* rolls one extra die, not two.
 
     Args:
-        target: The creature to read modifiers from.
+        target: The [`Creature`][osrlib.core.creature.Creature] to read modifiers from, which a
+            [`Character`][osrlib.core.character.Character] and a
+            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy.
         kind: The statistic to look for, one of [`MODIFIER_KINDS`][osrlib.core.effects.MODIFIER_KINDS].
 
     Returns:
@@ -855,7 +872,7 @@ def modifier_dice(target: Any, kind: str) -> str | None:
     return None
 
 
-def has_modifier(target: Any, kind: str) -> bool:
+def has_modifier(target: Creature, kind: str) -> bool:
     """Return whether a creature has any modifier of one kind.
 
     Use this for the kinds that act as flags rather than numbers, where the presence of the modifier is the whole
@@ -867,7 +884,9 @@ def has_modifier(target: Any, kind: str) -> bool:
     matters, go through [`modifier_values`][osrlib.core.effects.modifier_values].
 
     Args:
-        target: The creature to read modifiers from.
+        target: The [`Creature`][osrlib.core.creature.Creature] to read modifiers from, which a
+            [`Character`][osrlib.core.character.Character] and a
+            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy.
         kind: The statistic to look for, one of [`MODIFIER_KINDS`][osrlib.core.effects.MODIFIER_KINDS].
 
     Returns:
