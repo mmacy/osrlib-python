@@ -2303,7 +2303,7 @@ def validate_scroll_cast(
     mode: str,
     *,
     reversed: bool = False,
-    targets: Sequence[object] | None = None,
+    targets: Sequence[object] = (),
     context: CastContext | None = None,
     ledger: EffectsLedger | None = None,
 ) -> list[Rejection]:
@@ -2386,7 +2386,7 @@ def validate_scroll_cast(
         mode,
         profile=None,
         reversed=reversed,
-        targets=() if targets is None else targets,
+        targets=targets,
         context=context,
         ledger=ledger,
     )
