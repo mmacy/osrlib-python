@@ -10,14 +10,17 @@ seed replay identically, and adding new draws to one subsystem never shifts anot
 subsystem's rolls.
 
 Each stream is identified by a plain string key, such as `"combat"` or `"treasure"`.
+[`StreamName`][osrlib.core.rng.StreamName] is where those keys are defined, and every
+constant in the table below is one of its members, so a key has one spelling in the
+library and a mistyped one cannot fork a stream of its own.
 Code that uses the kernel functions directly — standalone, outside of a running game —
 passes an explicit stream into each function call. A [`GameSession`][osrlib.crawl.session.GameSession]
 does this wiring for you: it owns an `RngStreams` container built from the session's
 master seed and hands out the correctly named stream wherever a kernel function needs
 one, so ordinary gameplay never requires touching a stream directly.
 
-There are 13 named streams in total. The table below lists each one; the sections that
-follow give more detail on what each stream governs.
+The table below lists every key, the constant that names it, and what it governs; the
+sections that follow give more detail on each.
 
 | Stream key | Constant | Governs |
 | --- | --- | --- |
@@ -89,7 +92,7 @@ resolution of each individual coin hoard, gem, piece of jewellery, or magic item
 
 ## Crawl-session streams
 
-Five streams belong to the dungeon-crawl loop and are keyed on
+The dungeon-crawl loop has streams of its own, keyed on
 [`GameSession`][osrlib.crawl.session.GameSession] rather than a kernel module, since
 they only make sense in the context of a running session.
 

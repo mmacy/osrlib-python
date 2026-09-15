@@ -80,7 +80,7 @@ from osrlib.core.items import (
     validate_equip,
 )
 from osrlib.core.monsters import MonsterHitDice
-from osrlib.core.rng import RngStream
+from osrlib.core.rng import RngStream, StreamName
 from osrlib.core.spells import MemorizedSpell, caster_profile
 from osrlib.core.tables import xp_band_label
 from osrlib.core.treasure import MagicItemType, generate_magic_item, generate_treasure
@@ -93,7 +93,7 @@ __all__ = [
     "npc_defeat_xp",
 ]
 
-NPC_PARTY_STREAM = "npc_party"
+NPC_PARTY_STREAM = StreamName.NPC_PARTY
 """The stream key every session uses for rolling up NPC adventurers.
 
 A stream key names one independent random-number sequence inside an

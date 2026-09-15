@@ -1679,17 +1679,18 @@ def _party_is_retreating(session, by_member) -> bool:
 
 
 def _party_movement(session, by_member) -> list[Event]:
-    """Consolidated formation movement, in order of precedence: retreat, withdrawal, close.
+    """Consolidated formation movement, in order of precedence: retreat, fighting withdrawal, close.
 
     The party moves as a single formation and an individual member cannot leave
     it, as a documented adaptation (see the
     [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/),
     under the Bard's Tale convention). Every member retreating moves the party off at the full encounter
     rate, the OSE SRD's "full encounter movement rate", and the running pursuit
-    begins once the battle converts. Every member withdrawing backs the party off
-    at half encounter rate. Otherwise the first `close` declaration in marching
-    order advances the formation on its named group at encounter rate, stopping
-    at 5'.
+    begins once the battle converts. Every member declaring a fighting withdrawal
+    backs the party off at half encounter rate, and that declaration is a move
+    alone, so the withdrawing party attacks nobody that round. Otherwise the first
+    `close` declaration in marching order advances the formation on its named
+    group at encounter rate, stopping at 5'.
     """
     declarations = [declaration for _, declaration in by_member.values()]
     events: list[Event] = []

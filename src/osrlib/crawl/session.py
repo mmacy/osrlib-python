@@ -105,7 +105,7 @@ from osrlib.core.events import (
 )
 from osrlib.core.items import EquipmentCatalog, ItemInstance
 from osrlib.core.monsters import MONSTER_SPAWN_STREAM, IdAllocator, MonsterCatalog, MonsterInstance, spawn_monster
-from osrlib.core.rng import RngStreams
+from osrlib.core.rng import RngStreams, StreamName
 from osrlib.core.ruleset import Ruleset
 from osrlib.core.validation import Rejection
 from osrlib.crawl.adventure import Adventure, _effective_equipment, _effective_monsters, validate_adventure
@@ -183,7 +183,7 @@ __all__ = [
     "WANDERING_STREAM",
 ]
 
-WANDERING_STREAM = "wandering"
+WANDERING_STREAM = StreamName.WANDERING
 """The name of the stream the wandering-monster procedure draws from.
 
 Pass it to [`RngStreams.get`][osrlib.core.rng.RngStreams.get] on a session's `streams` to get the
@@ -193,14 +193,14 @@ procedure cannot shift the dice another procedure would have drawn. You rarely n
 the engine draws from it while it runs the cadence.
 """
 
-ENCOUNTER_STREAM = "encounter"
+ENCOUNTER_STREAM = StreamName.ENCOUNTER
 """The name of the stream the encounter procedure draws from.
 
 Covers surprise, encounter distance, reaction rolls, and the distraction check during a chase. See
 [`WANDERING_STREAM`][osrlib.crawl.session.WANDERING_STREAM] for how stream names are used.
 """
 
-EXPLORATION_STREAM = "exploration"
+EXPLORATION_STREAM = StreamName.EXPLORATION
 """The name of the stream the exploration procedures draw from.
 
 Covers forcing doors, listening, searching, trap springs, lighting a tinder box, and thief skill
@@ -208,14 +208,14 @@ checks. See [`WANDERING_STREAM`][osrlib.crawl.session.WANDERING_STREAM] for how 
 used.
 """
 
-MONSTER_ACTION_STREAM = "monster_action"
+MONSTER_ACTION_STREAM = StreamName.MONSTER_ACTION
 """The name of the stream a monster action policy draws from.
 
 It's kept apart from the combat stream so that changing how monsters choose their actions, or
 registering a policy of your own, never shifts the dice a fight would have rolled.
 """
 
-ADJUDICATION_STREAM = "adjudication"
+ADJUDICATION_STREAM = StreamName.ADJUDICATION
 """The name of the stream a referee's own dice roll draws from.
 
 [`RollDice`][osrlib.crawl.commands.RollDice] uses it. It's kept off the streams the rules use, so
@@ -1513,9 +1513,11 @@ class GameSession:
             referee = session.view(Visibility.REFEREE)
             print(player.mode, player.party[0].name)
             # exploring Hild
+
             # The referee sees the session flags; the player whitelist has no such field.
             print("flags" in referee.state, "flags" in player.model_dump())
             # True False
+
             # Neither view carries the master seed.
             print("master_seed" in referee.state)
             # False

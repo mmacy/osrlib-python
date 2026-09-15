@@ -2032,15 +2032,16 @@ class BattleDeclaration(BaseModel):
     [`CastSpell.targets`][osrlib.crawl.commands.CastSpell.targets]: member ids, monster ids, or
     a `cell:` reference. A target the party can't see is refused with
     `battle.declaration.invisible_target`."""
-    move: Literal["close", "withdraw", "fighting_withdrawal", "retreat"] | None = None
+    move: Literal["close", "fighting_withdrawal", "retreat"] | None = None
     """Which movement a `move` declaration makes. `close` advances the whole formation on
     `target_group_id` at the party's slowest encounter rate, stopping at melee range.
     `fighting_withdrawal` backs the formation off at half that rate. `retreat` breaks off at
     full rate, and a round in which every member retreats ends the battle and turns it into a
     pursuit, or into a clean escape when nothing can chase. The party moves as one formation
     and a single member can't leave it, so a move resolves when everyone declares the same one,
-    apart from `close`. The fourth value, `withdraw`, passes validation, but the engine
-    resolves no formation movement for it."""
+    apart from `close`. A fighting withdrawal is a move and nothing else here: the member who
+    declares it makes no attack that round, the adaptation the register records under the
+    battle round."""
     item_id: str | None = None
     """Which item a `use_item` declaration uses: a magic item's per-instance id for a wand, staff,
     or rod, or a mundane item's catalog id for something thrown at a group, like a flask of

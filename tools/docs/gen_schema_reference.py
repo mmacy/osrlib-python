@@ -5,12 +5,30 @@ sourced from `ALL_COMMAND_CLASSES` and `ALL_EVENT_CLASSES`, so a class added to 
 registry appears here with no further wiring — plus the two raw artifacts,
 `commands.json` and `events.json`, carrying the discriminated-union JSON Schemas an
 agent framework or API consumer loads directly.
+
+A JSON Schema block is text inside a fenced code block, so mkdocstrings cross-reference
+syntax in a class docstring never resolves there the way it does on a rendered page, and
+a `description` reaches a tool-calling LLM as plain text either way. Every description
+this module writes into a schema, the model's own and each property's, goes through
+`_plain_prose` first. A field's description comes from its attribute docstring (the PEP
+224 form: a string literal statement right after the field's annotated assignment),
+which pydantic never reads on its own, so `_field_description` recovers it with `ast`
+over the module source that defines the class owning the field. A field a subclass
+redeclares without repeating its own docstring, or never redeclares at all, such as
+`command_type` on every command and `source` on every command that isn't `Command`
+itself, takes the docstring the nearest ancestor in the MRO gives it.
 """
 
+import ast
+import inspect
 import json
+import re
+from enum import Enum
+from pathlib import Path
+from typing import get_args, get_origin
 
 import mkdocs_gen_files
-from pydantic import TypeAdapter
+from pydantic import BaseModel, TypeAdapter
 
 from osrlib.crawl.commands import ALL_COMMAND_CLASSES, AnyCommand
 from osrlib.crawl.events import ALL_EVENT_CLASSES, KERNEL_EVENT_CLASSES, AnyEvent
@@ -20,9 +38,164 @@ def _crossref(cls: type) -> str:
     return f"[`{cls.__name__}`][{cls.__module__}.{cls.__name__}]"
 
 
+# Matches a markdown reference, backticked or not: `` [`Name`][mod.path.Name] ``, a
+# mkdocstrings cross-reference, or `[the spell id index][spells-index]`, an autorefs
+# heading link. Neither resolves inside a fenced code block, so both are markup a JSON
+# Schema description has to shed; the label itself can be any run of non-space,
+# non-bracket characters, hyphens included. The backreference keeps the backticks (or
+# their absence) on the replacement, so `` [`Name`][...] `` becomes `` `Name` `` and
+# `[some text][...]` becomes plain `some text`.
+_CROSSREF = re.compile(r"\[(`?)([^\[\]]+?)\1\]\[[^\]\s]+\]")
+
+
+def _plain_prose(text: str) -> str:
+    """Reduce mkdocstrings cross-reference syntax to the name alone.
+
+    A description that reaches an LLM as a tool definition, or a reader as raw JSON, never
+    resolves that syntax into a link, so the markup itself is noise the reader has to see past.
+    """
+    return _CROSSREF.sub(r"\1\2\1", text)
+
+
+def _module_field_docstrings(filename: str) -> dict[str, dict[str, str]]:
+    """Map every class in one source file to its own `{field name: attribute docstring}`.
+
+    Reads and parses the file once; later calls for the same file reuse the cached result
+    for the rest of the build.
+    """
+    cached = _FIELD_DOC_CACHE.get(filename)
+    if cached is not None:
+        return cached
+    tree = ast.parse(Path(filename).read_text(encoding="utf-8"), filename=filename)
+    by_class: dict[str, dict[str, str]] = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.ClassDef):
+            continue
+        fields: dict[str, str] = {}
+        body = node.body
+        for index, statement in enumerate(body):
+            if not (isinstance(statement, ast.AnnAssign) and isinstance(statement.target, ast.Name)):
+                continue
+            following = body[index + 1] if index + 1 < len(body) else None
+            if (
+                isinstance(following, ast.Expr)
+                and isinstance(following.value, ast.Constant)
+                and isinstance(following.value.value, str)
+            ):
+                fields[statement.target.id] = inspect.cleandoc(following.value.value)
+        by_class[node.name] = fields
+    _FIELD_DOC_CACHE[filename] = by_class
+    return by_class
+
+
+_FIELD_DOC_CACHE: dict[str, dict[str, dict[str, str]]] = {}
+
+
+def _field_description(cls: type, field_name: str) -> str:
+    """The prose for one property, from the nearest ancestor that documents it.
+
+    A class with no locatable source file (a dynamically built one, say) simply has no
+    attribute docstring to read, so it is skipped rather than raising: the caller falls
+    back to whatever description the schema already carried.
+    """
+    for klass in cls.__mro__:
+        if klass is BaseModel or not issubclass(klass, BaseModel):
+            continue
+        try:
+            filename = inspect.getsourcefile(klass)
+        except TypeError:
+            filename = None
+        if filename is None:
+            continue
+        doc = _module_field_docstrings(filename).get(klass.__name__, {}).get(field_name)
+        if doc:
+            return _plain_prose(doc)
+    return ""
+
+
+def _referenced_models(cls: type, registry: dict[str, type]) -> None:
+    """Collect every `BaseModel` and `Enum` type reachable from `cls`'s own fields, recursively.
+
+    This is how a `$defs` entry in a discriminated-union schema (`commands.json`,
+    `events.json`) gets mapped back to the class that defines it: pydantic names each entry
+    after the class's own `__name__`, and this walk visits every class that can appear there.
+    """
+    if not isinstance(cls, type) or cls.__name__ in registry:
+        return
+    if issubclass(cls, BaseModel) or issubclass(cls, Enum):
+        registry[cls.__name__] = cls
+    if not issubclass(cls, BaseModel):
+        return
+    for field in cls.model_fields.values():
+        for inner in _unwrap(field.annotation):
+            _referenced_models(inner, registry)
+
+
+def _unwrap(annotation: object) -> list[type]:
+    """Flatten a field annotation down to the concrete types nested inside it.
+
+    Handles the generic shapes the command and event fields use, such as `X | None`,
+    `tuple[X, ...]`, and `list[X]`, without needing to special-case any of them.
+    """
+    origin = get_origin(annotation)
+    if origin is None:
+        return [annotation] if isinstance(annotation, type) else []
+    found = []
+    for arg in get_args(annotation):
+        found.extend(_unwrap(arg))
+    return found
+
+
+def _describe_schema(schema: dict, registry: dict[str, type], cls: type | None = None) -> dict:
+    """Rewrite every description a JSON Schema carries into plain, field-sourced prose.
+
+    Covers the schema's own top level (when `cls` names the single class it describes) and
+    every `$defs` entry (a discriminated union's variants, and any nested model or enum they
+    reference), so this handles both a single command's or event's own schema and the combined
+    `commands.json` / `events.json` artifacts with one function. A property keeps whatever
+    description the schema already gave it (from `Field(description=...)`, or from an
+    attribute docstring the `ast` reader can't read, such as an f-string) when no attribute
+    docstring is found for it, rather than being overwritten with an empty string.
+    """
+    if cls is not None:
+        if "description" in schema:
+            schema["description"] = _plain_prose(schema["description"])
+        for field_name, prop in schema.get("properties", {}).items():
+            _set_description(prop, _field_description(cls, field_name))
+    for name, definition in schema.get("$defs", {}).items():
+        if "description" in definition:
+            definition["description"] = _plain_prose(definition["description"])
+        member = registry.get(name)
+        if member is None:
+            continue
+        for field_name, prop in definition.get("properties", {}).items():
+            _set_description(prop, _field_description(member, field_name))
+    return schema
+
+
+def _set_description(prop: dict, description: str) -> None:
+    """Give a property its attribute-docstring prose, or clean up what it already had.
+
+    A found attribute docstring wins outright. Otherwise the property keeps whatever
+    description pydantic already gave it (from `Field(description=...)`, say), with any
+    cross-reference markup in that description reduced the same way.
+    """
+    if description:
+        prop["description"] = description
+    elif "description" in prop:
+        prop["description"] = _plain_prose(prop["description"])
+
+
+# Every model and enum reachable from a command's or an event's own fields: the closure that
+# can appear as a `$defs` entry in `commands.json` or `events.json`.
+_MODEL_REGISTRY: dict[str, type] = {}
+for _cls in (*ALL_COMMAND_CLASSES, *ALL_EVENT_CLASSES):
+    _referenced_models(_cls, _MODEL_REGISTRY)
+
+
 def _schema_block(cls: type) -> str:
-    schema = json.dumps(cls.model_json_schema(), indent=2)  # type: ignore[attr-defined]
-    return f"```json\n{schema}\n```\n"
+    schema = _describe_schema(cls.model_json_schema(), _MODEL_REGISTRY, cls)  # type: ignore[attr-defined]
+    return f"```json\n{json.dumps(schema, indent=2)}\n```\n"
 
 
 def _summary_line(cls: type) -> str:
@@ -65,7 +238,8 @@ with mkdocs_gen_files.open("reference/commands/SUMMARY.md", "w") as summary:
     summary.write("\n".join(command_lines) + "\n")
 
 with mkdocs_gen_files.open("reference/commands/commands.json", "w") as artifact:
-    artifact.write(json.dumps(TypeAdapter(AnyCommand).json_schema(), indent=2) + "\n")
+    commands_schema = _describe_schema(TypeAdapter(AnyCommand).json_schema(), _MODEL_REGISTRY)
+    artifact.write(json.dumps(commands_schema, indent=2) + "\n")
 
 
 # Events: one page each, grouped kernel/crawl in the nav.
@@ -118,4 +292,5 @@ with mkdocs_gen_files.open("reference/events/SUMMARY.md", "w") as summary:
     summary.write("\n".join(event_lines) + "\n")
 
 with mkdocs_gen_files.open("reference/events/events.json", "w") as artifact:
-    artifact.write(json.dumps(TypeAdapter(AnyEvent).json_schema(), indent=2) + "\n")
+    events_schema = _describe_schema(TypeAdapter(AnyEvent).json_schema(), _MODEL_REGISTRY)
+    artifact.write(json.dumps(events_schema, indent=2) + "\n")

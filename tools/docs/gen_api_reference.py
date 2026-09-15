@@ -2,7 +2,9 @@
 
 Runs under mkdocs-gen-files at build time. Page-per-module mirrors the one-home-per-symbol
 import contract, and rendering exactly `__all__` (kept honest by the standing completeness
-gate in the test suite) keeps the reference and the import surface identical. Emits a
+gate in the test suite) keeps the reference and the import surface identical. The `osrlib.core`
+and `osrlib.crawl` packages set no `__all__` of their own, so each gets a front page here
+instead, rendering its package docstring at the top of its layer's section. Emits a
 `SUMMARY.md` consumed by mkdocs-literate-nav.
 """
 
@@ -18,6 +20,16 @@ _LAYERS = (
     ("The crawl framework", "osrlib.crawl."),
     ("Shared services", "osrlib."),
 )
+
+# The core and crawl layers are packages with their own docstring, introducing the
+# layer the way `osrlib`'s own docstring introduces the whole library. Neither
+# package sets `__all__` (the package root re-exports nothing by design), so
+# `_exporting_modules` never finds them; each gets a front page here instead, keyed
+# to the layer whose section it opens.
+_LAYER_PACKAGES = {
+    "The core kernel": "osrlib.core",
+    "The crawl framework": "osrlib.crawl",
+}
 
 
 def _exporting_modules() -> list[tuple[str, list[str]]]:
@@ -44,6 +56,15 @@ summary_lines = ["- [Overview](index.md)"]
 for layer_title, _prefix in _LAYERS:
     members = [(name, exported) for name, exported in modules if _layer(name) == layer_title]
     summary_lines.append(f"- {layer_title}")
+    package_name = _LAYER_PACKAGES.get(layer_title)
+    if package_name is not None:
+        package_path = package_name.replace(".", "/") + "/index.md"
+        summary_lines.append(f"    - [{package_name}]({package_path})")
+        with mkdocs_gen_files.open(f"reference/api/{package_path}", "w") as page:
+            page.write(f"# `{package_name}`\n\n")
+            page.write(f"::: {package_name}\n")
+            page.write("    options:\n")
+            page.write("      members: false\n")
     for name, exported in members:
         path = name.replace(".", "/") + ".md"
         summary_lines.append(f"    - [{name}]({path})")
