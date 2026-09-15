@@ -1877,7 +1877,9 @@ def _handle_set_door_state(session: GameSession, command: SetDoorState) -> tuple
         discovering = secret and command.discovered and not state.discovered
         state.discovered = command.discovered
         if discovering:
-            exploration._refund_trap_search(session, command.dungeon_id, command.level_number, (command.x, command.y))
+            exploration._refund_trap_search(
+                session, command.dungeon_id, command.level_number, (command.x, command.y), command.direction
+            )
     if command.unlocked is not None:
         state.unlocked = command.unlocked
     return [], events
