@@ -160,6 +160,7 @@ from osrlib.core.combat import (
     validate_attack,
     validate_breath,
 )
+from osrlib.core.creature import Creature
 from osrlib.core.dice import roll
 from osrlib.core.effects import EFFECTS_STREAM, Condition, has_condition
 from osrlib.core.events import AttackRolledEvent, Event, SavingThrowRolledEvent, SpellDisruptedEvent
@@ -1654,7 +1655,7 @@ def _handle_resolve_battle_round(session, command: ResolveBattleRound) -> tuple[
     fired_this_round: list[str] = []
     fire_damaged_groups: set[str] = set()
     party_retreating = False
-    slow_attacks: list[tuple[object, BattleDeclaration]] = []
+    slow_attacks: list[tuple[Creature, BattleDeclaration]] = []
 
     def party_block() -> list[Event]:
         nonlocal party_retreating
