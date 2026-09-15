@@ -136,7 +136,7 @@ assert "combat.initiative.rolled" in [event.code for event in result.events]
 """
 
 import math
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any, Protocol
 
 from pydantic import BaseModel, ConfigDict
@@ -1114,6 +1114,55 @@ def _group_by_id(session, group_id: str | None):
     return None
 
 
+_DEFENSIVE_MOVES = ("fighting_withdrawal", "retreat")
+"""The two `move` values the whole formation has to agree on, the SRD's two ways out of melee.
+
+The order is the order the rejections come back in, the fighting withdrawal's first. `close` is not
+one of them, because it needs no agreement: the first `close` in marching order advances the
+formation whenever the round is accepted, and a `close` declared beside a defensive move is one of
+the others that split the round.
+"""
+
+
+def _formation_split_rejections(declarers, declarations: Sequence[BattleDeclaration]) -> list[Rejection]:
+    """Refuse a defensive move that some of the round's declarers made and the rest did not.
+
+    The party moves as one formation and a member cannot leave it (see the
+    [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/), under the Bard's
+    Tale convention), so a `fighting_withdrawal` or a `retreat` is a legal declaration only when
+    every declarer makes the same one. A round whose only declarer declares one is legal, because
+    everyone agreed, and a member who cannot declare at all, being dead or incapacitated, is no
+    declarer and does not count.
+
+    Args:
+        declarers: The living, able members the round expects, in marching order.
+        declarations: The round's declarations, one per declarer, in the order the caller sent them.
+
+    Returns:
+        One `battle.declaration.formation_split` rejection per defensive move at least one declarer
+        chose and at least one did not, naming the `move`, the `declared` ids, and the `others`,
+        each id tuple in marching order. `others` is every other declarer of the round, the one who
+        chose the other defensive move included, so a round that splits on both moves comes back
+        with two rejections, each naming the other's declarers among its `others`. Those two arrive
+        in the order `_DEFENSIVE_MOVES` lists them, the fighting withdrawal first and the retreat
+        second. Empty when the formation agrees.
+    """
+    moves = {declaration.character_id: declaration.move for declaration in declarations if declaration.action == "move"}
+    order = [member.id for member in declarers]
+    rejections: list[Rejection] = []
+    for move in _DEFENSIVE_MOVES:
+        declared = tuple(member_id for member_id in order if moves.get(member_id) == move)
+        others = tuple(member_id for member_id in order if moves.get(member_id) != move)
+        if declared and others:
+            rejections.append(
+                Rejection(
+                    code="battle.declaration.formation_split",
+                    params={"move": move, "declared": declared, "others": others},
+                )
+            )
+    return rejections
+
+
 def _validate_declaration(session, declaration: BattleDeclaration, member) -> list[Rejection]:
     state = session.battle
     if declaration.action == "hold":
@@ -1538,6 +1587,7 @@ def _handle_resolve_battle_round(session, command: ResolveBattleRound) -> tuple[
         member = session.member(declaration.character_id)
         by_member[declaration.character_id] = (member, declaration)
         rejections.extend(_validate_declaration(session, declaration, member))
+    rejections.extend(_formation_split_rejections(declarers, command.declarations))
     if rejections:
         # The whole command rejects listing every rejection. Partial acceptance
         # would tangle the replay contract (see the adaptations register).
@@ -1686,6 +1736,10 @@ def _party_movement(session, by_member) -> list[Event]:
     its own, so the withdrawing party attacks nobody that round. Otherwise the first
     `close` declaration in marching order advances the formation on its named
     group at encounter rate, stopping at 5'.
+
+    A round the formation does not agree on never gets here: `_formation_split_rejections` refuses a
+    defensive move some declarers made and the rest did not, in the validation pre-phase, with
+    `battle.declaration.formation_split`.
     """
     declarations = [declaration for _, declaration in by_member.values()]
     events: list[Event] = []

@@ -1,5 +1,6 @@
 {
   "battle.declaration.cannot_move": "A character declares a move while dead, paralyzed, petrified, asleep, or entangled (such as by a web spell), any of which makes movement impossible this round.",
+  "battle.declaration.formation_split": "Some of the characters declaring this round chose a fighting withdrawal or a retreat and the rest chose something else. The party moves as one formation, so a defensive move is a legal declaration only when every character declaring that round makes the same one. Closing on a group is not a defensive move and needs no such agreement.",
   "battle.declaration.invisible_target": "A spell or item-use declaration names a specific target that is currently invisible, and the engine won't let the caster target something they can't see.",
   "battle.declaration.item_unusable": "The declared item has no usable combat effect: it isn't a weapon-capable item in the character's inventory, or it's a magic item category (other than a potion, scroll, rod, staff, or wand) that has no defined combat use.",
   "battle.declaration.missing_move": "A move action is declared without specifying which kind of movement (closing distance, retreating, or a fighting withdrawal) the character is taking.",
