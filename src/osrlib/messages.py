@@ -144,7 +144,7 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
     "combat.morale.broke": lambda event: _morale(event, "they flee or surrender"),
     "combat.morale.exempt": lambda event: (
         f"Morale check for {event.subject} (ML {event.score}): no roll — "
-        + ("they never check morale." if event.score == 12 else "they never fight.")
+        + ("they never check morale." if event.held else "they never fight.")
     ),
     "encounter.reaction.rolled": lambda event: (
         f"Reaction roll: {event.roll}{event.modifier:+d} = {event.total} — {event.result}."

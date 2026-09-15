@@ -441,15 +441,15 @@ class MoraleCheckedEvent(Event):
     reconsider. A broken side flees or surrenders, and acting on that is the caller's job.
 
     Some morale scores never roll. A score of 2 or less never fights and a score of 12 or more never checks,
-    and both report `combat.morale.exempt` with no roll. Read `score` to tell them apart: at 2 or less the side
-    is already broken, and at 12 or more it holds.
+    and both report `combat.morale.exempt` with no roll. Read `held` to tell them apart, as on any other code:
+    at 2 or less the side is already broken, and at 12 or more it holds.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset(
         {"combat.morale.held", "combat.morale.broke", "combat.morale.exempt"}
     )
     """The three codes: the side held, the side broke, or the score exempted it from rolling. The exempt code
-    covers both exemptions, so `score` is what separates them."""
+    covers both exemptions, so `held` is what separates them."""
 
     event_type: Literal["morale_checked"] = "morale_checked"
     """The wire name for this event type."""

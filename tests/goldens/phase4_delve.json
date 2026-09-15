@@ -2601,6 +2601,7 @@
     {
       "code": "combat.morale.broke",
       "event_type": "morale_checked",
+      "held": false,
       "modifier": 0,
       "roll": 12,
       "score": 7,
@@ -4407,6 +4408,7 @@
     {
       "code": "combat.morale.broke",
       "event_type": "morale_checked",
+      "held": false,
       "modifier": 0,
       "roll": 10,
       "score": 7,

@@ -8,9 +8,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- [`MoraleCheckedEvent`][osrlib.core.events.MoraleCheckedEvent]`.held` — whether the side keeps fighting, stated on every code rather than left for a consumer to work out. A rolled check always said which way it went through its code, but `combat.morale.exempt` covers both exemptions, so a front end had to read the score beside the code to tell a side that never fights from one that never breaks — and the default formatter did exactly that, keying its line on a score of exactly 12 and so describing a side with ML 13 as one that never fights. [`check_morale`][osrlib.core.combat.check_morale] now fills the field on all three codes and the formatter reads the outcome from it. The field is additive with a `None` default, so a log written before it existed still parses; the engine always fills it. The scenario goldens holding a morale check gained the field, and no draw sequence and no rendered line changed.
+
 ### Changed
 
 ### Fixed
+
+- The three treasure generators now refuse an unknown `tier` before drawing anything. [`generate_treasure`][osrlib.core.treasure.generate_treasure], [`generate_treasure_entries`][osrlib.core.treasure.generate_treasure_entries], and [`generate_unguarded_treasure`][osrlib.core.treasure.generate_unguarded_treasure] read the tier only where a roll reached a magic item, which is deep inside the generation, so `tier="bogus"` consumed draws before raising and — for a hoard whose rolls reached no magic item at all — returned coins and gems as though the argument had been fine. A caller who passed a typo got a plausible hoard and no way to see the bug. All three now check the tier first, as [`generate_magic_item`][osrlib.core.treasure.generate_magic_item] always did, so a refused call costs no draws and returns nothing. Valid calls draw exactly as before.
+- A scroll read is now judged at the scroll's own caster level, the level it resolves at. [`cast_from_scroll`][osrlib.core.spells.cast_from_scroll] validated the read against the reader and then resolved it through a proxy at the minimum caster level for the spell, so the two checks that scale with caster level were made at a level the cast never ran at: a 6th-level magic-user reading a *magic missile* scroll had to supply three targets and then struck all three, turning a 1st-level scroll into a 6th-level cast, while a per-level range was measured from the reader's reach rather than the scroll's. The proxy is now built before the validation, so legality and resolution agree. The docstring documented the split as intended behavior and now states the single rule.
 
 ## [1.7.1] - 2026-08-23
 
