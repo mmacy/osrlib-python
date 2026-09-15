@@ -9,9 +9,9 @@ characters you get into a [`Party`][osrlib.crawl.party.Party] to play them, or u
 own with the combat, magic, and item functions of the core kernel.
 
 [`Character`][osrlib.core.character.Character] is a mutable pydantic model. Its derived values,
-which are the ability modifiers, both armour classes, movement rate, literacy, and the language
-list, are properties computed from stored state rather than stored fields, so they cannot fall out
-of step with the state they come from. Validation on the model is structural: score ranges, a level
+which are the ability modifiers, both armour classes, movement rate, and the language list, are
+properties computed from stored state rather than stored fields, so they cannot fall out of step
+with the state they come from. Validation on the model is structural: score ranges, a level
 within the class's bounds, current hit points no higher than maximum. Whether a creation step was
 legal is checked by the creation functions when the step happens, because a finished character
 keeps no record of the choices that made it.
@@ -82,7 +82,6 @@ from osrlib.core.abilities import (
     AbilityAdjustment,
     AbilityScore,
     AbilityTables,
-    Literacy,
     apply_adjustment,
 )
 from osrlib.core.alignment import Alignment
@@ -185,9 +184,9 @@ class Character(BaseModel):
     legally, because a finished character keeps no record of its own creation.
 
     Nothing derived is stored. THAC0, attack bonus, saving throws, ability modifiers, both armour
-    classes, literacy, and the language list are properties recomputed from the stored fields every
-    time you read them, so a level change or a swapped piece of armour shows up immediately and
-    nothing can fall out of step.
+    classes, and the language list are properties recomputed from the stored fields every time you
+    read them, so a level change or a swapped piece of armour shows up immediately and nothing can
+    fall out of step.
 
     Examples:
         ```python
@@ -411,17 +410,6 @@ class Character(BaseModel):
         [`osrlib.crawl.encounter`][osrlib.crawl.encounter].
         """
         return self._tables().npc_reaction_modifier(self.scores[AbilityScore.CHA])
-
-    @property
-    def literacy(self) -> Literacy:
-        """How well the character reads and writes, from INT.
-
-        The three levels are illiterate, basic literacy, and full literacy; see
-        [`Literacy`][osrlib.core.abilities.Literacy]. It applies to the languages in
-        [`languages`][osrlib.core.character.Character.languages]. No rule in osrlib reads it, so
-        what an illiterate character may not do is your game's decision.
-        """
-        return self._tables().literacy(self.scores[AbilityScore.INT])
 
     @property
     def alignment_tongue(self) -> str:

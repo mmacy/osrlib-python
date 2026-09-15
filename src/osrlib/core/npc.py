@@ -169,8 +169,8 @@ class NpcParty(BaseModel):
     """
 
     treasure: GeneratedTreasure
-    """What the band carries between them, rolled once for the group rather than per member. It changes hands when they
-    are killed or surrender. A band that runs away keeps it.
+    """What the band carries between them, rolled once for the group rather than per member. It changes hands when
+    the band is slain. A band that runs away keeps it.
     """
 
 

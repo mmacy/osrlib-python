@@ -198,7 +198,7 @@ class TestMatching:
 
     def test_a_monster_pattern_takes_every_outcome(self):
         pattern = MonsterDefeatedPattern(template_id="goblin")
-        for outcome in ("slain", "routed", "surrendered"):
+        for outcome in ("slain", "routed"):
             event = MonsterDefeatedEvent(monster_id="monster-0001", template_id="goblin", outcome=outcome, xp=5)
             assert self.match(pattern, event), outcome
         skeleton = MonsterDefeatedEvent(monster_id="monster-0002", template_id="skeleton", outcome="slain", xp=10)

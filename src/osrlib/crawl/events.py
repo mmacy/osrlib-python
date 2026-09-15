@@ -1067,10 +1067,8 @@ class MonsterFledEvent(Event):
     for the adventure's experience award.
     """
 
-    allowed_codes: ClassVar[frozenset[str]] = frozenset({"battle.side.fled", "battle.side.surrendered"})
-    """`battle.side.fled` is what the engine's own resolution emits. `battle.side.surrendered` is
-    reserved for a group that gives itself up, which the encounter state models but no engine path
-    currently produces. A game that adjudicates a surrender itself can use that code."""
+    allowed_codes: ClassVar[frozenset[str]] = frozenset({"battle.side.fled"})
+    """The only message code this event uses."""
 
     event_type: Literal["monster_fled"] = "monster_fled"
     """The wire discriminator, `monster_fled`."""
@@ -1136,7 +1134,7 @@ class MonsterDefeatedEvent(Event):
     template_id: str
     """What it was: a monster catalog id, or `"npc:<class id>"` for a defeated NPC adventurer."""
     outcome: str
-    """How it went out: `"slain"`, `"routed"` when it fled or was turned, or `"surrendered"`."""
+    """How it went out: `"slain"`, or `"routed"` when it fled or was turned."""
     xp: int
     """What it's worth: the monster catalog's printed award, or the level-based award for an NPC
     adventurer."""

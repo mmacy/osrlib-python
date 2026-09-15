@@ -174,6 +174,12 @@ def _migrate_3_to_4(payload: dict) -> dict:
     `move` field was never read, so it is cleared and the action stands. The command log is the
     only place a declaration is stored, since a battle keeps its round bookkeeping and not the
     round's declarations.
+
+    Schema 4 also drops two fields nothing ever wrote, the surrender flag on an encounter group and
+    `discovered_features` on the dungeon state, and with them a character's computed `literacy`
+    property, which was never a field and never reached a payload at all. Neither field needs
+    clearing here. The models that read those payloads ignore a key they do not declare, so a
+    schema 3 save carrying either one loads with the value dropped and nothing else changed.
     """
     for entry in payload.get("command_log", ()):
         if entry.get("command_type") != "resolve_battle_round":

@@ -98,7 +98,6 @@ class TestCharacterModel:
 
     def test_literacy_and_languages(self):
         hero = make_character(class_id="dwarf", race="dwarf", scores=base_scores(con=9, int=6))
-        assert hero.literacy == "basic"
         assert hero.languages == ("alignment_neutral", "common", "dwarvish", "gnomish", "goblin", "kobold")
 
     def test_alignment_tongue_derives_from_alignment(self):

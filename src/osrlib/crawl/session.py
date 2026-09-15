@@ -352,8 +352,7 @@ class DefeatedMonsterRecord(BaseModel):
     template_id: str
     """What it was: a monster catalog id, or `"npc:<class id>"` for an NPC adventurer."""
     outcome: str
-    """How it went out: `"slain"`, `"routed"`, or `"surrendered"`. All three count as defeated for
-    the award."""
+    """How it went out: `"slain"` or `"routed"`. Both count as defeated for the award."""
     xp: int
     """What it's worth in experience."""
 

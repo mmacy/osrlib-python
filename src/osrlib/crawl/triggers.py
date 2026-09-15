@@ -245,9 +245,9 @@ class ItemAcquiredPattern(BaseModel):
 
 
 class MonsterDefeatedPattern(BaseModel):
-    """A monster of `template_id` was defeated: slain, routed, or surrendered.
+    """A monster of `template_id` was defeated: slain or routed.
 
-    Every outcome counts as a defeat and the pattern does not filter on one. Defeats are
+    Both outcomes count as a defeat and the pattern does not filter on one. Defeats are
     reported at battle end through
     [`MonsterDefeatedEvent`][osrlib.crawl.events.MonsterDefeatedEvent], so a boss falling
     opens the portcullis once the fighting stops and never mid-round. Author no trigger

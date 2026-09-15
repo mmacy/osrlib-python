@@ -170,7 +170,7 @@ def _matches_item_acquired(pattern: ItemAcquiredPattern, event: Event, session: 
 
 
 def _matches_monster_defeated(pattern: MonsterDefeatedPattern, event: Event) -> bool:
-    """A monster of that template was defeated: slain, routed, or surrendered alike."""
+    """A monster of that template was defeated: slain or routed alike."""
     return isinstance(event, MonsterDefeatedEvent) and event.template_id == pattern.template_id
 
 

@@ -3995,7 +3995,7 @@ def _use_device(session, member, instance: MagicItemInstance, template, command)
             if command.target_id is None:
                 return [Rejection(code="items.use.target_required", params={"item": instance.instance_id})], []
             group = next((entry for entry in session.encounter.groups if entry.id == command.target_id), None)
-            if group is None or group.fled or group.surrendered:
+            if group is None or group.fled:
                 return [Rejection(code="items.use.unknown_target", params={"target": command.target_id or ""})], []
     if effect_spec is not None and effect_spec.kind == "striking":
         return [Rejection(code="items.use.battle_only", params={"item": instance.instance_id})], []
