@@ -1,6 +1,5 @@
 """The end-of-adventure XP award and the town services — the Phase 5 loop closed."""
 
-import pytest
 
 from crawl_fixtures import build_adventure, build_party
 from osrlib.core.effects import ActiveCondition, Condition
