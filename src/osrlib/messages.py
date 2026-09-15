@@ -128,6 +128,11 @@ def _morale(event: MoraleCheckedEvent, outcome: str) -> str:
     return f"Morale check for {event.subject} (ML {event.score}): rolled {event.roll}{event.modifier:+d} — {outcome}."
 
 
+def _morale_held(event: MoraleCheckedEvent) -> bool:
+    """Whether the side keeps fighting, from `held` or, on a log written before that field, from the score."""
+    return event.score >= 12 if event.held is None else event.held
+
+
 def _memorized(event: SpellsMemorizedEvent) -> str:
     prepared = ", ".join(f"{copy.spell_id} (reversed)" if copy.reversed else copy.spell_id for copy in event.prepared)
     return f"{event.caster_id} memorizes: {prepared or 'nothing'}."
@@ -174,7 +179,7 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
     "combat.morale.broke": lambda event: _morale(event, "they flee or surrender"),
     "combat.morale.exempt": lambda event: (
         f"Morale check for {event.subject} (ML {event.score}): no roll — "
-        + ("they never check morale." if event.score == 12 else "they never fight.")
+        + ("they never check morale." if _morale_held(event) else "they never fight.")
     ),
     "encounter.reaction.rolled": lambda event: (
         f"Reaction roll: {event.roll}{event.modifier:+d} = {event.total} — {event.result}."

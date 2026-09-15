@@ -1045,6 +1045,7 @@
     {
       "code": "combat.morale.held",
       "event_type": "morale_checked",
+      "held": true,
       "modifier": 0,
       "roll": 7,
       "score": 8,
@@ -4460,6 +4461,7 @@
     {
       "code": "combat.morale.held",
       "event_type": "morale_checked",
+      "held": true,
       "modifier": 0,
       "roll": 8,
       "score": 8,

@@ -1557,6 +1557,7 @@
     {
       "code": "combat.morale.held",
       "event_type": "morale_checked",
+      "held": true,
       "modifier": 0,
       "roll": 7,
       "score": 7,
@@ -1566,6 +1567,7 @@
     {
       "code": "combat.morale.broke",
       "event_type": "morale_checked",
+      "held": false,
       "modifier": 0,
       "roll": 9,
       "score": 7,
@@ -2187,6 +2189,7 @@
     {
       "code": "combat.morale.held",
       "event_type": "morale_checked",
+      "held": true,
       "modifier": 0,
       "roll": 6,
       "score": 9,
@@ -2196,6 +2199,7 @@
     {
       "code": "combat.morale.held",
       "event_type": "morale_checked",
+      "held": true,
       "modifier": 0,
       "roll": 7,
       "score": 9,
@@ -2910,6 +2914,7 @@
     {
       "code": "combat.morale.held",
       "event_type": "morale_checked",
+      "held": true,
       "modifier": 0,
       "roll": 9,
       "score": 9,
@@ -2919,6 +2924,7 @@
     {
       "code": "combat.morale.broke",
       "event_type": "morale_checked",
+      "held": false,
       "modifier": 0,
       "roll": 12,
       "score": 9,
