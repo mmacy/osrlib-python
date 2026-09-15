@@ -1916,6 +1916,7 @@
       "coins_gp_value": 150,
       "event_type": "item_acquired",
       "item_ids": [],
+      "origin": "grant",
       "visibility": "player"
     },
     {
@@ -1935,6 +1936,7 @@
         "rations_standard",
         "waterskin"
       ],
+      "origin": "purchase",
       "visibility": "player"
     },
     {
@@ -1943,6 +1945,7 @@
       "coins_gp_value": 150,
       "event_type": "item_acquired",
       "item_ids": [],
+      "origin": "grant",
       "visibility": "player"
     },
     {
@@ -1956,6 +1959,7 @@
         "rations_standard",
         "waterskin"
       ],
+      "origin": "purchase",
       "visibility": "player"
     },
     {
@@ -1964,6 +1968,7 @@
       "coins_gp_value": 150,
       "event_type": "item_acquired",
       "item_ids": [],
+      "origin": "grant",
       "visibility": "player"
     },
     {
@@ -1977,6 +1982,7 @@
         "rations_standard",
         "waterskin"
       ],
+      "origin": "purchase",
       "visibility": "player"
     },
     {
@@ -1985,6 +1991,7 @@
       "coins_gp_value": 150,
       "event_type": "item_acquired",
       "item_ids": [],
+      "origin": "grant",
       "visibility": "player"
     },
     {
@@ -1998,6 +2005,7 @@
         "rations_standard",
         "waterskin"
       ],
+      "origin": "purchase",
       "visibility": "player"
     },
     {
@@ -2006,6 +2014,7 @@
       "coins_gp_value": 150,
       "event_type": "item_acquired",
       "item_ids": [],
+      "origin": "grant",
       "visibility": "player"
     },
     {
@@ -2018,6 +2027,7 @@
         "rations_standard",
         "waterskin"
       ],
+      "origin": "purchase",
       "visibility": "player"
     },
     {
@@ -2028,6 +2038,8 @@
       "location_id": "halls",
       "location_kind": "dungeon",
       "narrative": null,
+      "transition_ref": null,
+      "via": "entrance",
       "visibility": "player"
     },
     {
@@ -2077,6 +2089,8 @@
       "location_id": "pit_hall",
       "location_kind": "area",
       "narrative": null,
+      "transition_ref": null,
+      "via": null,
       "visibility": "player"
     },
     {
@@ -2113,6 +2127,8 @@
       "location_id": "pit_hall",
       "location_kind": "area",
       "narrative": null,
+      "transition_ref": null,
+      "via": null,
       "visibility": "player"
     },
     {
@@ -2149,6 +2165,8 @@
       "location_id": "pit_hall",
       "location_kind": "area",
       "narrative": null,
+      "transition_ref": null,
+      "via": null,
       "visibility": "player"
     },
     {
@@ -2185,6 +2203,8 @@
       "location_id": "pit_hall",
       "location_kind": "area",
       "narrative": null,
+      "transition_ref": null,
+      "via": null,
       "visibility": "player"
     },
     {
@@ -2200,6 +2220,7 @@
     {
       "character_id": "character-0001",
       "code": "exploration.trap.sprung",
+      "direction": null,
       "event_type": "trap",
       "trap_ref": "halls:1:pit_hall",
       "visibility": "player"
@@ -2309,6 +2330,8 @@
       "location_id": "guard_room",
       "location_kind": "area",
       "narrative": null,
+      "transition_ref": null,
+      "via": null,
       "visibility": "player"
     },
     {
@@ -2804,6 +2827,7 @@
       "coins_gp_value": 80,
       "event_type": "item_acquired",
       "item_ids": [],
+      "origin": "treasure",
       "visibility": "player"
     },
     {
@@ -2812,6 +2836,7 @@
       "coins_gp_value": 80,
       "event_type": "item_acquired",
       "item_ids": [],
+      "origin": "treasure",
       "visibility": "player"
     },
     {
@@ -2820,6 +2845,7 @@
       "coins_gp_value": 80,
       "event_type": "item_acquired",
       "item_ids": [],
+      "origin": "treasure",
       "visibility": "player"
     },
     {
@@ -2828,6 +2854,7 @@
       "coins_gp_value": 80,
       "event_type": "item_acquired",
       "item_ids": [],
+      "origin": "treasure",
       "visibility": "player"
     },
     {
@@ -2836,6 +2863,7 @@
       "coins_gp_value": 80,
       "event_type": "item_acquired",
       "item_ids": [],
+      "origin": "treasure",
       "visibility": "player"
     },
     {
@@ -2917,6 +2945,8 @@
       "location_id": "halls",
       "location_kind": "level",
       "narrative": null,
+      "transition_ref": "cell:halls:1:6,1",
+      "via": "stairs_down",
       "visibility": "player"
     },
     {
@@ -2953,6 +2983,8 @@
       "location_id": "crypt",
       "location_kind": "area",
       "narrative": null,
+      "transition_ref": null,
+      "via": null,
       "visibility": "player"
     },
     {
@@ -3394,6 +3426,8 @@
       "location_id": "kennel_a",
       "location_kind": "area",
       "narrative": null,
+      "transition_ref": null,
+      "via": null,
       "visibility": "player"
     },
     {
@@ -3517,6 +3551,8 @@
       "location_id": "kennel_b",
       "location_kind": "area",
       "narrative": null,
+      "transition_ref": null,
+      "via": null,
       "visibility": "player"
     },
     {
@@ -4776,6 +4812,8 @@
       "location_id": "kennel_c",
       "location_kind": "area",
       "narrative": null,
+      "transition_ref": null,
+      "via": null,
       "visibility": "player"
     },
     {
@@ -5616,6 +5654,8 @@
       "location_id": "halls",
       "location_kind": "level",
       "narrative": null,
+      "transition_ref": "cell:halls:2:0,0",
+      "via": "stairs_up",
       "visibility": "player"
     },
     {
@@ -5642,6 +5682,8 @@
       "location_id": "guard_room",
       "location_kind": "area",
       "narrative": null,
+      "transition_ref": null,
+      "via": null,
       "visibility": "player"
     },
     {
@@ -6648,6 +6690,8 @@
       "location_id": "town",
       "location_kind": "town",
       "narrative": null,
+      "transition_ref": null,
+      "via": null,
       "visibility": "player"
     },
     {
@@ -7110,7 +7154,7 @@
     "An iron spike wedges the door east of (4, 1).",
     "The party moves to (5, 1), facing east.",
     "The party moves to (6, 1), facing east.",
-    "The party enters level halls (level 2).",
+    "The party descends to level 2 of halls.",
     "The party moves to (1, 0), facing east.",
     "The door south of (1, 0) opens.",
     "The party moves to (1, 1), facing south.",
@@ -7388,7 +7432,7 @@
     "The party moves to (2, 0), facing west.",
     "The party moves to (1, 0), facing west.",
     "The party moves to (0, 0), facing west.",
-    "The party enters level halls (level 1).",
+    "The party climbs to level 1 of halls.",
     "The party moves to (5, 1), facing west.",
     "The party moves to (4, 1), facing west.",
     "The party enters area guard_room (level 1).",

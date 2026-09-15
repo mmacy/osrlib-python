@@ -135,6 +135,8 @@
       "location_id": "barrow",
       "location_kind": "dungeon",
       "narrative": null,
+      "transition_ref": null,
+      "via": "entrance",
       "visibility": "player"
     },
     {
@@ -183,6 +185,8 @@
       "location_id": "shrine",
       "location_kind": "area",
       "narrative": null,
+      "transition_ref": null,
+      "via": null,
       "visibility": "player"
     },
     {
@@ -193,6 +197,7 @@
       "item_ids": [
         "votive_idol"
       ],
+      "origin": "treasure",
       "visibility": "player"
     },
     {
@@ -221,6 +226,8 @@
       "location_id": "crypt",
       "location_kind": "area",
       "narrative": null,
+      "transition_ref": null,
+      "via": null,
       "visibility": "player"
     },
     {
@@ -278,6 +285,7 @@
       "coins_gp_value": 100,
       "event_type": "item_acquired",
       "item_ids": [],
+      "origin": "grant",
       "visibility": "player"
     },
     {
@@ -336,6 +344,7 @@
         "torch",
         "torch"
       ],
+      "origin": "grant",
       "visibility": "player"
     }
   ],

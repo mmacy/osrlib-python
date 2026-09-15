@@ -297,3 +297,74 @@ class TestTownServices:
         result = session.execute(PurchaseHealing(character_id=member.id, service="raise_dead"))
         assert not result.accepted
         assert result.rejections[0].code == "items.purchase.insufficient_funds"
+
+
+class TestPooledHealingFees:
+    """The temple charges the party, not the patient.
+
+    `PurchaseHealing` draws the fee from the treated member's purse first, then from the other
+    members in marching order, dead members included, emptying each purse before touching the
+    next. A party whose purses together fall short is refused with
+    `items.purchase.insufficient_funds` and keeps every coin. The point is `raise_dead`: the
+    patient is dead, nothing can hand a corpse coin, and a party that splits treasure evenly
+    never has 1,500 gp in one purse.
+    """
+
+    @staticmethod
+    def _zero_purses(session):
+        for member in session.party.members:
+            for denomination in ("pp", "gp", "ep", "sp", "cp"):
+                setattr(member.inventory.purse, denomination, 0)
+
+    @staticmethod
+    def _kill(session, member):
+        from osrlib.crawl.session import DeathRecord
+
+        member.current_hp = 0
+        member.conditions = (ActiveCondition(condition=Condition.DEAD, effect_id=None),)
+        session.death_records[member.id] = DeathRecord(round=session.clock.rounds, cause="damage")
+
+    def test_raise_dead_draws_on_the_party_in_marching_order(self):
+        session = build_session()
+        self._zero_purses(session)
+        first, second, third, fourth = session.party.members
+        self._kill(session, first)
+        first.inventory.purse.gp = 100
+        second.inventory.purse.gp = 1000
+        third.inventory.purse.gp = 500
+        fourth.inventory.purse.gp = 800
+        result = session.execute(PurchaseHealing(character_id=first.id, service="raise_dead"))
+        assert result.accepted, [rejection.code for rejection in result.rejections]
+        assert not any(active.condition is Condition.DEAD for active in first.conditions)
+        # The patient first, then marching order, each purse emptied before the next is touched.
+        assert [member.inventory.purse.gp for member in (first, second, third, fourth)] == [0, 0, 100, 800]
+        purchased = next(event for event in result.events if event.code == "town.healing.purchased")
+        assert purchased.cost_gp == 1500
+        assert purchased.payers == (first.id, second.id, third.id)
+        assert purchased.payments_gp == (100, 1000, 400)
+
+    def test_a_patient_who_can_pay_pays_alone(self):
+        session = build_session()
+        self._zero_purses(session)
+        first, second = session.party.members[:2]
+        first.inventory.purse.gp = 30
+        second.inventory.purse.gp = 3000
+        first.current_hp = 1
+        result = session.execute(PurchaseHealing(character_id=first.id, service="cure_light_wounds"))
+        assert result.accepted, [rejection.code for rejection in result.rejections]
+        assert (first.inventory.purse.gp, second.inventory.purse.gp) == (5, 3000)
+        purchased = next(event for event in result.events if event.code == "town.healing.purchased")
+        assert (purchased.payers, purchased.payments_gp) == ((first.id,), (25,))
+
+    def test_a_party_one_coin_short_is_refused_and_keeps_every_coin(self):
+        session = build_session()
+        self._zero_purses(session)
+        first, second, third, _fourth = session.party.members
+        self._kill(session, first)
+        second.inventory.purse.gp = 1000
+        third.inventory.purse.gp = 499
+        result = session.execute(PurchaseHealing(character_id=first.id, service="raise_dead"))
+        assert not result.accepted
+        assert result.rejections[0].code == "items.purchase.insufficient_funds"
+        assert [member.inventory.purse.gp for member in session.party.members] == [0, 1000, 499, 0]
+        assert any(active.condition is Condition.DEAD for active in first.conditions)

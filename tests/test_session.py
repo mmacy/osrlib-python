@@ -761,3 +761,15 @@ class TestTownGuards:
         result = session.execute(PlaceParty(location=PartyLocation(kind="town")))
         assert not result.accepted
         assert result.rejections[0].code == "session.command.encounter_in_progress"
+
+
+class TestAcquisitionOrigin:
+    def test_grants_are_grants_and_purchases_are_purchases(self):
+        from osrlib.crawl.commands import PurchaseEquipment
+
+        session = make_session()
+        item = session.execute(GrantItem(character_id="character-0001", item_id="torch", quantity=2)).events[0]
+        coins = session.execute(GrantCoins(character_id="character-0001", coins=Coins(gp=50))).events[0]
+        bought = session.execute(PurchaseEquipment(character_id="character-0001", item_ids=("torch",))).events[0]
+        assert (item.code, coins.code, bought.code) == ("exploration.item.acquired",) * 3
+        assert (item.origin, coins.origin, bought.origin) == ("grant", "grant", "purchase")
