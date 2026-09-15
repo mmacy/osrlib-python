@@ -412,6 +412,16 @@ class TrapEvent(Event):
     Only its die goes into the referee-visibility
     [`DetectionRolledEvent`][osrlib.crawl.events.DetectionRolledEvent], so an
     uneventful step looks like a step on safe ground.
+
+    Finding a trap means two different things by kind, which is what decides where
+    `exploration.trap.safe` can appear. A found room trap never springs, at its
+    area's edge or at one of its doors: the party walks around the known pit and
+    stands clear of the known blade, so a found room trap rolls no die and emits
+    nothing further. A found treasure trap still rolls its 2-in-6 on every
+    [`TakeTreasure`][osrlib.crawl.commands.TakeTreasure] until a thief takes it out
+    with [`RemoveTreasureTrap`][osrlib.crawl.commands.RemoveTreasureTrap], because
+    finding a treasure trap is not defeating it. So `exploration.trap.safe`, a known
+    trap's trigger resolving without springing, is a cache outcome only.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset(
@@ -419,7 +429,7 @@ class TrapEvent(Event):
     )
     """`exploration.trap.sprung` when a trap goes off, `.found` when a search or inspection
     reveals one, `.removed` when a thief disarms one, and `.safe` when a trap the party already
-    knows about got its chance and didn't fire."""
+    knows about got its chance and didn't fire, which only a treasure trap does."""
 
     event_type: Literal["trap"] = "trap"
     """The wire discriminator, `trap`."""

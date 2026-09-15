@@ -1428,3 +1428,35 @@ class TestScrollLegalityRunsAtTheScrollsLevel:
         assert streams.get(MAGIC_STREAM).export_state() == before
         outcome = cast_from_scroll(zelia, missile, "missiles", targets=goblins[:1], **common)
         assert outcome.affected_ids == ("monster-0001",)
+
+
+class TestValidateScrollCastIsTheKernelsOwnPreCheck:
+    """`validate_scroll_cast` answers what `cast_from_scroll` will refuse, at the scroll's caster
+    level, so a front end or the crawl layer never rebuilds the scroll-level caster itself."""
+
+    def test_it_refuses_the_readers_missile_count_and_takes_the_scrolls(self):
+        from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character
+        from osrlib.core.monsters import MONSTER_SPAWN_STREAM
+        from osrlib.core.spells import validate_scroll_cast
+        from osrlib.data import load_monsters, load_spells
+
+        streams = RngStreams(master_seed=5)
+        zelia = create_character(
+            name="Zelia",
+            class_id="magic_user",
+            alignment=Alignment.NEUTRAL,
+            ruleset=Ruleset(),
+            stream=streams.get(CHARACTER_CREATION_STREAM),
+            starting_spell_ids=["read_magic"],
+        ).character
+        zelia.level = 6
+        template = load_monsters().get("goblin")
+        goblins = [
+            spawn_monster(template, id=f"monster-000{number}", stream=streams.get(MONSTER_SPAWN_STREAM))
+            for number in (1, 2, 3)
+        ]
+        missile = load_spells().get("magic_missile")
+        refused = validate_scroll_cast(zelia, missile, "missiles", targets=goblins)
+        assert [rejection.code for rejection in refused] == ["magic.cast.target_count"]
+        assert refused[0].params["expected"] == 1
+        assert validate_scroll_cast(zelia, missile, "missiles", targets=goblins[:1]) == []

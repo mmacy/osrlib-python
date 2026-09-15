@@ -1098,3 +1098,58 @@ class TestCategoryMaskedItemsShowNoWeaponFacts:
         assert staff["display"] == "a staff"
         assert "qualities" not in staff
         assert "missile_ranges" not in staff
+
+
+class TestAScrollDeclarationIsJudgedAtTheScrollsLevel:
+    """The battle pre-check asks about a caster at the scroll's level, as the kernel does, so a round
+    the engine accepts never raises from the kernel after the scroll is spent."""
+
+    @staticmethod
+    def _reader_with_scroll(session):
+        from osrlib.core.items import MagicItemInstance
+
+        reader = session.member("character-0004")  # the magic-user
+        reader.level = 6  # three missiles from memory; one off a 1st-level scroll
+        scroll = MagicItemInstance(
+            instance_id="magic-item-9001",
+            template_id="spell_scroll_1",
+            state={"spell_list": "magic_user", "spells": ("magic_missile",)},
+        )
+        reader.inventory.items.append(scroll)
+        return reader, scroll
+
+    def _declaration(self, session, scroll, targets):
+        from osrlib.data import load_spells
+
+        mode = load_spells().get("magic_missile").modes[0].key
+        return hold_all(
+            session,
+            extra=(
+                BattleDeclaration(
+                    character_id="character-0004",
+                    action="use_item",
+                    item_id=scroll.instance_id,
+                    spell_id="magic_missile",
+                    mode=mode,
+                    targets=targets,
+                    target_group_id=group_id(session),
+                ),
+            ),
+        )
+
+    def test_three_targets_are_refused_whole_and_one_is_accepted(self):
+        from osrlib.core.spells import MAGIC_STREAM
+
+        session = battle_session(count=3, distance=40)
+        reader, scroll = self._reader_with_scroll(session)
+        goblins = tuple(session.encounter.groups[0].monster_ids)
+        assert len(goblins) == 3
+        before = session.streams.get(MAGIC_STREAM).export_state()
+        refused = session.execute(ResolveBattleRound(declarations=self._declaration(session, scroll, goblins)))
+        assert not refused.accepted
+        assert "magic.cast.target_count" in [rejection.code for rejection in refused.rejections]
+        assert session.streams.get(MAGIC_STREAM).export_state() == before
+        assert reader.inventory.magic_item(scroll.instance_id) is not None
+        accepted = session.execute(ResolveBattleRound(declarations=self._declaration(session, scroll, goblins[:1])))
+        assert accepted.accepted, [rejection.code for rejection in accepted.rejections]
+        assert reader.inventory.magic_item(scroll.instance_id) is None

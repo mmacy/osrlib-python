@@ -34,8 +34,10 @@ prepares a caster's list, and arcane casters choose from a spell book grown with
 [`validate_cast`][osrlib.core.spells.validate_cast] checks legality and
 [`cast_spell`][osrlib.core.spells.cast_spell] consumes the memorized copy and resolves the mode.
 [`cast_from_scroll`][osrlib.core.spells.cast_from_scroll] resolves an inscribed spell with no
-memorized copy behind it, and [`disrupt_casting`][osrlib.core.spells.disrupt_casting] loses a copy
-when a declared cast is broken. Clerics also turn undead here:
+memorized copy behind it, checked first by
+[`validate_scroll_cast`][osrlib.core.spells.validate_scroll_cast], and
+[`disrupt_casting`][osrlib.core.spells.disrupt_casting] loses a copy when a declared cast is
+broken. Clerics also turn undead here:
 [`validate_turn_undead`][osrlib.core.spells.validate_turn_undead], then
 [`turn_undead`][osrlib.core.spells.turn_undead].
 
@@ -197,6 +199,7 @@ __all__ = [
     "pop_mirror_image",
     "turn_undead",
     "validate_cast",
+    "validate_scroll_cast",
     "validate_turn_undead",
 ]
 
@@ -2294,6 +2297,101 @@ def minimum_caster_level(spell: SpellTemplate) -> int:
     return best
 
 
+def validate_scroll_cast(
+    reader: Any,
+    spell: SpellTemplate,
+    mode: str,
+    *,
+    reversed: bool = False,
+    targets: Sequence[object] | None = None,
+    context: CastContext | None = None,
+    ledger: EffectsLedger | None = None,
+) -> list[Rejection]:
+    """Ask whether a scroll read is legal, without reading it.
+
+    This is [`validate_cast`][osrlib.core.spells.validate_cast] for a spell coming off a page, and it
+    is the check [`cast_from_scroll`][osrlib.core.spells.cast_from_scroll] itself makes. Call it to
+    decide whether to offer a read, and call it before any read you are about to make, because
+    `cast_from_scroll` raises on an illegal read and the scroll is your own to spend: a refusal you
+    saw first costs nothing, and one you did not costs the scroll.
+
+    The difference from `validate_cast` is the caster the question is asked about. A scroll resolves
+    at the lowest class level able to cast the inscribed spell, from
+    [`minimum_caster_level`][osrlib.core.spells.minimum_caster_level], whatever level the reader is,
+    so this builds that caster and asks about them. The two checks that scale with caster level
+    therefore follow the scroll: how many targets a mode demands, which is why a 6th-level reader of
+    a *magic missile* scroll supplies one target and is refused three, and how far a per-level range
+    reaches. The memorized-copy check is skipped, since the scroll is the copy.
+
+    Two things it does not answer, because they are not the kernel's to judge: whether this reader
+    may read this scroll at all, which is where a thief's scroll-use ability and the arcane and
+    divine divide come in, and whether there is light to read by. The crawl layer checks both.
+
+    Args:
+        reader: The character reading the scroll, a
+            [`Character`][osrlib.core.character.Character]. Read, never written.
+        spell: The inscribed [`SpellTemplate`][osrlib.core.spells.SpellTemplate], from
+            [`SpellCatalog.get`][osrlib.core.spells.SpellCatalog.get].
+        mode: Which usage of the spell, by its [`SpellMode.key`][osrlib.core.spells.SpellMode]. A key
+            the chosen form does not have is a rejection, not an exception.
+        reversed: True to ask about the spell's reversed form.
+        targets: The candidate targets, per the combatant convention (see
+            [`osrlib.core.combat`][osrlib.core.combat]). Only the count is examined. `None` means no
+            targets, the same as an empty sequence.
+        context: The [`CastContext`][osrlib.core.spells.CastContext] with what you assert about the
+            situation. `None` asserts nothing.
+        ledger: The [`EffectsLedger`][osrlib.core.effects.EffectsLedger], consulted for effects on the
+            reader that block casting. Pass `None` and no such effect is found, so pass the ledger you
+            play with.
+
+    Returns:
+        Every reason the read is illegal, as [`Rejection`][osrlib.core.validation.Rejection] models
+        with structured `code` and `params`. Empty when the read may go ahead, which means
+        `cast_from_scroll` with the same arguments will not raise.
+
+    Examples:
+        ```python
+        from osrlib.core.alignment import Alignment
+        from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character
+        from osrlib.core.monsters import MONSTER_SPAWN_STREAM, spawn_monster
+        from osrlib.core.rng import RngStreams
+        from osrlib.core.ruleset import Ruleset
+        from osrlib.core.spells import validate_scroll_cast
+        from osrlib.data import load_monsters, load_spells
+
+        streams = RngStreams(master_seed=5)
+        zelia = create_character(
+            name="Zelia",
+            class_id="magic_user",
+            alignment=Alignment.NEUTRAL,
+            ruleset=Ruleset(),
+            stream=streams.get(CHARACTER_CREATION_STREAM),
+            starting_spell_ids=["read_magic"],
+        ).character
+        zelia.level = 6  # three missiles from memory, one off a 1st-level scroll
+        template = load_monsters().get("goblin")
+        spawns = streams.get(MONSTER_SPAWN_STREAM)
+        goblins = [spawn_monster(template, id=f"monster-000{number}", stream=spawns) for number in (1, 2, 3)]
+        missile = load_spells().get("magic_missile")
+
+        refused = validate_scroll_cast(zelia, missile, "missiles", targets=goblins)
+        assert [rejection.code for rejection in refused] == ["magic.cast.target_count"]
+        assert refused[0].params["expected"] == 1  # the scroll's level, not the reader's
+        assert validate_scroll_cast(zelia, missile, "missiles", targets=goblins[:1]) == []
+        ```
+    """
+    return validate_cast(
+        _ScrollReader(reader, minimum_caster_level(spell)),
+        spell,
+        mode,
+        profile=None,
+        reversed=reversed,
+        targets=() if targets is None else targets,
+        context=context,
+        ledger=ledger,
+    )
+
+
 def cast_from_scroll(
     reader: Any,
     spell: SpellTemplate,
@@ -2374,10 +2472,9 @@ def cast_from_scroll(
 
     Raises:
         ValueError: If the read is illegal. Nothing is drawn or changed before the refusal. Ask
-            [`validate_cast`][osrlib.core.spells.validate_cast] with `profile=None` first to get
-            the reasons instead of the exception, which is also what tells it to skip the
-            memorized-copy check, and ask it about a caster at the scroll's level so its answer
-            matches this one.
+            [`validate_scroll_cast`][osrlib.core.spells.validate_scroll_cast] first to get the
+            reasons instead of the exception. It is the check this call makes, asked the same way,
+            so an empty answer from it means this call will not raise.
 
     Examples:
         ```python
@@ -2427,11 +2524,10 @@ def cast_from_scroll(
     """
     context = context or CastContext()
     caster = _ScrollReader(reader, minimum_caster_level(spell))
-    rejections = validate_cast(
-        caster,
+    rejections = validate_scroll_cast(
+        reader,
         spell,
         mode,
-        profile=None,
         reversed=reversed,
         targets=targets,
         context=context,
