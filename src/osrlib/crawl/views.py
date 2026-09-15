@@ -117,10 +117,13 @@ class MemberView(BaseModel):
     """The member's pack, in the shape the inventory serializes, with the keys `items`,
     `purse`, `valuables`, `worn_armour`, `shield`, `wielded`, and `rings`. Magic items
     are masked until identified: an unidentified one shows a category display name
-    instead of its true name, and an unidentified arm additionally carries the
-    `qualities` and `missile_ranges` of the mundane weapon its display name already
-    names, exactly as an identified one does, so a front end can classify a declaration
-    without knowing the arm's bonus, curse, or template id. Charges never appear at any
+    instead of its true name. When that display name was itself built from a base
+    weapon ("a dagger with a faint aura"), the entry additionally carries the
+    `qualities` and `missile_ranges` of that mundane weapon, exactly as an identified
+    one does, so a front end can classify a declaration without knowing the arm's
+    bonus, curse, or template id. An item whose display comes from its category
+    instead, such as a staff, carries neither field even when it resolves to a
+    weapon, because the display never named that weapon. Charges never appear at any
     identification level."""
     memorized_spells: tuple[dict, ...]
     """The prepared spells, one dumped
@@ -454,16 +457,22 @@ def _masked_magic_item(instance: MagicItemInstance) -> dict:
 
     An unidentified item shows its category display name, and an enchanted arm shows its
     base instead, as in "a sword with a faint aura", the concession made because *detect
-    magic* exists. That display string already names the base weapon, so an unidentified
-    arm also shows the `qualities` and `missile_ranges` of the mundane weapon underneath
-    it, exactly as an identified one does: how far the arm reaches, and in what manner.
-    Both are rulebook facts about the weapon the display string already names, not facts
-    about the enchantment, and they are what lets a front end tell a melee declaration
-    from a missile one. Without them an enchanted dagger is unclassifiable where a plain
-    dagger is not. An identified item additionally shows its true name, id, and whether a
-    curse has been revealed. The bonus, the curse, the template id, and the name stay
-    hidden until identified, and charges, sentience, and per-item state never appear at
-    any identification level, because by the rules as written charges are undiscoverable.
+    magic* exists. When the display string was built from that base weapon, it already
+    names the weapon, so the unidentified item also shows the `qualities` and
+    `missile_ranges` of the mundane weapon underneath it, exactly as an identified one
+    does: how far the arm reaches, and in what manner. A staff, wand, or other item whose
+    display comes from its category instead (a `staff_of_striking` still reads "a staff",
+    the same string six other staves show) shows neither field even when it resolves to a
+    weapon, because the display never named that weapon and the fields would single the
+    item out. Both fields are rulebook facts about the weapon the display string already
+    names, not facts about the enchantment, and they are what lets a front end tell a
+    melee declaration from a missile one. Without them an enchanted dagger is
+    unclassifiable where a plain dagger is not. An identified item additionally shows its
+    true name, id, and whether a curse has been revealed, and always carries the weapon
+    facts when one underlies it, since identification has already named the item. The
+    bonus, the curse, the template id, and the name stay hidden until identified, and
+    charges, sentience, and per-item state never appear at any identification level,
+    because by the rules as written charges are undiscoverable.
     """
     from osrlib.core.combat import attack_facet
     from osrlib.data import load_equipment
@@ -486,6 +495,11 @@ def _masked_magic_item(instance: MagicItemInstance) -> dict:
             base_id = instance.base_item_id or template.base_item_id
             base_name = load_equipment().get(base_id).name.lower() if base_id is not None else "arm"
             display = f"a {base_name} with a faint aura"
+        else:
+            # The display came from the category table, not the base weapon, so
+            # attaching weapon facts here would single this one item out among its
+            # category-mates that show the same string.
+            facet = None
         payload = {
             "instance_type": "magic_item",
             "instance_id": instance.instance_id,
