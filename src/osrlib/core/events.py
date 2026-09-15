@@ -1028,9 +1028,10 @@ class SpellDisruptedEvent(Event):
     [`disrupt_casting`][osrlib.core.spells.disrupt_casting] emits `magic.cast.disrupted` when a caster who
     declared a spell is hit, or otherwise stopped, before it goes off. The battle round emits
     `magic.cast.fizzled` when it judges the declaration again in the magic phase, just before the spell would
-    resolve, and a check the declaration passed at the top of the round no longer passes, because the phases
-    before it changed what that check reads. The reachable case is an ally's *silence 15' radius* anchoring on
-    the party's cell earlier in the same magic phase. `reason` carries the rejection code behind a fizzle.
+    resolve, and any one of the checks it passed at the top of the round no longer passes, because the phases
+    between the two changed what that check reads. An ally's *silence 15' radius* anchoring on the party's
+    cell and the party's last torch going out as its bearer dies are two that happen; the rule is the whole
+    set of checks, not a list of cases. `reason` carries the rejection code behind a fizzle.
 
     Either way nothing resolved and the memorized copy is gone, exactly as if the spell had been cast, so tell
     the player the spell failed and the prepared copy is spent. A scroll read that fizzles spends the scroll
@@ -1061,9 +1062,11 @@ class SpellDisruptedEvent(Event):
     reason: str | None = None
     """Why a `magic.cast.fizzled` spell failed: the first rejection code the magic phase's re-check produced.
 
-    An ally's silence on the party's cell reads `magic.cast.silenced_area`. Match on this rather than on any
-    text, the way you match on a [`Rejection`][osrlib.core.validation.Rejection]'s own code, and
-    [the rejection code reference][rejection-codes] lists what each one means. `None` on a
+    Any check a declaration passes at the top of the round can produce it, so read the code rather than
+    assuming a case: an ally's silence on the party's cell reads `magic.cast.silenced_area`, and a scroll
+    read left in the dark reads `exploration.action.requires_light`. Match on this the way you match on a
+    [`Rejection`][osrlib.core.validation.Rejection]'s own code, and
+    [the rejection code reference][rejection-codes] says what each one means. `None` on a
     `magic.cast.disrupted` event, which needs no reason beyond the blow that landed, and on a log written
     before the field existed.
     """
