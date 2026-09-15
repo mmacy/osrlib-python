@@ -48,7 +48,7 @@ Cells not covered by any area are corridor. An [`AreaSpec`][osrlib.crawl.dungeon
 )
 ```
 
-A [`KeyedEncounter`][osrlib.crawl.dungeon.KeyedEncounter] lists its monsters by template id, each with a fixed count or count dice. A template id is any id from [`load_monsters`][osrlib.data.load_monsters], listed in [the monster id index][monsters-index], or the id of a monster the adventure bundles (see [Bundling custom monsters with an adventure](../guides/authoring-custom-content.md#bundling-custom-monsters-with-an-adventure)). You can also pin the monsters' awareness, stance, or alignment. Left unpinned, surprise and reactions roll normally when the party walks in.
+A [`KeyedEncounter`][osrlib.crawl.dungeon.KeyedEncounter] lists its monsters by template id, each with a fixed count or count dice. A template id is any id from [`load_monsters`][osrlib.data.load_monsters], listed in [the monster id index][monsters-index], or the id of a monster the adventure bundles (see [Bundling custom monsters with an adventure](../guides/authoring-custom-content.md#bundling-custom-monsters-with-an-adventure)). You can also pin the monsters' awareness, stance, or alignment. Left unpinned, the engine rolls surprise and reactions normally when the party walks in.
 
 Beyond encounters, an area (or the level itself) can contain:
 
@@ -85,7 +85,7 @@ validate_adventure(adventure, load_monsters(), load_equipment())
 
 ## The complete program
 
-Entering the dungeon and walking east brings the party to the door at the corridor's end. The guard post is beyond the door. Stepping in spawns the goblins, surprise and reaction roll, and the session switches to the encounter:
+Entering the dungeon and walking east brings the party to the door at the corridor's end. The guard post is beyond the door. Stepping in spawns the goblins, the engine rolls surprise and reaction, and the session switches to the encounter:
 
 ```python
 from osrlib.core.alignment import Alignment
