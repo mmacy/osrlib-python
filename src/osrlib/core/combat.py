@@ -139,7 +139,7 @@ from osrlib.core.items import (
     magic_item_template,
 )
 from osrlib.core.monsters import Element, MonsterAttack
-from osrlib.core.rng import RngStream
+from osrlib.core.rng import RngStream, StreamName
 from osrlib.core.ruleset import Ruleset
 from osrlib.core.tables import ReactionResult, reaction_result, to_hit_ac
 from osrlib.core.validation import Rejection
@@ -195,7 +195,7 @@ __all__ = [
     "validate_breath",
 ]
 
-COMBAT_STREAM = "combat"
+COMBAT_STREAM = StreamName.COMBAT
 """The stream key for battle-resolution draws: attacks, damage, saving throws, morale.
 
 Pass it to [`RngStreams.get`][osrlib.core.rng.RngStreams.get] to get the stream every

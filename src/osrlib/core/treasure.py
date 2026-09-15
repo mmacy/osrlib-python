@@ -69,7 +69,7 @@ from typing import TYPE_CHECKING, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from osrlib.core.dice import parse, roll
-from osrlib.core.rng import RngStream
+from osrlib.core.rng import RngStream, StreamName
 
 if TYPE_CHECKING:
     from osrlib.core.items import (
@@ -111,7 +111,7 @@ __all__ = [
     "roll_room_contents",
 ]
 
-TREASURE_STREAM = "treasure"
+TREASURE_STREAM = StreamName.TREASURE
 """The name of the RNG stream treasure generation draws from.
 
 Pass `streams.get(TREASURE_STREAM)` to any generation function, where `streams` is the

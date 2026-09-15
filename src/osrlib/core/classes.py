@@ -948,9 +948,7 @@ def thief_skill_check(
             attempt harder. Ignored for `"hear_noise"`.
         stream: The stream to draw from, conventionally the one a crawl names
             [`EXPLORATION_STREAM`][osrlib.crawl.session.EXPLORATION_STREAM], whose key is
-            `"exploration"`. One draw is taken. The example below spells the key out rather than
-            importing the constant, because this module sits in the core layer and never reaches
-            up into the crawl layer.
+            [`StreamName.EXPLORATION`][osrlib.core.rng.StreamName]. One draw is taken.
 
     Returns:
         The roll, the chance it was measured against, and whether it passed.
@@ -964,7 +962,7 @@ def thief_skill_check(
         from osrlib.core.alignment import Alignment
         from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character
         from osrlib.core.classes import thief_skill_check
-        from osrlib.core.rng import RngStreams
+        from osrlib.core.rng import RngStreams, StreamName
         from osrlib.core.ruleset import Ruleset
         from osrlib.data import load_classes
 
@@ -976,11 +974,11 @@ def thief_skill_check(
             ruleset=Ruleset(),
             stream=RngStreams(master_seed=4).get(CHARACTER_CREATION_STREAM),
         ).character
-        stream = RngStreams(master_seed=1).get("exploration")
+        stream = RngStreams(master_seed=1).get(StreamName.EXPLORATION)
         result = thief_skill_check(character, thief, "climb_sheer_surfaces", stream=stream)
         print(result.roll, result.chance, result.passed)
         # 65 87 True
-        stream = RngStreams(master_seed=9).get("exploration")
+        stream = RngStreams(master_seed=9).get(StreamName.EXPLORATION)
         theft = thief_skill_check(character, thief, "pick_pockets", stream=stream)
         print(theft.roll, theft.chance, theft.passed, theft.noticed)
         # 100 20 False True
@@ -1019,9 +1017,8 @@ def detection_check(chance_in_six: int, *, stream: RngStream) -> DetectionResult
             [`detection_chance`][osrlib.core.classes.detection_chance].
         stream: The stream to draw from, conventionally the one a crawl names
             [`EXPLORATION_STREAM`][osrlib.crawl.session.EXPLORATION_STREAM], whose key is
-            `"exploration"`. One draw is taken unless the chance is zero. The example below spells
-            the key out rather than importing the constant, because this module sits in the core
-            layer and never reaches up into the crawl layer.
+            [`StreamName.EXPLORATION`][osrlib.core.rng.StreamName]. One draw is taken unless the
+            chance is zero.
 
     Returns:
         The roll and whether it passed, with `roll` left `None` when no die was thrown.
@@ -1029,9 +1026,9 @@ def detection_check(chance_in_six: int, *, stream: RngStream) -> DetectionResult
     Examples:
         ```python
         from osrlib.core.classes import detection_check
-        from osrlib.core.rng import RngStreams
+        from osrlib.core.rng import RngStreams, StreamName
 
-        stream = RngStreams(master_seed=4).get("exploration")
+        stream = RngStreams(master_seed=4).get(StreamName.EXPLORATION)
         result = detection_check(2, stream=stream)
         print(result.roll, result.passed)
         # 2 True
