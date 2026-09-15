@@ -299,3 +299,38 @@ class TestTreasureStatistics:
         counts = Counter(table.base_for_roll(stream.randbelow(8) + 1) for _ in range(trials))
         expected = {"leather": trials * 2 / 8, "chainmail": trials * 4 / 8, "plate_mail": trials * 2 / 8}
         assert chi_square(counts, expected) < CHI_SQUARE_CRITICAL[3]
+
+
+class TestTierIsCheckedBeforeTheFirstDraw:
+    """A kernel function validates its arguments before its first draw and raises from the call.
+
+    `generate_magic_item` already pre-checks `tier`; the three generators that reach it did not,
+    so `tier="bogus"` consumed draws and, when no roll reached a magic item, returned a coins-only
+    hoard as if the argument were fine.
+    """
+
+    @staticmethod
+    def _rejects_without_drawing(call):
+        stream = stream_for(3)
+        before = stream.export_state()
+        with pytest.raises(ValueError, match="tier"):
+            call(stream)
+        assert stream.export_state() == before
+
+    def test_generate_treasure(self):
+        self._rejects_without_drawing(
+            lambda stream: generate_treasure("A", tier="bogus", stream=stream, allocator=IdAllocator())
+        )
+
+    def test_generate_unguarded_treasure(self):
+        self._rejects_without_drawing(
+            lambda stream: generate_unguarded_treasure(1, tier="bogus", stream=stream, allocator=IdAllocator())
+        )
+
+    def test_generate_treasure_entries(self):
+        from osrlib.core.treasure import generate_treasure_entries
+
+        entries = load_treasure_tables().treasure_type("A").entries
+        self._rejects_without_drawing(
+            lambda stream: generate_treasure_entries(entries, tier="bogus", stream=stream, allocator=IdAllocator())
+        )

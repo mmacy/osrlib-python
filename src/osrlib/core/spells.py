@@ -2245,9 +2245,9 @@ def minimum_caster_level(spell: SpellTemplate) -> int:
     This is the caster level a scroll's resolution runs at, so
     [`cast_from_scroll`][osrlib.core.spells.cast_from_scroll] calls it for you and you rarely need
     it yourself. Call it directly when you want to show what a scroll will do before anyone reads
-    it, since caster level is what scales a spell's damage and duration. It is not the level a
-    scroll read is validated at: that check uses the reader's own level, as
-    [`cast_from_scroll`][osrlib.core.spells.cast_from_scroll] describes.
+    it, since caster level is what scales a spell's damage and duration, and when you want to
+    validate a scroll read ahead of time, because
+    [`cast_from_scroll`][osrlib.core.spells.cast_from_scroll] checks legality at this level too.
 
     The answer is the lowest level at which any class drawing on the spell's list first has a slot
     of that spell's level, read off the compiled class progressions. So the answer moves if you add
@@ -2324,19 +2324,16 @@ def cast_from_scroll(
     use it: whether this reader may read this scroll at all, which is where a thief's scroll-use
     ability and the arcane and divine divide come in, and whether there is light to read by.
 
-    Two caster levels are in play, and which one applies depends on the step. Resolution runs at the
-    level [`minimum_caster_level`][osrlib.core.spells.minimum_caster_level] gives for the spell, so
-    a *fire ball* off a scroll always burns for 5d6 and a per-level duration is figured from that
-    same level, whatever level the reader is. The legality checks run at the reader's own level,
-    because they are the ones
-    [`validate_cast`][osrlib.core.spells.validate_cast] makes against the reader. That splits two
-    things you might expect to follow the scroll:
+    The read runs at one caster level throughout: the level
+    [`minimum_caster_level`][osrlib.core.spells.minimum_caster_level] gives for the spell, whatever
+    level the reader is. Legality and resolution both use it, so a *fire ball* off a scroll always
+    burns for 5d6, a per-level duration is figured from that same level, and the two things that
+    scale with caster level at the gate follow the scroll rather than the reader:
 
-    - How many targets a mode demands. *Magic missile* wants one target per missile, and the missile
-      count comes from the reader's level, so a 6th-level reader must supply three targets and the
-      resolution then strikes all three, even though the scroll's own level is 1.
+    - How many targets a mode demands. *Magic missile* wants one target per missile, and a scroll's
+      level grants one, so even a 6th-level reader supplies one target and is refused three.
     - How far the spell reaches, for a spell whose printed range grows per level. That reach is
-      figured from the reader's level when you assert a `distance_feet` in the
+      figured from the scroll's level when you assert a `distance_feet` in the
       [`CastContext`][osrlib.core.spells.CastContext].
 
     Everything the spell does to the reader, a condition, a modifier, a wound, lands on the reader
@@ -2376,9 +2373,11 @@ def cast_from_scroll(
         order.
 
     Raises:
-        ValueError: If the read is illegal. Ask
-            [`validate_cast`][osrlib.core.spells.validate_cast] with `profile=None` first, which is
-            what tells it to skip the memorized-copy check.
+        ValueError: If the read is illegal. Nothing is drawn or changed before the refusal. Ask
+            [`validate_cast`][osrlib.core.spells.validate_cast] with `profile=None` first to get
+            the reasons instead of the exception, which is also what tells it to skip the
+            memorized-copy check, and ask it about a caster at the scroll's level so its answer
+            matches this one.
 
     Examples:
         ```python
@@ -2427,8 +2426,9 @@ def cast_from_scroll(
         ```
     """
     context = context or CastContext()
+    caster = _ScrollReader(reader, minimum_caster_level(spell))
     rejections = validate_cast(
-        reader,
+        caster,
         spell,
         mode,
         profile=None,
@@ -2439,7 +2439,6 @@ def cast_from_scroll(
     )
     if rejections:
         raise ValueError(f"illegal scroll cast: {[rejection.code for rejection in rejections]}")
-    caster = _ScrollReader(reader, minimum_caster_level(spell))
     return _perform_cast(
         caster,
         spell,

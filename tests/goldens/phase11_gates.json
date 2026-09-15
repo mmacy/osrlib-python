@@ -137,6 +137,8 @@
       "location_id": "warren",
       "location_kind": "dungeon",
       "narrative": null,
+      "transition_ref": null,
+      "via": "entrance",
       "visibility": "player"
     },
     {
@@ -156,6 +158,7 @@
         "brass_key",
         "toll_token"
       ],
+      "origin": "treasure",
       "visibility": "player"
     },
     {
@@ -220,6 +223,8 @@
       "location_id": "warren",
       "location_kind": "level",
       "narrative": "The ferryman pockets the token and the stair opens onto the dark.",
+      "transition_ref": "cell:warren:1:3,0",
+      "via": "stairs_down",
       "visibility": "player"
     },
     {
@@ -238,6 +243,7 @@
       "item_ids": [
         "silver_seal"
       ],
+      "origin": "treasure",
       "visibility": "player"
     },
     {
@@ -264,6 +270,8 @@
       "location_id": "warren",
       "location_kind": "level",
       "narrative": null,
+      "transition_ref": "cell:warren:2:0,0",
+      "via": "stairs_up",
       "visibility": "player"
     },
     {
@@ -336,6 +344,8 @@
       "location_id": "reliquary",
       "location_kind": "area",
       "narrative": null,
+      "transition_ref": null,
+      "via": null,
       "visibility": "player"
     }
   ],
@@ -494,12 +504,12 @@
     "The party moves to (3, 0), facing east.",
     "The door west of (2, 0) swings shut behind the party.",
     "character-0001 uses up toll_token.",
-    "The party enters level warren (level 2). The ferryman pockets the token and the stair opens onto the dark.",
+    "The party descends to level 2 of warren. The ferryman pockets the token and the stair opens onto the dark.",
     "The party moves to (1, 0), facing east.",
     "character-0001 acquires silver_seal.",
     "Wandering check: skipped vs 0-in-6 — nothing comes.",
     "The party moves to (0, 0), facing west.",
-    "The party enters level warren (level 1).",
+    "The party climbs to level 1 of warren.",
     "The door east of (3, 0) opens.",
     "The party moves to (4, 0), facing east.",
     "The party moves to (3, 0), facing west.",

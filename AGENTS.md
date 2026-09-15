@@ -39,6 +39,7 @@ These are contracts, not suggestions — see the corresponding spec sections bef
 - **Layering.** `osrlib.core` must never import from `osrlib.crawl`.
 - **Events.** Structured fields plus message codes only — never baked English prose in event models. Respect `player`/`referee` visibility.
 - **Commands.** Validation is a pure pre-phase: a rejected command consumes no RNG draws, no clock time, and mutates nothing.
+- **Kernel arguments.** A kernel function takes the same stance towards its own arguments: it checks them before its first draw and raises `ValueError` from the call, so a refused call costs no draws, no time, and no state, and never returns a plausible-looking result built on a bad argument.
 - **Schema discipline.** Serialized models follow the `schema_version` rules: additive-only within a version; renames, removals, and semantic changes bump it.
 - **Frozen data.** SRD data models are frozen; play spawns mutable instances from templates.
 
