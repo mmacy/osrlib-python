@@ -181,17 +181,14 @@ class EncounterGroup(BaseModel):
     """True once the group has run past [`FLEE_EXIT_FEET`][osrlib.crawl.battle.FLEE_EXIT_FEET] and left
     the fight, or once a group with morale 2 routed at the moment battle opened. An attack declared
     against it is rejected as naming an unknown group."""
-    surrendered: bool = False
-    """True once the group has given up. Its carried treasure drops as loot the way a slain group's
-    does."""
     member_treasure: dict[str, TreasureBundle] = {}
     """The bundle each member carries, keyed by monster id, generated at spawn from the individual
-    treasure types (P through T). A slain or surrendered member's bundle drops as loot when the
-    encounter closes, and a routed member takes its own away."""
+    treasure types (P through T). A slain member's bundle drops as loot when the encounter closes,
+    and a routed member takes its own away."""
     group_treasure: TreasureBundle | None = None
     """The bundle the group shares, generated at spawn from the group treasure types (U and V), or None
-    when the group carries none. It drops only when every member is defeated or the group surrenders,
-    never when any member routed or fled."""
+    when the group carries none. It drops only when every member is defeated, never when any member
+    routed or fled."""
 
 
 class PursuitState(BaseModel):
@@ -231,8 +228,8 @@ class EncounterState(BaseModel):
     area the adventure stocked, or `"spawned"` from a referee command."""
     area_ref: str | None = None
     """The keyed area's state reference, when `kind` is `"keyed"`. When every monster in the encounter
-    ends up slain, routed, or surrendered, the close records this reference as resolved, so entering
-    the area again starts no second fight."""
+    ends up slain or routed, the close records this reference as resolved, so entering the area again
+    starts no second fight."""
     groups: list[EncounterGroup] = Field(min_length=1)
     """The monster groups, each an [`EncounterGroup`][osrlib.crawl.encounter.EncounterGroup], in the
     order they were spawned. There is always at least one."""
@@ -639,11 +636,7 @@ def _handle_evade(session, command: Evade) -> tuple[list[Rejection], list[Event]
             ):
                 events.append(ItemsDroppedEvent(character_id=member.id, item_ids=("rations",)))
 
-    pursuers = [
-        group
-        for group in state.groups
-        if not group.fled and not group.surrendered and _group_can_pursue(session, group)
-    ]
+    pursuers = [group for group in state.groups if not group.fled and _group_can_pursue(session, group)]
     pursues = state.stance in (ReactionResult.ATTACKS.value, ReactionResult.HOSTILE.value) and pursuers
     if not pursues or _party_run_rate(session) > _pursuer_rate(session, pursuers):
         events.append(EvasionEvent(code="encounter.evasion.succeeded"))
@@ -830,7 +823,7 @@ def _pursuit_round(session, *, dropped_kind: str | None = None) -> list[Event]:
     events = session.advance_rounds(1)
     if not session.party.living_members():
         return events
-    pursuers = [group for group in state.groups if not group.fled and not group.surrendered]
+    pursuers = [group for group in state.groups if not group.fled]
     if dropped_kind is not None:
         matches = any(_group_intelligent(session, group) == (dropped_kind == "treasure") for group in pursuers)
         if matches:
@@ -887,11 +880,10 @@ def _attach_exhaustion(session) -> list[Event]:
 
 
 def _drop_loot(session, state: EncounterState) -> list[Event]:
-    """Drop slain and surrendered combatants' carried treasure at the party's cell.
+    """Drop slain combatants' carried treasure at the party's cell.
 
-    Surrender hands the treasure over, and the drop pile is already how the party
-    picks it up. Routed monsters flee with theirs, and a group whose members
-    routed or fled keeps its shared bundle.
+    The drop pile is how the party picks it up. Routed monsters flee with theirs,
+    and a group whose members routed or fled keeps its shared bundle.
     """
     from osrlib.crawl import exploration
     from osrlib.crawl.dungeon import DropPile
@@ -906,7 +898,7 @@ def _drop_loot(session, state: EncounterState) -> list[Event]:
             combatant = session.combatant(monster_id)
             if combatant is None:
                 continue
-            if has_condition(combatant, Condition.DEAD) or group.surrendered:
+            if has_condition(combatant, Condition.DEAD):
                 bundle = group.member_treasure.pop(monster_id, None)
                 if bundle is not None and not bundle.empty:
                     dropped.append(bundle)
@@ -922,7 +914,7 @@ def _drop_loot(session, state: EncounterState) -> list[Event]:
                 for monster_id in group.monster_ids
                 if session.combatant(monster_id) is not None
             ]
-            all_defeated = all(has_condition(member, Condition.DEAD) for member in living) or group.surrendered
+            all_defeated = all(has_condition(member, Condition.DEAD) for member in living)
             if all_defeated:
                 dropped.append(group.group_treasure)
                 group.group_treasure = None
@@ -988,12 +980,12 @@ def end_encounter(session, outcome: str) -> list[Event]:
     return `session.encounter` is None and the session is back in `exploring` mode, unless the party
     is dead, in which case the session's own wipe check has already taken over.
 
-    Every monster that ended slain, routed (fled, still fleeing, or turned), or surrendered gets a
+    Every monster that ended slain or routed (fled, still fleeing, or turned) gets a
     [`MonsterDefeatedEvent`][osrlib.crawl.events.MonsterDefeatedEvent] and a record on
-    `session.defeated_monsters` with its experience value. Slain and surrendered monsters drop the
-    treasure they carried onto the party's cell as a pile, and routed ones take theirs away. Every
-    effect still running on any of the encounter's monsters then releases, because the fiction moves
-    on and a dead troll's pending revival is narration rather than game state. Under a ruleset that
+    `session.defeated_monsters` with its experience value. Slain monsters drop the treasure they
+    carried onto the party's cell as a pile, and routed ones take theirs away. Every effect still
+    running on any of the encounter's monsters then releases, because the fiction moves on and a dead
+    troll's pending revival is narration rather than game state. Under a ruleset that
     awards experience immediately, the pooled experience divides and applies here and the record list
     clears with it. Otherwise the records wait for the party's return to town.
 
@@ -1077,8 +1069,6 @@ def end_encounter(session, outcome: str) -> list[Event]:
                 monster_outcome = "slain"
             elif has_condition(combatant, Condition.TURNED) or group.fled or group.fleeing:
                 monster_outcome = "routed"
-            elif group.surrendered:
-                monster_outcome = "surrendered"
             if monster_outcome is None:
                 all_defeated = False
                 continue

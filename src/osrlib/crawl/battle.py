@@ -9,8 +9,8 @@ from a chase that closed to arm's length, and from the party's own
 round is one [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound] command with one
 [`BattleDeclaration`][osrlib.crawl.commands.BattleDeclaration] per living, able party member,
 dispatched through [`HANDLERS`][osrlib.crawl.battle.HANDLERS]. No command ends the battle. It ends
-from inside, when the party is wiped, when every monster group is dead or routed or has surrendered,
-or when the whole party retreats. A victory hands control straight to
+from inside, when the party is wiped, when every monster group is dead or routed, or when the whole
+party retreats. A victory hands control straight to
 [`end_encounter`][osrlib.crawl.encounter.end_encounter].
 
 The results reach a front end as events from [`osrlib.crawl.events`][osrlib.crawl.events]:
@@ -54,12 +54,11 @@ own, with no command for it. It ends each single-use protection as it is spent. 
 when the member attacks, throws or unleashes an item, or turns undead, and the kernel's
 [`cast_spell`][osrlib.core.spells.cast_spell] is what breaks it on a cast. An incoming attack on a
 target under *mirror image* pops one figment instead, hit or miss, because no attack roll is made at
-all. A protection ward breaks when the party melees a monster it barred, unless the ward's effect
-definition carries an `unbreakable` param, which no ward in the shipped spell data does. A
-concentration spell's effects release when its caster declares anything other than `cast`,
-`turn_undead`, or `hold`. Area footprints resolve deterministically: an area's capacity in creatures
-is `ceil(span / 10) × width`, filled in stable spawn order, cones reach-limited, with the engaged
-party front rank appended under the ruleset's `aoe_friendly_fire` flag.
+all. A protection ward breaks when the party melees a monster it barred. A concentration spell's
+effects release when its caster declares anything other than `cast`, `turn_undead`, or `hold`. Area
+footprints resolve deterministically: an area's capacity in creatures is `ceil(span / 10) × width`,
+filled in stable spawn order, cones reach-limited, with the engaged party front rank appended under
+the ruleset's `aoe_friendly_fire` flag.
 
 The monster and NPC-party sides act through a pluggable
 [`ActionPolicy`][osrlib.crawl.battle.ActionPolicy] you can substitute per encounter side.
@@ -235,10 +234,10 @@ FLEE_EXIT_FEET = 120
 
 A group that breaks morale turns and runs its full movement rate each round. Once its distance passes
 this, the group is marked fled: it takes no further action, an attack declared against it is rejected
-as naming an unknown group, and a battle in which every group has fled, surrendered, or died ends in
-victory. Inside that window the party can still chase it down or shoot it in the back, which is what
-the window is for. A group that is merely afraid rather than broken counts as routed on the same
-terms, once it too is past this distance.
+as naming an unknown group, and a battle in which every group has fled or died ends in victory.
+Inside that window the party can still chase it down or shoot it in the back, which is what the
+window is for. A group that is merely afraid rather than broken counts as routed on the same terms,
+once it too is past this distance.
 """
 
 
@@ -1028,10 +1027,7 @@ def _check_ends(session, *, party_retreating: bool) -> list[Event] | None:
         session.encounter = None
         return [BattleEndedEvent(code="battle.ended.defeat")]
     groups = session.encounter.groups
-    done = all(
-        group.fled or group.surrendered or not _living_monsters(session, group) or _all_routed(session, group)
-        for group in groups
-    )
+    done = all(group.fled or not _living_monsters(session, group) or _all_routed(session, group) for group in groups)
     if done:
         session.battle = None
         return [BattleEndedEvent(code="battle.ended.victory"), *encounter_module.end_encounter(session, "victory")]
@@ -1046,7 +1042,6 @@ def _check_ends(session, *, party_retreating: bool) -> list[Event] | None:
             group
             for group in groups
             if not group.fled
-            and not group.surrendered
             and not group.fleeing
             and not _group_all_shaken(session, group)
             and encounter_module._group_can_pursue(session, group)
@@ -1135,7 +1130,7 @@ def _validate_declaration(session, declaration: BattleDeclaration, member) -> li
         return []
     if declaration.action == "attack":
         group = _group_by_id(session, declaration.target_group_id)
-        if group is None or group.fled or group.surrendered:
+        if group is None or group.fled:
             return [Rejection(code="battle.declaration.unknown_group", params={"character": member.id})]
         pool = _monster_pool(session, group)
         if not pool:
@@ -1164,7 +1159,7 @@ def _validate_declaration(session, declaration: BattleDeclaration, member) -> li
         if magic is not None:
             return _validate_magic_item_declaration(session, declaration, member, magic)
         group = _group_by_id(session, declaration.target_group_id)
-        if group is None or group.fled or group.surrendered:
+        if group is None or group.fled:
             return [Rejection(code="battle.declaration.unknown_group", params={"character": member.id})]
         instance = exploration._find_item(member, declaration.item_id) if declaration.item_id else None
         if instance is None or getattr(instance.template, "combat", None) is None:
@@ -1348,7 +1343,7 @@ def _validate_magic_item_declaration(session, declaration: BattleDeclaration, me
         effect_spec = template.effect
         if effect_spec is not None and effect_spec.kind in ("damage_area", "condition_area", "striking"):
             group = _group_by_id(session, declaration.target_group_id)
-            if group is None or group.fled or group.surrendered:
+            if group is None or group.fled:
                 return [Rejection(code="battle.declaration.unknown_group", params={"character": member.id})]
             if effect_spec.kind == "striking":
                 if group.distance_feet > MELEE_RANGE_FEET:
@@ -1399,7 +1394,7 @@ def _resolve_magic_item_use(session, member, declaration: BattleDeclaration, sta
             events.extend(_resolve_device_healing(session, member, instance, template, declaration))
         elif effect_spec is not None and effect_spec.kind in ("damage_area", "condition_area"):
             group = _group_by_id(session, declaration.target_group_id)
-            if group is not None and not group.fled and not group.surrendered:
+            if group is not None and not group.fled:
                 events.extend(exploration._device_area_events(session, member, instance, template, group))
         exploration._spend_device_charge(instance, template)
         return events
@@ -1474,7 +1469,7 @@ def _resolve_striking(session, member, instance, declaration: BattleDeclaration)
     from osrlib.core.combat import DamageSource, attack_roll, deal_damage
 
     group = _group_by_id(session, declaration.target_group_id)
-    if group is None or group.fled or group.surrendered:
+    if group is None or group.fled:
         return []
     pool = _monster_pool(session, group)
     if not pool:
@@ -1572,7 +1567,7 @@ def _handle_resolve_battle_round(session, command: ResolveBattleRound) -> tuple[
         from osrlib.core.combat import participant_modifier
 
         participants.append(Participant(key=member.id, side="party", slow=slow, modifier=participant_modifier(member)))
-    active_groups = [group for group in session.encounter.groups if not group.fled and not group.surrendered]
+    active_groups = [group for group in session.encounter.groups if not group.fled]
     for group in active_groups:
         participants.append(Participant(key=group.id, side="monsters", modifier=0))
     initiative = roll_initiative(participants, ruleset=session.ruleset, stream=session.streams.get(COMBAT_STREAM))
@@ -1698,7 +1693,7 @@ def _party_movement(session, by_member) -> list[Event]:
         rates = [_encounter_rate(member, session) for member in session.party.living_members()]
         rate = min(rates, default=0) * multiplier
         for group in session.encounter.groups:
-            if group.fled or group.surrendered:
+            if group.fled:
                 continue
             group.distance_feet += rate
             events.append(GroupMovedEvent(group_id=group.id, distance_feet=group.distance_feet))
@@ -1707,7 +1702,7 @@ def _party_movement(session, by_member) -> list[Event]:
         rates = [_encounter_rate(member, session) for member in session.party.living_members()]
         rate = (min(rates, default=0) // 2) * multiplier
         for group in session.encounter.groups:
-            if group.fled or group.surrendered:
+            if group.fled:
                 continue
             group.distance_feet += rate
             events.append(GroupMovedEvent(group_id=group.id, distance_feet=group.distance_feet))
@@ -1715,7 +1710,7 @@ def _party_movement(session, by_member) -> list[Event]:
     for _member, declaration in by_member.values():
         if declaration.action == "move" and declaration.move == "close":
             group = _group_by_id(session, declaration.target_group_id)
-            if group is None or group.fled or group.surrendered:
+            if group is None or group.fled:
                 continue
             rates = [_encounter_rate(living, session) for living in session.party.living_members()]
             rate = min(rates, default=0) * multiplier
@@ -1768,7 +1763,7 @@ def _party_attacks(session, by_member, *, missile: bool, slow_attacks, fired, fi
 def _resolve_party_attack(session, member, declaration, fired, fire_damaged) -> list[Event]:
     state = session.battle
     group = _group_by_id(session, declaration.target_group_id)
-    if group is None or group.fled or group.surrendered:
+    if group is None or group.fled:
         return []
     pool = _monster_pool(session, group)
     if not pool:
@@ -1931,7 +1926,7 @@ def _break_party_wards(session, target) -> list[Event]:
     """Melee against a warded monster breaks the circle, and the ward releases."""
     events: list[Event] = []
     for ward in _party_wards(session):
-        if _ward_matches(target, ward.definition.params) and not ward.definition.params.get("unbreakable"):
+        if _ward_matches(target, ward.definition.params):
             events.extend(session.ledger.release(ward.effect_id, session.registry()))
     return events
 
@@ -1940,7 +1935,7 @@ def _resolve_use_item(session, member, declaration, fire_damaged) -> list[Event]
     from osrlib.crawl import exploration
 
     group = _group_by_id(session, declaration.target_group_id)
-    if group is None or group.fled or group.surrendered:
+    if group is None or group.fled:
         return []
     pool = _monster_pool(session, group)
     if not pool:
@@ -2129,9 +2124,7 @@ def _confused_party_overrides(session, by_member, fire_damaged) -> list[Event]:
         outcome = _behaviour_outcome(params, behaviour)
         if outcome == "attack_caster_group":
             groups = [
-                group
-                for group in session.encounter.groups
-                if not group.fled and not group.surrendered and _living_monsters(session, group)
+                group for group in session.encounter.groups if not group.fled and _living_monsters(session, group)
             ]
             if groups:
                 nearest = min(groups, key=lambda group: group.distance_feet)
@@ -2203,7 +2196,7 @@ def _monster_block(
     acted = acted if acted is not None else set()
     fire_damaged = fire_damaged if fire_damaged is not None else set()
     for group in list(session.encounter.groups):
-        if group.fled or group.surrendered or not _living_monsters(session, group):
+        if group.fled or not _living_monsters(session, group):
             continue
         if not free_round:
             events.extend(_group_morale(session, group, fire_damaged))
@@ -2280,7 +2273,7 @@ def _declare_npc_actions(session, state, pending_casters: dict, events: list[Eve
     if state.monsters_hold_rounds > 0:
         return chosen
     for group in session.encounter.groups:
-        if group.fled or group.surrendered:
+        if group.fled:
             continue
         first = session.combatant(group.monster_ids[0])
         if getattr(first, "definition", None) is None:

@@ -1822,7 +1822,7 @@ class Evade(Command):
         A concluded encounter posts
         [`EncounterEndedEvent`][osrlib.crawl.events.EncounterEndedEvent], a
         [`MonsterDefeatedEvent`][osrlib.crawl.events.MonsterDefeatedEvent] per
-        monster slain, routed, or surrendered,
+        monster slain or routed,
         [`EffectReleasedEvent`][osrlib.core.events.EffectReleasedEvent]s for the
         effects it releases, and, under the immediate XP timing,
         [`XpAwardedEvent`][osrlib.crawl.events.XpAwardedEvent] and
@@ -1904,7 +1904,7 @@ class Wait(Command):
         An encounter that concludes posts
         [`EncounterEndedEvent`][osrlib.crawl.events.EncounterEndedEvent], a
         [`MonsterDefeatedEvent`][osrlib.crawl.events.MonsterDefeatedEvent] per
-        monster slain, routed, or surrendered,
+        monster slain or routed,
         [`EffectReleasedEvent`][osrlib.core.events.EffectReleasedEvent]s, and, under
         the immediate XP timing,
         [`XpAwardedEvent`][osrlib.crawl.events.XpAwardedEvent] and
@@ -1996,8 +1996,8 @@ class BattleDeclaration(BaseModel):
     """Which monster group the action is aimed at, by
     [`EncounterGroupView.id`][osrlib.crawl.views.EncounterGroupView.id] off
     [`EncounterView.groups`][osrlib.crawl.views.EncounterView.groups]. An `attack` needs it, so
-    does a `use_item` with a thrown item, and so does a `close` move. A group that has fled or
-    surrendered is refused with `battle.declaration.unknown_group`."""
+    does a `use_item` with a thrown item, and so does a `close` move. A group that has fled is
+    refused with `battle.declaration.unknown_group`."""
     weapon_id: str | None = None
     """Which wielded weapon to attack with: a mundane weapon's catalog id, a magic weapon's
     per-instance id, or `None` to strike unarmed. The weapon has to be wielded already, so

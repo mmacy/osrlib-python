@@ -91,7 +91,7 @@ def _battle_round(session) -> ResolveBattleRound:
     the round.
     """
     view = session.view(Visibility.PLAYER)
-    group = next(entry for entry in session.encounter.groups if not entry.fled and not entry.surrendered)
+    group = next(entry for entry in session.encounter.groups if not entry.fled)
     members = {member.id: member for member in session.party.members}
     front = view.encounter.front_rank
     declarations = []

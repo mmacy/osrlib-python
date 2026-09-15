@@ -200,7 +200,6 @@ class Driver:
             group
             for group in session.encounter.groups
             if not group.fled
-            and not group.surrendered
             and any(not has_condition(session.monsters[mid], Condition.DEAD) for mid in group.monster_ids)
         ]
         target = min(groups, key=lambda group: group.distance_feet) if groups else None

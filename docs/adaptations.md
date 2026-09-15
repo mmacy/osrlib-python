@@ -374,9 +374,9 @@ Generation follows printed-entry order, depth-first per item — each gem's valu
 
 A keyed encounter's lair hoard generates when the group first spawns, and lands as an engine-created cache on the area's first listed cell in the dungeon-state overlay — authored specs stay frozen; piles and features grow additive valuable and magic-item fields. Carried treasure generates at spawn (one keyed group's draw order: carried treasure per printed line, then the lair hoard), and `SpawnMonsters` generates none — the referee grants carried loot explicitly. Area treasure specs generate on first entry; unguarded treasure uses the Designing-a-Dungeon bands. Generated hoards are untrapped — trapping treasure is authored content, not a generation outcome. Locked by `test_exploration.py::TestTreasure` and the milestone golden.
 
-### Loot drops: slain and surrendered sides drop, routed sides keep
+### Loot drops: slain sides drop, routed sides keep
 
-At battle's end, slain and surrendered groups drop their carried treasure and group bundles into a pile on the party's cell; a routed (fled) group keeps everything and takes it home. Defeated NPC adventurers dump their kit and share of the group's U + V bundle the same way. Locked by `test_encounter.py` and the milestone golden.
+At battle's end, slain groups drop their carried treasure and group bundles into a pile on the party's cell; a routed (fled) group keeps everything and takes it home. Defeated NPC adventurers dump their kit and share of the group's U + V bundle the same way. Locked by `test_encounter.py` and the milestone golden.
 
 ### The end-of-adventure award is the departure-snapshot valuation delta
 

@@ -1532,7 +1532,6 @@ class DungeonState(BaseModel):
         removed_traps: Traps a thief has taken out.
         found_traps: Traps the party knows about.
         found_tricks: Construction tricks the party has found.
-        discovered_features: Unused.
         emptied_caches: Authored caches the party has emptied.
         piles: What is lying on the floor, by cell.
         generated_caches: Treasure the engine rolled, by cache id.
@@ -1577,10 +1576,6 @@ class DungeonState(BaseModel):
     [`RemoveTreasureTrap`][osrlib.crawl.commands.RemoveTreasureTrap] will work on it."""
     found_tricks: list[str] = []
     """The construction tricks the party has found by searching, by feature reference."""
-    discovered_features: list[str] = []
-    """Nothing writes this. Secret doors record their discovery on
-    [`DoorState.discovered`][osrlib.crawl.dungeon.DoorState] and found features on `found_traps` and
-    `found_tricks`, so this stays empty in every session the engine runs."""
     emptied_caches: list[str] = []
     """The authored caches the party has emptied, by feature reference. An emptied cache gives
     nothing more. Engine-rolled caches are removed from `generated_caches` outright instead of being
