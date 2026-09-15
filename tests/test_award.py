@@ -326,7 +326,6 @@ class TestPooledHealingFees:
         member.conditions = (ActiveCondition(condition=Condition.DEAD, effect_id=None),)
         session.death_records[member.id] = DeathRecord(round=session.clock.rounds, cause="damage")
 
-    @pytest.mark.xfail(reason="chunk: revival-funding")
     def test_raise_dead_draws_on_the_party_in_marching_order(self):
         session = build_session()
         self._zero_purses(session)
@@ -346,7 +345,6 @@ class TestPooledHealingFees:
         assert purchased.payers == (first.id, second.id, third.id)
         assert purchased.payments_gp == (100, 1000, 400)
 
-    @pytest.mark.xfail(reason="chunk: revival-funding")
     def test_a_patient_who_can_pay_pays_alone(self):
         session = build_session()
         self._zero_purses(session)

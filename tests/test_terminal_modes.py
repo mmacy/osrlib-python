@@ -448,7 +448,6 @@ class TestAWipeCanFundItsOwnRaising:
     """The documented salvage flow, game over to town to `raise_dead`, is payable by a party whose
     coin is spread across its dead: the temple charges the purses in marching order."""
 
-    @pytest.mark.xfail(reason="chunk: revival-funding")
     def test_pooled_corpse_purses_pay_for_the_first_raising(self):
         session, _ = trap_wipe_session()
         assert session.execute(PlaceParty(location={"kind": "town"})).accepted
