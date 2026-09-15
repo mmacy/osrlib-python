@@ -699,12 +699,14 @@ class Search(Command):
     suffices). Each character gets one attempt per cell per kind, ever. A
     `room_traps` search covers the cell's door edges too: an `open`-trigger trap
     in an area beyond a known door is findable from this side of it, and a found
-    trap never springs. An undiscovered secret door hides its trap along with
-    itself, so discovering one clears that cell's `room_traps` attempts and every
-    member may search the cell again for the trap the door was hiding. The
-    referee's [`SetDoorState`][osrlib.crawl.commands.SetDoorState] with
-    `discovered=True` refunds them the same way. Attempts of other kinds, and
-    attempts on other cells, stand.
+    trap never springs. A secret door is one edge shared by two cells, and an
+    undiscovered one hides its trap along with itself from both sides equally, so
+    discovering it clears the `room_traps` attempts of both cells the edge joins,
+    not only the cell the discovery was made from, and every member on either side
+    may search their cell again for the trap the door was hiding. The referee's
+    [`SetDoorState`][osrlib.crawl.commands.SetDoorState] with `discovered=True`
+    refunds them the same way. Attempts of other kinds, and attempts on every other
+    cell, stand.
 
     Modes:
         `exploring`
