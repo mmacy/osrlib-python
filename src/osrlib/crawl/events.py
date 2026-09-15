@@ -223,8 +223,8 @@ class LocationEnteredEvent(Event):
     """How the party got there, on level and dungeon entries: the kind of the transition it took
     (`"stairs_down"`, `"stairs_up"`, `"trapdoor"`, or `"chute"`), `"trap"` for a trap that dropped
     the party through the floor, `"entrance"` for [`EnterDungeon`][osrlib.crawl.commands.EnterDungeon],
-    and `"placed"` for [`PlaceParty`][osrlib.crawl.commands.PlaceParty]. `None` on area and town
-    entries, and on a log written before the engine stated it."""
+    and `"placed"` for [`PlaceParty`][osrlib.crawl.commands.PlaceParty]. It is `None` on area and
+    town entries, and on an event loaded from a save written before the field existed."""
     transition_ref: str | None = None
     """The cell of the authored transition the party took, as
     [`cell_ref`][osrlib.crawl.dungeon.cell_ref] gives it, so a consumer can find the
@@ -390,8 +390,8 @@ class SearchCompletedEvent(Event):
     found: tuple[str, ...] = ()
     """What turned up, as references like `"secret_door:north"`, `"room_trap:<area id>"`, or
     `"construction:<feature id>"`, and empty when nothing did. A room trap found through a door
-    from the searched cell carries the door's direction as a third segment,
-    `"room_trap:<area id>:<direction>"`, and one found inside its own area carries none. A found
+    from the searched cell names the door's direction in a third segment,
+    `"room_trap:<area id>:<direction>"`, and one found inside its own area has none. A found
     secret door becomes passable, and a found trap no longer springs on the party."""
 
 
@@ -400,7 +400,11 @@ class TrapEvent(Event):
 
     Emitted by the commands that can set a trap off or look for one:
     [`MoveParty`][osrlib.crawl.commands.MoveParty],
-    [`OpenDoor`][osrlib.crawl.commands.OpenDoor],
+    [`UseStairs`][osrlib.crawl.commands.UseStairs] and
+    [`EnterDungeon`][osrlib.crawl.commands.EnterDungeon], which run the arrival cell's
+    entry checks the same way a step does,
+    [`OpenDoor`][osrlib.crawl.commands.OpenDoor] and
+    [`ForceDoor`][osrlib.crawl.commands.ForceDoor],
     [`Search`][osrlib.crawl.commands.Search],
     [`TakeTreasure`][osrlib.crawl.commands.TakeTreasure],
     [`InspectTreasure`][osrlib.crawl.commands.InspectTreasure], and
@@ -413,15 +417,14 @@ class TrapEvent(Event):
     [`DetectionRolledEvent`][osrlib.crawl.events.DetectionRolledEvent], so an
     uneventful step looks like a step on safe ground.
 
-    Finding a trap means two different things by kind, which is what decides where
-    `exploration.trap.safe` can appear. A found room trap never springs, at its
-    area's edge or at one of its doors: the party walks around the known pit and
-    stands clear of the known blade, so a found room trap rolls no die and emits
-    nothing further. A found treasure trap still rolls its 2-in-6 on every
+    What a find is worth depends on the kind of trap. A found room trap never springs,
+    at its area's edge or at one of its doors: the party walks around the known pit and
+    stands clear of the known blade, so it rolls no die and emits nothing further. A
+    found treasure trap still rolls its 2-in-6 on every
     [`TakeTreasure`][osrlib.crawl.commands.TakeTreasure] until a thief takes it out
     with [`RemoveTreasureTrap`][osrlib.crawl.commands.RemoveTreasureTrap], because
-    finding a treasure trap is not defeating it. So `exploration.trap.safe`, a known
-    trap's trigger resolving without springing, is a cache outcome only.
+    finding a treasure trap is not defeating it. That is why `exploration.trap.safe`, a
+    known trap's trigger resolving without springing, appears on a cache alone.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset(
@@ -444,9 +447,9 @@ class TrapEvent(Event):
     party as a whole."""
     direction: str | None = None
     """The direction of the door a room trap was found through, from the searched cell, as a
-    [`Direction`][osrlib.crawl.dungeon.Direction] value. Set for that find alone: a room trap found
-    inside its own area, a treasure trap found on a cache, and every code but
-    `exploration.trap.found` all carry `None`."""
+    [`Direction`][osrlib.crawl.dungeon.Direction] value. Set for that find alone: it is `None` on a
+    room trap found inside its own area, on a treasure trap found on a cache, and on every code but
+    `exploration.trap.found`."""
 
 
 class ItemAcquiredEvent(Event):
@@ -486,7 +489,8 @@ class ItemAcquiredEvent(Event):
     [`TakeTreasure`][osrlib.crawl.commands.TakeTreasure], `"purchase"` for gear bought with
     [`PurchaseEquipment`][osrlib.crawl.commands.PurchaseEquipment], and `"grant"` for a referee's
     [`GrantItem`][osrlib.crawl.commands.GrantItem] or [`GrantCoins`][osrlib.crawl.commands.GrantCoins].
-    The engine always fills it; `None` only on a log written before it did."""
+    Every command that emits this event fills it, so it is `None` only on an event loaded from a save
+    written before the field existed."""
 
 
 class ItemConsumedEvent(Event):
@@ -1421,10 +1425,10 @@ class HealingPurchasedEvent(Event):
     """What it cost, in gold pieces."""
     payers: tuple[str, ...] = ()
     """Whose purses paid, in the order they were charged: the treated member first, then the rest
-    of the party in marching order, dead members included. Each purse listed paid in whole gold
-    pieces, all its gold if the fee was still outstanding after it and the remainder alone if it
-    was the last one charged. Members whose purses were never opened are absent. Empty on a log
-    written before the field existed."""
+    of the party in marching order, dead members included. A purse pays in whole gold pieces, as
+    much of the outstanding fee as its gold covers, so the last purse charged pays what is left and
+    the purses behind it are never opened. A member whose purse stayed shut is absent. It is empty
+    on an event loaded from a save written before the field existed."""
     payments_gp: tuple[int, ...] = ()
     """What each purse in `payers` paid, in gold pieces and in the same order. The entries sum to
     `cost_gp`."""

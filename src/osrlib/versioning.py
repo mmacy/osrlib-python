@@ -74,7 +74,7 @@ a value that now means something different. Additions don't move it, so a docume
 earlier release of the same schema version can be missing fields that newer documents
 include, and readers fill those with their defaults.
 
-Three changes are behind the current number, and each is worth knowing if you keep old saves.
+Three changes are behind the current number, and each one matters if you keep old saves.
 Version 2 dropped the recovered-treasure ledger from the save payload, since the
 end-of-adventure award is worked out from the valuation taken when the party left town.
 Version 3 narrowed a treasure trap's `trigger` to `"open"`, the one action that springs a
@@ -82,7 +82,7 @@ cache. Earlier documents could say `"enter"`, which nothing ever read, and the m
 rewrites it, and a content pack gets the same trigger rewrite when it loads. Version 4
 dropped `"withdraw"` from a battle declaration's `move`, a value the round resolver never
 moved anybody for, and the migration clears it off a logged declaration, leaving a member
-who declared it holding. No step loses anything.
+who declared it holding. No step drops anything the library reads back.
 
 This is a fact about the library, not a setting. Assigning to it changes what your documents
 claim to be without changing what's in them.

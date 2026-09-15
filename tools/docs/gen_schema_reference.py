@@ -1,10 +1,10 @@
 """Generate the command and event schema reference from the registries themselves.
 
-Runs under mkdocs-gen-files at build time. One page per command and event class —
-sourced from `ALL_COMMAND_CLASSES` and `ALL_EVENT_CLASSES`, so a class added to a
-registry appears here with no further wiring — plus the two raw artifacts,
-`commands.json` and `events.json`, carrying the discriminated-union JSON Schemas an
-agent framework or API consumer loads directly.
+Runs under mkdocs-gen-files at build time. It writes one page per command and event class,
+sourced from `ALL_COMMAND_CLASSES` and `ALL_EVENT_CLASSES`, so a class added to a registry
+appears here with no further wiring. It also writes the two raw artifacts, `commands.json`
+and `events.json`, which contain the discriminated-union JSON Schemas an agent framework or
+API consumer loads directly.
 
 A JSON Schema block is text inside a fenced code block, so mkdocstrings cross-reference
 syntax in a class docstring never resolves there the way it does on a rendered page, and
@@ -13,10 +13,10 @@ this module writes into a schema, the model's own and each property's, goes thro
 `_plain_prose` first. A field's description comes from its attribute docstring (the PEP
 224 form: a string literal statement right after the field's annotated assignment),
 which pydantic never reads on its own, so `_field_description` recovers it with `ast`
-over the module source that defines the class owning the field. A field a subclass
-redeclares without repeating its own docstring, or never redeclares at all, such as
-`command_type` on every command and `source` on every command that isn't `Command`
-itself, takes the docstring the nearest ancestor in the MRO gives it.
+over the module source that defines the class owning the field. Some fields are never
+redeclared with a docstring of their own, such as `command_type` on every command and
+`source` on every command below `Command` itself. Each of those takes the docstring of the
+nearest ancestor in the method resolution order that documents it.
 """
 
 import ast
@@ -94,9 +94,9 @@ _FIELD_DOC_CACHE: dict[str, dict[str, dict[str, str]]] = {}
 def _field_description(cls: type, field_name: str) -> str:
     """The prose for one property, from the nearest ancestor that documents it.
 
-    A class with no locatable source file (a dynamically built one, say) simply has no
-    attribute docstring to read, so it is skipped rather than raising: the caller falls
-    back to whatever description the schema already carried.
+    A class with no locatable source file (a dynamically built one, say) has no attribute
+    docstring to read, so it is skipped rather than raising, and the caller falls back to
+    whatever description the schema already had.
     """
     for klass in cls.__mro__:
         if klass is BaseModel or not issubclass(klass, BaseModel):
@@ -151,8 +151,8 @@ def _describe_schema(schema: dict, registry: dict[str, type], cls: type | None =
 
     Covers the schema's own top level (when `cls` names the single class it describes) and
     every `$defs` entry (a discriminated union's variants, and any nested model or enum they
-    reference), so this handles both a single command's or event's own schema and the combined
-    `commands.json` / `events.json` artifacts with one function. A property keeps whatever
+    reference), so one function handles both a single command's or event's own schema and the
+    combined `commands.json` and `events.json` artifacts. A property keeps whatever
     description the schema already gave it (from `Field(description=...)`, or from an
     attribute docstring the `ast` reader can't read, such as an f-string) when no attribute
     docstring is found for it, rather than being overwritten with an empty string.

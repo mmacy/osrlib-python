@@ -133,11 +133,12 @@ class AbilityScore(StrEnum):
 
 
 class Literacy(StrEnum):
-    """How well a character reads and writes, which intelligence decides.
+    """How well a character reads and writes, which their intelligence score sets.
 
     Read it off [`AbilityTables.literacy`][osrlib.core.abilities.AbilityTables.literacy], passing the
     character's intelligence score. It matters whenever the party finds something written, a scroll
-    or a map or an inscription.
+    or a map or an inscription. No rule in osrlib reads it, so what a character who cannot read may
+    not do is your game's decision.
     """
 
     ILLITERATE = "illiterate"

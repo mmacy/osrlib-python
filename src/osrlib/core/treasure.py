@@ -997,10 +997,12 @@ def _roll_powers(
 
 
 def _require_tier(tier: str) -> None:
-    """Refuse an unknown tier before anything is drawn.
+    """Raise `ValueError` unless the tier is `"basic"` or `"expert"`.
 
-    Every generation entry point calls this first, because a kernel function checks its
-    arguments before its first draw: a bad tier costs no draws and returns no hoard.
+    Call it at the top of any function here that takes a `tier`, ahead of that function's
+    first draw, so a bad tier costs no draws. `instantiate_magic_item`, `generate_magic_item`,
+    and `generate_treasure_entries` each do, and the two treasure entry points reach it
+    through `generate_treasure_entries`.
     """
     if tier not in ("basic", "expert"):
         raise ValueError(f"tier must be 'basic' or 'expert', got {tier!r}")
@@ -1237,9 +1239,9 @@ def generate_treasure_entries(
         empty, and entries that failed their presence roll contribute nothing.
 
     Raises:
-        ValueError: If `tier` is neither `"basic"` nor `"expert"`. The tier is checked
-            before the first draw, so a refused call costs no draws and returns nothing,
-            whether or not the entries would have reached a magic item.
+        ValueError: If `tier` is neither `"basic"` nor `"expert"`. The tier is checked before
+            the first draw, so a refused call costs no draws and leaves the stream where it
+            was, whether or not the entries would have reached a magic item.
 
     Examples:
         ```python
@@ -1335,9 +1337,9 @@ def generate_treasure(
         empty.
 
     Raises:
-        ValueError: If no treasure type has that letter, or if `tier` is neither
-            `"basic"` nor `"expert"`. Both are checked before the first draw, so a refused
-            call costs no draws and returns no hoard.
+        ValueError: If no treasure type has that letter, or if `tier` is neither `"basic"`
+            nor `"expert"`. Both are checked before the first draw, so a refused call costs no
+            draws and leaves the stream where it was.
 
     Examples:
         ```python
@@ -1395,7 +1397,7 @@ def generate_unguarded_treasure(
     Raises:
         ValueError: If `dungeon_level` is below 1, or if `tier` is neither `"basic"` nor
             `"expert"`. Both are checked before the first draw, so a refused call costs no
-            draws and returns no cache.
+            draws and leaves the stream where it was.
 
     Examples:
         ```python

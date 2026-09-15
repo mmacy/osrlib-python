@@ -714,7 +714,7 @@ def check_fatigue(session) -> list[Event]:
     The SRD's dungeon rule is that a party rests one turn in every six, and a party that presses on
     takes −1 to attack rolls and −1 to damage rolls until it does. This is the check for that rule:
     it reads the session's `turns_since_rest` counter, and when the counter has reached the
-    threshold it attaches the fatigue effect to every living member who doesn't already carry it.
+    threshold it attaches the fatigue effect to every living member who isn't fatigued already.
 
     [`GameSession.advance_turns`][osrlib.crawl.session.GameSession.advance_turns] calls this once
     for every turn of time the party spends in the field, so a front end that moves time by
@@ -1514,9 +1514,10 @@ def _relocate(
 
     `via` and `transition_ref` are the caller's account of the crossing: the kind of
     the transition taken and the cell it stands on for `UseStairs`, `"trap"` for a
-    slide, `"entrance"` for the way in. Each caller knows both and states them, so no
-    consumer has to work backwards from where the party ended up. They ride the same
-    crossing event the beat does, and a relocation within one level drops them with it.
+    slide, `"entrance"` for the way in. Every caller has both to hand and passes them,
+    so a consumer never has to work backwards from where the party ended up. Both go
+    out on the same crossing event the beat does, so a relocation within one level,
+    which emits no crossing event, drops them too.
     """
     state = session.dungeon_state
     old_location = state.location
@@ -2121,11 +2122,11 @@ def _refund_trap_search(session, dungeon_id: str, level_number: int, position: P
     """Clear both cells' `room_traps` search attempts, so every member on either side may search again.
 
     Call this when the secret door on `position`'s `direction` side is discovered. A secret door is
-    one edge shared by two cells, and a `room_traps` search from either cell covers that edge: an
-    undiscovered secret door hides the trap beyond it along with itself, from both sides equally. A
-    member who searched the far cell while the door still read as wall had no chance at that trap
-    either, so the discovery refunds both cells, not only the one it was named from. Attempts of
-    other kinds, and attempts on every other cell, stand.
+    one edge shared by two cells, and a `room_traps` search from either cell covers that edge. While
+    the door is undiscovered it reads as blank wall from both cells, and the trap behind it is out
+    of reach from both, so a member who searched the far cell had no chance at that trap either. The
+    discovery therefore refunds both cells, not only the one it was named from. Attempts of other
+    kinds, and attempts on every other cell, stand.
 
     Args:
         session (osrlib.crawl.session.GameSession): The running session.
@@ -2139,7 +2140,14 @@ def _refund_trap_search(session, dungeon_id: str, level_number: int, position: P
 
 
 def _reveal(session, kind: str, events: list[Event]) -> list[str]:
-    """Reveal every hidden feature of one kind on the current cell, and only the cell."""
+    """Reveal every hidden feature of one kind on the party's cell, and no other cell.
+
+    Appends the reveal events to `events` and returns the reference tokens for what turned up,
+    which are the tokens `_handle_search` puts in
+    [`SearchCompletedEvent.found`][osrlib.crawl.events.SearchCompletedEvent]. Discovering a secret
+    door also clears the room-trap search attempts on both cells its edge joins, this one and the
+    one across it, through `_refund_trap_search`.
+    """
     level = _level(session)
     position = _position(session)
     state = session.dungeon_state
@@ -2160,7 +2168,7 @@ def _reveal(session, kind: str, events: list[Event]) -> list[str]:
             # Everyone on both sides gets their trap search back.
             _refund_trap_search(session, dungeon_id, level_number, position, direction)
     elif kind == "room_traps":
-        # Each candidate carries the door it was found through, or `None` for the
+        # Each candidate names the door it was found through, or `None` for the
         # trap in the searcher's own area. The bearing is a fact only this walk has,
         # and a renderer that had to rebuild it would have to rebuild the guards below
         # with it, so the find states it: on the token and on the event.
@@ -3851,9 +3859,9 @@ def _use_scroll(session, member, instance: MagicItemInstance, template, command)
             else:
                 return [Rejection(code="magic.cast.unknown_target", params={"target": target_ref})], []
         context = _cast_context(session, targets, in_combat=False)
-        # The kernel's own pre-check: a caster at the scroll's level, which is the level
-        # `cast_from_scroll` resolves at, so the crawl refuses what the kernel would refuse
-        # and the refusal lands before the scroll is spent.
+        # The kernel's own pre-check, asked about a caster at the scroll's level, which is
+        # the level `cast_from_scroll` resolves at. The crawl refuses here what the kernel
+        # would refuse there, before the scroll is spent.
         cast_rejections = validate_scroll_cast(
             member,
             spell,
@@ -4119,8 +4127,9 @@ curse* maps to `remove_curse_c`, the cleric list's version of that spell rather 
 list's.
 
 The service names and the prices are a documented adaptation over the SRD's open-ended base-town
-prose (see the adaptations register). Nothing here models availability. The size of the town, the
-standing of its temple, and whether a cleric is in today are game questions left to your front end.
+prose (see [the adaptations register](https://mmacy.github.io/osrlib-python/adaptations/)). Nothing
+here models availability. The size of the town, the standing of its temple, and whether a cleric is
+in today are game questions left to your front end.
 To charge your own prices, take the payment yourself and use the referee commands. Don't edit the
 prices here either: the purchase handler reads them at the moment of sale, and every session in the
 process shares them.
@@ -4191,11 +4200,11 @@ def _healing_payers(session, patient: Character, cost_gp: int) -> list[tuple[Cha
     """Plan which purses cover a temple fee, in the order the temple charges them.
 
     The treated member pays first, then the rest of the party in marching order, dead
-    members included. A purse pays in whole gold pieces only, because
-    [`CoinPurse.spend`][osrlib.core.items.CoinPurse.spend] prices in gold, so it puts in as
-    much of what is still owed as its gold covers and keeps whatever it is worth below a gold
-    piece. The last purse charged pays the outstanding remainder alone, and the purses
-    behind it are never opened.
+    members included. A purse pays in whole gold pieces, because
+    [`CoinPurse.spend`][osrlib.core.items.CoinPurse.spend] prices in gold. It puts in as much
+    of what is still owed as its gold covers and keeps whatever it is worth below a gold
+    piece, so the last purse charged pays the outstanding remainder and the purses behind it
+    stay shut.
 
     Planning and charging are separate so the funds check stays a pure validation step: a
     party whose whole gold pieces fall short is refused before any purse is opened.

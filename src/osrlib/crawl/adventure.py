@@ -340,12 +340,12 @@ def _effective_equipment(adventure: Adventure, base: EquipmentCatalog) -> tuple[
 def _area_has_boundary_door(area: AreaSpec, level: LevelSpec) -> bool:
     """Return whether any edge of any of `area`'s cells is a door.
 
-    This is what an `open`-trigger room trap needs to ever fire: the springing action is a door of
-    the area swinging, so an area with no door edge at all can never roll for it. Every edge of every
-    cell counts, interior or exterior, read through [`LevelSpec.edge`][osrlib.crawl.dungeon.LevelSpec.edge]
-    so the same wall/door answer the engine itself would get. A door that `starts_open` still counts:
-    nothing here reads `starts_open`, because a referee command or a trigger can close it later,
-    which is exactly the opening this check exists to guarantee stays possible.
+    This is what an `open`-trigger room trap needs before it can ever fire: the springing action is
+    a door of the area swinging, so an area with no door edge never rolls for it. Every edge of every
+    cell counts, interior or exterior, read through
+    [`LevelSpec.edge`][osrlib.crawl.dungeon.LevelSpec.edge] so the wall-or-door answer matches the one
+    the engine gets at play time. A door that `starts_open` counts too, because a referee command or
+    a trigger can shut it later and the trap needs only one opening to spring.
     """
     return any(level.edge(cell, direction).kind is EdgeKind.DOOR for cell in area.cells for direction in Direction)
 
@@ -591,10 +591,11 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
     and every dungeon having an entrance on some level.
 
     Then, for each level: feature ids unique across the level and none of them the reserved id
-    `"pile"`, the entrance on the grid, area ids unique, no area id colliding with a feature id (the
-    two share the trap-reference namespace, so a collision would cross-contaminate found, sprung, and
-    removed trap state), area cells on the grid, an `open`-trigger room trap having a door on its
-    area's boundary (an `enter`-trigger trap needs none, and a door that starts open still counts),
+    `"pile"`, the entrance on the grid, area ids unique, no area id colliding with a feature id (an
+    area trap and a feature trap are referenced the same way, so a collision would leave the found,
+    sprung, and removed records unable to tell the two apart), area cells on the grid, an
+    `open`-trigger room trap having a door on its area's boundary (an `enter`-trigger trap needs
+    none, and a door that starts open still counts),
     keyed encounter template ids resolving and any fixed alignment being one the template allows,
     feature cells on the grid with their cache item ids and magic item ids resolving, every
     level-scope feature having a cell, inline wandering-table monster ids resolving, the item ids

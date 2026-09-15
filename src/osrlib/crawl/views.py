@@ -117,14 +117,15 @@ class MemberView(BaseModel):
     """The member's pack, in the shape the inventory serializes, with the keys `items`,
     `purse`, `valuables`, `worn_armour`, `shield`, `wielded`, and `rings`. Magic items
     are masked until identified: an unidentified one shows a category display name
-    instead of its true name. When that display name was itself built from a base
-    weapon ("a dagger with a faint aura"), the entry additionally carries the
-    `qualities` and `missile_ranges` of that mundane weapon, exactly as an identified
-    one does, so a front end can classify a declaration without knowing the arm's
-    bonus, curse, or template id. An item whose display comes from its category
-    instead, such as a staff, carries neither field even when it resolves to a
-    weapon, because the display never named that weapon. Charges never appear at any
-    identification level."""
+    instead of its true name. When that display name was built from a base weapon ("a
+    dagger with a faint aura"), the entry also includes the `qualities` of that mundane
+    weapon, exactly as an identified one does, so a front end can classify a declaration
+    without being told the arm's bonus, curse, or template id. The `missile_ranges` key
+    comes with it only for a weapon the rules give ranges to, so read the key as absent
+    on a sword rather than empty. An item whose display comes from its category instead,
+    such as a staff, includes neither field even when it resolves to a weapon, because
+    the display never named that weapon. Charges never appear at any identification
+    level."""
     memorized_spells: tuple[dict, ...]
     """The prepared spells, one dumped
     [`MemorizedSpell`][osrlib.core.spells.MemorizedSpell] per copy, in memorization
@@ -458,22 +459,26 @@ def _masked_magic_item(instance: MagicItemInstance) -> dict:
 
     An unidentified item shows its category display name, and an enchanted arm shows its
     base instead, as in "a sword with a faint aura", the concession made because *detect
-    magic* exists. When the display string was built from that base weapon, it already
-    names the weapon, so the unidentified item also shows the `qualities` and
-    `missile_ranges` of the mundane weapon underneath it, exactly as an identified one
-    does: how far the arm reaches, and in what manner. A staff, wand, or other item whose
-    display comes from its category instead (a `staff_of_striking` still reads "a staff",
-    the same string six other staves show) shows neither field even when it resolves to a
-    weapon, because the display never named that weapon and the fields would single the
-    item out. Both fields are rulebook facts about the weapon the display string already
-    names, not facts about the enchantment, and they are what lets a front end tell a
-    melee declaration from a missile one. Without them an enchanted dagger is
-    unclassifiable where a plain dagger is not. An identified item additionally shows its
-    true name, id, and whether a curse has been revealed, and always carries the weapon
-    facts when one underlies it, since identification has already named the item. The
-    bonus, the curse, the template id, and the name stay hidden until identified, and
-    charges, sentience, and per-item state never appear at any identification level,
-    because by the rules as written charges are undiscoverable.
+    magic* exists. A display string built from that base weapon already names the weapon,
+    so the unidentified item also shows the `qualities` of the mundane weapon underneath
+    it, exactly as an identified one does, and its `missile_ranges` when the rules give
+    that weapon ranges: how far the arm reaches, and in what manner. A weapon with no
+    printed ranges, a sword among them, gets the `qualities` key and no `missile_ranges`
+    key at all. A staff, wand, or other item whose display comes from
+    its category instead shows neither field, even when it resolves to a weapon, because
+    the display never named that weapon and the fields would single the item out among
+    the items that show the same string. A `staff_of_striking` reads "a staff", and so
+    does every other staff.
+
+    Both fields are rulebook facts about the weapon the display string already names,
+    not facts about the enchantment, and they are what lets a front end tell a melee
+    declaration from a missile one. Without them an enchanted dagger is unclassifiable
+    where a plain dagger is not. An identified item shows its true name, its id, and
+    whether a curse has been revealed, and it shows the weapon facts whenever a weapon
+    underlies it, because identification has already named the item. The bonus, the
+    curse, the template id, and the name stay hidden until identified, and charges,
+    sentience, and per-item state never appear at any identification level, because by
+    the rules as written charges are undiscoverable.
     """
     from osrlib.core.combat import attack_facet
     from osrlib.data import load_equipment
