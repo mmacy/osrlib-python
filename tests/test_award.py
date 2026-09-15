@@ -1,6 +1,5 @@
 """The end-of-adventure XP award and the town services — the Phase 5 loop closed."""
 
-
 from crawl_fixtures import build_adventure, build_party
 from osrlib.core.effects import ActiveCondition, Condition
 from osrlib.core.items import Coins, MagicItemInstance, ValuableInstance
