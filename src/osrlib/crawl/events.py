@@ -1387,9 +1387,10 @@ class HealingPurchasedEvent(Event):
     """What it cost, in gold pieces."""
     payers: tuple[str, ...] = ()
     """Whose purses paid, in the order they were charged: the treated member first, then the rest
-    of the party in marching order, dead members included, each purse emptied before the next is
-    touched, until the fee was covered. Empty only on a log written before the temple charged the
-    party as a whole."""
+    of the party in marching order, dead members included. Each purse listed paid in whole gold
+    pieces, all its gold if the fee was still outstanding after it and the remainder alone if it
+    was the last one charged. Members whose purses were never opened are absent. Empty on a log
+    written before the field existed."""
     payments_gp: tuple[int, ...] = ()
     """What each purse in `payers` paid, in gold pieces and in the same order. The entries sum to
     `cost_gp`."""

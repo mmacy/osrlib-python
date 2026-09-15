@@ -1698,13 +1698,20 @@ class PurchaseHealing(Command):
     resolves through the kernel spell path with an abstract temple cleric at the
     minimum level able to cast the spell.
 
-    The temple charges the party, not the patient. The fee comes out of the treated
-    member's purse first and then out of the other members' purses in marching
-    order, dead members included, and each purse is emptied before the next one is
-    touched. A party whose purses together fall short is refused and keeps every
-    coin. That rule is what makes *raise dead* buyable at all: the patient is dead,
-    nothing can hand a corpse coin, and a party that splits its treasure never has
-    1,500 gp in one purse.
+    The temple charges the party, not the patient. The fee is drawn from the treated
+    member's purse first and then from the other members' purses in marching order,
+    dead members included. Each purse pays in whole gold pieces, as much of what is
+    still owed as its gold covers, so a purse that cannot cover the rest hands over
+    all of its gold and keeps only what it is worth below a gold piece, and the last
+    purse charged pays the outstanding remainder alone. Because the coin below a
+    gold piece in a purse can never go toward the fee, what the party can spend is
+    the whole gold pieces in its purses, not their total worth: two members holding
+    12 gp and 5 sp each are worth 25 gp between them and are still refused a 25 gp
+    service, keeping every coin.
+
+    Charging the party is what makes *raise dead* buyable at all: the patient is
+    dead, nothing can hand a corpse coin, and a party that splits its treasure never
+    has 1,500 gp in one purse.
 
     Modes:
         `town`
@@ -1712,8 +1719,10 @@ class PurchaseHealing(Command):
     Rejections:
         - `session.command.wrong_mode` - the party is not in town.
         - `session.command.unknown_member` - `character_id` names no party member.
-        - `items.purchase.insufficient_funds` - the party's purses together cannot
-          cover the service.
+        - `items.purchase.insufficient_funds` - the whole gold pieces in the party's
+          purses together fall short of the fee. Coin below a gold piece in a purse
+          cannot go toward it, so a party worth the price in mixed coin can still be
+          refused.
 
     Events:
         [`HealingPurchasedEvent`][osrlib.crawl.events.HealingPurchasedEvent], naming

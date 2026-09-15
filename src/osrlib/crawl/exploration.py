@@ -4108,17 +4108,18 @@ def _handle_sell_treasure(session, command: SellTreasure) -> tuple[list[Rejectio
     return [], events
 
 
-def _healing_payers(session, patient, cost_gp: int) -> list[tuple[Any, int]] | None:
+def _healing_payers(session, patient: Character, cost_gp: int) -> list[tuple[Character, int]] | None:
     """Plan which purses cover a temple fee, in the order the temple charges them.
 
     The treated member pays first, then the rest of the party in marching order, dead
-    members included, and each purse is emptied before the next one is touched. A purse
-    contributes whole gold pieces only, because
-    [`CoinPurse.spend`][osrlib.core.items.CoinPurse.spend] prices in gold, so the odd
-    silver and copper below a gold piece stay where they are.
+    members included. A purse pays in whole gold pieces only, because
+    [`CoinPurse.spend`][osrlib.core.items.CoinPurse.spend] prices in gold, so it puts in as
+    much of what is still owed as its gold covers and keeps whatever it is worth below a gold
+    piece. The last purse charged pays the outstanding remainder alone, and the purses
+    behind it are never opened.
 
     Planning and charging are separate so the funds check stays a pure validation step: a
-    party that falls short is refused before any purse is opened.
+    party whose whole gold pieces fall short is refused before any purse is opened.
 
     Args:
         session: The session whose party pays.
@@ -4126,11 +4127,11 @@ def _healing_payers(session, patient, cost_gp: int) -> list[tuple[Any, int]] | N
         cost_gp: The fee in whole gold pieces.
 
     Returns:
-        The (member, gold pieces) pairs to charge in order, or None when the party's purses
-        together are worth less than the fee.
+        The (member, gold pieces) pairs to charge in order, or None when the whole gold
+        pieces in the party's purses together fall short of the fee.
     """
     order = [patient] + [member for member in session.party.members if member.id != patient.id]
-    plan: list[tuple[Any, int]] = []
+    plan: list[tuple[Character, int]] = []
     outstanding = cost_gp
     for member in order:
         if outstanding <= 0:
@@ -4180,7 +4181,7 @@ def _handle_purchase_healing(session, command: PurchaseHealing) -> tuple[list[Re
             character_id=member.id,
             service=command.service,
             cost_gp=cost_gp,
-            payers=tuple(payer.id for payer, _ in payers),
+            payers=tuple(payer.id or payer.name for payer, _ in payers),
             payments_gp=tuple(share for _, share in payers),
         )
     ]

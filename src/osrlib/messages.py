@@ -54,6 +54,7 @@ from osrlib.core.events import (
     SpellsMemorizedEvent,
     UndeadTurnedEvent,
 )
+from osrlib.crawl.events import HealingPurchasedEvent
 
 __all__ = [
     "format_message",
@@ -123,7 +124,7 @@ def _cast_no_effect(event: SpellCastEvent) -> str:
     return f"{event.caster_id} casts {spell} [{event.mode}] — it has no effect."
 
 
-def _healing_purchased(event: Any) -> str:
+def _healing_purchased(event: HealingPurchasedEvent) -> str:
     line = f"{event.character_id} purchases {event.service} at the temple for {event.cost_gp} gp"
     if len(event.payers) > 1:
         paid = zip(event.payers, event.payments_gp, strict=True)
