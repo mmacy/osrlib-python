@@ -1,6 +1,6 @@
 # Gates, triggers, and quests
 
-You want a door that needs a key, a lever that opens a portcullis across the map, an errand that ends the adventure when the party finishes it. You author all three as data: a **gate** guards an attempt, a **trigger** reacts to an event, and a **quest** keeps score toward an ending. All three live in the adventure document beside the dungeons they wire. Nothing plays them until your game registers the library's [`Interpreter`][osrlib.crawl.interpreter.Interpreter], a listener like the ones in [Listeners and flags](listeners-and-flags.md). The library ships it because you need one for every authored adventure. [The complete program](#the-complete-program) at the end runs as written, and every snippet along the way comes from it. Where a snippet comes from [the TUI crawler's](../front-ends/tui-crawler.md) authored adventure instead, the text says so.
+You want a door that opens only with the right key, a lever that opens a portcullis across the map, an errand that ends the adventure when the party finishes it. You author all three as data: a **gate** guards an attempt, a **trigger** reacts to an event, and a **quest** keeps score toward an ending. All three live in the adventure document beside the dungeons they wire. Nothing plays them until your game registers the library's [`Interpreter`][osrlib.crawl.interpreter.Interpreter], a listener like the ones in [Listeners and flags](listeners-and-flags.md). The library ships it because you need one for every authored adventure. [The complete program](#the-complete-program) at the end runs as written, and every snippet along the way comes from it. Where a snippet comes from [the TUI crawler's](../front-ends/tui-crawler.md) authored adventure instead, the text says so.
 
 The door itself, the edge and its [`DoorSpec`][osrlib.crawl.dungeon.DoorSpec], is dungeon geometry. [Building an adventure](../getting-started/building-an-adventure.md#the-grid-and-its-edges) covers it, along with the keyed areas and transitions you hang these conditions on.
 
@@ -24,7 +24,7 @@ sentinel = GateSpec(
 )
 ```
 
-Locks and gates are separate layers, and a door with both requires both. The engine checks the lock first (`exploration.door.locked`), and once a thief has picked the lock ([`PickLock`][osrlib.crawl.commands.PickLock] addresses the lock and nothing else), the gate still applies. A door standing open lets the party through unchecked. Set a gated door open with [`SetDoorState`][osrlib.crawl.commands.SetDoorState] and the party passes freely until the door closes again, at which point the gate applies once more. For a one-time unlock that flips a door's state for good, like the lever thrown once that leaves the portcullis up, use a [trigger](#wiring-the-dungeon-with-triggers): a `SetDoorState` consequence fired on the lever's flag.
+Locks and gates are separate layers: on a door with both, the party must open the lock and satisfy the gate. The engine checks the lock first (`exploration.door.locked`), and once a thief has picked the lock ([`PickLock`][osrlib.crawl.commands.PickLock] addresses the lock and nothing else), the gate still applies. A door standing open lets the party through unchecked. Set a gated door open with [`SetDoorState`][osrlib.crawl.commands.SetDoorState] and the party passes freely until the door closes again, at which point the gate applies once more. For a one-time unlock that flips a door's state for good, like the lever thrown once that leaves the portcullis up, use a [trigger](#wiring-the-dungeon-with-triggers): a `SetDoorState` consequence fired on the lever's flag.
 
 `consumes=True` turns a `has_item` condition into a toll: each time the gated command succeeds, one instance leaves the first holder in marching order, reported by [`ItemConsumedEvent`][osrlib.crawl.events.ItemConsumedEvent] just before the door or arrival event. Every success charges again, so a consumed key-door that swings shut takes another key. Coins are not items and can't be tolled. To charge one, mint a token as a bundled item and gate on that.
 
@@ -84,9 +84,9 @@ The two beats have two different audiences: **`fired` is the referee's line and 
 
 ### When something doesn't land
 
-A trigger firing is not all-or-nothing. When the session rejects one consequence, like a spawn that arrives to find an encounter already open or a grant naming an item the catalog lost, that consequence alone is dropped and the consequences after it still run. A [`RecordNote`][osrlib.crawl.commands.RecordNote] records the trigger, the consequence's position and type, and the rejection code. There is no retry and no queue, because a consequence that fired later, out of order, would be impossible to debug.
+A trigger firing is not all-or-nothing. When the session rejects one consequence, like a spawn refused because an encounter is already open, or a grant naming an item the catalog no longer has, that consequence alone is dropped and the consequences after it still run. A [`RecordNote`][osrlib.crawl.commands.RecordNote] records the trigger, the consequence's position and type, and the rejection code. There is no retry and no queue, because a consequence that fired later, out of order, would be impossible to debug.
 
-Cascades are bounded. A trigger's own events are one level deeper than the event that fired it, and matching stops below depth five. A firing the bound suppresses is recorded as a note rather than a mark, so a once-only trigger cut short there can still fire later. Chaining flags is a normal thing to author, and the bound is what guarantees a chain that loops still ends.
+Cascades are bounded. A trigger's own events are one level deeper than the event that fired it, and matching stops below depth five. When the bound suppresses a firing, the interpreter records a note rather than a mark, so a once-only trigger cut short there can still fire later. Chaining flags is a normal thing to author, and the bound is what guarantees a chain that loops still ends.
 
 ## Authoring a quest
 
@@ -114,7 +114,7 @@ Drop the idol into a cache by id (`item_ids=("jade-idol",)`) and add its templat
 
 ### Activation, and the quest that needs none
 
-`activation` is a clause like any other. When it matches, the quest becomes active, its `offer` beat displays and lands in the journal, and the interpreter starts matching its objectives. Omit it and the quest is active from session start, a standing charge from round 0. A quest with no `activation` has no activation event and no offer entry in the journal, because there's no command channel before the first command. Its offer stands in the first player view instead.
+`activation` is a clause like any other. When it matches, the quest becomes active, its `offer` beat goes on the activation event and into the journal, and the interpreter starts matching its objectives. Omit it and the quest is active from session start, a standing charge from round 0. A quest with no `activation` has no activation event and no offer entry in the journal, because there's no command channel before the first command. Its offer stands in the first player view instead.
 
 ### Hidden objectives and reveals
 
@@ -130,7 +130,7 @@ Drop the idol into a cache by id (`item_ids=("jade-idol",)`) and add its templat
 
 `rewards` use the same [`ConsequenceCommand`][osrlib.crawl.commands.ConsequenceCommand] surface a trigger's consequences do. The interpreter issues them in authored order *after* the quest completes, each stamped `source="quest:{id}"`. They address characters through the same selectors, `@party` and `@first`, and validation rejects a literal character id for the same reason it does on a trigger.
 
-Two consequences of that ordering are worth authoring around. On a concluding quest the session is already in `victory` when the rewards issue, so it refuses a reward that would resume play (`SpawnMonsters`, `SpawnNpcParty`, `PlaceParty`) and drops it with a note. Grants, awards, and flags land fine. Coin paid on the doorstep earns no treasure XP, because the end-of-adventure award has already fired by then. Put the story's thanks in `AwardXP` rather than in a purse of coin.
+Two consequences of that ordering are worth authoring around. On a concluding quest the session is already in `victory` when the rewards issue, so it refuses a reward that would resume play (`SpawnMonsters`, `SpawnNpcParty`, `PlaceParty`) and drops it with a note. Grants, awards, and flags land fine. Coin paid on the doorstep never converts to treasure XP, because the end-of-adventure award has already fired by then. Put the story's thanks in `AwardXP` rather than in a purse of coin.
 
 ### Which beat goes where
 

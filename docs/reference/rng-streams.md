@@ -2,7 +2,7 @@
 
 Every random draw in osrlib comes from a named stream, and every stream is forked from
 the session's master seed. Given the same master seed and the same stream key, a stream
-always produces the identical sequence of draws — and it produces that sequence no
+always produces the identical sequence of draws, and it produces that sequence no
 matter what any other stream does. Drawing a hundred rolls from the treasure stream
 never changes what the combat stream yields next. That per-key independence is what
 makes deterministic replays and saved games reliable: two sessions built from the same
@@ -12,15 +12,17 @@ subsystem's rolls.
 Each stream is identified by a plain string key, such as `"combat"` or `"treasure"`.
 [`StreamName`][osrlib.core.rng.StreamName] is where those keys are defined, and every
 constant in the table below is one of its members, so a key has one spelling in the
-library and a mistyped one cannot fork a stream of its own.
-Code that uses the kernel functions directly — standalone, outside of a running game —
-passes an explicit stream into each function call. A [`GameSession`][osrlib.crawl.session.GameSession]
-does this wiring for you: it owns an `RngStreams` container built from the session's
-master seed and hands out the correctly named stream wherever a kernel function needs
-one, so ordinary gameplay never requires touching a stream directly.
+library. Draw with a member rather than a string you type out:
+[`RngStreams.get`][osrlib.core.rng.RngStreams.get] forks a stream of its own for any
+string, so a mistyped key draws plausible numbers from that stream instead of raising.
 
-The table below lists every key, the constant that names it, and what it governs; the
-sections that follow give more detail on each.
+Code that uses the kernel functions directly (standalone, outside of a running game)
+passes an explicit stream into each function call. A [`GameSession`][osrlib.crawl.session.GameSession]
+does this wiring for you: it builds an `RngStreams` container from the session's master
+seed and hands out the correctly named stream wherever a kernel function needs one, so
+ordinary gameplay never requires touching a stream directly.
+
+The table below lists every key, the constant that names it, and what it governs.
 
 | Stream key | Constant | Governs |
 | --- | --- | --- |
@@ -118,7 +120,7 @@ this on its own stream means swapping in a different monster action policy never
 shifts the combat stream's attack and damage rolls.
 
 The [`ADJUDICATION_STREAM`][osrlib.crawl.session.ADJUDICATION_STREAM] (key
-`"adjudication"`) covers the referee's ad-hoc rolls for freeform adjudication —
+`"adjudication"`) covers the referee's ad-hoc rolls for freeform adjudication:
 dice commanded through the seeded session to resolve a chance outcome the content
 model can't express, such as whether a frayed rope holds. Keeping these on their own
 stream means an ad-hoc referee roll never perturbs the draw sequence of a keyed

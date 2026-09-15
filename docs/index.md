@@ -15,7 +15,7 @@ osrlib is designed for four kinds of consumer:
 
 - The [quickstart](getting-started/quickstart.md) runs the whole loop in one sitting: characters, party, adventure, session, commands, events, save, and load.
 - [Building an adventure](getting-started/building-an-adventure.md) teaches the dungeon itself: the grid and its edges, keyed areas, and the content each area binds.
-- [Gates, triggers, and quests](guides/gates-triggers-quests.md) adds the authored behavior: a door that needs a key, a lever that opens a portcullis, and a quest that ends the adventure in victory.
+- [Gates, triggers, and quests](guides/gates-triggers-quests.md) adds the authored behavior: a door that opens only with the right key, a lever that opens a portcullis, and a quest that ends the adventure in victory.
 - The [guides](guides/sessions-commands-events.md) teach the contracts: sessions and the command/event loop, visibility, determinism, the rules without a session, listeners, authoring, and ruleset options.
 - The [front end walk-throughs](front-ends/tui-crawler.md) tour the two example games that ship in the repository, and the [LLM referee page](front-ends/llm-referees.md) maps the same surface onto an agent.
 - The [reference](reference/api/index.md) documents every public symbol, command, event, rejection code, message code, RNG stream, and content id.
