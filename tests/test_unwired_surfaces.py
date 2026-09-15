@@ -9,8 +9,6 @@ these has a rule behind it, so they are deleted. Each removal rides the schema 4
 
 from pathlib import Path
 
-import pytest
-
 from osrlib.core.character import Character
 from osrlib.crawl.dungeon import DungeonState
 from osrlib.crawl.encounter import EncounterGroup
@@ -20,7 +18,6 @@ from osrlib.messages import _TEMPLATES
 SRC = Path(__file__).resolve().parent.parent / "src" / "osrlib"
 
 
-@pytest.mark.xfail(reason="chunk: unwired-surfaces")
 def test_the_surrender_path_is_gone():
     assert "surrendered" not in EncounterGroup.model_fields
     assert "battle.side.surrendered" not in MonsterFledEvent.allowed_codes
@@ -29,13 +26,11 @@ def test_the_surrender_path_is_gone():
         assert "surrendered" not in path.read_text(encoding="utf-8"), path
 
 
-@pytest.mark.xfail(reason="chunk: unwired-surfaces")
 def test_literacy_and_discovered_features_are_gone():
     assert not hasattr(Character, "literacy")
     assert "discovered_features" not in DungeonState.model_fields
 
 
-@pytest.mark.xfail(reason="chunk: unwired-surfaces")
 def test_no_ward_is_unbreakable():
     for path in sorted(SRC.rglob("*.py")):
         assert "unbreakable" not in path.read_text(encoding="utf-8"), path
