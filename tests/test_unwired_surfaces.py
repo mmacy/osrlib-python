@@ -31,7 +31,7 @@ def test_the_surrender_path_is_gone():
 
 @pytest.mark.xfail(reason="chunk: unwired-surfaces")
 def test_literacy_and_discovered_features_are_gone():
-    assert "literacy" not in Character.model_fields
+    assert not hasattr(Character, "literacy")
     assert "discovered_features" not in DungeonState.model_fields
 
 
