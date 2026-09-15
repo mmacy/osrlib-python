@@ -283,9 +283,9 @@ class TestPersistenceAndTheView:
 
     def test_the_referee_view_carries_both_blocks(self):
         session = run(self.LIFECYCLE)
-        state = session.view(Visibility.REFEREE).state
-        assert state["fired_triggers"] == ["lever-east"]
-        assert [entry["text"] for entry in state["journal"]] == [entry.text for entry in session.journal]
+        view = session.view(Visibility.REFEREE)
+        assert view.fired_triggers == ("lever-east",)
+        assert [entry.text for entry in view.journal] == [entry.text for entry in session.journal]
 
 
 class TestTheSourceStamp:
