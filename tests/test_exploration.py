@@ -45,6 +45,7 @@ from osrlib.crawl.commands import (
     RemoveTreasureTrap,
     Rest,
     Search,
+    SetDoorState,
     TakeTreasure,
     TravelToTown,
     TurnParty,
@@ -1894,3 +1895,80 @@ class TestAcquisitionOrigin:
         acquired = [event for event in result.events if event.code == "exploration.item.acquired"]
         assert acquired
         assert {event.origin for event in acquired} == {"treasure"}
+
+
+class TestDiscoveringASecretDoorRefundsTheCellsTrapSearch:
+    """Finding a secret door is new information about the cell, so the members who searched the cell
+    for room traps before the door was known get to search it again.
+
+    A `room_traps` search covers the searched cell's door edges, and an undiscovered secret door hides
+    the trap beyond it along with itself. Without a refund, a member who searched while the door was
+    hidden spent their one attempt with no chance at that trap, and once every member had, the trap
+    could only be learned by opening the door.
+    """
+
+    SEED = 3  # the room-trap search by 0001 finds the blade room, then 0002's secret-door search finds the vault's door
+
+    @staticmethod
+    def before_the_blade_door(seed: int) -> GameSession:
+        session = GameSession.new(build_party(), build_blade_adventure(), seed=seed)
+        session.execute(GrantItem(character_id="character-0001", item_id="torch", quantity=6))
+        session.execute(GrantItem(character_id="character-0001", item_id="tinder_box"))
+        entered(session, dungeon_id="blades")
+        session.execute(
+            MoveParty(direction=Direction.EAST)
+        )  # to (1,0): the blade room's door east, the vault's secret door south
+        return session
+
+    @pytest.mark.xfail(reason="chunk: exploration-fixes")
+    def test_a_search_that_finds_the_door_refunds_the_room_trap_attempts(self):
+        session = self.before_the_blade_door(self.SEED)
+        first = session.execute(Search(character_id="character-0001", kind="room_traps"))
+        assert "room_trap:blade_room" in next(e for e in first.events if e.code == "exploration.search.found").found
+        found_door = session.execute(Search(character_id="character-0002", kind="secret_doors"))
+        assert "secret_door:south" in next(e for e in found_door.events if e.code == "exploration.search.found").found
+        again = session.execute(Search(character_id="character-0001", kind="room_traps"))
+        assert again.accepted, [rejection.code for rejection in again.rejections]
+
+    @pytest.mark.xfail(reason="chunk: exploration-fixes")
+    def test_a_referee_discovery_refunds_them_too(self):
+        session = self.before_the_blade_door(self.SEED)
+        assert session.execute(Search(character_id="character-0001", kind="room_traps")).accepted
+        assert session.execute(
+            SetDoorState(dungeon_id="blades", level_number=1, x=1, y=0, direction=Direction.SOUTH, discovered=True)
+        ).accepted
+        again = session.execute(Search(character_id="character-0001", kind="room_traps"))
+        assert again.accepted, [rejection.code for rejection in again.rejections]
+
+    def test_other_kinds_and_other_cells_keep_their_attempts(self):
+        session = self.before_the_blade_door(self.SEED)
+        assert session.execute(Search(character_id="character-0001", kind="construction")).accepted
+        assert session.execute(
+            SetDoorState(dungeon_id="blades", level_number=1, x=1, y=0, direction=Direction.SOUTH, discovered=True)
+        ).accepted
+        again = session.execute(Search(character_id="character-0001", kind="construction"))
+        assert not again.accepted
+        assert again.rejections[0].code == "exploration.search.already_tried"
+
+
+class TestFatigueReachesEveryUnrestedMember:
+    """`check_fatigue` attaches the penalty to each living member who lacks it once the party has gone
+    too long without a rest, not only when nobody has it yet."""
+
+    @pytest.mark.xfail(reason="chunk: exploration-fixes")
+    def test_a_member_without_the_effect_gains_it_while_the_others_already_have_it(self):
+        session = quiet_session()
+        entered(session)
+        events, _ = session.advance_turns(6)
+        assert "exploration.fatigue.gained" in [event.code for event in events]
+        members = session.party.living_members()
+        assert all(session.ledger.active_on(member.id, exploration.FATIGUE_KIND) for member in members)
+        spared = members[1]
+        for active in session.ledger.active_on(spared.id, exploration.FATIGUE_KIND):
+            session.ledger.release(active.effect_id, registry=session.registry())
+        assert not session.ledger.active_on(spared.id, exploration.FATIGUE_KIND)
+        gained = exploration.check_fatigue(session)
+        assert session.ledger.active_on(spared.id, exploration.FATIGUE_KIND)
+        assert gained and gained[-1].code == "exploration.fatigue.gained"
+        assert all(len(session.ledger.active_on(member.id, exploration.FATIGUE_KIND)) == 1 for member in members)
+        assert exploration.check_fatigue(session) == []
