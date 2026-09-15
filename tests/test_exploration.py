@@ -1920,7 +1920,6 @@ class TestDiscoveringASecretDoorRefundsTheCellsTrapSearch:
         )  # to (1,0): the blade room's door east, the vault's secret door south
         return session
 
-    @pytest.mark.xfail(reason="chunk: exploration-fixes")
     def test_a_search_that_finds_the_door_refunds_the_room_trap_attempts(self):
         session = self.before_the_blade_door(self.SEED)
         first = session.execute(Search(character_id="character-0001", kind="room_traps"))
@@ -1932,7 +1931,6 @@ class TestDiscoveringASecretDoorRefundsTheCellsTrapSearch:
         again = session.execute(Search(character_id="character-0001", kind="room_traps"))
         assert again.accepted, [rejection.code for rejection in again.rejections]
 
-    @pytest.mark.xfail(reason="chunk: exploration-fixes")
     def test_a_referee_discovery_refunds_them_too(self):
         session = self.before_the_blade_door(self.SEED)
         assert session.execute(Search(character_id="character-0001", kind="room_traps")).accepted
@@ -1957,7 +1955,6 @@ class TestFatigueReachesEveryUnrestedMember:
     """`check_fatigue` attaches the penalty to each living member who lacks it once the party has gone
     too long without a rest, not only when nobody has it yet."""
 
-    @pytest.mark.xfail(reason="chunk: exploration-fixes")
     def test_a_member_without_the_effect_gains_it_while_the_others_already_have_it(self):
         session = quiet_session()
         entered(session)

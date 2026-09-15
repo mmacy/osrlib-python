@@ -1,7 +1,5 @@
 """The wired magic item census, behavior by behavior — the Phase 5 item contract."""
 
-import pytest
-
 from crawl_fixtures import build_adventure, build_party
 from osrlib.core.combat import (
     AttackContext,
@@ -670,7 +668,6 @@ class TestScrollReadsAreJudgedAtTheScrollsLevel:
     scroll, and emits nothing.
     """
 
-    @pytest.mark.xfail(reason="chunk: exploration-fixes")
     def test_a_high_level_reader_is_refused_the_missiles_of_their_own_level(self):
         from osrlib.core.spells import MAGIC_STREAM
 

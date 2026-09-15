@@ -1137,7 +1137,6 @@ class TestAScrollDeclarationIsJudgedAtTheScrollsLevel:
             ),
         )
 
-    @pytest.mark.xfail(reason="chunk: exploration-fixes")
     def test_three_targets_are_refused_whole_and_one_is_accepted(self):
         from osrlib.core.spells import MAGIC_STREAM
 

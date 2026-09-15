@@ -1434,7 +1434,6 @@ class TestValidateScrollCastIsTheKernelsOwnPreCheck:
     """`validate_scroll_cast` answers what `cast_from_scroll` will refuse, at the scroll's caster
     level, so a front end or the crawl layer never rebuilds the scroll-level caster itself."""
 
-    @pytest.mark.xfail(reason="chunk: exploration-fixes")
     def test_it_refuses_the_readers_missile_count_and_takes_the_scrolls(self):
         from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character
         from osrlib.core.monsters import MONSTER_SPAWN_STREAM
