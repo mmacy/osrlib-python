@@ -1328,8 +1328,10 @@ def _validate_magic_item_declaration(session, declaration: BattleDeclaration, me
             return rejections
         from osrlib.core.spells import CastContext
 
+        # The read is judged at the scroll's caster level, as the kernel judges it, so a
+        # declaration that passes here cannot raise out of `cast_from_scroll` in the magic phase.
         return validate_cast(
-            member,
+            exploration._scroll_caster(member, spell),
             spell,
             mode,
             profile=None,

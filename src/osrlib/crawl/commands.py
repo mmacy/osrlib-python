@@ -700,7 +700,11 @@ class Search(Command):
     `room_traps` search covers the cell's door edges too: an `open`-trigger trap
     in an area beyond a known door is findable from this side of it, and a found
     trap never springs. An undiscovered secret door hides its trap along with
-    itself.
+    itself, so discovering one clears that cell's `room_traps` attempts and every
+    member may search the cell again for the trap the door was hiding. The
+    referee's [`SetDoorState`][osrlib.crawl.commands.SetDoorState] with
+    `discovered=True` refunds them the same way. Attempts of other kinds, and
+    attempts on other cells, stand.
 
     Modes:
         `exploring`
@@ -1392,7 +1396,12 @@ class UseItem(Command):
           (`magic.cast.unknown_target`, `magic.cast.unknown_mode`,
           `magic.cast.target_count`, `magic.cast.out_of_range`,
           `magic.cast.caster_incapacitated`, `magic.cast.caster_restrained`,
-          `magic.cast.anti_magic_shell`).
+          `magic.cast.anti_magic_shell`). A read is judged against a caster at
+          the scroll's own level, the level
+          [`cast_from_scroll`][osrlib.core.spells.cast_from_scroll] resolves it
+          at, so a 6th-level reader of a *magic missile* scroll supplies one
+          target and is refused three, and the refusal comes before the scroll is
+          spent.
         - Devices: `items.device.inert` (no charges left),
           `items.use.target_required`, `items.use.unknown_target`, and
           `items.use.battle_only` (a striking effect is a battle declaration).
