@@ -68,7 +68,7 @@ Paralysed and sleeping defenders are hit automatically in melee — no roll is c
 
 ### Morale "incapacitated" means dead, paralysed, petrified, or asleep
 
-The RAW trigger text says "slain, paralysed, etc". Pinned for the half-the-side trigger and the sleeping dies-to-a-blade hook. Situational morale adjustments clamp to ±2 per RAW and never apply to ML 2 (never fights) or ML 12 (never checks); two passed checks mean no further checks. Locked by `test_combat.py::TestMorale`.
+The RAW trigger text says "slain, paralysed, etc". Pinned for the half-the-side trigger and the sleeping dies-to-a-blade hook. Situational morale adjustments clamp to ±2 per RAW and never apply to ML 2 or less (never fights) or ML 12 or more (never checks); two passed checks mean no further checks. Locked by `test_combat.py::TestMorale`.
 
 ### Energy drain reverses level_up
 
