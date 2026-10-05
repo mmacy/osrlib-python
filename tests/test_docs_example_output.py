@@ -82,9 +82,7 @@ def check_block(source: str, filename: str) -> list[str]:
 
 # Blocks the gate fails on today. The lead removes an entry when its chunk merges; a block's id
 # carries its line range, so editing the block retires the mark by itself.
-_EXPECTED_TO_FAIL: dict[str, str] = {
-    "src/osrlib/crawl/adventure.py:140-146": "chunk: party-spec",
-}
+_EXPECTED_TO_FAIL: dict[str, str] = {}
 
 
 def _cases() -> list:
