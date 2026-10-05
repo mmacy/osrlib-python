@@ -37,9 +37,7 @@ _NO_RUN_TAG = "no-run"
 
 
 # Blocks that fail today because their chunk isn't built. The lead removes an entry when its chunk merges.
-_EXPECTED_TO_FAIL: dict[str, str] = {
-    "src/osrlib/crawl/adventure.py:140-146": "chunk: party-spec",
-}
+_EXPECTED_TO_FAIL: dict[str, str] = {}
 
 
 def _cases() -> list:

@@ -160,7 +160,11 @@ class PartySpec(BaseModel):
 
     @model_validator(mode="after")
     def _ranges_in_order(self) -> PartySpec:
-        raise NotImplementedError("chunk: party-spec")
+        if self.max_level < self.min_level:
+            raise ValueError("max_level must not be below min_level")
+        if self.min_size is not None and self.max_size is not None and self.max_size < self.min_size:
+            raise ValueError("max_size must not be below min_size")
+        return self
 
 
 class Adventure(BaseModel):

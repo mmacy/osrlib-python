@@ -9,16 +9,12 @@ from crawl_fixtures import build_adventure
 from osrlib.crawl.adventure import Adventure, PartySpec
 from osrlib.versioning import SCHEMA_VERSION, check_document, stamp_document
 
-CHUNK = pytest.mark.xfail(reason="chunk: party-spec", raises=NotImplementedError)
 
-
-@CHUNK
 def test_levels_and_size():
     party = PartySpec(min_level=1, max_level=3, min_size=6, max_size=8)
     assert (party.min_level, party.max_level, party.min_size, party.max_size) == (1, 3, 6, 8)
 
 
-@CHUNK
 def test_size_is_optional():
     party = PartySpec(min_level=2, max_level=2)
     assert (party.min_size, party.max_size) == (None, None)
@@ -26,7 +22,6 @@ def test_size_is_optional():
     assert PartySpec(min_level=1, max_level=1, max_size=4).min_size is None
 
 
-@CHUNK
 @pytest.mark.parametrize(
     "fields",
     [
@@ -53,7 +48,6 @@ def test_zero_is_refused(fields):
         PartySpec(**fields)
 
 
-@CHUNK
 def test_party_is_frozen():
     party = PartySpec(min_level=1, max_level=3)
     with pytest.raises(ValidationError):
@@ -64,7 +58,6 @@ def test_an_adventure_without_a_party_has_none():
     assert build_adventure().party is None
 
 
-@CHUNK
 def test_party_round_trips_through_a_stamped_document():
     adventure = build_adventure().model_copy(
         update={"party": PartySpec(min_level=1, max_level=3, min_size=6, max_size=8)}
