@@ -4,6 +4,12 @@ All notable changes to osrlib are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The package version is the public API promise; `schema_version`, the integer stamped into saves, commands, and events, is the separate serialization axis defined by [the specification](docs/spec.md).
 
+## [1.8.0] - 2026-10-04
+
+### Added
+
+- [`Adventure.party`][osrlib.crawl.adventure.Adventure] records the party an adventure is written for, as a [`PartySpec`][osrlib.crawl.adventure.PartySpec] with the lowest and highest character level and, when the adventure says, the fewest and most characters, the way a published module states it on its cover ("for 6 to 8 characters of levels 1 to 3"). It defaults `None`, so an existing adventure document still loads and no `schema_version` moves. The engine never reads it, so no rule, event, or draw sequence changes. A front end can use it to offer a party that fits, a converter can carry the cover's figures across, and a playtest can pick its characters by level. `PartySpec` is frozen, refuses a level or size below 1, and refuses a maximum below its minimum.
+
 ## [1.7.1] - 2026-08-23
 
 ### Changed
@@ -131,7 +137,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The documentation site: quickstart, guides, front-end walk-throughs, and a full reference for every command, event, rejection code, message code, RNG stream, and content id.
 - The typed surface: complete type hints under `py.typed`, checked in CI.
 
-[Unreleased]: https://github.com/mmacy/osrlib-python/compare/v1.7.1...HEAD
+[Unreleased]: https://github.com/mmacy/osrlib-python/compare/v1.8.0...HEAD
+[1.8.0]: https://github.com/mmacy/osrlib-python/compare/v1.7.1...v1.8.0
 [1.7.1]: https://github.com/mmacy/osrlib-python/compare/v1.7.0...v1.7.1
 [1.7.0]: https://github.com/mmacy/osrlib-python/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/mmacy/osrlib-python/compare/v1.5.0...v1.6.0

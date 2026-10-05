@@ -62,6 +62,7 @@ from osrlib.errors import ContentValidationError
 
 __all__ = [
     "Adventure",
+    "PartySpec",
     "TownSpec",
     "validate_adventure",
 ]
@@ -81,6 +82,54 @@ class TownSpec(BaseModel):
     description: str = ""
     services: tuple[str, ...] = ()
     travel_turns: dict[str, int] = {}
+
+
+class PartySpec(BaseModel):
+    """The party an adventure is written for: the character levels, and how many characters.
+
+    A published module states this on its cover or in its introduction, such as "for 6 to 8
+    characters of levels 1 to 3". Nothing in the engine reads it. It's here so a front end, a
+    converter, or a playtest can pick a party that fits the adventure.
+
+    Attributes:
+        min_level: The lowest character level the adventure is written for.
+        max_level: The highest.
+        min_size: The fewest characters, or `None` when the adventure doesn't say.
+        max_size: The most characters, or `None` when the adventure doesn't say.
+
+    Raises:
+        ValueError: If `max_level` is below `min_level`, or `max_size` is below `min_size` when
+            both are given.
+
+    Examples:
+        ```python
+        from osrlib.crawl.adventure import PartySpec
+
+        party = PartySpec(min_level=1, max_level=3, min_size=6, max_size=8)
+        print(party.max_level)
+        # 3
+        ```
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    min_level: int = Field(ge=1)
+    """The lowest character level the adventure is written for, 1 or more."""
+    max_level: int = Field(ge=1)
+    """The highest character level the adventure is written for. Equal to `min_level` for an
+    adventure written for one level."""
+    min_size: int | None = Field(default=None, ge=1)
+    """The fewest characters the adventure is written for, or `None` when it doesn't say."""
+    max_size: int | None = Field(default=None, ge=1)
+    """The most characters the adventure is written for, or `None` when it doesn't say."""
+
+    @model_validator(mode="after")
+    def _ranges_in_order(self) -> PartySpec:
+        if self.max_level < self.min_level:
+            raise ValueError("max_level must not be below min_level")
+        if self.min_size is not None and self.max_size is not None and self.max_size < self.min_size:
+            raise ValueError("max_size must not be below min_size")
+        return self
 
 
 class Adventure(BaseModel):
@@ -124,6 +173,9 @@ class Adventure(BaseModel):
     name: str
     description: str = ""
     hooks: tuple[str, ...] = ()
+    party: PartySpec | None = None
+    """The levels and number of characters the adventure is written for, or `None` when it doesn't
+    say. Nothing in the engine reads it. See [`PartySpec`][osrlib.crawl.adventure.PartySpec]."""
     town: TownSpec
     dungeons: tuple[DungeonSpec, ...] = Field(min_length=1)
     monsters: tuple[MonsterTemplate, ...] = ()
