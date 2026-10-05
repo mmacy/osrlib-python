@@ -36,7 +36,22 @@ _EXAMPLE_SOURCES = (
 _NO_RUN_TAG = "no-run"
 
 
-@pytest.mark.parametrize("example", list(find_examples(*(str(source) for source in _EXAMPLE_SOURCES))), ids=str)
+# Blocks that fail today because their chunk isn't built. The lead removes an entry when its chunk merges.
+_EXPECTED_TO_FAIL: dict[str, str] = {
+    "src/osrlib/crawl/adventure.py:140-146": "chunk: party-spec",
+}
+
+
+def _cases() -> list:
+    cases = []
+    for example in find_examples(*(str(source) for source in _EXAMPLE_SOURCES)):
+        reason = _EXPECTED_TO_FAIL.get(str(example))
+        marks = [pytest.mark.xfail(reason=reason, raises=NotImplementedError)] if reason else []
+        cases.append(pytest.param(example, id=str(example), marks=marks))
+    return cases
+
+
+@pytest.mark.parametrize("example", _cases())
 def test_docs_example(example: CodeExample, eval_example: EvalExample, monkeypatch: pytest.MonkeyPatch) -> None:
     if _NO_RUN_TAG in example.prefix_tags():
         # Fragments reference names their runnable twin defines, so they cannot
