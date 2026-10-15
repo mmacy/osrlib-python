@@ -33,7 +33,7 @@ An [`Edge`][osrlib.crawl.dungeon.Edge] is `open`, `wall`, or `door`. A door edge
 
 ## Keyed areas
 
-Cells not covered by any area are corridor. An [`AreaSpec`][osrlib.crawl.dungeon.AreaSpec] names a region (a room, a cave, a shrine) and binds content to it: descriptive prose for your front end, an encounter, a trap, treasure. The party triggers an area's content by stepping into any of its cells:
+Cells not covered by any area are corridor. An [`AreaSpec`][osrlib.crawl.dungeon.AreaSpec] names a region (a room, a cave, a shrine) and attaches content to it: descriptive prose for your front end, an encounter, a trap, treasure. The party triggers an area's content by stepping into any of its cells:
 
 ```{.python .no-run}
     areas=(
@@ -48,7 +48,7 @@ Cells not covered by any area are corridor. An [`AreaSpec`][osrlib.crawl.dungeon
 )
 ```
 
-A [`KeyedEncounter`][osrlib.crawl.dungeon.KeyedEncounter] lists its monsters by template id, each with a fixed count or count dice. A template id is any id from [`load_monsters`][osrlib.data.load_monsters], listed in [the monster id index][monsters-index], or the id of a monster the adventure bundles (see [Bundling custom monsters with an adventure](../guides/authoring-custom-content.md#bundling-custom-monsters-with-an-adventure)). You can also pin the monsters' awareness, stance, or alignment.
+A [`KeyedEncounter`][osrlib.crawl.dungeon.KeyedEncounter] lists its monsters by template id, each with a fixed count or count dice. A template id is any id from [`load_monsters`][osrlib.data.load_monsters], listed in [the monster id index][monsters-index], or the id of a monster the adventure bundles (see [Bundling custom monsters with an adventure](../guides/authoring-custom-content.md#bundling-custom-monsters-with-an-adventure)). You can also set the monsters' awareness, stance, or alignment.
 
 Beyond encounters, an area (or the level itself) can contain:
 
@@ -60,7 +60,7 @@ Beyond encounters, an area (or the level itself) can contain:
 
 ## The dungeon, the town, and the root
 
-You slot the level into a [`DungeonSpec`][osrlib.crawl.dungeon.DungeonSpec], and the dungeon into an [`Adventure`][osrlib.crawl.adventure.Adventure] beside the [`TownSpec`][osrlib.crawl.adventure.TownSpec]. The town is the safe base where the party rests, buys equipment, and sells treasure. `travel_turns` maps each dungeon id to the town-to-entrance travel cost in exploration turns:
+You put the level into a [`DungeonSpec`][osrlib.crawl.dungeon.DungeonSpec], and the dungeon into an [`Adventure`][osrlib.crawl.adventure.Adventure] beside the [`TownSpec`][osrlib.crawl.adventure.TownSpec]. The town is the safe base where the party rests, buys equipment, and sells treasure. `travel_turns` maps each dungeon id to the town-to-entrance travel cost in exploration turns:
 
 ```{.python .no-run}
 barrow = DungeonSpec(id="barrow", name="The Barrow", levels=(level,))
@@ -157,7 +157,7 @@ assert opened.accepted
 result = session.execute(MoveParty(direction=Direction.EAST))
 assert result.accepted
 
-# Stepping into the keyed area spawns the goblins and starts an encounter.
+# Stepping into the keyed area creates the goblins and starts an encounter.
 assert session.mode is SessionMode.ENCOUNTER
 assert len(session.monsters) == 2
 ```

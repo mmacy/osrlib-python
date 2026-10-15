@@ -91,7 +91,7 @@ A practical narrator prompt sends the structured events (or their codes and fiel
 
 An adventure written for the authored layer ([Gates, triggers, and quests](../guides/gates-triggers-quests.md)) arrives with material aimed squarely at a narrating referee, and an agent serving one should use all of it.
 
-**Register the library's [`Interpreter`][osrlib.crawl.interpreter.Interpreter] and do no bookkeeping.** One `session.register_listener(Interpreter(session))` after the session is built (and again after a load), and the interpreter plays the triggers, the quests, the fired-marks, and the rewards as ordinary logged commands. The agent referees, and the interpreter runs the adventure's wiring.
+**Register the library's [`Interpreter`][osrlib.crawl.interpreter.Interpreter] and do no bookkeeping.** One `session.register_listener(Interpreter(session))` after the session is built (and again after a load), and the interpreter plays the triggers, the quests, the fired-marks, and the rewards as ordinary logged commands. The agent referees, and the interpreter runs the adventure's setup.
 
 **`guidance` is steering, never script.** [`NarrativeBlock`][osrlib.crawl.narrative.NarrativeBlock] has a `guidance` field on any authored object, and [`LevelSpec.guidance`][osrlib.crawl.dungeon.LevelSpec] holds whole-level ambience that hangs on no object at all. The TUI barrow's first level reads:
 

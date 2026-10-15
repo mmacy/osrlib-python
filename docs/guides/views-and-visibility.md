@@ -8,7 +8,7 @@ Visibility shows up in two places: on individual events, and on the two whole-st
 
 Every [`Event`][osrlib.core.events.Event] has a [`Visibility`][osrlib.core.events.Visibility]: `PLAYER` or `REFEREE`. Most events default to `PLAYER`, like a party move, a door opening, or damage dealt. A specific set default to `REFEREE` because B/X keeps them behind the screen: morale checks, reaction rolls, wandering-monster checks, detection rolls, and the event that reports a creature's current and maximum hit points ([`HitPointsReportedEvent`][osrlib.core.events.HitPointsReportedEvent]). If your front end streams or narrates the raw event log as it happens, like an LLM referee doing turn-by-turn narration, check `.visibility` yourself before you show an event to a player, the same way you'd filter a database query.
 
-The authored layer splits the same way. A journal beat is written for the table, so [`JournalEntryAddedEvent`][osrlib.crawl.events.JournalEntryAddedEvent] is player-visible and includes the authored text itself: content data in a structured field, alongside the event's message code, never engine-baked English. The wiring that produced the beat is referee-visibility instead. A fired trigger ([`TriggerFiredEvent`][osrlib.crawl.events.TriggerFiredEvent]) and a referee note ([`NoteRecordedEvent`][osrlib.crawl.events.NoteRecordedEvent]) are referee-only, exactly as a flag write is, because content wiring is the game's secret. Player-visible events and the player view are two of the three routes authored words take to a player. The third is a gate's `refusal` beat, which the engine returns in an ordinary rejection. Render it like any other refusal (see [Gates, triggers, and quests](gates-triggers-quests.md)).
+The authored layer splits the same way. A journal beat is written for the table, so [`JournalEntryAddedEvent`][osrlib.crawl.events.JournalEntryAddedEvent] is player-visible and includes the authored text itself: content data in a structured field, alongside the event's message code, never engine-baked English. The setup that produced the beat is referee-visibility instead. A fired trigger ([`TriggerFiredEvent`][osrlib.crawl.events.TriggerFiredEvent]) and a referee note ([`NoteRecordedEvent`][osrlib.crawl.events.NoteRecordedEvent]) are referee-only, exactly as a flag write is, because these connections are the game's secret. Player-visible events and the player view are two of the three routes authored words take to a player. The third is a gate's `refusal` beat, which the engine returns in an ordinary rejection. Render it like any other refusal (see [Gates, triggers, and quests](gates-triggers-quests.md)).
 
 Most front ends never do that filtering by hand, though, because osrlib also ships two ready-made projections of the *whole session*, one per audience, each already filtered for the audience it serves.
 
@@ -35,7 +35,7 @@ The quests in play appear as [`QuestView`][osrlib.crawl.views.QuestView] values 
 
 ## The split in practice
 
-The clearest way to see the split is a spawned monster. The referee view contains the monster's live hit points. The player-facing encounter group contains only what the party could plausibly perceive: how many are still standing, how far away they are, and what conditions show.
+The clearest way to see the split is a created monster. The referee view contains the monster's live hit points. The player-facing encounter group contains only what the party could plausibly perceive: how many are still standing, how far away they are, and what conditions show.
 
 ```{.python .no-run}
 # The referee sees the goblin's hit points; the player view never contains them.
@@ -50,16 +50,16 @@ assert "current_hp" not in player_group.model_dump()
 The authored layer shows the same split from the other side. The journal reaches the player view whole, and the trigger behind a beat doesn't reach the player view at all.
 
 ```{.python .no-run}
-# The beat is for the table; the trigger that produced it is referee-only wiring.
+# The beat is for the table; the trigger that produced it is referee-only setup.
 assert [entry.text for entry in journal_view.journal][-1] == "The lever grinds."
 assert "lever-east" not in journal_view.model_dump_json()
 assert referee_after.fired_triggers == ("lever-east",)
 ```
 
-Quests draw the same line, one level finer. `PlayerView.quests` contains the **active** quests only, in document order. A quest nobody has been given yet is absent, because an activation clause is wiring like any other, and a finished quest is no longer in `PlayerView.quests`, because its record is the journal. Under each quest, only the **revealed** objectives appear. A hidden objective's id is not in the projection at all until its `reveal_when` clause fires or the objective completes, which is why `ObjectiveView.state` needs only `"incomplete"` and `"complete"`. Nothing else about a quest reaches the player view: no clause, no pattern, no condition, no reward, and no `guidance` from any narrative block or level.
+Quests draw the same line, one level finer. `PlayerView.quests` contains the **active** quests only, in document order. A quest nobody has been given yet is absent, because an activation clause is a connection like any other, and a finished quest is no longer in `PlayerView.quests`, because its record is the journal. Under each quest, only the **revealed** objectives appear. A hidden objective's id is not in the projection at all until its `reveal_when` clause fires or the objective completes, which is why `ObjectiveView.state` needs only `"incomplete"` and `"complete"`. Nothing else about a quest reaches the player view: no clause, no pattern, no condition, no reward, and no `guidance` from any narrative block or level.
 
 ```{.python .no-run}
-# Active quests only, revealed objectives only, and none of the wiring behind them.
+# Active quests only, revealed objectives only, and none of the setup behind them.
 quest_view = player_view.quests[0]
 assert (quest_view.id, quest_view.speaker) == ("the-lamps", "Sister Halda")
 assert [entry.id for entry in quest_view.objectives] == ["find-the-lever"]
@@ -141,7 +141,7 @@ session.register_listener(Interpreter(session))
 
 session.execute(EnterDungeon(dungeon_id="crypt"))
 
-# The referee spawns a lone goblin and opens an encounter at 30 feet.
+# The referee creates a lone goblin and opens an encounter at 30 feet.
 result = session.execute(SpawnMonsters(template_id="goblin", count_fixed=1, distance_feet=30))
 assert result.accepted
 assert session.mode is SessionMode.ENCOUNTER
@@ -165,7 +165,7 @@ session.execute(RecordNote(text="The east lever is the only one that answers."))
 journal_view = session.view(Visibility.PLAYER)
 referee_after = session.view(Visibility.REFEREE)
 
-# The beat is for the table; the trigger that produced it is referee-only wiring.
+# The beat is for the table; the trigger that produced it is referee-only setup.
 assert [entry.text for entry in journal_view.journal][-1] == "The lever grinds."
 assert "lever-east" not in journal_view.model_dump_json()
 assert referee_after.fired_triggers == ("lever-east",)
@@ -177,7 +177,7 @@ assert quest_view.narrative == "Light the crypt's lamps before the moon sets."
 assert quest_view.speaker == "Sister Halda"
 assert journal_view.journal[0].text == quest_view.narrative
 
-# Only the revealed objective is projected, and none of the wiring behind it.
+# Only the revealed objective is projected, and none of the setup behind it.
 assert [(entry.id, entry.state) for entry in quest_view.objectives] == [("find-the-lever", "incomplete")]
 blob = journal_view.model_dump_json()
 assert "name-the-dead" not in blob  # a hidden objective has no view at all
