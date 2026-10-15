@@ -14,7 +14,7 @@ pip install osrlib
 
 ## Roll the party
 
-[`create_character`][osrlib.core.character.create_character] runs the B/X procedure: ability scores, class, hit points, starting gold. Randomness flows through named streams forked from a master seed — same seed, same characters.
+[`create_character`][osrlib.core.character.create_character] runs the B/X procedure: ability scores, class, hit points, starting gold. Randomness flows through named streams forked from a master seed — same seed, same rolls.
 
 ```{.python .no-run}
 # Roll two 1st-level characters; every random draw comes from a named, seeded stream.
