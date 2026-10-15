@@ -1,6 +1,6 @@
 # Building an adventure
 
-Adventures are plain data: frozen [pydantic](https://docs.pydantic.dev/) models you assemble in code, or load from your own file format, and hand to the session. [The complete program](#the-complete-program) at the end runs as written, and every code snippet before it comes from that program.
+Adventures are plain data: frozen [pydantic](https://docs.pydantic.dev/) models you assemble in code, or load from your own file format, and hand to the session.
 
 The shape of the tree:
 
@@ -13,7 +13,7 @@ The shape of the tree:
 
 A level is a `width × height` grid. Cells are addressed `(x, y)` with `x` increasing east and `y` increasing south from `(0, 0)` at the northwest corner.
 
-Walls are the default. You declare the exceptions (passages and doors) in the `edges` map. Everything absent from the map is solid wall, including the level boundary. Each physical edge between two cells has exactly one entry, keyed on the cell that lies south or east of it. The key `"1,0:west"` is the west side of cell `(1, 0)`, which is the same edge as the east side of `(0, 0)`. The [`edge_key`][osrlib.crawl.dungeon.edge_key] helper computes the canonical key for any cell and direction, so you don't have to work out which of the two cells keys the edge:
+Walls are the default. You declare the exceptions (passages and doors) in the `edges` map. Everything absent from the map is solid wall, including the level boundary. The key `"1,0:west"` is the west side of cell `(1, 0)`; the [`edge_key`][osrlib.crawl.dungeon.edge_key] helper computes the canonical key for any cell and direction:
 
 ```{.python .no-run}
 # The level: a 4x1 corridor, entered at the west end, with a door at the far end.
@@ -29,7 +29,7 @@ level = LevelSpec(
     },
 ```
 
-An [`Edge`][osrlib.crawl.dungeon.Edge] is `open`, `wall`, or `door`. A door edge has a [`DoorSpec`][osrlib.crawl.dungeon.DoorSpec]: normal or secret, optionally stuck or locked, optionally starting open, and optionally gated by an authored condition. To learn about the gate you'd put on this door's `requires` field, see [Gates, triggers, and quests](../guides/gates-triggers-quests.md). `entrance` is the cell where [`EnterDungeon`][osrlib.crawl.commands.EnterDungeon] lands the party.
+An [`Edge`][osrlib.crawl.dungeon.Edge] is `open`, `wall`, or `door`. A door edge has a [`DoorSpec`][osrlib.crawl.dungeon.DoorSpec]: normal or secret, stuck, locked, or gated. For gates, see [Gates, triggers, and quests](../guides/gates-triggers-quests.md). `entrance` is the cell where [`EnterDungeon`][osrlib.crawl.commands.EnterDungeon] lands the party.
 
 ## Keyed areas
 
@@ -48,7 +48,7 @@ Cells not covered by any area are corridor. An [`AreaSpec`][osrlib.crawl.dungeon
 )
 ```
 
-A [`KeyedEncounter`][osrlib.crawl.dungeon.KeyedEncounter] lists its monsters by template id, each with a fixed count or count dice. A template id is any id from [`load_monsters`][osrlib.data.load_monsters], listed in [the monster id index][monsters-index], or the id of a monster the adventure bundles (see [Bundling custom monsters with an adventure](../guides/authoring-custom-content.md#bundling-custom-monsters-with-an-adventure)). You can also pin the monsters' awareness, stance, or alignment. Left unpinned, the engine rolls surprise and reactions normally when the party walks in.
+A [`KeyedEncounter`][osrlib.crawl.dungeon.KeyedEncounter] lists its monsters by template id, each with a fixed count or count dice. A template id is any id from [`load_monsters`][osrlib.data.load_monsters], listed in [the monster id index][monsters-index], or the id of a monster the adventure bundles (see [Bundling custom monsters with an adventure](../guides/authoring-custom-content.md#bundling-custom-monsters-with-an-adventure)). You can also pin the monsters' awareness, stance, or alignment.
 
 Beyond encounters, an area (or the level itself) can contain:
 
@@ -72,7 +72,7 @@ adventure = Adventure(
 )
 ```
 
-The root also contains the adventure's *behavior* on the `items`, `triggers`, and `quests` fields: its own item templates, its triggers, and its quests. To learn about all three, see [Gates, triggers, and quests](../guides/gates-triggers-quests.md).
+The root also contains the adventure's *behavior* on the `items`, `triggers`, and `quests` fields: its own item templates, its triggers, and its quests. For all three, see [Gates, triggers, and quests](../guides/gates-triggers-quests.md).
 
 ## Validate before play
 
@@ -85,7 +85,7 @@ validate_adventure(adventure, load_monsters(), load_equipment())
 
 ## The complete program
 
-Entering the dungeon and walking east brings the party to the door at the corridor's end. The guard post is beyond the door. Stepping in spawns the goblins, the engine rolls surprise and reaction, and the session switches to the encounter:
+The party enters the barrow, walks east to the door, opens it, and steps into the guard post, where the encounter begins:
 
 ```python
 from osrlib.core.alignment import Alignment
@@ -164,7 +164,7 @@ assert len(session.monsters) == 2
 
 ## Where next
 
-- [Gates, triggers, and quests](../guides/gates-triggers-quests.md) - the authored behavior this dungeon's data can contain: the gated door, the trigger wiring, and the quest that ends the adventure.
-- [The TUI crawler](../front-ends/tui-crawler.md) builds a complete authored adventure: a two-level barrow with a fetch quest, a custom wandering table, and a hand-placed MacGuffin. [The FastAPI pattern](../front-ends/fastapi-pattern.md) serves the same barrow over HTTP.
-- [Sessions, commands, and events](../guides/sessions-commands-events.md) - what happens after the encounter starts.
-- [Authoring custom classes, spells, monsters, and items](../guides/authoring-custom-content.md) - extending the content catalogs themselves.
+- [Gates, triggers, and quests](../guides/gates-triggers-quests.md) - authored behavior: gated doors, triggers, quests.
+- [The TUI crawler](../front-ends/tui-crawler.md) - a complete authored adventure: a two-level barrow, a fetch quest, a custom wandering table, a hand-placed MacGuffin. [The FastAPI pattern](../front-ends/fastapi-pattern.md) serves the same barrow over HTTP.
+- [Sessions, commands, and events](../guides/sessions-commands-events.md) - the command loop: modes, rejections, the event log.
+- [Authoring custom classes, spells, monsters, and items](../guides/authoring-custom-content.md) - extending the content catalogs.
