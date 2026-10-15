@@ -22,7 +22,7 @@ assert rolled.total == (sum(rolled.rolls) + 1) * 10
 
 `roll` also accepts the plain string directly (it calls `parse` for you), so `roll("3d6", stream)` is just as valid as parsing first.
 
-## Resolving an attack against a spawned monster
+## Resolving an attack against a created monster
 
 [`create_character`][osrlib.core.character.create_character] and [`spawn_monster`][osrlib.core.monsters.spawn_monster] both work with no session behind them. Past its own name, class id, and alignment, a character needs only a [`Ruleset`][osrlib.core.ruleset.Ruleset] and a stream. A monster needs only its [`MonsterTemplate`][osrlib.core.monsters.MonsterTemplate] from [`load_monsters`][osrlib.data.load_monsters] (see [the monster id index][monsters-index]) plus an id, conventionally minted by an [`IdAllocator`][osrlib.core.monsters.IdAllocator], the same monotonic counter a `GameSession` uses internally. [`resolve_attack`][osrlib.core.combat.resolve_attack] then runs the whole pipeline (the attack roll, the immunity gate, the damage roll and its application) against an [`AttackContext`][osrlib.core.combat.AttackContext] you build yourself. Pass `attack=None` for an unarmed strike:
 
@@ -135,6 +135,6 @@ assert reaction in ReactionResult
 
 ## Where next
 
-- [Sessions, commands, and events](sessions-commands-events.md) - how `GameSession` wires these same kernel functions to its own named streams automatically.
+- [Sessions, commands, and events](sessions-commands-events.md) - how `GameSession` connects these same kernel functions to its own named streams automatically.
 - [Determinism, saves, and replay](determinism-saves-replay.md) - the seed and stream guarantees `RngStreams` relies on.
 - [The API reference](../reference/api/index.md) - every public symbol in `osrlib.core`, module by module.

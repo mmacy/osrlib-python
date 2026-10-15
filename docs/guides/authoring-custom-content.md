@@ -1,6 +1,6 @@
 # Authoring custom classes, spells, monsters, and items
 
-A build pipeline compiles the OSE SRD into the package's data files: the classes, the spell list, the monster catalog, and the equipment lists that ship with osrlib. That pipeline isn't the extension point, and you can't feed your own content into it. What you can do is write your own class, spell, monster, and item definitions in code, validate them the same way the shipped catalogs validate their own content, and run them through the same kernel that plays a fighter or a goblin: creation, advancement, memorization, casting, and (for monsters) spawning, combat, XP, and treasure. A class's `race` and a spell's `spell_list` are both open, validated string ids for exactly this reason. Nothing in the kernel restricts them to the values the shipped classes use.
+A build pipeline compiles the OSE SRD into the package's data files: the classes, the spell list, the monster catalog, and the equipment lists that ship with osrlib. That pipeline isn't the extension point, and you can't feed your own content into it. What you can do is write your own class, spell, monster, and item definitions in code, validate them the same way the shipped catalogs validate their own content, and run them through the same kernel that plays a fighter or a goblin: creation, advancement, memorization, casting, and (for monsters) creation, combat, XP, and treasure. A class's `race` and a spell's `spell_list` are both open, validated string ids for exactly this reason. Nothing in the kernel restricts them to the values the shipped classes use.
 
 Start with one small custom class and one custom spell for it. The [complete program](#the-complete-program) runs every step shown along the way. After that come [bundling custom monsters with an adventure](#bundling-custom-monsters-with-an-adventure) and [bundling custom items with an adventure](#bundling-custom-items-with-an-adventure), both for the crawl layer. The scope here is the content catalogs, the *things* a game and its adventures can contain. Authored *behavior* is a different surface: the gated door, the trigger, and the quest are covered in [Gates, triggers, and quests](gates-triggers-quests.md).
 
@@ -134,11 +134,11 @@ assert warden.thac0 == 19
 assert warden.saves.spells == 14
 ```
 
-That's a plain Python module attribute, not a documented plugin point with its own function. If you want characters of a custom class, do the reassignment once, at startup, before you build or load any character, rather than calling it per character. `race` needs no such wiring. Both `ClassDefinition` and `Character` validate it against a slug pattern and nothing else, and no procedure looks it up anywhere, so any race string the two sides agree on already works.
+That's a plain Python module attribute, not a documented plugin point with its own function. If you want characters of a custom class, do the reassignment once, at startup, before you build or load any character, rather than calling it per character. `race` needs no such setup. Both `ClassDefinition` and `Character` validate it against a slug pattern and nothing else, and no procedure looks it up anywhere, so any race string the two sides agree on already works.
 
 ## Advancing and casting
 
-With the catalogs extended and the loader binding pointed at them, the rest of the lifecycle is the same kernel calls a shipped class goes through. `level_up` reads next level's row straight off `WARDEN`. `memorize_spells` checks the caster's list and slot capacity against the extended spell catalog. Casting consumes the memorized copy and resolves the mode's effect, which here heals a wounded ally by touch:
+With the catalogs extended and the loader pointed at them, the rest of the lifecycle is the same kernel calls a shipped class goes through. `level_up` reads next level's row straight off `WARDEN`. `memorize_spells` checks the caster's list and slot capacity against the extended spell catalog. Casting consumes the memorized copy and resolves the mode's effect, which here heals a wounded ally by touch:
 
 ```{.python .no-run}
 streams = RngStreams(master_seed=2026)
@@ -292,7 +292,7 @@ rejections = validate_class_choice(low_scores, WARDEN)
 assert [rejection.code for rejection in rejections] == ["creation.class.requirements_not_met"]
 
 # The one seam: Character.definition resolves load_classes() from this module's
-# namespace, so a game holding custom definitions swaps that binding once, up front.
+# namespace, so a game holding custom definitions reassigns it once, up front.
 character_module.load_classes = lambda: classes
 
 scores = {ability: 11 for ability in AbilityScore} | {AbilityScore.WIS: 13, AbilityScore.CON: 13}
@@ -353,7 +353,7 @@ assert warden.memorized_spells == ()
 
 ## Bundling custom monsters with an adventure
 
-Monsters take a different transport than classes and spells, because the crawl layer already has a document that contains content: the adventure. `Adventure.monsters` bundles your own [`MonsterTemplate`][osrlib.core.monsters.MonsterTemplate]s with the adventure document, and every session running that adventure resolves them everywhere it resolves a shipped template id: keyed encounters, [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters], inline wandering tables, listen checks, and [`GameSession.spawn`][osrlib.crawl.session.GameSession.spawn]. No loader reassignment, no registration. The document contains the content, and [`GameSession.effective_monsters`][osrlib.crawl.session.GameSession.effective_monsters] is the shipped catalog plus the bundle. Downstream of spawning, nothing is different for a bundled monster. A spawned [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] embeds its full template, so combat, morale, XP, treasure, saves, and replay never look the id up again.
+Monsters take a different transport than classes and spells, because the crawl layer already has a document that contains content: the adventure. `Adventure.monsters` bundles your own [`MonsterTemplate`][osrlib.core.monsters.MonsterTemplate]s with the adventure document, and every session running that adventure resolves them everywhere it resolves a shipped template id: keyed encounters, [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters], inline wandering tables, listen checks, and [`GameSession.spawn`][osrlib.crawl.session.GameSession.spawn]. No loader reassignment, no registration. The document contains the content, and [`GameSession.effective_monsters`][osrlib.crawl.session.GameSession.effective_monsters] is the shipped catalog plus the bundle. Downstream of creation, nothing is different for a bundled monster. A created [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] embeds its full template, so combat, morale, XP, treasure, saves, and replay never look the id up again.
 
 A template is a frozen model you build with `model_validate`, exactly like the class and spell above. Three table helpers derive the stat-block numbers the SRD would print, so your creation matches the attack matrix, the monster save bands, and the XP awards table: [`thac0_for_hd`][osrlib.core.tables.thac0_for_hd], [`monster_save_band_label`][osrlib.core.tables.monster_save_band_label], and [`monster_xp`][osrlib.core.tables.monster_xp]. The one rule is the collision rule: a bundled id must not collide with the shipped catalog or another bundled id. [`validate_adventure`][osrlib.crawl.adventure.validate_adventure] rejects a collision outright and never overrides, so give a variant orc a variant id. [The monster id index][monsters-index] documents the shipped catalog only. Bundled ids live in the adventure that includes them:
 
@@ -431,7 +431,7 @@ hero = create_character(name="Hild", class_id="fighter", alignment=Alignment.LAW
 session = GameSession.new(Party(members=[hero.character]), adventure, seed=7)
 
 # The session's effective catalog resolves the bundled id — the very object the
-# adventure carries — and spawning embeds it in each instance.
+# adventure carries — and creation embeds it in each instance.
 assert session.effective_monsters.get("bone_warden") is BONE_WARDEN
 guards = session.spawn("bone_warden", 2)
 assert [guard.template.id for guard in guards] == ["bone_warden", "bone_warden"]
@@ -549,7 +549,7 @@ Third, some class policies are written as id lists. A class whose [`WeaponPolicy
 
 There's no merge path into the shipped content. `load_classes` and `load_spells` are cached loaders that read the generated `classes.json` and `spells.json` shipped inside the package. There's no append or register call, so an extended catalog is always a value your own code builds and keeps: `classes` and `spells` above, never something fed back into the loaders themselves. `load_monsters` and `load_equipment` are just as closed. Bundling ([monsters](#bundling-custom-monsters-with-an-adventure), [items](#bundling-custom-items-with-an-adventure)) joins your templates to the shipped catalog per session through the adventure document that contains them, and the shipped catalog objects never change.
 
-[`create_character`][osrlib.core.character.create_character], the one-call wrapper used in [the quickstart](../getting-started/quickstart.md), resolves its `class_id` argument through `load_classes().get(class_id)`. That's the same module attribute `Character.definition` reads, so [the seam above](#the-one-seam-characters-of-a-custom-class) covers the wrapper too: reassign `load_classes` and `create_character(class_id="warden", ...)` rolls a warden. Leave the binding alone and the wrapper finds shipped ids only. Not one of the stepwise creation functions resolves a class by id, so none of them needs the seam: [`roll_ability_scores`][osrlib.core.character.roll_ability_scores], `validate_class_choice`, [`roll_hit_points`][osrlib.core.character.roll_hit_points], [`validate_extra_languages`][osrlib.core.character.validate_extra_languages], [`roll_starting_gold`][osrlib.core.character.roll_starting_gold], and [`choose_starting_spells`][osrlib.core.character.choose_starting_spells] take a `ClassDefinition` object or nothing but a stream, and they run the identical procedure `create_character` composes.
+[`create_character`][osrlib.core.character.create_character], the one-call wrapper used in [the quickstart](../getting-started/quickstart.md), resolves its `class_id` argument through `load_classes().get(class_id)`. That's the same module attribute `Character.definition` reads, so [the seam above](#the-one-seam-characters-of-a-custom-class) covers the wrapper too: reassign `load_classes` and `create_character(class_id="warden", ...)` rolls a warden. Leave the assignment alone and the wrapper finds shipped ids only. Not one of the stepwise creation functions resolves a class by id, so none of them needs the seam: [`roll_ability_scores`][osrlib.core.character.roll_ability_scores], `validate_class_choice`, [`roll_hit_points`][osrlib.core.character.roll_hit_points], [`validate_extra_languages`][osrlib.core.character.validate_extra_languages], [`roll_starting_gold`][osrlib.core.character.roll_starting_gold], and [`choose_starting_spells`][osrlib.core.character.choose_starting_spells] take a `ClassDefinition` object or nothing but a stream, and they run the identical procedure `create_character` composes.
 
 The `load_classes` reassignment above is a plain module attribute, not a supported extension API with its own function or parameter. There's nothing to call except swapping the name, and nothing checks that you swapped it back. If your game has custom classes, reassign it once at startup and keep your extended catalog as the only `load_classes` your characters ever see for the life of the process, the same way the [complete program](#the-complete-program) above does. Spells need no equivalent seam. Nothing resolves a spell by id off a character the way `Character.definition` resolves a class, so `SpellCatalog.get` and `SpellCatalog.by_list` calls against your own extended catalog are all a caster needs.
 
@@ -557,7 +557,7 @@ For the ids the shipped catalogs already use, see [the class id index][classes-i
 
 ## Where next
 
-- [Building an adventure](../getting-started/building-an-adventure.md) - the dungeon geometry and keyed content the bundled monsters and items above bind into.
+- [Building an adventure](../getting-started/building-an-adventure.md) - the dungeon geometry and keyed content the bundled monsters and items above attach to.
 - [Gates, triggers, and quests](gates-triggers-quests.md) - authored behavior: the gate that a bundled key opens, the trigger that matches a bundled id, the quest that ends the adventure.
 - [Sessions, commands, and events](sessions-commands-events.md) - running a character, custom class or not, through an actual session once it exists.
 - [The API reference](../reference/api/index.md) - the full model and function reference for everything named on this page.

@@ -35,7 +35,7 @@ Two details of that handler matter:
 
 ## The served content and its interpreter
 
-The barrow is authored content: gated doors, a fetch quest, the works. Nothing plays that content until the [`Interpreter`][osrlib.crawl.interpreter.Interpreter] is registered on the session (see [Gates, triggers, and quests](../guides/gates-triggers-quests.md)). The server owns that wiring in `content.py`, and it happens on **both** entry paths, the fresh session and the restored one. A fresh session registers the interpreter the moment it is built:
+The barrow is authored content: gated doors, a fetch quest, the works. Nothing plays that content until the [`Interpreter`][osrlib.crawl.interpreter.Interpreter] is registered on the session (see [Gates, triggers, and quests](../guides/gates-triggers-quests.md)). The server owns that setup in `content.py`, and it happens on **both** entry paths, the fresh session and the restored one. A fresh session registers the interpreter the moment it is built:
 
 ```{.python .no-run}
 --8<-- "examples/fastapi_crawler/content.py:new-session"

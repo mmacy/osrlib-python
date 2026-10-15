@@ -49,7 +49,7 @@ The event-level `Visibility` check above hides individual referee-only lines. Th
 
 ## The authored adventure
 
-`content.py` builds the game's whole world: a town, a two-level barrow, and the errand that ends it, assembled from the same authoring models [Building an adventure](../getting-started/building-an-adventure.md) walks through. A keyed area binds content (descriptive text, an encounter, features) to a set of cells. The shrine below binds prose and the cache that holds the quest's MacGuffin, named by id so that taking it is something the quest can match on (the goblins are keyed to a different room):
+`content.py` builds the game's whole world: a town, a two-level barrow, and the errand that ends it, assembled from the same authoring models [Building an adventure](../getting-started/building-an-adventure.md) walks through. A keyed area attaches content (descriptive text, an encounter, features) to a set of cells. The shrine below attaches prose and the cache that holds the quest's MacGuffin, named by id so that taking it is something the quest can match on (the goblins are keyed to a different room):
 
 ```{.python .no-run}
 --8<-- "examples/tui_crawler/content.py:idol-shrine-area"
