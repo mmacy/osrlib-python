@@ -179,7 +179,8 @@ class LocationEnteredEvent(Event):
     Emitted whenever the party's location changes at one of those four scales:
     [`EnterDungeon`][osrlib.crawl.commands.EnterDungeon] on arrival at a dungeon,
     [`UseStairs`][osrlib.crawl.commands.UseStairs] on a level or dungeon change,
-    [`MoveParty`][osrlib.crawl.commands.MoveParty] on stepping into a keyed area,
+    [`MoveParty`][osrlib.crawl.commands.MoveParty] on stepping into a keyed area, and on a
+    level or dungeon change through a passage,
     [`TravelToTown`][osrlib.crawl.commands.TravelToTown] on arriving back in town,
     and [`PlaceParty`][osrlib.crawl.commands.PlaceParty] when a referee puts the
     party somewhere.

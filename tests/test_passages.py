@@ -50,8 +50,6 @@ from osrlib.data import load_equipment, load_monsters
 from osrlib.errors import ContentValidationError
 from osrlib.persistence import load_game, replay_game, save_game, session_state
 
-pytestmark = pytest.mark.xfail(reason="chunk: passage")
-
 SEED = 17
 
 EAST, WEST, NORTH, SOUTH = Direction.EAST, Direction.WEST, Direction.NORTH, Direction.SOUTH
