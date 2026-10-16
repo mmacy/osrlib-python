@@ -221,15 +221,21 @@ class LocationEnteredEvent(Event):
     after the templated one."""
     via: str | None = None
     """How the party got there, on level and dungeon entries: the kind of the transition it took
-    (`"stairs_down"`, `"stairs_up"`, `"trapdoor"`, or `"chute"`), `"trap"` for a trap that dropped
-    the party through the floor, `"entrance"` for [`EnterDungeon`][osrlib.crawl.commands.EnterDungeon],
-    and `"placed"` for [`PlaceParty`][osrlib.crawl.commands.PlaceParty]. It is `None` on area and
-    town entries, and on an event loaded from a save written before the field existed."""
+    (`"stairs_down"`, `"stairs_up"`, `"trapdoor"`, or `"chute"`), `"passage"` for a passage it
+    walked through with [`MoveParty`][osrlib.crawl.commands.MoveParty], `"trap"` for a trap that
+    dropped the party through the floor, `"entrance"` for
+    [`EnterDungeon`][osrlib.crawl.commands.EnterDungeon], and `"placed"` for
+    [`PlaceParty`][osrlib.crawl.commands.PlaceParty]. It is `None` on area and town entries, and on
+    an event loaded from a save written before the field existed."""
     transition_ref: str | None = None
     """The cell of the authored transition the party took, as
     [`cell_ref`][osrlib.crawl.dungeon.cell_ref] gives it, so a consumer can find the
     [`TransitionSpec`][osrlib.crawl.dungeon.TransitionSpec] and the gate on it. Filled on a level or
-    dungeon entry made through [`UseStairs`][osrlib.crawl.commands.UseStairs], `None` otherwise."""
+    dungeon entry made through [`UseStairs`][osrlib.crawl.commands.UseStairs] or through a passage,
+    `None` otherwise. For a passage crossing, it names the passage's cell. That cell can also have
+    stairs, and passages on its other sides, so find the passage with
+    [`LevelSpec.passage_at`][osrlib.crawl.dungeon.LevelSpec.passage_at] and the `direction` of the
+    [`MoveParty`][osrlib.crawl.commands.MoveParty] that crossed it."""
 
 
 class DoorEvent(Event):

@@ -50,7 +50,18 @@ from osrlib.crawl.commands import (
     SetDoorState,
     SpawnMonsters,
 )
-from osrlib.crawl.dungeon import AreaSpec, Direction, DungeonSpec, EdgeKind, FeatureSpec, LevelSpec
+from osrlib.crawl.dungeon import (
+    AreaSpec,
+    Direction,
+    DungeonSpec,
+    EdgeKind,
+    FeatureSpec,
+    LevelSpec,
+    Position,
+    TransitionSpec,
+    TrapSpec,
+    step,
+)
 from osrlib.crawl.gates import ConditionSpec, GateSpec, HasItemCondition
 from osrlib.crawl.quests import QuestSpec
 from osrlib.crawl.triggers import (
@@ -403,6 +414,74 @@ def _area_has_boundary_door(area: AreaSpec, level: LevelSpec) -> bool:
     return any(level.edge(cell, direction).kind is EdgeKind.DOOR for cell in area.cells for direction in Direction)
 
 
+def _trap_crosses_a_passage(trap: TrapSpec | None) -> bool:
+    """Return whether a trap's effect moves its victim through a passage.
+
+    A trap's transition is a forced relocation, and a passage is something the party walks through
+    on its own, so validation refuses the two together.
+    """
+    return trap is not None and trap.effect.transition is not None and trap.effect.transition.kind == "passage"
+
+
+def _passage_far_cells(adventure: Adventure) -> set[tuple[str, int, Position]]:
+    """Return the far cell of every passage in the adventure, as `(dungeon id, level number, cell)`.
+
+    A passage's far cell is the cell one step across its side. Only passages that stand on the grid
+    and whose far cell is on the grid count, because the other refusals already cover the rest.
+    """
+    far_cells: set[tuple[str, int, Position]] = set()
+    for dungeon in adventure.dungeons:
+        for level in dungeon.levels:
+            for transition in level.transitions:
+                if transition.kind != "passage" or transition.side is None:
+                    continue
+                far = step(transition.position, transition.side)
+                if level.in_bounds(transition.position) and level.in_bounds(far):
+                    far_cells.add((dungeon.id, level.number, far))
+    return far_cells
+
+
+def _validate_passage(
+    passage: TransitionSpec,
+    side: Direction,
+    dungeon_id: str,
+    level: LevelSpec,
+    owner: str,
+    far_cells: set[tuple[str, int, Position]],
+    errors: list[str],
+) -> None:
+    """Check the rules a passage's crossing depends on.
+
+    The passage's side has to be a wall. Its far cell has to be on the grid, outside every area, and
+    walled on every other side, so the party can never reach it and sight never passes through it.
+    The geometry checks run only for a passage that stands on the grid, since one that doesn't has
+    already been refused for that. The destination can't be the passage's own cell, and it can't be
+    any passage's far cell, which is walled in on every side.
+    """
+    site = f"{owner}: passage at {passage.position} {side.value}"
+    if level.in_bounds(passage.position):
+        if level.edge(passage.position, side).kind is not EdgeKind.WALL:
+            errors.append(f"{site} stands on an edge that is not a wall")
+        far = step(passage.position, side)
+        if not level.in_bounds(far):
+            errors.append(f"{site} has its far cell {far} off the grid")
+        else:
+            area = level.area_at(far)
+            if area is not None:
+                errors.append(f"{site} has its far cell {far} in area {area.id!r}")
+            for direction in Direction:
+                if direction is not side.opposite and level.edge(far, direction).kind is not EdgeKind.WALL:
+                    errors.append(f"{site} has a {direction.value} edge on its far cell {far} that is not a wall")
+    destination = (passage.to_dungeon_id, passage.to_level_number, passage.to_position)
+    if destination == (dungeon_id, level.number, passage.position):
+        errors.append(f"{site} lands on its own cell")
+    elif destination in far_cells:
+        errors.append(
+            f"{site} lands on {passage.to_dungeon_id} level {passage.to_level_number} {passage.to_position}, "
+            "the far cell of a passage"
+        )
+
+
 def _validate_feature(
     feature: FeatureSpec,
     level: LevelSpec,
@@ -413,6 +492,8 @@ def _validate_feature(
 ) -> None:
     if feature.cell is not None and not level.in_bounds(feature.cell):
         errors.append(f"{owner}: feature {feature.id!r} cell {feature.cell} is out of bounds")
+    if _trap_crosses_a_passage(feature.trap):
+        errors.append(f"{owner}: feature {feature.id!r} has a trap whose transition is a passage")
     for item_id in feature.item_ids:
         try:
             equipment.get(item_id)
@@ -648,12 +729,17 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
     area trap and a feature trap are referenced the same way, so a collision would leave the found,
     sprung, and removed records unable to tell the two apart), area cells on the grid, an
     `open`-trigger room trap having a door on its area's boundary (an `enter`-trigger trap needs
-    none, and a door that starts open still counts),
+    none, and a door that starts open still counts), no area trap whose transition is a passage,
     keyed encounter template ids resolving and any fixed alignment being one the template allows,
-    feature cells on the grid with their cache item ids and magic item ids resolving, every
-    level-scope feature having a cell, inline wandering-table monster ids resolving, the item ids
-    named by `has_item` gates on doors and transitions resolving, and transitions standing on the grid
-    and landing on real cells of real levels.
+    feature cells on the grid with their cache item ids and magic item ids resolving, no feature trap
+    whose transition is a passage, every level-scope feature having a cell, inline wandering-table
+    monster ids resolving, the item ids named by `has_item` gates on doors and transitions resolving,
+    and transitions standing on the grid and landing on real cells of real levels.
+
+    A passage gets more checks after those. Its side has to be a wall. Its far cell, the cell one
+    step across that side, has to be on the grid, outside every area, and walled on its other three
+    sides. The passage can't land on its own cell or on the far cell of any passage. Two passages
+    can't stand on the same cell and side.
 
     Then, for each trigger: its id unique, the area, level, dungeon, item, and monster its pattern
     names resolving, and for each consequence the item it grants, the monster it spawns, a door
@@ -723,6 +809,7 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
     for dungeon_id in adventure.town.travel_turns:
         if not any(dungeon.id == dungeon_id for dungeon in adventure.dungeons):
             errors.append(f"town travel names unknown dungeon {dungeon_id!r}")
+    far_cells = _passage_far_cells(adventure)
     for dungeon in adventure.dungeons:
         if not any(level.entrance is not None for level in dungeon.levels):
             errors.append(f"dungeon {dungeon.id!r} has no entrance on any level")
@@ -752,6 +839,8 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
                         errors.append(f"{owner}: area {area.id!r} cell {cell} is out of bounds")
                 if area.trap is not None and area.trap.trigger == "open" and not _area_has_boundary_door(area, level):
                     errors.append(f"{owner}: area {area.id!r} has an open-trigger trap and no door on its boundary")
+                if _trap_crosses_a_passage(area.trap):
+                    errors.append(f"{owner}: area {area.id!r} has a trap whose transition is a passage")
                 if area.encounter is not None:
                     for keyed in area.encounter.monsters:
                         try:
@@ -785,22 +874,30 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
             for edge_key_, edge in level.edges.items():
                 if edge.door is not None:
                     _validate_gate(edge.door.requires, owner, f"door {edge_key_}", effective_items, magic, errors)
+            passage_sides: set[tuple[Position, Direction]] = set()
+            doubled_sides: set[tuple[Position, Direction]] = set()
             for transition in level.transitions:
                 _validate_gate(
                     transition.requires, owner, f"transition at {transition.position}", effective_items, magic, errors
                 )
                 if not level.in_bounds(transition.position):
                     errors.append(f"{owner}: transition at {transition.position} is out of bounds")
-                try:
-                    target = adventure.dungeon(transition.to_dungeon_id).level(transition.to_level_number)
-                except ValueError:
+                target = _resolve_level(adventure, transition.to_dungeon_id, transition.to_level_number)
+                if target is None:
                     errors.append(
                         f"{owner}: transition targets unknown "
                         f"{transition.to_dungeon_id!r} level {transition.to_level_number}"
                     )
-                    continue
-                if not target.in_bounds(transition.to_position):
+                elif not target.in_bounds(transition.to_position):
                     errors.append(f"{owner}: transition target cell {transition.to_position} is out of bounds")
+                if transition.kind != "passage" or transition.side is None:
+                    continue
+                _validate_passage(transition, transition.side, dungeon.id, level, owner, far_cells, errors)
+                cell_side = (transition.position, transition.side)
+                if cell_side in passage_sides and cell_side not in doubled_sides:
+                    doubled_sides.add(cell_side)
+                    errors.append(f"{owner}: two passages stand at {transition.position} {transition.side.value}")
+                passage_sides.add(cell_side)
     seen_triggers: set[str] = set()
     for trigger in adventure.triggers:
         if trigger.id in seen_triggers:

@@ -318,6 +318,12 @@ class MoveParty(Command):
     [`EnterDungeon`][osrlib.crawl.commands.EnterDungeon] is what places the party at
     the entrance and switches the session to `exploring`.
 
+    A move across the side of the party's cell that a passage stands on crosses the
+    passage instead of stopping at the wall there. The party lands on the passage's
+    destination, facing its `to_facing`, and the move costs what a step onto that
+    cell costs. A passage is a [`TransitionSpec`][osrlib.crawl.dungeon.TransitionSpec]
+    whose `kind` is `"passage"`.
+
     Modes:
         `exploring`
 
@@ -326,7 +332,11 @@ class MoveParty(Command):
         - `exploration.move.cannot_move` - the party cannot move: it is overloaded,
           or a living member is unable to walk.
         - `exploration.move.blocked` - a wall, a closed or secret door, or the map
-          edge blocks that direction.
+          edge blocks that direction, and no passage stands on that side.
+        - `exploration.transition.gate_refused` - the move would cross a passage
+          whose authored condition ([`GateSpec`][osrlib.crawl.gates.GateSpec]) the
+          party doesn't satisfy. The refusal includes the author's own text, and
+          costs no movement, no time, and no toll.
 
     Events:
         [`PartyMovedEvent`][osrlib.crawl.events.PartyMovedEvent] with the new position
@@ -355,6 +365,15 @@ class MoveParty(Command):
         attacks stance opens battle at once
         ([`BattleStartedEvent`][osrlib.crawl.events.BattleStartedEvent]).
 
+        A move through a passage reports the crossing before the step, as
+        [`UseStairs`][osrlib.crawl.commands.UseStairs] does. An
+        [`ItemConsumedEvent`][osrlib.crawl.events.ItemConsumedEvent] comes first when
+        the passage's gate takes a toll. A `LocationEnteredEvent` follows when the
+        level or dungeon changes, with `via` set to `"passage"` and `transition_ref`
+        naming the passage's cell, then the `DoorEvent`s for the doors that swing shut
+        on the level the party left. The `PartyMovedEvent` for the landing cell comes
+        next, then the landing cell's own events.
+
         The step accrues toward the turn clock, and crossing a turn boundary brings
         its bookkeeping:
         [`EffectExpiredEvent`][osrlib.core.events.EffectExpiredEvent] with a
@@ -373,7 +392,7 @@ class MoveParty(Command):
     To change facing without spending the step, use
     [`TurnParty`][osrlib.crawl.commands.TurnParty]. A direction with a wall, a closed door, an
     undiscovered secret door, or the map edge behind it is refused with
-    `exploration.move.blocked`, and
+    `exploration.move.blocked`, unless a passage stands on that side of the party's cell, and
     [`ExploredLevelView.edges`][osrlib.crawl.views.ExploredLevelView.edges] is where a front
     end reads which sides of the cell the party can leave by."""
 
@@ -1486,14 +1505,17 @@ class UseStairs(Command):
     The party must be exploring a dungeon (see
     [`EnterDungeon`][osrlib.crawl.commands.EnterDungeon]) and standing on a cell
     with an authored transition. The move costs one unexplored-cell step of
-    movement.
+    movement. A passage doesn't count, because the party walks through a passage
+    with [`MoveParty`][osrlib.crawl.commands.MoveParty]. On a cell with both a
+    passage and stairs, this command takes the stairs.
 
     Modes:
         `exploring`
 
     Rejections:
         - `session.command.wrong_mode` - the session is not exploring a dungeon.
-        - `exploration.stairs.none` - no transition on the party's cell.
+        - `exploration.stairs.none` - no transition other than a passage on the
+          party's cell.
         - `exploration.transition.gate_refused` - the transition has an
           authored condition ([`GateSpec`][osrlib.crawl.gates.GateSpec]) the party
           does not satisfy. The refusal includes the author's own text, and costs no

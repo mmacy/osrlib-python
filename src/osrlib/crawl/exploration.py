@@ -176,6 +176,7 @@ from osrlib.crawl.dungeon import (
     FeatureSpec,
     PartyLocation,
     Position,
+    TransitionSpec,
     TrapSpec,
     cell_ref,
     edge_ref,
@@ -1505,6 +1506,7 @@ def _relocate(
     narrative=None,
     via: str | None = None,
     transition_ref: str | None = None,
+    walked: bool = False,
 ) -> list[Event]:
     """Move the party to a cell (transitions, slides): explore, events, hooks.
 
@@ -1513,21 +1515,29 @@ def _relocate(
     crosses no boundary emits no such event, so there is nowhere to put a beat.
 
     `via` and `transition_ref` are the caller's account of the crossing: the kind of
-    the transition taken and the cell it stands on for `UseStairs`, `"trap"` for a
-    slide, `"entrance"` for the way in. Every caller has both to hand and passes them,
-    so a consumer never has to work backwards from where the party ended up. Both go
-    out on the same crossing event the beat does, so a relocation within one level,
-    which emits no crossing event, drops them too.
+    the transition taken and the cell it stands on for `UseStairs` and for a passage,
+    `"trap"` for a slide, `"entrance"` for the way in. Every caller has both to hand
+    and passes them, so a consumer never has to work backwards from where the party
+    ended up. Both go out on the same crossing event the beat does, so a relocation
+    within one level, which emits no crossing event, drops them too.
+
+    `walked` is for a passage, which the party crosses on foot with `MoveParty`. The
+    relocation then reports the step as well: a `PartyMovedEvent` for the landing cell
+    after the crossing's events and before the landing cell's own. Within one level,
+    the doors the party opened also swing shut behind it, as they do after any step.
+    A relocation to another level shuts them on the way out whether or not the party
+    walked.
     """
     state = session.dungeon_state
     old_location = state.location
     old_area = None
     leave_events: list[Event] = []
-    if (
+    same_level = (
         old_location.kind == "dungeon"
         and old_location.dungeon_id == dungeon_id
         and old_location.level_number == level_number
-    ):
+    )
+    if same_level:
         old_area = _level(session).area_at(old_location.position)
     elif old_location.kind == "dungeon":
         leave_events = _swing_shut_on_leave(session)
@@ -1558,8 +1568,14 @@ def _relocate(
             )
         )
     events.extend(leave_events)
+    if walked:
+        events.append(
+            PartyMovedEvent(code="exploration.party.moved", x=position[0], y=position[1], facing=facing.value)
+        )
     state.mark_explored(dungeon_id, level_number, position)
     events.extend(_boundary_events(session, old_area, position))
+    if walked and same_level:
+        events.extend(_swing_shut(session, previous=old_location.position))
     events.extend(_enter_hooks(session))
     events.extend(_area_treasure_check(session))
     events.extend(_room_trap_check(session))
@@ -1634,6 +1650,9 @@ def _handle_move_party(session, command: MoveParty) -> tuple[list[Rejection], li
     for member in session.party.living_members():
         if cannot_move(member):
             return [Rejection(code="exploration.move.cannot_move", params={"character": member.id})], []
+    passage = level.passage_at(position, command.direction)
+    if passage is not None:
+        return _cross_passage(session, passage)
     edge = level.edge(position, command.direction)
     passable = edge.kind is EdgeKind.OPEN
     if edge.kind is EdgeKind.DOOR:
@@ -1665,6 +1684,41 @@ def _handle_move_party(session, command: MoveParty) -> tuple[list[Rejection], li
     events.extend(_area_treasure_check(session))
     events.extend(_room_trap_check(session))
     events.extend(_keyed_encounter_check(session))
+    events.extend(_accrue_movement(session, 10 if explored_before else 30))
+    return [], events
+
+
+def _cross_passage(session, passage: TransitionSpec) -> tuple[list[Rejection], list[Event]]:
+    """Walk the party through a passage, in place of a step that the wall on its side would block.
+
+    The gate is the last validation step, as it is for `UseStairs`: a refusal costs no
+    draw, no time, and no item. The crossing reports what `UseStairs` reports for the
+    same destination, then the step itself, and it costs what a step onto the landing
+    cell costs.
+    """
+    refusal = _gate_refusal(session, passage.requires)
+    if refusal is not None:
+        params: dict[str, int | str | tuple[int | str, ...]] = {}
+        if refusal:
+            params["refusal"] = refusal
+        return [Rejection(code="exploration.transition.gate_refused", params=params)], []
+    explored_before = session.dungeon_state.is_explored(
+        passage.to_dungeon_id, passage.to_level_number, passage.to_position
+    )
+    events = _pay_toll(session, passage.requires)
+    events.extend(
+        _relocate(
+            session,
+            passage.to_dungeon_id,
+            passage.to_level_number,
+            passage.to_position,
+            passage.to_facing,
+            narrative=_gate_success(passage.requires),
+            via="passage",
+            transition_ref=_cell_ref(session, passage.position),
+            walked=True,
+        )
+    )
     events.extend(_accrue_movement(session, 10 if explored_before else 30))
     return [], events
 

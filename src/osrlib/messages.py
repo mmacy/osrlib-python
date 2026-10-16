@@ -66,9 +66,9 @@ def _entered(event: Any) -> str:
 
     The event's `via` is the only source of the direction. Nothing else in the event says which way
     the party went, and where the party stands now is no help to a line rendered from the log after
-    the fact. The kinds that state no direction of their own (a trapdoor, a chute, a trap, the
-    entrance, a referee's placement) keep the plain arrival line. A stairs crossing into another
-    dungeon still names the dungeon, since the level number alone would hide the bigger move.
+    the fact. The kinds that state no direction of their own (a trapdoor, a chute, a passage, a
+    trap, the entrance, a referee's placement) get the plain arrival line. A stairs crossing into
+    another dungeon still names the dungeon, since the level number alone would hide the bigger move.
     """
     verb = {"stairs_up": "climbs", "stairs_down": "descends"}.get(event.via or "")
     if verb is not None and event.level_number is not None:
