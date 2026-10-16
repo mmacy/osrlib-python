@@ -13,7 +13,7 @@ The shape of the tree:
 
 A level is a `width × height` grid. Cells are addressed `(x, y)` with `x` increasing east and `y` increasing south from `(0, 0)` at the northwest corner.
 
-Walls are the default. You declare the exceptions (passages and doors) in the `edges` map. Everything absent from the map is solid wall, including the level boundary. The key `"1,0:west"` is the west side of cell `(1, 0)`; the [`edge_key`][osrlib.crawl.dungeon.edge_key] helper computes the canonical key for any cell and direction:
+Walls are the default. You declare the exceptions (open edges and doors) in the `edges` map. Everything absent from the map is solid wall, including the level boundary. The key `"1,0:west"` is the west side of cell `(1, 0)`. The [`edge_key`][osrlib.crawl.dungeon.edge_key] helper computes the canonical key for any cell and direction:
 
 ```{.python .no-run}
 # The level: a 4x1 corridor, entered at the west end, with a door at the far end.
@@ -55,7 +55,7 @@ Beyond encounters, an area (or the level itself) can contain:
 - [`FeatureSpec`][osrlib.crawl.dungeon.FeatureSpec] - a treasure cache, a construction trick, or custom content for your front end. A cache contains hand-placed items, magic items (any id from [the magic item id index][magic-items-index], like a `sword_plus_1` in a chest), coins, and named valuables ([`ValuableSpec`][osrlib.crawl.dungeon.ValuableSpec]).
 - [`TrapSpec`][osrlib.crawl.dungeon.TrapSpec] - room traps on areas, treasure traps on caches. A room trap springs when the party steps in or, with `trigger="open"`, when the party opens one of the area's doors.
 - [`AreaTreasureSpec`][osrlib.crawl.dungeon.AreaTreasureSpec] - generated treasure: explicit treasure type letters (see [the treasure type index][treasure-types-index]) or the level's unguarded-treasure band.
-- [`TransitionSpec`][osrlib.crawl.dungeon.TransitionSpec] - stairs, trapdoors, and chutes between levels. Transitions live on the level, not the area.
+- [`TransitionSpec`][osrlib.crawl.dungeon.TransitionSpec] - stairs, trapdoors, and chutes, which the party takes with [`UseStairs`][osrlib.crawl.commands.UseStairs], and passages, which the party walks through with [`MoveParty`][osrlib.crawl.commands.MoveParty]. A passage joins two cells that a map shows side by side but the grid can't, like the floors of two levels that meet. Transitions live on the level, not the area.
 - [`WanderingSpec`][osrlib.crawl.dungeon.WanderingSpec] - the level's wandering-monster check: 1-in-6 every two turns by default, with an optional custom table.
 
 ## The dungeon, the town, and the root

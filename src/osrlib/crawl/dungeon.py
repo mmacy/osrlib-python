@@ -441,6 +441,10 @@ class TransitionSpec(BaseModel):
         to_position: The cell the party arrives at.
         to_facing: The direction the party faces on arrival.
         requires: An authored condition the party must satisfy to take it.
+
+    Raises:
+        ValueError: If `kind` is `"passage"` and `side` is `None`, or `side` is set on any other
+            kind.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -479,6 +483,12 @@ class TransitionSpec(BaseModel):
     show one. A transition inside a [`TrapEffect`][osrlib.crawl.dungeon.TrapEffect] may have no gate
     at all: that is a forced relocation rather than an attempt, and the trap effect rejects one that
     does."""
+
+    @model_validator(mode="after")
+    def _side_exactly_on_passages(self) -> TransitionSpec:
+        if (self.kind == "passage") != (self.side is not None):
+            raise ValueError("a transition names a side exactly when its kind is 'passage'")
+        return self
 
 
 class TrapEffect(BaseModel):
@@ -1276,20 +1286,24 @@ class LevelSpec(BaseModel):
         return None
 
     def transition_at(self, position: Position) -> TransitionSpec | None:
-        """Return the transition standing on a cell, or `None`.
+        """Return the stairs, trapdoor, or chute standing on a cell, or `None`.
 
         [`UseStairs`][osrlib.crawl.commands.UseStairs] asks this and refuses when the answer is
-        `None`, which is also what makes a chute one-way: the arrival cell holds no transition back.
+        `None`, which is also what makes a chute one-way: the arrival cell has no transition back.
         Call it to show a stairs marker on a map, or to offer the command only where it works.
+        Passages never match, because the party walks through them with
+        [`MoveParty`][osrlib.crawl.commands.MoveParty]. Call
+        [`passage_at`][osrlib.crawl.dungeon.LevelSpec.passage_at] to find one.
 
         Args:
             position: The cell.
 
         Returns:
-            The first transition authored on that cell, or `None` when none is.
+            The first transition authored on that cell that isn't a passage, or `None` when there's
+                none.
         """
         for transition in self.transitions:
-            if transition.position == position:
+            if transition.kind != "passage" and transition.position == position:
                 return transition
         return None
 
@@ -1308,7 +1322,10 @@ class LevelSpec(BaseModel):
             The first passage authored on that cell and side, or `None` when there's none. Stairs,
                 trapdoors, and chutes never match.
         """
-        raise NotImplementedError("chunk: passage")
+        for transition in self.transitions:
+            if transition.kind == "passage" and transition.position == position and transition.side == side:
+                return transition
+        return None
 
 
 class DungeonSpec(BaseModel):

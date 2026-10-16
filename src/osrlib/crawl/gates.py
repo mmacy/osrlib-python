@@ -11,7 +11,8 @@ exploration handlers behind
 [`GameSession.execute`][osrlib.crawl.session.GameSession.execute] evaluate it as the
 last validation step of [`OpenDoor`][osrlib.crawl.commands.OpenDoor],
 [`ForceDoor`][osrlib.crawl.commands.ForceDoor], and
-[`UseStairs`][osrlib.crawl.commands.UseStairs]. A gate that refuses produces the
+[`UseStairs`][osrlib.crawl.commands.UseStairs], and of a
+[`MoveParty`][osrlib.crawl.commands.MoveParty] that crosses a passage. A gate that refuses produces the
 rejection `exploration.door.gate_refused` or `exploration.transition.gate_refused`,
 which includes the authored refusal beat, and no event at all. A gate that opens puts its
 success beat on the command's own event: a
@@ -199,7 +200,7 @@ class GateSpec(BaseModel):
     Put one in the `requires` field of a
     [`DoorSpec`][osrlib.crawl.dungeon.DoorSpec] or a
     [`TransitionSpec`][osrlib.crawl.dungeon.TransitionSpec] when you build the dungeon,
-    and the engine checks it every time the party tries that door or stair. A refused
+    and the engine checks it every time the party tries that door, stair, or passage. A refused
     attempt returns the `refusal` beat inside its rejection and costs the party nothing:
     no dice, no game time, no item, and no change to the door. A successful attempt puts
     the `success` beat on the command's own event.

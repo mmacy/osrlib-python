@@ -189,7 +189,9 @@ class EdgeView(BaseModel):
     kind: str
     """What occupies the edge: `"open"`, `"wall"`, or `"door"`, the wire values of
     [`EdgeKind`][osrlib.crawl.dungeon.EdgeKind]. An undiscovered secret door reports
-    `"wall"`."""
+    `"wall"`. On the side of a cell that a passage stands on, it's `"open"`. The level's edges
+    have a wall there, but a [`MoveParty`][osrlib.crawl.commands.MoveParty] across that side lands
+    the party on the passage's destination."""
     door_open: bool | None = None
     """Whether the door stands open. `None` on an edge that is not a door."""
     door_wedged: bool | None = None
@@ -923,11 +925,21 @@ def _explored_levels(session):
                 known.add(cell)
         if key == reveal_key:
             visible.extend(cell for cell in reveal_cells if cell not in known)
+        # A passage's side is a wall in the level's edges, but the party walks through it, so
+        # the view reports it as open.
+        passage_edges = {
+            _canonical_edge(transition.position, transition.side)
+            for transition in level.transitions
+            if transition.kind == "passage" and transition.side is not None
+        }
         edges: dict[str, EdgeView] = {}
         for cell in visible:
             for direction in Direction:
                 key_text = _canonical_edge(cell, direction)
                 if key_text in edges:
+                    continue
+                if key_text in passage_edges:
+                    edges[key_text] = EdgeView(kind="open")
                     continue
                 edge = level.edge(cell, direction)
                 if edge.kind is EdgeKind.DOOR:
