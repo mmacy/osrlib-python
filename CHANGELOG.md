@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-10-15
+
 ### Added
 
 - [`osrlib.core.creature`][osrlib.core.creature] declares the three protocols a rules function reads its creature argument through: [`Creature`][osrlib.core.creature.Creature] (id, name, alignment, hit points, conditions, stat modifiers), [`Combatant`][osrlib.core.creature.Combatant] (the attack, initiative, and saving-throw numbers), and [`Caster`][osrlib.core.creature.Caster] (level, spell book, memorized spells) (#104). A [`Character`][osrlib.core.character.Character] satisfies all three and a [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] the first two, structurally, so a caller passes either without a cast and annotates its own functions with the protocol that names what they read. Every public creature parameter in [`osrlib.core.combat`][osrlib.core.combat], [`osrlib.core.spells`][osrlib.core.spells], [`osrlib.core.effects`][osrlib.core.effects], and [`osrlib.core.items`][osrlib.core.items] now states the protocol the function reads through it, in place of `Any` and `object`: [`attack_roll`][osrlib.core.combat.attack_roll] takes a `Combatant` attacker and defender, [`has_condition`][osrlib.core.effects.has_condition] a `Creature`, [`cast_spell`][osrlib.core.spells.cast_spell] a `Caster` and a sequence of `Creature` values or the location strings a place-targeted spell takes, and a function that reads what one concrete type alone has takes that type, so [`resolve_breath`][osrlib.core.combat.resolve_breath] takes a `MonsterInstance` and [`sword_control_check`][osrlib.core.items.sword_control_check] a `Character`. The signature is what pyright checks a front end's call against and what the reference links. Runtime behaviour is unchanged, no rule, event, or draw sequence moved, and what changes is what a type checker accepts: a caller that passed an object without the protocol's attributes now fails its own pyright run. [`GameSession.combatant`][osrlib.crawl.session.GameSession.combatant] returns `MonsterInstance | Character | None` rather than `object | None`, so a front end can hand its result straight to a rules function.
@@ -176,7 +178,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The documentation site: quickstart, guides, front-end walk-throughs, and a full reference for every command, event, rejection code, message code, RNG stream, and content id.
 - The typed surface: complete type hints under `py.typed`, checked in CI.
 
-[Unreleased]: https://github.com/mmacy/osrlib-python/compare/v1.7.1...HEAD
+[Unreleased]: https://github.com/mmacy/osrlib-python/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/mmacy/osrlib-python/compare/v1.8.0...v2.0.0
 [1.8.0]: https://github.com/mmacy/osrlib-python/compare/v1.7.1...v1.8.0
 [1.7.1]: https://github.com/mmacy/osrlib-python/compare/v1.7.0...v1.7.1
 [1.7.0]: https://github.com/mmacy/osrlib-python/compare/v1.6.0...v1.7.0
