@@ -464,6 +464,20 @@ class TestValidation:
     def test_the_fixture_is_valid(self):
         assert refusals(passage_adventure()) == ""
 
+    def test_coordinates_shared_across_levels_are_valid(self):
+        # Level 1's (3, 1) is a far cell and level 2's (3, 1) is floor, so a passage may land on
+        # level 2's (3, 1). A passage on level 2's (2, 1) may land on level 1's (2, 1), which is
+        # another level's cell with the same coordinates, not its own.
+        adventure = passage_adventure()
+        level_1, level_2 = adventure.dungeons[0].levels
+        adventure = with_level(
+            adventure, 1, transitions=(*level_1.transitions, passage((6, 1), NORTH, 2, (3, 1), WEST))
+        )
+        adventure = with_level(
+            adventure, 2, transitions=(*level_2.transitions, passage((2, 1), SOUTH, 1, (2, 1), WEST))
+        )
+        assert refusals(adventure) == ""
+
     def test_a_passage_on_a_side_that_is_not_a_wall(self):
         adventure = passage_adventure()
         level_1 = adventure.dungeons[0].levels[0]
