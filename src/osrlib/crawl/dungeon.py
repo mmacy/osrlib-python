@@ -408,23 +408,34 @@ class Edge(BaseModel):
 
 
 class TransitionSpec(BaseModel):
-    """A way between levels standing on one cell: stairs, a trapdoor, or a chute.
+    """A way from one cell to another: stairs, a trapdoor, a chute, or a passage.
 
     Transitions live on the level rather than on an area, in
-    [`LevelSpec.transitions`][osrlib.crawl.dungeon.LevelSpec]. They are how a multi-level dungeon
-    joins up, and how two dungeons join if you point one at the other's id. The party takes one with
-    [`UseStairs`][osrlib.crawl.commands.UseStairs], which lands it at `to_position` facing
-    `to_facing`. [`validate_adventure`][osrlib.crawl.adventure.validate_adventure] checks that the
-    cell you leave from and the cell you arrive at are both on their grids.
+    [`LevelSpec.transitions`][osrlib.crawl.dungeon.LevelSpec]. They're how a multi-level dungeon
+    joins up, and how two dungeons join if you point one at the other's id. Each one stands on a
+    cell and lands the party at `to_position` facing `to_facing`.
+    [`validate_adventure`][osrlib.crawl.adventure.validate_adventure] checks that the cell you leave
+    from and the cell you arrive at are both on their grids.
+
+    The party takes stairs, a trapdoor, or a chute with [`UseStairs`][osrlib.crawl.commands.UseStairs].
+    The party walks through a passage instead. A passage names one `side` of its cell, and a
+    [`MoveParty`][osrlib.crawl.commands.MoveParty] from that cell in that direction lands the party
+    on the passage's destination. The side is a wall in the level's edges. The cell one step across
+    it is the passage's *far cell*, which has a wall on every side and belongs to no area. Use a
+    passage where a map shows two cells side by side that the document can't put side by side: the
+    floors of two levels that meet, or two halves of one map that you lay out apart.
 
     Nothing pairs transitions up for you. A staircase the party can walk back up is two transitions,
     one on each level, pointing at each other. Leave the return one out and you have a chute: a
-    one-way drop, which `UseStairs` refuses to climb back because the arrival cell holds no
-    transition.
+    one-way drop, which `UseStairs` refuses to climb back because the arrival cell has no
+    transition. A passage leads one way too. Its *partner*, the passage that leads back, stands on
+    the first passage's destination cell, on the side opposite the first passage's `to_facing`. The
+    partner lands on the first passage's cell, facing opposite the first passage's `side`.
 
     Attributes:
         kind: Which kind of connection this is.
         position: The cell it stands on.
+        side: The side of that cell a passage stands on.
         to_dungeon_id: The dungeon the party arrives in.
         to_level_number: The level the party arrives on.
         to_position: The cell the party arrives at.
@@ -434,13 +445,20 @@ class TransitionSpec(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    kind: Literal["stairs_up", "stairs_down", "trapdoor", "chute"]
-    """What the party sees and uses: `"stairs_up"`, `"stairs_down"`, `"trapdoor"`, or `"chute"`. The
-    value is descriptive. The destination fields set where the party goes, and the
-    presence or absence of a return transition decides whether it can come back."""
+    kind: Literal["stairs_up", "stairs_down", "trapdoor", "chute", "passage"]
+    """What the party sees and uses: `"stairs_up"`, `"stairs_down"`, `"trapdoor"`, `"chute"`, or
+    `"passage"`. The first four are descriptive. The destination fields set where the party goes,
+    and whether a return transition exists decides whether it can come back. The party takes a
+    `"passage"` differently: it walks across the passage's `side` instead of using
+    [`UseStairs`][osrlib.crawl.commands.UseStairs]."""
     position: Position
     """The cell on this level where the transition stands. The party has to be standing here for
-    [`UseStairs`][osrlib.crawl.commands.UseStairs] to do anything."""
+    [`UseStairs`][osrlib.crawl.commands.UseStairs] to do anything, or to cross a passage."""
+    side: Direction | None = None
+    """The side of `position` that a passage stands on, and `None` on every other kind. A
+    [`MoveParty`][osrlib.crawl.commands.MoveParty] from `position` in this direction crosses the
+    passage. Building a passage with no side raises a validation error, and so does building a
+    transition of any other kind with one."""
     to_dungeon_id: str
     """The id of the dungeon the party arrives in. Naming this level's own dungeon is the ordinary
     case. Naming another dungeon of the same adventure joins the two."""
@@ -453,13 +471,13 @@ class TransitionSpec(BaseModel):
     the party's first step is not a surprise."""
     requires: GateSpec | None = None
     """An authored gate on taking the transition, or `None` for one anyone may take.
-    [`UseStairs`][osrlib.crawl.commands.UseStairs] evaluates it after the there-is-no-transition-here
-    refusal and before the party moves, so a gate that costs the party something is paid at the
-    threshold. The gate's `success` narration is attached to the arrival's
-    [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent], so a transition whose
-    destination is its own level crosses no boundary, emits no such event, and has nowhere to show
-    one. A transition inside a [`TrapEffect`][osrlib.crawl.dungeon.TrapEffect] may carry no gate at
-    all: that is a forced relocation rather than an attempt, and the trap effect rejects one that
+    [`UseStairs`][osrlib.crawl.commands.UseStairs], or [`MoveParty`][osrlib.crawl.commands.MoveParty]
+    for a passage, evaluates it after the command's own refusals and before the party moves, so the
+    party pays a gate's cost at the threshold. The engine puts the gate's `success` narration on the
+    arrival's [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent], so a transition
+    whose destination is its own level crosses no boundary, emits no such event, and has nowhere to
+    show one. A transition inside a [`TrapEffect`][osrlib.crawl.dungeon.TrapEffect] may have no gate
+    at all: that is a forced relocation rather than an attempt, and the trap effect rejects one that
     does."""
 
 
@@ -546,7 +564,9 @@ class TrapEffect(BaseModel):
     transition: TransitionSpec | None = None
     """Where the trap puts the victim, or `None` for a trap that moves nobody. This is the chute
     form: the victim slides somewhere else instead of staying where they stood. The transition may
-    carry no `requires` gate, because the victim is not attempting anything."""
+    have no `requires` gate, because the victim is not attempting anything, and
+    [`validate_adventure`][osrlib.crawl.adventure.validate_adventure] refuses one that's a
+    passage."""
     manual: str | None = None
     """Prose for a trap the rules do not resolve, or `None`. Nothing here reads it: it is for the
     referee or the front end, and it is how you author a trap whose effect is a judgement call rather
@@ -1125,7 +1145,7 @@ class LevelSpec(BaseModel):
         edges: Everything that is not wall.
         areas: The keyed rooms.
         features: Features on the level rather than on a room.
-        transitions: The ways to other levels.
+        transitions: The stairs, trapdoors, chutes, and passages.
         wandering: The wandering-monster check.
         entrance: Where the party arrives from town.
         guidance: Ambient steering for a narrating front end.
@@ -1174,8 +1194,8 @@ class LevelSpec(BaseModel):
     dead end. Each one needs a `cell`, since there is no area to bind it to. Ids share one namespace
     with the areas' features."""
     transitions: tuple[TransitionSpec, ...] = ()
-    """The stairs, trapdoors, and chutes on this level, each standing on one cell. Transitions belong
-    to the level, not to an area, even when they stand inside a room."""
+    """The stairs, trapdoors, chutes, and passages on this level, each standing on one cell.
+    Transitions belong to the level, not to an area, even when they stand inside a room."""
     wandering: WanderingSpec = WanderingSpec()
     """The level's wandering-monster check. The default is the printed rule, a 1-in-6 check every two
     turns off the compiled table for this level's number."""
@@ -1272,6 +1292,23 @@ class LevelSpec(BaseModel):
             if transition.position == position:
                 return transition
         return None
+
+    def passage_at(self, position: Position, side: Direction) -> TransitionSpec | None:
+        """Return the passage standing on one side of a cell, or `None`.
+
+        A [`MoveParty`][osrlib.crawl.commands.MoveParty] across a passage's side lands the party on
+        the passage's destination instead of stopping at the wall. Call this to find out whether a
+        move from a cell crosses a passage, or to draw a passage on a map.
+
+        Args:
+            position: The cell.
+            side: Which of the cell's four sides.
+
+        Returns:
+            The first passage authored on that cell and side, or `None` when there's none. Stairs,
+                trapdoors, and chutes never match.
+        """
+        raise NotImplementedError("chunk: passage")
 
 
 class DungeonSpec(BaseModel):
