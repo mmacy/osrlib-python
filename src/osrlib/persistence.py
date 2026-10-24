@@ -1,13 +1,24 @@
 """Save a game, load it back, or rebuild it by replaying what the player did.
 
 Two ways lead from a stored game to a running
-[`GameSession`][osrlib.crawl.session.GameSession], and they reach the same place.
+[`GameSession`][osrlib.crawl.session.GameSession], and they reach the same place. The
+members, in the order you use them:
+
+- [`save_game`][osrlib.persistence.save_game]: a session in, a save document out.
+- [`load_game`][osrlib.persistence.load_game]: a save document in, a session ready to
+  continue out.
+- [`replay_game`][osrlib.persistence.replay_game]: the seed, the starting party, the
+  adventure, the ruleset, and the command log in, the same session rebuilt out.
+- [`session_state`][osrlib.persistence.session_state]: a session in, the save's contents
+  without the version stamps out.
+- [`MIGRATIONS`][osrlib.persistence.MIGRATIONS]: the steps `load_game` runs to bring an
+  older save forward.
 
 The one you want most of the time is save and load.
 [`save_game`][osrlib.persistence.save_game] turns a live session into a plain dictionary you
 can write as JSON, and [`load_game`][osrlib.persistence.load_game] turns that dictionary
 back into a session that continues where it left off. A save is self-contained: it includes
-the adventure's own content, so loading needs no other file, and you can hand a player a
+the adventure content, so loading needs no other file, and you can hand a player a
 save without handing them the adventure it came from.
 
 The other way is replay. [`replay_game`][osrlib.persistence.replay_game] starts from
@@ -225,12 +236,12 @@ def session_state(session: GameSession, *, include_event_log: bool = True) -> di
     Call `save_game` instead whenever you mean to store the result, because a payload with no
     envelope has no version stamps, and nothing can tell later which osrlib wrote it.
 
-    Nothing on the session changes, and the dicts and lists the session's own models produce
-    are fresh, so you can keep the result, edit it, and serialize it whenever you like. One
-    part is shared: an event log entry that arrived as a raw dict, which
-    [`load_game`][osrlib.persistence.load_game] keeps for an event type this osrlib doesn't
-    recognize, goes into the payload by reference, and editing it edits the session's entry
-    too.
+    Nothing on the session changes. You can keep the result and serialize it whenever you
+    like. If you mean to edit it, copy it first with `copy.deepcopy` or a JSON round trip.
+    Some nested values in the result are objects the session also refers to, so an edit to
+    one of them changes the session too. These are the values inside a listener's
+    state and an event log entry that [`load_game`][osrlib.persistence.load_game] kept as a
+    dict.
 
     Args:
         session: The session to serialize. It may be in any mode, mid-encounter or
@@ -410,7 +421,7 @@ def load_game(document: Mapping[str, object]) -> GameSession:
     restored session has none registered. Call
     [`register_listener`][osrlib.crawl.session.GameSession.register_listener] again for each
     one, including the [`Interpreter`][osrlib.crawl.interpreter.Interpreter] if your game
-    uses it, before you execute another command. Each listener's own state was saved and is
+    uses it, before you execute another command. Each listener's state was saved and is
     waiting under its key.
 
     An older save needs nothing from you. The document is checked, then walked forward
@@ -564,11 +575,16 @@ def replay_game(
     everything else, including resuming play, because a replay costs the whole game again and
     gives you nothing a load doesn't.
 
-    Four of the five inputs come straight out of a save document's payload, under
-    `master_seed`, `adventure`, `ruleset`, and `command_log`. The fifth, `party_document`, is
-    the one you have to plan for. It must be the party as it stood before any session touched
-    it, because [`GameSession.new`][osrlib.crawl.session.GameSession.new] assigns member ids
-    itself, in party order, the same way both times. Take that document with
+    To replay a stored game, load its save with `load_game` first and take the seed, the
+    adventure, the ruleset, and the command log from the restored session's `master_seed`,
+    `adventure`, `ruleset`, and `command_log`. Loading brings an older save up to the
+    current schema, so those values are in the format this osrlib reads. Take
+    `recorded_engine_version` from the save document's `engine_version`.
+
+    The save doesn't contain the starting party, so you have to plan for `party_document`.
+    It must be the party as it stood before any session touched it, because
+    [`GameSession.new`][osrlib.crawl.session.GameSession.new] assigns member ids itself, in
+    party order, the same way both times. Take that document with
     [`party_to_document`][osrlib.core.character.party_to_document] when you roll the party,
     and keep it beside your saves.
 
@@ -600,13 +616,18 @@ def replay_game(
         ReplayVersionError: If `recorded_engine_version` is given and doesn't match the
             running [`engine_version`][osrlib.versioning.engine_version]. Load the save
             instead, which works across engine versions.
-        ContentValidationError: If a logged command is of a type this version doesn't know,
-            or if a logged command is refused this time. The log contains only commands that
-            were accepted the first time, so a refusal means the replay has diverged from the
-            game it was meant to reproduce.
+        ContentValidationError: If `party_document` isn't a valid party document, if a
+            logged command is of a type this version doesn't know or its fields don't fit
+            that type, or if a logged command is refused this time. The log contains only
+            commands that were accepted the first time, so a refusal means the replay has
+            diverged from the game it was meant to reproduce. Check that you passed the
+            starting party, the same ruleset, and the same seed.
+        SaveVersionError: If a newer osrlib wrote `party_document`.
 
     Examples:
         ```python
+        import json
+
         from osrlib.core.alignment import Alignment
         from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character, party_to_document
         from osrlib.core.rng import RngStreams
@@ -616,11 +637,12 @@ def replay_game(
         from osrlib.crawl.dungeon import DungeonSpec, LevelSpec
         from osrlib.crawl.party import Party
         from osrlib.crawl.session import GameSession
-        from osrlib.persistence import replay_game, session_state
+        from osrlib.persistence import load_game, replay_game, save_game, session_state
 
         rules = Ruleset()
         roll = RngStreams(master_seed=7).get(CHARACTER_CREATION_STREAM)
         pc = create_character(name="Hild", class_id="fighter", alignment=Alignment.LAWFUL, ruleset=rules, stream=roll)
+        # Keep the party document from before play: the save doesn't contain it.
         starting_party = party_to_document([pc.character])
 
         level = LevelSpec(number=1, width=1, height=1, entrance=(0, 0))
@@ -630,9 +652,20 @@ def replay_game(
 
         session = GameSession.new(Party(members=[pc.character]), adventure, seed=7, ruleset=rules)
         session.execute(EnterDungeon(dungeon_id="crypt"))
+        stored = json.dumps(save_game(session))
 
-        replayed = replay_game(7, starting_party, adventure, rules, session.command_log)
-        print(session_state(replayed) == session_state(session))
+        # Later: read the save back, load it, and replay its command log from the seed.
+        document = json.loads(stored)
+        saved = load_game(document)
+        replayed = replay_game(
+            saved.master_seed,
+            starting_party,
+            saved.adventure,
+            saved.ruleset,
+            saved.command_log,
+            recorded_engine_version=document["engine_version"],
+        )
+        print(session_state(replayed) == session_state(saved))
         # True
         ```
     """

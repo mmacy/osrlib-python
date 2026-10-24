@@ -7,7 +7,10 @@ thing inside, the two version numbers, and the `payload`, which is the serialize
 [`check_document`][osrlib.versioning.check_document] checks one, and you rarely call either
 yourself: [`save_game`][osrlib.persistence.save_game] and
 [`load_game`][osrlib.persistence.load_game] wrap them for saves, and
-[`party_to_document`][osrlib.core.character.party_to_document] does for parties.
+[`Character.to_document`][osrlib.core.character.Character.to_document],
+[`party_to_document`][osrlib.core.character.party_to_document], and
+[`ContentPack.to_document`][osrlib.crawl.content_pack.ContentPack.to_document] call
+`stamp_document` for characters, parties, and content packs.
 
 The two stamps answer two different questions.
 
@@ -74,7 +77,7 @@ a value that now means something different. Additions don't move it, so a docume
 earlier release of the same schema version can be missing fields that newer documents
 include, and readers fill those with their defaults.
 
-Three changes are behind the current number, and each one matters if you keep old saves.
+If you keep old saves, each change behind the current number affects them.
 Version 2 dropped the recovered-treasure ledger from the save payload, since the
 end-of-adventure award is worked out from the valuation taken when the party left town.
 Version 3 narrowed a treasure trap's `trigger` to `"open"`, the one action that springs a
@@ -104,7 +107,7 @@ def engine_version() -> str:
     still parses. [`SCHEMA_VERSION`][osrlib.versioning.SCHEMA_VERSION] answers that.
 
     Returns:
-        The installed package version, as the packaging metadata reports it, like `"0.9.1"`.
+        The installed package version, as the packaging metadata reports it, like `"2.0.0"`.
 
     Examples:
         ```python
@@ -120,12 +123,14 @@ def engine_version() -> str:
 def stamp_document(kind: str, payload: Mapping[str, object]) -> dict[str, object]:
     """Wrap a serialized payload in the stamped-document envelope.
 
-    Use this when you serialize something of your own and want it to travel the way osrlib's
-    own documents do, so [`check_document`][osrlib.versioning.check_document] can check it on
-    the way back in and a later reader can tell what's inside. For a save, a party, or a
-    content pack, call [`save_game`][osrlib.persistence.save_game],
-    [`party_to_document`][osrlib.core.character.party_to_document], or the pack's own writer
-    instead. Each one stamps its own kind and fills the payload correctly.
+    Use this when you serialize something of your own and want it to travel the way osrlib
+    documents do, so [`check_document`][osrlib.versioning.check_document] can check it on
+    the way back in and a later reader can tell what's inside. For a save, a party, a
+    character, or a content pack, call [`save_game`][osrlib.persistence.save_game],
+    [`party_to_document`][osrlib.core.character.party_to_document],
+    [`Character.to_document`][osrlib.core.character.Character.to_document], or
+    [`ContentPack.to_document`][osrlib.crawl.content_pack.ContentPack.to_document] instead.
+    Each one stamps its own kind and fills the payload correctly.
 
     The result is plain data, ready for `json.dumps`, as long as what you put in it is. Pass
     a payload you already turned into JSON-compatible values, which for a pydantic model

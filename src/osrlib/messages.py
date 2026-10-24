@@ -430,16 +430,24 @@ def format_message(event: Event) -> str:
     """Format an event as a line of default English.
 
     Call it on each event in a [`CommandResult`][osrlib.crawl.commands.CommandResult]'s
-    `events`, or on each entry in a session's event log, to get a transcript a person can
-    read. Filter on the event's `visibility` first if you're showing the result to a player,
-    so referee-only events stay hidden.
+    `events`, or on each event in a session's `event_log`, to get a transcript a person can
+    read. If you're showing the result to a player, first keep only the events whose
+    `visibility` is [`Visibility.PLAYER`][osrlib.core.events.Visibility], so referee-only
+    events stay hidden.
+
+    A session's `event_log` can also contain plain dicts. After
+    [`load_game`][osrlib.persistence.load_game], an entry whose event type this osrlib
+    doesn't recognize stays the dict it was in the save. Skip those, or print their `code`
+    key, before you filter on `visibility`. A dict has no `visibility` attribute, and this
+    function takes an event object, not a dict.
 
     On an event osrlib built, it doesn't raise and it doesn't return an empty string. An
     event whose code has no template comes back as the code itself, so a log written by a
     newer osrlib than the one reading it still prints, one plain line per event, instead of
     failing part way through. An event you assemble by hand can still raise `AttributeError`,
     because a template reads the fields its own event class declares: give an event a code
-    from another class and the field that template wants isn't there.
+    from another class and the field that template wants isn't there. When you build an event
+    by hand, use the class that declares its code.
 
     Some events include a `narrative`, the sentence an adventure's author wrote for that
     moment. When one is there it's appended to the templated line, word for word, because the
@@ -448,7 +456,7 @@ def format_message(event: Event) -> str:
     Write your own formatter as soon as you want control of the wording. This one prints
     entity ids as ids, writes only English, and has no hook for changing a template. Every
     fact it uses is a typed field on the event, so your version reads the same fields and
-    uses your own game's names.
+    uses the names your game gives things.
 
     Args:
         event: Any event, from a command result, a session's event log, or a save you loaded.

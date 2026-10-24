@@ -14,16 +14,19 @@ save file someone truncated or hand-edited, a document written by a newer versio
 library than the one reading it, a dice expression that doesn't parse, a command log
 replayed under different rules.
 [`OsrlibError`][osrlib.errors.OsrlibError] is the base class, so a single `except
-OsrlibError` catches all of them, and the three subclasses let you separate the cases that
+OsrlibError` catches all of them, and the subclasses let you separate the cases that
 deserve different answers.
 
-Which one you see depends on where you are. Reading a document raises
-[`ContentValidationError`][osrlib.errors.ContentValidationError] when the document is
-malformed and [`SaveVersionError`][osrlib.errors.SaveVersionError] when it's only too new.
-Replaying a command log raises
-[`ReplayVersionError`][osrlib.errors.ReplayVersionError] when the engine underneath has
-changed. The difference matters: you can't recover from the first, the second means telling
-the player to upgrade, and the third means loading the save instead of replaying it.
+Each subclass stands for one failure, and each failure has its own answer:
+
+- [`ContentValidationError`][osrlib.errors.ContentValidationError]: a document, dice
+  expression, or adventure is malformed, or a replayed command is refused. For malformed input,
+  show the message and stop, because the same input fails the same way. For a refused replay,
+  check that you passed the starting party, ruleset, and seed the game began with.
+- [`SaveVersionError`][osrlib.errors.SaveVersionError]: a document is well formed but a newer
+  osrlib wrote it. Tell the player to upgrade.
+- [`ReplayVersionError`][osrlib.errors.ReplayVersionError]: a command log is being replayed
+  under a different engine version than the one that recorded it. Load the save instead.
 
 How you report a failure is yours to choose: an HTTP status code, a process exit code, a
 dialog. The hierarchy grows by addition, so a later version can add an exception type but
@@ -89,8 +92,8 @@ class ContentValidationError(OsrlibError):
       [`party_from_document`][osrlib.core.character.party_from_document], on a document whose
       envelope, kind, or payload isn't what they expect.
     - [`parse_command`][osrlib.crawl.commands.parse_command] and
-      [`parse_any_event`][osrlib.crawl.events.parse_any_event], by way of the loaders that
-      call them.
+      [`parse_any_event`][osrlib.crawl.events.parse_any_event], on a command or event of a
+      known type whose fields don't fit that type.
     - [`validate_adventure`][osrlib.crawl.adventure.validate_adventure], on an adventure whose
       own structure doesn't hold together.
     - The loaders in [`osrlib.data`][osrlib.data], when the data shipped in the package fails
@@ -121,6 +124,7 @@ class SaveVersionError(OsrlibError):
 
     It reaches you from [`load_game`][osrlib.persistence.load_game],
     [`party_from_document`][osrlib.core.character.party_from_document],
+    [`replay_game`][osrlib.persistence.replay_game] by way of its party document,
     [`ContentPack.from_document`][osrlib.crawl.content_pack.ContentPack.from_document], and
     any other reader that calls `check_document` first.
     """
