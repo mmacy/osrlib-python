@@ -66,7 +66,7 @@ for you and returns the events. Start at the session and work outwards.
 | [`osrlib.crawl.quests`][] | Objectives and the clauses that complete them, as authored content. |
 | [`osrlib.crawl.narrative`][] | The authored text on a mechanical object, one block per audience. |
 | [`osrlib.crawl.interpreter`][] | The listener you register on a session to play the adventure's triggers and quests. |
-| [`osrlib.crawl.content_pack`][] | Keyed room content out of one adventure and into another. |
+| [`osrlib.crawl.content_pack`][] | Room contents without the map, out of one adventure and into another. |
 
 ## Shared services
 
