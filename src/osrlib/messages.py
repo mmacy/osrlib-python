@@ -1,26 +1,26 @@
 """Turn an event into a line of English.
 
 osrlib never puts prose in an event. A [`GameSession`][osrlib.crawl.session.GameSession]
-answers a command with typed events made of structured facts, like who attacked, what they
+responds to a command with typed events made of structured facts, like who attacked, what they
 rolled, and how much damage landed, and your front end decides what a player reads. This
-module is the answer that comes in the box.
+module is the default formatter that comes with osrlib.
 [`format_message`][osrlib.messages.format_message] takes an event and returns a plain
 English sentence, so you can print a session's output before you've written any rendering of
 your own.
 
 The event's `code` decides what you get. It's a dotted name like `combat.attack.hit` that
-says which outcome the event records. Every event class declares the codes it can use, and
-this module keeps one template per code.
-[The message-code reference][message-codes] lists every code that ships, the event class
+identifies the outcome the event records. Every event class declares the codes it can use, and
+this module has one template per code.
+[The message-code reference][message-codes] lists every code osrlib defines, the event class
 behind it, the event's default visibility, and the template itself. Read that page when
 you're deciding which codes your front end handles differently.
 
 Use this formatter for a log, a transcript, a debugging view, or the first working version
-of a game. Replace it when you want wording of your own, and you replace the whole of it:
+of a game. Replace it when you want your own wording, and you replace the whole of it:
 read the event's fields and write your own line, or hand the event to a narrator. There's
 nothing here to configure, no way to register a template, and no translation, because a
 front end that cares about wording already has the structured fields it needs to write any
-wording it likes. Entity ids come out as ids, since only your game knows the name behind
+wording it likes. Entity ids come out as ids, since only your game has a name for
 `orc-1`. The quest and objective events are the exception, and include a display name the
 adventure's author wrote.
 
@@ -64,11 +64,11 @@ __all__ = [
 def _entered(event: Any) -> str:
     """The arrival line, which reads a stairs crossing as the climb or descent it was.
 
-    The event's `via` is the only source of the direction. Nothing else in the event says which way
+    The event's `via` is the only source of the direction. No other field gives the direction
     the party went, and where the party stands now is no help to a line rendered from the log after
-    the fact. The kinds that state no direction of their own (a trapdoor, a chute, a passage, a
+    the fact. The kinds that state no direction (a trapdoor, a chute, a passage, a
     trap, the entrance, a referee's placement) get the plain arrival line. A stairs crossing into
-    another dungeon still names the dungeon, since the level number alone would hide the bigger move.
+    another dungeon still includes the dungeon's name, since the level number alone would hide the bigger move.
     """
     verb = {"stairs_up": "climbs", "stairs_down": "descends"}.get(event.via or "")
     if verb is not None and event.level_number is not None:
@@ -151,7 +151,7 @@ def _cast_no_effect(event: SpellCastEvent) -> str:
 
 
 def _healing_purchased(event: HealingPurchasedEvent) -> str:
-    """The temple line, which names the other purses when the rest of the party chipped in."""
+    """The temple line, which lists the other payers when the rest of the party contributed."""
     line = f"{event.character_id} purchases {event.service} at the temple for {event.cost_gp} gp"
     if len(event.payers) > 1:
         paid = zip(event.payers, event.payments_gp, strict=True)
@@ -164,7 +164,7 @@ def _turning(event: UndeadTurnedEvent, outcome: str) -> str:
     return f"{event.caster_id} presents the holy symbol (rolled {event.roll}{pool}) — {outcome}."
 
 
-# The registry dispatches on the event's `code`, so each template already knows its concrete
+# The registry dispatches on the event's `code`, so each template can assume its concrete
 # event class. `Any` is the accurate annotation for dispatch keyed on a string.
 _TEMPLATES: dict[str, Callable[[Any], str]] = {
     "combat.initiative.rolled": _initiative,
@@ -445,8 +445,8 @@ def format_message(event: Event) -> str:
     event whose code has no template comes back as the code itself, so a log written by a
     newer osrlib than the one reading it still prints, one plain line per event, instead of
     failing part way through. An event you assemble by hand can still raise `AttributeError`,
-    because a template reads the fields its own event class declares: give an event a code
-    from another class and the field that template wants isn't there. When you build an event
+    because a template reads the fields its event class declares: give an event a code
+    from another class and the field that template needs isn't there. When you build an event
     by hand, use the class that declares its code.
 
     Some events include a `narrative`, the sentence an adventure's author wrote for that

@@ -5,12 +5,12 @@ Build one at the start of a game, pass it to
 [`GameSession.new`][osrlib.crawl.session.GameSession.new] or, away from a session, to
 each kernel function that takes a `ruleset` argument, and leave it alone after that. The
 resolution functions read it as they work, so every flag takes effect the moment you set
-it, and the ruleset travels inside saves so a game resumes under the rules it began
+it, and the ruleset is stored in saves so a game resumes under the rules it began
 with.
 
 `Ruleset()` with no arguments plays the SRD as written, which is what you want unless
 you have a reason to change something. Each flag is either an optional rule the SRD
-prints as an alternative to its own default, or an adaptation: a decision the tabletop
+prints as an alternative to its default, or an adaptation: a decision the tabletop
 game leaves to a human referee, which a program running unattended has to make somehow.
 The two enum flags, [`EncumbranceMode`][osrlib.core.ruleset.EncumbranceMode] and
 [`XpAwardTiming`][osrlib.core.ruleset.XpAwardTiming], pick among alternatives instead of
@@ -38,8 +38,8 @@ assert house_rules.variable_weapon_damage is True
 ```
 """
 
-# Every flag here is read by a behavior that exists. Never ship a flag whose behavior
-# doesn't. Adding new flags with defaults is schema-legal.
+# Every flag here is read by a behavior that exists. Don't add a flag whose behavior
+# doesn't exist yet. Adding new flags with defaults is schema-legal.
 
 from enum import StrEnum
 
@@ -60,7 +60,7 @@ class XpAwardTiming(StrEnum):
     and `IMMEDIATE` pays as the party goes, which suits a game with no trip home.
 
     The lowercase values serialize into saved games. Changing one is a `schema_version`
-    bump, the version stamp that marks a serialized model's shape.
+    bump, the version stamp that marks a serialized model's format.
     """
 
     ON_RETURN = "on_return"
@@ -87,7 +87,7 @@ class EncumbranceMode(StrEnum):
     choice.
 
     The lowercase values serialize into saved games. Changing one is a `schema_version`
-    bump, the version stamp that marks a serialized model's shape.
+    bump, the version stamp that marks a serialized model's format.
     """
 
     NONE = "none"
@@ -96,7 +96,7 @@ class EncumbranceMode(StrEnum):
     BASIC = "basic"
     """Set movement rate from worn armour, and from whether the character is carrying a significant amount of treasure.
 
-    This is the SRD's own default and the mode a `Ruleset()` picks. A character whose
+    This is the SRD's default and the mode a `Ruleset()` picks. A character whose
     tracked weight passes the maximum load cannot move at all.
     """
 
@@ -119,7 +119,7 @@ class Ruleset(BaseModel):
     `ValidationError` rather than a setting that quietly does nothing.
 
     Each flag is one of two kinds. An optional rule is an alternative the SRD itself
-    prints beside its own procedure, and osrlib's default is the book's. An adaptation is
+    prints beside its standard procedure, and osrlib's default is the book's. An adaptation is
     a default osrlib supplies where the tabletop game hands the decision to a human
     referee, and [the adaptations register](https://mmacy.github.io/osrlib-python/adaptations/)
     gives the reasoning behind each one.
@@ -156,18 +156,18 @@ class Ruleset(BaseModel):
     """
 
     variable_weapon_damage: bool = True
-    """Let each weapon deal the damage its own description lists. An optional rule, on by default.
+    """Let each weapon deal the damage its description lists. An optional rule, on by default.
 
     Turn it off and every weapon deals 1d6, and so does every piece of gear swung as one,
     which is the SRD's baseline combat system. Either way an unarmed attack deals 1d2, which is
-    its own rule rather than weapon damage, and monsters always deal the damage printed
+    a separate rule from weapon damage, and monsters always deal the damage printed
     in their descriptions.
     """
 
     individual_initiative: bool = False
     """Roll initiative for each combatant instead of once per side. An optional rule, off by default.
 
-    Turn it on and every participant rolls its own 1d6. A character adds its DEX
+    Turn it on and every participant rolls a separate 1d6. A character adds its DEX
     modifier, and a halfling adds its class initiative bonus on top. The tabletop game leaves a monster's
     initiative modifier to the referee, so osrlib takes one from the caller and defaults
     it to 0.
@@ -186,7 +186,7 @@ class Ruleset(BaseModel):
     """Stop a weapon with the reload quality, mainly the crossbow, from firing two rounds running.
 
     An optional rule, off by default. Turn it on and the attack validator refuses the shot
-    when the combat context you pass says the weapon fired last round. The kernel enforces the rule
+    when the combat context you pass shows the weapon fired last round. The kernel enforces the rule
     from the context it's given. Keeping track of what fired when is the battle layer's
     job.
     """
@@ -196,7 +196,7 @@ class Ruleset(BaseModel):
 
     The SRD prints this among its invulnerability rules. Turn it on and a monster of 5 or
     more Hit Dice gets past such a defense, and so does a monster that has the same defense
-    itself. Following the rule's own wording, osrlib applies it only where the defense is
+    itself. Following the rule's wording, osrlib applies it only where the defense is
     limited to silver and magic, and reads "another invulnerable monster" as one bearing
     such a defense.
     """
@@ -204,9 +204,10 @@ class Ruleset(BaseModel):
     magic_item_death_save: bool = True
     """Give a dead character's magic items a saving throw against the effect that killed their owner.
 
-    An optional rule the SRD leaves to the referee, on by default. Each magic item in the
-    doomed inventory rolls the owner's save values against the destructive source's
-    category, adding the item's best combat bonus. What survives lands in a drop pile at
+    An optional rule the SRD leaves to the referee, on by default. osrlib rolls a save for
+    each magic item in the doomed inventory, using the owner's save values against the
+    destructive source's category and adding the item's best combat bonus. Items that
+    survive go into a drop pile at
     the victim's cell, where the party can pick it up, rather than vanishing with the
     body.
     """
@@ -226,7 +227,7 @@ class Ruleset(BaseModel):
     to a referee, and the tabletop rules leave starvation penalties to the referee's
     discretion. The party's food and water are tracked either way, so this flag changes
     only what happens once they run out. Turn it on and the schedule osrlib draws from the
-    SRD's own examples applies. After one full day without: −1 to attack rolls, and rest needed
+    SRD's examples applies. After one full day without: −1 to attack rolls, and rest needed
     twice as often, so fatigue sets in after three unrested turns rather than six. After
     two days, movement halves as well. From the third day on, 1d4 hit points are lost per
     day. Hunger and thirst don't stack, so whichever is worse applies.

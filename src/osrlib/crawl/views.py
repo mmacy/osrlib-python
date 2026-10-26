@@ -8,14 +8,14 @@ Where the views sit. A command changes the session state that
 [`build_player_view`][osrlib.crawl.views.build_player_view] and
 [`build_referee_view`][osrlib.crawl.views.build_referee_view] read that state to build
 these projections. The player view is built from session state alone and never from the
-event log; the referee view has one typed field per group the save keeps, so it includes
-the event log along with everything else, each group as the session's own model.
+event log. The referee view has one typed field for each group of data in a save, so it
+includes the event log along with everything else, each group as the session's model.
 [`GameSession.view`][osrlib.crawl.session.GameSession.view] is the entry point most games
-call, with a [`Visibility`][osrlib.core.events.Visibility] to pick which one. Events tell
-you what just happened, and a view tells you what is true now. The ids a view includes,
+call, with a [`Visibility`][osrlib.core.events.Visibility] to pick which one. Events report
+what just happened, and a view shows what is true now. The ids a view includes,
 [`MemberView.id`][osrlib.crawl.views.MemberView] and
 [`EncounterGroupView.id`][osrlib.crawl.views.EncounterGroupView], are the ids the
-commands in [`osrlib.crawl.commands`][osrlib.crawl.commands] name.
+commands in [`osrlib.crawl.commands`][osrlib.crawl.commands] take.
 
 The player view is an enumerated whitelist: party public sheets, location and facing, the
 mapped cells with their edges (walked cells, the remembered cells the party's light has
@@ -27,9 +27,9 @@ state, fatigue, exhaustion, and deprivation status, and the adventure's public p
 
 It never includes unexplored geometry, undiscovered traps or secret doors, monster hit
 points or stat internals, referee-visibility roll outcomes, session flags, trigger
-fired-marks, referee notes, quest wiring such as activation clauses, patterns,
-conditions, rewards, and hidden objectives, the quests that are not active, meaning both
-the ones nobody has taken on yet and the ones already finished, RNG state, or the master
+fired-marks, referee notes, the internal logic of quests such as activation clauses,
+patterns, conditions, rewards, and hidden objectives, the quests that are not active, meaning
+both the ones not yet taken on and the ones already finished, RNG state, or the master
 seed, which lives only in the save and reaches neither view.
 
 The referee view includes everything else the save does, minus RNG internals and the seed,
@@ -38,7 +38,7 @@ for LLM referees and tests. Its fields are the groups
 and `view.flags["key"]` read with the types this reference documents, and
 `view.model_dump(mode="json")` is that save payload without the two withheld keys. Never
 trust the client with it: a networked game keeps the session and the referee view on the
-server and sends only the player view, or player-visibility events, over the wire. The guide
+server and sends only the player view, or player-visibility events, over the network. The guide
 [Views and visibility](https://mmacy.github.io/osrlib-python/guides/views-and-visibility/)
 walks the whole projection in a running front end.
 """
@@ -87,12 +87,12 @@ __all__ = [
 
 
 class MemberView(BaseModel):
-    """One member's public sheet: the players know their own characters.
+    """One member's public sheet, since the players know their characters.
 
     You get these from [`PlayerView.party`][osrlib.crawl.views.PlayerView], in marching
-    order, and every party member has one, living or dead. A member's own numbers are
-    not secrets, so the sheet is full, and the one thing play hides from the players is
-    the identity of an unidentified magic item in the pack.
+    order, and every party member has one, living or dead. A member's numbers are
+    not secrets, so the sheet is complete. The only thing the view hides from the players
+    is the identity of an unidentified magic item in the pack.
 
     Examples:
         ```python
@@ -118,7 +118,7 @@ class MemberView(BaseModel):
     id: str
     """The member's character id. This is the id you put in the `character_id` of a
     command such as [`GrantItem`][osrlib.crawl.commands.GrantItem] or a battle
-    declaration, so a wire client can act without holding the session."""
+    declaration, so a remote client can act without having the session."""
     name: str
     """The character's name, as the player wrote it."""
     class_id: str
@@ -126,16 +126,16 @@ class MemberView(BaseModel):
     level: int
     """The character's experience level."""
     current_hp: int
-    """Current hit points. Zero or less means the member is down, and `conditions` says
+    """Current hit points. Zero or less means the member is down, and `conditions` shows
     what took them out."""
     max_hp: int
     """Maximum hit points at the current level."""
     conditions: tuple[str, ...]
     """The conditions on the member right now, as
-    [`Condition`][osrlib.core.effects.Condition] wire values such as `"dead"` or
-    `"sleeping"`, in the order the ledger holds them."""
+    [`Condition`][osrlib.core.effects.Condition] serialized values such as `"dead"` or
+    `"sleeping"`, in the order they're in the ledger."""
     inventory: dict
-    """The member's pack, in the shape the inventory serializes, with the keys `items`,
+    """The member's pack, in the format the inventory serializes to, with the keys `items`,
     `purse`, `valuables`, `worn_armour`, `shield`, `wielded`, and `rings`. Magic items
     are masked until identified: an unidentified one shows a category display name
     instead of its true name. When that display name was built from a base weapon ("a
@@ -145,7 +145,7 @@ class MemberView(BaseModel):
     comes with it only for a weapon the rules give ranges to, so read the key as absent
     on a sword rather than empty. An item whose display comes from its category instead,
     such as a staff, includes neither field even when it resolves to a weapon, because
-    the display never named that weapon. Charges never appear at any identification
+    the display never included that weapon's name. Charges never appear at any identification
     level."""
     memorized_spells: tuple[dict, ...]
     """The prepared spells, one dumped
@@ -154,7 +154,7 @@ class MemberView(BaseModel):
 
 
 class MemberEffectView(BaseModel):
-    """An active effect on a party member: the players track their own torches and spells.
+    """An active effect on a party member: the players track their torches and spells.
 
     You get these from [`PlayerView.effects`][osrlib.crawl.views.PlayerView]. Only
     effects attached to a party member appear. An effect anchored to a dungeon cell is
@@ -168,7 +168,7 @@ class MemberEffectView(BaseModel):
     [`MemberView.id`][osrlib.crawl.views.MemberView]."""
     kind: str
     """The effect kind, such as `"light"` or `"fatigue"`, which is the same string an
-    [`EffectActiveCondition`][osrlib.crawl.gates.EffectActiveCondition] names."""
+    [`EffectActiveCondition`][osrlib.crawl.gates.EffectActiveCondition] uses."""
     remaining_rounds: int | None
     """Rounds left before the effect expires, never below zero. `None` means the players
     are not told: an effect with no expiry, and any effect a potion granted, because the
@@ -187,10 +187,10 @@ class EdgeView(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     kind: str
-    """What occupies the edge: `"open"`, `"wall"`, or `"door"`, the wire values of
+    """What occupies the edge: `"open"`, `"wall"`, or `"door"`, the serialized values of
     [`EdgeKind`][osrlib.crawl.dungeon.EdgeKind]. An undiscovered secret door reports
     `"wall"`. On the side of a cell that a passage stands on, it's `"open"`. The level's edges
-    have a wall there, but a [`MoveParty`][osrlib.crawl.commands.MoveParty] across that side lands
+    have a wall there, but a [`MoveParty`][osrlib.crawl.commands.MoveParty] across that side puts
     the party on the passage's destination."""
     door_open: bool | None = None
     """Whether the door stands open. `None` on an edge that is not a door."""
@@ -204,7 +204,7 @@ class PileView(BaseModel):
 
     You get these from [`PlayerView.piles`][osrlib.crawl.views.PlayerView], keyed by cell
     reference. A pile in a cell the party has not walked is left out, so the view never
-    tells the players about loot they have not found.
+    shows the players loot they have not found.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -255,8 +255,8 @@ class EncounterGroupView(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     id: str
-    """The group's id, which is the command vocabulary: a battle declaration names its
-    `target_group_id` with it, so a wire client needs it to fight at all. It is an
+    """The group's id, which is the id commands use: a battle declaration sets its
+    `target_group_id` to it, so a remote client needs it to fight at all. It is an
     allocator ordinal rather than a secret, the same way a
     [`MemberView.id`][osrlib.crawl.views.MemberView] is."""
     label: str
@@ -267,8 +267,8 @@ class EncounterGroupView(BaseModel):
     """How far away the group is on the range track, in feet."""
     visible_conditions: tuple[str, ...]
     """The conditions visible on the living members of the group, as
-    [`Condition`][osrlib.core.effects.Condition] wire values, sorted and deduplicated so
-    the same condition on six goblins reads once."""
+    [`Condition`][osrlib.core.effects.Condition] serialized values, sorted and deduplicated so
+    the same condition on six goblins appears once."""
 
 
 class EncounterView(BaseModel):
@@ -278,7 +278,7 @@ class EncounterView(BaseModel):
     there means nothing is happening.
 
     Four id tuples, `declarers`, `front_rank`, `immobile`, and `reloading`, describe the
-    round's shape as the players know it at the table: who is able to act, who stands
+    round as the players see it at the table: who is able to act, who stands
     close enough to swing, who is held fast, and who is still cranking a windlass. Each
     one corresponds to a rejection the engine would otherwise raise against the whole
     round, so a front end that reads all four offers only the declarations the engine will
@@ -289,18 +289,18 @@ class EncounterView(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     groups: tuple[EncounterGroupView, ...]
-    """The monster groups in the encounter, in the order the encounter holds them."""
+    """The monster groups in the encounter, in the same order as the encounter's groups."""
     stance: str | None
     """How the monsters are behaving, as a [`ReactionResult`][osrlib.core.tables.ReactionResult]
-    wire value: `"attacks"`, `"hostile"`, `"uncertain"`, `"indifferent"`, or `"friendly"`.
+    serialized value: `"attacks"`, `"hostile"`, `"uncertain"`, `"indifferent"`, or `"friendly"`.
     `None` before the reaction roll has settled it."""
     in_battle: bool
     """Whether the encounter has become a battle with rounds and declarations."""
     battle_round: int | None = None
     """The current battle round, counting from the first. `None` outside a battle."""
     pursuit_gap_feet: int | None = None
-    """How far ahead of its pursuers the fleeing party is, in feet. `None` when nobody is
-    pursuing."""
+    """How far ahead of its pursuers the fleeing party is, in feet. `None` when the party
+    isn't being pursued."""
     declarers: tuple[str, ...] = ()
     """Every member who has to declare this round, in marching order: the ones living and
     able to act. A [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound]
@@ -320,7 +320,7 @@ class EncounterView(BaseModel):
     reloading: tuple[str, ...] = ()
     """The members who may not fire a `reload` weapon this round, because they fired one
     last round (`combat.attack.reload`). Empty when the ruleset's `weapon_reload` flag is
-    off, so a front end can combine this list with the weapon's own qualities and never
+    off, so a front end can combine this list with the weapon's qualities and never
     read the flag itself."""
 
 
@@ -328,12 +328,12 @@ class ObjectiveView(BaseModel):
     """One revealed objective as the players know it: what it is called, and whether it is done.
 
     You get these from [`QuestView.objectives`][osrlib.crawl.views.QuestView]. A hidden
-    objective has no view at all: one nobody has been told about is absent from the list
+    objective has no view at all: one the players haven't been told about is absent from the list
     rather than listed as unknown, which is why `state` needs only the two values a
     visible objective can be in. The authored source is
     [`ObjectiveSpec`][osrlib.crawl.quests.ObjectiveSpec] and the live state is
-    [`ObjectiveState`][osrlib.crawl.session.ObjectiveState], neither of which a wire
-    client holds.
+    [`ObjectiveState`][osrlib.crawl.session.ObjectiveState], and a remote client has
+    neither.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -351,12 +351,12 @@ class ObjectiveView(BaseModel):
 class QuestView(BaseModel):
     """One active quest as the players know it: the charge, who gave it, and where it stands.
 
-    You get these from [`PlayerView.quests`][osrlib.crawl.views.PlayerView]. The wiring
+    You get these from [`PlayerView.quests`][osrlib.crawl.views.PlayerView]. The logic
     that starts a quest, checks it off, and pays it, meaning its clauses, patterns,
-    conditions, and rewards, never appears: that is the game's secret exactly as a
-    trigger's is. Read the authored quest itself from
+    conditions, and rewards, never appears. It's hidden from the players, the same as a
+    trigger's logic. Read the authored quest itself from
     [`QuestSpec`][osrlib.crawl.quests.QuestSpec] and its live state from
-    [`QuestState`][osrlib.crawl.session.QuestState] when you hold the session.
+    [`QuestState`][osrlib.crawl.session.QuestState] when you have the session.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -366,9 +366,9 @@ class QuestView(BaseModel):
     name: str
     """The quest's authored display name."""
     narrative: str
-    """The quest's authored offer beat, or the empty string when unauthored. The words
-    themselves travel, because a wire client holds no adventure document to resolve them
-    from."""
+    """The quest's authored offer beat, or the empty string when unauthored. The view
+    includes the words, because a remote client has no adventure document to look them
+    up in."""
     speaker: str
     """Who is speaking the offer, such as `"Sister Halda"`, or the empty string when the
     block authors no attribution."""
@@ -381,7 +381,7 @@ class PlayerView(BaseModel):
 
     Build one with [`build_player_view`][osrlib.crawl.views.build_player_view], or with
     [`GameSession.view`][osrlib.crawl.session.GameSession.view] and
-    `Visibility.PLAYER`. This is the object a networked game sends over the wire: every
+    `Visibility.PLAYER`. This is the object a networked game sends over the network: every
     field on it is safe to show at the table, and nothing the party has not learned is
     on it. Rebuild it after every command, because it is a frozen snapshot and nothing
     updates it in place.
@@ -406,9 +406,9 @@ class PlayerView(BaseModel):
     clock_rounds: int
     """The elapsed game clock in rounds, counting from the start of the session."""
     mode: str
-    """The session mode as a [`SessionMode`][osrlib.crawl.commands.SessionMode] wire
+    """The session mode as a [`SessionMode`][osrlib.crawl.commands.SessionMode] serialized
     value: `"town"`, `"exploring"`, `"encounter"`, `"battle"`, `"game_over"`, or
-    `"victory"`. It tells a front end which commands are legal right now."""
+    `"victory"`. A front end uses it to decide which commands are legal right now."""
     explored: tuple[ExploredLevelView, ...]
     """The party's map, one entry per level it knows anything about."""
     piles: dict[str, PileView]
@@ -429,14 +429,14 @@ class PlayerView(BaseModel):
     `food_days` and `water_days`. A member with no deprivation on either track is left
     out, so an empty dict means the party has been eating and drinking."""
     journal: tuple[JournalEntry, ...]
-    """The session journal, shipped as written: the players' own record of the
-    adventure, in order of discovery, each beat with the clock position it landed
-    at. The wiring behind the beats, meaning trigger fired-marks and referee notes, stays
+    """The session journal, as written: the players' record of the adventure, in
+    order of discovery, each beat with the clock position when it was written. The
+    logic behind the beats, meaning trigger fired-marks and referee notes, stays
     out."""
     quests: tuple[QuestView, ...]
     """The quests in play, in the order the adventure authored them: active ones only.
-    A quest nobody has taken on yet is not the party's business, and a finished one
-    leaves the list, and its record is the journal, which keeps every beat it wrote."""
+    A quest the party hasn't taken on yet is left out. A finished quest leaves the list,
+    and the journal contains every beat it wrote."""
     encounter: EncounterView | None = None
     """The current encounter or battle's public state, or `None` when the party is not in
     one."""
@@ -446,7 +446,7 @@ class ExplorationCounters(BaseModel):
     """The crawl bookkeeping a session keeps between commands: distance, rest, wandering, noise, sleep, supplies.
 
     You get one from [`RefereeView.exploration`][osrlib.crawl.views.RefereeView]. These are the counters
-    [`GameSession`][osrlib.crawl.session.GameSession] keeps as attributes of its own and a save writes
+    [`GameSession`][osrlib.crawl.session.GameSession] keeps as attributes and a save writes
     under its `exploration` key, gathered here under the names the session gives them. They are the
     referee's bookkeeping and none of them reaches [`PlayerView`][osrlib.crawl.views.PlayerView], which
     reports the party's fatigue, exhaustion, and deprivation as status rather than as the counts behind
@@ -486,7 +486,7 @@ class ExplorationCounters(BaseModel):
 
 
 class RefereeView(BaseModel):
-    """The full state projection minus RNG internals, one typed field per group the save keeps.
+    """The full state projection minus RNG internals, one typed field for each group of data in a save.
 
     Build one with [`build_referee_view`][osrlib.crawl.views.build_referee_view], or with
     [`GameSession.view`][osrlib.crawl.session.GameSession.view] and `Visibility.REFEREE`. Use it behind
@@ -494,9 +494,9 @@ class RefereeView(BaseModel):
     asserts on state a player may not see. Never send it to a player's client, and draw nothing a player
     sees from it, because that is what [`PlayerView`][osrlib.crawl.views.PlayerView] is for.
 
-    Each field is the session's own model rather than a dict, so you read
+    Each field is the session's model rather than a dict, so you read
     `view.monsters[0].current_hp` and `view.flags["key"]` with the types this reference documents, and
-    each field's docstring names the model to read next. The fields are the groups
+    each field's docstring links the model to read next. The fields are the groups
     [`session_state`][osrlib.persistence.session_state] writes, minus the master seed and the RNG stream
     positions, so `view.model_dump(mode="json")` is that save payload without those two keys. The seed
     and the stream positions live only in the save, because knowing them would let a player predict
@@ -506,7 +506,7 @@ class RefereeView(BaseModel):
     play going on afterwards leaves the view as it was, and editing what you find on a view changes
     nothing on the session. Being frozen fixes the view's fields rather than their contents, so
     rebinding `view.flags` raises while `view.flags["key"] = 1` and `view.monsters[0].current_hp = 0`
-    edit the view's own copies and are allowed. Build a fresh view after each command rather than
+    edit the view's copies and are allowed. Build a fresh view after each command rather than
     editing one. The command log, the event log, and the journal are shared with the session instead of
     copied, because a command, an event, and a journal entry are frozen records of something that has
     already happened.
@@ -521,7 +521,7 @@ class RefereeView(BaseModel):
     """The party, as a [`Party`][osrlib.crawl.party.Party] of full
     [`Character`][osrlib.core.character.Character] sheets in marching order, the dead included. Every
     number is here, the spell book and the true names of magic items among them, so render a player's
-    own sheet from [`PlayerView.party`][osrlib.crawl.views.PlayerView.party] instead, which masks what
+    sheet from [`PlayerView.party`][osrlib.crawl.views.PlayerView.party] instead, which masks what
     the party has not identified."""
     adventure: Adventure
     """The whole authored document, as an [`Adventure`][osrlib.crawl.adventure.Adventure]: the town, the
@@ -543,7 +543,7 @@ class RefereeView(BaseModel):
     """The live effects, as an [`EffectsLedger`][osrlib.core.effects.EffectsLedger]: spells running,
     conditions, a torch burning down, each with the round it expires at. It contains the effects anchored
     to dungeon cells as well as the ones on members, and it contains a potion's true duration, which the
-    rules keep from the players."""
+    players aren't allowed to know."""
     dungeon_state: DungeonState
     """What play has written over the authored map, as a
     [`DungeonState`][osrlib.crawl.dungeon.DungeonState]: where the party stands, the cells it has walked
@@ -551,19 +551,19 @@ class RefereeView(BaseModel):
     monsters: tuple[MonsterInstance, ...]
     """Every creature spawned this session, as
     [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] values in the order they were spawned, the
-    defeated ones included, so a later event can still name what it was. Hit points and stat internals
+    defeated ones included, so a later event can still refer to it. Hit points and stat internals
     are here, which is the line the player view draws: the party sees only
     [`EncounterGroupView`][osrlib.crawl.views.EncounterGroupView]."""
     npcs: tuple[Character, ...]
     """The NPC adventurers in play, as [`Character`][osrlib.core.character.Character] sheets in the order
-    they joined. They are characters rather than monsters, and they fight by the party's own rules."""
+    they joined. They are characters rather than monsters, and they fight by the same rules as the party."""
     flags: dict[str, str | int | bool]
-    """The session flag store, keyed as the game chose: the memory
+    """The session flag store, keyed as the game chose: the values
     [`SetFlag`][osrlib.crawl.commands.SetFlag] writes and an adventure's gates and triggers read. Flags
-    are content wiring, so no flag ever reaches a player view."""
+    are part of the adventure's hidden logic, so no flag ever reaches a player view."""
     fired_triggers: tuple[str, ...]
-    """The ids of the triggers that have fired, in the order they first fired. It answers "has this
-    fired before", and it is referee-only wiring: the beat a trigger wrote reaches the players through
+    """The ids of the triggers that have fired, in the order they first fired. Use it to check whether a
+    trigger has fired before. It's referee-only bookkeeping: the beat a trigger wrote reaches the players through
     the journal instead."""
     journal: tuple[JournalEntry, ...]
     """The adventure's beats, as [`JournalEntry`][osrlib.crawl.session.JournalEntry] values in the order
@@ -572,10 +572,10 @@ class RefereeView(BaseModel):
     quests: dict[str, QuestState]
     """Every authored quest's live state, as [`QuestState`][osrlib.crawl.session.QuestState] values keyed
     by quest id, in the order the adventure authored them: the inactive and completed quests as well as
-    the active ones, and every objective whether revealed or hidden. The players' own reading is
+    the active ones, and every objective whether revealed or hidden. The players' version is
     [`PlayerView.quests`][osrlib.crawl.views.PlayerView.quests]."""
     listener_state: dict[str, dict]
-    """Each registered listener's state, keyed by its `key`, in the shape that listener's `handle`
+    """Each registered listener's state, keyed by its `key`, in the format that listener's `handle`
     returned. The session stores it and never interprets it, so what the keys mean is the game's
     business."""
     death_records: dict[str, DeathRecord]
@@ -610,7 +610,7 @@ class RefereeView(BaseModel):
     last round."""
     command_log: tuple[SerializeAsAny[Command], ...]
     """Every accepted command, in order, each one the [`Command`][osrlib.crawl.commands.Command]
-    subclass it was issued as, so its own fields are there to read. Refused commands are absent, because
+    subclass it was issued as, so its fields are there to read. Refused commands are absent, because
     they changed nothing, and [`replay_game`][osrlib.persistence.replay_game] re-executes this list from
     the master seed to rebuild the session."""
     event_log: tuple[SerializeAsAny[Event] | dict, ...]
@@ -638,18 +638,18 @@ def _masked_magic_item(instance: MagicItemInstance) -> dict:
 
     An unidentified item shows its category display name, and an enchanted arm shows its
     base instead, as in "a sword with a faint aura", the concession made because *detect
-    magic* exists. A display string built from that base weapon already names the weapon,
+    magic* exists. A display string built from that base weapon already includes the weapon's name,
     so the unidentified item also shows the `qualities` of the mundane weapon underneath
     it, exactly as an identified one does, and its `missile_ranges` when the rules give
     that weapon ranges: how far the arm reaches, and in what manner. A weapon with no
     printed ranges, a sword among them, gets the `qualities` key and no `missile_ranges`
     key at all. A staff, wand, or other item whose display comes from
     its category instead shows neither field, even when it resolves to a weapon, because
-    the display never named that weapon and the fields would single the item out among
+    the display never included that weapon's name and the fields would single the item out among
     the items that show the same string. A `staff_of_striking` reads "a staff", and so
     does every other staff.
 
-    Both fields are rulebook facts about the weapon the display string already names,
+    Both fields are rulebook facts about the weapon the display string already includes,
     not facts about the enchantment, and they are what lets a front end tell a melee
     declaration from a missile one. Without them an enchanted dagger is unclassifiable
     where a plain dagger is not. An identified item shows its true name, its id, and
@@ -739,7 +739,7 @@ def build_player_view(session) -> PlayerView:
     Call it after every accepted command to get the snapshot your front end renders, and
     send that object rather than the session to any client you do not control.
     [`GameSession.view`][osrlib.crawl.session.GameSession.view] with `Visibility.PLAYER`
-    calls this for you, so use it when you already hold the session and reach for this
+    calls this for you, so use it when you already have the session and reach for this
     function when you want the builder itself.
 
     The call reads session state and mutates nothing, so building a view twice gives two
@@ -861,8 +861,8 @@ def build_player_view(session) -> PlayerView:
 def _quest_views(session):
     """The active quests, in document order, each with its revealed objectives.
 
-    The walk is over the authored specs rather than the state block, so the order the view
-    ships is the order the adventure wrote, and a quest the block does not know is absent
+    The walk is over the authored specs rather than the state block, so the order in the view
+    is the order the adventure wrote, and a quest missing from the block is absent
     rather than an error, the same way an unresolvable level is.
     """
     for quest in session.adventure.quests:
@@ -1005,21 +1005,21 @@ def _encounter_view(session) -> EncounterView | None:
 
 
 def build_referee_view(session) -> RefereeView:
-    """Build the referee view: every group the save keeps, typed, minus the seed and the RNG streams.
+    """Build the referee view: every group of data in a save, typed, minus the seed and the RNG streams.
 
     Use it for the context an LLM referee reasons over, for a debugging panel, or for a test that
     asserts on state a player may not see.
     [`GameSession.view`][osrlib.crawl.session.GameSession.view] with `Visibility.REFEREE` calls this
-    for you, so use that when you already hold the session and reach for this function when you want
+    for you, so use that when you already have the session and reach for this function when you want
     the builder itself. Never hand the result to a player's client: that is what
     [`build_player_view`][osrlib.crawl.views.build_player_view] is for. To store a session rather
-    than read it, call [`save_game`][osrlib.persistence.save_game], which keeps the seed and the
+    than read it, call [`save_game`][osrlib.persistence.save_game], which includes the seed and the
     stream positions a restored game needs.
 
     The call reads session state and mutates nothing. What it returns is a snapshot rather than a
     window: the session's mutable models are copied into it, so the session playing on afterwards
     leaves the view as it was, and editing what you find on the view changes nothing on the session.
-    A frozen model whose own containers cannot be edited goes in as it is, which covers the ruleset,
+    A frozen model whose containers cannot be edited goes in as it is, which covers the ruleset,
     the commands, the events, the journal entries, and the death and defeat records. The adventure is
     frozen as well and is copied anyway, because the authored tree contains dicts a caller can edit in
     place, the town's travel turns and each level's edges among them.

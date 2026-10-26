@@ -141,7 +141,7 @@ class RollResult(BaseModel):
     dice for the same reason: so an interface can put them on the screen.
 
     Attack and damage resolution in [`osrlib.core.combat`][osrlib.core.combat] hands back
-    results of this shape too, so one piece of display code covers both.
+    results with these fields too, so one piece of display code covers both.
 
     Examples:
         ```python

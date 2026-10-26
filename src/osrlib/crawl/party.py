@@ -3,7 +3,7 @@
 You build a [`Party`][osrlib.crawl.party.Party] out of the
 [`Character`][osrlib.core.character.Character]s your game rolled up, and you hand it to
 [`GameSession.new`][osrlib.crawl.session.GameSession.new] beside the adventure. From then on the
-session owns it: the party moves as one body, and `session.party` is where you read it back.
+session manages it: the party moves as one body, and `session.party` is where you read it back.
 
 The member list order *is* marching order. There is no second field to keep in step with it, so the
 first member is the one in front. [`ReorderParty`][osrlib.crawl.commands.ReorderParty] is the only
@@ -34,7 +34,7 @@ class Party(BaseModel):
 
     Construct one with at least one member and pass it to
     [`GameSession.new`][osrlib.crawl.session.GameSession.new], which assigns each member an entity id
-    and keeps the party for the life of the session. The methods here answer what the crawl procedures
+    and keeps the party for the life of the session. The methods here report what the crawl procedures
     need to know about the group as a whole: who is still standing, how fast the group walks, and who
     stands where in a fight.
 
@@ -95,19 +95,19 @@ class Party(BaseModel):
     def member(self, character_id: str) -> Character:
         """Return the member with `character_id`.
 
-        Use this to turn an id out of a command or an event back into the character it names. Ids
+        Use this to turn an id out of a command or an event back into the character it refers to. Ids
         come from [`GameSession.new`][osrlib.crawl.session.GameSession.new], which stamps each member
-        as `character-NNNN` in party order, and events carry them rather than names.
+        as `character-NNNN` in party order, and events include them rather than names.
 
         Args:
             character_id: The member's entity id.
 
         Returns:
-            The character. Dead members answer here too, because their gear and their record are
+            The character. Dead members are returned too, because their gear and their record are
                 still the party's.
 
         Raises:
-            ValueError: If no member has that id. The message names the id.
+            ValueError: If no member has that id. The message includes the id.
         """
         for member in self.members:
             if member.id == character_id:
@@ -119,7 +119,7 @@ class Party(BaseModel):
 
         B/X moves a group at the pace of its slowest member, so one overloaded character slows
         everybody. Call [`Character.movement_rate`][osrlib.core.character.Character.movement_rate]
-        for one character's own allowance, and
+        for one character's allowance, and
         [`exploration_rate`][osrlib.crawl.exploration.exploration_rate] for the rate the running
         session charges the party, which computes the same minimum and halves a member's rate first
         when hunger or thirst has caught up with them under the `deprivation_penalties` ruleset flag.
@@ -144,8 +144,8 @@ class Party(BaseModel):
         from the space the party is standing in, so you rarely pass your own. Call it yourself to
         draw the formation, or to answer "who is in front" outside a fight.
 
-        Ranks are derived on every read rather than stored, so the fallen collapse forward on their
-        own: when a front-rank member dies, the next living member is in front from the next read on.
+        Ranks are derived on every read rather than stored, so when a front-rank member dies, the
+        next living member is in front from the next read on.
 
         Args:
             width: How many characters stand abreast. Battle derives this from the party's frontage
@@ -154,7 +154,7 @@ class Party(BaseModel):
                 it is off.
 
         Returns:
-            The ranks, front first. The last rank holds the remainder and can be shorter than
+            The ranks, front first. The last rank contains the remainder and can be shorter than
                 `width`. Empty when nobody is alive.
 
         Raises:

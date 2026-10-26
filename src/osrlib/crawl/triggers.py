@@ -24,16 +24,15 @@ portcullis is a trigger, and the door that needs the brass key is a gate.
 
 The pieces:
 
-- A pattern ([`TriggerPattern`][osrlib.crawl.triggers.TriggerPattern]) names the
+- A pattern ([`TriggerPattern`][osrlib.crawl.triggers.TriggerPattern]) identifies the
   observable: a location crossed, an item acquired, a monster defeated, a flag written.
   Patterns are matched against the events themselves and never against current state,
-  because a consequence can move the party inside the same batch while an event keeps
-  describing the moment it reported.
+  because a consequence can move the party inside the same batch while an event still
+  describes the moment it reported.
 - Conditions ([`ConditionSpec`][osrlib.crawl.gates.ConditionSpec]) narrow the firing
-  further, all of them evaluated live against session state at match time. A trigger
-  fires, it does not take, so a condition with `consumes=True` is rejected at parse: a
-  trigger reacts to something that has already happened and has no attempt of its own to
-  charge a toll against.
+  further, all of them evaluated live against session state at match time. A condition
+  with `consumes=True` is rejected at parse, because a trigger reacts to something that
+  has already happened and has no attempt to charge a toll against.
 - Consequences ([`ConsequenceCommand`][osrlib.crawl.commands.ConsequenceCommand]) are
   the referee commands the firing issues, in authored order.
 - A narrative block ([`NarrativeBlock`][osrlib.crawl.narrative.NarrativeBlock]) contains
@@ -41,7 +40,7 @@ The pieces:
   a journal form for the line the table should see.
 
 Reach for a quest ([`QuestSpec`][osrlib.crawl.quests.QuestSpec]) instead when the
-adventure has to keep score toward an ending. A quest composes these same patterns and
+adventure has to track progress toward an ending. A quest uses these same patterns and
 conditions. The guide
 [Gates, triggers, and quests](https://mmacy.github.io/osrlib-python/guides/gates-triggers-quests/)
 runs all three from one adventure document.
@@ -77,15 +76,15 @@ Write it as the `character_id` of a
 [`GrantCoins`][osrlib.crawl.commands.GrantCoins], or
 [`AwardXP`][osrlib.crawl.commands.AwardXP] in a trigger's consequences or a quest's
 rewards, where a concrete character id would be a guess: a document written before play
-cannot know the ids a session hands out.
+can't contain the ids a session assigns.
 
 The [`Interpreter`][osrlib.crawl.interpreter.Interpreter] expands it at issue time into
 one command per living member, in marching order, so the command log stays concrete and
 replays exactly. A party with nobody left standing expands to no commands at all,
 because a reward for the dead is nothing rather than an error. Use
 [`FIRST_LIVING_SELECTOR`][osrlib.crawl.triggers.FIRST_LIVING_SELECTOR] when one member
-should receive the whole thing. No other command honors a selector, and a literal
-character id is passed through untouched."""
+should receive the whole thing. The interpreter expands a selector in no other command, and
+passes a literal character id through untouched."""
 
 FIRST_LIVING_SELECTOR = "@first"
 """The `character_id` an authored consequence writes to address one member.
@@ -95,7 +94,7 @@ the first living member in marching order, which is the treasure-recipient conve
 one object goes to one member, and the party sorts it out with
 [`GiveItems`][osrlib.crawl.commands.GiveItems]. With nobody standing there is no
 recipient, so the consequence is dropped and a
-[`NoteRecordedEvent`][osrlib.crawl.events.NoteRecordedEvent] says why rather than the
+[`NoteRecordedEvent`][osrlib.crawl.events.NoteRecordedEvent] records why, rather than the
 engine guessing. Use [`PARTY_SELECTOR`][osrlib.crawl.triggers.PARTY_SELECTOR] when every
 member should receive the reward."""
 
@@ -104,7 +103,7 @@ class AreaEnteredPattern(BaseModel):
     """The party entered a keyed area.
 
     Matches a [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] for an
-    area. Area ids are scoped to their level, so the pattern names the whole triple: an
+    area. Area ids are scoped to their level, so the pattern includes the whole triple: an
     area id of `"shrine"` means nothing without the dungeon and level it belongs to.
     Reach for [`LevelEnteredPattern`][osrlib.crawl.triggers.LevelEnteredPattern] when the
     whole level is the crossing you want.
@@ -136,7 +135,7 @@ class LevelEnteredPattern(BaseModel):
     """The party arrived on a dungeon level.
 
     It matches however the party got there: a stair between levels and an entry from
-    town both land it on the level. The engine reports the coarsest crossing a move
+    town both put it on the level. The engine reports the coarsest crossing a move
     passed, so a party walking in from town reports a dungeon entry, and this pattern
     counts that as a level arrival too.
 
@@ -217,7 +216,7 @@ class ItemAcquiredPattern(BaseModel):
     Matched by an [`ItemAcquiredEvent`][osrlib.crawl.events.ItemAcquiredEvent], however
     the item arrived: out of a cache, from a referee's grant, or from another member's
     hands. The id domain is the one a `has_item` condition reads, which is the effective
-    equipment catalog, meaning the shipped items plus the adventure's bundled ones, or
+    equipment catalog, meaning the built-in items plus the adventure's bundled ones, or
     the magic-item catalog.
 
     An acquisition reports mundane items by catalog id and magic items by their
@@ -239,7 +238,7 @@ class ItemAcquiredPattern(BaseModel):
     """The discriminator value, `item_acquired`. It appears in the document, and you
     never set it yourself."""
     item_id: str = Field(min_length=1)
-    """The catalog id of the item to watch for, from the equipment catalog (shipped plus
+    """The catalog id of the item to watch for, from the equipment catalog (built-in plus
     adventure-bundled) or the magic-item catalog. For a magic item, author the template
     id rather than an instance id."""
 
@@ -250,8 +249,8 @@ class MonsterDefeatedPattern(BaseModel):
     Both outcomes count as a defeat, and the pattern can't tell them apart. Defeats are
     reported at battle end through
     [`MonsterDefeatedEvent`][osrlib.crawl.events.MonsterDefeatedEvent], so a boss falling
-    opens the portcullis once the fighting stops and never mid-round. Author no trigger
-    that has to land the instant a blow kills.
+    opens the portcullis once the fighting stops and never mid-round. Don't author a trigger
+    that has to fire the instant a blow kills.
 
     Examples:
         ```python
@@ -268,7 +267,7 @@ class MonsterDefeatedPattern(BaseModel):
     """The discriminator value, `monster_defeated`. It appears in the document, and you
     never set it yourself."""
     template_id: str = Field(min_length=1)
-    """The monster template id to watch for, from the monster catalog (shipped plus
+    """The monster template id to watch for, from the monster catalog (built-in plus
     adventure-bundled). It is the template, not a session-scoped instance id, so every
     monster of that kind matches."""
 
@@ -321,12 +320,12 @@ TriggerPattern = Annotated[
 ]
 """The pattern union, discriminated on `pattern_type`.
 
-Annotate a field with this alias when you write your own model that holds an authored
+Annotate a field with this alias when you write your own model that contains an authored
 pattern. Pydantic then picks the member from the `pattern_type` value in the document.
 It is the type of [`TriggerSpec.when`][osrlib.crawl.triggers.TriggerSpec] and of
 [`TriggerClause.pattern`][osrlib.crawl.quests.TriggerClause], so a quest watches exactly
 what a trigger watches. New observables join the union additively, and the discriminator
-values are wire values that appear in every document that includes a trigger."""
+values are serialized values that appear in every document that includes a trigger."""
 
 
 class TriggerSpec(BaseModel):
@@ -335,7 +334,7 @@ class TriggerSpec(BaseModel):
     Put your triggers in the `triggers` tuple of an
     [`Adventure`][osrlib.crawl.adventure.Adventure], and register an
     [`Interpreter`][osrlib.crawl.interpreter.Interpreter] on the session to play them. A
-    spec on its own is inert data, and nothing in the engine reads it without that
+    spec on its own is inert data, and the engine reads it only through that
     listener.
 
     A trigger fires once ever by default. The fired-mark that
@@ -369,7 +368,7 @@ class TriggerSpec(BaseModel):
 
     id: str = Field(min_length=1)
     """The trigger's id, unique across the adventure. It is what the fired-mark records,
-    and what the `source` stamp on every command the firing issues names, in the form
+    and what the `source` stamp on every command the firing issues contains, in the form
     `trigger:{id}`."""
     when: TriggerPattern
     """The observable that fires it, one member of
@@ -386,12 +385,12 @@ class TriggerSpec(BaseModel):
     """The referee commands the firing issues, in authored order, with
     [`PARTY_SELECTOR`][osrlib.crawl.triggers.PARTY_SELECTOR] and
     [`FIRST_LIVING_SELECTOR`][osrlib.crawl.triggers.FIRST_LIVING_SELECTOR] expanded to
-    the members they name. Each command stands or drops on its own, so one rejection
-    never stops the rest. The tuple may be empty: a trigger whose whole job is its
-    journal beat is a normal shape. An authored `source` is rejected at parse, because
+    the members they select. Each command is applied or dropped independently, so one
+    rejection never stops the rest. The tuple may be empty: a trigger whose only job is
+    its journal beat is normal. An authored `source` is rejected at parse, because
     the issuing trigger stamps it."""
     narrative: NarrativeBlock | None = None
-    """The trigger's authored text. A trigger reads two beats of the block: `fired`,
+    """The trigger's authored text. osrlib reads two beats of the block: `fired`,
     reported by the referee-visibility
     [`TriggerFiredEvent`][osrlib.crawl.events.TriggerFiredEvent], and `journal`, which
     becomes a player-visible journal entry."""
@@ -413,9 +412,9 @@ class TriggerSpec(BaseModel):
     def _consequences_carry_no_source(self) -> TriggerSpec:
         """The `source` stamp belongs to whoever issues the command, not the document.
 
-        Consequences are issued stamped with the trigger's own id, so an authored
-        stamp would either be overwritten or, worse, believed: a line in the log
-        claiming a provenance nothing produced.
+        Consequences are issued stamped with the trigger's id, so an authored
+        stamp would either be overwritten or, worse, accepted: a line in the log
+        claiming a source that never issued the command.
         """
         for position, consequence in enumerate(self.consequences):
             if consequence.source is not None:

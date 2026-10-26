@@ -6,19 +6,19 @@ such as opening a door or taking a stair.
 Where a gate sits. You write a [`GateSpec`][osrlib.crawl.gates.GateSpec] into the
 `requires` field of a [`DoorSpec`][osrlib.crawl.dungeon.DoorSpec] or a
 [`TransitionSpec`][osrlib.crawl.dungeon.TransitionSpec], inside the dungeon geometry of
-an [`Adventure`][osrlib.crawl.adventure.Adventure]. A gate hangs nowhere else. The
+an [`Adventure`][osrlib.crawl.adventure.Adventure]. Gates go nowhere else. The
 exploration handlers behind
 [`GameSession.execute`][osrlib.crawl.session.GameSession.execute] evaluate it as the
 last validation step of [`OpenDoor`][osrlib.crawl.commands.OpenDoor],
 [`ForceDoor`][osrlib.crawl.commands.ForceDoor], and
 [`UseStairs`][osrlib.crawl.commands.UseStairs], and of a
-[`MoveParty`][osrlib.crawl.commands.MoveParty] that crosses a passage. A gate that refuses produces the
+[`MoveParty`][osrlib.crawl.commands.MoveParty] that crosses a passage. When the condition fails, the command returns the
 rejection `exploration.door.gate_refused` or `exploration.transition.gate_refused`,
-which includes the authored refusal beat, and no event at all. A gate that opens puts its
-success beat on the command's own event: a
+which includes the authored refusal beat, and no event at all. When it passes, the
+command's event includes the gate's success beat: a
 [`DoorEvent`][osrlib.crawl.events.DoorEvent] for a door, a
 [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] for a transition
-that crosses into a new level or dungeon. A gate that charges a toll reports it as an
+that crosses into a new level or dungeon. The engine reports a toll the gate charges as an
 [`ItemConsumedEvent`][osrlib.crawl.events.ItemConsumedEvent] ahead of that event.
 
 A gate is stateless content. [`condition_holds`][osrlib.crawl.gates.condition_holds]
@@ -75,7 +75,7 @@ class HasItemCondition(BaseModel):
     """The party carries an item with `item_id`, equipment or magic item alike.
 
     Write this into the `condition` of a [`GateSpec`][osrlib.crawl.gates.GateSpec] for
-    the door that needs a key, and into the `conditions` of a
+    a door that opens only with a key, and into the `conditions` of a
     [`TriggerSpec`][osrlib.crawl.triggers.TriggerSpec] or a quest's
     [`TriggerClause`][osrlib.crawl.quests.TriggerClause] to narrow a firing to a party
     that is still carrying something. Any member's carried inventory satisfies it,
@@ -83,8 +83,8 @@ class HasItemCondition(BaseModel):
     dead and their packs, so a key in a dead member's pack still counts.
 
     `item_id` has to resolve against the effective equipment catalog, which is the
-    shipped catalog plus the adventure's own bundled items, or against the magic-item
-    catalog. A gate naming an id that is in neither catalog fails adventure validation.
+    built-in catalog plus the adventure's bundled items, or against the magic-item
+    catalog. A gate with an id that is in neither catalog fails adventure validation.
 
     Examples:
         ```python
@@ -101,18 +101,18 @@ class HasItemCondition(BaseModel):
     """The discriminator value, `has_item`. It appears in every document that
     includes this condition, and you never set it yourself."""
     item_id: str = Field(min_length=1)
-    """The catalog id to look for, from the equipment catalog (shipped items plus the
+    """The catalog id to look for, from the equipment catalog (built-in items plus the
     adventure's bundled ones) or the magic-item catalog."""
     consumes: bool = False
     """Whether a success takes the item. `True` makes it a toll: one instance leaves the
     first holder in marching order every time the gated command succeeds, so a door that
     swings shut needs another key. A trigger's or a quest's conditions reject `True` at
     parse, because they observe an event that has already happened and have no attempt
-    of their own to charge against."""
+    to charge against."""
 
 
 class FlagEqualsCondition(BaseModel):
-    """A session flag holds `value`: the lever that opens the portcullis.
+    """A session flag equals `value`: the lever that opens the portcullis.
 
     Your game writes flags with [`SetFlag`][osrlib.crawl.commands.SetFlag], and a
     trigger's consequence can write one too, so this is how a lever in one room governs
@@ -138,7 +138,7 @@ class FlagEqualsCondition(BaseModel):
     key: str = Field(min_length=1)
     """The flag name to read from the session flag store."""
     value: str | int | bool
-    """The value the flag has to hold. The comparison keeps types apart, so author the
+    """The value the flag has to have. The comparison never treats values of different types as equal, so author the
     same type your [`SetFlag`][osrlib.crawl.commands.SetFlag] writes."""
 
 
@@ -182,9 +182,9 @@ Its members are [`HasItemCondition`][osrlib.crawl.gates.HasItemCondition]
 (`has_item`), [`FlagEqualsCondition`][osrlib.crawl.gates.FlagEqualsCondition]
 (`flag_equals`), and
 [`EffectActiveCondition`][osrlib.crawl.gates.EffectActiveCondition] (`effect_active`).
-Annotate a field with this alias when you write your own model that holds authored
+Annotate a field with this alias when you write your own model that contains authored
 conditions. Pydantic then picks the member from the `condition_type` value in the
-document. New kinds join the union additively, and the discriminator values are wire
+document. New kinds join the union additively, and the discriminator values are serialized
 values that appear in every document that includes a gate.
 
 A condition is read on the `condition` of a
@@ -202,8 +202,8 @@ class GateSpec(BaseModel):
     [`TransitionSpec`][osrlib.crawl.dungeon.TransitionSpec] when you build the dungeon,
     and the engine checks it every time the party tries that door, stair, or passage. A refused
     attempt returns the `refusal` beat inside its rejection and costs the party nothing:
-    no dice, no game time, no item, and no change to the door. A successful attempt puts
-    the `success` beat on the command's own event.
+    no dice, no game time, no item, and no change to the door. On a successful attempt,
+    the command's event includes the `success` beat.
 
     A door standing open is not checked, so a gate on a door your game opens with
     [`SetDoorState`][osrlib.crawl.commands.SetDoorState] applies again only once the
@@ -232,7 +232,7 @@ class GateSpec(BaseModel):
     the moment of the attempt. To ask for two things at once, put the second condition on
     a trigger that writes the flag this gate reads."""
     narrative: NarrativeBlock | None = None
-    """The authored text for both outcomes. A gate reads two beats of the block,
+    """The authored text for both outcomes. osrlib reads two beats of a gate's block,
     `refusal` and `success`; the rest are left alone. `None` gates the way with no words
     at all, and the rejection then includes no refusal text."""
 
@@ -246,13 +246,13 @@ def condition_holds(
 ) -> bool:
     """Evaluate one condition against live session state.
 
-    Every surface that asks whether an authored condition holds asks through here: the
+    Every part of the engine that checks an authored condition calls this function: the
     gate on a door or a stair, a [`TriggerSpec`][osrlib.crawl.triggers.TriggerSpec]'s
     conditions, and a quest [`TriggerClause`][osrlib.crawl.quests.TriggerClause]'s. You
     rarely call it yourself, because the engine calls it for you at the moment of an
     attempt and the [`Interpreter`][osrlib.crawl.interpreter.Interpreter] calls it at
-    the moment of a match. Call it directly when your own listener wants to ask the same
-    question the engine asks, or to check an authored document against a session in a
+    the moment of a match. Call it directly when your listener has to check a condition the
+    way the engine does, or to check an authored document against a session in a
     test.
 
     The call draws no dice, advances no clock, mutates nothing, and stores nothing.
@@ -295,16 +295,16 @@ def flag_values_equal(stored: str | int | bool, expected: str | int | bool) -> b
     The test is equality plus matching boolness. `True == 1` in Python, so a flag your
     game set to `True` does not satisfy an authored `1`, and an authored `True` does not
     match a stored `1`: they are different values in an authored document even though
-    Python calls them equal. Call it when your own code has to answer the same question
-    about a flag that the engine answers.
+    Python calls them equal. Call it when your code has to compare flag values the way the
+    engine does.
 
-    Every surface that asks whether a flag holds a value asks through here, which is why
+    Every part of the engine that compares a flag value calls this function, which is why
     [`FlagEqualsCondition`][osrlib.crawl.gates.FlagEqualsCondition] on a gate and
     [`FlagSetPattern`][osrlib.crawl.triggers.FlagSetPattern] on a trigger can never
     disagree about what equality means.
 
     Args:
-        stored: The value the flag store holds, or the value a
+        stored: The value in the flag store, or the value a
             [`FlagSetEvent`][osrlib.crawl.events.FlagSetEvent] reports written.
         expected: The value the author wrote.
 
@@ -328,7 +328,7 @@ def first_holder(members: Sequence[Character], item_id: str) -> Character | None
 
     This is the consumption target of a `has_item` toll, and it matches exactly what
     [`condition_holds`][osrlib.crawl.gates.condition_holds] tests, so the member it
-    names is the one the engine charges. Call it when your own code has to name the
+    returns is the one the engine charges. Call it when your code has to find the
     holder the engine would charge. The search is over every member, living or dead, and
     over each inventory in carried order, equipped slots included.
 

@@ -1,8 +1,8 @@
 # Building an adventure
 
-Adventures are plain data: frozen [pydantic](https://docs.pydantic.dev/) models you assemble in code, or load from your own file format, and hand to the session.
+Adventures are plain data: frozen [pydantic](https://docs.pydantic.dev/) models you assemble in code, or load from your own file format, and pass to the session.
 
-The shape of the tree:
+The models form a tree:
 
 - [`Adventure`][osrlib.crawl.adventure.Adventure] - the root: a name, a [`TownSpec`][osrlib.crawl.adventure.TownSpec], and one or more dungeons
 - [`DungeonSpec`][osrlib.crawl.dungeon.DungeonSpec] - one dungeon: an id and one or more levels
@@ -29,11 +29,11 @@ level = LevelSpec(
     },
 ```
 
-An [`Edge`][osrlib.crawl.dungeon.Edge] is `open`, `wall`, or `door`. A door edge has a [`DoorSpec`][osrlib.crawl.dungeon.DoorSpec]: normal or secret, stuck, locked, or gated. For gates, see [Gates, triggers, and quests](../guides/gates-triggers-quests.md). `entrance` is the cell where [`EnterDungeon`][osrlib.crawl.commands.EnterDungeon] lands the party.
+An [`Edge`][osrlib.crawl.dungeon.Edge] is `open`, `wall`, or `door`. A door edge has a [`DoorSpec`][osrlib.crawl.dungeon.DoorSpec]: normal or secret, stuck, locked, or gated. For gates, see [Gates, triggers, and quests](../guides/gates-triggers-quests.md). `entrance` is the cell where [`EnterDungeon`][osrlib.crawl.commands.EnterDungeon] places the party.
 
 ## Keyed areas
 
-Cells not covered by any area are corridor. An [`AreaSpec`][osrlib.crawl.dungeon.AreaSpec] names a region (a room, a cave, a shrine) and attaches content to it: descriptive prose for your front end, an encounter, a trap, treasure. The party triggers an area's content by stepping into any of its cells:
+Cells not covered by any area are corridor. An [`AreaSpec`][osrlib.crawl.dungeon.AreaSpec] defines a region (a room, a cave, a shrine) and attaches content to it: descriptive prose for your front end, an encounter, a trap, treasure. The party triggers an area's content by stepping into any of its cells:
 
 ```{.python .no-run}
     areas=(
@@ -55,12 +55,12 @@ Beyond encounters, an area (or the level itself) can contain:
 - [`FeatureSpec`][osrlib.crawl.dungeon.FeatureSpec] - a treasure cache, a construction trick, or custom content for your front end. A cache contains hand-placed items, magic items (any id from [the magic item id index][magic-items-index], like a `sword_plus_1` in a chest), coins, and named valuables ([`ValuableSpec`][osrlib.crawl.dungeon.ValuableSpec]).
 - [`TrapSpec`][osrlib.crawl.dungeon.TrapSpec] - room traps on areas, treasure traps on caches. A room trap springs when the party steps in or, with `trigger="open"`, when the party opens one of the area's doors.
 - [`AreaTreasureSpec`][osrlib.crawl.dungeon.AreaTreasureSpec] - generated treasure: explicit treasure type letters (see [the treasure type index][treasure-types-index]) or the level's unguarded-treasure band.
-- [`TransitionSpec`][osrlib.crawl.dungeon.TransitionSpec] - stairs, trapdoors, and chutes, which the party takes with [`UseStairs`][osrlib.crawl.commands.UseStairs], and passages, which the party walks through with [`MoveParty`][osrlib.crawl.commands.MoveParty]. A passage joins two cells that a map shows side by side but the grid can't, like the floors of two levels that meet. Transitions live on the level, not the area.
+- [`TransitionSpec`][osrlib.crawl.dungeon.TransitionSpec] - stairs, trapdoors, and chutes, which the party takes with [`UseStairs`][osrlib.crawl.commands.UseStairs], and passages, which the party walks through with [`MoveParty`][osrlib.crawl.commands.MoveParty]. A passage joins two cells that a map shows side by side but the grid can't, like the floors of two levels that meet. You put transitions on the level, not on an area.
 - [`WanderingSpec`][osrlib.crawl.dungeon.WanderingSpec] - the level's wandering-monster check: 1-in-6 every two turns by default, with an optional custom table.
 
 ## The dungeon, the town, and the root
 
-You put the level into a [`DungeonSpec`][osrlib.crawl.dungeon.DungeonSpec], and the dungeon into an [`Adventure`][osrlib.crawl.adventure.Adventure] beside the [`TownSpec`][osrlib.crawl.adventure.TownSpec]. The town is the safe base where the party rests, buys equipment, and sells treasure. `travel_turns` maps each dungeon id to the town-to-entrance travel cost in exploration turns:
+You put the level into a [`DungeonSpec`][osrlib.crawl.dungeon.DungeonSpec], and the dungeon into an [`Adventure`][osrlib.crawl.adventure.Adventure] beside the [`TownSpec`][osrlib.crawl.adventure.TownSpec]. The town is the safe base where the party rests, buys equipment, and sells treasure. `travel_turns` maps each dungeon id to the time it takes to travel from town to that dungeon, in exploration turns:
 
 ```{.python .no-run}
 barrow = DungeonSpec(id="barrow", name="The Barrow", levels=(level,))
@@ -72,11 +72,11 @@ adventure = Adventure(
 )
 ```
 
-The root also contains the adventure's *behavior* on the `items`, `triggers`, and `quests` fields: its own item templates, its triggers, and its quests. For all three, see [Gates, triggers, and quests](../guides/gates-triggers-quests.md).
+The root also contains the adventure's *behavior* on the `items`, `triggers`, and `quests` fields: the item templates it bundles, its triggers, and its quests. For all three, see [Gates, triggers, and quests](../guides/gates-triggers-quests.md).
 
 ## Validate before play
 
-[`validate_adventure`][osrlib.crawl.adventure.validate_adventure] checks the whole tree against the compiled catalogs and raises [`ContentValidationError`][osrlib.errors.ContentValidationError] naming every problem at once: unknown monster or item ids, out-of-bounds cells, transitions to nowhere, missing entrances. [`GameSession.new`][osrlib.crawl.session.GameSession.new] runs the same validation, so a session can never start on broken content. Calling `validate_adventure` yourself fails faster while you author:
+[`validate_adventure`][osrlib.crawl.adventure.validate_adventure] checks the whole tree against the compiled catalogs and raises a [`ContentValidationError`][osrlib.errors.ContentValidationError] that lists every problem at once: unknown monster or item ids, out-of-bounds cells, transitions to nowhere, missing entrances. [`GameSession.new`][osrlib.crawl.session.GameSession.new] runs the same validation, so a session can never start on broken content. Call `validate_adventure` yourself to find the problems sooner, while you're still authoring:
 
 ```{.python .no-run}
 # Validation catches unknown ids and broken geometry before play ever starts.

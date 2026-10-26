@@ -2,13 +2,13 @@
 
 osrlib is a Python library that implements the classic 1981 B/X (Basic/Expert) fantasy adventure game rules for turn-based, grid-based dungeon crawlers in the style of the original Bard's Tale. The rules come from the [Old-School Essentials System Reference Document](https://oldschoolessentials.necroticgnome.com/srd/), an Open Game Content restatement of the B/X rules. osrlib is the rules authority and game-state engine. Your game supplies presentation, input, and content.
 
-The library is headless and sans-I/O: it never renders, prompts, sleeps, or touches the network. Every game it runs is deterministic. The same seed and the same commands always replay the same game. An adventure defines its own content and behavior (bundled items, gated doors, triggers, and quests), and the library includes the interpreter that plays the adventure through to a victory ending. osrlib is designed for four kinds of consumer: a web or mobile backend (FastAPI over HTTP), a terminal game (a local TUI crawler), an LLM referee or narrator driven by structured events and typed commands, and scripts or simulations that call the rules kernel with no session at all.
+The library is headless and sans-I/O: it never renders, prompts, sleeps, or touches the network. Every game it runs is deterministic. The same seed and the same commands always replay the same game. An adventure defines its content and behavior (bundled items, gated doors, triggers, and quests), and the library includes the interpreter that plays the adventure through to a victory ending. osrlib is designed for four kinds of consumer: a web or mobile backend (FastAPI over HTTP), a terminal game (a local TUI crawler), an LLM referee or narrator driven by structured events and typed commands, and scripts or simulations that call the rules kernel with no session at all.
 
 **Status:** released and published as [osrlib on PyPI](https://pypi.org/project/osrlib/). The public API is frozen. The [documentation site](https://mmacy.github.io/osrlib-python/) is the place to learn the library: quickstart, guides, front-end walk-throughs, and a full reference for every public symbol, command, event, rejection code, message code, RNG stream, and content id.
 
 ## Installation
 
-Requires Python ≥ 3.14. The only runtime dependency is [pydantic](https://docs.pydantic.dev/).
+osrlib requires Python 3.14 or later. The only runtime dependency is [pydantic](https://docs.pydantic.dev/).
 
 ```sh
 uv add osrlib
@@ -86,7 +86,7 @@ rolls_b = [roll("2d6×10", streams_b.get("treasure")).total for _ in range(3)]
 assert rolls_a == rolls_b  # the same seed and the same key give identical sequences
 ```
 
-Successive rolls on one stream differ. The contract is that deriving a stream again, from the same seed and key, reproduces the same sequence. `load_game` restores a saved game from its serialized state alone, with no re-execution. `replay_game` rebuilds the same session by re-executing the seed and the command log from scratch. The determinism guarantee is that the two paths always agree, and a standing test checks that they do.
+Successive rolls on one stream differ. The contract is that deriving a stream again, from the same seed and key, reproduces the same sequence. `load_game` restores a saved game from its serialized state alone, with no re-execution. `replay_game` rebuilds the same session by re-executing the seed and the command log from scratch. The determinism guarantee is that the two paths always agree, and a test checks that they do.
 
 ## SRD data pipeline
 
@@ -100,7 +100,7 @@ CI regenerates the data and fails on any diff, so `srd/`, the compiler, and the 
 
 ## Contributing
 
-Requires Python ≥ 3.14 and [uv](https://docs.astral.sh/uv/). Install from source and run the checks the way CI does:
+You need Python 3.14 or later and [uv](https://docs.astral.sh/uv/). Install from source and run the checks the way CI does:
 
 ```sh
 git clone https://github.com/mmacy/osrlib-python.git
@@ -117,6 +117,6 @@ For the design (architecture, contracts, rules scope, and the phased roadmap), s
 
 ## Licensing
 
-This repository contains two kinds of material under two licenses. The library code is licensed under the [MIT license](LICENSE). The SRD-derived content (the scraped SRD text in `srd/` and the compiled game data in `src/osrlib/data/`) is Open Game Content used under the [Open Game License 1.0a](LICENSE-OGL.md), which includes the complete Section 15 copyright notice. The data package includes its own copy of the license, with the osrlib Section 15 entry, inside the built wheel.
+This repository contains two kinds of material under two licenses. The library code is licensed under the [MIT license](LICENSE). The SRD-derived content (the scraped SRD text in `srd/` and the compiled game data in `src/osrlib/data/`) is Open Game Content used under the [Open Game License 1.0a](LICENSE-OGL.md), which includes the complete Section 15 copyright notice. The data package in the built wheel includes a copy of the license, with the osrlib Section 15 entry.
 
 osrlib is an independent project, not affiliated with or endorsed by Necrotic Gnome. "Old-School Essentials" is a trademark of Necrotic Gnome, used here only to identify the source document. osrlib makes no claim of compatibility.

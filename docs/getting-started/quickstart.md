@@ -1,6 +1,6 @@
 # Quickstart
 
-Install [osrlib from PyPI](https://pypi.org/project/osrlib/). Python ≥ 3.14 required.
+Install [osrlib from PyPI](https://pypi.org/project/osrlib/). osrlib requires Python 3.14 or later.
 
 ```sh
 uv add osrlib
@@ -14,7 +14,7 @@ pip install osrlib
 
 ## Roll the party
 
-[`create_character`][osrlib.core.character.create_character] runs the B/X procedure: ability scores, class, hit points, starting gold. Randomness flows through named streams forked from a master seed — same seed, same rolls.
+[`create_character`][osrlib.core.character.create_character] runs the B/X procedure: ability scores, class, hit points, starting gold. Every random draw comes from a named stream forked from a master seed, so the same seed gives the same rolls.
 
 ```{.python .no-run}
 # Roll two 1st-level characters; every random draw comes from a named, seeded stream.
@@ -25,7 +25,7 @@ cleric = create_character(name="Osric", class_id="cleric", alignment=Alignment.L
 party = Party(members=[fighter.character, cleric.character])
 ```
 
-`class_id` takes any id from [`load_classes`][osrlib.data.load_classes]. The result wraps the character with its rolls; the party takes `fighter.character`.
+`class_id` takes any id from [`load_classes`][osrlib.data.load_classes]. The result contains the character and its rolls. Pass `fighter.character` to the party.
 
 ## Build the adventure
 
@@ -42,7 +42,7 @@ town = TownSpec(name="Threshold", travel_turns={"crypt": 1})
 adventure = Adventure(name="A First Delve", town=town, dungeons=(crypt,))
 ```
 
-`"1,0:west"` keys the west side of cell `(1, 0)`. See [Building an adventure](building-an-adventure.md) for the full geometry.
+The key `"1,0:west"` is the west side of cell `(1, 0)`. See [Building an adventure](building-an-adventure.md) for the full geometry.
 
 ## Start the session and move
 
@@ -55,7 +55,7 @@ session.execute(EnterDungeon(dungeon_id="crypt"))
 assert session.mode is SessionMode.EXPLORING
 ```
 
-Commands change the game state. Each returns typed events:
+Each command you execute changes the game state, and the session returns typed events for it:
 
 ```{.python .no-run}
 # Commands in, events out: every rules resolution is a typed event with a message code.
@@ -65,11 +65,11 @@ lines = [format_message(event) for event in result.events]
 assert lines  # every event formats to a default English line
 ```
 
-A rejected command changes nothing. Events carry structured fields and a message code, never baked prose. [`format_message`][osrlib.messages.format_message] renders the default English line; your front end can supply its own.
+A rejected command changes nothing. Events contain structured fields and a message code, not English text. [`format_message`][osrlib.messages.format_message] renders the default English line, and your front end can render different text instead.
 
 ## Save and load
 
-The session serializes to a JSON-compatible dict. Loading restores it from that state alone:
+[`save_game`][osrlib.persistence.save_game] serializes the session to a JSON-compatible dict, and [`load_game`][osrlib.persistence.load_game] restores the session from that dict alone:
 
 ```{.python .no-run}
 # The whole session round-trips through JSON: same seed, same commands, same game.
@@ -78,7 +78,7 @@ restored = load_game(document)
 assert save_game(restored) == document
 ```
 
-For replay — rebuilding the same session by re-executing the command log — see [Determinism, saves, and replay](../guides/determinism-saves-replay.md).
+For replay, which rebuilds the same session by re-executing the command log, see [Determinism, saves, and replay](../guides/determinism-saves-replay.md).
 
 ## The complete program
 
@@ -134,4 +134,4 @@ assert save_game(restored) == document
 - [Gates, triggers, and quests](../guides/gates-triggers-quests.md) - keyed doors, levers, quests.
 - [Sessions, commands, and events](../guides/sessions-commands-events.md) - the command loop: modes, rejections, the event log.
 - [Determinism, saves, and replay](../guides/determinism-saves-replay.md) - the seed guarantee and how saves and replay agree.
-- [The TUI crawler](../front-ends/tui-crawler.md) - a complete game built on this.
+- [The TUI crawler](../front-ends/tui-crawler.md) - a complete game built on osrlib.

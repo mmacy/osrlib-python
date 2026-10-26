@@ -14,7 +14,7 @@ properties computed from stored state rather than stored fields, so they cannot 
 with the state they come from. Validation on the model is structural: score ranges, a level
 within the class's bounds, current hit points no higher than maximum. Whether a creation step was
 legal is checked by the creation functions when the step happens, because a finished character
-keeps no record of the choices that made it.
+has no record of the choices that made it.
 
 Creation follows the OSE SRD's Creating a Character steps as pure functions you drive one at a time
 when a player is making the choices:
@@ -120,7 +120,7 @@ __all__ = [
 CHARACTER_CREATION_STREAM = StreamName.CHARACTER_CREATION
 """The stream key every session uses for creation draws.
 
-A stream key names one independent random-number sequence inside an
+A stream key identifies one independent random-number sequence inside an
 [`RngStreams`][osrlib.core.rng.RngStreams] set. Pass
 `streams.get(CHARACTER_CREATION_STREAM)` as the `stream` argument of
 [`create_character`][osrlib.core.character.create_character] and of the stepwise creation
@@ -129,7 +129,7 @@ order.
 
 Use a different key only when you want creation draws kept apart from the ones a session already
 records, for example when you roll throwaway characters beside a live game. Pass your own key to
-`streams.get`; do not change this constant, because a save replays every stream by the key that
+`streams.get`. Don't change this constant, because a save replays every stream by the key that
 produced it.
 """
 
@@ -181,7 +181,7 @@ class Character(BaseModel):
     rather than storing the bad value. Validation is structural only. It checks that the six scores
     are present and in range, that the level is within the class's maximum, and that current hit
     points do not exceed maximum hit points. It does not check that the character was created
-    legally, because a finished character keeps no record of its own creation.
+    legally, because a finished character has no record of how it was created.
 
     Nothing derived is stored. THAC0, attack bonus, saving throws, ability modifiers, both armour
     classes, and the language list are properties recomputed from the stored fields every time you
@@ -292,9 +292,9 @@ class Character(BaseModel):
 
     memorized_spells: tuple[MemorizedSpell, ...] = ()
     """The prepared copies a caster may cast, as [`MemorizedSpell`][osrlib.core.spells.MemorizedSpell] records in
-    memorization order. The order matters: casting spends the first matching copy, and energy drain forgets the newest
-    first. How many of each level fit is derived from the class's progression row, not stored, so leveling up and being
-    drained both recompute it.
+    memorization order. The order determines which copy goes first: casting spends the first matching copy, and
+    energy drain removes the newest first. How many of each level fit is derived from the class's progression row,
+    not stored, so leveling up and being drained both recompute it.
     """
 
     @field_validator("scores")
@@ -406,7 +406,7 @@ class Character(BaseModel):
     def npc_reaction_modifier(self) -> int:
         """The CHA modifier applied to NPC reaction rolls, from −2 to +2.
 
-        Reaction rolls during a crawl read it for you; see
+        During a crawl, the session applies it to reaction rolls for you. See
         [`osrlib.crawl.encounter`][osrlib.crawl.encounter].
         """
         return self._tables().npc_reaction_modifier(self.scores[AbilityScore.CHA])
@@ -415,8 +415,8 @@ class Character(BaseModel):
     def alignment_tongue(self) -> str:
         """The secret language shared by everyone of this alignment, as a language id.
 
-        Every character speaks the tongue of their own alignment and no other. The id is
-        `alignment_` followed by the alignment's wire value, so a lawful character speaks
+        Every character speaks the tongue of their alignment and no other. The id is
+        `alignment_` followed by the alignment's serialized value, so a lawful character speaks
         `"alignment_lawful"`. These are not entries in the language catalog that
         [`load_languages`][osrlib.data.load_languages] returns. They are derived here, so changing
         a character's alignment changes the tongue in the same moment.
@@ -428,7 +428,7 @@ class Character(BaseModel):
         """Every language the character speaks, as ids, in a fixed order.
 
         The alignment tongue comes first, then the languages the class grants with Common at the
-        front, then the extras a high INT bought at creation. Compare against another speaker's
+        front, then the extras picked at creation for a high INT. Compare against another speaker's
         list to decide whether two people can talk to each other. The ids other than the alignment
         tongue are catalog ids from [`load_languages`][osrlib.data.load_languages]; see
         [the language id index][languages-index].
@@ -597,8 +597,8 @@ class Character(BaseModel):
 
         Fields in the payload that this version does not recognize are ignored, so a document written
         by a later release that only added fields still loads. A document whose schema version is
-        newer than this release understands is refused instead, because the meaning of what it
-        does know may have changed.
+        newer than this release understands is refused instead, because the fields this release
+        recognizes may mean something different in it.
 
         Args:
             document: The stamped envelope, as returned by
@@ -625,7 +625,7 @@ def party_to_document(characters: Sequence[Character]) -> dict[str, object]:
     """Return a group of characters as one JSON-ready document, stamped with its versions.
 
     Use this to store a roster you build once and reuse, like a set of pre-generated characters
-    a front end offers at the start of a game. It writes the characters and nothing else: marching
+    a front end offers at the start of a game. It writes only the characters: marching
     order, shared light sources, and the rest of a playing party's state belong to
     [`Party`][osrlib.crawl.party.Party] and are saved with the session by
     [`osrlib.persistence`][osrlib.persistence].
@@ -820,7 +820,7 @@ def validate_class_choice(scores: dict[AbilityScore, int], definition: ClassDefi
     [`load_classes`][osrlib.data.load_classes]`().classes` to build the list of classes to offer.
 
     It reports rather than raises, so you can show a player why a class is closed to them. Each
-    failure names the ability, the minimum the class requires, and the score that fell short. The
+    failure includes the ability, the minimum the class requires, and the score that fell short. The
     demi-human classes are the ones with requirements: the dwarf and the halfling require CON 9, the
     elf requires INT 9, and the halfling also requires DEX 9.
 
@@ -924,7 +924,7 @@ def validate_extra_languages(definition: ClassDefinition, int_score: int, choice
     """Check the extra languages a high INT lets a character pick.
 
     A character speaks their alignment tongue and whatever their class grants for free. An INT of
-    13 or more buys extra languages on top, one to three of them. An INT of 12 or less buys none.
+    13 or more allows one to three extra languages. An INT of 12 or less allows none.
     Ask
     [`load_ability_tables`][osrlib.data.load_ability_tables]`().additional_languages(int_score)`
     how many the player may take, offer the choosable entries from
@@ -933,10 +933,10 @@ def validate_extra_languages(definition: ClassDefinition, int_score: int, choice
 
     A pick is refused when it is not a choosable language, when it repeats another pick, when the
     class already grants it, or when the player took more than the score allows. Each refusal
-    names the language, so you can show the player which pick to change.
+    includes the language, so you can show the player which pick to change.
 
     Args:
-        definition: The chosen class. Its own languages may not be taken again as extras.
+        definition: The chosen class. The languages it grants may not be taken again as extras.
         int_score: The final INT score, after any adjustment.
         choices: The chosen language ids, from [`load_languages`][osrlib.data.load_languages]; see
             [the language id index][languages-index].
@@ -991,7 +991,7 @@ def validate_starting_spells(
     one first-level spell. Offer the player the first-level spells of their class's list from
     [`load_spells`][osrlib.data.load_spells], check the pick here, then write it with
     [`choose_starting_spells`][osrlib.core.character.choose_starting_spells]. Whether the player or
-    the referee picks is the game's decision. This function only says whether a pick is legal.
+    the referee picks is the game's decision. This function only checks whether a pick is legal.
 
     A pick is refused when the spell id is unknown, when it repeats, when it belongs to the other
     spell list, or when the number chosen at any level does not match the capacity exactly. Too few
@@ -1210,7 +1210,7 @@ def create_character(
             `streams.get(`[`CHARACTER_CREATION_STREAM`][osrlib.core.character.CHARACTER_CREATION_STREAM]`)`.
         adjustment: An optional trade of points between abilities, built as an
             [`AbilityAdjustment`][osrlib.core.abilities.AbilityAdjustment]. It lowers one or more
-            of STR, INT, and WIS to raise a prime requisite, which is how a player buys a better
+            of STR, INT, and WIS to raise a prime requisite, which is how a player gets a better
             experience bonus.
         starting_spell_ids: The spells written in an arcane caster's book, from
             [`load_spells`][osrlib.data.load_spells]; see [the spell id index][spells-index]. It

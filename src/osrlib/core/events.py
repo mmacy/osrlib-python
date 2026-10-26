@@ -1,31 +1,32 @@
-"""Read what the rules did: the event base class, the emission contract, and the core rules' own event types.
+"""Read what the rules did: the event base class, the emission contract, and the event types of the core rules.
 
 Every rules call in osrlib returns events rather than printing anything, and this module defines the base class
 they all share along with the events the core rules emit themselves. You receive these, you don't construct
 them: an attack, a cast, a clock advance each hand you a list, and what your program does with that list is the
 game.
-[`osrlib.crawl.events`][osrlib.crawl.events] adds the crawl's own types on the same base, and
+[`osrlib.crawl.events`][osrlib.crawl.events] adds the crawl's event types on the same base, and
 [`parse_any_event`][osrlib.crawl.events.parse_any_event] reads back a log that contains both.
 
 Three things are true of every event, and they are what you can build on.
 
 An event has structured fields and a message code, never a sentence. A code is a dotted lowercase string
-namespaced by subsystem, like `combat.attack.hit`, and it names the outcome. Turn one into English with
+namespaced by subsystem, like `combat.attack.hit`, and it identifies the outcome. Turn one into English with
 [`format_message`][osrlib.messages.format_message], or write your own formatter, or hand the fields to a
 narrator. The events themselves stay language-free, so any of those work.
 
-An event has a visibility, because B/X hides some rolls from the players on purpose. Monster hit points and
+An event has a visibility, because the B/X rules hide some rolls from the players. Monster hit points and
 morale rolls are the referee's business. Filter on
 [`Visibility`][osrlib.core.events.Visibility] before you show a log to a player, or let
 [`GameSession.view`][osrlib.crawl.session.GameSession.view] do it for you.
 
-An event tolerates growth. Within a `schema_version` the event schema only gains things, unknown fields are
-ignored rather than rejected, and an `event_type` your copy of the library has never heard of parses to `None`
-instead of raising. Write your consumer to skip what it doesn't recognize and a log from a newer release still
-replays.
+The event schema can grow without breaking your consumer. Within a `schema_version` the event schema only gains
+things, unknown fields are ignored rather than rejected, and an `event_type` your copy of the library has never heard
+of parses to `None` instead of raising. Write your consumer to skip what it doesn't recognize and a log from a newer
+release still replays.
 
-Each class declares an `event_type`, a fixed string that names the type on the wire. Discriminate on that, not on
-the code: one class can use several codes, since the code names the outcome and the type names the shape.
+Each class declares an `event_type`, a fixed string that identifies the type in a serialized event. Discriminate on
+that, not on the code: one class can use several codes, since the code identifies the outcome and the type
+identifies the structure.
 [`KernelEvent`][osrlib.core.events.KernelEvent] is the union pydantic discriminates,
 [`KERNEL_EVENT_CLASSES`][osrlib.core.events.KERNEL_EVENT_CLASSES] is the same set as a tuple you can iterate, and
 [`parse_event`][osrlib.core.events.parse_event] turns a saved mapping back into the right class.
@@ -104,8 +105,8 @@ _CODE_PATTERN = re.compile(r"[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+")
 class Visibility(StrEnum):
     """Who is allowed to see an event.
 
-    Every event has one of these two values, and the split exists because B/X keeps some rolls behind the
-    referee's screen. Filter a log on it before you show anything to a player, or call
+    Every event has one of these two values, and the split exists because the B/X rules hide some rolls
+    behind the referee's screen. Filter a log on it before you show anything to a player, or call
     [`GameSession.view`][osrlib.crawl.session.GameSession.view], which builds the player's and the referee's
     views for you. A narrator playing referee reads both.
 
@@ -129,20 +130,20 @@ class Visibility(StrEnum):
     """Anyone may see it. The players learn what happened in the fiction: a hit, a spell, a door opening."""
 
     REFEREE = "referee"
-    """Only the referee may see it. These are the numbers B/X keeps hidden: monster hit points, morale and
-    reaction rolls, surprise and detection rolls, and the effects ledger's bookkeeping."""
+    """Only the referee may see it. These are the numbers the B/X rules hide from players: monster hit points,
+    morale and reaction rolls, surprise and detection rolls, and the effects ledger's bookkeeping."""
 
 
 class Event(BaseModel):
     """What every osrlib event is: a frozen record of one thing the rules did.
 
-    Use this as the type you annotate with. A rules call returns `list[Event]`, and the two fields declared here
-    are the two you can read on anything in that list: the `code` that says what happened and the `visibility`
-    that says who may see it. Everything else is on the subclass, which you reach by checking `event_type` or by
-    an `isinstance` test.
+    Use this as the type you annotate with. A rules call returns `list[Event]`, and the two fields declared here are
+    the two you can read on anything in that list: the `code`, which identifies what happened, and the `visibility`,
+    which sets who may see it. Everything else is on the subclass, which you reach by checking `event_type` or by an
+    `isinstance` test.
 
     Subclass it to add your own events for rules osrlib doesn't cover. Add structured fields only, keep the
-    code discipline, and give the class an `event_type` of its own if you want it to parse back from a saved
+    code discipline, and give the class a unique `event_type` if you want it to parse back from a saved
     log. A subclass that turns off `frozen`, or sets `extra` to anything but `"ignore"`, raises `TypeError` as
     soon as it is defined, because either one would break the guarantees above.
 
@@ -170,7 +171,7 @@ class Event(BaseModel):
     allowed_codes: ClassVar[frozenset[str]] = frozenset()
     """The codes a subclass is allowed to use, checked when an instance is built. Empty on the base class,
     which accepts any well-formed code. Read it to find out what outcomes a type can report without constructing
-    one, and declare it on a subclass of your own to get the same check."""
+    one, and declare it on your subclass to get the same check."""
 
     code: str
     """What happened, as two or more lowercase segments separated by dots and namespaced by subsystem, like
@@ -326,8 +327,8 @@ class DamageDealtEvent(Event):
     [`deal_damage`][osrlib.core.combat.deal_damage] emits one of these for every packet of damage, whether it
     came from a weapon, a spell, or an effect like burning oil.
 
-    It says how much was dealt and never how much the target has left, because B/X hides monster hit points. The
-    remaining total rides the referee-visible
+    It reports how much was dealt and never how much the target has left, because the B/X rules hide monster hit
+    points from the players. The remaining total is in the referee-visible
     [`HitPointsReportedEvent`][osrlib.core.events.HitPointsReportedEvent] that follows it.
     """
 
@@ -482,7 +483,7 @@ class ReactionRolledEvent(Event):
     """How a monster takes to meeting the party.
 
     [`roll_reaction`][osrlib.core.combat.roll_reaction] emits one of these at the start of an encounter that is
-    not already a fight. The result tells you how to play the monster.
+    not already a fight. Use the result to decide how to play the monster.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"encounter.reaction.rolled"})
@@ -539,8 +540,8 @@ class ConditionGainedEvent(Event):
     """The condition, as a [`Condition`][osrlib.core.effects.Condition] value like `asleep` or `petrified`."""
 
     effect_id: str | None = None
-    """The id of the effect that granted it and will take it back, or `None` for a state no effect owns, which
-    in the core rules means `dead`."""
+    """The id of the effect that granted it and will take it back, or `None` for a state that doesn't come from
+    an effect, which in the core rules means `dead`."""
 
 
 class ConditionRemovedEvent(Event):
@@ -591,7 +592,7 @@ class EffectAttachedEvent(Event):
 
     visibility: Visibility = Visibility.REFEREE
     """Referee visibility: this is the ledger's bookkeeping. What the players notice is the condition the effect
-    granted, which arrives as its own event."""
+    granted, which arrives as a separate event."""
 
     effect_id: str
     """The id the ledger allocated for the effect, in the form `effect-0001`."""
@@ -661,7 +662,7 @@ class EffectExpiredEvent(Event):
 
     visibility: Visibility = Visibility.REFEREE
     """Referee visibility: this is the ledger's bookkeeping. A crawl session translates the expiry of a light
-    source into a player-facing event of its own."""
+    source into a separate player-facing event."""
 
     effect_id: str
     """The id of the effect that ended."""
@@ -680,8 +681,8 @@ class EffectReleasedEvent(Event):
     """An effect was ended early, before its time was up.
 
     [`EffectsLedger.release`][osrlib.core.effects.EffectsLedger.release] emits this: a *dispel magic* stripping
-    an enchantment, a charmed creature making its save, a torch put out. An effect that ran out of time on its
-    own reports as [`EffectExpiredEvent`][osrlib.core.events.EffectExpiredEvent] instead.
+    an enchantment, a charmed creature making its save, a torch put out. An effect that ran out of time is
+    reported as an [`EffectExpiredEvent`][osrlib.core.events.EffectExpiredEvent] instead.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"effects.effect.released"})
@@ -714,8 +715,8 @@ class HealingAppliedEvent(Event):
     asked for: healing is capped at the hit points the creature was missing, and a cursed creature may have had
     it halved.
 
-    Healing can also be refused outright, and then the code says blocked and `amount` is 0. A creature that's
-    diseased takes no magical healing, and one that's weakened takes none at all.
+    Healing can also be refused outright, and then the code is `combat.healing.blocked` and `amount` is 0. A creature
+    that's diseased takes no magical healing, and one that's weakened takes none at all.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"combat.healing.applied", "combat.healing.blocked"})
@@ -735,8 +736,8 @@ class HealingAppliedEvent(Event):
     """The hit points actually restored, after the cap and any halving. 0 when the healing was blocked."""
 
     source: str
-    """Where the healing came from: `magical` for a spell or potion, `natural` for rest, `regeneration` for a
-    regenerating creature's own tick."""
+    """Where the healing came from: `magical` for a spell or potion, `natural` for rest, `regeneration` for the
+    tick of a regenerating creature."""
 
 
 class DeathEvent(Event):
@@ -750,9 +751,9 @@ class DeathEvent(Event):
     [`deal_damage`][osrlib.core.combat.deal_damage] emits a second one, with the permanent code, the first time
     a monster that is already dead takes enough damage of the kind it cannot regenerate to reach its full hit
     points. That one comes after the [`HitPointsReportedEvent`][osrlib.core.events.HitPointsReportedEvent] and
-    has no condition event with it, because the monster was already carrying `dead`.
+    has no condition event with it, because the monster already had the `dead` condition.
 
-    The code tells you whether the death can be undone. An ordinary death can be, by magic or by regeneration.
+    The code shows whether the death can be undone. An ordinary death can be, by magic or by regeneration.
     A permanent one cannot, which is what fire and acid do to a troll.
     """
 
@@ -808,9 +809,9 @@ class LevelDrainedEvent(Event):
     [`drain_levels`][osrlib.core.classes.drain_levels] emits this for a character and
     [`drain_monster_hd`][osrlib.core.combat.drain_monster_hd] for a monster, whose Hit Dice drain the same way.
 
-    When the victim has nothing left to lose, at level 1 or one Hit Die, the drain kills instead, the code says
-    slain, and a [`DeathEvent`][osrlib.core.events.DeathEvent] follows. The killing level counts as lost, so a
-    spectre draining a level-2 fighter reports two levels gone.
+    When the victim has nothing left to lose, at level 1 or one Hit Die, the drain kills instead, the code is
+    `combat.drain.slain`, and a [`DeathEvent`][osrlib.core.events.DeathEvent] follows. The killing level counts as
+    lost, so a spectre draining a level-2 fighter reports two levels gone.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"combat.drain.drained", "combat.drain.slain"})
@@ -835,7 +836,7 @@ class LevelDrainedEvent(Event):
     """The maximum hit points that went with the levels."""
 
     xp_after: int | None = None
-    """The character's experience points after the drain, set by the draining monster's own experience policy:
+    """The character's experience points after the drain, set by the draining monster's experience policy:
     halfway between the old and new level thresholds, or the new level's minimum. `None` for a monster, whose
     Hit Dice are worth no experience points, and for a victim the drain killed."""
 
@@ -879,8 +880,8 @@ class HitPointsReportedEvent(Event):
     This is the only event that reports a creature's standing current and maximum. The others report the
     change alone: [`DamageDealtEvent`][osrlib.core.events.DamageDealtEvent] the size of a hit,
     [`LevelDrainedEvent`][osrlib.core.events.LevelDrainedEvent] the maximum a drain took off. It's
-    referee-visible on purpose, because B/X keeps monster hit points hidden, so show the players the change
-    events instead.
+    referee-visible on purpose, because the B/X rules hide monster hit points from the players, so show the
+    players the change events instead.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"combat.state.hit_points"})
@@ -923,7 +924,7 @@ class TargetsSelectedEvent(Event):
     """Fixed at `combat.targeting.selected`."""
 
     visibility: Visibility = Visibility.REFEREE
-    """Referee visibility: this is bookkeeping. What the targets then suffer arrives as its own events."""
+    """Referee visibility: this is bookkeeping. What the targets then suffer arrives as separate events."""
 
     mode: str
     """How targets were chosen, as a [`TargetingMode`][osrlib.core.combat.TargetingMode] value: `self`,
@@ -970,7 +971,7 @@ class SpellsMemorizedEvent(Event):
     """Fixed at `magic.memorize.prepared`."""
 
     visibility: Visibility = Visibility.PLAYER
-    """Player visibility: the caster's own memory is the player's to see."""
+    """Player visibility: the player may see what their caster has memorized."""
 
     caster_id: str
     """The entity id of the caster."""
@@ -988,7 +989,7 @@ class SpellCastEvent(Event):
     events beside it: saving throws, damage, conditions, effects, healing, deaths.
 
     A cast that found nothing to work on reports the no-effect code and still spends the copy. Refusing the cast
-    instead would tell the player which targets were eligible, and B/X doesn't give that away for free.
+    instead would show the player, at no cost, which targets were eligible, and the B/X rules don't reveal that.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"magic.cast.cast", "magic.cast.no_effect"})
@@ -1007,8 +1008,8 @@ class SpellCastEvent(Event):
     """The spell's content id, like `"magic_missile"`."""
 
     mode: str
-    """Which of the spell's modes was used, by the mode's own name. A spell with several modes, like one that
-    can damage or heal, names the one that resolved."""
+    """Which of the spell's modes was used, by the mode's name. For a spell with several modes, like one that
+    can damage or heal, this is the mode that resolved."""
 
     reversed: bool = False
     """True when the spell was cast in its reversed form."""
@@ -1030,8 +1031,8 @@ class SpellDisruptedEvent(Event):
     `magic.cast.fizzled` when it judges the declaration again in the magic phase, just before the spell would
     resolve, and any one of the checks it passed at the top of the round no longer passes, because the phases
     between the two changed what that check reads. An ally's *silence 15' radius* anchoring on the party's
-    cell and the party's last torch going out as its bearer dies are two that happen; the rule is the whole
-    set of checks, not a list of cases. `reason` carries the rejection code behind a fizzle.
+    cell and the party's last torch going out as its bearer dies are two cases that happen. The rule is the
+    whole set of checks, not a list of cases. `reason` contains the rejection code behind a fizzle.
 
     Either way nothing resolved and the memorized copy is gone, exactly as if the spell had been cast, so tell
     the player the spell failed and the prepared copy is spent. A scroll read that fizzles spends the scroll
@@ -1063,10 +1064,10 @@ class SpellDisruptedEvent(Event):
     """Why a `magic.cast.fizzled` spell failed: the first rejection code the magic phase's re-check produced.
 
     Any check a declaration passes at the top of the round can produce it, so read the code rather than
-    assuming a case: an ally's silence on the party's cell reads `magic.cast.silenced_area`, and a scroll
-    read left in the dark reads `exploration.action.requires_light`. Match on this the way you match on a
-    [`Rejection`][osrlib.core.validation.Rejection]'s own code, and
-    [the rejection code reference][rejection-codes] says what each one means. `None` on a
+    assuming a case: an ally's silence on the party's cell gives `magic.cast.silenced_area`, and a scroll
+    read left in the dark gives `exploration.action.requires_light`. Match on this the way you match on the code
+    of a [`Rejection`][osrlib.core.validation.Rejection], and
+    [the rejection code reference][rejection-codes] explains each one. `None` on a
     `magic.cast.disrupted` event, which needs no reason beyond the blow that landed, and on a log written
     before the field existed.
     """
@@ -1076,8 +1077,8 @@ class SpellForgottenEvent(Event):
     """A memorized spell slipped away because the caster no longer has room for it.
 
     [`forget_excess_memorized`][osrlib.core.spells.forget_excess_memorized] emits one of these per lost copy,
-    which happens when energy drain takes levels and the caster's allowance shrinks below what is in memory. One
-    event names one copy, so a caster who lost two gets two events.
+    which happens when energy drain takes levels and the caster's allowance shrinks below what is in memory. Each
+    event is for one copy, so a caster who lost two gets two events.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"magic.memory.forgotten"})
@@ -1160,7 +1161,7 @@ class UndeadTurnedEvent(Event):
 
     [`turn_undead`][osrlib.core.spells.turn_undead] emits one of these per attempt. Turning resolves in two
     steps: the table is read once per kind of undead present, and then a second roll decides how many Hit Dice
-    of the kinds that succumbed are actually affected. What then happens to each monster arrives as its own
+    of the kinds that succumbed are actually affected. What then happens to each monster arrives as separate
     events, a condition gained or a death.
     """
 
@@ -1348,10 +1349,10 @@ def parse_event(data: Mapping[str, object]) -> Event | None:
     [`parse_any_event`][osrlib.crawl.events.parse_any_event], which covers both.
 
     Args:
-        data: One event as a mapping, of the shape `model_dump` produces.
+        data: One event as a mapping, in the format `model_dump` produces.
 
     Returns:
-        The event as its own class, or `None` when the mapping's `event_type` is one this release doesn't
+        The event as an instance of its class, or `None` when the mapping's `event_type` is one this release doesn't
             define.
 
     Raises:

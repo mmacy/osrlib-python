@@ -3,7 +3,7 @@
 This module takes over once [`osrlib.crawl.encounter`][osrlib.crawl.encounter] has decided there is a
 fight. [`start_battle`][osrlib.crawl.battle.start_battle] is the entry point, and the encounter
 procedure calls it for you: from an attacking stance, from a hostile group's deadline arriving,
-from a chase that closed to arm's length, and from the party's own
+from a chase that closed to arm's length, and from the party's
 [`EngageBattle`][osrlib.crawl.commands.EngageBattle] command. After it returns the session is in
 `battle` mode, `session.battle` holds a [`BattleState`][osrlib.crawl.battle.BattleState], and each
 round is one [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound] command with one
@@ -21,7 +21,7 @@ The results reach a front end as events from [`osrlib.crawl.events`][osrlib.craw
 [`MonsterFledEvent`][osrlib.crawl.events.MonsterFledEvent] when a side breaks,
 [`MonstersLeftBehindEvent`][osrlib.crawl.events.MonstersLeftBehindEvent] for the helpless a fleeing
 side abandons, and [`BattleEndedEvent`][osrlib.crawl.events.BattleEndedEvent] reporting victory,
-defeat, or flight. The kernel's own attack, damage, saving throw, initiative, and morale events come
+defeat, or flight. The kernel's attack, damage, saving throw, initiative, and morale events come
 back interleaved with those.
 
 A round wraps the kernel in the OSE SRD's sequence: declaration, initiative, then per side morale,
@@ -44,7 +44,7 @@ adaptation (see the
 osrlib commits to one reading of an ambiguous rule or supplies a default behind a `Ruleset` flag).
 Each monster group sits at a distance from the party, closes at its encounter rate, and fights at
 [`MELEE_RANGE_FEET`][osrlib.crawl.battle.MELEE_RANGE_FEET]. Party ranks derive from marching order
-under the ruleset's `formation_width_limit` flag, and the width is the frontage the party's own space
+under the ruleset's `formation_width_limit` flag, and the width is the frontage the party's space
 offers at [`FIGHTER_FRONTAGE_FEET`][osrlib.crawl.battle.FIGHTER_FRONTAGE_FEET] to a combatant: two
 abreast in a ten-foot passage, and a room's shorter side in a room.
 
@@ -63,7 +63,7 @@ the ruleset's `aoe_friendly_fire` flag.
 The monster and NPC-party sides act through a pluggable
 [`ActionPolicy`][osrlib.crawl.battle.ActionPolicy] you can substitute per encounter side.
 [`ScriptedPolicy`][osrlib.crawl.battle.ScriptedPolicy] and
-[`NpcPartyPolicy`][osrlib.crawl.battle.NpcPartyPolicy] ship as the defaults, and both draw only from
+[`NpcPartyPolicy`][osrlib.crawl.battle.NpcPartyPolicy] are the defaults, and both draw only from
 the `monster_action` stream, so a policy of your own never shifts an attack or damage draw. Initiative
 still resolves in side blocks, because the SRD's phase sequence runs per side rather than per
 combatant, and the sides order by their best individual total.
@@ -282,8 +282,8 @@ class BattleState(BaseModel):
     reads."""
     melee_engagements: dict[str, list[str]] = {}
     """Per party member id, the monsters that member has actually closed with. A monster barred from a
-    warded character by *protection from evil* may attack them anyway once it is on this list, which is
-    RAW's own clause."""
+    warded character by *protection from evil* may attack them anyway once it is on this list, as the
+    rules as written (RAW) say."""
     concentration: dict[str, list[str]] = {}
     """Per caster id, the effect ids a concentration spell is holding up. They release as soon as that
     caster declares anything other than `cast`, `turn_undead`, or `hold`."""
@@ -301,7 +301,7 @@ class MonsterAction(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     monster_id: str
-    """The acting combatant's entity id, which must be one of its own group's `monster_ids`."""
+    """The acting combatant's entity id, which must be one of the `monster_ids` of its group."""
     kind: str  # close | breath | melee | hold | npc_shoot | npc_cast | npc_drink
     """What the combatant does. `"close"` advances the whole group one encounter rate toward the party
     and stops at [`MELEE_RANGE_FEET`][osrlib.crawl.battle.MELEE_RANGE_FEET], and only the first such
@@ -311,7 +311,7 @@ class MonsterAction(BaseModel):
     swallowed potion named by `item_id`."""
     target_id: str | None = None
     """The target's entity id for `"melee"`, `"npc_shoot"`, and a single-target `"npc_cast"`. None for
-    an area spell, which takes its own targets from the footprint rule."""
+    an area spell, which gets its targets from the footprint rule."""
     spell_id: str | None = None
     """The spell to cast, for `"npc_cast"`."""
     spell_mode: str | None = None
@@ -334,7 +334,7 @@ class ActionPolicy(Protocol):
     Every policy draws only from the `monster_action` stream, so a policy of your own never shifts an
     attack or damage roll and the rest of the fight stays reproducible from the same seed. Return
     whatever actions your tactics call for: the round handler skips one the situation no longer allows
-    rather than raising. The shipped policies never cast, because monster casting is tagged for manual
+    rather than raising. The default policies never cast, because monster casting is tagged for manual
     resolution in the data.
 
     Examples:
@@ -442,7 +442,7 @@ class ScriptedPolicy:
     because monster spell casting is tagged for manual resolution in the data.
 
     Substitute a policy of your own when you want a side to hold a chokepoint, concentrate its
-    attacks, back off, or cast. [`NpcPartyPolicy`][osrlib.crawl.battle.NpcPartyPolicy] is the shipped
+    attacks, back off, or cast. [`NpcPartyPolicy`][osrlib.crawl.battle.NpcPartyPolicy] is the built-in
     example of a policy that does more than this one.
     """
 
@@ -456,7 +456,7 @@ class ScriptedPolicy:
 
         Returns:
             One [`MonsterAction`][osrlib.crawl.battle.MonsterAction] per living monster that can act,
-                in the group's own member order. Incapacitated and confused monsters get none, because
+                in the group's member order. Incapacitated and confused monsters get none, because
                 the round handler runs confusion itself.
         """
         actions: list[MonsterAction] = []
@@ -495,8 +495,8 @@ class NpcPartyPolicy:
     """The default [`ActionPolicy`][osrlib.crawl.battle.ActionPolicy] for a group of NPC adventurers.
 
     A group whose members are NPC adventurers rather than monsters runs on one of these unless you
-    registered something else for it on `session.action_policies`. The OSE SRD gives no tactics of its
-    own for an opposing party of adventurers, so osrlib supplies these, as a documented adaptation
+    registered something else for it on `session.action_policies`. The OSE SRD gives no tactics
+    for an opposing party of adventurers, so osrlib supplies these, as a documented adaptation
     (see the
     [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/), the page listing where
     osrlib commits to one reading of an ambiguous rule or supplies a default behind a `Ruleset`
@@ -528,7 +528,7 @@ class NpcPartyPolicy:
 
         Returns:
             One [`MonsterAction`][osrlib.crawl.battle.MonsterAction] per living member that can act, in
-                the group's own member order. Incapacitated and confused members get none.
+                the group's member order. Incapacitated and confused members get none.
         """
         from osrlib.data import load_spells
 
@@ -664,8 +664,8 @@ def _living_monsters(session, group) -> list:
 FIGHTER_FRONTAGE_FEET = 5
 """Feet of frontage one combatant needs in order to fight side by side with the next.
 
-The party's front rank is as wide as its own fighting space divided by this, so a ten-foot passage
-holds two abreast and a room holds as many as its shorter side allows. A member outside the front rank
+The party's front rank is as wide as its fighting space divided by this, so a ten-foot passage
+fits two abreast and a room holds as many as its shorter side allows. A member outside the front rank
 is rejected for declaring a melee attack. The rank check does not apply to a missile attack, so the
 back ranks can still shoot.
 
@@ -688,7 +688,7 @@ def _fighting_space(level, position: Position) -> set[Position]:
     because a doorway is a threshold rather than room to fight abreast. It stops
     wherever the space itself changes, which is what keeps a room's open mouth
     onto a corridor from counting the corridor as part of the room. Corridor cells
-    belong to no area, so the flood's own connectivity is what separates one
+    belong to no area, so the flood's connectivity is what separates one
     passage from another.
 
     Args:
@@ -753,7 +753,7 @@ def _frontage_cells(level, position: Position) -> int:
 
 
 def _formation_width(session) -> int | None:
-    """Rank width: how many combatants fit abreast in the party's own frontage.
+    """Rank width: how many combatants fit abreast in the party's frontage.
 
     Returns `None` when the `formation_width_limit` flag is off, which lifts the
     cap entirely.
@@ -789,7 +789,7 @@ def _ally_protection_bonus(session, defender) -> int:
     """The Ring of Protection 5' Radius: a rank-mate's ring shields the defender.
 
     The battle space has no adjacency finer than the rank, so "allies within 5'"
-    is the wearer's rank. The wearer's own +1 arrives with the rest of its
+    is the wearer's rank. The wearer's +1 arrives with the rest of its
     equipped items, so only allies collect the aura here, and multiple rings
     never stack.
 
@@ -819,7 +819,7 @@ def _reachable_targets(session, monster: MonsterInstance, pool: list) -> list:
 
     A monster whose template bears a warded category may not initiate melee
     against a warded target of differing alignment. The ban breaks for a target
-    who has engaged the barred creature in melee, which is RAW's own clause.
+    who has engaged the barred creature in melee, as the rules as written say.
     """
     state = session.battle
     if _ward_bars_monster(session, monster):
@@ -874,7 +874,7 @@ NPC_PARTY_MORALE = 9
 """The morale score a group of NPC adventurers checks against, on the usual 2 to 12 scale.
 
 Monsters have a morale score in their stat block, but adventurers in the OSE SRD do not, so osrlib
-uses the score printed for the Veteran, its own low-level adventurer monster, rather than inventing
+uses the score printed for the Veteran, the SRD's low-level adventurer monster, rather than inventing
 one. This is a documented adaptation (see the
 [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/), the page listing where
 osrlib commits to one reading of an ambiguous rule or supplies a default behind a `Ruleset` flag).
@@ -1016,7 +1016,7 @@ def start_battle(session, *, party_free_round: bool = False, monsters_free_round
 def _check_ends(session, *, party_retreating: bool) -> list[Event] | None:
     """Return the end-of-battle events when a terminal state holds, else `None`.
 
-    Defeat ends the battle and nothing more. The session's own wipe check makes
+    Defeat ends the battle and does nothing else. The session's wipe check makes
     the transition to `game_over` and posts the ending event, so a party lost to a
     blade trap and a party lost to ogres end the same way.
     """
@@ -1164,7 +1164,7 @@ def _formation_split_rejections(declarers, declarations: Sequence[BattleDeclarat
 
 
 def _validate_declaration(session, declaration: BattleDeclaration, member) -> list[Rejection]:
-    """Judge one declaration against the state it names, and return every reason it cannot stand.
+    """Judge one declaration against the state it refers to, and return every reason it cannot stand.
 
     This runs twice on the declarations the round accepts. Once in the validation pre-phase, where a
     rejection refuses the whole command, and again in the magic phase, immediately before a `cast`
@@ -1384,7 +1384,7 @@ def _validate_magic_item_declaration(session, declaration: BattleDeclaration, me
             return rejections
         from osrlib.core.spells import CastContext, validate_scroll_cast
 
-        # The kernel's own pre-check, at the scroll's caster level, so a declaration that
+        # The kernel's pre-check, at the scroll's caster level, so a declaration that
         # passes here cannot raise out of `cast_from_scroll` in the magic phase.
         return validate_scroll_cast(
             member,
@@ -1464,7 +1464,7 @@ def _resolve_magic_item_use(session, member, declaration: BattleDeclaration, sta
 
 
 class _ScrollFields:
-    """A duck-typed stand-in shaped like `UseItem`, for the exploration scroll reader."""
+    """A duck-typed stand-in with the fields of `UseItem`, for the exploration scroll reader."""
 
     def __init__(self, *, spell_id, mode, targets, target_id) -> None:
         self.spell_id = spell_id
@@ -1474,13 +1474,13 @@ class _ScrollFields:
 
 
 def _resolve_scroll_cast(session, member, instance, template, declaration: BattleDeclaration) -> list[Event]:
-    """Read one spell off a scroll in the magic phase, at the scroll's own caster level.
+    """Read one spell off a scroll in the magic phase, at the scroll's caster level.
 
     The declaration is judged again first, before anything is spent, and a refused one still spends the
     scroll: the read itself is emitted and the spell struck off, and only then is the fizzle reported,
     because the reader did read it and the ink is gone either way. A thief reading an arcane scroll rolls
     the printed error chance after that, and a failed roll burns the spell with nothing to report: that
-    miscast is the scroll's own, not a refused declaration, so it carries no `magic.cast.fizzled` event.
+    miscast is a failure of the scroll, not a refused declaration, so it emits no `magic.cast.fizzled` event.
     """
     from osrlib.core.spells import CastContext, cast_from_scroll
     from osrlib.crawl import exploration
@@ -1879,7 +1879,7 @@ def _resolve_party_attack(session, member, declaration, fired, fire_damaged) -> 
             events.extend(_on_hit_drain(session, weapon, target))
         if not missile:
             # Engaging in melee breaks the *protection from evil* ban against the
-            # creature actually fought (RAW's own clause; the modifiers persist).
+            # creature actually fought (a RAW clause. The modifiers persist).
             engagements = state.melee_engagements.setdefault(member.id, [])
             if target.id not in engagements:
                 engagements.append(target.id)
@@ -1904,7 +1904,7 @@ def _on_hit_drain(session, weapon: MagicItemInstance, target) -> list[Event]:
 
     The sword rolled 1d4+4 total drains when it was generated, and once those are
     spent it is a plain +1. The lost-die rolls come from the advancement stream,
-    because a drain reverses advancement. The sword's own entry in the OSE SRD
+    because a drain reverses advancement. The sword's entry in the OSE SRD
     sets XP to the lowest amount for the new level (`level_minimum`), where the
     wight's entry sets it halfway.
     """
@@ -2024,7 +2024,7 @@ def _resolve_use_item(session, member, declaration, fire_damaged) -> list[Event]
     # attack resolves from is the instance that left the pack.
     instance = exploration._consume_item(member, declaration.item_id)
     if not isinstance(instance, ItemInstance) or not isinstance(instance.template, GearTemplate):
-        # Unreachable: the declaration validator proved the item is gear carrying a
+        # Unreachable: the declaration validator proved the item is gear with a
         # combat facet (holy water, a flask of burning oil) before the round ran.
         return []
     template = instance.template
@@ -2066,7 +2066,7 @@ def _break_invisibility(session, member) -> list[Event]:
 def _fizzle_event(caster_id: str, spell_id: str, *, reversed: bool, reason: str) -> SpellDisruptedEvent:
     """Report a declaration the magic phase's re-check refused, at `magic.cast.fizzled`.
 
-    `reason` is the first rejection code the re-check produced, which is what tells a front end why the
+    `reason` is the first rejection code the re-check produced, which a front end reads to learn why the
     spell failed. A refused declaration never raises out of the round, so this event is the whole outcome.
     """
     return SpellDisruptedEvent(
@@ -2095,7 +2095,7 @@ def _party_magic(session, by_member, pending_casters, disrupted, acted, state) -
 
     A caster the round already disrupted is reported as disrupted and takes no further part, and that
     check runs before the re-check below, so a caster who was both hit and silenced reports
-    `magic.cast.disrupted` rather than `magic.cast.fizzled`. Disruption is the blow that landed, and it
+    `magic.cast.disrupted` rather than `magic.cast.fizzled`. Disruption is the blow that hit, and it
     is the outcome the table saw.
 
     A cast, and a scroll read inside `_resolve_scroll_cast`, is judged again immediately before it resolves,
@@ -2559,7 +2559,7 @@ def _group_morale(session, group, fire_damaged) -> list[Event]:
 
     A conditional alternate resolves from the round's context. Fear of fire, for
     example, applies when the round's damage included fire. The spell morale
-    modifier folds in under the usual morale-modifier rule.
+    modifier applies under the usual morale-modifier rule.
     """
     state = session.battle
     score = _group_morale_score(session, group)
@@ -2599,9 +2599,9 @@ def _group_morale(session, group, fire_damaged) -> list[Event]:
 def _confused_overrides(session, group, actions) -> list[Event]:
     """The machine-run confusion beat: re-save, then the 2d6 behavior roll.
 
-    The re-save runs on the magic stream, and the behavior roll and its own-group
-    target pick run on the combat stream. These are machine-run round rolls,
-    distinct from the ledger's own tick-time effects.
+    The re-save runs on the magic stream, and the behavior roll and its pick of a
+    target in its group run on the combat stream. These are machine-run round rolls,
+    distinct from the ledger's tick-time effects.
     """
     events: list[Event] = []
     for monster in _living_monsters(session, group):
@@ -2733,7 +2733,7 @@ _HANDLERS = {
 }
 """The battle commands this module handles, keyed by command class.
 
-[`GameSession`][osrlib.crawl.session.GameSession] folds this map into its own private handler table
+[`GameSession`][osrlib.crawl.session.GameSession] merges this map into its private handler table
 the first time it dispatches a command, alongside the exploration, encounter, and referee maps. There
 is no registration point here: the only documented way to run a command is
 [`GameSession.execute`][osrlib.crawl.session.GameSession.execute], which picks the handler, runs the

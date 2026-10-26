@@ -1,6 +1,6 @@
 """The crawl framework: adventure content, the game session, and the dungeon crawl loop.
 
-`osrlib.crawl` is the layer you build a dungeon crawler on. It holds the content models you author an
+`osrlib.crawl` is the layer you build a dungeon crawler on. It contains the content models you author an
 adventure with, the [`GameSession`][osrlib.crawl.session.GameSession] that runs one, and the
 procedures the session dispatches to while the party explores, talks, and fights. It sits on top of
 the `osrlib.core` kernel, which has the characters, items, dice, the clock, and the rules that need

@@ -2,7 +2,7 @@
 
 osrlib applies the rules and keeps the state of a game. It draws nothing, asks a player
 nothing, waits for nothing, and makes no network calls. You hand it a command, it resolves
-the rules, and it returns typed events saying what happened. Turning those into something a
+the rules, and it returns typed events that describe what happened. Turning those into something a
 player reads is your program's job. Every random draw comes from a named, seeded stream, so
 the same seed and the same commands replay the same game.
 
@@ -23,15 +23,15 @@ framework does above it.
 | --- | --- |
 | [`osrlib.core.rng`][] | A master seed in, one named stream per subsystem out. |
 | [`osrlib.core.ruleset`][] | The optional rules you switch on, in one model the kernel reads. |
-| [`osrlib.core.dice`][] | A dice expression in, a parsed expression or a roll and its own dice out. |
+| [`osrlib.core.dice`][] | A dice expression in, a parsed expression or a roll with its dice out. |
 | [`osrlib.core.alignment`][] | The three alignments, shared by characters and monsters. |
 | [`osrlib.core.abilities`][] | An ability score in, the modifier or chance the tables grant it out. |
 | [`osrlib.core.classes`][] | A class definition and a character in, titles, XP, and advancement out. |
 | [`osrlib.core.character`][] | Creation choices and a stream in, a character or refusals out. |
 | [`osrlib.core.items`][] | Templates and an inventory in, purchases, equipment, and encumbrance out. |
 | [`osrlib.core.spells`][] | A caster and a spell in, memorization, casting, and turning undead out. |
-| [`osrlib.core.monsters`][] | A monster template in, a spawned instance with its own hit points out. |
-| [`osrlib.core.creature`][] | A character or a monster in, the attribute surface the rules read out, as protocols. |
+| [`osrlib.core.monsters`][] | A monster template in, a spawned creature with its hit points out. |
+| [`osrlib.core.creature`][] | A character or a monster in, the attributes the rules read out, as protocols. |
 | [`osrlib.core.combat`][] | Combatants and a stream in, initiative, attacks, damage, and saves out. |
 | [`osrlib.core.effects`][] | A condition or effect in, a ledger that ticks and expires it out. |
 | [`osrlib.core.treasure`][] | A treasure type and a stream in, coins, valuables, and magic items out. |

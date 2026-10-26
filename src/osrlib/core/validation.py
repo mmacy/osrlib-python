@@ -63,8 +63,8 @@ class Rejection(BaseModel):
     [The rejection code reference][rejection-codes] lists every code the engine emits with
     what it means.
 
-    Build one yourself only when you're writing a validator of your own, for a house
-    rule or a custom item, and want it to refuse in the same shape the kernel does.
+    Build one yourself only when you're writing your own validator, for a house rule or
+    a custom item, and want it to report a refusal the same way the kernel does.
 
     The model is frozen, so you can keep a rejection around and compare rejections for
     equality.
@@ -82,10 +82,10 @@ class Rejection(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     code: str
-    """The refusal's identity: two or more snake_case segments joined by dots, the first naming the subsystem.
+    """The refusal's identity: two or more snake_case segments joined by dots, the first being the subsystem.
 
     `creation.class.requirements_not_met` and `items.equip.armour_forbidden` are both
-    codes. Any other shape raises a pydantic `ValidationError` when the model is built.
+    codes. Any other format raises a pydantic `ValidationError` when the model is built.
     Match on this value to choose what to show the player.
     """
 

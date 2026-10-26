@@ -11,7 +11,7 @@ secret language its adherents share, is derived from it by
 [`Character.alignment_tongue`][osrlib.core.character.Character.alignment_tongue], and
 spells and magic items that care whose side a creature is on compare alignments.
 
-Alignment sits in its own module so that both the character models and the monster
+Alignment sits in a separate module so that both the character models and the monster
 models can import it without importing each other.
 """
 
@@ -27,7 +27,7 @@ class Alignment(StrEnum):
 
     Reference a member by name (`Alignment.LAWFUL`) when you write the value yourself,
     and call the enum on a string (`Alignment("lawful")`) when the value arrives from
-    saved data or from a player's input. The member compares equal to its own lowercase
+    saved data or from a player's input. The member compares equal to its lowercase
     string, so `character.alignment == "lawful"` is true as well.
 
     The rules attach no mechanical penalty to acting against alignment. The SRD leaves
@@ -35,7 +35,7 @@ class Alignment(StrEnum):
     value, and the alignment comparisons a handful of spells and magic items make.
 
     The lowercase values serialize into characters and saved games. Changing one is a
-    `schema_version` bump, the version stamp that marks a serialized model's shape.
+    `schema_version` bump, the version stamp that marks a serialized model's format.
 
     Examples:
         ```python
