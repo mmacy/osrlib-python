@@ -2789,8 +2789,9 @@ def morale_triggers(members: Sequence[Creature]) -> list[str]:
             raises nothing.
 
     Returns:
-        The triggers whose condition holds now, `first_death` before
-            `half_incapacitated` when both hold. The list is empty when neither holds.
+        The raised triggers: `first_death` if any member is dead, and
+            `half_incapacitated` if half the side or more is incapacitated. When both are
+            raised, `first_death` comes first. The list is empty when neither is raised.
 
     Examples:
         ```python
