@@ -74,7 +74,7 @@ for layer_title, _prefix in _LAYERS:
                 page.write(f"        - {symbol}\n")
 
 # The overview page is the package docstring: it introduces each layer and tables its
-# modules in the order a reader meets them, with a link to every module page.
+# modules, with a link to every module page.
 with mkdocs_gen_files.open("reference/api/index.md", "w") as index:
     index.write("# API reference\n\n")
     index.write("::: osrlib\n")

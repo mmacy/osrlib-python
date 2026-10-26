@@ -308,7 +308,7 @@ class ContentPack(BaseModel):
         Raises:
             ContentValidationError: If the envelope is malformed or is not a `content_pack`
                 document, or if the payload fails validation.
-            SaveVersionError: If the document's schema version is newer than this library
+            osrlib.errors.SaveVersionError: If the document's schema version is newer than this library
                 understands, which means the pack was written by a later osrlib than the one reading
                 it.
         """

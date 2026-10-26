@@ -258,8 +258,8 @@ class Command(BaseModel):
     because it belongs to the command kind rather than to one request, so it never
     serializes. [`GameSession.execute`][osrlib.crawl.session.GameSession.execute] checks it
     before anything else and refuses a wrong-mode command with `session.command.wrong_mode`.
-    The base value is every mode, which the referee commands inherit unchanged. Each play command narrows
-    it, and the class's `Modes:` section lists the same set in prose."""
+    The base value is every mode. Each play command narrows it, and so do the referee commands
+    `SpawnMonsters`, `SpawnNpcParty`, and `PlaceParty`."""
 
     @classmethod
     def __pydantic_init_subclass__(cls, **kwargs: object) -> None:
@@ -3076,7 +3076,7 @@ def parse_command(data: Mapping[str, object]) -> Command | None:
         The command, or `None` when its `command_type` is unknown.
 
     Raises:
-        ContentValidationError: If the command type is known but the payload is
+        osrlib.errors.ContentValidationError: If the command type is known but the payload is
             malformed.
 
     Examples:

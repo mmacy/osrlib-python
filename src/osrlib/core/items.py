@@ -2249,6 +2249,19 @@ def treasure_weight_coins(inventory: Inventory) -> int:
 
     Returns:
         The treasure weight in coins.
+
+    Examples:
+        The 290 gold pieces left after you buy a sword count as treasure. The sword doesn't:
+
+        ```python
+        from osrlib.core.items import CoinPurse, Inventory, purchase, treasure_weight_coins
+        from osrlib.data import load_equipment
+
+        inventory = Inventory(purse=CoinPurse(gp=300))
+        purchase(inventory, load_equipment().get("sword"))
+        print(treasure_weight_coins(inventory))
+        # 290
+        ```
     """
     total = inventory.purse.total_coins
     total += sum(valuable.weight_coins for valuable in inventory.valuables)
@@ -2288,6 +2301,22 @@ def equipment_weight_coins(inventory: Inventory) -> int:
 
     Returns:
         The equipment weight in coins.
+
+    Examples:
+        A sword weighs 60 coins and chainmail 400. The rope is gear, so it adds a flat 80
+        coins, which is what any amount of gear weighs:
+
+        ```python
+        from osrlib.core.items import CoinPurse, Inventory, equipment_weight_coins, purchase
+        from osrlib.data import load_equipment
+
+        catalog = load_equipment()
+        inventory = Inventory(purse=CoinPurse(gp=100))
+        for item_id in ("sword", "chainmail", "rope"):
+            purchase(inventory, catalog.get(item_id))
+        print(equipment_weight_coins(inventory))
+        # 540
+        ```
     """
     from osrlib.data import load_equipment
 
@@ -2908,6 +2937,20 @@ def unequip(inventory: Inventory, instance: ItemInstance | MagicItemInstance) ->
     Raises:
         ValueError: If a revealed curse holds the item in place, and otherwise if the item
             is not equipped in this inventory.
+
+    Examples:
+        ```python
+        from osrlib.core.items import CoinPurse, Inventory, equip, purchase, unequip
+        from osrlib.data import load_classes, load_equipment
+
+        inventory = Inventory(purse=CoinPurse(gp=50))
+        sword = purchase(inventory, load_equipment().get("sword"))
+        equip(inventory, load_classes().get("fighter"), sword)
+
+        unequip(inventory, sword)
+        print(len(inventory.wielded), [held.template.id for held in inventory.items])
+        # 0 ['sword']
+        ```
     """
     rejections = validate_unequip(inventory, instance)
     if rejections:

@@ -13,8 +13,12 @@ roll, the immunity gate, the damage),
 [`saving_throw`][osrlib.core.combat.saving_throw] resolves forced saves, and
 [`check_morale`][osrlib.core.combat.check_morale] reports whether a side keeps
 fighting. Start with `resolve_attack`: most of the module is the pieces it composes,
-plus the specialized resolutions (breath weapons, gazes, splash weapons, energy drain)
-and the shared targeting model ([`select_targets`][osrlib.core.combat.select_targets]).
+plus the specialized resolutions and the shared targeting model
+([`select_targets`][osrlib.core.combat.select_targets]). The specialized resolutions are
+[`resolve_breath`][osrlib.core.combat.resolve_breath] for breath weapons,
+[`resolve_gaze`][osrlib.core.combat.resolve_gaze] for gazes,
+[`resolve_splash_attack`][osrlib.core.combat.resolve_splash_attack] for splash weapons, and
+[`resolve_energy_drain`][osrlib.core.combat.resolve_energy_drain] for energy drain.
 
 Combatant-typed parameters (`attacker`, `defender`, `target`, and kin) follow one
 convention across the whole library: each takes a protocol from
@@ -527,7 +531,12 @@ class AttackResult(BaseModel):
     """
 
     damage: int | None = None
-    """The hit points the defender lost, or `None` when nothing was rolled.
+    """The damage rolled, before the defender's reductions apply, or `None` when nothing was rolled.
+
+    The hit points the defender lost can be fewer. The
+    [`DamageDealtEvent`][osrlib.core.events.DamageDealtEvent] in `events` has the amount after
+    reductions. The [`HitPointsReportedEvent`][osrlib.core.events.HitPointsReportedEvent] that
+    follows the `DamageDealtEvent` has the hit points the defender has left.
 
     Nothing is rolled on a miss, on an absorbed hit, or when a sleeping defender is killed
     outright by a blade. An unlit oil flask that hits reports 0.
@@ -1312,7 +1321,9 @@ def attack_roll(
             none on an automatic hit.
 
     Returns:
-        The roll outcome, with its events.
+        The roll outcome. Read `hit` to decide what happens next. `roll` is `None` on an
+            automatic hit. `events` contains the event to publish, coded
+            `combat.attack.hit`, `combat.attack.missed`, or `combat.attack.auto_hit`.
 
     Raises:
         ValueError: If the defender exposes no armour class, which means the object isn't
@@ -1968,8 +1979,10 @@ def resolve_attack(
     [`validate_attack`][osrlib.core.combat.validate_attack], which draws nothing and
     changes nothing. For a thrown flask of oil or holy water, call
     [`resolve_splash_attack`][osrlib.core.combat.resolve_splash_attack] instead, which
-    adds the second application. For a breath weapon, a gaze, or an energy drain, use the
-    specialized resolutions.
+    adds the second application. For a breath weapon, call
+    [`resolve_breath`][osrlib.core.combat.resolve_breath]. For a gaze, call
+    [`resolve_gaze`][osrlib.core.combat.resolve_gaze]. For an energy drain, call
+    [`resolve_energy_drain`][osrlib.core.combat.resolve_energy_drain].
 
     The pipeline order is fixed. The attack roll comes first
     ([`attack_roll`][osrlib.core.combat.attack_roll]). On a hit, the immunity gate
@@ -2003,7 +2016,16 @@ def resolve_attack(
             `last_damaged_round`, which is what delays a regenerating monster's healing.
 
     Returns:
-        The full resolution with its events.
+        The resolution. `attack_roll` contains the roll. `absorbed` is true when the
+            defender's defenses turned the damage aside. `damage` is the damage rolled,
+            before the defender's reductions apply. It's `None` when no damage was rolled,
+            which includes a sleeping defender killed outright by a blade, and 0 for an
+            unlit oil flask that hits. `events` contains every event the attack caused, in
+            order. The [`DamageDealtEvent`][osrlib.core.events.DamageDealtEvent] in `events`
+            has the hit points the defender lost. The
+            [`HitPointsReportedEvent`][osrlib.core.events.HitPointsReportedEvent] after the
+            `DamageDealtEvent` has the hit points the defender has left. When the defender
+            dies, the death events follow the `HitPointsReportedEvent`.
 
     Examples:
         A 1st-level fighter swings a sword at a goblin. Every draw comes from a
@@ -2294,7 +2316,7 @@ def participant_modifier(combatant: Combatant, *, monster_modifier: int = 0) -> 
         monster_modifier: The modifier to use for a monster. Ignored for characters.
 
     Returns:
-        The signed modifier.
+        The modifier to put in the `Participant`'s `modifier` field. It can be negative.
 
     Examples:
         ```python
@@ -2767,7 +2789,9 @@ def morale_triggers(members: Sequence[Creature]) -> list[str]:
             raises nothing.
 
     Returns:
-        The raised trigger keys.
+        The raised triggers: `first_death` if any member is dead, and
+            `half_incapacitated` if half the side or more is incapacitated. When both are
+            raised, `first_death` comes first. The list is empty when neither is raised.
 
     Examples:
         ```python
@@ -2840,7 +2864,9 @@ def saving_throw(
             automatic save.
 
     Returns:
-        The outcome, with its events.
+        The outcome. Read `passed` to decide the consequence. `roll` is `None` on an
+            automatic save. `events` contains the event to publish, coded
+            `combat.save.passed`, `combat.save.failed`, or `combat.save.auto`.
 
     Examples:
         ```python
@@ -3189,7 +3215,14 @@ def resolve_energy_drain(attacker: MonsterInstance, target: Creature, *, stream:
             the combat stream.
 
     Returns:
-        The drain events.
+        The events to publish, in order. The first is a
+            [`LevelDrainedEvent`][osrlib.core.events.LevelDrainedEvent] coded
+            `combat.drain.drained`. A
+            [`HitPointsReportedEvent`][osrlib.core.events.HitPointsReportedEvent] with the
+            target's new hit points comes next. A character then gets a
+            [`SpellForgottenEvent`][osrlib.core.events.SpellForgottenEvent] for each memorized
+            spell the drain made them forget. When the drain kills the target, the first event is coded
+            `combat.drain.slain`, and only the death events follow it.
 
     Raises:
         ValueError: If the attacker has no `energy_drain` tag, which means it does not
