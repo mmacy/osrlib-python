@@ -1,6 +1,6 @@
 # Agent guide for osrlib
 
-osrlib is a Python library implementing the classic 1981 B/X (Basic/Expert) fantasy adventure game rules for turn-based, grid-based dungeon crawlers in the style of the original Bard's Tale. The rules are sourced from the Old-School Essentials SRD, an Open Game Content restatement of B/X — name the ruleset B/X and reserve the trademark for attribution, as README.md does.
+osrlib is a Python library implementing the classic 1981 B/X (Basic/Expert) fantasy adventure game rules for turn-based, grid-based dungeon crawlers in the style of the original Bard's Tale. The rules are sourced from the Old-School Essentials SRD, an Open Game Content restatement of B/X. Describe osrlib by its ruleset, B/X, and see the trademark rule under Licensing for when to name the source.
 
 ## Start here
 
@@ -64,3 +64,6 @@ The version lives in `pyproject.toml` alone and the bump procedure is: edit the 
 
 - SRD-derived content is Open Game Content under OGL 1.0a (Necrotic Gnome); keep the OGL text and Section 15 notice intact and attribute new SRD-derived data accordingly.
 - Library code is MIT. Do not mix the two: code under MIT, compiled SRD data under OGL.
+- **The trademark.** "Old-School Essentials" is Necrotic Gnome's trademark, and the SRD designates it and "Necrotic Gnome" as Product Identity. Section 7 of the OGL bars using Product Identity to describe osrlib or to claim compatibility. Section 6 requires reproducing the Section 15 notice, which names the source. The test for any sentence is what it does with the name:
+  - **Naming the source is attribution, and it's allowed anywhere.** A sentence that says where a rule or a piece of data came from may name the source document, in docstrings, docs, comments, and messages. Examples are "the OSE SRD's spell pages compile into a catalog", "the sword's entry in the OSE SRD", the README's source sentence and disclaimer, and the Section 15 notice. Don't shorten these to "the SRD" or reword them to avoid the name. Either is a change of style, not a license fix. "The SRD" is fine where the source is already clear.
+  - **Describing osrlib by the name trades on the mark, and it's not allowed.** A name, title, tagline, package description, keyword, or summary line says what osrlib is or what it works with, so it uses B/X. Examples are "a B/X rules engine", never "an Old-School Essentials rules engine", and no `old-school-essentials` keyword. PR #79 applied this test to the repository's discovery surfaces.
