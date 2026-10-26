@@ -3,7 +3,7 @@
 A view is the snapshot a front end renders: everything on the screen after a command,
 in one frozen object.
 
-Where the views sit. A command changes the session state that
+A command changes the session state that
 [`GameSession`][osrlib.crawl.session.GameSession] keeps, and
 [`build_player_view`][osrlib.crawl.views.build_player_view] and
 [`build_referee_view`][osrlib.crawl.views.build_referee_view] read that state to build
@@ -425,7 +425,7 @@ class PlayerView(BaseModel):
     exhausted: bool
     """Whether any member is exhausted."""
     deprivation: dict[str, dict[str, int]]
-    """Food and water deprivation, keyed by character id, each value holding
+    """Food and water deprivation, keyed by character id, each value containing
     `food_days` and `water_days`. A member with no deprivation on either track is left
     out, so an empty dict means the party has been eating and drinking."""
     journal: tuple[JournalEntry, ...]
@@ -654,7 +654,7 @@ def _masked_magic_item(instance: MagicItemInstance) -> dict:
     declaration from a missile one. Without them an enchanted dagger is unclassifiable
     where a plain dagger is not. An identified item shows its true name, its id, and
     whether a curse has been revealed, and it shows the weapon facts whenever a weapon
-    underlies it, because identification has already named the item. The bonus, the
+    underlies it, because the item's true name is already shown. The bonus, the
     curse, the template id, and the name stay hidden until identified, and charges,
     sentience, and per-item state never appear at any identification level, because by
     the rules as written charges are undiscoverable.
@@ -749,7 +749,7 @@ def build_player_view(session) -> PlayerView:
         session (osrlib.crawl.session.GameSession): The running session.
 
     Returns:
-        The frozen whitelist projection, holding only what the party has learned.
+        The frozen whitelist projection, containing only what the party has learned.
 
     Examples:
         ```python

@@ -1464,8 +1464,8 @@ class GameSession:
         The trigger is the death rather than the state: this runs only for a command whose
         events killed a member, so carrying an already-fallen party to town, which is the first
         step of a revival, never re-enters game over. A session already in a terminal mode is left
-        alone, so a party that dies after the adventure concluded stays in `victory` and a second
-        death among the fallen ends nothing twice.
+        alone, so a party that dies after the adventure concluded stays in `victory`, and a
+        later death in a session that has already ended changes nothing.
 
         Returns:
             The ending event, or nothing when a member still lives.

@@ -1,6 +1,6 @@
 # LLM referees
 
-osrlib is designed to work with an LLM-driven referee (a model that reads the game and decides what happens next). The engine works the way an agent loop does: the agent sends typed commands, reads typed events, and observes a full-knowledge view, and the deterministic core makes every run reproducible. The library includes everything such an agent uses: the schemas, the referee commands and view, authored content, and the determinism guarantee. [The complete program](#the-complete-program) at the end runs as written, and every snippet along the way comes from it.
+osrlib is designed to work with an LLM-driven referee (a model that reads the game and decides what happens next). The engine fits an agent loop: the agent sends typed commands, reads typed events, and observes a full-knowledge view, and the deterministic core makes every run reproducible. The library includes everything such an agent uses: the schemas, the referee commands and view, authored content, and the determinism guarantee. [The complete program](#the-complete-program) at the end runs as written, and every snippet along the way comes from it.
 
 ## The schemas are the tool definitions
 
@@ -85,13 +85,13 @@ lines = [format_message(event) for event in result.events]
 assert all(lines)
 ```
 
-In a practical narrator prompt, send the structured events (or their codes and fields) as the facts to narrate, and leave the model to choose how to tell them. The dice have already decided what happened.
+In a practical narrator prompt, send the structured events (or their codes and fields) as the facts to narrate, and leave the model to choose how to tell them. The engine has already rolled the dice and resolved what happened.
 
 ## Narrating authored content
 
 An adventure written for the authored layer ([Gates, triggers, and quests](../guides/gates-triggers-quests.md)) includes material written for a narrating referee, and an agent that referees such an adventure should use all of it.
 
-**Register the library's [`Interpreter`][osrlib.crawl.interpreter.Interpreter] and do no bookkeeping.** Call `session.register_listener(Interpreter(session))` once after you build the session, and again after a load. The interpreter then plays the triggers, the quests, the fired-marks, and the rewards as ordinary logged commands. The agent referees, and the interpreter runs what the adventure's author set up.
+**Register the library's [`Interpreter`][osrlib.crawl.interpreter.Interpreter] and do no bookkeeping.** Call `session.register_listener(Interpreter(session))` once after you build the session, and again after a load. The interpreter then fires the triggers, advances the quests, records the fired-marks, and issues the rewards, all as ordinary logged commands. The agent referees, and the interpreter runs what the adventure's author set up.
 
 **`guidance` is direction for the narrator, not text to read out.** [`NarrativeBlock`][osrlib.crawl.narrative.NarrativeBlock] has a `guidance` field on any authored object, and [`LevelSpec.guidance`][osrlib.crawl.dungeon.LevelSpec] contains ambience for the whole level that isn't attached to any object. The guidance for the TUI barrow's first level is:
 

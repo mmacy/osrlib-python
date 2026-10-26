@@ -404,7 +404,7 @@ def _area_has_boundary_door(area: AreaSpec, level: LevelSpec) -> bool:
     """Return whether any edge of any of `area`'s cells is a door.
 
     This is what an `open`-trigger room trap needs before it can ever fire: the springing action is
-    a door of the area swinging, so an area with no door edge never rolls for it. Every edge of every
+    a door of the area swinging, so the engine never rolls for it in an area with no door edge. Every edge of every
     cell counts, interior or exterior, read through
     [`LevelSpec.edge`][osrlib.crawl.dungeon.LevelSpec.edge] so the wall-or-door answer matches the one
     the engine gets at play time. A door that `starts_open` counts too, because a referee command or
@@ -513,7 +513,7 @@ def _dangling_condition_item(
     The domain is the composed equipment catalog and the magic-item catalog, which is exactly what
     `has_item` evaluates against, so an id neither contains can never be satisfied and is a dangling
     reference. It returns `None` for every other condition kind: flag keys and effect kinds are open domains
-    and get no check, because a flag nobody writes is something an authoring tool warns about rather
+    and get no check, because a flag that is never written is something an authoring tool warns about rather
     than a broken document. Validation resolves gates and bare trigger conditions through this one
     helper, so the two can never disagree about the domain.
     """
@@ -570,8 +570,8 @@ def _validate_clause(
     the two authoring paths from drifting apart on what resolves. `owner` is the subject of the error
     lines, like `trigger 'lever-east'` or `quest 'the-idol' objective 'return-home'`.
 
-    Flag keys stay unchecked at every site. The flag namespace is open by design, so a key nobody
-    writes is something an authoring tool warns about rather than a broken document.
+    Flag keys stay unchecked at every site. The flag namespace is open by design, so a key that is
+    never written is something an authoring tool warns about rather than a broken document.
     """
     if isinstance(pattern, AreaEnteredPattern | LevelEnteredPattern):
         level = _resolve_level(adventure, pattern.dungeon_id, pattern.level_number)

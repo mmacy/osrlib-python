@@ -3,7 +3,7 @@
 [`Interpreter`][osrlib.crawl.interpreter.Interpreter] is what turns the authored hooks in
 an adventure document into things that happen at the table.
 
-Where the interpreter sits. It reads the `triggers` and `quests` of the
+It reads the `triggers` and `quests` of the
 [`Adventure`][osrlib.crawl.adventure.Adventure] the session is playing, and it is an
 ordinary listener your game registers with
 [`GameSession.register_listener`][osrlib.crawl.session.GameSession.register_listener]. It
@@ -222,7 +222,7 @@ class Interpreter:
     are code and a save contains data. Nothing migrates: the interpreter's slot in
     `listener_state` is empty and stays empty for the life of the session.
 
-    What it does with a command's events. It walks them in the order they happened and,
+    It walks them in the order they happened and,
     per event, the adventure's triggers in document order and then its quests in document
     order. A trigger matches when its
     pattern fits the event, its fired-state allows it (once-only unless `repeatable`), and
@@ -301,7 +301,7 @@ class Interpreter:
     to match again. Clauses are edge-triggered for both triggers and quests, so the
     suppressed edge itself is gone.
 
-    What it never does. It returns no events, because everything it causes is already
+    It returns no events, because everything it causes is already
     logged by the commands it executed, and it stores nothing between commands. Read
     what a trigger or a quest did from the command log, the journal,
     `session.fired_triggers`, and `session.quests`, all of which a replay rebuilds.

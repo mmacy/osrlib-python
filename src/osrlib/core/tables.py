@@ -36,8 +36,8 @@ yourself, and for the forms that the compiled data expands into several template
 """
 
 # The encounter-table models live here in core rather than in crawl/ because the
-# osrlib/data/ loaders import their model homes and core modules import the loaders: a
-# crawl/ home would give the loaders a core to data to crawl import chain. The crawl layer
+# osrlib/data/ loaders import their model homes and core modules import the loaders, so a
+# home in crawl/ would make core import crawl by way of the loaders. The crawl layer
 # consumes these models and doesn't define them. The tables themselves compile from the
 # SRD markdown sources into combat_tables.json and encounter_tables.json at build time.
 
@@ -705,8 +705,8 @@ def select_encounter_individuals(entry: MonsterEncounterEntry, count: int, strea
         assert select_encounter_individuals(acolytes, 3, stream) == ["acolyte", "acolyte", "acolyte"]
         ```
     """
-    # A list (never the model's variadic tuple) so index access is unconditioned by
-    # length narrowing. The entry model guarantees at least one id.
+    # A list rather than the model's variadic tuple, so indexing doesn't depend on the type
+    # checker narrowing the tuple's length. The entry model guarantees at least one id.
     ids = list(entry.monster_ids)
     if entry.variant_dice is not None:
         total = roll(entry.variant_dice, stream).total

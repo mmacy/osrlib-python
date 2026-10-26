@@ -59,7 +59,7 @@ the rest of the library. They're pure functions that run before resolution and r
 [`Rejection`][osrlib.core.validation.Rejection] lists, with no RNG draws and no
 mutation. A rejection is free (no roll, no time, no log entry), which is why holy water
 against the living is *not* a rejection: it resolves normally and the damage pipeline
-reports no effect. A free rejection would be a zero-cost undead detector.
+reports no effect. A free rejection would let a player find out what is undead at no cost.
 
 Typical usage:
 
@@ -2715,7 +2715,7 @@ def morale_modifier(combatant: Creature) -> int:
     creature, so it never sees a spell's morale modifier unless you pass it. Read it here and add
     it to the `modifier` you pass. A spell morale modifier counts inside the same ±2
     clamp and the same morale 2 and 12 exemptions as any situational adjustment, because
-    there's one adjustment rule rather than a second channel for spells.
+    one rule covers every morale adjustment, spells included.
 
     Args:
         combatant: The [`Creature`][osrlib.core.creature.Creature] whose morale is being checked, which a
@@ -2984,8 +2984,8 @@ def natural_healing(target: Creature, stream: RngStream, *, ledger: EffectsLedge
         target: The resting [`Creature`][osrlib.core.creature.Creature], which a
             [`Character`][osrlib.core.character.Character] and a
             [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy. Mutated in place.
-        stream: The stream the 1d3 comes from. Natural healing is effect-internal
-            randomness, so it draws from
+        stream: The stream the 1d3 comes from. Natural healing is grouped with the
+            draws that effects make, so it draws from
             [`EFFECTS_STREAM`][osrlib.core.effects.EFFECTS_STREAM], not the combat
             stream. One draw on a healing day, none on a skipped one.
         ledger: The [`EffectsLedger`][osrlib.core.effects.EffectsLedger] that contains the

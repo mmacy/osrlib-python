@@ -26,8 +26,8 @@ each phase effects resolve in attachment order, tie-broken by effect id. A creat
 suspends its other effects, which neither tick nor age while the stone lasts, so an adventurer who was poisoned
 before being turned to stone is still poisoned after *stone to flesh*.
 
-Effect-internal randomness (rolled durations, onset delays, a troll's revival countdown) draws from the stream
-named by [`EFFECTS_STREAM`][osrlib.core.effects.EFFECTS_STREAM], so adding a draw to combat never shifts an
+The random draws that effects make (rolled durations, onset delays, a troll's revival countdown) come from the
+stream named by [`EFFECTS_STREAM`][osrlib.core.effects.EFFECTS_STREAM], so adding a draw to combat never shifts an
 effect's roll.
 
 The `target` parameters below take [`Creature`][osrlib.core.creature.Creature], the protocol that defines the
@@ -115,7 +115,7 @@ __all__ = [
 ]
 
 EFFECTS_STREAM = StreamName.EFFECTS
-"""The random-number stream name for effect-internal draws: rolled durations, onsets, and revival countdowns.
+"""The random-number stream name for the draws effects make: rolled durations, onsets, and revival countdowns.
 
 Build an [`RngStreams`][osrlib.core.rng.RngStreams] from your session's master seed and pass
 `streams.get(EFFECTS_STREAM)` wherever [`EffectsLedger.attach`][osrlib.core.effects.EffectsLedger.attach] and
@@ -150,8 +150,8 @@ class Condition(StrEnum):
     [`grant_condition`][osrlib.core.effects.grant_condition] or attach an effect that brings it, so even a member
     that the other core rules never read still determines which monsters a spell can affect.
 
-    The values are the lowercase strings, and they serialize into creatures and saved games. A renamed value is a
-    `schema_version` bump, not an edit.
+    The values are the lowercase strings, and they serialize into creatures and saved games. Renaming a value
+    requires a `schema_version` bump.
     """
 
     PARALYSED = "paralysed"
@@ -179,7 +179,7 @@ class Condition(StrEnum):
     up where it left off."""
 
     DISEASED = "diseased"
-    """Sick with a disease. Magical healing is refused outright, and natural rest heals on the slower cadence the
+    """Sick with a disease. Magical healing has no effect on it, and natural rest heals on the slower cadence the
     effect sets, or not at all when you pass no ledger to
     [`natural_healing`][osrlib.core.combat.natural_healing]. *Cure disease* cures it."""
 
@@ -539,11 +539,10 @@ MODIFIER_KINDS = frozenset(
 """The closed set of statistic names a modifier can adjust.
 
 These are the only values a [`ModifierSpec`][osrlib.core.effects.ModifierSpec] accepts for its `kind`.
-Combat looks each of these up by name while it resolves a roll, so a kind combat never looks up would change
-nothing.
-Constructing a `ModifierSpec` with a name outside this set raises a validation error rather than failing
-silently, which is why the set is closed. Adding a kind means teaching combat to read it, so when you're
-authoring your own content, express what you want with a kind already here.
+Combat looks each of these up by name while it resolves a roll, so a kind that combat doesn't look up would
+change nothing. The set is closed so that constructing a `ModifierSpec` with a name outside it raises a validation
+error instead of failing silently. Adding a kind means changing combat to read it, so when you're authoring your
+own content, express what you want with a kind already here.
 
 What each one does:
 
@@ -986,7 +985,8 @@ class EffectDefinition(BaseModel):
 
     tick_interval_rounds: int = Field(default=1, ge=1)
     """How many rounds pass between ticks. The default of 1 ticks every round. A charm sets this from the
-    subject's intelligence, so the dull re-save monthly and the bright daily."""
+    subject's intelligence, so a subject with INT 8 or lower re-saves monthly and one with INT 13 or
+    higher re-saves daily."""
 
     stacking: Literal["stack", "refresh", "ignore"] = "stack"
     """What happens when the same kind is attached to a target that already has one. `"stack"` adds a second
@@ -1508,8 +1508,8 @@ class EffectsLedger(BaseModel):
     ) -> list[Event]:
         """Roll the charm's periodic saving throw, releasing the charm when it passes.
 
-        The re-save is a tick-time draw, so it comes from the effects stream. The interval was fixed at attach
-        time from the subject's INT band, and is stored in `tick_interval_rounds`.
+        The ledger rolls the re-save when the effect ticks, so the roll comes from the effects stream. The interval
+        was set at attach time from the subject's INT band, and is stored in `tick_interval_rounds`.
         """
         # Deferred import: combat.py imports from this module, so importing it at
         # module scope would create a cycle.

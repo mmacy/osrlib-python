@@ -54,7 +54,7 @@ Beyond encounters, an area (or the level itself) can contain:
 
 - [`FeatureSpec`][osrlib.crawl.dungeon.FeatureSpec] - a treasure cache, a construction trick, or custom content for your front end. A cache contains hand-placed items, magic items (any id from [the magic item id index][magic-items-index], like a `sword_plus_1` in a chest), coins, and named valuables ([`ValuableSpec`][osrlib.crawl.dungeon.ValuableSpec]).
 - [`TrapSpec`][osrlib.crawl.dungeon.TrapSpec] - room traps on areas, treasure traps on caches. A room trap springs when the party steps in or, with `trigger="open"`, when the party opens one of the area's doors.
-- [`AreaTreasureSpec`][osrlib.crawl.dungeon.AreaTreasureSpec] - generated treasure: explicit treasure type letters (see [the treasure type index][treasure-types-index]) or the level's unguarded-treasure band.
+- [`AreaTreasureSpec`][osrlib.crawl.dungeon.AreaTreasureSpec] - generated treasure: explicit treasure type letters (see [the treasure type index][treasure-types-index]) or the SRD's unguarded treasure table, which scales with the dungeon level.
 - [`TransitionSpec`][osrlib.crawl.dungeon.TransitionSpec] - stairs, trapdoors, and chutes, which the party takes with [`UseStairs`][osrlib.crawl.commands.UseStairs], and passages, which the party walks through with [`MoveParty`][osrlib.crawl.commands.MoveParty]. A passage joins two cells that a map shows side by side but the grid can't, like the floors of two levels that meet. You put transitions on the level, not on an area.
 - [`WanderingSpec`][osrlib.crawl.dungeon.WanderingSpec] - the level's wandering-monster check: 1-in-6 every two turns by default, with an optional custom table.
 

@@ -74,7 +74,7 @@ From then on it watches every command's events, matches them against the adventu
 
 ## A fetch quest, worked
 
-Most fetch quests belong in the adventure document, where [`QuestSpec`][osrlib.crawl.quests.QuestSpec] defines what to fetch and the interpreter above runs it. [Gates, triggers, and quests](gates-triggers-quests.md#authoring-a-quest) covers that, and the TUI crawler's Jade Idol is authored that way (see [the complete front end](../front-ends/tui-crawler.md)). The same errand also works as an example of logic your game owns, because it needs nothing beyond this page: a listener that watches events, keeps its objective state, and acts through commands. The [complete program](#the-complete-program) below includes this listener whole and runs it.
+Most fetch quests belong in the adventure document, where [`QuestSpec`][osrlib.crawl.quests.QuestSpec] defines what to fetch and the interpreter above runs it. [Gates, triggers, and quests](gates-triggers-quests.md#authoring-a-quest) covers that, and the TUI crawler's Jade Idol is authored that way (see [the complete front end](../front-ends/tui-crawler.md)). The same errand also works as an example of logic that belongs to your game, because it needs nothing beyond this page: a listener that watches events, keeps its objective state, and acts through commands. The [complete program](#the-complete-program) below includes this listener whole and runs it.
 
 ```{.python .no-run}
 class FetchQuestListener:

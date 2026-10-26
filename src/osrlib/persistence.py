@@ -36,7 +36,7 @@ A save contains the session's whole state: the party, the adventure content, the
 dungeon, the clock, the active effects, the spawned monsters and NPCs, flags, fired
 triggers, the journal, quest progress, listener state, the session mode, the exploration
 counters, any encounter or battle in progress, every RNG stream's position, and the master
-seed. Beside that state sit two records of what happened: the log of accepted commands, and
+seed. Beside that state, the save contains two records of what happened: the log of accepted commands, and
 the log of events unless you ask for it to be left out. A load rebuilds the session from the
 state alone and re-derives nothing from the logs, which is why loading costs the same however
 long the game has run.

@@ -3,7 +3,7 @@
 A trigger binds an observable event pattern, optionally narrowed by conditions, to the
 referee commands that run when it matches.
 
-Where a trigger sits. You write [`TriggerSpec`][osrlib.crawl.triggers.TriggerSpec]s into
+You write [`TriggerSpec`][osrlib.crawl.triggers.TriggerSpec]s into
 the `triggers` tuple of an [`Adventure`][osrlib.crawl.adventure.Adventure], and that
 tuple's order is document order: triggers matching one event fire in it. Nothing plays
 them until your game registers an
@@ -275,7 +275,7 @@ class MonsterDefeatedPattern(BaseModel):
 class FlagSetPattern(BaseModel):
     """A session flag was written: the edge, not the state.
 
-    This is the lever. Your game, or another trigger's consequence, executes
+    Your game, or another trigger's consequence, executes
     [`SetFlag`][osrlib.crawl.commands.SetFlag], the write emits a
     [`FlagSetEvent`][osrlib.crawl.events.FlagSetEvent], and the trigger watching that key
     fires. The match is against the value the write set, so a flag rewritten with the

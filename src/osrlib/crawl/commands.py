@@ -1377,7 +1377,7 @@ class CastSpell(Command):
     reversed: bool = False
     """Cast the reversed form, like *cause light wounds* for *cure light wounds*. An arcane
     caster fixes the form when memorizing, so a reversed cast needs a reversed copy in hand. A
-    divine caster memorizes the normal form and chooses here at the altar. A spell with no
+    divine caster memorizes the normal form and chooses the form here, when casting. A spell with no
     reversed form is refused with `magic.cast.not_reversible`."""
     targets: tuple[str, ...] = ()
     """Who or what the spell targets, as entity ids: a party member's
@@ -1956,7 +1956,7 @@ class Wait(Command):
 class TurnUndead(Command):
     """Present the holy symbol, the one aggressive act with a pre-battle procedure.
 
-    An encounter must be open: exploration offers no candidates by definition, and
+    An encounter must be open: outside one there are no monsters to turn, and
     in battle turning is a declaration kind. If any monster stands unturned, the
     survivors attack at once.
 
@@ -2868,8 +2868,8 @@ class CompleteQuest(Command):
     session to `victory`. This is the one entrance to that mode. From a terminal mode
     (`game_over` or `victory`) the quest still completes and its beat still goes in the journal, but
     nothing transitions and no adventure-completed event is emitted: an ended session
-    never ends again, so the record shows a fallen party finishing the job without
-    resurrecting the adventure around it. Referee commands are legal in every mode,
+    never ends again, so the record shows the quest completed while the session stays in
+    its terminal mode. Referee commands are legal in every mode,
     terminal modes included.
 
     Modes:

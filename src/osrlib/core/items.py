@@ -612,11 +612,12 @@ class EquipmentCatalog(BaseModel):
     """The whole mundane equipment list: what a shop sells and what a character can own.
 
     Call [`load_equipment`][osrlib.data.load_equipment] to get the compiled catalog. It is
-    frozen, cached, and shared, so hold onto the one you are given rather than loading it
-    per lookup. Reach an item by id with
+    frozen, cached, and shared, so keep the one you are given rather than loading it for
+    each lookup. Look up an item by id with
     [`get`][osrlib.core.items.EquipmentCatalog.get], or iterate a list when you are
-    building a shop screen. An [`Adventure`][osrlib.crawl.adventure.Adventure] that bundles
-    item templates is given a catalog with those added.
+    building a shop screen. A [`GameSession`][osrlib.crawl.session.GameSession] that plays an
+    [`Adventure`][osrlib.crawl.adventure.Adventure] with bundled item templates looks items up
+    in a catalog with those templates added.
 
     Ids are unique across the four equipment lists, and across the magic item catalog too,
     so an id refers to exactly one thing anywhere in the library.
@@ -1002,7 +1003,7 @@ class MagicSubTableRow(BaseModel):
 class MagicSubTable(BaseModel):
     """One magic item type's generation table: everything that type can produce, and the rolls that produce it.
 
-    There is one of these per type of the master table. Reach the one you want with
+    There is one of these per type of the master table. Get the one you want with
     [`MagicItemCatalog.sub_table`][osrlib.core.items.MagicItemCatalog.sub_table]. Roll on it
     with [`row_for_basic`][osrlib.core.items.MagicSubTable.row_for_basic] or
     [`row_for_expert`][osrlib.core.items.MagicSubTable.row_for_expert], depending on the
@@ -1424,7 +1425,7 @@ class MagicItemCatalog(BaseModel):
     """The whole magic item list, with the tables that generate from it.
 
     Call [`load_magic_items`][osrlib.data.load_magic_items] to get the compiled catalog. It
-    is frozen, cached, and shared. Reach an item by id with
+    is frozen, cached, and shared. Look up an item by id with
     [`get`][osrlib.core.items.MagicItemCatalog.get], and a type's generation table with
     [`sub_table`][osrlib.core.items.MagicItemCatalog.sub_table]. Treasure generation in
     [`osrlib.core.treasure`][osrlib.core.treasure] loads this catalog itself, so you need it
@@ -2092,7 +2093,7 @@ def equipped_item_modifiers(inventory: Inventory) -> list[ModifierSpec]:
     bookkeeping.
 
     Item bonuses are computed from the inventory each time you ask rather than stored as
-    effects, and that is deliberate: they stack freely with spell bonuses and are never
+    effects. They stack freely with spell bonuses and are never
     subject to the cap that
     [`modifier_total`][osrlib.core.effects.modifier_total] applies to spell-sourced
     modifiers, which counts only the largest bonus and the largest penalty.
@@ -2675,8 +2676,9 @@ def _validate_equip_magic(
         if isinstance(base, AmmunitionTemplate):
             return [Rejection(code="items.equip.not_equippable", params={"item": instance.instance_id})]
         return validate_equip(definition, ItemInstance(template=base), inventory)
-    # Devices and miscellaneous items: the item's usability governs (the RAW
-    # staves-in-melee carve-out means class weapon policies do not apply, pinned).
+    # Devices and miscellaneous items: the item's usability governs. Class weapon
+    # policies don't apply, because the SRD lets magic-users fight in melee with
+    # some magic staves (Rods, Staves, Wands: Staves in Melee).
     if not usable_by_class(template, definition):
         return [Rejection(code="items.equip.not_usable", params={"item": instance.instance_id})]
     return []

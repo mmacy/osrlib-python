@@ -3,7 +3,7 @@
 A gate is an authored predicate the engine checks when the party attempts something,
 like opening a door or taking a stair.
 
-Where a gate sits. You write a [`GateSpec`][osrlib.crawl.gates.GateSpec] into the
+You write a [`GateSpec`][osrlib.crawl.gates.GateSpec] into the
 `requires` field of a [`DoorSpec`][osrlib.crawl.dungeon.DoorSpec] or a
 [`TransitionSpec`][osrlib.crawl.dungeon.TransitionSpec], inside the dungeon geometry of
 an [`Adventure`][osrlib.crawl.adventure.Adventure]. Gates go nowhere else. The

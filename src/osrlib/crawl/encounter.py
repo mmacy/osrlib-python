@@ -131,7 +131,7 @@ __all__ = [
 ]
 
 PURSUIT_ROUND_CAP = 30
-"""The round at which a running pursuit gives up and the party gets away, exhausted.
+"""The round at which the pursuers give up and the party gets away, exhausted.
 
 A pursuit normally ends before this: the gap closes to 5' and the pursuers catch the party into
 battle, or a sack dropped behind the party distracts them. Neither happens when the two sides run at
@@ -227,8 +227,9 @@ class EncounterState(BaseModel):
     area the adventure stocked, or `"spawned"` from a referee command."""
     area_ref: str | None = None
     """The keyed area's state reference, when `kind` is `"keyed"`. When every monster in the encounter
-    ends up slain or routed, the close records this reference as resolved, so entering the area again
-    starts no second fight."""
+    ends up slain or routed,
+    [`end_encounter`][osrlib.crawl.encounter.end_encounter] records this reference as resolved, so
+    entering the area again starts no second fight."""
     groups: list[EncounterGroup] = Field(min_length=1)
     """The monster groups, each an [`EncounterGroup`][osrlib.crawl.encounter.EncounterGroup], in the
     order they were spawned. There is always at least one."""
@@ -241,8 +242,9 @@ class EncounterState(BaseModel):
     [`Wait`][osrlib.crawl.commands.Wait] or [`Parley`][osrlib.crawl.commands.Parley], adds one. A chase
     counts its rounds on `pursuit` instead."""
     started_round: int
-    """The session clock's round count when the encounter opened. The close uses it to charge the
-    encounter its minimum one turn."""
+    """The session clock's round count when the encounter opened.
+    [`end_encounter`][osrlib.crawl.encounter.end_encounter] uses it to charge the encounter its
+    minimum one turn."""
     party_surprised: bool = False
     """True when the party lost the surprise roll and gave up a round."""
     monsters_surprised: bool = False
@@ -796,7 +798,7 @@ def _pursuer_rate(session, groups) -> int:
 
 
 def _group_intelligent(session, group: EncounterGroup) -> bool:
-    """The intelligence proxy: a treasure ref with letters marks a hoarder.
+    """Whether a group counts as intelligent, which a monster does when its treasure entry lists letters.
 
     NPC adventuring parties count as intelligent for the distraction roll
     whatever their treasure letters, because they are people.
@@ -808,7 +810,7 @@ def _group_intelligent(session, group: EncounterGroup) -> bool:
 
 
 def _pursuit_round(session, *, dropped_kind: str | None = None) -> list[Event]:
-    """Run one pursuit round: distraction, the gap update, and the terminals.
+    """Run one pursuit round: distraction, the gap update, and the outcomes that end the chase.
 
     A round that leaves nobody standing ends there: nobody is running, so no
     distraction die is rolled, the gap goes unmeasured, and the pursuers catch

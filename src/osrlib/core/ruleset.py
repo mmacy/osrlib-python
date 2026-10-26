@@ -56,7 +56,7 @@ class XpAwardTiming(StrEnum):
     """When a party is paid the experience points it has earned.
 
     Set it on [`Ruleset.xp_award_timing`][osrlib.core.ruleset.Ruleset]. The choice is
-    about pacing: `ON_RETURN` makes getting out of the dungeon alive the thing that pays,
+    about pacing: `ON_RETURN` pays only once the party gets out of the dungeon alive,
     and `IMMEDIATE` pays as the party goes, which suits a game with no trip home.
 
     The lowercase values serialize into saved games. Changing one is a `schema_version`

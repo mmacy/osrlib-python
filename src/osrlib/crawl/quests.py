@@ -3,7 +3,7 @@
 A quest is an errand the session tracks: what starts it, what it asks for,
 what it pays, and whether finishing it ends the adventure.
 
-Where a quest sits. You write [`QuestSpec`][osrlib.crawl.quests.QuestSpec]s into the
+You write [`QuestSpec`][osrlib.crawl.quests.QuestSpec]s into the
 `quests` tuple of an [`Adventure`][osrlib.crawl.adventure.Adventure], and that tuple's
 order is document order. A session seeds one
 [`QuestState`][osrlib.crawl.session.QuestState] per quest at construction and keeps them
@@ -264,7 +264,7 @@ class QuestSpec(BaseModel):
     def _objective_ids_unique(self) -> QuestSpec:
         """Objective ids are quest-scoped: unique here, free to repeat elsewhere.
 
-        Two quests may both name an objective `"return"`, and one quest may not, because
+        Two quests may both have an objective with the id `"return"`, but one quest may not have two, because
         its state keys its objectives by id.
         """
         ids = [objective.id for objective in self.objectives]

@@ -1025,12 +1025,12 @@ class SpellCastEvent(Event):
 class SpellDisruptedEvent(Event):
     """A declared spell came to nothing, and the caster lost it anyway.
 
-    Two things produce one, and `code` tells them apart.
+    Two things produce one, and you tell them apart by `code`.
     [`disrupt_casting`][osrlib.core.spells.disrupt_casting] emits `magic.cast.disrupted` when a caster who
-    declared a spell is hit, or otherwise stopped, before it goes off. The battle round emits
-    `magic.cast.fizzled` when it judges the declaration again in the magic phase, just before the spell would
-    resolve, and any one of the checks it passed at the top of the round no longer passes, because the phases
-    between the two changed what that check reads. An ally's *silence 15' radius* anchoring on the party's
+    declared a spell is hit, or otherwise stopped, before it goes off. The battle round checks the
+    declaration again in the magic phase, just before the spell would resolve. If any check it passed at the
+    top of the round no longer passes, because the phases between the two changed what that check reads, the
+    round emits `magic.cast.fizzled`. An ally's *silence 15' radius* anchoring on the party's
     cell and the party's last torch going out as its bearer dies are two cases. Any of the checks can cause a
     fizzle, not only those two. `reason` contains the rejection code behind a fizzle.
 

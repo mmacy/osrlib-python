@@ -592,7 +592,7 @@ def _requires_light(session, member, *, infravision_suffices: bool) -> list[Reje
 
 
 def _int_param(params: Mapping[str, Any], key: str, default: int = 0) -> int:
-    """Read an integer param: schema-validated data whose union the checker can't key by name."""
+    """Read an integer param: schema-validated data whose union type the type checker can't index by key name."""
     return int(params.get(key, default))
 
 
@@ -1617,12 +1617,12 @@ def _keyed_encounter_check(session) -> list[Event]:
         templates.append(template)
         instances = session.spawn(keyed.template_id, count, alignment=area.encounter.alignment)
         groups.append((template.name, instances))
-        # Carried treasure generates at spawn, per keyed line in printed order.
+        # The engine generates carried treasure at spawn, per keyed line in printed order.
         # The lair hoard follows it, and that draw order on the treasure stream
         # is fixed.
         carried.append(_generate_carried_treasure(session, instances))
     # The lair hoard is gated: a keyed encounter the author marked hoardless (a
-    # stocking roll that gave the monster room no treasure) generates no cache.
+    # stocking roll that gave the monster room no treasure) gets no cache.
     events = _generate_lair_hoard(session, area, templates) if area.encounter.hoard else []
     events.extend(
         encounter_module.start_encounter(
@@ -2496,13 +2496,13 @@ _SPREAD_MODES: dict[EncumbranceMode, EncumbranceMode] = {
     EncumbranceMode.BASIC: EncumbranceMode.BASIC,
     EncumbranceMode.DETAILED: EncumbranceMode.DETAILED,
 }
-"""The weight the haul spread compares loads by. `none` tracks nothing at all, so the
-spread compares treasure weight anyway (the loot still shouldn't all go to one
+"""The weight that `_distribute_haul` compares loads by. `none` tracks nothing at all, so the
+distribution compares treasure weight anyway (the loot still shouldn't all go to one
 member) and never refuses a load."""
 
 
 def _carry_load(member, ruleset) -> int:
-    """Return the carried weight in coins the haul spread compares carriers by."""
+    """Return the carried weight in coins that `_distribute_haul` compares carriers by."""
     return tracked_weight_coins(member.inventory, _SPREAD_MODES[ruleset.encumbrance])
 
 
@@ -3961,7 +3961,7 @@ def _use_scroll(session, member, instance: MagicItemInstance, template, command)
         events.extend(_stationary_silence(session, spell, result, targets))
         return [], events
     # Everything else on the scroll table (protection from magic, treasure maps)
-    # is manual prose: reading it is supported, the game narrates.
+    # is manual prose: reading it is supported, and the game narrates the item's `manual` text.
     _remove_instance(member, instance)
     events.extend(_identify_item_events(session, member, instance))
     events.append(

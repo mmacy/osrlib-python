@@ -48,7 +48,7 @@ under the ruleset's `formation_width_limit` flag, and the width is the frontage 
 offers at [`FIGHTER_FRONTAGE_FEET`][osrlib.crawl.battle.FIGHTER_FRONTAGE_FEET] to a combatant: two
 abreast in a ten-foot passage, and a room's shorter side in a room.
 
-The machine detects spell disruption, meaning a declared caster who is successfully attacked or fails
+The round handler detects spell disruption, meaning a declared caster who is successfully attacked or fails
 a save after initiative resolves against them and before their own action. It checks morale on its
 own, with no command for it. It ends each single-use protection as it is spent. Invisibility breaks
 when the member attacks, throws or unleashes an item, or turns undead, and the kernel's
@@ -211,7 +211,7 @@ __all__ = [
 
 
 def _int_param(params: Mapping[str, Any], key: str, default: int = 0) -> int:
-    """Read an integer param out of schema-validated data whose union the type checker can't key by name."""
+    """Read an integer param out of schema-validated data whose union type the type checker can't index by key name."""
     return int(params.get(key, default))
 
 
@@ -2597,10 +2597,10 @@ def _group_morale(session, group, fire_damaged) -> list[Event]:
 
 
 def _confused_overrides(session, group, actions) -> list[Event]:
-    """The confusion check the machine runs each round: re-save, then the 2d6 behavior roll.
+    """The confusion check the round handler runs each round: re-save, then the 2d6 behavior roll.
 
     The re-save runs on the magic stream, and the behavior roll and its pick of a
-    target in its group run on the combat stream. These are machine-run round rolls,
+    target in its group run on the combat stream. The round handler makes these rolls,
     distinct from the ledger's tick-time effects.
     """
     events: list[Event] = []
@@ -2717,7 +2717,7 @@ def _resolve_breath(session, monster, group) -> list[Event]:
 
 
 def _watch_disruption(events, pending_casters, disrupted, acted) -> None:
-    """The RAW disruption trigger, found by the machine: a hit or a failed save before the caster acts."""
+    """The RAW disruption trigger, as the round handler detects it: a hit or a failed save before the caster acts."""
     for event in events:
         target = getattr(event, "defender_id", None) or getattr(event, "target_id", None)
         if target not in pending_casters or target in acted or target in disrupted:
@@ -2741,6 +2741,6 @@ mode gate, and does the command log, listener, and validation-phase bookkeeping 
 skip.
 
 The value takes `(session, command)` and returns a `(rejections, events)` pair. Battle has one command
-because a round is resolved as a whole: every party member declares, and the machine runs both sides
+because a round is resolved as a whole: every party member declares, and the round handler runs both sides
 in the SRD's phase order.
 """

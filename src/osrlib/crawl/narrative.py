@@ -3,7 +3,7 @@
 A [`NarrativeBlock`][osrlib.crawl.narrative.NarrativeBlock] is the authored text you
 attach to a mechanical object.
 
-Where a block sits. You write one into the `narrative` field of a gate
+You write one into the `narrative` field of a gate
 ([`GateSpec`][osrlib.crawl.gates.GateSpec]), a trigger
 ([`TriggerSpec`][osrlib.crawl.triggers.TriggerSpec]), a quest
 ([`QuestSpec`][osrlib.crawl.quests.QuestSpec]), or a quest objective

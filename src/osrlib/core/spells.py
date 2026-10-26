@@ -232,7 +232,7 @@ EFFECT_KINDS = frozenset(
 [`SpellEffect.kind`][osrlib.core.spells.SpellEffect] is validated against this set, so a spell you
 author yourself has to resolve into one of these behaviors or be marked
 [`manual`][osrlib.core.spells.SpellMode] and left to your game. The vocabulary is closed on purpose:
-every kind is a branch of the resolution code, and a new kind is a library change, not data.
+every kind is a branch of the resolution code, so adding a kind means changing the library, not the data.
 
 `damage` and `heal` roll dice against the selected targets, `cure` releases named conditions or
 effect kinds, `condition` and `modifiers` attach to the effects ledger, `attach_only` attaches an
@@ -396,7 +396,7 @@ class TargetingSpec(BaseModel):
     The targets you pass to casting are candidates, not the final list. Casting drops the ones the
     mode is not allowed to affect and then applies `mode` to the rest, so an ineligible
     creature in the list costs nothing: it consumes no Hit Dice budget and no group slot. That is
-    deliberate, and it is why an ineligible target is a resolution outcome rather than a rejection.
+    why an ineligible target is a resolution outcome rather than a rejection.
     A cast that finds nothing eligible returns a
     [`CastResult`][osrlib.core.spells.CastResult] with `no_effect` set, and the memorized copy is
     still spent.
@@ -1420,11 +1420,11 @@ def add_spell_to_book(
     [`memorize_spells`][osrlib.core.spells.memorize_spells] can prepare it.
 
     The book has room, at each spell level, for as many spells as the caster could memorize at that
-    level, and it never contains the same spell twice. The book loses no pages with the levels, so a caster who
-    loses levels keeps every page and adds nothing more until their capacity catches up.
+    level, and it never contains the same spell twice. A caster who loses levels keeps every page
+    and adds nothing more until their capacity catches up.
 
-    osrlib models only the writing. What it costs and how long it takes, the mentor's week, the
-    price of ink and a fresh book after a fire, belong to your game. Nothing here charges for it or spends
+    osrlib models only the writing. What it costs and how long it takes belong to your game: the
+    mentor's week, the price of ink, a fresh book after a fire. Nothing here charges for it or spends
     game time. In a session, [`LearnSpell`][osrlib.crawl.commands.LearnSpell] wraps this call and
     also passes no time.
 
@@ -2275,9 +2275,10 @@ def minimum_caster_level(spell: SpellTemplate) -> int:
     a class whose progression reaches that spell level sooner.
 
     The tabletop rules do not say what level a scroll's spell was inscribed at. osrlib reads a
-    scroll at the lowest level that could cast it, so a scroll the party finds never outdoes the
-    caster who found it. A game that wants scrolls to have a different caster level resolves them with
-    [`cast_spell`][osrlib.core.spells.cast_spell] against a caster of that level instead.
+    scroll at the lowest level that could cast it, so a scroll's spell is never stronger than the
+    same spell cast by the lowest-level caster able to cast it. A game that wants scrolls to have a
+    different caster level resolves them with [`cast_spell`][osrlib.core.spells.cast_spell] against a
+    caster of that level instead.
 
     Args:
         spell: The [`SpellTemplate`][osrlib.core.spells.SpellTemplate] to look up.
@@ -3349,8 +3350,8 @@ def pop_mirror_image(
     call this once for every attack aimed at a caster who has the spell running, before or after you
     resolve the attack itself.
 
-    It is safe to call on anyone. A target with no mirror images active returns nothing, so you do
-    not have to check first. When the last image goes, the effect is released from the ledger, and
+    It is safe to call on anyone. For a target with no mirror images active, it returns nothing, so
+    you do not have to check first. When the last image goes, the effect is released from the ledger, and
     the events from that release are included in the returned list.
 
     Args:

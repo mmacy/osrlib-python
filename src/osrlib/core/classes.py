@@ -114,7 +114,7 @@ PERCENTILE_THIEF_SKILLS = (
 Pass any of these as the `skill` argument of
 [`thief_skill_check`][osrlib.core.classes.thief_skill_check], which rolls d% and succeeds on a
 result at or under the level's chance. The thief's seventh skill, `"hear_noise"`, is not here
-because it rolls 1d6 instead. That function takes it too.
+because it's a chance in 6 rolled on 1d6. `thief_skill_check` accepts it too.
 
 Iterate this tuple to show a thief's whole percentile skill list, reading each level's numbers off
 [`ThiefSkillRow`][osrlib.core.classes.ThiefSkillRow] by the same names.
@@ -928,10 +928,10 @@ def thief_skill_check(
     what to reveal. Inside a crawl, the commands in
     [`osrlib.crawl.exploration`][osrlib.crawl.exploration] call it and emit the events for you.
 
-    The six skills in
-    [`PERCENTILE_THIEF_SKILLS`][osrlib.core.classes.PERCENTILE_THIEF_SKILLS] roll d% and succeed at
-    or under the chance for the thief's level. `"hear_noise"` rolls 1d6 against a chance in 6
-    instead, and ignores `modifier_pct`.
+    For the six skills in
+    [`PERCENTILE_THIEF_SKILLS`][osrlib.core.classes.PERCENTILE_THIEF_SKILLS], it rolls d% and the check
+    succeeds at or under the chance for the thief's level. For `"hear_noise"` it rolls 1d6 against a
+    chance in 6 instead, and ignores `modifier_pct`.
 
     Pick pockets has two extra rules. Stealing from someone above fifth level is harder, by
     5% per level above the fifth, and you include that in `modifier_pct` yourself, because this

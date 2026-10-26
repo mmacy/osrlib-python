@@ -96,7 +96,7 @@ The compiler in `tools/srd_compile/` generates the game data in `src/osrlib/data
 uv run python -m tools.srd_compile
 ```
 
-CI regenerates the data and fails on any diff, so `srd/`, the compiler, and the generated data can't drift apart. Parser corrections belong in `tools/srd_compile/overrides/`, never in the output. Every override includes a reason, and the compiler records each overridden field path in the output entry's `overrides_applied` provenance list. The [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/) documents the rules interpretations and adaptations.
+CI regenerates the data and fails on any diff, so `srd/`, the compiler, and the generated data can't drift apart. Parser corrections belong in `tools/srd_compile/overrides/`, never in the output. Every override includes a reason, and the compiler lists each overridden field path in the `overrides_applied` field of the output entry. The [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/) documents the rules interpretations and adaptations.
 
 ## Contributing
 

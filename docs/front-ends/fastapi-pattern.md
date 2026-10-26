@@ -51,7 +51,7 @@ If you forget the second registration, a restored barrow session still validates
 
 ## The command endpoint
 
-One endpoint accepts every command in the engine's registry, each a typed model with a JSON Schema (see [the command schema reference](../reference/commands/index.md)). [`parse_command`][osrlib.crawl.commands.parse_command] turns the wire payload into a typed command, returning `None` for a `command_type` that isn't in the registry:
+One endpoint accepts every command in the engine's registry, each a typed model with a JSON Schema (see [the command schema reference](../reference/commands/index.md)). [`parse_command`][osrlib.crawl.commands.parse_command] turns the request body into a typed command, returning `None` for a `command_type` that isn't in the registry:
 
 ```{.python .no-run}
 --8<-- "examples/fastapi_crawler/app.py:execute-command"

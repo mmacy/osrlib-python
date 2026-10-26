@@ -12,7 +12,7 @@ and [`save_game`][osrlib.persistence.save_game] writes them into a save.
 
 Every event has a `code`, an `event_type`, and a `visibility`. The code is a message
 code, dot-separated snake_case namespaced by subsystem (`exploration.door.opened`),
-and it's what a renderer keys on. The event type is the wire discriminator that identifies
+and a renderer chooses its message by it. The event type is the wire discriminator that identifies
 the class, so a serialized event rebuilds into the right one. The visibility sets who
 may see the event: `player` for what the table learns, `referee` for the rolls and
 bookkeeping the referee keeps behind the screen, like a detection die or a wandering check. A
