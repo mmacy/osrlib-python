@@ -259,8 +259,7 @@ class Command(BaseModel):
     serializes. [`GameSession.execute`][osrlib.crawl.session.GameSession.execute] checks it
     before anything else and refuses a wrong-mode command with `session.command.wrong_mode`.
     The base value is every mode. Each play command narrows it, and so do the referee commands
-    `SpawnMonsters`, `SpawnNpcParty`, and `PlaceParty`. The class's `Modes:` section lists the
-    same set in prose."""
+    `SpawnMonsters`, `SpawnNpcParty`, and `PlaceParty`."""
 
     @classmethod
     def __pydantic_init_subclass__(cls, **kwargs: object) -> None:
