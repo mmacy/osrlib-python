@@ -447,7 +447,7 @@ def load_spells() -> SpellCatalog:
     `SpellCatalog.by_list` returns every spell on a class's list, optionally at one spell
     level, which is what you show a player choosing spells to memorize.
 
-    A reversed spell has its own id. The catalog contains both forms, and the template shows
+    A reversed spell has a separate id. The catalog contains both forms, and the template shows
     which is which. A spell you write yourself is a `SpellTemplate` you build and pass to the
     same functions.
 

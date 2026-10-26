@@ -118,8 +118,8 @@ class TownSpec(BaseModel):
     description: str = ""
     """Prose your front end shows while the party is in town."""
     services: tuple[str, ...] = ()
-    """The services the town offers, as free-form strings like `("temple", "smith")`. Nothing in the
-    engine reads them: the shop and the temple commands work in town regardless. They reach your
+    """The services the town offers, as free-form strings like `("temple", "smith")`. The engine doesn't
+    read them: the shop and the temple commands work in town regardless. They reach your
     front end on the player view's `town_services`, which is what a town screen lists."""
     travel_turns: dict[str, int] = {}
     """How long it takes to get from town to each dungeon's entrance, in exploration turns, keyed by
@@ -726,8 +726,8 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
 
     Then, for each level: feature ids unique across the level and none of them the reserved id
     `"pile"`, the entrance on the grid, area ids unique, no area id colliding with a feature id (an
-    area trap and a feature trap are referenced the same way, so a collision would leave the found,
-    sprung, and removed records unable to tell the two apart), area cells on the grid, an
+    area trap and a feature trap are referenced the same way, so after a collision the two would look the same in
+    the found, sprung, and removed records), area cells on the grid, an
     `open`-trigger room trap having a door on its area's boundary (an `enter`-trigger trap needs
     none, and a door that starts open still counts), no area trap whose transition is a passage,
     keyed encounter template ids resolving and any fixed alignment being one the template allows,
@@ -821,8 +821,8 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
             if len(set(feature_ids)) != len(feature_ids):
                 errors.append(f"{owner}: feature ids are not unique")
             if "pile" in feature_ids:
-                # `TakeTreasure(feature_id="pile")` targets the cell's drop pile;
-                # the name is reserved so authored content can never collide.
+                # `TakeTreasure(feature_id="pile")` targets the cell's drop pile. The name is
+                # reserved so that no authored feature id can collide with it.
                 errors.append(f"{owner}: feature id 'pile' is reserved for drop piles")
             if level.entrance is not None and not level.in_bounds(level.entrance):
                 errors.append(f"{owner}: entrance {level.entrance} is out of bounds")

@@ -400,8 +400,8 @@ def _door_state(session, direction: Direction) -> DoorState:
 def _materialize_door(session, direction: Direction) -> DoorState:
     """The stored overlay entry for the door on one side of the party's cell.
 
-    A door forced or opened by the party marks `opened_by_party`, which is what
-    the swing-shut rule watches.
+    When the party forces or opens a door, the handler sets `opened_by_party` on
+    this entry, and the rule that swings doors shut behind the party reads that flag.
     """
     edge = _level(session).edge(_position(session), direction)
     return _store_door_state(session, edge, _edge_ref(session, direction))
@@ -410,8 +410,8 @@ def _materialize_door(session, direction: Direction) -> DoorState:
 def _known_door(session, direction: Direction):
     """Return `(edge, state)` when a known door faces `direction`, else `None`.
 
-    An undiscovered secret door is a wall to the party. Commands against it
-    reject exactly as against blank stone (no leak).
+    An undiscovered secret door is a wall to the party. A command against it is
+    rejected exactly as one against blank stone, so the rejection doesn't reveal the door.
     """
     edge = _level(session).edge(_position(session), direction)
     if edge.kind is not EdgeKind.DOOR:

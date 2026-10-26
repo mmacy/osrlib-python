@@ -2781,7 +2781,7 @@ def _resolved_duration(
 
     Per-level durations are computed at cast. A fixed amount gains `per_level × caster level`, and a
     dice duration adds the bonus to the dice modifier, so `1d6 turns +1 per level` at level 3
-    attaches `1d6+3` and keeps its roll-at-attach behavior on the effects stream. A concentration
+    attaches `1d6+3`, which is still rolled on the effects stream when the effect attaches. A concentration
     duration attaches indefinite, since the caller releases concentration effects.
 
     An effect param overrides all of that: `permanent`, `indefinite`, or an explicit

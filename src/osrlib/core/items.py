@@ -2607,8 +2607,8 @@ def _caster_kind(definition: ClassDefinition) -> str | None:
 def usable_by_class(template: MagicItemTemplate, definition: ClassDefinition) -> bool:
     """Return whether a character of this class can use a magic item.
 
-    The rules restrict some items to particular classes or to spell casters, and this is the
-    question that answers. [`validate_equip`][osrlib.core.items.validate_equip] applies it to
+    The rules restrict some items to particular classes or to spell casters, and this function
+    checks a class against those restrictions. [`validate_equip`][osrlib.core.items.validate_equip] applies it to
     devices and miscellaneous items. Call it directly when you are deciding whether to offer
     a player the option to drink, read, or invoke something.
 

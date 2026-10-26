@@ -654,8 +654,8 @@ class MonsterTemplate(BaseModel):
     """
 
     attack_roll_required: bool = True
-    """False for a creature no attack roll is needed against, like a green slime, whose attacks land without one. Both
-    armour class fields are `None` then.
+    """False for a creature that every attack hits without a roll, like a green slime. Both armour class fields are
+    `None` then.
     """
 
     hit_dice: MonsterHitDice

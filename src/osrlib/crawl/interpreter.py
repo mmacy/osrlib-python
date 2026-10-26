@@ -222,7 +222,7 @@ class Interpreter:
     are code and a save contains data. Nothing migrates: the interpreter's slot in
     `listener_state` is empty and stays empty for the life of the session.
 
-    It walks them in the order they happened and,
+    It walks the events of each accepted command in the order they happened and,
     per event, the adventure's triggers in document order and then its quests in document
     order. A trigger matches when its
     pattern fits the event, its fired-state allows it (once-only unless `repeatable`), and
@@ -395,7 +395,7 @@ class Interpreter:
 
         Returns:
             No events and the empty state. Everything the interpreter does is a command
-            it executed, and it remembers nothing between commands.
+            it executed, and it stores nothing between commands.
         """
         depth = self._depth
         for event in events:
@@ -423,7 +423,7 @@ class Interpreter:
     def _clause_holds(self, clause: TriggerClause, event: Event) -> bool:
         """Whether one quest clause fits this event and holds against state right now.
 
-        The same two questions a trigger answers, asked through the same matcher and
+        These are the same two checks a trigger gets, made through the same matcher and
         the same evaluation, so quests and triggers can never disagree about what an
         event means or when a condition is true.
         """

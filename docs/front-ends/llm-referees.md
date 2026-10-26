@@ -99,7 +99,7 @@ An adventure written for the authored layer ([Gates, triggers, and quests](../gu
 --8<-- "examples/tui_crawler/content.py:level-guidance"
 ```
 
-A referee-side narrator reads guidance from the adventure document it's refereeing and never prints it verbatim. That's the same way a narrator uses an area's description. No event or view includes guidance. It's the author talking to the narrator.
+A referee-side narrator reads guidance from the adventure document it's refereeing and never prints it verbatim. The narrator trusts guidance as it trusts an area's description, which already goes into narration. No event or view includes guidance. It's the author talking to the narrator.
 
 **Deliver authored beats as written.** A quest's offer and completion, an objective's progress, a gate's success and refusal arrive as structured fields on player-visible events and rejections, with `speaker` attribution when the author wrote one ("the temple almoner"). Deliver them as written, in the speaker's voice, and write the model's narration around them instead of replacing them.
 

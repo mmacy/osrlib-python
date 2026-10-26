@@ -44,9 +44,9 @@ adaptation (see the
 osrlib commits to one reading of an ambiguous rule or supplies a default behind a `Ruleset` flag).
 Each monster group sits at a distance from the party, closes at its encounter rate, and fights at
 [`MELEE_RANGE_FEET`][osrlib.crawl.battle.MELEE_RANGE_FEET]. Party ranks derive from marching order
-under the ruleset's `formation_width_limit` flag, and the width is the frontage the party's space
-offers at [`FIGHTER_FRONTAGE_FEET`][osrlib.crawl.battle.FIGHTER_FRONTAGE_FEET] to a combatant: two
-abreast in a ten-foot passage, and a room's shorter side in a room.
+under the ruleset's `formation_width_limit` flag. A rank is as wide as the party's fighting space
+divided by [`FIGHTER_FRONTAGE_FEET`][osrlib.crawl.battle.FIGHTER_FRONTAGE_FEET], the frontage each
+combatant needs: two abreast in a ten-foot passage, and as many as a room's shorter side allows in a room.
 
 The round handler detects spell disruption, meaning a declared caster who is successfully attacked or fails
 a save after initiative resolves against them and before their own action. It checks morale on its
@@ -56,7 +56,7 @@ when the member attacks, throws or unleashes an item, or turns undead, and the k
 target under *mirror image* pops one figment instead, hit or miss, because no attack roll is made at
 all. A protection ward breaks when the party melees a monster it barred. A concentration spell's
 effects release when its caster declares anything other than `cast`, `turn_undead`, or `hold`. Area
-effects resolve deterministically. An area holds `ceil(span / 10) × width` creatures, filled with the
+effects resolve deterministically. An area fits `ceil(span / 10) × width` creatures, filled with the
 target group's living members in spawn order. A cone's span is its length less the group's distance.
 Under the ruleset's `aoe_friendly_fire` flag, an area cast at a group in melee range also catches the
 party's front rank while it has room.
@@ -1120,8 +1120,8 @@ _DEFENSIVE_MOVES = ("fighting_withdrawal", "retreat")
 
 The order is the order the rejections come back in, the fighting withdrawal's first. `close` is not
 one of them, because it needs no agreement: the first `close` in marching order advances the
-formation whenever the round is accepted, and a `close` declared beside a defensive move is one of
-the others that split the round.
+formation whenever the round is accepted. A member who declares `close` while others declare a
+defensive move is one of the declarers who didn't make that move, so the round is split.
 """
 
 
@@ -2082,7 +2082,7 @@ def _fizzle_cast(session, member, spell_id: str, *, reversed: bool, reason: str,
     [`disrupt_casting`][osrlib.core.spells.disrupt_casting], so the declared form is what goes, and
     concentration releases as it does on any other action. A caster with no copy left to give up still
     gets the event and loses nothing more. That way, a cast whose copy an earlier phase already took,
-    such as an energy drain, doesn't raise here.
+    like an energy drain, doesn't raise here.
     """
     if any(copy.spell_id == spell_id for copy in member.memorized_spells):
         disrupt_casting(member, spell_id, reversed=reversed)

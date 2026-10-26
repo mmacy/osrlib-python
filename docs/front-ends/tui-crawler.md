@@ -65,7 +65,7 @@ Level 1's `WanderingSpec(chance_in_six=0)` disables wandering checks there entir
 
 ## Building the party
 
-`create.py` drives character creation two ways: an interactive one that prompts for a name, class, and alignment per slot, and a scripted one that builds a fixed roster from starting gold. Both call the same [`create_character`][osrlib.core.character.create_character] function used in the [quickstart](../getting-started/quickstart.md), and differ only in where the choices come from. The scripted party is one of each core class, fighter, cleric, thief, and magic-user, each equipped from that character's starting gold. That's the party the non-interactive `--script` mode always builds, which is why it plays back identically every time:
+`create.py` drives character creation two ways: an interactive one that prompts for a name, class, and alignment per slot, and a scripted one that builds a fixed roster from starting gold. Both call the same [`create_character`][osrlib.core.character.create_character] function used in the [quickstart](../getting-started/quickstart.md), and differ only in where the choices come from. The scripted party is one of each core class (fighter, cleric, thief, and magic-user), each equipped from that character's starting gold. That's the party the non-interactive `--script` mode always builds, which is why it plays back identically every time:
 
 ```{.python .no-run}
 --8<-- "examples/tui_crawler/create.py:script-party-roster"

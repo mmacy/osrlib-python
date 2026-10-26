@@ -1061,7 +1061,7 @@ def damage_source_for(attacker: Creature, attack: Attack, context: AttackContext
     natural attacks are mundane. The `hd5_counts_as_magical` ruleset flag is resolved from
     the attacker by `check_immunity`, not here. A wielder under *striking* presents `magic`
     on weapon attacks but never on unarmed ones, because the enchantment belongs to the
-    weapon and sits on the wielder only because item instances have no ids.
+    weapon and sits on the wielder only because mundane item instances have no ids.
     Whether the source counts as a small missile is recorded here for the immunity gate.
 
     Args:

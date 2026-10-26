@@ -2063,12 +2063,14 @@ class BattleDeclaration(BaseModel):
     full rate, and a round in which every member retreats ends the battle and turns it into a
     pursuit, or into a clean escape when nothing can chase. The party moves as one formation
     and a single member can't leave it, so `fighting_withdrawal` and `retreat` are legal only
-    when every member the round expects to declare names the same one. A round some declare one
-    in and the rest don't is refused whole with `battle.declaration.formation_split`, one
+    when every member the round expects to declare names the same one. A round in which some
+    members declare one of them and the rest don't is refused whole with
+    `battle.declaration.formation_split`, one
     rejection per move the round split on, listing who chose it and who didn't. `close` is not a
     defensive move and needs no agreement, so the first one in marching order advances the whole
-    formation whenever the round is accepted, and a `close` declared beside a `fighting_withdrawal`
-    or a `retreat` is one of the others that split the round. A fighting withdrawal is a move on
+    formation whenever the round is accepted. A member who declares `close` while others declare a
+    `fighting_withdrawal` or a `retreat` is one of the declarers who didn't make that move, so the
+    round is split. A fighting withdrawal is a move on
     its own: the member who declares it makes no attack that round, because the formation moves
     together and a member declares one thing per round.
     [The adaptations register](https://mmacy.github.io/osrlib-python/adaptations/)

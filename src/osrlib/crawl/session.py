@@ -1484,7 +1484,7 @@ class GameSession:
 
         Draw from a view rather than from the session's attributes. The player view is an
         enumerated whitelist of exactly what a player may be shown, so a front end built on it
-        cannot leak the map it hasn't explored, the monster hit points, or the referee's rolls.
+        cannot leak the map the party hasn't explored, the monster hit points, or the referee's rolls.
         The referee view contains the rest, for a referee screen, an LLM running the game, or a
         test. It has one typed field for each group of data the save contains, so you read
         `view.monsters[0].current_hp` and `view.flags["key"]` with the models this reference documents.
