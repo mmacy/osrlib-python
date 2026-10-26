@@ -131,6 +131,10 @@ plugins:
             extensions:
               - tools/docs/griffe_inherit_docstrings.py:InheritAttributeDocstrings
             docstring_style: google
+            # A Returns or Yields section is one value written as prose, so its wrapped lines
+            # stay one entry instead of rendering as a separate return value per line.
+            docstring_options:
+              returns_multiple_items: false
             # Render the model fields, not only methods: for the frozen pydantic
             # models (commands, events, game state) the typed fields are the API
             # surface a front-end author reads. Hide the pydantic machinery
