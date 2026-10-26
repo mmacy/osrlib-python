@@ -388,7 +388,7 @@ class TriggerSpec(BaseModel):
     the members they select. Each command is applied or dropped independently, so one
     rejection never stops the rest. The tuple may be empty: a trigger whose only job is
     its journal beat is normal. An authored `source` is rejected at parse, because
-    the issuing trigger stamps it."""
+    the interpreter stamps it for the trigger."""
     narrative: NarrativeBlock | None = None
     """The trigger's authored text. osrlib reads two beats of the block: `fired`,
     reported by the referee-visibility

@@ -1909,9 +1909,9 @@ class EngageBattle(Command):
 class Wait(Command):
     """Hold for one encounter round, and the monsters act per their stance.
 
-    An encounter must be open. Waiting burns a round to see what the monsters do:
-    an uncertain stance re-rolls its reaction, and a hostile one runs out its
-    patience.
+    An encounter must be open. Waiting spends a round to see what the monsters do:
+    monsters whose stance is uncertain roll a new reaction, and hostile monsters
+    attack once their patience runs out.
 
     Modes:
         `encounter`
@@ -1922,10 +1922,10 @@ class Wait(Command):
           reachable through normal play.
 
     Events:
-        The encounter round's events: an uncertain stance re-rolls
-        ([`ReactionRolledEvent`][osrlib.core.events.ReactionRolledEvent], possibly
-        a [`StanceChangedEvent`][osrlib.crawl.events.StanceChangedEvent]), and an
-        attacking or expired-patience hostile stance opens battle
+        The encounter round's events: monsters whose stance is uncertain roll a new
+        reaction ([`ReactionRolledEvent`][osrlib.core.events.ReactionRolledEvent], possibly
+        a [`StanceChangedEvent`][osrlib.crawl.events.StanceChangedEvent]), and battle opens
+        when the monsters attack or hostile monsters run out of patience
         ([`BattleStartedEvent`][osrlib.crawl.events.BattleStartedEvent]). During a
         pursuit a [`PursuitEvent`][osrlib.crawl.events.PursuitEvent] round resolves
         instead, which can end in

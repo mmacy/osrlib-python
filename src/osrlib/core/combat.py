@@ -1,11 +1,10 @@
 """The combat kernel: initiative, attacks, damage, saving throws, morale, and targeting.
 
-Call these functions yourself, or let a session call them for you. Every one is a pure
-resolution over state you pass in, so a script with no session, dungeon, or battle
-machine can roll a whole fight. The guide "Using the rules without a session" walks
-that path. Inside a session, [`osrlib.crawl.battle`][osrlib.crawl.battle] wraps these
-same functions in the SRD's round sequence, so what a session logs is what these
-functions return.
+Call these functions yourself, or let a session call them for you. Every one resolves
+against state you pass in, so a script with no session, dungeon, or battle machine can
+roll a whole fight. The guide "Using the rules without a session" shows how. Inside a session,
+[`osrlib.crawl.battle`][osrlib.crawl.battle] wraps these same functions in the SRD's
+round sequence, so what a session logs is what these functions return.
 
 A round of B/X combat flows through the module in order:
 [`roll_initiative`][osrlib.core.combat.roll_initiative] orders the actors,
@@ -589,7 +588,7 @@ class MoraleResult(BaseModel):
     """
 
     exempt: bool = False
-    """Whether the score put the side outside the roll.
+    """Whether the side's morale score means it doesn't roll at all.
 
     Morale 2 never fights and morale 12 never checks. The roll fields are `None` when this
     is true, and no draw was taken.

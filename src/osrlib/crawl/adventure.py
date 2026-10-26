@@ -93,7 +93,7 @@ class TownSpec(BaseModel):
     place you can walk around: there is no grid, no rooms, and nothing to explore. It's where the
     rules that need a safe place apply. The party rests a full day here, buys and sells
     through the equipment catalog, pays a temple for healing, and, under the default XP timing,
-    earns the treasure it carried out only once it has come back.
+    earns experience for the treasure it carried out only once it has come back.
 
     Attributes:
         name: The town's name.

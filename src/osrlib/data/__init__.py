@@ -246,8 +246,8 @@ def load_classes() -> ClassCatalog:
     [`thief_skill_check`][osrlib.core.classes.thief_skill_check], and
     [`caster_profile`][osrlib.core.spells.caster_profile] all take the definition, not the
     id. [`create_character`][osrlib.core.character.create_character] is the exception: it
-    takes `class_id` and looks the definition up itself, so you need this only to show a
-    player the classes on offer.
+    takes `class_id` and looks the definition up itself, so to create a character you need this
+    only to show a player the classes on offer.
 
     The catalog contains the classes this package includes. A class you write yourself is a
     `ClassDefinition` you build and pass to those same functions. You **cannot** add it

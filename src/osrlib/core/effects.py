@@ -1188,8 +1188,8 @@ class EffectsLedger(BaseModel):
             definition: The blueprint to attach.
             target_ref: The entity id of the creature, or the location string of the place, to attach to. An id
                 that is not a key in `registry` attaches the effect but grants nothing.
-            clock: The game clock. The current round anchors the duration and the tick count. The clock is
-                read, not advanced.
+            clock: The game clock. The duration and the tick count start from the current round. The clock
+                is read, not advanced.
             allocator: The [`IdAllocator`][osrlib.core.monsters.IdAllocator] that allocates the effect's id. A
                 session keeps one. Create your own otherwise.
             registry: The live creatures by entity id, so the attach can grant conditions and modifiers. Pass

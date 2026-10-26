@@ -743,8 +743,8 @@ class TreasureRefPlan(BaseModel):
     a stat block's treasure reference. The three letter lists say when each letter is
     generated: the lair ones once when you stock the lair, the individual ones once per
     monster, and the group ones once for the whole group. A letter in parentheses on the stat
-    block is lair treasure whatever section it belongs to, which is how the bandit's `U (A)`
-    means each bandit carries type U and the camp has a type A hoard.
+    block is lair treasure whatever section it belongs to, so the bandit's `U (A)` means the
+    band carries type U between them and the camp has a type A hoard.
 
     Some references generate nothing at all. Where a stat block marks the treasure special
     or describes it below, the referee writes it, and those parts are left out of the plan.

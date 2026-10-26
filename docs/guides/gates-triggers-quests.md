@@ -132,7 +132,7 @@ Drop the idol into a cache by id (`item_ids=("jade-idol",)`) and add its templat
 
 `rewards` use the same [`ConsequenceCommand`][osrlib.crawl.commands.ConsequenceCommand] types a trigger's consequences do. The interpreter issues them in authored order *after* the quest completes, each stamped `source="quest:{id}"`. They address characters through the same selectors, `@party` and `@first`, and validation rejects a literal character id for the same reason it does on a trigger.
 
-That ordering has two effects to plan for. On a concluding quest the session is already in `victory` when the rewards issue, so it refuses a reward that would resume play (`SpawnMonsters`, `SpawnNpcParty`, `PlaceParty`) and drops it with a note. Grants, awards, and flags work as usual. Coins granted as a reward don't count toward treasure XP, because the end-of-adventure award has already been paid by then. Give the reward as `AwardXP` instead of coins.
+That ordering has two effects to plan for. On a concluding quest the session is already in `victory` when the interpreter issues the rewards, so it refuses a reward that would resume play (`SpawnMonsters`, `SpawnNpcParty`, `PlaceParty`) and drops it with a note. Grants, awards, and flags work as usual. Coins granted as a reward don't count toward treasure XP, because the end-of-adventure award has already been paid by then. Give the reward as `AwardXP` instead of coins.
 
 ### Which beat goes where
 

@@ -240,7 +240,7 @@ class QuestSpec(BaseModel):
     [`PARTY_SELECTOR`][osrlib.crawl.triggers.PARTY_SELECTOR] and
     [`FIRST_LIVING_SELECTOR`][osrlib.crawl.triggers.FIRST_LIVING_SELECTOR] expanded to
     the members they select. Each reward is applied or dropped independently. An authored `source` is
-    rejected at parse, because the issuing quest stamps it."""
+    rejected at parse, because the interpreter stamps it for the quest."""
     completion: Literal["all", "any"] = "all"
     """The completion rule: `"all"` requires every objective, `"any"` completes on the first
     objective completed.

@@ -9,8 +9,8 @@ from a chase that closed to arm's length, and from the party's
 round is one [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound] command with one
 [`BattleDeclaration`][osrlib.crawl.commands.BattleDeclaration] per living, able party member,
 dispatched through the session's private handler table. No command ends the battle. It ends
-from inside, when the party is wiped, when every monster group is dead or routed, or when the whole
-party retreats. A victory hands control straight to
+on its own when the party is wiped, when every monster group is dead or routed, or when the whole
+party retreats. A victory ends the encounter through
 [`end_encounter`][osrlib.crawl.encounter.end_encounter].
 
 The results reach a front end as events from [`osrlib.crawl.events`][osrlib.crawl.events]:
@@ -294,9 +294,9 @@ class MonsterAction(BaseModel):
     """One monster's or NPC adventurer's chosen action for a round: what an action policy returns.
 
     An [`ActionPolicy`][osrlib.crawl.battle.ActionPolicy] builds a list of these and the round handler
-    resolves them in order. The model is frozen, so build a new one rather than editing one. Nothing
-    validates a policy's output ahead of time: an action the situation does not allow, like a melee against
-    a target that died earlier in the round, is skipped when the handler reaches it.
+    resolves them in order. The model is frozen, so build a new one rather than editing one. The round
+    handler doesn't check a policy's output ahead of time: it skips an action the situation does not allow,
+    like a melee against a target that died earlier in the round, when it reaches that action.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -464,7 +464,7 @@ class ScriptedPolicy:
         pool = _party_target_pool(session)
         for monster in _living_monsters(session, group):
             if incapacitated(monster) or has_condition(monster, Condition.CONFUSED):
-                continue  # confusion is a machine override, not a policy choice
+                continue  # the round handler resolves confusion, not the policy
             breath = monster.template.ability("breath_weapon")
             if breath is not None and _breath_usable(monster, group.distance_feet):
                 params = breath.params
@@ -916,7 +916,7 @@ def _haste_multiplier(session, entity_id: str, key: str) -> int:
 
 
 def start_battle(session, *, party_free_round: bool = False, monsters_free_round: bool = False) -> list[Event]:
-    """Open battle on the session's current encounter: the range track takes over.
+    """Open battle on the session's current encounter and put the session in `battle` mode.
 
     Call this when your code decides the talking is over. There must be an open encounter on the
     session, because the fight runs on that encounter's groups and their distances. On return the
@@ -1287,7 +1287,7 @@ def _cast_targets(session, declaration: BattleDeclaration, spell) -> tuple[list,
         if entity is None:
             return [], None, [Rejection(code="magic.cast.unknown_target", params={"target": target_ref})]
         if has_condition(entity, Condition.INVISIBLE):
-            # You know what you can't see, so this rejection leaks nothing.
+            # The player already knows the target is invisible, so this rejection reveals nothing.
             return [], None, [Rejection(code="battle.declaration.invisible_target", params={"target": target_ref})]
         targets.append(entity)
         if isinstance(entity, MonsterInstance):
@@ -1950,7 +1950,7 @@ def _ward_bars_monster(session, monster) -> bool:
 
     A ward bars matching monsters up to its rolled per-HD-band count (the 1-3,
     4-5, and 6+ HD bands), counted in spawn order among the encounter's matching
-    monsters. The elementals form bars every one of them.
+    monsters. The scroll of protection from elementals bars every elemental it matches, with no count.
     """
     wards = _party_wards(session)
     if not wards:

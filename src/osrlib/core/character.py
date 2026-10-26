@@ -925,9 +925,9 @@ def validate_extra_languages(definition: ClassDefinition, int_score: int, choice
 
     A character speaks their alignment tongue and whatever their class grants for free. An INT of
     13 or more allows one to three extra languages. An INT of 12 or less allows none.
-    Ask
+    Call
     [`load_ability_tables`][osrlib.data.load_ability_tables]`().additional_languages(int_score)`
-    how many the player may take, offer the choosable entries from
+    to find out how many the player may take, offer the choosable entries from
     [`load_languages`][osrlib.data.load_languages], then check the picks here before storing them
     on [`extra_languages`][osrlib.core.character.Character].
 

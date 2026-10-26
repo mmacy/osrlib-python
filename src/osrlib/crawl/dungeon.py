@@ -425,7 +425,7 @@ class TransitionSpec(BaseModel):
     passage where a map shows two cells side by side that the adventure document can't put side by side: the
     floors of two levels that meet, or two halves of one map that you lay out apart.
 
-    Nothing pairs transitions up for you. A staircase the party can walk back up is two transitions,
+    osrlib doesn't pair transitions up for you. A staircase the party can walk back up is two transitions,
     one on each level, pointing at each other. Leave the return one out and you have a chute: a
     one-way drop, which `UseStairs` refuses to climb back because the arrival cell has no
     transition. A passage leads one way too. Its *partner*, the passage that leads back, stands on

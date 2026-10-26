@@ -12,7 +12,7 @@ A [`GameSession`][osrlib.crawl.session.GameSession] executes one command at a ti
 --8<-- "examples/fastapi_crawler/app.py:session-store"
 ```
 
-The server holds the session's lock for every `execute` and every view read, so one session's commands run one at a time while separate sessions run in parallel. The outer `_store_lock` only guards the dictionaries themselves. The endpoints are deliberately synchronous: the engine is synchronous and CPU-bound, so an async facade would add nothing. The threadpool provides the concurrency, and the lock provides the safety.
+The server holds the session's lock for every `execute` and every view read, so one session's commands run one at a time while separate sessions run in parallel. The outer `_store_lock` only guards the dictionaries themselves. The endpoints are deliberately synchronous: the engine is synchronous and CPU-bound, so an async facade would add nothing.
 
 ## Creating and restoring sessions
 
@@ -127,7 +127,7 @@ except SaveVersionError:
 
 ## The player view at the wire
 
-The only game-state read the API offers is the player projection, [`session.view(Visibility.PLAYER)`][osrlib.crawl.session.GameSession.view], serialized verbatim:
+The only read of the full game state that the API offers is the player projection, [`session.view(Visibility.PLAYER)`][osrlib.crawl.session.GameSession.view], serialized verbatim:
 
 ```{.python .no-run}
 --8<-- "examples/fastapi_crawler/app.py:player-view"

@@ -145,7 +145,7 @@ def _migrate_1_to_2(payload: dict) -> dict:
     adventurers, which arrived with version 2, so the NPC list starts empty.
     """
     # osrlib never read the ledger back, so the field is dropped rather than migrated into a
-    # format no code reads.
+    # format the code would never read.
     payload.pop("recovered_treasure", None)
     payload["npcs"] = []
     return payload
