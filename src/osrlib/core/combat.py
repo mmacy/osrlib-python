@@ -531,7 +531,12 @@ class AttackResult(BaseModel):
     """
 
     damage: int | None = None
-    """The hit points the defender lost, or `None` when nothing was rolled.
+    """The damage rolled, before the defender's reductions apply, or `None` when nothing was rolled.
+
+    The hit points the defender lost can be fewer. The
+    [`DamageDealtEvent`][osrlib.core.events.DamageDealtEvent] in `events` has the amount after
+    reductions, and the [`HitPointsReportedEvent`][osrlib.core.events.HitPointsReportedEvent] after
+    it has the hit points the defender has left.
 
     Nothing is rolled on a miss, on an absorbed hit, or when a sleeping defender is killed
     outright by a blade. An unlit oil flask that hits reports 0.
@@ -2012,10 +2017,15 @@ def resolve_attack(
 
     Returns:
         The resolution. `attack_roll` contains the roll. `absorbed` is true when the
-            defender's defenses turned the damage aside. `damage` is the hit points the
-            defender lost, or `None` when no damage was rolled. `events` contains every
-            event the attack caused, in order, including the death events when the
-            defender dies.
+            defender's defenses turned the damage aside. `damage` is the damage rolled,
+            before the defender's reductions apply. It's `None` when no damage was rolled,
+            which includes a sleeping defender killed outright by a blade, and 0 for an
+            unlit oil flask that hits. `events` contains every event the attack caused, in
+            order. Read the hit points the defender lost from its
+            [`DamageDealtEvent`][osrlib.core.events.DamageDealtEvent] and the hit points it
+            has left from its
+            [`HitPointsReportedEvent`][osrlib.core.events.HitPointsReportedEvent]. When the
+            defender dies, the death events follow those.
 
     Examples:
         A 1st-level fighter swings a sword at a goblin. Every draw comes from a
@@ -2779,8 +2789,8 @@ def morale_triggers(members: Sequence[Creature]) -> list[str]:
             raises nothing.
 
     Returns:
-        The raised triggers, `first_death` before `half_incapacitated` when both are
-            raised. The list is empty when the side doesn't need to check morale.
+        The triggers whose condition holds now, `first_death` before
+            `half_incapacitated` when both hold. The list is empty when neither holds.
 
     Examples:
         ```python
@@ -3206,11 +3216,12 @@ def resolve_energy_drain(attacker: MonsterInstance, target: Creature, *, stream:
     Returns:
         The events to publish, in order. The first is a
             [`LevelDrainedEvent`][osrlib.core.events.LevelDrainedEvent] coded
-            `combat.drain.drained`. A `HitPointsReportedEvent` with the target's new hit
-            points comes next. A character then gets a
+            `combat.drain.drained`. A
+            [`HitPointsReportedEvent`][osrlib.core.events.HitPointsReportedEvent] with the
+            target's new hit points comes next. A character then gets a
             [`SpellForgottenEvent`][osrlib.core.events.SpellForgottenEvent] for each memorized
             spell the drain made them forget. When the drain kills the target, the first event is coded
-            `combat.drain.slain` and the death events follow it.
+            `combat.drain.slain`, and only the death events follow it.
 
     Raises:
         ValueError: If the attacker has no `energy_drain` tag, which means it does not

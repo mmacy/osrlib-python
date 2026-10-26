@@ -7,8 +7,7 @@ player reads is your program's job. Every random draw comes from a named, seeded
 the same seed and the same commands replay the same game.
 
 Every name has one import home and the package root re-exports nothing, so you import from
-the module that defines the symbol. The modules fall into three layers, with a table for each
-layer.
+the module that defines the symbol. The modules fall into three layers.
 
 ## The core kernel
 
@@ -36,8 +35,8 @@ framework does above it.
 | [`osrlib.core.character`][] | Creation choices and a stream in, a character or refusals out. |
 | [`osrlib.core.npc`][] | A party level and a stream in, a generated NPC adventuring party out. |
 | [`osrlib.core.combat`][] | Combatants and a stream in, initiative, attacks, damage, and saves out. |
-| [`osrlib.core.creature`][] | A character or a monster in, the attributes the rules read out, as protocols. |
 | [`osrlib.core.effects`][] | A condition or effect in, a ledger that ticks and expires it out. |
+| [`osrlib.core.creature`][] | A character or a monster in, the attributes the rules read out, as protocols. |
 | [`osrlib.core.treasure`][] | A treasure type and a stream in, coins, valuables, and magic items out. |
 | [`osrlib.core.events`][] | The base class every event inherits, and the contract its code follows. |
 
@@ -46,7 +45,8 @@ framework does above it.
 The crawl framework, under `osrlib.crawl`, is the game around those rules: a party in a
 mapped dungeon, driven by commands. You author the content, start a session, and hand it one
 command per player action. The session runs the exploration, encounter, and battle procedures
-for you and returns the events. Start at the session and work outwards.
+for you and returns the events. The table lists the modules you author content with
+first, then the session and the modules it runs.
 
 | Module | What it's for |
 | --- | --- |

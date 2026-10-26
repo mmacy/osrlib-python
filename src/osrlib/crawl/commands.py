@@ -258,8 +258,9 @@ class Command(BaseModel):
     because it belongs to the command kind rather than to one request, so it never
     serializes. [`GameSession.execute`][osrlib.crawl.session.GameSession.execute] checks it
     before anything else and refuses a wrong-mode command with `session.command.wrong_mode`.
-    The base value is every mode, which the referee commands inherit unchanged. Each play command narrows
-    it, and the class's `Modes:` section lists the same set in prose."""
+    The base value is every mode. Each play command narrows it, and so do the referee commands
+    `SpawnMonsters`, `SpawnNpcParty`, and `PlaceParty`. The class's `Modes:` section lists the
+    same set in prose."""
 
     @classmethod
     def __pydantic_init_subclass__(cls, **kwargs: object) -> None:
