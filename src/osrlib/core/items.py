@@ -476,7 +476,7 @@ class CombatFacet(BaseModel):
     """The damage dealt, as a dice expression."""
     qualities: tuple[WeaponQuality, ...]
     """What the item can do when used as a weapon. See [`WeaponQuality`][osrlib.core.items.WeaponQuality]. Holy water
-    and burning oil have the splash quality, which is what makes them burn on for a second round.
+    and burning oil have the splash quality, which makes them damage the target again the following round.
     """
     missile_ranges: MissileRanges | None = None
     """The three range bands, present exactly when `qualities` includes the missile quality."""
@@ -2529,7 +2529,7 @@ def validate_purchase(purse: CoinPurse, template: ItemTemplate, lots: int = 1) -
 def purchase(inventory: Inventory, template: ItemTemplate, lots: int = 1) -> ItemInstance:
     """Buy `lots` of an item, pay for it out of the purse, and add it to the inventory.
 
-    The à la carte way to equip a character outside a session. In a session the
+    Call this to buy equipment for a character outside a session. In a session the
     [`PurchaseEquipment`][osrlib.crawl.commands.PurchaseEquipment] command does this and
     records it. Check first with
     [`validate_purchase`][osrlib.core.items.validate_purchase] if you would rather have a
@@ -2692,7 +2692,7 @@ def validate_unequip(inventory: Inventory, instance: ItemInstance | MagicItemIns
     sticks to its bearer until *remove curse*, and every cursed item's page says so.
 
     Args:
-        inventory: The inventory holding the item.
+        inventory: The inventory that contains the item.
         instance: The equipped item.
 
     Returns:
@@ -2834,7 +2834,7 @@ def _is_body_armour_instance(instance: ItemInstance | MagicItemInstance) -> bool
 def equip(inventory: Inventory, definition: ClassDefinition, instance: ItemInstance | MagicItemInstance) -> None:
     """Move an item out of the item list and into use.
 
-    The à la carte way to arm a character outside a session. In a session the
+    Call this to arm a character outside a session. In a session the
     [`EquipItem`][osrlib.crawl.commands.EquipItem] command does this and records it. Check
     first with [`validate_equip`][osrlib.core.items.validate_equip] if you would rather have
     a reason than an exception.

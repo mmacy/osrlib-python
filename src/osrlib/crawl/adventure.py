@@ -339,9 +339,10 @@ class Adventure(BaseModel):
 def _effective_monsters(adventure: Adventure, base: MonsterCatalog) -> tuple[MonsterCatalog, tuple[str, ...]]:
     """Compose the base monster catalog with the adventure's bundled templates, first occurrence winning.
 
-    Always returns a usable catalog plus the ids it skipped, so both callers get a whole answer and
-    each turns a non-empty collision list into the failure type it needs. An empty bundle returns the
-    base catalog object itself, so an adventure that bundles nothing copies nothing.
+    Always returns a usable catalog plus the ids it skipped, so both callers, `validate_adventure` and
+    `GameSession`, get a whole answer, and each turns a non-empty collision list into the failure type
+    it needs. An empty bundle returns the base catalog object itself, so an adventure that bundles
+    nothing copies nothing.
     """
     if not adventure.monsters:
         return base, ()
@@ -360,7 +361,7 @@ def _effective_monsters(adventure: Adventure, base: MonsterCatalog) -> tuple[Mon
 def _effective_equipment(adventure: Adventure, base: EquipmentCatalog) -> tuple[EquipmentCatalog, tuple[str, ...]]:
     """Compose the base equipment catalog with the adventure's bundled templates, first occurrence winning.
 
-    The monster helper's sibling, with one wider rule: an item id refers to one thing per session, so a
+    Works like `_effective_monsters`, with one wider rule: an item id refers to one thing per session, so a
     bundled id collides with the built-in magic-item ids as well as with the four equipment lists and
     the rest of the bundle. Collisions are skipped before the catalog is built rather than after,
     because `EquipmentCatalog`'s uniqueness validator raises a bare `ValueError` and a content
@@ -454,7 +455,7 @@ def _validate_passage(
     The passage's side has to be a wall. Its far cell has to be on the grid, outside every area, and
     walled on every other side, so the party can never reach it and sight never passes through it.
     The geometry checks run only for a passage that stands on the grid, since one that doesn't has
-    already been refused for that. The destination can't be the passage's own cell, and it can't be
+    already been refused for that. The destination can't be the cell the passage stands on, and it can't be
     any passage's far cell, which is walled in on every side.
     """
     site = f"{owner}: passage at {passage.position} {side.value}"
@@ -565,9 +566,9 @@ def _validate_clause(
 ) -> None:
     """Resolve one matching clause's pattern and condition references.
 
-    This is the one body behind every clause in a document: a trigger's `when` and `conditions`, a
-    quest's activation, an objective's completion, and a hidden objective's reveal. Sharing it keeps
-    the two authoring paths from drifting apart on what resolves. `owner` is the subject of the error
+    Every clause in a document goes through this function: a trigger's `when` and `conditions`, a
+    quest's activation, an objective's completion, and a hidden objective's reveal. Because triggers
+    and quests share it, the two can't disagree about what resolves. `owner` is the subject of the error
     lines, like `trigger 'lever-east'` or `quest 'the-idol' objective 'return-home'`.
 
     Flag keys stay unchecked at every site. The flag namespace is open by design, so a key that is
@@ -611,7 +612,7 @@ def _validate_consequence(
 ) -> None:
     """Resolve one authored consequence's references and its character addressing.
 
-    This is the one body behind every consequence in a document, a trigger's consequences and a
+    Every consequence in a document goes through this function, a trigger's consequences and a
     quest's rewards alike. `site` is the subject the error lines name, like
     `trigger 'reward': consequence 0` or `quest 'the-idol': reward 0`.
     """
@@ -737,7 +738,7 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
 
     A passage gets more checks after those. Its side has to be a wall. Its far cell, the cell one
     step across that side, has to be on the grid, outside every area, and walled on its other three
-    sides. The passage can't lead to its own cell or to the far cell of any passage. Two passages
+    sides. The passage can't lead to the cell it stands on or to the far cell of any passage. Two passages
     can't stand on the same cell and side.
 
     Then, for each trigger: its id unique, the area, level, dungeon, item, and monster its pattern

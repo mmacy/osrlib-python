@@ -12,8 +12,9 @@ class up in a private handler table and runs the handler it finds, which is one 
 taking `(session, command)` and returning `(rejections, events)`. You get back a
 [`CommandResult`][osrlib.crawl.commands.CommandResult] that contains either
 [`Rejection`][osrlib.core.validation.Rejection] models that describe why the command was refused, or
-the event models of [`osrlib.crawl.events`][osrlib.crawl.events] that describe what happened. Validation is a
-pure pre-phase, so a rejected command rolls no dice, changes no state, and costs no game time.
+the event models of [`osrlib.crawl.events`][osrlib.crawl.events] that describe what happened. The session
+validates a command before it runs any of it, so a rejected command rolls no dice, changes no state, and
+costs no game time.
 
 The rest of the public surface here is the per-turn bookkeeping that runs on the session's cadence
 rather than on a command: [`exploration_rate`][osrlib.crawl.exploration.exploration_rate],

@@ -164,7 +164,7 @@ class DungeonEnteredPattern(BaseModel):
 
     The coarse arrival, matched by a
     [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] for a dungeon.
-    Use it for the beat that belongs to walking in the front door, and
+    Use it for a trigger that belongs to walking in the front door, and
     [`LevelEnteredPattern`][osrlib.crawl.triggers.LevelEnteredPattern] for one that
     belongs to a particular level.
 
@@ -189,7 +189,7 @@ class DungeonEnteredPattern(BaseModel):
 class TownEnteredPattern(BaseModel):
     """The party arrived in the base town, however it got there.
 
-    An adventure has one town, so the pattern needs no fields. The homecoming beat fires
+    An adventure has one town, so the pattern needs no fields. A homecoming trigger fires
     on the return trip and on a referee's placement alike. Pair it with a
     [`HasItemCondition`][osrlib.crawl.gates.HasItemCondition] for the errand that is
     finished only when the party walks home carrying the thing.

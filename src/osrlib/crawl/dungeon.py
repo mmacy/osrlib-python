@@ -339,7 +339,7 @@ class DoorSpec(BaseModel):
     stuck: bool = False
     """Whether the door is stuck shut. The engine refuses
     [`OpenDoor`][osrlib.crawl.commands.OpenDoor] on a stuck door, so the party has to force it with
-    [`ForceDoor`][osrlib.crawl.commands.ForceDoor], a strength check that costs a turn whether or not
+    [`ForceDoor`][osrlib.crawl.commands.ForceDoor], a strength check that makes noise whether or not
     it works."""
     locked: bool = False
     """Whether the door is locked. The engine refuses to open a locked door until something unlocks it:
@@ -1562,8 +1562,8 @@ class DungeonState(BaseModel):
     [`build_referee_view`][osrlib.crawl.views.build_referee_view] rather than reaching in, so you get
     the right visibility for your audience.
 
-    References into content are strings rather than objects, so the overlay serializes flat and a
-    save never has to include the adventure. They come in four formats: `"{dungeon}:{level}"`
+    References into content are strings rather than objects, so the overlay serializes flat and
+    never repeats the adventure's content. They come in four formats: `"{dungeon}:{level}"`
     keys the explored and seen maps, [`edge_ref`][osrlib.crawl.dungeon.edge_ref] keys doors,
     `"{dungeon}:{level}:{area_or_feature_id}"` keys areas and authored features, and
     [`cell_ref`][osrlib.crawl.dungeon.cell_ref] keys drop piles.

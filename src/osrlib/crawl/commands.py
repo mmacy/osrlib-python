@@ -293,8 +293,8 @@ class CommandResult(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     accepted: bool
-    """Whether the command ran. `False` means the pure validation pre-phase refused it: no dice
-    were drawn, no clock time passed, nothing changed, and the command is absent from
+    """Whether the command ran. `False` means the session refused it before running any of it: no
+    dice were drawn, no clock time passed, nothing changed, and the command is absent from
     `GameSession.command_log`."""
     rejections: tuple[Rejection, ...] = ()
     """Why the command was refused, and empty when it was accepted. Each
@@ -482,7 +482,7 @@ class OpenDoor(Command):
           every other refusal, so it fires only when the gate alone bars the way.
 
     Events:
-        [`ItemConsumedEvent`][osrlib.crawl.events.ItemConsumedEvent] first when the
+        [`ItemConsumedEvent`][osrlib.crawl.events.ItemConsumedEvent] first when
         passing the gate uses up an item, then
         [`DoorEvent`][osrlib.crawl.events.DoorEvent] with code
         `exploration.door.opened` (with the gate's success text when its author
@@ -570,7 +570,7 @@ class ForceDoor(Command):
           forcing makes no noise, denies no surprise, and rolls nothing.
 
     Events:
-        [`ItemConsumedEvent`][osrlib.crawl.events.ItemConsumedEvent] first when the
+        [`ItemConsumedEvent`][osrlib.crawl.events.ItemConsumedEvent] first when
         passing the gate uses up an item, then
         [`DoorEvent`][osrlib.crawl.events.DoorEvent] with code
         `exploration.door.forced` on success (with the gate's success text when
@@ -939,8 +939,8 @@ class DropItems(Command):
     """Drop items and coins onto the party's cell (or the pursuit trail).
 
     Each `item_ids` entry drops one unit (repeat an id for more). Legal while
-    exploring a dungeon and during an encounter, where dropping treasure or food is
-    the pursuit-distraction move.
+    exploring a dungeon and during an encounter, where dropping treasure or food can
+    distract monsters that pursue the party.
 
     Modes:
         `exploring`, `encounter`
@@ -985,8 +985,8 @@ class DropItems(Command):
 class GiveItems(Command):
     """Hand items and coins from one party member to another (zero time).
 
-    The distribute-the-load move: `character_id` is the giver, `recipient_id` the
-    companion who takes the goods. Each `item_ids` entry gives one unit (repeat an
+    Use it to spread the load across the party. `character_id` is the giver, and
+    `recipient_id` the companion who takes the goods. Each `item_ids` entry gives one unit (repeat an
     id for more). A given magic item releases any worn effects first and arrives
     unequipped in the recipient's pack. Legal in town and while exploring, not
     mid-encounter or in battle. Both members must be able-bodied.
@@ -1522,7 +1522,7 @@ class UseStairs(Command):
           movement, no time, and no toll.
 
     Events:
-        [`ItemConsumedEvent`][osrlib.crawl.events.ItemConsumedEvent] first when the
+        [`ItemConsumedEvent`][osrlib.crawl.events.ItemConsumedEvent] first when
         passing the gate uses up an item, since the toll is paid at the
         threshold, then
         [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] when the
@@ -2005,8 +2005,8 @@ class BattleDeclaration(BaseModel):
 
     `action` decides which other fields apply, and the rest stay `None`. `attack`
     takes a target group and, optionally, a wielded weapon, with `None` meaning bare
-    hands. `cast` takes the spell, its mode, its form, and its targets. `move` is a
-    range-track intent for the whole formation. `use_item` covers a wand, staff, or
+    hands. `cast` takes the spell, its mode, its form, and its targets. `move` changes
+    the distance between the whole formation and the monsters. `use_item` covers a wand, staff, or
     rod, and a flask thrown at a group. `turn_undead` needs nothing else: turning
     resolves in the magic phase but is never disrupted, because it's a class ability
     rather than a spell. `hold` does nothing, which is how a member with no legal
@@ -2084,8 +2084,8 @@ class ResolveBattleRound(Command):
     """Resolve one battle round: one declaration per living, able party member.
 
     A battle must be underway (see
-    [`EngageBattle`][osrlib.crawl.commands.EngageBattle]). Validation is the pure
-    pre-phase: either every declaration passes, or the session rejects the whole
+    [`EngageBattle`][osrlib.crawl.commands.EngageBattle]). The session validates
+    every declaration before it resolves any of them: either every declaration passes, or it rejects the whole
     command and lists every rejection, because partial acceptance would complicate replay.
 
     Modes:
@@ -2584,7 +2584,7 @@ class RollDice(Command):
     commands are legal in every mode, terminal modes included. The roll draws from
     the dedicated
     [`ADJUDICATION_STREAM`][osrlib.crawl.session.ADJUDICATION_STREAM], so an ad-hoc
-    referee roll never perturbs the draw sequence of keyed mechanics. A malformed
+    referee roll never changes what any other stream draws. A malformed
     `expression` is rejected at construction, exactly as
     [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters]'s `count_dice` is, so it
     never reaches the session and consumes no draw.

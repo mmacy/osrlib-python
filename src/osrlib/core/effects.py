@@ -1260,7 +1260,7 @@ class EffectsLedger(BaseModel):
             effect_id: The id of the effect to end, from its
                 [`ActiveEffect`][osrlib.core.effects.ActiveEffect].
             registry: The live creatures by entity id, so the condition and modifiers can be taken back. Leave it
-                out and the effect is dropped from the ledger with the creature still under them.
+                out and the effect is dropped from the ledger, but the creature keeps the condition and modifiers.
 
         Returns:
             The [`EffectReleasedEvent`][osrlib.core.events.EffectReleasedEvent] and, when the effect granted a

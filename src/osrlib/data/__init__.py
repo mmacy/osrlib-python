@@ -290,7 +290,7 @@ def load_equipment() -> EquipmentCatalog:
     reads to weigh coins and gems, which a character picks up rather than buys.
 
     Magic items are in a separate catalog, [`load_magic_items`][osrlib.data.load_magic_items].
-    An adventure can bundle its own item templates in its content, and a session resolves
+    An adventure can bundle more item templates in its content, and a session resolves
     those ids too. This catalog contains only the items included in the package.
 
     Returns:

@@ -56,9 +56,10 @@ when the member attacks, throws or unleashes an item, or turns undead, and the k
 target under *mirror image* pops one figment instead, hit or miss, because no attack roll is made at
 all. A protection ward breaks when the party melees a monster it barred. A concentration spell's
 effects release when its caster declares anything other than `cast`, `turn_undead`, or `hold`. Area
-footprints resolve deterministically: an area's capacity in creatures is `ceil(span / 10) × width`,
-filled in stable spawn order, cones reach-limited, with the engaged party front rank appended under
-the ruleset's `aoe_friendly_fire` flag.
+effects resolve deterministically. An area holds `ceil(span / 10) × width` creatures, filled with the
+target group's living members in spawn order. A cone's span is its length less the group's distance.
+Under the ruleset's `aoe_friendly_fire` flag, an area cast at a group in melee range also catches the
+party's front rank while it has room.
 
 The monster and NPC-party sides act through a pluggable
 [`ActionPolicy`][osrlib.crawl.battle.ActionPolicy] you can substitute per encounter side.

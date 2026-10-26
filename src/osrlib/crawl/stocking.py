@@ -27,14 +27,14 @@ stocking a row yields exactly what a wandering encounter on that row would:
 3. then either one `variant_dice` roll, which is the hydra form where the printed hit-dice roll
    selects the template once, or, for a row with several template ids, one pick per individual, each id equally likely.
 
-Where the procedure stops is deliberate. A monster room's rolled individuals are grouped into
+A monster room's rolled individuals are grouped into
 [`KeyedMonster`][osrlib.crawl.dungeon.KeyedMonster] lines with fixed counts, because a printed module
 gives concrete numbers and a concrete number is what you review and edit. An empty or trap room that
 rolled treasure gets an unguarded `AreaTreasureSpec`. A monster room's treasure is the encounter's
 `hoard` flag rather than a second declaration. Traps and specials produce no model at all, because
 B/X prints example lists for those as referee prose rather than as tables, and an NPC-party row has no
-authorable content either, so `stock_area` reports the kind and the count and stops. The procedure
-ends where the dice end, and the rest is yours to design.
+authorable content either, so `stock_area` reports the kind and the count and stops. You design
+the traps, the specials, and any NPC party yourself.
 
 Typical usage:
 

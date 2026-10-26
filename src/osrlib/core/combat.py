@@ -1852,7 +1852,7 @@ def destroy_equipment(
     the material form it destroys includes what the victim carried.
 
     Under the `magic_item_death_save` ruleset flag, which is on by default, each magic
-    item in the doomed inventory rolls 1d20 against the owner's saving throw value for the
+    item in the victim's inventory rolls 1d20 against the owner's saving throw value for the
     destructive source's category: a breath weapon saves versus breath, a destructive
     spell versus spells, a device versus wands, anything else versus death. The item adds
     its best combat bonus, meaning the highest of its attack, damage, and armour class
@@ -1869,7 +1869,7 @@ def destroy_equipment(
             fingers is cleared.
         source: The destructive damage source, which selects the saving throw category.
             `None` means the death category.
-        ruleset: The ruleset in play. `None` skips the save and everything burns.
+        ruleset: The ruleset in play. `None` skips the save and destroys every item.
         stream: The stream the item saves draw from, one draw per magic item.
 
     Returns:
@@ -2907,7 +2907,7 @@ def apply_healing(target: Creature, amount: int, *, source: str = "magical") -> 
     a cure spell that doesn't pass `source` still follows the rot rule. The weakness
     that follows being raised from the dead blocks healing from every source, because the
     rules say the subject "has 1 hit point" until the recovery period ends and that it
-    "may not be shortened by any magical healing". The hit point comes back when the
+    "may not be shortened by any magical healing". Healing works again when the
     weakness effect ends. A cursed scroll's slow healing halves a magical amount rather
     than blocking it.
 

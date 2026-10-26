@@ -100,7 +100,7 @@ _CODE_PATTERN = re.compile(r"[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+")
 def _rewrite_dead_treasure_triggers(payload: dict) -> None:
     """Rewrite a pre-3 payload's `treasure` traps with `trigger="enter"` to `"open"`, in place.
 
-    The pack-side twin of the save chain's `_migrate_2_to_3`. A treasure trap can sit only on an
+    This does for a pack what the save migration `_migrate_2_to_3` does for a save. A treasure trap can sit only on an
     entry's features, and the engine never read the dead trigger value, so the rewrite loses nothing.
     """
     for section in payload.get("sections", ()):

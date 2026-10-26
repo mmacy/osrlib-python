@@ -104,7 +104,7 @@ Here's a whole quest, the TUI crawler's fetch errand, verbatim from the example:
 
 ### Matching on a thing the party carries
 
-The idol in that quest is a bundled item, not a named valuable, and that's deliberate: an acquisition reports mundane items by catalog id, so [`ItemAcquiredPattern`][osrlib.crawl.triggers.ItemAcquiredPattern] can match a bundled id and [`HasItemCondition`][osrlib.crawl.gates.HasItemCondition] can test it.
+The idol in that quest is a bundled item, not a named valuable, and that's deliberate: the event for an acquisition lists mundane items by catalog id, so [`ItemAcquiredPattern`][osrlib.crawl.triggers.ItemAcquiredPattern] can match a bundled id and [`HasItemCondition`][osrlib.crawl.gates.HasItemCondition] can test it.
 
 ```{.python .no-run}
 --8<-- "examples/tui_crawler/content.py:bundled-idol"

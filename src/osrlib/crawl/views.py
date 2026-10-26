@@ -617,8 +617,8 @@ class RefereeView(BaseModel):
     """Everything that has happened, in order, each entry the [`Event`][osrlib.core.events.Event]
     subclass that was emitted, including the referee-visibility events a player never sees. An entry
     restored from a save whose event type this library has no class for stays the raw mapping it
-    arrived as, so check for a `dict` before reading an entry's attributes. The union is what keeps a
-    raw entry raw: an `Event` instance validates as the event, while a mapping, which a model refuses
+    arrived as, so check for a `dict` before reading an entry's attributes. The field's type is the union
+    `SerializeAsAny[Event] | dict`: an `Event` instance validates as the event, while a mapping, which a model refuses
     under strict validation, falls to the `dict` arm and passes through unchanged."""
 
 

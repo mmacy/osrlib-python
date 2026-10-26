@@ -103,7 +103,7 @@ A referee-side narrator reads guidance from the adventure document it's refereei
 
 **Deliver authored beats as written.** A quest's offer and completion, an objective's progress, a gate's success and refusal arrive as structured fields on player-visible events and rejections, with `speaker` attribution when the author wrote one ("the temple almoner"). Deliver them as written, in the speaker's voice, and write the model's narration around them instead of replacing them.
 
-**[`Command.source`][osrlib.crawl.commands.Command] shows which commands came from the agent.** The interpreter stamps every command it issues with `trigger:{id}` or `quest:{id}`. If the agent stamps its referee commands differently, or leaves them unstamped, the log always shows which commands the agent chose and which the adventure caused. When you replay a trajectory, the log shows which grants were the model's ideas and which came from the adventure.
+**[`Command.source`][osrlib.crawl.commands.Command] shows which commands came from the agent.** The interpreter stamps every command it issues with `trigger:{id}` or `quest:{id}`. If the agent stamps its referee commands differently, or leaves them unstamped, the log separates the commands the agent chose from the commands the adventure caused. When you replay a trajectory, you can tell which grants were the model's ideas.
 
 ## Reproducible runs for evaluation
 

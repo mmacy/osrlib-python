@@ -162,7 +162,7 @@ Spawned HP is the sum of the HD count in d8s (d4 for ½ HD) plus the signed modi
 
 Every kernel event class declares a single-valued `event_type` Literal (snake_case, schema-stable, additive-only) that the `KernelEvent` union discriminates on. The message `code` stays free to be outcome-bearing from a per-class closed set (`combat.attack.hit` and `combat.attack.missed`), so formatters select on codes while consumers discriminate on `event_type` and skip unknown values mechanically. The default English formatter is total: unknown codes format to the code string itself. Locked by `test_events_kernel.py`.
 
-### New RNG stream conventions
+### The combat kernel streams
 
 The combat kernel's stream keys are `"combat"` (battle resolution: attacks, damage, saves, morale, initiative), `"effects"` (effect-internal randomness: durations, onsets, revival delays, natural-healing rolls), and `"monster_spawn"` (spawned hit points), scoped so a combat-rules change never shifts spawned HP or effect draws in a golden. Locked by the Phase 2 milestone goldens.
 
@@ -240,7 +240,7 @@ The enchanted/constructed/summoned melee ban is structured params that the battl
 
 ### Small nonmagical missiles are character weapon missiles and thrown splash items
 
-*Protection from normal missiles*' boundary, pinned from the spell page's examples ("no protection is granted against hurled boulders or enchanted missiles"): missile weapon uses and thrown splash items set the new `DamageSource.missile` flag. The engine never sets the flag on a monster attack by itself. The caller sets `AttackContext.monster_missile` when the attack is a small missile in the fiction (a hobgoblin's arrow). Locked by `test_casting.py::TestBuffsAndWards::test_protection_from_normal_missiles_boundary`.
+*Protection from normal missiles*' boundary, pinned from the spell page's examples ("no protection is granted against hurled boulders or enchanted missiles"): missile weapon uses and thrown splash items set the `DamageSource.missile` flag. The engine never sets the flag on a monster attack by itself. The caller sets `AttackContext.monster_missile` when the attack is a small missile in the fiction (a hobgoblin's arrow). Locked by `test_casting.py::TestBuffsAndWards::test_protection_from_normal_missiles_boundary`.
 
 ### All spell-attached effects are dispellable, monster effects are not, and survival is 5% per level of deficit
 
@@ -276,7 +276,7 @@ The engine compares one 2d6 turn roll per candidate *type* against its cell, and
 
 ### The `magic` RNG stream, and the attach-time/tick-time split
 
-Every draw inside spell resolution (targeting dice, damage dice, touch-attack rolls, cast-time forced saves, dispel survival rolls, and both turning rolls) comes from the new `"magic"` stream, so a combat-rules change never shifts spell goldens and vice versa. Effect-internal draws (rolled durations at attach, *web* escape dice, tick-time saves like the charm re-save) stay on the `"effects"` stream per [New RNG stream conventions](#new-rng-stream-conventions), which is why `cast_spell` takes both streams. Spell resolution has no `Ruleset` flags: every choice is rules-as-written or a pinned interpretation, never a referee-optional variant. Locked by the Phase 3 milestone goldens.
+Every draw inside spell resolution (targeting dice, damage dice, touch-attack rolls, cast-time forced saves, dispel survival rolls, and both turning rolls) comes from the `"magic"` stream, so a combat-rules change never shifts spell goldens and vice versa. Effect-internal draws (rolled durations at attach, *web* escape dice, tick-time saves like the charm re-save) stay on the `"effects"` stream per [The combat kernel streams](#the-combat-kernel-streams), which is why `cast_spell` takes both streams. Spell resolution has no `Ruleset` flags: every choice is rules-as-written or a pinned interpretation, never a referee-optional variant. Locked by the Phase 3 milestone goldens.
 
 ### Encounter tables: hand-mapped ids, table counts override, variant pools
 
@@ -288,7 +288,7 @@ Pinned for layering: `osrlib/data/` loaders import the modules that define their
 
 ### The crawl streams
 
-The crawl layer's stream keys are `"wandering"` (the check die, the d20, count dice, variant picks, NPC re-rolls), `"encounter"` (surprise, distance, reaction, distraction), `"exploration"` (forcing, listening, searching, trap springs and trap resolution, tinder, thief skills), and `"monster_action"` (every policy draw, so a substituted policy never shifts attack or damage draws). Trap resolution draws (saves, damage, volley counts) run on the exploration stream, because they are part of the trap procedure, while attach-time condition durations stay on the effects stream per [New RNG stream conventions](#new-rng-stream-conventions). Locked by the Phase 4 delve golden and `test_battle.py::TestDefaultPolicy`.
+The crawl layer's stream keys are `"wandering"` (the check die, the d20, count dice, variant picks, NPC re-rolls), `"encounter"` (surprise, distance, reaction, distraction), `"exploration"` (forcing, listening, searching, trap springs and trap resolution, tinder, thief skills), and `"monster_action"` (every policy draw, so a substituted policy never shifts attack or damage draws). Trap resolution draws (saves, damage, volley counts) run on the exploration stream, because they are part of the trap procedure, while attach-time condition durations stay on the effects stream per [The combat kernel streams](#the-combat-kernel-streams). Locked by the Phase 4 delve golden and `test_battle.py::TestDefaultPolicy`.
 
 ### Detection checks: precedence, zero-chance, and pick-pockets arithmetic
 
@@ -336,7 +336,7 @@ Every encounter opens with surprise, a 2d6 × 10' distance roll, and reaction, k
 
 ### Evasion and pursuit
 
-Pursuit compares the party's slowest running rate (full feet per round) against the pursuers' slowest base ground mode (the mode with no descriptor, else the first printed, since flying reads dungeon ceilings). Slowest-of-pursuers mirrors slowest-of-party, and a pack that strings out is fiction. `Evade(drop="treasure")` scatters every living member's coins and `"food"` one ration per member (pinned), and mid-pursuit `DropItems` re-baits round by round. The distraction is 3-in-6 when the bait matches: treasure for monsters whose treasure ref has letters (the intelligence proxy, override-correctable per encounter) and food for everything else. One roll stops the whole side (pack behavior). Pursuit ends on distraction success, at melee contact (gap ≤ 5', battle at 5'), or at 30 rounds, when both sides are spent and the monsters give up (the limit that ends every pursuit: with the party no faster the gap never grows, so no sight-loss distance is needed). Running exhaustion (−2 attack, damage, and AC, the AC penalty applied through `attack_penalty_of_attackers` +2) lasts until three rested turns. Locked by `test_encounter.py::TestEvasionAndPursuit`.
+Pursuit compares the party's slowest running rate (full feet per round) against the pursuers' slowest base ground mode (the mode with no descriptor, else the first printed, so a flying mode doesn't count). Slowest-of-pursuers mirrors slowest-of-party, and a pack that strings out is fiction. `Evade(drop="treasure")` scatters every living member's coins and `"food"` one ration per member (pinned), and mid-pursuit `DropItems` re-baits round by round. The distraction is 3-in-6 when the bait matches: treasure for monsters whose treasure ref has letters (the intelligence proxy, override-correctable per encounter) and food for everything else. One roll stops the whole side (pack behavior). Pursuit ends on distraction success, at melee contact (gap ≤ 5', battle at 5'), or at 30 rounds, when both sides are spent and the monsters give up (the limit that ends every pursuit: with the party no faster the gap never grows, so no sight-loss distance is needed). Running exhaustion (−2 attack, damage, and AC, the AC penalty applied through `attack_penalty_of_attackers` +2) lasts until three rested turns. Locked by `test_encounter.py::TestEvasionAndPursuit`.
 
 ### The battle round
 
@@ -368,7 +368,7 @@ Treasure-type entries parse on a fixed grammar: an optional `NN%:` presence gate
 
 ### Treasure generation order, tiers, and the treasure stream
 
-Generation follows printed-entry order, depth-first per item: each gem's value, each jewellery's value, and each magic item fully resolved (sub-table, armour-type d8 for generic armour, charges at creation, ammunition quantities, scroll contents, and sword sentience last, with the special-purpose 1-in-20 first and then the printed procedure) before the next entry, all on the new `"treasure"` stream, so draws are reproducible from the stream alone. Tier selects the printed B/X sub-table columns from the party's highest living level, with 4+ as expert. À la carte callers choose explicitly and pass a stream and an allocator. Locked by `test_treasure_kernel.py`, `test_magic_items.py`, and the phase 5 hoard golden.
+Generation follows printed-entry order, depth-first per item: each gem's value, each jewellery's value, and each magic item fully resolved (sub-table, armour-type d8 for generic armour, charges at creation, ammunition quantities, scroll contents, and sword sentience last, with the special-purpose 1-in-20 first and then the printed procedure) before the next entry, all on the `"treasure"` stream, so draws are reproducible from the stream alone. Tier selects the printed B/X sub-table columns from the party's highest living level, with 4+ as expert. À la carte callers choose explicitly and pass a stream and an allocator. Locked by `test_treasure_kernel.py`, `test_magic_items.py`, and the phase 5 hoard golden.
 
 ### Hoards generate lazily, appear as engine-created caches, and are untrapped
 
@@ -416,7 +416,7 @@ Wand, staff, and rod activations spend one charge and the user's action, resolve
 
 ### The item streams
 
-The item and treasure stream keys are `"treasure"` (every generation draw: presence gates, quantity dice, values, sub-table rolls, charges, sentience) and `"npc_party"` (NPC composition: alignment, class rows, level dice, scores, hit dice, spell picks). Use-time item resolution (device damage and saves, scroll-cast targeting, the potion-effect dice) draws from the `"magic"` stream beside spells. Attach-time rolled durations and the cursed-scroll curse pick stay on `"effects"` per [New RNG stream conventions](#new-rng-stream-conventions), and energy-drain sword drains and the drain curse resolve on `"advancement"` beside `drain_levels`. Locked by the phase 5 goldens and `test_treasure_kernel.py`.
+The item and treasure stream keys are `"treasure"` (every generation draw: presence gates, quantity dice, values, sub-table rolls, charges, sentience) and `"npc_party"` (NPC composition: alignment, class rows, level dice, scores, hit dice, spell picks). Use-time item resolution (device damage and saves, scroll-cast targeting, the potion-effect dice) draws from the `"magic"` stream beside spells. Attach-time rolled durations and the cursed-scroll curse pick stay on `"effects"` per [The combat kernel streams](#the-combat-kernel-streams), and energy-drain sword drains and the drain curse resolve on `"advancement"` beside `drain_levels`. Locked by the phase 5 goldens and `test_treasure_kernel.py`.
 
 ### NPC adventuring parties: generation
 

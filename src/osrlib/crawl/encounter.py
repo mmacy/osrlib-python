@@ -238,7 +238,7 @@ class EncounterState(BaseModel):
     value: `"attacks"`, `"hostile"`, `"uncertain"`, `"indifferent"`, or `"friendly"`. None only between
     construction and the first reaction roll."""
     round: int = 0
-    """Encounter round beats run so far. A command that leaves the encounter open, like
+    """Encounter rounds run so far. A command that leaves the encounter open, like
     [`Wait`][osrlib.crawl.commands.Wait] or [`Parley`][osrlib.crawl.commands.Parley], adds one. A chase
     counts its rounds on `pursuit` instead."""
     started_round: int
@@ -251,7 +251,7 @@ class EncounterState(BaseModel):
     """True when the monsters lost the surprise roll. Both sides surprised is momentary confusion, and
     neither side gains anything."""
     monsters_skip_rounds: int = 0
-    """Round beats the monsters still have to sit out because they were surprised. Each beat they sit out spends one,
+    """Rounds the monsters still have to sit out because they were surprised. Each round they sit out spends one,
     and a battle that opens while any remain gives the party a free round."""
     hostile_deadline: int | None = None
     """The encounter round at which a hostile group attacks, set each time the stance turns hostile.
@@ -771,9 +771,9 @@ def _pursuer_rate(session, groups) -> int:
     """The slowest pursuing group's base ground mode, full rate per round.
 
     The slowest pursuer sets the pace, the way the slowest party member sets the
-    party's. A pack that strings out is fiction. Flying reads dungeon ceilings,
-    so the base ground mode is the mode with no descriptor, else the first
-    printed.
+    party's. The engine doesn't model a group stringing out. The base ground mode
+    is the mode with no descriptor, else the first printed, so a flying mode
+    doesn't count.
     """
     rates = []
     for group in groups:

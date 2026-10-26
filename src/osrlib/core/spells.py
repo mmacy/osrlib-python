@@ -5,8 +5,8 @@ per-spell-level counts on the progression row of the character's
 [`ClassDefinition`][osrlib.core.classes.ClassDefinition], filled for the day by
 [`memorize_spells`][osrlib.core.spells.memorize_spells] and spent one copy at a time by
 [`cast_spell`][osrlib.core.spells.cast_spell], this module's entry point. On the other side is the
-effects engine: whatever a cast leaves running, a condition, a bundle of stat modifiers, a rolled
-duration, attaches to the [`EffectsLedger`][osrlib.core.effects.EffectsLedger] in
+effects engine. Whatever a cast leaves running (a condition, a bundle of stat modifiers, a rolled
+duration) attaches to the [`EffectsLedger`][osrlib.core.effects.EffectsLedger] in
 [`osrlib.core.effects`][osrlib.core.effects], which ticks it and releases it when it ends. The
 functions here take the spell catalog [`load_spells`][osrlib.data.load_spells] returns, mutate the
 caster and the ledger, and hand you back events.
@@ -55,7 +55,7 @@ pair compiles as two entries, the cleric one suffixed `_c` and the magic-user on
 Every draw inside spell resolution comes from the
 [`MAGIC_STREAM`][osrlib.core.spells.MAGIC_STREAM] stream: targeting dice, damage dice, touch-attack
 rolls, cast-time forced saves, dispel survival rolls, and both turning rolls. Spell results
-therefore replay independently of combat draws and combat draws of spell results. Draws made inside
+and combat draws therefore replay independently of each other. Draws made inside
 an effect, like a duration rolled at attach time or the charm re-save rolled on a tick, stay on
 the [`EFFECTS_STREAM`][osrlib.core.effects.EFFECTS_STREAM] stream.
 

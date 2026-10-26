@@ -504,7 +504,8 @@ class Interpreter:
                     continue
                 self._issue(CompleteObjective(quest_id=quest.id, objective_id=objective.id), owner)
                 # The rule is checked as soon as an objective completes, and only after a
-                # completion this walk issued: a completion by hand is a ruling by hand.
+                # completion this walk issued, so a game that completes an objective by hand
+                # completes the quest by hand.
                 if state.status == "active" and self._rule_satisfied(quest, state):
                     self._issue(CompleteQuest(quest_id=quest.id), owner)
                     self._issue_authored(quest.rewards, owner, "reward")

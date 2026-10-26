@@ -89,7 +89,7 @@ The quest itself is a [`QuestSpec`][osrlib.crawl.quests.QuestSpec] in the same f
 --8<-- "examples/tui_crawler/content.py:fetch-quest"
 ```
 
-The crawler doesn't track the quest. `__main__.py` registers the library's [`Interpreter`][osrlib.crawl.interpreter.Interpreter] on the session right after creating it, alongside the housekeeping that lines up the session's RNG streams with the ones character creation already drew from:
+The crawler doesn't track the quest. `__main__.py` registers the library's [`Interpreter`][osrlib.crawl.interpreter.Interpreter] on the session right after creating it, alongside a call that copies the stream positions from character creation into the session, so the session's streams continue from where character creation stopped:
 
 ```{.python .no-run}
 --8<-- "examples/tui_crawler/__main__.py:register-interpreter"
