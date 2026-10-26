@@ -8,15 +8,15 @@ the entry point: hand it a name, a class id, an alignment, a
 characters you get into a [`Party`][osrlib.crawl.party.Party] to play them, or use them on their
 own with the combat, magic, and item functions of the core kernel.
 
-[`Character`][osrlib.core.character.Character] is a mutable pydantic model. Its derived values,
-which are the ability modifiers, both armour classes, movement rate, and the language list, are
-properties computed from stored state rather than stored fields, so they cannot fall out of step
-with the state they come from. Validation on the model is structural: score ranges, a level
-within the class's bounds, current hit points no higher than maximum. Whether a creation step was
+[`Character`][osrlib.core.character.Character] is a mutable pydantic model. Its derived values are
+properties computed from the stored fields, so they can't fall out of step with them. They include
+the ability modifiers, both armour classes, movement rate, and the language list. Validation on
+the model is structural: score ranges, a level within the class's bounds, current hit points no
+higher than maximum. Whether a creation step was
 legal is checked by the creation functions when the step happens, because a finished character
 has no record of the choices that made it.
 
-Creation follows the OSE SRD's Creating a Character steps as pure functions you drive one at a time
+Creation follows the SRD's character-creation steps as pure functions you drive one at a time
 when a player is making the choices:
 [`roll_ability_scores`][osrlib.core.character.roll_ability_scores],
 [`validate_class_choice`][osrlib.core.character.validate_class_choice],
@@ -40,7 +40,7 @@ plays. Saving a character to disk goes through
 [`party_to_document`][osrlib.core.character.party_to_document], whose output
 [`osrlib.persistence`][osrlib.persistence] writes as part of a whole-game save.
 
-Two stream keys are the naming convention every session adopts:
+A session draws from two stream keys here:
 [`CHARACTER_CREATION_STREAM`][osrlib.core.character.CHARACTER_CREATION_STREAM] for creation draws
 and [`ADVANCEMENT_STREAM`][osrlib.core.character.ADVANCEMENT_STREAM] for in-play level-up hit point
 rolls. They stay separate so that a change to the creation rules never shifts advancement draws
@@ -158,7 +158,7 @@ ABILITY_ROLL_ORDER = (
 
 This is the SRD's listing order, and it is fixed. Read it when you are displaying rolled scores in
 the order the dice came up, or when you are reproducing a draw sequence by hand from a recorded
-seed. The order is part of what makes a seeded creation reproducible, so a caller cannot change it.
+seed. The order is part of what makes a seeded creation reproducible, so don't reassign it.
 """
 
 
@@ -177,8 +177,8 @@ class Character(BaseModel):
     advance it. A [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] exposes the same
     combatant surface, so those functions take either.
 
-    The model is mutable and validates on assignment: setting a field that breaks a rule raises
-    rather than storing the bad value. Validation is structural only. It checks that the six scores
+    The model is mutable and validates on assignment. Setting a field to a value that breaks a rule
+    raises a pydantic `ValidationError`. Validation is structural only. It checks that the six scores
     are present and in range, that the level is within the class's maximum, and that current hit
     points do not exceed maximum hit points. It does not check that the character was created
     legally, because a finished character has no record of how it was created.
@@ -223,9 +223,11 @@ class Character(BaseModel):
     """The character's name. At least one character long."""
 
     class_id: str
-    """The class this character plays, like `"fighter"`. Valid ids come from [`load_classes`][osrlib.data.load_classes].
-    See [the class id index][classes-index]. Read [`definition`][osrlib.core.character.Character.definition] to get the
-    class itself.
+    """The class this character plays, like `"fighter"`.
+
+    Valid ids come from [`load_classes`][osrlib.data.load_classes] and are listed in
+    [the class id index][classes-index]. Read [`definition`][osrlib.core.character.Character.definition] to get
+    the class itself.
     """
 
     race: str = Field(pattern=r"^[a-z][a-z0-9_]*$")
@@ -430,7 +432,7 @@ class Character(BaseModel):
         The alignment tongue comes first, then the languages the class grants with Common at the
         front, then the extras picked at creation for a high INT. Compare against another speaker's
         list to decide whether two people can talk to each other. The ids other than the alignment
-        tongue are catalog ids from [`load_languages`][osrlib.data.load_languages]. See
+        tongue are catalog ids from [`load_languages`][osrlib.data.load_languages], listed in
         [the language id index][languages-index].
         """
         return (self.alignment_tongue, *self.definition.languages, *self.extra_languages)
@@ -612,7 +614,35 @@ class Character(BaseModel):
             ContentValidationError: If the envelope is not a character document, or the payload
                 does not validate as a character.
             osrlib.errors.SaveVersionError: If the document's schema version is newer than this library
-                understands.
+                understands. Tell the player to upgrade osrlib.
+
+        Examples:
+            Store a character as JSON and load it back:
+
+            ```python
+            import json
+            from pathlib import Path
+
+            from osrlib.core.alignment import Alignment
+            from osrlib.core.character import CHARACTER_CREATION_STREAM, Character, create_character
+            from osrlib.core.rng import RngStreams
+            from osrlib.core.ruleset import Ruleset
+
+            stream = RngStreams(master_seed=2).get(CHARACTER_CREATION_STREAM)
+            rurik = create_character(
+                name="Rurik",
+                class_id="fighter",
+                alignment=Alignment.LAWFUL,
+                ruleset=Ruleset(),
+                stream=stream,
+                purchases=[("sword", 1)],
+            ).character
+            Path("rurik.json").write_text(json.dumps(rurik.to_document()))
+
+            loaded = Character.from_document(json.loads(Path("rurik.json").read_text()))
+            print(loaded.name, loaded.max_hp, loaded.thac0, [item.template.id for item in loaded.inventory.items])
+            # Rurik 8 19 ['sword']
+            ```
         """
         payload = check_document(document, "character")
         try:
@@ -821,7 +851,7 @@ def roll_ability_scores(stream: RngStream) -> AbilityScoreRolls:
 
     Args:
         stream: The stream to draw from, conventionally
-            `streams.get(CHARACTER_CREATION_STREAM)`. Eighteen draws are consumed.
+            `streams.get(CHARACTER_CREATION_STREAM)`. Eighteen dice are rolled from it.
 
     Returns:
         The six scores and the three dice behind each.
@@ -859,10 +889,9 @@ def validate_class_choice(scores: dict[AbilityScore, int], definition: ClassDefi
     demi-human classes are the ones with requirements: the dwarf and the halfling require CON 9, the
     elf requires INT 9, and the halfling also requires DEX 9.
 
-    Checking before adjustment is safe for the Classic classes, because the adjustment step can
-    only lower STR, INT, and WIS and never below 9, which is every requirement's minimum. A class
-    added later with a higher minimum on a lowerable ability would need a second check after the
-    adjustment.
+    Checking before adjustment is safe for the built-in classes. The adjustment step can lower only
+    STR, INT, and WIS, never below 9, and no built-in requirement is above 9. A custom class with a
+    minimum above 9 on STR, INT, or WIS needs a second check after the adjustment.
 
     Args:
         scores: The rolled scores, before any adjustment.
@@ -973,8 +1002,8 @@ def validate_extra_languages(definition: ClassDefinition, int_score: int, choice
     Args:
         definition: The chosen class. The languages it grants may not be taken again as extras.
         int_score: The final INT score, after any adjustment.
-        choices: The chosen language ids, from [`load_languages`][osrlib.data.load_languages]. See
-            [the language id index][languages-index].
+        choices: The chosen language ids, from [`load_languages`][osrlib.data.load_languages] and
+            listed in [the language id index][languages-index].
 
     Returns:
         One [`Rejection`][osrlib.core.validation.Rejection] per problem, empty when every pick
@@ -1021,7 +1050,7 @@ def validate_starting_spells(
 ) -> list[Rejection]:
     """Check a starting spell book against what the class may have at first level.
 
-    An arcane caster, which in the Classic classes means the magic-user and the elf, begins play
+    An arcane caster, which among the built-in classes means the magic-user and the elf, begins play
     with as many spells written in the book as they can memorize, so at first level that is exactly
     one first-level spell. Offer the player the first-level spells of their class's list from
     [`load_spells`][osrlib.data.load_spells], check the pick here, then write it with
@@ -1037,7 +1066,7 @@ def validate_starting_spells(
     Args:
         definition: The character's class.
         catalog: The spell catalog from [`load_spells`][osrlib.data.load_spells].
-        spell_ids: The chosen spell ids. See [the spell id index][spells-index].
+        spell_ids: The chosen spell ids, from `catalog` and listed in [the spell id index][spells-index].
 
     Returns:
         One [`Rejection`][osrlib.core.validation.Rejection] per problem, empty when the book is
@@ -1120,7 +1149,7 @@ def choose_starting_spells(
         character: The character to write to. Mutated in place when the pick is legal.
         definition: The character's class.
         catalog: The spell catalog from [`load_spells`][osrlib.data.load_spells].
-        spell_ids: The chosen spell ids. See [the spell id index][spells-index].
+        spell_ids: The chosen spell ids, from `catalog` and listed in [the spell id index][spells-index].
 
     Returns:
         One [`Rejection`][osrlib.core.validation.Rejection] per problem, empty when the book was
@@ -1176,7 +1205,7 @@ def roll_starting_gold(stream: RngStream) -> RollResult:
 
     Args:
         stream: The stream to draw from, conventionally
-            `streams.get(CHARACTER_CREATION_STREAM)`. Three draws are consumed.
+            `streams.get(CHARACTER_CREATION_STREAM)`. Three dice are rolled from it.
 
     Returns:
         The [`RollResult`][osrlib.core.dice.RollResult], whose `total` is the starting gold in gold
@@ -1237,7 +1266,7 @@ def create_character(
     Args:
         name: The character's name.
         class_id: The class to play, like `"fighter"`, from
-            [`load_classes`][osrlib.data.load_classes]. See [the class id index][classes-index].
+            [`load_classes`][osrlib.data.load_classes] and listed in [the class id index][classes-index].
         alignment: Lawful, neutral, or chaotic.
         ruleset: The ruleset in play. Its `hp_reroll_at_first_level` flag governs whether a poor
             hit die is thrown again.
@@ -1248,15 +1277,15 @@ def create_character(
             of STR, INT, and WIS to raise a prime requisite, which is how a player gets a better
             experience bonus.
         starting_spell_ids: The spells written in an arcane caster's book, from
-            [`load_spells`][osrlib.data.load_spells]. See [the spell id index][spells-index]. It
+            [`load_spells`][osrlib.data.load_spells] and listed in [the spell id index][spells-index]. It
             must contain exactly what the class can memorize at first level, which is one first-level
             spell for both the magic-user and the elf. Leave it empty for every other class.
         extra_languages: The extra languages a high INT allows, from
-            [`load_languages`][osrlib.data.load_languages]. See
+            [`load_languages`][osrlib.data.load_languages] and listed in
             [the language id index][languages-index]. An INT of 12 or less allows none.
         purchases: What to buy from the starting gold, as `(item_id, lots)` pairs bought in the
-            order given. `item_id` comes from [`load_equipment`][osrlib.data.load_equipment]. See
-            [the equipment id index][equipment-index]. A lot is the catalog's unit of sale: weapons
+            order given. `item_id` comes from [`load_equipment`][osrlib.data.load_equipment] and is
+            listed in [the equipment id index][equipment-index]. A lot is the catalog's unit of sale: weapons
             and armour sell one at a time, so `lots` is how many, while gear and ammunition
             sell in fixed bundles, and one lot of torches is six torches.
         equip_ids: Which of the bought items to wear or wield, in order. An item must have been

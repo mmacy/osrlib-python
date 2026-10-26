@@ -1,7 +1,7 @@
-"""The interpreter: the listener that plays an adventure's authored triggers and quests.
+"""The listener that plays an adventure's authored triggers and quests.
 
-[`Interpreter`][osrlib.crawl.interpreter.Interpreter] is what turns the authored hooks in
-an adventure document into things that happen at the table.
+[`Interpreter`][osrlib.crawl.interpreter.Interpreter] turns the triggers and quests written
+in an adventure document into things that happen in play.
 
 It reads the `triggers` and `quests` of the
 [`Adventure`][osrlib.crawl.adventure.Adventure] the session is playing, and it is an
@@ -291,15 +291,15 @@ class Interpreter:
     the remaining commands are accepted or dropped by the ordinary rules of a terminal mode. A
     cascade is bounded too: what a firing or a quest advancement issues is one level
     deeper than the event that caused it, and an event at depth five or deeper issues
-    nothing further. Matching itself carries on at that depth. Every trigger is still
+    nothing further. Matching itself continues at that depth. Every trigger is still
     evaluated, and so is every clause of a quest that is already active, with each
     suppressed advancement recorded as a note instead of being issued. The exception is a
     quest the event would have activated: that walk records one note for the activation it
     did not issue and stops there, so the objective clauses of that quest are not evaluated
     for this event. No state moves in any of these cases, so a once-only trigger cut short
     here is still fireable later, and a suppressed quest advancement waits for its clause
-    to match again. Clauses are edge-triggered for both triggers and quests, so the
-    suppressed edge itself is gone.
+    to match again. A trigger or a quest clause matches an event rather than a state, so
+    the event that was suppressed doesn't match again.
 
     It returns no events, because everything it causes is already
     logged by the commands it executed, and it stores nothing between commands. Read
@@ -374,7 +374,7 @@ class Interpreter:
 
         Args:
             session: The session to play. Its adventure's triggers and quests are read
-                once here, being frozen content.
+                once here, because adventure content is frozen.
         """
         self._session = session
         self._triggers = session.adventure.triggers
@@ -384,10 +384,9 @@ class Interpreter:
     def handle(self, events: Sequence[Event], state: dict) -> tuple[list[Event], dict]:
         """Match one command's events and act on the matches.
 
-        The session calls this after every accepted command, and you do not call it
-        yourself. It is here because it is the listener contract every listener
-        implements, and reading it tells you what the session hands a listener of your
-        own.
+        The session calls this after every accepted command, and you don't call it
+        yourself. Every listener implements this method, so its arguments show what the
+        session hands a listener of your own.
 
         Args:
             events: The command's accumulated events, in the order they happened.

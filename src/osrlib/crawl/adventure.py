@@ -719,38 +719,45 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
     never start on content that would fail partway through a delve. It changes nothing, and it
     returns `None` when the adventure is clean.
 
-    It checks the following, in the order the message lists them. First the bundled ids: monster ids
-    against the built-in catalog and each other, then item ids against the equipment catalog, the
-    built-in magic-item catalog, and each other. Then the town's travel entries referring to real dungeons,
-    and every dungeon having an entrance on some level.
+    It checks the following. First, for the whole adventure:
 
-    Then, for each level: feature ids unique across the level and none of them the reserved id
-    `"pile"`, the entrance on the grid, area ids unique, no area id colliding with a feature id (an
-    area trap and a feature trap are referenced the same way, so after a collision the two would look the same in
-    the found, sprung, and removed records), area cells on the grid, an
-    `open`-trigger room trap having a door on its area's boundary (an `enter`-trigger trap needs
-    none, and a door that starts open still counts), no area trap whose transition is a passage,
-    keyed encounter template ids resolving and any fixed alignment being one the template allows,
-    feature cells on the grid with their cache item ids and magic item ids resolving, no feature trap
-    whose transition is a passage, every level-scope feature having a cell, inline wandering-table
-    monster ids resolving, the item ids in `has_item` gates on doors and transitions resolving,
-    and transitions standing on the grid and leading to real cells of real levels.
+    - Bundled monster ids are unique and don't collide with the built-in catalog.
+    - Bundled item ids are unique and don't collide with the equipment catalog or the built-in
+      magic-item catalog.
+    - Each dungeon in the town's `travel_turns` exists.
+    - Each dungeon has an entrance on some level.
 
-    A passage gets more checks after those. Its side has to be a wall. Its far cell, the cell one
-    step across that side, has to be on the grid, outside every area, and walled on its other three
-    sides. The passage can't lead to the cell it stands on or to the far cell of any passage. Two passages
-    can't stand on the same cell and side.
+    Then, for each level:
 
-    Then, for each trigger: its id unique, the area, level, dungeon, item, and monster its pattern
-    refers to resolving, and for each consequence the item it grants, the monster it spawns, a door
-    actually standing at the cell a door-state consequence refers to, and a placement on the grid.
-    Then, for each quest: its id unique, and the same checks over every clause it has (its activation,
-    each objective's completion, each hidden objective's reveal) and every reward it pays.
+    - Feature ids are unique across the level, and none is the reserved id `"pile"`.
+    - The entrance is on the grid.
+    - Area ids are unique, and no area id is also a feature id. The found, sprung, and removed trap
+      records refer to an area trap and a feature trap the same way, so the two would be confused.
+    - Area cells are on the grid.
+    - A room trap with `trigger="open"` has a door on its area's boundary. A door that starts open
+      counts. A trap with `trigger="enter"` needs none.
+    - No area trap has a transition that is a passage.
+    - Keyed encounter template ids resolve, and a fixed alignment is one the template allows.
+    - Feature cells are on the grid, and the item ids and magic item ids in a cache resolve.
+    - No feature trap has a transition that is a passage.
+    - Every feature listed on the level itself has a cell.
+    - The monster ids in an inline wandering table resolve.
+    - The item ids in `has_item` gates on doors and transitions resolve.
+    - Each transition stands on the grid and leads to a real cell of a real level.
+    - Each passage stands on a wall. Its far cell, the cell one step across that side, is on the
+      grid, outside every area, and walled on its other three sides. The passage doesn't lead to the
+      cell it stands on or to any passage's far cell, and no two passages share a cell and side.
 
-    One rule is about authoring rather than about a dangling id. A consequence that addresses a
-    character has to do so through a party selector, because character ids are allocated when a
-    session starts: a character id in a document refers to something that cannot exist at the time
-    the document is read.
+    Then, for each trigger, its id is unique, and the area, level, dungeon, item, and monster its
+    pattern refers to resolve. Each consequence's granted item and spawned monster resolve, a
+    door-state consequence refers to a cell side where a door stands, and a placement is on the
+    grid. Then, for each quest, its id is unique, and the same checks run over every clause it has
+    (its activation, each objective's completion, and each hidden objective's reveal) and every
+    reward it pays.
+
+    A consequence that addresses a character has to do so through a party selector, not a
+    character id. Character ids are allocated when a session starts, so no character id in a
+    document can refer to a character.
 
     Magic items are the one catalog you do not pass. Adventures bundle no magic items, so validation
     loads the built-in one itself with [`load_magic_items`][osrlib.data.load_magic_items].
@@ -770,7 +777,8 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
 
     Raises:
         ContentValidationError: If anything is wrong. The message lists every problem found, one per
-            line, each with the dungeon, level, and object it sits on.
+            line, each with where it is, like the dungeon, level, and object. Fix the adventure and
+            call again. The same adventure always fails the same way.
 
     Examples:
         ```python

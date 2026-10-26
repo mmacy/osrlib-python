@@ -26,7 +26,7 @@ reproduced. It's the installed package version, and it changes with every releas
 releases that change no document format. Rules can change between releases, so a recorded
 command log rerun under a different engine can resolve differently.
 [`replay_game`][osrlib.persistence.replay_game] refuses the mismatch rather than producing a
-game that differs without saying so. Loading a save across engine versions is fine, because
+game that differs without saying so. Loading a save works across engine versions, because
 a save contains the state instead of re-deriving it.
 
 If you store documents, keep both numbers with them. From `schema_version` you know whether
@@ -87,15 +87,16 @@ rewrites it, and a content pack gets the same rewrite when it loads. Version 4 d
 acted on. The migration clears it off a logged declaration, so the member who declared it
 holds. No step drops anything the library reads back.
 
-This is a fact about the library, not a setting. Assigning to it changes the version your
-documents are stamped with, without changing what's in them.
+Don't assign to it. It describes the library rather than configuring it, and a new value
+changes the version your documents are stamped with without changing what's in them.
 """
 
 
 def engine_version() -> str:
     """Return the version of the installed osrlib package.
 
-    This is the second stamp on every document, and it's what makes a replay trustworthy.
+    This is the second stamp on every document, and it's what lets a replay detect that the
+    rules underneath have changed.
     [`stamp_document`][osrlib.versioning.stamp_document] calls it for you, so usually you
     read this value out of a document rather than calling the function, then pass it to
     [`replay_game`][osrlib.persistence.replay_game] as `recorded_engine_version` when you
@@ -175,8 +176,7 @@ def check_document(document: Mapping[str, object], expected_kind: str) -> dict[s
 
     Call this first thing when you read a document back, before you touch a single field of
     the payload. It confirms the envelope is there and well formed, that the document
-    contains what you think it does, and that a later osrlib didn't write it. What you get
-    back is a payload you can trust to be the right kind of thing.
+    contains the kind you expect, and that a later osrlib didn't write it.
 
     It checks the envelope, not the contents. A payload that passes here can still fail when
     you validate it into a model, which is where [`load_game`][osrlib.persistence.load_game]

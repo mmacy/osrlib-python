@@ -90,8 +90,9 @@ is where the rules put daily events, like eating and preparing spells.
 ROUNDS_PER_DAY = ROUNDS_PER_TURN * TURNS_PER_DAY
 """How many rounds make up one day, which is 8640.
 
-It's the product of the two ratios above rather than a separate number, so it can never
-disagree with them.
+It's `ROUNDS_PER_TURN * TURNS_PER_DAY` rather than a separate number, so it can never
+disagree with [`ROUNDS_PER_TURN`][osrlib.core.clock.ROUNDS_PER_TURN] or
+[`TURNS_PER_DAY`][osrlib.core.clock.TURNS_PER_DAY].
 """
 
 
@@ -114,8 +115,8 @@ class TimeUnit(StrEnum):
     TURN = "turn"
     """The exploration unit, ten minutes of story time.
 
-    One move through the dungeon, one search of a room, or one attempt to listen at a
-    door takes a turn.
+    A search or an attempt to pick a lock takes a turn. Walking through the dungeon adds
+    up toward a turn, and a party covers its exploration movement rate in one.
     """
 
     DAY = "day"

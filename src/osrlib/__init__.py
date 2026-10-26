@@ -6,8 +6,8 @@ the rules, and it returns typed events that describe what happened. Turning thos
 player reads is your program's job. Every random draw comes from a named, seeded stream, so
 the same seed and the same commands replay the same game.
 
-Every name has one import home and the package root re-exports nothing, so you import from
-the module that defines the symbol. The modules fall into three layers.
+Each name is defined in exactly one module, and the package root re-exports nothing, so you
+import each name from the module that defines it. The modules fall into three layers.
 
 ## The core kernel
 
@@ -84,8 +84,8 @@ the exceptions, the message formatter, and the save and version documents.
 ## Quickstart
 
 The quickstart runs the whole loop: characters, party, adventure, session, commands,
-events, save, and load. For the documentation, including a stepwise walk through this
-example, see https://mmacy.github.io/osrlib-python/
+events, save, and load. The documentation site at https://mmacy.github.io/osrlib-python/
+walks through this example step by step.
 
 ```python
 from osrlib.core.alignment import Alignment

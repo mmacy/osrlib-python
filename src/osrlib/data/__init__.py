@@ -2,11 +2,12 @@
 
 Every id-typed argument in osrlib refers to an entry in one of these catalogs: a class id, a
 spell id, a monster id, an equipment or magic item id, a language id, a treasure-type
-letter. Each `load_*` function returns one catalog, and the content-id pages list every id
-the package includes: [class ids][classes-index], [spell ids][spells-index],
-[monster ids][monsters-index], [equipment ids][equipment-index],
-[magic item ids][magic-items-index], [language ids][languages-index], and
-[treasure types][treasure-types-index].
+letter. Each `load_*` function returns one catalog, and the catalog's entries are the valid
+ids: `[entry.id for entry in load_classes().classes]` lists every class id, and the other
+catalogs work the same way. The content-id pages list the same ids:
+[class ids][classes-index], [spell ids][spells-index], [monster ids][monsters-index],
+[equipment ids][equipment-index], [magic item ids][magic-items-index],
+[language ids][languages-index], and [treasure types][treasure-types-index].
 
 The path is the same for all of them. Call the loader, look one entry up by id, then hand
 that entry to the kernel function that takes it: `load_classes().get("fighter")` gives you
@@ -20,7 +21,7 @@ to show a player what content exists before play starts.
 
 Each loader caches. The first call reads the data and validates it, and every later call in
 the process returns that same catalog object. What comes back is frozen and shared with
-every other caller, so you **cannot** edit a catalog in place. Play spawns mutable instances
+every other caller, so you can't edit a catalog in place. Play spawns mutable instances
 from these templates instead, the way
 [`spawn_monster`][osrlib.core.monsters.spawn_monster] spawns a
 [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] from a template.
@@ -30,8 +31,8 @@ includes. The project's compiler generates them from the Old-School Essentials S
 each release, and nobody edits them by hand, so a patch you apply to a JSON file in an
 installed copy is gone at the next upgrade. They aren't the extension point. To add content
 of your own, construct the frozen model yourself and pass it to the same kernel functions you
-pass the included entries to, and bundle a custom monster or item template with the
-[`Adventure`][osrlib.crawl.adventure.Adventure] that uses it. A file that's missing, or that
+pass the included entries to. To use a custom monster or item template in a session, bundle it
+with the [`Adventure`][osrlib.crawl.adventure.Adventure] that uses it. A file that's missing, or that
 fails model validation, raises
 [`ContentValidationError`][osrlib.errors.ContentValidationError] rather than returning a
 half-built catalog.
@@ -158,14 +159,15 @@ class LanguageCatalog(BaseModel):
         instead: it returns structured refusals rather than raising on the first bad id.
 
         Args:
-            language_id: A language id from [the language id index][languages-index], like
-                `"gnoll"`.
+            language_id: A language id, like `"gnoll"`: any `id` in
+                [`languages`][osrlib.data.LanguageCatalog.languages], also listed in
+                [the language id index][languages-index].
 
         Returns:
             The language.
 
         Raises:
-            ValueError: If no language has that id. An unknown id is programmer misuse,
+            ValueError: If no language has that id. An unknown id is a bug in the calling code,
                 not a player's choice, so it raises rather than refusing.
 
         Examples:
@@ -238,7 +240,7 @@ def load_ability_tables() -> AbilityTables:
 def load_classes() -> ClassCatalog:
     """Load the character class catalog.
 
-    Call `ClassCatalog.get` on the result for the
+    Call [`ClassCatalog.get`][osrlib.core.classes.ClassCatalog.get] on the result for the
     [`ClassDefinition`][osrlib.core.classes.ClassDefinition] that the class-level functions
     take: [`level_up`][osrlib.core.classes.level_up],
     [`xp_modifier_pct`][osrlib.core.classes.xp_modifier_pct],
@@ -250,13 +252,13 @@ def load_classes() -> ClassCatalog:
     only to show a player the classes on offer.
 
     The catalog contains the classes this package includes. A class you write yourself is a
-    `ClassDefinition` you build and pass to those same functions. You **cannot** add it
-    here.
+    `ClassDefinition` you build and pass to those same functions. You can't add it to this
+    catalog.
 
     Returns:
         The frozen class catalog, cached: the first call validates the data and every later
-            call returns the same object. [The class id index][classes-index] lists every id
-            it defines.
+            call returns the same object. Its `classes` tuple contains every class it defines,
+            and [the class id index][classes-index] lists the same ids.
 
     Raises:
         ContentValidationError: If the generated data is missing or fails validation.
@@ -281,7 +283,8 @@ def load_classes() -> ClassCatalog:
 def load_equipment() -> EquipmentCatalog:
     """Load the mundane equipment catalog: weapons, armour, gear, ammunition, and treasure weights.
 
-    `EquipmentCatalog.get` looks an id up across all four item lists and returns the
+    [`EquipmentCatalog.get`][osrlib.core.items.EquipmentCatalog.get] looks an id up across the
+    `weapons`, `armour`, `gear`, and `ammunition` lists and returns the
     template that [`purchase`][osrlib.core.items.purchase],
     [`validate_purchase`][osrlib.core.items.validate_purchase],
     [`equip`][osrlib.core.items.equip], and
@@ -295,8 +298,9 @@ def load_equipment() -> EquipmentCatalog:
 
     Returns:
         The frozen equipment catalog, cached: the first call validates the data and every
-            later call returns the same object. [The equipment id index][equipment-index]
-            lists every id it defines.
+            later call returns the same object. Its `weapons`, `armour`, `gear`, and
+            `ammunition` tuples contain every item it defines, and
+            [the equipment id index][equipment-index] lists the same ids.
 
     Raises:
         ContentValidationError: If the generated data is missing or fails validation.
@@ -321,7 +325,7 @@ def load_equipment() -> EquipmentCatalog:
 def load_monsters() -> MonsterCatalog:
     """Load the monster catalog.
 
-    `MonsterCatalog.get` returns the frozen
+    [`MonsterCatalog.get`][osrlib.core.monsters.MonsterCatalog.get] returns the frozen
     [`MonsterTemplate`][osrlib.core.monsters.MonsterTemplate] that
     [`spawn_monster`][osrlib.core.monsters.spawn_monster] turns into a mutable
     [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] with rolled hit points and a
@@ -335,8 +339,8 @@ def load_monsters() -> MonsterCatalog:
 
     Returns:
         The frozen monster catalog, cached: the first call validates the data and every
-            later call returns the same object. [The monster id index][monsters-index] lists
-            every id it defines.
+            later call returns the same object. Its `monsters` tuple contains every monster it
+            defines, and [the monster id index][monsters-index] lists the same ids.
 
     Raises:
         ContentValidationError: If the generated data is missing or fails validation.
@@ -362,7 +366,9 @@ def load_combat_tables() -> CombatTables:
     """Load the combat tables: the attack matrix, monster saves, XP awards, turning, and reactions.
 
     [`monster_xp`][osrlib.core.tables.monster_xp] takes these tables and a monster's hit
-    dice and returns the award. `CombatTables.save_band` and `CombatTables.xp_row` take the
+    dice and returns the award.
+    [`CombatTables.save_band`][osrlib.core.tables.CombatTables.save_band] and
+    [`CombatTables.xp_row`][osrlib.core.tables.CombatTables.xp_row] take the
     labels [`monster_save_band_label`][osrlib.core.tables.monster_save_band_label] and
     [`xp_band_label`][osrlib.core.tables.xp_band_label] compute from hit dice, so you look a
     band up by asking for its label first rather than by matching hit dice yourself.
@@ -401,8 +407,9 @@ def load_combat_tables() -> CombatTables:
 def load_encounter_tables() -> EncounterTables:
     """Load the dungeon encounter tables, with the NPC adventuring party tables.
 
-    `EncounterTables.for_level` takes a dungeon level number and returns the table the SRD
-    prints for it, clamping anything deeper than the last printed band onto that band. Roll
+    [`EncounterTables.for_level`][osrlib.core.tables.EncounterTables.for_level] takes a dungeon
+    level number and returns the table the SRD prints for it. Every level from 8 down shares the
+    last table, so no level is too deep to have one. Roll
     on the table for an entry, then call
     [`select_encounter_individuals`][osrlib.core.tables.select_encounter_individuals] to turn
     a monster entry and a count into the template ids that appear. The NPC party rows feed
@@ -442,10 +449,12 @@ def load_spells() -> SpellCatalog:
 
     [`memorize_spells`][osrlib.core.spells.memorize_spells] and
     [`add_spell_to_book`][osrlib.core.spells.add_spell_to_book] take this catalog whole, so
-    they can check a chosen id against the caster's list and level. `SpellCatalog.get`
-    returns one [`SpellTemplate`][osrlib.core.spells.SpellTemplate] by id, and
-    `SpellCatalog.by_list` returns every spell on a class's list, optionally at one spell
-    level, which is what you show a player choosing spells to memorize.
+    they can check a chosen id against the caster's list and level.
+    [`SpellCatalog.get`][osrlib.core.spells.SpellCatalog.get] returns one
+    [`SpellTemplate`][osrlib.core.spells.SpellTemplate] by id, and
+    [`SpellCatalog.by_list`][osrlib.core.spells.SpellCatalog.by_list] returns every spell on a
+    class's list, optionally at one spell level, which is what you show a player choosing spells
+    to memorize.
 
     A reversed spell has a separate id. The catalog contains both forms, and the template shows
     which is which. A spell you write yourself is a `SpellTemplate` you build and pass to the
@@ -453,8 +462,8 @@ def load_spells() -> SpellCatalog:
 
     Returns:
         The frozen spell catalog, cached: the first call validates the data and every later
-            call returns the same object. [The spell id index][spells-index] lists every id it
-            defines.
+            call returns the same object. Its `spells` tuple contains every spell it defines,
+            and [the spell id index][spells-index] lists the same ids.
 
     Raises:
         ContentValidationError: If the generated data is missing or fails validation.
@@ -479,7 +488,7 @@ def load_spells() -> SpellCatalog:
 def load_magic_items() -> MagicItemCatalog:
     """Load the magic item catalog: the templates, the generation sub-tables, and the sword tables.
 
-    `MagicItemCatalog.get` returns the frozen
+    [`MagicItemCatalog.get`][osrlib.core.items.MagicItemCatalog.get] returns the frozen
     [`MagicItemTemplate`][osrlib.core.items.MagicItemTemplate] behind an id, and
     [`magic_item_template`][osrlib.core.items.magic_item_template] does the same lookup for a
     [`MagicItemInstance`][osrlib.core.items.MagicItemInstance] you already have. The
@@ -489,12 +498,12 @@ def load_magic_items() -> MagicItemCatalog:
 
     An id identifies a kind of item, not a particular one. Two potions of healing share a template
     and differ as instances, each with a separate instance id, charges, and identification
-    state. Mundane gear lives in [`load_equipment`][osrlib.data.load_equipment].
+    state. Mundane gear is in [`load_equipment`][osrlib.data.load_equipment].
 
     Returns:
         The frozen magic item catalog, cached: the first call validates the data and every
-            later call returns the same object.
-            [The magic item id index][magic-items-index] lists every id it defines.
+            later call returns the same object. Its `items` tuple contains every magic item it
+            defines, and [the magic item id index][magic-items-index] lists the same ids.
 
     Raises:
         ContentValidationError: If the generated data is missing or fails validation.
@@ -519,9 +528,10 @@ def load_magic_items() -> MagicItemCatalog:
 def load_treasure_tables() -> TreasureTables:
     """Load the treasure tables: the treasure types, gem values, magic item types, stocking, and unguarded hoards.
 
-    `TreasureTables.treasure_type` returns the table behind a letter, which is what a
-    monster's `treasure` field contains and what you read to show a player, or a referee, what a
-    hoard can contain before anything is rolled.
+    [`TreasureTables.treasure_type`][osrlib.core.treasure.TreasureTables.treasure_type] returns
+    the table behind a letter. A monster's letters are in the `letters` of its
+    [`MonsterTemplate.treasure`][osrlib.core.monsters.MonsterTemplate.treasure]. Read the table
+    to show a player, or a referee, what a hoard can contain before anything is rolled.
 
     To roll an actual hoard, call [`generate_treasure`][osrlib.core.treasure.generate_treasure]
     with the letter instead: it loads these tables itself and returns a
@@ -533,8 +543,9 @@ def load_treasure_tables() -> TreasureTables:
 
     Returns:
         The frozen treasure tables, cached: the first call validates the data and every later
-            call returns the same object. [The treasure type index][treasure-types-index]
-            lists every letter they key on.
+            call returns the same object. Its `treasure_types` tuple contains every type, each
+            with its `letter`, and [the treasure type index][treasure-types-index] lists the
+            same letters.
 
     Raises:
         ContentValidationError: If the generated data is missing or fails validation.
@@ -571,8 +582,8 @@ def load_languages() -> LanguageCatalog:
 
     Returns:
         The frozen language catalog, cached: the first call validates the data and every
-            later call returns the same object. [The language id index][languages-index]
-            lists every id it defines.
+            later call returns the same object. Its `languages` tuple contains every language it
+            defines, and [the language id index][languages-index] lists the same ids.
 
     Raises:
         ContentValidationError: If the generated data is missing or fails validation.

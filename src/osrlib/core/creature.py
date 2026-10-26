@@ -13,7 +13,7 @@ annotate your own code with it when you write a function that takes either kind 
 modifiers. [`Combatant`][osrlib.core.creature.Combatant] adds the combat numbers an attack or a saving throw reads.
 [`Caster`][osrlib.core.creature.Caster] adds what memorizing and casting read. A function that needs an attribute
 only one concrete type has, like a monster's template or a character's inventory, either takes that
-concrete type or reads the attribute with `getattr` and a default, and its docstring says which.
+concrete type or reads the attribute with `getattr` and a default. The function's `Args` entry says which.
 
 Typical usage:
 
@@ -151,12 +151,16 @@ class Combatant(Creature, Protocol):
 
     @property
     def thac0(self) -> int:
-        """The descending-AC to-hit number the attack matrix is entered with."""
+        """The roll on 1d20 this creature needs to hit armour class 0 (THAC0).
+
+        The attack matrix is entered with it: a lower number hits more often. It applies to descending armour class,
+        where a lower armour class is better.
+        """
         ...
 
     @property
     def attack_bonus(self) -> int:
-        """The ascending-AC equivalent of `thac0`."""
+        """The ascending-armour-class equivalent of `thac0`: the bonus added to 1d20 when attacking."""
         ...
 
     @property

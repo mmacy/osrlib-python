@@ -452,7 +452,7 @@ class TransitionSpec(BaseModel):
     kind: Literal["stairs_up", "stairs_down", "trapdoor", "chute", "passage"]
     """What the party sees and uses: `"stairs_up"`, `"stairs_down"`, `"trapdoor"`, `"chute"`, or
     `"passage"`. The first four are descriptive. The destination fields set where the party goes,
-    and whether a return transition exists decides whether it can come back. The party takes a
+    and the party can come back only if a return transition exists. The party takes a
     `"passage"` differently: it walks across the passage's `side` instead of using
     [`UseStairs`][osrlib.crawl.commands.UseStairs]."""
     position: Position
@@ -478,9 +478,9 @@ class TransitionSpec(BaseModel):
     [`UseStairs`][osrlib.crawl.commands.UseStairs], or [`MoveParty`][osrlib.crawl.commands.MoveParty]
     for a passage, evaluates it after the command's other checks and before the party moves, so the
     party pays a gate's cost at the threshold. The engine puts the gate's `success` narration on the
-    arrival's [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent], so when a
-    transition's destination is on the same level, the party crosses no boundary, the engine emits no
-    such event, and the narration is dropped. A transition inside a
+    arrival's [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent], which it emits
+    only when the party changes level or dungeon. A transition to another cell of the same level
+    emits no such event, so its gate's `success` narration is never shown. A transition inside a
     [`TrapEffect`][osrlib.crawl.dungeon.TrapEffect] may have no gate at all: that is a forced
     relocation rather than an attempt, and `TrapEffect` validation rejects one that does."""
 
@@ -736,8 +736,10 @@ class AreaTreasureSpec(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     letters: tuple[str, ...] = ()
-    """One or more B/X treasure type letters, like `("C",)`. Each letter selects a hoard table, and the
-    full list is [the treasure type index][treasure-types-index]. Set this or `unguarded`, not
+    """One or more B/X treasure type letters, like `("C",)`. Each letter selects a hoard table. The
+    letters are `A` to `V`: see [the treasure type index][treasure-types-index], or read each
+    entry's `letter` in `load_treasure_tables().treasure_types` from
+    [`load_treasure_tables`][osrlib.data.load_treasure_tables]. Set this or `unguarded`, not
     both."""
     unguarded: bool = False
     """Whether to roll the dungeon level's unguarded-treasure band instead of listing letters. That
@@ -752,14 +754,19 @@ class AreaTreasureSpec(BaseModel):
 
 
 class TreasureBundle(BaseModel):
-    """A working pile of rolled treasure: coins, valuables, and magic items together.
+    """Rolled treasure held together as one lot: coins, valuables, and magic items.
 
-    The treasure generators fill one of these while a hoard rolls, and the engine then moves its
-    contents into a [`GeneratedCache`][osrlib.crawl.dungeon.GeneratedCache] or a
-    [`DropPile`][osrlib.crawl.dungeon.DropPile]. You meet it if you drive the generators yourself
-    outside a session. Inside one, the cache and the pile are what you read.
+    The session rolls one for the treasure a monster group carries when it spawns. You meet it on
+    an [`EncounterGroup`][osrlib.crawl.encounter.EncounterGroup], as `member_treasure` for what
+    each creature carries and `group_treasure` for what the group shares. When the encounter ends,
+    the bundles of slain creatures drop onto the party's cell as a
+    [`DropPile`][osrlib.crawl.dungeon.DropPile], and those two fields say which bundles drop. The
+    session also fills one while it rolls a hoard
+    and then moves the contents into a
+    [`GeneratedCache`][osrlib.crawl.dungeon.GeneratedCache].
 
-    Unlike the authored models here it is mutable, because rolling a hoard adds to it entry by entry.
+    Unlike the authored models here it is mutable, because rolling treasure adds to it entry by
+    entry.
 
     Attributes:
         coins: The coins in the bundle.
@@ -1020,7 +1027,7 @@ class KeyedEncounter(BaseModel):
     which is how you author a lookout or an ambush that has heard the party's armour."""
     stance: ReactionResult | None = None
     """The reaction the monsters take, instead of rolling for it. Set it when the room's monsters
-    attack on sight or are friendly by design. Leave it `None` and the reaction roll decides."""
+    attack on sight or are friendly by design. Leave it `None` to roll the reaction as usual."""
     hoard: bool = True
     """Whether the monsters have their lair treasure with them. The default generates their printed
     hoard the first time the encounter spawns. Set it `False` for a monster room with no treasure,
@@ -1237,6 +1244,15 @@ class LevelSpec(BaseModel):
 
         Returns:
             True when `0 <= x < width` and `0 <= y < height`.
+
+        Examples:
+            ```python
+            from osrlib.crawl.dungeon import Direction, LevelSpec, step
+
+            corridor = LevelSpec(number=1, width=2, height=1, entrance=(0, 0))
+            print(corridor.in_bounds((1, 0)), corridor.in_bounds(step((1, 0), Direction.EAST)))
+            # True False
+            ```
         """
         x, y = position
         return 0 <= x < self.width and 0 <= y < self.height
@@ -1277,8 +1293,23 @@ class LevelSpec(BaseModel):
 
         Returns:
             The first area whose `cells` include the position, in the order you authored them, or
-                `None` when the cell is corridor. Overlapping areas are not rejected, so the authored
-                order is what decides between them.
+                `None` when the cell is corridor. Overlapping areas are not rejected, so where two
+                areas share a cell, the one you authored first wins.
+
+        Examples:
+            ```python
+            from osrlib.crawl.dungeon import AreaSpec, LevelSpec
+
+            level = LevelSpec(
+                number=1,
+                width=3,
+                height=1,
+                entrance=(0, 0),
+                areas=(AreaSpec(id="shrine", name="Shrine", cells=((2, 0),)),),
+            )
+            print(level.area_at((2, 0)).name, level.area_at((0, 0)))
+            # Shrine None
+            ```
         """
         for area in self.areas:
             if position in area.cells:
@@ -1301,6 +1332,24 @@ class LevelSpec(BaseModel):
         Returns:
             The first transition authored on that cell that isn't a passage, or `None` when there's
                 none.
+
+        Examples:
+            ```python
+            from osrlib.crawl.dungeon import Direction, LevelSpec, TransitionSpec
+
+            stairs = TransitionSpec(
+                kind="stairs_down",
+                position=(0, 0),
+                to_dungeon_id="crypt",
+                to_level_number=2,
+                to_position=(0, 0),
+                to_facing=Direction.SOUTH,
+            )
+            top = LevelSpec(number=1, width=1, height=1, entrance=(0, 0), transitions=(stairs,))
+            found = top.transition_at((0, 0))
+            print(found.kind, found.to_level_number)
+            # stairs_down 2
+            ```
         """
         for transition in self.transitions:
             if transition.kind != "passage" and transition.position == position:
@@ -1558,9 +1607,8 @@ class DungeonState(BaseModel):
     The adventure you authored never changes. This is where the running game records what happened to
     it, and it is the part a save file contains. [`GameSession.new`][osrlib.crawl.session.GameSession.new]
     makes one, the command handlers write it, and you read it through
-    [`build_player_view`][osrlib.crawl.views.build_player_view] or
-    [`build_referee_view`][osrlib.crawl.views.build_referee_view] rather than reaching in, so you get
-    the right visibility for your audience.
+    [`GameSession.view`][osrlib.crawl.session.GameSession.view] rather than reaching in, so you get
+    the right visibility for your audience. The referee view's `dungeon_state` is a copy of it.
 
     References into content are strings rather than objects, so the overlay serializes flat and
     never repeats the adventure's content. They come in four formats: `"{dungeon}:{level}"`
@@ -1680,14 +1728,27 @@ class DungeonState(BaseModel):
         Returns:
             True when the party has physically entered that cell. For a cell the party has only seen
                 by its light, the result is False.
+
+        Examples:
+            ```python
+            from osrlib.crawl.dungeon import DungeonState
+
+            state = DungeonState()
+            state.mark_explored("crypt", 1, (0, 0))
+            state.mark_seen("crypt", 1, [(1, 0)])
+            print(state.is_explored("crypt", 1, (0, 0)), state.is_explored("crypt", 1, (1, 0)))
+            # True False
+            ```
         """
         return position in self.explored.get(f"{dungeon_id}:{level_number}", [])
 
     def mark_explored(self, dungeon_id: str, level_number: int, position: Position) -> None:
         """Mark a cell as walked.
 
-        The session calls this as the party arrives. Marking a cell twice changes nothing, so you can
-        call it without checking first.
+        The session calls this as the party arrives, so you rarely call it yourself. A cell you mark
+        on a running session isn't recorded in the command log, so
+        [`replay_game`][osrlib.persistence.replay_game] won't reproduce it. Marking a cell twice
+        changes nothing.
 
         Args:
             dungeon_id: The dungeon id.
@@ -1702,10 +1763,11 @@ class DungeonState(BaseModel):
             cells.append(position)
 
     def mark_seen(self, dungeon_id: str, level_number: int, positions: Iterable[Position]) -> None:
-        """Mark cells as seen: the party's map memory of what its light has shown it.
+        """Mark cells as seen, in the party's map memory of what its light has shown it.
 
-        Seen cells are read by the player projection only, so a front end's automap can still show a room
-        the party's light reached after the party has walked on. They never affect movement cost,
+        The session calls this after every accepted command, so you rarely call it yourself. Only the
+        player view reads seen cells, so a front end's automap can still show a room the party's light
+        reached after the party has walked on. They never affect movement cost,
         which the engine works out from the walked footprint through
         [`is_explored`][osrlib.crawl.dungeon.DungeonState.is_explored], and they never affect
         drop-pile visibility, which stays on walked cells because piles only form where the party has
@@ -1739,6 +1801,19 @@ class DungeonState(BaseModel):
             The door's overlay entry, freshly created and all-`False` when the door has not been
                 touched before. A door you authored `starts_open` is seeded to open by the session,
                 not here.
+
+        Examples:
+            ```python
+            from osrlib.crawl.dungeon import Direction, DungeonState, edge_ref
+
+            state = DungeonState()
+            # Both sides of one door give the same reference, and so the same state.
+            east_side = edge_ref("crypt", 1, (0, 0), Direction.EAST)
+            west_side = edge_ref("crypt", 1, (1, 0), Direction.WEST)
+            state.door(east_side).open = True
+            print(state.door(west_side).open, list(state.doors))
+            # True ['crypt:1:1,0:west']
+            ```
         """
         state = self.doors.get(ref)
         if state is None:

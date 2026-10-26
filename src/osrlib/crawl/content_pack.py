@@ -1,4 +1,4 @@
-"""Content packs: finished rooms you can move from one adventure to another.
+"""Content packs, for moving finished rooms from one adventure to another.
 
 A [`ContentPack`][osrlib.crawl.content_pack.ContentPack] is room content with the geometry left out.
 Where an [`AreaSpec`][osrlib.crawl.dungeon.AreaSpec] binds an encounter, a trap, treasure, and
@@ -10,8 +10,8 @@ never has to agree with a map it has not seen.
 Sections group the entries by dungeon level, and each section can include that level's
 [`WanderingSpec`][osrlib.crawl.dungeon.WanderingSpec]. Alongside them, the pack bundles the
 [`MonsterTemplate`][osrlib.core.monsters.MonsterTemplate]s its encounters and wandering tables
-reference beyond the built-in catalog, which is the pack's closure: what it needs that the engine does
-not already include. Item templates are deliberately outside that closure. A bundled item id belongs to
+reference beyond the built-in catalog. Together those make the pack's closure, meaning everything the
+pack needs that the engine doesn't already include. Item templates are outside the closure. A bundled item id belongs to
 the one adventure that bundles it and would be an unresolved reference anywhere else, so a pack's features
 reference the built-in equipment catalog only.
 
@@ -28,11 +28,10 @@ template that neither the pack nor the built-in catalog contains, and
 reads a pack can show you the gaps and let you decide.
 
 Packs serialize as stamped `"content_pack"` documents
-([`CONTENT_PACK_KIND`][osrlib.crawl.content_pack.CONTENT_PACK_KIND]) and have separate acceptance
-rules, because a pack is meant to be kept and passed around longer than a save file is. A document stamped by an older
-schema version loads, one stamped by a newer version fails with
-[`SaveVersionError`][osrlib.errors.SaveVersionError], and every write re-stamps at the current schema
-and engine versions, so an older pack you load and save comes back current.
+([`CONTENT_PACK_KIND`][osrlib.crawl.content_pack.CONTENT_PACK_KIND]). A document stamped by an older
+schema version loads, and one stamped by a newer version fails with
+[`SaveVersionError`][osrlib.errors.SaveVersionError]. Every write stamps the current schema and engine
+versions, so an older pack you load and save again comes back current.
 
 Typical usage:
 
@@ -225,8 +224,8 @@ class ContentPack(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     id: str = ""
-    """The pack's id, empty by default. A pack derived on the fly gets its identity from
-    whatever it was derived from, so only a pack somebody saved needs to set one."""
+    """The pack's id, empty by default. osrlib never reads it. Set one when your tool stores
+    several packs and needs to tell them apart."""
     name: str = ""
     """The pack's name, for a panel to show."""
     description: str = ""
@@ -292,10 +291,10 @@ class ContentPack(BaseModel):
         rules are checked on the way in, so a document with duplicate ids fails here rather than
         later.
 
-        An older `schema_version` is accepted, because pack payloads only grow within a version.
-        Since schema 3, [`TrapSpec`][osrlib.crawl.dungeon.TrapSpec] refuses `trigger="enter"` on a
-        treasure trap. A pre-3 document with that combination is repaired in place on the way in and
-        rewritten to `"open"`, exactly as the save migration does.
+        A document stamped with an older `schema_version` loads. One schema change affects packs:
+        since schema 3, [`TrapSpec`][osrlib.crawl.dungeon.TrapSpec] refuses `trigger="enter"` on a
+        treasure trap, so an older document with that combination has the trigger rewritten to
+        `"open"` on the way in, as [`load_game`][osrlib.persistence.load_game] does for a save.
         Payload fields this version doesn't recognize are ignored.
 
         Args:
@@ -310,7 +309,24 @@ class ContentPack(BaseModel):
                 document, or if the payload fails validation.
             osrlib.errors.SaveVersionError: If the document's schema version is newer than this library
                 understands, which means the pack was written by a later osrlib than the one reading
-                it.
+                it. Tell the user to upgrade osrlib.
+
+        Examples:
+            ```python
+            import json
+
+            from osrlib.crawl.content_pack import ContentPack, ContentPackEntry, PackSection
+
+            entry = ContentPackEntry(id="guard-post", name="Guard post")
+            written = ContentPack(name="The gnawing dark", sections=(PackSection(id="level-1", entries=(entry,)),))
+            stored = json.dumps(written.to_document())
+
+            # Later, in the authoring tool: read the file back and list what the pack offers.
+            pack = ContentPack.from_document(json.loads(stored))
+            for section in pack.sections:
+                print(section.id, [entry.name for entry in section.entries])
+            # level-1 ['Guard post']
+            ```
         """
         payload = check_document(document, CONTENT_PACK_KIND)
         schema_version = document["schema_version"]  # an int: check_document vetted the envelope
@@ -349,8 +365,9 @@ class PackFinding(BaseModel):
     """The specifics in English: which entry, which feature, which id. Written for a person reading a
     list of findings."""
     entry_id: str | None = None
-    """The entry the gap sits on, or `None` when the gap belongs to a section rather than an entry,
-    which currently means a wandering table's monster. `message` includes the section in that case."""
+    """The entry the gap sits on, or `None` when the gap belongs to a section rather than an entry.
+    A section-level gap is a monster in the section's wandering table, and `message` includes
+    the section's id."""
 
     @field_validator("code")
     @classmethod

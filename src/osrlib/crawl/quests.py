@@ -1,4 +1,4 @@
-"""Authored quests: the matching clause, the objective spec, and the quest spec.
+"""Authored quests, their objectives, and the clauses that start and finish them.
 
 A quest is an errand the session tracks: what starts it, what it asks for,
 what it pays, and whether finishing it ends the adventure.
@@ -11,7 +11,7 @@ in `session.quests`, keyed by quest id, with each quest's objectives keyed in th
 [`QuestSpec.objectives`][osrlib.crawl.quests.QuestSpec] lists them, so every walk over
 either is deterministic. Nothing advances that state until your game registers an
 [`Interpreter`][osrlib.crawl.interpreter.Interpreter] on the session, and even then the
-state moves only through the four lifecycle commands
+state moves only through the quest lifecycle commands
 [`ActivateQuest`][osrlib.crawl.commands.ActivateQuest],
 [`RevealObjective`][osrlib.crawl.commands.RevealObjective],
 [`CompleteObjective`][osrlib.crawl.commands.CompleteObjective], and
@@ -29,10 +29,10 @@ quests and their revealed objectives reach a front end through
 A quest uses the trigger vocabulary rather than a separate one. An
 activation, an objective's completion, and a hidden objective's reveal are each a
 [`TriggerClause`][osrlib.crawl.quests.TriggerClause]: a
-[`TriggerPattern`][osrlib.crawl.triggers.TriggerPattern] that identifies the observable, plus the
+[`TriggerPattern`][osrlib.crawl.triggers.TriggerPattern] that identifies the event, plus the
 [`ConditionSpec`][osrlib.crawl.gates.ConditionSpec]s that have to hold when it matches.
-Those are the same edge-triggered patterns and the same live condition evaluation an
-authored [`TriggerSpec`][osrlib.crawl.triggers.TriggerSpec] uses. Rewards are the same
+An authored [`TriggerSpec`][osrlib.crawl.triggers.TriggerSpec] uses the same patterns, which
+match events rather than states, and evaluates its conditions the same way. Rewards are the same
 [`ConsequenceCommand`][osrlib.crawl.commands.ConsequenceCommand] types under the same
 party selectors ([`PARTY_SELECTOR`][osrlib.crawl.triggers.PARTY_SELECTOR] and
 [`FIRST_LIVING_SELECTOR`][osrlib.crawl.triggers.FIRST_LIVING_SELECTOR]).
@@ -64,7 +64,7 @@ __all__ = [
 
 
 class TriggerClause(BaseModel):
-    """One matching clause: the observable, and what has to hold when it happens.
+    """A pattern to match, and the conditions that must hold when an event matches it.
 
     A quest uses clauses in three places, and they behave the same in all three: the
     `activation` of a [`QuestSpec`][osrlib.crawl.quests.QuestSpec], and the `when` and
@@ -79,18 +79,20 @@ class TriggerClause(BaseModel):
         from osrlib.crawl.quests import TriggerClause
         from osrlib.crawl.triggers import TownEnteredPattern
 
+        # Matches only when the party reaches town with the holy water on someone.
         walked_home_carrying_it = TriggerClause(
             pattern=TownEnteredPattern(),
             conditions=(HasItemCondition(item_id="holy_water"),),
         )
-        assert walked_home_carrying_it.pattern.pattern_type == "town_entered"
+        print(walked_home_carrying_it.model_dump(mode="json")["conditions"])
+        # [{'condition_type': 'has_item', 'item_id': 'holy_water', 'consumes': False}]
         ```
     """
 
     model_config = ConfigDict(frozen=True)
 
     pattern: TriggerPattern
-    """The observable that matches the clause, one member of
+    """The event pattern the clause matches, one member of
     [`TriggerPattern`][osrlib.crawl.triggers.TriggerPattern]. The field is `pattern`
     rather than `when`, so an objective's completion clause reads
     `objective.when.pattern`."""
@@ -123,8 +125,8 @@ class ObjectiveSpec(BaseModel):
     and the revealed ones reach a front end as
     [`ObjectiveView`][osrlib.crawl.views.ObjectiveView]s.
 
-    Objectives are monotonic: hidden becomes revealed, incomplete becomes complete, and
-    neither goes back, because there's no way to author a repeating objective.
+    An objective's state changes one way only. Hidden becomes revealed and incomplete becomes
+    complete, and neither goes back, because there's no way to author a repeating objective.
 
     A hidden objective with no `reveal_when` is normal. It appears on the list when it
     completes, because completing an objective reveals it. `reveal_when` on an objective
@@ -138,12 +140,13 @@ class ObjectiveSpec(BaseModel):
         from osrlib.crawl.triggers import ItemAcquiredPattern
 
         recover = ObjectiveSpec(
-            id="recover-idol",
+            id="recover-flask",
             name="Recover the flask",
             when=TriggerClause(pattern=ItemAcquiredPattern(item_id="holy_water")),
-            narrative=NarrativeBlock(progress="The flask is yours; the shrine is quiet again."),
+            narrative=NarrativeBlock(progress="The flask is yours, and the shrine is quiet again."),
         )
-        assert not recover.hidden and recover.reveal_when is None
+        print(recover.hidden, recover.reveal_when)  # visible from the start, so no reveal clause
+        # False None
         ```
     """
 
@@ -154,10 +157,9 @@ class ObjectiveSpec(BaseModel):
     the key its state and its view use, and the label everything falls back to when
     `name` is unauthored."""
     name: str = ""
-    """The objective's display label, the words a quest log shows beside its checkbox. It
-    defaults empty, so a document written before the field existed loads unchanged, and
-    empty means unauthored: the view, the lifecycle events, and the default formatter all
-    fall back to the id."""
+    """The objective's display label, the words a quest log shows beside its checkbox. Empty
+    means unauthored, and then the view, the lifecycle events, and the default formatter all
+    show the id instead."""
     when: TriggerClause
     """The clause that completes the objective. Completing it also reveals it, so a
     hidden objective needs no reveal clause to show up once it is done."""
@@ -194,26 +196,65 @@ class QuestSpec(BaseModel):
     [`CompleteQuest`][osrlib.crawl.commands.CompleteQuest] pays nothing.
 
     Examples:
+        A quest that starts when the party enters the crypt and ends when someone picks up a
+        flask of holy water:
+
         ```python
-        from osrlib.crawl.commands import AwardXP
+        from osrlib.core.alignment import Alignment
+        from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character
+        from osrlib.core.rng import RngStreams
+        from osrlib.core.ruleset import Ruleset
+        from osrlib.crawl.adventure import Adventure, TownSpec
+        from osrlib.crawl.commands import AwardXP, EnterDungeon, GrantItem
+        from osrlib.crawl.dungeon import DungeonSpec, LevelSpec
+        from osrlib.crawl.interpreter import Interpreter
         from osrlib.crawl.narrative import NarrativeBlock
+        from osrlib.crawl.party import Party
         from osrlib.crawl.quests import ObjectiveSpec, QuestSpec, TriggerClause
+        from osrlib.crawl.session import GameSession
         from osrlib.crawl.triggers import PARTY_SELECTOR, DungeonEnteredPattern, ItemAcquiredPattern
 
-        recover = ObjectiveSpec(id="recover", when=TriggerClause(pattern=ItemAcquiredPattern(item_id="holy_water")))
+        recover = ObjectiveSpec(
+            id="recover-flask",
+            name="Recover the flask",
+            when=TriggerClause(pattern=ItemAcquiredPattern(item_id="holy_water")),
+        )
         errand = QuestSpec(
             id="the-flask",
-            name="The Stolen Reliquary",
-            activation=TriggerClause(pattern=DungeonEnteredPattern(dungeon_id="barrow")),
+            name="The Stolen Flask",
+            activation=TriggerClause(pattern=DungeonEnteredPattern(dungeon_id="crypt")),
             objectives=(recover,),
             rewards=(AwardXP(character_id=PARTY_SELECTOR, amount=200),),
-            concludes_adventure=True,
             narrative=NarrativeBlock(
-                offer="Sister Halda wants the reliquary back, and she is not asking twice.",
+                offer="Sister Halda wants her flask of holy water back, and she is not asking twice.",
                 completion="The flask returns to its niche. The temple bells answer.",
             ),
         )
-        assert errand.completion == "all"
+        level = LevelSpec(number=1, width=1, height=1, entrance=(0, 0))
+        crypt = DungeonSpec(id="crypt", name="The Old Crypt", levels=(level,))
+        town = TownSpec(name="Threshold")
+        adventure = Adventure(name="A First Delve", town=town, dungeons=(crypt,), quests=(errand,))
+
+        rules = Ruleset()
+        stream = RngStreams(master_seed=7).get(CHARACTER_CREATION_STREAM)
+        hero = create_character(
+            name="Hild", class_id="fighter", alignment=Alignment.LAWFUL, ruleset=rules, stream=stream
+        ).character
+        session = GameSession.new(Party(members=[hero]), adventure, seed=7)
+        session.register_listener(Interpreter(session))
+
+        session.execute(EnterDungeon(dungeon_id="crypt"))
+        print(session.quests["the-flask"].status)
+        # active
+
+        # Stands in for the party finding the flask in play.
+        result = session.execute(GrantItem(character_id=hero.id, item_id="holy_water"))
+        for event in result.events:
+            print(event.code)
+        # exploration.item.acquired
+        # session.quest.objective_completed
+        # session.quest.completed
+        # session.xp.awarded
         ```
     """
 
@@ -228,12 +269,12 @@ class QuestSpec(BaseModel):
     renderer needs no document to look it up in."""
     activation: TriggerClause | None = None
     """The clause that brings the quest into play. `None` means the quest is active from
-    session start, from round 0, with no activation beat to show, because there is no
-    command channel before the first command. With an authored clause, the quest
+    session start, from round 0, with no activation beat to show, because no command has
+    run yet to report one. With an authored clause, the quest
     activates during play, when the clause matches."""
     objectives: tuple[ObjectiveSpec, ...] = Field(min_length=1)
     """What the quest asks for, in the order a quest log should show it. At least one is
-    required, because a quest with no objectives under the all rule would be
+    required, because a quest with no objectives under the `"all"` rule would be
     complete from the start."""
     rewards: tuple[ConsequenceCommand, ...] = ()
     """The referee commands issued after the quest completes, in authored order, with

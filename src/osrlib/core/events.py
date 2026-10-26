@@ -21,8 +21,8 @@ morale rolls are the referee's business. Filter on
 
 The event schema can grow without breaking your consumer. Within a `schema_version` the event schema only gains
 things, unknown fields are ignored rather than rejected, and an `event_type` your version of the library doesn't
-define parses to `None` instead of raising. Write your consumer to skip what it doesn't recognize and a log from a newer
-release still replays.
+define parses to `None` instead of raising. Write your consumer to skip what it doesn't recognize, and it can still
+read a log from a newer release.
 
 Each class declares an `event_type`, a fixed string that identifies the type in a serialized event. Discriminate on
 that, not on the code: one class can use several codes, since the code identifies the outcome and the type
@@ -110,8 +110,8 @@ class Visibility(StrEnum):
     [`GameSession.view`][osrlib.crawl.session.GameSession.view], which builds the player's and the referee's
     views for you. A narrator playing referee reads both.
 
-    The values are the lowercase strings and they serialize into every event, so a renamed value is a
-    `schema_version` bump.
+    Every serialized event stores the lowercase value, and the values stay fixed within a `schema_version`, the
+    version stamp that marks a serialized model's format.
 
     Examples:
         ```python
@@ -176,7 +176,8 @@ class Event(BaseModel):
     code: str
     """What happened, as two or more lowercase segments separated by dots and namespaced by subsystem, like
     `combat.attack.hit`. This is what you branch on and what
-    [`format_message`][osrlib.messages.format_message] looks up. Anything else raises a validation error."""
+    [`format_message`][osrlib.messages.format_message] looks up. Building an event with a code in any other format
+    raises a pydantic `ValidationError`."""
 
     visibility: Visibility
     """Who may see the event. Filter on it before showing a log to a player."""
@@ -472,8 +473,10 @@ class MoraleCheckedEvent(Event):
     """The situational adjustment applied, which B/X caps at plus or minus 2."""
 
     held: bool | None = None
-    """Whether the side keeps fighting, on every code: a rolled check's verdict, `True` for a score of
-    12 or more, and `False` for a score of 2 or less.
+    """Whether the side keeps fighting.
+
+    It's set on every code. A rolled check sets it to the verdict, a score of 12 or more sets it to `True`, and a
+    score of 2 or less sets it to `False`.
     [`check_morale`][osrlib.core.combat.check_morale] sets it on every event it emits, so render the
     outcome from this field rather than from the code and the score together. It is `None` on an event
     loaded from a save written before the field existed, because no migration fills it in."""
@@ -880,7 +883,7 @@ class HitPointsReportedEvent(Event):
     This is the only event that reports a creature's standing current and maximum. The others report the
     change alone: [`DamageDealtEvent`][osrlib.core.events.DamageDealtEvent] the size of a hit,
     [`LevelDrainedEvent`][osrlib.core.events.LevelDrainedEvent] the maximum a drain took off. It's
-    referee-visible on purpose, because the B/X rules hide monster hit points from the players, so show the
+    referee-visible because the B/X rules hide monster hit points from the players, so show the
     players the change events instead.
     """
 
@@ -894,7 +897,7 @@ class HitPointsReportedEvent(Event):
     """Fixed at `combat.state.hit_points`."""
 
     visibility: Visibility = Visibility.REFEREE
-    """Referee visibility: monster hit points are hidden by design."""
+    """Referee visibility: the B/X rules hide monster hit points from the players."""
 
     target_id: str
     """The entity id of the creature reported on."""
@@ -1342,8 +1345,8 @@ def parse_event(data: Mapping[str, object]) -> Event | None:
     """Turn one stored event back into its class, or `None` if this release doesn't define its type.
 
     Use this to read a saved log or a stream of events from somewhere else. It skips what it doesn't recognize, so
-    a log written by a newer release replays under an older one, minus the events the older one has no class
-    for. Filter the `None` results out and carry on.
+    an older release can read a log a newer one wrote, minus the events the older one has no class for. Filter the
+    `None` results out and carry on.
 
     It covers the core rules' events only. To read a log that also contains the crawl's, use
     [`parse_any_event`][osrlib.crawl.events.parse_any_event], which covers both.

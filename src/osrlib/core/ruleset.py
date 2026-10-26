@@ -3,10 +3,10 @@
 [`Ruleset`][osrlib.core.ruleset.Ruleset] is the entry point and almost the whole module.
 Build one at the start of a game, pass it to
 [`GameSession.new`][osrlib.crawl.session.GameSession.new] or, away from a session, to
-each kernel function that takes a `ruleset` argument, and leave it alone after that. The
-resolution functions read it as they work, so every flag takes effect the moment you set
-it, and the ruleset is stored in saves so a game resumes under the rules it began
-with.
+each kernel function that takes a `ruleset` argument. The model is frozen, so a game
+keeps one ruleset from start to finish. The resolution functions read its flags on every
+call, so there's no setup step, and a save stores the ruleset so a game resumes under the
+rules it began with.
 
 `Ruleset()` with no arguments plays the SRD as written, which is what you want unless
 you have a reason to change something. Each flag is either an optional rule the SRD
@@ -16,10 +16,11 @@ The two enum flags, [`EncumbranceMode`][osrlib.core.ruleset.EncumbranceMode] and
 [`XpAwardTiming`][osrlib.core.ruleset.XpAwardTiming], pick among alternatives instead of
 switching one behavior on and off.
 
-[The ruleset options guide][ruleset-options] walks through each flag with the play it
-changes, and [the adaptations register](https://mmacy.github.io/osrlib-python/adaptations/),
-the page that lists every place osrlib supplies a default the tabletop game leaves to a
-referee, gives the reasoning behind each one.
+Each flag is a field of [`Ruleset`][osrlib.core.ruleset.Ruleset], documented there and in
+[the ruleset options guide][ruleset-options] with the play it changes.
+[The adaptations register](https://mmacy.github.io/osrlib-python/adaptations/) lists every
+place osrlib supplies a default the tabletop game leaves to a referee, with the reasoning
+behind each one.
 
 Typical usage:
 
@@ -59,8 +60,8 @@ class XpAwardTiming(StrEnum):
     about pacing: `ON_RETURN` pays only once the party gets out of the dungeon alive,
     and `IMMEDIATE` pays as the party goes, which suits a game with no trip home.
 
-    The lowercase values serialize into saved games. Changing one is a `schema_version`
-    bump, the version stamp that marks a serialized model's format.
+    The lowercase values are what saved games store, and they stay fixed within a
+    `schema_version`, the version stamp that marks a serialized model's format.
     """
 
     ON_RETURN = "on_return"
@@ -86,8 +87,8 @@ class EncumbranceMode(StrEnum):
     movement rates live in [`osrlib.core.items`][osrlib.core.items], which reads this
     choice.
 
-    The lowercase values serialize into saved games. Changing one is a `schema_version`
-    bump, the version stamp that marks a serialized model's format.
+    The lowercase values are what saved games store, and they stay fixed within a
+    `schema_version`, the version stamp that marks a serialized model's format.
     """
 
     NONE = "none"
@@ -116,7 +117,7 @@ class Ruleset(BaseModel):
     model is frozen, so you cannot edit a ruleset mid-game, and it goes into saves and
     replays, so a resumed game keeps the rules it started with. It also rejects an
     unknown field name, which turns a misspelled flag into a pydantic
-    `ValidationError` rather than a setting that quietly does nothing.
+    `ValidationError` rather than a setting that does nothing.
 
     Each flag is one of two kinds. An optional rule is an alternative the SRD itself
     prints beside its standard procedure, and osrlib's default is the book's. An adaptation is
@@ -213,7 +214,7 @@ class Ruleset(BaseModel):
     """
 
     xp_award_timing: XpAwardTiming = XpAwardTiming.ON_RETURN
-    """When earned experience is actually paid out. On return by default, which is the tabletop rule.
+    """When earned experience is paid out. On return by default, which is the tabletop rule.
 
     See [`XpAwardTiming`][osrlib.core.ruleset.XpAwardTiming]. The immediate setting is an
     adaptation, osrlib's default where the tabletop game hands the decision to a referee,

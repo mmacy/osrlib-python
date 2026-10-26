@@ -13,8 +13,8 @@ Rolling a hundred treasure hoards doesn't change the next attack roll. Add a new
 draw to one subsystem and no other subsystem's results change, which is what lets a saved
 game replay and a bug reproduce.
 [`StreamName`][osrlib.core.rng.StreamName] lists every stream a running session draws
-from, and each `*_STREAM` constant in the library is one of its members. [The RNG
-streams reference][rng-streams] describes what each one covers. Standalone code isn't bound
+from, and each `*_STREAM` constant in the library is one of its members. Each member's
+docstring and [the RNG streams reference][rng-streams] describe what it covers. Standalone code isn't bound
 to those names. A name is a label, so ask for the same one each time.
 
 Two draws made with the same master seed and the same stream name come out the same, in
@@ -84,8 +84,8 @@ class StreamName(StrEnum):
     numbers from that stream instead of the one you meant.
 
     Each public `*_STREAM` constant takes its value from the member named beside it, so the constant
-    and the member are one object. [The RNG streams reference][rng-streams] describes what each stream
-    covers and which rules draw on it.
+    and the member are one object. Each member's docstring, and [the RNG streams reference][rng-streams],
+    describe what that stream covers and which rules draw on it.
 
     A rule you write yourself isn't limited to these names.
     [`RngStreams.get`][osrlib.core.rng.RngStreams.get] forks a stream for any string you pass it. These are the names
@@ -341,6 +341,21 @@ class RngStream:
 
         Returns:
             A stream whose next draw is the one the saved stream would have made.
+
+        Examples:
+            ```python
+            import json
+
+            from osrlib.core.rng import RngStream, RngStreams, RngStreamState
+
+            stream = RngStreams(master_seed=42).get("combat")
+            stream.randbelow(20)
+            saved = stream.export_state().model_dump_json()
+
+            # Later, read the position back from disk and draw on from it.
+            restored = RngStream.restore(RngStreamState.model_validate(json.loads(saved)))
+            assert restored.randbelow(20) + 1 == 11
+            ```
         """
         stream = cls.__new__(cls)
         stream._state = snapshot.state
@@ -357,6 +372,20 @@ class RngStream:
 
         Returns:
             A frozen record of the position, ready to serialize.
+
+        Examples:
+            ```python
+            from osrlib.core.rng import RngStreams
+
+            stream = RngStreams(master_seed=42).get("combat")
+            stream.randbelow(20)
+
+            # Exporting twice gives the same record, because exporting draws nothing.
+            snapshot = stream.export_state()
+            assert stream.export_state() == snapshot
+            document = snapshot.model_dump()
+            assert sorted(document) == ["inc", "state"]
+            ```
         """
         return RngStreamState(state=self._state, inc=self._inc)
 
@@ -377,6 +406,16 @@ class RngStream:
 
         Returns:
             A number from 0 up to but not including 2**64, each equally likely.
+
+        Examples:
+            ```python
+            from osrlib.core.rng import RngStreams
+
+            # The first raw draw of the "combat" stream under seed 42, as another
+            # implementation of osrlib's forking should reproduce it.
+            stream = RngStreams(master_seed=42).get("combat")
+            assert stream.next_uint64() == 12816652903456971652
+            ```
         """
         self._step()
         state = self._state
@@ -438,13 +477,14 @@ class RngStreams:
 
     Keep one container for the whole game and pass streams out of it. Two containers on
     the same seed draw the same numbers as each other, which means handing out streams
-    from a second container quietly repeats rolls the first one already made.
+    from a second container repeats rolls the first one already made.
 
     A [`GameSession`][osrlib.crawl.session.GameSession] keeps one of these, so you only
     build your own when you're running the kernel without a session. Save a game's worth
     of positions with [`export_states`][osrlib.core.rng.RngStreams.export_states] and put
-    them back with [`restore_states`][osrlib.core.rng.RngStreams.restore_states]. [The RNG
-    streams reference][rng-streams] lists the names a session uses.
+    them back with [`restore_states`][osrlib.core.rng.RngStreams.restore_states]. The names a
+    session uses are the members of [`StreamName`][osrlib.core.rng.StreamName], also listed in
+    [the RNG streams reference][rng-streams].
 
     Examples:
         ```python
@@ -494,7 +534,9 @@ class RngStreams:
 
         Args:
             key: The stream's name, like `"combat"` or `"treasure"`. Any string works.
-                [The RNG streams reference][rng-streams] lists the ones a session uses.
+                The ones a session uses are the members of
+                [`StreamName`][osrlib.core.rng.StreamName], also listed in
+                [the RNG streams reference][rng-streams].
 
         Returns:
             The stream for that name, at whatever position it has reached. Asking twice

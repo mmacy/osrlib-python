@@ -364,8 +364,8 @@ class DetectionRolledEvent(Event):
     """What came up, or `None` when the chance was zero and no die was rolled, as for a character
     with no chance at all of noticing construction tricks."""
     passed: bool
-    """Whether the check succeeded. A failed check and a nothing-there cell are deliberately
-    indistinguishable from the player's side."""
+    """Whether the check succeeded. From the player's side, a failed check and a cell with nothing
+    in it look the same."""
 
 
 class SearchCompletedEvent(Event):
@@ -485,9 +485,8 @@ class ItemAcquiredEvent(Event):
     character_id: str
     """The member whose pack the goods went into."""
     item_ids: tuple[str, ...] = ()
-    """What was acquired, one entry per item: a catalog id for mundane gear, repeated when several
-    of the same thing arrived, and a session-scoped instance id for a valuable or a magic item, so
-    an unidentified item's true nature stays hidden."""
+    """What was acquired: a catalog id for mundane gear, and a session-scoped instance id for a
+    valuable or a magic item, so an unidentified item's true nature stays hidden."""
     coins_gp_value: int = 0
     """The coins acquired, converted to their value in gold pieces, and zero when only items
     changed hands."""
@@ -704,10 +703,12 @@ class ProvisionsEvent(Event):
     inside a [`Rest`][osrlib.crawl.commands.Rest].
 
     Going short starts a deprivation count on that member. Whether that count brings
-    a penalty depends on the ruleset option `deprivation_penalties`, described in
-    [the adaptations register](https://mmacy.github.io/osrlib-python/adaptations/),
-    the page that lists where osrlib settles an ambiguous rule or supplies a default.
-    In town nobody ever runs short.
+    a penalty depends on
+    [`Ruleset.deprivation_penalties`][osrlib.core.ruleset.Ruleset.deprivation_penalties],
+    which is off by default. [The adaptations
+    register](https://mmacy.github.io/osrlib-python/adaptations/), the page that lists
+    where osrlib settles an ambiguous rule or supplies a default, describes the
+    penalties. In town nobody ever runs short.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset(

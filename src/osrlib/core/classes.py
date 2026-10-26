@@ -2,8 +2,9 @@
 
 [`load_classes`][osrlib.data.load_classes] gives you the catalog of playable classes as frozen
 [`ClassDefinition`][osrlib.core.classes.ClassDefinition] models, compiled from the OSE SRD's class
-pages. Look one up by id with [`ClassCatalog.get`][osrlib.core.classes.ClassCatalog.get]. See
-[the class id index][classes-index] for the ids. Hand the definition you get to
+pages. Look one up by id with [`ClassCatalog.get`][osrlib.core.classes.ClassCatalog.get]. For
+the ids, iterate [`ClassCatalog.classes`][osrlib.core.classes.ClassCatalog] or see
+[the class id index][classes-index]. Hand the definition you get to
 [`create_character`][osrlib.core.character.create_character], and afterwards read it back off a
 character through [`definition`][osrlib.core.character.Character.definition].
 
@@ -18,7 +19,7 @@ the current level with [`ClassDefinition.row`][osrlib.core.classes.ClassDefiniti
 always get the values that match, which is why leveling up and being drained of levels both need
 only change the level.
 
-Advancement lives here. [`apply_xp`][osrlib.core.classes.apply_xp] is the one you usually want: it
+For advancement, [`apply_xp`][osrlib.core.classes.apply_xp] is the function you usually want: it
 applies the class's experience modifier, adds the award, and levels the character up when a
 threshold is crossed. [`level_up`][osrlib.core.classes.level_up] does the level gain on its own
 when the game hands out a level directly, and [`drain_levels`][osrlib.core.classes.drain_levels]
@@ -169,7 +170,6 @@ class SavingThrows(BaseModel):
     [`Character.saves`][osrlib.core.character.Character] or a monster's from
     [`MonsterInstance.saves`][osrlib.core.monsters.MonsterInstance]. The saving-throw procedures in
     [`osrlib.core.combat`][osrlib.core.combat] read them for you. Frozen.
-
     """
 
     model_config = ConfigDict(frozen=True)
@@ -268,7 +268,7 @@ class ArmourPolicyKind(StrEnum):
     """Any armour, which is what the cleric, dwarf, elf, fighter, and halfling wear."""
 
     LEATHER_ONLY = "leather_only"
-    """Leather armour and nothing heavier, which is the thief's limit."""
+    """Leather armour and nothing heavier, which is the thief's limit. The thief carries no shield either."""
 
     NONE = "none"
     """No armour at all, which is the magic-user's limit. Shields are out too."""
@@ -332,10 +332,10 @@ class WeaponPolicy(BaseModel):
     """
 
     weapon_ids: tuple[str, ...] = ()
-    """The weapon ids the policy lists, from [`load_equipment`][osrlib.data.load_equipment]. See
-    [the equipment id index][equipment-index]. The cleric's five blunt weapons are an example of a permitted list, and
-    the long bow and two-handed sword the dwarf and halfling are refused are an example of the other. Empty when the
-    class may use anything.
+    """The weapon ids the policy lists. Look each one up with [`load_equipment`][osrlib.data.load_equipment], or
+    see [the equipment id index][equipment-index] for every id. The cleric's five blunt weapons are an example of a
+    permitted list, and the long bow and two-handed sword the dwarf and halfling are refused are an example of the
+    other. Empty when the class may use anything.
     """
 
     manual_notes: tuple[str, ...] = ()
@@ -430,8 +430,8 @@ class ClassAbility(BaseModel):
 class ClassDefinition(BaseModel):
     """A playable character class: the template a [`Character`][osrlib.core.character.Character] plays.
 
-    Get one from [`load_classes`][osrlib.data.load_classes]`().get(class_id)`. See
-    [the class id index][classes-index] for the ids. A character stores only the id, and
+    Get one from [`load_classes`][osrlib.data.load_classes]`().get(class_id)`. For the ids, iterate
+    `load_classes().classes` or see [the class id index][classes-index]. A character stores only the id, and
     [`Character.definition`][osrlib.core.character.Character.definition] looks the definition back
     up, so read it from there rather than keeping a copy alongside.
 
@@ -596,8 +596,8 @@ class ClassCatalog(BaseModel):
         """Return the class with `class_id`.
 
         Args:
-            class_id: The id to look up, like `"fighter"`. See
-                [the class id index][classes-index] for all of them.
+            class_id: The id to look up, like `"fighter"`. Every id is on a definition in
+                `classes`, and [the class id index][classes-index] lists them.
 
         Returns:
             The class definition.
@@ -782,7 +782,7 @@ def level_up(character: Character, definition: ClassDefinition, stream: RngStrea
     rather than earned: building a character above first level, a referee's ruling, restoring a
     level a wight took.
 
-    Two things about the new level's progression row decide what the gain is, and they are read
+    Two settings on the new level's progression row determine what the gain is, and they are read
     separately. Whether a die is rolled depends on the row having more hit dice than the row below
     it: when it does, the character rolls one, and when it does not, the gain is the difference
     between the two rows' flat bonuses and no die is thrown. Whether the CON modifier counts
@@ -791,8 +791,9 @@ def level_up(character: Character, definition: ClassDefinition, stream: RngStrea
     [`con_applied`][osrlib.core.classes.LevelUpResult.con_applied] on the result reports which way it
     went.
 
-    For the built-in classes, both settings change over at name level, so a character rolls
-    with CON up to name level and takes a flat gain without CON after it. A class added as data can
+    For the built-in classes, both settings change at the first level past name level, the level
+    at which a character may build a stronghold. Up to name level a character rolls a die with CON,
+    and after it takes a flat gain without CON. A class added as data can
     set them independently, which is why the result reports them rather than leaving you to work
     one out from the other.
 
@@ -1001,7 +1002,7 @@ def thief_skill_check(
 
 
 def detection_check(chance_in_six: int, *, stream: RngStream) -> DetectionResult:
-    """Roll a chance-in-6 check: 1d6, succeeding at or under the chance.
+    """Roll 1d6 against a chance in 6, and succeed on a roll at or under the chance.
 
     This is the one roll behind searching a wall for a secret door, listening at a door, spotting
     a trap in a room, and a dwarf noticing that the stonework is wrong. Get the chance from
@@ -1180,15 +1181,17 @@ def drain_levels(
     than the level below it, the character throws that die and loses the result plus their CON
     modifier, at least 1, with CON counting only when that row's `con_applies` is set. When the
     two rows have the same number of dice, the loss is the difference between their flat bonuses
-    and no die is thrown. Rolling the die again is what lets the model stay stateless: a character
-    has no record of which dice built their hit points, so this function rolls a fresh one. THAC0,
+    and no die is thrown. A character has no record of which dice built their hit points, so this
+    function rolls a fresh die for each level lost rather than undoing the original roll. THAC0,
     saving throws, and spell capacity need nothing done to them, because they are read from the
     level.
 
     A character never drops below 1 maximum or 1 current hit point while they still have a level.
     Death comes only from losing the last one, which is the SRD's person drained of all levels: the
-    result reports `slain`, the events include the death, and any spells that no longer fit the
-    shrunken capacity are forgotten newest first.
+    result reports `slain` and a `new_level` of 0, and the events include the death. The
+    character's stored level stays at 1, because the model doesn't allow a level below 1, and their
+    experience becomes 0. A drained character who survives forgets, newest first, any memorized spells that
+    no longer fit the smaller spell capacity.
 
     Experience is rewritten once, after every level is taken. Under `"halfway"` the character keeps
     the midpoint between the threshold they had reached and the one they fell back to. Under
