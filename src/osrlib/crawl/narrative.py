@@ -32,7 +32,7 @@ The three audiences are:
   whose display beat the players never see: a trigger's `fired` text is included on a
   referee-visibility event, so write the line meant for the table here.
 - LLM guidance, steering for a narrating front end that is never displayed as written.
-  It's as trusted as an area's description, which narration already uses.
+  A narrator can treat it as authored content, the same as an area's description, which narration already uses.
 
 Which beats are read, and who may see them, depends on the object it's attached to. The block has no
 visibility setting. Authored text that reaches a player is included on a player-visible

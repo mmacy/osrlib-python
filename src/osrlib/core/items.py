@@ -154,10 +154,10 @@ MAX_RINGS_WORN = 2
 
 [`validate_equip`][osrlib.core.items.validate_equip] rejects a third ring with
 `items.ring.hands_full` rather than letting it on, because in the tabletop rules a
-third ring makes none of them function. Only `validate_equip` reads this constant. If
-you raise it, a third ring can be worn and grants its bonuses like the other two,
-because nothing applies the rule that a third ring stops them all working. Apply your own cap before you call
-[`equip`][osrlib.core.items.equip] if you want more ring slots.
+third ring makes none of them function. Only `validate_equip` reads this constant, and
+[`equip`][osrlib.core.items.equip] calls `validate_equip`, so this value is the number of rings
+`equip` accepts. If it were higher, a third ring could be worn and would grant its bonuses
+like the other two, because nothing applies the rule that a third ring stops them all working.
 """
 
 MAX_LOAD_COINS = 1600

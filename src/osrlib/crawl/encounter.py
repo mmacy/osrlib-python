@@ -985,7 +985,7 @@ def end_encounter(session, outcome: str) -> list[Event]:
     [`MonsterDefeatedEvent`][osrlib.crawl.events.MonsterDefeatedEvent] and a record on
     `session.defeated_monsters` with its experience value. Slain monsters drop the treasure they
     carried onto the party's cell as a pile, and routed ones take theirs away. Every effect still
-    running on any of the encounter's monsters then releases, because the fiction moves on and a dead
+    running on any of the encounter's monsters then releases, because the encounter is over and a dead
     troll's pending revival is narration rather than game state. Under a ruleset that
     awards experience immediately, the pooled experience divides and applies here and the record list
     clears with it. Otherwise the records wait for the party's return to town.

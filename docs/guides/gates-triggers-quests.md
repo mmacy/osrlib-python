@@ -82,7 +82,7 @@ The interpreter issues ordinary referee commands, and stamps every one `source="
 
 A consequence is one of the [`ConsequenceCommand`][osrlib.crawl.commands.ConsequenceCommand] types: `GrantItem`, `GrantCoins`, `AwardXP`, `SetFlag`, `SpawnMonsters`, `SpawnNpcParty`, `SetDoorState`, `PlaceParty`, and `AdvanceTime`. Anything else fails to parse. A consequence that hands something to a character identifies the character with a party selector instead of an id: [`PARTY_SELECTOR`][osrlib.crawl.triggers.PARTY_SELECTOR] (`"@party"`) becomes one command per living member in marching order, and [`FIRST_LIVING_SELECTOR`][osrlib.crawl.triggers.FIRST_LIVING_SELECTOR] (`"@first"`) becomes one command for the lead survivor. Character ids are allocated per session, so an id in a document would refer to a character that doesn't exist when the engine reads the document. Validation rejects it.
 
-The two beats have two different audiences: **`fired` is the referee's line and `journal` is the players'.** The `fired` text goes on a referee-visibility event, because these connections are your game's secret. The journal entry is player-visible and appears verbatim in the [`PlayerView`][osrlib.crawl.views.PlayerView]. If you want the table to read something when a trigger fires, write the journal form.
+The two beats have two different audiences: **`fired` is the referee's line and `journal` is the players'.** The `fired` text goes on a referee-visibility event, because the players aren't meant to see these connections. The journal entry is player-visible and appears verbatim in the [`PlayerView`][osrlib.crawl.views.PlayerView]. If you want the table to read something when a trigger fires, write the journal form.
 
 ### When a consequence fails
 
@@ -92,7 +92,7 @@ Cascades are bounded. The events a trigger causes are one level deeper than the 
 
 ## Authoring a quest
 
-A trigger fires once and it's done. A quest tracks progress: it has a state the engine manages, objectives that complete in any order, and an ending. You author a [`QuestSpec`][osrlib.crawl.quests.QuestSpec] beside the triggers, in the same adventure document, and the same [`Interpreter`][osrlib.crawl.interpreter.Interpreter] runs it, so you register nothing extra. `Adventure.quests` is document order too, and the interpreter walks an event's triggers before its quests, so a trigger's consequences have already run by the time the interpreter checks a quest's clauses against the same event.
+A trigger reacts to an event and has no progress to track. A quest tracks progress: it has a state the engine manages, objectives that complete in any order, and an ending. You author a [`QuestSpec`][osrlib.crawl.quests.QuestSpec] beside the triggers, in the same adventure document, and the same [`Interpreter`][osrlib.crawl.interpreter.Interpreter] runs it, so you register nothing extra. `Adventure.quests` is document order too, and the interpreter walks an event's triggers before its quests, so a trigger's consequences have already run by the time the interpreter checks a quest's clauses against the same event.
 
 Quests use the same patterns and conditions as triggers. Wherever a quest tests whether something happened, it tests with a [`TriggerClause`][osrlib.crawl.quests.TriggerClause]: one of the patterns above, plus the conditions that must hold when the pattern matches. The field is `pattern` rather than `when`, so an objective's completion clause reads `objective.when.pattern`.
 
@@ -323,4 +323,4 @@ assert len(session.monsters) == 2
 - [The TUI crawler](../front-ends/tui-crawler.md) - the fetch quest this page shows, in its full adventure context: a two-level barrow, a concluding quest, and the victory ending.
 - [Sessions, commands, and events](sessions-commands-events.md) - the lifecycle commands the interpreter issues, and the victory mode a concluding quest enters.
 - [Determinism, saves, and replay](determinism-saves-replay.md) - how trigger marks, the journal, and quest state survive a save and rebuild under replay.
-- [Views and visibility](views-and-visibility.md) - what a quest projects into the player view, and what stays the game's secret.
+- [Views and visibility](views-and-visibility.md) - what a quest projects into the player view, and what stays hidden from the players.

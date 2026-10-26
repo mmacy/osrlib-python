@@ -34,9 +34,9 @@ function in [`osrlib.core.combat`][osrlib.core.combat] or
 [`morale_triggers`][osrlib.core.combat.morale_triggers], and
 [`cast_spell`][osrlib.core.spells.cast_spell]. What this module adds to them is the ordering, the state
 it hands each of them (the RNG streams, the effects ledger, the clock, the entity registry), the
-range track the kernel has no notion of, and the party's formation. Call those
+range track, which the kernel doesn't model, and the party's formation. Call those
 kernel functions directly when you want one resolution and no session at all. The guide on using the
-rules without a session walks that path.
+rules without a session shows how.
 
 The combat space is the abstract per-group range track, the Bard's Tale convention, as a documented
 adaptation (see the

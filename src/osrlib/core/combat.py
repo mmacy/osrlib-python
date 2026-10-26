@@ -1710,7 +1710,7 @@ def deal_damage(
     and describe it with a [`DamageSource`][osrlib.core.combat.DamageSource]. This
     function draws no dice unless a destructive kill makes magic items save.
 
-    What it does, in order. Divisor reductions from the target's defenses apply first,
+    It works in this order. Divisor reductions from the target's defenses apply first,
     like the wraith's half-from-silver and the mummy's half-from-everything, each flooring
     at 1. Then element-scoped per-die reductions, which take 1 point per damage die rolled
     and never take a die below 1, so a source that rolled no dice has nothing to reduce.
@@ -1790,10 +1790,9 @@ def deal_damage(
     already_dead = has_condition(target, Condition.DEAD)
     target.current_hp = max(0, target.current_hp - amount)
     if clock is not None and hasattr(target, "last_damaged_round"):
-        # The round stamp and the non-regenerable ledger below are a monster instance's
-        # alone. What proves the target is one, this `hasattr` and the regeneration
-        # ability, is invisible to the type checker, so each use casts to the type the
-        # branch already established.
+        # Only a monster instance has the round stamp and the non-regenerable ledger below.
+        # The type checker can't see that this `hasattr` and the regeneration ability prove
+        # the target is one, so each use casts to the type the branch already established.
         cast(MonsterInstance, target).last_damaged_round = clock.rounds
     regeneration = _monster_ability_params(target, "regeneration")
     blocked = False
@@ -2900,7 +2899,7 @@ def apply_healing(target: Creature, amount: int, *, source: str = "magical") -> 
     of rest, call [`natural_healing`][osrlib.core.combat.natural_healing] instead, which
     rolls the 1d3 and applies the diseases that slow it.
 
-    What blocks healing. The dead can't be healed. Mummy rot blocks magical healing, so a
+    Several things block healing. The dead can't be healed. Mummy rot blocks magical healing, so a
     diseased target gets the blocked event and heals nothing from a `magical` source.
     Instantaneous healing counts as magical healing, which is why `magical` is the default:
     a cure spell that doesn't pass `source` still follows the rot rule. The weakness
@@ -3301,7 +3300,7 @@ def select_targets(
     resolution follows, like [`saving_throw`][osrlib.core.combat.saving_throw] or
     [`deal_damage`][osrlib.core.combat.deal_damage].
 
-    How each mode chooses, from [`TargetingMode`][osrlib.core.combat.TargetingMode].
+    Each mode of [`TargetingMode`][osrlib.core.combat.TargetingMode] chooses its targets this way.
     `self` and `single` take the first candidate. `up_to_n` takes the first N in your
     order, with N either the fixed `count` or the rolled `count_dice`, which is where
     *hold person*'s 1d4 comes from. `area` and `gaze` take every candidate. `hd_budget`
