@@ -11,8 +11,8 @@ duration) attaches to the [`EffectsLedger`][osrlib.core.effects.EffectsLedger] i
 functions here take the spell catalog [`load_spells`][osrlib.data.load_spells] returns, mutate the
 caster and the ledger, and hand you back events.
 
-If you run a game session rather than the rules on their own, the crawl layer has already wrapped
-this module and you call it instead: [`PrepareSpells`][osrlib.crawl.commands.PrepareSpells],
+If you run a game session rather than the rules on their own, the crawl layer wraps this module,
+and you execute its commands instead. [`PrepareSpells`][osrlib.crawl.commands.PrepareSpells],
 [`LearnSpell`][osrlib.crawl.commands.LearnSpell], [`CastSpell`][osrlib.crawl.commands.CastSpell],
 and [`TurnUndead`][osrlib.crawl.commands.TurnUndead] call these functions once the session's
 checks have passed (a night's sleep before preparation, light to read by, the right session mode).
@@ -282,7 +282,7 @@ class DurationSpec(BaseModel):
     unit: TimeUnit | None = None
     """The time unit a `fixed` duration counts in, as a [`TimeUnit`][osrlib.core.clock.TimeUnit].
 
-    Rounds, turns, hours, or days. `None` on every other kind.
+    Rounds, turns, or days. `None` on every other kind.
     """
 
     amount: int | None = None
@@ -423,7 +423,8 @@ class TargetingSpec(BaseModel):
 
     `self` takes no targets, `single` takes exactly one, `up_to_n` a bounded group, `hd_budget` as
     many creatures as a rolled pool of Hit Dice pays for, `area` everything you supply as covered by
-    the shape, and `gaze` the gaze-attack form.
+    the shape, and `gaze` every candidate you supply, for a gaze that reaches everyone engaged with
+    the gazer.
     """
 
     count: int | None = None
@@ -600,7 +601,7 @@ class SpellMode(BaseModel):
     [`SpellTemplate.modes`][osrlib.core.spells.SpellTemplate], or one by key from
     [`SpellTemplate.mode`][osrlib.core.spells.SpellTemplate.mode].
 
-    A mode is either automated or manual, and the difference decides what casting does for you. An
+    A mode is either automated or manual, and the difference determines what casting does for you. An
     automated mode has both `targeting` and `effect`, and osrlib resolves it: it picks the targets,
     rolls the saves and the dice, applies the outcome, and attaches whatever runs on. A manual mode
     is marked `manual=True` and often has no targeting at all, because the SRD page gives it no
@@ -758,8 +759,8 @@ class SpellTemplate(BaseModel):
 
     A handful of concepts appear in the SRD as a cleric page and a magic-user page that differ
     mechanically. Each such pair compiles as two entries, the cleric one suffixed `_c` and the
-    magic-user one `_mu`: `"light_c"` and `"light_mu"`. For the ids the built-in catalog uses, see
-    [the spell id index][spells-index].
+    magic-user one `_mu`: `"light_c"` and `"light_mu"`. For the ids the built-in catalog uses,
+    iterate [`load_spells`][osrlib.data.load_spells]`().spells` or see [the spell id index][spells-index].
     """
 
     name: str = Field(min_length=1)
@@ -943,9 +944,9 @@ class SpellCatalog(BaseModel):
         [`cast_spell`][osrlib.core.spells.cast_spell].
 
         Args:
-            spell_id: The spell's id, like `"fire_ball"` or `"hold_person_c"`. Ids come from the
-                catalog itself, and the full set in the built-in catalog is
-                [the spell id index][spells-index].
+            spell_id: The spell's id, like `"fire_ball"` or `"hold_person_c"`. Iterate `spells`
+                for every id in this catalog, or see [the spell id index][spells-index] for the
+                built-in ones.
 
         Returns:
             The [`SpellTemplate`][osrlib.core.spells.SpellTemplate].
@@ -1042,7 +1043,8 @@ class MemorizedSpell(BaseModel):
     spell_id: str = Field(min_length=1)
     """The spell's id, from [`load_spells`][osrlib.data.load_spells].
 
-    For the ids the built-in catalog uses, see [the spell id index][spells-index].
+    For the ids the built-in catalog uses, iterate [`load_spells`][osrlib.data.load_spells]`().spells` or see
+    [the spell id index][spells-index].
     """
 
     reversed: bool = False
@@ -1143,7 +1145,6 @@ class MemorizationResult(BaseModel):
     what, and nothing was changed at all. Check
     [`accepted`][osrlib.core.spells.MemorizationResult.accepted] rather than testing either tuple
     yourself.
-
     """
 
     model_config = ConfigDict(frozen=True)
@@ -1308,7 +1309,6 @@ class SpellBookResult(BaseModel):
     it, or it did not and `rejections` gives the reason, with the book unchanged. Check
     [`accepted`][osrlib.core.spells.SpellBookResult.accepted] rather than testing either tuple
     yourself.
-
     """
 
     model_config = ConfigDict(frozen=True)
@@ -1436,8 +1436,9 @@ def add_spell_to_book(
             [`ClassDefinition`][osrlib.core.classes.ClassDefinition] from
             [`load_classes`][osrlib.data.load_classes].
         catalog: The spell catalog, from [`load_spells`][osrlib.data.load_spells].
-        spell_id: The spell to write in. For the ids the built-in catalog uses, see
-            [the spell id index][spells-index].
+        spell_id: The spell to write in. For the ids the class may learn, call
+            [`SpellCatalog.by_list`][osrlib.core.spells.SpellCatalog.by_list], or see
+            [the spell id index][spells-index] for every built-in id.
 
     Returns:
         A [`SpellBookResult`][osrlib.core.spells.SpellBookResult]: the book-updated event on
@@ -1619,6 +1620,34 @@ class CastContext(BaseModel):
     assert no distance, and *raise dead* raises nobody if you assert no elapsed days. osrlib
     doesn't guess: it leaves a rule alone until you supply what it needs.
 
+    Examples:
+        ```python
+        from osrlib.core.alignment import Alignment
+        from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character
+        from osrlib.core.rng import RngStreams
+        from osrlib.core.ruleset import Ruleset
+        from osrlib.core.spells import CastContext, MemorizedSpell, caster_profile, memorize_spells, validate_cast
+        from osrlib.data import load_classes, load_spells
+
+        catalog = load_spells()
+        definition = load_classes().get("magic_user")
+        zelia = create_character(
+            name="Zelia",
+            class_id="magic_user",
+            alignment=Alignment.NEUTRAL,
+            ruleset=Ruleset(),
+            stream=RngStreams(master_seed=5).get(CHARACTER_CREATION_STREAM),
+            starting_spell_ids=["sleep"],
+        ).character
+        memorize_spells(zelia, definition, catalog, [MemorizedSpell(spell_id="sleep")])
+        profile = caster_profile(definition)
+        sleep = catalog.get("sleep")
+
+        # Her captors have gagged her, so she can't speak the words.
+        refused = validate_cast(zelia, sleep, "hd_budget", profile=profile, context=CastContext(gagged=True))
+        print([(rejection.code, rejection.params["restraint"]) for rejection in refused])
+        # [('magic.cast.caster_restrained', 'gagged')]
+        ```
     """
 
     model_config = ConfigDict(frozen=True)
@@ -1663,7 +1692,7 @@ class CastContext(BaseModel):
     """Entity ids mapped to `"augmented"` or `"giant"`, for *web*.
 
     A stronger creature tears free sooner. Anyone you do not name tears free at normal strength. It
-    is asserted here because osrlib has no effect that grants giant strength yet.
+    is asserted here because no osrlib effect grants giant strength.
     """
 
 
@@ -1741,11 +1770,10 @@ def validate_cast(
     fail, so a cast you validated and then made cannot be refused.
 
     Nothing here draws from an RNG stream, changes the caster, or touches the ledger, so asking is
-    free and leaves no trace. That is also why it doesn't check whether a target is the kind of
-    creature the spell affects. Resolution settles that, not this check, because a validator that
-    rejected *charm person* aimed at a disguised doppelganger would be a free way to find out what
-    the doppelganger is. Such a cast is legal, resolves, spends the
-    copy, and affects nobody.
+    free and leaves no trace. It also doesn't check whether a target is the kind of creature the
+    spell affects. Resolution settles that, because a validator that rejected *charm person* aimed
+    at a disguised doppelganger would be a free way to find out what the doppelganger is. Such a
+    cast is legal, resolves, spends the copy, and affects nobody.
 
     What it does check: that the caster is in a state to cast at all, which rules out dead,
     petrified, paralysed, asleep, silenced, feebleminded, and weakened casters as well as bound or
@@ -1917,7 +1945,6 @@ class CastResult(BaseModel):
     nobody, because no candidate was eligible or every target saved. In both cases the copy is gone.
     Nothing is refunded once a cast resolves: a refund would tell the player something they had no
     way to know, like the fact that the creature they aimed at was immune.
-
     """
 
     model_config = ConfigDict(frozen=True)
@@ -2047,9 +2074,9 @@ def cast_spell(
         ruleset: The [`Ruleset`][osrlib.core.ruleset.Ruleset] in play, read for the optional rules
             that touch attack rolls and damage.
         stream: The [`RngStream`][osrlib.core.rng.RngStream] every draw the cast makes comes from,
-            conventionally [`MAGIC_STREAM`][osrlib.core.spells.MAGIC_STREAM].
+            conventionally `streams.get(`[`MAGIC_STREAM`][osrlib.core.spells.MAGIC_STREAM]`)`.
         effects_stream: The stream that attaching effects draw from, conventionally
-            [`EFFECTS_STREAM`][osrlib.core.effects.EFFECTS_STREAM].
+            `streams.get(`[`EFFECTS_STREAM`][osrlib.core.effects.EFFECTS_STREAM]`)`.
 
     Returns:
         The [`CastResult`][osrlib.core.spells.CastResult]: what was reached, and every event, in
@@ -2274,8 +2301,8 @@ def minimum_caster_level(spell: SpellTemplate) -> int:
     of that spell's level, read off the compiled class progressions. So the answer changes if you add
     a class whose progression reaches that spell level sooner.
 
-    The tabletop rules do not say what level a scroll's spell was inscribed at. osrlib reads a
-    scroll at the lowest level that could cast it, so a scroll's spell is never stronger than the
+    The tabletop rules do not say what level a scroll's spell was inscribed at. osrlib resolves a
+    scroll's spell at the lowest level that could cast it, so a scroll's spell is never stronger than the
     same spell cast by the lowest-level caster able to cast it. A game that wants scrolls to have a
     different caster level resolves them with [`cast_spell`][osrlib.core.spells.cast_spell] against a
     caster of that level instead.
@@ -2481,9 +2508,9 @@ def cast_from_scroll(
             [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] objects.
         ruleset: The [`Ruleset`][osrlib.core.ruleset.Ruleset] in play.
         stream: The [`RngStream`][osrlib.core.rng.RngStream] the cast's draws come from,
-            conventionally [`MAGIC_STREAM`][osrlib.core.spells.MAGIC_STREAM].
+            conventionally `streams.get(`[`MAGIC_STREAM`][osrlib.core.spells.MAGIC_STREAM]`)`.
         effects_stream: The stream that attaching effects draw from, conventionally
-            [`EFFECTS_STREAM`][osrlib.core.effects.EFFECTS_STREAM].
+            `streams.get(`[`EFFECTS_STREAM`][osrlib.core.effects.EFFECTS_STREAM]`)`.
 
     Returns:
         The [`CastResult`][osrlib.core.spells.CastResult]: what was reached, and every event, in
@@ -2586,8 +2613,9 @@ def disrupt_casting(caster: Caster, spell_id: str, *, reversed: bool = False) ->
     Args:
         caster: The [`Caster`][osrlib.core.creature.Caster] who was interrupted, which a
             [`Character`][osrlib.core.character.Character] satisfies. Its `memorized_spells` loses one copy.
-        spell_id: The id of the spell they had declared. For the ids the built-in catalog uses, see
-            [the spell id index][spells-index].
+        spell_id: The id of the spell they had declared, as it appears on a
+            [`MemorizedSpell`][osrlib.core.spells.MemorizedSpell] in the caster's `memorized_spells`.
+            See [the spell id index][spells-index] for every built-in id.
         reversed: True when the declared cast was of the reversed form.
 
     Returns:
@@ -3346,7 +3374,7 @@ def pop_mirror_image(
     """Destroy one of a caster's mirror images.
 
     *Mirror image* surrounds its caster with illusory duplicates, and an attack on the caster
-    destroys one of them whether or not the attack lands. Nothing in this module notices attacks, so
+    destroys one of them whether or not the attack hits. Nothing in this module notices attacks, so
     call this once for every attack aimed at a caster who has the spell running, before or after you
     resolve the attack itself.
 
@@ -3448,7 +3476,6 @@ class TurnUndeadResult(BaseModel):
     You get one back from [`turn_undead`][osrlib.core.spells.turn_undead]. The attempt always
     happened, so there is no accepted flag here. Read `outcomes` to explain the result and
     `affected_ids` to know who to move.
-
     """
 
     model_config = ConfigDict(frozen=True)
@@ -3596,7 +3623,8 @@ def turn_undead(
 
     Pass any monsters you like as candidates. A candidate that is not undead resolves as unaffected
     rather than rejecting the attempt, which keeps a turning attempt from doubling as a free way to
-    find out what is undead.
+    find out what is undead. A candidate that is already dead still counts toward its kind's
+    verdict, but the Hit Dice pool skips it.
 
     Args:
         cleric: The [`Caster`][osrlib.core.creature.Caster] turning, which a
@@ -3617,16 +3645,18 @@ def turn_undead(
             [`Character`][osrlib.core.character.Character] and
             [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] objects.
         stream: The [`RngStream`][osrlib.core.rng.RngStream] both 2d6 rolls come from,
-            conventionally [`MAGIC_STREAM`][osrlib.core.spells.MAGIC_STREAM]. Both rolls are on the
-            player-visible event, because in B/X the player rolls them.
+            conventionally `streams.get(`[`MAGIC_STREAM`][osrlib.core.spells.MAGIC_STREAM]`)`. Both
+            rolls are on the player-visible event, because in B/X the player rolls them.
 
     Returns:
         The [`TurnUndeadResult`][osrlib.core.spells.TurnUndeadResult]: the dice, the verdict per
         kind, who was reached, and every event.
 
     Raises:
-        ValueError: If the character cannot turn undead at all. Ask
-            [`validate_turn_undead`][osrlib.core.spells.validate_turn_undead] first.
+        ValueError: If [`validate_turn_undead`][osrlib.core.spells.validate_turn_undead] refuses the
+            attempt: the class can't turn undead, or the cleric is dead, petrified, paralysed,
+            asleep, or weakened. Nothing is rolled before the refusal. Ask `validate_turn_undead`
+            first to get the reason as a rejection instead.
 
     Examples:
         ```python

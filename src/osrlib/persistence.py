@@ -1,8 +1,7 @@
 """Save a game, load it back, or rebuild it by replaying what the player did.
 
-Two ways lead from a stored game to a running
-[`GameSession`][osrlib.crawl.session.GameSession], and they reach the same place. The
-module has these members:
+A stored game becomes a running [`GameSession`][osrlib.crawl.session.GameSession] in one of
+two ways, load or replay, and both produce the same session. The module has these members:
 
 - [`save_game`][osrlib.persistence.save_game]: a session in, a save document out.
 - [`load_game`][osrlib.persistence.load_game]: a save document in, a session ready to
@@ -54,7 +53,7 @@ the format this library reads. Its `engine_version` is what guards replay, becau
 commands under different rules can produce a different game.
 [`replay_game`][osrlib.persistence.replay_game] refuses that with
 [`ReplayVersionError`][osrlib.errors.ReplayVersionError] when you give it the recorded
-version to compare. Loading a save across engine versions stays fine, since a load reads
+version to compare. Loading a save works across engine versions, because a load reads
 state rather than re-deriving it.
 
 Typical usage:
@@ -616,8 +615,9 @@ def replay_game(
         ReplayVersionError: If `recorded_engine_version` is given and doesn't match the
             running [`engine_version`][osrlib.versioning.engine_version]. Load the save
             instead, which works across engine versions.
-        ContentValidationError: If `party_document` isn't a valid party document, if a
-            logged command is of a type this version doesn't recognize or its fields don't fit
+        ContentValidationError: If `party_document` isn't a valid party document, if
+            `adventure` fails the checks [`GameSession.new`][osrlib.crawl.session.GameSession.new]
+            runs, if a logged command is of a type this version doesn't recognize or its fields don't fit
             that type, or if a logged command is refused this time. The log contains only
             commands that were accepted the first time, so a refusal means the replay has
             diverged from the game it was meant to reproduce. Check that you passed the

@@ -22,12 +22,12 @@ of this, because the session reads the tables for you in combat, encounters, and
 for the module when you're building a tool, checking custom content, or running the rules
 without a session.
 
-The attack matrix that comes with osrlib matches the SRD cell for cell, and every cell works out to
-`THAC0 − AC` limited to the range 2 to 20. The printed columns run −3 to 9, and an armour class
-outside them follows the same arithmetic, so an armour class the page never prints still
-has an answer. That clamping is what separates the matrix from the `thac0_arithmetic`
-flag on [`Ruleset`][osrlib.core.ruleset.Ruleset], and it shows only once modifiers push a
-total past the ends.
+The attack matrix that comes with osrlib matches the SRD cell for cell. Every cell equals
+`THAC0 − AC`, kept within 2 to 20. The printed columns run from −3 to 9, and an armour class
+outside them follows the same arithmetic, so every armour class has an answer. The 2-to-20
+limit is the one difference between the matrix and the `thac0_arithmetic` flag on
+[`Ruleset`][osrlib.core.ruleset.Ruleset], which subtracts without it. The two disagree only
+when modifiers push the number needed past either end.
 
 A monster's stat block includes its THAC0 and saving throws, already reflecting the
 rule that bonus hit points make a monster attack as though it had one more Hit Die. The
@@ -119,7 +119,7 @@ _XP_INFLATION_PER_HD_ABOVE_21 = 250
 
 
 class AttackMatrixRow(BaseModel):
-    """One row of the attack matrix: everything one class of attacker needs to hit.
+    """One row of the attack matrix, with the roll one class of attacker needs against each armour class.
 
     Read these to draw the matrix. To find a number to roll, call
     [`to_hit_ac`][osrlib.core.tables.to_hit_ac] instead, which works for any armour class
@@ -151,7 +151,7 @@ class AttackMatrixRow(BaseModel):
 
 
 class AttackMatrix(BaseModel):
-    """The SRD's attack matrix: what every class of attacker needs to roll against every armour class.
+    """The SRD's attack matrix, with the roll every class of attacker needs against every armour class.
 
     Read it off [`CombatTables.attack_matrix`][osrlib.core.tables.CombatTables] to show the
     table. The rest of the time call [`to_hit_ac`][osrlib.core.tables.to_hit_ac], which
@@ -161,7 +161,7 @@ class AttackMatrix(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     rows: tuple[AttackMatrixRow, ...]
-    """The rows, worst attacker first, each one better than the last."""
+    """The rows, worst attacker first. Each row's THAC0 is lower than the row before it."""
 
     @model_validator(mode="after")
     def _rows_descend_by_thac0(self) -> AttackMatrix:
@@ -197,7 +197,7 @@ class MonsterSaveBand(BaseModel):
 
 
 class TurningResult(BaseModel):
-    """The turning table's result when a cleric of a given level faces undead of a given kind.
+    """What happens when a cleric of a given level tries to turn undead of a given kind.
 
     [`TurningTable.result`][osrlib.core.tables.TurningTable.result] returns one. Act on
     `outcome`: with `"number"` you roll 2d6 and compare it with `threshold`, and the other
@@ -257,7 +257,7 @@ class TurningRow(BaseModel):
 
 
 class TurningTable(BaseModel):
-    """The turning-undead table: what a cleric of each level can do to undead of each kind.
+    """The turning-undead table, which says what a cleric of each level can do to undead of each kind.
 
     Get it from [`CombatTables.turning`][osrlib.core.tables.CombatTables] and call
     [`result`][osrlib.core.tables.TurningTable.result]. Turning is a cleric ability,
@@ -362,8 +362,8 @@ class ReactionResult(StrEnum):
     The result is how the monsters respond to the party. Fighting, talking, and buying
     them off are what you do next.
 
-    The lowercase values serialize into events and saved games. Changing one is a
-    `schema_version` bump, the version stamp that identifies a serialized model's structure.
+    The lowercase values appear in events and saved games, so you can store them and
+    compare against them.
     """
 
     ATTACKS = "attacks"
@@ -383,7 +383,7 @@ class ReactionResult(StrEnum):
 
 
 class ReactionBand(BaseModel):
-    """One band of the reaction table: a range of 2d6 totals and what it means.
+    """One band of the reaction table, which maps a range of 2d6 totals to a reaction.
 
     Read these to show the table. To resolve a roll, call
     [`reaction_result`][osrlib.core.tables.reaction_result].
@@ -423,7 +423,7 @@ class ReactionBand(BaseModel):
 
 
 class ReactionTable(BaseModel):
-    """The monster reaction table: how a 2d6 total decides the way a meeting starts.
+    """The monster reaction table, which turns a 2d6 total into how a meeting starts.
 
     Get it from [`CombatTables.reaction`][osrlib.core.tables.CombatTables] and pass it to
     [`reaction_result`][osrlib.core.tables.reaction_result] with your rolled total.
@@ -432,7 +432,7 @@ class ReactionTable(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     bands: tuple[ReactionBand, ...]
-    """The five bands, worst reaction first, covering every total with no gap between them."""
+    """The bands, worst reaction first. Together they cover every total, with no gaps."""
 
     @model_validator(mode="after")
     def _bands_must_be_contiguous(self) -> ReactionTable:
@@ -449,7 +449,7 @@ class ReactionTable(BaseModel):
 def reaction_result(table: ReactionTable, total: int) -> ReactionResult:
     """Read a rolled reaction total off the table.
 
-    Roll 2d6, add the party spokesman's charisma modifier from
+    Roll 2d6, add the charisma modifier of the character who speaks for the party from
     [`AbilityTables.npc_reaction_modifier`][osrlib.core.abilities.AbilityTables.npc_reaction_modifier],
     and pass the total here. A modified total below 2 or above 12 is fine: the outer bands
     are open, so nothing falls off the ends of the table.
@@ -537,10 +537,12 @@ class NpcPartyEncounterEntry(BaseModel):
     """The part of an encounter-table row that calls for a rival adventuring party.
 
     A few rows of the printed tables call for other adventurers rather than monsters.
-    Roll the party's size from
-    [`EncounterTables.npc_compositions`][osrlib.core.tables.EncounterTables.npc_compositions], then
-    generate the party with [`osrlib.core.npc`][osrlib.core.npc], which rolls each member's class and
-    level, and their scores and gear.
+    Roll the party's size from the `count_dice` of the matching entry in
+    [`EncounterTables.npc_compositions`][osrlib.core.tables.EncounterTables.npc_compositions].
+    Then pass `party_kind` and that size to
+    [`generate_npc_party`][osrlib.core.npc.generate_npc_party], which rolls each member's class,
+    level, scores, and gear. In a session,
+    [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] does both steps.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -719,8 +721,9 @@ def select_encounter_individuals(entry: MonsterEncounterEntry, count: int, strea
 class NpcClassLevelRow(BaseModel):
     """One d8 result on the table that decides an NPC adventurer's class and level.
 
-    [`osrlib.core.npc`][osrlib.core.npc] rolls on this table for you when it builds a
-    party, so read the rows only to show the table or to generate a party your own way.
+    [`generate_npc_party`][osrlib.core.npc.generate_npc_party] rolls on this table for you
+    for each member, so read the rows only to show the table or to generate a party your
+    own way.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -731,7 +734,8 @@ class NpcClassLevelRow(BaseModel):
     class_id: str
     """The class this result generates, as an id like `"cleric"` or `"fighter"`.
 
-    See [the class id index][classes-index].
+    Get every class id from [`load_classes`][osrlib.data.load_classes], or see
+    [the class id index][classes-index].
     """
 
     basic_dice: str
@@ -748,7 +752,15 @@ class NpcClassLevelRow(BaseModel):
 
 
 class NpcAlignmentBand(BaseModel):
-    """One d6 band of the table that decides an NPC adventuring party's alignment."""
+    """One d6 band of the table that decides an NPC adventuring party's alignment.
+
+    The bands are in
+    [`EncounterTables.npc_alignment`][osrlib.core.tables.EncounterTables.npc_alignment]. Roll
+    a d6 and take the band whose `roll_min` to `roll_max` range contains the result. The
+    whole party shares that alignment.
+    [`generate_npc_party`][osrlib.core.npc.generate_npc_party] rolls this for you, so read the
+    bands only to show the table or to generate a party your own way.
+    """
 
     model_config = ConfigDict(frozen=True)
 
@@ -759,12 +771,31 @@ class NpcAlignmentBand(BaseModel):
     """The highest d6 result in this band."""
 
     alignment: str
-    """The alignment this band gives, as the serialized value of an
-    [`Alignment`][osrlib.core.alignment.Alignment], like `"lawful"`."""
+    """The alignment this band gives, as the value of an
+    [`Alignment`][osrlib.core.alignment.Alignment], like `"lawful"`. Pass it to `Alignment` to get
+    the enum member."""
 
 
 class NpcPartyComposition(BaseModel):
-    """How many adventurers an NPC party of one kind has."""
+    """The dice that decide how many adventurers an NPC party of one kind has.
+
+    Find the entry for the kind an
+    [`NpcPartyEncounterEntry`][osrlib.core.tables.NpcPartyEncounterEntry] asks for in
+    [`EncounterTables.npc_compositions`][osrlib.core.tables.EncounterTables.npc_compositions],
+    roll its `count_dice` with [`roll`][osrlib.core.dice.roll], and pass the total as `count`
+    to [`generate_npc_party`][osrlib.core.npc.generate_npc_party].
+
+    ```python
+    from osrlib.core.dice import roll
+    from osrlib.core.rng import RngStreams
+    from osrlib.data import load_encounter_tables
+
+    stream = RngStreams(master_seed=3).get("encounter")
+    composition = next(entry for entry in load_encounter_tables().npc_compositions if entry.kind == "basic")
+    size = roll(composition.count_dice, stream).total
+    assert 5 <= size <= 8
+    ```
+    """
 
     model_config = ConfigDict(frozen=True)
 
@@ -782,15 +813,17 @@ class NpcPartyComposition(BaseModel):
 
 
 class EncounterTables(BaseModel):
-    """Every dungeon encounter table, and the tables that build a rival adventuring party.
+    """Every dungeon encounter table, and the tables that build an NPC adventuring party.
 
     Get it from [`load_encounter_tables`][osrlib.data.load_encounter_tables]. The way in is
     [`for_level`][osrlib.core.tables.EncounterTables.for_level], which picks the table for
     the dungeon level the party is on.
 
     A [`GameSession`][osrlib.crawl.session.GameSession] rolls wandering monsters for you,
-    and an adventure can include a table that replaces these, so you reach for this
-    directly when you're stocking rooms or rolling wandering monsters outside a session.
+    and a dungeon level can set its own table in
+    [`WanderingSpec.table`][osrlib.crawl.dungeon.WanderingSpec.table] to replace these. Use
+    this model directly when you're stocking rooms or rolling wandering monsters outside a
+    session.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -1187,10 +1220,10 @@ def monster_xp(tables: CombatTables, hit_dice: MonsterHitDice) -> int:
     """Return the experience a party earns for defeating one monster of these Hit Dice.
 
     Multiply by how many the party defeated, add the treasure they carried off, and
-    divide among the survivors. A session awards experience for you when a battle ends, on
-    the schedule the `xp_award_timing` flag on [`Ruleset`][osrlib.core.ruleset.Ruleset]
-    sets, so call this when you're tallying a fight yourself or costing out an encounter
-    you're designing.
+    divide among the survivors. A session counts each defeated monster's experience for you
+    and pays it on the schedule that the `xp_award_timing` flag on
+    [`Ruleset`][osrlib.core.ruleset.Ruleset] sets. Call this when you're tallying a fight
+    yourself or working out what an encounter you're designing is worth.
 
     The award is the row's base amount, plus its per-ability amount for each special
     ability the monster has. Past 21 Hit Dice both amounts grow by 250 for each Hit Die

@@ -55,7 +55,7 @@ Read the set to offer a picker or to check a size before you build an expression
 [`ContentValidationError`][osrlib.errors.ContentValidationError] on anything else, so a
 d7 never reaches a rules function.
 
-The set is closed on purpose, so adding to it isn't the way to roll an unusual die. Draw
+The set is closed, so adding to it isn't the way to roll an unusual die. Draw
 that one yourself with
 [`RngStream.randbelow`][osrlib.core.rng.RngStream.randbelow], which takes any positive
 bound.

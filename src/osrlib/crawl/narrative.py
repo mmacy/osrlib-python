@@ -1,18 +1,20 @@
-"""Authored narrative attached to mechanical objects: the three-audience block.
+"""Authored text for gates, triggers, quests, and objectives, written for three audiences.
 
 A [`NarrativeBlock`][osrlib.crawl.narrative.NarrativeBlock] is the authored text you
-attach to a mechanical object.
+attach to one of those objects. Each of its fields is a beat, one line of text for one
+moment, like a gate's refusal or a quest's offer.
 
 You write one into the `narrative` field of a gate
 ([`GateSpec`][osrlib.crawl.gates.GateSpec]), a trigger
 ([`TriggerSpec`][osrlib.crawl.triggers.TriggerSpec]), a quest
 ([`QuestSpec`][osrlib.crawl.quests.QuestSpec]), or a quest objective
 ([`ObjectiveSpec`][osrlib.crawl.quests.ObjectiveSpec]), all of which are part of the
-[`Adventure`][osrlib.crawl.adventure.Adventure] document. The block is inert: osrlib
-doesn't evaluate it. The code that evaluates the gate, trigger, quest, or objective the
-block is attached to reads it: the exploration handlers of
-[`GameSession.execute`][osrlib.crawl.session.GameSession.execute] for a gate and the
-[`Interpreter`][osrlib.crawl.interpreter.Interpreter] for a trigger or a quest. The
+[`Adventure`][osrlib.crawl.adventure.Adventure] document. osrlib evaluates nothing in the
+block. The code that evaluates the gate, trigger, quest, or objective reads the beats it
+needs from the block: the exploration handlers of
+[`GameSession.execute`][osrlib.crawl.session.GameSession.execute] for a gate, the
+[`Interpreter`][osrlib.crawl.interpreter.Interpreter] for a trigger, and the quest commands for
+a quest or an objective. The
 beats then reach you as the `narrative` field of an event like
 [`DoorEvent`][osrlib.crawl.events.DoorEvent],
 [`TriggerFiredEvent`][osrlib.crawl.events.TriggerFiredEvent], or
@@ -26,16 +28,17 @@ The three audiences are:
   formatter ([`format_message`][osrlib.messages.format_message]) appends the beat from
   an event after the templated line, so a bare transcript shows the authored words
   exactly as you wrote them.
-- The journal form, the object's entry in the party's written record. A quest beat does
-  not use it, because what a quest journals is the display text it showed, so the
-  journal reads as the transcript of what the table was told. Use the field for objects
-  whose display beat the players never see: a trigger's `fired` text is included on a
-  referee-visibility event, so write the line meant for the table here.
-- LLM guidance, steering for a narrating front end that is never displayed as written.
-  A narrator can treat it as authored content, the same as an area's description, which narration already uses.
+- The journal form, the object's entry in the party's written record. Quests don't use it,
+  because a quest journals the display text it showed, so the journal reads as a
+  transcript of what the table was told. Use the field for a trigger, whose `fired` text is
+  included on a referee-visibility event that players never see, and write the line meant
+  for the table here.
+- LLM guidance, instructions for a front end that uses a language model to narrate. It is
+  never displayed as written. A narrator treats it as authored content, the way it treats an
+  area's description.
 
-Which beats are read, and who may see them, depends on the object it's attached to. The block has no
-visibility setting. Authored text that reaches a player is included on a player-visible
+Which beats are read, and who may see them, depends on the object the block is attached to.
+The block has no visibility setting. Authored text that reaches a player is included on a player-visible
 event or inside a rejection, while the mechanics that produced it, meaning conditions,
 flags, and guidance, stay on the referee's side of the screen.
 """
@@ -72,10 +75,12 @@ class NarrativeBlock(BaseModel):
     `progress` or an objective's `completion`. It accepts them when it parses a block rather
     than rejecting them, the same way it accepts `fired` on a gate and `offer` on a trigger.
 
-    `journal` is the written-record form. The quest layer doesn't read it, and journals the
-    display text it showed instead. `guidance` is steering for an LLM narrator while the
-    object the block belongs to is in play, and `speaker` an attribution like "the bronze sentinel" or "Sister
-    Halda" that a renderer may put in front of a beat.
+    `journal` is the written-record form, which the
+    [`Interpreter`][osrlib.crawl.interpreter.Interpreter] writes to the journal when a trigger
+    fires. Quests don't read it, and journal the display text they showed instead. `guidance`
+    is instructions for a language-model narrator while the object is in play, and `speaker` is
+    an attribution, like "the bronze sentinel" or "Sister Halda", that a renderer may put in
+    front of a beat.
 
     Examples:
         ```python
@@ -83,10 +88,13 @@ class NarrativeBlock(BaseModel):
 
         narrative = NarrativeBlock(
             refusal="The sentinel's eyes stay dark. It wants the brass key.",
-            success="The key turns; the sentinel steps aside.",
+            success="The key turns, and the sentinel steps aside.",
             speaker="the bronze sentinel",
         )
-        assert narrative.offer == ""  # unauthored beats are empty, never None
+        print(repr(narrative.offer))  # an unauthored beat is the empty string, never None
+        # ''
+        print(sorted(narrative.model_dump(exclude_defaults=True)))
+        # ['refusal', 'speaker', 'success']
         ```
     """
 
@@ -112,17 +120,17 @@ class NarrativeBlock(BaseModel):
     """A quest's completion line. Shown and journaled, and unread on an objective
     block."""
     journal: str = ""
-    """The written-record form, for objects whose display beat the players never see,
-    which in practice means a trigger's `fired`. Unread by quests, which journal the
-    display text they showed."""
+    """The written-record form. When a trigger fires, the
+    [`Interpreter`][osrlib.crawl.interpreter.Interpreter] adds it to the journal with
+    [`AddJournalEntry`][osrlib.crawl.commands.AddJournalEntry]. Quests don't read it, because they
+    journal the display text they showed."""
     guidance: str = ""
     """Steering for an LLM narrator while the object it belongs to is in play, and never
     displayed as written.
 
-    Inert authored data, the way a quest's `progress` beat is: osrlib never reads it, no
-    event includes it, and no rule turns on it. A narrator reaches it through the adventure
-    document, which stays on the referee's side of the screen, so read it from the
-    authored model yourself when you write the narration. The same field on
+    osrlib never reads it, no event includes it, and no rule depends on it. A narrator reaches
+    it through the adventure document, which stays on the referee's side of the screen, so read
+    it from the authored model yourself when you write the narration. The same field on
     [`LevelSpec`][osrlib.crawl.dungeon.LevelSpec] does the same job for a whole level."""
     speaker: str = ""
     """An attribution, like "the bronze sentinel", that a renderer may put in front of

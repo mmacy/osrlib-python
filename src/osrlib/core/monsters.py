@@ -107,7 +107,7 @@ class DamageKey(StrEnum):
     """What a source of damage can be, for the purposes of a monster's defenses.
 
     A monster that can be hurt only by certain kinds of attack lists them here in
-    [`Defenses.harmed_only_by`][osrlib.core.monsters.Defenses], and a monster that takes reduced
+    [`Defenses.harmed_only_by`][osrlib.core.monsters.Defenses.harmed_only_by], and a monster that takes reduced
     damage from a kind lists it in [`DamageReduction`][osrlib.core.monsters.DamageReduction]. The
     damage rules check the keys on the attack against both.
 
@@ -165,7 +165,7 @@ class Element(StrEnum):
 class EnergyDefense(BaseModel):
     """How a monster resists one kind of energy.
 
-    Read them from [`Defenses.energy`][osrlib.core.monsters.Defenses], keyed by
+    Read them from [`Defenses.energy`][osrlib.core.monsters.Defenses.energy], keyed by
     [`Element`][osrlib.core.monsters.Element]. The damage rules check the entry for the element of
     an incoming attack before rolling any damage. Frozen.
     """
@@ -187,7 +187,7 @@ class EnergyDefense(BaseModel):
 class DamageReduction(BaseModel):
     """A cut taken out of the damage a monster suffers, applied after the dice are rolled.
 
-    Read them from [`Defenses.reductions`][osrlib.core.monsters.Defenses]. The damage is divided
+    Read them from [`Defenses.reductions`][osrlib.core.monsters.Defenses.reductions]. The damage is divided
     and rounded down, and a hit that gets through always does at least 1 point. Frozen.
     """
 
@@ -206,7 +206,7 @@ class DamageReduction(BaseModel):
 class Defenses(BaseModel):
     """What a monster resists, in the form the damage rules check.
 
-    Read it as [`MonsterTemplate.defenses`][osrlib.core.monsters.MonsterTemplate]. The combat
+    Read it as [`MonsterTemplate.defenses`][osrlib.core.monsters.MonsterTemplate.defenses]. The combat
     procedures consult it every time a hit lands, before any damage is rolled. The SRD's
     wording for the same defenses stays on the template's abilities, for a front end to show.
     Frozen.
@@ -236,7 +236,7 @@ class Defenses(BaseModel):
 class MonsterHitDice(BaseModel):
     """A monster's Hit Dice, as the stat block prints them.
 
-    Read it as [`MonsterTemplate.hit_dice`][osrlib.core.monsters.MonsterTemplate].
+    Read it as [`MonsterTemplate.hit_dice`][osrlib.core.monsters.MonsterTemplate.hit_dice].
     [`spawn_monster`][osrlib.core.monsters.spawn_monster] rolls hit points from it, and
     [`osrlib.core.tables`][osrlib.core.tables] uses it to place the monster on the attack matrix
     and in an experience band. Frozen.
@@ -333,7 +333,7 @@ class MonsterAttack(BaseModel):
 class AttackRoutine(BaseModel):
     """One set of attacks a monster can make in a round, chosen as a whole.
 
-    Read them from [`MonsterTemplate.attacks`][osrlib.core.monsters.MonsterTemplate]. Most
+    Read them from [`MonsterTemplate.attacks`][osrlib.core.monsters.MonsterTemplate.attacks]. Most
     creatures have one. A creature with more than one is choosing between them, not doing both: a
     dragon either claws and bites or breathes, and the referee or your game decides which in a
     given round. Frozen.
@@ -348,7 +348,7 @@ class AttackRoutine(BaseModel):
 class MovementMode(BaseModel):
     """One way a monster gets around, and how fast.
 
-    Read them from [`MonsterTemplate.movement`][osrlib.core.monsters.MonsterTemplate]. The first
+    Read them from [`MonsterTemplate.movement`][osrlib.core.monsters.MonsterTemplate.movement]. The first
     is always the creature's ordinary movement. Later ones are its other ways of moving, and you
     pick the one the situation calls for. Frozen.
     """
@@ -370,8 +370,8 @@ class MovementMode(BaseModel):
 class MonsterSaves(BaseModel):
     """A monster's saving throws, and the stat block's note about where they come from.
 
-    Read it as [`MonsterTemplate.saves`][osrlib.core.monsters.MonsterTemplate], or read
-    [`MonsterInstance.saves`][osrlib.core.monsters.MonsterInstance] to get the values already
+    Read it as [`MonsterTemplate.saves`][osrlib.core.monsters.MonsterTemplate.saves], or read
+    [`MonsterInstance.saves`][osrlib.core.monsters.MonsterInstance.saves] to get the values already
     adjusted for a creature that has been drained of Hit Dice. Frozen.
     """
 
@@ -389,7 +389,7 @@ class MonsterSaves(BaseModel):
 class MoraleAlternate(BaseModel):
     """A morale score that applies only in a particular situation.
 
-    Read them from [`MonsterTemplate.morale_alternates`][osrlib.core.monsters.MonsterTemplate]. A
+    Read them from [`MonsterTemplate.morale_alternates`][osrlib.core.monsters.MonsterTemplate.morale_alternates]. A
     creature that fights bravely except when fire is involved has its ordinary score on the
     template and the exception here. Deciding whether the condition holds is the referee's call, so
     nothing applies these for you. Frozen.
@@ -409,7 +409,7 @@ class MoraleAlternate(BaseModel):
 class AlignmentSpec(BaseModel):
     """Which alignments a monster may have, and which it usually has.
 
-    Read it as [`MonsterTemplate.alignment`][osrlib.core.monsters.MonsterTemplate].
+    Read it as [`MonsterTemplate.alignment`][osrlib.core.monsters.MonsterTemplate.alignment].
     [`spawn_monster`][osrlib.core.monsters.spawn_monster] settles on one alignment for each
     creature it spawns, because the wards that turn on alignment need a single answer. Frozen.
     """
@@ -430,7 +430,7 @@ class AlignmentSpec(BaseModel):
 class XpNote(BaseModel):
     """What a leader among a group of these creatures is worth in experience.
 
-    Read them from [`MonsterTemplate.xp_notes`][osrlib.core.monsters.MonsterTemplate]. A band of
+    Read them from [`MonsterTemplate.xp_notes`][osrlib.core.monsters.MonsterTemplate.xp_notes]. A band of
     gnolls has a leader worth more than the rest, and this is that number. What else makes the
     leader different stays in the template's abilities as prose, because the SRD gives it as prose.
     Frozen.
@@ -487,7 +487,7 @@ class NumberAppearing(BaseModel):
     """How many of a creature appear, which depends on where they are met.
 
     Read it as
-    [`MonsterTemplate.number_appearing`][osrlib.core.monsters.MonsterTemplate] and roll the value
+    [`MonsterTemplate.number_appearing`][osrlib.core.monsters.MonsterTemplate.number_appearing] and roll the value
     that matches the encounter. Frozen.
     """
 
@@ -503,12 +503,13 @@ class NumberAppearing(BaseModel):
 class TreasureRef(BaseModel):
     """What treasure a monster has, as the stat block prints it.
 
-    Read it as [`MonsterTemplate.treasure`][osrlib.core.monsters.MonsterTemplate], then pass it to
+    Read it as [`MonsterTemplate.treasure`][osrlib.core.monsters.MonsterTemplate.treasure], then pass it to
     [`plan_treasure_ref`][osrlib.core.treasure.plan_treasure_ref], which sorts the letters into
     lair, per-creature, and per-group treasure and passes `parenthetical`, `extra_gp`, and
     `multiplier` through. Generate each letter in the plan with
-    [`generate_treasure`][osrlib.core.treasure.generate_treasure]. See
-    [the treasure type index][treasure-types-index] for the letters.
+    [`generate_treasure`][osrlib.core.treasure.generate_treasure]. The letters are the `letter`
+    of each table in [`load_treasure_tables`][osrlib.data.load_treasure_tables]`().treasure_types`,
+    and [the treasure type index][treasure-types-index] lists them.
 
     Go through the plan rather than looping `letters` into
     [`generate_treasure`][osrlib.core.treasure.generate_treasure] yourself. A loop over `letters`
@@ -557,7 +558,7 @@ class TreasureRef(BaseModel):
 class MonsterAbility(BaseModel):
     """One thing a monster can do, as a tag the rules read plus the SRD text it came from.
 
-    Read them from [`MonsterTemplate.abilities`][osrlib.core.monsters.MonsterTemplate], or look one
+    Read them from [`MonsterTemplate.abilities`][osrlib.core.monsters.MonsterTemplate.abilities], or look one
     up by tag with [`MonsterTemplate.ability`][osrlib.core.monsters.MonsterTemplate.ability]. The
     combat and effect procedures match on the tag and read the numbers out of `params`, so a
     monster's special powers are data rather than branches in the code. Frozen.
@@ -592,7 +593,7 @@ class AcAlternate(BaseModel):
     """An armour class a monster has only in particular circumstances.
 
     Read them from
-    [`MonsterTemplate.ac_alternates`][osrlib.core.monsters.MonsterTemplate]. The SRD prints more than
+    [`MonsterTemplate.ac_alternates`][osrlib.core.monsters.MonsterTemplate.ac_alternates]. The SRD prints more than
     one armour class for a creature that changes shape, or for a band whose members wear different
     armour, and this contains the ones that are not the creature's ordinary value. Deciding when one applies
     is the referee's call. Nothing switches between them for you. Frozen.
@@ -615,8 +616,8 @@ class AcAlternate(BaseModel):
 class MonsterTemplate(BaseModel):
     """A monster's stat block: everything true of every creature of that kind.
 
-    Get one from [`load_monsters`][osrlib.data.load_monsters]`().get(monster_id)`. See
-    [the monster id index][monsters-index] for the ids. Then call
+    Get one from [`load_monsters`][osrlib.data.load_monsters]`().get(monster_id)`, whose ids
+    [the monster id index][monsters-index] lists. Then call
     [`spawn_monster`][osrlib.core.monsters.spawn_monster] to put an actual creature in front of the
     players.
 
@@ -786,8 +787,8 @@ class MonsterCatalog(BaseModel):
         """Return the monster with `monster_id`.
 
         Args:
-            monster_id: The id to look up, like `"troll"` or `"red_dragon"`. See
-                [the monster id index][monsters-index] for all of them.
+            monster_id: The id to look up, like `"troll"` or `"red_dragon"`. Every id is the `id` of
+                an entry in `monsters`, and [the monster id index][monsters-index] lists them.
 
         Returns:
             The monster template. Spawn a creature from it with
@@ -821,14 +822,16 @@ class MonsterInstance(BaseModel):
     gains conditions, and dies. The template it came from never changes, and every other creature
     spawned from it is unaffected by what happens here.
 
-    It has the same rules attributes as a [`Character`][osrlib.core.character.Character], which
-    are THAC0, attack bonus, both armour classes, saving throws, conditions, and stat modifiers, so
-    the functions in [`osrlib.core.combat`][osrlib.core.combat] and
-    [`osrlib.core.effects`][osrlib.core.effects] accept either one without checking which they got.
+    It has the same rules attributes as a [`Character`][osrlib.core.character.Character]: THAC0,
+    attack bonus, both armour classes, saving throws, conditions, and stat modifiers. So the
+    functions in [`osrlib.core.combat`][osrlib.core.combat] and
+    [`osrlib.core.effects`][osrlib.core.effects] accept either one, through the protocols in
+    [`osrlib.core.creature`][osrlib.core.creature].
 
-    Anything the template already defines is read through `template` rather than copied here, and the
-    properties below do that for you where reading the template directly would give the wrong value for a
-    drained creature.
+    Anything the template defines is read through `template` rather than copied here. For the values
+    a drain changes, read the instance's properties, like
+    [`thac0`][osrlib.core.monsters.MonsterInstance.thac0] and
+    [`saves`][osrlib.core.monsters.MonsterInstance.saves], rather than the template's fields.
     """
 
     model_config = ConfigDict(validate_assignment=True)
@@ -857,7 +860,7 @@ class MonsterInstance(BaseModel):
     """Timed bonuses and penalties on it, from spells and effects."""
 
     alignment: Alignment | None = None
-    """The alignment this creature actually has, settled when it was spawned. `None` when the template offered several
+    """The alignment this creature has, settled when it was spawned. `None` when the template offered several
     and neither you nor the template specified one. A ward that turns on alignment then treats it as differing, which
     errs toward protecting the party.
     """
@@ -873,7 +876,11 @@ class MonsterInstance(BaseModel):
     """
 
     breath_uses_today: int = Field(default=0, ge=0)
-    """How many times it has used its breath weapon today. A creature with a breath weapon gets three uses a day."""
+    """How many times it has used its breath weapon today.
+
+    The daily limit is the `uses_per_day` param of the template's `breath_weapon` ability, which is 3 for a dragon.
+    A breath weapon with no `uses_per_day` has no daily limit.
+    """
 
     drained_hd: int = Field(default=0, ge=0)
     """How many Hit Dice have been drained from it. Its THAC0, attack bonus, and saving throws all re-derive from what
@@ -981,9 +988,8 @@ def spawn_monster(
     nothing that happens to one reaches the template or any of its siblings. That is the reason to
     spawn rather than pass templates around.
 
-    Hand what you get to [`osrlib.core.combat`][osrlib.core.combat] to fight it. Its treasure comes
-    from [`generate_treasure`][osrlib.core.treasure.generate_treasure] using the letters on the
-    template.
+    Hand what you get to [`osrlib.core.combat`][osrlib.core.combat] to fight it. For its treasure,
+    pass the template's `treasure` to [`plan_treasure_ref`][osrlib.core.treasure.plan_treasure_ref].
 
     Hit points are rolled from the template's Hit Dice and floored at 1, so even the unluckiest
     roll leaves a creature standing. A creature whose hit points the SRD fixes, like the one
@@ -997,8 +1003,8 @@ def spawn_monster(
 
     Args:
         template: The stat block to spawn from, from
-            [`load_monsters`][osrlib.data.load_monsters]`().get(monster_id)`. See
-            [the monster id index][monsters-index] for the ids.
+            [`load_monsters`][osrlib.data.load_monsters]`().get(monster_id)`, whose ids
+            [the monster id index][monsters-index] lists.
         id: The entity id to give it, usually
             `allocator.allocate("monster")` from an
             [`IdAllocator`][osrlib.core.monsters.IdAllocator].
@@ -1090,8 +1096,27 @@ class IdAllocator(BaseModel):
                 or `"valuable"`.
 
         Returns:
-            The id, which is the prefix, a hyphen, and a number padded to four digits, counting
-            from `0001`.
+            The id, which is the prefix, a hyphen, and a number padded to at least four digits,
+            counting from `0001`.
+
+        Examples:
+            ```python
+            from osrlib.core.monsters import MONSTER_SPAWN_STREAM, IdAllocator, spawn_monster
+            from osrlib.core.rng import RngStreams
+            from osrlib.data import load_monsters
+
+            allocator = IdAllocator()
+            stream = RngStreams(master_seed=3).get(MONSTER_SPAWN_STREAM)
+            goblin = load_monsters().get("goblin")
+            goblins = [spawn_monster(goblin, id=allocator.allocate("monster"), stream=stream) for _ in range(3)]
+            print([goblin.id for goblin in goblins])
+            # ['monster-0001', 'monster-0002', 'monster-0003']
+
+            # The counters are plain data, so a saved allocator resumes the count.
+            restored = IdAllocator.model_validate(allocator.model_dump())
+            print(restored.allocate("monster"))
+            # monster-0004
+            ```
         """
         n = self.counters.get(prefix, 0) + 1
         self.counters[prefix] = n

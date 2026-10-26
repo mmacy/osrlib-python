@@ -34,8 +34,8 @@ class Alignment(StrEnum):
     that to the referee. What the rules do read is the alignment tongue derived from the
     value, and the alignment comparisons a handful of spells and magic items make.
 
-    The lowercase values serialize into characters and saved games. Changing one is a
-    `schema_version` bump, the version stamp that marks a serialized model's format.
+    The lowercase values are what characters and saved games store, and they stay fixed
+    within a `schema_version`, the version stamp that marks a serialized model's format.
 
     Examples:
         ```python

@@ -1,7 +1,7 @@
-"""Authored triggers: the observable-event patterns and the trigger spec.
+"""Authored triggers, which run referee commands when something happens in play.
 
-A trigger binds an observable event pattern, optionally narrowed by conditions, to the
-referee commands that run when it matches.
+A trigger pairs an event pattern, optionally narrowed by conditions, with the referee
+commands that run when an event matches it.
 
 You write [`TriggerSpec`][osrlib.crawl.triggers.TriggerSpec]s into
 the `triggers` tuple of an [`Adventure`][osrlib.crawl.adventure.Adventure], and that
@@ -15,17 +15,18 @@ and issues each firing's commands. A firing shows up as a
 beat, as a [`JournalEntryAddedEvent`][osrlib.crawl.events.JournalEntryAddedEvent]
 when the block authors a journal form, as whatever events its consequences produce,
 and as a [`NoteRecordedEvent`][osrlib.crawl.events.NoteRecordedEvent] for a
-consequence the engine refused. The fired-mark lives in `session.fired_triggers`.
+consequence the engine refused. `session.fired_triggers` records which triggers have fired.
 
-A gate ([`GateSpec`][osrlib.crawl.gates.GateSpec]) is level-triggered, evaluated live at
-the moment the party attempts something. A trigger is edge-triggered: it watches the
-events a command produced and fires on the crossing itself. The lever that opens the
+A gate ([`GateSpec`][osrlib.crawl.gates.GateSpec]) tests the state of the game at the
+moment the party attempts something. A trigger reacts to the events a command produced, so
+it fires when something happens, not while something is true. The lever that opens the
 portcullis is a trigger, and the door that needs the brass key is a gate.
 
 The pieces:
 
 - A pattern ([`TriggerPattern`][osrlib.crawl.triggers.TriggerPattern]) identifies the
-  observable: a location crossed, an item acquired, a monster defeated, a flag written.
+  event to react to: a location crossed, an item acquired, a monster defeated, a flag
+  written.
   Patterns are matched against the events themselves and never against current state,
   because a consequence can move the party inside the same batch while an event still
   describes the moment it reported.
@@ -100,7 +101,7 @@ member should receive the reward."""
 
 
 class AreaEnteredPattern(BaseModel):
-    """The party entered a keyed area.
+    """A pattern that matches the party entering a keyed area.
 
     Matches a [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] for an
     area. Area ids are scoped to their level, so the pattern includes the whole triple: an
@@ -132,12 +133,12 @@ class AreaEnteredPattern(BaseModel):
 
 
 class LevelEnteredPattern(BaseModel):
-    """The party arrived on a dungeon level.
+    """A pattern that matches the party arriving on a dungeon level.
 
     It matches however the party got there: a stair between levels and an entry from
-    town both put it on the level. The engine reports only the coarsest crossing a move
-    passed, so a party walking in from town gets a dungeon entry, and this pattern
-    counts that as a level arrival too.
+    town both put it on the level. When one move enters both a dungeon and a level, the
+    engine reports only the dungeon entry, and this pattern counts that as arriving on the
+    level too.
 
     Examples:
         ```python
@@ -160,10 +161,10 @@ class LevelEnteredPattern(BaseModel):
 
 
 class DungeonEnteredPattern(BaseModel):
-    """The party crossed into a dungeon, from town or from another dungeon.
+    """A pattern that matches the party crossing into a dungeon, from town or another dungeon.
 
-    The coarse arrival, matched by a
-    [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] for a dungeon.
+    It matches a [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] for a
+    dungeon.
     Use it for a trigger that belongs to walking in the front door, and
     [`LevelEnteredPattern`][osrlib.crawl.triggers.LevelEnteredPattern] for one that
     belongs to a particular level.
@@ -187,7 +188,7 @@ class DungeonEnteredPattern(BaseModel):
 
 
 class TownEnteredPattern(BaseModel):
-    """The party arrived in the base town, however it got there.
+    """A pattern that matches the party arriving in the adventure's town, however it got there.
 
     An adventure has one town, so the pattern needs no fields. A homecoming trigger fires
     on the return trip and on a referee's placement alike. Pair it with a
@@ -211,9 +212,9 @@ class TownEnteredPattern(BaseModel):
 
 
 class ItemAcquiredPattern(BaseModel):
-    """A party member acquired an item with `item_id`.
+    """A pattern that matches a party member acquiring an item with `item_id`.
 
-    Matched by an [`ItemAcquiredEvent`][osrlib.crawl.events.ItemAcquiredEvent], however
+    It matches an [`ItemAcquiredEvent`][osrlib.crawl.events.ItemAcquiredEvent], however
     the item arrived: out of a cache, from a referee's grant, or from another member's
     hands. The ids it accepts are the ones a `has_item` condition checks, from the effective
     equipment catalog, meaning the built-in items plus the adventure's bundled ones, or
@@ -244,7 +245,7 @@ class ItemAcquiredPattern(BaseModel):
 
 
 class MonsterDefeatedPattern(BaseModel):
-    """A monster of `template_id` was defeated: slain or routed.
+    """A pattern that matches a monster of `template_id` being slain or routed.
 
     Both outcomes count as a defeat, and the pattern matches either one the same way. Defeats are
     reported at battle end through
@@ -273,9 +274,10 @@ class MonsterDefeatedPattern(BaseModel):
 
 
 class FlagSetPattern(BaseModel):
-    """A session flag was written: the edge, not the state.
+    """A pattern that matches a write to a session flag.
 
-    Your game, or another trigger's consequence, executes
+    It matches the write, not the flag's state. Your game, or another trigger's consequence,
+    executes
     [`SetFlag`][osrlib.crawl.commands.SetFlag], the write emits a
     [`FlagSetEvent`][osrlib.crawl.events.FlagSetEvent], and the trigger watching that key
     fires. The match is against the value the write set, so a flag rewritten with the
@@ -324,8 +326,8 @@ Annotate a field with this alias when you write your own model that contains an 
 pattern. Pydantic then picks the member from the `pattern_type` value in the document.
 It is the type of [`TriggerSpec.when`][osrlib.crawl.triggers.TriggerSpec] and of
 [`TriggerClause.pattern`][osrlib.crawl.quests.TriggerClause], so a quest watches exactly
-what a trigger watches. New observables join the union additively, and the discriminator
-values are serialized values that appear in every document that includes a trigger."""
+what a trigger watches. The `pattern_type` values are part of the document format, so a
+later release can add a member but doesn't rename one within a schema version."""
 
 
 class TriggerSpec(BaseModel):
@@ -342,6 +344,9 @@ class TriggerSpec(BaseModel):
     so once-only survives a save, a load, and a replay, and `session.fired_triggers` is
     where you read it. `repeatable=True` is the authored opt-in for a trigger that fires
     every time its pattern matches.
+
+    The [`Interpreter`][osrlib.crawl.interpreter.Interpreter] example runs a trigger in a
+    session from start to finish.
 
     Examples:
         ```python
@@ -360,14 +365,15 @@ class TriggerSpec(BaseModel):
                 journal="The east lever gives; below, a portcullis grinds upward.",
             ),
         )
-        assert not trigger.repeatable
+        print(trigger.repeatable, trigger.consequences[0].command_type)
+        # False set_door_state
         ```
     """
 
     model_config = ConfigDict(frozen=True)
 
     id: str = Field(min_length=1)
-    """The trigger's id, unique across the adventure. It is what the fired-mark records,
+    """The trigger's id, unique across the adventure. It is what `session.fired_triggers` records,
     and what the `source` stamp on every command the firing issues contains, in the form
     `trigger:{id}`."""
     when: TriggerPattern

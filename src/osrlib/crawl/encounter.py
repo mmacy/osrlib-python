@@ -163,8 +163,12 @@ class EncounterGroup(BaseModel):
     """The session-scoped group id, `group-NNNN`, from the session's allocator. A battle declaration's
     `target_group_id` refers to this id."""
     label: str
-    """The group's display name: the monster template's name for a spawned or keyed group, and the
-    encounter table row's name for a wandering one."""
+    """The group's display name. A keyed group takes the monster template's name, like
+    `"Goblin"`, and a wandering group takes the encounter table row's name. A group from
+    [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] takes the template id, like
+    `"goblin"`, and an NPC party is `"Basic Adventurers"` or `"Expert Adventurers"`. A group you
+    open with [`start_encounter`][osrlib.crawl.encounter.start_encounter] takes the label you
+    pass."""
     monster_ids: list[str] = Field(min_length=1)
     """The members' entity ids in spawn order, each resolvable through
     [`GameSession.combatant`][osrlib.crawl.session.GameSession.combatant]. Dead members stay in the
@@ -294,9 +298,11 @@ def start_encounter(
 
     Use [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] instead when a referee wants a fight
     on the party's current cell. That command rolls the count, spawns the instances, and calls
-    this for you, and because it goes through the session's command log the encounter replays from a
-    save. Reach for this function when you need an argument the command does not expose, like a stance
-    fixed in advance or monsters that never roll for surprise.
+    this for you, and the session's command log records it. Reach for this function when you need an
+    argument the command does not expose, like a stance fixed in advance or monsters that never roll
+    for surprise. Neither this function nor `GameSession.spawn` is a command, so the command log
+    doesn't record them. A game that calls them during play still saves and loads, but
+    [`replay_game`][osrlib.persistence.replay_game] won't reproduce the encounter.
 
     Wandering monsters never roll for surprise, because they come "moving in the direction of the
     party". A keyed area marked aware, a failed attempt to force a door, and a party carrying a light
@@ -329,8 +335,9 @@ def start_encounter(
     Returns:
         The opening events, in resolution order: one
             [`SurpriseRolledEvent`][osrlib.crawl.events.SurpriseRolledEvent] per side, the
-            [`EncounterStartedEvent`][osrlib.crawl.events.EncounterStartedEvent], the reaction roll
-            unless a stance was supplied, the
+            [`EncounterStartedEvent`][osrlib.crawl.events.EncounterStartedEvent], the
+            [`ReactionRolledEvent`][osrlib.core.events.ReactionRolledEvent] unless a stance was
+            supplied, the
             [`StanceChangedEvent`][osrlib.crawl.events.StanceChangedEvent], and then whatever the
             stance sets off, up to a whole battle.
 

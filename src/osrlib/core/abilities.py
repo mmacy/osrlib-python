@@ -98,7 +98,7 @@ ADJUSTMENT_FLOOR = 9
 
 The floor stops a player from emptying one ability to buy up another. It applies only to
 the trade in [`validate_adjustment`][osrlib.core.abilities.validate_adjustment]. A score
-rolled below 9 is legal, and it **cannot** be lowered further.
+rolled below 9 is legal, and the trade can't lower it further.
 """
 
 
@@ -107,10 +107,11 @@ class AbilityScore(StrEnum):
 
     Use these as the keys of a score dictionary, which is how every function here and in
     [`osrlib.core.character`][osrlib.core.character] passes a character's abilities
-    around. All six keys are expected to be present.
+    around. Include all six keys: a [`Character`][osrlib.core.character.Character] refuses a
+    score dictionary that's missing one.
 
-    The lowercase values serialize into characters and saved games. Changing one is a
-    `schema_version` bump, the version stamp that marks a serialized model's format.
+    The lowercase values are what characters and saved games store, and they stay fixed
+    within a `schema_version`, the version stamp that marks a serialized model's format.
     """
 
     STR = "str"
@@ -155,8 +156,9 @@ class ScoreBand(BaseModel):
     """The run of scores one table row covers, like 4 to 5.
 
     The SRD prints its modifier tables in bands rather than one row per score, and osrlib
-    keeps them that way. Every row model below is a band with that row's columns added.
-    You'll meet these when you read a whole table off
+    keeps them that way. Each table's row model, like
+    [`StrengthRow`][osrlib.core.abilities.StrengthRow], is a band with that row's columns
+    added. You'll meet these when you read a whole table off
     [`AbilityTables`][osrlib.core.abilities.AbilityTables], for instance to draw the table
     on screen. To look up a single score, call an accessor instead and skip the rows
     entirely.
@@ -178,7 +180,13 @@ class ScoreBand(BaseModel):
 
 
 class StrengthRow(ScoreBand):
-    """One row of the strength table, with the two things strength grants."""
+    """One row of the strength table: a band of scores, with the melee modifier and open-doors chance it grants.
+
+    Read the rows from [`AbilityTables.strength`][osrlib.core.abilities.AbilityTables.strength] to draw
+    the table. To look up one score, call
+    [`melee_modifier`][osrlib.core.abilities.AbilityTables.melee_modifier] or
+    [`open_doors_chance`][osrlib.core.abilities.AbilityTables.open_doors_chance] instead.
+    """
 
     melee: int
     """What to add to a melee attack roll and to melee damage. Negative at a low score."""
@@ -192,7 +200,13 @@ class StrengthRow(ScoreBand):
 
 
 class IntelligenceRow(ScoreBand):
-    """One row of the intelligence table, covering language and literacy."""
+    """One row of the intelligence table: a band of scores, with the languages and literacy it grants.
+
+    Read the rows from [`AbilityTables.intelligence`][osrlib.core.abilities.AbilityTables.intelligence] to
+    draw the table. To look up one score, call
+    [`additional_languages`][osrlib.core.abilities.AbilityTables.additional_languages] or
+    [`literacy`][osrlib.core.abilities.AbilityTables.literacy] instead.
+    """
 
     additional_languages: int = Field(ge=0)
     """How many languages beyond the character's native ones they may choose at creation."""
@@ -205,14 +219,27 @@ class IntelligenceRow(ScoreBand):
 
 
 class WisdomRow(ScoreBand):
-    """One row of the wisdom table. Wisdom grants a saving throw modifier and no other bonus."""
+    """One row of the wisdom table: a band of scores, with the saving throw modifier it grants.
+
+    Wisdom grants no other bonus. Read the rows from
+    [`AbilityTables.wisdom`][osrlib.core.abilities.AbilityTables.wisdom] to draw the table. To look up
+    one score, call
+    [`magic_save_modifier`][osrlib.core.abilities.AbilityTables.magic_save_modifier] instead.
+    """
 
     magic_saves: int
     """What to add to a saving throw against a magical effect. Negative at a low score."""
 
 
 class DexterityRow(ScoreBand):
-    """One row of the dexterity table, with the three things dexterity grants."""
+    """One row of the dexterity table: a band of scores, with its armour class, missile, and initiative modifiers.
+
+    Read the rows from [`AbilityTables.dexterity`][osrlib.core.abilities.AbilityTables.dexterity] to draw
+    the table. To look up one score, call
+    [`ac_modifier`][osrlib.core.abilities.AbilityTables.ac_modifier],
+    [`missile_modifier`][osrlib.core.abilities.AbilityTables.missile_modifier], or
+    [`initiative_modifier`][osrlib.core.abilities.AbilityTables.initiative_modifier] instead.
+    """
 
     ac: int
     """What to add to armour class. A positive number here makes a descending armour class better, so it lowers it."""
@@ -230,7 +257,13 @@ class DexterityRow(ScoreBand):
 
 
 class ConstitutionRow(ScoreBand):
-    """One row of the constitution table. Constitution grants hit points and no other bonus."""
+    """One row of the constitution table: a band of scores, with the hit point modifier it grants.
+
+    Constitution grants no other bonus. Read the rows from
+    [`AbilityTables.constitution`][osrlib.core.abilities.AbilityTables.constitution] to draw the table. To
+    look up one score, call
+    [`hit_point_modifier`][osrlib.core.abilities.AbilityTables.hit_point_modifier] instead.
+    """
 
     hit_points: int
     """What to add to every Hit Die rolled, whether at creation or on gaining a level.
@@ -240,7 +273,14 @@ class ConstitutionRow(ScoreBand):
 
 
 class CharismaRow(ScoreBand):
-    """One row of the charisma table, with the three things charisma grants."""
+    """One row of the charisma table: a band of scores, with its reaction modifier and retainer limits.
+
+    Read the rows from [`AbilityTables.charisma`][osrlib.core.abilities.AbilityTables.charisma] to draw
+    the table. To look up one score, call
+    [`npc_reaction_modifier`][osrlib.core.abilities.AbilityTables.npc_reaction_modifier],
+    [`max_retainers`][osrlib.core.abilities.AbilityTables.max_retainers], or
+    [`retainer_loyalty`][osrlib.core.abilities.AbilityTables.retainer_loyalty] instead.
+    """
 
     npc_reactions: int
     """What to add to a monster or NPC reaction roll, which decides how a meeting starts."""
@@ -356,6 +396,17 @@ class AbilityTables(BaseModel):
 
         Raises:
             ValueError: If `score` is outside 3 to 18.
+
+        Examples:
+            ```python
+            from osrlib.data import load_ability_tables
+
+            tables = load_ability_tables()
+
+            # A strength of 16 adds 2 to a melee attack roll and to its damage.
+            assert tables.melee_modifier(16) == 2
+            assert tables.melee_modifier(5) == -2
+            ```
         """
         return self._row(self.strength, score).melee
 
@@ -374,6 +425,17 @@ class AbilityTables(BaseModel):
 
         Raises:
             ValueError: If `score` is outside 3 to 18.
+
+        Examples:
+            ```python
+            from osrlib.data import load_ability_tables
+
+            tables = load_ability_tables()
+
+            # A strength of 16 forces a stuck door on a 1 to 4 on a d6.
+            assert tables.open_doors_chance(16) == 4
+            assert tables.open_doors_chance(9) == 2
+            ```
         """
         return self._row(self.strength, score).open_doors
 
@@ -392,6 +454,17 @@ class AbilityTables(BaseModel):
 
         Raises:
             ValueError: If `score` is outside 3 to 18.
+
+        Examples:
+            ```python
+            from osrlib.data import load_ability_tables
+
+            tables = load_ability_tables()
+
+            # An intelligence of 16 lets the character pick two languages at creation.
+            assert tables.additional_languages(16) == 2
+            assert tables.additional_languages(12) == 0
+            ```
         """
         return self._row(self.intelligence, score).additional_languages
 
@@ -406,6 +479,16 @@ class AbilityTables(BaseModel):
 
         Raises:
             ValueError: If `score` is outside 3 to 18.
+
+        Examples:
+            ```python
+            from osrlib.core.abilities import Literacy
+            from osrlib.data import load_ability_tables
+
+            tables = load_ability_tables()
+            assert tables.literacy(7) is Literacy.BASIC
+            assert tables.literacy(9) is Literacy.LITERATE
+            ```
         """
         return self._row(self.intelligence, score).literacy
 
@@ -423,6 +506,17 @@ class AbilityTables(BaseModel):
 
         Raises:
             ValueError: If `score` is outside 3 to 18.
+
+        Examples:
+            ```python
+            from osrlib.data import load_ability_tables
+
+            tables = load_ability_tables()
+
+            # A wisdom of 13 adds 1 to a save against a spell.
+            assert tables.magic_save_modifier(13) == 1
+            assert tables.magic_save_modifier(3) == -3
+            ```
         """
         return self._row(self.wisdom, score).magic_saves
 
@@ -442,6 +536,16 @@ class AbilityTables(BaseModel):
 
         Raises:
             ValueError: If `score` is outside 3 to 18.
+
+        Examples:
+            ```python
+            from osrlib.data import load_ability_tables
+
+            tables = load_ability_tables()
+
+            # A dexterity of 17 improves a descending armour class of 7 to 5.
+            assert 7 - tables.ac_modifier(17) == 5
+            ```
         """
         return self._row(self.dexterity, score).ac
 
@@ -458,6 +562,15 @@ class AbilityTables(BaseModel):
 
         Raises:
             ValueError: If `score` is outside 3 to 18.
+
+        Examples:
+            ```python
+            from osrlib.data import load_ability_tables
+
+            tables = load_ability_tables()
+            assert tables.missile_modifier(13) == 1
+            assert tables.missile_modifier(6) == -1
+            ```
         """
         return self._row(self.dexterity, score).missile
 
@@ -476,6 +589,17 @@ class AbilityTables(BaseModel):
 
         Raises:
             ValueError: If `score` is outside 3 to 18.
+
+        Examples:
+            ```python
+            from osrlib.data import load_ability_tables
+
+            tables = load_ability_tables()
+
+            # Under individual initiative, a dexterity of 18 adds 2 to the d6.
+            assert tables.initiative_modifier(18) == 2
+            assert tables.initiative_modifier(16) == 1
+            ```
         """
         return self._row(self.dexterity, score).initiative
 
@@ -493,6 +617,17 @@ class AbilityTables(BaseModel):
 
         Raises:
             ValueError: If `score` is outside 3 to 18.
+
+        Examples:
+            ```python
+            from osrlib.data import load_ability_tables
+
+            tables = load_ability_tables()
+
+            # A constitution of 14 adds 1 to each Hit Die.
+            assert tables.hit_point_modifier(14) == 1
+            assert tables.hit_point_modifier(4) == -2
+            ```
         """
         return self._row(self.constitution, score).hit_points
 
@@ -511,6 +646,15 @@ class AbilityTables(BaseModel):
 
         Raises:
             ValueError: If `score` is outside 3 to 18.
+
+        Examples:
+            ```python
+            from osrlib.data import load_ability_tables
+
+            tables = load_ability_tables()
+            assert tables.npc_reaction_modifier(18) == 2
+            assert tables.npc_reaction_modifier(10) == 0
+            ```
         """
         return self._row(self.charisma, score).npc_reactions
 
@@ -525,6 +669,15 @@ class AbilityTables(BaseModel):
 
         Raises:
             ValueError: If `score` is outside 3 to 18.
+
+        Examples:
+            ```python
+            from osrlib.data import load_ability_tables
+
+            tables = load_ability_tables()
+            assert tables.max_retainers(10) == 4
+            assert tables.max_retainers(18) == 7
+            ```
         """
         return self._row(self.charisma, score).max_retainers
 
@@ -542,6 +695,15 @@ class AbilityTables(BaseModel):
 
         Raises:
             ValueError: If `score` is outside 3 to 18.
+
+        Examples:
+            ```python
+            from osrlib.data import load_ability_tables
+
+            tables = load_ability_tables()
+            assert tables.retainer_loyalty(10) == 7
+            assert tables.retainer_loyalty(18) == 10
+            ```
         """
         return self._row(self.charisma, score).retainer_loyalty
 
@@ -562,6 +724,18 @@ class AbilityTables(BaseModel):
 
         Raises:
             ValueError: If `score` is outside 3 to 18.
+
+        Examples:
+            ```python
+            from osrlib.data import load_ability_tables
+
+            tables = load_ability_tables()
+
+            # A fighter with strength 13 earns 5% more experience: 105 points for 100.
+            pct = tables.prime_requisite_xp_modifier_pct(13)
+            assert pct == 5
+            assert 100 * (100 + pct) // 100 == 105
+            ```
         """
         return self._row(self.prime_requisite, score).xp_modifier_pct
 
@@ -644,7 +818,7 @@ def ability_check(score: int, stream: RngStream, modifier: int = 0) -> AbilityCh
 
         stream = RngStreams(master_seed=3).get("exploration")
 
-        # An 18 against a score of 13 fails, as a natural 20 would have.
+        # A roll of 18 is over the score of 13, so the check fails.
         check = ability_check(13, stream)
         assert (check.roll, check.success) == (18, False)
 
@@ -888,8 +1062,10 @@ def apply_adjustment(
     through, not that the player chose badly. It either applies the whole trade or changes
     nothing.
 
-    Feed the result to [`create_character`][osrlib.core.character.create_character] as the
-    scores to build the character from.
+    Pass the result as `scores` when you construct the
+    [`Character`][osrlib.core.character.Character] yourself. You don't call this when you
+    use [`create_character`][osrlib.core.character.create_character]: it takes the
+    `AbilityAdjustment` as its `adjustment` argument and applies it for you.
 
     Args:
         scores: The rolled scores. Left as they are, because the adjusted set comes back

@@ -82,11 +82,12 @@ class Rejection(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     code: str
-    """The refusal's identity: two or more snake_case segments joined by dots, the first being the subsystem.
+    """Which refusal this is, as a dotted message code like `items.equip.armour_forbidden`.
 
-    `creation.class.requirements_not_met` and `items.equip.armour_forbidden` are both
-    codes. Any other format raises a pydantic `ValidationError` when the model is built.
-    Match on this value to choose what to show the player.
+    Match on this value to choose what to show the player. A code is two or more
+    snake_case segments joined by dots, and the first segment names the subsystem that
+    refused. Building a rejection with any other format raises a pydantic
+    `ValidationError`.
     """
 
     params: dict[str, int | str | tuple[int | str, ...]] = {}

@@ -143,18 +143,20 @@ _SUB_TABLE_ORDER = (
 
 
 class NpcParty(BaseModel):
-    """A band of NPC adventurers: who they are, what they believe, and what they carry between them.
+    """A band of NPC adventurers, with the alignment they share and the treasure they carry.
 
     Returned by [`generate_npc_party`][osrlib.core.npc.generate_npc_party]. Run them as an
     encounter: roll reaction with [`osrlib.crawl.encounter`][osrlib.crawl.encounter], fight them
     through [`osrlib.core.combat`][osrlib.core.combat], and award
-    [`npc_defeat_xp`][osrlib.core.npc.npc_defeat_xp] per member if the players win.
+    [`npc_defeat_xp`][osrlib.core.npc.npc_defeat_xp] per member if the players win. In a session,
+    execute [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] instead, which generates the band
+    and opens the encounter in one logged command.
     """
 
     model_config = ConfigDict(validate_assignment=True)
 
     kind: Literal["basic", "expert"]
-    """`"basic"` for a band of low-level adventurers or `"expert"` for a seasoned one. It decides the level dice, the
+    """`"basic"` for a band of low-level adventurers or `"expert"` for a seasoned one. It determines the level dice, the
     armour the members wear, and whether they carry magic items.
     """
 
@@ -329,14 +331,17 @@ def generate_npc_party(
     vulnerability to wards that depend on alignment have a single answer. Then each member in turn gets a
     class and a level from the SRD's table, ability scores rolled 3d6 in order, hit points,
     experience set to the threshold for their level, an equipment kit their class can use, and, if
-    they cast, spells prepared at random from their class's list. An Expert band wears heavier
-    armour and each member gets a 5% chance per level at each kind of magic item they could use.
+    they cast, spells prepared at random from their class's list. Every kit includes rations, a
+    waterskin, and torches. In an Expert band, clerics, dwarves, and fighters wear plate mail
+    instead of chainmail, and each member gets a 5% chance per level at each kind of magic item
+    they could use. The shared treasure is treasure types U and V rolled together.
 
-    Hit points come in two parts, and the split decides how many draws a member takes. The first level's hit
+    Hit points come in two parts, and the split determines how many draws a member takes. The first level's hit
     die is rolled here, directly, with the CON modifier added and the total floored at 1. Every
     level after the first goes through [`level_up`][osrlib.core.classes.level_up], one call per
-    level, and each of those calls takes a draw only when that level's row adds a hit die. An
-    Expert dwarf rolled at level 11 or 12 passes name level, so its top levels take no draw.
+    level, and each of those calls takes a draw only when that level's row adds a hit die. The
+    Expert level dice can put a dwarf, fighter, or thief above name level, the level at which a
+    character may build a stronghold. Each level past name level takes no draw.
 
     Members are not checked against their class's ability requirements, because in the SRD's procedure
     their class is rolled before their scores. An elf here may have an INT a player character would not be allowed.

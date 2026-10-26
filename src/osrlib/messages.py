@@ -8,12 +8,14 @@ module is the default formatter that comes with osrlib.
 English sentence, so you can print a session's output before you've written any rendering of
 your own.
 
-The event's `code` decides what you get. It's a dotted name like `combat.attack.hit` that
-identifies the outcome the event records. Every event class declares the codes it can use, and
-this module has one template per code.
-[The message-code reference][message-codes] lists every code osrlib defines, the event class
-behind it, the event's default visibility, and the template itself. Read that page when
-you're deciding which codes your front end handles differently.
+The event's `code` determines the line you get. It's a dotted name like `combat.attack.hit` that
+identifies the outcome the event records, and this module has one template per code. Every
+event class declares the codes it can use in `allowed_codes`, and
+[`ALL_EVENT_CLASSES`][osrlib.crawl.events.ALL_EVENT_CLASSES] lists every event class, so
+`{code for cls in ALL_EVENT_CLASSES for code in cls.allowed_codes}` is every code osrlib
+defines. [The message-code reference][message-codes] lists the same codes with the event class
+behind each one, its default visibility, and its template. Read it when you're deciding which
+codes your front end handles differently.
 
 Use this formatter for a log, a transcript, a debugging view, or the first working version
 of a game. Replace it when you want your own wording, and you replace the whole of it:

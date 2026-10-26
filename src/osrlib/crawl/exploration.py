@@ -1,15 +1,14 @@
 """The exploration turn: movement, doors, searching, traps, light, rest, and wandering checks.
 
-These handlers cover the commands of the two session modes outside combat: `exploring`, where the
-party walks a dungeon, and `town`, where it shops, rests, and buys healing. Two of them also serve
+This module holds the rules behind the commands of the two session modes outside combat: `exploring`,
+where the party walks a dungeon, and `town`, where it shops, rests, and buys healing. Two of those
+commands also serve
 `encounter` mode, because the party can hand out and use gear while monsters stand in front of it:
 [`DropItems`][osrlib.crawl.commands.DropItems] and [`UseItem`][osrlib.crawl.commands.UseItem]. You
 don't call a handler here yourself. You build one of the command models in
 [`osrlib.crawl.commands`][osrlib.crawl.commands], like [`MoveParty`][osrlib.crawl.commands.MoveParty],
 [`Search`][osrlib.crawl.commands.Search] or [`Rest`][osrlib.crawl.commands.Rest], and pass it to
-[`GameSession.execute`][osrlib.crawl.session.GameSession.execute]. The session looks the command's
-class up in a private handler table and runs the handler it finds, which is one function
-taking `(session, command)` and returning `(rejections, events)`. You get back a
+[`GameSession.execute`][osrlib.crawl.session.GameSession.execute]. You get back a
 [`CommandResult`][osrlib.crawl.commands.CommandResult] that contains either
 [`Rejection`][osrlib.core.validation.Rejection] models that describe why the command was refused, or
 the event models of [`osrlib.crawl.events`][osrlib.crawl.events] that describe what happened. The session
@@ -27,15 +26,18 @@ its schedule, so a front end that moves time by executing commands doesn't have 
 yourself to read the party's current numbers for a status display, or to run one of the checks when
 you drive the clock some other way.
 
-Movement accrues on the session's odometer in thirds of a foot: stepping into an unexplored cell
-costs 30 units and stepping into an explored one costs 10, which is the SRD's rule that familiar
-ground moves three times as fast. When the accrued total reaches three times the party's exploration
-rate, the clock advances one full turn and the odometer resets. An action that costs a turn advances
+Movement accrues on the session's odometer,
+[`GameSession.odometer_thirds`][osrlib.crawl.session.GameSession.odometer_thirds], in thirds of a
+foot. Stepping into an unexplored cell costs 30 units and stepping into an explored one costs 10,
+which is the SRD's rule that familiar ground moves three times as fast. When the accrued total
+reaches three times the party's exploration rate, the clock advances one full turn and the odometer
+resets. An action that costs a turn advances
 a whole turn outright and absorbs whatever partial move was pending.
 
-Trap resolution draws on the exploration stream: the 2-in-6 spring check, the saving throws, the
-damage, and the volley counts. Durations rolled when a condition attaches draw on the effects stream
-instead, matching every other effect attachment in the engine.
+Trap resolution draws on the [`EXPLORATION_STREAM`][osrlib.crawl.session.EXPLORATION_STREAM]: the
+2-in-6 spring check, the saving throws, the damage, and the volley counts. Durations rolled when a
+condition attaches draw on the [`EFFECTS_STREAM`][osrlib.core.effects.EFFECTS_STREAM] instead, as
+every other effect attachment in the engine does.
 
 Typical usage:
 
@@ -615,10 +617,13 @@ def exploration_rate(session) -> int:
 
     A party moves at the pace of its slowest living member, so that member's movement rate is the
     party's. Read it to show a movement allowance, to work out how much ground the party covers in a turn, or to
-    find out whether the party can move at all. A rate of 0 means one of two things: a living member
-    is carrying too much to move, or no member is living. While either holds, the session rejects a
+    find out whether the party can move at all. A rate of 0 means that a living member is carrying
+    too much to move, or that no member is living. In the first case the session rejects a
     [`MoveParty`][osrlib.crawl.commands.MoveParty] with `exploration.move.cannot_move` and the
-    reason `overloaded`, whichever of the two put the rate at 0.
+    reason `overloaded`, until the member lightens the load with
+    [`DropItems`][osrlib.crawl.commands.DropItems] or [`GiveItems`][osrlib.crawl.commands.GiveItems].
+    In the second, the session is
+    already in `game_over`.
 
     For one character's movement allowance rather than the party's, call
     [`Character.movement_rate`][osrlib.core.character.Character.movement_rate], which is what this
@@ -719,7 +724,7 @@ def check_fatigue(session) -> list[Event]:
     threshold it attaches the fatigue effect to every living member who isn't fatigued already.
 
     [`GameSession.advance_turns`][osrlib.crawl.session.GameSession.advance_turns] calls this once
-    for every turn of time the party spends in the field, so a front end that moves time by
+    for every turn the party spends in the field without resting, so a front end that moves time by
     executing commands doesn't call it. Call it yourself when you drive the clock some other way. To
     ask whether the party is already fatigued, query
     [`FATIGUE_KIND`][osrlib.crawl.exploration.FATIGUE_KIND] against the ledger instead of calling
@@ -853,7 +858,8 @@ def consume_provisions(session) -> list[Event]:
     missed raises it by one. The counters are kept whatever the ruleset says, so you can show a
     hunger indicator without turning the penalties on. Under the `deprivation_penalties` flag the
     counters also cost the member something, on a schedule drawn from the SRD's examples as a
-    documented adaptation (see the adaptations register): −1 to attack rolls and fatigue twice as
+    documented adaptation (see the
+    [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/)): −1 to attack rolls and fatigue twice as
     fast from one day, halved movement from two, and 1d4 damage a day from three. Food and water
     don't stack, so the worse of the two tracks is the one that applies.
 
@@ -1130,6 +1136,11 @@ def wandering_check(session, *, resting: bool = False) -> tuple[list[Event], boo
         [`WanderingCheckEvent`][osrlib.crawl.events.WanderingCheckEvent] giving the chance and the
         roll, with `roll` set to None when the chance was 0. A hit adds the spawn events and the
         encounter's opening events after it.
+
+    Raises:
+        ValueError: If the party isn't in a dungeon. Town time and travel have no wandering
+            check. The call changes nothing before it raises. To check first, test that
+            `session.dungeon_state.location.kind` is `"dungeon"`.
 
     Examples:
         ```python
@@ -4186,9 +4197,8 @@ prose (see [the adaptations register](https://mmacy.github.io/osrlib-python/adap
 table doesn't model availability. The size of the town, the standing of its temple, and whether a cleric is
 in today are game questions left to your front end.
 
-To charge your own prices, take the payment yourself and use the referee commands. Don't edit the
-prices here: the purchase handler reads them at the moment of sale, and every session in the
-process shares them.
+Don't change the prices in this dict. The purchase handler reads it at the moment of sale, every
+session in the process shares it, and a replayed purchase would charge the changed price.
 
 ```python
 from osrlib.crawl.exploration import HEALING_SERVICES

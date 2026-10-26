@@ -1,4 +1,4 @@
-"""The running game: `GameSession`, the one object a front end drives.
+"""`GameSession`, the running game that a front end drives with commands.
 
 Build a session from a [`Party`][osrlib.crawl.party.Party] and an
 [`Adventure`][osrlib.crawl.adventure.Adventure] with
@@ -14,12 +14,24 @@ Draw your screens from [`GameSession.view`][osrlib.crawl.session.GameSession.vie
 rather than from the session's attributes, and save the game with
 [`save_game`][osrlib.persistence.save_game].
 
-The session keeps what the rules engine underneath leaves to its caller: the
-seeded random streams, the id allocator, the effects ledger, the clock, the registry
-of characters and live monsters, the flag store, the trigger marks, the journal, the
-quest states, the listeners and their state, the command and event logs, the session
-mode, and the dungeon state. That is why a save is one object and a replay from the
-same seed reaches the same game.
+The session keeps the state that the rules kernel in `osrlib.core` leaves to its
+caller: the seeded random streams, the id allocator, the effects ledger, the clock, the
+registry of characters and live monsters, the flag store, the trigger marks, the
+journal, the quest states, the listeners and their state, the command and event logs,
+the session mode, and the dungeon state. Because the session holds all of it, a save
+is one object, and a replay from the same seed reaches the same game.
+
+The other members of this module are records the session keeps, which you read from a
+view rather than build: [`JournalEntry`][osrlib.crawl.session.JournalEntry],
+[`QuestState`][osrlib.crawl.session.QuestState] and
+[`ObjectiveState`][osrlib.crawl.session.ObjectiveState],
+[`DeathRecord`][osrlib.crawl.session.DeathRecord],
+[`DefeatedMonsterRecord`][osrlib.crawl.session.DefeatedMonsterRecord], and
+[`DeprivationState`][osrlib.crawl.session.DeprivationState]. The `*_STREAM` constants
+name the random streams the crawl procedures draw from, and
+[`LIGHT_EFFECT_KINDS`][osrlib.crawl.session.LIGHT_EFFECT_KINDS] and
+[`DARKNESS_EFFECT_KINDS`][osrlib.crawl.session.DARKNESS_EFFECT_KINDS] are the effect
+kinds the session counts as light and darkness.
 
 Which commands the session will accept depends on its
 [`SessionMode`][osrlib.crawl.commands.SessionMode]: `town` between delves,
@@ -257,9 +269,10 @@ class DeathRecord(BaseModel):
     """Where the clock stood at the death, in rounds since the session began. Both revival windows
     are measured from here."""
     cause: str
-    """What did it: `"poison"` when the killing blow was a failed poison save or a poison running
-    its course, otherwise the kind of the resolution that killed them, like `"damage"`. Only
-    the poison and non-poison distinction changes what the rules allow."""
+    """What killed the character. It's `"poison"` when the killing blow was a failed save versus
+    death ray or poison, or a poison running its course, `"damage"` when damage was dealt, and `"unknown"`
+    otherwise. Only the difference between poison and every other cause changes what the
+    revival spells allow."""
 
 
 class JournalEntry(BaseModel):
@@ -425,14 +438,17 @@ def _xp_award_events(member: Character, result: XpAwardResult) -> list[Event]:
 
 
 class Listener(Protocol):
-    """The extension point: an object a game registers to react to what happens.
+    """An object a game registers on a session to react to what happens in play.
 
-    Write a class with a `key` and a `handle` method, and register an instance with
+    A listener is how you extend a game without changing the engine. Write a class with a
+    `key` and a `handle` method, and register an instance with
     [`GameSession.register_listener`][osrlib.crawl.session.GameSession.register_listener].
     After every accepted command, each listener is handed that command's events and
-    its state, in registration order. This is how a game adds behavior
-    (an authored trap that teleports, a curse that speaks up, a score) without
-    touching the engine.
+    its state, in registration order. Use one for behavior the engine doesn't have, like
+    an authored trap that teleports, a curse that speaks up, or a score. To play an
+    adventure's authored triggers and quests, register
+    [`Interpreter`][osrlib.crawl.interpreter.Interpreter], which is a listener osrlib
+    provides.
 
     A listener never mutates game state directly. It reacts by executing ordinary
     commands on the session, which records everything it does in the command log,
@@ -537,6 +553,15 @@ class GameSession:
     The attributes are public because a referee front end and the persistence layer
     read them, and they are documented for that reader. Writing to them yourself puts
     the session out of step with its logs, and a replay won't match it.
+
+    The same is true of the methods that change state, like
+    [`spawn`][osrlib.crawl.session.GameSession.spawn],
+    [`advance_turns`][osrlib.crawl.session.GameSession.advance_turns], and the experience
+    awards. The command handlers call them, and they aren't commands themselves, so the
+    command log doesn't record a call you make. A game that calls one during play still
+    saves and loads, because [`load_game`][osrlib.persistence.load_game] restores the
+    recorded state, but [`replay_game`][osrlib.persistence.replay_game] won't reproduce
+    it. Where a command does the same job, execute the command instead.
     """
 
     def __init__(
@@ -587,8 +612,8 @@ class GameSession:
             )
         self._equipment_catalog = equipment
         self.ruleset = ruleset
-        """The ruleset in play: the options that decide the readings osrlib leaves open, like
-        when experience is awarded. See
+        """The ruleset in play. Its options settle the rules that B/X leaves open, like when
+        experience is awarded. See
         [the adaptations register](https://mmacy.github.io/osrlib-python/adaptations/), the page
         that lists where osrlib settles an ambiguous rule or supplies a default."""
         self.streams = streams
@@ -714,9 +739,12 @@ class GameSession:
         # Runtime extension points a game re-registers like listeners. Policies are
         # code, so they are never serialized.
         self.action_policies: dict[str, object] = {}
-        """Action policies for monster groups, keyed by encounter group id. Register one to choose a
-        group's actions in your game. Without an entry, a group uses the built-in policy for
-        its kind. Policies are code, so they aren't saved: register them again after a load."""
+        """Action policies for monster groups, keyed by encounter group id. To choose a group's
+        actions yourself, write an [`ActionPolicy`][osrlib.crawl.battle.ActionPolicy] and set
+        `session.action_policies[group.id]` to it, where `group` is an
+        [`EncounterGroup`][osrlib.crawl.encounter.EncounterGroup] from `session.encounter.groups`.
+        Without an entry, a group uses the built-in policy for its kind. Policies are code, so they
+        aren't saved: register them again after a load."""
 
     @classmethod
     def new(cls, party: Party, adventure: Adventure, *, seed: int, ruleset: Ruleset | None = None) -> GameSession:
@@ -1036,6 +1064,40 @@ class GameSession:
             for members and NPCs, [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] for
             monsters. Editing the dict doesn't change the session. Editing the objects in it
             does.
+
+        Examples:
+            ```python
+            from osrlib.core.alignment import Alignment
+            from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character
+            from osrlib.core.rng import RngStreams
+            from osrlib.core.ruleset import Ruleset
+            from osrlib.crawl.adventure import Adventure, TownSpec
+            from osrlib.crawl.commands import EnterDungeon
+            from osrlib.crawl.dungeon import DungeonSpec, LevelSpec
+            from osrlib.crawl.party import Party
+            from osrlib.crawl.session import GameSession
+
+            rules = Ruleset()
+            stream = RngStreams(master_seed=7).get(CHARACTER_CREATION_STREAM)
+            hero = create_character(
+                name="Hild",
+                class_id="fighter",
+                alignment=Alignment.LAWFUL,
+                ruleset=rules,
+                stream=stream,
+            ).character
+            level = LevelSpec(number=1, width=1, height=1, entrance=(0, 0))
+            crypt = DungeonSpec(id="crypt", name="The Old Crypt", levels=(level,))
+            adventure = Adventure(name="A First Delve", town=TownSpec(name="Threshold"), dungeons=(crypt,))
+            session = GameSession.new(Party(members=[hero]), adventure, seed=7)
+            session.execute(EnterDungeon(dungeon_id="crypt"))
+            session.spawn("goblin", 1)
+
+            for entity_id, entity in session.registry().items():
+                print(entity_id, entity.current_hp)
+            # character-0001 3
+            # monster-0001 1
+            ```
         """
         entities: dict[str, Any] = {_member_id(member): member for member in self.party.members}
         entities.update(self.monsters)
@@ -1086,16 +1148,22 @@ class GameSession:
 
         Each instance gets hit points rolled from the seeded spawn stream and an id from the session
         allocator, and is added to `monsters`, where the rest of the engine can find it.
-        Spawning alone puts nothing in front of the party: the encounter procedure is what fields
-        them. A referee wanting both at once should execute
-        [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters], which spawns and opens the
-        encounter in one logged command.
+        Spawning alone puts nothing in front of the party, and the session mode doesn't change.
+        To field the monsters, pass them to
+        [`start_encounter`][osrlib.crawl.encounter.start_encounter].
+
+        A referee who wants monsters in front of the party should execute
+        [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] instead, which spawns them and opens
+        the encounter in one command. This method isn't a command, so the command log doesn't
+        record it, and [`replay_game`][osrlib.persistence.replay_game] won't reproduce a game that
+        calls it during play.
 
         Args:
             template_id: Any id in the session's
                 [`effective_monsters`][osrlib.crawl.session.GameSession.effective_monsters]
-                catalog, built-in (see [the monster id index][monsters-index]) or bundled by the
-                adventure.
+                catalog: a built-in id (see [the monster id index][monsters-index]) or one the
+                adventure bundles. The catalog's `monsters` tuple lists every template, each with
+                its `id`.
             count: How many to spawn.
             alignment: An alignment to give them instead of the template's, for keyed content
                 whose author wants, say, lawful goblins.
@@ -1105,6 +1173,42 @@ class GameSession:
 
         Raises:
             ValueError: If the catalog has no such template id.
+
+        Examples:
+            ```python
+            from osrlib.core.alignment import Alignment
+            from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character
+            from osrlib.core.rng import RngStreams
+            from osrlib.core.ruleset import Ruleset
+            from osrlib.crawl.adventure import Adventure, TownSpec
+            from osrlib.crawl.commands import EnterDungeon
+            from osrlib.crawl.dungeon import DungeonSpec, LevelSpec
+            from osrlib.crawl.party import Party
+            from osrlib.crawl.session import GameSession
+
+            rules = Ruleset()
+            stream = RngStreams(master_seed=7).get(CHARACTER_CREATION_STREAM)
+            hero = create_character(
+                name="Hild",
+                class_id="fighter",
+                alignment=Alignment.LAWFUL,
+                ruleset=rules,
+                stream=stream,
+            ).character
+            level = LevelSpec(number=1, width=1, height=1, entrance=(0, 0))
+            crypt = DungeonSpec(id="crypt", name="The Old Crypt", levels=(level,))
+            adventure = Adventure(name="A First Delve", town=TownSpec(name="Threshold"), dungeons=(crypt,))
+            session = GameSession.new(Party(members=[hero]), adventure, seed=7)
+            session.execute(EnterDungeon(dungeon_id="crypt"))
+
+            goblins = session.spawn("goblin", 2)
+            print([(goblin.id, goblin.current_hp) for goblin in goblins])
+            # [('monster-0001', 1), ('monster-0002', 3)]
+
+            # Spawning opens no encounter: the session is still exploring.
+            print(session.combatant("monster-0002").template.name, session.mode.value)
+            # Goblin exploring
+            ```
         """
         template = self.effective_monsters.get(template_id)
         spawned = []
@@ -1145,6 +1249,9 @@ class GameSession:
         Returns:
             The ledger's events plus the light translations and any provisions events, in the
             order they happened.
+
+        Raises:
+            ValueError: If `n` is negative. The clock never runs backwards.
         """
         member_ids = {member.id for member in self.party.members}
         light_sources = {
@@ -1195,8 +1302,12 @@ class GameSession:
         now has something else to deal with, and the second return value is True.
 
         A span in the field also stops as soon as nobody is left standing, because the cadences
-        apply only while someone is alive. Out of the field it keeps going, because a revival window measured
-        in elapsed time has to keep elapsing while the party lies dead.
+        apply only while someone is alive. Out of the field it keeps going, because a revival window
+        measured in elapsed time has to keep elapsing while the party lies dead.
+
+        A front end that moves the clock should execute
+        [`AdvanceTime`][osrlib.crawl.commands.AdvanceTime] or [`Rest`][osrlib.crawl.commands.Rest]
+        instead, which the command log records.
 
         Args:
             turns: How many turns to advance.
@@ -1209,6 +1320,39 @@ class GameSession:
         Returns:
             The events, and True when a wandering encounter interrupted the span before it ran
             out.
+
+        Examples:
+            ```python
+            from osrlib.core.alignment import Alignment
+            from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character
+            from osrlib.core.rng import RngStreams
+            from osrlib.core.ruleset import Ruleset
+            from osrlib.crawl.adventure import Adventure, TownSpec
+            from osrlib.crawl.commands import EnterDungeon
+            from osrlib.crawl.dungeon import DungeonSpec, LevelSpec
+            from osrlib.crawl.party import Party
+            from osrlib.crawl.session import GameSession
+
+            rules = Ruleset()
+            stream = RngStreams(master_seed=7).get(CHARACTER_CREATION_STREAM)
+            hero = create_character(
+                name="Hild",
+                class_id="fighter",
+                alignment=Alignment.LAWFUL,
+                ruleset=rules,
+                stream=stream,
+            ).character
+            level = LevelSpec(number=1, width=1, height=1, entrance=(0, 0))
+            crypt = DungeonSpec(id="crypt", name="The Old Crypt", levels=(level,))
+            adventure = Adventure(name="A First Delve", town=TownSpec(name="Threshold"), dungeons=(crypt,))
+            session = GameSession.new(Party(members=[hero]), adventure, seed=7)
+            session.execute(EnterDungeon(dungeon_id="crypt"))
+
+            # Three turns in the dungeon: the wandering check comes round after the second.
+            events, interrupted = session.advance_turns(3)
+            print([event.code for event in events], interrupted, session.clock.rounds)
+            # ['exploration.wandering.checked'] False 180
+            ```
         """
         from osrlib.crawl import exploration
 
@@ -1252,7 +1396,42 @@ class GameSession:
         as well.
 
         Returns:
-            A pair: whether the party is lit, and whether infravision is allowed.
+            A pair: whether the party is lit, and whether infravision works. Infravision is
+            allowed unless a darkness effect blocks it. Whether a member has infravision at all
+            is [`member_has_infravision`][osrlib.crawl.session.GameSession.member_has_infravision].
+
+        Examples:
+            ```python
+            from osrlib.core.alignment import Alignment
+            from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character
+            from osrlib.core.rng import RngStreams
+            from osrlib.core.ruleset import Ruleset
+            from osrlib.crawl.adventure import Adventure, TownSpec
+            from osrlib.crawl.commands import EnterDungeon
+            from osrlib.crawl.dungeon import DungeonSpec, LevelSpec
+            from osrlib.crawl.party import Party
+            from osrlib.crawl.session import GameSession
+
+            rules = Ruleset()
+            stream = RngStreams(master_seed=7).get(CHARACTER_CREATION_STREAM)
+            hero = create_character(
+                name="Hild",
+                class_id="fighter",
+                alignment=Alignment.LAWFUL,
+                ruleset=rules,
+                stream=stream,
+            ).character
+            level = LevelSpec(number=1, width=1, height=1, entrance=(0, 0))
+            crypt = DungeonSpec(id="crypt", name="The Old Crypt", levels=(level,))
+            adventure = Adventure(name="A First Delve", town=TownSpec(name="Threshold"), dungeons=(crypt,))
+            session = GameSession.new(Party(members=[hero]), adventure, seed=7)
+            session.execute(EnterDungeon(dungeon_id="crypt"))
+
+            # Nobody has lit a torch yet, so the party stands in the dark.
+            lit, infravision_works = session.party_light()
+            print(lit, infravision_works, session.member_has_infravision(hero))
+            # False True False
+            ```
         """
         living_ids = [member.id for member in self.party.living_members()]
         darkness = [

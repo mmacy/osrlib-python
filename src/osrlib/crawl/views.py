@@ -3,34 +3,47 @@
 A view is the snapshot a front end renders: everything on the screen after a command,
 in one frozen object.
 
-A command changes the session state that
-[`GameSession`][osrlib.crawl.session.GameSession] keeps, and
-[`build_player_view`][osrlib.crawl.views.build_player_view] and
-[`build_referee_view`][osrlib.crawl.views.build_referee_view] read that state to build
-these projections. The player view is built from session state alone and never from the
-event log. The referee view has one typed field for each group of data in a save, so it
-includes the event log along with everything else, each group as the session's model.
-[`GameSession.view`][osrlib.crawl.session.GameSession.view] is the entry point most games
-call, with a [`Visibility`][osrlib.core.events.Visibility] to pick which one. Events report
-what just happened, and a view shows what is true now. The ids a view includes,
+Call [`GameSession.view`][osrlib.crawl.session.GameSession.view] with a
+[`Visibility`][osrlib.core.events.Visibility] after each command. `Visibility.PLAYER`
+returns a [`PlayerView`][osrlib.crawl.views.PlayerView], what a player may see, and
+`Visibility.REFEREE` returns a [`RefereeView`][osrlib.crawl.views.RefereeView], the full
+state. [`build_player_view`][osrlib.crawl.views.build_player_view] and
+[`build_referee_view`][osrlib.crawl.views.build_referee_view] are the builders that
+method calls. The other classes here are the parts of a player view, and
+[`ExplorationCounters`][osrlib.crawl.views.ExplorationCounters] is a part of the referee
+view.
+
+Events report what just happened, and a view shows what is true now. A view is built
+from the session's current state, never by reading the event log, though the referee
+view includes the log as one of its fields. The ids a view includes,
 [`MemberView.id`][osrlib.crawl.views.MemberView] and
 [`EncounterGroupView.id`][osrlib.crawl.views.EncounterGroupView], are the ids the
 commands in [`osrlib.crawl.commands`][osrlib.crawl.commands] take.
 
-The player view is an enumerated whitelist: party public sheets, location and facing, the
-mapped cells with their edges (walked cells, the remembered cells the party's light has
-shown it, and what its light reveals right now, with secret doors rendered as wall until
-discovered), known piles and emptied caches in explored space, active effects on party
-members with their remaining durations, the elapsed clock, the mode, the journal, the
-active quests with their revealed objectives, the current encounter or battle's public
-state, fatigue, exhaustion, and deprivation status, and the adventure's public prose.
+The player view is an enumerated whitelist. It includes:
 
-It never includes unexplored geometry, undiscovered traps or secret doors, monster hit
-points or stat internals, referee-visibility roll outcomes, session flags, trigger
-fired-marks, referee notes, the internal logic of quests like activation clauses,
-patterns, conditions, rewards, and hidden objectives, the quests that are not active, meaning
-both the ones not yet taken on and the ones already finished, RNG state, or the master
-seed, which lives only in the save and reaches neither view.
+- each party member's public sheet, and the party's location and facing
+- the mapped cells and their edges: the cells the party walked, the cells its light has
+  shown it, and what its light shows right now, with an undiscovered secret door shown
+  as wall
+- known piles and emptied caches on cells the party has walked
+- the active effects on party members, with their remaining durations
+- the elapsed clock and the session mode
+- the journal, and the active quests with their revealed objectives
+- the public state of the current encounter or battle
+- fatigue, exhaustion, and deprivation status
+- the adventure's and the town's public prose
+
+It never includes:
+
+- geometry the party hasn't explored, or undiscovered traps and secret doors
+- monster hit points or stat internals
+- the outcomes of referee-visibility rolls
+- session flags, trigger fired-marks, or referee notes
+- the logic of a quest (its activation clauses, patterns, conditions, and rewards), its
+  hidden objectives, or any quest that isn't active, whether not yet taken on or already
+  finished
+- the RNG state or the master seed, which only the save contains
 
 The referee view includes everything else the save does, minus RNG internals and the seed,
 for LLM referees and tests. Its fields are the groups
@@ -41,6 +54,51 @@ trust the client with it: a networked game keeps the session and the referee vie
 server and sends only the player view, or player-visibility events, over the network. The guide
 [Views and visibility](https://mmacy.github.io/osrlib-python/guides/views-and-visibility/)
 walks the whole projection in a running front end.
+
+Typical usage:
+
+```python
+from osrlib.core.alignment import Alignment
+from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character
+from osrlib.core.events import Visibility
+from osrlib.core.rng import RngStreams
+from osrlib.core.ruleset import Ruleset
+from osrlib.crawl.adventure import Adventure, TownSpec
+from osrlib.crawl.commands import EnterDungeon, SpawnMonsters
+from osrlib.crawl.dungeon import DungeonSpec, LevelSpec
+from osrlib.crawl.party import Party
+from osrlib.crawl.session import GameSession
+
+rules = Ruleset()
+stream = RngStreams(master_seed=7).get(CHARACTER_CREATION_STREAM)
+hero = create_character(
+    name="Hild",
+    class_id="fighter",
+    alignment=Alignment.LAWFUL,
+    ruleset=rules,
+    stream=stream,
+).character
+level = LevelSpec(number=1, width=1, height=1, entrance=(0, 0))
+crypt = DungeonSpec(id="crypt", name="The Old Crypt", levels=(level,))
+adventure = Adventure(name="A First Delve", town=TownSpec(name="Threshold"), dungeons=(crypt,))
+session = GameSession.new(Party(members=[hero]), adventure, seed=7)
+session.execute(EnterDungeon(dungeon_id="crypt"))
+session.execute(SpawnMonsters(template_id="goblin", count_fixed=2, distance_feet=30))
+
+# The player sees the party's sheets and the goblins across the room, not their hit points.
+player = session.view(Visibility.PLAYER)
+for member in player.party:
+    print(member.name, member.current_hp, member.max_hp)
+# Hild 3 3
+group = player.encounter.groups[0]
+print(group.label, group.count, group.distance_feet)
+# goblin 2 30
+
+# The referee sees each monster's hit points.
+referee = session.view(Visibility.REFEREE)
+print([monster.current_hp for monster in referee.monsters])
+# [1, 3]
+```
 """
 
 from copy import deepcopy
@@ -93,24 +151,6 @@ class MemberView(BaseModel):
     order, and every party member has one, living or dead. A member's numbers are
     not secrets, so the sheet is complete. The only thing the view hides from the players
     is the identity of an unidentified magic item in the pack.
-
-    Examples:
-        ```python
-        from osrlib.crawl.views import MemberView
-
-        sheet = MemberView(
-            id="pc1",
-            name="Hild",
-            class_id="fighter",
-            level=1,
-            current_hp=7,
-            max_hp=7,
-            conditions=(),
-            inventory={},
-            memorized_spells=(),
-        )
-        assert sheet.id == "pc1"  # the id a command's character_id names
-        ```
     """
 
     model_config = ConfigDict(frozen=True)
@@ -260,7 +300,9 @@ class EncounterGroupView(BaseModel):
     allocator ordinal rather than a secret, the same way a
     [`MemberView.id`][osrlib.crawl.views.MemberView] is."""
     label: str
-    """What the group is called, like `"goblins"`, for the line a front end prints."""
+    """What the group is called, for the line a front end prints. It's the same as
+    [`EncounterGroup.label`][osrlib.crawl.encounter.EncounterGroup], which lists where each kind
+    of group gets its label."""
     count: int
     """How many of the group are still standing. The dead are not counted."""
     distance_feet: int
@@ -515,8 +557,8 @@ class RefereeView(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     ruleset: Ruleset
-    """The options this session plays under, as a [`Ruleset`][osrlib.core.ruleset.Ruleset]: the flags
-    that decide which optional rules are on."""
+    """The options this session plays under, as a [`Ruleset`][osrlib.core.ruleset.Ruleset], whose
+    flags turn the optional rules on and off."""
     party: Party
     """The party, as a [`Party`][osrlib.crawl.party.Party] of full
     [`Character`][osrlib.core.character.Character] sheets in marching order, the dead included. Every
@@ -531,8 +573,8 @@ class RefereeView(BaseModel):
     the view copies it even so, because the tree under it contains dicts a caller can edit in place, the
     town's travel turns and each level's edges among them."""
     mode: SessionMode
-    """The [`SessionMode`][osrlib.crawl.commands.SessionMode] the session is in, which decides the
-    commands it will accept right now."""
+    """The [`SessionMode`][osrlib.crawl.commands.SessionMode] the session is in. The mode sets which
+    commands the session accepts right now."""
     clock_rounds: int
     """The elapsed game clock in rounds, counting from the start of the session."""
     allocator: IdAllocator
@@ -617,9 +659,7 @@ class RefereeView(BaseModel):
     """Everything that has happened, in order, each entry the [`Event`][osrlib.core.events.Event]
     subclass that was emitted, including the referee-visibility events a player never sees. An entry
     restored from a save whose event type this library has no class for stays the raw mapping it
-    arrived as, so check for a `dict` before reading an entry's attributes. The field's type is the union
-    `SerializeAsAny[Event] | dict`: an `Event` instance validates as the event, while a mapping, which a model refuses
-    under strict validation, falls to the `dict` arm and passes through unchanged."""
+    arrived as, so check for a `dict` before reading an entry's attributes."""
 
 
 _MASKED_CATEGORY_NAMES = {

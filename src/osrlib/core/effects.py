@@ -11,8 +11,10 @@ The module has two layers. The condition layer is vocabulary. A condition is a n
 like `asleep` or `petrified`, and [`Condition`][osrlib.core.effects.Condition] is the closed set of them. Each
 creature has a tuple of [`ActiveCondition`][osrlib.core.effects.ActiveCondition] records and a tuple of
 [`ActiveModifier`][osrlib.core.effects.ActiveModifier] records, so a serialized creature includes what is wrong
-with it without the ledger beside it, and combat reads both tuples directly through
-[`has_condition`][osrlib.core.effects.has_condition] and the `modifier_` helpers below.
+with it without the ledger beside it. Combat reads both tuples through
+[`has_condition`][osrlib.core.effects.has_condition], [`modifier_total`][osrlib.core.effects.modifier_total],
+[`modifier_values`][osrlib.core.effects.modifier_values], [`modifier_dice`][osrlib.core.effects.modifier_dice],
+and [`has_modifier`][osrlib.core.effects.has_modifier].
 
 The engine layer is [`EffectsLedger`][osrlib.core.effects.EffectsLedger], which runs durations, periodic ticks,
 expiry, and stacking. It is the only writer of a creature's conditions and modifiers, apart from
@@ -30,10 +32,10 @@ The random draws that effects make (rolled durations, onset delays, a troll's re
 stream named by [`EFFECTS_STREAM`][osrlib.core.effects.EFFECTS_STREAM], so adding a draw to combat never shifts an
 effect's roll.
 
-The `target` parameters below take [`Creature`][osrlib.core.creature.Creature], the protocol that defines the
-hit points, conditions, and stat modifiers these calls read. A [`Character`][osrlib.core.character.Character]
-and a [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy it, and a `registry` maps entity
-ids to those same creatures.
+The `target` parameters in this module take [`Creature`][osrlib.core.creature.Creature], the protocol that
+defines the hit points, conditions, and stat modifiers these calls read. A
+[`Character`][osrlib.core.character.Character] and a [`MonsterInstance`][osrlib.core.monsters.MonsterInstance]
+both satisfy it. A `registry` is a mapping from entity id to those same creatures.
 
 Typical usage:
 
@@ -141,9 +143,9 @@ class Condition(StrEnum):
     doesn't come from a timed effect.
 
     Some members drive rules in [`osrlib.core.combat`][osrlib.core.combat] and
-    [`osrlib.core.spells`][osrlib.core.spells], and the rest are states the rest of the game acts on. The member
-    docstrings below say which is which, so you know whether granting one changes a roll or only changes what
-    your interface shows.
+    [`osrlib.core.spells`][osrlib.core.spells], and the rest are states that the crawl framework or your own
+    code acts on. Read each member's description to see which, so you know whether granting one changes a roll
+    or only changes what your interface shows.
 
     One rule covers every member. A creature whose template lists a condition in its defenses'
     `condition_immunities` never takes that condition, whether you call
@@ -205,8 +207,9 @@ class Condition(StrEnum):
 
     DEAD = "dead"
     """Killed. Granted by [`kill`][osrlib.core.effects.kill] rather than by any effect, so its `effect_id` is
-    `None`. It blocks acting and healing, the battle machine passes the creature over when it picks targets, and
-    only a spell that removes the condition brings the creature back."""
+    `None`. It blocks acting and healing, and the battle procedure in [`osrlib.crawl.battle`][osrlib.crawl.battle]
+    passes the creature over when it picks targets. Only a spell that removes the condition brings the creature
+    back."""
 
     SILENCED = "silenced"
     """Unable to speak. [`validate_cast`][osrlib.core.spells.validate_cast] rejects the creature's casting with
@@ -218,7 +221,7 @@ class Condition(StrEnum):
 
     AFRAID = "afraid"
     """Panicked by a fear effect. *Remove fear* cures it, and when the fear was magical the subject first saves
-    versus spells at +1 for each level of the curing caster, keeping the fear on a failure. The battle machine in
+    versus spells at +1 for each level of the curing caster, keeping the fear on a failure. The battle procedure in
     [`osrlib.crawl.battle`][osrlib.crawl.battle] treats the creature as routed."""
 
     FEEBLEMINDED = "feebleminded"
@@ -226,18 +229,20 @@ class Condition(StrEnum):
     casting with `magic.cast.caster_incapacitated`."""
 
     INVISIBLE = "invisible"
-    """Unseen. Past the immunity rule nothing in the core rules turns on it. The battle machine leaves the
-    creature out of the ranks an enemy picks targets from."""
+    """Unseen. Past the immunity rule nothing in the core rules turns on it. The battle procedure in
+    [`osrlib.crawl.battle`][osrlib.crawl.battle] leaves the creature out of the ranks an enemy picks targets
+    from."""
 
     TURNED = "turned"
     """Driven off by a cleric's turning.
     [`turn_undead`][osrlib.core.spells.turn_undead] attaches the effect that grants it. Past the immunity rule
-    nothing in the core rules turns on it, and the battle and encounter machines treat the creature as
-    fleeing."""
+    nothing in the core rules turns on it, and the battle and encounter procedures in
+    [`osrlib.crawl.battle`][osrlib.crawl.battle] and [`osrlib.crawl.encounter`][osrlib.crawl.encounter] treat
+    the creature as fleeing."""
 
     CONFUSED = "confused"
-    """Acting at random. Past the immunity rule nothing in the core rules turns on it. The battle machine
-    chooses the creature's action instead of letting you choose."""
+    """Acting at random. Past the immunity rule nothing in the core rules turns on it. The battle procedure in
+    [`osrlib.crawl.battle`][osrlib.crawl.battle] chooses the creature's action instead of letting you choose."""
 
     WEAKENED = "weakened"
     """Drained of strength. It blocks attacking, blocks casting, and blocks all healing."""
@@ -552,8 +557,11 @@ What each one does:
   `versus_other_alignment`.
 - `morale_bonus` adjusts the bearer's side's morale checks through
   [`morale_modifier`][osrlib.core.combat.morale_modifier].
-- `ac_bonus` improves the bearer's armour class by its value, `ac_set` replaces the armour class outright when
-  the set value is better, and `ac_set_vs_missile` does the same against missile attacks only.
+- `ac_bonus` improves the bearer's armour class by its value.
+- `ac_set` replaces the bearer's armour class against attacks that aren't missiles, when the set value is
+  better. `ac_set_vs_missile` does the same against missile attacks. Against a missile only
+  `ac_set_vs_missile` counts, which is how *shield* gives one armour class against missiles and another against
+  everything else.
 - `damage_reduction_per_die` takes points off incoming damage, one per die rolled, for the named `element`.
 - `damage_multiplier` multiplies the bearer's weapon damage and `melee_damage_multiplier` its melee damage,
   after the flat bonuses are added.
@@ -1062,8 +1070,8 @@ class ActiveEffect(BaseModel):
 
     expires_round: int | None = None
     """The absolute round the effect expires on, or `None` when it has no duration or is permanent. Suspension
-    pushes it forward one round for each round the bearer spends petrified, so a suspended effect keeps the time
-    it had left."""
+    pushes it forward one round for each round the bearer spends petrified, so a suspended effect has the same time
+    left when the stone is undone."""
 
     caster_level: int | None = None
     """The level of the caster whose spell attached this effect, recorded when the attach passed one.
@@ -1151,6 +1159,31 @@ class EffectsLedger(BaseModel):
         Returns:
             The matching effects, in the order they were attached. The list is new, but the effects in it are the
             ledger's objects, so a change to one changes what the ledger runs.
+
+        Examples:
+            ```python
+            from osrlib.core.clock import GameClock, TimeUnit
+            from osrlib.core.effects import Condition, EffectDefinition, EffectsLedger
+            from osrlib.core.monsters import MONSTER_SPAWN_STREAM, IdAllocator, spawn_monster
+            from osrlib.core.rng import RngStreams
+            from osrlib.data import load_monsters
+
+            spawn = RngStreams(master_seed=3).get(MONSTER_SPAWN_STREAM)
+            goblin = spawn_monster(load_monsters().get("goblin"), id="monster-0001", stream=spawn)
+            registry = {"monster-0001": goblin}
+            ledger, clock = EffectsLedger(), GameClock()
+            sleep = EffectDefinition(
+                kind="sleep",
+                duration_unit=TimeUnit.TURN,
+                duration_amount=4,
+                condition=Condition.ASLEEP,
+            )
+            ledger.attach(sleep, "monster-0001", clock=clock, allocator=IdAllocator(), registry=registry)
+
+            for effect in ledger.active_on("monster-0001", "sleep"):
+                print(effect.effect_id, effect.expires_round - clock.rounds)
+            # effect-0001 240
+            ```
         """
         return [
             effect
@@ -1208,6 +1241,37 @@ class EffectsLedger(BaseModel):
         Raises:
             ValueError: If the definition has `duration_dice` and no `stream` was passed, or if it has a
                 `duration_unit` with neither an amount nor dice.
+
+        Examples:
+            A *sleep* takes hold on a goblin, and a skeleton, which is immune to sleep, gets `None`:
+
+            ```python
+            from osrlib.core.clock import GameClock, TimeUnit
+            from osrlib.core.effects import Condition, EffectDefinition, EffectsLedger
+            from osrlib.core.monsters import MONSTER_SPAWN_STREAM, IdAllocator, spawn_monster
+            from osrlib.core.rng import RngStreams
+            from osrlib.data import load_monsters
+
+            spawn = RngStreams(master_seed=3).get(MONSTER_SPAWN_STREAM)
+            monsters = load_monsters()
+            goblin = spawn_monster(monsters.get("goblin"), id="monster-0001", stream=spawn)
+            skeleton = spawn_monster(monsters.get("skeleton"), id="monster-0002", stream=spawn)
+            registry = {"monster-0001": goblin, "monster-0002": skeleton}
+            ledger, clock, allocator = EffectsLedger(), GameClock(), IdAllocator()
+            sleep = EffectDefinition(
+                kind="sleep",
+                duration_unit=TimeUnit.TURN,
+                duration_amount=4,
+                condition=Condition.ASLEEP,
+            )
+
+            effect, events = ledger.attach(sleep, "monster-0001", clock=clock, allocator=allocator, registry=registry)
+            print(effect.effect_id, effect.expires_round, [event.code for event in events])
+            # effect-0001 240 ['effects.effect.attached', 'effects.condition.gained']
+
+            print(ledger.attach(sleep, "monster-0002", clock=clock, allocator=allocator, registry=registry))
+            # (None, [])
+            ```
         """
         existing = self.active_on(target_ref, definition.kind)
         if existing and definition.stacking == "ignore":
@@ -1251,16 +1315,17 @@ class EffectsLedger(BaseModel):
         its save, a light source put out, an invisible creature attacking and losing the invisibility. The
         condition and the modifiers the effect granted come off with it.
 
-        Find the id first with [`active_on`][osrlib.core.effects.EffectsLedger.active_on], and copy the list
-        before you release from it, since releasing changes the ledger's list as you go. To end an effect
-        because time ran out, do nothing: [`advance`][osrlib.core.effects.EffectsLedger.advance] expires it for
-        you and emits [`EffectExpiredEvent`][osrlib.core.events.EffectExpiredEvent] instead.
+        Find the id first with [`active_on`][osrlib.core.effects.EffectsLedger.active_on]. It returns a new list,
+        so you can release each effect in it as you loop. Don't loop over `effects` itself while you release,
+        because each release removes an entry from that list. To end an effect because time ran out, do
+        nothing: [`advance`][osrlib.core.effects.EffectsLedger.advance] expires it for you and emits
+        [`EffectExpiredEvent`][osrlib.core.events.EffectExpiredEvent] instead.
 
         Args:
             effect_id: The id of the effect to end, from its
                 [`ActiveEffect`][osrlib.core.effects.ActiveEffect].
             registry: The live creatures by entity id, so the condition and modifiers can be taken back. Leave it
-                out and the effect is dropped from the ledger, but the creature keeps the condition and modifiers.
+                out and the effect is dropped from the ledger, but the condition and modifiers stay on the creature.
 
         Returns:
             The [`EffectReleasedEvent`][osrlib.core.events.EffectReleasedEvent] and, when the effect granted a
@@ -1270,6 +1335,36 @@ class EffectsLedger(BaseModel):
         Raises:
             ValueError: If the ledger has no effect with that id, which means it already expired or was
                 already released.
+
+        Examples:
+            A *dispel* that ends every effect on a goblin:
+
+            ```python
+            from osrlib.core.clock import GameClock, TimeUnit
+            from osrlib.core.effects import Condition, EffectDefinition, EffectsLedger, has_condition
+            from osrlib.core.monsters import MONSTER_SPAWN_STREAM, IdAllocator, spawn_monster
+            from osrlib.core.rng import RngStreams
+            from osrlib.data import load_monsters
+
+            spawn = RngStreams(master_seed=3).get(MONSTER_SPAWN_STREAM)
+            goblin = spawn_monster(load_monsters().get("goblin"), id="monster-0001", stream=spawn)
+            registry = {"monster-0001": goblin}
+            ledger = EffectsLedger()
+            sleep = EffectDefinition(
+                kind="sleep",
+                duration_unit=TimeUnit.TURN,
+                duration_amount=4,
+                condition=Condition.ASLEEP,
+            )
+            ledger.attach(sleep, "monster-0001", clock=GameClock(), allocator=IdAllocator(), registry=registry)
+
+            for effect in ledger.active_on("monster-0001"):
+                print([event.code for event in ledger.release(effect.effect_id, registry)])
+            # ['effects.effect.released', 'effects.condition.removed']
+
+            print(has_condition(goblin, Condition.ASLEEP), ledger.effects)
+            # False []
+            ```
         """
         effect = next((candidate for candidate in self.effects if candidate.effect_id == effect_id), None)
         if effect is None:

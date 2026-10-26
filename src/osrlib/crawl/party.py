@@ -5,13 +5,13 @@ You build a [`Party`][osrlib.crawl.party.Party] out of the
 [`GameSession.new`][osrlib.crawl.session.GameSession.new] beside the adventure. From then on the
 session manages it: the party moves as one body, and `session.party` is where you read it back.
 
-The member list order *is* marching order. There is no second field to keep in step with it, so the
-first member is the one in front. [`ReorderParty`][osrlib.crawl.commands.ReorderParty] is the only
+The order of the member list is the marching order, and no other field records it, so the first
+member is the one in front. [`ReorderParty`][osrlib.crawl.commands.ReorderParty] is the only
 command that rewrites that order, and [`reorder`][osrlib.crawl.party.Party.reorder] is what it calls.
 
-Dead members stay in the list. Their gear is still on them, so removing them would lose it, and
-deciding a corpse is left behind is a game's call to make with the referee commands rather than
-something the rules do for you. The rules that count party members skip the dead: movement rate,
+Dead members stay in the list. Their gear is still on them, so removing them would lose it. Leaving
+a body behind is a choice your game makes with the referee commands, and the rules never make it
+for you. The rules that count party members skip the dead: movement rate,
 combat ranks, ability checks, and provisions all read
 [`living_members`][osrlib.crawl.party.Party.living_members].
 """
@@ -108,6 +108,40 @@ class Party(BaseModel):
 
         Raises:
             ValueError: If no member has that id. The message includes the id.
+
+        Examples:
+            ```python
+            from osrlib.core.abilities import AbilityScore
+            from osrlib.core.alignment import Alignment
+            from osrlib.core.character import Character
+            from osrlib.crawl.adventure import Adventure, TownSpec
+            from osrlib.crawl.dungeon import DungeonSpec, LevelSpec
+            from osrlib.crawl.party import Party
+            from osrlib.crawl.session import GameSession
+
+            members = [
+                Character(
+                    name=name,
+                    class_id="fighter",
+                    race="human",
+                    level=1,
+                    xp=0,
+                    scores={ability: 12 for ability in AbilityScore},
+                    alignment=Alignment.LAWFUL,
+                    max_hp=8,
+                    current_hp=8,
+                )
+                for name in ("Hild", "Osric")
+            ]
+            level = LevelSpec(number=1, width=1, height=1, entrance=(0, 0))
+            crypt = DungeonSpec(id="crypt", name="The Old Crypt", levels=(level,))
+            adventure = Adventure(name="A First Delve", town=TownSpec(name="Threshold"), dungeons=(crypt,))
+            session = GameSession.new(Party(members=members), adventure, seed=7)
+
+            # Ids come from the session; an event about the second member carries "character-0002".
+            print(session.party.member("character-0002").name)
+            # Osric
+            ```
         """
         for member in self.members:
             if member.id == character_id:
@@ -115,7 +149,7 @@ class Party(BaseModel):
         raise ValueError(f"no party member with id {character_id!r}")
 
     def movement_rate(self, ruleset: Ruleset) -> int:
-        """Return the party's exploration rate: the slowest living member's.
+        """Return the party's exploration rate, which is the slowest living member's rate.
 
         B/X moves a group at the pace of its slowest member, so one overloaded character slows
         everybody. Call [`Character.movement_rate`][osrlib.core.character.Character.movement_rate]
@@ -132,6 +166,30 @@ class Party(BaseModel):
             The rate in feet per exploration turn: 120, 90, 60, 30, or 0. A rate of 0 means the party
                 cannot move at all, either because its slowest living member is overloaded or because
                 nobody is alive to walk.
+
+        Examples:
+            ```python
+            from osrlib.core.abilities import AbilityScore
+            from osrlib.core.alignment import Alignment
+            from osrlib.core.character import Character
+            from osrlib.core.ruleset import Ruleset
+            from osrlib.crawl.party import Party
+
+            hild = Character(
+                name="Hild",
+                class_id="fighter",
+                race="human",
+                level=1,
+                xp=0,
+                scores={ability: 12 for ability in AbilityScore},
+                alignment=Alignment.LAWFUL,
+                max_hp=8,
+                current_hp=8,
+            )
+            party = Party(members=[hild])
+            print(party.movement_rate(Ruleset()))
+            # 120
+            ```
         """
         rates = [member.movement_rate(ruleset) for member in self.living_members()]
         return min(rates, default=0)
@@ -159,6 +217,34 @@ class Party(BaseModel):
 
         Raises:
             ValueError: If `width` is not positive.
+
+        Examples:
+            ```python
+            from osrlib.core.abilities import AbilityScore
+            from osrlib.core.alignment import Alignment
+            from osrlib.core.character import Character
+            from osrlib.crawl.party import Party
+
+            members = [
+                Character(
+                    name=name,
+                    class_id="fighter",
+                    race="human",
+                    level=1,
+                    xp=0,
+                    scores={ability: 12 for ability in AbilityScore},
+                    alignment=Alignment.LAWFUL,
+                    max_hp=8,
+                    current_hp=8,
+                )
+                for name in ("Hild", "Osric", "Brand")
+            ]
+            party = Party(members=members)
+            for number, rank in enumerate(party.ranks(2), start=1):
+                print(number, [member.name for member in rank])
+            # 1 ['Hild', 'Osric']
+            # 2 ['Brand']
+            ```
         """
         if width < 1:
             raise ValueError(f"rank width must be positive, got {width}")

@@ -1,7 +1,7 @@
-"""Authored gates: the condition vocabulary, the gate model, and pure evaluation.
+"""Authored gates, the conditions they test, and the function that evaluates them.
 
-A gate is an authored predicate the engine checks when the party attempts something,
-like opening a door or taking a stair.
+A gate is a condition you write into an adventure, which the engine checks when the party
+attempts something, like opening a door or taking a stair.
 
 You write a [`GateSpec`][osrlib.crawl.gates.GateSpec] into the
 `requires` field of a [`DoorSpec`][osrlib.crawl.dungeon.DoorSpec] or a
@@ -25,7 +25,8 @@ A gate is stateless content. [`condition_holds`][osrlib.crawl.gates.condition_ho
 reads live session state at the moment of the attempt and stores nothing, so a key that
 gets dropped or sold stops opening its door.
 
-The condition vocabulary is a discriminated union that grows additively:
+A gate, a trigger, and a quest clause all use the same conditions, and
+[`ConditionSpec`][osrlib.crawl.gates.ConditionSpec] is their union:
 
 - [`HasItemCondition`][osrlib.crawl.gates.HasItemCondition]: some party member's carried
   inventory contains an item with that catalog id
@@ -38,10 +39,10 @@ The condition vocabulary is a discriminated union that grows additively:
   of that kind is attached to a party member, so you can ask for the talisman invoked
   rather than merely carried.
 
-Gates and locks are separate layers. A lock is stateful mechanics with dice and
-per-character memory. A gate is a stateless authored predicate. To open a door with
-both, the party has to get past both. Evaluation draws no dice, costs no game time, and mutates nothing, which
-is what lets a gate refusal be an ordinary command rejection.
+Gates and locks are separate. A lock is a rules mechanic, with dice and a record of which
+characters have tried it. A gate is an authored condition with no state. To open a door with
+both, the party has to get past both. Evaluating a gate draws no dice, costs no game time, and
+changes nothing, so a gate refusal is an ordinary command rejection.
 
 Use a gate when the party has to satisfy a condition to get through. When you want
 something to happen because the party already did something, author a trigger
@@ -72,7 +73,7 @@ __all__ = [
 
 
 class HasItemCondition(BaseModel):
-    """The party carries an item with `item_id`, equipment or magic item alike.
+    """A condition that holds when the party carries an item with `item_id`, mundane or magic.
 
     Write this into the `condition` of a [`GateSpec`][osrlib.crawl.gates.GateSpec] for
     a door that opens only with a key, and into the `conditions` of a
@@ -84,14 +85,19 @@ class HasItemCondition(BaseModel):
 
     `item_id` has to resolve against the effective equipment catalog, which is the
     built-in catalog plus the adventure's bundled items, or against the magic-item
-    catalog. A gate with an id that is in neither catalog fails adventure validation.
+    catalog. An id in neither catalog fails
+    [`validate_adventure`][osrlib.crawl.adventure.validate_adventure], which
+    [`GameSession.new`][osrlib.crawl.session.GameSession.new] runs, with
+    [`ContentValidationError`][osrlib.errors.ContentValidationError].
 
     Examples:
         ```python
         from osrlib.crawl.gates import HasItemCondition
 
-        brass_key = HasItemCondition(item_id="brass_key")
-        assert not brass_key.consumes  # carrying is enough, and nothing is taken
+        show_symbol = HasItemCondition(item_id="holy_symbol")  # carrying it is enough
+        pay_toll = HasItemCondition(item_id="iron_spikes", consumes=True)  # one spike per crossing
+        print(show_symbol.consumes, pay_toll.consumes)
+        # False True
         ```
     """
 
@@ -112,11 +118,11 @@ class HasItemCondition(BaseModel):
 
 
 class FlagEqualsCondition(BaseModel):
-    """A session flag equals `value`: the lever that opens the portcullis.
+    """A condition that holds when a session flag equals `value`.
 
     Your game writes flags with [`SetFlag`][osrlib.crawl.commands.SetFlag], and a
-    trigger's consequence can write one too, so this is how a lever in one room governs
-    a door in another. The comparison runs through
+    trigger's consequence can write one too, so this is how a lever in one room opens
+    a portcullis in another. The comparison runs through
     [`flag_values_equal`][osrlib.crawl.gates.flag_values_equal] and it is strict: a key
     that was never written equals nothing, `False` included, and a stored `True` never
     matches an authored `1`.
@@ -126,7 +132,8 @@ class FlagEqualsCondition(BaseModel):
         from osrlib.crawl.gates import FlagEqualsCondition
 
         raised = FlagEqualsCondition(key="crypt.portcullis", value="raised")
-        assert raised.condition_type == "flag_equals"
+        print(raised.model_dump())
+        # {'condition_type': 'flag_equals', 'key': 'crypt.portcullis', 'value': 'raised'}
         ```
     """
 
@@ -138,16 +145,16 @@ class FlagEqualsCondition(BaseModel):
     key: str = Field(min_length=1)
     """The flag name to read from the session flag store."""
     value: str | int | bool
-    """The value the flag has to have. The comparison never treats values of different types as equal, so author the
-    same type your [`SetFlag`][osrlib.crawl.commands.SetFlag] writes."""
+    """The value the flag has to have. The comparison never treats values of different types as
+    equal, so author the same type your [`SetFlag`][osrlib.crawl.commands.SetFlag] writes."""
 
 
 class EffectActiveCondition(BaseModel):
-    """An active effect of `kind` is attached to some party member.
+    """A condition that holds when an active effect of `kind` is attached to a party member.
 
-    Use it when the talisman has to be invoked rather than merely carried: the item
-    grants an effect, and the gate requires the effect. The session's effects ledger
-    ([`EffectsLedger`][osrlib.core.effects.EffectsLedger]) is what gets read. Effects
+    Use it when the talisman has to be invoked rather than only carried. The item grants an
+    effect, and the gate requires the effect. The condition reads the session's effects ledger
+    ([`EffectsLedger`][osrlib.core.effects.EffectsLedger]). Effects
     attached to a location never count, because the test is for an effect on a party
     member.
 
@@ -156,7 +163,8 @@ class EffectActiveCondition(BaseModel):
         from osrlib.crawl.gates import EffectActiveCondition
 
         warded = EffectActiveCondition(kind="ward_of_the_deep")
-        assert warded.condition_type == "effect_active"
+        print(warded.model_dump())
+        # {'condition_type': 'effect_active', 'kind': 'ward_of_the_deep'}
         ```
     """
 
@@ -184,8 +192,8 @@ Its members are [`HasItemCondition`][osrlib.crawl.gates.HasItemCondition]
 [`EffectActiveCondition`][osrlib.crawl.gates.EffectActiveCondition] (`effect_active`).
 Annotate a field with this alias when you write your own model that contains authored
 conditions. Pydantic then picks the member from the `condition_type` value in the
-document. New kinds join the union additively, and the discriminator values are serialized
-values that appear in every document that includes a gate.
+document. The `condition_type` values are part of the document format, so a later release can
+add a member but doesn't rename one within a schema version.
 
 A condition is read on the `condition` of a
 [`GateSpec`][osrlib.crawl.gates.GateSpec], on the `conditions` of a
@@ -210,18 +218,51 @@ class GateSpec(BaseModel):
     door closes.
 
     Examples:
+        A door the party can open only while someone carries a holy symbol:
+
         ```python
+        from osrlib.core.alignment import Alignment
+        from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character
+        from osrlib.core.rng import RngStreams
+        from osrlib.core.ruleset import Ruleset
+        from osrlib.crawl.adventure import Adventure, TownSpec
+        from osrlib.crawl.commands import EnterDungeon, GrantItem, OpenDoor
+        from osrlib.crawl.dungeon import Direction, DoorSpec, DungeonSpec, Edge, EdgeKind, LevelSpec
         from osrlib.crawl.gates import GateSpec, HasItemCondition
         from osrlib.crawl.narrative import NarrativeBlock
+        from osrlib.crawl.party import Party
+        from osrlib.crawl.session import GameSession
 
         sentinel = GateSpec(
-            condition=HasItemCondition(item_id="brass_key"),
+            condition=HasItemCondition(item_id="holy_symbol"),
             narrative=NarrativeBlock(
-                refusal="The bronze sentinel folds its arms. Brass, it says. Brass or nothing.",
-                success="The brass key turns in the sentinel's palm and the door swings wide.",
+                refusal="The bronze sentinel folds its arms. Show the sign of the faith, it says.",
+                success="The sentinel bows to the holy symbol and the door swings wide.",
             ),
         )
-        assert sentinel.condition.item_id == "brass_key"
+        door = Edge(kind=EdgeKind.DOOR, door=DoorSpec(requires=sentinel))
+        level = LevelSpec(number=1, width=2, height=1, entrance=(0, 0), edges={"1,0:west": door})
+        crypt = DungeonSpec(id="crypt", name="The Old Crypt", levels=(level,))
+        adventure = Adventure(name="A First Delve", town=TownSpec(name="Threshold"), dungeons=(crypt,))
+
+        rules = Ruleset()
+        stream = RngStreams(master_seed=7).get(CHARACTER_CREATION_STREAM)
+        hero = create_character(
+            name="Hild", class_id="fighter", alignment=Alignment.LAWFUL, ruleset=rules, stream=stream
+        ).character
+        session = GameSession.new(Party(members=[hero]), adventure, seed=7)
+        session.execute(EnterDungeon(dungeon_id="crypt"))
+
+        refused = session.execute(OpenDoor(direction=Direction.EAST))
+        print(refused.rejections[0].code)
+        # exploration.door.gate_refused
+        print(refused.rejections[0].params["refusal"])
+        # The bronze sentinel folds its arms. Show the sign of the faith, it says.
+
+        session.execute(GrantItem(character_id=hero.id, item_id="holy_symbol"))
+        opened = session.execute(OpenDoor(direction=Direction.EAST))
+        print(opened.events[0].code, opened.events[0].narrative)
+        # exploration.door.opened The sentinel bows to the holy symbol and the door swings wide.
         ```
     """
 
@@ -276,8 +317,10 @@ def condition_holds(
         from osrlib.crawl.gates import FlagEqualsCondition, condition_holds
 
         condition = FlagEqualsCondition(key="portcullis", value="raised")
-        flags = {"portcullis": "raised"}
-        assert condition_holds(condition, members=[], flags=flags, ledger=EffectsLedger())
+        print(condition_holds(condition, members=[], flags={"portcullis": "raised"}, ledger=EffectsLedger()))
+        # True
+        print(condition_holds(condition, members=[], flags={}, ledger=EffectsLedger()))
+        # False
         ```
     """
     if isinstance(condition, HasItemCondition):
@@ -292,10 +335,10 @@ def condition_holds(
 def flag_values_equal(stored: str | int | bool, expected: str | int | bool) -> bool:
     """Compare two flag values the one strict way the engine compares them.
 
-    The test is equality plus matching boolness. `True == 1` in Python, so a flag your
-    game set to `True` does not satisfy an authored `1`, and an authored `True` does not
-    match a stored `1`: they are different values in an authored document even though
-    Python calls them equal. Call it when your code has to compare flag values the way the
+    Two values are equal when Python says they are and either both or neither are `bool`.
+    Python treats `True == 1` as true, but in an authored document they are different
+    values, so a flag your game set to `True` doesn't satisfy an authored `1`, and an
+    authored `True` doesn't match a stored `1`. Call it when your code has to compare flag values the way the
     engine does.
 
     Every part of the engine that compares a flag value calls this function, which is why
@@ -341,9 +384,30 @@ def first_holder(members: Sequence[Character], item_id: str) -> Character | None
 
     Examples:
         ```python
+        from osrlib.core.alignment import Alignment
+        from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character
+        from osrlib.core.rng import RngStreams
+        from osrlib.core.ruleset import Ruleset
         from osrlib.crawl.gates import first_holder
 
-        assert first_holder([], "brass_key") is None
+        rules = Ruleset()
+        stream = RngStreams(master_seed=7).get(CHARACTER_CREATION_STREAM)
+        hild = create_character(
+            name="Hild", class_id="fighter", alignment=Alignment.LAWFUL, ruleset=rules, stream=stream
+        ).character
+        osric = create_character(
+            name="Osric",
+            class_id="cleric",
+            alignment=Alignment.LAWFUL,
+            ruleset=rules,
+            stream=stream,
+            purchases=[("holy_symbol", 1)],
+        ).character
+
+        print(first_holder([hild, osric], "holy_symbol").name)
+        # Osric
+        print(first_holder([hild, osric], "lantern"))
+        # None
         ```
     """
     for member in members:
