@@ -136,5 +136,5 @@ assert reaction in ReactionResult
 ## Where next
 
 - [Sessions, commands, and events](sessions-commands-events.md) - how `GameSession` connects these same kernel functions to the session's named streams automatically.
-- [Determinism, saves, and replay](determinism-saves-replay.md) - the seed and stream guarantees `RngStreams` relies on.
+- [Determinism, saves, and replay](determinism-saves-replay.md) - the seed and stream guarantees built on `RngStreams`.
 - [The API reference](../reference/api/index.md) - every public symbol in `osrlib.core`, module by module.

@@ -152,7 +152,7 @@ class Literacy(StrEnum):
 
 
 class ScoreBand(BaseModel):
-    """The run of scores one table row covers, such as 4 to 5.
+    """The run of scores one table row covers, like 4 to 5.
 
     The SRD prints its modifier tables in bands rather than one row per score, and osrlib
     keeps them that way. Every row model below is a band with that row's columns added.

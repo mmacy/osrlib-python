@@ -15,7 +15,7 @@ The modules, in the order you meet them:
 
 - [`osrlib.core.rng`][osrlib.core.rng]: a master seed in, named deterministic streams
   out. Every other module here takes one of those streams as an argument.
-- [`osrlib.core.dice`][osrlib.core.dice]: a dice expression such as `"2d6+1"` and a
+- [`osrlib.core.dice`][osrlib.core.dice]: a dice expression like `"2d6+1"` and a
   stream in, the individual dice and the total out.
 - [`osrlib.core.ruleset`][osrlib.core.ruleset]: optional-rule flags in, a frozen
   `Ruleset` out, which most resolution functions read.

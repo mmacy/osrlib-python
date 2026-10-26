@@ -580,7 +580,7 @@ class MonsterAbility(BaseModel):
     """The SRD's description, which is what to show a player or referee."""
 
     manual: bool = False
-    """True when nothing in osrlib acts on this ability, so the referee applies it from the description."""
+    """True when osrlib doesn't act on this ability, so the referee applies it from the description."""
 
     params: dict[str, int | str | bool | tuple[int | str, ...]] = {}
     """The values the rules read, like a troll's regeneration delay and rate, or the number of levels an energy drain

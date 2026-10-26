@@ -883,8 +883,8 @@ def has_modifier(target: Creature, kind: str) -> bool:
     a number, call [`modifier_total`][osrlib.core.effects.modifier_total], whose 0 means "no adjustment" rather
     than "not present".
 
-    It ignores the scope fields, so a modifier narrowed to one element still reports True here. Where the scope
-    matters, go through [`modifier_values`][osrlib.core.effects.modifier_values].
+    It ignores the scope fields, so a modifier narrowed to one element still reports True here. When you need the
+    scope filters, go through [`modifier_values`][osrlib.core.effects.modifier_values].
 
     Args:
         target: The [`Creature`][osrlib.core.creature.Creature] to read modifiers from, which a
@@ -1300,7 +1300,7 @@ class EffectsLedger(BaseModel):
         This is what makes an effect with a duration end, and a regenerating troll heal.
         Advance the clock through this call rather than writing to
         [`GameClock.rounds`][osrlib.core.clock.GameClock] yourself: the clock records elapsed time and nothing
-        about what is attached to whom, so time you add behind the ledger's back resolves no effects at all. A
+        about what is attached to whom, so time you add to the clock directly resolves no effects. A
         [`GameSession`][osrlib.crawl.session.GameSession] makes this call for you inside
         [`advance_rounds`][osrlib.crawl.session.GameSession.advance_rounds] and
         [`advance_turns`][osrlib.crawl.session.GameSession.advance_turns].

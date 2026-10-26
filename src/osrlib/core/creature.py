@@ -12,7 +12,7 @@ annotate your own code with it when you write a function that takes either kind 
 [`Creature`][osrlib.core.creature.Creature] is the base: an id, a name, hit points, conditions, and stat
 modifiers. [`Combatant`][osrlib.core.creature.Combatant] adds the combat numbers an attack or a saving throw reads.
 [`Caster`][osrlib.core.creature.Caster] adds what memorizing and casting read. A function that needs an attribute
-only one concrete type has, such as a monster's template or a character's inventory, either takes that
+only one concrete type has, like a monster's template or a character's inventory, either takes that
 concrete type or reads the attribute with `getattr` and a default, and its docstring says which.
 
 Typical usage:
@@ -69,7 +69,7 @@ class Creature(Protocol):
 
     A [`Character`][osrlib.core.character.Character] and a [`MonsterInstance`][osrlib.core.monsters.MonsterInstance]
     both satisfy this, and so does anything of your own with these attributes. Functions that read only these
-    attributes, such as [`has_condition`][osrlib.core.effects.has_condition],
+    attributes, like [`has_condition`][osrlib.core.effects.has_condition],
     [`apply_healing`][osrlib.core.combat.apply_healing], and [`incapacitated`][osrlib.core.combat.incapacitated],
     take it. A function that also reads combat numbers takes [`Combatant`][osrlib.core.creature.Combatant].
 

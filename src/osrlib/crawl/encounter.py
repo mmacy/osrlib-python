@@ -990,9 +990,9 @@ def end_encounter(session, outcome: str) -> list[Event]:
 
     The clock advances to whichever is later: the next turn boundary, or one full turn after the
     encounter opened. An encounter that opened mid-turn is therefore charged its full turn and can
-    close mid-turn, since the boundary clause only guarantees the boundary is reached. The wandering
-    monster cadence stays suspended across the whole encounter. That whole-turn charge absorbs any
-    part-turn of walking the party had banked, so `session.odometer_thirds` resets to 0.
+    close mid-turn, because the next turn boundary can come before that full turn is up. The wandering
+    monster cadence stays suspended across the whole encounter. The whole-turn charge also covers any
+    partial turn of walking the party had accumulated, so `session.odometer_thirds` resets to 0.
 
     Args:
         session (osrlib.crawl.session.GameSession): The running session, with `session.encounter` set.

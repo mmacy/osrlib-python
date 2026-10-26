@@ -114,8 +114,8 @@ class Ruleset(BaseModel):
     Build one at the start of a game and pass it wherever a `ruleset` argument appears.
     `Ruleset()` plays the SRD as written, so name only the flags you want to change. The
     model is frozen, so you cannot edit a ruleset mid-game, and it goes into saves and
-    replays, so a resumed game keeps the rules it started with. It also refuses a field
-    name it doesn't know, which turns a misspelled flag into a pydantic
+    replays, so a resumed game keeps the rules it started with. It also rejects an
+    unknown field name, which turns a misspelled flag into a pydantic
     `ValidationError` rather than a setting that quietly does nothing.
 
     Each flag is one of two kinds. An optional rule is an alternative the SRD itself
@@ -208,7 +208,7 @@ class Ruleset(BaseModel):
     each magic item in the dead character's inventory, using the owner's save values against the
     destructive source's category and adding the item's best combat bonus. Items that
     survive go into a drop pile at
-    the victim's cell, where the party can pick it up, rather than vanishing with the
+    the victim's cell, where the party can pick them up, rather than vanishing with the
     body.
     """
 

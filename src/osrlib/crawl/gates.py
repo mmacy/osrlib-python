@@ -39,8 +39,8 @@ The condition vocabulary is a discriminated union that grows additively:
   rather than merely carried.
 
 Gates and locks are separate layers. A lock is stateful mechanics with dice and
-per-character memory. A gate is a stateless authored predicate. A door with both
-requires both. Evaluation draws no dice, costs no game time, and mutates nothing, which
+per-character memory. A gate is a stateless authored predicate. To open a door with
+both, the party has to get past both. Evaluation draws no dice, costs no game time, and mutates nothing, which
 is what lets a gate refusal be an ordinary command rejection.
 
 Use a gate when the party has to satisfy a condition to get through. When you want

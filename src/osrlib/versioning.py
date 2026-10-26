@@ -78,14 +78,14 @@ earlier release of the same schema version can be missing fields that newer docu
 include, and readers fill those with their defaults.
 
 If you keep old saves, each change behind the current number affects them.
-Version 2 dropped the recovered-treasure ledger from the save payload, since the
+Version 2 drops the recovered-treasure ledger from the save payload, since the
 end-of-adventure award is worked out from the valuation taken when the party left town.
-Version 3 narrowed a treasure trap's `trigger` to `"open"`, the one action that springs a
-cache. Earlier documents could say `"enter"`, which osrlib never read, and the migration
-rewrites it, and a content pack gets the same trigger rewrite when it loads. Version 4
-dropped `"withdraw"` from a battle declaration's `move`, a value the round resolver never
-acted on, and the migration clears it off a logged declaration, leaving a member
-who declared it holding. No step drops anything the library reads back.
+Version 3 narrows a treasure trap's `trigger` to `"open"`, the one action that springs a
+cache. An earlier document can say `"enter"`, which osrlib has never read. The migration
+rewrites it, and a content pack gets the same rewrite when it loads. Version 4 drops
+`"withdraw"` from a battle declaration's `move`, a value the round resolver has never
+acted on. The migration clears it off a logged declaration, so the member who declared it
+holds. No step drops anything the library reads back.
 
 This is a fact about the library, not a setting. Assigning to it changes the version your
 documents are stamped with, without changing what's in them.

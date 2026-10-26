@@ -12,7 +12,7 @@ The crawler's loop is a `dispatch` function that turns one line of typed text in
 --8<-- "examples/tui_crawler/__main__.py:parse-command"
 ```
 
-`_DIRECTIONS` maps single letters to the compass words [`MoveParty`][osrlib.crawl.commands.MoveParty] takes. Once a command exists, running it is the same three steps as everywhere else in osrlib: execute, check acceptance, format the events. The loop is a plain iteration over `result.events` because the result envelope already contains everything. When a listener issues a command of its own, as the interpreter does when it reacts to the player, the session adds that command's events to the result in log order, so a front end never needs to read `session.event_log` to see the whole chain. For a rejection, the crawler prints the code, plus the authored refusal text when a gate has one. Gate refusals are the only rejections that include text written for the player:
+`_DIRECTIONS` maps single letters to the compass words [`MoveParty`][osrlib.crawl.commands.MoveParty] takes. Once a command exists, running it is the same three steps as everywhere else in osrlib: execute, check acceptance, format the events. The loop is a plain iteration over `result.events` because the result envelope already contains everything. When a listener issues a command, as the interpreter does when it reacts to the player, the session adds that command's events to the result in log order, so a front end never needs to read `session.event_log` to see the whole chain. For a rejection, the crawler prints the code, plus the authored refusal text when a gate has one. Gate refusals are the only rejections that include text written for the player:
 
 ```{.python .no-run}
 --8<-- "examples/tui_crawler/__main__.py:render-events"
@@ -49,7 +49,7 @@ The event-level `Visibility` check above hides individual referee-only lines. Th
 
 ## The authored adventure
 
-`content.py` builds the game's whole world: a town, a two-level barrow, and the errand that ends it, assembled from the same authoring models [Building an adventure](../getting-started/building-an-adventure.md) walks through. A keyed area attaches content (descriptive text, an encounter, features) to a set of cells. The shrine below has prose and the cache that contains the quest's MacGuffin. The cache refers to the MacGuffin by id, so the quest can match on the party taking it (the goblins are keyed to a different room):
+`content.py` builds the game's whole world: a town, a two-level barrow, and the fetch quest that ends the adventure, assembled from the same authoring models [Building an adventure](../getting-started/building-an-adventure.md) walks through. A keyed area attaches content (descriptive text, an encounter, features) to a set of cells. The shrine below has prose and the cache that contains the quest's MacGuffin. The cache refers to the MacGuffin by id, so the quest can match on the party taking it (the goblins are keyed to a different room):
 
 ```{.python .no-run}
 --8<-- "examples/tui_crawler/content.py:idol-shrine-area"

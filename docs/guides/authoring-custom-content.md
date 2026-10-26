@@ -91,7 +91,7 @@ MEND_WOUNDS = SpellTemplate.model_validate(
 
 ## Validate the way the built-in catalogs validate
 
-[`ClassCatalog`][osrlib.core.classes.ClassCatalog] and [`SpellCatalog`][osrlib.core.spells.SpellCatalog] are the same models [`load_classes`][osrlib.data.load_classes] and [`load_spells`][osrlib.data.load_spells] validate their generated JSON into. Build one from your own definitions, and it's validated with the same checks the built-in data has to pass: unique ids, and every per-definition rule above. A round trip through JSON shows this, because it follows the same path the loaders do: a dict goes in and a model comes out:
+[`ClassCatalog`][osrlib.core.classes.ClassCatalog] and [`SpellCatalog`][osrlib.core.spells.SpellCatalog] are the same models [`load_classes`][osrlib.data.load_classes] and [`load_spells`][osrlib.data.load_spells] validate their generated JSON into. Build one from your own definitions, and it's validated with the same checks the built-in data has to pass: unique ids, and every per-definition rule above. A round trip through JSON shows this, because it follows the same path the loaders do (a dict goes in and a model comes out):
 
 ```{.python .no-run}
 classes = ClassCatalog(classes=(*load_classes().classes, WARDEN))
@@ -134,7 +134,7 @@ assert warden.thac0 == 19
 assert warden.saves.spells == 14
 ```
 
-If you want characters of a custom class, do the reassignment once, at startup, before you build or load any character, rather than calling it per character. `race` needs no such setup. Both `ClassDefinition` and `Character` validate it only against a slug pattern, and no procedure looks it up, so any race string that the class definition and the character agree on already works.
+If you want characters of a custom class, do the reassignment once, at startup, before you build or load any character, rather than once per character. `race` needs no such setup. Both `ClassDefinition` and `Character` validate it only against a slug pattern, and no procedure looks it up, so any race string that the class definition and the character agree on already works.
 
 ## Advancing and casting
 
@@ -353,7 +353,7 @@ assert warden.memorized_spells == ()
 
 ## Bundling custom monsters with an adventure
 
-You add monsters a different way than classes and spells, because the crawl layer already has a document that contains content: the adventure. `Adventure.monsters` contains your own [`MonsterTemplate`][osrlib.core.monsters.MonsterTemplate]s with the adventure document, and every session running that adventure resolves them everywhere it resolves a built-in template id: keyed encounters, [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters], inline wandering tables, listen checks, and [`GameSession.spawn`][osrlib.crawl.session.GameSession.spawn]. You don't reassign a loader or register anything. The document contains the content, and [`GameSession.effective_monsters`][osrlib.crawl.session.GameSession.effective_monsters] is the built-in catalog plus the bundle. After creation, nothing is different for a bundled monster. A created [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] embeds its full template, so combat, morale, XP, treasure, saves, and replay never look the id up again.
+You add monsters a different way than classes and spells, because the crawl layer already has a document that contains content: the adventure. `Adventure.monsters` contains your own [`MonsterTemplate`][osrlib.core.monsters.MonsterTemplate]s, so the templates are part of the adventure document. Every session running that adventure resolves them everywhere it resolves a built-in template id: keyed encounters, [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters], inline wandering tables, listen checks, and [`GameSession.spawn`][osrlib.crawl.session.GameSession.spawn]. You don't reassign a loader or register anything. The document contains the content, and [`GameSession.effective_monsters`][osrlib.crawl.session.GameSession.effective_monsters] is the built-in catalog plus the bundle. After creation, nothing is different for a bundled monster. A created [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] embeds its full template, so combat, morale, XP, treasure, saves, and replay never look the id up again.
 
 A template is a frozen model you build with `model_validate`, like the class and spell above. Three table helpers derive the stat-block numbers the SRD would print, so your creation matches the attack matrix, the monster save bands, and the XP awards table: [`thac0_for_hd`][osrlib.core.tables.thac0_for_hd], [`monster_save_band_label`][osrlib.core.tables.monster_save_band_label], and [`monster_xp`][osrlib.core.tables.monster_xp]. The one rule is the collision rule: a bundled id must not collide with the built-in catalog or another bundled id. [`validate_adventure`][osrlib.crawl.adventure.validate_adventure] rejects a collision and never overrides a built-in template, so give a variant orc a different id. [The monster id index][monsters-index] documents the built-in catalog only. Bundled ids live in the adventure that includes them:
 

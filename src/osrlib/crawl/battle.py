@@ -5,7 +5,7 @@ fight. [`start_battle`][osrlib.crawl.battle.start_battle] is the entry point, an
 procedure calls it for you: from an attacking stance, from a hostile group's deadline arriving,
 from a chase that closed to arm's length, and from the party's
 [`EngageBattle`][osrlib.crawl.commands.EngageBattle] command. After it returns the session is in
-`battle` mode, `session.battle` holds a [`BattleState`][osrlib.crawl.battle.BattleState], and each
+`battle` mode, `session.battle` contains a [`BattleState`][osrlib.crawl.battle.BattleState], and each
 round is one [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound] command with one
 [`BattleDeclaration`][osrlib.crawl.commands.BattleDeclaration] per living, able party member,
 dispatched through the session's private handler table. No command ends the battle. It ends
@@ -502,19 +502,19 @@ class NpcPartyPolicy:
     osrlib commits to one reading of an ambiguous rule or supplies a default behind a `Ruleset`
     flag).
 
-    Each living member picks the first of these that applies. A caster holding a memorized healing
+    Each living member picks the first of these that applies. A caster with a memorized healing
     spell heals the group's most wounded member below half hit points, taking the lowest ratio of
     current to maximum and breaking ties by id. A member below half hit points whose group has no
     healing spell left drinks a healing potion it carries, which is the only item use these tactics
-    make. A caster holding a memorized attack spell that osrlib resolves without a referee casts it at
+    make. A caster with a memorized attack spell that osrlib resolves without a referee casts it at
     the party, highest spell level first and ties broken by spell id, taking area targets through the
     footprint rule and a single target uniformly from the rank it can reach. A member with a missile
     weapon shoots while the gap is wider than
     [`MELEE_RANGE_FEET`][osrlib.crawl.battle.MELEE_RANGE_FEET]. Failing all of that, the member closes
     and melees, the same as a monster.
 
-    These casts post their declarations at the top of the round and are disruptable exactly as the
-    party's are, because the RAW disruption rule applies to either side. Every choice draws
+    These casts are declared at the top of the round and can be disrupted exactly as the
+    party's can, because the RAW disruption rule applies to either side. Every choice draws
     from the `monster_action` stream alone.
     """
 
@@ -919,7 +919,7 @@ def start_battle(session, *, party_free_round: bool = False, monsters_free_round
 
     Call this when your code decides the talking is over. There must be an open encounter on the
     session, because the fight runs on that encounter's groups and their distances. On return the
-    session is in `battle` mode and `session.battle` holds a
+    session is in `battle` mode and `session.battle` contains a
     [`BattleState`][osrlib.crawl.battle.BattleState]. From there, each round is one
     [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound] command.
 

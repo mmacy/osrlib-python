@@ -123,7 +123,7 @@ The interpreter does all of this for you when the quest is adventure data instea
 
 ## The complete program
 
-Three listeners on one small session: the move counter from the top of the page, the fetch quest worked above (run end to end, from acquiring the idol through the walk home, where the flag and the XP arrive as commands), and the library's interpreter, registered beside them. Registering the interpreter is allowed but has no effect here, because this adventure authors no triggers or quests. The program also sets a flag and reads it back two ways, and it runs the lifecycle commands:
+Three listeners on one small session: the move counter from the top of the page, the fetch quest worked above (run end to end, from acquiring the idol through the walk home, where the flag and the XP arrive as commands), and the library's interpreter, registered beside them. Registering the interpreter is allowed but has no effect here, because this adventure has no triggers or quests. The program also sets a flag and reads it back two ways, and it runs the lifecycle commands:
 
 ```python
 from collections.abc import Sequence

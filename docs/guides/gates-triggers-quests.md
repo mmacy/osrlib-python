@@ -30,7 +30,7 @@ Locks and gates are separate layers: on a door with both, the party must open th
 
 A [`NarrativeBlock`][osrlib.crawl.narrative.NarrativeBlock] contains the authored text for the mechanical object it's attached to. Each text field in the block is a *beat*. The engine uses two of them for a gate: `refusal`, returned in the rejection, and `success`, which goes on the successful command's event, the [`DoorEvent`][osrlib.crawl.events.DoorEvent] for a door and the [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] for a transition that crosses into a new level or dungeon. [`format_message`][osrlib.messages.format_message] appends the beat verbatim, so it shows up in a bare transcript. A transition whose destination is on the same level crosses no boundary, and the engine emits no arrival event for it, so a success beat there is never displayed.
 
-To show the gate's `guidance` alongside its success text, a narrator maps the event back to the object the gate is attached to. A door event includes the cell and the side. A transition's arrival event includes, in `transition_ref`, the cell the transition stands on. Neither mapping has to guess from where the party is standing now. A passage stands on one side of its cell, so for a passage crossing the narrator also needs the direction of the [`MoveParty`][osrlib.crawl.commands.MoveParty], and [`LevelSpec.passage_at`][osrlib.crawl.dungeon.LevelSpec.passage_at] finds the passage from the cell and that direction. The block's other fields are `journal`, `guidance` for an LLM narrator, and `speaker`, and each is read by the code that uses it. Nothing reads a gate's `journal` beat. To add a journal entry for a door, use [a trigger](#scripting-the-dungeon-with-triggers). The player view contains no part of a gate's narrative block and no gate setup.
+To show the gate's `guidance` alongside its success text, a narrator maps the event back to the object the gate is attached to. A door event includes the cell and the side. A transition's arrival event includes, in `transition_ref`, the cell the transition stands on. The narrator doesn't have to work out either object from where the party is standing now. A passage stands on one side of its cell, so for a passage crossing the narrator also needs the direction of the [`MoveParty`][osrlib.crawl.commands.MoveParty], and [`LevelSpec.passage_at`][osrlib.crawl.dungeon.LevelSpec.passage_at] finds the passage from the cell and that direction. The block's other fields are `journal`, `guidance` for an LLM narrator, and `speaker`, and each is read by the code that uses it. osrlib never reads a gate's `journal` beat. To add a journal entry for a door, use [a trigger](#scripting-the-dungeon-with-triggers). The player view contains no part of a gate's narrative block and no gate setup.
 
 ## Scripting the dungeon with triggers
 
@@ -120,7 +120,7 @@ Drop the idol into a cache by id (`item_ids=("jade-idol",)`) and add its templat
 
 ### Hidden objectives and reveals
 
-`objectives` contains at least one [`ObjectiveSpec`][osrlib.crawl.quests.ObjectiveSpec], in the order you write them, and each one has a separate completion clause. `hidden=True` keeps an objective out of the player view until either its `reveal_when` clause matches or the party completes it, because completing an objective reveals it. A hidden objective with no reveal clause is normal: the party learns about it by doing it. A `reveal_when` on an objective that was never hidden is rejected when the document is parsed, because nothing would read it.
+`objectives` contains at least one [`ObjectiveSpec`][osrlib.crawl.quests.ObjectiveSpec], in the order you write them, and each one has a separate completion clause. `hidden=True` keeps an objective out of the player view until either its `reveal_when` clause matches or the party completes it, because completing an objective reveals it. A hidden objective with no reveal clause is normal: the party learns about it by doing it. A `reveal_when` on an objective that was never hidden is rejected when the document is parsed, because the engine would never read it.
 
 ### The completion rule and the ending
 
@@ -145,7 +145,7 @@ The session reads four display beats from a quest's narrative blocks:
 | An objective completes | objective | `progress` |
 | The quest completes | quest | `completion` |
 
-Each of those beats goes on a separate player-visible event *and* into the journal, as written. A quest's journal is the transcript of what the table was shown, so quest blocks don't use the `journal` field. That field is for blocks whose display beat the players never see, like a trigger's `fired`. Nothing reads a quest block's `progress` or an objective block's `completion`. osrlib ignores them without rejecting them.
+Each of those beats goes on a separate player-visible event *and* into the journal, as written. A quest's journal is the transcript of what the table was shown, so quest blocks don't use the `journal` field. That field is for blocks whose display beat the players never see, like a trigger's `fired`. osrlib never reads a quest block's `progress` or an objective block's `completion`, and it ignores them without rejecting them.
 
 ### Steering a narrator
 

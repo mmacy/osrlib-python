@@ -77,7 +77,7 @@ The rejection rules work the same way for referee commands: a rejected command c
 
 ## Narrate from codes, not prose
 
-The engine never writes English text into events. Each has a stable message `code` (a compact fact like `session.monsters.spawned` or `encounter.surprise.rolled`) plus typed fields. [The message code reference](../reference/message-codes.md) lists every code with the event class that emits it and its default template, and each event's fields are on [its schema page](../reference/events/index.md). A narrator model gets facts it can render freely, without parsing English back into facts. The one kind of English an event does include is *authored* narrative, a beat the adventure's author wrote in a structured field, which [Narrating authored content](#narrating-authored-content) below covers separately from the text the model writes. When a plain default line is enough, [`format_message`][osrlib.messages.format_message] renders one for any event, appending any authored beat verbatim:
+The engine never writes English text into events. Each has a stable message `code` (a compact fact like `session.monsters.spawned` or `encounter.surprise.rolled`) plus typed fields. [The message code reference](../reference/message-codes.md) lists every code with the event class that emits it and its default template, and each event's fields are on [its schema page](../reference/events/index.md). A narrator model gets facts it can render freely, without parsing English back into facts. The one kind of English an event does include is *authored* narrative: a beat the adventure's author wrote in a structured field. [Narrating authored content](#narrating-authored-content) below covers authored beats separately from the text the model writes. When a plain default line is enough, [`format_message`][osrlib.messages.format_message] renders one for any event, appending any authored beat verbatim:
 
 ```{.python .no-run}
 # Every event also renders to a default English line the model can lean on.
@@ -105,7 +105,7 @@ A referee-side narrator reads guidance from the adventure document it's refereei
 
 **[`Command.source`][osrlib.crawl.commands.Command] shows which commands came from the agent.** The interpreter stamps every command it issues with `trigger:{id}` or `quest:{id}`. If the agent stamps its referee commands differently, or leaves them unstamped, the log always shows which commands the agent chose and which the adventure caused. When you replay a trajectory, the log shows which grants were the model's ideas and which came from the adventure.
 
-## Determinism is the eval story
+## Reproducible runs for evaluation
 
 Every random draw in osrlib comes from a named stream forked from the master seed, so the same seed plus the same command sequence produces the same game, bit for bit. For agent work, that means a trajectory (the seed and the list of commands the model chose) is a complete, reproducible record of a run. Re-execute it offline and you get the same events to score. Change a prompt and replay the same seeds to regression-test the change. Compare two models on identical dungeons. [Determinism, saves, and replay](../guides/determinism-saves-replay.md) covers the guarantee and its limit: replays are identical only under the same engine version.
 
@@ -216,6 +216,6 @@ assert [e.model_dump(mode="json") for e in rerun.events] == [e.model_dump(mode="
 
 - [Gates, triggers, and quests](../guides/gates-triggers-quests.md) - how to author the guidance and beats described on this page.
 - [Views and visibility](../guides/views-and-visibility.md) - what the referee view and the player view each include.
-- [Determinism, saves, and replay](../guides/determinism-saves-replay.md) - the reproducibility guarantee behind the eval story.
+- [Determinism, saves, and replay](../guides/determinism-saves-replay.md) - the guarantee that makes a run reproducible.
 - [The FastAPI pattern](fastapi-pattern.md) - the opposite case: serving players who must *not* see what the referee sees.
 - [The message code reference](../reference/message-codes.md) - every code an event can have, with its default English template.

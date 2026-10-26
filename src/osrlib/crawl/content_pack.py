@@ -293,9 +293,9 @@ class ContentPack(BaseModel):
         later.
 
         An older `schema_version` is accepted, because pack payloads only grow within a version.
-        There has been one narrowing: schema 3 made [`TrapSpec`][osrlib.crawl.dungeon.TrapSpec]
-        refuse `trigger="enter"` on a treasure trap, and a pre-3 document with that combination is
-        repaired in place on the way in, rewritten to `"open"` exactly as the save migration does.
+        Since schema 3, [`TrapSpec`][osrlib.crawl.dungeon.TrapSpec] refuses `trigger="enter"` on a
+        treasure trap. A pre-3 document with that combination is repaired in place on the way in and
+        rewritten to `"open"`, exactly as the save migration does.
         Payload fields this version doesn't recognize are ignored.
 
         Args:

@@ -20,8 +20,8 @@ morale rolls are the referee's business. Filter on
 [`GameSession.view`][osrlib.crawl.session.GameSession.view] do it for you.
 
 The event schema can grow without breaking your consumer. Within a `schema_version` the event schema only gains
-things, unknown fields are ignored rather than rejected, and an `event_type` your copy of the library has never heard
-of parses to `None` instead of raising. Write your consumer to skip what it doesn't recognize and a log from a newer
+things, unknown fields are ignored rather than rejected, and an `event_type` your version of the library doesn't
+define parses to `None` instead of raising. Write your consumer to skip what it doesn't recognize and a log from a newer
 release still replays.
 
 Each class declares an `event_type`, a fixed string that identifies the type in a serialized event. Discriminate on
@@ -548,7 +548,7 @@ class ConditionRemovedEvent(Event):
     """A creature is out of a named state: awake again, unfrozen, no longer entangled.
 
     [`remove_condition`][osrlib.core.effects.remove_condition] emits this, whether you called it yourself or the
-    effects ledger called it for you when the owning effect expired or was released.
+    effects ledger called it for you when the effect that granted it expired or was released.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"effects.condition.removed"})
@@ -570,7 +570,7 @@ class ConditionRemovedEvent(Event):
     """The condition, as a [`Condition`][osrlib.core.effects.Condition] value."""
 
     effect_id: str | None = None
-    """The id of the effect that had granted it, or `None` for a state no effect owned."""
+    """The id of the effect that had granted it, or `None` for a state that didn't come from an effect."""
 
 
 class EffectAttachedEvent(Event):
@@ -758,7 +758,7 @@ class DeathEvent(Event):
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"combat.death.died", "combat.death.permanent"})
-    """The two outcomes: an ordinary death, or one nothing can bring the creature back from."""
+    """The two outcomes: an ordinary death, or a permanent one that can't be undone."""
 
     event_type: Literal["death"] = "death"
     """The wire name for this event type."""
@@ -1339,7 +1339,7 @@ def _known_event_types() -> frozenset[str]:
 
 
 def parse_event(data: Mapping[str, object]) -> Event | None:
-    """Turn one stored event back into its class, or `None` if this release has never heard of its type.
+    """Turn one stored event back into its class, or `None` if this release doesn't define its type.
 
     Use this to read a saved log or a stream of events from somewhere else. Skipping what it doesn't recognize
     is the point: a log written by a newer release replays under an older one, minus the events the older one has

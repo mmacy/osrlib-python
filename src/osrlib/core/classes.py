@@ -909,8 +909,8 @@ class DetectionResult(BaseModel):
     """The chance in 6 the roll had to come in at or under."""
 
     roll: int | None = None
-    """The 1d6 result, or `None` when the chance was zero and no die was thrown. A character with no chance at all, such
-    as anyone but a dwarf looking for a shift in the stonework, fails without rolling.
+    """The 1d6 result, or `None` when the chance was zero and no die was thrown. A character with no chance at all, like
+    anyone but a dwarf looking for a shift in the stonework, fails without rolling.
     """
 
     passed: bool

@@ -1,6 +1,6 @@
 """Authored quests: the matching clause, the objective spec, and the quest spec.
 
-A quest is an errand the adventure tracks: what starts it, what it asks for,
+A quest is an errand the session tracks: what starts it, what it asks for,
 what it pays, and whether finishing it ends the adventure.
 
 Where a quest sits. You write [`QuestSpec`][osrlib.crawl.quests.QuestSpec]s into the
@@ -124,7 +124,7 @@ class ObjectiveSpec(BaseModel):
     [`ObjectiveView`][osrlib.crawl.views.ObjectiveView]s.
 
     Objectives are monotonic: hidden becomes revealed, incomplete becomes complete, and
-    neither goes back, because a quest has no way to author a repeat.
+    neither goes back, because there's no way to author a repeating objective.
 
     A hidden objective with no `reveal_when` is normal. It appears on the list when it
     completes, because completing an objective reveals it. `reveal_when` on an objective

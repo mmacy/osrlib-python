@@ -483,7 +483,7 @@ class OpenDoor(Command):
 
     Events:
         [`ItemConsumedEvent`][osrlib.crawl.events.ItemConsumedEvent] first when the
-        gate's condition consumes an item, then
+        passing the gate uses up an item, then
         [`DoorEvent`][osrlib.crawl.events.DoorEvent] with code
         `exploration.door.opened` (with the gate's success text when its author
         wrote one). A door trap's spring check then posts a
@@ -545,7 +545,7 @@ class ForceDoor(Command):
 
     The party must be exploring a dungeon (see
     [`EnterDungeon`][osrlib.crawl.commands.EnterDungeon]). Any attempt makes noise at the
-    door, so the next wandering check takes the noise bonus, and a failed attempt
+    door, so the next wandering check gets the noise bonus, and a failed attempt
     alerts the room beyond, denying the party surprise there. A successful force
     is an opening: an unfound `open`-trigger room trap on either adjoining area
     gets its 2-in-6 spring check, and the trap hits the forcing character,
@@ -571,7 +571,7 @@ class ForceDoor(Command):
 
     Events:
         [`ItemConsumedEvent`][osrlib.crawl.events.ItemConsumedEvent] first when the
-        gate's condition consumes an item, then
+        passing the gate uses up an item, then
         [`DoorEvent`][osrlib.crawl.events.DoorEvent] with code
         `exploration.door.forced` on success (with the gate's success text when
         its author wrote one) or `exploration.door.stuck` on failure, then the trap
@@ -1287,7 +1287,7 @@ class LearnSpell(Command):
 
     Legal in town and while exploring. The book fits, per spell level, at most
     the caster's current slot count at that level, and it never shrinks, so a
-    drained caster's book may sit over capacity, taking nothing more until
+    drained caster's book may sit over capacity, accepting no new spell until
     capacity catches up. No game time passes: the fiction around the learning
     (the mentor's week, a copied scroll's costs) belongs to the game.
 
@@ -1523,7 +1523,7 @@ class UseStairs(Command):
 
     Events:
         [`ItemConsumedEvent`][osrlib.crawl.events.ItemConsumedEvent] first when the
-        gate's condition consumes an item, since the toll is paid at the
+        passing the gate uses up an item, since the toll is paid at the
         threshold, then
         [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] when the
         level or dungeon changes, with the gate's success text when its author
@@ -2000,7 +2000,7 @@ class BattleDeclaration(BaseModel):
     members a round expects is
     [`EncounterView.declarers`][osrlib.crawl.views.EncounterView.declarers]. The
     three id tuples beside it (`front_rank`, `immobile`, and `reloading`) show which
-    declarations the engine will take, so a front end that reads all four offers only
+    declarations the engine will accept, so a front end that reads all four offers only
     legal choices.
 
     `action` decides which other fields apply, and the rest stay `None`. `attack`
@@ -2229,7 +2229,7 @@ class GrantItem(Command):
 
     command_type: Literal["grant_item"] = "grant_item"
     character_id: str
-    """In an authored consequence or reward, this field takes the party selectors
+    """In an authored consequence or reward, this field accepts the party selectors
     (`"@party"`, `"@first"`), and the interpreter expands them to literal member ids
     before it issues the command. When you issue the command directly, this must be a
     literal member id, or the session rejects the command."""
@@ -2264,7 +2264,7 @@ class GrantCoins(Command):
 
     command_type: Literal["grant_coins"] = "grant_coins"
     character_id: str
-    """In an authored consequence or reward, this field takes the party selectors
+    """In an authored consequence or reward, this field accepts the party selectors
     (`"@party"`, `"@first"`), and the interpreter expands them to literal member ids
     before it issues the command. When you issue the command directly, this must be a
     literal member id, or the session rejects the command."""
@@ -2297,13 +2297,13 @@ class AwardXP(Command):
 
     command_type: Literal["award_xp"] = "award_xp"
     character_id: str
-    """In an authored consequence or reward, this field takes the party selectors
+    """In an authored consequence or reward, this field accepts the party selectors
     (`"@party"`, `"@first"`), and the interpreter expands them to literal member ids
     before it issues the command. When you issue the command directly, this must be a
     literal member id, or the session rejects the command."""
     amount: int = Field(ge=0)
     """The raw award, before the class's prime-requisite percentage applies to it. B/X grants at
-    most one level per award, so XP that would raise the character two levels is held one
+    most one level per award, so XP that would raise the character two levels is capped one
     point below the second threshold and the character gains a single level. Award again to
     raise them further."""
 
@@ -3035,8 +3035,8 @@ ConsequenceCommand = Annotated[
 """An authored consequence, discriminated by `command_type`: the sub-union over
 [`CONSEQUENCE_COMMAND_CLASSES`][osrlib.crawl.commands.CONSEQUENCE_COMMAND_CLASSES],
 spelled out so a static type checker can read it. A document naming any other command
-type fails to parse, which is what enforces it: typing a field with this union
-needs no validator behind it."""
+type fails to parse, so typing a field with this union enforces the restriction
+with no validator behind it."""
 
 
 @cache

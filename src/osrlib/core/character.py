@@ -223,8 +223,8 @@ class Character(BaseModel):
     """The character's name. At least one character long."""
 
     class_id: str
-    """The class this character plays, like `"fighter"`. Valid ids come from [`load_classes`][osrlib.data.load_classes];
-    see [the class id index][classes-index]. Read [`definition`][osrlib.core.character.Character.definition] to get the
+    """The class this character plays, like `"fighter"`. Valid ids come from [`load_classes`][osrlib.data.load_classes].
+    See [the class id index][classes-index]. Read [`definition`][osrlib.core.character.Character.definition] to get the
     class itself.
     """
 

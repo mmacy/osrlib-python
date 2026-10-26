@@ -15,7 +15,7 @@ code, dot-separated snake_case namespaced by subsystem (`exploration.door.opened
 and it's what a renderer keys on. The event type is the wire discriminator that identifies
 the class, so a serialized event rebuilds into the right one. The visibility sets who
 may see the event: `player` for what the table learns, `referee` for the rolls and
-bookkeeping B/X keeps behind the screen, like a detection die or a wandering check. A
+bookkeeping the referee keeps behind the screen, like a detection die or a wandering check. A
 class that can report more than one outcome declares its whole code set in
 `allowed_codes`, and an instance uses one of them.
 
@@ -348,7 +348,7 @@ class DetectionRolledEvent(Event):
     code: str = "exploration.detection.rolled"
     """The message code, always `exploration.detection.rolled`."""
     visibility: Visibility = Visibility.REFEREE
-    """Referee visibility: the roll is the part B/X keeps behind the screen."""
+    """Referee visibility: the roll is the part the referee keeps behind the screen."""
     character_id: str | None = None
     """The member who rolled, or `None` for a check no member made, like a trap's chance to
     go off."""
@@ -399,7 +399,7 @@ class SearchCompletedEvent(Event):
     `"construction:<feature id>"`, and empty when nothing did. A room trap found through a door
     from the searched cell has the door's direction in a third segment,
     `"room_trap:<area id>:<direction>"`, and one found inside the searched area has none. A found
-    secret door becomes passable, and a found trap no longer springs on the party."""
+    secret door becomes passable, and a found room trap no longer springs on the party."""
 
 
 class TrapEvent(Event):
@@ -503,7 +503,7 @@ class ItemAcquiredEvent(Event):
 class ItemConsumedEvent(Event):
     """One carried item was used up: a toll paid, a spike driven home.
 
-    Emitted when a gate's condition takes the item it requires, which happens on
+    Emitted when the engine takes the item a gate's condition requires, which happens on
     [`OpenDoor`][osrlib.crawl.commands.OpenDoor],
     [`ForceDoor`][osrlib.crawl.commands.ForceDoor], and
     [`UseStairs`][osrlib.crawl.commands.UseStairs], and by
@@ -1399,7 +1399,7 @@ class TreasureSoldEvent(Event):
     visibility: Visibility = Visibility.PLAYER
     """Player visibility: the party made the sale."""
     character_id: str
-    """The member who sold them and now holds the coins."""
+    """The member who sold them and now has the coins."""
     instance_ids: tuple[str, ...]
     """The session-scoped ids of the valuables that were sold."""
     gp_value: int
@@ -1685,8 +1685,8 @@ class JournalEntryAddedEvent(Event):
     rewritten, and it's part of what
     [`GameSession.view`][osrlib.crawl.session.GameSession.view] shows a player.
 
-    It isn't the only event a growing journal produces. A quest beat appends its
-    entry and is reported by its quest lifecycle event instead, so the table
+    It isn't the only event a growing journal produces. A quest beat is appended to
+    the journal and reported by its quest lifecycle event instead, so the table
     isn't told the same line twice. Read the whole journal from the view, and read
     these events to know when a line arrived.
     """
@@ -1955,8 +1955,8 @@ Schemas. For the whole surface, including the rules resolutions underneath, use
 ALL_EVENT_CLASSES: tuple[type[Event], ...] = (*KERNEL_EVENT_CLASSES, *CRAWL_EVENT_CLASSES)
 """Every event class the library can emit: the kernel ones first, then the crawl ones.
 
-This is the registry to walk when you are generating something from the whole event surface, such
-as client types, a documentation table, or a schema bundle. Each class has its wire name in
+This is the registry to walk when you are generating something from the whole event surface, like
+client types, a documentation table, or a schema bundle. Each class has its wire name in
 `model_fields["event_type"].default` and its code set in `allowed_codes`.
 """
 
@@ -1966,7 +1966,7 @@ AnyEvent = Annotated[
 ]
 """Any event the library can emit, as a union pydantic discriminates on `event_type`.
 
-Use it to type a value that holds one event of no particular class, and hand it to a
+Use it to type a value that can be an event of any class, and hand it to a
 [`TypeAdapter`][pydantic.type_adapter.TypeAdapter] to get a tagged-union JSON Schema for a client
 in another language. To parse one record, call
 [`parse_any_event`][osrlib.crawl.events.parse_any_event] instead: it skips an event type this
@@ -1997,8 +1997,8 @@ def _known_event_types() -> frozenset[str]:
 def parse_any_event(data: Mapping[str, object]) -> Event | None:
     """Rebuild one serialized event, kernel or crawl, skipping types this version doesn't know.
 
-    Call it on records that came out of an event's `model_dump` or out of a save's event log, such
-    as a log you are replaying, a stream you received over a network, or a file you are analyzing.
+    Call it on records that came out of an event's `model_dump` or out of a save's event log, like
+    a log you are replaying, a stream you received over a network, or a file you are analyzing.
     A session restored by [`load_game`][osrlib.persistence.load_game] uses it for the event log it
     reads, keeping the raw record for anything it could not parse.
 

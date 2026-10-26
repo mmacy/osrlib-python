@@ -1112,7 +1112,7 @@ def wandering_check(session, *, resting: bool = False) -> tuple[list[Event], boo
 
     The check die draws from the [`WANDERING_STREAM`][osrlib.crawl.session.WANDERING_STREAM], and so
     do the d20 table roll, the count dice and the picks among a row's variants. For a row that lists
-    an NPC party, the check generates a real party rather than rolling again, drawing its composition from the
+    an NPC party, the engine generates a real party rather than rolling again, drawing its composition from the
     [`NPC_PARTY_STREAM`][osrlib.core.npc.NPC_PARTY_STREAM]. Hit points for spawned monsters draw
     from the [`MONSTER_SPAWN_STREAM`][osrlib.core.monsters.MONSTER_SPAWN_STREAM], the treasure the
     spawn carries from the [`TREASURE_STREAM`][osrlib.core.treasure.TREASURE_STREAM], and the

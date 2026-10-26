@@ -422,7 +422,7 @@ class TransitionSpec(BaseModel):
     [`MoveParty`][osrlib.crawl.commands.MoveParty] from that cell in that direction moves the party
     to the passage's destination. The side is a wall in the level's edges. The cell one step across
     it is the passage's *far cell*, which has a wall on every side and belongs to no area. Use a
-    passage where a map shows two cells side by side that the document can't put side by side: the
+    passage where a map shows two cells side by side that the adventure document can't put side by side: the
     floors of two levels that meet, or two halves of one map that you lay out apart.
 
     Nothing pairs transitions up for you. A staircase the party can walk back up is two transitions,
@@ -478,11 +478,11 @@ class TransitionSpec(BaseModel):
     [`UseStairs`][osrlib.crawl.commands.UseStairs], or [`MoveParty`][osrlib.crawl.commands.MoveParty]
     for a passage, evaluates it after the command's other checks and before the party moves, so the
     party pays a gate's cost at the threshold. The engine puts the gate's `success` narration on the
-    arrival's [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent], so a transition
-    whose destination is on the same level crosses no boundary, emits no such event, and has nowhere to
-    show one. A transition inside a [`TrapEffect`][osrlib.crawl.dungeon.TrapEffect] may have no gate
-    at all: that is a forced relocation rather than an attempt, and `TrapEffect` validation rejects
-    one that does."""
+    arrival's [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent], so when a
+    transition's destination is on the same level, the party crosses no boundary, the engine emits no
+    such event, and the narration is dropped. A transition inside a
+    [`TrapEffect`][osrlib.crawl.dungeon.TrapEffect] may have no gate at all: that is a forced
+    relocation rather than an attempt, and `TrapEffect` validation rejects one that does."""
 
     @model_validator(mode="after")
     def _side_exactly_on_passages(self) -> TransitionSpec:
@@ -495,7 +495,7 @@ class TrapEffect(BaseModel):
     """What a sprung trap does to its victim.
 
     You attach one to a [`TrapSpec`][osrlib.crawl.dungeon.TrapSpec], which sets when it
-    springs. The fields compose: a dart trap rolls damage, a pit trap rolls falling damage and may add
+    springs. The fields compose: a dart trap deals damage, a pit trap deals falling damage and may add
     a condition, a gas trap calls for a save and kills on a failure. Leave everything unset and put
     your description in `manual` for a trap your front end narrates and resolves itself.
 
@@ -644,7 +644,7 @@ class TrapSpec(BaseModel):
     trigger: Literal["enter", "open"]
     """The action that springs the trap. `"enter"` is the party stepping into a cell of the trapped
     area. `"open"` is a door being opened: for a room trap, any door of the area, from either side,
-    which is the blade that drops when the door swings. For a treasure trap, `"open"` is the cache
+    like a blade that drops when the door swings. For a treasure trap, `"open"` is the cache
     itself being opened. A treasure trap must use `"open"`, because a cache has nothing to walk into."""
     effect: TrapEffect
     """What the trap does once it springs. See [`TrapEffect`][osrlib.crawl.dungeon.TrapEffect]."""
@@ -790,8 +790,8 @@ class GeneratedCache(BaseModel):
     """Treasure the engine rolled and put on the floor, in the state overlay.
 
     Authored caches are [`FeatureSpec`][osrlib.crawl.dungeon.FeatureSpec]s and never change. This is
-    the other kind: what a monster's lair hoard or an
-    [`AreaTreasureSpec`][osrlib.crawl.dungeon.AreaTreasureSpec] produced when it rolled. The session
+    the other kind: what the engine rolled for a monster's lair hoard or an
+    [`AreaTreasureSpec`][osrlib.crawl.dungeon.AreaTreasureSpec]. The session
     puts one in [`DungeonState.generated_caches`][osrlib.crawl.dungeon.DungeonState] under a new id
     like `"cache-0001"`, announces it with a `HoardGeneratedEvent`, and removes it when the party
     empties it with [`TakeTreasure`][osrlib.crawl.commands.TakeTreasure] and that id.
@@ -817,7 +817,7 @@ class GeneratedCache(BaseModel):
     to be standing on that cell to take it."""
     treasure_types: tuple[str, ...] = ()
     """The treasure type letters the hoard rolled from, kept for display and for a referee who wants
-    to see what the dice were asked. Empty for an unguarded roll, which uses no letters."""
+    to see which tables the engine rolled on. Empty for an unguarded roll, which uses no letters."""
     coins: Coins = Coins()
     """The coins in the cache, by denomination."""
     valuables: list[ValuableInstance] = []
@@ -1033,8 +1033,8 @@ class AreaSpec(BaseModel):
 
     Areas are how you key a dungeon. Each one covers some cells of a
     [`LevelSpec`][osrlib.crawl.dungeon.LevelSpec], and cells outside every area are corridor. Entering
-    any cell of an area is what brings its content into play: the encounter spawns, the trap gets its
-    spring roll, the treasure rolls, and your front end shows the description.
+    any cell of an area is what brings its content into play: the encounter spawns, the engine rolls
+    for the trap to spring and rolls the treasure, and your front end shows the description.
 
     Attributes:
         id: The area's id, unique across its level.
@@ -1494,7 +1494,7 @@ class DoorState(BaseModel):
     [`SetDoorState`][osrlib.crawl.commands.SetDoorState]. A door stays unlocked once it is: relocking
     is a referee's write, not something closing the door does."""
     opened_by_party: bool = False
-    """Whether the party is the one that opened this door. The swing-shut rule reads it: only doors
+    """Whether the party is the one that opened this door. The engine reads it for the swing-shut rule: only doors
     the party opened, by whatever means, swing closed behind it, while a door you authored open stays
     open."""
 
@@ -1589,7 +1589,7 @@ class DungeonState(BaseModel):
         emptied_caches: Authored caches the party has emptied.
         piles: What is lying on the floor, by cell.
         generated_caches: Treasure the engine rolled, by cache id.
-        generated_treasure_areas: Areas whose treasure has already rolled.
+        generated_treasure_areas: Areas whose treasure the engine has already rolled.
         resolved_encounters: Areas whose keyed encounter is over.
         listen_attempts: Who has listened at each door.
         search_attempts: Who has searched each cell for what.
@@ -1616,17 +1616,17 @@ class DungeonState(BaseModel):
     so an unreached door has none. Read one through
     [`door`][osrlib.crawl.dungeon.DungeonState.door]."""
     sprung_traps: list[str] = []
-    """The traps that have gone off, by area or feature reference. A sprung trap is done: it never
-    rolls again."""
+    """The traps that have gone off, by area or feature reference. A sprung trap is done: the engine
+    never rolls for it again."""
     removed_traps: list[str] = []
     """The treasure traps a thief has taken out with
-    [`RemoveTreasureTrap`][osrlib.crawl.commands.RemoveTreasureTrap], by feature reference. A removed
-    trap never rolls again either. Room traps never appear here, since there's no way to disarm one."""
+    [`RemoveTreasureTrap`][osrlib.crawl.commands.RemoveTreasureTrap], by feature reference. The engine
+    never rolls for a removed trap either. Room traps never appear here, since there's no way to disarm one."""
     found_traps: list[str] = []
     """The traps the party knows about, by area or feature reference, from a successful
     [`Search`][osrlib.crawl.commands.Search] on a room trap or
-    [`InspectTreasure`][osrlib.crawl.commands.InspectTreasure] on a treasure trap. A found trap stops
-    taking its spring roll, which is what finding one gets you, and a treasure trap has to be here before
+    [`InspectTreasure`][osrlib.crawl.commands.InspectTreasure] on a treasure trap. The engine stops
+    rolling for a found trap to spring, which is what finding one gets you, and a treasure trap has to be here before
     [`RemoveTreasureTrap`][osrlib.crawl.commands.RemoveTreasureTrap] will work on it."""
     found_tricks: list[str] = []
     """The construction tricks the party has found by searching, by feature reference."""
@@ -1642,8 +1642,8 @@ class DungeonState(BaseModel):
     `HoardGeneratedEvent` announces the id, [`TakeTreasure`][osrlib.crawl.commands.TakeTreasure] takes
     it, and emptying one deletes the entry."""
     generated_treasure_areas: list[str] = []
-    """The areas whose [`AreaTreasureSpec`][osrlib.crawl.dungeon.AreaTreasureSpec] has already rolled,
-    by area reference, so entering a room twice does not double its loot."""
+    """The areas whose [`AreaTreasureSpec`][osrlib.crawl.dungeon.AreaTreasureSpec] the engine has already
+    rolled, by area reference, so entering a room twice does not double its loot."""
     resolved_encounters: list[str] = []
     """The areas whose keyed encounter is over, by area reference. The room stays clear afterwards."""
     listen_attempts: dict[str, list[str]] = {}

@@ -11,8 +11,8 @@ command that rewrites that order, and [`reorder`][osrlib.crawl.party.Party.reord
 
 Dead members stay in the list. Their gear is still on them, so removing them would lose it, and
 deciding a corpse is left behind is a game's call to make with the referee commands rather than
-something the rules do for you. Nothing that counts bodies counts a dead one: movement rate, combat
-ranks, ability checks, and provisions all read
+something the rules do for you. The rules that count party members skip the dead: movement rate,
+combat ranks, ability checks, and provisions all read
 [`living_members`][osrlib.crawl.party.Party.living_members].
 """
 

@@ -26,7 +26,7 @@ because they are treasure rolls and belong with the rest of a game's treasure st
 
 Four things here are osrlib's reading rather than the SRD's letter, and all four appear in
 [the adaptations register](https://mmacy.github.io/osrlib-python/adaptations/), the site page that
-collects the places where osrlib settles an ambiguous rule one way or supplies a default the
+lists the places where osrlib settles an ambiguous rule one way or supplies a default the
 tabletop game leaves to a referee. NPC adventurers are not checked against their class's ability
 requirements, because the SRD's procedure rolls the class before the scores and offers no re-roll.
 The equipment kits are osrlib's, standing in for the SRD's "normal adventuring gear". Casters get
@@ -185,7 +185,7 @@ def npc_defeat_xp(level: int) -> int:
     The SRD prices monsters by Hit Dice and says nothing about classed NPCs, so osrlib prices an
     NPC adventurer as a monster of as many Hit Dice as they have levels, with no bonus for special
     abilities. [The adaptations register](https://mmacy.github.io/osrlib-python/adaptations/), the
-    site page that collects the places where osrlib settles an ambiguous rule one way, records the
+    site page that lists the places where osrlib settles an ambiguous rule one way, includes this
     reading.
 
     Args:

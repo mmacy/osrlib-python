@@ -316,8 +316,8 @@ class QuestState(BaseModel):
     `GameSession.quests`, keyed by quest id. The four quest commands are their only
     writers, so a replay of the command log rebuilds them exactly.
 
-    A quest whose author wrote no activation clause starts `active`, because it's a
-    standing charge and there's no command channel before the first command. The
+    A quest whose author wrote no activation clause starts `active`, because the party
+    has it from the start and no command can activate it before play begins. The
     rest wait for [`ActivateQuest`][osrlib.crawl.commands.ActivateQuest].
     """
 
@@ -377,7 +377,7 @@ class DeprivationState(BaseModel):
 
     @property
     def worst(self) -> int:
-        """Return the worse of the two counts, which is the one the schedule reads.
+        """Return the worse of the two counts, which is the count the penalties depend on.
 
         The tracks don't stack: going without both food and water is as bad as going without the
         worse of them, not twice as bad.
@@ -613,9 +613,9 @@ class GameSession:
         """Which [`SessionMode`][osrlib.crawl.commands.SessionMode] the session is in, and so which
         commands it will accept. A new session starts in `town`."""
         self.dungeon_state = DungeonState()
-        """Everything the play has written over the authored map: where the party is, which cells
-        it has walked and seen, door state, found and sprung traps, drop piles, and generated
-        caches. The authored dungeon itself never changes."""
+        """Everything that play has changed on top of the authored map: where the party is, which
+        cells it has walked and seen, door state, found and sprung traps, drop piles, and generated
+        caches. The authored dungeon never changes."""
         self.monsters: dict[str, MonsterInstance] = {}
         """The live monsters, keyed by session id. Spawning adds to it, and a defeated monster is
         never removed, so a later event can still refer to it."""
@@ -635,7 +635,7 @@ class GameSession:
         # One state block per authored quest, in document order, seeded here so that
         # every path that builds a session, new or load or replay, starts from the
         # same block. A quest with no activation clause is active from round 0
-        # because there is no command channel before the first command. The rest wait
+        # because no command can activate it before play begins. The rest wait
         # to be activated. Objectives start visible unless the author hid them.
         self.quests: dict[str, QuestState] = {
             quest.id: QuestState(
@@ -749,8 +749,8 @@ class GameSession:
             The session, in town, at round 0, with an empty command log.
 
         Raises:
-            ContentValidationError: If the adventure refers to something that doesn't exist, such
-                as an unknown monster or item id or a transition with no destination.
+            ContentValidationError: If the adventure refers to something that doesn't exist, like
+                an unknown monster or item id or a transition with no destination.
 
         Examples:
             ```python
@@ -1084,7 +1084,7 @@ class GameSession:
     def spawn(self, template_id: str, count: int, *, alignment: Alignment | None = None) -> list[MonsterInstance]:
         """Spawn monsters into the session and return them.
 
-        Each instance rolls hit points from the seeded spawn stream, takes an id from the session
+        Each instance gets hit points rolled from the seeded spawn stream and an id from the session
         allocator, and is added to `monsters`, where the rest of the engine can find it.
         Spawning alone puts nothing in front of the party: the encounter procedure is what fields
         them. A referee wanting both at once should execute
@@ -1246,7 +1246,7 @@ class GameSession:
         greys out a search button, and the engine calls it before it lets the party read, search,
         or see an encounter coming.
 
-        The party has light when any living member carries an active light-family effect. A
+        The party has light when any living member has an active light-family effect. A
         darkness-family effect on any living member puts that out while it runs, because the
         spell's printed radius covers a whole marching party, and some darkness blocks infravision
         as well.
@@ -1281,7 +1281,7 @@ class GameSession:
         that lists where osrlib settles an ambiguous rule or supplies a default.
 
         Returns:
-            True when a living member carries a light effect whose brightness is daylight.
+            True when a living member has a light effect whose brightness is daylight.
         """
         living_ids = {member.id for member in self.party.living_members()}
         return any(
@@ -1486,15 +1486,15 @@ class GameSession:
         enumerated whitelist of exactly what a player may be shown, so a front end built on it
         cannot leak the map it hasn't explored, the monster hit points, or the referee's rolls.
         The referee view contains the rest, for a referee screen, an LLM running the game, or a
-        test, one typed field per group the save contains: `view.monsters[0].current_hp` and
-        `view.flags["key"]` read off it with the models this reference documents.
+        test. It has one typed field for each group of data the save contains, so you read
+        `view.monsters[0].current_hp` and `view.flags["key"]` with the models this reference documents.
 
         A networked game keeps the session and the referee view on the server and sends the client
         the player view, or the player-visibility events. Neither view contains the master seed.
         Only the save contains it.
 
         Views are frozen and built fresh from the current state each time, never from the event
-        log, so call this again after each command rather than holding one.
+        log, so call this again after each command rather than keeping one.
 
         Args:
             visibility: `PLAYER` for the safe whitelist, `REFEREE` for everything but the random

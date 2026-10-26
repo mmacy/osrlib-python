@@ -25,7 +25,7 @@ convention across the whole library: each takes a protocol from
 that reads THAC0, armour class, or saving throws takes
 [`Combatant`][osrlib.core.creature.Combatant]. A function that reads only hit points,
 conditions, and stat modifiers takes [`Creature`][osrlib.core.creature.Creature]. A
-function that needs what only a monster has, such as the daily breath count, takes
+function that needs what only a monster has, like the daily breath count, takes
 `MonsterInstance` itself. NPC adventurers are `Character` instances, so there's no
 third combatant type.
 

@@ -1577,7 +1577,7 @@ class MagicItemInstance(BaseModel):
     template behind one.
 
     An instance starts unidentified, and a player-facing view shows it as an unknown item
-    until it is not. Identification happens in play: drinking the potion, swinging the
+    until it's identified. Identification happens in play: drinking the potion, swinging the
     sword, wearing the ring. A cursed item reveals its curse the same way, and once revealed
     it cannot be taken off until *remove curse*:
     [`unequip`][osrlib.core.items.unequip] rejects with `items.curse.stuck`.

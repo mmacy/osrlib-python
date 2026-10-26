@@ -19,7 +19,7 @@ The modules, in the order you meet them:
   [`Party`][osrlib.crawl.party.Party] in marching order, which the session moves as one body.
 - [`osrlib.crawl.gates`][osrlib.crawl.gates], [`osrlib.crawl.triggers`][osrlib.crawl.triggers], and
   [`osrlib.crawl.quests`][osrlib.crawl.quests] take event patterns and conditions and give you the
-  authored behavior an adventure contains: what a door requires before it opens, what fires when the
+  authored behavior an adventure contains: what the party needs before a door opens, what fires when the
   party walks in, and what the party is trying to accomplish.
   [`osrlib.crawl.narrative`][osrlib.crawl.narrative] is the prose block you attach to any of them.
 - [`osrlib.crawl.stocking`][osrlib.crawl.stocking] takes a level number and an RNG stream and gives
