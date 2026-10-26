@@ -535,8 +535,8 @@ class AttackResult(BaseModel):
 
     The hit points the defender lost can be fewer. The
     [`DamageDealtEvent`][osrlib.core.events.DamageDealtEvent] in `events` has the amount after
-    reductions, and the [`HitPointsReportedEvent`][osrlib.core.events.HitPointsReportedEvent] after
-    it has the hit points the defender has left.
+    reductions. The [`HitPointsReportedEvent`][osrlib.core.events.HitPointsReportedEvent] that
+    follows the `DamageDealtEvent` has the hit points the defender has left.
 
     Nothing is rolled on a miss, on an absorbed hit, or when a sleeping defender is killed
     outright by a blade. An unlit oil flask that hits reports 0.
@@ -2021,11 +2021,11 @@ def resolve_attack(
             before the defender's reductions apply. It's `None` when no damage was rolled,
             which includes a sleeping defender killed outright by a blade, and 0 for an
             unlit oil flask that hits. `events` contains every event the attack caused, in
-            order. Read the hit points the defender lost from its
-            [`DamageDealtEvent`][osrlib.core.events.DamageDealtEvent] and the hit points it
-            has left from its
-            [`HitPointsReportedEvent`][osrlib.core.events.HitPointsReportedEvent]. When the
-            defender dies, the death events follow those.
+            order. The [`DamageDealtEvent`][osrlib.core.events.DamageDealtEvent] in `events`
+            has the hit points the defender lost. The
+            [`HitPointsReportedEvent`][osrlib.core.events.HitPointsReportedEvent] after the
+            `DamageDealtEvent` has the hit points the defender has left. When the defender
+            dies, the death events follow the `HitPointsReportedEvent`.
 
     Examples:
         A 1st-level fighter swings a sword at a goblin. Every draw comes from a
