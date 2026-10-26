@@ -76,6 +76,7 @@ Typical usage:
 ```python
 from osrlib.core.alignment import Alignment
 from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character
+from osrlib.core.events import Visibility
 from osrlib.core.rng import RngStreams
 from osrlib.core.ruleset import Ruleset
 from osrlib.crawl.adventure import Adventure, TownSpec
@@ -100,6 +101,8 @@ members = [
         alignment=Alignment.LAWFUL,
         ruleset=rules,
         stream=draw,
+        purchases=[("sword", 1)],
+        equip_ids=["sword"],
     ).character
     for name in ("Hild", "Osric")
 ]
@@ -122,15 +125,14 @@ session.execute(EngageBattle())
 assert session.mode is SessionMode.BATTLE
 assert session.battle.round == 0
 
-# One command is one round: a declaration per living, able member, every group named by id.
-group_id = session.encounter.groups[0].id
-result = session.execute(
-    ResolveBattleRound(
-        declarations=tuple(
-            BattleDeclaration(character_id=member.id, action="attack", target_group_id=group_id) for member in members
-        )
-    )
+# One command is one round: a declaration for each member the round expects, from the player view.
+encounter = session.view(Visibility.PLAYER).encounter
+group_id = encounter.groups[0].id
+declarations = tuple(
+    BattleDeclaration(character_id=member_id, action="attack", target_group_id=group_id, weapon_id="sword")
+    for member_id in encounter.declarers
 )
+result = session.execute(ResolveBattleRound(declarations=declarations))
 assert result.accepted
 assert session.battle.round == 1
 assert result.events[0].code == "battle.round.started"

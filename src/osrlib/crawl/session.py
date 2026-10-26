@@ -778,7 +778,10 @@ class GameSession:
 
         Raises:
             ContentValidationError: If the adventure refers to something that doesn't exist, like
-                an unknown monster or item id or a transition with no destination.
+                an unknown monster or item id or a transition with no destination, or if it
+                bundles a monster or item whose id is already a built-in id or another bundled
+                entry's id. The message lists every problem found. Fix the adventure and call
+                again: the same adventure fails the same way.
 
         Examples:
             ```python

@@ -708,7 +708,7 @@ class ListenAtDoor(Command):
 
 
 class PickLock(Command):
-    """Pick the lock of a locked door (one turn).
+    """Pick the lock of a locked door, a thief skill that needs thieves' tools (one turn).
 
     The party must be exploring a dungeon (see
     [`EnterDungeon`][osrlib.crawl.commands.EnterDungeon]). Only a member with thief
@@ -812,7 +812,7 @@ class Search(Command):
 
 
 class InspectTreasure(Command):
-    """Check a treasure cache on the party's cell for a trap (one turn).
+    """Have a thief check a treasure cache on the party's cell for a trap (one turn).
 
     The party must be exploring a dungeon (see
     [`EnterDungeon`][osrlib.crawl.commands.EnterDungeon]), with light. Only a member
@@ -860,7 +860,7 @@ class InspectTreasure(Command):
 
 
 class RemoveTreasureTrap(Command):
-    """Disarm a treasure trap the party has already found (one turn).
+    """Have a thief disarm a treasure trap the party has already found (one turn).
 
     The party must be exploring a dungeon (see
     [`EnterDungeon`][osrlib.crawl.commands.EnterDungeon]), with light, and the trap
@@ -1858,7 +1858,7 @@ class SellTreasure(Command):
 
     The party must be in town. Each entry names a carried valuable's instance id,
     and the coins credit its carrier's purse. A valuable sells for its full
-    `value_gp`. The SRD prices treasure but gives no rate at which a town buys it,
+    `value_gp`. The OSE SRD prices treasure but gives no rate at which a town buys it,
     and full value keeps a valuable's sale price equal to its XP value (1 gp for
     1 XP). The SRD gives magic items no fixed sale value, so the session refuses
     them.
@@ -1909,7 +1909,7 @@ type checker."""
 class PurchaseHealing(Command):
     """Buy a temple healing service in town (zero time).
 
-    The party must be in town. The SRD describes the base town in prose and lists no
+    The party must be in town. The OSE SRD describes the base town in prose and lists no
     temple prices, so osrlib sets these: *cure light wounds* 25 gp, *cure serious
     wounds* 100 gp, *cure disease* 150 gp, *neutralize poison* 150 gp, *remove
     curse* 200 gp, *raise dead* 1,500 gp. The same list is
@@ -2270,7 +2270,7 @@ class BattleDeclaration(BaseModel):
 
 
 class ResolveBattleRound(Command):
-    r"""Resolve one battle round from one declaration per party member able to act.
+    """Resolve one battle round from one declaration per party member able to act.
 
     A battle must be underway (see
     [`EngageBattle`][osrlib.crawl.commands.EngageBattle]). Each round, read who must
@@ -2390,8 +2390,9 @@ class ResolveBattleRound(Command):
         or [`GameOverEvent`][osrlib.crawl.events.GameOverEvent] on a party wipe.
 
     Examples:
-        A referee spawns a goblin beside the party. When the goblin doesn't attack
-        first, the party opens battle, and the fighter swings at it each round:
+        A fighter and a cleric meet three goblins 30 feet away. Each round, every member
+        the round expects closes the distance until the nearest group is in melee reach.
+        Then the front rank attacks with the weapon it wields and the rest hold:
 
         ```python
         from osrlib.core.alignment import Alignment
@@ -2400,6 +2401,7 @@ class ResolveBattleRound(Command):
         from osrlib.core.rng import RngStreams
         from osrlib.core.ruleset import Ruleset
         from osrlib.crawl.adventure import Adventure, TownSpec
+        from osrlib.crawl.battle import MELEE_RANGE_FEET
         from osrlib.crawl.commands import (
             BattleDeclaration,
             EngageBattle,
@@ -2411,50 +2413,64 @@ class ResolveBattleRound(Command):
         from osrlib.crawl.dungeon import DungeonSpec, LevelSpec
         from osrlib.crawl.party import Party
         from osrlib.crawl.session import GameSession
-        from osrlib.messages import format_message
 
-        stream = RngStreams(master_seed=5).get(CHARACTER_CREATION_STREAM)
-        hero = create_character(
-            name="Hild",
-            class_id="fighter",
-            alignment=Alignment.LAWFUL,
-            ruleset=Ruleset(),
-            stream=stream,
-            purchases=[("sword", 1)],
-            equip_ids=["sword"],
-        ).character
+        stream = RngStreams(master_seed=1).get(CHARACTER_CREATION_STREAM)
+        members = [
+            create_character(
+                name=name,
+                class_id=class_id,
+                alignment=Alignment.LAWFUL,
+                ruleset=Ruleset(),
+                stream=stream,
+                purchases=[(weapon, 1)],
+                equip_ids=[weapon],
+            ).character
+            for name, class_id, weapon in (("Hild", "fighter", "sword"), ("Osric", "cleric", "mace"))
+        ]
         level = LevelSpec(number=1, width=1, height=1, entrance=(0, 0))
         crypt = DungeonSpec(id="crypt", name="The Old Crypt", levels=(level,))
         adventure = Adventure(name="A First Delve", town=TownSpec(name="Threshold"), dungeons=(crypt,))
-        session = GameSession.new(Party(members=[hero]), adventure, seed=5)
+        session = GameSession.new(Party(members=members), adventure, seed=1)
         session.execute(EnterDungeon(dungeon_id="crypt"))
-        session.execute(SpawnMonsters(template_id="goblin", count_fixed=1, distance_feet=0))
-        if session.mode is SessionMode.ENCOUNTER:
+        session.execute(SpawnMonsters(template_id="goblin", count_fixed=3, distance_feet=30))
+        if session.mode is SessionMode.ENCOUNTER:  # the goblins didn't attack first
             session.execute(EngageBattle())
 
-        transcript = []
-        while session.mode is SessionMode.BATTLE:
-            encounter = session.view(Visibility.PLAYER).encounter
-            target = encounter.groups[0].id
-            declarations = tuple(
-                BattleDeclaration(character_id=member_id, action="attack", target_group_id=target, weapon_id="sword")
-                for member_id in encounter.declarers
-            )
-            result = session.execute(ResolveBattleRound(declarations=declarations))
-            transcript += [format_message(event) for event in result.events if event.visibility is Visibility.PLAYER]
+        def wielded_weapon_id(member):
+            # A magic weapon is named by its instance id, a mundane one by its catalog id.
+            wielded = member.inventory["wielded"]
+            if not wielded:
+                return None
+            return wielded[0].get("instance_id") or wielded[0]["template"]["id"]
 
-        print("\n".join(transcript))
-        # Battle round 1 begins.
-        # Initiative (side): party 4, monsters 2. Order: character-0001, group-0001.
-        # character-0001 hits monster-0001 with Sword: rolled 17+1 = 18, needing 13.
-        # monster-0001 takes 7 damage from character-0001.
-        # monster-0001 is dead.
-        # monster-0001 is killed.
-        # The battle is won.
-        # monster-0001 (goblin) is slain.
-        # The encounter ends (victory).
-        print(session.mode)
-        # exploring
+        rounds = 0
+        while session.mode is SessionMode.BATTLE:
+            view = session.view(Visibility.PLAYER)
+            encounter = view.encounter
+            weapons = {member.id: wielded_weapon_id(member) for member in view.party}
+            target = min((group for group in encounter.groups if group.count), key=lambda group: group.distance_feet)
+            declarations = []
+            for member_id in encounter.declarers:
+                if target.distance_feet > MELEE_RANGE_FEET:
+                    declaration = BattleDeclaration(
+                        character_id=member_id, action="move", move="close", target_group_id=target.id
+                    )
+                elif member_id in encounter.front_rank:
+                    declaration = BattleDeclaration(
+                        character_id=member_id, action="attack", target_group_id=target.id, weapon_id=weapons[member_id]
+                    )
+                else:
+                    declaration = BattleDeclaration(character_id=member_id, action="hold")
+                declarations.append(declaration)
+            result = session.execute(ResolveBattleRound(declarations=tuple(declarations)))
+            if not result.accepted:
+                # Nothing happened. A front end shows the reasons and asks for new declarations.
+                print([rejection.code for rejection in result.rejections])
+                break
+            rounds += 1
+
+        print(rounds, session.mode)
+        # 9 exploring
         ```
     """
 
