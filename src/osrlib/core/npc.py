@@ -18,7 +18,7 @@ one of them.
 How many adventurers appear is not decided here. Roll the count from the wandering monster table
 that produced the encounter, then pass it in.
 
-Every member's own draws come from the
+Every member's draws come from the
 [`NPC_PARTY_STREAM`][osrlib.core.npc.NPC_PARTY_STREAM] stream: the class and level, the ability
 scores, the hit points, the spells they have prepared. The party's treasure and the Expert band's
 magic items come from the [`TREASURE_STREAM`][osrlib.core.treasure.TREASURE_STREAM] stream instead,
@@ -26,7 +26,7 @@ because they are treasure rolls and belong with the rest of a game's treasure st
 
 Four things here are osrlib's reading rather than the SRD's letter, and all four appear in
 [the adaptations register](https://mmacy.github.io/osrlib-python/adaptations/), the site page that
-collects the places where osrlib settles an ambiguous rule one way or supplies a default the
+lists the places where osrlib settles an ambiguous rule one way or supplies a default the
 tabletop game leaves to a referee. NPC adventurers are not checked against their class's ability
 requirements, because the SRD's procedure rolls the class before the scores and offers no re-roll.
 The equipment kits are osrlib's, standing in for the SRD's "normal adventuring gear". Casters get
@@ -96,7 +96,7 @@ __all__ = [
 NPC_PARTY_STREAM = StreamName.NPC_PARTY
 """The stream key every session uses for rolling up NPC adventurers.
 
-A stream key names one independent random-number sequence inside an
+A stream key identifies one independent random-number sequence inside an
 [`RngStreams`][osrlib.core.rng.RngStreams] set. Pass `streams.get(NPC_PARTY_STREAM)` as the
 `npc_stream` argument of [`generate_npc_party`][osrlib.core.npc.generate_npc_party], which draws
 the party's alignment and then each member's class, level, ability scores, hit points, and spells
@@ -154,7 +154,7 @@ class NpcParty(BaseModel):
     model_config = ConfigDict(validate_assignment=True)
 
     kind: Literal["basic", "expert"]
-    """`"basic"` for a band of low-level adventurers or `"expert"` for a seasoned one. It decided the level dice, the
+    """`"basic"` for a band of low-level adventurers or `"expert"` for a seasoned one. It decides the level dice, the
     armour the members wear, and whether they carry magic items.
     """
 
@@ -185,7 +185,7 @@ def npc_defeat_xp(level: int) -> int:
     The SRD prices monsters by Hit Dice and says nothing about classed NPCs, so osrlib prices an
     NPC adventurer as a monster of as many Hit Dice as they have levels, with no bonus for special
     abilities. [The adaptations register](https://mmacy.github.io/osrlib-python/adaptations/), the
-    site page that collects the places where osrlib settles an ambiguous rule one way, records the
+    site page that lists the places where osrlib settles an ambiguous rule one way, includes this
     reading.
 
     Args:
@@ -258,7 +258,7 @@ def _maybe_equip_upgrade(member: Character, definition: ClassDefinition, instanc
     """Equip a rolled weapon or piece of armour when it beats the one from the kit.
 
     Better means a higher armour class for armour and shields, or any enchantment at all over a
-    mundane weapon. A cursed item tests as though it were a +1, which is what it claims to be, so
+    mundane weapon. A cursed item tests as though it were a +1, which is what it appears to be, so
     it gets equipped like any other, and the curse comes out in play.
     """
     template = magic_item_template(instance)
@@ -326,37 +326,37 @@ def generate_npc_party(
     appear. Everything else is rolled here.
 
     The band shares one alignment, rolled once, so their reaction to the players and their
-    vulnerability to alignment-gated wards have a single answer. Then each member in turn gets a
+    vulnerability to wards that depend on alignment have a single answer. Then each member in turn gets a
     class and a level from the SRD's table, ability scores rolled 3d6 in order, hit points,
     experience set to the threshold for their level, an equipment kit their class can use, and, if
     they cast, spells prepared at random from their class's list. An Expert band wears heavier
     armour and each member gets a 5% chance per level at each kind of magic item they could use.
 
-    Hit points come in two parts, which matters if you are counting draws. The first level's hit
+    Hit points come in two parts, and the split decides how many draws a member takes. The first level's hit
     die is rolled here, directly, with the CON modifier added and the total floored at 1. Every
     level after the first goes through [`level_up`][osrlib.core.classes.level_up], one call per
     level, and each of those calls takes a draw only when that level's row adds a hit die. An
     Expert dwarf rolled at level 11 or 12 passes name level, so its top levels take no draw.
 
-    Members are not checked against their class's ability requirements, because the SRD rolls their
-    class before their scores. An elf here may have an INT a player character would not be allowed.
+    Members are not checked against their class's ability requirements, because in the SRD's procedure
+    their class is rolled before their scores. An elf here may have an INT a player character would not be allowed.
 
     The draws come off the two streams in a fixed order, which is what makes a seeded encounter
-    repeatable: the alignment and every member's own rolls from `npc_stream` in member order, then
+    repeatable: the alignment and every member's rolls from `npc_stream` in member order, then
     each member's magic items and finally the shared treasure from `treasure_stream`.
 
     Args:
         kind: `"basic"` for a band of levels 1 to 3, or `"expert"` for a seasoned one whose level
             dice depend on the class rolled.
-        count: How many adventurers appear. Roll it from the encounter table that sent them.
+        count: How many adventurers appear. Roll it from the encounter table that produced the encounter.
         npc_stream: The stream for the members themselves, conventionally
             `streams.get(`[`NPC_PARTY_STREAM`][osrlib.core.npc.NPC_PARTY_STREAM]`)`.
         treasure_stream: The stream for their magic items and their shared treasure, conventionally
             `streams.get(`[`TREASURE_STREAM`][osrlib.core.treasure.TREASURE_STREAM]`)`, so those
-            rolls land in the treasure statistics with every other treasure roll.
-        allocator: The [`IdAllocator`][osrlib.core.monsters.IdAllocator] that names the members and
-            the items and valuables they carry. Pass the session's own allocator so nothing
-            collides with ids already in play.
+            rolls count in the treasure statistics with every other treasure roll.
+        allocator: The [`IdAllocator`][osrlib.core.monsters.IdAllocator] that assigns ids to the members and
+            the items and valuables they carry. Pass the session's allocator so the new ids don't
+            collide with ids already in play.
 
     Returns:
         The band, its shared alignment, and its treasure.

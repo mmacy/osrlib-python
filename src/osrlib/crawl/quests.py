@@ -1,21 +1,21 @@
 """Authored quests: the matching clause, the objective spec, and the quest spec.
 
-A quest is the errand the adventure keeps score of: what starts it, what it asks for,
+A quest is an errand the session tracks: what starts it, what it asks for,
 what it pays, and whether finishing it ends the adventure.
 
-Where a quest sits. You write [`QuestSpec`][osrlib.crawl.quests.QuestSpec]s into the
+You write [`QuestSpec`][osrlib.crawl.quests.QuestSpec]s into the
 `quests` tuple of an [`Adventure`][osrlib.crawl.adventure.Adventure], and that tuple's
 order is document order. A session seeds one
 [`QuestState`][osrlib.crawl.session.QuestState] per quest at construction and keeps them
 in `session.quests`, keyed by quest id, with each quest's objectives keyed in the order
-[`QuestSpec.objectives`][osrlib.crawl.quests.QuestSpec] authored them, so every walk over
+[`QuestSpec.objectives`][osrlib.crawl.quests.QuestSpec] lists them, so every walk over
 either is deterministic. Nothing advances that state until your game registers an
 [`Interpreter`][osrlib.crawl.interpreter.Interpreter] on the session, and even then the
 state moves only through the four lifecycle commands
 [`ActivateQuest`][osrlib.crawl.commands.ActivateQuest],
 [`RevealObjective`][osrlib.crawl.commands.RevealObjective],
 [`CompleteObjective`][osrlib.crawl.commands.CompleteObjective], and
-[`CompleteQuest`][osrlib.crawl.commands.CompleteQuest]. Each reports itself with a
+[`CompleteQuest`][osrlib.crawl.commands.CompleteQuest]. Each one emits a
 player-visible event:
 [`QuestActivatedEvent`][osrlib.crawl.events.QuestActivatedEvent],
 [`ObjectiveRevealedEvent`][osrlib.crawl.events.ObjectiveRevealedEvent],
@@ -26,20 +26,20 @@ that concludes the adventure,
 quests and their revealed objectives reach a front end through
 [`PlayerView.quests`][osrlib.crawl.views.PlayerView].
 
-A quest composes the trigger vocabulary rather than introducing one of its own. An
+A quest uses the trigger vocabulary rather than a separate one. An
 activation, an objective's completion, and a hidden objective's reveal are each a
 [`TriggerClause`][osrlib.crawl.quests.TriggerClause]: a
-[`TriggerPattern`][osrlib.crawl.triggers.TriggerPattern] naming the observable, plus the
+[`TriggerPattern`][osrlib.crawl.triggers.TriggerPattern] that identifies the observable, plus the
 [`ConditionSpec`][osrlib.crawl.gates.ConditionSpec]s that have to hold when it matches.
 Those are the same edge-triggered patterns and the same live condition evaluation an
 authored [`TriggerSpec`][osrlib.crawl.triggers.TriggerSpec] uses. Rewards are the same
-[`ConsequenceCommand`][osrlib.crawl.commands.ConsequenceCommand] surface under the same
+[`ConsequenceCommand`][osrlib.crawl.commands.ConsequenceCommand] types under the same
 party selectors ([`PARTY_SELECTOR`][osrlib.crawl.triggers.PARTY_SELECTOR] and
 [`FIRST_LIVING_SELECTOR`][osrlib.crawl.triggers.FIRST_LIVING_SELECTOR]).
 
-A quest observes, it does not take. A clause condition with `consumes=True` is rejected
-at parse for the reason a trigger's is: the event a clause matches has already happened,
-so there is no attempt of the quest's own to charge a toll against.
+A quest only observes events. A clause condition with `consumes=True` is rejected at
+parse for the reason a trigger's is: the event a clause matches has already happened,
+so the quest has no attempt to charge a toll against.
 
 Author a trigger instead when nothing has to be scored and the adventure only has to
 react. The guide
@@ -124,9 +124,9 @@ class ObjectiveSpec(BaseModel):
     [`ObjectiveView`][osrlib.crawl.views.ObjectiveView]s.
 
     Objectives are monotonic: hidden becomes revealed, incomplete becomes complete, and
-    neither goes back, because the quest vocabulary authors no repeat.
+    neither goes back, because there's no way to author a repeating objective.
 
-    A hidden objective with no `reveal_when` is a normal shape. It surfaces when it
+    A hidden objective with no `reveal_when` is normal. It appears on the list when it
     completes, because completing an objective reveals it. `reveal_when` on an objective
     that starts visible is rejected at parse, since a reveal clause for something already
     on the list would never be read.
@@ -165,10 +165,10 @@ class ObjectiveSpec(BaseModel):
     """Whether the objective starts off the party's list. A hidden objective has no view
     until it is revealed."""
     reveal_when: TriggerClause | None = None
-    """The clause that surfaces a hidden objective ahead of its completion. It is rejected
+    """The clause that reveals a hidden objective ahead of its completion. It is rejected
     at parse on an objective that starts visible."""
     narrative: NarrativeBlock | None = None
-    """The objective's own beats. It reads two of the block: `offer`, the line its reveal
+    """The objective's beats. osrlib reads two of the block's fields: `offer`, the line its reveal
     shows and journals, and `progress`, the line its completion shows and journals."""
 
     @model_validator(mode="after")
@@ -189,10 +189,9 @@ class QuestSpec(BaseModel):
     [`QuestState`][osrlib.crawl.session.QuestState] in `session.quests`, and an active
     quest reaches a front end as a [`QuestView`][osrlib.crawl.views.QuestView].
 
-    Rewards are issued after the quest completes, in authored order, and only for a
-    completion the interpreter itself ruled: a quest your game completes by hand with
-    [`CompleteQuest`][osrlib.crawl.commands.CompleteQuest] pays nothing, because paying
-    is this listener reading the quest.
+    Rewards are issued after the quest completes, in authored order, and only when the
+    interpreter itself ruled the quest complete. A quest your game completes by hand with
+    [`CompleteQuest`][osrlib.crawl.commands.CompleteQuest] pays nothing.
 
     Examples:
         ```python
@@ -222,34 +221,34 @@ class QuestSpec(BaseModel):
 
     id: str = Field(min_length=1)
     """The quest's id, unique across the adventure. It keys the quest's state, and the
-    `source` stamp on every command the quest issues names it, in the form
+    `source` stamp on every command the quest issues contains it, in the form
     `quest:{id}`."""
     name: str = Field(min_length=1)
     """The quest's display name, included in its lifecycle events and its view so a
     renderer needs no document to look it up in."""
     activation: TriggerClause | None = None
     """The clause that brings the quest into play. `None` means the quest is active from
-    session start, a standing charge on the party from round 0 with no activation beat
-    to show, because there is no command channel before the first command. An
-    authored clause makes activation an event the party crosses."""
+    session start, from round 0, with no activation beat to show, because there is no
+    command channel before the first command. With an authored clause, the quest
+    activates during play, when the clause matches."""
     objectives: tuple[ObjectiveSpec, ...] = Field(min_length=1)
     """What the quest asks for, in the order a quest log should show it. At least one is
-    required, because an objective-less quest under the all rule would be born
-    complete."""
+    required, because a quest with no objectives under the all rule would be
+    complete from the start."""
     rewards: tuple[ConsequenceCommand, ...] = ()
     """The referee commands issued after the quest completes, in authored order, with
     [`PARTY_SELECTOR`][osrlib.crawl.triggers.PARTY_SELECTOR] and
     [`FIRST_LIVING_SELECTOR`][osrlib.crawl.triggers.FIRST_LIVING_SELECTOR] expanded to
-    the members they name. Each stands or drops on its own. An authored `source` is
-    rejected at parse, because the issuing quest stamps it."""
+    the members they select. Each reward is applied or dropped independently. An authored `source` is
+    rejected at parse, because the interpreter stamps it for the quest."""
     completion: Literal["all", "any"] = "all"
-    """The completion rule: `"all"` requires every objective, `"any"` takes the first one
-    to land.
+    """The completion rule: `"all"` requires every objective, `"any"` completes on the first
+    objective completed.
 
     The quest walk stops at the completion it issues, so when one event would complete two
     objectives at once, the second one is left incomplete and finishes on the next event
     that matches its clause. Under `"any"` that is what usually happens, since the first
-    objective to land finishes the quest and the rest stay open."""
+    objective to complete finishes the quest and the rest stay open."""
     concludes_adventure: bool = False
     """Whether finishing this quest ends the adventure. The session moves to `victory`
     and emits an
@@ -257,15 +256,15 @@ class QuestSpec(BaseModel):
     happens before the first reward is issued, so a reward that would resume play there
     is dropped with a note."""
     narrative: NarrativeBlock | None = None
-    """The quest's own beats. It reads two of the block: `offer`, the line its activation
+    """The quest's beats. osrlib reads two of the block's fields: `offer`, the line its activation
     shows and journals, and `completion`, the line its completion shows and journals.
-    Per-objective beats live on the objectives."""
+    Per-objective beats are on the objectives."""
 
     @model_validator(mode="after")
     def _objective_ids_unique(self) -> QuestSpec:
         """Objective ids are quest-scoped: unique here, free to repeat elsewhere.
 
-        Two quests may both name an objective `"return"`, and one quest may not, because
+        Two quests may both have an objective with the id `"return"`, but one quest may not have two, because
         its state keys its objectives by id.
         """
         ids = [objective.id for objective in self.objectives]
@@ -277,9 +276,9 @@ class QuestSpec(BaseModel):
     def _rewards_carry_no_source(self) -> QuestSpec:
         """The `source` stamp belongs to whoever issues the command, not the document.
 
-        Rewards are issued stamped with the quest's own id, so an authored stamp
-        would either be overwritten or, worse, believed: a line in the log claiming
-        a provenance nothing produced.
+        Rewards are issued stamped with the quest's id, so an authored stamp
+        would either be overwritten or, worse, accepted: a line in the log claiming
+        a source that never issued the command.
         """
         for position, reward in enumerate(self.rewards):
             if reward.source is not None:

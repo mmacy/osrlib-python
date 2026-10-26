@@ -9,9 +9,9 @@ and magic item instances ready for an
 Which entry point you want depends on what you are stocking:
 
 - [`generate_treasure`][osrlib.core.treasure.generate_treasure] for a treasure type,
-  the letter a monster's stat block names.
+  the letter in a monster's stat block.
 - [`generate_unguarded_treasure`][osrlib.core.treasure.generate_unguarded_treasure] for
-  a cache nothing is guarding, by dungeon level.
+  an unguarded cache, by dungeon level.
 - [`generate_magic_item`][osrlib.core.treasure.generate_magic_item] for one magic item
   rolled at random, and
   [`instantiate_magic_item`][osrlib.core.treasure.instantiate_magic_item] for a
@@ -32,7 +32,7 @@ probability columns for magic items, B and X, one for each half of the game, and
 tier picks the column: a game chooses by how experienced the party is, and the crawl
 uses Basic while the party's highest living level is 1 to 3 and Expert from 4 up.
 
-Every printed entry of a treasure type parses to one fixed shape: an optional percentage
+Every printed entry of a treasure type parses to the same structure: an optional percentage
 chance that the entry is there at all, then either a quantity of coins, a count of gems
 or jewellery, or a magic item allotment. Allotments are structured rather than free text,
 so "any 3 magic items" and "1 potion" and "a sword, suit of armour, or weapon" are all
@@ -59,8 +59,8 @@ print(hoard.coins.value_gp, len(hoard.valuables), len(hoard.magic_items))
 
 # The treasure models live in this module rather than in core/tables.py: the
 # osrlib/data loaders import their model homes and every core module imports the
-# loaders, so a crawl-owned model home would give load_treasure_tables() a
-# core -> data -> crawl transitive import.
+# loaders, so putting the models in a crawl module would make load_treasure_tables()
+# import crawl from core by way of data.
 
 from collections.abc import Mapping, Sequence
 from enum import StrEnum
@@ -128,13 +128,13 @@ them. Use this one unless you have a reason not to.
 class TreasureSection(StrEnum):
     """Which section of the treasure tables a letter belongs to, which is when you generate it.
 
-    A monster's stat block names treasure types by letter, and when you generate a letter
+    A monster's stat block lists treasure types by letter, and when you generate a letter
     depends on its section: once for the lair, once per monster, or once for the whole
     group.
     [`plan_treasure_ref`][osrlib.core.treasure.plan_treasure_ref] sorts a stat block's
     letters into those three piles for you.
 
-    The wire values are lowercase and serialize into the compiled treasure data. Changing
+    The serialized values are lowercase and appear in the compiled treasure data. Changing
     them is a `schema_version` bump.
     """
 
@@ -149,7 +149,7 @@ class TreasureSection(StrEnum):
 class CoinDenomination(StrEnum):
     """The five coin denominations, as the treasure tables print them.
 
-    A coin entry names one of these, and generation adds the rolled amount to the matching
+    A coin entry gives one of these, and generation adds the rolled amount to the matching
     field of [`Coins`][osrlib.core.items.Coins]. The values are the same strings those models
     use for their fields, so a denomination can be used as a key.
     """
@@ -169,15 +169,15 @@ class CoinDenomination(StrEnum):
 class MagicItemType(StrEnum):
     """The types of the master *Magic Item Type* table, which is the first roll in generating a magic item.
 
-    Roll the master table to get one of these, then roll that type's own table for the item:
+    Roll the master table to get one of these, then roll that type's table for the item:
     [`generate_magic_item`][osrlib.core.treasure.generate_magic_item] does both. A magic
-    allotment for one kind of item names its type here.
+    allotment for one kind of item gives its type as one of these values.
 
     These are the table's types, not the catalog's categories. Rods, staves, and wands share
-    a single printed row and a single table, while the catalog keeps them apart. See
+    a single printed row and a single table, while the catalog has a separate category for each. See
     [`MagicItemCategory`][osrlib.core.items.MagicItemCategory].
 
-    The wire values are lowercase and serialize into the compiled treasure data. Changing
+    The serialized values are lowercase and appear in the compiled treasure data. Changing
     them is a `schema_version` bump.
     """
 
@@ -202,7 +202,7 @@ class MagicItemType(StrEnum):
 class CoinQuantity(BaseModel):
     """How many coins of one denomination a treasure entry yields.
 
-    The printed multiplier is folded into the dice expression, so an entry that reads
+    The printed multiplier is part of the dice expression, so an entry that reads
     `1d6 × 1,000 gp` arrives here as dice of `1d6×1000` and a denomination of gold. Roll it
     with [`roll`][osrlib.core.dice.roll] if you are generating by hand. The generation
     functions do it for you.
@@ -235,7 +235,7 @@ class MagicAllotment(BaseModel):
       in "a magic sword, suit of armour, or weapon".
 
     Exactly one of `count` and `count_dice` sizes the clause. Only an `any` clause has
-    exclusions, because a clause that names its type has nothing to exclude.
+    exclusions, because a clause that specifies its type has nothing to exclude.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -243,8 +243,8 @@ class MagicAllotment(BaseModel):
     kind: Literal["any", "category", "pool"]
     """`"any"`, `"category"`, or `"pool"`."""
     categories: tuple[MagicItemType, ...] = ()
-    """The types the clause names. See [`MagicItemType`][osrlib.core.treasure.MagicItemType]. Empty for `any`, one for
-    `category`, two or more for `pool`.
+    """The types the clause specifies. See [`MagicItemType`][osrlib.core.treasure.MagicItemType]. Empty for `any`, one
+    for `category`, two or more for `pool`.
     """
     count: int | None = None
     """A fixed number of items, or `None` when the count is rolled."""
@@ -460,7 +460,7 @@ class MagicItemTypeTable(BaseModel):
 
     The first of the two rolls that generate a magic item. Roll it with
     [`category_for_roll`][osrlib.core.treasure.MagicItemTypeTable.category_for_roll], then
-    roll the type's own table, which
+    roll the type's table, which
     [`MagicItemCatalog.sub_table`][osrlib.core.items.MagicItemCatalog.sub_table] returns. Or
     let [`generate_magic_item`][osrlib.core.treasure.generate_magic_item] do both and
     instantiate the item.
@@ -540,7 +540,7 @@ class StockingTable(BaseModel):
     directly unless you are rolling by hand: it rolls the contents, then the treasure chance
     that goes with them, and reports both.
 
-    This is an authoring tool, not something play calls: it is how you fill a dungeon level
+    This is an authoring tool, not something called during play: it is how you fill a dungeon level
     before anyone explores it.
     """
 
@@ -582,7 +582,7 @@ class UnguardedTreasureBand(BaseModel):
     """One dungeon-level band of the unguarded treasure table.
 
     Deeper levels have more, so the table is banded by level. The entries have the same
-    shape as a treasure type's.
+    structure as a treasure type's.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -604,7 +604,7 @@ class UnguardedTreasureBand(BaseModel):
 
 
 class UnguardedTreasureTable(BaseModel):
-    """The unguarded treasure table: what a cache nobody is guarding contains, by dungeon level.
+    """The unguarded treasure table: what an unguarded cache contains, by dungeon level.
 
     Use it through
     [`generate_unguarded_treasure`][osrlib.core.treasure.generate_unguarded_treasure], which
@@ -654,7 +654,7 @@ class UnguardedTreasureTable(BaseModel):
 class TreasureTables(BaseModel):
     """Every treasure table there is, loaded and ready to generate from.
 
-    Call [`load_treasure_tables`][osrlib.data.load_treasure_tables] to get the shipped set.
+    Call [`load_treasure_tables`][osrlib.data.load_treasure_tables] to get the built-in set.
     It is frozen, cached, and shared. The generation functions load it themselves, so you
     need this only to read a table: to show a referee what a letter can produce, or to roll
     a table by hand.
@@ -688,7 +688,7 @@ class TreasureTables(BaseModel):
         """Return the treasure type for `letter`.
 
         Args:
-            letter: The type letter, for example `"A"`, as a monster's stat block names it. See
+            letter: The type letter, for example `"A"`, as it appears in a monster's stat block. See
                 [the treasure type index][treasure-types-index]. Case-sensitive: the letters
                 are uppercase.
 
@@ -732,7 +732,7 @@ class RoomContentsResult(BaseModel):
     treasure_present: bool = False
     """True when the room has treasure as well as its contents. Which treasure is yours to decide: generate it with
     [`generate_unguarded_treasure`][osrlib.core.treasure.generate_unguarded_treasure] for an empty or trapped room, or
-    from the monster's own type when a monster is there.
+    from the monster's treasure type when a monster is there.
     """
 
 
@@ -743,8 +743,8 @@ class TreasureRefPlan(BaseModel):
     a stat block's treasure reference. The three letter lists say when each letter is
     generated: the lair ones once when you stock the lair, the individual ones once per
     monster, and the group ones once for the whole group. A letter in parentheses on the stat
-    block is lair treasure whatever section it belongs to, which is how the bandit's `U (A)`
-    means each bandit carries type U and the camp has a type A hoard.
+    block is lair treasure whatever section it belongs to, so the bandit's `U (A)` means the
+    band carries type U between them and the camp has a type A hoard.
 
     Some references generate nothing at all. Where a stat block marks the treasure special
     or describes it below, the referee writes it, and those parts are left out of the plan.
@@ -783,7 +783,7 @@ def plan_treasure_ref(ref: TreasureRef) -> TreasureRefPlan:
         The plan. See [`TreasureRefPlan`][osrlib.core.treasure.TreasureRefPlan].
 
     Raises:
-        ValueError: If the reference names a letter that is not a treasure type.
+        ValueError: If the reference has a letter that is not a treasure type.
 
     Examples:
         ```python
@@ -829,7 +829,7 @@ def roll_room_contents(stream: RngStream) -> RoomContentsResult:
     chance of treasure consumes no second die, which keeps the draw sequence exact.
 
     Generating the treasure is a separate step, because which table to use depends on what is
-    in the room: the monster's own treasure type when a monster is there, and
+    in the room: the monster's treasure type when a monster is there, and
     [`generate_unguarded_treasure`][osrlib.core.treasure.generate_unguarded_treasure]
     otherwise.
 
@@ -894,12 +894,12 @@ def _generate_valuable(kind: Literal["gem", "jewellery"], *, stream: RngStream, 
 
 
 def _generate_sentience(*, stream: RngStream) -> SwordSentience | None:
-    """Roll a magic sword's sentience in the SRD's own procedure order.
+    """Roll a magic sword's sentience in the order of the SRD procedure.
 
     The special-purpose 1-in-20 rolls first for each magic sword. A special sword is always
     sentient at INT 12 and Ego 12. Otherwise the 30% sentience roll decides. Then come the
     printed steps: INT 1d6+6, communication by INT, languages (rolled only for swords that
-    speak, since an empathic sword speaks nothing), alignment, powers by INT (sensory
+    speak, since an empathic sword doesn't speak), alignment, powers by INT (sensory
     duplicates re-rolled with draws consumed, extraordinary duplicates re-rolled unless the
     power allows them), and Ego 1d12.
     """
@@ -1044,8 +1044,8 @@ def instantiate_magic_item(
     """Create one copy of a magic item you have already chosen, rolling the details that differ between copies.
 
     This is how a hand-placed magic item becomes something a character can carry. An
-    adventure names the item ([`FeatureSpec.magic_item_ids`][osrlib.crawl.dungeon.FeatureSpec]
-    does exactly this), and this rolls what the item's own page leaves to chance: what a
+    adventure lists the item's id (in [`FeatureSpec.magic_item_ids`][osrlib.crawl.dungeon.FeatureSpec]),
+    and this function rolls what the item's SRD page leaves to chance: what a
     generic suit of enchanted armour is made of, how many charges a wand has, how many
     arrows are in the bundle, how many wishes the ring has, which spells are on the scroll,
     how many levels the sword can drain, and last of all whether a sword is sentient. Nothing
@@ -1064,12 +1064,12 @@ def instantiate_magic_item(
         stream: The RNG stream to draw from, conventionally
             [`TREASURE_STREAM`][osrlib.core.treasure.TREASURE_STREAM].
         allocator: The id source for the new instance's id, which takes the `magic-item`
-            prefix. An [`IdAllocator`][osrlib.core.monsters.IdAllocator]. A session hands
-            you its own, and a standalone caller makes one.
+            prefix. An [`IdAllocator`][osrlib.core.monsters.IdAllocator]. A session gives
+            you its allocator, and a standalone caller makes one.
         params: Overrides from a generation table row, when this is being called from one:
             the quantity dice a printed band gives, a fixed Basic-tier quantity, a wish
-            count. Leave it `None` when placing an item by hand, and the template's own
-            values are used.
+            count. Leave it `None` when placing an item by hand, and the function uses the
+            template's values.
 
     Returns:
         The new instance, unidentified. See
@@ -1138,7 +1138,7 @@ def generate_magic_item(
     """Roll one magic item at random: which kind, which item, and all its details.
 
     Three steps in one call. When `category` is `None` it rolls the master *Magic Item Type*
-    table for the kind, re-rolling anything you excluded. Then it rolls that kind's own table
+    table for the kind, re-rolling anything you excluded. Then it rolls that kind's table
     for the item. Then
     [`instantiate_magic_item`][osrlib.core.treasure.instantiate_magic_item] rolls the item's
     details. Pass a `category` when the kind is already decided, as it is for an allotment
@@ -1216,9 +1216,9 @@ def generate_treasure_entries(
 
     The engine the other generation functions share, and the one to call when you have
     entries in hand rather than a letter or a level: the hoard a treasure map leads to is a
-    list of entries on the map's own template, and this is how you turn it into loot.
+    list of entries on the map's template, and this is how you turn it into loot.
 
-    Entries are resolved in printed order: for each one, the presence roll if it is gated,
+    Entries are resolved in printed order: for each one, the presence roll if it has a chance,
     then the quantity dice, then each gem, piece of jewellery, or magic item resolved
     completely before the next begins. That order is the contract behind reproducibility, so
     the same seed and the same entries always give the same result.
@@ -1309,7 +1309,7 @@ def generate_treasure(
 ) -> GeneratedTreasure:
     """Generate one treasure type's contents.
 
-    The entry point for a monster's treasure: a stat block names a letter, and this rolls
+    The entry point for a monster's treasure: a stat block gives a letter, and this rolls
     everything that letter can contain. Which letters to roll, and whether each belongs to the
     lair, one monster, or the group, is what
     [`plan_treasure_ref`][osrlib.core.treasure.plan_treasure_ref] works out from the stat
@@ -1371,7 +1371,7 @@ def generate_unguarded_treasure(
     stream: RngStream,
     allocator: Any,
 ) -> GeneratedTreasure:
-    """Generate a cache of treasure nobody is guarding, for a dungeon level.
+    """Generate an unguarded cache of treasure for a dungeon level.
 
     The counterpart to [`generate_treasure`][osrlib.core.treasure.generate_treasure]: use it
     when the treasure belongs to the room rather than to a monster, which is what

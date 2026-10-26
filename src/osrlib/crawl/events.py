@@ -12,10 +12,10 @@ and [`save_game`][osrlib.persistence.save_game] writes them into a save.
 
 Every event has a `code`, an `event_type`, and a `visibility`. The code is a message
 code, dot-separated snake_case namespaced by subsystem (`exploration.door.opened`),
-and it's what a renderer keys on. The event type is the wire discriminator that names
-the class, so a serialized event rebuilds into the right one. The visibility says who
+and a renderer chooses its message by it. The event type is the wire discriminator that identifies
+the class, so a serialized event rebuilds into the right one. The visibility sets who
 may see the event: `player` for what the table learns, `referee` for the rolls and
-bookkeeping B/X keeps behind the screen, like a detection die or a wandering check. A
+bookkeeping the referee keeps behind the screen, like a detection die or a wandering check. A
 class that can report more than one outcome declares its whole code set in
 `allowed_codes`, and an instance uses one of them.
 
@@ -162,7 +162,7 @@ class PartyMovedEvent(Event):
     event_type: Literal["party_moved"] = "party_moved"
     """The wire discriminator, `party_moved`."""
     visibility: Visibility = Visibility.PLAYER
-    """Player visibility: where the party stands is the party's own business."""
+    """Player visibility: the party knows where it stands."""
     x: int
     """The column the party is in after the command, counting from zero at the level's west edge."""
     y: int
@@ -186,9 +186,9 @@ class LocationEnteredEvent(Event):
     party somewhere.
 
     Which fields are filled depends on the scale, because an area id is unique only
-    within its level: an area entry names the area, its level number, and its dungeon,
-    a level or dungeon entry names the dungeon in `location_id` with the level number
-    beside it, and a town entry names neither. A level or dungeon entry also says how the
+    within its level: an area entry has the area, its level number, and its dungeon,
+    a level or dungeon entry has the dungeon in `location_id` with the level number
+    beside it, and a town entry has neither. A level or dungeon entry also records how the
     party got there, in `via` and, for a transition it took, `transition_ref`, so a line
     written from the event alone can say the party climbed rather than descended. Use it
     to swap the screen's header, and read the text the party can see from
@@ -212,8 +212,8 @@ class LocationEnteredEvent(Event):
     level_number: int | None = None
     """The level the party is on, for area, level, and dungeon entries, and `None` for town."""
     dungeon_id: str | None = None
-    """The dungeon the area belongs to, filled on area entries only. The other kinds already name
-    the dungeon in `location_id`."""
+    """The dungeon the area belongs to, filled on area entries only. On level and dungeon entries,
+    `location_id` is already the dungeon id."""
     narrative: str | None = None
     """The success text the adventure's author wrote on the gate that was crossed, when there was
     one, else `None`. A gate is the condition an author puts on a transition, like a door that
@@ -233,7 +233,7 @@ class LocationEnteredEvent(Event):
     [`cell_ref`][osrlib.crawl.dungeon.cell_ref] gives it, so a consumer can find the
     [`TransitionSpec`][osrlib.crawl.dungeon.TransitionSpec] and the gate on it. Filled on a level or
     dungeon entry made through [`UseStairs`][osrlib.crawl.commands.UseStairs] or through a passage,
-    `None` otherwise. For a passage crossing, it names the passage's cell. That cell can also have
+    `None` otherwise. For a passage crossing, it refers to the passage's cell. That cell can also have
     stairs, and passages on its other sides, so find the passage with
     [`LevelSpec.passage_at`][osrlib.crawl.dungeon.LevelSpec.passage_at] and the `direction` of the
     [`MoveParty`][osrlib.crawl.commands.MoveParty] that crossed it."""
@@ -348,9 +348,9 @@ class DetectionRolledEvent(Event):
     code: str = "exploration.detection.rolled"
     """The message code, always `exploration.detection.rolled`."""
     visibility: Visibility = Visibility.REFEREE
-    """Referee visibility: the roll is the part B/X keeps behind the screen."""
+    """Referee visibility: the roll is the part the referee keeps behind the screen."""
     character_id: str | None = None
-    """The member who rolled, or `None` for a check nobody made, like a trap's own chance to
+    """The member who rolled, or `None` for a check no member made, like a trap's chance to
     go off."""
     kind: str
     """What was being checked: `"listening"`, one of the search kinds
@@ -369,7 +369,7 @@ class DetectionRolledEvent(Event):
 
 
 class SearchCompletedEvent(Event):
-    """A search of the party's cell finished, naming whatever it turned up.
+    """A search of the party's cell finished, with whatever it turned up.
 
     Emitted by [`Search`][osrlib.crawl.commands.Search] and by
     [`InspectTreasure`][osrlib.crawl.commands.InspectTreasure] once the roll has been
@@ -397,9 +397,9 @@ class SearchCompletedEvent(Event):
     found: tuple[str, ...] = ()
     """What turned up, as references like `"secret_door:north"`, `"room_trap:<area id>"`, or
     `"construction:<feature id>"`, and empty when nothing did. A room trap found through a door
-    from the searched cell names the door's direction in a third segment,
-    `"room_trap:<area id>:<direction>"`, and one found inside its own area has none. A found
-    secret door becomes passable, and a found trap no longer springs on the party."""
+    from the searched cell has the door's direction in a third segment,
+    `"room_trap:<area id>:<direction>"`, and one found inside the searched area has none. A found
+    secret door becomes passable, and a found room trap no longer springs on the party."""
 
 
 class TrapEvent(Event):
@@ -426,12 +426,12 @@ class TrapEvent(Event):
 
     What a find is worth depends on the kind of trap. A found room trap never springs,
     at its area's edge or at one of its doors: the party walks around the known pit and
-    stands clear of the known blade, so it rolls no die and emits nothing further. A
-    found treasure trap still rolls its 2-in-6 on every
+    stands clear of the known blade, so the engine rolls no die for it and emits nothing
+    further. A found treasure trap still gets its 2-in-6 roll on every
     [`TakeTreasure`][osrlib.crawl.commands.TakeTreasure] until a thief takes it out
     with [`RemoveTreasureTrap`][osrlib.crawl.commands.RemoveTreasureTrap], because
     finding a treasure trap is not defeating it. That is why `exploration.trap.safe`, a
-    known trap's trigger resolving without springing, appears on a cache alone.
+    known trap's trigger resolving without springing, appears only for a cache.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset(
@@ -455,12 +455,12 @@ class TrapEvent(Event):
     direction: str | None = None
     """The direction of the door a room trap was found through, from the searched cell, as a
     [`Direction`][osrlib.crawl.dungeon.Direction] value. Set for that find alone: it is `None` on a
-    room trap found inside its own area, on a treasure trap found on a cache, and on every code but
+    room trap found inside the searched area, on a treasure trap found on a cache, and on every code but
     `exploration.trap.found`."""
 
 
 class ItemAcquiredEvent(Event):
-    """Items or coins landed in a character's inventory.
+    """Items or coins arrived in a character's inventory.
 
     Emitted by [`TakeTreasure`][osrlib.crawl.commands.TakeTreasure] once per carrier
     who took a share, by
@@ -503,13 +503,13 @@ class ItemAcquiredEvent(Event):
 class ItemConsumedEvent(Event):
     """One carried item was used up: a toll paid, a spike driven home.
 
-    Emitted when a gate's condition takes the item it names, which happens on
+    Emitted when the engine takes the item a gate's condition requires, which happens on
     [`OpenDoor`][osrlib.crawl.commands.OpenDoor],
     [`ForceDoor`][osrlib.crawl.commands.ForceDoor], and
     [`UseStairs`][osrlib.crawl.commands.UseStairs], and by
     [`WedgeDoor`][osrlib.crawl.commands.WedgeDoor] for the iron spike it drives.
 
-    It says the item is gone. It isn't the event for a potion drunk or a scroll
+    It reports that the item is gone. It isn't the event for a potion drunk or a scroll
     read, which are [`ItemUsedEvent`][osrlib.crawl.events.ItemUsedEvent].
     """
 
@@ -537,7 +537,7 @@ class ItemsDroppedEvent(Event):
     [`Evade`][osrlib.crawl.commands.Evade] when the party throws treasure or food to
     a pursuer to buy time.
 
-    What lands on a cell goes into that cell's drop pile, which
+    What is dropped on a cell goes into that cell's drop pile, which
     [`TakeTreasure`][osrlib.crawl.commands.TakeTreasure] can pick back up. What is
     scattered during a flight is gone.
     """
@@ -624,8 +624,8 @@ class LightEvent(Event):
     also emits the expiry form whenever the clock runs a light out, which can happen
     inside any command that passes time.
 
-    Light gates most of exploration: searching, reading, and seeing at all need it
-    unless a character has infravision. Read the party's current state from
+    Searching, reading, and seeing at all need light unless a character has
+    infravision. Read the party's current state from
     [`GameSession.party_light`][osrlib.crawl.session.GameSession.party_light] rather
     than adding these events up.
     """
@@ -645,7 +645,7 @@ class LightEvent(Event):
     event_type: Literal["light"] = "light"
     """The wire discriminator, `light`."""
     visibility: Visibility = Visibility.PLAYER
-    """Player visibility: the party watches the light go. The ledger's own expiry record behind it
+    """Player visibility: the party watches the light go. The ledger's expiry record behind it
     is referee visibility, and the session translates it into this player-facing form."""
     character_id: str | None = None
     """The member carrying the source, or `None` when the light belongs to no one in the party."""
@@ -679,8 +679,8 @@ class FatigueEvent(Event):
     """The party picked up the unrested penalty, or shook it off.
 
     B/X asks a party to rest one turn in every six while it's in a dungeon. A party
-    that doesn't gets a penalty until it does, and these two codes are when the
-    penalty lands and when it lifts.
+    that doesn't gets a penalty until it does, and these two codes report when the
+    penalty starts and when it lifts.
 
     Emitted while exploring, by any command that crosses a turn boundary, and
     recovered by [`Rest`][osrlib.crawl.commands.Rest].
@@ -719,7 +719,7 @@ class ProvisionsEvent(Event):
     event_type: Literal["provisions"] = "provisions"
     """The wire discriminator, `provisions`."""
     visibility: Visibility = Visibility.PLAYER
-    """Player visibility: an empty pack is the party's problem to solve."""
+    """Player visibility: the party knows whether it ate and drank."""
     character_id: str
     """The member whose rations or water this was."""
     kind: str
@@ -731,7 +731,7 @@ class WanderingCheckEvent(Event):
     """The wandering-monster cadence came round and the referee rolled for it.
 
     Emitted while the party is in a dungeon, by any command that crosses the turn
-    the cadence lands on, most often [`MoveParty`][osrlib.crawl.commands.MoveParty]
+    the cadence falls on, most often [`MoveParty`][osrlib.crawl.commands.MoveParty]
     or [`Rest`][osrlib.crawl.commands.Rest]. When the check hits, the encounter
     opens in the same result and the command that was spending time stops there.
 
@@ -747,15 +747,15 @@ class WanderingCheckEvent(Event):
     code: str = "exploration.wandering.checked"
     """The message code, always `exploration.wandering.checked`."""
     visibility: Visibility = Visibility.REFEREE
-    """Referee visibility: the check is made behind the screen, and only its result walks in."""
+    """Referee visibility: the check is made behind the screen, and the party sees only what it produces."""
     chance: int
-    """The X-in-6 chance the check needed, after the level's own rate and any adjustment like
+    """The X-in-6 chance the check needed, after the level's rate and any adjustment like
     the lower chance while resting."""
     roll: int | None = None
     """The d6 that was rolled, or `None` when the chance came out at zero and no die was
     rolled."""
     encounter: bool
-    """Whether the check produced an encounter. When it did, the encounter's own events follow in
+    """Whether the check produced an encounter. When it did, the encounter's events follow in
     the same result."""
 
 
@@ -796,7 +796,7 @@ class EncounterStartedEvent(Event):
     """How far away they are, in feet, when the encounter opens. Battle starts from this distance
     and closes from there."""
     party_surprised: bool = False
-    """Whether the party was caught off guard, which costs it the first beat of the fight."""
+    """Whether the party was caught off guard, which can give the monsters a free first round."""
     monsters_surprised: bool = False
     """Whether the monsters were caught off guard, which gives the party a free round if the fight
     starts."""
@@ -839,7 +839,7 @@ class StanceChangedEvent(Event):
 
     Emitted when an encounter opens with its first reaction, when
     [`Parley`][osrlib.crawl.commands.Parley] talks the monsters into a different
-    mood, when an uncertain stance resolves on the next beat, and when
+    mood, when an uncertain stance resolves on the next encounter round, and when
     [`TurnUndead`][osrlib.crawl.commands.TurnUndead] settles the matter by making the
     survivors hostile.
 
@@ -867,7 +867,7 @@ class EvasionEvent(Event):
     """The party tried to get away, and either did or has a pursuit on its hands.
 
     Emitted by [`Evade`][osrlib.crawl.commands.Evade]. Getting clear at once ends the
-    encounter there. Otherwise a chase begins, and its beats arrive as
+    encounter there. Otherwise a chase begins, and its rounds arrive as
     [`PursuitEvent`][osrlib.crawl.events.PursuitEvent]s, starting in this same
     result.
     """
@@ -883,11 +883,11 @@ class EvasionEvent(Event):
 
 
 class PursuitEvent(Event):
-    """One beat of a chase: the gap, a distraction taken, an escape, or a capture.
+    """One round of a chase: the gap, a distraction taken, an escape, or a capture.
 
     Emitted by [`Evade`][osrlib.crawl.commands.Evade] once the chase is on, and by
     [`Wait`][osrlib.crawl.commands.Wait] and
-    [`DropItems`][osrlib.crawl.commands.DropItems] for each further beat, which is
+    [`DropItems`][osrlib.crawl.commands.DropItems] for each further round, which is
     how the party keeps running or throws something behind it.
 
     A capture opens battle at once, and an escape ends the encounter. A chase that
@@ -903,7 +903,7 @@ class PursuitEvent(Event):
             "encounter.pursuit.caught",
         }
     )
-    """`encounter.pursuit.round` for a beat where the chase goes on, `.distracted` when dropped
+    """`encounter.pursuit.round` for a round where the chase goes on, `.distracted` when dropped
     treasure or food stops the pursuers, `.escaped` when the party gets clear, and `.caught` when
     the pursuers close to arm's length and battle opens."""
 
@@ -912,9 +912,9 @@ class PursuitEvent(Event):
     visibility: Visibility = Visibility.PLAYER
     """Player visibility: the party can see how close the chase is."""
     round: int
-    """Which beat of the chase this is, counting from one."""
+    """Which round of the chase this is, counting from one."""
     gap_feet: int
-    """How far ahead the party is, in feet, at the end of this beat. It never goes below zero, and
+    """How far ahead the party is, in feet, at the end of this round. It never goes below zero, and
     at five feet or less the pursuers have caught up."""
 
 
@@ -938,15 +938,16 @@ class ExhaustionEvent(Event):
     event_type: Literal["exhaustion"] = "exhaustion"
     """The wire discriminator, `exhaustion`."""
     visibility: Visibility = Visibility.PLAYER
-    """Player visibility: the penalty is on the party's own sheets."""
+    """Player visibility: the penalty is on the party's character sheets."""
 
 
 class EncounterEndedEvent(Event):
     """The encounter is over, however it went.
 
     Emitted once the last group has been dealt with: beaten, evaded, escaped from, or
-    driven off. The session goes back to `exploring`, and the clock owes at least one
-    full turn, so time passes with this event even when the fight was short.
+    driven off. The session goes back to `exploring`, and the clock advances to at least
+    one full turn after the encounter opened, so time passes with this event even when
+    the fight was short.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"encounter.ended"})
@@ -1172,7 +1173,7 @@ class BattleEndedEvent(Event):
     event_type: Literal["battle_ended"] = "battle_ended"
     """The wire discriminator, `battle_ended`."""
     visibility: Visibility = Visibility.PLAYER
-    """Player visibility: the fight is the party's own."""
+    """Player visibility: the party is in the fight and sees how it ends."""
 
 
 class HoardGeneratedEvent(Event):
@@ -1196,8 +1197,7 @@ class HoardGeneratedEvent(Event):
     code: str = "treasure.hoard.generated"
     """The message code, always `treasure.hoard.generated`."""
     visibility: Visibility = Visibility.REFEREE
-    """Referee visibility: the contents are the answer to a question the party hasn't asked
-    yet."""
+    """Referee visibility: the party learns what the cache contains when it takes the treasure."""
     cache_ref: str
     """The id of the cache the treasure went into, allocated by the session as `cache-NNNN`. The
     party reaches it through the cell it sits on, not through this id."""
@@ -1249,8 +1249,8 @@ class ItemUsedEvent(Event):
     character_id: str
     """The member who used the item."""
     instance_id: str
-    """The session-scoped id of the item used, never its template id, so an item the party hasn't
-    identified keeps its secret."""
+    """The session-scoped id of the item used, never its template id, so an event about an item the party hasn't
+    identified doesn't reveal what the item is."""
     manual: tuple[str, ...] = ()
     """The item's printed text, for the items whose effect the engine doesn't resolve, like a
     treasure map or a curse the game narrates. Empty when the engine resolved the effect itself.
@@ -1258,7 +1258,7 @@ class ItemUsedEvent(Event):
 
 
 class ItemIdentifiedEvent(Event):
-    """A magic item gave itself away, and the party now knows what it is.
+    """A magic item was identified, and the party now knows what it is.
 
     Emitted the first time an item is used in a way that reveals it, which happens
     inside [`UseItem`][osrlib.crawl.commands.UseItem],
@@ -1266,7 +1266,7 @@ class ItemIdentifiedEvent(Event):
     [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound], and the
     referee's [`IdentifyItem`][osrlib.crawl.commands.IdentifyItem].
 
-    Before this, the item's `instance_id` is all any player-visible event named.
+    Before this, player-visible events give only the item's `instance_id`.
     After it, the party can be shown the template's name.
     """
 
@@ -1286,7 +1286,7 @@ class ItemIdentifiedEvent(Event):
 
 
 class CurseRevealedEvent(Event):
-    """A cursed item showed its true nature, and won't let go.
+    """The curse on a cursed item is now known, and the item can't be taken off.
 
     Emitted alongside [`ItemIdentifiedEvent`][osrlib.crawl.events.ItemIdentifiedEvent]
     the first time a cursed item is used or worn. From here the bearer is stuck with
@@ -1301,9 +1301,9 @@ class CurseRevealedEvent(Event):
     code: str = "items.curse.revealed"
     """The message code, always `items.curse.revealed`."""
     visibility: Visibility = Visibility.PLAYER
-    """Player visibility: the bearer finds out the hard way."""
+    """Player visibility: the bearer learns about the curse when it takes hold."""
     character_id: str
-    """The member the curse has attached itself to."""
+    """The member who has the cursed item."""
     instance_id: str
     """The session-scoped id of the cursed item."""
     template_id: str
@@ -1318,7 +1318,7 @@ class NpcPartySpawnedEvent(Event):
     that comes up adventurers, before the encounter opens.
 
     It's referee visibility and contains the whole roster. What the party sees is the
-    [`EncounterStartedEvent`][osrlib.crawl.events.EncounterStartedEvent], which names
+    [`EncounterStartedEvent`][osrlib.crawl.events.EncounterStartedEvent], which describes
     them as adventurers and gives a count. Their classes and levels are something to
     find out by talking or by fighting.
     """
@@ -1331,7 +1331,7 @@ class NpcPartySpawnedEvent(Event):
     code: str = "encounter.npc_party.spawned"
     """The message code, always `encounter.npc_party.spawned`."""
     visibility: Visibility = Visibility.REFEREE
-    """Referee visibility: the roster is what the party doesn't get to read off a sheet."""
+    """Referee visibility: the players see only the label and the count on the encounter event."""
     party_kind: str
     """Which table the party was rolled from: `"basic"` or `"expert"`."""
     npc_ids: tuple[str, ...]
@@ -1350,13 +1350,13 @@ class AdventureXpAwardEvent(Event):
     """The delve paid out: what the party earned and what each survivor takes.
 
     Emitted by [`TravelToTown`][osrlib.crawl.commands.TravelToTown] under the default
-    ruleset, where experience is awarded for making it back. Each survivor's own
+    ruleset, where experience is awarded for making it back. Each survivor's
     [`XpAwardedEvent`][osrlib.crawl.events.XpAwardedEvent] follows it, and a level
     gained follows that.
 
     Treasure counts by what the party carried out compared with what it carried in,
-    so goods still lying in the dungeon are worth nothing yet. A party that lost
-    everyone awards nothing, because nobody came back to spend it.
+    so goods still lying in the dungeon are worth nothing yet. The award is zero for
+    a party that lost everyone, because nobody came back to spend it.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"session.xp.adventure_award"})
@@ -1367,7 +1367,7 @@ class AdventureXpAwardEvent(Event):
     code: str = "session.xp.adventure_award"
     """The message code, always `session.xp.adventure_award`."""
     visibility: Visibility = Visibility.PLAYER
-    """Player visibility: the award is the point of coming back."""
+    """Player visibility: the party sees what it earned."""
     monster_xp: int
     """What the defeated creatures were worth, added up across the whole delve."""
     treasure_xp: int
@@ -1398,7 +1398,7 @@ class TreasureSoldEvent(Event):
     visibility: Visibility = Visibility.PLAYER
     """Player visibility: the party made the sale."""
     character_id: str
-    """The member who sold them and now holds the coins."""
+    """The member who sold them and now has the coins."""
     instance_ids: tuple[str, ...]
     """The session-scoped ids of the valuables that were sold."""
     gp_value: int
@@ -1410,7 +1410,7 @@ class HealingPurchasedEvent(Event):
 
     Emitted by [`PurchaseHealing`][osrlib.crawl.commands.PurchaseHealing] in town,
     followed by the kernel events of the spell itself. The temple charges the party,
-    so `payers` and `payments_gp` say which purses covered the fee and what each one
+    so `payers` and `payments_gp` show which purses covered the fee and what each one
     put in.
     """
 
@@ -1434,7 +1434,7 @@ class HealingPurchasedEvent(Event):
     """Whose purses paid, in the order they were charged: the treated member first, then the rest
     of the party in marching order, dead members included. A purse pays in whole gold pieces, as
     much of the outstanding fee as its gold covers, so the last purse charged pays what is left and
-    the purses behind it are never opened. A member whose purse stayed shut is absent. It is empty
+    the purses after it pay nothing. A member whose purse paid nothing is absent. It is empty
     on an event loaded from a save written before the field existed."""
     payments_gp: tuple[int, ...] = ()
     """What each purse in `payers` paid, in gold pieces and in the same order. The entries sum to
@@ -1445,9 +1445,9 @@ class FlagSetEvent(Event):
     """A session flag was written.
 
     Emitted by the referee's [`SetFlag`][osrlib.crawl.commands.SetFlag]. Flags are
-    the game's own memory: an adventure's triggers and gates read them through a
+    where the game records state: an adventure's triggers and gates read them through a
     [`FlagEqualsCondition`][osrlib.crawl.gates.FlagEqualsCondition], and a game can
-    keep whatever else it wants there.
+    store whatever else it wants there.
 
     It's referee visibility, because what the game is keeping track of isn't part
     of the fiction the party is in.
@@ -1461,7 +1461,7 @@ class FlagSetEvent(Event):
     code: str = "session.flag.set"
     """The message code, always `session.flag.set`."""
     visibility: Visibility = Visibility.REFEREE
-    """Referee visibility: the wiring behind the game stays behind the screen."""
+    """Referee visibility: flags are bookkeeping that the players don't see."""
     key: str
     """Which flag was written."""
     value: str | int | bool
@@ -1491,14 +1491,14 @@ class MonstersSpawnedEvent(Event):
     template_id: str
     """What was spawned, as a monster catalog id."""
     monster_ids: tuple[str, ...]
-    """The session ids of the new instances, in spawn order. They are what every later event about
-    those creatures names."""
+    """The session ids of the new instances, in spawn order. Every later event about
+    those creatures refers to them by these ids."""
 
 
 class XpAwardedEvent(Event):
     """One character was awarded experience.
 
-    Emitted wherever an award lands: inside the end-of-adventure award on
+    Emitted wherever an award is made: inside the end-of-adventure award on
     [`TravelToTown`][osrlib.crawl.commands.TravelToTown], at each encounter's end
     when the ruleset awards immediately, and from the referee's
     [`AwardXP`][osrlib.crawl.commands.AwardXP]. When the award crosses a threshold, a
@@ -1518,7 +1518,7 @@ class XpAwardedEvent(Event):
     character_id: str
     """The member who received it."""
     award: int
-    """The award as the session handed it over, before the character's own adjustment."""
+    """The award as the session handed it over, before the character's adjustment."""
     modified_award: int
     """What was actually added, after the class's prime-requisite percentage, rounded down. This
     is the number to show beside the character."""
@@ -1529,7 +1529,7 @@ class XpAwardedEvent(Event):
 class CharacterLeveledUpEvent(Event):
     """A character crossed a threshold and gained a level.
 
-    Emitted immediately after that member's own
+    Emitted immediately after that member's
     [`XpAwardedEvent`][osrlib.crawl.events.XpAwardedEvent], whichever award crossed
     the threshold. A character gains at most one level per award.
     """
@@ -1542,7 +1542,7 @@ class CharacterLeveledUpEvent(Event):
     code: str = "session.level.gained"
     """The message code, always `session.level.gained`."""
     visibility: Visibility = Visibility.PLAYER
-    """Player visibility: the table has been waiting for this one."""
+    """Player visibility: the new level goes on the character's sheet."""
     character_id: str
     """The member who levelled."""
     level_before: int
@@ -1578,21 +1578,21 @@ class TimeAdvancedEvent(Event):
     code: str = "session.time.advanced"
     """The message code, always `session.time.advanced`."""
     visibility: Visibility = Visibility.REFEREE
-    """Referee visibility: the clock is the referee's instrument."""
+    """Referee visibility: the players see what the time passing does, not the command that passed it."""
     n: int
     """How many units were asked for."""
     unit: str
     """Which unit, as a lowercase [`TimeUnit`][osrlib.core.clock.TimeUnit] value: `"round"`,
     `"turn"`, or `"day"`."""
     rounds_total: int
-    """Where the clock now stands, in rounds since the session began. It's the same number
-    `GameSession.clock.rounds` holds."""
+    """Where the clock now stands, in rounds since the session began. It's the same number as
+    `GameSession.clock.rounds`."""
 
 
 class GameOverEvent(Event):
     """Every party member is dead and the session has ended.
 
-    Emitted by whatever command's events killed the last member: a lost battle, a
+    Emitted by the command during which the last member died: a lost battle, a
     trap, a fall down a chute, starvation, a poison that finished someone while the
     referee was moving the clock. It closes that command's result, and the session
     mode becomes `game_over`.
@@ -1620,7 +1620,7 @@ class DiceRolledEvent(Event):
     """The referee rolled dice for something the rules don't cover.
 
     Emitted by [`RollDice`][osrlib.crawl.commands.RollDice]. The roll comes off the
-    session's own adjudication stream, kept apart from the streams the rules use, so
+    session's adjudication stream, kept apart from the streams the rules use, so
     a referee rolling for weather or a rumour never shifts the dice a later attack or
     save would have drawn.
 
@@ -1642,7 +1642,7 @@ class DiceRolledEvent(Event):
     total: int
     """The result, dice and modifier together."""
     rolls: tuple[int, ...]
-    """Each die's own result, in roll order, so a transcript can show the dice rather than only
+    """Each die's result, in roll order, so a transcript can show the dice rather than only
     the sum."""
 
 
@@ -1653,8 +1653,8 @@ class TriggerFiredEvent(Event):
     time, including a repeat of a trigger that has fired before: the session records
     that a trigger has fired at all, and these events are the record of each firing.
 
-    It's referee visibility, because which clause fired is the wiring behind the
-    game. A beat written for the table goes in the journal, and arrives as
+    It's referee visibility, because which clause fired is part of how the adventure
+    works, not part of the fiction. A beat written for the table goes in the journal, and arrives as
     [`JournalEntryAddedEvent`][osrlib.crawl.events.JournalEntryAddedEvent] or as one
     of the quest events.
     """
@@ -1667,7 +1667,7 @@ class TriggerFiredEvent(Event):
     code: str = "session.trigger.fired"
     """The message code, always `session.trigger.fired`."""
     visibility: Visibility = Visibility.REFEREE
-    """Referee visibility: trigger wiring is the game's own."""
+    """Referee visibility: which triggers an adventure has is hidden from the players."""
     trigger_id: str
     """Which trigger fired, as the id the adventure gave it."""
     narrative: str | None = None
@@ -1680,12 +1680,12 @@ class JournalEntryAddedEvent(Event):
     """A beat was written into the session journal.
 
     Emitted by [`AddJournalEntry`][osrlib.crawl.commands.AddJournalEntry]. The
-    journal is the party's own record of the adventure, appended in order and never
+    journal is the party's record of the adventure, appended in order and never
     rewritten, and it's part of what
     [`GameSession.view`][osrlib.crawl.session.GameSession.view] shows a player.
 
-    It isn't the only event a growing journal produces. A quest beat appends its
-    entry and reports itself through its own lifecycle event instead, so the table
+    It isn't the only event a growing journal produces. A quest beat is appended to
+    the journal and reported by its quest lifecycle event instead, so the table
     isn't told the same line twice. Read the whole journal from the view, and read
     these events to know when a line arrived.
     """
@@ -1703,7 +1703,7 @@ class JournalEntryAddedEvent(Event):
     """The beat as it was written. Content the game or the adventure supplied, not prose the
     engine wrote."""
     rounds: int
-    """Where the clock stood when the beat landed, in rounds since the session began. The stored
+    """Where the clock stood when the beat was recorded, in rounds since the session began. The stored
     entry has the same stamp."""
 
 
@@ -1712,7 +1712,7 @@ class NoteRecordedEvent(Event):
 
     Emitted by [`RecordNote`][osrlib.crawl.commands.RecordNote]. Games use it to leave
     a machine-written note in the log, like a consequence that could not be applied,
-    and referees use it for their own margin notes.
+    and referees use it for their margin notes.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"session.note.recorded"})
@@ -1755,11 +1755,11 @@ class QuestActivatedEvent(Event):
     """The quest's display name, so a renderer needs no copy of the adventure to show it."""
     narrative: str | None = None
     """The offer beat the author wrote, or `None` when there's none. The same line is appended to
-    the journal, so this event and that entry report one moment once."""
+    the journal with no separate journal event, so the table sees it once."""
 
 
 class ObjectiveRevealedEvent(Event):
-    """A hidden objective surfaced: the party can now be told what it's being asked for.
+    """A hidden objective was revealed: the party can now be told what it's being asked for.
 
     Emitted by [`RevealObjective`][osrlib.crawl.commands.RevealObjective]. An
     objective the adventure didn't mark hidden is visible from the start and is
@@ -1778,8 +1778,8 @@ class ObjectiveRevealedEvent(Event):
     quest_id: str
     """The quest the objective belongs to."""
     quest_name: str = ""
-    """The quest's display name, resolved when the event is made so a renderer holds no adventure
-    to look it up in. It defaults empty only so an event written by an older version still parses.
+    """The quest's display name, resolved when the event is made so a renderer doesn't need the adventure
+    to look it up. It defaults empty only so an event written by an older version still parses.
     The engine always fills it."""
     objective_id: str
     """Which objective, as the id the adventure gave it."""
@@ -1807,7 +1807,7 @@ class ObjectiveCompletedEvent(Event):
     code: str = "session.quest.objective_completed"
     """The message code, always `session.quest.objective_completed`."""
     visibility: Visibility = Visibility.PLAYER
-    """Player visibility: progress belongs to the party."""
+    """Player visibility: the party sees its progress."""
     quest_id: str
     """The quest the objective belongs to."""
     quest_name: str = ""
@@ -1830,7 +1830,7 @@ class QuestCompletedEvent(Event):
     active, not that every objective was completed.
 
     Rewards a quest pays out arrive after this event, as the commands the game issues
-    for them and their own events. When the quest is the one that concludes the
+    for them and the events of those commands. When the quest is the one that concludes the
     adventure, an
     [`AdventureCompletedEvent`][osrlib.crawl.events.AdventureCompletedEvent] follows
     in the same result.
@@ -1844,7 +1844,7 @@ class QuestCompletedEvent(Event):
     code: str = "session.quest.completed"
     """The message code, always `session.quest.completed`."""
     visibility: Visibility = Visibility.PLAYER
-    """Player visibility: finishing the job is the party's news."""
+    """Player visibility: the party learns the quest is done."""
     quest_id: str
     """Which quest was completed."""
     name: str
@@ -1857,10 +1857,10 @@ class AdventureCompletedEvent(Event):
     """The adventure is over and the party won.
 
     Emitted by [`CompleteQuest`][osrlib.crawl.commands.CompleteQuest] when the quest
-    that concludes the adventure completes, right after that quest's own
+    that concludes the adventure completes, right after that quest's
     [`QuestCompletedEvent`][osrlib.crawl.events.QuestCompletedEvent], with the same
     beat. The session mode becomes `victory`, which is final: play commands
-    are refused and nothing leaves it, so a front end can treat this as its closing
+    are refused and the session never leaves it, so a front end can treat this as its closing
     screen.
 
     A session that has already ended doesn't get an ending twice: a party that
@@ -1884,7 +1884,7 @@ class AdventureCompletedEvent(Event):
     still parses. The engine always fills it."""
     narrative: str | None = None
     """The quest's completion beat, the same line its
-    [`QuestCompletedEvent`][osrlib.crawl.events.QuestCompletedEvent] carried, or `None`."""
+    [`QuestCompletedEvent`][osrlib.crawl.events.QuestCompletedEvent] contained, or `None`."""
 
 
 CRAWL_EVENT_CLASSES: tuple[type[Event], ...] = (
@@ -1944,7 +1944,7 @@ CRAWL_EVENT_CLASSES: tuple[type[Event], ...] = (
     QuestCompletedEvent,
     AdventureCompletedEvent,
 )
-"""The event classes a session's own framework emits, in declaration order.
+"""The event classes the session framework emits, in declaration order.
 
 Walk it to build a table of the crawl events, or to generate client types from their JSON
 Schemas. For the whole surface, including the rules resolutions underneath, use
@@ -1954,8 +1954,8 @@ Schemas. For the whole surface, including the rules resolutions underneath, use
 ALL_EVENT_CLASSES: tuple[type[Event], ...] = (*KERNEL_EVENT_CLASSES, *CRAWL_EVENT_CLASSES)
 """Every event class the library can emit: the kernel ones first, then the crawl ones.
 
-This is the registry to walk when you are generating something from the whole event surface, such
-as client types, a documentation table, or a schema bundle. Each class carries its wire name in
+This is the registry to walk when you are generating something from the whole event surface, like
+client types, a documentation table, or a schema bundle. Each class has its wire name in
 `model_fields["event_type"].default` and its code set in `allowed_codes`.
 """
 
@@ -1965,7 +1965,7 @@ AnyEvent = Annotated[
 ]
 """Any event the library can emit, as a union pydantic discriminates on `event_type`.
 
-Use it to type a value that holds one event of no particular class, and hand it to a
+Use it to type a value that can be an event of any class, and hand it to a
 [`TypeAdapter`][pydantic.type_adapter.TypeAdapter] to get a tagged-union JSON Schema for a client
 in another language. To parse one record, call
 [`parse_any_event`][osrlib.crawl.events.parse_any_event] instead: it skips an event type this
@@ -1996,8 +1996,8 @@ def _known_event_types() -> frozenset[str]:
 def parse_any_event(data: Mapping[str, object]) -> Event | None:
     """Rebuild one serialized event, kernel or crawl, skipping types this version doesn't know.
 
-    Call it on records that came out of an event's `model_dump` or out of a save's event log, such
-    as a log you are replaying, a stream you received over a network, or a file you are analyzing.
+    Call it on records that came out of an event's `model_dump` or out of a save's event log, like
+    a log you are replaying, a stream you received over a network, or a file you are analyzing.
     A session restored by [`load_game`][osrlib.persistence.load_game] uses it for the event log it
     reads, keeping the raw record for anything it could not parse.
 
@@ -2016,7 +2016,7 @@ def parse_any_event(data: Mapping[str, object]) -> Event | None:
 
     Raises:
         ContentValidationError: If the event type is known but the payload doesn't fit it, like
-            a record missing a required field. The message carries pydantic's own report.
+            a record missing a required field. The message includes pydantic's report.
 
     Examples:
         ```python

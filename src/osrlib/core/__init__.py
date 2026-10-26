@@ -4,7 +4,7 @@ The kernel is the half of osrlib that has no game loop. You hand a kernel functi
 inputs a rule needs, plus a seeded random-number stream and a
 [`Ruleset`][osrlib.core.ruleset.Ruleset] (the frozen set of optional-rule flags a game
 plays under), and it returns the outcome together with the typed events that describe
-it. Nothing here starts a session, keeps a turn order, or remembers where the party is
+it. Nothing here starts a session, keeps a turn order, or tracks where the party is
 standing. You call the kernel directly when you want the rules without a game: a combat
 simulator, a balance harness, a script that checks authored content. The dungeon-crawl
 framework in `osrlib.crawl` is one consumer of the kernel, and yours is another. Kernel
@@ -15,7 +15,7 @@ The modules, in the order you meet them:
 
 - [`osrlib.core.rng`][osrlib.core.rng]: a master seed in, named deterministic streams
   out. Every other module here takes one of those streams as an argument.
-- [`osrlib.core.dice`][osrlib.core.dice]: a dice expression such as `"2d6+1"` and a
+- [`osrlib.core.dice`][osrlib.core.dice]: a dice expression like `"2d6+1"` and a
   stream in, the individual dice and the total out.
 - [`osrlib.core.ruleset`][osrlib.core.ruleset]: optional-rule flags in, a frozen
   `Ruleset` out, which most resolution functions read.

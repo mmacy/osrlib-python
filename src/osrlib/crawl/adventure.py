@@ -7,22 +7,22 @@ to, and assemble the two here. Then you hand the result to
 [`GameSession.new`][osrlib.crawl.session.GameSession.new] beside a
 [`Party`][osrlib.crawl.party.Party], and the session runs it.
 
-The adventure is frozen. The session reads it and never writes back: everything play changes goes
-into [`DungeonState`][osrlib.crawl.dungeon.DungeonState] instead. That split is what lets a save file
-carry the overlay alone, and it is why loading a save against the same adventure gives you the same
-game. Prose lives in these models rather than in events, because events carry ids and your front end
+The adventure is frozen. The session reads it and never writes back: everything that changes in play goes
+into [`DungeonState`][osrlib.crawl.dungeon.DungeonState] instead. That split keeps what you authored
+apart from what changed in play, and a save contains both. Prose lives in these models rather than in
+events, because events contain ids and your front end
 resolves them against the adventure it already has.
 
-Besides its dungeons, an adventure contains its own content and behavior. `monsters` and `items` bundle
-templates that resolve beside the shipped catalogs for the sessions that run this adventure.
+Besides its dungeons, an adventure contains content and behavior. `monsters` and `items` bundle
+templates that resolve beside the built-in catalogs for the sessions that run this adventure.
 `triggers` ([`TriggerSpec`][osrlib.crawl.triggers.TriggerSpec]) are what fire when something happens,
 `quests` ([`QuestSpec`][osrlib.crawl.quests.QuestSpec]) are what the party is trying to accomplish, and
 gates ([`GateSpec`][osrlib.crawl.gates.GateSpec]) sit on the doors and transitions of the geometry.
 
-[`validate_adventure`][osrlib.crawl.adventure.validate_adventure] is what tells you the document
-hangs together before anybody plays it. It follows every id in the tree to the thing it names and
-raises [`ContentValidationError`][osrlib.errors.ContentValidationError] listing everything that
-dangles at once. `GameSession.new` runs it for you, so a session can never start on broken content.
+[`validate_adventure`][osrlib.crawl.adventure.validate_adventure] checks that the document is
+consistent before anybody plays it. It follows every id in the tree to the thing it refers to and
+raises [`ContentValidationError`][osrlib.errors.ContentValidationError] listing every unresolved
+reference at once. `GameSession.new` runs it for you, so a session can never start on broken content.
 Call it yourself while you author and you find out sooner.
 
 The long form, with a complete program you can run, is the guide
@@ -90,10 +90,10 @@ class TownSpec(BaseModel):
     """The base town: where the party is safe, buys gear, and comes home to.
 
     Every adventure has exactly one town, and a session starts there. It is a marker rather than a
-    place you can walk around: there is no grid, no rooms, and nothing to explore. What it does is
-    anchor the rules that need somewhere safe. The party rests a full day here, buys and sells
+    place you can walk around: there is no grid, no rooms, and nothing to explore. It's where the
+    rules that need a safe place apply. The party rests a full day here, buys and sells
     through the equipment catalog, pays a temple for healing, and, under the default XP timing,
-    earns the treasure it carried out only once it has come back.
+    earns experience for the treasure it carried out only once it has come back.
 
     Attributes:
         name: The town's name.
@@ -118,22 +118,22 @@ class TownSpec(BaseModel):
     description: str = ""
     """Prose your front end shows while the party is in town."""
     services: tuple[str, ...] = ()
-    """The services the town offers, as free-form strings like `("temple", "smith")`. Nothing in the
-    engine reads them: the shop and the temple commands work in town regardless. They reach your
+    """The services the town offers, as free-form strings like `("temple", "smith")`. The engine doesn't
+    read them: the shop and the temple commands work in town regardless. They reach your
     front end on the player view's `town_services`, which is what a town screen lists."""
     travel_turns: dict[str, int] = {}
     """How long it takes to get from town to each dungeon's entrance, in exploration turns, keyed by
     dungeon id. [`EnterDungeon`][osrlib.crawl.commands.EnterDungeon] and
     [`TravelToTown`][osrlib.crawl.commands.TravelToTown] each advance the clock by this much, so a
-    far-off dungeon costs light and rations to reach and to leave. A dungeon with no entry here
-    travels free. Every id named here has to be a dungeon of this adventure, and
+    far-off dungeon costs light and rations to reach and to leave. Travel to a dungeon with no entry
+    here takes no time. Every id named here has to be a dungeon of this adventure, and
     [`validate_adventure`][osrlib.crawl.adventure.validate_adventure] refuses one that is not."""
 
 
 class PartySpec(BaseModel):
     """The party an adventure is written for: the character levels, and how many characters.
 
-    A published module states this on its cover or in its introduction, such as "for 6 to 8
+    A published module states this on its cover or in its introduction, like "for 6 to 8
     characters of levels 1 to 3". Nothing in the engine reads it. It's here so a front end, a
     converter, or a playtest can pick a party that fits the adventure.
 
@@ -186,13 +186,13 @@ class Adventure(BaseModel):
     [`TownSpec`][osrlib.crawl.adventure.TownSpec], and assemble them here. Then call
     [`GameSession.new`][osrlib.crawl.session.GameSession.new] with a
     [`Party`][osrlib.crawl.party.Party] and this adventure: it validates the whole tree, assigns the
-    party's members their entity ids, composes the shipped catalogs with whatever this adventure
+    party's members their entity ids, composes the built-in catalogs with whatever this adventure
     bundles, seeds a state block for each quest, and hands you a session standing in town. The
     adventure itself is frozen and stays as you wrote it for the life of the session.
 
     Everything nested here is a pydantic model with a keyword constructor, so an adventure is a tree
     of calls you can write in Python, generate from your own file format, or round-trip through JSON.
-    Nothing reads files for you.
+    osrlib doesn't read files for you.
 
     Attributes:
         name: The adventure's title.
@@ -207,7 +207,7 @@ class Adventure(BaseModel):
         quests: What the party is trying to accomplish.
 
     Raises:
-        ValueError: If two dungeons carry the same `id`.
+        ValueError: If two dungeons have the same `id`.
 
     Examples:
         ```python
@@ -238,11 +238,11 @@ class Adventure(BaseModel):
     """Prose describing the adventure, for your front end."""
     hooks: tuple[str, ...] = ()
     """The reasons a party might take this on, as free-form strings: the rumours in the tavern, the
-    patron's offer. Nothing in the engine reads them. They are here so an adventure document contains
-    its own pitch."""
+    patron's offer. The engine never reads them. They are here so an adventure document can include
+    its pitch."""
     party: PartySpec | None = None
     """The levels and number of characters the adventure is written for, or `None` when it doesn't
-    say. Nothing in the engine reads it. See [`PartySpec`][osrlib.crawl.adventure.PartySpec]."""
+    say. The engine never reads it. See [`PartySpec`][osrlib.crawl.adventure.PartySpec]."""
     town: TownSpec
     """The base town. Exactly one, and the session starts there. See
     [`TownSpec`][osrlib.crawl.adventure.TownSpec]."""
@@ -251,24 +251,24 @@ class Adventure(BaseModel):
     that is where the party arrives from town."""
     monsters: tuple[MonsterTemplate, ...] = ()
     """[`MonsterTemplate`][osrlib.core.monsters.MonsterTemplate]s this adventure brings with it,
-    beyond the shipped catalog. They join that catalog for the sessions that run this adventure,
+    beyond the built-in catalog. They join that catalog for the sessions that run this adventure,
     everywhere the engine resolves a template id: keyed encounters,
     [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters], inline wandering tables, listen checks.
 
-    A bundled id may not collide with a shipped one or with another bundled one. A collision is a
-    validation error rather than an override, because one id has to name one monster for the session
-    to be able to say what it spawned. Writing a monster template is covered in the guide
+    A bundled id may not collide with a built-in one or with another bundled one. A collision is a
+    validation error rather than an override, because each id has to refer to one monster for the session's
+    events to identify what it spawned. Writing a monster template is covered in the guide
     [Authoring custom classes, spells, monsters, and items](https://mmacy.github.io/osrlib-python/guides/authoring-custom-content/)."""
     items: tuple[ItemTemplate, ...] = ()
     """[`ItemTemplate`][osrlib.core.items.ItemTemplate]s this adventure brings with it: weapons,
-    armour, gear, and ammunition. They join the shipped equipment catalog for the sessions that run
+    armour, gear, and ammunition. They join the built-in equipment catalog for the sessions that run
     this adventure, everywhere the engine resolves an authored item id, which is treasure caches,
     [`GrantItem`][osrlib.crawl.commands.GrantItem], and drop-pile recovery. Once an instance exists it
-    carries its template with it, so a bundled item gives, equips, and drops like any other.
+    includes its template, so a bundled item gives, equips, and drops like any other.
 
     A bundled id may not collide with the equipment catalog, the magic-item catalog, or another
-    bundled item: one item id names one thing per session. The town shop is the one place these do
-    not reach, because it stocks the shipped equipment lists."""
+    bundled item: one item id refers to one thing per session. The town shop doesn't sell bundled
+    items, because it stocks only the built-in equipment lists."""
     triggers: tuple[TriggerSpec, ...] = ()
     """The adventure's [`TriggerSpec`][osrlib.crawl.triggers.TriggerSpec]s: what happens when
     something happens. The tuple's order is the firing order, so triggers matching one event fire in
@@ -281,9 +281,9 @@ class Adventure(BaseModel):
     quests: tuple[QuestSpec, ...] = ()
     """The adventure's [`QuestSpec`][osrlib.crawl.quests.QuestSpec]s: what the party is trying to
     accomplish. The session seeds one state block per quest when it is constructed, in this order,
-    and every walk over them follows it.
+    and every pass over the quests follows that order.
 
-    Quest ids and trigger ids live in separate state blocks, so they are separate namespaces and a
+    Quest ids and trigger ids are in separate state blocks, so they are separate namespaces and a
     quest may share an id with a trigger."""
 
     @model_validator(mode="after")
@@ -297,7 +297,7 @@ class Adventure(BaseModel):
         """Return the dungeon with `dungeon_id`.
 
         Use this to turn a dungeon id out of a command, an event, or a party location back into the
-        dungeon it names, rather than searching `dungeons` yourself. From there,
+        dungeon it refers to, rather than searching `dungeons` yourself. From there,
         [`DungeonSpec.level`][osrlib.crawl.dungeon.DungeonSpec.level] gets you the level.
 
         Args:
@@ -307,7 +307,7 @@ class Adventure(BaseModel):
             The dungeon spec.
 
         Raises:
-            ValueError: If no dungeon has that id. The message names the id.
+            ValueError: If no dungeon has that id. The message includes the id.
         """
         for dungeon in self.dungeons:
             if dungeon.id == dungeon_id:
@@ -317,10 +317,9 @@ class Adventure(BaseModel):
     def quest(self, quest_id: str) -> QuestSpec:
         """Return the quest with `quest_id`.
 
-        This is what the quest lifecycle commands resolve against, which is what makes their id
-        domain closed: an id this cannot answer names no quest of this adventure, and the command is
-        refused. Call it to show a quest's objectives and rewards beside the state the session keeps
-        for it.
+        The quest lifecycle commands resolve quest ids through this method, so an id it can't resolve
+        isn't a quest in this adventure, and the command is refused. Call it to show a quest's
+        objectives and rewards beside the state the session keeps for it.
 
         Args:
             quest_id: The quest id.
@@ -329,7 +328,7 @@ class Adventure(BaseModel):
             The quest spec.
 
         Raises:
-            ValueError: If no quest has that id. The message names the id.
+            ValueError: If no quest has that id. The message includes the id.
         """
         for quest in self.quests:
             if quest.id == quest_id:
@@ -340,9 +339,10 @@ class Adventure(BaseModel):
 def _effective_monsters(adventure: Adventure, base: MonsterCatalog) -> tuple[MonsterCatalog, tuple[str, ...]]:
     """Compose the base monster catalog with the adventure's bundled templates, first occurrence winning.
 
-    Always returns a usable catalog plus the ids it skipped, so both callers get a whole answer and
-    each turns a non-empty collision list into the failure shape it needs. An empty bundle returns the
-    base catalog object itself, so an adventure that bundles nothing copies nothing.
+    Always returns a usable catalog plus the ids it skipped, so both callers, `validate_adventure` and
+    `GameSession`, get a whole answer, and each turns a non-empty collision list into the failure type
+    it needs. An empty bundle returns the base catalog object itself, so an adventure that bundles
+    nothing copies nothing.
     """
     if not adventure.monsters:
         return base, ()
@@ -361,10 +361,10 @@ def _effective_monsters(adventure: Adventure, base: MonsterCatalog) -> tuple[Mon
 def _effective_equipment(adventure: Adventure, base: EquipmentCatalog) -> tuple[EquipmentCatalog, tuple[str, ...]]:
     """Compose the base equipment catalog with the adventure's bundled templates, first occurrence winning.
 
-    The monster helper's sibling, with one wider rule: an item id names one thing per session, so a
-    bundled id collides with the shipped magic-item ids as well as with the four equipment lists and
+    Works like `_effective_monsters`, with one wider rule: an item id refers to one thing per session, so a
+    bundled id collides with the built-in magic-item ids as well as with the four equipment lists and
     the rest of the bundle. Collisions are skipped before the catalog is built rather than after,
-    because `EquipmentCatalog`'s own uniqueness validator raises a bare `ValueError` and a content
+    because `EquipmentCatalog`'s uniqueness validator raises a bare `ValueError` and a content
     problem needs a typed one. `treasure_weights` is an encumbrance table rather than item identity,
     so it passes through untouched and its ids fall outside the rule. An empty bundle returns the base
     catalog object itself, so an adventure that bundles nothing copies nothing.
@@ -405,7 +405,7 @@ def _area_has_boundary_door(area: AreaSpec, level: LevelSpec) -> bool:
     """Return whether any edge of any of `area`'s cells is a door.
 
     This is what an `open`-trigger room trap needs before it can ever fire: the springing action is
-    a door of the area swinging, so an area with no door edge never rolls for it. Every edge of every
+    a door of the area swinging, so the engine never rolls for it in an area with no door edge. Every edge of every
     cell counts, interior or exterior, read through
     [`LevelSpec.edge`][osrlib.crawl.dungeon.LevelSpec.edge] so the wall-or-door answer matches the one
     the engine gets at play time. A door that `starts_open` counts too, because a referee command or
@@ -418,7 +418,7 @@ def _trap_crosses_a_passage(trap: TrapSpec | None) -> bool:
     """Return whether a trap's effect moves its victim through a passage.
 
     A trap's transition is a forced relocation, and a passage is something the party walks through
-    on its own, so validation refuses the two together.
+    by choice, so validation refuses the two together.
     """
     return trap is not None and trap.effect.transition is not None and trap.effect.transition.kind == "passage"
 
@@ -455,7 +455,7 @@ def _validate_passage(
     The passage's side has to be a wall. Its far cell has to be on the grid, outside every area, and
     walled on every other side, so the party can never reach it and sight never passes through it.
     The geometry checks run only for a passage that stands on the grid, since one that doesn't has
-    already been refused for that. The destination can't be the passage's own cell, and it can't be
+    already been refused for that. The destination can't be the cell the passage stands on, and it can't be
     any passage's far cell, which is walled in on every side.
     """
     site = f"{owner}: passage at {passage.position} {side.value}"
@@ -509,12 +509,12 @@ def _validate_feature(
 def _dangling_condition_item(
     condition: ConditionSpec, equipment: EquipmentCatalog, magic: MagicItemCatalog
 ) -> str | None:
-    """Return the condition's item id when it names nothing the party could ever carry, else `None`.
+    """Return the condition's item id when it refers to nothing the party could ever carry, else `None`.
 
     The domain is the composed equipment catalog and the magic-item catalog, which is exactly what
-    `has_item` evaluates against, so an id neither holds can never be satisfied and is a dangling
-    reference. Every other condition kind answers `None`: flag keys and effect kinds are open domains
-    and get no check, because a flag nobody writes is something an authoring tool warns about rather
+    `has_item` evaluates against, so an id neither contains can never be satisfied and is a dangling
+    reference. It returns `None` for every other condition kind: flag keys and effect kinds are open domains
+    and get no check, because a flag that is never written is something an authoring tool warns about rather
     than a broken document. Validation resolves gates and bare trigger conditions through this one
     helper, so the two can never disagree about the domain.
     """
@@ -547,7 +547,7 @@ def _validate_gate(
 
 
 def _resolve_level(adventure: Adventure, dungeon_id: str, level_number: int) -> LevelSpec | None:
-    """Return the level a dungeon id and level number name, or `None` when either dangles."""
+    """Return the level that a dungeon id and level number refer to, or `None` when either doesn't resolve."""
     try:
         return adventure.dungeon(dungeon_id).level(level_number)
     except ValueError:
@@ -566,13 +566,13 @@ def _validate_clause(
 ) -> None:
     """Resolve one matching clause's pattern and condition references.
 
-    This is the one body behind every clause in a document: a trigger's `when` and `conditions`, a
-    quest's activation, an objective's completion, and a hidden objective's reveal. Sharing it keeps
-    the two authoring paths from drifting apart on what resolves. `owner` is the subject the error
-    lines name, like `trigger 'lever-east'` or `quest 'the-idol' objective 'return-home'`.
+    Every clause in a document goes through this function: a trigger's `when` and `conditions`, a
+    quest's activation, an objective's completion, and a hidden objective's reveal. Because triggers
+    and quests share it, the two can't disagree about what resolves. `owner` is the subject of the error
+    lines, like `trigger 'lever-east'` or `quest 'the-idol' objective 'return-home'`.
 
-    Flag keys stay unchecked at every site. The flag namespace is open by design, so a key nobody
-    writes is something an authoring tool warns about rather than a broken document.
+    Flag keys stay unchecked at every site. The flag namespace is open by design, so a key that is
+    never written is something an authoring tool warns about rather than a broken document.
     """
     if isinstance(pattern, AreaEnteredPattern | LevelEnteredPattern):
         level = _resolve_level(adventure, pattern.dungeon_id, pattern.level_number)
@@ -612,8 +612,8 @@ def _validate_consequence(
 ) -> None:
     """Resolve one authored consequence's references and its character addressing.
 
-    This is the one body behind every consequence in a document, a trigger's consequences and a
-    quest's rewards alike. `site` is the subject the error lines name, like
+    Every consequence in a document goes through this function, a trigger's consequences and a
+    quest's rewards alike. `site` is the subject at the start of each error line, like
     `trigger 'reward': consequence 0` or `quest 'the-idol': reward 0`.
     """
     if isinstance(consequence, GrantItem | GrantCoins | AwardXP):
@@ -641,8 +641,8 @@ def _validate_consequence(
         elif level.edge((consequence.x, consequence.y), consequence.direction).kind is not EdgeKind.DOOR:
             errors.append(f"{site} names no door at ({consequence.x}, {consequence.y}) {consequence.direction.value}")
     elif isinstance(consequence, PlaceParty):
-        # A town placement names the adventure's one town and needs no check, and the
-        # location model guarantees a dungeon location's fields travel together.
+        # A town placement refers to the adventure's one town and needs no check, and the
+        # location model guarantees a dungeon location's fields are set together.
         location = consequence.location
         if location.dungeon_id is None or location.level_number is None:
             return
@@ -678,9 +678,9 @@ def _validate_quest(
 ) -> None:
     """Resolve one quest's clause and reward references, clause by clause.
 
-    Every clause a quest carries walks the shared clause check: the activation, each objective's
-    completion, and each hidden objective's reveal. The reveal is named apart from the completion so
-    an error line says which of the two dangles. Rewards walk the shared consequence check, so a
+    Every clause in a quest goes through the shared clause check: the activation, each objective's
+    completion, and each hidden objective's reveal. The reveal is labelled apart from the completion
+    so an error line shows which of the two is unresolved. Rewards go through the shared consequence check, so a
     quest's reward and a trigger's consequence are held to the same references and the same
     party-selector rule.
     """
@@ -710,50 +710,50 @@ def _validate_quest(
 
 
 def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment: EquipmentCatalog) -> None:
-    """Check that every id in an adventure names something that exists.
+    """Check that every id in an adventure refers to something that exists.
 
     Call this while you author, as soon as you have an adventure to check. It follows every reference
     in the tree and raises once, listing everything wrong, so you fix the whole document in one pass
     instead of finding the next broken id on the next run.
     [`GameSession.new`][osrlib.crawl.session.GameSession.new] runs it too, which is why a session can
-    never start on content that would fail partway through a delve. It changes nothing and returns
-    nothing, so a clean adventure comes back unchanged.
+    never start on content that would fail partway through a delve. It changes nothing, and it
+    returns `None` when the adventure is clean.
 
     It checks the following, in the order the message lists them. First the bundled ids: monster ids
-    against the shipped catalog and each other, then item ids against the equipment catalog, the
-    shipped magic-item catalog, and each other. Then the town's travel entries naming real dungeons,
+    against the built-in catalog and each other, then item ids against the equipment catalog, the
+    built-in magic-item catalog, and each other. Then the town's travel entries referring to real dungeons,
     and every dungeon having an entrance on some level.
 
     Then, for each level: feature ids unique across the level and none of them the reserved id
     `"pile"`, the entrance on the grid, area ids unique, no area id colliding with a feature id (an
-    area trap and a feature trap are referenced the same way, so a collision would leave the found,
-    sprung, and removed records unable to tell the two apart), area cells on the grid, an
+    area trap and a feature trap are referenced the same way, so after a collision the two would look the same in
+    the found, sprung, and removed records), area cells on the grid, an
     `open`-trigger room trap having a door on its area's boundary (an `enter`-trigger trap needs
     none, and a door that starts open still counts), no area trap whose transition is a passage,
     keyed encounter template ids resolving and any fixed alignment being one the template allows,
     feature cells on the grid with their cache item ids and magic item ids resolving, no feature trap
     whose transition is a passage, every level-scope feature having a cell, inline wandering-table
-    monster ids resolving, the item ids named by `has_item` gates on doors and transitions resolving,
-    and transitions standing on the grid and landing on real cells of real levels.
+    monster ids resolving, the item ids in `has_item` gates on doors and transitions resolving,
+    and transitions standing on the grid and leading to real cells of real levels.
 
     A passage gets more checks after those. Its side has to be a wall. Its far cell, the cell one
     step across that side, has to be on the grid, outside every area, and walled on its other three
-    sides. The passage can't land on its own cell or on the far cell of any passage. Two passages
+    sides. The passage can't lead to the cell it stands on or to the far cell of any passage. Two passages
     can't stand on the same cell and side.
 
     Then, for each trigger: its id unique, the area, level, dungeon, item, and monster its pattern
-    names resolving, and for each consequence the item it grants, the monster it spawns, a door
-    actually standing at the cell a door-state consequence names, and a placement landing on the grid.
+    refers to resolving, and for each consequence the item it grants, the monster it spawns, a door
+    actually standing at the cell a door-state consequence refers to, and a placement on the grid.
     Then, for each quest: its id unique, and the same checks over every clause it has (its activation,
     each objective's completion, each hidden objective's reveal) and every reward it pays.
 
     One rule is about authoring rather than about a dangling id. A consequence that addresses a
     character has to do so through a party selector, because character ids are allocated when a
-    session starts: a document naming one is naming something that cannot exist at the time it is
-    read.
+    session starts: a character id in a document refers to something that cannot exist at the time
+    the document is read.
 
     Magic items are the one catalog you do not pass. Adventures bundle no magic items, so validation
-    loads the shipped one itself with [`load_magic_items`][osrlib.data.load_magic_items].
+    loads the built-in one itself with [`load_magic_items`][osrlib.data.load_magic_items].
 
     Quest ids and trigger ids are separate namespaces, so nothing here compares them and a quest may
     share an id with a trigger.
@@ -762,7 +762,7 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
         adventure: The adventure to check.
         monsters: The base monster catalog, usually [`load_monsters`][osrlib.data.load_monsters]. The
             check composes it with the adventure's bundled templates itself, and every monster
-            reference resolves against that union, so pass the shipped catalog rather than one you
+            reference resolves against that union, so pass the built-in catalog rather than one you
             have already merged.
         equipment: The base equipment catalog, usually
             [`load_equipment`][osrlib.data.load_equipment]. Composed with the adventure's bundled
@@ -770,7 +770,7 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
 
     Raises:
         ContentValidationError: If anything is wrong. The message lists every problem found, one per
-            line, each naming the dungeon, level, and object it sits on.
+            line, each with the dungeon, level, and object it sits on.
 
     Examples:
         ```python
@@ -821,8 +821,8 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
             if len(set(feature_ids)) != len(feature_ids):
                 errors.append(f"{owner}: feature ids are not unique")
             if "pile" in feature_ids:
-                # `TakeTreasure(feature_id="pile")` targets the cell's drop pile;
-                # the name is reserved so authored content can never collide.
+                # `TakeTreasure(feature_id="pile")` targets the cell's drop pile. The name is
+                # reserved so that no authored feature id can collide with it.
                 errors.append(f"{owner}: feature id 'pile' is reserved for drop piles")
             if level.entrance is not None and not level.in_bounds(level.entrance):
                 errors.append(f"{owner}: entrance {level.entrance} is out of bounds")

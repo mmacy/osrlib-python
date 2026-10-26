@@ -1,19 +1,19 @@
-"""Content packs: finished rooms you can carry from one adventure to another.
+"""Content packs: finished rooms you can move from one adventure to another.
 
 A [`ContentPack`][osrlib.crawl.content_pack.ContentPack] is room content with the geometry left out.
 Where an [`AreaSpec`][osrlib.crawl.dungeon.AreaSpec] binds an encounter, a trap, treasure, and
-features to particular cells of a particular level, a pack entry carries the same content slots and
+features to particular cells of a particular level, a pack entry has the same content slots and
 no cells at all. That is what makes it portable: an authoring tool reads an entry and writes its
 content into whatever area the target adventure already has, so a pack never places geometry and
 never has to agree with a map it has not seen.
 
-Sections group the entries by dungeon level, and each section can carry that level's
+Sections group the entries by dungeon level, and each section can include that level's
 [`WanderingSpec`][osrlib.crawl.dungeon.WanderingSpec]. Alongside them, the pack bundles the
 [`MonsterTemplate`][osrlib.core.monsters.MonsterTemplate]s its encounters and wandering tables
-reference beyond the shipped catalog, which is the pack's closure: what it needs that the engine does
-not already ship. Item templates are deliberately outside that closure, because a bundled item id
-belongs to the one adventure that carries it and would arrive dangling anywhere else, so a pack's
-features reference the shipped equipment catalog only.
+reference beyond the built-in catalog, which is the pack's closure: what it needs that the engine does
+not already include. Item templates are deliberately outside that closure. A bundled item id belongs to
+the one adventure that bundles it and would be an unresolved reference anywhere else, so a pack's features
+reference the built-in equipment catalog only.
 
 Ids are what an authoring tool addresses a pack by, so all three sets are checked when the pack is
 constructed: section ids, entry ids (unique across the whole pack, not only within a section), and
@@ -21,14 +21,14 @@ bundled monster ids. A pack that breaks any of the three fails to construct rath
 a warning.
 
 A reference that resolves to nothing is legal here, the way it is in an
-[`Adventure`][osrlib.crawl.adventure.Adventure] you have not finished writing. An encounter may name a
-template neither the pack nor the shipped catalog holds, and
+[`Adventure`][osrlib.crawl.adventure.Adventure] you have not finished writing. An encounter may refer to a
+template that neither the pack nor the built-in catalog contains, and
 [`validate_content_pack`][osrlib.crawl.content_pack.validate_content_pack] hands those back as
 [`PackFinding`][osrlib.crawl.content_pack.PackFinding] models instead of raising, so the tool that
 reads a pack can show you the gaps and let you decide.
 
 Packs serialize as stamped `"content_pack"` documents
-([`CONTENT_PACK_KIND`][osrlib.crawl.content_pack.CONTENT_PACK_KIND]) and have their own acceptance
+([`CONTENT_PACK_KIND`][osrlib.crawl.content_pack.CONTENT_PACK_KIND]) and have separate acceptance
 rules, because a pack is meant to be kept and passed around longer than a save file is. A document stamped by an older
 schema version loads, one stamped by a newer version fails with
 [`SaveVersionError`][osrlib.errors.SaveVersionError], and every write re-stamps at the current schema
@@ -91,7 +91,7 @@ CONTENT_PACK_KIND = "content_pack"
 Every document osrlib writes has a kind, and this is the pack's.
 [`ContentPack.to_document`][osrlib.crawl.content_pack.ContentPack.to_document] stamps it and
 [`from_document`][osrlib.crawl.content_pack.ContentPack.from_document] refuses anything else, so
-handing a save file to a pack loader fails with a message naming both kinds rather than producing a
+handing a save file to a pack loader fails with a message that includes both kinds rather than producing a
 nonsense pack. Read it to route a document you have just parsed to the right loader."""
 
 _CODE_PATTERN = re.compile(r"[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+")
@@ -100,7 +100,7 @@ _CODE_PATTERN = re.compile(r"[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+")
 def _rewrite_dead_treasure_triggers(payload: dict) -> None:
     """Rewrite a pre-3 payload's `treasure` traps with `trigger="enter"` to `"open"`, in place.
 
-    The pack-side twin of the save chain's `_migrate_2_to_3`. A treasure trap can sit only on an
+    This does for a pack what the save migration `_migrate_2_to_3` does for a save. A treasure trap can sit only on an
     entry's features, and the engine never read the dead trigger value, so the rewrite loses nothing.
     """
     for section in payload.get("sections", ()):
@@ -114,7 +114,7 @@ def _rewrite_dead_treasure_triggers(payload: dict) -> None:
 class ContentPackEntry(BaseModel):
     """One portable room: an [`AreaSpec`][osrlib.crawl.dungeon.AreaSpec] with its geometry left out.
 
-    An entry carries the content slots an area has, which is prose, an encounter, a trap, treasure,
+    An entry has the content slots an area has, which is prose, an encounter, a trap, treasure,
     and features, and nothing that binds to a grid. There are no cells. A tool applying a pack picks
     a target area the adventure already has and writes these slots onto it, so the same entry works on
     a corridor dead end in one adventure and a vaulted hall in another.
@@ -143,22 +143,21 @@ class ContentPackEntry(BaseModel):
     section. An authoring tool addresses an entry by this alone, so a pack with two entries of the
     same id fails to construct. It cannot be empty."""
     name: str = ""
-    """The room's name, for a panel to list and for the target area to take."""
+    """The room's name, for a panel to list and for your tool to copy onto the target area."""
     description: str = ""
-    """Prose describing the room, for the target area to take."""
+    """Prose describing the room, for your tool to copy onto the target area."""
     encounter: KeyedEncounter | None = None
-    """The monsters waiting in the room, or `None`. Any template id it names that neither the shipped
-    catalog nor the pack's own `monsters` holds is what
+    """The monsters waiting in the room, or `None`. Any template id in it that is in neither the built-in
+    catalog nor the pack's `monsters` is what
     [`validate_content_pack`][osrlib.crawl.content_pack.validate_content_pack] reports as a gap."""
     trap: TrapSpec | None = None
     """A trap over the whole room, or `None`. It has to be a room trap."""
     treasure: AreaTreasureSpec | None = None
-    """Treasure the engine rolls on first entry, or `None`. It names treasure type letters or the
-    unguarded band, so it carries across adventures without needing anything else."""
+    """Treasure the engine rolls on first entry, or `None`. It refers to treasure type letters or the
+    unguarded band, so it works in any adventure without needing anything else."""
     features: tuple[FeatureSpec, ...] = ()
     """The keyed things in the room: caches, tricks, and custom content. Their `item_ids` and
-    `magic_item_ids` resolve against the shipped catalogs only, since a pack bundles no items of its
-    own."""
+    `magic_item_ids` resolve against the built-in catalogs only, since a pack bundles no items."""
 
     @model_validator(mode="after")
     def _trap_kind_matches(self) -> ContentPackEntry:
@@ -211,11 +210,11 @@ class ContentPack(BaseModel):
     validate it, so a pack you have in hand is one whose ids are already sound.
 
     Attributes:
-        id: The pack's own id, when it has one.
+        id: The pack's id, when it has one.
         name: The pack's name.
         description: Prose about the pack.
         author: Who wrote it.
-        sections: The level groupings holding the entries.
+        sections: The level groupings containing the entries.
         monsters: The monster templates the entries need.
 
     Raises:
@@ -226,25 +225,25 @@ class ContentPack(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     id: str = ""
-    """The pack's own id, empty by default. A pack derived on the fly takes its identity from
-    whatever it was derived from, so only a pack somebody saved needs to mint one."""
+    """The pack's id, empty by default. A pack derived on the fly gets its identity from
+    whatever it was derived from, so only a pack somebody saved needs to set one."""
     name: str = ""
     """The pack's name, for a panel to show."""
     description: str = ""
     """Prose about what the pack contains and what it is for."""
     author: str = ""
-    """Who wrote the pack. Nothing reads it, and it travels with the document as credit."""
+    """Who wrote the pack. osrlib never reads it, and it stays in the document as credit."""
     sections: tuple[PackSection, ...] = ()
     """The pack's level groupings. Section ids are unique, and entry ids are unique across all of
     them together."""
     monsters: tuple[MonsterTemplate, ...] = ()
     """The [`MonsterTemplate`][osrlib.core.monsters.MonsterTemplate]s the pack's encounters and
-    wandering tables need beyond the shipped catalog. This is the pack's closure: bundle what your
-    rooms reference and the pack arrives self-contained.
+    wandering tables need beyond the built-in catalog. This is the pack's closure: bundle what your
+    rooms reference and the pack is self-contained.
 
-    There is no matching item bundle, because a bundled item id belongs to the adventure that carries
-    it. A pack's features reference the shipped equipment and magic-item catalogs, and an entry naming
-    an adventure's bundled item is reported as a gap rather than carried along."""
+    There is no matching item bundle, because a bundled item id belongs to the adventure that bundles
+    it. A pack's features reference the built-in equipment and magic-item catalogs, and an entry that
+    refers to an adventure's bundled item is reported as a gap rather than included."""
 
     @model_validator(mode="after")
     def _identities_are_unique(self) -> ContentPack:
@@ -294,9 +293,9 @@ class ContentPack(BaseModel):
         later.
 
         An older `schema_version` is accepted, because pack payloads only grow within a version.
-        There has been one narrowing: schema 3 made [`TrapSpec`][osrlib.crawl.dungeon.TrapSpec]
-        refuse `trigger="enter"` on a treasure trap, and a pre-3 document carrying that combination is
-        repaired in place on the way in, rewritten to `"open"` exactly as the save migration does.
+        Since schema 3, [`TrapSpec`][osrlib.crawl.dungeon.TrapSpec] refuses `trigger="enter"` on a
+        treasure trap. A pre-3 document with that combination is repaired in place on the way in and
+        rewritten to `"open"`, exactly as the save migration does.
         Payload fields this version doesn't recognize are ignored.
 
         Args:
@@ -351,7 +350,7 @@ class PackFinding(BaseModel):
     list of findings."""
     entry_id: str | None = None
     """The entry the gap sits on, or `None` when the gap belongs to a section rather than an entry,
-    which today means a wandering table's monster. `message` names the section in that case."""
+    which currently means a wandering table's monster. `message` includes the section in that case."""
 
     @field_validator("code")
     @classmethod
@@ -367,7 +366,7 @@ class PackFinding(BaseModel):
 def validate_content_pack(
     pack: ContentPack, monsters: MonsterCatalog, equipment: EquipmentCatalog
 ) -> tuple[PackFinding, ...]:
-    """Report the references a content pack does not cover on its own.
+    """Report the references a content pack does not cover by itself.
 
     Call this before you share a pack, or whenever a panel needs to show what is still missing. It
     follows every id in the pack and reports the ones that resolve nowhere, so you can bundle the
@@ -375,9 +374,9 @@ def validate_content_pack(
     pack to.
 
     It checks every monster reference, which is the keyed-encounter lines and the wandering-table
-    rows, against the shipped catalog composed with the pack's own `monsters`. It checks every
-    feature's `item_ids` against the shipped equipment catalog and every feature's `magic_item_ids`
-    against the shipped magic-item catalog, which it loads itself with
+    rows, against the built-in catalog composed with the pack's `monsters`. It checks every
+    feature's `item_ids` against the built-in equipment catalog and every feature's `magic_item_ids`
+    against the built-in magic-item catalog, which it loads itself with
     [`load_magic_items`][osrlib.data.load_magic_items] because packs bundle no magic items.
 
     It never raises. A dangling reference in a pack is as legal as one in an adventure you are still
@@ -389,10 +388,10 @@ def validate_content_pack(
         pack: The pack to check.
         monsters: The base monster catalog, usually [`load_monsters`][osrlib.data.load_monsters]. The
             check composes it with `pack.monsters` itself.
-        equipment: The shipped equipment catalog, usually
+        equipment: The built-in equipment catalog, usually
             [`load_equipment`][osrlib.data.load_equipment]. Nothing is composed with it, because a
-            pack carries no items of its own. An entry naming an item that some adventure bundles is
-            reported as a gap, which is the right answer for content meant to travel.
+            pack bundles no items. An entry that refers to an item some adventure bundles is
+            reported as a gap, because a pack is meant to work in other adventures.
 
     Returns:
         One finding per gap, in section then entry order. Empty means the pack is self-contained.

@@ -10,7 +10,7 @@ for one character's items, coins, and equipped slots. Fill it with
 [`movement_rate_feet`][osrlib.core.items.movement_rate_feet] for the exploration
 movement rate and [`equipped_item_modifiers`][osrlib.core.items.equipped_item_modifiers]
 for the stat bonuses worn magic items grant. Every character built by
-[`create_character`][osrlib.core.character.create_character] owns one inventory, and
+[`create_character`][osrlib.core.character.create_character] has one inventory, and
 combat resolution in [`osrlib.core.combat`][osrlib.core.combat] reads the templates
 here to score an attack.
 
@@ -21,8 +21,8 @@ Under a running game you drive all of this through commands
 record the change in the save. Call the functions here directly when you are using the
 rules without a session.
 
-The catalogs are frozen and shared. Play never mutates a template. It spawns an owned
-instance from one instead: [`ItemInstance`][osrlib.core.items.ItemInstance] for mundane
+The catalogs are frozen and shared. Play never changes a template. Each item in play is an
+instance made from one: [`ItemInstance`][osrlib.core.items.ItemInstance] for mundane
 equipment, [`MagicItemInstance`][osrlib.core.items.MagicItemInstance] for magic items.
 A magic item instance starts unidentified, and even once identified may still hide a
 curse: a revealed cursed item sticks to its bearer until *remove curse*.
@@ -154,10 +154,10 @@ MAX_RINGS_WORN = 2
 
 [`validate_equip`][osrlib.core.items.validate_equip] rejects a third ring with
 `items.ring.hands_full` rather than letting it on, because in the tabletop rules a
-third ring makes none of them function. Nothing reads this constant at attack or
-effect time, so changing it here would let a third ring be worn without granting it
-any behavior. Apply your own cap before you call [`equip`][osrlib.core.items.equip] if
-you want more ring slots.
+third ring makes none of them function. Only `validate_equip` reads this constant, and
+[`equip`][osrlib.core.items.equip] calls `validate_equip`, so this value is the number of rings
+`equip` accepts. If it were higher, a third ring could be worn and would grant its bonuses
+like the other two, because nothing applies the rule that a third ring stops them all working.
 """
 
 MAX_LOAD_COINS = 1600
@@ -208,10 +208,10 @@ class WeaponQuality(StrEnum):
     Every [`WeaponTemplate`][osrlib.core.items.WeaponTemplate] and every gear
     [`CombatFacet`][osrlib.core.items.CombatFacet] has a tuple of these, and attack
     resolution in [`osrlib.core.combat`][osrlib.core.combat] reads them: they are what makes
-    a bow behave differently from a mace. You never set them yourself for shipped equipment. You do
-    choose them when an adventure bundles a weapon of its own.
+    a bow behave differently from a mace. You never set them yourself for compiled equipment. You do
+    choose them when an adventure bundles a weapon template.
 
-    The wire values are the lowercase names below. They serialize into the compiled
+    The serialized values are the lowercase names below. They're written into the compiled
     equipment data and into saves, so changing one is a `schema_version` bump.
     """
 
@@ -234,7 +234,7 @@ class WeaponQuality(StrEnum):
     [`Ruleset`][osrlib.core.ruleset.Ruleset] is on.
     """
     SLOW = "slow"
-    """The wielder always acts after everyone not using a slow weapon, whatever initiative said."""
+    """The wielder always acts after everyone not using a slow weapon, regardless of the initiative roll."""
     SPLASH = "splash"
     """Thrown to burst on the target, so it damages again the following round unless the target douses it. Holy water
     and burning oil have this quality.
@@ -246,15 +246,15 @@ class WeaponQuality(StrEnum):
 class Material(StrEnum):
     """What a weapon or piece of ammunition is made of, where the rules care.
 
-    Some monsters are hurt only by silver or magical weapons, and this is how a mundane
-    weapon claims the silver exemption: the damage pipeline in
+    Some monsters are hurt only by silver or magical weapons, and this field marks a mundane
+    weapon as silver for that exemption: the damage pipeline in
     [`osrlib.core.combat`][osrlib.core.combat] reads it when it checks a target's
     immunities. Everything else is `STANDARD`, the default on
     [`WeaponTemplate`][osrlib.core.items.WeaponTemplate] and
-    [`AmmunitionTemplate`][osrlib.core.items.AmmunitionTemplate]. The shipped catalog uses
+    [`AmmunitionTemplate`][osrlib.core.items.AmmunitionTemplate]. The compiled catalog uses
     `SILVER` for silver-tipped arrows.
 
-    The wire values are `"standard"` and `"silver"`, serialized into the compiled equipment
+    The serialized values are `"standard"` and `"silver"`, written into the compiled equipment
     data. Changing them is a `schema_version` bump.
     """
 
@@ -267,15 +267,15 @@ class Material(StrEnum):
 class ArmourCategory(StrEnum):
     """How bulky a suit of body armour is, for the basic encumbrance rates.
 
-    Basic encumbrance sets a character's movement rate from what they wear rather than from
-    what they weigh, and this is the column it looks up:
+    Under basic encumbrance, a character's movement rate depends on the armour they wear
+    rather than on the weight they carry, and this category selects the rate:
     [`movement_rate_feet`][osrlib.core.items.movement_rate_feet] reads the category of the
     armour in the worn slot. Wearing nothing is the absence of a category, not a value here,
-    so an unarmoured character has no `ArmourCategory` at all. Enchanted armour moves like
-    the mundane armour it is made from, since enchantment lightens a suit without making it
-    less bulky.
+    so an unarmoured character has no `ArmourCategory` at all. A character in enchanted armour
+    moves at the rate of the mundane armour it is made from, since enchantment lightens a suit
+    without making it less bulky.
 
-    The wire values are `"light"` and `"heavy"`, serialized into the compiled equipment
+    The serialized values are `"light"` and `"heavy"`, written into the compiled equipment
     data. Changing them is a `schema_version` bump.
     """
 
@@ -291,7 +291,7 @@ class RangeBand(BaseModel):
     Three of these make up a weapon's [`MissileRanges`][osrlib.core.items.MissileRanges],
     and the band a shot falls into sets its attack modifier. Bands come from the
     compiled equipment data ([`load_equipment`][osrlib.data.load_equipment]). Construct one
-    only when an adventure bundles a missile weapon of its own. Both bounds are inclusive,
+    only when an adventure bundles a missile weapon template. Both bounds are inclusive,
     and a shot past the long band's maximum cannot be attempted at all.
     """
 
@@ -336,10 +336,10 @@ class MissileRanges(BaseModel):
 class WeaponTemplate(BaseModel):
     """A mundane weapon, from the SRD's weapon table.
 
-    One of the four kinds of equipment template. Get one from the shipped catalog with
+    One of the four kinds of equipment template. Get one from the compiled catalog with
     [`EquipmentCatalog.get`][osrlib.core.items.EquipmentCatalog.get], then buy it with
     [`purchase`][osrlib.core.items.purchase], which spawns the owned
-    [`ItemInstance`][osrlib.core.items.ItemInstance] a character actually carries.
+    [`ItemInstance`][osrlib.core.items.ItemInstance] a character carries.
     Templates are frozen and shared: never mutate one, and construct one yourself only to
     bundle a weapon of your own in an
     [`Adventure`][osrlib.crawl.adventure.Adventure].
@@ -348,7 +348,7 @@ class WeaponTemplate(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     item_type: Literal["weapon"] = "weapon"
-    """Always `"weapon"`. It is what tells the four template kinds apart when they are stored or loaded together."""
+    """Always `"weapon"`. This field distinguishes the four template kinds when they are stored or loaded together."""
     id: str
     """The catalog id, for example `"sword"`. Unique across every equipment list. See [the equipment id
     index][equipment-index].
@@ -476,7 +476,7 @@ class CombatFacet(BaseModel):
     """The damage dealt, as a dice expression."""
     qualities: tuple[WeaponQuality, ...]
     """What the item can do when used as a weapon. See [`WeaponQuality`][osrlib.core.items.WeaponQuality]. Holy water
-    and burning oil have the splash quality, which is what makes them burn on for a second round.
+    and burning oil have the splash quality, which makes them damage the target again the following round.
     """
     missile_ranges: MissileRanges | None = None
     """The three range bands, present exactly when `qualities` includes the missile quality."""
@@ -511,7 +511,7 @@ class GearTemplate(BaseModel):
     id: str
     """The catalog id, for example `"torch"`. See [the equipment id index][equipment-index]."""
     name: str
-    """The display name as the price list prints it, which names the lot size for gear sold in lots:
+    """The display name as the price list prints it, which includes the lot size for gear sold in lots:
     `"Torches (6)"`, `"Iron spikes (12)"`.
     """
     cost_gp: int = Field(ge=0)
@@ -540,8 +540,8 @@ class AmmunitionTemplate(BaseModel):
     """Ammunition for a missile weapon: arrows, quarrels, sling stones.
 
     Bought like gear, in lots: one purchase at the listed price delivers `lot_size`
-    units. Ammunition never weighs anything, because the SRD folds the weight of the
-    ammunition and its container into the missile weapon's own listed weight and gives the
+    units. Ammunition never weighs anything, because the SRD counts the weight of the
+    ammunition and its container in the missile weapon's listed weight and gives the
     ammunition table no weight column. It is not equippable either: wield the bow, and the
     arrows go in the item list. Sling stones are free, which compiles to a cost of 0.
     """
@@ -553,7 +553,7 @@ class AmmunitionTemplate(BaseModel):
     id: str
     """The catalog id, for example `"arrows"`. See [the equipment id index][equipment-index]."""
     name: str
-    """The display name as the price list prints it, which names the lot: `"Arrows (quiver of 20)"`."""
+    """The display name as the price list prints it, which includes the lot: `"Arrows (quiver of 20)"`."""
     cost_gp: int = Field(ge=0)
     """The listed price in gold pieces, for one lot. 0 for sling stones."""
     lot_size: int = Field(default=1, ge=1)
@@ -591,11 +591,11 @@ ammunition have a weight. Only gear and ammunition have a lot size.
 class TreasureWeight(BaseModel):
     """What one unit of a kind of treasure weighs, from the SRD's encumbrance table.
 
-    The rows price treasure the way the equipment lists price gear: `coin` and `gem` weigh
-    1 each, `jewellery` 10, and each magic item kind the table names has its own figure.
+    Each row gives a weight in coins: `coin` and `gem` weigh
+    1 each, `jewellery` 10, and each magic item kind in the table has a separate figure.
     [`treasure_weight_coins`][osrlib.core.items.treasure_weight_coins] reads them to weigh a
-    character's loot, and treasure generation stamps the gem and jewellery figures onto each
-    [`ValuableInstance`][osrlib.core.items.ValuableInstance] it creates. The rows ship with
+    character's loot, and treasure generation copies the gem and jewellery figures onto each
+    [`ValuableInstance`][osrlib.core.items.ValuableInstance] it creates. The rows come with
     the equipment catalog ([`load_equipment`][osrlib.data.load_equipment]) rather than the
     treasure tables, because the SRD prints them on its encumbrance page.
     """
@@ -611,15 +611,16 @@ class TreasureWeight(BaseModel):
 class EquipmentCatalog(BaseModel):
     """The whole mundane equipment list: what a shop sells and what a character can own.
 
-    Call [`load_equipment`][osrlib.data.load_equipment] to get the shipped catalog. It is
-    frozen, cached, and shared, so hold onto the one you are given rather than loading it
-    per lookup. Reach an item by id with
+    Call [`load_equipment`][osrlib.data.load_equipment] to get the compiled catalog. It is
+    frozen, cached, and shared, so keep the one you are given rather than loading it for
+    each lookup. Look up an item by id with
     [`get`][osrlib.core.items.EquipmentCatalog.get], or iterate a list when you are
-    building a shop screen. An [`Adventure`][osrlib.crawl.adventure.Adventure] that bundles
-    item templates of its own is given a catalog with those added.
+    building a shop screen. A [`GameSession`][osrlib.crawl.session.GameSession] that plays an
+    [`Adventure`][osrlib.crawl.adventure.Adventure] with bundled item templates looks items up
+    in a catalog with those templates added.
 
     Ids are unique across the four equipment lists, and across the magic item catalog too,
-    so an id names exactly one thing anywhere in the library.
+    so an id refers to exactly one thing anywhere in the library.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -654,17 +655,17 @@ class EquipmentCatalog(BaseModel):
         loop if you are resolving many ids at once.
 
         Args:
-            item_id: Any equipment id this catalog contains. For the shipped catalog
+            item_id: Any equipment id this catalog contains. For the compiled catalog
                 ([`load_equipment`][osrlib.data.load_equipment]) that is an id from
                 [the equipment id index][equipment-index], for example `"sword"` or `"torch"`. A
-                catalog built for an adventure also answers the ids that adventure bundles,
-                which no index documents.
+                catalog built for an adventure also contains the ids that adventure bundles,
+                and the id index doesn't list those.
 
         Returns:
             The template.
 
         Raises:
-            ValueError: If no item has that id. The message names the id.
+            ValueError: If no item has that id. The message includes the id.
 
         Examples:
             ```python
@@ -692,11 +693,11 @@ class MagicItemCategory(StrEnum):
 
     These are the categories of the catalog, not the types of the random-generation table.
     The table's rod, staff, and wand row covers three categories here. See
-    [`MagicItemType`][osrlib.core.treasure.MagicItemType] for the table's own types and
+    [`MagicItemType`][osrlib.core.treasure.MagicItemType] for the table's types and
     [`MagicItemCatalog.sub_table`][osrlib.core.items.MagicItemCatalog.sub_table] for how one
     maps to the other.
 
-    The wire values are the lowercase names below, serialized into the compiled magic item
+    The serialized values are the lowercase names below, written into the compiled magic item
     data and into saves. Changing one is a `schema_version` bump.
     """
 
@@ -730,8 +731,8 @@ class VersusBonus(BaseModel):
     read it to show a player what a weapon is good against.
 
     Targets resolve structurally rather than by matching the printed label against a
-    monster's name: `categories` names tags a monster template has, like `undead` or
-    `enchanted`, and `template_ids` names compiled monster ids from
+    monster's name: `categories` lists tags a monster template has, like `undead` or
+    `enchanted`, and `template_ids` lists compiled monster ids from
     [`load_monsters`][osrlib.data.load_monsters]. A clause matches a target whose template
     has any of the listed tags or ids. Characters have no monster template, so a clause never
     matches a character.
@@ -762,12 +763,12 @@ class VersusBonus(BaseModel):
 class UsableBy(BaseModel):
     """Which characters a magic item works for.
 
-    [`usable_by_class`][osrlib.core.items.usable_by_class] answers the question this model
-    poses, and [`validate_equip`][osrlib.core.items.validate_equip] applies it to devices
+    [`usable_by_class`][osrlib.core.items.usable_by_class] checks a class against this
+    model, and [`validate_equip`][osrlib.core.items.validate_equip] applies it to devices
     and miscellaneous items, rejecting with `items.equip.not_usable`.
 
     Enchanted swords, weapons, and armour stay at the default `all`: their pages print "per
-    normal class restrictions", and those restrictions are the class's own armour and weapon
+    normal class restrictions", and those restrictions are the class's armour and weapon
     policies, applied to the mundane item underneath rather than here.
     """
 
@@ -783,7 +784,7 @@ class UsableBy(BaseModel):
     """
     caster: Literal["arcane", "divine", "any"] | None = None
     """Which kind of caster may use it, when `kind` is `"caster"`: `"arcane"` (magic-users and elves), `"divine"`
-    (clerics), or `"any"`. `None` otherwise. Wands are arcane-only. Each staff follows its own page.
+    (clerics), or `"any"`. `None` otherwise. Wands are arcane-only. Each staff follows the rule on its page.
     """
 
     @model_validator(mode="after")
@@ -800,7 +801,7 @@ class MagicItemEffect(BaseModel):
 
     An item whose page describes something the engine can execute has one of these. The rest
     have their page text in the template's `manual` field, for a game to narrate and
-    adjudicate itself. `kind` names which behavior runs, and the behavior reads the fields
+    adjudicate itself. `kind` selects which behavior runs, and the behavior reads the fields
     it needs, so most fields are empty on most items.
 
     Read `kind` to decide what an item does. Read `modifiers` to show what a worn item
@@ -808,7 +809,7 @@ class MagicItemEffect(BaseModel):
     [`equipped_item_modifiers`][osrlib.core.items.equipped_item_modifiers] returns exactly
     those for every equipped always-active item.
 
-    The behaviors that ship are `worn_modifiers`, `potion`, `damage_area`, `condition_area`,
+    The built-in behaviors are `worn_modifiers`, `potion`, `damage_area`, `condition_area`,
     `healing`, `save_or_die`, `on_hit_drain`, `striking`, `ward`, `regeneration`, and
     `light`.
     """
@@ -1002,7 +1003,7 @@ class MagicSubTableRow(BaseModel):
 class MagicSubTable(BaseModel):
     """One magic item type's generation table: everything that type can produce, and the rolls that produce it.
 
-    There is one of these per type of the master table. Reach the one you want with
+    There is one of these per type of the master table. Get the one you want with
     [`MagicItemCatalog.sub_table`][osrlib.core.items.MagicItemCatalog.sub_table]. Roll on it
     with [`row_for_basic`][osrlib.core.items.MagicSubTable.row_for_basic] or
     [`row_for_expert`][osrlib.core.items.MagicSubTable.row_for_expert], depending on the
@@ -1138,7 +1139,7 @@ class MagicArmourTypeTable(BaseModel):
 
         Returns:
             The mundane armour id, one of `"leather"`, `"chainmail"`, or `"plate_mail"` in the
-            shipped table. Look it up with
+            compiled table. Look it up with
             [`EquipmentCatalog.get`][osrlib.core.items.EquipmentCatalog.get].
 
         Raises:
@@ -1302,7 +1303,7 @@ class SwordPowersRow(BaseModel):
 class SwordTableBand(BaseModel):
     """One band of a sentient sword roll table: either an outcome or an instruction to roll again.
 
-    The sword tables all share this shape: a roll range and a result. The result is usually
+    The sword tables all share this structure: a roll range and a result. The result is usually
     a value, like an alignment or the id of a power, and sometimes an instruction:
     `roll_twice` on the language and both power tables, `roll_thrice` on an extraordinary
     result of `00`, and `roll_extraordinary` on a high sensory roll, which trades the
@@ -1423,15 +1424,15 @@ class SentientSwordTables(BaseModel):
 class MagicItemCatalog(BaseModel):
     """The whole magic item list, with the tables that generate from it.
 
-    Call [`load_magic_items`][osrlib.data.load_magic_items] to get the shipped catalog. It
-    is frozen, cached, and shared. Reach an item by id with
+    Call [`load_magic_items`][osrlib.data.load_magic_items] to get the compiled catalog. It
+    is frozen, cached, and shared. Look up an item by id with
     [`get`][osrlib.core.items.MagicItemCatalog.get], and a type's generation table with
     [`sub_table`][osrlib.core.items.MagicItemCatalog.sub_table]. Treasure generation in
     [`osrlib.core.treasure`][osrlib.core.treasure] loads this catalog itself, so you need it
     only to read items, not to generate them.
 
-    Magic item ids never collide with equipment ids, so a single id names one thing across
-    both catalogs. An adventure cannot bundle magic items of its own. It places the shipped
+    Magic item ids never collide with equipment ids, so a single id refers to one thing across
+    both catalogs. An adventure cannot bundle magic item templates. It places the compiled
     ones.
     """
 
@@ -1505,7 +1506,7 @@ class MagicItemCatalog(BaseModel):
 
         Call it when you are rolling a type's table yourself. When you want a whole item rolled,
         call [`generate_magic_item`][osrlib.core.treasure.generate_magic_item] instead, which
-        rolls the master table, this one, and the item's own details.
+        rolls the master table, this one, and the item's details.
 
         The master table's rod, staff, and wand row covers three catalog categories, and asking
         for `ROD_STAFF_WAND` returns the one table that produces all three.
@@ -1529,7 +1530,7 @@ class MagicItemCatalog(BaseModel):
 class SwordSentience(BaseModel):
     """What a sentient sword turned out to be: its mind, its alignment, and its powers.
 
-    Rolled once when the sword is created and fixed from then on. It lives on the sword's
+    Rolled once when the sword is created and fixed from then on. It is the `sentience` field of the sword's
     [`MagicItemInstance`][osrlib.core.items.MagicItemInstance]. Most swords have none, and
     the field is `None` for those. Pass the sword to
     [`sword_control_check`][osrlib.core.items.sword_control_check] to find out whether it
@@ -1566,7 +1567,7 @@ class SwordSentience(BaseModel):
 
 
 class MagicItemInstance(BaseModel):
-    """One magic item a character owns, with everything that differs from copy to copy.
+    """One magic item a character has, with everything that differs from copy to copy.
 
     Templates are shared and frozen. This is the copy in play, and it is mutable. Treasure
     generation makes them
@@ -1577,7 +1578,7 @@ class MagicItemInstance(BaseModel):
     template behind one.
 
     An instance starts unidentified, and a player-facing view shows it as an unknown item
-    until it is not. Identification happens in play: drinking the potion, swinging the
+    until it's identified. Identification happens in play: drinking the potion, swinging the
     sword, wearing the ring. A cursed item reveals its curse the same way, and once revealed
     it cannot be taken off until *remove curse*:
     [`unequip`][osrlib.core.items.unequip] rejects with `items.curse.stuck`.
@@ -1586,12 +1587,12 @@ class MagicItemInstance(BaseModel):
     model_config = ConfigDict(validate_assignment=True)
 
     instance_type: Literal["magic_item"] = "magic_item"
-    """Always `"magic_item"`. It is what tells this apart from a mundane
+    """Always `"magic_item"`. This field distinguishes it from a mundane
     [`ItemInstance`][osrlib.core.items.ItemInstance] when both are stored in one list.
     """
     instance_id: str
-    """This copy's own id, for example `"magic-item-0003"`, allocated by
-    [`IdAllocator`][osrlib.core.monsters.IdAllocator]. Commands that act on a magic item name it by this, not by its
+    """The id of this copy, for example `"magic-item-0003"`, allocated by
+    [`IdAllocator`][osrlib.core.monsters.IdAllocator]. Commands that act on a magic item identify it by this, not by its
     template id.
     """
     template_id: str
@@ -1619,18 +1620,18 @@ class MagicItemInstance(BaseModel):
     everything else.
     """
     state: dict[str, int | str | bool | tuple[int | str, ...]] = {}
-    """What this copy records, keyed by name: the effects a worn item has attached, an energy-drain sword's remaining
-    drains, the day a staff of healing last healed each target, the spells left on a scroll.
+    """State specific to this copy, keyed by name: the effects a worn item has attached, an energy-drain sword's
+    remaining drains, the day a staff of healing last healed each target, the spells left on a scroll.
     """
 
 
 class ItemInstance(BaseModel):
-    """A stack of mundane items a character owns.
+    """A stack of mundane items a character has.
 
     Made by [`purchase`][osrlib.core.items.purchase], or constructed directly when you are
     giving a character something without charging for it, and carried in an
     [`Inventory`][osrlib.core.items.Inventory]. Unlike a magic item, a mundane instance has
-    no id of its own: it is identified by its template, so two stacks of the same item are
+    no instance id: it is identified by its template, so two stacks of the same item are
     interchangeable.
     """
 
@@ -1721,7 +1722,7 @@ class ValuableInstance(BaseModel):
     instance_type: Literal["valuable"] = "valuable"
     """Always `"valuable"`."""
     instance_id: str
-    """This piece's own id, for example `"valuable-0001"`, allocated by
+    """The id of this piece, for example `"valuable-0001"`, allocated by
     [`IdAllocator`][osrlib.core.monsters.IdAllocator].
     """
     kind: Literal["gem", "jewellery"]
@@ -1769,8 +1770,8 @@ class CoinPurse(BaseModel):
     whole gold pieces, the unit the equipment lists price in.
 
     Paying takes the smallest coins first and returns change in the largest, so a purse
-    always ends up with the fewest coins that preserve its value. That matters because
-    coins are weight: each coin weighs 1 whatever its metal, and a purse full of copper
+    always ends up with the fewest coins that preserve its value. Fewer coins weigh less,
+    because each coin weighs 1 whatever its metal, and a purse full of copper
     slows a character down.
     """
 
@@ -1904,14 +1905,14 @@ the right classes, and a `match` on `instance_type` covers both cases.
 
 The members are [`ItemInstance`][osrlib.core.items.ItemInstance] and
 [`MagicItemInstance`][osrlib.core.items.MagicItemInstance]. Only a magic instance has an
-id of its own. A mundane one is identified by its template.
+instance id. A mundane one is identified by its template.
 """
 
 
 class Inventory(BaseModel):
     """Everything one character carries: items, coins, valuables, and what is in hand or worn.
 
-    Every [`Character`][osrlib.core.character.Character] owns one. Build it up with
+    Every [`Character`][osrlib.core.character.Character] has one. Build it up with
     [`purchase`][osrlib.core.items.purchase] and [`equip`][osrlib.core.items.equip], search
     it with [`carried_item`][osrlib.core.items.Inventory.carried_item] and
     [`magic_item`][osrlib.core.items.Inventory.magic_item], and weigh it with
@@ -1922,7 +1923,7 @@ class Inventory(BaseModel):
     An instance lives in exactly one place: equipping moves it out of the item list and into
     its slot, and unequipping moves it back. So iterate
     [`all_instances`][osrlib.core.items.Inventory.all_instances] rather than `items` when
-    you want everything a character has. The item list keeps the order things were added,
+    you want everything a character has. The item list is in the order things were added,
     which is what makes a saved game replay identically.
 
     Nothing here caps what a character can carry. Weight is not a limit but a movement rate:
@@ -1988,7 +1989,7 @@ class Inventory(BaseModel):
     def magic_item(self, instance_id: str) -> MagicItemInstance | None:
         """Return the carried magic item with `instance_id`, or `None`.
 
-        Magic items are addressed by their own ids, which is how a command names the one to
+        Magic items are addressed by instance id, which is how a command identifies the one to
         drink, read, or take off. It looks everywhere the character keeps things: pack,
         hands, worn slots, rings.
 
@@ -2018,7 +2019,7 @@ class Inventory(BaseModel):
         like an emptied quiver of arrows +1, and it means the character no longer has any, so
         whatever this returns you can take a unit from.
 
-        Valuables never match either: a gem has no catalog id, only an id of its own.
+        Valuables never match either: a gem has no catalog id, only an instance id.
 
         Args:
             item_id: The catalog id to look for: an equipment id (see
@@ -2053,7 +2054,7 @@ class Inventory(BaseModel):
 def magic_item_template(instance: MagicItemInstance) -> MagicItemTemplate:
     """Return the template behind a magic item instance.
 
-    The shorthand for looking the instance's `template_id` up in the shipped catalog: it is
+    The shorthand for looking the instance's `template_id` up in the compiled catalog: it is
     what you call to get from the copy a character carries to the item's name, category,
     bonuses, and text. Equivalent to
     [`MagicItemCatalog.get`][osrlib.core.items.MagicItemCatalog.get] on
@@ -2067,7 +2068,7 @@ def magic_item_template(instance: MagicItemInstance) -> MagicItemTemplate:
         The frozen template.
 
     Raises:
-        ValueError: If the instance names an item the catalog does not have.
+        ValueError: If the instance refers to an item the catalog does not have.
 
     Examples:
         ```python
@@ -2092,7 +2093,7 @@ def equipped_item_modifiers(inventory: Inventory) -> list[ModifierSpec]:
     bookkeeping.
 
     Item bonuses are computed from the inventory each time you ask rather than stored as
-    effects, and that is deliberate: they stack freely with spell bonuses and are never
+    effects. They stack freely with spell bonuses and are never
     subject to the cap that
     [`modifier_total`][osrlib.core.effects.modifier_total] applies to spell-sourced
     modifiers, which counts only the largest bonus and the largest penalty.
@@ -2165,8 +2166,8 @@ def sword_control_check(
     their hit points. The sword takes charge when its total is strictly higher.
 
     Args:
-        character: The wielder, a [`Character`][osrlib.core.character.Character]: the contest reads the
-            ability scores that no monster has. Nothing is mutated.
+        character: The wielder, a [`Character`][osrlib.core.character.Character]: the contest reads
+            ability scores, which monsters don't have. Nothing is mutated.
         sword: The sword, which must have a
             [`SwordSentience`][osrlib.core.items.SwordSentience].
         stream: The RNG stream the situational dice come from. Pass a session stream so
@@ -2236,12 +2237,12 @@ def treasure_weight_coins(inventory: Inventory) -> int:
     A stack of those weighs its template's figure times its quantity, and a spent stack still
     weighs one, because a quantity of 0 counts as 1. Rings and miscellaneous items weigh
     nothing, because their pages give no weight. A bag of holding weighs its printed loaded
-    weight while it holds anything. Enchanted weapons and armour weigh as equipment beside
+    weight while it contains anything. Enchanted weapons and armour weigh as equipment beside
     the mundane kind rather than as treasure, so basic encumbrance stays what the rules mean
     by it: how much loot is being hauled out.
 
     Call [`tracked_weight_coins`][osrlib.core.items.tracked_weight_coins] instead when you
-    want whatever the ruleset in play actually tracks.
+    want whatever the ruleset in play tracks.
 
     Args:
         inventory: The inventory to weigh.
@@ -2272,15 +2273,15 @@ def equipment_weight_coins(inventory: Inventory) -> int:
 
     The other half of detailed encumbrance, alongside
     [`treasure_weight_coins`][osrlib.core.items.treasure_weight_coins]. Weapons, armour, and
-    ammunition weigh their listed weights, times the number carried. The shipped ammunition
-    templates are all weight 0, because the SRD folds ammunition into the missile weapon's
-    own weight, so shipped arrows and bolts add nothing. Ammunition an adventure bundles with
-    a weight of its own counts like any other template. Gear has no per-item weights, so
+    ammunition weigh their listed weights, times the number carried. The compiled ammunition
+    templates are all weight 0, because the SRD includes ammunition in the missile weapon's
+    weight, so compiled arrows and bolts add nothing. Ammunition an adventure bundles with
+    a nonzero weight counts like any other template. Gear has no per-item weights, so
     carrying any gear at all adds a flat
     [`MISC_GEAR_WEIGHT_COINS`][osrlib.core.items.MISC_GEAR_WEIGHT_COINS] and no more.
 
     Enchanted weapons and armour weigh what the mundane item underneath weighs, with armour
-    halved, since enchanted armour is lighter than the plate it is made from.
+    halved, since enchanted armour is lighter than the mundane suit it is made from.
 
     Args:
         inventory: The inventory to weigh.
@@ -2314,7 +2315,7 @@ def equipment_weight_coins(inventory: Inventory) -> int:
 
 
 def tracked_weight_coins(inventory: Inventory, mode: EncumbranceMode) -> int:
-    """Return the weight the encumbrance rules in play actually count, in coins.
+    """Return the weight the encumbrance rules in play count, in coins.
 
     Ask this rather than the two weighing functions directly: the answer depends on the
     `encumbrance` flag of [`Ruleset`][osrlib.core.ruleset.Ruleset], and this is what
@@ -2359,14 +2360,14 @@ _DETAILED_RATES: tuple[tuple[int, int], ...] = ((400, 120), (600, 90), (800, 60)
 
 
 def _int_param(params: Mapping[str, Any], key: str, default: int = 0) -> int:
-    """Read an integer param from schema-validated data the type checker cannot key by name."""
+    """Read an integer param from schema-validated data the type checker cannot narrow by key."""
     return int(params.get(key, default))
 
 
 def _worn_armour_category(worn: Any) -> ArmourCategory | None:
     """Return the worn body armour's category, resolving enchanted armour's base.
 
-    Enchanted armour moves like its mundane base: enchantment halves the weight, not the
+    Enchanted armour has the movement rate of its mundane base: enchantment halves the weight, not the
     bulk, so +1 plate is still heavy for the basic encumbrance rates.
 
     Args:
@@ -2390,7 +2391,7 @@ def _worn_armour_category(worn: Any) -> ArmourCategory | None:
 def movement_rate_feet(inventory: Inventory, ruleset: Ruleset, carrying_treasure: bool = False) -> int:
     """Return how far a character moves in one exploration turn, in feet.
 
-    This is the number a dungeon crawl runs on: how far a party gets on a turn of careful
+    A dungeon crawl uses this number: how far a party gets on a turn of careful
     movement. [`Character.movement_rate`][osrlib.core.character.Character.movement_rate] is
     the shorthand when you have a character rather than a bare inventory. Divide by 3 with
     [`encounter_movement_rate`][osrlib.core.items.encounter_movement_rate] for the rate
@@ -2528,7 +2529,7 @@ def validate_purchase(purse: CoinPurse, template: ItemTemplate, lots: int = 1) -
 def purchase(inventory: Inventory, template: ItemTemplate, lots: int = 1) -> ItemInstance:
     """Buy `lots` of an item, pay for it out of the purse, and add it to the inventory.
 
-    The à la carte way to equip a character outside a session. In a session the
+    Call this to buy equipment for a character outside a session. In a session the
     [`PurchaseEquipment`][osrlib.crawl.commands.PurchaseEquipment] command does this and
     records it. Check first with
     [`validate_purchase`][osrlib.core.items.validate_purchase] if you would rather have a
@@ -2579,7 +2580,7 @@ def purchase(inventory: Inventory, template: ItemTemplate, lots: int = 1) -> Ite
 
 
 def _wielded_qualities(instance: ItemInstance | MagicItemInstance) -> tuple[WeaponQuality, ...]:
-    """Return a wielded instance's weapon qualities. An enchanted arm reads its base item's."""
+    """Return a wielded instance's weapon qualities. For an enchanted weapon, return its base item's."""
     if isinstance(instance, MagicItemInstance):
         base_id = instance.base_item_id or magic_item_template(instance).base_item_id
         if base_id is None:
@@ -2606,8 +2607,8 @@ def _caster_kind(definition: ClassDefinition) -> str | None:
 def usable_by_class(template: MagicItemTemplate, definition: ClassDefinition) -> bool:
     """Return whether a character of this class can use a magic item.
 
-    The rules restrict some items to particular classes or to spell casters, and this is the
-    question that answers. [`validate_equip`][osrlib.core.items.validate_equip] applies it to
+    The rules restrict some items to particular classes or to spell casters, and this function
+    checks a class against those restrictions. [`validate_equip`][osrlib.core.items.validate_equip] applies it to
     devices and miscellaneous items. Call it directly when you are deciding whether to offer
     a player the option to drink, read, or invoke something.
 
@@ -2650,12 +2651,12 @@ def usable_by_class(template: MagicItemTemplate, definition: ClassDefinition) ->
 def _validate_equip_magic(
     definition: ClassDefinition, instance: MagicItemInstance, inventory: Inventory | None
 ) -> list[Rejection]:
-    """Validate equipping a magic item against the base item's policies and the item's own.
+    """Validate equipping a magic item against the base item's policies and the item's usability.
 
     Enchanted arms resolve through the base item's armour and weapon policies exactly like
     their mundane counterparts. Rings cap at two (`items.ring.hands_full`, the slot cap
     standing in for the rule that more than two rings make none of them work). Devices and
-    miscellaneous items gate on the item's `usable_by`. Potions, scrolls, and ammunition are
+    miscellaneous items are checked against the item's `usable_by`. Potions, scrolls, and ammunition are
     not equippable.
     """
     from osrlib.data import load_equipment
@@ -2675,8 +2676,9 @@ def _validate_equip_magic(
         if isinstance(base, AmmunitionTemplate):
             return [Rejection(code="items.equip.not_equippable", params={"item": instance.instance_id})]
         return validate_equip(definition, ItemInstance(template=base), inventory)
-    # Devices and miscellaneous items: the item's own usability governs (the RAW
-    # staves-in-melee carve-out means class weapon policies do not apply, pinned).
+    # Devices and miscellaneous items: the item's usability governs. Class weapon
+    # policies don't apply, because the SRD lets magic-users fight in melee with
+    # some magic staves (Rods, Staves, Wands: Staves in Melee).
     if not usable_by_class(template, definition):
         return [Rejection(code="items.equip.not_usable", params={"item": instance.instance_id})]
     return []
@@ -2690,7 +2692,7 @@ def validate_unequip(inventory: Inventory, instance: ItemInstance | MagicItemIns
     sticks to its bearer until *remove curse*, and every cursed item's page says so.
 
     Args:
-        inventory: The inventory holding the item.
+        inventory: The inventory that contains the item.
         instance: The equipped item.
 
     Returns:
@@ -2719,7 +2721,7 @@ def validate_equip(
     """Check whether a character of this class can equip an item.
 
     The check half of [`equip`][osrlib.core.items.equip], which raises where this reports.
-    Call it to decide what to offer a player: which weapons a magic-user can actually pick
+    Call it to decide what to offer a player: which weapons a magic-user can pick
     up, why a cleric cannot draw the sword the party just found.
 
     What it enforces:
@@ -2735,7 +2737,7 @@ def validate_equip(
       `inventory` whenever you have one.
     - For magic items: enchanted arms resolve through the policies of the mundane item
       underneath, rings against the two-ring cap, and devices and miscellaneous items
-      against their own usability. See
+      against the usability of the item. See
       [`usable_by_class`][osrlib.core.items.usable_by_class]. Potions and scrolls are not
       equipment.
 
@@ -2832,7 +2834,7 @@ def _is_body_armour_instance(instance: ItemInstance | MagicItemInstance) -> bool
 def equip(inventory: Inventory, definition: ClassDefinition, instance: ItemInstance | MagicItemInstance) -> None:
     """Move an item out of the item list and into use.
 
-    The à la carte way to arm a character outside a session. In a session the
+    Call this to arm a character outside a session. In a session the
     [`EquipItem`][osrlib.crawl.commands.EquipItem] command does this and records it. Check
     first with [`validate_equip`][osrlib.core.items.validate_equip] if you would rather have
     a reason than an exception.
@@ -2848,7 +2850,7 @@ def equip(inventory: Inventory, definition: ClassDefinition, instance: ItemInsta
         definition: The character's class definition, from
             [`ClassCatalog.get`][osrlib.core.classes.ClassCatalog.get].
         instance: The item to equip. It must be in this inventory's item list. Equip what
-            the character is holding, not a template or a copy.
+            the character is carrying, not a template or a copy.
 
     Raises:
         ValueError: If the item is not in the item list, or the class cannot equip it. Ask
@@ -2901,7 +2903,7 @@ def unequip(inventory: Inventory, instance: ItemInstance | MagicItemInstance) ->
 
     Args:
         inventory: The inventory. Mutated.
-        instance: The equipped item, from whichever slot holds it.
+        instance: The equipped item, from whichever slot it's in.
 
     Raises:
         ValueError: If a revealed curse holds the item in place, and otherwise if the item

@@ -1,7 +1,7 @@
 """The two version stamps on every osrlib document, and the envelope that contains them.
 
 Anything osrlib writes for you to keep goes out as a stamped document: a save, a character,
-a party, a content pack. The envelope is the same shape every time. It names the `kind` of
+a party, a content pack. The envelope has the same structure every time. It contains the `kind` of
 thing inside, the two version numbers, and the `payload`, which is the serialized content.
 [`stamp_document`][osrlib.versioning.stamp_document] builds one and
 [`check_document`][osrlib.versioning.check_document] checks one, and you rarely call either
@@ -12,26 +12,26 @@ yourself: [`save_game`][osrlib.persistence.save_game] and
 [`ContentPack.to_document`][osrlib.crawl.content_pack.ContentPack.to_document] call
 `stamp_document` for characters, parties, and content packs.
 
-The two stamps answer two different questions.
+The two stamps serve two different purposes.
 
-[`SCHEMA_VERSION`][osrlib.versioning.SCHEMA_VERSION] answers whether a document can still be
-read. It's one integer shared by every document kind, and it moves only when the shape of
-stored data changes in a way a reader would trip over. A document stamped lower than the
+[`SCHEMA_VERSION`][osrlib.versioning.SCHEMA_VERSION] determines whether a document can still be
+read. It's one integer shared by every document kind, and it changes only when the format of
+stored data changes in a way that would break a reader. A document stamped lower than the
 running library's number is read and brought forward. One stamped higher is refused with
 [`SaveVersionError`][osrlib.errors.SaveVersionError], because the reader can't know what a
 later version put in there.
 
-[`engine_version`][osrlib.versioning.engine_version] answers whether a game can still be
-reproduced. It's the installed package version, and it moves with every release, including
-releases that change no document shape. Rules can change between releases, so a recorded
+[`engine_version`][osrlib.versioning.engine_version] determines whether a game can still be
+reproduced. It's the installed package version, and it changes with every release, including
+releases that change no document format. Rules can change between releases, so a recorded
 command log rerun under a different engine can resolve differently.
 [`replay_game`][osrlib.persistence.replay_game] refuses the mismatch rather than producing a
 game that differs without saying so. Loading a save across engine versions is fine, because
 a save contains the state instead of re-deriving it.
 
-If you store documents, keep both numbers with them. `schema_version` tells you whether the
-library in front of you can open the file, and `engine_version` tells you whether a replay
-of it still holds.
+If you store documents, keep both numbers with them. From `schema_version` you know whether
+the library in front of you can open the file, and from `engine_version` whether a replay of
+it is still valid.
 
 Typical usage:
 
@@ -72,23 +72,23 @@ Lower means the document still loads, and the reader brings it forward through
 for old files. Equal means it loads as written. Higher means a later osrlib wrote it, and
 reading it raises [`SaveVersionError`][osrlib.errors.SaveVersionError].
 
-The number moves only when a change would break a reader: a field renamed, a field removed,
-a value that now means something different. Additions don't move it, so a document from an
+The number changes only when a change would break a reader: a field renamed, a field removed,
+a value that now means something different. Additions don't change it, so a document from an
 earlier release of the same schema version can be missing fields that newer documents
 include, and readers fill those with their defaults.
 
 If you keep old saves, each change behind the current number affects them.
-Version 2 dropped the recovered-treasure ledger from the save payload, since the
+Version 2 drops the recovered-treasure ledger from the save payload, since the
 end-of-adventure award is worked out from the valuation taken when the party left town.
-Version 3 narrowed a treasure trap's `trigger` to `"open"`, the one action that springs a
-cache. Earlier documents could say `"enter"`, which nothing ever read, and the migration
-rewrites it, and a content pack gets the same trigger rewrite when it loads. Version 4
-dropped `"withdraw"` from a battle declaration's `move`, a value the round resolver never
-moved anybody for, and the migration clears it off a logged declaration, leaving a member
-who declared it holding. No step drops anything the library reads back.
+Version 3 narrows a treasure trap's `trigger` to `"open"`, the one action that springs a
+cache. An earlier document can contain `"enter"`, which osrlib has never read. The migration
+rewrites it, and a content pack gets the same rewrite when it loads. Version 4 drops
+`"withdraw"` from a battle declaration's `move`, a value the round resolver has never
+acted on. The migration clears it off a logged declaration, so the member who declared it
+holds. No step drops anything the library reads back.
 
-This is a fact about the library, not a setting. Assigning to it changes what your documents
-claim to be without changing what's in them.
+This is a fact about the library, not a setting. Assigning to it changes the version your
+documents are stamped with, without changing what's in them.
 """
 
 
@@ -99,12 +99,12 @@ def engine_version() -> str:
     [`stamp_document`][osrlib.versioning.stamp_document] calls it for you, so usually you
     read this value out of a document rather than calling the function, then pass it to
     [`replay_game`][osrlib.persistence.replay_game] as `recorded_engine_version` when you
-    want the replay refused if the rules underneath have moved.
+    want the replay refused if the rules underneath have changed.
 
     Call it directly to label a bug report, or to compare against a stamp you stored
     elsewhere. It isn't the schema version. This number changes with every release, including
-    releases that change no document shape, so it tells you nothing about whether a document
-    still parses. [`SCHEMA_VERSION`][osrlib.versioning.SCHEMA_VERSION] answers that.
+    releases that change no document format, so it tells you nothing about whether a document
+    still parses. Use [`SCHEMA_VERSION`][osrlib.versioning.SCHEMA_VERSION] for that.
 
     Returns:
         The installed package version, as the packaging metadata reports it, like `"2.0.0"`.
@@ -123,14 +123,14 @@ def engine_version() -> str:
 def stamp_document(kind: str, payload: Mapping[str, object]) -> dict[str, object]:
     """Wrap a serialized payload in the stamped-document envelope.
 
-    Use this when you serialize something of your own and want it to travel the way osrlib
-    documents do, so [`check_document`][osrlib.versioning.check_document] can check it on
+    Use this when you serialize something of your own and want it stored the way osrlib
+    documents are, so [`check_document`][osrlib.versioning.check_document] can check it on
     the way back in and a later reader can tell what's inside. For a save, a party, a
     character, or a content pack, call [`save_game`][osrlib.persistence.save_game],
     [`party_to_document`][osrlib.core.character.party_to_document],
     [`Character.to_document`][osrlib.core.character.Character.to_document], or
     [`ContentPack.to_document`][osrlib.crawl.content_pack.ContentPack.to_document] instead.
-    Each one stamps its own kind and fills the payload correctly.
+    Each one stamps the right kind and fills the payload correctly.
 
     The result is plain data, ready for `json.dumps`, as long as what you put in it is. Pass
     a payload you already turned into JSON-compatible values, which for a pydantic model

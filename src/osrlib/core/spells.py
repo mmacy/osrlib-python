@@ -5,8 +5,8 @@ per-spell-level counts on the progression row of the character's
 [`ClassDefinition`][osrlib.core.classes.ClassDefinition], filled for the day by
 [`memorize_spells`][osrlib.core.spells.memorize_spells] and spent one copy at a time by
 [`cast_spell`][osrlib.core.spells.cast_spell], this module's entry point. On the other side is the
-effects engine: whatever a cast leaves running, a condition, a bundle of stat modifiers, a rolled
-duration, attaches to the [`EffectsLedger`][osrlib.core.effects.EffectsLedger] in
+effects engine. Whatever a cast leaves running (a condition, a bundle of stat modifiers, a rolled
+duration) attaches to the [`EffectsLedger`][osrlib.core.effects.EffectsLedger] in
 [`osrlib.core.effects`][osrlib.core.effects], which ticks it and releases it when it ends. The
 functions here take the spell catalog [`load_spells`][osrlib.data.load_spells] returns, mutate the
 caster and the ledger, and hand you back events.
@@ -14,18 +14,18 @@ caster and the ledger, and hand you back events.
 If you run a game session rather than the rules on their own, the crawl layer has already wrapped
 this module and you call it instead: [`PrepareSpells`][osrlib.crawl.commands.PrepareSpells],
 [`LearnSpell`][osrlib.crawl.commands.LearnSpell], [`CastSpell`][osrlib.crawl.commands.CastSpell],
-and [`TurnUndead`][osrlib.crawl.commands.TurnUndead] call these functions once the session's own
-gates have passed (a night's sleep before preparation, light to read by, the right session mode).
+and [`TurnUndead`][osrlib.crawl.commands.TurnUndead] call these functions once the session's
+checks have passed (a night's sleep before preparation, light to read by, the right session mode).
 Call this module directly when you drive the rules yourself: everything here runs standalone with
 no session, and every random draw comes from a named, seeded RNG stream you supply.
 
 The OSE SRD's spell pages compile into a catalog of frozen
 [`SpellTemplate`][osrlib.core.spells.SpellTemplate] models. A template has the page's presentation
 data (duration, range, prose) alongside structured mechanics: one
-[`SpellMode`][osrlib.core.spells.SpellMode] per castable usage, each naming its targeting, its
+[`SpellMode`][osrlib.core.spells.SpellMode] per castable usage, each with its targeting, its
 saving throw, and, for the automated subset, a [`SpellEffect`][osrlib.core.spells.SpellEffect] that
-casting executes. Modes osrlib does not automate are marked `manual=True` and keep the SRD prose.
-Casting one is a supported operation, the slot is consumed and the event is emitted, and your game
+casting executes. Modes osrlib does not automate are marked `manual=True` and contain the SRD prose.
+Casting one is still a supported operation: osrlib spends the slot and emits the event, and your game
 or narrator resolves what happens.
 
 The daily flow is prepare, then cast. [`memorize_spells`][osrlib.core.spells.memorize_spells]
@@ -47,7 +47,7 @@ Casters are [`Caster`][osrlib.core.creature.Caster] values, which a
 [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] objects, or location strings for effects
 a game attaches to places rather than to creatures.
 
-A reversible spell's reverse is entry data, not a separate catalog entry: it lives on its entry as
+A reversible spell's reverse is entry data, not a separate catalog entry: it's stored on its entry as
 a [`ReversedForm`][osrlib.core.spells.ReversedForm]. The exception is a spell the SRD prints twice,
 once as a cleric page and once as a magic-user page, where the two differ mechanically. Each such
 pair compiles as two entries, the cleric one suffixed `_c` and the magic-user one `_mu`.
@@ -55,8 +55,8 @@ pair compiles as two entries, the cleric one suffixed `_c` and the magic-user on
 Every draw inside spell resolution comes from the
 [`MAGIC_STREAM`][osrlib.core.spells.MAGIC_STREAM] stream: targeting dice, damage dice, touch-attack
 rolls, cast-time forced saves, dispel survival rolls, and both turning rolls. Spell results
-therefore replay independently of combat draws and combat draws of spell results. Draws made inside
-an effect, such as a duration rolled at attach time or the charm re-save rolled on a tick, stay on
+and combat draws therefore replay independently of each other. Draws made inside
+an effect, like a duration rolled at attach time or the charm re-save rolled on a tick, stay on
 the [`EFFECTS_STREAM`][osrlib.core.effects.EFFECTS_STREAM] stream.
 
 Typical usage:
@@ -218,7 +218,7 @@ Pass `streams.get(MAGIC_STREAM)` as the `stream` argument of
 [`RngStreams`][osrlib.core.rng.RngStreams]. The draws on it are targeting dice, damage dice,
 touch-attack rolls, cast-time forced saves, dispel survival rolls, and both turning rolls.
 
-Keeping magic on its own stream is what lets a replay reproduce a spell result after the combat
+Keeping magic on a separate stream is what lets a replay reproduce a spell result after the combat
 draws around it have changed, and the reverse. Draws made inside an already-attached effect belong
 to [`EFFECTS_STREAM`][osrlib.core.effects.EFFECTS_STREAM] instead, so pass that as `effects_stream`
 rather than reusing this one.
@@ -227,16 +227,16 @@ rather than reusing this one.
 EFFECT_KINDS = frozenset(
     {"damage", "heal", "cure", "condition", "modifiers", "kill", "restore_life", "dispel", "attach_only"}
 )
-"""The effect kinds casting knows how to execute.
+"""The effect kinds osrlib can execute when a spell is cast.
 
 [`SpellEffect.kind`][osrlib.core.spells.SpellEffect] is validated against this set, so a spell you
 author yourself has to resolve into one of these behaviors or be marked
 [`manual`][osrlib.core.spells.SpellMode] and left to your game. The vocabulary is closed on purpose:
-every kind is a branch of the resolution code, and a new kind is a library change, not data.
+every kind is a branch of the resolution code, so adding a kind means changing the library, not the data.
 
 `damage` and `heal` roll dice against the selected targets, `cure` releases named conditions or
 effect kinds, `condition` and `modifiers` attach to the effects ledger, `attach_only` attaches an
-effect with no condition of its own (a light source, a ward, mirror images), `kill` applies a death
+effect with no condition (a light source, a ward, mirror images), `kill` applies a death
 effect, `restore_life` is *raise dead*, and `dispel` is *dispel magic*.
 """
 
@@ -250,9 +250,9 @@ class DurationSpec(BaseModel):
     effect it attaches to the ledger, so you need this model only when you display a spell, sort or
     filter a list by how long its spells run, or author a spell of your own.
 
-    The printed string is kept beside it on the template as `duration`, and it is the authority for
-    anything you show a player: a duration the parser cannot make structure out of lands here as
-    `kind="special"` with nothing else filled in, because the parser never fails on prose.
+    The printed string is stored beside it on the template as `duration`, and it is the authority for
+    anything you show a player: a duration the parser cannot make structure out of is stored here
+    as `kind="special"` with nothing else filled in, because the parser never fails on prose.
 
     Examples:
         ```python
@@ -272,7 +272,7 @@ class DurationSpec(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     kind: Literal["instant", "permanent", "concentration", "fixed", "special"]
-    """Which of the five shapes this duration has.
+    """Which of the five kinds of duration this is.
 
     `instant` resolves and is over, `permanent` never ends, `concentration` lasts while the caster
     concentrates and is released by whoever is running the game, `fixed` is a length you can count
@@ -298,7 +298,7 @@ class DurationSpec(BaseModel):
     """
 
     per_level: int = 0
-    """Extra `unit` per caster level, added to `amount` or folded into the `dice` modifier at cast.
+    """Extra `unit` per caster level, added to `amount` or to the `dice` modifier at cast.
 
     *Light* prints `6 turns +1 per level`, so amount 6 and per_level 1. A spell printed `1 turn per
     level` is amount `None` and per_level 1.
@@ -337,12 +337,12 @@ class RangeSpec(BaseModel):
     You read one off [`SpellTemplate.range_spec`][osrlib.core.spells.SpellTemplate], and you never
     build one during play. [`validate_cast`][osrlib.core.spells.validate_cast] reads it for you, but
     only when you tell it how far away the target is through
-    [`CastContext.distance_feet`][osrlib.core.spells.CastContext]. osrlib has no map of its own, so
+    [`CastContext.distance_feet`][osrlib.core.spells.CastContext]. osrlib has no map, so
     with no distance asserted there is no range check. Read this model yourself when you draw a
     range indicator, filter a spell list by reach, or decide which targets to offer.
 
-    The printed string is kept beside it on the template as `range` and is what you show a player.
-    Ranges the parser cannot make structure out of, such as the presence forms, land as
+    The printed string is stored beside it on the template as `range` and is what you show a player.
+    Ranges the parser cannot make structure out of, like the presence forms, are stored as
     `kind="special"` with no distance.
 
     Examples:
@@ -360,7 +360,7 @@ class RangeSpec(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     kind: Literal["caster", "touch", "feet", "yards", "per_level", "special"]
-    """Which shape the range has.
+    """Which kind of range this is.
 
     `caster` affects the caster alone, `touch` reaches one creature in reach and allows the caster
     to be that creature, `feet` and `yards` are fixed distances, `per_level` grows with caster
@@ -394,9 +394,9 @@ class TargetingSpec(BaseModel):
     are the per-spell numbers that size and bound it.
 
     The targets you pass to casting are candidates, not the final list. Casting drops the ones the
-    mode is not allowed to affect and then applies `mode` to the survivors, so an ineligible
+    mode is not allowed to affect and then applies `mode` to the rest, so an ineligible
     creature in the list costs nothing: it consumes no Hit Dice budget and no group slot. That is
-    deliberate, and it is why an ineligible target is a resolution outcome rather than a rejection.
+    why an ineligible target is a resolution outcome rather than a rejection.
     A cast that finds nothing eligible returns a
     [`CastResult`][osrlib.core.spells.CastResult] with `no_effect` set, and the memorized copy is
     still spent.
@@ -456,7 +456,7 @@ class TargetingSpec(BaseModel):
     """
 
     shape: str | None = None
-    """The name of the area an `area` mode covers, such as `"sphere"`. `None` on every other mode."""
+    """The name of the area an `area` mode covers, like `"sphere"`. `None` on every other mode."""
 
     dimensions: dict[str, int] = {}
     """The area's measurements in feet, keyed by name: *fire ball*'s sphere is `{"radius_feet": 20}`.
@@ -474,11 +474,11 @@ class TargetingSpec(BaseModel):
 
 
 class SaveSpec(BaseModel):
-    """The saving throw one castable usage of a spell allows its targets, and what passing it buys.
+    """The saving throw one castable usage of a spell allows its targets, and what passing it does.
 
     You read one off [`SpellMode.save`][osrlib.core.spells.SpellMode], which is `None` when the mode
     allows no save at all. Casting rolls the save for you, on the magic stream, against the target's
-    own save values. Read this model to tell a player what they are facing before they commit, or to
+    save values. Read this model to tell a player what they are facing before they commit, or to
     show why a target came through unharmed.
 
     Spell saves are always rolled as magical, so a target's wisdom adjustment applies. A target
@@ -512,7 +512,7 @@ class SaveSpec(BaseModel):
     """
 
     on_save: Literal["negates", "half"] = "negates"
-    """What a passed save buys.
+    """What passing the save does.
 
     `negates` means the target takes nothing at all. `half` means the target still takes half the
     damage, rounded down.
@@ -520,7 +520,7 @@ class SaveSpec(BaseModel):
 
 
 class SpellEffect(BaseModel):
-    """What one castable usage of a spell actually does to its targets.
+    """What one castable usage of a spell does to its targets.
 
     You read one off [`SpellMode.effect`][osrlib.core.spells.SpellMode]. Casting executes it for
     you, so you need this model to describe a spell in an interface, to decide whether a spell is
@@ -570,8 +570,8 @@ class SpellEffect(BaseModel):
     modifiers: tuple[ModifierSpec, ...] = ()
     """The [`ModifierSpec`][osrlib.core.effects.ModifierSpec] bundle a `modifiers` effect grants.
 
-    A bonus to armour class or to saves, for example. They ride the attached effect and lift when it
-    ends.
+    A bonus to armour class or to saves, for example. They belong to the attached effect and come off
+    when it ends.
     """
 
     params: dict[str, int | str | bool | tuple[int | str, ...]] = {}
@@ -579,7 +579,7 @@ class SpellEffect(BaseModel):
 
     Damage dice, per-level scaling, eligibility gates, revival windows, area radii. The keys differ
     by spell and by kind, so read them against the mode you are looking at rather than expecting a
-    fixed shape.
+    fixed set of keys.
     """
 
     @field_validator("kind")
@@ -629,7 +629,7 @@ class SpellMode(BaseModel):
 
     This is what you pass as `mode` to [`cast_spell`][osrlib.core.spells.cast_spell] and
     [`validate_cast`][osrlib.core.spells.validate_cast]. A spell with a single usage still has one,
-    such as *fire ball*'s `"damage"`.
+    like *fire ball*'s `"damage"`.
     """
 
     targeting: TargetingSpec | None = None
@@ -667,17 +667,17 @@ class SpellMode(BaseModel):
 
 
 class ReversedForm(BaseModel):
-    """The reverse of a reversible spell, kept on the spell's own entry.
+    """The reverse of a reversible spell, stored on the spell's entry.
 
     *Cure light wounds* reverses into *cause light wounds*, *light* into *darkness*. The reverse is
     never a separate catalog entry, so you reach it through
     [`SpellTemplate.reversed_form`][osrlib.core.spells.SpellTemplate], which is `None` on a spell
     that does not reverse. To cast it, pass `reversed=True` to
-    [`cast_spell`][osrlib.core.spells.cast_spell] with a `mode` key from this form's own `modes`,
+    [`cast_spell`][osrlib.core.spells.cast_spell] with a `mode` key from this form's `modes`,
     which are not the same keys as the normal form's.
 
     Who fixes the form, and when, differs by caster. An arcane caster chooses normal or reversed
-    when memorizing, so the choice rides on the
+    when memorizing, so the choice is recorded on the
     [`MemorizedSpell`][osrlib.core.spells.MemorizedSpell]. A divine caster memorizes the normal form
     and decides at the moment of casting, by speaking the words backwards, so any memorized copy
     will serve either way.
@@ -697,7 +697,7 @@ class ReversedForm(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     name: str = Field(min_length=1)
-    """The reverse's own name, as the SRD prints it, such as `"Cause Light Wounds"`.
+    """The reverse's name, as the SRD prints it, like `"Cause Light Wounds"`.
 
     Show this rather than the entry's `name` when a cast is reversed.
     """
@@ -708,7 +708,7 @@ class ReversedForm(BaseModel):
     modes: tuple[SpellMode, ...] = Field(min_length=1)
     """One [`SpellMode`][osrlib.core.spells.SpellMode] per castable usage of the reverse.
 
-    Each has its own key, and there is at least one.
+    Each has a distinct key, and there is at least one.
     """
 
     duration: str | None = None
@@ -721,7 +721,7 @@ class ReversedForm(BaseModel):
     """The parsed form of `duration`, as a [`DurationSpec`][osrlib.core.spells.DurationSpec].
 
     `None` means the reverse lasts as long as the normal form, which is the common case. A page that
-    prints a dual line such as `Instant / Permanent` splits it across the two forms.
+    prints a dual line like `Instant / Permanent` splits it across the two forms.
     """
 
 
@@ -738,7 +738,7 @@ class SpellTemplate(BaseModel):
 
     A template is frozen and shared. Play never mutates one. What changes during play is the
     [`MemorizedSpell`][osrlib.core.spells.MemorizedSpell] copies a caster has prepared and the
-    effects a cast leaves on the ledger, and both name a template by id rather than containing one.
+    effects a cast leaves on the ledger, and both refer to a template by id rather than containing one.
 
     Examples:
         ```python
@@ -758,17 +758,17 @@ class SpellTemplate(BaseModel):
 
     A handful of concepts appear in the SRD as a cleric page and a magic-user page that differ
     mechanically. Each such pair compiles as two entries, the cleric one suffixed `_c` and the
-    magic-user one `_mu`: `"light_c"` and `"light_mu"`. For the ids the shipped catalog uses, see
+    magic-user one `_mu`: `"light_c"` and `"light_mu"`. For the ids the built-in catalog uses, see
     [the spell id index][spells-index].
     """
 
     name: str = Field(min_length=1)
-    """The spell's printed name, such as `"Cure Light Wounds"`. Show this, not the id."""
+    """The spell's printed name, like `"Cure Light Wounds"`. Show this, not the id."""
 
     spell_list: str = Field(pattern=r"^[a-z][a-z0-9_]*$")
     """Which class list the spell belongs to.
 
-    The shipped catalog has `"cleric"` and `"magic_user"`, and further lists are additive data. It
+    The built-in catalog has `"cleric"` and `"magic_user"`, and further lists are additive data. It
     must match the [`CasterProfile.spell_list`][osrlib.core.spells.CasterProfile] of any caster who
     memorizes or learns the spell.
     """
@@ -776,7 +776,7 @@ class SpellTemplate(BaseModel):
     level: int = Field(ge=1, le=6)
     """The spell's level, 1 to 6.
 
-    This is what the caster's slots are counted by, not the caster's own level.
+    This is what the caster's slots are counted by, not the caster's level.
     """
 
     duration: str = Field(min_length=1)
@@ -809,23 +809,23 @@ class SpellTemplate(BaseModel):
     intro: str = ""
     """The page's opening text, above the numbered usages.
 
-    On a multi-usage page it is the lead-in, such as `"This spell has two usages:"`. On a
+    On a multi-usage page it is the lead-in, like `"This spell has two usages:"`. On a
     single-usage page it is the opening of the spell's description, and that one mode's `prose` is
     the full text, which usually runs longer.
     """
 
     conjured_monsters: tuple[MonsterTemplate, ...] = ()
-    """Full monster stat blocks printed on the spell's own page rather than in the monster catalog.
+    """Full monster stat blocks printed on the spell's page rather than in the monster catalog.
 
-    [`MonsterTemplate`][osrlib.core.monsters.MonsterTemplate] models: *sticks to snakes* brings its
-    own snake. Spawn them with [`spawn_monster`][osrlib.core.monsters.spawn_monster] when you
-    resolve the spell.
+    [`MonsterTemplate`][osrlib.core.monsters.MonsterTemplate] models. The *sticks to snakes* page, for
+    example, prints the snake's stat block. Spawn them with
+    [`spawn_monster`][osrlib.core.monsters.spawn_monster] when you resolve the spell.
     """
 
     conjured_monster_ids: tuple[str, ...] = ()
     """Ids of monsters the spell summons that already exist in the monster catalog.
 
-    Look them up with [`load_monsters`][osrlib.data.load_monsters]. *Conjure elemental* names its
+    Look them up with [`load_monsters`][osrlib.data.load_monsters]. *Conjure elemental* lists its
     four elementals this way.
     """
 
@@ -856,7 +856,7 @@ class SpellTemplate(BaseModel):
         here is the same string casting takes as its `mode` argument.
 
         Args:
-            key: The mode's key, such as `"damage"` or `"blind"`. Keys are unique within a form but
+            key: The mode's key, like `"damage"` or `"blind"`. Keys are unique within a form but
                 the two forms are independent, so a reversed form may reuse a key or use different
                 ones entirely.
             reversed: True to look on the spell's reversed form instead of its normal one.
@@ -866,7 +866,7 @@ class SpellTemplate(BaseModel):
 
         Raises:
             ValueError: If the spell has no reversed form and you asked for one, or if the form has
-                no mode by that key. The message names the spell and the key.
+                no mode by that key. The message includes the spell and the key.
 
         Examples:
             ```python
@@ -895,9 +895,9 @@ class SpellTemplate(BaseModel):
 
 
 class SpellCatalog(BaseModel):
-    """Every spell osrlib knows, with lookup by id and by class list.
+    """Every spell in the catalog, with lookup by id and by class list.
 
-    Get the shipped catalog from [`load_spells`][osrlib.data.load_spells], which validates it once
+    Get the built-in catalog from [`load_spells`][osrlib.data.load_spells], which validates it once
     and caches it, so calling that loader again costs nothing and returns the same frozen object.
     Every function in this module that needs spell data takes either this catalog or one
     [`SpellTemplate`][osrlib.core.spells.SpellTemplate] out of it.
@@ -920,11 +920,11 @@ class SpellCatalog(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     spells: tuple[SpellTemplate, ...]
-    """Every spell template the catalog holds.
+    """Every spell template the catalog contains.
 
-    The shipped catalog is in id order. The model checks only that the ids are unique, so a catalog
-    you build yourself keeps whatever order you gave it. Iterate this to search on something the two
-    lookup methods do not cover, such as a name or an effect kind.
+    The built-in catalog is in id order. The model checks only that the ids are unique, so a catalog
+    you build yourself is in whatever order you gave it. Iterate this to search on something the two
+    lookup methods do not cover, like a name or an effect kind.
     """
 
     @model_validator(mode="after")
@@ -939,21 +939,21 @@ class SpellCatalog(BaseModel):
 
         This is how you turn a stored id back into castable data: a
         [`MemorizedSpell`][osrlib.core.spells.MemorizedSpell], a caster's `spell_book`, a scroll, and
-        the events this module emits all name spells by id. Pass what you get back to
+        the events this module emits all refer to spells by id. Pass what you get back to
         [`cast_spell`][osrlib.core.spells.cast_spell].
 
         Args:
-            spell_id: The spell's id, such as `"fire_ball"` or `"hold_person_c"`. Ids come from the
-                catalog itself, and the full set in the shipped catalog is
+            spell_id: The spell's id, like `"fire_ball"` or `"hold_person_c"`. Ids come from the
+                catalog itself, and the full set in the built-in catalog is
                 [the spell id index][spells-index].
 
         Returns:
             The [`SpellTemplate`][osrlib.core.spells.SpellTemplate].
 
         Raises:
-            ValueError: If no spell has that id. The message names the id you asked for. An id that
+            ValueError: If no spell has that id. The message includes the id you asked for. An id that
                 came from osrlib always resolves, so treat this as a signal that the id came from
-                somewhere else, such as a save written against a different catalog.
+                somewhere else, like a save written against a different catalog.
 
         Examples:
             ```python
@@ -981,16 +981,16 @@ class SpellCatalog(BaseModel):
         to fill a particular slot, since a caster's slots are counted per spell level.
 
         Get the list id from [`caster_profile`][osrlib.core.spells.caster_profile] rather than
-        hard-coding it, so a class you add with a list of its own works without a change here.
+        hard-coding it, so a class you add with a new spell list works without a change here.
 
         Args:
-            spell_list: The list id, such as `"cleric"` or `"magic_user"`. An id no spell uses
-                returns nothing rather than raising.
+            spell_list: The list id, like `"cleric"` or `"magic_user"`. An id that matches no spell
+                returns an empty tuple rather than raising.
             level: A spell level, 1 to 6, to filter by. `None` returns the whole list.
 
         Returns:
             The matching [`SpellTemplate`][osrlib.core.spells.SpellTemplate] models in the catalog's
-            own order, which for the shipped catalog is id order. Empty when nothing matches.
+            order, which for the built-in catalog is id order. Empty when nothing matches.
 
         Examples:
             ```python
@@ -1006,7 +1006,7 @@ class SpellCatalog(BaseModel):
                 "detect_magic_c",
             ]
             assert len(catalog.by_list(profile.spell_list)) > len(first_level)
-            assert catalog.by_list("druid") == ()  # no such list in the shipped catalog
+            assert catalog.by_list("druid") == ()  # no such list in the built-in catalog
             ```
         """
         return tuple(
@@ -1021,10 +1021,11 @@ class MemorizedSpell(BaseModel):
 
     You build these to hand to [`memorize_spells`][osrlib.core.spells.memorize_spells], one per slot
     you want filled, and you read them back off a character's `memorized_spells`, where they sit in
-    the order they were prepared. That order matters: casting spends the first copy that matches,
-    and a level drain forgets the newest first.
+    the order they were prepared. The order determines which copy goes: casting spends the first copy
+    that matches, and [`forget_excess_memorized`][osrlib.core.spells.forget_excess_memorized], which a
+    level drain calls, drops the newest first.
 
-    A copy names a spell and fills a slot. What the spell can do comes from the template you get
+    A copy has a spell id and fills a slot. What the spell can do comes from the template you get
     with [`SpellCatalog.get`][osrlib.core.spells.SpellCatalog.get].
 
     Examples:
@@ -1041,7 +1042,7 @@ class MemorizedSpell(BaseModel):
     spell_id: str = Field(min_length=1)
     """The spell's id, from [`load_spells`][osrlib.data.load_spells].
 
-    For the ids the shipped catalog uses, see [the spell id index][spells-index].
+    For the ids the built-in catalog uses, see [the spell id index][spells-index].
     """
 
     reversed: bool = False
@@ -1074,7 +1075,7 @@ class CasterProfile(BaseModel):
     """
 
     spell_list: str
-    """The list id the class draws on, such as `"cleric"` or `"magic_user"`.
+    """The list id the class draws on, like `"cleric"` or `"magic_user"`.
 
     It has to match [`SpellTemplate.spell_list`][osrlib.core.spells.SpellTemplate] for the class to
     memorize or learn a spell, and it is what you pass to
@@ -1092,13 +1093,13 @@ def caster_profile(definition: ClassDefinition) -> CasterProfile | None:
     out of a fighter's interface, and the memorization and spell-book functions return a rejection
     rather than raising when they get one.
 
-    The answer comes from the class's own ability tags, so a class you author yourself casts as soon
-    as it has a `divine_magic` or `arcane_magic` tag naming a spell list. Nothing here is
-    hard-coded to the shipped classes.
+    The answer comes from the class's ability tags, so a class you author yourself casts as soon
+    as it has a `divine_magic` or `arcane_magic` tag that specifies a spell list. Nothing here is
+    hard-coded to the built-in classes.
 
     Args:
         definition: The class, as a [`ClassDefinition`][osrlib.core.classes.ClassDefinition] from
-            [`load_classes`][osrlib.data.load_classes]. A character names its class in `class_id`.
+            [`load_classes`][osrlib.data.load_classes]. A character's `class_id` gives its class.
 
     Returns:
         The [`CasterProfile`][osrlib.core.spells.CasterProfile], or `None` when the class has
@@ -1137,9 +1138,9 @@ def _target_ref(target: Any) -> str:
 class MemorizationResult(BaseModel):
     """What came of a call to [`memorize_spells`][osrlib.core.spells.memorize_spells].
 
-    One of the two fields is always empty. Either the preparation was legal, the caster's memorized
-    list was replaced and `events` contains the record of it, or something was wrong, `rejections`
-    says what, and nothing was changed at all. Check
+    One of the two fields is always empty. If the preparation was legal, the caster's memorized list
+    was replaced and `events` contains the record of it. If something was wrong, `rejections` lists
+    what, and nothing was changed at all. Check
     [`accepted`][osrlib.core.spells.MemorizationResult.accepted] rather than testing either tuple
     yourself.
 
@@ -1156,16 +1157,16 @@ class MemorizationResult(BaseModel):
     """
 
     events: tuple[Event, ...] = ()
-    """The [`SpellsMemorizedEvent`][osrlib.core.events.SpellsMemorizedEvent] naming what was prepared.
+    """The [`SpellsMemorizedEvent`][osrlib.core.events.SpellsMemorizedEvent] that lists what was prepared.
 
     Empty on a rejection.
     """
 
     @property
     def accepted(self) -> bool:
-        """Whether the caster's memorized list was actually replaced.
+        """Whether the caster's memorized list was replaced.
 
-        False means nothing changed and `rejections` says why.
+        False means nothing changed and `rejections` contains the reasons.
         """
         return not self.rejections
 
@@ -1177,19 +1178,19 @@ def memorize_spells(
 
     This is the first half of the daily cycle, and a caster with an empty memorized list can cast
     nothing. The list you pass replaces the old one entirely. There is no partial top-up,
-    because B/X has no such operation: a caster who spends one spell does not re-memorize that one
-    slot, they prepare the whole list again at the next opportunity.
+    because B/X has no such operation. A caster who spends one spell does not re-memorize that one
+    slot. They prepare the whole list again at the next opportunity.
 
     What a caster may choose depends on how they cast, which
-    [`caster_profile`][osrlib.core.spells.caster_profile] tells you. A divine caster chooses freely
+    [`caster_profile`][osrlib.core.spells.caster_profile] reports. A divine caster chooses freely
     from the whole class list and never marks a copy reversed, because they decide the form when
     they cast it. An arcane caster chooses only from their own spell book, which
     [`add_spell_to_book`][osrlib.core.spells.add_spell_to_book] grows, and fixes each copy's form
     now. Either way the number of copies at each spell level must fit the slots on the caster's
     current progression row, and preparing the same spell more than once is allowed.
 
-    The rules about when a caster may do this, once a day, after an uninterrupted night's sleep,
-    over the course of an hour, are exploration procedure, and they live with
+    The rules about when a caster may do this (once a day, after an uninterrupted night's sleep,
+    over the course of an hour) are exploration procedure, so they belong to
     [`PrepareSpells`][osrlib.crawl.commands.PrepareSpells] in the crawl layer. Nothing here checks
     them, so if you drive the rules yourself you decide when preparation is allowed.
 
@@ -1203,7 +1204,7 @@ def memorize_spells(
             supplies the slot counts.
         catalog: The spell catalog, from [`load_spells`][osrlib.data.load_spells].
         selections: The [`MemorizedSpell`][osrlib.core.spells.MemorizedSpell] copies to prepare, in
-            the order you want them held. The order decides what goes first: casting spends the
+            the order you want them stored. The order determines which goes first: casting spends the
             first matching copy, and
             [`forget_excess_memorized`][osrlib.core.spells.forget_excess_memorized] drops the last
             ones first.
@@ -1304,7 +1305,7 @@ class SpellBookResult(BaseModel):
     """What came of a call to [`add_spell_to_book`][osrlib.core.spells.add_spell_to_book].
 
     One of the two fields is always empty: either the spell went into the book and `events` records
-    it, or it did not and `rejections` says why, with the book unchanged. Check
+    it, or it did not and `rejections` gives the reason, with the book unchanged. Check
     [`accepted`][osrlib.core.spells.SpellBookResult.accepted] rather than testing either tuple
     yourself.
 
@@ -1320,16 +1321,16 @@ class SpellBookResult(BaseModel):
     """
 
     events: tuple[Event, ...] = ()
-    """The [`SpellBookUpdatedEvent`][osrlib.core.events.SpellBookUpdatedEvent] naming the new spell.
+    """The [`SpellBookUpdatedEvent`][osrlib.core.events.SpellBookUpdatedEvent] for the new spell.
 
     Empty on a rejection.
     """
 
     @property
     def accepted(self) -> bool:
-        """Whether the spell actually went into the book.
+        """Whether the spell went into the book.
 
-        False means the book is unchanged and `rejections` says why.
+        False means the book is unchanged and `rejections` contains the reasons.
         """
         return not self.rejections
 
@@ -1339,8 +1340,8 @@ def open_book_capacity(caster: Caster, definition: ClassDefinition, catalog: Spe
 
     Ask this before you offer a player a spell to learn, so the menu only shows levels with room in
     them. [`add_spell_to_book`][osrlib.core.spells.add_spell_to_book] checks the same thing and
-    refuses when there is no room, so you can also skip this and read the rejection. The difference
-    is that this tells you in advance, without a refused call to explain.
+    returns a rejection when there is no room, so you can also skip this and read the rejection.
+    This function gives you the answer before you make the call.
 
     A book has room, at each spell level, for as many spells as the caster could memorize at that
     level. Entry `i` of the answer is what is still free at spell level `i + 1`: the caster's current
@@ -1363,7 +1364,7 @@ def open_book_capacity(caster: Caster, definition: ClassDefinition, catalog: Spe
 
     Returns:
         One count per spell level on the caster's progression row, lowest level first. An empty
-        tuple for a class that keeps no spell book, which is every divine caster and every
+        tuple for a class with no spell book, which is every divine caster and every
         non-caster.
 
     Examples:
@@ -1419,11 +1420,11 @@ def add_spell_to_book(
     [`memorize_spells`][osrlib.core.spells.memorize_spells] can prepare it.
 
     The book has room, at each spell level, for as many spells as the caster could memorize at that
-    level, and it never contains the same spell twice. It loses no pages on its own, so a caster who
-    loses levels keeps every page and adds nothing more until their capacity catches up.
+    level, and it never contains the same spell twice. A caster who loses levels keeps every page
+    and adds nothing more until their capacity catches up.
 
-    osrlib models only the writing. What it costs and how long it takes, the mentor's week, the
-    price of ink and a fresh book after a fire, belong to your game. Nothing here charges for it or spends
+    osrlib models only the writing. What it costs and how long it takes belong to your game: the
+    mentor's week, the price of ink, a fresh book after a fire. Nothing here charges for it or spends
     game time. In a session, [`LearnSpell`][osrlib.crawl.commands.LearnSpell] wraps this call and
     also passes no time.
 
@@ -1435,14 +1436,14 @@ def add_spell_to_book(
             [`ClassDefinition`][osrlib.core.classes.ClassDefinition] from
             [`load_classes`][osrlib.data.load_classes].
         catalog: The spell catalog, from [`load_spells`][osrlib.data.load_spells].
-        spell_id: The spell to write in. For the ids the shipped catalog uses, see
+        spell_id: The spell to write in. For the ids the built-in catalog uses, see
             [the spell id index][spells-index].
 
     Returns:
         A [`SpellBookResult`][osrlib.core.spells.SpellBookResult]: the book-updated event on
-        success, or the rejection with the book left untouched. A class with no book, an id no spell
-        uses, a spell off the class's list, one the book already contains, and a level with no room
-        are each their own rejection code.
+        success, or the rejection with the book left untouched. A class with no book, an unknown spell
+        id, a spell off the class's list, one the book already contains, and a level with no room
+        each have a separate rejection code.
 
     Examples:
         ```python
@@ -1510,11 +1511,11 @@ def forget_excess_memorized(caster: Caster, definition: ClassDefinition, catalog
 
     Call this after anything that lowers a caster's level, which in B/X means energy drain. Their
     slot counts drop with the level, and the spells they had ready stop fitting. This call drops the
-    surplus. Nothing calls it for you, so a game that drains a caster and skips it leaves them with
-    spells they should not have.
+    surplus. [`drain_levels`][osrlib.core.classes.drain_levels] calls it for you. If you lower a caster's
+    level some other way, call it yourself, or the caster keeps spells they should not have.
 
     Nothing happens when the caster still has room, so the call is safe to make after any level
-    change rather than only after a drop. It looks at each spell level on its own: a caster who lost
+    change rather than only after a drop. It looks at each spell level separately: a caster who lost
     a second-level slot forgets a second-level spell and keeps their first-level ones.
 
     Which copy goes is osrlib's choice. The tabletop rules do not say, and this drops the most
@@ -1609,14 +1610,14 @@ class CastContext(BaseModel):
     default context asserts nothing, which is the right thing to pass when none of these questions
     arises.
 
-    These are the questions a referee at a table answers out loud, and osrlib cannot answer any of
-    them from its own state. It has no map, so it does not know how far away the target is. It has
-    no model of restraints, so it does not know the caster is tied up. It records no cause of death,
-    so it does not know the corpse died of poison.
+    These are the questions a referee at a table answers out loud, and osrlib has no state to answer
+    them from. It has no map, so it can't work out how far away the target is. It has no model of
+    restraints, so it can't tell that the caster is tied up. It records no cause of death, so it
+    can't tell that the corpse died of poison.
 
     A field you leave unset means the rule that reads it does not fire. Range goes unchecked if you
-    assert no distance, and *raise dead* raises nobody if you assert no elapsed days. That is the
-    trade: rather than guess, osrlib leaves a rule alone until you supply what it needs.
+    assert no distance, and *raise dead* raises nobody if you assert no elapsed days. osrlib
+    doesn't guess: it leaves a rule alone until you supply what it needs.
 
     """
 
@@ -1625,8 +1626,8 @@ class CastContext(BaseModel):
     in_combat: bool = False
     """True when the cast happens in a fight.
 
-    A touch spell needs a melee attack roll in combat and lands without one outside it, so this
-    decides whether the touch can miss.
+    A touch spell needs a melee attack roll in combat and hits without one outside it, so this
+    field determines whether the touch can miss.
     """
 
     distance_feet: int | None = None
@@ -1678,7 +1679,7 @@ _CANNOT_CAST_CONDITIONS = (
 
 
 def _int_param(params: Mapping[str, Any], key: str, default: int = 0) -> int:
-    """Read an integer param: schema-validated data whose union the checker can't key by name."""
+    """Read an integer param from schema-validated data the type checker can't narrow by key."""
     return int(params.get(key, default))
 
 
@@ -1740,15 +1741,15 @@ def validate_cast(
     fail, so a cast you validated and then made cannot be refused.
 
     Nothing here draws from an RNG stream, changes the caster, or touches the ledger, so asking is
-    free and leaves no trace. That is also why the answer stops short of one thing you might expect.
-    Whether a target is the kind of creature the spell affects is settled during resolution, not
-    here, because a validator that rejected *charm person* aimed at a disguised doppelganger would
-    be a free way to find out what the doppelganger is. Such a cast is legal, resolves, spends the
+    free and leaves no trace. That is also why it doesn't check whether a target is the kind of
+    creature the spell affects. Resolution settles that, not this check, because a validator that
+    rejected *charm person* aimed at a disguised doppelganger would be a free way to find out what
+    the doppelganger is. Such a cast is legal, resolves, spends the
     copy, and affects nobody.
 
     What it does check: that the caster is in a state to cast at all, which rules out dead,
     petrified, paralysed, asleep, silenced, feebleminded, and weakened casters as well as bound or
-    gagged ones and any caster standing in their own anti-magic shell. That they have a memorized
+    gagged ones and any caster standing in their anti-magic shell. That they have a memorized
     copy in the form they are asking for. That the spell has the form and the mode named. That the
     number of targets suits the mode, which for *magic missile* means exactly one target per missile
     the caster's level grants. And that the target is in range, but only if you asserted a distance.
@@ -1766,7 +1767,7 @@ def validate_cast(
             [`SpellMode.key`][osrlib.core.spells.SpellMode]. A key the chosen form does not have is
             a rejection, not an exception.
         profile: The caster's [`CasterProfile`][osrlib.core.spells.CasterProfile], from
-            [`caster_profile`][osrlib.core.spells.caster_profile]. It decides how a memorized copy
+            [`caster_profile`][osrlib.core.spells.caster_profile]. It determines how a memorized copy
             has to match: a divine caster's copy serves for either form, an arcane caster's only for
             the form it was prepared in. Pass `None` to skip the memorized-copy check entirely, for
             a scroll read, where the scroll is the copy.
@@ -1915,7 +1916,7 @@ class CastResult(BaseModel):
     so your game or narrator says what happened. `no_effect` means the cast resolved and reached
     nobody, because no candidate was eligible or every target saved. In both cases the copy is gone.
     Nothing is refunded once a cast resolves: a refund would tell the player something they had no
-    way to know, such as that the creature they aimed at was immune.
+    way to know, like the fact that the creature they aimed at was immune.
 
     """
 
@@ -1993,7 +1994,7 @@ def cast_spell(
     [`memorize_spells`][osrlib.core.spells.memorize_spells] gives them, and you need the profile
     that [`caster_profile`][osrlib.core.spells.caster_profile] returns. After it, publish the
     [`CastResult`][osrlib.core.spells.CastResult]'s events and keep the ledger you passed, because
-    anything the spell left running now lives there and wants ticking by
+    the ledger now contains any effect the spell left running, and you tick those effects with
     [`osrlib.core.effects`][osrlib.core.effects]. To cast an inscribed spell with no memorized copy
     behind it, use [`cast_from_scroll`][osrlib.core.spells.cast_from_scroll] instead.
 
@@ -2008,12 +2009,12 @@ def cast_spell(
     has to match what you are asking for. Either way the first matching copy in the caster's list is
     the one that goes.
 
-    Casting anything breaks the caster's own invisibility, before the new spell resolves, the same
+    Casting anything breaks the caster's invisibility, before the new spell resolves, the same
     way attacking does.
 
-    Two RNG streams go in, and they stay separate so that each replays on its own. Everything the
-    cast itself rolls, targeting dice, damage dice, the touch attack, the saves it forces, comes from
-    `stream`. Everything an attached effect rolls, such as a duration rolled as it attaches, comes
+    Two RNG streams go in, and they stay separate so that each replays independently. Everything the
+    cast rolls (targeting dice, damage dice, the touch attack, the saves it forces) comes from
+    `stream`. Everything an attached effect rolls, like a duration rolled as it attaches, comes
     from `effects_stream`.
 
     Args:
@@ -2034,14 +2035,14 @@ def cast_spell(
             situation. `None` asserts nothing.
         ledger: The [`EffectsLedger`][osrlib.core.effects.EffectsLedger] that ongoing effects attach
             to. Pass the one your game keeps, not a fresh one, or the spell's duration is lost.
-        clock: The [`GameClock`][osrlib.core.clock.GameClock], read to stamp when attached effects
-            began and when they end.
-        allocator: The [`IdAllocator`][osrlib.core.monsters.IdAllocator] that names each attached
-            effect. Pass the one your game keeps, so ids stay unique across the session.
+        clock: The [`GameClock`][osrlib.core.clock.GameClock], read to record when attached effects
+            begin and end.
+        allocator: The [`IdAllocator`][osrlib.core.monsters.IdAllocator] that assigns each
+            attached effect its id. Pass the one your game keeps, so ids stay unique across the session.
         registry: Every live combatant by entity id, as
             [`Character`][osrlib.core.character.Character] and
-            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] objects. Resolution reaches
-            through it to change creatures the targets alone do not name, such as when an effect
+            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] objects. Resolution uses it
+            to change creatures that aren't among the targets, like when an effect
             lifts.
         ruleset: The [`Ruleset`][osrlib.core.ruleset.Ruleset] in play, read for the optional rules
             that touch attack rolls and damage.
@@ -2161,7 +2162,7 @@ def _perform_cast(
     """Resolve a validated cast whose cost is already paid, shared by memory and scroll."""
     caster_id = _entity_id(caster)
     state = _CastState()
-    # Casting breaks the caster's own invisibility, before the new spell resolves.
+    # Casting breaks the caster's invisibility, before the new spell resolves.
     for effect in list(ledger.active_on(caster_id, "invisibility")):
         state.events.extend(ledger.release(effect.effect_id, registry))
 
@@ -2223,9 +2224,9 @@ def _perform_cast(
 
 
 class _ScrollReader:
-    """A caster proxy: the reader's body at the scroll's caster level.
+    """A caster proxy: the scroll's reader, with `level` replaced by the scroll's caster level.
 
-    Attribute reads and writes pass through to the reader, so conditions and modifiers land on the
+    Attribute reads and writes pass through to the reader, so conditions and modifiers apply to the
     real character. Only `level` is answered here, because a scroll spell resolves at the minimum
     class level able to cast it. The proxy is passed where a
     [`Caster`][osrlib.core.creature.Caster] is expected, so it declares that surface rather than
@@ -2246,7 +2247,7 @@ class _ScrollReader:
     spell_book: tuple[str, ...]
     memorized_spells: tuple[MemorizedSpell, ...]
     level: int
-    """The scroll's caster level, which is the one thing the proxy answers for itself."""
+    """The scroll's caster level, the only attribute the proxy doesn't forward to the reader."""
 
     def __init__(self, reader: Caster, level: int) -> None:
         object.__setattr__(self, "_reader", reader)
@@ -2270,13 +2271,14 @@ def minimum_caster_level(spell: SpellTemplate) -> int:
     [`cast_from_scroll`][osrlib.core.spells.cast_from_scroll] checks legality at this level too.
 
     The answer is the lowest level at which any class drawing on the spell's list first has a slot
-    of that spell's level, read off the compiled class progressions. So the answer moves if you add
+    of that spell's level, read off the compiled class progressions. So the answer changes if you add
     a class whose progression reaches that spell level sooner.
 
     The tabletop rules do not say what level a scroll's spell was inscribed at. osrlib reads a
-    scroll at the lowest level that could cast it, so a scroll the party finds never outdoes the
-    caster who found it. A game that wants scrolls to have their own caster level resolves them with
-    [`cast_spell`][osrlib.core.spells.cast_spell] against a caster of that level instead.
+    scroll at the lowest level that could cast it, so a scroll's spell is never stronger than the
+    same spell cast by the lowest-level caster able to cast it. A game that wants scrolls to have a
+    different caster level resolves them with [`cast_spell`][osrlib.core.spells.cast_spell] against a
+    caster of that level instead.
 
     Args:
         spell: The [`SpellTemplate`][osrlib.core.spells.SpellTemplate] to look up.
@@ -2330,12 +2332,12 @@ def validate_scroll_cast(
     it is the check [`cast_from_scroll`][osrlib.core.spells.cast_from_scroll] makes before it
     resolves anything. Call it to decide whether to offer a read, and call it before any read you
     are about to make. `cast_from_scroll` raises on an illegal read, and osrlib has no model of the
-    scroll, so your own inventory is what decides whether the refused attempt still used it up.
+    scroll, so your inventory code decides whether a refused attempt still uses up the scroll.
 
     The difference from `validate_cast` is the caster the question is asked about. A scroll resolves
     at the lowest class level able to cast the inscribed spell, from
     [`minimum_caster_level`][osrlib.core.spells.minimum_caster_level], whatever level the reader is,
-    so this builds that caster and asks about them. The two checks that scale with caster level
+    so this builds that caster and runs `validate_cast` for them. The two checks that scale with caster level
     therefore follow the scroll: how many targets a mode demands, which is why a 6th-level reader of
     a *magic missile* scroll supplies one target and is refused three, and how far a per-level range
     reaches. The memorized-copy check is skipped, since the scroll is the copy.
@@ -2431,12 +2433,12 @@ def cast_from_scroll(
 
     Use this rather than [`cast_spell`][osrlib.core.spells.cast_spell] whenever the spell comes off a
     page instead of out of the reader's memory. The reader needs no memorized copy, no slot, and no
-    ability to cast the spell of their own. Everything else is the same: the same legality checks,
+    ability to cast the spell. Everything else is the same: the same legality checks,
     the same targeting, the same resolution, the same
     [`CastResult`][osrlib.core.spells.CastResult].
 
     The scroll itself is your responsibility. Reading one uses it up, since the words disappear from
-    the page, and osrlib has no model of the scroll, so mark the inscribed spell spent in your own
+    the page, and osrlib has no model of the scroll, so mark the inscribed spell spent in your
     inventory after this returns. Two other checks are yours as well, or the crawl layer's if you
     use it: whether this reader may read this scroll at all, which is where a thief's scroll-use
     ability and the arcane and divine divide come in, and whether there is light to read by.
@@ -2444,16 +2446,16 @@ def cast_from_scroll(
     The read runs at one caster level throughout: the level
     [`minimum_caster_level`][osrlib.core.spells.minimum_caster_level] gives for the spell, whatever
     level the reader is. Legality and resolution both use it, so a *fire ball* off a scroll always
-    burns for 5d6, a per-level duration is figured from that same level, and the two legality checks
+    rolls 5d6 damage, a per-level duration is figured from that same level, and the two legality checks
     that scale with caster level follow the scroll rather than the reader:
 
-    - How many targets a mode demands. *Magic missile* wants one target per missile, and a scroll's
+    - How many targets a mode demands. *Magic missile* needs one target per missile, and a scroll's
       level grants one, so even a 6th-level reader supplies one target and is refused three.
     - How far the spell reaches, for a spell whose printed range grows per level. That reach is
       figured from the scroll's level when you assert a `distance_feet` in the
       [`CastContext`][osrlib.core.spells.CastContext].
 
-    A condition, a modifier, or a wound the spell puts on its caster lands on the reader, the same
+    A condition, a modifier, or a wound the spell puts on its caster applies to the reader, the same
     as it would from a spell they had memorized.
 
     Args:
@@ -2471,14 +2473,14 @@ def cast_from_scroll(
             situation. `None` asserts nothing.
         ledger: The [`EffectsLedger`][osrlib.core.effects.EffectsLedger] that ongoing effects attach
             to. Pass the one your game keeps.
-        clock: The [`GameClock`][osrlib.core.clock.GameClock], read to stamp attached effects.
-        allocator: The [`IdAllocator`][osrlib.core.monsters.IdAllocator] that names each attached
-            effect.
+        clock: The [`GameClock`][osrlib.core.clock.GameClock], read to record when attached effects begin and end.
+        allocator: The [`IdAllocator`][osrlib.core.monsters.IdAllocator] that assigns each
+            attached effect its id.
         registry: Every live combatant by entity id, as
             [`Character`][osrlib.core.character.Character] and
             [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] objects.
         ruleset: The [`Ruleset`][osrlib.core.ruleset.Ruleset] in play.
-        stream: The [`RngStream`][osrlib.core.rng.RngStream] the cast's own draws come from,
+        stream: The [`RngStream`][osrlib.core.rng.RngStream] the cast's draws come from,
             conventionally [`MAGIC_STREAM`][osrlib.core.spells.MAGIC_STREAM].
         effects_stream: The stream that attaching effects draw from, conventionally
             [`EFFECTS_STREAM`][osrlib.core.effects.EFFECTS_STREAM].
@@ -2584,7 +2586,7 @@ def disrupt_casting(caster: Caster, spell_id: str, *, reversed: bool = False) ->
     Args:
         caster: The [`Caster`][osrlib.core.creature.Caster] who was interrupted, which a
             [`Character`][osrlib.core.character.Character] satisfies. Its `memorized_spells` loses one copy.
-        spell_id: The id of the spell they had declared. For the ids the shipped catalog uses, see
+        spell_id: The id of the spell they had declared. For the ids the built-in catalog uses, see
             [the spell id index][spells-index].
         reversed: True when the declared cast was of the reversed form.
 
@@ -2718,7 +2720,7 @@ def _select_cast_targets(
             TargetingMode.UP_TO_N, eligible, stream=stream, count=targeting.count, count_dice=targeting.count_dice
         )
     # Area modes take every supplied candidate. A radius ward centered on the caster,
-    # such as *protection from evil 10' radius*, covers the caster too.
+    # like *protection from evil 10' radius*, covers the caster too.
     if (
         mode.effect is not None
         and mode.effect.params.get("includes_caster")
@@ -2778,8 +2780,8 @@ def _resolved_duration(
     """Build an effect definition's duration fields from the spell and overrides.
 
     Per-level durations are computed at cast. A fixed amount gains `per_level × caster level`, and a
-    dice duration folds the bonus into the dice modifier, so `1d6 turns +1 per level` at level 3
-    attaches `1d6+3` and keeps its roll-at-attach behavior on the effects stream. A concentration
+    dice duration adds the bonus to the dice modifier, so `1d6 turns +1 per level` at level 3
+    attaches `1d6+3`, which is still rolled on the effects stream when the effect attaches. A concentration
     duration attaches indefinite, since the caller releases concentration effects.
 
     An effect param overrides all of that: `permanent`, `indefinite`, or an explicit
@@ -2886,8 +2888,8 @@ def _condition_definition(
         fields["expiry"] = str(params["expiry"])
     if "escape_dice" in params:
         if isinstance(target, str):
-            # A web cast at a cell keeps the spell's own duration, since the web
-            # stays put, and carries the escape params on the effect. The crawl
+            # A web cast at a cell keeps the spell's duration, since the web
+            # stays put, and stores the escape params on the effect. The crawl
             # layer's enter hook reads them and attaches the per-creature entangled
             # countdown when someone walks in.
             fields["params"] = {
@@ -3007,7 +3009,7 @@ def _resolve_damage(
     if "missiles_base" in params:
         # *Magic missile* takes one supplied target per missile, and repeating a
         # target stacks the missiles on it. Each missile hits without an attack roll
-        # and allows no save, and rolls its own damage. The whole thing resolves at
+        # and allows no save, and rolls damage separately. The whole thing resolves at
         # cast and attaches nothing, so the printed 1-turn duration never applies.
         for target in selected:
             if check_immunity(target, source, ruleset=ruleset, attacker=caster):
@@ -3145,7 +3147,7 @@ def _resolve_cure(
             # The page titles its revival usage "Characters", so only a Character is
             # revivable here. osrlib records no cause of death, so supplying
             # `rounds_since_death` is itself the caller's assertion that the target
-            # died of poison that many rounds ago. The session takes it from its own
+            # died of poison that many rounds ago. The session takes it from its
             # death records, and omits it for a death by any other means.
             if (
                 getattr(target, "definition", None) is not None
@@ -3154,7 +3156,7 @@ def _resolve_cure(
                 and context.rounds_since_death <= window
             ):
                 # Revival undoes the poison death and stands the subject up at 1 hp.
-                # RAW names no hit point total, so osrlib sets the lowest one.
+                # RAW gives no hit point total, so osrlib sets the lowest one.
                 state.events.extend(remove_condition(target, Condition.DEAD, None))
                 target.current_hp = 1
                 state.events.append(
@@ -3295,7 +3297,7 @@ def _resolve_restore_life(
 
     Restores a dead human or demihuman, which means any `Character`, all four Classic races
     included, and never a monster. The subject must have been dead no longer than 4 days × (caster
-    level − 7), which is 0 days at level 7, following RAW. Revival sets 1 hp, removes `dead`, and
+    level − 7), which is 0 days at level 7, following the rules as written. Revival sets 1 hp, removes `dead`, and
     attaches the weakness effect: cannot attack or cast, half movement, fixed at 14 elapsed days as
     a simplification of RAW's "two full weeks of bed rest". Rest tracking is crawl procedure, so a
     game wanting strict bed-rest semantics extends or releases the effect through the ledger.
@@ -3348,13 +3350,13 @@ def pop_mirror_image(
     call this once for every attack aimed at a caster who has the spell running, before or after you
     resolve the attack itself.
 
-    It is safe to call on anyone. A target with no mirror images active returns nothing, so you do
-    not have to check first. When the last image goes, the effect is released from the ledger and
-    that release's own events come back with the pop.
+    It is safe to call on anyone. For a target with no mirror images active, it returns nothing, so
+    you do not have to check first. When the last image goes, the effect is released from the ledger, and
+    the events from that release are included in the returned list.
 
     Args:
-        ledger: The [`EffectsLedger`][osrlib.core.effects.EffectsLedger] the images live on, the one
-            the cast attached them to.
+        ledger: The [`EffectsLedger`][osrlib.core.effects.EffectsLedger] that has the images'
+            effect, the one the cast attached it to.
         target_ref: The entity id of the caster being attacked.
         registry: Every live combatant by entity id, as
             [`Character`][osrlib.core.character.Character] and
@@ -3503,7 +3505,7 @@ def validate_turn_undead(cleric: Caster, definition: ClassDefinition) -> list[Re
     paralysed, or asleep, or weakened, which is the state *raise dead* leaves someone in and which
     bars class abilities outright.
 
-    Whether the character is actually carrying a holy symbol is not checked. The SRD tells clerics
+    Whether the character is carrying a holy symbol is not checked. The SRD tells clerics
     to carry one as a matter of their class rather than as a condition on the procedure, so a game
     that wants the stricter reading checks inventory itself.
 
@@ -3604,13 +3606,13 @@ def turn_undead(
             [`load_classes`][osrlib.data.load_classes]. It must have the `turn_undead` tag.
         candidates: The monsters present, as
             [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] objects, in a stable order.
-            Order decides ties when the Hit Dice pool runs out, so pass the same order every time if
+            The order breaks ties when the Hit Dice pool runs out, so pass the same order every time if
             you want the same result on a replay.
         ledger: The [`EffectsLedger`][osrlib.core.effects.EffectsLedger] the `turned` condition
             attaches to. Pass the one your game keeps.
-        clock: The [`GameClock`][osrlib.core.clock.GameClock], read to stamp the attached effects.
-        allocator: The [`IdAllocator`][osrlib.core.monsters.IdAllocator] that names each attached
-            effect.
+        clock: The [`GameClock`][osrlib.core.clock.GameClock], read to record when the attached effects begin.
+        allocator: The [`IdAllocator`][osrlib.core.monsters.IdAllocator] that assigns each
+            attached effect its id.
         registry: Every live combatant by entity id, as
             [`Character`][osrlib.core.character.Character] and
             [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] objects.

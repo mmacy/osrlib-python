@@ -8,36 +8,36 @@ reaction table. [`load_encounter_tables`][osrlib.data.load_encounter_tables] giv
 for each dungeon level, along with the tables that generate an NPC adventuring party.
 Both cache, so calling them repeatedly costs nothing.
 
-Then call the lookup you want. [`to_hit_ac`][osrlib.core.tables.to_hit_ac] says what an
+Then call the lookup you want. [`to_hit_ac`][osrlib.core.tables.to_hit_ac] returns what an
 attacker must roll, [`reaction_result`][osrlib.core.tables.reaction_result] turns a 2d6
-total into how a meeting starts, [`monster_xp`][osrlib.core.tables.monster_xp] says what
+total into how a meeting starts, [`monster_xp`][osrlib.core.tables.monster_xp] returns what
 a monster is worth, and [`turning_column`][osrlib.core.tables.turning_column] with
-[`TurningTable.result`][osrlib.core.tables.TurningTable.result] says whether a cleric
+[`TurningTable.result`][osrlib.core.tables.TurningTable.result] returns whether a cleric
 drives the undead off. Most take a monster's
 [`MonsterHitDice`][osrlib.core.monsters.MonsterHitDice] rather than a whole monster, so
 they work on a stat block you assembled yourself.
 
 In a game run by a [`GameSession`][osrlib.crawl.session.GameSession] you rarely call any
-of this, because combat, encounters, and experience awards read the tables for you. Reach
+of this, because the session reads the tables for you in combat, encounters, and experience awards. Reach
 for the module when you're building a tool, checking custom content, or running the rules
 without a session.
 
-The attack matrix as shipped matches the SRD cell for cell, and every cell works out to
-`THAC0 − AC` kept within 2 to 20. The printed columns run −3 to 9, and an armour class
+The attack matrix that comes with osrlib matches the SRD cell for cell, and every cell works out to
+`THAC0 − AC` limited to the range 2 to 20. The printed columns run −3 to 9, and an armour class
 outside them follows the same arithmetic, so an armour class the page never prints still
 has an answer. That clamping is what separates the matrix from the `thac0_arithmetic`
 flag on [`Ruleset`][osrlib.core.ruleset.Ruleset], and it shows only once modifiers push a
 total past the ends.
 
-A monster's stat block includes its own THAC0 and saving throws, already reflecting the
+A monster's stat block includes its THAC0 and saving throws, already reflecting the
 rule that bonus hit points make a monster attack as though it had one more Hit Die. The
 Hit Dice lookups here are therefore for checking a stat block, for a monster you wrote
-yourself, and for the forms the shipped data expands into several templates.
+yourself, and for the forms that the compiled data expands into several templates.
 """
 
 # The encounter-table models live here in core rather than in crawl/ because the
-# osrlib/data/ loaders import their model homes and core modules import the loaders: a
-# crawl/ home would give the loaders a core to data to crawl import chain. The crawl layer
+# osrlib/data/ loaders import their model homes and core modules import the loaders, so a
+# home in crawl/ would make core import crawl by way of the loaders. The crawl layer
 # consumes these models and doesn't define them. The tables themselves compile from the
 # SRD markdown sources into combat_tables.json and encounter_tables.json at build time.
 
@@ -86,7 +86,7 @@ __all__ = [
 TURNING_COLUMNS = ("1", "2", "2*", "3", "4", "5", "6", "7-9")
 """The column labels of the turning-undead table, in the order the SRD prints them.
 
-Each label names the Hit Dice of the undead being turned, with `2*` for a two-Hit-Dice
+Each label is the Hit Dice of the undead being turned, with `2*` for a two-Hit-Dice
 monster that has a special ability and `7-9` covering three counts at once. Undead above 9
 Hit Dice have no column and cannot be turned.
 
@@ -97,7 +97,7 @@ a column.
 
 # The attack matrix's HD rows as (max effective HD, THAC0). Effective HD is the count plus
 # 1 for a bonus hit-point modifier, the "attack as 1 HD higher" rule. A negative modifier
-# keeps the unmodified row, so the goblin's 1-1 stays on 19 [0].
+# leaves the monster on the unmodified row, so the goblin's 1-1 stays on 19 [0].
 _MATRIX_HD_ROWS = (
     (1, 19),
     (2, 18),
@@ -176,8 +176,8 @@ class MonsterSaveBand(BaseModel):
 
     Find the band for a monster with
     [`monster_save_band_label`][osrlib.core.tables.monster_save_band_label] and
-    [`CombatTables.save_band`][osrlib.core.tables.CombatTables.save_band]. A shipped
-    monster already has its own saving throws, so you need this for a monster you
+    [`CombatTables.save_band`][osrlib.core.tables.CombatTables.save_band]. A monster that
+    comes with osrlib already has its saving throws, so you need this for a monster you
     wrote yourself or to check one you were given.
     """
 
@@ -197,7 +197,7 @@ class MonsterSaveBand(BaseModel):
 
 
 class TurningResult(BaseModel):
-    """What the turning table says when a cleric of a given level faces undead of a given kind.
+    """The turning table's result when a cleric of a given level faces undead of a given kind.
 
     [`TurningTable.result`][osrlib.core.tables.TurningTable.result] returns one. Act on
     `outcome`: with `"number"` you roll 2d6 and compare it with `threshold`, and the other
@@ -260,8 +260,8 @@ class TurningTable(BaseModel):
     """The turning-undead table: what a cleric of each level can do to undead of each kind.
 
     Get it from [`CombatTables.turning`][osrlib.core.tables.CombatTables] and call
-    [`result`][osrlib.core.tables.TurningTable.result]. Turning is a cleric's own ability,
-    so a magic-user or a fighter never reads this table.
+    [`result`][osrlib.core.tables.TurningTable.result]. Turning is a cleric ability,
+    so this table never applies to a magic-user or a fighter.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -281,8 +281,8 @@ class TurningTable(BaseModel):
 
         Get the column from [`turning_column`][osrlib.core.tables.turning_column], which
         returns None when the undead's Hit Dice run past the table's last column. There's
-        nothing to look up in that case, and the attempt fails. A cleric above level 10
-        reads the `11+` row, which is what the printed table intends.
+        nothing to look up in that case, and the attempt fails. For a cleric above level 10,
+        the lookup reads the `11+` row, as the printed table labels it.
 
         This is the lookup alone. [`turn_undead`][osrlib.core.spells.turn_undead] rolls
         the 2d6 a `"number"` outcome calls for and works out how many undead are
@@ -294,7 +294,7 @@ class TurningTable(BaseModel):
                 [`TURNING_COLUMNS`][osrlib.core.tables.TURNING_COLUMNS].
 
         Returns:
-            What the cell says, ready to act on.
+            The result in the cell, ready to act on.
 
         Raises:
             ValueError: If the level is below 1, or the column label isn't one the table
@@ -359,11 +359,11 @@ class ReactionResult(StrEnum):
     """How a meeting with a monster starts, from the SRD's encounter rules.
 
     [`reaction_result`][osrlib.core.tables.reaction_result] returns one from a 2d6 total.
-    The result says what the monsters do about the party, and nothing more: fighting,
-    talking, and buying them off are what you do next.
+    The result is how the monsters respond to the party. Fighting, talking, and buying
+    them off are what you do next.
 
     The lowercase values serialize into events and saved games. Changing one is a
-    `schema_version` bump, the version stamp that marks a serialized model's shape.
+    `schema_version` bump, the version stamp that identifies a serialized model's structure.
     """
 
     ATTACKS = "attacks"
@@ -392,19 +392,19 @@ class ReactionBand(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     label: str
-    """The range as the SRD prints it, such as `"2 or less"`, `"3–5"`, or `"12 or more"`."""
+    """The range as the SRD prints it, like `"2 or less"`, `"3–5"`, or `"12 or more"`."""
 
     text: str
-    """The SRD's own wording for the band, such as `"Hostile, may attack"`.
+    """The SRD wording for the band, like `"Hostile, may attack"`.
 
     It's the printed English, so use it for a referee's display rather than as text for
-    players. Key your own player-facing wording off `result` instead.
+    players. Base your player-facing wording on `result` instead.
     """
 
     min_total: int | None = None
     """The lowest 2d6 total in the band, or None on the bottom band, which has no floor.
 
-    A charisma modifier can take a total below 2, and such a total still lands here.
+    A charisma modifier can take a total below 2, and such a total still falls in this band.
     """
 
     max_total: int | None = None
@@ -485,29 +485,29 @@ def reaction_result(table: ReactionTable, total: int) -> ReactionResult:
 
 
 class MonsterEncounterEntry(BaseModel):
-    """The part of an encounter-table row that says which monsters turn up.
+    """The part of an encounter-table row that lists which monsters turn up.
 
     Turn it into the actual monsters with
     [`select_encounter_individuals`][osrlib.core.tables.select_encounter_individuals],
-    which handles all three shapes below, then spawn each id with
+    which handles all three cases below, then spawn each id with
     [`spawn_monster`][osrlib.core.monsters.spawn_monster].
     """
 
     model_config = ConfigDict(frozen=True)
 
     kind: Literal["monster"] = "monster"
-    """Always `"monster"`. It tells this entry apart from
+    """Always `"monster"`. It distinguishes this entry from
     [`NpcPartyEncounterEntry`][osrlib.core.tables.NpcPartyEncounterEntry] when you read a row."""
 
     monster_ids: tuple[str, ...] = Field(min_length=1)
     """The monster template ids this row can produce, at least one.
 
-    An id names a template in the catalog the game is playing with: one that ships with
+    An id identifies a template in the catalog the game is playing with: one that comes with
     osrlib, from [`load_monsters`][osrlib.data.load_monsters] and listed in
     [the monster id index][monsters-index], or one an adventure brings with it.
 
     One id is the ordinary case. Several means the printed row covers a spread of one
-    monster's forms, such as a veteran at three different levels, and each individual is
+    monster's forms, like a veteran at three different levels, and each individual is
     picked from that pool separately. The tabletop game leaves the pick to the referee.
     osrlib rolls it instead, so an encounter comes out the same way on a replay.
     """
@@ -515,9 +515,9 @@ class MonsterEncounterEntry(BaseModel):
     variant_dice: str | None = None
     """A dice expression that picks one form for the whole group, or None when each individual is picked separately.
 
-    The hydra is what this exists for: the printed row rolls its Hit Dice once, and every
+    The hydra is what this exists for: on the printed row its Hit Dice are rolled once, and every
     hydra in the group has that many heads. The ids are ordered so the expression's lowest
-    total names the first one.
+    total selects the first one.
     """
 
     @model_validator(mode="after")
@@ -534,17 +534,19 @@ class MonsterEncounterEntry(BaseModel):
 
 
 class NpcPartyEncounterEntry(BaseModel):
-    """The part of an encounter-table row that says a rival adventuring party turns up.
+    """The part of an encounter-table row that calls for a rival adventuring party.
 
     A few rows of the printed tables call for other adventurers rather than monsters.
-    Generate the party with [`osrlib.core.npc`][osrlib.core.npc], which rolls its size,
-    each member's class and level, and their scores and gear.
+    Roll the party's size from
+    [`EncounterTables.npc_compositions`][osrlib.core.tables.EncounterTables.npc_compositions], then
+    generate the party with [`osrlib.core.npc`][osrlib.core.npc], which rolls each member's class and
+    level, and their scores and gear.
     """
 
     model_config = ConfigDict(frozen=True)
 
     kind: Literal["npc_party"] = "npc_party"
-    """Always `"npc_party"`. It tells this entry apart from
+    """Always `"npc_party"`. It distinguishes this entry from
     [`MonsterEncounterEntry`][osrlib.core.tables.MonsterEncounterEntry] when you read a row."""
 
     party_kind: Literal["basic", "expert"]
@@ -592,7 +594,7 @@ class EncounterTableRow(BaseModel):
     count_dice: str | None = None
     """A dice expression for how many appear, or None when the row prints a flat number instead.
 
-    The table's own count wins over the number a monster's description gives, which is
+    The table's count takes precedence over the number a monster's description gives, which is
     what the SRD's note about the dungeon tables says to do. Exactly one of this and
     `count_fixed` is set.
     """
@@ -629,10 +631,10 @@ class EncounterTable(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     id: str
-    """The table's identifier, such as `"level_1"` or `"level_8_plus"`."""
+    """The table's identifier, like `"level_1"` or `"level_8_plus"`."""
 
     label: str
-    """The table's printed heading, such as `"Level 4–5"`."""
+    """The table's printed heading, like `"Level 4–5"`."""
 
     min_level: int = Field(ge=1)
     """The shallowest dungeon level this table covers."""
@@ -679,7 +681,7 @@ def select_encounter_individuals(entry: MonsterEncounterEntry, count: int, strea
 
     Stocking a dungeon and rolling a wandering encounter both come through here, drawing
     in the same order from the same stream, so a room stocked from a row contains what a
-    wander onto that row would have produced.
+    wandering encounter rolled on that row would have produced.
 
     Args:
         entry: The row's monster entry.
@@ -703,8 +705,8 @@ def select_encounter_individuals(entry: MonsterEncounterEntry, count: int, strea
         assert select_encounter_individuals(acolytes, 3, stream) == ["acolyte", "acolyte", "acolyte"]
         ```
     """
-    # A list (never the model's variadic tuple) so index access is unconditioned by
-    # length narrowing. The entry model guarantees at least one id.
+    # A list rather than the model's variadic tuple, so indexing doesn't depend on the type
+    # checker narrowing the tuple's length. The entry model guarantees at least one id.
     ids = list(entry.monster_ids)
     if entry.variant_dice is not None:
         total = roll(entry.variant_dice, stream).total
@@ -727,16 +729,16 @@ class NpcClassLevelRow(BaseModel):
     """The d8 result this row is for. Two results give the same class with different level dice."""
 
     class_id: str
-    """The class this result generates, as an id such as `"cleric"` or `"fighter"`.
+    """The class this result generates, as an id like `"cleric"` or `"fighter"`.
 
     See [the class id index][classes-index].
     """
 
     basic_dice: str
-    """The dice to roll for the NPC's level in a basic party, such as `"1d3"`."""
+    """The dice to roll for the NPC's level in a basic party, like `"1d3"`."""
 
     expert_dice: str
-    """The dice to roll for the NPC's level in an expert party, such as `"1d6+3"`."""
+    """The dice to roll for the NPC's level in an expert party, like `"1d6+3"`."""
 
     @field_validator("basic_dice", "expert_dice")
     @classmethod
@@ -757,8 +759,8 @@ class NpcAlignmentBand(BaseModel):
     """The highest d6 result in this band."""
 
     alignment: str
-    """The alignment this band gives, as the wire value of an
-    [`Alignment`][osrlib.core.alignment.Alignment], such as `"lawful"`."""
+    """The alignment this band gives, as the serialized value of an
+    [`Alignment`][osrlib.core.alignment.Alignment], like `"lawful"`."""
 
 
 class NpcPartyComposition(BaseModel):
@@ -787,8 +789,8 @@ class EncounterTables(BaseModel):
     the dungeon level the party is on.
 
     A [`GameSession`][osrlib.crawl.session.GameSession] rolls wandering monsters for you,
-    and an adventure can bring its own table instead of these, so you reach for this
-    directly when you're stocking or wandering outside a session.
+    and an adventure can include a table that replaces these, so you reach for this
+    directly when you're stocking rooms or rolling wandering monsters outside a session.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -820,8 +822,8 @@ class EncounterTables(BaseModel):
     def for_level(self, level: int) -> EncounterTable:
         """Return the wandering-monster table to roll on at this dungeon level.
 
-        Levels 1, 2, and 3 each have their own table. Levels 4 and 5 share one, 6 and 7
-        share another, and everything 8 or deeper rolls on the last, so no level is too
+        Levels 1, 2, and 3 each have a separate table. Levels 4 and 5 share one, 6 and 7
+        share another, and everything 8 or deeper uses the last, so no level is too
         deep to have a table.
 
         Args:
@@ -888,7 +890,7 @@ class CombatTables(BaseModel):
         writing it out, since the labels use en dashes.
 
         Args:
-            label: A band label such as `"NH"` or `"4–6"`.
+            label: A band label like `"NH"` or `"4–6"`.
 
         Returns:
             The band, with its five saving throw numbers.
@@ -924,7 +926,7 @@ class CombatTables(BaseModel):
         row and counts the monster's special abilities for you.
 
         Args:
-            label: A row label such as `"2+"` or `"7–7+"`.
+            label: A row label like `"2+"` or `"7–7+"`.
 
         Returns:
             The row, with its base and per-ability amounts.
@@ -988,7 +990,7 @@ def to_hit_ac(thac0: int, ac: int) -> int:
 def thac0_for_hd(count: int, *, bonus_modifier: bool = False) -> tuple[int, int]:
     """Return how well a monster of this many Hit Dice attacks.
 
-    A monster that ships with osrlib already has its THAC0, so use this for a monster
+    A monster that comes with osrlib already has its THAC0, so use this for a monster
     you wrote yourself, to check a stat block you were given, or to work out how well a
     monster attacks after something drained its Hit Dice.
 
@@ -1028,7 +1030,7 @@ def monster_save_band_label(hit_dice: MonsterHitDice) -> str:
     """Return which saving-throw band a monster of these Hit Dice belongs to.
 
     Pass the label to [`CombatTables.save_band`][osrlib.core.tables.CombatTables.save_band]
-    to get the numbers. Every monster that ships with osrlib already carries its own saving
+    to get the numbers. Every monster that comes with osrlib already has its saving
     throws, taken from its stat block, so use this for a monster you wrote yourself or to
     check one you were given.
 
@@ -1036,7 +1038,7 @@ def monster_save_band_label(hit_dice: MonsterHitDice) -> str:
     counted in whole Hit Dice: a troll at 6+3 saves on the band for 4 to 6. Two kinds of
     monster save as a normal human: one whose Hit Dice count is below 1, and one whose hit
     die is a d4, which is how the compiled data writes half a Hit Die. A monster with flat
-    hit points per Hit Die, such as a hydra, still saves on the band for its count.
+    hit points per Hit Die, like a hydra, still saves on the band for its count.
 
     Args:
         hit_dice: The monster's Hit Dice.
@@ -1086,7 +1088,7 @@ def turning_column(hit_dice: MonsterHitDice) -> str | None:
     The column is the Hit Dice count, with three exceptions the table prints: a two-Hit-Dice
     monster with a special ability sits in `2*`, counts 7 through 9 share one column, and
     anything above 9 has no column. A hit-point modifier never moves a monster between
-    columns, so a mummy's 5+1 turns on column 5, and a special ability matters only at count
+    columns, so a mummy's 5+1 turns on column 5, and a special ability changes the column only at count
     2, so a wight's 3* turns on column 3.
 
     Args:
@@ -1133,15 +1135,15 @@ def xp_band_label(hit_dice: MonsterHitDice) -> str:
     from the "Less than 1" row. The rule about attacking as one Hit Die higher is for
     bonuses only. A monster whose hit die is a d4, which is how the compiled data writes
     half a Hit Die, is "Less than 1" whatever its count, and so is one whose count works out
-    below 1. A monster with flat hit points per Hit Die, such as a hydra, is awarded from
-    the row for its count. Above 21 Hit Dice everything lands on the last row, and
+    below 1. A monster with flat hit points per Hit Die, like a hydra, is awarded from
+    the row for its count. Above 21 Hit Dice everything uses the last row, and
     `monster_xp` adds to it from there.
 
     Args:
         hit_dice: The monster's Hit Dice.
 
     Returns:
-        A row label such as `"Less than 1"`, `"2+"`, or `"9–10+"`.
+        A row label like `"Less than 1"`, `"2+"`, or `"9–10+"`.
 
     Examples:
         ```python

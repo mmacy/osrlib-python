@@ -8,15 +8,15 @@ values, so you can run whatever your game does at the end of a turn or a day: bu
 torch down, check for wandering monsters, eat a day's rations.
 
 In an ordinary game you never build a clock yourself. A
-[`GameSession`][osrlib.crawl.session.GameSession] keeps one and advances it as commands
+[`GameSession`][osrlib.crawl.session.GameSession] has one and advances it as commands
 consume time, and
 [`EffectsLedger.advance`][osrlib.core.effects.EffectsLedger.advance] takes the session's
 clock when it ages poison, light, and the rest. Build your own when you use the kernel
 without a session and still want time to pass.
 
 B/X measures time in three units: the round of 10 seconds, the turn of 10 minutes, and
-the day. The clock keeps one integer count of rounds, the finest unit, so the arithmetic
-is exact and the whole clock saves as one number. An advance that lands exactly on a
+the day. The clock stores one integer count of rounds, the finest unit, so the arithmetic
+is exact and the whole clock saves as one number. An advance that ends exactly on a
 boundary counts as crossing it: a torch lit at turn 0 burns out when the clock reaches
 turn 6, not turn 7.
 
@@ -84,7 +84,7 @@ TURNS_PER_DAY = 144
 """How many exploration turns make up one day.
 
 That's a full 24 hours of turns, not only the ones spent underground. The day boundary
-is where the rules put daily events, such as eating and preparing spells.
+is where the rules put daily events, like eating and preparing spells.
 """
 
 ROUNDS_PER_DAY = ROUNDS_PER_TURN * TURNS_PER_DAY
@@ -137,7 +137,7 @@ class BoundaryCrossing(BaseModel):
     """One turn or day boundary that a clock advance passed.
 
     [`advance`][osrlib.core.clock.GameClock.advance] returns a list of these, oldest
-    first. Walk the list and do whatever your game owes the end of a turn or the end of
+    first. Walk the list and do whatever your game does at the end of a turn or the end of
     a day, in the order the boundaries arrived. There are no round crossings: every
     round is a round boundary, so the count of them is the advance itself.
 
@@ -186,7 +186,7 @@ class GameClock(BaseModel):
     """How much time has passed in the game, as a count of rounds.
 
     Call `GameClock()` to start a game at time zero, or `GameClock(rounds=n)` to resume
-    one. A [`GameSession`][osrlib.crawl.session.GameSession] makes its own and keeps it
+    one. A [`GameSession`][osrlib.crawl.session.GameSession] creates one and stores it
     on `session.clock`, so reach for the constructor only when you're running the kernel
     without a session.
 
@@ -262,7 +262,7 @@ class GameClock(BaseModel):
         Returns:
             Every turn and day boundary in the advanced span, in chronological order,
             with a coinciding turn boundary before its day boundary. A boundary the
-            advance lands on exactly is included. The position you started from isn't,
+            advance ends on exactly is included. The position you started from isn't,
             because the advance that reached it already reported it.
 
         Raises:

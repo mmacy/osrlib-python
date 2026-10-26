@@ -3,7 +3,7 @@
 [`Interpreter`][osrlib.crawl.interpreter.Interpreter] is what turns the authored hooks in
 an adventure document into things that happen at the table.
 
-Where the interpreter sits. It reads the `triggers` and `quests` of the
+It reads the `triggers` and `quests` of the
 [`Adventure`][osrlib.crawl.adventure.Adventure] the session is playing, and it is an
 ordinary listener your game registers with
 [`GameSession.register_listener`][osrlib.crawl.session.GameSession.register_listener]. It
@@ -22,11 +22,11 @@ quest it acted for. What it does shows up in the event stream as
 [`NoteRecordedEvent`][osrlib.crawl.events.NoteRecordedEvent], plus whatever the
 consequences and rewards themselves emit.
 
-That discipline is what keeps an authored game replayable. The interpreter emits no
-events of its own and keeps nothing between commands, so a replay, which runs with no
+Acting only through commands keeps an authored game replayable. The interpreter emits no
+events itself and stores nothing between commands, so a replay, which runs with no
 listeners at all, rebuilds the same world by re-executing the same log. Every effect a
-trigger or a quest has is a command in that log, and every one of those commands says
-whose idea it was.
+trigger or a quest has is a command in that log, and each of those commands has a `source`
+stamp that records the trigger or quest that issued it.
 
 Write your own listener instead when you want something the authored vocabulary does not
 cover. The guide
@@ -84,7 +84,7 @@ and then recorded as a note instead of being acted on."""
 
 
 class _Owner(NamedTuple):
-    """Whoever the interpreter is acting for: what it signs with, and what it says.
+    """Whoever the interpreter is acting for: its command stamp and its note label.
 
     One definition of both forms, shared by triggers and quests, so the stamp on a
     command and the subject of a note can never disagree about who acted.
@@ -103,7 +103,7 @@ class _Owner(NamedTuple):
 
     @property
     def label(self) -> str:
-        """How a note names the owner: `trigger lever-east`, `quest the-idol`."""
+        """How a note refers to the owner: `trigger lever-east`, `quest the-idol`."""
         return f"{self.kind} {self.id}"
 
 
@@ -121,8 +121,8 @@ def _matches_area_entered(pattern: AreaEnteredPattern, event: Event) -> bool:
 def _matches_level_entered(pattern: LevelEnteredPattern, event: Event) -> bool:
     """The party arrived on that level of that dungeon, by stair or by dungeon entry.
 
-    A crossing reports the coarsest boundary it passed, so a party coming in from town
-    reports a dungeon entry and never a level entry beneath it. Both kinds match here:
+    The engine reports only the coarsest boundary a crossing passed, so a party coming in
+    from town gets a dungeon entry and never a level entry beneath it. Both kinds match here:
     arriving on a level is arriving on it however the party got there.
     """
     return (
@@ -150,9 +150,9 @@ def _matches_town_entered(event: Event) -> bool:
 def _matches_item_acquired(pattern: ItemAcquiredPattern, event: Event, session: GameSession) -> bool:
     """A member acquired an item with that catalog id.
 
-    An acquisition names mundane items by catalog id and magic items by their
+    The acquisition event reports mundane items by catalog id and magic items by their
     session-scoped instance id, so a magic id matches by resolving the instance
-    against the pack it just landed in.
+    against the inventory it was just added to.
     """
     if not isinstance(event, ItemAcquiredEvent):
         return False
@@ -189,8 +189,8 @@ def _matches_flag_set(pattern: FlagSetPattern, event: Event) -> bool:
 def _matches(pattern: TriggerPattern, event: Event, session: GameSession) -> bool:
     """Whether one event satisfies one authored pattern.
 
-    Matching reads the event's own facts and never the party's current position: a
-    consequence can relocate the party mid-batch, while an event keeps describing the
+    Matching reads the event's facts and never the party's current position: a
+    consequence can relocate the party mid-batch, while an event still describes the
     moment it was emitted.
     """
     if isinstance(pattern, AreaEnteredPattern):
@@ -222,9 +222,9 @@ class Interpreter:
     are code and a save contains data. Nothing migrates: the interpreter's slot in
     `listener_state` is empty and stays empty for the life of the session.
 
-    What it does with a command's events. It walks them in the order they happened and,
+    It walks the events of each accepted command in the order they happened and,
     per event, the adventure's triggers in document order and then its quests in document
-    order, which is the only order it ever uses. A trigger matches when its
+    order. A trigger matches when its
     pattern fits the event, its fired-state allows it (once-only unless `repeatable`), and
     every one of its conditions holds against session state right now. A match fires
     immediately, before the walk moves on, so a later trigger's conditions see what an
@@ -234,9 +234,9 @@ class Interpreter:
 
     1. [`MarkTriggerFired`][osrlib.crawl.commands.MarkTriggerFired], which includes the
        `fired` beat. The mark goes in first, which is what makes once-only safe against
-       a trigger whose own consequences would match it again.
+       a trigger whose consequences would match it again.
     2. The consequences, in authored order, with `@party` and `@first` expanded to the
-       living members they name, so the log records concrete character ids and replays
+       living members they select, so the log records concrete character ids and replays
        exactly.
     3. [`AddJournalEntry`][osrlib.crawl.commands.AddJournalEntry] when the trigger's
        narrative includes a journal form, last, so the beat is stamped with the clock the
@@ -251,19 +251,19 @@ class Interpreter:
        [`ActivateQuest`][osrlib.crawl.commands.ActivateQuest], and the walk continues
        into the objectives of the quest it just activated: the same event that starts a
        quest can finish something in it.
-    2. An active quest's objectives walk in authored order. A hidden, unrevealed,
+    2. The walk goes through an active quest's objectives in authored order. A hidden, unrevealed,
        incomplete objective whose `reveal_when` matches gets
        [`RevealObjective`][osrlib.crawl.commands.RevealObjective], and an incomplete
        objective whose `when` matches gets
        [`CompleteObjective`][osrlib.crawl.commands.CompleteObjective]. An objective that
        completes without ever being revealed needs no reveal, because completing shows
        it.
-    3. The moment a completion lands, the quest's completion rule is checked against live
+    3. As soon as an objective completes, the quest's completion rule is checked against live
        state (`all` or `any`), and a satisfied rule gets
        [`CompleteQuest`][osrlib.crawl.commands.CompleteQuest] followed by the rewards in
        authored order, selectors expanded exactly as a trigger's consequences are. On a
        quest that concludes the adventure the session is in `victory` before the first
-       reward is issued, which is why a reward that would resume play there drops with a
+       reward is issued, which is why a reward that would resume play there is dropped with a
        note.
 
     Everything is evaluated as the walk goes: a flag an earlier firing wrote satisfies a
@@ -273,22 +273,22 @@ class Interpreter:
     A quest walk stops at the completion it issues. The rewards go out and the walk
     returns, so an objective later in the tuple whose clause also matches this event is
     left incomplete, and it completes on the next event that matches it. Under the `any`
-    rule that is the usual case, since the first objective to land finishes the quest.
+    rule that is the usual case, since the first objective to complete finishes the quest.
 
-    Where the interpreter's discipline stops and the referee's ruling begins. The
+    The interpreter doesn't follow up on quest commands your game issues by hand. The
     completion rule is checked only after a completion the interpreter itself issued, and
     no pattern matches the quest events, so a game that completes the last objective by
     hand completes the quest by hand too. For the same reason a hand-driven
-    [`CompleteQuest`][osrlib.crawl.commands.CompleteQuest] grants no rewards: rewards are
-    this listener reading the quest, and what a replay re-executes is the reward commands
+    [`CompleteQuest`][osrlib.crawl.commands.CompleteQuest] grants no rewards: only the
+    interpreter issues rewards, and what a replay re-executes is the reward commands
     themselves.
 
-    When something does not work out, the run continues and the log says why. A rejected
-    consequence or reward is dropped on its own, whether it is a spawn that meets an open
+    When something does not work out, the run continues and the log records why. A rejected
+    consequence or reward is dropped without affecting the others, whether it is a spawn that meets an open
     encounter or a grant to a character who is not there, and a
     [`RecordNote`][osrlib.crawl.commands.RecordNote] records the trigger or quest, the
     slot's position and type, and the rejection. If a wipe mid-cascade ends the session,
-    the remaining commands land or drop by the ordinary rules of a terminal mode. A
+    the remaining commands are accepted or dropped by the ordinary rules of a terminal mode. A
     cascade is bounded too: what a firing or a quest advancement issues is one level
     deeper than the event that caused it, and an event at depth five or deeper issues
     nothing further. Matching itself carries on at that depth. Every trigger is still
@@ -298,11 +298,11 @@ class Interpreter:
     did not issue and stops there, so the objective clauses of that quest are not evaluated
     for this event. No state moves in any of these cases, so a once-only trigger cut short
     here is still fireable later, and a suppressed quest advancement waits for its clause
-    to match again. Clauses are edge-triggered on both surfaces, so the suppressed edge
-    itself is gone.
+    to match again. Clauses are edge-triggered for both triggers and quests, so the
+    suppressed edge itself is gone.
 
-    What it never does. It returns no events, because everything it causes is already
-    logged by the commands it executed, and it keeps no memory between commands. Read
+    It returns no events, because everything it causes is already
+    logged by the commands it executed, and it stores nothing between commands. Read
     what a trigger or a quest did from the command log, the journal,
     `session.fired_triggers`, and `session.quests`, all of which a replay rebuilds.
 
@@ -361,9 +361,9 @@ class Interpreter:
     """
 
     key = "osrlib.interpreter"
-    """The listener key, which names this listener's slot in the session's
+    """The listener key, which identifies this listener's slot in the session's
     `listener_state`. Registration creates the entry, and it is the empty dict for the
-    life of the session, because the interpreter keeps no memory between commands."""
+    life of the session, because the interpreter stores nothing between commands."""
 
     def __init__(self, session: GameSession) -> None:
         """Bind the interpreter to the session it watches and issues commands through.
@@ -382,7 +382,7 @@ class Interpreter:
         self._depth = 0
 
     def handle(self, events: Sequence[Event], state: dict) -> tuple[list[Event], dict]:
-        """Match one command's events and act on what they crossed.
+        """Match one command's events and act on the matches.
 
         The session calls this after every accepted command, and you do not call it
         yourself. It is here because it is the listener contract every listener
@@ -395,7 +395,7 @@ class Interpreter:
 
         Returns:
             No events and the empty state. Everything the interpreter does is a command
-            it executed, and it remembers nothing between commands.
+            it executed, and it stores nothing between commands.
         """
         depth = self._depth
         for event in events:
@@ -423,7 +423,7 @@ class Interpreter:
     def _clause_holds(self, clause: TriggerClause, event: Event) -> bool:
         """Whether one quest clause fits this event and holds against state right now.
 
-        The same two questions a trigger answers, asked through the same matcher and
+        These are the same two checks a trigger gets, made through the same matcher and
         the same evaluation, so quests and triggers can never disagree about what an
         event means or when a condition is true.
         """
@@ -503,8 +503,9 @@ class Interpreter:
                     self._truncated(owner, f"objective {objective.id} not completed", depth)
                     continue
                 self._issue(CompleteObjective(quest_id=quest.id, objective_id=objective.id), owner)
-                # The rule is checked the moment a completion lands, and only after one
-                # this walk issued: a completion by hand is a ruling by hand.
+                # The rule is checked as soon as an objective completes, and only after a
+                # completion this walk issued, so a game that completes an objective by hand
+                # completes the quest by hand.
                 if state.status == "active" and self._rule_satisfied(quest, state):
                     self._issue(CompleteQuest(quest_id=quest.id), owner)
                     self._issue_authored(quest.rewards, owner, "reward")
@@ -526,8 +527,8 @@ class Interpreter:
     def _issue_authored(self, authored: Sequence[Command], owner: _Owner, slot: str) -> None:
         """Issue an authored sequence: a trigger's consequences, or a quest's rewards.
 
-        In authored order, selectors expanded to the members they name, each command
-        standing or dropping on its own so one rejection never stops the rest.
+        In authored order, selectors expanded to the members they select, each command
+        accepted or dropped independently so one rejection never stops the rest.
         """
         for position, command in enumerate(authored):
             site = f"{slot} {position}"
@@ -540,8 +541,8 @@ class Interpreter:
         """Resolve an authored command's party selector into the commands it stands for.
 
         A literal character id is not a selector and is passed through untouched: an
-        id a document could not have known lands as an ordinary rejection, dropped and
-        noted like any other.
+        id a document could not have known is rejected like any other command, dropped
+        and noted.
         """
         if not isinstance(consequence, GrantItem | GrantCoins | AwardXP):
             return [consequence]
@@ -556,7 +557,7 @@ class Interpreter:
         return [consequence]
 
     def _note_drop(self, owner: _Owner, site: str, command: Command, reason: str) -> None:
-        """Record an authored command that did not land, from the facts alone."""
+        """Record an authored command that was dropped, from the facts alone."""
         self._issue(RecordNote(text=f"{owner.label}: {site} ({command.command_type}) dropped ({reason})"), owner)
 
     def _truncated(self, owner: _Owner, what: str, depth: int) -> None:

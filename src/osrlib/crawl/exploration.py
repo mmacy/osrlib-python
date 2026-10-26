@@ -8,12 +8,13 @@ don't call a handler here yourself. You build one of the command models in
 [`osrlib.crawl.commands`][osrlib.crawl.commands], like [`MoveParty`][osrlib.crawl.commands.MoveParty],
 [`Search`][osrlib.crawl.commands.Search] or [`Rest`][osrlib.crawl.commands.Rest], and pass it to
 [`GameSession.execute`][osrlib.crawl.session.GameSession.execute]. The session looks the command's
-class up in its own private handler table and runs the handler it finds, which is one function
+class up in a private handler table and runs the handler it finds, which is one function
 taking `(session, command)` and returning `(rejections, events)`. You get back a
 [`CommandResult`][osrlib.crawl.commands.CommandResult] that contains either
-[`Rejection`][osrlib.core.validation.Rejection] models saying why the command was refused, or the
-event models of [`osrlib.crawl.events`][osrlib.crawl.events] saying what happened. Validation is a
-pure pre-phase, so a rejected command rolls no dice, changes no state, and costs no game time.
+[`Rejection`][osrlib.core.validation.Rejection] models that describe why the command was refused, or
+the event models of [`osrlib.crawl.events`][osrlib.crawl.events] that describe what happened. The session
+validates a command before it runs any of it, so a rejected command rolls no dice, changes no state, and
+costs no game time.
 
 The rest of the public surface here is the per-turn bookkeeping that runs on the session's cadence
 rather than on a command: [`exploration_rate`][osrlib.crawl.exploration.exploration_rate],
@@ -21,8 +22,8 @@ rather than on a command: [`exploration_rate`][osrlib.crawl.exploration.explorat
 [`consume_provisions`][osrlib.crawl.exploration.consume_provisions],
 [`wandering_interval`][osrlib.crawl.exploration.wandering_interval] and
 [`wandering_check`][osrlib.crawl.exploration.wandering_check].
-[`GameSession.advance_turns`][osrlib.crawl.session.GameSession.advance_turns] calls each of them at
-its own moment, so a front end that moves time by executing commands doesn't have to. Call them
+[`GameSession.advance_turns`][osrlib.crawl.session.GameSession.advance_turns] calls each of them on
+its schedule, so a front end that moves time by executing commands doesn't have to. Call them
 yourself to read the party's current numbers for a status display, or to run one of the checks when
 you drive the clock some other way.
 
@@ -266,7 +267,7 @@ _FATIGUE_DEFINITION = EffectDefinition(
     ),
 )
 
-# Exhaustion's −2 to AC rides `attack_penalty_of_attackers` +2: attackers of the
+# Exhaustion's −2 to AC is modelled as `attack_penalty_of_attackers` +2: attackers of the
 # exhausted creature gain +2, which is exactly descending AC worsened by 2.
 EXHAUSTED_DEFINITION = EffectDefinition(
     kind=EXHAUSTED_KIND,
@@ -351,7 +352,7 @@ def _seed(edge, state: DoorState) -> DoorState:
 def _read_door_state(session, edge, ref: str) -> DoorState:
     """The overlay entry for one door, for reading, never stored.
 
-    A door nobody has operated has no entry: this answers a transient default
+    A door that has never been operated has no entry, so this returns a transient default
     seeded from the authored spec, which reads identically to the entry an
     operation would store. Reading never writes, so a refused command leaves the
     overlay exactly as it found it.
@@ -372,7 +373,7 @@ def _store_door_state(session, edge, ref: str) -> DoorState:
     """The overlay entry for one door, for writing, created and seeded on first touch.
 
     Every mutation of a door goes through here: opening, closing, wedging,
-    unlocking, discovering a secret door, and the referee's own door writes. The
+    unlocking, discovering a secret door, and the referee's door writes. The
     authored `starts_open` seeds only a brand-new entry, so materializing a door
     that is already stored never rewrites what play did to it.
 
@@ -399,8 +400,8 @@ def _door_state(session, direction: Direction) -> DoorState:
 def _materialize_door(session, direction: Direction) -> DoorState:
     """The stored overlay entry for the door on one side of the party's cell.
 
-    A door forced or opened by the party marks `opened_by_party`, which is what
-    the swing-shut rule watches.
+    When the party forces or opens a door, the handler sets `opened_by_party` on
+    this entry, and the rule that swings doors shut behind the party reads that flag.
     """
     edge = _level(session).edge(_position(session), direction)
     return _store_door_state(session, edge, _edge_ref(session, direction))
@@ -409,8 +410,8 @@ def _materialize_door(session, direction: Direction) -> DoorState:
 def _known_door(session, direction: Direction):
     """Return `(edge, state)` when a known door faces `direction`, else `None`.
 
-    An undiscovered secret door is a wall to the party. Commands against it
-    reject exactly as against blank stone (no leak).
+    An undiscovered secret door is a wall to the party. A command against it is
+    rejected exactly as one against blank stone, so the rejection doesn't reveal the door.
     """
     edge = _level(session).edge(_position(session), direction)
     if edge.kind is not EdgeKind.DOOR:
@@ -434,7 +435,7 @@ def _sight_passes(session, level, location, cell: Position, direction: Direction
 
     Open floor and an open, non-secret door let light through. Walls, blocked
     edges, and shut or undiscovered-secret doors stop it, the same passability
-    the mover and the edge projection already agree on.
+    rules that movement and the edge projection use.
 
     Args:
         session (osrlib.crawl.session.GameSession): The running session.
@@ -463,7 +464,7 @@ def _sight_line_feet(session) -> int | None:
 
     Sight runs cell by cell along each of the four grid directions, crossing only
     the edges `_sight_passes` allows, and the longest of the four runs is how far
-    the space lets the party see from where it stands: a chamber's own span inside
+    the space lets the party see from where it stands: the chamber's span inside
     a chamber, the whole passage down a straight corridor. On a rectangular room
     this equals the room's extent from the party's cell, since the farthest corner
     is exactly the longer of the two runs away in grid (Chebyshev) distance.
@@ -513,15 +514,15 @@ def _light_radius_feet(params) -> int:
 
 
 def _light_reveal(session) -> tuple[str | None, set[Position]]:
-    """Cells the party sees *right now* by its own light, keyed to their level.
+    """Cells the party sees *right now* by the party's light, keyed to their level.
 
     This is sight, not exploration: the party glimpses the lit room it stands in
     and a few cells down open passages, but these cells never enter the persisted
-    explored set, so seeing a room never cheapens the movement of later walking
-    it. The session does persist the result as map memory. After every accepted
-    command it folds these cells into
+    explored set, so seeing a room doesn't make walking it later any cheaper. The
+    session does persist the result as map memory. After every accepted command it
+    adds these cells to
     [`DungeonState.seen`][osrlib.crawl.dungeon.DungeonState.seen], so a front
-    end's automap remembers the glimpsed room after the party walks on. Torchlight
+    end's automap can still show the glimpsed room after the party walks on. Torchlight
     fills the keyed room whole and spills through open doorways out to the light's
     radius. Walls, and shut or undiscovered doors, stop it. Empty unless the party
     stands in a dungeon with a light burning.
@@ -592,7 +593,7 @@ def _requires_light(session, member, *, infravision_suffices: bool) -> list[Reje
 
 
 def _int_param(params: Mapping[str, Any], key: str, default: int = 0) -> int:
-    """Read an integer param: schema-validated data whose union the checker can't key by name."""
+    """Read an integer param: schema-validated data whose union type the type checker can't index by key name."""
     return int(params.get(key, default))
 
 
@@ -613,15 +614,15 @@ def exploration_rate(session) -> int:
     """Return the party's exploration rate in feet per turn.
 
     A party moves at the pace of its slowest living member, so that member's movement rate is the
-    party's. Read it to show a movement allowance, to work out how much ground a turn buys, or to
+    party's. Read it to show a movement allowance, to work out how much ground the party covers in a turn, or to
     find out whether the party can move at all. A rate of 0 means one of two things: a living member
     is carrying too much to move, or no member is living. While either holds, the session rejects a
     [`MoveParty`][osrlib.crawl.commands.MoveParty] with `exploration.move.cannot_move` and the
     reason `overloaded`, whichever of the two put the rate at 0.
 
-    For one character's own movement allowance rather than the party's, call
+    For one character's movement allowance rather than the party's, call
     [`Character.movement_rate`][osrlib.core.character.Character.movement_rate], which is what this
-    reads for each member. A front end showing a per-character rate wants that one.
+    reads for each member.
 
     You don't spend the rate yourself. The session charges each step against it on an odometer and
     advances the clock a turn when the odometer fills. The value changes as the party's load does,
@@ -844,7 +845,7 @@ def consume_provisions(session) -> list[Event]:
     town nobody goes short: carried rations are still eaten, and a member with none is fed anyway.
 
     [`GameSession.advance_rounds`][osrlib.crawl.session.GameSession.advance_rounds] crosses each day
-    boundary and calls this on its own, and every path that moves the clock goes through it, so a
+    boundary and calls this for you, and every path that moves the clock goes through it, so a
     front end that moves time by executing commands doesn't call this. Call it yourself when you
     drive the clock some other way.
 
@@ -966,12 +967,12 @@ def _sync_deprivation(session, member, state) -> list[Event]:
 
 
 def _consume_item(member, item_id: str, quantity: int = 1) -> ItemInstance | MagicItemInstance | None:
-    """Take units of a carried item and answer the instance they came from.
+    """Take units of a carried item and return the instance they came from.
 
     The lookup is
-    [`Inventory.carried_item`][osrlib.core.items.Inventory.carried_item], the whole
-    carried surface, mundane and magic alike, the same rule a `has_item` gate
-    evaluates by, so anything a gate can find, a toll can take. A stack spent
+    [`Inventory.carried_item`][osrlib.core.items.Inventory.carried_item], which searches
+    everything the member carries, mundane and magic alike. A `has_item` gate uses the
+    same lookup, so a toll can take anything a gate can find. A stack spent
     exactly leaves the inventory, and a deeper one decrements.
 
     Args:
@@ -994,7 +995,7 @@ def _consume_item(member, item_id: str, quantity: int = 1) -> ItemInstance | Mag
 
 
 def _find_item(member, item_id: str):
-    """The mundane-item lookup: presence checks whose subject is shipped gear.
+    """The mundane-item lookup: presence checks for standard equipment.
 
     Narrower than
     [`Inventory.carried_item`][osrlib.core.items.Inventory.carried_item] on
@@ -1031,7 +1032,7 @@ def _remove_instance(member, instance: ItemInstance | MagicItemInstance) -> None
 def wandering_interval(session) -> int:
     """Return how many turns pass between wandering-monster checks on the level the party is on.
 
-    Each dungeon level has its own interval, two turns by the book. The session counts turns
+    Each dungeon level has its own interval, two turns in the SRD. The session counts turns
     against this number and, when the count reaches it, runs
     [`wandering_check`][osrlib.crawl.exploration.wandering_check] and starts counting again. Read it
     to tell a player how much dungeon time is left before the next check, or to drive the same
@@ -1111,8 +1112,8 @@ def wandering_check(session, *, resting: bool = False) -> tuple[list[Event], boo
     nothing.
 
     The check die draws from the [`WANDERING_STREAM`][osrlib.crawl.session.WANDERING_STREAM], and so
-    do the d20 table roll, the count dice and the picks among a row's variants. A row that names an
-    NPC party generates a real party rather than rolling again, drawing its composition from the
+    do the d20 table roll, the count dice and the picks among a row's variants. For a row that lists
+    an NPC party, the engine generates a real party rather than rolling again, drawing its composition from the
     [`NPC_PARTY_STREAM`][osrlib.core.npc.NPC_PARTY_STREAM]. Hit points for spawned monsters draw
     from the [`MONSTER_SPAWN_STREAM`][osrlib.core.monsters.MONSTER_SPAWN_STREAM], the treasure the
     spawn carries from the [`TREASURE_STREAM`][osrlib.core.treasure.TREASURE_STREAM], and the
@@ -1195,8 +1196,8 @@ def wandering_check(session, *, resting: bool = False) -> tuple[list[Event], boo
     count = max(1, count)
     entry = row.entry
     if entry.kind == "npc_party":
-        # An NPC-party row builds a real party instead of rolling again. The row
-        # rolls its printed count dice on the wandering stream, the generator makes
+        # An NPC-party row builds a real party instead of rolling again. The check
+        # rolls the row's printed count dice on the wandering stream, the generator makes
         # the party, and the encounter procedure runs unchanged: surprise both ways,
         # distance, and a reaction roll. NPC parties react on the table like anyone,
         # parley works, and keyed stances don't apply.
@@ -1237,8 +1238,8 @@ def _boundary_events(session, old_area, new_position) -> list[Event]:
     level = _level(session)
     area = level.area_at(new_position)
     if area is not None and area is not old_area:
-        # Area ids are level-scoped, so the crossing carries the whole triple:
-        # dungeon, level, area. The other kinds name themselves.
+        # Area ids are level-scoped, so the crossing includes the whole triple:
+        # dungeon, level, area. The ids of the other kinds are unique without it.
         return [
             LocationEnteredEvent(
                 location_kind="area", location_id=area.id, level_number=level.number, dungeon_id=dungeon_id
@@ -1303,9 +1304,9 @@ def _spring_check(session, trap: TrapSpec, trap_ref: str, *, triggerer) -> tuple
     The one mechanism behind every springing action, whether the party enters a
     trapped area, opens a door of one, or opens a trapped cache: the referee-only
     spring die, then, on a spring, the sprung record, the player-facing event,
-    and the effect resolution on the triggerer. Each caller decides its own gates
-    (which traps roll at all) and any known-trap follow-up (the cache path's
-    `exploration.trap.safe`).
+    and the effect resolution on the triggerer. Each caller decides which traps
+    get a spring roll, and handles any follow-up for a trap the party already found (the
+    cache path's `exploration.trap.safe`).
     """
     from osrlib.crawl.session import EXPLORATION_STREAM
 
@@ -1335,8 +1336,8 @@ def _areas_at_door(level, position: Position, direction: Direction) -> list[Area
 def _room_trap_check(session) -> list[Event]:
     """The enter-trigger room trap: 2-in-6 to spring, and a found trap never springs.
 
-    A trap needs a living victim: a party with no one left standing rolls no
-    spring die at all.
+    A trap needs a living victim: the engine rolls no spring die for a party
+    with no one left standing.
     """
     level = _level(session)
     area = level.area_at(_position(session))
@@ -1359,11 +1360,11 @@ def _door_trap_check(session, direction: Direction, *, triggerer=None) -> list[E
     A door belongs to an area when either adjoining cell lies inside it, so the
     blade over the lintel drops on the way in and the way out alike. 2-in-6 to
     spring on each opening, like every triggering action. A found trap never
-    springs, the same knowing-avoidance the enter path grants. The far side rolls
-    first when a door joins two trapped areas. Each spring lands on the opener,
+    springs, just as it doesn't when the party enters its area. The engine rolls for
+    the far side first when a door joins two trapped areas. Each spring hits the opener,
     meaning the named `triggerer`, or the first living member in marching order,
     and passes to the next member standing if an earlier spring killed the opener.
-    A trap with no living victim left rolls no die, and a spring whose effect
+    The engine rolls no die for a trap with no living victim left, and a spring whose effect
     carried the party away from the door (a chute) cancels the springs behind
     it: the party is no longer performing the opening.
     """
@@ -1398,8 +1399,8 @@ def _resolve_trap(session, trap: TrapSpec, *, triggerer) -> list[Event]:
     apply on the spell side. A passed `half` save halves damage, rolled and
     falling alike.
 
-    Draws run on the exploration stream, since the trap procedure rolls its own
-    dice. Durations rolled when a condition attaches run on the effects stream
+    Draws run on the exploration stream, since these are the trap
+    procedure's dice. Durations rolled when a condition attaches run on the effects stream
     instead, matching every other effect attachment in the engine.
     """
     from osrlib.crawl.session import EXPLORATION_STREAM
@@ -1523,7 +1524,7 @@ def _relocate(
 
     `walked` is for a passage, which the party crosses on foot with `MoveParty`. The
     relocation then reports the step as well: a `PartyMovedEvent` for the landing cell
-    after the crossing's events and before the landing cell's own. Within one level,
+    after the crossing's events and before the landing cell's events. Within one level,
     the doors the party opened also swing shut behind it, as they do after any step.
     A relocation to another level shuts them on the way out whether or not the party
     walked.
@@ -1586,9 +1587,9 @@ def _relocate(
 def _keyed_encounter_check(session) -> list[Event]:
     """Open the cell's keyed encounter on first entry.
 
-    Nothing ambushes a party with no one left standing. A wipe earlier in the same
-    command, like the chute that killed everyone on the way down, spawns no monsters
-    and opens no encounter for the dead.
+    After a wipe earlier in the same command, like a chute that killed everyone on
+    the way down, the engine spawns no monsters and opens no encounter for the
+    dead.
     """
     from osrlib.crawl import encounter as encounter_module
 
@@ -1617,12 +1618,12 @@ def _keyed_encounter_check(session) -> list[Event]:
         templates.append(template)
         instances = session.spawn(keyed.template_id, count, alignment=area.encounter.alignment)
         groups.append((template.name, instances))
-        # Carried treasure generates at spawn, per keyed line in printed order.
+        # The engine generates carried treasure at spawn, per keyed line in printed order.
         # The lair hoard follows it, and that draw order on the treasure stream
         # is fixed.
         carried.append(_generate_carried_treasure(session, instances))
     # The lair hoard is gated: a keyed encounter the author marked hoardless (a
-    # stocking roll that gave the monster room no treasure) generates no cache.
+    # stocking roll that gave the monster room no treasure) gets no cache.
     events = _generate_lair_hoard(session, area, templates) if area.encounter.hoard else []
     events.extend(
         encounter_module.start_encounter(
@@ -1724,7 +1725,7 @@ def _cross_passage(session, passage: TransitionSpec) -> tuple[list[Rejection], l
 
 
 def _swing_shut(session, *, previous, leaving_level: bool = False) -> list[Event]:
-    """Doors the party opened swing shut behind it unless wedged, always.
+    """Doors the party opened swing shut behind it unless wedged.
 
     With `leaving_level` (a transition or the trip to town), every party-opened
     unwedged door on the departed level shuts, because the party is gone from all
@@ -1774,7 +1775,7 @@ def _handle_use_stairs(session, command: UseStairs) -> tuple[list[Rejection], li
 
     The gate is the last validation step: a refusal costs no draw, no time, and no
     item, and the toll is taken only once the crossing is certain. The toll's event
-    lands before the arrival's own cascade.
+    comes before the arrival's cascade.
     """
     transition = _level(session).transition_at(_position(session))
     if transition is None:
@@ -1796,7 +1797,7 @@ def _handle_use_stairs(session, command: UseStairs) -> tuple[list[Rejection], li
             narrative=_gate_success(transition.requires),
             via=transition.kind,
             # The cell the party leaves from, which is the cell the transition stands
-            # on: that is what finds the spec again, gate and all, on the far side.
+            # on: the engine uses it to find the spec again, gate and all, on the far side.
             transition_ref=_cell_ref(session, transition.position),
         )
     )
@@ -1853,9 +1854,9 @@ def _handle_travel_to_town(session, command: TravelToTown) -> tuple[list[Rejecti
 def _gate_refusal(session, gate) -> str | None:
     """The gate's refusal beat when its condition fails right now, else `None`.
 
-    A gate check is the last validation step of the command that carries it:
-    every mundane refusal has already been answered, so a refusal from here means
-    the gate alone barred the way and the authored line is the final word. The
+    A gate check is the last validation step of the command that checks it: every
+    other check has already passed, so a refusal from here means the gate alone
+    barred the way, and the authored line is the only refusal the player sees. The
     check draws no dice, costs no time, and mutates nothing.
 
     Args:
@@ -1894,8 +1895,8 @@ def _pay_toll(session, gate) -> list[Event]:
 def _gate_success(gate) -> str | None:
     """The gate's authored success text, when its author wrote one.
 
-    The text goes out on the successful command's own event, either the door event
-    or the arrival's boundary event, so the beat displays where the moment happens.
+    The text goes out on the successful command's event, either the door event or
+    the arrival's boundary event, so the text appears with the event it describes.
     """
     if gate is None or gate.narrative is None or not gate.narrative.success:
         return None
@@ -1905,8 +1906,8 @@ def _gate_success(gate) -> str | None:
 def _consumed_item_id(instance) -> str:
     """What a consumption reports: a magic item's instance id, else the catalog id.
 
-    An unidentified item's true identity never rides a player-visible event, so a
-    magic consumption names the session-scoped instance and nothing more.
+    A player-visible event never includes an unidentified item's true identity, so
+    the event for a consumed magic item gives only its session-scoped instance id.
     """
     return instance.instance_id if isinstance(instance, MagicItemInstance) else instance.template.id
 
@@ -1931,7 +1932,7 @@ def _handle_open_door(session, command: OpenDoor) -> tuple[list[Rejection], list
         if refusal:
             params["refusal"] = refusal
         return [Rejection(code="exploration.door.gate_refused", params=params)], []
-    # The toll is paid at the threshold: its event lands before the door's own.
+    # The toll is paid at the threshold: its event comes before the door's event.
     events: list[Event] = _pay_toll(session, edge.door.requires)
     stored = _materialize_door(session, command.direction)
     stored.open = True
@@ -1981,14 +1982,14 @@ def _handle_force_door(session, command: ForceDoor) -> tuple[list[Rejection], li
     refusal = _gate_refusal(session, edge.door.requires)
     if refusal is not None:
         # A gate-refused forcing never happened: no noise, no denied surprise, no
-        # draw. The gate is checked before the shoulder ever hits the door.
+        # draw. The gate is checked before the attempt.
         params: dict[str, int | str | tuple[int | str, ...]] = {"direction": command.direction.value}
         if refusal:
             params["refusal"] = refusal
         return [Rejection(code="exploration.door.gate_refused", params=params)], []
     from osrlib.crawl.session import EXPLORATION_STREAM
 
-    # Any attempt bangs on the door, so the noise flag marks the next wandering
+    # Any attempt makes noise, so the noise flag marks the next wandering
     # check. Only a *failed* attempt denies the party surprise (RAW).
     session.noise_since_check = True
     check = detection_check(member.open_doors_chance, stream=session.streams.get(EXPLORATION_STREAM))
@@ -2008,7 +2009,7 @@ def _handle_force_door(session, command: ForceDoor) -> tuple[list[Rejection], li
                 narrative=_gate_success(edge.door.requires),
             )
         )
-        # The shoulder that bursts the door through takes what's rigged to it.
+        # The member who forces the door open takes the trap rigged to it.
         events.extend(_door_trap_check(session, command.direction, triggerer=member))
         return [], events
     beyond = step(_position(session), command.direction)
@@ -2222,10 +2223,10 @@ def _reveal(session, kind: str, events: list[Event]) -> list[str]:
             # Everyone on both sides gets their trap search back.
             _refund_trap_search(session, dungeon_id, level_number, position, direction)
     elif kind == "room_traps":
-        # Each candidate names the door it was found through, or `None` for the
-        # trap in the searcher's own area. The bearing is a fact only this walk has,
-        # and a renderer that had to rebuild it would have to rebuild the guards below
-        # with it, so the find states it: on the token and on the event.
+        # Each candidate records the door it was found through, or `None` for the
+        # trap in the searcher's area. Only this walk computes the door's direction.
+        # A renderer that had to work it out again would also have to repeat the
+        # guards below, so the search records it on the token and on the event.
         candidates: list[tuple[AreaSpec, Direction | None]] = []
         own = level.area_at(position)
         if own is not None and own.trap is not None:
@@ -2496,13 +2497,13 @@ _SPREAD_MODES: dict[EncumbranceMode, EncumbranceMode] = {
     EncumbranceMode.BASIC: EncumbranceMode.BASIC,
     EncumbranceMode.DETAILED: EncumbranceMode.DETAILED,
 }
-"""The weight the haul spread compares loads by. `none` tracks nothing at all, so the
-spread compares treasure weight anyway (one member hoarding the loot is still the wrong
-answer) and never refuses a load."""
+"""The weight that `_distribute_haul` compares loads by. `none` tracks nothing at all, so the
+distribution compares treasure weight anyway (the loot still shouldn't all go to one
+member) and never refuses a load."""
 
 
 def _carry_load(member, ruleset) -> int:
-    """Return the carried weight in coins the haul spread compares carriers by."""
+    """Return the carried weight in coins that `_distribute_haul` compares carriers by."""
     return tracked_weight_coins(member.inventory, _SPREAD_MODES[ruleset.encumbrance])
 
 
@@ -2524,7 +2525,7 @@ def _coin_headroom(member, ruleset, wanted: int) -> int:
         member: The carrier.
         ruleset: The ruleset whose encumbrance mode governs.
         wanted: The most that could possibly be handed over. Under the `none` mode,
-            which caps nothing, that is the answer.
+            which caps nothing, the function returns `wanted`.
     """
     if ruleset.encumbrance is EncumbranceMode.NONE:
         return wanted
@@ -2553,8 +2554,8 @@ def _can_use(member, instance) -> bool:
 
     Only class policy counts, so the equipped-state checks are skipped (no inventory
     is passed): the question is whether the plate mail belongs with the fighter, not
-    whether their hands are full this instant. A magic item passes its own `usable_by`
-    on top, which is what steers an arcane scroll to the magic-user.
+    whether their hands are full this instant. A magic item must also pass its
+    `usable_by` check, which is what steers an arcane scroll to the magic-user.
 
     Args:
         member (osrlib.core.character.Character): The candidate carrier.
@@ -2562,7 +2563,7 @@ def _can_use(member, instance) -> bool:
             [`MagicItemInstance`][osrlib.core.items.MagicItemInstance] being sorted.
 
     Returns:
-        True when nothing in the class's policies objects.
+        True when the class's policies allow the item.
     """
     if any(rejection.code in _CLASS_USE_CODES for rejection in validate_equip(member.definition, instance, None)):
         return False
@@ -2576,7 +2577,7 @@ def _hand_item(carriers, ruleset, instance, put, take_back):
 
     The two best-effort rules in order: a carrier whose class may use the item wins
     over one who may not, and among equals the lightest-laden takes it, so the loot
-    lands where it is useful without immobilising anyone. Ties break on marching
+    goes where it is useful without immobilising anyone. Ties break on marching
     order, so the choice is deterministic and spends no RNG draw. `put` and
     `take_back` place the item and undo that placement, which measures the marginal
     weight against the real inventory instead of re-deriving it, and keeps the
@@ -2607,7 +2608,7 @@ def _hand_item(carriers, ruleset, instance, put, take_back):
 
 
 def _hand_valuable(carriers, ruleset, valuable):
-    """Hand one gem or piece of jewellery to the carrier holding the least treasure by worth.
+    """Hand one gem or piece of jewellery to the carrier with the least treasure by worth.
 
     Gems and jewellery divide by *value*, not by count: three 50 gp gems against one
     300 gp ring is even in objects and lopsided in worth, and worth is what a share of
@@ -2640,9 +2641,9 @@ def _hand_valuable(carriers, ruleset, valuable):
 def _even_shares(headrooms: list[int], total: int) -> list[int]:
     """Split `total` coins as evenly across the carriers as their headroom allows.
 
-    Every coin weighs one, whatever its metal, so an even split of a denomination is
-    even in worth *and* even in weight, the one place where fairness and mobility
-    point the same way. A carrier who would pass their maximum load takes only what
+    Every coin weighs one, whatever its metal. An even split of a denomination is
+    therefore even in worth *and* in weight, so the fair split also keeps the loads
+    even. A carrier who would pass their maximum load takes only what
     fits and their surplus re-splits among the rest. The sub-coin remainder goes to
     the front of the march.
 
@@ -2677,8 +2678,8 @@ def _even_shares(headrooms: list[int], total: int) -> list[int]:
 def _spread_coins(carriers, ruleset, coins: Coins) -> tuple[list[dict[str, int]], Coins]:
     """Deal a haul's coins evenly across the carriers, richest denomination first.
 
-    Each denomination splits on its own, so every carrier's share is equal in worth
-    and in weight. Richest-first is the order that matters only when the party runs
+    Each denomination splits separately, so every carrier's share is equal in worth
+    and in weight. The richest-first order makes a difference only when the party runs
     short of capacity: the platinum goes in the packs and the copper stays behind.
 
     Args:
@@ -2711,12 +2712,12 @@ def _spread_coins(carriers, ruleset, coins: Coins) -> tuple[list[dict[str, int]]
 def _distribute_haul(session, carriers, haul: DropPile) -> tuple[list[Event], DropPile, int, list]:
     """Pack a haul into the carriers' packs: items where they are useful, wealth evenly.
 
-    The order is items, then valuables, then coins: the lumpy, constrained goods
-    first while every carrier still has room to honour the constraint, then the wealth
-    that can be split to even things out. Items (magic items first, then gear) go to a
+    The order is items, then valuables, then coins: items, which only some
+    classes can use, go first while every carrier still has room for them, then the
+    valuables and coins, which can be split to even out the loads. Items (magic items first, then gear) go to a
     carrier whose class can use them, breaking ties toward the lightest load. Gems and
-    jewellery divide by worth, and coins divide evenly per denomination. Nothing is
-    placed past the 1,600-coin maximum load, so a take can never immobilise a carrier
+    jewellery divide by worth, and coins divide evenly per denomination. No carrier is
+    loaded past the 1,600-coin maximum load, so a take can never immobilise a carrier
     that some other arrangement would have kept moving.
 
     Args:
@@ -2790,7 +2791,7 @@ def _distribute_haul(session, carriers, haul: DropPile) -> tuple[list[Event], Dr
 
 
 def _leave_behind(session, leftovers: DropPile) -> list[Event]:
-    """Park what the party could not carry in the drop pile at its feet.
+    """Put what the party could not carry in the drop pile at its feet.
 
     Treasure is never destroyed: a party that drops gear (or comes back later) picks
     the remainder up with another `TakeTreasure`.
@@ -2861,7 +2862,7 @@ def _validate_carried(member, item_ids: tuple[str, ...], coins: Coins) -> list[R
         magic = member.inventory.magic_item(item_id)
         if magic is not None:
             if magic.cursed_revealed:
-                # A revealed cursed item pins to its bearer until *remove curse*.
+                # A revealed cursed item stays with its bearer until *remove curse*.
                 return [Rejection(code="items.curse.stuck", params={"item": item_id})]
             if item_id in named_magic:
                 return [Rejection(code="exploration.item.not_carried", params={"item": item_id})]
@@ -2920,7 +2921,7 @@ def _grant_mundane(member, template: ItemTemplate, quantity: int = 1) -> None:
 def _apply_give(session, giver, recipient, command: GiveItems) -> list[Event]:
     """Move the named goods and coins from giver to recipient (zero time).
 
-    A given magic item releases any worn effects first, then lands unequipped in
+    A given magic item releases any worn effects first, then arrives unequipped in
     the recipient's pack. Mundane items merge into a like stack, and coins move
     purse to purse.
     """
@@ -2939,9 +2940,9 @@ def _apply_give(session, giver, recipient, command: GiveItems) -> list[Event]:
             giver.inventory.valuables.remove(valuable)
             recipient.inventory.valuables.append(valuable)
             continue
-        # The giver's own instance brings the template across: no catalog
+        # The giver's instance brings its template across: no catalog
         # resolution, so an adventure-bundled item hands over like any other. One
-        # lookup takes it and answers what was taken, so nothing can shift between.
+        # lookup takes it and returns what was taken, so nothing can shift between.
         carried = _consume_item(giver, item_id)
         if not isinstance(carried, ItemInstance):  # unreachable: magic left through the branch above
             raise ValueError(f"{giver.name} does not carry {item_id!r}")
@@ -3188,7 +3189,7 @@ def _handle_purchase_equipment(session, command: PurchaseEquipment) -> tuple[lis
     member, rejections = _member_able(session, command.character_id)
     if rejections:
         return rejections, []
-    # The shop stocks the shipped equipment lists. An adventure's bundled items
+    # The shop stocks the built-in equipment lists. An adventure's bundled items
     # enter play through caches and grants, never off a shelf.
     equipment = load_equipment()
     templates = []
@@ -3329,7 +3330,7 @@ def _handle_cast_spell(session, command: CastSpell) -> tuple[list[Rejection], li
 
 
 def _cast_context(session, targets, *, in_combat: bool, distance_feet: int | None = None) -> CastContext:
-    """Build the cast context from session truth: the death records' honest numbers."""
+    """Build the cast context from session state, with the actual numbers from the death records."""
     from osrlib.core.clock import ROUNDS_PER_DAY
 
     days_since_death = None
@@ -3356,7 +3357,7 @@ def _stationary_silence(session, spell, result, targets) -> list[Event]:
     On a passed save RAW leaves a stationary area the creature can step out of. As
     a documented adaptation (see the adaptations register), the effect instead
     attaches to the party's cell (the encounter's abstract location), and
-    creatures in that cell cannot cast while it holds.
+    creatures in that cell cannot cast while it lasts.
     """
     if spell.id != "silence_15_radius" or result.manual or _location(session).kind != "dungeon":
         return []
@@ -3420,7 +3421,7 @@ def _merge_generated(bundle, generated) -> None:
 def _generate_carried_treasure(session, instances):
     """Generate carried treasure at spawn: individual letters per monster, group per group.
 
-    Individual letters (P-T) read each instance's own template, since packed-variant
+    Individual letters (P-T) read each instance's template, since packed-variant
     pools may mix. Group letters (U-V) read the first instance's, because the row's
     members share a stat block. The `multiplier` repeats the whole listed
     generation (for example, the Noble's `V × 3`). Returns `(member_treasure,
@@ -3461,7 +3462,7 @@ def _field_npc_party(session, kind: Literal["basic", "expert"], count: int):
 
     Members register in `session.npcs` (allocator prefix `npc`). The referee-only
     roster event gives classes and levels, while the player-facing encounter event
-    names "adventurers" and the count.
+    gives "adventurers" and the count.
     """
     from osrlib.core.npc import NPC_PARTY_STREAM, generate_npc_party
     from osrlib.core.treasure import TREASURE_STREAM
@@ -3506,7 +3507,7 @@ def _assign_carried(session, carried) -> None:
 
 
 def _generate_cache(session, *, cell, treasure_types, entries_lists, extra_gp=0) -> list:
-    """Land generated treasure as an engine-created cache in the state overlay."""
+    """Store generated treasure as an engine-created cache in the state overlay."""
     from osrlib.core.items import Coins
     from osrlib.core.treasure import TREASURE_STREAM, generate_treasure_entries
     from osrlib.crawl.dungeon import GeneratedCache, TreasureBundle
@@ -3553,7 +3554,7 @@ def _generate_lair_hoard(session, area, templates) -> list:
     """Generate a keyed area's lair hoard when its keyed encounter first spawns.
 
     The keyed monsters' hoard letters (A-O), parenthetical letters, and `extra_gp`
-    land as one engine-created cache on the area's first listed cell.
+    become one engine-created cache on the area's first listed cell.
     """
     from osrlib.core.treasure import plan_treasure_ref
     from osrlib.data import load_treasure_tables
@@ -3575,10 +3576,10 @@ def _generate_lair_hoard(session, area, templates) -> list:
 
 
 def _area_treasure_check(session) -> list:
-    """Generate an area's declared treasure on first entry (the authoring surface).
+    """Generate an area's declared treasure on first entry.
 
-    Discovery needs a living discoverer. A party with no one left standing, carried
-    into the cell by the chute that killed it, generates nothing.
+    Discovery needs a living discoverer. The engine generates nothing for a party
+    with no one left standing, like one a chute carried into the cell and killed.
     """
     from osrlib.data import load_treasure_tables
 
@@ -3614,7 +3615,7 @@ def _identify_item_events(session, member, instance: MagicItemInstance) -> list:
     Cursed items identify as their true nature at the same trigger and stick to
     their bearer (`items.curse.stuck` on unequip, drop, and sale) until *remove
     curse*. The armour that reads as +1 gives itself away at first battle use,
-    which is RAW's own reveal moment.
+    which is when the SRD rules reveal it.
     """
     template = magic_item_template(instance)
     events: list[Event] = []
@@ -3632,7 +3633,7 @@ def _identify_item_events(session, member, instance: MagicItemInstance) -> list:
 
 
 def _release_instance_effects(session, instance: MagicItemInstance) -> list:
-    """Release the ledger effects a worn item attached (its state remembers them)."""
+    """Release the ledger effects a worn item attached (its state records them)."""
     events: list[Event] = []
     effect_ids = instance.state.get("effect_ids", ())
     for effect_id in effect_ids if isinstance(effect_ids, tuple) else ():
@@ -3647,7 +3648,7 @@ def _attach_worn_item_effects(session, member, instance: MagicItemInstance) -> l
     """Attach a worn item's ledger effects: the regeneration ring, the weakness onset.
 
     Item-sourced ledger effects attach undispellable (RAW's dispel exemption for
-    items), and the instance's state keeps the effect ids so unequipping releases
+    items), and the instance's state records the effect ids so unequipping releases
     them. A cursed ring reveals when its curse takes effect. The onset is
     automatic at wearing, so the reveal is too (RAW: "the ring cannot be removed,
     once worn").
@@ -3913,7 +3914,7 @@ def _use_scroll(session, member, instance: MagicItemInstance, template, command)
             else:
                 return [Rejection(code="magic.cast.unknown_target", params={"target": target_ref})], []
         context = _cast_context(session, targets, in_combat=False)
-        # The kernel's own pre-check, asked about a caster at the scroll's level, which is
+        # The kernel's pre-check, asked about a caster at the scroll's level, which is
         # the level `cast_from_scroll` resolves at. The crawl refuses here what the kernel
         # would refuse there, before the scroll is spent.
         cast_rejections = validate_scroll_cast(
@@ -3961,7 +3962,7 @@ def _use_scroll(session, member, instance: MagicItemInstance, template, command)
         events.extend(_stationary_silence(session, spell, result, targets))
         return [], events
     # Everything else on the scroll table (protection from magic, treasure maps)
-    # is manual prose: reading it is supported, the game narrates.
+    # is manual prose: reading it is supported, and the game narrates the item's `manual` text.
     _remove_instance(member, instance)
     events.extend(_identify_item_events(session, member, instance))
     events.append(
@@ -4181,11 +4182,12 @@ curse* maps to `remove_curse_c`, the cleric list's version of that spell rather 
 list's.
 
 The service names and the prices are a documented adaptation over the SRD's open-ended base-town
-prose (see [the adaptations register](https://mmacy.github.io/osrlib-python/adaptations/)). Nothing
-here models availability. The size of the town, the standing of its temple, and whether a cleric is
+prose (see [the adaptations register](https://mmacy.github.io/osrlib-python/adaptations/)). This
+table doesn't model availability. The size of the town, the standing of its temple, and whether a cleric is
 in today are game questions left to your front end.
+
 To charge your own prices, take the payment yourself and use the referee commands. Don't edit the
-prices here either: the purchase handler reads them at the moment of sale, and every session in the
+prices here: the purchase handler reads them at the moment of sale, and every session in the
 process shares them.
 
 ```python
@@ -4255,10 +4257,10 @@ def _healing_payers(session, patient: Character, cost_gp: int) -> list[tuple[Cha
 
     The treated member pays first, then the rest of the party in marching order, dead
     members included. A purse pays in whole gold pieces, because
-    [`CoinPurse.spend`][osrlib.core.items.CoinPurse.spend] prices in gold. It puts in as much
-    of what is still owed as its gold covers and keeps whatever it is worth below a gold
-    piece, so the last purse charged pays the outstanding remainder and the purses behind it
-    stay shut.
+    [`CoinPurse.spend`][osrlib.core.items.CoinPurse.spend] prices in gold. It pays as much of
+    what is still owed as its total value covers, rounded down to a whole gold piece, and
+    keeps any value below a gold piece, so the last purse charged pays the outstanding
+    remainder and the purses after it pay nothing.
 
     Planning and charging are separate so the funds check stays a pure validation step: a
     party whose whole gold pieces fall short is refused before any purse is opened.
@@ -4351,8 +4353,8 @@ def _handle_purchase_healing(session, command: PurchaseHealing) -> tuple[list[Re
 def _temple_cleric(spell) -> Character:
     """An abstract temple cleric at the minimum level able to cast the service.
 
-    Built fresh per purchase, with no draws and no registry entry. The magic and
-    effects streams the spell already uses take the rolls.
+    Built fresh per purchase, with no draws and no registry entry. The rolls come
+    from the magic and effects streams the spell already uses.
     """
     from osrlib.core.abilities import AbilityScore
     from osrlib.core.alignment import Alignment
@@ -4409,7 +4411,7 @@ _HANDLERS = {
 }
 """The command classes this module handles, each mapped to the function that handles it.
 
-[`GameSession`][osrlib.crawl.session.GameSession] folds this mapping into its own private handler
+[`GameSession`][osrlib.crawl.session.GameSession] merges this mapping into its private handler
 table the first time it dispatches a command, alongside the encounter, battle, and referee mappings.
 There is no registration point here: the table is private to this module, and the only documented
 way to run a command is [`GameSession.execute`][osrlib.crawl.session.GameSession.execute], which

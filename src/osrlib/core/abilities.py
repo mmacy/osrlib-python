@@ -17,7 +17,7 @@ attempt to force a stuck door. Both take an
 
 The rest of the module is character creation's third step, where a player trades points
 between abilities before play.
-[`validate_adjustment`][osrlib.core.abilities.validate_adjustment] says whether a
+[`validate_adjustment`][osrlib.core.abilities.validate_adjustment] reports whether a
 proposed trade is legal and [`apply_adjustment`][osrlib.core.abilities.apply_adjustment]
 carries it out. [`create_character`][osrlib.core.character.create_character] runs the
 whole creation sequence, so reach for these two when you're building a character step by
@@ -90,7 +90,7 @@ MAX_SCORE = 18
 
 Eighteen is what three dice showing 6 add up to, the top row of every table here, and the
 ceiling the creation-time trade may not push a score past. The accessors raise
-`ValueError` above it, because the tables print no row to read.
+`ValueError` above it, because the tables have no row above it.
 """
 
 ADJUSTMENT_FLOOR = 9
@@ -110,7 +110,7 @@ class AbilityScore(StrEnum):
     around. All six keys are expected to be present.
 
     The lowercase values serialize into characters and saved games. Changing one is a
-    `schema_version` bump, the version stamp that marks a serialized model's shape.
+    `schema_version` bump, the version stamp that marks a serialized model's format.
     """
 
     STR = "str"
@@ -136,7 +136,7 @@ class Literacy(StrEnum):
     """How well a character reads and writes, which their intelligence score sets.
 
     Read it off [`AbilityTables.literacy`][osrlib.core.abilities.AbilityTables.literacy], passing the
-    character's intelligence score. It matters whenever the party finds something written, a scroll
+    character's intelligence score. It applies whenever the party finds something written, a scroll
     or a map or an inscription. No rule in osrlib reads it, so what a character who cannot read may
     not do is your game's decision.
     """
@@ -152,10 +152,10 @@ class Literacy(StrEnum):
 
 
 class ScoreBand(BaseModel):
-    """The run of scores one table row covers, such as 4 to 5.
+    """The run of scores one table row covers, like 4 to 5.
 
     The SRD prints its modifier tables in bands rather than one row per score, and osrlib
-    keeps them that way. Every row model below is a band with the row's own columns added.
+    keeps them that way. Every row model below is a band with that row's columns added.
     You'll meet these when you read a whole table off
     [`AbilityTables`][osrlib.core.abilities.AbilityTables], for instance to draw the table
     on screen. To look up a single score, call an accessor instead and skip the rows
@@ -257,7 +257,7 @@ class PrimeRequisiteRow(ScoreBand):
 
     A prime requisite is the ability a class is built around: wisdom for a cleric,
     strength for a fighter. This table applies to a class with a single prime requisite. A
-    class with more than one has its own tiers on its class definition.
+    class with more than one has separate tiers on its class definition.
     """
 
     xp_modifier_pct: int
@@ -278,7 +278,7 @@ class AbilityTables(BaseModel):
     """The SRD's ability tables, and the accessors that read a score out of them.
 
     Get one from [`load_ability_tables`][osrlib.data.load_ability_tables], which loads the
-    tables that ship with the package and caches them, so calling it repeatedly costs
+    tables that come with the package and caches them, so calling it repeatedly costs
     nothing. Then call the accessor for the column you want, passing a score from
     [`MIN_SCORE`][osrlib.core.abilities.MIN_SCORE] to
     [`MAX_SCORE`][osrlib.core.abilities.MAX_SCORE]. A score outside that range raises
@@ -549,7 +549,7 @@ class AbilityTables(BaseModel):
         """Return the percentage a single prime requisite score changes earned experience by.
 
         A prime requisite is the ability a class is built around. This table covers a
-        class with exactly one. A class with more than one has its own tiers on its
+        class with exactly one. A class with more than one has separate tiers on its
         class definition, and
         [`xp_modifier_pct`][osrlib.core.classes.xp_modifier_pct] picks the right source
         for you.
@@ -612,13 +612,13 @@ class OpenDoorsResult(BaseModel):
 def ability_check(score: int, stream: RngStream, modifier: int = 0) -> AbilityCheckResult:
     """Roll an ability check: 1d20, equal-or-under the score succeeds.
 
-    Use this for a task the rules don't cover with a procedure of their own: shoving a
+    Use this for a task the rules don't cover with a specific procedure: shoving a
     boulder, spotting a change in the stonework, holding a rope. Pick the ability that
     fits and set the difficulty with `modifier`. For the things the rules do cover, call
     the function that covers them:
     [`open_doors_check`][osrlib.core.abilities.open_doors_check] for a stuck door, the
     saving throws in [`osrlib.core.combat`][osrlib.core.combat] for magic and traps, and
-    the thief skills on the class definition for a thief's own work.
+    the thief skills on the class definition for a thief's work.
 
     The roll is a d20, and the check succeeds on a modified roll at or under the score, so
     a higher score succeeds more often. The SRD leaves the difficulty to the referee and
@@ -671,7 +671,7 @@ def open_doors_check(chance: int, stream: RngStream) -> OpenDoorsResult:
     Get the chance from
     [`AbilityTables.open_doors_chance`][osrlib.core.abilities.AbilityTables.open_doors_chance]
     for the character's strength. A d6 at or under the chance opens the door. The function
-    rolls and reports, and nothing else: opening the door, and whatever the attempt costs
+    only rolls and reports: opening the door, and whatever the attempt costs
     the party, are yours to apply.
 
     In a running game [`ForceDoor`][osrlib.crawl.commands.ForceDoor] applies those
@@ -900,12 +900,12 @@ def apply_adjustment(
 
     Returns:
         A new score dictionary with the points moved. All six abilities are present, and
-        the ones the trade didn't touch keep their rolled values.
+        the ones the trade didn't touch have their rolled values.
 
     Raises:
         ValueError: If the trade breaks any rule
             [`validate_adjustment`][osrlib.core.abilities.validate_adjustment] checks. The
-            message names the rejection codes.
+            message includes the rejection codes.
 
     Examples:
         ```python

@@ -1,9 +1,9 @@
 """The compiled rules content, and the loaders that hand it to you.
 
-Every id-typed argument in osrlib names an entry in one of these catalogs: a class id, a
+Every id-typed argument in osrlib refers to an entry in one of these catalogs: a class id, a
 spell id, a monster id, an equipment or magic item id, a language id, a treasure-type
 letter. Each `load_*` function returns one catalog, and the content-id pages list every id
-that ships: [class ids][classes-index], [spell ids][spells-index],
+the package includes: [class ids][classes-index], [spell ids][spells-index],
 [monster ids][monsters-index], [equipment ids][equipment-index],
 [magic item ids][magic-items-index], [language ids][languages-index], and
 [treasure types][treasure-types-index].
@@ -11,9 +11,9 @@ that ships: [class ids][classes-index], [spell ids][spells-index],
 The path is the same for all of them. Call the loader, look one entry up by id, then hand
 that entry to the kernel function that takes it: `load_classes().get("fighter")` gives you
 the [`ClassDefinition`][osrlib.core.classes.ClassDefinition] that
-[`level_up`][osrlib.core.classes.level_up] wants, and `load_monsters().get("goblin")` the
+[`level_up`][osrlib.core.classes.level_up] takes, and `load_monsters().get("goblin")` the
 [`MonsterTemplate`][osrlib.core.monsters.MonsterTemplate] that
-[`spawn_monster`][osrlib.core.monsters.spawn_monster] wants. A
+[`spawn_monster`][osrlib.core.monsters.spawn_monster] takes. A
 [`GameSession`][osrlib.crawl.session.GameSession] loads what it needs on its own, so you
 call these loaders yourself when you drive the rules without a session, or when you want
 to show a player what content exists before play starts.
@@ -25,19 +25,19 @@ from these templates instead, the way
 [`spawn_monster`][osrlib.core.monsters.spawn_monster] spawns a
 [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] from a template.
 
-The data files ship inside this package, and a loader reads only what the installed package
+The data files are part of this package, and a loader reads only what the installed package
 includes. The project's compiler generates them from the Old-School Essentials SRD before
 each release, and nobody edits them by hand, so a patch you apply to a JSON file in an
 installed copy is gone at the next upgrade. They aren't the extension point. To add content
-of your own, construct the frozen model yourself and pass it to the same kernel functions the
-shipped entries go to, and bundle a custom monster or item template with the
+of your own, construct the frozen model yourself and pass it to the same kernel functions you
+pass the included entries to, and bundle a custom monster or item template with the
 [`Adventure`][osrlib.crawl.adventure.Adventure] that uses it. A file that's missing, or that
 fails model validation, raises
 [`ContentValidationError`][osrlib.errors.ContentValidationError] rather than returning a
 half-built catalog.
 
 The compiled data is Open Game Content under the Open Game License 1.0a. The license text
-and Section 15 notice ship in this package as `LICENSE-OGL.md`.
+and Section 15 notice are included in this package as `LICENSE-OGL.md`.
 
 Typical usage:
 
@@ -86,7 +86,7 @@ __all__ = [
 
 
 class Language(BaseModel):
-    """One spoken language from the shipped catalog.
+    """One spoken language from the built-in catalog.
 
     You get one from [`LanguageCatalog.get`][osrlib.data.LanguageCatalog.get], or by
     reading [`LanguageCatalog.languages`][osrlib.data.LanguageCatalog.languages] when you
@@ -135,7 +135,7 @@ class LanguageCatalog(BaseModel):
     languages: tuple[Language, ...]
     """Every language in the catalog, in the order the data file lists them.
 
-    The shipped file is in alphabetical order by id, and Common sits among the rest. Filter
+    The included data file is in alphabetical order by id, and Common sits among the rest. Filter
     on [`Language.choosable`][osrlib.data.Language.choosable] for the ones a high-INT
     character may take.
     """
@@ -158,8 +158,8 @@ class LanguageCatalog(BaseModel):
         instead: it returns structured refusals rather than raising on the first bad id.
 
         Args:
-            language_id: A language id from [the language id index][languages-index], such
-                as `"gnoll"`.
+            language_id: A language id from [the language id index][languages-index], like
+                `"gnoll"`.
 
         Returns:
             The language.
@@ -200,7 +200,7 @@ def _read(filename: str) -> dict[str, object]:
 def load_ability_tables() -> AbilityTables:
     """Load the six ability modifier tables and the prime requisite XP table.
 
-    The returned [`AbilityTables`][osrlib.core.abilities.AbilityTables] answers what a
+    The returned [`AbilityTables`][osrlib.core.abilities.AbilityTables] gives what a
     score is worth: the STR melee modifier, the STR open-doors chance, the extra languages
     and literacy INT grants, the DEX missile and initiative modifiers, the CON hit point
     modifier, the CHA reaction modifier and retainer limits, and the prime requisite XP
@@ -244,12 +244,12 @@ def load_classes() -> ClassCatalog:
     [`xp_modifier_pct`][osrlib.core.classes.xp_modifier_pct],
     [`level_title`][osrlib.core.classes.level_title],
     [`thief_skill_check`][osrlib.core.classes.thief_skill_check], and
-    [`caster_profile`][osrlib.core.spells.caster_profile] all want the definition, not the
+    [`caster_profile`][osrlib.core.spells.caster_profile] all take the definition, not the
     id. [`create_character`][osrlib.core.character.create_character] is the exception: it
-    takes `class_id` and looks the definition up itself, so you need this only to show a
-    player the classes on offer.
+    takes `class_id` and looks the definition up itself, so to create a character you need this
+    only to show a player the classes on offer.
 
-    The catalog contains the classes this package ships. A class you write yourself is a
+    The catalog contains the classes this package includes. A class you write yourself is a
     `ClassDefinition` you build and pass to those same functions. You **cannot** add it
     here.
 
@@ -289,9 +289,9 @@ def load_equipment() -> EquipmentCatalog:
     separate list that [`treasure_weight_coins`][osrlib.core.items.treasure_weight_coins]
     reads to weigh coins and gems, which a character picks up rather than buys.
 
-    Magic items live in their own catalog, [`load_magic_items`][osrlib.data.load_magic_items].
-    An adventure that ships item templates of its own keeps them in its own content, and a
-    session answers those ids too. This catalog contains only what the package ships.
+    Magic items are in a separate catalog, [`load_magic_items`][osrlib.data.load_magic_items].
+    An adventure can bundle more item templates in its content, and a session resolves
+    those ids too. This catalog contains only the items included in the package.
 
     Returns:
         The frozen equipment catalog, cached: the first call validates the data and every
@@ -328,7 +328,7 @@ def load_monsters() -> MonsterCatalog:
     session-unique id. The instance is what you fight. The template stays shared and
     unchanged however many you spawn from it.
 
-    A dungeon that keys a monster by id, and an encounter table that names one, both resolve
+    A dungeon that keys a monster by id, and an encounter table that lists one, both resolve
     against this catalog plus whatever templates the adventure bundles. Read the template
     directly when you want to show a statistic block, or to plan an encounter before any
     monster exists.
@@ -408,7 +408,7 @@ def load_encounter_tables() -> EncounterTables:
     a monster entry and a count into the template ids that appear. The NPC party rows feed
     [`generate_npc_party`][osrlib.core.npc.generate_npc_party].
 
-    A session rolls its own wandering monsters through
+    A session rolls wandering monsters itself through
     [`wandering_check`][osrlib.crawl.exploration.wandering_check], so you load these tables
     when you stock a dungeon yourself or want to show what a level can throw at a party. No
     content-id page covers this catalog, because its rows are keyed by level and die roll.
@@ -447,7 +447,7 @@ def load_spells() -> SpellCatalog:
     `SpellCatalog.by_list` returns every spell on a class's list, optionally at one spell
     level, which is what you show a player choosing spells to memorize.
 
-    A reversed spell has its own id. The catalog contains both forms, and the template says
+    A reversed spell has a separate id. The catalog contains both forms, and the template shows
     which is which. A spell you write yourself is a `SpellTemplate` you build and pass to the
     same functions.
 
@@ -487,8 +487,8 @@ def load_magic_items() -> MagicItemCatalog:
     tables are what [`generate_magic_item`][osrlib.core.treasure.generate_magic_item] rolls
     on, so you rarely read them yourself.
 
-    An id names a kind of item, not a particular one. Two potions of healing share a template
-    and differ as instances, each with its own instance id, charges, and identification
+    An id identifies a kind of item, not a particular one. Two potions of healing share a template
+    and differ as instances, each with a separate instance id, charges, and identification
     state. Mundane gear lives in [`load_equipment`][osrlib.data.load_equipment].
 
     Returns:
@@ -520,7 +520,7 @@ def load_treasure_tables() -> TreasureTables:
     """Load the treasure tables: the treasure types, gem values, magic item types, stocking, and unguarded hoards.
 
     `TreasureTables.treasure_type` returns the table behind a letter, which is what a
-    monster's `treasure` field names and what you read to show a player, or a referee, what a
+    monster's `treasure` field contains and what you read to show a player, or a referee, what a
     hoard can contain before anything is rolled.
 
     To roll an actual hoard, call [`generate_treasure`][osrlib.core.treasure.generate_treasure]

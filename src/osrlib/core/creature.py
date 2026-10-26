@@ -1,9 +1,9 @@
-"""The attribute surface a character or a monster instance offers the rules, as protocols.
+"""The attributes the rules read from a character or a monster instance, as protocols.
 
 A rules function in [`osrlib.core.combat`][osrlib.core.combat], [`osrlib.core.spells`][osrlib.core.spells],
 and [`osrlib.core.effects`][osrlib.core.effects] takes the creature it acts on as one of the three protocols
-here, unless what it reads needs a single concrete type, in which case it takes that type and says so in its
-own entry. A [`Character`][osrlib.core.character.Character] and a
+here, unless what it reads needs a single concrete type, in which case it takes that type and its
+entry says so. A [`Character`][osrlib.core.character.Character] and a
 [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] satisfy the protocols structurally, so you pass
 either without a cast, and pyright checks that whatever else you pass has the attributes the function
 reads. Nothing here is instantiated. Read a protocol to learn what a function needs from its argument, and
@@ -12,7 +12,7 @@ annotate your own code with it when you write a function that takes either kind 
 [`Creature`][osrlib.core.creature.Creature] is the base: an id, a name, hit points, conditions, and stat
 modifiers. [`Combatant`][osrlib.core.creature.Combatant] adds the combat numbers an attack or a saving throw reads.
 [`Caster`][osrlib.core.creature.Caster] adds what memorizing and casting read. A function that needs an attribute
-only one concrete type has, such as a monster's template or a character's inventory, either takes that
+only one concrete type has, like a monster's template or a character's inventory, either takes that
 concrete type or reads the attribute with `getattr` and a default, and its docstring says which.
 
 Typical usage:
@@ -68,8 +68,8 @@ class Creature(Protocol):
     """What every rules function needs from the creature it acts on.
 
     A [`Character`][osrlib.core.character.Character] and a [`MonsterInstance`][osrlib.core.monsters.MonsterInstance]
-    both satisfy this, and so does anything of your own with these attributes. Functions that read only this
-    surface, such as [`has_condition`][osrlib.core.effects.has_condition],
+    both satisfy this, and so does anything of your own with these attributes. Functions that read only these
+    attributes, like [`has_condition`][osrlib.core.effects.has_condition],
     [`apply_healing`][osrlib.core.combat.apply_healing], and [`incapacitated`][osrlib.core.combat.incapacitated],
     take it. A function that also reads combat numbers takes [`Combatant`][osrlib.core.creature.Combatant].
 
@@ -94,9 +94,9 @@ class Creature(Protocol):
 
     @property
     def id(self) -> str | None:
-        """The entity id a session assigned, or `None` for a character no session holds yet.
+        """The entity id a session assigned, or `None` for a character not yet in a session.
 
-        Events name creatures by it.
+        Events refer to creatures by it.
         """
         ...
 
@@ -176,17 +176,17 @@ class Combatant(Creature, Protocol):
 
     @property
     def melee_modifier(self) -> int:
-        """The bonus a melee attack and its damage take, from strength or from an effect."""
+        """The bonus added to a melee attack and its damage, from strength or from an effect."""
         ...
 
     @property
     def missile_modifier(self) -> int:
-        """The bonus a missile attack takes, from dexterity. A monster's is 0."""
+        """The bonus added to a missile attack, from dexterity. A monster's is 0."""
         ...
 
     @property
     def initiative_modifier(self) -> int:
-        """The bonus an individual initiative roll takes. A monster's is 0."""
+        """The bonus added to an individual initiative roll. A monster's is 0."""
         ...
 
 
@@ -198,8 +198,8 @@ class Caster(Creature, Protocol):
     [`cast_spell`][osrlib.core.spells.cast_spell], and [`disrupt_casting`][osrlib.core.spells.disrupt_casting]
     take this. A [`Character`][osrlib.core.character.Character] satisfies it and a
     [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] does not, because monsters in the compiled data never
-    cast. The class that decides which list and how many slots is not part of the surface: those functions take
-    the [`ClassDefinition`][osrlib.core.classes.ClassDefinition] or the
+    cast. The class, which sets the spell list and the number of slots, is not part of the protocol: those functions
+    take the [`ClassDefinition`][osrlib.core.classes.ClassDefinition] or the
     [`CasterProfile`][osrlib.core.spells.CasterProfile] as a separate argument.
 
     Examples:
@@ -225,9 +225,9 @@ class Caster(Creature, Protocol):
     """
 
     level: int
-    """The caster's level, which sets slots, range, and effect size. A scroll is read at the scroll's own level
+    """The caster's level, which sets slots, range, and effect size. A scroll is read at the scroll's level
     rather than the reader's."""
     spell_book: tuple[str, ...]
-    """The spell ids an arcane caster owns copies of. Empty for a divine caster."""
+    """The spell ids in an arcane caster's spell book. Empty for a divine caster."""
     memorized_spells: tuple[MemorizedSpell, ...]
     """The prepared copies as [`MemorizedSpell`][osrlib.core.spells.MemorizedSpell] entries, spent as they are cast."""

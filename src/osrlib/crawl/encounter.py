@@ -18,35 +18,35 @@ back in `exploring`.
 You rarely call `start_encounter` yourself. The session's
 [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] and
 [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] handlers, the wandering-monster check, and
-entry into a keyed area all call it for you. Call it directly when your own content decides that a
+entry into a keyed area all call it for you. Call it directly when your own code decides that a
 group has just come into view.
 
 The results reach a front end as events from [`osrlib.crawl.events`][osrlib.crawl.events]:
 a [`SurpriseRolledEvent`][osrlib.crawl.events.SurpriseRolledEvent] per side,
 [`EncounterStartedEvent`][osrlib.crawl.events.EncounterStartedEvent] reporting the count and the
-distance, [`StanceChangedEvent`][osrlib.crawl.events.StanceChangedEvent] whenever the reaction
-moves, [`EvasionEvent`][osrlib.crawl.events.EvasionEvent] and
+distance, [`StanceChangedEvent`][osrlib.crawl.events.StanceChangedEvent] whenever the stance
+changes, [`EvasionEvent`][osrlib.crawl.events.EvasionEvent] and
 [`PursuitEvent`][osrlib.crawl.events.PursuitEvent] while the party runs,
 [`ExhaustionEvent`][osrlib.crawl.events.ExhaustionEvent] when a chase runs its course, a
 [`MonsterDefeatedEvent`][osrlib.crawl.events.MonsterDefeatedEvent] per monster at the close, and
 [`EncounterEndedEvent`][osrlib.crawl.events.EncounterEndedEvent] with the outcome. The reaction
-roll itself posts the kernel's
+roll itself is reported as the kernel's
 [`ReactionRolledEvent`][osrlib.core.events.ReactionRolledEvent] at referee visibility.
 
-The stance is the monsters' current disposition, and the stance map resolves bands the OSE SRD
-leaves to a human referee. A reaction of 2 or less attacks now. A 3 to 5 is hostile: the monsters
-attack at the end of the next encounter round unless the party has begun evading or has improved
-the stance by parley. A 6 to 8 is uncertain, so the monsters hold and posture, and the reaction
-re-rolls next round with no modifier. A 9 to 11 is indifferent, and the party may pass, parley, or
-withdraw freely. A 12 or more is friendly. Only the attacking and hostile stances pursue an evading
+The stance is the monsters' current disposition, and osrlib's stance rules settle what the OSE SRD
+leaves to a human referee for each band. On a reaction of 2 or less, the monsters attack at once. A 3 to 5
+is hostile: the monsters attack at the end of the next encounter round unless the party has begun evading or
+has improved the stance by parley. A 6 to 8 is uncertain, so the monsters hold and posture, and the reaction
+is re-rolled next round with no modifier. A 9 to 11 is indifferent, and the party may pass, parley, or
+withdraw freely. A 12 or more is friendly. Only monsters in the attacking and hostile stances pursue an evading
 party, as a documented adaptation (see the
 [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/), the page listing where
 osrlib commits to one reading of an ambiguous rule or supplies a default behind a `Ruleset` flag).
-RAW leaves pursuit itself to the referee, and osrlib keys it to low reactions.
+The rules as written (RAW) leave pursuit itself to the referee, and osrlib bases it on low reactions.
 
-The distance roll is bounded by the space it happens in. RAW rolls 2d6 × 10' only "if there is
+The distance roll is bounded by the space it happens in. RAW calls for 2d6 × 10' only "if there is
 uncertainty", and the walls around the party's cell resolve that uncertainty, so the rolled distance
-caps at the longest straight sight line the cell affords: the room's own span in a room, the whole
+caps at the longest straight sight line from the cell: the room's span in a room, the whole
 passage down a corridor, never shortened by darkness. A caller that supplies `distance_feet` is
 never capped, because the referee places what the referee spawns.
 
@@ -131,11 +131,11 @@ __all__ = [
 ]
 
 PURSUIT_ROUND_CAP = 30
-"""The round at which a running pursuit gives up and the party gets away, exhausted.
+"""The round at which the pursuers give up and the party gets away, exhausted.
 
 A pursuit normally ends before this: the gap closes to 5' and the pursuers catch the party into
 battle, or a sack dropped behind the party distracts them. Neither happens when the two sides run at
-the same rate, because the gap then never changes, so the cap is the terminal escape valve. Reaching
+the same rate, because the gap then never changes, so the cap is what ends such a chase. Reaching
 it attaches the exhausted condition to every living member, posts an
 [`ExhaustionEvent`][osrlib.crawl.events.ExhaustionEvent] and a
 [`PursuitEvent`][osrlib.crawl.events.PursuitEvent] with code `encounter.pursuit.escaped`, and closes
@@ -153,15 +153,15 @@ class EncounterGroup(BaseModel):
     You get these from `session.encounter.groups`. The encounter procedure builds them and the battle
     machinery updates them in place, so you never construct one yourself outside a save file. The
     group, not the individual monster, is the unit the fight works in: initiative rolls per side,
-    morale breaks a whole group at once, and a battle order names a group through `target_group_id` on
+    morale breaks a whole group at once, and a battle order selects a group through `target_group_id` on
     [`BattleDeclaration`][osrlib.crawl.commands.BattleDeclaration].
     """
 
     model_config = ConfigDict(validate_assignment=True)
 
     id: str
-    """The session-scoped group id, `group-NNNN`, from the session's allocator. This is what a battle
-    declaration's `target_group_id` names."""
+    """The session-scoped group id, `group-NNNN`, from the session's allocator. A battle declaration's
+    `target_group_id` refers to this id."""
     label: str
     """The group's display name: the monster template's name for a spawned or keyed group, and the
     encounter table row's name for a wandering one."""
@@ -179,11 +179,11 @@ class EncounterGroup(BaseModel):
     fled: bool = False
     """True once the group has run past [`FLEE_EXIT_FEET`][osrlib.crawl.battle.FLEE_EXIT_FEET] and left
     the fight, or once a group with morale 2 routed at the moment battle opened. An attack declared
-    against it is rejected as naming an unknown group."""
+    against it is rejected as referring to an unknown group."""
     member_treasure: dict[str, TreasureBundle] = {}
     """The bundle each member carries, keyed by monster id, generated at spawn from the individual
     treasure types (P through T). A slain member's bundle drops as loot when the encounter closes,
-    and a routed member takes its own away."""
+    and a routed member takes its bundle away."""
     group_treasure: TreasureBundle | None = None
     """The bundle the group shares, generated at spawn from the group treasure types (U and V), or None
     when the group carries none. It drops only when every member is defeated, never when any member
@@ -216,8 +216,8 @@ class EncounterState(BaseModel):
 
     You get this from `session.encounter`, which is None whenever no encounter is open. It serializes
     with the session, so a saved game restores mid-encounter. Treat it as something to read and render
-    from, not to edit: this module's own command handlers and the battle machinery own every field on
-    it.
+    from, not to edit: only this module's command handlers and the battle machinery change its
+    fields.
     """
 
     model_config = ConfigDict(validate_assignment=True)
@@ -227,8 +227,9 @@ class EncounterState(BaseModel):
     area the adventure stocked, or `"spawned"` from a referee command."""
     area_ref: str | None = None
     """The keyed area's state reference, when `kind` is `"keyed"`. When every monster in the encounter
-    ends up slain or routed, the close records this reference as resolved, so entering the area again
-    starts no second fight."""
+    ends up slain or routed,
+    [`end_encounter`][osrlib.crawl.encounter.end_encounter] records this reference as resolved, so
+    entering the area again starts no second fight."""
     groups: list[EncounterGroup] = Field(min_length=1)
     """The monster groups, each an [`EncounterGroup`][osrlib.crawl.encounter.EncounterGroup], in the
     order they were spawned. There is always at least one."""
@@ -237,24 +238,25 @@ class EncounterState(BaseModel):
     value: `"attacks"`, `"hostile"`, `"uncertain"`, `"indifferent"`, or `"friendly"`. None only between
     construction and the first reaction roll."""
     round: int = 0
-    """Encounter round beats run so far. A command that leaves the encounter open, like
+    """Encounter rounds run so far. A command that leaves the encounter open, like
     [`Wait`][osrlib.crawl.commands.Wait] or [`Parley`][osrlib.crawl.commands.Parley], adds one. A chase
-    counts its own rounds on `pursuit` instead."""
+    counts its rounds on `pursuit` instead."""
     started_round: int
-    """The session clock's round count when the encounter opened. The close uses it to charge the
-    encounter its minimum one turn."""
+    """The session clock's round count when the encounter opened.
+    [`end_encounter`][osrlib.crawl.encounter.end_encounter] uses it to charge the encounter its
+    minimum one turn."""
     party_surprised: bool = False
     """True when the party lost the surprise roll and gave up a round."""
     monsters_surprised: bool = False
     """True when the monsters lost the surprise roll. Both sides surprised is momentary confusion, and
     neither side gains anything."""
     monsters_skip_rounds: int = 0
-    """Round beats the monsters still owe to their own surprise. Each beat they sit out spends one, and
-    a battle that opens while any remain gives the party a free round."""
+    """Rounds the monsters still have to sit out because they were surprised. Each round they sit out spends one,
+    and a battle that opens while any remain gives the party a free round."""
     hostile_deadline: int | None = None
     """The encounter round at which a hostile group attacks, set each time the stance turns hostile.
-    None until a hostile result comes up. It is read only while the stance is still hostile, so a
-    stance the party talked back up ignores it."""
+    None until a hostile result comes up. It is read only while the stance is still hostile, so once
+    the party has talked the stance back up, the deadline no longer applies."""
     evading: bool = False
     """True once the party has declared an evasion, which suspends a hostile group's deadline while the
     party backs away."""
@@ -281,10 +283,10 @@ def start_encounter(
 ) -> list[Event]:
     """Open an encounter on a session: surprise, distance, reaction, and their first consequences.
 
-    Call this when your own content decides a monster group has come into view. Spawn the monsters
+    Call this when your own code decides a monster group has come into view. Spawn the monsters
     first with [`GameSession.spawn`][osrlib.crawl.session.GameSession.spawn] so their instances are in
     the session registry, then pass them here as `(label, instances)` pairs. On return the session is
-    in `encounter` mode and `session.encounter` holds an
+    in `encounter` mode and `session.encounter` is an
     [`EncounterState`][osrlib.crawl.encounter.EncounterState] you can read and render from. Drive the
     encounter with the encounter commands after that, and let
     [`end_encounter`][osrlib.crawl.encounter.end_encounter] close it. An attacking stance opens battle
@@ -320,7 +322,7 @@ def start_encounter(
         monsters_roll_surprise: False when these monsters can never be surprised, as wandering monsters
             cannot.
         monsters_aware: True when the monsters already expect intruders, which skips their roll.
-        party_aware: True when the party has heard the room, which skips its own roll.
+        party_aware: True when the party has heard the room, which skips the party's roll.
         pinned_stance: A [`ReactionResult`][osrlib.core.tables.ReactionResult] the adventure author
             fixed for this encounter. It skips the reaction roll, and no draw is spent on one.
 
@@ -421,7 +423,7 @@ def start_encounter(
     if distance_feet is None:
         rolled_tens: int = stream.randbelow(6) + 1 + stream.randbelow(6) + 1
         distance_feet = rolled_tens * 10
-        # RAW rolls 2d6 × 10' only "if there is uncertainty"; otherwise "the
+        # RAW calls for 2d6 × 10' only "if there is uncertainty". Otherwise "the
         # situation in which the encounter occurs" fixes the distance, and the
         # walls the party is standing between are that situation. The roll is
         # therefore capped at the cell's longest straight sight line: a corridor
@@ -769,17 +771,17 @@ def _pursuer_rate(session, groups) -> int:
     """The slowest pursuing group's base ground mode, full rate per round.
 
     The slowest pursuer sets the pace, the way the slowest party member sets the
-    party's. A pack that strings out is fiction. Flying reads dungeon ceilings,
-    so the base ground mode is the mode with no descriptor, else the first
-    printed.
+    party's. The engine doesn't model a group stringing out. The base ground mode
+    is the mode with no descriptor, else the first printed, so a flying mode
+    doesn't count.
     """
     rates = []
     for group in groups:
         for monster_id in group.monster_ids:
             combatant = session.combatant(monster_id)
             if getattr(combatant, "definition", None) is not None:
-                # NPC adventurers run at their own movement rates; the slowest of
-                # the group paces it like the party's own rule.
+                # NPC adventurers run at their movement rates. The slowest of
+                # the group paces it, like the party's rule.
                 rates.append(
                     min(
                         session.combatant(npc_id).movement_rate(session.ruleset)
@@ -796,7 +798,7 @@ def _pursuer_rate(session, groups) -> int:
 
 
 def _group_intelligent(session, group: EncounterGroup) -> bool:
-    """The intelligence proxy: a treasure ref with letters marks a hoarder.
+    """Whether a group counts as intelligent, which a monster does when its treasure entry lists letters.
 
     NPC adventuring parties count as intelligent for the distraction roll
     whatever their treasure letters, because they are people.
@@ -808,7 +810,7 @@ def _group_intelligent(session, group: EncounterGroup) -> bool:
 
 
 def _pursuit_round(session, *, dropped_kind: str | None = None) -> list[Event]:
-    """Run one pursuit round: distraction, the gap update, and the terminals.
+    """Run one pursuit round: distraction, the gap update, and the outcomes that end the chase.
 
     A round that leaves nobody standing ends there: nobody is running, so no
     distraction die is rolled, the gap goes unmeasured, and the pursuers catch
@@ -971,35 +973,35 @@ def _drop_loot(session, state: EncounterState) -> list[Event]:
 def end_encounter(session, outcome: str) -> list[Event]:
     """Close the open encounter: record defeats, drop loot, release effects, and settle the clock.
 
-    Call this when the encounter is over on terms your own content decided: the party talked its way
+    Call this when the encounter is over on terms your own code decided: the party talked its way
     past, or walked away, or the standoff finished. You seldom call it yourself, because a
     victory, an evasion, an escape, and a successful turning all call it from inside the encounter and
     battle handlers. There must be an encounter open when you call it: with `session.encounter` set to
     None it raises `AttributeError` on the first line, because nothing guards the dereference. On
     return `session.encounter` is None and the session is back in `exploring` mode, unless the party
-    is dead, in which case the session's own wipe check has already taken over.
+    is dead, in which case the session's wipe check has already run.
 
     Every monster that ended slain or routed (fled, still fleeing, or turned) gets a
     [`MonsterDefeatedEvent`][osrlib.crawl.events.MonsterDefeatedEvent] and a record on
     `session.defeated_monsters` with its experience value. Slain monsters drop the treasure they
     carried onto the party's cell as a pile, and routed ones take theirs away. Every effect still
-    running on any of the encounter's monsters then releases, because the fiction moves on and a dead
+    running on any of the encounter's monsters then releases, because the encounter is over and a dead
     troll's pending revival is narration rather than game state. Under a ruleset that
     awards experience immediately, the pooled experience divides and applies here and the record list
     clears with it. Otherwise the records wait for the party's return to town.
 
     The clock advances to whichever is later: the next turn boundary, or one full turn after the
     encounter opened. An encounter that opened mid-turn is therefore charged its full turn and can
-    close mid-turn, since the boundary clause only guarantees the boundary is reached. The wandering
-    monster cadence stays suspended across the whole encounter. That whole-turn charge absorbs any
-    part-turn of walking the party had banked, so `session.odometer_thirds` resets to 0.
+    close mid-turn, because the next turn boundary can come before that full turn is up. The wandering
+    monster cadence stays suspended across the whole encounter. The whole-turn charge also covers any
+    partial turn of walking the party had accumulated, so `session.odometer_thirds` resets to 0.
 
     Args:
         session (osrlib.crawl.session.GameSession): The running session, with `session.encounter` set.
         outcome: The label recorded on the
             [`EncounterEndedEvent`][osrlib.crawl.events.EncounterEndedEvent] and rendered in the
             default message line. The engine passes `"victory"`, `"evaded"`, `"escaped"`, and
-            `"turned"`. Nothing compares the value, so your own content can use its own words.
+            `"turned"`. osrlib never compares the value, so your code can pass any label.
 
     Returns:
         The defeat events, the immediate experience award when the ruleset uses one, the
@@ -1132,15 +1134,15 @@ _HANDLERS = {
 }
 """The encounter commands this module handles, keyed by command class.
 
-[`GameSession`][osrlib.crawl.session.GameSession] folds this map into its own private handler table
+[`GameSession`][osrlib.crawl.session.GameSession] merges this map into its private handler table
 the first time it dispatches a command, alongside the exploration, battle, and referee maps. There is
 no registration point here: the only documented way to run a command is
-[`GameSession.execute`][osrlib.crawl.session.GameSession.execute], which picks the handler, runs the
-mode gate, and does the command log, listener, and rejection pre-phase bookkeeping a handler alone
-would skip.
+[`GameSession.execute`][osrlib.crawl.session.GameSession.execute], which picks the handler, checks that
+the command is legal in the current mode, and does the bookkeeping for the command log, the listeners, and
+the up-front validation that a handler alone would skip.
 
 Each value takes `(session, command)` and returns a `(rejections, events)` pair.
 [`DropItems`][osrlib.crawl.commands.DropItems] is not among them even though it works during an
-encounter: [`osrlib.crawl.exploration`][osrlib.crawl.exploration] owns that command and forwards it
+encounter: [`osrlib.crawl.exploration`][osrlib.crawl.exploration] handles that command and forwards it
 here when an encounter is open.
 """

@@ -1,6 +1,6 @@
 """Rolling dice from the strings the rules are written in.
 
-[`roll`][osrlib.core.dice.roll] is the entry point: hand it a dice expression such as
+[`roll`][osrlib.core.dice.roll] is the entry point: hand it a dice expression like
 `"3d6"` and an [`RngStream`][osrlib.core.rng.RngStream] from
 [`RngStreams.get`][osrlib.core.rng.RngStreams.get], and it returns a
 [`RollResult`][osrlib.core.dice.RollResult] with each die and the total. Call
@@ -141,7 +141,7 @@ class RollResult(BaseModel):
     dice for the same reason: so an interface can put them on the screen.
 
     Attack and damage resolution in [`osrlib.core.combat`][osrlib.core.combat] hands back
-    results of this shape too, so one piece of display code covers both.
+    results with these fields too, so one piece of display code covers both.
 
     Examples:
         ```python
@@ -182,7 +182,7 @@ def parse(expression: str) -> DiceExpression:
     nothing unless you roll the same expression many times.
 
     Args:
-        expression: A dice expression such as `"3d6"`, `"d%"`, or `"2d6+1×10"`. Case doesn't
+        expression: A dice expression like `"3d6"`, `"d%"`, or `"2d6+1×10"`. Case doesn't
             matter and surrounding whitespace is ignored.
 
     Returns:

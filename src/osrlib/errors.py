@@ -1,7 +1,7 @@
 """The exceptions osrlib raises, and the failures they stand for.
 
-Three different things can go wrong when you call this library, and each has its own
-answer. Something a player tried that the rules forbid, like walking into a wall or choosing
+Three different things can go wrong when you call this library, and each needs a different
+response. Something a player tried that the rules forbid, like walking into a wall or choosing
 a class their scores don't qualify for, isn't an exception at all. The call returns a
 refusal, a [`Rejection`][osrlib.core.validation.Rejection], which gives you a code and the
 facts behind it so you can tell the player why. Something you got wrong in your own code,
@@ -17,7 +17,7 @@ replayed under different rules.
 OsrlibError` catches all of them, and the subclasses let you separate the cases that
 deserve different answers.
 
-Each subclass stands for one failure, and each failure has its own answer:
+Each subclass stands for one failure, with the response it needs:
 
 - [`ContentValidationError`][osrlib.errors.ContentValidationError]: a document, dice
   expression, or adventure is malformed, or a replayed command is refused. For malformed input,
@@ -68,12 +68,12 @@ class OsrlibError(Exception):
     [`ContentValidationError`][osrlib.errors.ContentValidationError].
 
     Nothing raises `OsrlibError` itself, and don't raise it from your own code. It exists to
-    be caught, and a bare instance tells a handler nothing about what happened.
+    be caught, and a bare instance gives a handler no information about what happened.
 
     It doesn't cover a player choice the rules refuse, which comes back as a
     [`Rejection`][osrlib.core.validation.Rejection] rather than being raised, nor a mistake
     in your own call, which raises the stdlib `ValueError` or `TypeError`. Catching
-    `OsrlibError` alone leaves both of those to travel on, which is what you want.
+    `OsrlibError` alone lets both of those propagate, which is what you want.
     """
 
 
@@ -81,7 +81,7 @@ class ContentValidationError(OsrlibError):
     """Raised when content handed to the library is malformed.
 
     This is the failure with no repair. Whatever was read can't be understood, so there's
-    nothing to fall back to. Show the message, which names what was wrong, and go no further
+    nothing to fall back to. Show the message, which describes what was wrong, and go no further
     with that input.
 
     It comes from the boundaries where osrlib accepts something from outside itself:
@@ -95,8 +95,8 @@ class ContentValidationError(OsrlibError):
       [`parse_any_event`][osrlib.crawl.events.parse_any_event], on a command or event of a
       known type whose fields don't fit that type.
     - [`validate_adventure`][osrlib.crawl.adventure.validate_adventure], on an adventure whose
-      own structure doesn't hold together.
-    - The loaders in [`osrlib.data`][osrlib.data], when the data shipped in the package fails
+      structure is inconsistent.
+    - The loaders in [`osrlib.data`][osrlib.data], when the data included in the package fails
       model validation.
     - [`replay_game`][osrlib.persistence.replay_game], when a logged command is refused the
       second time. That means the replay has diverged from the game it was meant to reproduce.
@@ -113,12 +113,12 @@ class SaveVersionError(OsrlibError):
     Every document osrlib writes includes a `schema_version`, and
     [`check_document`][osrlib.versioning.check_document] compares it against
     [`SCHEMA_VERSION`][osrlib.versioning.SCHEMA_VERSION] before any field is read. A number
-    higher than the running library's means the document can contain shapes this code has
-    never seen, so the read stops there rather than guessing and misreading it.
+    higher than the running library's means the document can contain structures this version
+    doesn't recognize, so the read stops there rather than guessing and misreading it.
 
     Catch this separately from
     [`ContentValidationError`][osrlib.errors.ContentValidationError] where a player is
-    watching, because it has an answer: the file is fine, the library is behind. Tell them to
+    watching, because the player can fix it: the file is fine, the library is behind. Tell them to
     upgrade osrlib and try again. An older document needs no handling from you, because
     [`load_game`][osrlib.persistence.load_game] migrates it forward.
 
@@ -137,12 +137,12 @@ class ReplayVersionError(OsrlibError):
     pass `recorded_engine_version`, so you decide whether the check happens at all.
 
     Replay runs the recorded commands again from the same seed and relies on the rules
-    resolving them the same way. A change to those rules can move an outcome, which would
+    resolving them the same way. A change to those rules can change an outcome, which would
     make the replayed game differ from the one that was played. Comparing the versions turns
     that into a failure you can see instead of a difference you can't.
 
     When you catch it, load the save rather than replaying its log.
     [`load_game`][osrlib.persistence.load_game] restores the recorded state directly and
-    works across engine versions. Replay is the stricter path, and this is what it trades for
+    works across engine versions. Replay is the stricter path, and this error is the cost of
     that strictness.
     """

@@ -1,6 +1,6 @@
 # Using the rules without a session
 
-You want to roll dice, resolve an attack, or generate a hoard from a script, with no session, no adventure, and no game loop. That's what `osrlib.core`, the rules **kernel**, is for: dice, combat, treasure, spells, and the printed tables, as pure functions over frozen models. The kernel doesn't depend on a running game. The dungeon-crawl framework in `osrlib.crawl` is one consumer of the kernel, built entirely on top of it. A mass-combat simulator, a balance harness, or a content-validation script is just as valid a second consumer. The layering only runs one way: core never imports crawl, so anything you build against `osrlib.core` keeps working no matter what the crawl layer does above it.
+You want to roll dice, resolve an attack, or generate a hoard from a script, with no session, no adventure, and no game loop. That's what `osrlib.core`, the rules **kernel**, is for: dice, combat, treasure, spells, and the printed tables, as pure functions over frozen models. The kernel doesn't depend on a running game. The dungeon-crawl framework in `osrlib.crawl` is one consumer of the kernel, built entirely on top of it. A mass-combat simulator, a balance harness, or a content-validation script can use the kernel the same way. The layering only runs one way: core never imports crawl, so anything you build against `osrlib.core` keeps working no matter what the crawl layer does above it.
 
 Away from a session, you bring your own [`RngStreams`][osrlib.core.rng.RngStreams] and pass the stream each function takes explicitly. There's no default stream and no hidden global RNG. [The RNG streams reference](../reference/rng-streams.md) lists the stream keys a running [`GameSession`][osrlib.crawl.session.GameSession] uses by convention, but standalone code isn't bound by them. A stream's name is a label, and determinism only requires that the same name draw the same sequence for a given master seed. [The complete program](#the-complete-program) at the end rolls dice, resolves an attack, generates treasure, and looks up a reaction in one script. Every code snippet above it comes from that script.
 
@@ -20,11 +20,11 @@ rolled = roll(expression, streams.get("scratch"))
 assert rolled.total == (sum(rolled.rolls) + 1) * 10
 ```
 
-`roll` also accepts the plain string directly (it calls `parse` for you), so `roll("3d6", stream)` is just as valid as parsing first.
+`roll` also accepts the plain string directly (it calls `parse` for you), so `roll("3d6", stream)` works the same as parsing first.
 
 ## Resolving an attack against a created monster
 
-[`create_character`][osrlib.core.character.create_character] and [`spawn_monster`][osrlib.core.monsters.spawn_monster] both work with no session behind them. Past its own name, class id, and alignment, a character needs only a [`Ruleset`][osrlib.core.ruleset.Ruleset] and a stream. A monster needs only its [`MonsterTemplate`][osrlib.core.monsters.MonsterTemplate] from [`load_monsters`][osrlib.data.load_monsters] (see [the monster id index][monsters-index]) plus an id, conventionally minted by an [`IdAllocator`][osrlib.core.monsters.IdAllocator], the same monotonic counter a `GameSession` uses internally. [`resolve_attack`][osrlib.core.combat.resolve_attack] then runs the whole pipeline (the attack roll, the immunity gate, the damage roll and its application) against an [`AttackContext`][osrlib.core.combat.AttackContext] you build yourself. Pass `attack=None` for an unarmed strike:
+[`create_character`][osrlib.core.character.create_character] and [`spawn_monster`][osrlib.core.monsters.spawn_monster] both work with no session behind them. Besides a name, a class id, and an alignment, a character needs only a [`Ruleset`][osrlib.core.ruleset.Ruleset] and a stream. A monster needs only its [`MonsterTemplate`][osrlib.core.monsters.MonsterTemplate] from [`load_monsters`][osrlib.data.load_monsters] (see [the monster id index][monsters-index]) plus an id, usually allocated by an [`IdAllocator`][osrlib.core.monsters.IdAllocator], the same monotonic counter a `GameSession` uses internally. [`resolve_attack`][osrlib.core.combat.resolve_attack] then runs the whole pipeline (the attack roll, the immunity check, the damage roll and its application) against an [`AttackContext`][osrlib.core.combat.AttackContext] you build yourself. Pass `attack=None` for an unarmed strike:
 
 ```{.python .no-run}
 rules = Ruleset()
@@ -53,7 +53,7 @@ else:
 
 ## Rolling treasure for a type letter
 
-[`generate_treasure`][osrlib.core.treasure.generate_treasure] takes a treasure-type letter straight off the SRD's tables (see [the treasure type index][treasure-types-index]) and rolls its full contents (coins, gems, jewellery, and magic items) end to end from one stream, in printed order. The `IdAllocator` you pass in mints an id for each valuable and magic item. The `tier` argument picks the Basic or Expert magic-item columns. A session derives the tier from the party's highest living level, and in standalone code you state the tier outright:
+[`generate_treasure`][osrlib.core.treasure.generate_treasure] takes a treasure-type letter straight off the SRD's tables (see [the treasure type index][treasure-types-index]) and rolls its full contents (coins, gems, jewellery, and magic items) end to end from one stream, in printed order. The `IdAllocator` you pass in allocates an id for each valuable and magic item. The `tier` argument picks the Basic or Expert magic-item columns. A session derives the tier from the party's highest living level. In standalone code, you pass the tier yourself:
 
 ```{.python .no-run}
 # Roll a treasure type letter's contents directly -- no dungeon, no keyed area.
@@ -61,7 +61,7 @@ treasure = generate_treasure("A", tier="basic", stream=streams.get(TREASURE_STRE
 assert treasure.coins.value_cp >= 0
 ```
 
-The result is a [`GeneratedTreasure`][osrlib.core.items.GeneratedTreasure]: `coins`, `valuables` (gems and jewellery), and `magic_items`. Every valuable and item instance has its own allocated id.
+The result is a [`GeneratedTreasure`][osrlib.core.items.GeneratedTreasure]: `coins`, `valuables` (gems and jewellery), and `magic_items`. The allocator gives every valuable and item instance a separate id.
 
 ## Looking up a reaction
 
@@ -75,7 +75,7 @@ assert 2 <= total <= 12
 assert reaction in ReactionResult
 ```
 
-The combat kernel's own [`roll_reaction`][osrlib.core.combat.roll_reaction] and [`check_morale`][osrlib.core.combat.check_morale] wrap this same pattern (roll the dice, then consult the table) for the common case where the intermediate total doesn't matter to the caller.
+The combat functions [`roll_reaction`][osrlib.core.combat.roll_reaction] and [`check_morale`][osrlib.core.combat.check_morale] wrap this same pattern (roll the dice, then consult the table) for the common case where the intermediate total doesn't matter to the caller.
 
 ## The complete program
 
@@ -135,6 +135,6 @@ assert reaction in ReactionResult
 
 ## Where next
 
-- [Sessions, commands, and events](sessions-commands-events.md) - how `GameSession` connects these same kernel functions to its own named streams automatically.
-- [Determinism, saves, and replay](determinism-saves-replay.md) - the seed and stream guarantees `RngStreams` relies on.
+- [Sessions, commands, and events](sessions-commands-events.md) - how `GameSession` connects these same kernel functions to the session's named streams automatically.
+- [Determinism, saves, and replay](determinism-saves-replay.md) - the seed and stream guarantees built on `RngStreams`.
 - [The API reference](../reference/api/index.md) - every public symbol in `osrlib.core`, module by module.
