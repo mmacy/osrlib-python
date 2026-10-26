@@ -11,7 +11,7 @@ framework in `osrlib.crawl` is one consumer of the kernel, and yours is another.
 modules never import from `osrlib.crawl`, so what you build on the kernel keeps working
 whatever the crawl layer does above it.
 
-The modules, in the order you meet them:
+The kernel has these modules:
 
 - [`osrlib.core.rng`][osrlib.core.rng]: a master seed in, named deterministic streams
   out. Every other module here takes one of those streams as an argument.
@@ -39,6 +39,9 @@ The modules, in the order you meet them:
 - [`osrlib.core.combat`][osrlib.core.combat] and
   [`osrlib.core.effects`][osrlib.core.effects]: an attacker, a defender, and a context
   in, the resolution and its events out.
+- [`osrlib.core.creature`][osrlib.core.creature]: the protocols that a character and a
+  monster both satisfy. The combat, spell, and effect functions take their creature
+  arguments as these protocols.
 - [`osrlib.core.treasure`][osrlib.core.treasure]: a treasure-type letter and a stream
   in, coins, gems, jewellery, and magic items out.
 - [`osrlib.core.events`][osrlib.core.events]: the base class every kernel event

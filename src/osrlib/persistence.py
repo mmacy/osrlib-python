@@ -2,7 +2,7 @@
 
 Two ways lead from a stored game to a running
 [`GameSession`][osrlib.crawl.session.GameSession], and they reach the same place. The
-members, in the order you use them:
+module has these members:
 
 - [`save_game`][osrlib.persistence.save_game]: a session in, a save document out.
 - [`load_game`][osrlib.persistence.load_game]: a save document in, a session ready to
@@ -441,7 +441,7 @@ def load_game(document: Mapping[str, object]) -> GameSession:
         ContentValidationError: If the envelope or the payload is malformed, if a logged
             command is of a type this version doesn't recognize, or if no migration step exists
             for the document's schema version.
-        SaveVersionError: If a newer osrlib wrote the document. Tell the player to upgrade.
+        osrlib.errors.SaveVersionError: If a newer osrlib wrote the document. Tell the player to upgrade.
             There's nothing to repair in the file.
 
     Examples:
@@ -622,7 +622,7 @@ def replay_game(
             commands that were accepted the first time, so a refusal means the replay has
             diverged from the game it was meant to reproduce. Check that you passed the
             starting party, the same ruleset, and the same seed.
-        SaveVersionError: If a newer osrlib wrote `party_document`.
+        osrlib.errors.SaveVersionError: If a newer osrlib wrote `party_document`.
 
     Examples:
         ```python

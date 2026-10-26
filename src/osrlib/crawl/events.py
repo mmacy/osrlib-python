@@ -2015,7 +2015,7 @@ def parse_any_event(data: Mapping[str, object]) -> Event | None:
         [`ALL_EVENT_CLASSES`][osrlib.crawl.events.ALL_EVENT_CLASSES].
 
     Raises:
-        ContentValidationError: If the event type is known but the payload doesn't fit it, like
+        osrlib.errors.ContentValidationError: If the event type is known but the payload doesn't fit it, like
             a record missing a required field. The message includes pydantic's report.
 
     Examples:

@@ -126,6 +126,10 @@ plugins:
             - https://docs.pydantic.dev/latest/objects.inv
             - https://docs.python.org/3/objects.inv
           options:
+            # Undocumented attribute overrides, like each command's `command_type`, get
+            # their parent's docstring instead of rendering as bare names.
+            extensions:
+              - tools/docs/griffe_inherit_docstrings.py:InheritAttributeDocstrings
             docstring_style: google
             # Render the model fields, not only methods: for the frozen pydantic
             # models (commands, events, game state) the typed fields are the API

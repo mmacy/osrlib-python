@@ -1356,8 +1356,8 @@ def parse_event(data: Mapping[str, object]) -> Event | None:
             define.
 
     Raises:
-        ContentValidationError: If the event type is one this release does define and the rest of the mapping
-            doesn't fit it. A malformed event of a known type is a real problem, so it is raised rather than
+        osrlib.errors.ContentValidationError: If the event type is one this release does define and the rest of
+            the mapping doesn't fit it. A malformed event of a known type is a real problem, so it is raised rather than
             skipped.
 
     Examples:

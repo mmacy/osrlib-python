@@ -3076,7 +3076,7 @@ def parse_command(data: Mapping[str, object]) -> Command | None:
         The command, or `None` when its `command_type` is unknown.
 
     Raises:
-        ContentValidationError: If the command type is known but the payload is
+        osrlib.errors.ContentValidationError: If the command type is known but the payload is
             malformed.
 
     Examples:

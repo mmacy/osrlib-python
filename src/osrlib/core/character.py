@@ -611,7 +611,7 @@ class Character(BaseModel):
         Raises:
             ContentValidationError: If the envelope is not a character document, or the payload
                 does not validate as a character.
-            SaveVersionError: If the document's schema version is newer than this library
+            osrlib.errors.SaveVersionError: If the document's schema version is newer than this library
                 understands.
         """
         payload = check_document(document, "character")
@@ -688,7 +688,42 @@ def party_from_document(document: Mapping[str, object]) -> list[Character]:
     Raises:
         ContentValidationError: If the envelope is not a party document, if its payload contains no
             `"characters"` list, or if a member does not validate as a character.
-        SaveVersionError: If the document's schema version is newer than this library understands.
+        osrlib.errors.SaveVersionError: If the document's schema version is newer than this library understands.
+
+    Examples:
+        Save a roster to a JSON file and load it back:
+
+        ```python
+        import json
+        from pathlib import Path
+
+        from osrlib.core.alignment import Alignment
+        from osrlib.core.character import (
+            CHARACTER_CREATION_STREAM,
+            create_character,
+            party_from_document,
+            party_to_document,
+        )
+        from osrlib.core.rng import RngStreams
+        from osrlib.core.ruleset import Ruleset
+
+        stream = RngStreams(master_seed=2).get(CHARACTER_CREATION_STREAM)
+        roster = [
+            create_character(
+                name=name,
+                class_id="fighter",
+                alignment=Alignment.LAWFUL,
+                ruleset=Ruleset(),
+                stream=stream,
+            ).character
+            for name in ("Rurik", "Alia")
+        ]
+        Path("roster.json").write_text(json.dumps(party_to_document(roster)))
+
+        characters = party_from_document(json.loads(Path("roster.json").read_text()))
+        print([(member.name, member.max_hp) for member in characters])
+        # [('Rurik', 8), ('Alia', 1)]
+        ```
     """
     payload = check_document(document, "party")
     characters = payload.get("characters")

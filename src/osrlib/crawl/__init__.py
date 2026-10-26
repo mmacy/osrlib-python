@@ -7,7 +7,7 @@ the `osrlib.core` kernel, which has the characters, items, dice, the clock, and 
 no dungeon around them. The dependency runs one way: the kernel never imports from here, so you can
 use the core rules on their own and reach for this package when you want a running game.
 
-The modules, in the order you meet them:
+The crawl framework has these modules:
 
 - [`osrlib.crawl.dungeon`][osrlib.crawl.dungeon] takes cell coordinates and gives you the geometry:
   levels, the edges that make walls and doors, keyed areas, features, traps, and transitions, plus
