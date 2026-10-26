@@ -22,7 +22,7 @@ no session, and every random draw comes from a named, seeded RNG stream you supp
 The OSE SRD's spell pages compile into a catalog of frozen
 [`SpellTemplate`][osrlib.core.spells.SpellTemplate] models. A template has the page's presentation
 data (duration, range, prose) alongside structured mechanics: one
-[`SpellMode`][osrlib.core.spells.SpellMode] per castable usage, each naming its targeting, its
+[`SpellMode`][osrlib.core.spells.SpellMode] per castable usage, each with its targeting, its
 saving throw, and, for the automated subset, a [`SpellEffect`][osrlib.core.spells.SpellEffect] that
 casting executes. Modes osrlib does not automate are marked `manual=True` and contain the SRD prose.
 Casting one is still a supported operation: osrlib spends the slot and emits the event, and your game
@@ -2337,7 +2337,7 @@ def validate_scroll_cast(
     The difference from `validate_cast` is the caster the question is asked about. A scroll resolves
     at the lowest class level able to cast the inscribed spell, from
     [`minimum_caster_level`][osrlib.core.spells.minimum_caster_level], whatever level the reader is,
-    so this builds that caster and asks about them. The two checks that scale with caster level
+    so this builds that caster and runs `validate_cast` for them. The two checks that scale with caster level
     therefore follow the scroll: how many targets a mode demands, which is why a 6th-level reader of
     a *magic missile* scroll supplies one target and is refused three, and how far a per-level range
     reaches. The memorized-copy check is skipped, since the scroll is the copy.

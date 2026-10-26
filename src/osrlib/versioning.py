@@ -81,7 +81,7 @@ If you keep old saves, each change behind the current number affects them.
 Version 2 drops the recovered-treasure ledger from the save payload, since the
 end-of-adventure award is worked out from the valuation taken when the party left town.
 Version 3 narrows a treasure trap's `trigger` to `"open"`, the one action that springs a
-cache. An earlier document can say `"enter"`, which osrlib has never read. The migration
+cache. An earlier document can contain `"enter"`, which osrlib has never read. The migration
 rewrites it, and a content pack gets the same rewrite when it loads. Version 4 drops
 `"withdraw"` from a battle declaration's `move`, a value the round resolver has never
 acted on. The migration clears it off a logged declaration, so the member who declared it

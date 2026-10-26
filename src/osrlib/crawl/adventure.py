@@ -547,7 +547,7 @@ def _validate_gate(
 
 
 def _resolve_level(adventure: Adventure, dungeon_id: str, level_number: int) -> LevelSpec | None:
-    """Return the level a dungeon id and level number name, or `None` when either dangles."""
+    """Return the level that a dungeon id and level number refer to, or `None` when either doesn't resolve."""
     try:
         return adventure.dungeon(dungeon_id).level(level_number)
     except ValueError:
@@ -613,7 +613,7 @@ def _validate_consequence(
     """Resolve one authored consequence's references and its character addressing.
 
     Every consequence in a document goes through this function, a trigger's consequences and a
-    quest's rewards alike. `site` is the subject the error lines name, like
+    quest's rewards alike. `site` is the subject at the start of each error line, like
     `trigger 'reward': consequence 0` or `quest 'the-idol': reward 0`.
     """
     if isinstance(consequence, GrantItem | GrantCoins | AwardXP):

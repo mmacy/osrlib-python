@@ -719,7 +719,7 @@ class ProvisionsEvent(Event):
     event_type: Literal["provisions"] = "provisions"
     """The wire discriminator, `provisions`."""
     visibility: Visibility = Visibility.PLAYER
-    """Player visibility: an empty pack is the party's problem to solve."""
+    """Player visibility: the party knows whether it ate and drank."""
     character_id: str
     """The member whose rations or water this was."""
     kind: str
@@ -1197,8 +1197,7 @@ class HoardGeneratedEvent(Event):
     code: str = "treasure.hoard.generated"
     """The message code, always `treasure.hoard.generated`."""
     visibility: Visibility = Visibility.REFEREE
-    """Referee visibility: the contents are the answer to a question the party hasn't asked
-    yet."""
+    """Referee visibility: the party learns what the cache contains when it takes the treasure."""
     cache_ref: str
     """The id of the cache the treasure went into, allocated by the session as `cache-NNNN`. The
     party reaches it through the cell it sits on, not through this id."""
@@ -1259,7 +1258,7 @@ class ItemUsedEvent(Event):
 
 
 class ItemIdentifiedEvent(Event):
-    """A magic item gave itself away, and the party now knows what it is.
+    """A magic item was identified, and the party now knows what it is.
 
     Emitted the first time an item is used in a way that reveals it, which happens
     inside [`UseItem`][osrlib.crawl.commands.UseItem],
@@ -1287,7 +1286,7 @@ class ItemIdentifiedEvent(Event):
 
 
 class CurseRevealedEvent(Event):
-    """A cursed item showed its true nature, and won't let go.
+    """The curse on a cursed item is now known, and the item can't be taken off.
 
     Emitted alongside [`ItemIdentifiedEvent`][osrlib.crawl.events.ItemIdentifiedEvent]
     the first time a cursed item is used or worn. From here the bearer is stuck with
@@ -1332,7 +1331,7 @@ class NpcPartySpawnedEvent(Event):
     code: str = "encounter.npc_party.spawned"
     """The message code, always `encounter.npc_party.spawned`."""
     visibility: Visibility = Visibility.REFEREE
-    """Referee visibility: the roster is what the party doesn't get to read off a sheet."""
+    """Referee visibility: the players see only the label and the count on the encounter event."""
     party_kind: str
     """Which table the party was rolled from: `"basic"` or `"expert"`."""
     npc_ids: tuple[str, ...]
@@ -1368,7 +1367,7 @@ class AdventureXpAwardEvent(Event):
     code: str = "session.xp.adventure_award"
     """The message code, always `session.xp.adventure_award`."""
     visibility: Visibility = Visibility.PLAYER
-    """Player visibility: the award is the point of coming back."""
+    """Player visibility: the party sees what it earned."""
     monster_xp: int
     """What the defeated creatures were worth, added up across the whole delve."""
     treasure_xp: int
@@ -1579,7 +1578,7 @@ class TimeAdvancedEvent(Event):
     code: str = "session.time.advanced"
     """The message code, always `session.time.advanced`."""
     visibility: Visibility = Visibility.REFEREE
-    """Referee visibility: the clock is the referee's instrument."""
+    """Referee visibility: the players see what the time passing does, not the command that passed it."""
     n: int
     """How many units were asked for."""
     unit: str
@@ -1808,7 +1807,7 @@ class ObjectiveCompletedEvent(Event):
     code: str = "session.quest.objective_completed"
     """The message code, always `session.quest.objective_completed`."""
     visibility: Visibility = Visibility.PLAYER
-    """Player visibility: progress belongs to the party."""
+    """Player visibility: the party sees its progress."""
     quest_id: str
     """The quest the objective belongs to."""
     quest_name: str = ""
@@ -1845,7 +1844,7 @@ class QuestCompletedEvent(Event):
     code: str = "session.quest.completed"
     """The message code, always `session.quest.completed`."""
     visibility: Visibility = Visibility.PLAYER
-    """Player visibility: finishing the job is the party's news."""
+    """Player visibility: the party learns the quest is done."""
     quest_id: str
     """Which quest was completed."""
     name: str

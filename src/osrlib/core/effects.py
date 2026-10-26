@@ -1087,7 +1087,7 @@ class EffectsLedger(BaseModel):
     the ledger along with the clock and the creatures.
 
     The interface is four calls. [`attach`][osrlib.core.effects.EffectsLedger.attach] puts an effect on a
-    target, [`active_on`][osrlib.core.effects.EffectsLedger.active_on] asks what is on one,
+    target, [`active_on`][osrlib.core.effects.EffectsLedger.active_on] returns what is on one,
     [`release`][osrlib.core.effects.EffectsLedger.release] ends an effect early, and
     [`advance`][osrlib.core.effects.EffectsLedger.advance] moves the clock and resolves everything the passing
     time triggers. Nothing happens without `advance`: an effect with a duration sits there until the clock

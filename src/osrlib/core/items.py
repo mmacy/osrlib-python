@@ -2903,7 +2903,7 @@ def unequip(inventory: Inventory, instance: ItemInstance | MagicItemInstance) ->
 
     Args:
         inventory: The inventory. Mutated.
-        instance: The equipped item, from whichever slot holds it.
+        instance: The equipped item, from whichever slot it's in.
 
     Raises:
         ValueError: If a revealed curse holds the item in place, and otherwise if the item

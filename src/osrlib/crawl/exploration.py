@@ -2712,9 +2712,9 @@ def _spread_coins(carriers, ruleset, coins: Coins) -> tuple[list[dict[str, int]]
 def _distribute_haul(session, carriers, haul: DropPile) -> tuple[list[Event], DropPile, int, list]:
     """Pack a haul into the carriers' packs: items where they are useful, wealth evenly.
 
-    The order is items, then valuables, then coins: the lumpy, constrained goods
-    first while every carrier still has room to honour the constraint, then the wealth
-    that can be split to even things out. Items (magic items first, then gear) go to a
+    The order is items, then valuables, then coins: items, which only some
+    classes can use, go first while every carrier still has room for them, then the
+    valuables and coins, which can be split to even out the loads. Items (magic items first, then gear) go to a
     carrier whose class can use them, breaking ties toward the lightest load. Gems and
     jewellery divide by worth, and coins divide evenly per denomination. No carrier is
     loaded past the 1,600-coin maximum load, so a take can never immobilise a carrier
@@ -4185,8 +4185,9 @@ The service names and the prices are a documented adaptation over the SRD's open
 prose (see [the adaptations register](https://mmacy.github.io/osrlib-python/adaptations/)). This
 table doesn't model availability. The size of the town, the standing of its temple, and whether a cleric is
 in today are game questions left to your front end.
+
 To charge your own prices, take the payment yourself and use the referee commands. Don't edit the
-prices here either: the purchase handler reads them at the moment of sale, and every session in the
+prices here: the purchase handler reads them at the moment of sale, and every session in the
 process shares them.
 
 ```python

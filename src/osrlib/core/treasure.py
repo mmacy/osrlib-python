@@ -174,7 +174,7 @@ class MagicItemType(StrEnum):
     allotment for one kind of item gives its type as one of these values.
 
     These are the table's types, not the catalog's categories. Rods, staves, and wands share
-    a single printed row and a single table, while the catalog keeps them apart. See
+    a single printed row and a single table, while the catalog has a separate category for each. See
     [`MagicItemCategory`][osrlib.core.items.MagicItemCategory].
 
     The serialized values are lowercase and appear in the compiled treasure data. Changing

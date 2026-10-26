@@ -64,11 +64,11 @@ Pinned reading of "always act last, as if they had lost initiative" for the gene
 
 ### Helpless defenders are hit automatically in melee, consuming no attack draw
 
-Paralysed and sleeping defenders are hit automatically in melee: no roll is consumed, damage only, per RAW. A `No hit roll required` defender (green slime, yellow mould) is likewise hit without a roll. Locked by `test_combat.py::TestAttackRoll::test_helpless_defender_auto_hit_consumes_no_draw`.
+Paralysed and sleeping defenders are hit automatically in melee: the engine consumes no attack roll and rolls only damage, per RAW. A `No hit roll required` defender (green slime, yellow mould) is likewise hit without a roll. Locked by `test_combat.py::TestAttackRoll::test_helpless_defender_auto_hit_consumes_no_draw`.
 
 ### Morale "incapacitated" means dead, paralysed, petrified, or asleep
 
-The RAW trigger text says "slain, paralysed, etc". Pinned for the half-the-side trigger and the sleeping dies-to-a-blade hook. Situational morale adjustments clamp to ±2 per RAW and never apply to ML 2 or less (never fights) or ML 12 or more (never checks). Two passed checks mean no further checks. Locked by `test_combat.py::TestMorale`.
+The RAW trigger text says "slain, paralysed, etc". Pinned for the morale trigger that fires when half the side is incapacitated, and for the sleeping dies-to-a-blade hook. Situational morale adjustments clamp to ±2 per RAW and never apply to ML 2 or less (never fights) or ML 12 or more (never checks). Two passed checks mean no further checks. Locked by `test_combat.py::TestMorale`.
 
 ### Energy drain reverses level_up
 
@@ -172,7 +172,7 @@ A spell's id is the slugified primary name with the reversed parenthetical dropp
 
 ### `Spells.md` is the single magic-rules source, and spell pages are identified by the level line
 
-`Rules_of_Magic.md` has identical content and is never read. Spell pages are identified by the italic level line (`*3rd Level [Magic-User Spell](...)*`), never by the `**Duration:**` or `**Range:**` labels, which also appear on potion, hazard, and water-vessel pages. Locked by the compiler census (106 pages, 34 + 72 list entries).
+`Rules_of_Magic.md` has identical content, and the compiler never reads it. Spell pages are identified by the italic level line (`*3rd Level [Magic-User Spell](...)*`), never by the `**Duration:**` or `**Range:**` labels, which also appear on potion, hazard, and water-vessel pages. Locked by the compiler census (106 pages, 34 + 72 list entries).
 
 ### Memorization is a full-replacement preparation with the timing gates deferred
 
@@ -296,7 +296,7 @@ The detection-chance precedence is thief row, then class tag, then the universal
 
 ### The time-cost census and the thirds odometer
 
-Zero time: `TurnParty`, `ReorderParty`, `OpenDoor`, `CloseDoor`, `WedgeDoor`, `ForceDoor` (forcing takes a moment, and its cost is the noise), `ListenAtDoor` (the once-per-door cap is the limiter), equip/unequip, `DropItems`, `ExtinguishSource`, `PurchaseEquipment` (town time is abstract), and all referee commands. One round: `CastSpell` and `TurnUndead` outside battle, `LightSource` (per tinder attempt too, RAW). One turn: `Search`, `InspectTreasure`, `RemoveTreasureTrap` (pinned symmetric, where RAW is silent), `PickLock` (pinned, where RAW is silent and the skill is delicate work), `TakeTreasure` (RAW's packing-bags turn), `Rest(turn)`. On the odometer: `MoveParty` per cell, a passage at the cost of a step onto its landing cell, and `UseStairs` at one unexplored-cell cost (pinned). Stated durations: `Rest(night)` 48 turns, `Rest(day)` 144, `PrepareSpells` 6, travel per content. Movement accrues in thirds-of-feet, an unexplored cell 30 units and an explored cell 10, implementing the SRD's three-times-through-familiar-areas rule exactly, and turn-costing actions snap the clock to the next boundary, absorbing the partial move. Locked by `test_exploration.py::TestTimeCostCensus` and `TestOdometer`.
+Zero time: `TurnParty`, `ReorderParty`, `OpenDoor`, `CloseDoor`, `WedgeDoor`, `ForceDoor` (forcing takes a moment, and its cost is the noise), `ListenAtDoor` (the once-per-door cap is the limiter), equip/unequip, `DropItems`, `ExtinguishSource`, `PurchaseEquipment` (town time is abstract), and all referee commands. One round: `CastSpell` and `TurnUndead` outside battle, `LightSource` (per tinder attempt too, RAW). One turn: `Search`, `InspectTreasure`, `RemoveTreasureTrap` (pinned symmetric, where RAW is silent), `PickLock` (pinned, where RAW is silent and the skill is delicate work), `TakeTreasure` (RAW's packing-bags turn), `Rest(turn)`. On the odometer: `MoveParty` per cell, a passage at the cost of a step onto its landing cell, and `UseStairs` at one unexplored-cell cost (pinned). Stated durations: `Rest(night)` 48 turns, `Rest(day)` 144, `PrepareSpells` 6, and travel the turns that the town's `travel_turns` lists for the dungeon. Movement accrues in thirds-of-feet, an unexplored cell 30 units and an explored cell 10, implementing the SRD's three-times-through-familiar-areas rule exactly, and turn-costing actions snap the clock to the next boundary, absorbing the partial move. Locked by `test_exploration.py::TestTimeCostCensus` and `TestOdometer`.
 
 ### Rest, fatigue, sleep, and provisions
 
@@ -400,7 +400,7 @@ At battle's end, slain groups drop their carried treasure and group bundles into
 
 ### The end-of-adventure award is the departure-snapshot valuation delta
 
-`EnterDungeon` snapshots the party's valuation (coins plus carried valuables at exact value, magic and mundane gear at zero) and `TravelToTown` awards the delta: floored once from copper, clamped at zero, added to the defeated-monster ledger's XP, divided evenly among living members with floor division and the remainder dropped, applied through `apply_xp` (class modifiers and the one-level clamp apply per member). Dead members' carried treasure counts toward the delta but draws no share, and a TPK never awards. The award clears the defeated-monsters ledger and the snapshot. There's no recovered-treasure ledger: schema version 2 removed it, and the migration drops the field from version-1 saves. Selling in town after the award changes nothing. Locked by `test_award.py` and `test_persistence.py`.
+`EnterDungeon` snapshots the party's valuation (coins plus carried valuables at exact value, magic and mundane gear at zero) and `TravelToTown` awards the delta: floored once from copper, clamped at zero, added to the defeated-monster ledger's XP, divided evenly among living members with floor division and the remainder dropped, applied through `apply_xp` (class modifiers and the one-level clamp apply per member). Dead members' carried treasure counts toward the delta but draws no share, and a party with no survivors gets no award. The award clears the defeated-monsters ledger and the snapshot. There's no recovered-treasure ledger: schema version 2 removed it, and the migration drops the field from version-1 saves. Selling in town after the award changes nothing. Locked by `test_award.py` and `test_persistence.py`.
 
 ### Treasure weight covers coins, valuables, and the five priced magic categories
 

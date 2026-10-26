@@ -143,9 +143,9 @@ class ContentPackEntry(BaseModel):
     section. An authoring tool addresses an entry by this alone, so a pack with two entries of the
     same id fails to construct. It cannot be empty."""
     name: str = ""
-    """The room's name, for a panel to list and for the target area to take."""
+    """The room's name, for a panel to list and for your tool to copy onto the target area."""
     description: str = ""
-    """Prose describing the room, for the target area to take."""
+    """Prose describing the room, for your tool to copy onto the target area."""
     encounter: KeyedEncounter | None = None
     """The monsters waiting in the room, or `None`. Any template id in it that is in neither the built-in
     catalog nor the pack's `monsters` is what
@@ -225,7 +225,7 @@ class ContentPack(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     id: str = ""
-    """The pack's id, empty by default. A pack derived on the fly takes its identity from
+    """The pack's id, empty by default. A pack derived on the fly gets its identity from
     whatever it was derived from, so only a pack somebody saved needs to set one."""
     name: str = ""
     """The pack's name, for a panel to show."""

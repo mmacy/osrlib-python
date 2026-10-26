@@ -133,7 +133,7 @@ class MemberView(BaseModel):
     conditions: tuple[str, ...]
     """The conditions on the member right now, as
     [`Condition`][osrlib.core.effects.Condition] serialized values like `"dead"` or
-    `"sleeping"`, in the order they're in the ledger."""
+    `"asleep"`, in the order they're in the ledger."""
     inventory: dict
     """The member's pack, in the format the inventory serializes to, with the keys `items`,
     `purse`, `valuables`, `worn_armour`, `shield`, `wielded`, and `rings`. Magic items

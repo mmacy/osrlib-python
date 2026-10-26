@@ -2556,7 +2556,7 @@ def _leave_helpless_behind(session, group) -> list[Event]:
 
 
 def _group_morale(session, group, fire_damaged) -> list[Event]:
-    """Morale auto-invoked: the kernel's triggers through the per-battle tracker.
+    """Check a group's morale automatically, running the kernel's triggers through the per-battle tracker.
 
     A conditional alternate resolves from the round's context. Fear of fire, for
     example, applies when the round's damage included fire. The spell morale
