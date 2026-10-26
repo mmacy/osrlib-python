@@ -486,11 +486,7 @@ class ItemAcquiredEvent(Event):
     """The member whose pack the goods went into."""
     item_ids: tuple[str, ...] = ()
     """What was acquired: a catalog id for mundane gear, and a session-scoped instance id for a
-    valuable or a magic item, so an unidentified item's true nature stays hidden. A share of a
-    haul and a referee's grant list one entry per item, repeating an id when several of the same
-    thing arrived. A purchase lists the ids as
-    [`PurchaseEquipment.item_ids`][osrlib.crawl.commands.PurchaseEquipment.item_ids] named them,
-    one entry per purchase lot, so buying one lot of torches lists `torch` once for six torches."""
+    valuable or a magic item, so an unidentified item's true nature stays hidden."""
     coins_gp_value: int = 0
     """The coins acquired, converted to their value in gold pieces, and zero when only items
     changed hands."""
