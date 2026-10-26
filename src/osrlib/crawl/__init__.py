@@ -11,7 +11,7 @@ The modules, in the order you meet them:
 
 - [`osrlib.crawl.dungeon`][osrlib.crawl.dungeon] takes cell coordinates and gives you the geometry:
   levels, the edges that make walls and doors, keyed areas, features, traps, and transitions, plus
-  [`DungeonState`][osrlib.crawl.dungeon.DungeonState], the overlay play writes over that frozen content.
+  [`DungeonState`][osrlib.crawl.dungeon.DungeonState], the state the session records over that frozen content in play.
 - [`osrlib.crawl.adventure`][osrlib.crawl.adventure] takes dungeons and a town and gives you an
   [`Adventure`][osrlib.crawl.adventure.Adventure], the root document a session runs, with
   [`validate_adventure`][osrlib.crawl.adventure.validate_adventure] to check every id in it resolves.

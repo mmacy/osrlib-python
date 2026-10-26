@@ -10,11 +10,11 @@ them until your game registers an
 [`Interpreter`][osrlib.crawl.interpreter.Interpreter] on the session with
 [`GameSession.register_listener`][osrlib.crawl.session.GameSession.register_listener].
 The interpreter matches every accepted command's events against the adventure's triggers
-and issues each firing's commands. A firing reports itself through a
+and issues each firing's commands. A firing shows up as a
 [`TriggerFiredEvent`][osrlib.crawl.events.TriggerFiredEvent], which includes the `fired`
-beat, through a [`JournalEntryAddedEvent`][osrlib.crawl.events.JournalEntryAddedEvent]
-when the block authors a journal form, through whatever events its consequences produce,
-and through a [`NoteRecordedEvent`][osrlib.crawl.events.NoteRecordedEvent] for a
+beat, as a [`JournalEntryAddedEvent`][osrlib.crawl.events.JournalEntryAddedEvent]
+when the block authors a journal form, as whatever events its consequences produce,
+and as a [`NoteRecordedEvent`][osrlib.crawl.events.NoteRecordedEvent] for a
 consequence the engine refused. The fired-mark lives in `session.fired_triggers`.
 
 A gate ([`GateSpec`][osrlib.crawl.gates.GateSpec]) is level-triggered, evaluated live at
@@ -135,8 +135,8 @@ class LevelEnteredPattern(BaseModel):
     """The party arrived on a dungeon level.
 
     It matches however the party got there: a stair between levels and an entry from
-    town both put it on the level. The engine reports the coarsest crossing a move
-    passed, so a party walking in from town reports a dungeon entry, and this pattern
+    town both put it on the level. The engine reports only the coarsest crossing a move
+    passed, so a party walking in from town gets a dungeon entry, and this pattern
     counts that as a level arrival too.
 
     Examples:
@@ -215,11 +215,11 @@ class ItemAcquiredPattern(BaseModel):
 
     Matched by an [`ItemAcquiredEvent`][osrlib.crawl.events.ItemAcquiredEvent], however
     the item arrived: out of a cache, from a referee's grant, or from another member's
-    hands. The id domain is the one a `has_item` condition reads, which is the effective
+    hands. The ids it accepts are the ones a `has_item` condition checks, from the effective
     equipment catalog, meaning the built-in items plus the adventure's bundled ones, or
     the magic-item catalog.
 
-    An acquisition reports mundane items by catalog id and magic items by their
+    The acquisition event reports mundane items by catalog id and magic items by their
     session-scoped instance id, so a magic `item_id` matches by resolving that instance
     against the acquiring character's inventory.
 

@@ -72,7 +72,7 @@ The [documentation site](https://mmacy.github.io/osrlib-python/) walks you throu
 
 ## Determinism
 
-Determinism is a public API guarantee. All randomness flows through named PCG64 streams forked from a master seed. The same seed and the same key always produce the same stream, independent of any other stream:
+Determinism is a public API guarantee. Every random draw comes from a named PCG64 stream forked from a master seed. The same seed and the same key always produce the same stream, independent of any other stream:
 
 ```python
 from osrlib.core.dice import roll

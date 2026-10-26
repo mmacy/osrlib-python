@@ -17,7 +17,7 @@ replayed under different rules.
 OsrlibError` catches all of them, and the subclasses let you separate the cases that
 deserve different answers.
 
-Each subclass stands for one failure, and each failure needs a different response:
+Each subclass stands for one failure, with the response it needs:
 
 - [`ContentValidationError`][osrlib.errors.ContentValidationError]: a document, dice
   expression, or adventure is malformed, or a replayed command is refused. For malformed input,

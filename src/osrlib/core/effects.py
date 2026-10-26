@@ -10,7 +10,7 @@ ledger, the clock, and the registry, and you advance them in your own loop.
 The module has two layers. The condition layer is vocabulary. A condition is a named state a creature is in,
 like `asleep` or `petrified`, and [`Condition`][osrlib.core.effects.Condition] is the closed set of them. Each
 creature has a tuple of [`ActiveCondition`][osrlib.core.effects.ActiveCondition] records and a tuple of
-[`ActiveModifier`][osrlib.core.effects.ActiveModifier] records, so a serialized creature records what is wrong
+[`ActiveModifier`][osrlib.core.effects.ActiveModifier] records, so a serialized creature includes what is wrong
 with it without the ledger beside it, and combat reads both tuples directly through
 [`has_condition`][osrlib.core.effects.has_condition] and the `modifier_` helpers below.
 
@@ -148,7 +148,7 @@ class Condition(StrEnum):
     One rule covers every member. A creature whose template lists a condition in its defenses'
     `condition_immunities` never takes that condition, whether you call
     [`grant_condition`][osrlib.core.effects.grant_condition] or attach an effect that brings it, so even a member
-    that no other core rule reads still determines which monsters a spell can affect.
+    that the other core rules never read still determines which monsters a spell can affect.
 
     The values are the lowercase strings, and they serialize into creatures and saved games. A renamed value is a
     `schema_version` bump, not an edit.
@@ -198,10 +198,10 @@ class Condition(StrEnum):
 
     POISONED = "poisoned"
     """Poisoned. The monsters that cannot be poisoned, the undead and the cave locust among them, list it in
-    their `condition_immunities`, so a poison aimed at one of those has no effect, and *neutralize
-    poison* cures it and can bring back a character who died of poison within the last ten rounds. The killing
-    is the effect's rather than the condition's: a poison that kills has an `expiry` of `death`, which fires
-    when the onset runs out."""
+    their `condition_immunities`, so a poison aimed at one of those has no effect. *Neutralize poison* cures
+    it and can bring back a character who died of poison within the last ten rounds. The effect does the
+    killing, not the condition: a poison that kills has an `expiry` of `death`, which fires when the onset
+    runs out."""
 
     DEAD = "dead"
     """Killed. Granted by [`kill`][osrlib.core.effects.kill] rather than by any effect, so its `effect_id` is
@@ -230,7 +230,7 @@ class Condition(StrEnum):
     creature out of the ranks an enemy picks targets from."""
 
     TURNED = "turned"
-    """Driven off by a cleric's turning, which is where it comes from:
+    """Driven off by a cleric's turning.
     [`turn_undead`][osrlib.core.spells.turn_undead] attaches the effect that grants it. Past the immunity rule
     nothing in the core rules turns on it, and the battle and encounter machines treat the creature as
     fleeing."""
@@ -277,14 +277,14 @@ class ActiveCondition(BaseModel):
 
 
 def _int_param(params: Mapping[str, Any], key: str, default: int = 0) -> int:
-    """Read an integer param. The params are schema-validated, but the checker can't key their union by name."""
+    """Read an integer param. The params are schema-validated, but the type checker can't narrow them by key."""
     return int(params.get(key, default))
 
 
 def has_condition(target: Creature, condition: Condition) -> bool:
     """Return whether a creature currently has a condition.
 
-    This is the read side of the condition layer, and the call combat itself makes. Use it wherever your code
+    This is the read side of the condition layer, and combat makes the same call. Use it wherever your code
     asks "is this creature asleep", instead of scanning the creature's `conditions` tuple, so a creature with
     the same condition from two effects still reads as having it once.
 
@@ -447,7 +447,7 @@ def _grant_modifiers(target: Any, specs: tuple[ModifierSpec, ...], effect_id: st
 
 
 def _remove_modifiers(target: Any, effect_id: str) -> None:
-    """Remove the stat modifiers owned by `effect_id`."""
+    """Remove the stat modifiers that the effect `effect_id` granted."""
     if not hasattr(target, "stat_modifiers"):
         return
     remaining = tuple(modifier for modifier in target.stat_modifiers if modifier.effect_id != effect_id)
@@ -878,7 +878,7 @@ def modifier_dice(target: Creature, kind: str) -> str | None:
 def has_modifier(target: Creature, kind: str) -> bool:
     """Return whether a creature has any modifier of one kind.
 
-    Use this for the kinds that act as flags rather than numbers, where the presence of the modifier is the whole
+    Use this for the kinds that act as flags rather than numbers, where having the modifier at all is the
     rule: `counts_as_magical`, `missile_immunity_nonmagical`, and `magical_healing_half`. For a kind that uses
     a number, call [`modifier_total`][osrlib.core.effects.modifier_total], whose 0 means "no adjustment" rather
     than "not present".
@@ -928,7 +928,7 @@ class EffectDefinition(BaseModel):
     Write one of these for each spell, ability, or hazard you want to put on a creature, then hand it to
     [`EffectsLedger.attach`][osrlib.core.effects.EffectsLedger.attach] with the entity id or location it applies
     to. Attaching turns the blueprint into a live [`ActiveEffect`][osrlib.core.effects.ActiveEffect]. The
-    blueprint itself is frozen, so one definition serves every creature you attach it to. The compiled spell and
+    blueprint is frozen, so one definition serves every creature you attach it to. The compiled spell and
     magic item data already includes definitions for the published content, so you write your own only when you're
     authoring something new.
 
@@ -1048,7 +1048,7 @@ class ActiveEffect(BaseModel):
     modifiers the effect granted record this id, which is how they are matched back when it ends."""
 
     definition: EffectDefinition
-    """The [`EffectDefinition`][osrlib.core.effects.EffectDefinition] this effect was attached from, kept here
+    """The [`EffectDefinition`][osrlib.core.effects.EffectDefinition] this effect was attached from, stored here
     so the ledger can tick and expire it without looking anything up."""
 
     target_ref: str
@@ -1086,7 +1086,7 @@ class EffectsLedger(BaseModel):
     alongside the [`GameClock`][osrlib.core.clock.GameClock]. It is a pydantic model, so saving a game is saving
     the ledger along with the clock and the creatures.
 
-    Four calls are the whole interface. [`attach`][osrlib.core.effects.EffectsLedger.attach] puts an effect on a
+    The interface is four calls. [`attach`][osrlib.core.effects.EffectsLedger.attach] puts an effect on a
     target, [`active_on`][osrlib.core.effects.EffectsLedger.active_on] asks what is on one,
     [`release`][osrlib.core.effects.EffectsLedger.release] ends an effect early, and
     [`advance`][osrlib.core.effects.EffectsLedger.advance] moves the clock and resolves everything the passing
@@ -1190,7 +1190,7 @@ class EffectsLedger(BaseModel):
                 that is not a key in `registry` attaches the effect but grants nothing.
             clock: The game clock. The current round anchors the duration and the tick count. The clock is
                 read, not advanced.
-            allocator: The [`IdAllocator`][osrlib.core.monsters.IdAllocator] that grants the effect its id. A
+            allocator: The [`IdAllocator`][osrlib.core.monsters.IdAllocator] that allocates the effect's id. A
                 session keeps one. Create your own otherwise.
             registry: The live creatures by entity id, so the attach can grant conditions and modifiers. Pass
                 None, or leave the target out of it, and the effect runs with nothing to write to.
@@ -1297,7 +1297,7 @@ class EffectsLedger(BaseModel):
     ) -> list[Event]:
         """Move the game clock forward and resolve everything the passing time triggers.
 
-        This is what makes an effect with a duration actually end, and a regenerating troll actually heal.
+        This is what makes an effect with a duration end, and a regenerating troll heal.
         Advance the clock through this call rather than writing to
         [`GameClock.rounds`][osrlib.core.clock.GameClock] yourself: the clock records elapsed time and nothing
         about what is attached to whom, so time you add behind the ledger's back resolves no effects at all. A
@@ -1509,7 +1509,7 @@ class EffectsLedger(BaseModel):
         """Roll the charm's periodic saving throw, releasing the charm when it passes.
 
         The re-save is a tick-time draw, so it comes from the effects stream. The interval was fixed at attach
-        time from the subject's INT band, and rides `tick_interval_rounds`.
+        time from the subject's INT band, and is stored in `tick_interval_rounds`.
         """
         # Deferred import: combat.py imports from this module, so importing it at
         # module scope would create a cycle.
@@ -1545,7 +1545,7 @@ class EffectsLedger(BaseModel):
             if while_alive or revive_dice is None or regenerable_max < 1:
                 return []
             if "revive_at" not in effect.state:
-                # The 2d6-round countdown anchors to the round the killing damage
+                # The 2d6-round countdown starts from the round the killing damage
                 # was dealt, which the instance records, and falls back to this
                 # boundary when no clocked damage was recorded.
                 base = getattr(target, "last_damaged_round", None)

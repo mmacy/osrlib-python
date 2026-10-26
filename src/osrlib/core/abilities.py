@@ -90,7 +90,7 @@ MAX_SCORE = 18
 
 Eighteen is what three dice showing 6 add up to, the top row of every table here, and the
 ceiling the creation-time trade may not push a score past. The accessors raise
-`ValueError` above it, because the tables print no row to read.
+`ValueError` above it, because the tables have no row above it.
 """
 
 ADJUSTMENT_FLOOR = 9

@@ -11,9 +11,9 @@ Sections group the entries by dungeon level, and each section can include that l
 [`WanderingSpec`][osrlib.crawl.dungeon.WanderingSpec]. Alongside them, the pack bundles the
 [`MonsterTemplate`][osrlib.core.monsters.MonsterTemplate]s its encounters and wandering tables
 reference beyond the built-in catalog, which is the pack's closure: what it needs that the engine does
-not already include. Item templates are deliberately outside that closure, because a bundled item id
-belongs to the one adventure that bundles it and would be an unresolved reference anywhere else, so a pack's
-features reference the built-in equipment catalog only.
+not already include. Item templates are deliberately outside that closure. A bundled item id belongs to
+the one adventure that bundles it and would be an unresolved reference anywhere else, so a pack's features
+reference the built-in equipment catalog only.
 
 Ids are what an authoring tool addresses a pack by, so all three sets are checked when the pack is
 constructed: section ids, entry ids (unique across the whole pack, not only within a section), and
@@ -91,7 +91,7 @@ CONTENT_PACK_KIND = "content_pack"
 Every document osrlib writes has a kind, and this is the pack's.
 [`ContentPack.to_document`][osrlib.crawl.content_pack.ContentPack.to_document] stamps it and
 [`from_document`][osrlib.crawl.content_pack.ContentPack.from_document] refuses anything else, so
-handing a save file to a pack loader fails with a message naming both kinds rather than producing a
+handing a save file to a pack loader fails with a message that includes both kinds rather than producing a
 nonsense pack. Read it to route a document you have just parsed to the right loader."""
 
 _CODE_PATTERN = re.compile(r"[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+")

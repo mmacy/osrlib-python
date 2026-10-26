@@ -176,17 +176,17 @@ class Combatant(Creature, Protocol):
 
     @property
     def melee_modifier(self) -> int:
-        """The bonus a melee attack and its damage take, from strength or from an effect."""
+        """The bonus added to a melee attack and its damage, from strength or from an effect."""
         ...
 
     @property
     def missile_modifier(self) -> int:
-        """The bonus a missile attack takes, from dexterity. A monster's is 0."""
+        """The bonus added to a missile attack, from dexterity. A monster's is 0."""
         ...
 
     @property
     def initiative_modifier(self) -> int:
-        """The bonus an individual initiative roll takes. A monster's is 0."""
+        """The bonus added to an individual initiative roll. A monster's is 0."""
         ...
 
 
@@ -198,8 +198,8 @@ class Caster(Creature, Protocol):
     [`cast_spell`][osrlib.core.spells.cast_spell], and [`disrupt_casting`][osrlib.core.spells.disrupt_casting]
     take this. A [`Character`][osrlib.core.character.Character] satisfies it and a
     [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] does not, because monsters in the compiled data never
-    cast. The class that decides which list and how many slots is not part of the surface: those functions take
-    the [`ClassDefinition`][osrlib.core.classes.ClassDefinition] or the
+    cast. The class, which sets the spell list and the number of slots, is not part of the protocol: those functions
+    take the [`ClassDefinition`][osrlib.core.classes.ClassDefinition] or the
     [`CasterProfile`][osrlib.core.spells.CasterProfile] as a separate argument.
 
     Examples:

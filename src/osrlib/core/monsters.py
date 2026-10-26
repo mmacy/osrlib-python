@@ -111,9 +111,9 @@ class DamageKey(StrEnum):
     damage from a kind lists it in [`DamageReduction`][osrlib.core.monsters.DamageReduction]. The
     damage rules check the keys on the attack against both.
 
-    `holy` is the one that behaves unlike the rest. Holy water has it, and it gets through any
-    gate when the target is undead, because the SRD says outright that holy water harms undead. The
-    wight's silver-or-magic gate would otherwise absorb the one weapon made for killing wights.
+    `holy` is the one that behaves unlike the rest. Holy water has it, and it gets past any
+    `harmed_only_by` restriction when the target is undead, because the SRD says outright that holy water
+    harms undead. Without that exception, the wight's silver-or-magic restriction would stop holy water.
     """
 
     SILVER = "silver"
@@ -135,7 +135,7 @@ class DamageKey(StrEnum):
 class Element(StrEnum):
     """The kinds of energy a monster's breath, attack, or defense can be made of.
 
-    A dragon's breath is one of these, and so does a creature's immunity in
+    A dragon's breath is one of these, and so is each energy a creature resists in
     [`EnergyDefense`][osrlib.core.monsters.EnergyDefense]. The damage rules match the two against
     each other to decide whether an attack lands at all.
     """
@@ -194,7 +194,7 @@ class DamageReduction(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     keys: tuple[DamageKey, ...] = ()
-    """Which sources of damage are reduced. Empty means all of them that got past the monster's gate, which is the mummy
+    """Which sources of damage are reduced. Empty means every source that got past `harmed_only_by`, which is the mummy
     taking half from everything. Listing keys narrows it, as with the wraith, which takes half from silver weapons
     alone.
     """
@@ -220,16 +220,16 @@ class Defenses(BaseModel):
     """
 
     reductions: tuple[DamageReduction, ...] = ()
-    """Cuts taken out of the damage that does get through; see
+    """Cuts taken out of the damage that does get through. See
     [`DamageReduction`][osrlib.core.monsters.DamageReduction].
     """
 
     energy: dict[Element, EnergyDefense] = {}
-    """How the creature resists each kind of energy; see [`EnergyDefense`][osrlib.core.monsters.EnergyDefense]."""
+    """How the creature resists each kind of energy. See [`EnergyDefense`][osrlib.core.monsters.EnergyDefense]."""
 
     condition_immunities: tuple[Condition, ...] = ()
-    """Conditions the creature can never be put into, like the undead being beyond poison, charm, and sleep. Attempts to
-    apply one are dropped.
+    """Conditions the creature can never be put into, like the undead's immunity to poison, charm, and sleep.
+    Attempts to apply one are dropped.
     """
 
 
@@ -257,8 +257,8 @@ class MonsterHitDice(BaseModel):
     """
 
     asterisks: int = Field(default=0, ge=0)
-    """How many special abilities the SRD credits the creature with, which is what raises its experience award. Not
-    decoration.
+    """How many special abilities the SRD credits the creature with, which is what raises its experience award. It
+    changes the award, so it isn't only for display.
     """
 
     average_hp: int | None = None
@@ -342,7 +342,7 @@ class AttackRoutine(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     attacks: tuple[MonsterAttack, ...] = Field(min_length=1)
-    """The attacks the routine makes, at least one; see [`MonsterAttack`][osrlib.core.monsters.MonsterAttack]."""
+    """The attacks the routine makes, at least one. See [`MonsterAttack`][osrlib.core.monsters.MonsterAttack]."""
 
 
 class MovementMode(BaseModel):
@@ -378,7 +378,7 @@ class MonsterSaves(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     values: SavingThrows
-    """The five targets; see [`SavingThrows`][osrlib.core.classes.SavingThrows]."""
+    """The five targets. See [`SavingThrows`][osrlib.core.classes.SavingThrows]."""
 
     save_as: str
     """What the stat block says the creature saves as, like `"2"` for a second-level fighter or `"Cleric 1"`. Keep it
@@ -507,7 +507,7 @@ class TreasureRef(BaseModel):
     [`plan_treasure_ref`][osrlib.core.treasure.plan_treasure_ref], which sorts the letters into
     lair, per-creature, and per-group treasure and passes `parenthetical`, `extra_gp`, and
     `multiplier` through. Generate each letter in the plan with
-    [`generate_treasure`][osrlib.core.treasure.generate_treasure]; see
+    [`generate_treasure`][osrlib.core.treasure.generate_treasure]. See
     [the treasure type index][treasure-types-index] for the letters.
 
     Go through the plan rather than looping `letters` into
@@ -580,7 +580,7 @@ class MonsterAbility(BaseModel):
     """The SRD's description, which is what to show a player or referee."""
 
     manual: bool = False
-    """True when nothing in osrlib acts on this ability and the prose is the whole of it."""
+    """True when nothing in osrlib acts on this ability, so the referee applies it from the description."""
 
     params: dict[str, int | str | bool | tuple[int | str, ...]] = {}
     """The values the rules read, like a troll's regeneration delay and rate, or the number of levels an energy drain
@@ -615,7 +615,7 @@ class AcAlternate(BaseModel):
 class MonsterTemplate(BaseModel):
     """A monster's stat block: everything true of every creature of that kind.
 
-    Get one from [`load_monsters`][osrlib.data.load_monsters]`().get(monster_id)`; see
+    Get one from [`load_monsters`][osrlib.data.load_monsters]`().get(monster_id)`. See
     [the monster id index][monsters-index] for the ids. Then call
     [`spawn_monster`][osrlib.core.monsters.spawn_monster] to put an actual creature in front of the
     players.
@@ -649,7 +649,7 @@ class MonsterTemplate(BaseModel):
     """The same defense in the ascending presentation, or `None` alongside `ac`."""
 
     ac_alternates: tuple[AcAlternate, ...] = ()
-    """Armour classes that apply only in particular circumstances; see
+    """Armour classes that apply only in particular circumstances. See
     [`AcAlternate`][osrlib.core.monsters.AcAlternate].
     """
 
@@ -659,10 +659,10 @@ class MonsterTemplate(BaseModel):
     """
 
     hit_dice: MonsterHitDice
-    """The dice its hit points are rolled on; see [`MonsterHitDice`][osrlib.core.monsters.MonsterHitDice]."""
+    """The dice its hit points are rolled on. See [`MonsterHitDice`][osrlib.core.monsters.MonsterHitDice]."""
 
     attacks: tuple[AttackRoutine, ...] = ()
-    """The sets of attacks it can make, one chosen per round; see [`AttackRoutine`][osrlib.core.monsters.AttackRoutine].
+    """The sets of attacks it can make, one chosen per round. See [`AttackRoutine`][osrlib.core.monsters.AttackRoutine].
     """
 
     thac0: int = Field(ge=2, le=20)
@@ -672,12 +672,12 @@ class MonsterTemplate(BaseModel):
     """The same attack under ascending armour class."""
 
     movement: tuple[MovementMode, ...] = Field(min_length=1)
-    """How it gets around and how fast, ordinary movement first; see
+    """How it gets around and how fast, ordinary movement first. See
     [`MovementMode`][osrlib.core.monsters.MovementMode].
     """
 
     saves: MonsterSaves
-    """Its saving throws; see [`MonsterSaves`][osrlib.core.monsters.MonsterSaves]."""
+    """Its saving throws. See [`MonsterSaves`][osrlib.core.monsters.MonsterSaves]."""
 
     morale: int | None = Field(default=None, ge=2, le=12)
     """How willing it is to keep fighting, from 2 to 12. A morale check rolls 2d6 and the creature holds on a result at
@@ -685,32 +685,32 @@ class MonsterTemplate(BaseModel):
     """
 
     morale_alternates: tuple[MoraleAlternate, ...] = ()
-    """Morale scores that apply only in particular circumstances; see
+    """Morale scores that apply only in particular circumstances. See
     [`MoraleAlternate`][osrlib.core.monsters.MoraleAlternate].
     """
 
     alignment: AlignmentSpec
-    """Which alignments it may have; see [`AlignmentSpec`][osrlib.core.monsters.AlignmentSpec]."""
+    """Which alignments it may have. See [`AlignmentSpec`][osrlib.core.monsters.AlignmentSpec]."""
 
     xp: int = Field(ge=0)
     """The experience for defeating one, as the SRD prints it."""
 
     xp_notes: tuple[XpNote, ...] = ()
-    """What a leader among them is worth instead; see [`XpNote`][osrlib.core.monsters.XpNote]."""
+    """What a leader among them is worth instead. See [`XpNote`][osrlib.core.monsters.XpNote]."""
 
     number_appearing: NumberAppearing
-    """How many turn up, which depends on where they are met; see
+    """How many turn up, which depends on where they are met. See
     [`NumberAppearing`][osrlib.core.monsters.NumberAppearing].
     """
 
     treasure: TreasureRef = TreasureRef()
-    """What they have; see [`TreasureRef`][osrlib.core.monsters.TreasureRef]."""
+    """What they have. See [`TreasureRef`][osrlib.core.monsters.TreasureRef]."""
 
     abilities: tuple[MonsterAbility, ...] = ()
-    """What it can do beyond attacking; see [`MonsterAbility`][osrlib.core.monsters.MonsterAbility]."""
+    """What it can do beyond attacking. See [`MonsterAbility`][osrlib.core.monsters.MonsterAbility]."""
 
     defenses: Defenses = Defenses()
-    """What it resists, in the form the damage rules check; see [`Defenses`][osrlib.core.monsters.Defenses]."""
+    """What it resists, in the form the damage rules check. See [`Defenses`][osrlib.core.monsters.Defenses]."""
 
     categories: tuple[str, ...] = ()
     """What kind of thing it is, as tags like `"undead"`, `"person"`, and `"enchanted"`. Spells and effects that single
@@ -786,7 +786,7 @@ class MonsterCatalog(BaseModel):
         """Return the monster with `monster_id`.
 
         Args:
-            monster_id: The id to look up, like `"troll"` or `"red_dragon"`; see
+            monster_id: The id to look up, like `"troll"` or `"red_dragon"`. See
                 [the monster id index][monsters-index] for all of them.
 
         Returns:
@@ -827,7 +827,8 @@ class MonsterInstance(BaseModel):
     [`osrlib.core.effects`][osrlib.core.effects] accept either one without checking which they got.
 
     Anything the template already defines is read through `template` rather than copied here, and the
-    properties below do that for you where a drained creature would otherwise read the wrong value.
+    properties below do that for you where reading the template directly would give the wrong value for a
+    drained creature.
     """
 
     model_config = ConfigDict(validate_assignment=True)
@@ -898,8 +899,8 @@ class MonsterInstance(BaseModel):
         """The number this creature needs to hit armour class 0 under descending armour class.
 
         It is the template's printed value, which already accounts for a creature whose Hit Dice
-        have a bonus attacking as though it had one more. A creature that has been drained looks
-        its value up again for the Hit Dice it has left.
+        have a bonus attacking as though it had one more. For a creature that has been drained, the
+        value is looked up again for the Hit Dice it has left.
         """
         if self.drained_hd == 0:
             return self.template.thac0
@@ -989,14 +990,14 @@ def spawn_monster(
     with exactly 1 or a hydra with 8 per head, gets that number and rolls nothing.
 
     The creature's alignment is settled here rather than left open, because a ward like
-    *protection from evil* has to have something to test. Your choice wins, then the template's
+    *protection from evil* has to have something to test. Your choice comes first, then the template's
     usual alignment, then its only option. A creature whose template offers
     several with no usual one and no choice from you is left unresolved, and such a ward then
     treats it as differing, which errs toward protecting the party.
 
     Args:
         template: The stat block to spawn from, from
-            [`load_monsters`][osrlib.data.load_monsters]`().get(monster_id)`; see
+            [`load_monsters`][osrlib.data.load_monsters]`().get(monster_id)`. See
             [the monster id index][monsters-index] for the ids.
         id: The entity id to give it, usually
             `allocator.allocate("monster")` from an
@@ -1074,7 +1075,7 @@ class IdAllocator(BaseModel):
 
     counters: dict[str, int] = {}
     """How many ids have been handed out under each prefix. Written by
-    [`allocate`][osrlib.core.monsters.IdAllocator.allocate]; you never set it yourself.
+    [`allocate`][osrlib.core.monsters.IdAllocator.allocate]. You never set it yourself.
     """
 
     def allocate(self, prefix: str) -> str:

@@ -258,7 +258,7 @@ def _maybe_equip_upgrade(member: Character, definition: ClassDefinition, instanc
     """Equip a rolled weapon or piece of armour when it beats the one from the kit.
 
     Better means a higher armour class for armour and shields, or any enchantment at all over a
-    mundane weapon. A cursed item tests as though it were a +1, which is what it claims to be, so
+    mundane weapon. A cursed item tests as though it were a +1, which is what it appears to be, so
     it gets equipped like any other, and the curse comes out in play.
     """
     template = magic_item_template(instance)
@@ -326,7 +326,7 @@ def generate_npc_party(
     appear. Everything else is rolled here.
 
     The band shares one alignment, rolled once, so their reaction to the players and their
-    vulnerability to alignment-gated wards have a single answer. Then each member in turn gets a
+    vulnerability to wards that depend on alignment have a single answer. Then each member in turn gets a
     class and a level from the SRD's table, ability scores rolled 3d6 in order, hit points,
     experience set to the threshold for their level, an equipment kit their class can use, and, if
     they cast, spells prepared at random from their class's list. An Expert band wears heavier
@@ -338,8 +338,8 @@ def generate_npc_party(
     level, and each of those calls takes a draw only when that level's row adds a hit die. An
     Expert dwarf rolled at level 11 or 12 passes name level, so its top levels take no draw.
 
-    Members are not checked against their class's ability requirements, because the SRD rolls their
-    class before their scores. An elf here may have an INT a player character would not be allowed.
+    Members are not checked against their class's ability requirements, because in the SRD's procedure
+    their class is rolled before their scores. An elf here may have an INT a player character would not be allowed.
 
     The draws come off the two streams in a fixed order, which is what makes a seeded encounter
     repeatable: the alignment and every member's rolls from `npc_stream` in member order, then
@@ -348,7 +348,7 @@ def generate_npc_party(
     Args:
         kind: `"basic"` for a band of levels 1 to 3, or `"expert"` for a seasoned one whose level
             dice depend on the class rolled.
-        count: How many adventurers appear. Roll it from the encounter table that sent them.
+        count: How many adventurers appear. Roll it from the encounter table that produced the encounter.
         npc_stream: The stream for the members themselves, conventionally
             `streams.get(`[`NPC_PARTY_STREAM`][osrlib.core.npc.NPC_PARTY_STREAM]`)`.
         treasure_stream: The stream for their magic items and their shared treasure, conventionally

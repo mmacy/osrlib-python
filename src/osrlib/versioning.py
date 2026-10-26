@@ -87,8 +87,8 @@ dropped `"withdraw"` from a battle declaration's `move`, a value the round resol
 acted on, and the migration clears it off a logged declaration, leaving a member
 who declared it holding. No step drops anything the library reads back.
 
-This is a fact about the library, not a setting. Assigning to it changes what your documents
-claim to be without changing what's in them.
+This is a fact about the library, not a setting. Assigning to it changes the version your
+documents are stamped with, without changing what's in them.
 """
 
 

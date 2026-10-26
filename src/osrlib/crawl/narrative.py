@@ -13,7 +13,7 @@ doesn't evaluate it. The code that evaluates the block's *carrier*, meaning the 
 trigger, quest, or objective it's attached to, reads it: the exploration handlers of
 [`GameSession.execute`][osrlib.crawl.session.GameSession.execute] for a gate and the
 [`Interpreter`][osrlib.crawl.interpreter.Interpreter] for a trigger or a quest. The
-beats then reach you as the `narrative` field of an event such as
+beats then reach you as the `narrative` field of an event like
 [`DoorEvent`][osrlib.crawl.events.DoorEvent],
 [`TriggerFiredEvent`][osrlib.crawl.events.TriggerFiredEvent], or
 [`QuestActivatedEvent`][osrlib.crawl.events.QuestActivatedEvent], as the `text` of a
@@ -24,7 +24,7 @@ The three audiences are:
 
 - Display beats, shown as written by a deterministic renderer. The default English
   formatter ([`format_message`][osrlib.messages.format_message]) appends the beat from
-  an event after the templated line, so a bare transcript reads the authored words
+  an event after the templated line, so a bare transcript shows the authored words
   exactly as you wrote them.
 - The journal form, the carrier's entry in the party's written record. A quest beat does
   not use it, because what a quest journals is the display text it showed, so the
@@ -74,7 +74,7 @@ class NarrativeBlock(BaseModel):
 
     `journal` is the written-record form. The quest layer doesn't read it, and journals the
     display text it showed instead. `guidance` is steering for an LLM narrator while the
-    object the block belongs to is in play, and `speaker` an attribution such as "the bronze sentinel" or "Sister
+    object the block belongs to is in play, and `speaker` an attribution like "the bronze sentinel" or "Sister
     Halda" that a renderer may put in front of a beat.
 
     Examples:
@@ -125,6 +125,6 @@ class NarrativeBlock(BaseModel):
     authored model yourself when you write the narration. The same field on
     [`LevelSpec`][osrlib.crawl.dungeon.LevelSpec] does the same job for a whole level."""
     speaker: str = ""
-    """An attribution, such as "the bronze sentinel", that a renderer may put in front of
+    """An attribution, like "the bronze sentinel", that a renderer may put in front of
     a beat. [`QuestView.speaker`][osrlib.crawl.views.QuestView] includes a quest's speaker
     in the player view."""

@@ -7,9 +7,9 @@ to, and assemble the two here. Then you hand the result to
 [`GameSession.new`][osrlib.crawl.session.GameSession.new] beside a
 [`Party`][osrlib.crawl.party.Party], and the session runs it.
 
-The adventure is frozen. The session reads it and never writes back: everything play changes goes
+The adventure is frozen. The session reads it and never writes back: everything that changes in play goes
 into [`DungeonState`][osrlib.crawl.dungeon.DungeonState] instead. That split keeps what you authored
-apart from what play changed, and a save contains both. Prose lives in these models rather than in
+apart from what changed in play, and a save contains both. Prose lives in these models rather than in
 events, because events contain ids and your front end
 resolves them against the adventure it already has.
 
@@ -125,15 +125,15 @@ class TownSpec(BaseModel):
     """How long it takes to get from town to each dungeon's entrance, in exploration turns, keyed by
     dungeon id. [`EnterDungeon`][osrlib.crawl.commands.EnterDungeon] and
     [`TravelToTown`][osrlib.crawl.commands.TravelToTown] each advance the clock by this much, so a
-    far-off dungeon costs light and rations to reach and to leave. A dungeon with no entry here
-    travels free. Every id named here has to be a dungeon of this adventure, and
+    far-off dungeon costs light and rations to reach and to leave. Travel to a dungeon with no entry
+    here takes no time. Every id named here has to be a dungeon of this adventure, and
     [`validate_adventure`][osrlib.crawl.adventure.validate_adventure] refuses one that is not."""
 
 
 class PartySpec(BaseModel):
     """The party an adventure is written for: the character levels, and how many characters.
 
-    A published module states this on its cover or in its introduction, such as "for 6 to 8
+    A published module states this on its cover or in its introduction, like "for 6 to 8
     characters of levels 1 to 3". Nothing in the engine reads it. It's here so a front end, a
     converter, or a playtest can pick a party that fits the adventure.
 
@@ -281,7 +281,7 @@ class Adventure(BaseModel):
     quests: tuple[QuestSpec, ...] = ()
     """The adventure's [`QuestSpec`][osrlib.crawl.quests.QuestSpec]s: what the party is trying to
     accomplish. The session seeds one state block per quest when it is constructed, in this order,
-    and every walk over them follows it.
+    and every pass over the quests follows that order.
 
     Quest ids and trigger ids are in separate state blocks, so they are separate namespaces and a
     quest may share an id with a trigger."""
@@ -317,10 +317,9 @@ class Adventure(BaseModel):
     def quest(self, quest_id: str) -> QuestSpec:
         """Return the quest with `quest_id`.
 
-        This is what the quest lifecycle commands resolve against, which is what makes their id
-        domain closed: an id this method can't resolve isn't a quest in this adventure, and the command is
-        refused. Call it to show a quest's objectives and rewards beside the state the session keeps
-        for it.
+        The quest lifecycle commands resolve quest ids through this method, so an id it can't resolve
+        isn't a quest in this adventure, and the command is refused. Call it to show a quest's
+        objectives and rewards beside the state the session keeps for it.
 
         Args:
             quest_id: The quest id.
@@ -716,8 +715,8 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
     in the tree and raises once, listing everything wrong, so you fix the whole document in one pass
     instead of finding the next broken id on the next run.
     [`GameSession.new`][osrlib.crawl.session.GameSession.new] runs it too, which is why a session can
-    never start on content that would fail partway through a delve. It changes nothing and returns
-    nothing, so a clean adventure comes back unchanged.
+    never start on content that would fail partway through a delve. It changes nothing, and it
+    returns `None` when the adventure is clean.
 
     It checks the following, in the order the message lists them. First the bundled ids: monster ids
     against the built-in catalog and each other, then item ids against the equipment catalog, the
@@ -738,7 +737,7 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
 
     A passage gets more checks after those. Its side has to be a wall. Its far cell, the cell one
     step across that side, has to be on the grid, outside every area, and walled on its other three
-    sides. The passage can't lead to its own cell or on the far cell of any passage. Two passages
+    sides. The passage can't lead to its own cell or to the far cell of any passage. Two passages
     can't stand on the same cell and side.
 
     Then, for each trigger: its id unique, the area, level, dungeon, item, and monster its pattern
@@ -770,7 +769,7 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
 
     Raises:
         ContentValidationError: If anything is wrong. The message lists every problem found, one per
-            line, each naming the dungeon, level, and object it sits on.
+            line, each with the dungeon, level, and object it sits on.
 
     Examples:
         ```python

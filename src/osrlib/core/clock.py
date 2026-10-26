@@ -84,7 +84,7 @@ TURNS_PER_DAY = 144
 """How many exploration turns make up one day.
 
 That's a full 24 hours of turns, not only the ones spent underground. The day boundary
-is where the rules put daily events, such as eating and preparing spells.
+is where the rules put daily events, like eating and preparing spells.
 """
 
 ROUNDS_PER_DAY = ROUNDS_PER_TURN * TURNS_PER_DAY
@@ -137,7 +137,7 @@ class BoundaryCrossing(BaseModel):
     """One turn or day boundary that a clock advance passed.
 
     [`advance`][osrlib.core.clock.GameClock.advance] returns a list of these, oldest
-    first. Walk the list and do whatever your game owes the end of a turn or the end of
+    first. Walk the list and do whatever your game does at the end of a turn or the end of
     a day, in the order the boundaries arrived. There are no round crossings: every
     round is a round boundary, so the count of them is the advance itself.
 

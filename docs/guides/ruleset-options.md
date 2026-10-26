@@ -35,13 +35,13 @@ Each of these mirrors an alternative procedure OSE prints alongside its default.
 
 **`weapon_reload`**: off, any weapon can fire every round. On, the attack validator rejects a shot from a reload-quality weapon (mainly crossbows) when the caller's combat context records that the weapon fired last round.
 
-**`hd5_counts_as_magical`**: off, only weapons and effects explicitly flagged magical can harm a monster that only silver or magic weapons can harm. On, a monster of 5 or more Hit Dice also counts as magical for that purpose, and so does a monster that only silver or magic weapons can harm.
+**`hd5_counts_as_magical`**: off, only weapons and effects explicitly flagged magical can harm a monster that only silver or magic weapons can harm. On, an attacking monster of 5 or more Hit Dice also counts as magical for that purpose, and so does an attacking monster that only silver or magic weapons can harm.
 
 **`encumbrance`** sits partway between the two families. It isn't a toggle. It chooses *which* printed system applies, as an [`EncumbranceMode`][osrlib.core.ruleset.EncumbranceMode]. `NONE` tracks nothing, and every character moves at the base 120'/turn. `BASIC` (the default) sets movement rate from worn-armor category (unarmored, light, or heavy), reduced further when the character carries a significant amount of treasure. Your game decides that for each character by setting its [`carrying_treasure`][osrlib.core.character.Character.carrying_treasure] flag. `DETAILED` instead totals tracked coin-weight (armor, gear, and treasure) and sets movement rate from banded weight thresholds. `BASIC` and `DETAILED` share the same maximum-load cap: a character whose tracked weight goes above it can't move at all.
 
 ## Documented adaptations
 
-These flags exist because OSE leaves each of these rules to the referee's judgment, and a session running without a referee needs a fixed answer. For the reasoning behind each default, see [the adaptations register](../adaptations.md). Here's what each flag does.
+These flags exist because OSE leaves each of these rules to the referee's judgment, and a session running without a referee needs a fixed answer. For the reasoning behind each default, see [the adaptations register](../adaptations.md).
 
 **`magic_item_death_save`** (default on): when a character's death also destroys equipment (lightning, disintegration, and similar sources), osrlib rolls a saving throw for each of that character's magic items instead of destroying it with its owner. The save value is the dead owner's for the source's category, improved by the item's best combat bonus. Items that survive end up in a drop pile at the character's cell. Off restores OSE's default, where a character's magic items are destroyed along with their owner.
 

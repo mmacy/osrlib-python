@@ -59,8 +59,8 @@ print(hoard.coins.value_gp, len(hoard.valuables), len(hoard.magic_items))
 
 # The treasure models live in this module rather than in core/tables.py: the
 # osrlib/data loaders import their model homes and every core module imports the
-# loaders, so a crawl-owned model home would give load_treasure_tables() a
-# core -> data -> crawl transitive import.
+# loaders, so putting the models in a crawl module would make load_treasure_tables()
+# import crawl from core by way of data.
 
 from collections.abc import Mapping, Sequence
 from enum import StrEnum
@@ -202,7 +202,7 @@ class MagicItemType(StrEnum):
 class CoinQuantity(BaseModel):
     """How many coins of one denomination a treasure entry yields.
 
-    The printed multiplier is folded into the dice expression, so an entry that reads
+    The printed multiplier is part of the dice expression, so an entry that reads
     `1d6 × 1,000 gp` arrives here as dice of `1d6×1000` and a denomination of gold. Roll it
     with [`roll`][osrlib.core.dice.roll] if you are generating by hand. The generation
     functions do it for you.
@@ -540,7 +540,7 @@ class StockingTable(BaseModel):
     directly unless you are rolling by hand: it rolls the contents, then the treasure chance
     that goes with them, and reports both.
 
-    This is an authoring tool, not something play calls: it is how you fill a dungeon level
+    This is an authoring tool, not something called during play: it is how you fill a dungeon level
     before anyone explores it.
     """
 
@@ -1218,7 +1218,7 @@ def generate_treasure_entries(
     entries in hand rather than a letter or a level: the hoard a treasure map leads to is a
     list of entries on the map's template, and this is how you turn it into loot.
 
-    Entries are resolved in printed order: for each one, the presence roll if it is gated,
+    Entries are resolved in printed order: for each one, the presence roll if it has a chance,
     then the quantity dice, then each gem, piece of jewellery, or magic item resolved
     completely before the next begins. That order is the contract behind reproducibility, so
     the same seed and the same entries always give the same result.

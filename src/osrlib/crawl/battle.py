@@ -242,21 +242,21 @@ once it too is past this distance.
 
 
 class BattleState(BaseModel):
-    """A battle in progress: the round counter and the per-round bookkeeping a fight needs to keep.
+    """A battle in progress: the round counter and the state the round handler tracks between rounds.
 
     You get this from `session.battle`, which is None whenever no battle is running. It is an overlay
     on the encounter rather than a replacement for it: the monster groups, their distances, and their
-    treasure stay on `session.encounter`, and this holds only what the fight itself has to remember.
+    treasure stay on `session.encounter`, and this model contains only the state the fight adds.
     It serializes with the session, so a saved game resumes mid-battle. Read it and render from it.
-    The round handler is what writes every field.
+    The round handler writes every field.
 
     To change a fight while it runs, send a referee command from
     [`osrlib.crawl.commands`][osrlib.crawl.commands] rather than writing to this model. Every referee
     command is legal in `battle` mode, so a referee can grant an item, award experience, set a flag,
     or advance the clock mid-fight, and the change replays from a save because the command goes
     through the command log. [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] and
-    [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] are the exception: both reject while an
-    encounter is open, so a fresh side cannot join a fight already underway.
+    [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] are the exception: the session rejects
+    both while an encounter is open, so a fresh side cannot join a fight already underway.
     """
 
     model_config = ConfigDict(validate_assignment=True)
@@ -285,7 +285,7 @@ class BattleState(BaseModel):
     warded character by *protection from evil* may attack them anyway once it is on this list, as the
     rules as written (RAW) say."""
     concentration: dict[str, list[str]] = {}
-    """Per caster id, the effect ids a concentration spell is holding up. They release as soon as that
+    """Per caster id, the effect ids of the concentration spell that caster maintains. They release as soon as that
     caster declares anything other than `cast`, `turn_undead`, or `hold`."""
 
 
@@ -321,7 +321,7 @@ class MonsterAction(BaseModel):
 
 
 class ActionPolicy(Protocol):
-    """The monster side's brain: what decides, each round, what one monster group does.
+    """The interface for a policy that chooses, each round, what one monster group does.
 
     Write a class with a `choose` method matching this protocol when you want tactics of your own, and
     register it for a group by its id on `session.action_policies`, a plain dict the session keeps and
@@ -412,7 +412,7 @@ class ActionPolicy(Protocol):
             group (osrlib.crawl.encounter.EncounterGroup): The group to act. Its `distance_feet` is the
                 current gap and its `monster_ids` are its members, dead ones included.
             stream (osrlib.core.rng.RngStream): The `monster_action` stream. Take every random choice
-                from it and from nothing else, or you break the determinism of the rest of the fight.
+                from it, or you break the determinism of the rest of the fight.
 
         Returns:
             The actions to resolve, in the order they should resolve. Return an empty list for a group
@@ -430,8 +430,8 @@ class ScriptedPolicy:
 
     Monsters whose data includes a scripted pattern follow it. A breath weapon with a daily use count
     opens with breath, then takes breath or melee with equal chance while uses remain, which is how the
-    OSE SRD's dragons fight. A breath weapon gated on a chance in six rolls that gate each round, as
-    the hellhound's does. Otherwise a group further off than
+    OSE SRD's dragons fight. For a breath weapon gated on a chance in six, as the hellhound's is, the
+    policy rolls that chance each round. Otherwise a group further off than
     [`MELEE_RANGE_FEET`][osrlib.crawl.battle.MELEE_RANGE_FEET] closes, and once at that range each
     monster picks its target uniformly from the party rank it can reach. Monster missile routines have
     no structured range data, so osrlib treats them the way it treats melee, closing first and then
@@ -514,7 +514,7 @@ class NpcPartyPolicy:
     and melees, the same as a monster.
 
     These casts post their declarations at the top of the round and are disruptable exactly as the
-    party's are, because RAW's disruption trigger does not care which side declared. Every choice draws
+    party's are, because the RAW disruption rule applies to either side. Every choice draws
     from the `monster_action` stream alone.
     """
 
@@ -665,14 +665,14 @@ FIGHTER_FRONTAGE_FEET = 5
 """Feet of frontage one combatant needs in order to fight side by side with the next.
 
 The party's front rank is as wide as its fighting space divided by this, so a ten-foot passage
-fits two abreast and a room holds as many as its shorter side allows. A member outside the front rank
+fits two abreast and a room fits as many as its shorter side allows. A member outside the front rank
 is rejected for declaring a melee attack. The rank check does not apply to a missile attack, so the
 back ranks can still shoot.
 
 RAW prints one number for this and leaves the rest to judgement: "The referee should judge the number
 of opponents that can attack a single combatant, bearing in mind the combatant's size and the
 available space around them. **10' passage:** Enough space for at most 2-3 characters to fight
-side-by-side." osrlib takes the conservative end of that range, two in ten feet and so five feet each,
+side-by-side." osrlib uses the low end of that range, two in ten feet and so five feet each,
 and then applies it to whatever space the party is actually standing in.
 
 To play without a width limit, turn off the ruleset's `formation_width_limit` flag, which puts every
@@ -789,14 +789,14 @@ def _ally_protection_bonus(session, defender) -> int:
     """The Ring of Protection 5' Radius: a rank-mate's ring shields the defender.
 
     The battle space has no adjacency finer than the rank, so "allies within 5'"
-    is the wearer's rank. The wearer's +1 arrives with the rest of its
-    equipped items, so only allies collect the aura here, and multiple rings
-    never stack.
+    is the wearer's rank. The wearer's +1 is counted with the rest of its
+    equipped items, so this bonus comes only from allies' rings, and multiple
+    rings never stack.
 
     Args:
         session (osrlib.crawl.session.GameSession): The battle's session.
-        defender: The combatant under attack. A combatant in no rank collects
-            nothing.
+        defender: The combatant under attack. A combatant in no rank gets no
+            bonus.
 
     Returns:
         1 when a living rank-mate wears the radius ring, else 0.
@@ -842,7 +842,7 @@ def _reachable_targets(session, monster: MonsterInstance, pool: list) -> list:
 
 
 def _identify_worn_items(session, target) -> list[Event]:
-    """Being attacked in battle identifies worn enchanted armour, shields, and rings."""
+    """Identify the worn enchanted armour, shields, and rings of a combatant attacked in battle."""
     if getattr(target, "definition", None) is None:
         return []
     from osrlib.crawl import exploration
@@ -917,7 +917,7 @@ def _haste_multiplier(session, entity_id: str, key: str) -> int:
 def start_battle(session, *, party_free_round: bool = False, monsters_free_round: bool = False) -> list[Event]:
     """Open battle on the session's current encounter: the range track takes over.
 
-    Call this when your own code decides the talking is over. There must be an open encounter on the
+    Call this when your code decides the talking is over. There must be an open encounter on the
     session, because the fight runs on that encounter's groups and their distances. On return the
     session is in `battle` mode and `session.battle` holds a
     [`BattleState`][osrlib.crawl.battle.BattleState]. From there, each round is one
@@ -931,8 +931,8 @@ def start_battle(session, *, party_free_round: bool = False, monsters_free_round
 
     A group whose morale score is 2 routs the moment battle starts, per RAW, which can end the battle
     before a round has run. A surprise advantage becomes one free round for the side that holds it: the
-    monsters' free round resolves inside this call, with the party unable to answer, while the party's
-    free round holds the monsters through the first `ResolveBattleRound`.
+    monsters' free round resolves inside this call, with the party unable to answer, while on the party's
+    free round the monsters do nothing during the first `ResolveBattleRound`.
 
     Args:
         session (osrlib.crawl.session.GameSession): The running session, with `session.encounter` set.
@@ -945,8 +945,8 @@ def start_battle(session, *, party_free_round: bool = False, monsters_free_round
         The opening events: [`BattleStartedEvent`][osrlib.crawl.events.BattleStartedEvent], a
             [`MonsterFledEvent`][osrlib.crawl.events.MonsterFledEvent] for each group that routed on
             sight, whatever a monsters' free round resolved, and a
-            [`BattleEndedEvent`][osrlib.crawl.events.BattleEndedEvent] already when the opening itself
-            left a terminal state.
+            [`BattleEndedEvent`][osrlib.crawl.events.BattleEndedEvent] when the opening alone ends the
+            battle.
 
     Examples:
         ```python
@@ -1478,7 +1478,7 @@ def _resolve_scroll_cast(session, member, instance, template, declaration: Battl
 
     The declaration is judged again first, before anything is spent, and a refused one still spends the
     scroll: the read itself is emitted and the spell struck off, and only then is the fizzle reported,
-    because the reader did read it and the ink is gone either way. A thief reading an arcane scroll rolls
+    because the reader did read it and the scroll is used up either way. A thief reading an arcane scroll rolls
     the printed error chance after that, and a failed roll burns the spell with nothing to report: that
     miscast is a failure of the scroll, not a refused declaration, so it emits no `magic.cast.fizzled` event.
     """
@@ -1614,8 +1614,8 @@ def _handle_resolve_battle_round(session, command: ResolveBattleRound) -> tuple[
         rejections.extend(_validate_declaration(session, declaration, member))
     rejections.extend(_formation_split_rejections(declarers, command.declarations))
     if rejections:
-        # The whole command rejects listing every rejection. Partial acceptance
-        # would tangle the replay contract (see the adaptations register).
+        # The session rejects the whole command and lists every rejection. Partial
+        # acceptance would complicate replay (see the adaptations register).
         return rejections, []
 
     state.round += 1
@@ -1685,7 +1685,7 @@ def _handle_resolve_battle_round(session, command: ResolveBattleRound) -> tuple[
         )
         block.extend(_confused_party_overrides(session, by_member, fire_damaged_groups))
         # Party hits and failed saves disrupt declared NPC casters too (the RAW
-        # trigger doesn't care which side declares).
+        # trigger applies to either side).
         _watch_disruption(block, pending_casters, disrupted, acted)
         return block
 
@@ -1879,7 +1879,7 @@ def _resolve_party_attack(session, member, declaration, fired, fire_damaged) -> 
             events.extend(_on_hit_drain(session, weapon, target))
         if not missile:
             # Engaging in melee breaks the *protection from evil* ban against the
-            # creature actually fought (a RAW clause. The modifiers persist).
+            # creature actually fought (a RAW clause, and the modifiers persist).
             engagements = state.melee_engagements.setdefault(member.id, [])
             if target.id not in engagements:
                 engagements.append(target.id)
@@ -1902,8 +1902,8 @@ def _resolve_party_attack(session, member, declaration, fired, fire_damaged) -> 
 def _on_hit_drain(session, weapon: MagicItemInstance, target) -> list[Event]:
     """The energy-drain sword's on-hit drain: automatic on every hit.
 
-    The sword rolled 1d4+4 total drains when it was generated, and once those are
-    spent it is a plain +1. The lost-die rolls come from the advancement stream,
+    The sword has 1d4+4 drains in total, rolled when it is generated, and once those
+    are spent it is a plain +1. The lost-die rolls come from the advancement stream,
     because a drain reverses advancement. The sword's entry in the OSE SRD
     sets XP to the lowest amount for the new level (`level_minimum`), where the
     wight's entry sets it halfway.
@@ -2020,8 +2020,8 @@ def _resolve_use_item(session, member, declaration, fire_damaged) -> list[Event]
     pool = _monster_pool(session, group)
     if not pool:
         return []
-    # One lookup takes the flask and answers what was taken: the instance the
-    # attack resolves from is the instance that left the pack.
+    # One lookup removes the flask and returns it: the instance the attack
+    # resolves from is the instance that left the pack.
     instance = exploration._consume_item(member, declaration.item_id)
     if not isinstance(instance, ItemInstance) or not isinstance(instance.template, GearTemplate):
         # Unreachable: the declaration validator proved the item is gear with a
@@ -2067,7 +2067,7 @@ def _fizzle_event(caster_id: str, spell_id: str, *, reversed: bool, reason: str)
     """Report a declaration the magic phase's re-check refused, at `magic.cast.fizzled`.
 
     `reason` is the first rejection code the re-check produced, which a front end reads to learn why the
-    spell failed. A refused declaration never raises out of the round, so this event is the whole outcome.
+    spell failed. A refused declaration never raises out of the round, so this event is its only result.
     """
     return SpellDisruptedEvent(
         code="magic.cast.fizzled", caster_id=caster_id, spell_id=spell_id, reversed=reversed, reason=reason
@@ -2079,9 +2079,9 @@ def _fizzle_cast(session, member, spell_id: str, *, reversed: bool, reason: str,
 
     The caster gives up the memorized copy through
     [`disrupt_casting`][osrlib.core.spells.disrupt_casting], so the declared form is what goes, and
-    concentration releases as it does on any other action. A caster with no copy left to give up keeps the
-    event and loses nothing twice, which is what stops an earlier phase that already took the copy, such as
-    an energy drain, from raising here.
+    concentration releases as it does on any other action. A caster with no copy left to give up still
+    gets the event and loses nothing more. That way, a cast whose copy an earlier phase already took,
+    such as an energy drain, doesn't raise here.
     """
     if any(copy.spell_id == spell_id for copy in member.memorized_spells):
         disrupt_casting(member, spell_id, reversed=reversed)
@@ -2095,8 +2095,8 @@ def _party_magic(session, by_member, pending_casters, disrupted, acted, state) -
 
     A caster the round already disrupted is reported as disrupted and takes no further part, and that
     check runs before the re-check below, so a caster who was both hit and silenced reports
-    `magic.cast.disrupted` rather than `magic.cast.fizzled`. Disruption is the blow that hit, and it
-    is the outcome the table saw.
+    `magic.cast.disrupted` rather than `magic.cast.fizzled`. The disruption comes from the attack that
+    hit, so it's the outcome the players saw.
 
     A cast, and a scroll read inside `_resolve_scroll_cast`, is judged again immediately before it resolves,
     with the checks it passed at the top of the round, and one that now fails any of them fizzles instead of
@@ -2531,8 +2531,8 @@ def _leave_helpless_behind(session, group) -> list[Event]:
     ("routed ones flee with theirs"). The helpless become a fresh non-fleeing
     group where the side broke, at the current distance, with their individual
     treasure bundles still on them. Dead members also stay in the runners' group
-    record, because outcome classification and loot drops read the `dead`
-    condition before any group flag, so their bookkeeping is unchanged.
+    record, because the code that classifies the outcome and drops loot reads
+    the `dead` condition before any group flag, so that code sees no change.
     """
     from osrlib.crawl.encounter import EncounterGroup
 
@@ -2597,7 +2597,7 @@ def _group_morale(session, group, fire_damaged) -> list[Event]:
 
 
 def _confused_overrides(session, group, actions) -> list[Event]:
-    """The machine-run confusion beat: re-save, then the 2d6 behavior roll.
+    """The confusion check the machine runs each round: re-save, then the 2d6 behavior roll.
 
     The re-save runs on the magic stream, and the behavior roll and its pick of a
     target in its group run on the combat stream. These are machine-run round rolls,

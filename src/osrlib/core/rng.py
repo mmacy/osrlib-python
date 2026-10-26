@@ -9,14 +9,13 @@ from the seed you give it and hands out the right stream for each rule, so durin
 ordinary play you never touch this module.
 
 A stream is named by a plain string, and each name has a separate, independent sequence.
-Rolling a hundred treasure hoards doesn't change what the next attack rolls. Add a new
+Rolling a hundred treasure hoards doesn't change the next attack roll. Add a new
 draw to one subsystem and no other subsystem's results change, which is what lets a saved
 game replay and a bug reproduce.
 [`StreamName`][osrlib.core.rng.StreamName] lists every stream a running session draws
 from, and each `*_STREAM` constant in the library is one of its members. [The RNG
 streams reference][rng-streams] describes what each one covers. Standalone code isn't bound
-to those names. A name is a label, and all that matters is that you ask for the same one
-each time.
+to those names. A name is a label, so ask for the same one each time.
 
 Two draws made with the same master seed and the same stream name come out the same, in
 this release and in every later one. The generator is PCG64, in the
@@ -172,7 +171,7 @@ def derive_init_pair(master_seed: int, key: str) -> tuple[int, int]:
 
     Args:
         master_seed: The game's master seed, from 0 up to but not including 2**128.
-        key: The stream's name, such as `"combat"` or `"treasure"`.
+        key: The stream's name, like `"combat"` or `"treasure"`.
 
     Returns:
         The `(initstate, initseq)` pair, ready for
@@ -494,8 +493,8 @@ class RngStreams:
         Pass what comes back to whatever draws.
 
         Args:
-            key: The stream's name, such as `"combat"` or `"treasure"`. Any string works;
-                [the RNG streams reference][rng-streams] lists the ones a session uses.
+            key: The stream's name, like `"combat"` or `"treasure"`. Any string works.
+                [The RNG streams reference][rng-streams] lists the ones a session uses.
 
         Returns:
             The stream for that name, at whatever position it has reached. Asking twice
@@ -527,7 +526,7 @@ class RngStreams:
         yourself only when you're saving a game you built without one.
 
         A name you've never asked for is left out. A stream like that has drawn nothing,
-        and it rebuilds itself from the master seed the first time you use it.
+        and [`get`][osrlib.core.rng.RngStreams.get] builds it from the master seed the first time you use it.
 
         Returns:
             One position per stream that has been used, in sorted name order so two saves
@@ -551,7 +550,7 @@ class RngStreams:
 
         Call it on a container built with the same master seed the game was saved under.
         A stream named in `states` is replaced. One that isn't is left alone, and a stream
-        that has never been used rebuilds itself from the seed.
+        that has never been used is built from the seed the first time you ask for it.
 
         Args:
             states: Positions from

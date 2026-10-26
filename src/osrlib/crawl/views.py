@@ -27,7 +27,7 @@ state, fatigue, exhaustion, and deprivation status, and the adventure's public p
 
 It never includes unexplored geometry, undiscovered traps or secret doors, monster hit
 points or stat internals, referee-visibility roll outcomes, session flags, trigger
-fired-marks, referee notes, the internal logic of quests such as activation clauses,
+fired-marks, referee notes, the internal logic of quests like activation clauses,
 patterns, conditions, rewards, and hidden objectives, the quests that are not active, meaning
 both the ones not yet taken on and the ones already finished, RNG state, or the master
 seed, which lives only in the save and reaches neither view.
@@ -117,12 +117,12 @@ class MemberView(BaseModel):
 
     id: str
     """The member's character id. This is the id you put in the `character_id` of a
-    command such as [`GrantItem`][osrlib.crawl.commands.GrantItem] or a battle
+    command like [`GrantItem`][osrlib.crawl.commands.GrantItem] or a battle
     declaration, so a remote client can act without having the session."""
     name: str
     """The character's name, as the player wrote it."""
     class_id: str
-    """The character class id, such as `"fighter"`, from the class catalog."""
+    """The character class id, like `"fighter"`, from the class catalog."""
     level: int
     """The character's experience level."""
     current_hp: int
@@ -132,7 +132,7 @@ class MemberView(BaseModel):
     """Maximum hit points at the current level."""
     conditions: tuple[str, ...]
     """The conditions on the member right now, as
-    [`Condition`][osrlib.core.effects.Condition] serialized values such as `"dead"` or
+    [`Condition`][osrlib.core.effects.Condition] serialized values like `"dead"` or
     `"sleeping"`, in the order they're in the ledger."""
     inventory: dict
     """The member's pack, in the format the inventory serializes to, with the keys `items`,
@@ -144,7 +144,7 @@ class MemberView(BaseModel):
     without being told the arm's bonus, curse, or template id. The `missile_ranges` key
     comes with it only for a weapon the rules give ranges to, so read the key as absent
     on a sword rather than empty. An item whose display comes from its category instead,
-    such as a staff, includes neither field even when it resolves to a weapon, because
+    like a staff, includes neither field even when it resolves to a weapon, because
     the display never included that weapon's name. Charges never appear at any identification
     level."""
     memorized_spells: tuple[dict, ...]
@@ -167,7 +167,7 @@ class MemberEffectView(BaseModel):
     """The id of the member the effect is attached to, matching a
     [`MemberView.id`][osrlib.crawl.views.MemberView]."""
     kind: str
-    """The effect kind, such as `"light"` or `"fatigue"`, which is the same string an
+    """The effect kind, like `"light"` or `"fatigue"`, which is the same string an
     [`EffectActiveCondition`][osrlib.crawl.gates.EffectActiveCondition] uses."""
     remaining_rounds: int | None
     """Rounds left before the effect expires, never below zero. `None` means the players
@@ -260,7 +260,7 @@ class EncounterGroupView(BaseModel):
     allocator ordinal rather than a secret, the same way a
     [`MemberView.id`][osrlib.crawl.views.MemberView] is."""
     label: str
-    """What the group is called, such as `"goblins"`, for the line a front end prints."""
+    """What the group is called, like `"goblins"`, for the line a front end prints."""
     count: int
     """How many of the group are still standing. The dead are not counted."""
     distance_feet: int
@@ -370,7 +370,7 @@ class QuestView(BaseModel):
     includes the words, because a remote client has no adventure document to look them
     up in."""
     speaker: str
-    """Who is speaking the offer, such as `"Sister Halda"`, or the empty string when the
+    """Who is speaking the offer, like `"Sister Halda"`, or the empty string when the
     block authors no attribution."""
     objectives: tuple[ObjectiveView, ...]
     """The revealed objectives, in the order the quest authored them."""
@@ -472,8 +472,8 @@ class ExplorationCounters(BaseModel):
     """How many nights or days the party has slept through. Preparing spells needs a sleep the caster
     has not already prepared from."""
     last_prepared_sleep: dict[str, int]
-    """The `sleep_count` at which each caster last prepared spells, keyed by character id. It is what
-    enforces one preparation per sleep."""
+    """The `sleep_count` at which each caster last prepared spells, keyed by character id. The session
+    uses it to allow one preparation per sleep."""
     alerted_areas: tuple[str, ...]
     """The keyed areas whose occupants have been alerted, as area references. Monsters that heard the
     party coming are not surprised when it walks in."""
@@ -482,7 +482,7 @@ class ExplorationCounters(BaseModel):
     stands behind the door is not surprised by it."""
     provisions_day: int
     """The last whole game day whose food and water upkeep has been settled, counting from the start of
-    the session. Each day boundary charges the party once and then raises this."""
+    the session. The session charges the party once at each day boundary and then raises this."""
 
 
 class RefereeView(BaseModel):
@@ -545,7 +545,7 @@ class RefereeView(BaseModel):
     to dungeon cells as well as the ones on members, and it contains a potion's true duration, which the
     players aren't allowed to know."""
     dungeon_state: DungeonState
-    """What play has written over the authored map, as a
+    """What the session has recorded over the authored map during play, as a
     [`DungeonState`][osrlib.crawl.dungeon.DungeonState]: where the party stands, the cells it has walked
     and seen, door state, found and sprung traps, drop piles, and generated caches."""
     monsters: tuple[MonsterInstance, ...]
@@ -590,7 +590,7 @@ class RefereeView(BaseModel):
     deprivation: dict[str, DeprivationState]
     """Each member's food and water counts, as
     [`DeprivationState`][osrlib.crawl.session.DeprivationState] values keyed by character id, one per
-    member a day boundary has charged and the members on zero among them.
+    member the session has charged at a day boundary, and the members on zero among them.
     [`PlayerView.deprivation`][osrlib.crawl.views.PlayerView.deprivation] reports the same counts for the
     members going short alone."""
     treasure_snapshot_cp: int | None

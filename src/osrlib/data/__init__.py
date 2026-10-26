@@ -158,8 +158,8 @@ class LanguageCatalog(BaseModel):
         instead: it returns structured refusals rather than raising on the first bad id.
 
         Args:
-            language_id: A language id from [the language id index][languages-index], such
-                as `"gnoll"`.
+            language_id: A language id from [the language id index][languages-index], like
+                `"gnoll"`.
 
         Returns:
             The language.
@@ -200,7 +200,7 @@ def _read(filename: str) -> dict[str, object]:
 def load_ability_tables() -> AbilityTables:
     """Load the six ability modifier tables and the prime requisite XP table.
 
-    The returned [`AbilityTables`][osrlib.core.abilities.AbilityTables] answers what a
+    The returned [`AbilityTables`][osrlib.core.abilities.AbilityTables] gives what a
     score is worth: the STR melee modifier, the STR open-doors chance, the extra languages
     and literacy INT grants, the DEX missile and initiative modifiers, the CON hit point
     modifier, the CHA reaction modifier and retainer limits, and the prime requisite XP

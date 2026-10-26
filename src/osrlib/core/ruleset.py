@@ -205,7 +205,7 @@ class Ruleset(BaseModel):
     """Give a dead character's magic items a saving throw against the effect that killed their owner.
 
     An optional rule the SRD leaves to the referee, on by default. osrlib rolls a save for
-    each magic item in the doomed inventory, using the owner's save values against the
+    each magic item in the dead character's inventory, using the owner's save values against the
     destructive source's category and adding the item's best combat bonus. Items that
     survive go into a drop pile at
     the victim's cell, where the party can pick it up, rather than vanishing with the
@@ -238,8 +238,8 @@ class Ruleset(BaseModel):
     aoe_friendly_fire: bool = True
     """Let an area effect cast at a monster group in melee catch the party members fighting it.
 
-    An adaptation, on by default, an adaptation being a default osrlib supplies where the
-    tabletop game hands the decision to a referee. Turn it off and an area effect aimed at
+    An adaptation (a default osrlib supplies where the tabletop game hands the decision to a
+    referee), on by default. Turn it off and an area effect aimed at
     a monster group never counts party members among its candidates, which makes a
     fireball safe to drop on a melee.
     """
@@ -247,8 +247,8 @@ class Ruleset(BaseModel):
     formation_width_limit: bool = True
     """Cap how many combatants can fight side by side, by how wide the passage is.
 
-    An adaptation, on by default, an adaptation being a default osrlib supplies where the
-    tabletop game hands the decision to a referee. The cap is the party's frontage divided
+    An adaptation (a default osrlib supplies where the tabletop game hands the decision to a
+    referee), on by default. The cap is the party's frontage divided
     by the five feet one combatant needs, and frontage is ten feet per dungeon cell, so two
     may fight abreast in a one-cell corridor and four in a room two cells across. That
     follows the SRD's note about two or three characters fighting side by side in a

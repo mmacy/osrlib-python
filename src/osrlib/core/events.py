@@ -2,8 +2,8 @@
 
 Every rules call in osrlib returns events rather than printing anything, and this module defines the base class
 they all share along with the events the core rules emit themselves. You receive these, you don't construct
-them: an attack, a cast, a clock advance each hand you a list, and what your program does with that list is the
-game.
+them: an attack, a cast, and a clock advance each return a list, and your program decides what to do with that
+list.
 [`osrlib.crawl.events`][osrlib.crawl.events] adds the crawl's event types on the same base, and
 [`parse_any_event`][osrlib.crawl.events.parse_any_event] reads back a log that contains both.
 
@@ -313,16 +313,16 @@ class AttackRolledEvent(Event):
     class. `None` on an automatic hit."""
 
     defender_ac: int | None = None
-    """The defender's armour class as the attack saw it, after shields, spells, and the situation."""
+    """The defender's armour class as the attack roll used it, after shields, spells, and the situation."""
 
     natural: int | None = None
-    """Set to 1 or 20 when the unmodified d20 settled the outcome against what the total said, since a natural
+    """Set to 1 or 20 when the unmodified d20 decided the outcome against the total, since a natural
     20 always hits and a natural 1 always misses. `None` otherwise, including when the natural roll and the total
     agreed."""
 
 
 class DamageDealtEvent(Event):
-    """Damage landed on a creature.
+    """Damage dealt to a creature.
 
     [`deal_damage`][osrlib.core.combat.deal_damage] emits one of these for every packet of damage, whether it
     came from a weapon, a spell, or an effect like burning oil.
@@ -647,7 +647,7 @@ class EffectExpiredEvent(Event):
 
     [`EffectsLedger.advance`][osrlib.core.effects.EffectsLedger.advance] emits this when the clock reaches an
     effect's expiry round. This event goes out first, then the condition and modifiers come off, and an effect
-    with an expiry outcome, like a delayed poison, resolves that outcome last. An effect you ended early reports
+    with an expiry outcome, like a delayed poison, resolves that outcome last. An effect you ended early is reported
     as [`EffectReleasedEvent`][osrlib.core.events.EffectReleasedEvent] instead.
     """
 
@@ -720,13 +720,13 @@ class HealingAppliedEvent(Event):
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"combat.healing.applied", "combat.healing.blocked"})
-    """The two outcomes: healing landed, or a condition refused it."""
+    """The two outcomes: the healing was applied, or a condition blocked it."""
 
     event_type: Literal["healing_applied"] = "healing_applied"
     """The wire name for this event type."""
 
     visibility: Visibility = Visibility.PLAYER
-    """Player visibility: a wound closing is plain to see. The hit points behind it ride the referee-visible
+    """Player visibility: a wound closing is plain to see. The resulting hit points are in the referee-visible
     [`HitPointsReportedEvent`][osrlib.core.events.HitPointsReportedEvent]."""
 
     target_id: str
@@ -771,7 +771,7 @@ class DeathEvent(Event):
 
 
 class EquipmentDestroyedEvent(Event):
-    """What a victim was carrying burned with them.
+    """What a victim was carrying was destroyed with them.
 
     [`destroy_equipment`][osrlib.core.combat.destroy_equipment] emits this when a death destroys the body and
     everything on it: dragon breath, a *disintegrate*. An empty inventory produces no event.
@@ -790,7 +790,7 @@ class EquipmentDestroyedEvent(Event):
     """Fixed at `combat.equipment.destroyed`."""
 
     visibility: Visibility = Visibility.PLAYER
-    """Player visibility: the loss is the players' to feel."""
+    """Player visibility: the players see what was lost."""
 
     target_id: str
     """The entity id of the victim."""
@@ -821,7 +821,7 @@ class LevelDrainedEvent(Event):
     """The wire name for this event type."""
 
     visibility: Visibility = Visibility.PLAYER
-    """Player visibility: losing a level is the players' to know."""
+    """Player visibility: the players know when a level is lost."""
 
     target_id: str
     """The entity id of the victim."""
@@ -851,7 +851,7 @@ class MonsterRevivedEvent(Event):
 
     A regeneration tick inside [`EffectsLedger.advance`][osrlib.core.effects.EffectsLedger.advance] emits this
     when the countdown runs out, which for a troll is 2d6 rounds after it fell. The monster comes back on one
-    hit point, and the `dead` condition comes off in the same breath. It stops happening once the damage the
+    hit point, and the `dead` condition comes off at the same time. It stops happening once the damage the
     monster cannot regenerate, fire and acid for a troll, adds up to its full hit points.
     """
 
@@ -865,7 +865,7 @@ class MonsterRevivedEvent(Event):
     """Fixed at `effects.regeneration.revived`."""
 
     visibility: Visibility = Visibility.PLAYER
-    """Player visibility: the players find out the hard way."""
+    """Player visibility: the players see the monster get back up."""
 
     target_id: str
     """The entity id of the monster that came back."""
@@ -993,7 +993,7 @@ class SpellCastEvent(Event):
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"magic.cast.cast", "magic.cast.no_effect"})
-    """The two outcomes: the spell landed, or every target was out of its reach."""
+    """The two outcomes: the spell took effect, or every target was out of its reach."""
 
     event_type: Literal["spell_cast"] = "spell_cast"
     """The wire name for this event type."""
@@ -1031,8 +1031,8 @@ class SpellDisruptedEvent(Event):
     `magic.cast.fizzled` when it judges the declaration again in the magic phase, just before the spell would
     resolve, and any one of the checks it passed at the top of the round no longer passes, because the phases
     between the two changed what that check reads. An ally's *silence 15' radius* anchoring on the party's
-    cell and the party's last torch going out as its bearer dies are two cases that happen. The rule is the
-    whole set of checks, not a list of cases. `reason` contains the rejection code behind a fizzle.
+    cell and the party's last torch going out as its bearer dies are two cases. Any of the checks can cause a
+    fizzle, not only those two. `reason` contains the rejection code behind a fizzle.
 
     Either way nothing resolved and the memorized copy is gone, exactly as if the spell had been cast, so tell
     the player the spell failed and the prepared copy is spent. A scroll read that fizzles spends the scroll
@@ -1107,7 +1107,7 @@ class SpellBookUpdatedEvent(Event):
     """A new spell has gone into an arcane caster's book.
 
     [`add_spell_to_book`][osrlib.core.spells.add_spell_to_book] emits this. A spell in the book is one the caster
-    may prepare. Getting it there is a separate matter from preparing it, which reports as
+    may prepare. Getting it there is a separate matter from preparing it, which is reported as
     [`SpellsMemorizedEvent`][osrlib.core.events.SpellsMemorizedEvent].
     """
 
@@ -1148,8 +1148,8 @@ class TurningTypeOutcome(BaseModel):
 
     outcome: str
     """The verdict: `turn` when the roll met the threshold, `fail` when it didn't or there was no column,
-    `destroy` when the table destroys this kind outright at the cleric's level, and `unaffected` for a creature
-    that isn't undead at all."""
+    `destroy` when the table gives automatic destruction for this kind at the cleric's level, and `unaffected` for a
+    creature that isn't undead at all."""
 
     threshold: int | None = None
     """The 2d6 total the cleric needed for this kind. `None` when the table gives an automatic result rather than

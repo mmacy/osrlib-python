@@ -35,19 +35,19 @@ Look at two details of that handler:
 
 ## The served content and its interpreter
 
-The barrow is authored content: gated doors, a fetch quest, the works. Nothing plays that content until the [`Interpreter`][osrlib.crawl.interpreter.Interpreter] is registered on the session (see [Gates, triggers, and quests](../guides/gates-triggers-quests.md)). The server does that setup in `content.py`, on **both** entry paths: the fresh session and the restored one. For a fresh session, the server registers the interpreter as soon as it builds the session:
+The barrow is authored content: gated doors, a fetch quest, the works. The content does nothing until you register the [`Interpreter`][osrlib.crawl.interpreter.Interpreter] on the session (see [Gates, triggers, and quests](../guides/gates-triggers-quests.md)). The server does that setup in `content.py`, on **both** entry paths: the fresh session and the restored one. For a fresh session, the server registers the interpreter as soon as it builds the session:
 
 ```{.python .no-run}
 --8<-- "examples/fastapi_crawler/content.py:new-session"
 ```
 
-For a restored session, the server registers it again, because a save contains data and a listener is code. The save has the quest's state, the fired-marks, and the journal, but nothing in it can *react* until the server attaches the listener again:
+For a restored session, the server registers it again, because a save contains data and a listener is code. The save has the quest's state, the fired-marks, and the journal, but the session can't *react* to any of it until the server attaches the listener again:
 
 ```{.python .no-run}
 --8<-- "examples/fastapi_crawler/content.py:restore-session"
 ```
 
-If you forget the second registration, a restored barrow still validates and loads, but it silently stops playing its triggers and quests.
+If you forget the second registration, a restored barrow session still validates and loads, but its triggers and quests silently stop running.
 
 ## The command endpoint
 
@@ -67,7 +67,7 @@ A request has one of three outcomes, checked in order:
 
 The status codes in this API follow one rule: **an in-fiction rejection is a 200.** When the party tries to walk through a wall, the engine rejects the command. That's a rules outcome the client should render, not a transport failure. The response arrives with `accepted: false` and a machine-readable rejection code (see [the rejection code reference](../reference/rejection-codes.md)), and it costs the client nothing: a rejected command draws no dice, advances no clock, and appends nothing to the log, so a confused client can probe freely without corrupting the game. [Sessions, commands, and events](../guides/sessions-commands-events.md) teaches the rejection contract in depth.
 
-Exceptions are the opposite case. The caller broke the *out-of-fiction* contract by sending a malformed document or replaying an incompatible save, and the server maps those to 4xx and 5xx statuses.
+Exceptions are the opposite case. An exception means the caller broke the *out-of-fiction* contract, for example by sending a malformed document or replaying an incompatible save. The server maps exceptions to 4xx and 5xx statuses.
 
 ## The exception hierarchy and the status map
 
@@ -75,7 +75,7 @@ Exceptions are the opposite case. The caller broke the *out-of-fiction* contract
 
 - [`OsrlibError`][osrlib.errors.OsrlibError] - the root. Catching it catches every exception that osrlib defines.
 - [`ContentValidationError`][osrlib.errors.ContentValidationError] - malformed rules content at a library boundary: a dice expression that doesn't parse, an adventure that fails [`validate_adventure`][osrlib.crawl.adventure.validate_adventure], a serialized document whose structure or kind isn't what the loader expects.
-- [`SaveVersionError`][osrlib.errors.SaveVersionError] - a document whose `schema_version` is newer than this library understands, raised by [`check_document`][osrlib.versioning.check_document] rather than silently misreading the payload.
+- [`SaveVersionError`][osrlib.errors.SaveVersionError] - a document whose `schema_version` is newer than this library understands, raised by [`check_document`][osrlib.versioning.check_document] so the library doesn't silently misread the payload.
 - [`ReplayVersionError`][osrlib.errors.ReplayVersionError] - a command log replayed under a different engine version, where any rules change may legitimately alter outcomes. The example never raises it (it exposes no replay endpoint), but a front end that replays command logs has to choose a status for it too.
 
 Two kinds of failure are *outside* the hierarchy. Programmer misuse (bad argument types, out-of-range values) raises the standard library's `ValueError` or `TypeError`. That's a bug in the calling code, not a condition to map to a status. In-fiction refusals, as above, aren't exceptions at all.

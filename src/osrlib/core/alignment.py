@@ -9,7 +9,7 @@ have, and [`spawn_monster`][osrlib.core.monsters.spawn_monster] settles on one f
 individual. The rules read alignment in two places: a character's alignment tongue, the
 secret language its adherents share, is derived from it by
 [`Character.alignment_tongue`][osrlib.core.character.Character.alignment_tongue], and
-spells and magic items that care whose side a creature is on compare alignments.
+some spells and magic items compare alignments to tell whose side a creature is on.
 
 Alignment sits in a separate module so that both the character models and the monster
 models can import it without importing each other.

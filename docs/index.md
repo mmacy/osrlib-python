@@ -16,7 +16,7 @@ osrlib is designed for four kinds of consumer:
 - The [quickstart](getting-started/quickstart.md) runs the whole loop in one sitting: characters, party, adventure, session, commands, events, save, and load.
 - [Building an adventure](getting-started/building-an-adventure.md) covers the dungeon: the grid and its edges, keyed areas, and the content you attach to each area.
 - [Gates, triggers, and quests](guides/gates-triggers-quests.md) adds the authored behavior: a door that opens only with the right key, a lever that opens a portcullis, and a quest that ends the adventure in victory.
-- The [guides](guides/sessions-commands-events.md) teach the contracts: sessions and the command/event loop, visibility, determinism, the rules without a session, listeners, authoring, and ruleset options.
+- The [guides](guides/sessions-commands-events.md) cover sessions and the command/event loop, visibility, determinism, the rules without a session, listeners, authoring, and ruleset options.
 - The [front end walk-throughs](front-ends/tui-crawler.md) tour the two example games in the repository, and the [LLM referee page](front-ends/llm-referees.md) shows how an agent uses the same commands and events.
 - The [reference](reference/api/index.md) documents every public symbol, command, event, rejection code, message code, RNG stream, and content id.
 - The [changelog on GitHub](https://github.com/mmacy/osrlib-python/blob/main/CHANGELOG.md) records what each release changed.

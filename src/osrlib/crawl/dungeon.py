@@ -17,7 +17,7 @@ session's views. The long form, with a complete program you can run, is the guid
 
 The geometry, which every member here assumes: a level is a grid of 10-foot cells addressed `(x, y)`,
 with `x` increasing east and `y` increasing south from `(0, 0)` in the northwest corner. Walls are
-the default, and you declare the exceptions. An `edges` map holds one entry per physical edge that is
+the default, and you declare the exceptions. An `edges` map contains one entry per physical edge that is
 something other than wall, keyed by [`edge_key`][osrlib.crawl.dungeon.edge_key] so the boundary
 between two cells has exactly one entry no matter which side you name it from. An edge with no entry
 is wall, and so is the level boundary.
@@ -481,8 +481,8 @@ class TransitionSpec(BaseModel):
     arrival's [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent], so a transition
     whose destination is on the same level crosses no boundary, emits no such event, and has nowhere to
     show one. A transition inside a [`TrapEffect`][osrlib.crawl.dungeon.TrapEffect] may have no gate
-    at all: that is a forced relocation rather than an attempt, and the trap effect rejects one that
-    does."""
+    at all: that is a forced relocation rather than an attempt, and `TrapEffect` validation rejects
+    one that does."""
 
     @model_validator(mode="after")
     def _side_exactly_on_passages(self) -> TransitionSpec:
@@ -616,8 +616,8 @@ class TrapSpec(BaseModel):
     only its kind of trap, so a trap cannot end up somewhere it has no meaning.
 
     A trap does not spring on sight. The engine rolls a 2-in-6 chance each time the triggering action
-    happens, which is the SRD's rule, so walking into a trapped room is not certain death. A trap the
-    party has already found stops rolling: a room trap by a successful
+    happens, which is the SRD's rule, so walking into a trapped room is not certain death. The engine
+    stops rolling for a trap the party has already found: a room trap by a successful
     [`Search`][osrlib.crawl.commands.Search], a treasure trap by a thief's
     [`InspectTreasure`][osrlib.crawl.commands.InspectTreasure]. Only a treasure trap can then be taken
     out of play, with [`RemoveTreasureTrap`][osrlib.crawl.commands.RemoveTreasureTrap]. A room trap the
@@ -741,7 +741,7 @@ class AreaTreasureSpec(BaseModel):
     both."""
     unguarded: bool = False
     """Whether to roll the dungeon level's unguarded-treasure band instead of listing letters. That
-    band is the SRD's table for treasure that no monster guards, and it scales with
+    band is the SRD's table for unguarded treasure, and it scales with
     the level number. Set this or `letters`, not both."""
 
     @model_validator(mode="after")
@@ -1032,7 +1032,7 @@ class AreaSpec(BaseModel):
     """A keyed room or cave: a named region of cells with content bound to it.
 
     Areas are how you key a dungeon. Each one covers some cells of a
-    [`LevelSpec`][osrlib.crawl.dungeon.LevelSpec], and cells no area covers are corridor. Entering
+    [`LevelSpec`][osrlib.crawl.dungeon.LevelSpec], and cells outside every area are corridor. Entering
     any cell of an area is what brings its content into play: the encounter spawns, the trap gets its
     spring roll, the treasure rolls, and your front end shows the description.
 
@@ -1197,7 +1197,7 @@ class LevelSpec(BaseModel):
     [`edge`][osrlib.crawl.dungeon.LevelSpec.edge] rather than by hand, which supplies the wall for
     you."""
     areas: tuple[AreaSpec, ...] = ()
-    """The level's keyed rooms and caves. Cells no area covers are corridor. Ids have to be unique
+    """The level's keyed rooms and caves. Cells outside every area are corridor. Ids have to be unique
     within the level, and every cell an area lists has to be on the grid."""
     features: tuple[FeatureSpec, ...] = ()
     """Features that belong to the level rather than to a room: a cache in a corridor, a trick in a
@@ -1569,7 +1569,7 @@ class DungeonState(BaseModel):
     [`cell_ref`][osrlib.crawl.dungeon.cell_ref] keys drop piles.
 
     Two maps of cells look alike and are not. `explored` is the party's footprint, the cells it has
-    physically walked, and it is what movement cost reads. `seen` is the party's map memory, the
+    physically walked, and the engine reads it for movement cost. `seen` is the party's map memory, the
     cells the party's light has shown it, and only the player projection reads it, so a front end's
     automap can still show a room the party looked into and walked past.
 
@@ -1604,8 +1604,8 @@ class DungeonState(BaseModel):
     """Where the party is standing, or that it is in town. A new session starts in town."""
     explored: dict[str, list[Position]] = {}
     """The cells the party has physically entered, keyed `"{dungeon}:{level}"`. This is the footprint
-    movement cost reads: stepping back into an explored cell is three times as fast as breaking new
-    ground. Drop-pile visibility reads it too."""
+    the engine reads for movement cost: stepping back into an explored cell is three times as fast as
+    breaking new ground. The engine also reads it for drop-pile visibility."""
     seen: dict[str, list[Position]] = {}
     """The cells the party's light has shown it, keyed `"{dungeon}:{level}"`. This is map memory,
     read by the player projection only, and it never affects movement cost. Cells append in sorted
@@ -1669,7 +1669,7 @@ class DungeonState(BaseModel):
     def is_explored(self, dungeon_id: str, level_number: int, position: Position) -> bool:
         """Return whether the party has walked a cell.
 
-        Movement cost reads this: a step back into an explored cell costs a third of a step into new
+        The engine reads this for movement cost: a step back into an explored cell costs a third of a step into new
         ground. Call it to shade a map, or to work out what a move is about to cost.
 
         Args:
@@ -1706,7 +1706,7 @@ class DungeonState(BaseModel):
 
         Seen cells are read by the player projection only, so a front end's automap can still show a room
         the party's light reached after the party has walked on. They never affect movement cost,
-        which reads the walked footprint through
+        which the engine works out from the walked footprint through
         [`is_explored`][osrlib.crawl.dungeon.DungeonState.is_explored], and they never affect
         drop-pile visibility, which stays on walked cells because piles only form where the party has
         stood.

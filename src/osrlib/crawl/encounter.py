@@ -24,21 +24,21 @@ group has just come into view.
 The results reach a front end as events from [`osrlib.crawl.events`][osrlib.crawl.events]:
 a [`SurpriseRolledEvent`][osrlib.crawl.events.SurpriseRolledEvent] per side,
 [`EncounterStartedEvent`][osrlib.crawl.events.EncounterStartedEvent] reporting the count and the
-distance, [`StanceChangedEvent`][osrlib.crawl.events.StanceChangedEvent] whenever the reaction
-moves, [`EvasionEvent`][osrlib.crawl.events.EvasionEvent] and
+distance, [`StanceChangedEvent`][osrlib.crawl.events.StanceChangedEvent] whenever the stance
+changes, [`EvasionEvent`][osrlib.crawl.events.EvasionEvent] and
 [`PursuitEvent`][osrlib.crawl.events.PursuitEvent] while the party runs,
 [`ExhaustionEvent`][osrlib.crawl.events.ExhaustionEvent] when a chase runs its course, a
 [`MonsterDefeatedEvent`][osrlib.crawl.events.MonsterDefeatedEvent] per monster at the close, and
 [`EncounterEndedEvent`][osrlib.crawl.events.EncounterEndedEvent] with the outcome. The reaction
-roll itself posts the kernel's
+roll itself is reported as the kernel's
 [`ReactionRolledEvent`][osrlib.core.events.ReactionRolledEvent] at referee visibility.
 
-The stance is the monsters' current disposition, and the stance map resolves bands the OSE SRD
-leaves to a human referee. A reaction of 2 or less attacks now. A 3 to 5 is hostile: the monsters
-attack at the end of the next encounter round unless the party has begun evading or has improved
-the stance by parley. A 6 to 8 is uncertain, so the monsters hold and posture, and the reaction
-re-rolls next round with no modifier. A 9 to 11 is indifferent, and the party may pass, parley, or
-withdraw freely. A 12 or more is friendly. Only the attacking and hostile stances pursue an evading
+The stance is the monsters' current disposition, and osrlib's stance rules settle what the OSE SRD
+leaves to a human referee for each band. On a reaction of 2 or less, the monsters attack at once. A 3 to 5
+is hostile: the monsters attack at the end of the next encounter round unless the party has begun evading or
+has improved the stance by parley. A 6 to 8 is uncertain, so the monsters hold and posture, and the reaction
+is re-rolled next round with no modifier. A 9 to 11 is indifferent, and the party may pass, parley, or
+withdraw freely. A 12 or more is friendly. Only monsters in the attacking and hostile stances pursue an evading
 party, as a documented adaptation (see the
 [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/), the page listing where
 osrlib commits to one reading of an ambiguous rule or supplies a default behind a `Ruleset` flag).
@@ -135,7 +135,7 @@ PURSUIT_ROUND_CAP = 30
 
 A pursuit normally ends before this: the gap closes to 5' and the pursuers catch the party into
 battle, or a sack dropped behind the party distracts them. Neither happens when the two sides run at
-the same rate, because the gap then never changes, so the cap is the terminal escape valve. Reaching
+the same rate, because the gap then never changes, so the cap is what ends such a chase. Reaching
 it attaches the exhausted condition to every living member, posts an
 [`ExhaustionEvent`][osrlib.crawl.events.ExhaustionEvent] and a
 [`PursuitEvent`][osrlib.crawl.events.PursuitEvent] with code `encounter.pursuit.escaped`, and closes
@@ -253,8 +253,8 @@ class EncounterState(BaseModel):
     and a battle that opens while any remain gives the party a free round."""
     hostile_deadline: int | None = None
     """The encounter round at which a hostile group attacks, set each time the stance turns hostile.
-    None until a hostile result comes up. It is read only while the stance is still hostile, so a
-    stance the party talked back up ignores it."""
+    None until a hostile result comes up. It is read only while the stance is still hostile, so once
+    the party has talked the stance back up, the deadline no longer applies."""
     evading: bool = False
     """True once the party has declared an evasion, which suspends a hostile group's deadline while the
     party backs away."""
@@ -421,7 +421,7 @@ def start_encounter(
     if distance_feet is None:
         rolled_tens: int = stream.randbelow(6) + 1 + stream.randbelow(6) + 1
         distance_feet = rolled_tens * 10
-        # RAW rolls 2d6 × 10' only "if there is uncertainty"; otherwise "the
+        # RAW calls for 2d6 × 10' only "if there is uncertainty". Otherwise "the
         # situation in which the encounter occurs" fixes the distance, and the
         # walls the party is standing between are that situation. The roll is
         # therefore capped at the cell's longest straight sight line: a corridor
@@ -778,7 +778,7 @@ def _pursuer_rate(session, groups) -> int:
         for monster_id in group.monster_ids:
             combatant = session.combatant(monster_id)
             if getattr(combatant, "definition", None) is not None:
-                # NPC adventurers run at their movement rates; the slowest of
+                # NPC adventurers run at their movement rates. The slowest of
                 # the group paces it, like the party's rule.
                 rates.append(
                     min(
@@ -1135,9 +1135,9 @@ _HANDLERS = {
 [`GameSession`][osrlib.crawl.session.GameSession] merges this map into its private handler table
 the first time it dispatches a command, alongside the exploration, battle, and referee maps. There is
 no registration point here: the only documented way to run a command is
-[`GameSession.execute`][osrlib.crawl.session.GameSession.execute], which picks the handler, runs the
-mode gate, and does the bookkeeping for the command log, the listeners, and the rejection pre-phase that a
-handler alone would skip.
+[`GameSession.execute`][osrlib.crawl.session.GameSession.execute], which picks the handler, checks that
+the command is legal in the current mode, and does the bookkeeping for the command log, the listeners, and
+the up-front validation that a handler alone would skip.
 
 Each value takes `(session, command)` and returns a `(rejections, events)` pair.
 [`DropItems`][osrlib.crawl.commands.DropItems] is not among them even though it works during an

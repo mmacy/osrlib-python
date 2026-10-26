@@ -37,9 +37,9 @@ dungeon, the clock, the active effects, the spawned monsters and NPCs, flags, fi
 triggers, the journal, quest progress, listener state, the session mode, the exploration
 counters, any encounter or battle in progress, every RNG stream's position, and the master
 seed. Beside that state sit two records of what happened: the log of accepted commands, and
-the log of events unless you ask for it to be left out. The records are history, not
-ingredients. A load rebuilds the session from the state and re-derives nothing from the
-logs, which is why loading costs the same however long the game has run.
+the log of events unless you ask for it to be left out. A load rebuilds the session from the
+state alone and re-derives nothing from the logs, which is why loading costs the same however
+long the game has run.
 
 The two logs do different jobs. The command log is what
 [`replay_game`][osrlib.persistence.replay_game] consumes, so a save without it can be loaded

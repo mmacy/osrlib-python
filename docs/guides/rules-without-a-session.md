@@ -1,6 +1,6 @@
 # Using the rules without a session
 
-You want to roll dice, resolve an attack, or generate a hoard from a script, with no session, no adventure, and no game loop. That's what `osrlib.core`, the rules **kernel**, is for: dice, combat, treasure, spells, and the printed tables, as pure functions over frozen models. The kernel doesn't depend on a running game. The dungeon-crawl framework in `osrlib.crawl` is one consumer of the kernel, built entirely on top of it. A mass-combat simulator, a balance harness, or a content-validation script is just as valid a second consumer. The layering only runs one way: core never imports crawl, so anything you build against `osrlib.core` keeps working no matter what the crawl layer does above it.
+You want to roll dice, resolve an attack, or generate a hoard from a script, with no session, no adventure, and no game loop. That's what `osrlib.core`, the rules **kernel**, is for: dice, combat, treasure, spells, and the printed tables, as pure functions over frozen models. The kernel doesn't depend on a running game. The dungeon-crawl framework in `osrlib.crawl` is one consumer of the kernel, built entirely on top of it. A mass-combat simulator, a balance harness, or a content-validation script can use the kernel the same way. The layering only runs one way: core never imports crawl, so anything you build against `osrlib.core` keeps working no matter what the crawl layer does above it.
 
 Away from a session, you bring your own [`RngStreams`][osrlib.core.rng.RngStreams] and pass the stream each function takes explicitly. There's no default stream and no hidden global RNG. [The RNG streams reference](../reference/rng-streams.md) lists the stream keys a running [`GameSession`][osrlib.crawl.session.GameSession] uses by convention, but standalone code isn't bound by them. A stream's name is a label, and determinism only requires that the same name draw the same sequence for a given master seed. [The complete program](#the-complete-program) at the end rolls dice, resolves an attack, generates treasure, and looks up a reaction in one script. Every code snippet above it comes from that script.
 
@@ -20,7 +20,7 @@ rolled = roll(expression, streams.get("scratch"))
 assert rolled.total == (sum(rolled.rolls) + 1) * 10
 ```
 
-`roll` also accepts the plain string directly (it calls `parse` for you), so `roll("3d6", stream)` is just as valid as parsing first.
+`roll` also accepts the plain string directly (it calls `parse` for you), so `roll("3d6", stream)` works the same as parsing first.
 
 ## Resolving an attack against a created monster
 

@@ -129,8 +129,8 @@ order.
 
 Use a different key only when you want creation draws kept apart from the ones a session already
 records, for example when you roll throwaway characters beside a live game. Pass your own key to
-`streams.get`. Don't change this constant, because a save replays every stream by the key that
-produced it.
+`streams.get`. Don't change this constant, because a save records each stream's position under its
+key and restores the stream by that key.
 """
 
 ADVANCEMENT_STREAM = StreamName.ADVANCEMENT
@@ -238,8 +238,8 @@ class Character(BaseModel):
     """The experience level, 1 through the class's maximum."""
 
     xp: int = Field(ge=0)
-    """Experience points accumulated. Advancement compares this against the thresholds in the class's progression table;
-    award XP with [`apply_xp`][osrlib.core.classes.apply_xp] rather than by assigning here.
+    """Experience points accumulated. Advancement compares this against the thresholds in the class's progression table.
+    Award XP with [`apply_xp`][osrlib.core.classes.apply_xp] rather than by assigning here.
     """
 
     scores: dict[AbilityScore, int]
@@ -279,7 +279,7 @@ class Character(BaseModel):
 
     conditions: tuple[ActiveCondition, ...] = ()
     """The conditions in effect, like poisoned or paralyzed. Apply and clear them through
-    [`osrlib.core.effects`][osrlib.core.effects]; test one with [`has_condition`][osrlib.core.effects.has_condition].
+    [`osrlib.core.effects`][osrlib.core.effects]. Test one with [`has_condition`][osrlib.core.effects.has_condition].
     """
 
     stat_modifiers: tuple[ActiveModifier, ...] = ()
@@ -430,7 +430,7 @@ class Character(BaseModel):
         The alignment tongue comes first, then the languages the class grants with Common at the
         front, then the extras picked at creation for a high INT. Compare against another speaker's
         list to decide whether two people can talk to each other. The ids other than the alignment
-        tongue are catalog ids from [`load_languages`][osrlib.data.load_languages]; see
+        tongue are catalog ids from [`load_languages`][osrlib.data.load_languages]. See
         [the language id index][languages-index].
         """
         return (self.alignment_tongue, *self.definition.languages, *self.extra_languages)
@@ -707,8 +707,8 @@ class AbilityScoreRolls(BaseModel):
     """The six rolled ability scores, with the individual dice kept so you can show them.
 
     [`roll_ability_scores`][osrlib.core.character.roll_ability_scores] returns this, and
-    [`create_character`][osrlib.core.character.create_character] includes it in its result. Frozen:
-    a roll is history and does not change.
+    [`create_character`][osrlib.core.character.create_character] includes it in its result. Frozen,
+    because a roll doesn't change after it's made.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -938,7 +938,7 @@ def validate_extra_languages(definition: ClassDefinition, int_score: int, choice
     Args:
         definition: The chosen class. The languages it grants may not be taken again as extras.
         int_score: The final INT score, after any adjustment.
-        choices: The chosen language ids, from [`load_languages`][osrlib.data.load_languages]; see
+        choices: The chosen language ids, from [`load_languages`][osrlib.data.load_languages]. See
             [the language id index][languages-index].
 
     Returns:
@@ -1002,7 +1002,7 @@ def validate_starting_spells(
     Args:
         definition: The character's class.
         catalog: The spell catalog from [`load_spells`][osrlib.data.load_spells].
-        spell_ids: The chosen spell ids; see [the spell id index][spells-index].
+        spell_ids: The chosen spell ids. See [the spell id index][spells-index].
 
     Returns:
         One [`Rejection`][osrlib.core.validation.Rejection] per problem, empty when the book is
@@ -1085,7 +1085,7 @@ def choose_starting_spells(
         character: The character to write to. Mutated in place when the pick is legal.
         definition: The character's class.
         catalog: The spell catalog from [`load_spells`][osrlib.data.load_spells].
-        spell_ids: The chosen spell ids; see [the spell id index][spells-index].
+        spell_ids: The chosen spell ids. See [the spell id index][spells-index].
 
     Returns:
         One [`Rejection`][osrlib.core.validation.Rejection] per problem, empty when the book was
@@ -1202,7 +1202,7 @@ def create_character(
     Args:
         name: The character's name.
         class_id: The class to play, like `"fighter"`, from
-            [`load_classes`][osrlib.data.load_classes]; see [the class id index][classes-index].
+            [`load_classes`][osrlib.data.load_classes]. See [the class id index][classes-index].
         alignment: Lawful, neutral, or chaotic.
         ruleset: The ruleset in play. Its `hp_reroll_at_first_level` flag governs whether a poor
             hit die is thrown again.
@@ -1213,14 +1213,14 @@ def create_character(
             of STR, INT, and WIS to raise a prime requisite, which is how a player gets a better
             experience bonus.
         starting_spell_ids: The spells written in an arcane caster's book, from
-            [`load_spells`][osrlib.data.load_spells]; see [the spell id index][spells-index]. It
+            [`load_spells`][osrlib.data.load_spells]. See [the spell id index][spells-index]. It
             must contain exactly what the class can memorize at first level, which is one first-level
             spell for both the magic-user and the elf. Leave it empty for every other class.
-        extra_languages: The extra languages a high INT bought, from
-            [`load_languages`][osrlib.data.load_languages]; see
+        extra_languages: The extra languages a high INT allows, from
+            [`load_languages`][osrlib.data.load_languages]. See
             [the language id index][languages-index]. An INT of 12 or less allows none.
         purchases: What to buy from the starting gold, as `(item_id, lots)` pairs bought in the
-            order given. `item_id` comes from [`load_equipment`][osrlib.data.load_equipment]; see
+            order given. `item_id` comes from [`load_equipment`][osrlib.data.load_equipment]. See
             [the equipment id index][equipment-index]. A lot is the catalog's unit of sale: weapons
             and armour sell one at a time, so `lots` is how many, while gear and ammunition
             sell in fixed bundles, and one lot of torches is six torches.

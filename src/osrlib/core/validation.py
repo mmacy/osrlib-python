@@ -3,8 +3,8 @@
 The module has one member,
 [`Rejection`][osrlib.core.validation.Rejection]. You don't usually build one, you read
 them. Every kernel validator returns a list of them, empty when the input is legal, and
-so does every command a session refuses to run. Ask them what went wrong and turn them
-into whatever your interface shows the player.
+so does every command a session refuses to run. Read their codes to find out what went wrong, and turn
+them into whatever your interface shows the player.
 
 Each rules area pairs a validator with the function that applies the change:
 [`validate_adjustment`][osrlib.core.abilities.validate_adjustment] with
@@ -16,7 +16,7 @@ code rather than a move the rules disallow, so the apply step raises `ValueError
 instead of returning a rejection. The exceptions osrlib raises for the other kinds of
 mistake are in [`osrlib.errors`][osrlib.errors].
 
-Validation runs as a pure pre-phase: a refused input draws no randomness, advances no
+Validation runs before anything changes: a refused input draws no randomness, advances no
 game time, and changes nothing, so you can offer a move, show why it was refused, and
 let the player pick again with the game in exactly the state it was.
 
@@ -90,7 +90,7 @@ class Rejection(BaseModel):
     """
 
     params: dict[str, int | str | tuple[int | str, ...]] = {}
-    """The facts the refusal turns on, such as the ability that was too low or the class that may not wear the armour.
+    """The facts the refusal turns on, like the ability that was too low or the class that may not wear the armour.
 
     Values are integers, strings, or tuples of either. Which keys appear depends on the
     code, so read the keys the codes you handle use and skip any you don't recognize.

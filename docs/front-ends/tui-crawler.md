@@ -65,7 +65,7 @@ Level 1's `WanderingSpec(chance_in_six=0)` disables wandering checks there entir
 
 ## Building the party
 
-`create.py` drives character creation two ways: an interactive one that prompts for a name, class, and alignment per slot, and a scripted one that builds a fixed roster from starting gold. Both call the same [`create_character`][osrlib.core.character.create_character] function used in the [quickstart](../getting-started/quickstart.md). Only where the choices come from differs. The scripted party is one of each core class, fighter, cleric, thief, and magic-user, each equipped from that character's starting gold. That's the party the non-interactive `--script` mode always builds, which is why it plays back identically every time:
+`create.py` drives character creation two ways: an interactive one that prompts for a name, class, and alignment per slot, and a scripted one that builds a fixed roster from starting gold. Both call the same [`create_character`][osrlib.core.character.create_character] function used in the [quickstart](../getting-started/quickstart.md), and differ only in where the choices come from. The scripted party is one of each core class, fighter, cleric, thief, and magic-user, each equipped from that character's starting gold. That's the party the non-interactive `--script` mode always builds, which is why it plays back identically every time:
 
 ```{.python .no-run}
 --8<-- "examples/tui_crawler/create.py:script-party-roster"
@@ -75,7 +75,7 @@ Level 1's `WanderingSpec(chance_in_six=0)` disables wandering checks there entir
 --8<-- "examples/tui_crawler/create.py:scripted-party-fn"
 ```
 
-## The fetch quest: authored data, not front-end code
+## The fetch quest is authored data
 
 The barrow's hook ("the temple pays 200 gp for the Jade Idol's return") is part of the adventure, not part of the crawler. The idol is a bundled [`GearTemplate`][osrlib.core.items.GearTemplate] that the shop doesn't stock. The shrine cache refers to it by id, so when the party picks it up, the event includes a catalog id that triggers and quests can match on:
 
@@ -89,7 +89,7 @@ The quest itself is a [`QuestSpec`][osrlib.crawl.quests.QuestSpec] in the same f
 --8<-- "examples/tui_crawler/content.py:fetch-quest"
 ```
 
-Nothing in the crawler tracks any of it. `__main__.py` registers the library's [`Interpreter`][osrlib.crawl.interpreter.Interpreter] on the session right after creating it, alongside the housekeeping that lines up the session's RNG streams with the ones character creation already drew from:
+The crawler doesn't track the quest. `__main__.py` registers the library's [`Interpreter`][osrlib.crawl.interpreter.Interpreter] on the session right after creating it, alongside the housekeeping that lines up the session's RNG streams with the ones character creation already drew from:
 
 ```{.python .no-run}
 --8<-- "examples/tui_crawler/__main__.py:register-interpreter"
@@ -131,13 +131,13 @@ Two details of that output need explaining. The engine spreads the cache across 
 The homecoming objective is a `town_entered` pattern narrowed by a `has_item` condition, so when the party walks back empty-handed, the objective doesn't fire. That condition is why `scripts/milestone.txt` makes four legs:
 
 1. **Down**, for the goblins, their lair hoard, and the rival party prowling level 2.
-2. **Home without the idol.** The return banks the end-of-adventure award, and the party sells its haul and buys a temple healing. Those town commands are legal here and nowhere later, because the adventure has not ended yet. Each coin counts as one coin of weight toward encumbrance, so the character who sold the haul uses `give` to spread the coins across the party before anyone moves again.
+2. **Home without the idol.** Returning to town resolves the end-of-adventure award, and the party sells its haul and buys a temple healing. Those town commands are legal here and nowhere later, because the adventure has not ended yet. Each coin counts as one coin of weight toward encumbrance, so the character who sold the haul uses `give` to spread the coins across the party before anyone moves again.
 3. **Down again**, for the idol alone.
 4. **Home with it**, which completes the second objective, completes the quest, and, because the quest has `concludes_adventure=True`, ends the session in `victory`. The rewards arrive *after* that transition: the 200 gp, the party's XP, and the `quest.idol` flag the crawler prints on its way out.
 
-A concluded session still accepts referee commands and rejects play commands, so the closing `status` reads `[victory]` and any further `move` would be `wrong_mode`. [`SessionMode.terminal`][osrlib.crawl.commands.SessionMode] is the loop condition a front end checks. It's true in `victory` and `game_over` alike, so one read tells a front end whether the session has ended, and [the LLM referee page](llm-referees.md#the-schemas-are-the-tool-definitions) shows it guarding an agent loop. This crawler doesn't break on it. The loop stays open after victory so the script's closing `journal` and `status` can still read the session, which a terminal mode allows.
+A concluded session still accepts referee commands and rejects play commands, so the closing `status` reads `[victory]` and any further `move` would be `wrong_mode`. [`SessionMode.terminal`][osrlib.crawl.commands.SessionMode] is the loop condition a front end checks. It's true in `victory` and `game_over` alike, so a front end reads one property to learn whether the session has ended. [The LLM referee page](llm-referees.md#the-schemas-are-the-tool-definitions) shows it as the condition of an agent loop. This crawler doesn't break on it. The loop stays open after victory so the script's closing `journal` and `status` can still read the session, which a terminal mode allows.
 
-The order of the rewards suggests two authoring habits. Put the town business before the concluding return, while play commands are still legal. And put the story's thanks in `AwardXP` rather than in coin: under the default on-return timing, treasure converts to XP when the party comes home, and the award for the concluding return is already resolved when the interpreter issues the quest's rewards. The temple's 200 gp arrives as real, spendable coin, but it never converts to XP.
+The order of the rewards suggests two authoring habits. Put the town business before the concluding return, while play commands are still legal. And give the quest's reward as `AwardXP` rather than as coin: under the default on-return timing, treasure converts to XP when the party comes home, and the award for the concluding return is already resolved when the interpreter issues the quest's rewards. The temple's 200 gp arrives as real, spendable coin, but it never converts to XP.
 
 [Listeners and flags](../guides/listeners-and-flags.md) covers the listener contract the interpreter follows, and [Gates, triggers, and quests](../guides/gates-triggers-quests.md) covers authoring quests of your own.
 

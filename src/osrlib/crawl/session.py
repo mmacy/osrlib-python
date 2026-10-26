@@ -80,9 +80,9 @@ print(restored.view(Visibility.PLAYER) == view)
 ```
 """
 # The play commands are handled in osrlib.crawl.exploration, osrlib.crawl.encounter,
-# and osrlib.crawl.battle. Each handler is one function (session, command) ->
-# (rejections, events) that validates before it does anything: no draw, no mutation,
-# no time until the last rejection check has passed. The referee and town handlers
+# and osrlib.crawl.battle. Each handler is one function that takes (session, command),
+# returns (rejections, events), and validates before it does anything: no draw, no
+# mutation, no time until the last rejection check has passed. The referee and town handlers
 # that this module defines are at the bottom of it.
 
 from collections.abc import Mapping, Sequence
@@ -235,18 +235,18 @@ DARKNESS_EFFECT_KINDS = frozenset({"darkness", "continual_darkness"})
 """The effect kinds that put a party's light out while they run.
 
 A darkness effect on any living member suppresses the party's light entirely, because the printed
-radius of the spell swallows a marching party. Some of them block infravision too.
+radius of the spell covers a whole marching party. Some of them block infravision too.
 """
 
 
 class DeathRecord(BaseModel):
-    """When and how one character died, kept for the spells that care.
+    """When and how one character died, kept for the revival spells that need it.
 
     The session writes one per dead party member into
     `GameSession.death_records`, keyed by character id, as soon as the death
-    happens. Revival reads it: *neutralize poison* has a window measured in rounds
-    and needs to know whether poison was the killer, and *raise dead* counts the
-    days since.
+    happens. The engine reads it when a revival spell is cast: *neutralize poison*
+    has a window measured in rounds and depends on whether poison was the killer,
+    and *raise dead* counts the days since.
 
     The record is frozen, and a member who dies again gets a new one.
     """
@@ -293,7 +293,7 @@ class ObjectiveState(BaseModel):
     the revealed objectives of active quests, and the referee view shows them all.
 
     Both flags only ever go one way, from hidden to revealed and from incomplete to
-    complete, because the quest vocabulary has no word for undoing either.
+    complete, because no quest command undoes either.
     Completing an objective reveals it too, so an objective the party finished before
     anyone announced it is something they can now be told about.
     """
@@ -439,7 +439,7 @@ class Listener(Protocol):
     so a replay from the seed produces the same game. Because those nested commands
     log their events, a listener that reacts that way returns none of them:
     returning them too would put them in the log twice. The list it returns is
-    for events it authors itself, which nothing else would have logged.
+    for events it authors itself, which the session would not otherwise log.
 
     Every listener sees every event exactly once. A nested command runs the whole
     listener loop itself, so the events it produced reach each listener there and are
@@ -695,8 +695,8 @@ class GameSession:
         """How many nights or days the party has slept through. Preparing spells needs a sleep the
         caster hasn't already prepared from."""
         self.last_prepared_sleep: dict[str, int] = {}
-        """The `sleep_count` at which each caster last prepared spells, keyed by character id. It
-        is what enforces one preparation per sleep."""
+        """The `sleep_count` at which each caster last prepared spells, keyed by character id. The
+        session uses it to enforce one preparation per sleep."""
         self.alerted_areas: list[str] = []
         """The keyed areas whose occupants have been alerted, as area references. Monsters that
         heard the party coming aren't surprised when it walks in."""
@@ -958,7 +958,7 @@ class GameSession:
         # listener's nested commands ran the whole listener loop themselves, so every
         # listener has already seen those events at the nested level. Putting them in
         # here would deliver them to later listeners a second time. `envelope` is what
-        # the caller gets back, and it does take them, because a front end reads the
+        # the caller gets back, and it does include them, because a front end reads the
         # result once and needs the whole chain.
         accumulated = list(events)
         envelope = list(events)
@@ -967,8 +967,8 @@ class GameSession:
             mark = len(self.event_log)
             emitted, state = listener.handle(tuple(accumulated), self.listener_state.get(listener.key, {}))
             self.listener_state[listener.key] = state
-            # Everything the commands this listener executed logged while it ran, their
-            # events and any deeper listener reactions, each already in the log
+            # Every event logged by the commands this listener executed while it ran,
+            # their events and any deeper listener reactions, each already in the log
             # exactly once and in log order, then the events it authored itself.
             # (The log contains serialized entries only for a session restored from a
             # save. Executing a command never appends one.)
@@ -1045,7 +1045,7 @@ class GameSession:
     def combatant(self, combatant_id: str) -> MonsterInstance | Character | None:
         """Return the monster or NPC adventurer with this id, or `None`.
 
-        An [`EncounterGroup`][osrlib.crawl.encounter.EncounterGroup] holds ids that can be either,
+        An [`EncounterGroup`][osrlib.crawl.encounter.EncounterGroup] contains ids that can be either,
         and this resolves both without you having to know which. For a party member, call
         [`member`][osrlib.crawl.session.GameSession.member]. For everything at once, call
         [`registry`][osrlib.crawl.session.GameSession.registry].
@@ -1129,7 +1129,7 @@ class GameSession:
         execute [`AdvanceTime`][osrlib.crawl.commands.AdvanceTime], which comes through here and
         is logged.
 
-        Time passing isn't nothing: effects tick and expire, a light burning out puts the party in
+        Time passing changes things: effects tick and expire, a light burning out puts the party in
         the dark, and each day boundary crossed consumes rations and water. A light expiring is a
         referee-visibility record in the ledger, so the session adds the player-facing
         [`LightEvent`][osrlib.crawl.events.LightEvent] beside it, which identifies the light that went
@@ -1394,8 +1394,8 @@ class GameSession:
     def award_immediate_xp(self, amount: int) -> list[Event]:
         """Divide one pool of experience among the survivors now, and return its events.
 
-        This is the path a ruleset set to award immediately takes at the end of each encounter and
-        on each haul taken. It divides the same way the return award does: evenly among the living,
+        Under a ruleset set to award immediately, the session takes this path at the end of each
+        encounter and on each haul taken. It divides the same way the return award does: evenly among the living,
         rounded down, remainder dropped. To award a specific character a specific amount, execute
         [`AwardXP`][osrlib.crawl.commands.AwardXP] instead, which is logged and replayed.
 
@@ -1425,8 +1425,8 @@ class GameSession:
 
         The cause is `poison` when the killing resolution was a poison save (a failed
         death-category save immediately before the death) or a poison effect running its course,
-        and otherwise the kind of the nearest preceding cause-bearing event. Only the poison and
-        non-poison distinction is consumed, by *neutralize poison*.
+        and otherwise the kind of the nearest preceding cause-bearing event. Only *neutralize
+        poison* uses the difference between poison and other causes.
 
         Args:
             events: The just-executed command's events, in order.

@@ -34,7 +34,7 @@ while not session.mode.terminal:  # the party fell, or the adventure is won
 
 ## The referee sees everything
 
-The observation side is [`GameSession.view`][osrlib.crawl.session.GameSession.view] with [`Visibility.REFEREE`][osrlib.core.events.Visibility], which returns a [`RefereeView`][osrlib.crawl.views.RefereeView]: the full session state (party internals, monster hit points, session flags, door states, the complete event log) except for two things: the RNG internals and the master seed, which only the save document contains. Each group is a separate field, typed with the model the session uses, so an agent reads `view.monsters[0].current_hp` and `view.flags["key"]` off it and serializes the whole observation with `view.model_dump(mode="json")`. The player view works the opposite way: it's an enumerated whitelist. [Views and visibility](../guides/views-and-visibility.md) describes exactly what each view includes.
+The observation side is [`GameSession.view`][osrlib.crawl.session.GameSession.view] with [`Visibility.REFEREE`][osrlib.core.events.Visibility], which returns a [`RefereeView`][osrlib.crawl.views.RefereeView]. The referee view contains the full session state (party internals, monster hit points, session flags, door states, the complete event log), except the RNG internals and the master seed. Only the save document contains those two. Each group is a separate field, typed with the model the session uses, so an agent reads `view.monsters[0].current_hp` and `view.flags["key"]` off it and serializes the whole observation with `view.model_dump(mode="json")`. The player view works the opposite way: it's an enumerated whitelist. [Views and visibility](../guides/views-and-visibility.md) describes exactly what each view includes.
 
 ```{.python .no-run}
 # The referee view is full state — flags, monster internals — minus RNG state and the seed.
@@ -45,7 +45,7 @@ dumped = view.model_dump()
 assert "master_seed" not in dumped and "rng_streams" not in dumped
 ```
 
-The event stream is unfiltered for the same reason. [`GameSession.execute`][osrlib.crawl.session.GameSession.execute] returns its events unfiltered, and each event has a visibility. Referee-visibility events include the hidden rolls (surprise, reaction, secret-door detection) that a player-facing front end must remove before it sends events to the player, as [the FastAPI pattern](fastapi-pattern.md) does. An in-process referee agent reads them all, because they show the agent what the dice just did.
+[`GameSession.execute`][osrlib.crawl.session.GameSession.execute] returns its events unfiltered too, and each event has a visibility. Referee-visibility events include the hidden rolls (surprise, reaction, secret-door detection) that a player-facing front end must remove before it sends events to the player, as [the FastAPI pattern](fastapi-pattern.md) does. An in-process referee agent reads them all, because they show the agent what the dice just did.
 
 ```{.python .no-run}
 # The unfiltered event stream is the observation: referee events carry the hidden rolls.
@@ -73,7 +73,7 @@ result = session.execute(SpawnMonsters(template_id="goblin", count_fixed=2, dist
 assert result.accepted
 ```
 
-The rejection rules work the same way for referee commands: a rejected command changes nothing and explains itself with a machine-readable code (see [the rejection code reference](../reference/rejection-codes.md)), so a model that asks for something illegal gets structured feedback to correct against instead of a stack trace.
+The rejection rules work the same way for referee commands: a rejected command changes nothing, and the result includes a machine-readable rejection code (see [the rejection code reference](../reference/rejection-codes.md)), so a model that asks for something illegal gets structured feedback to correct against instead of a stack trace.
 
 ## Narrate from codes, not prose
 
@@ -85,7 +85,7 @@ lines = [format_message(event) for event in result.events]
 assert all(lines)
 ```
 
-A practical narrator prompt sends the structured events (or their codes and fields) as the facts to narrate, and leaves the model to choose how to tell them. The dice have already decided what happened.
+In a practical narrator prompt, send the structured events (or their codes and fields) as the facts to narrate, and leave the model to choose how to tell them. The dice have already decided what happened.
 
 ## Narrating authored content
 

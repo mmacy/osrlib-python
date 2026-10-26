@@ -25,7 +25,7 @@ stocking a row yields exactly what a wandering encounter on that row would:
 2. on a monster room, the encounter table's d20 row, then that row's count dice (a row with a fixed
    count consumes none), with the result held at 1 or more.
 3. then either one `variant_dice` roll, which is the hydra form where the printed hit-dice roll
-   selects the template once, or, for a packed-variant pool row, one uniform pick per individual.
+   selects the template once, or, for a row with several template ids, one pick per individual, each id equally likely.
 
 Where the procedure stops is deliberate. A monster room's rolled individuals are grouped into
 [`KeyedMonster`][osrlib.crawl.dungeon.KeyedMonster] lines with fixed counts, because a printed module
@@ -79,8 +79,8 @@ class StockedNpcParty(BaseModel):
 
     An NPC party has no authorable content model. A party is built at play from character classes and
     their gear rather than from a keyed encounter or treasure letters, so there is nothing for
-    [`stock_area`][osrlib.crawl.stocking.stock_area] to hand back and place. The roll still named a
-    row and a count, so it reports that much and leaves the party for you to write by hand.
+    [`stock_area`][osrlib.crawl.stocking.stock_area] to hand back and place. The roll still selected a
+    row and a count, so the function reports those and leaves the party for you to write by hand.
 
     You get one on [`StockedArea.npc_party`][osrlib.crawl.stocking.StockedArea], and only on a room
     whose `contents` is `"monster"`.
@@ -106,7 +106,7 @@ class StockedArea(BaseModel):
     find out what sort of room you rolled, then take whichever payload came with it and write it onto
     an [`AreaSpec`][osrlib.crawl.dungeon.AreaSpec] you are building.
 
-    At most one payload rides along: `encounter` for a monster room, `npc_party` for a monster room
+    There is at most one payload: `encounter` for a monster room, `npc_party` for a monster room
     whose encounter row turned out to be an NPC party, or `treasure` for an empty or trap room that
     rolled treasure. A monster room's treasure is its encounter's `hoard` flag rather than a separate
     declaration, so `treasure` is always `None` there. Traps and specials have no payload at all,
@@ -257,7 +257,7 @@ def _stock_monster_room(
 
 
 def _group_monsters(template_ids: list[str]) -> tuple[KeyedMonster, ...]:
-    """Fold the rolled individuals into one `KeyedMonster` line per template, in first-appearance order.
+    """Group the rolled individuals into one `KeyedMonster` line per template, in first-appearance order.
 
     Counts are fixed rather than dice: the roll has already happened, and a concrete number is what an
     author reviews and edits.

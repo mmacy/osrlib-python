@@ -281,8 +281,8 @@ class TurningTable(BaseModel):
 
         Get the column from [`turning_column`][osrlib.core.tables.turning_column], which
         returns None when the undead's Hit Dice run past the table's last column. There's
-        nothing to look up in that case, and the attempt fails. A cleric above level 10
-        reads the `11+` row, which is what the printed table intends.
+        nothing to look up in that case, and the attempt fails. For a cleric above level 10,
+        the lookup reads the `11+` row, as the printed table labels it.
 
         This is the lookup alone. [`turn_undead`][osrlib.core.spells.turn_undead] rolls
         the 2d6 a `"number"` outcome calls for and works out how many undead are
@@ -392,10 +392,10 @@ class ReactionBand(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     label: str
-    """The range as the SRD prints it, such as `"2 or less"`, `"3–5"`, or `"12 or more"`."""
+    """The range as the SRD prints it, like `"2 or less"`, `"3–5"`, or `"12 or more"`."""
 
     text: str
-    """The SRD wording for the band, such as `"Hostile, may attack"`.
+    """The SRD wording for the band, like `"Hostile, may attack"`.
 
     It's the printed English, so use it for a referee's display rather than as text for
     players. Base your player-facing wording on `result` instead.
@@ -507,7 +507,7 @@ class MonsterEncounterEntry(BaseModel):
     [the monster id index][monsters-index], or one an adventure brings with it.
 
     One id is the ordinary case. Several means the printed row covers a spread of one
-    monster's forms, such as a veteran at three different levels, and each individual is
+    monster's forms, like a veteran at three different levels, and each individual is
     picked from that pool separately. The tabletop game leaves the pick to the referee.
     osrlib rolls it instead, so an encounter comes out the same way on a replay.
     """
@@ -515,7 +515,7 @@ class MonsterEncounterEntry(BaseModel):
     variant_dice: str | None = None
     """A dice expression that picks one form for the whole group, or None when each individual is picked separately.
 
-    The hydra is what this exists for: the printed row rolls its Hit Dice once, and every
+    The hydra is what this exists for: on the printed row its Hit Dice are rolled once, and every
     hydra in the group has that many heads. The ids are ordered so the expression's lowest
     total selects the first one.
     """
@@ -537,8 +537,10 @@ class NpcPartyEncounterEntry(BaseModel):
     """The part of an encounter-table row that calls for a rival adventuring party.
 
     A few rows of the printed tables call for other adventurers rather than monsters.
-    Generate the party with [`osrlib.core.npc`][osrlib.core.npc], which rolls its size,
-    each member's class and level, and their scores and gear.
+    Roll the party's size from
+    [`EncounterTables.npc_compositions`][osrlib.core.tables.EncounterTables.npc_compositions], then
+    generate the party with [`osrlib.core.npc`][osrlib.core.npc], which rolls each member's class and
+    level, and their scores and gear.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -629,10 +631,10 @@ class EncounterTable(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     id: str
-    """The table's identifier, such as `"level_1"` or `"level_8_plus"`."""
+    """The table's identifier, like `"level_1"` or `"level_8_plus"`."""
 
     label: str
-    """The table's printed heading, such as `"Level 4–5"`."""
+    """The table's printed heading, like `"Level 4–5"`."""
 
     min_level: int = Field(ge=1)
     """The shallowest dungeon level this table covers."""
@@ -679,7 +681,7 @@ def select_encounter_individuals(entry: MonsterEncounterEntry, count: int, strea
 
     Stocking a dungeon and rolling a wandering encounter both come through here, drawing
     in the same order from the same stream, so a room stocked from a row contains what a
-    wander onto that row would have produced.
+    wandering encounter rolled on that row would have produced.
 
     Args:
         entry: The row's monster entry.
@@ -727,16 +729,16 @@ class NpcClassLevelRow(BaseModel):
     """The d8 result this row is for. Two results give the same class with different level dice."""
 
     class_id: str
-    """The class this result generates, as an id such as `"cleric"` or `"fighter"`.
+    """The class this result generates, as an id like `"cleric"` or `"fighter"`.
 
     See [the class id index][classes-index].
     """
 
     basic_dice: str
-    """The dice to roll for the NPC's level in a basic party, such as `"1d3"`."""
+    """The dice to roll for the NPC's level in a basic party, like `"1d3"`."""
 
     expert_dice: str
-    """The dice to roll for the NPC's level in an expert party, such as `"1d6+3"`."""
+    """The dice to roll for the NPC's level in an expert party, like `"1d6+3"`."""
 
     @field_validator("basic_dice", "expert_dice")
     @classmethod
@@ -758,7 +760,7 @@ class NpcAlignmentBand(BaseModel):
 
     alignment: str
     """The alignment this band gives, as the serialized value of an
-    [`Alignment`][osrlib.core.alignment.Alignment], such as `"lawful"`."""
+    [`Alignment`][osrlib.core.alignment.Alignment], like `"lawful"`."""
 
 
 class NpcPartyComposition(BaseModel):
@@ -788,7 +790,7 @@ class EncounterTables(BaseModel):
 
     A [`GameSession`][osrlib.crawl.session.GameSession] rolls wandering monsters for you,
     and an adventure can include a table that replaces these, so you reach for this
-    directly when you're stocking or wandering outside a session.
+    directly when you're stocking rooms or rolling wandering monsters outside a session.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -821,7 +823,7 @@ class EncounterTables(BaseModel):
         """Return the wandering-monster table to roll on at this dungeon level.
 
         Levels 1, 2, and 3 each have a separate table. Levels 4 and 5 share one, 6 and 7
-        share another, and everything 8 or deeper rolls on the last, so no level is too
+        share another, and everything 8 or deeper uses the last, so no level is too
         deep to have a table.
 
         Args:
@@ -888,7 +890,7 @@ class CombatTables(BaseModel):
         writing it out, since the labels use en dashes.
 
         Args:
-            label: A band label such as `"NH"` or `"4–6"`.
+            label: A band label like `"NH"` or `"4–6"`.
 
         Returns:
             The band, with its five saving throw numbers.
@@ -924,7 +926,7 @@ class CombatTables(BaseModel):
         row and counts the monster's special abilities for you.
 
         Args:
-            label: A row label such as `"2+"` or `"7–7+"`.
+            label: A row label like `"2+"` or `"7–7+"`.
 
         Returns:
             The row, with its base and per-ability amounts.
@@ -1036,7 +1038,7 @@ def monster_save_band_label(hit_dice: MonsterHitDice) -> str:
     counted in whole Hit Dice: a troll at 6+3 saves on the band for 4 to 6. Two kinds of
     monster save as a normal human: one whose Hit Dice count is below 1, and one whose hit
     die is a d4, which is how the compiled data writes half a Hit Die. A monster with flat
-    hit points per Hit Die, such as a hydra, still saves on the band for its count.
+    hit points per Hit Die, like a hydra, still saves on the band for its count.
 
     Args:
         hit_dice: The monster's Hit Dice.
@@ -1133,7 +1135,7 @@ def xp_band_label(hit_dice: MonsterHitDice) -> str:
     from the "Less than 1" row. The rule about attacking as one Hit Die higher is for
     bonuses only. A monster whose hit die is a d4, which is how the compiled data writes
     half a Hit Die, is "Less than 1" whatever its count, and so is one whose count works out
-    below 1. A monster with flat hit points per Hit Die, such as a hydra, is awarded from
+    below 1. A monster with flat hit points per Hit Die, like a hydra, is awarded from
     the row for its count. Above 21 Hit Dice everything uses the last row, and
     `monster_xp` adds to it from there.
 
@@ -1141,7 +1143,7 @@ def xp_band_label(hit_dice: MonsterHitDice) -> str:
         hit_dice: The monster's Hit Dice.
 
     Returns:
-        A row label such as `"Less than 1"`, `"2+"`, or `"9–10+"`.
+        A row label like `"Less than 1"`, `"2+"`, or `"9–10+"`.
 
     Examples:
         ```python

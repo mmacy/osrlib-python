@@ -127,7 +127,7 @@ class HitDice(BaseModel):
     Read it off [`ProgressionRow.hit_dice`][osrlib.core.classes.ProgressionRow].
     [`level_up`][osrlib.core.classes.level_up] and
     [`drain_levels`][osrlib.core.classes.drain_levels] compare this level's row against the next
-    one to decide whether a level change rolls a die or moves a flat bonus. Frozen.
+    one to decide whether a level change means rolling a die or applying a flat bonus. Frozen.
 
     A class stops gaining dice at name level and gains a flat number of hit points per level after
     that. The SRD marks those levels with an asterisk, as in `9d8+2*`, meaning the CON modifier no
@@ -150,7 +150,7 @@ class HitDice(BaseModel):
     con_applies: bool = True
     """Whether the CON modifier applies to a die gained at this level.
 
-    The SRD clears it at the levels it marks with an asterisk, as in `9d8+2*`. It is read separately from whether a die
+    It is False at the levels the SRD marks with an asterisk, as in `9d8+2*`. It is read separately from whether a die
     is rolled at all, which depends on `count` rising from the row below.
     """
 
@@ -419,7 +419,7 @@ class ClassAbility(BaseModel):
     """The SRD's description, which is what to show a player or referee."""
 
     manual: bool = False
-    """True when osrlib doesn't act on this ability and the prose is the whole of it."""
+    """True when osrlib doesn't act on this ability, so the referee applies it from the description."""
 
     params: dict[str, int | str] = {}
     """The numbers the rules read, like `{"range_feet": 60}` for infravision or `{"chance_in_six": 2}` for a detection
@@ -648,7 +648,7 @@ class LevelUpResult(BaseModel):
     con_applied: bool
     """Whether the CON modifier counted toward the gain.
 
-    It follows the new progression row's `con_applies`, which the SRD clears at the levels it marks with an asterisk,
+    It follows the new progression row's `con_applies`, which is False at the levels the SRD marks with an asterisk,
     and it is always False when no die was rolled. Read it rather than working it out from the level, because the two
     are separate settings in the data.
     """
@@ -706,7 +706,7 @@ def xp_modifier_pct(definition: ClassDefinition, scores: dict[AbilityScore, int]
     to show a player the number on a character sheet, or to let them see what raising a score at
     creation would give them.
 
-    The tiers are stored best first, and the first one whose minimums the character meets wins.
+    The tiers are stored best first, and the first one whose minimums the character meets applies.
     A character who meets none gets no adjustment, which is how the elf and the halfling end up
     with a bonus band and no penalty band, as the SRD prints them.
 
@@ -786,7 +786,7 @@ def level_up(character: Character, definition: ClassDefinition, stream: RngStrea
     separately. Whether a die is rolled depends on the row having more hit dice than the row below
     it: when it does, the character rolls one, and when it does not, the gain is the difference
     between the two rows' flat bonuses and no die is thrown. Whether the CON modifier counts
-    depends on the new row's `con_applies`, which the SRD clears at the levels it marks with an
+    depends on the new row's `con_applies`, which is False at the levels the SRD marks with an
     asterisk. A rolled die with CON cleared gains the raw die alone, and
     [`con_applied`][osrlib.core.classes.LevelUpResult.con_applied] on the result reports which way it
     went.
@@ -939,7 +939,7 @@ def thief_skill_check(
     roll of more than twice the chance means the victim noticed.
 
     Args:
-        character: The thief making the attempt. Their level chooses the row.
+        character: The thief making the attempt. The check uses the row for their level.
         definition: The character's class, which must have a thief skill table.
         skill: One of the names in
             [`PERCENTILE_THIEF_SKILLS`][osrlib.core.classes.PERCENTILE_THIEF_SKILLS], or
@@ -1058,16 +1058,16 @@ def detection_chance(character: Character, definition: ClassDefinition, kind: st
     skill row, so it works for whoever is searching, and you don't have to know which classes are
     good at what.
 
-    Listening at doors takes the thief's `hear_noise` chance when the character is a thief, else
+    Listening at doors uses the thief's `hear_noise` chance when the character is a thief, else
     the class's listening ability, else the 1 in 6 anyone gets. Searching for a secret door
-    takes the class's `detect_secret_doors` ability, which the elf has at 2, else 1. Looking for a
-    trap in a room takes `detect_room_traps`, which the dwarf has at 2, else 1. Noticing a shift
-    in the stonework takes `detect_construction_tricks`, which the dwarf has at 2, and everyone
+    uses the class's `detect_secret_doors` ability, which the elf has at 2, else 1. Looking for a
+    trap in a room uses `detect_room_traps`, which the dwarf has at 2, else 1. Noticing a shift
+    in the stonework uses `detect_construction_tricks`, which the dwarf has at 2, and everyone
     else gets zero: the SRD gives this perception to dwarves and states no chance for anyone else,
     unlike the searches it opens to every character.
 
     Args:
-        character: The character searching. Their level chooses a thief's skill row.
+        character: The character searching. For a thief, the function reads the skill row for their level.
         definition: The character's class.
         kind: What they are searching for: `"listening"`, `"secret_doors"`, `"room_traps"`, or
             `"construction"`.
@@ -1180,8 +1180,8 @@ def drain_levels(
     than the level below it, the character throws that die and loses the result plus their CON
     modifier, at least 1, with CON counting only when that row's `con_applies` is set. When the
     two rows have the same number of dice, the loss is the difference between their flat bonuses
-    and no die is thrown. Rolling the die back is what lets the model stay stateless: a character
-    keeps no record of which dice built their hit points, so the drain rolls a fresh one. THAC0,
+    and no die is thrown. Rolling the die again is what lets the model stay stateless: a character
+    has no record of which dice built their hit points, so this function rolls a fresh one. THAC0,
     saving throws, and spell capacity need nothing done to them, because they are read from the
     level.
 

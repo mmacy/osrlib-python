@@ -121,8 +121,8 @@ def _matches_area_entered(pattern: AreaEnteredPattern, event: Event) -> bool:
 def _matches_level_entered(pattern: LevelEnteredPattern, event: Event) -> bool:
     """The party arrived on that level of that dungeon, by stair or by dungeon entry.
 
-    A crossing reports the coarsest boundary it passed, so a party coming in from town
-    reports a dungeon entry and never a level entry beneath it. Both kinds match here:
+    The engine reports only the coarsest boundary a crossing passed, so a party coming in
+    from town gets a dungeon entry and never a level entry beneath it. Both kinds match here:
     arriving on a level is arriving on it however the party got there.
     """
     return (
@@ -150,7 +150,7 @@ def _matches_town_entered(event: Event) -> bool:
 def _matches_item_acquired(pattern: ItemAcquiredPattern, event: Event, session: GameSession) -> bool:
     """A member acquired an item with that catalog id.
 
-    An acquisition reports mundane items by catalog id and magic items by their
+    The acquisition event reports mundane items by catalog id and magic items by their
     session-scoped instance id, so a magic id matches by resolving the instance
     against the inventory it was just added to.
     """
@@ -251,7 +251,7 @@ class Interpreter:
        [`ActivateQuest`][osrlib.crawl.commands.ActivateQuest], and the walk continues
        into the objectives of the quest it just activated: the same event that starts a
        quest can finish something in it.
-    2. An active quest's objectives walk in authored order. A hidden, unrevealed,
+    2. The walk goes through an active quest's objectives in authored order. A hidden, unrevealed,
        incomplete objective whose `reveal_when` matches gets
        [`RevealObjective`][osrlib.crawl.commands.RevealObjective], and an incomplete
        objective whose `when` matches gets
@@ -382,7 +382,7 @@ class Interpreter:
         self._depth = 0
 
     def handle(self, events: Sequence[Event], state: dict) -> tuple[list[Event], dict]:
-        """Match one command's events and act on what they crossed.
+        """Match one command's events and act on the matches.
 
         The session calls this after every accepted command, and you do not call it
         yourself. It is here because it is the listener contract every listener

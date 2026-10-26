@@ -1,7 +1,7 @@
 """Authored gates: the condition vocabulary, the gate model, and pure evaluation.
 
 A gate is an authored predicate the engine checks when the party attempts something,
-such as opening a door or taking a stair.
+like opening a door or taking a stair.
 
 Where a gate sits. You write a [`GateSpec`][osrlib.crawl.gates.GateSpec] into the
 `requires` field of a [`DoorSpec`][osrlib.crawl.dungeon.DoorSpec] or a
@@ -146,7 +146,7 @@ class EffectActiveCondition(BaseModel):
     """An active effect of `kind` is attached to some party member.
 
     Use it when the talisman has to be invoked rather than merely carried: the item
-    grants an effect, and the gate asks for the effect. The session's effects ledger
+    grants an effect, and the gate requires the effect. The session's effects ledger
     ([`EffectsLedger`][osrlib.core.effects.EffectsLedger]) is what gets read. Effects
     attached to a location never count, because the test is for an effect on a party
     member.
@@ -233,8 +233,8 @@ class GateSpec(BaseModel):
     a trigger that writes the flag this gate reads."""
     narrative: NarrativeBlock | None = None
     """The authored text for both outcomes. osrlib reads two beats of a gate's block,
-    `refusal` and `success`; the rest are left alone. `None` gates the way with no words
-    at all, and the rejection then includes no refusal text."""
+    `refusal` and `success`, and leaves the rest alone. With `None`, the gate has no text,
+    and the rejection then includes no refusal text."""
 
 
 def condition_holds(
@@ -256,8 +256,8 @@ def condition_holds(
     test.
 
     The call draws no dice, advances no clock, mutates nothing, and stores nothing.
-    Every walk is over an ordered list, the party in marching order and each inventory
-    in carried order, so the answer is deterministic. The member domain is every party
+    Every search goes through an ordered list, the party in marching order and each inventory
+    in carried order, so the answer is deterministic. The members checked are every party
     member, living or dead, because the party carries its dead and their packs.
 
     Args:
@@ -326,7 +326,7 @@ def flag_values_equal(stored: str | int | bool, expected: str | int | bool) -> b
 def first_holder(members: Sequence[Character], item_id: str) -> Character | None:
     """Return the first member in marching order carrying an item with `item_id`.
 
-    This is the consumption target of a `has_item` toll, and it matches exactly what
+    This is the member a `has_item` toll takes the item from, and it matches exactly what
     [`condition_holds`][osrlib.crawl.gates.condition_holds] tests, so the member it
     returns is the one the engine charges. Call it when your code has to find the
     holder the engine would charge. The search is over every member, living or dead, and

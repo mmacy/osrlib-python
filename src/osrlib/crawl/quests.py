@@ -15,7 +15,7 @@ state moves only through the four lifecycle commands
 [`ActivateQuest`][osrlib.crawl.commands.ActivateQuest],
 [`RevealObjective`][osrlib.crawl.commands.RevealObjective],
 [`CompleteObjective`][osrlib.crawl.commands.CompleteObjective], and
-[`CompleteQuest`][osrlib.crawl.commands.CompleteQuest]. Each reports itself with a
+[`CompleteQuest`][osrlib.crawl.commands.CompleteQuest]. Each one emits a
 player-visible event:
 [`QuestActivatedEvent`][osrlib.crawl.events.QuestActivatedEvent],
 [`ObjectiveRevealedEvent`][osrlib.crawl.events.ObjectiveRevealedEvent],
@@ -124,7 +124,7 @@ class ObjectiveSpec(BaseModel):
     [`ObjectiveView`][osrlib.crawl.views.ObjectiveView]s.
 
     Objectives are monotonic: hidden becomes revealed, incomplete becomes complete, and
-    neither goes back, because the quest vocabulary authors no repeat.
+    neither goes back, because a quest has no way to author a repeat.
 
     A hidden objective with no `reveal_when` is normal. It appears on the list when it
     completes, because completing an objective reveals it. `reveal_when` on an objective
@@ -189,10 +189,9 @@ class QuestSpec(BaseModel):
     [`QuestState`][osrlib.crawl.session.QuestState] in `session.quests`, and an active
     quest reaches a front end as a [`QuestView`][osrlib.crawl.views.QuestView].
 
-    Rewards are issued after the quest completes, in authored order, and only for a
-    completion the interpreter itself ruled: a quest your game completes by hand with
-    [`CompleteQuest`][osrlib.crawl.commands.CompleteQuest] pays nothing, because the
-    interpreter pays rewards only for completions it rules.
+    Rewards are issued after the quest completes, in authored order, and only when the
+    interpreter itself ruled the quest complete. A quest your game completes by hand with
+    [`CompleteQuest`][osrlib.crawl.commands.CompleteQuest] pays nothing.
 
     Examples:
         ```python
