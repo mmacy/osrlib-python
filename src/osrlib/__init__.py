@@ -15,7 +15,7 @@ each name from the module that defines it. osrlib has three layers of modules.
 The kernel, under `osrlib.core`, contains the rules without a session, a dungeon, or an
 adventure. You pass a kernel function the inputs for one rule, plus a seeded stream and a
 ruleset, and it returns the outcome and the events that describe it. Call kernel functions
-directly to roll a character, resolve an attack, or price a sword without starting a game.
+directly to roll a character, resolve an attack, or price a sword without starting a session.
 Kernel modules never import from `osrlib.crawl`, so you can use them without it.
 
 | Module | What it's for |

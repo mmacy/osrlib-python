@@ -1,4 +1,4 @@
-"""The rules kernel: the B/X rules as functions you call without a running game.
+"""The rules kernel: the B/X rules as functions that don't need a game session.
 
 You pass a kernel function the inputs for one rule, plus a random-number stream and a
 [`Ruleset`][osrlib.core.ruleset.Ruleset]. A stream is a seeded sequence of random numbers that
@@ -7,7 +7,7 @@ or off for a game. The function returns the outcome together with the typed even
 it. An event is a frozen record of one thing that happened, like an attack roll.
 
 The kernel has no session, no turn order, and no record of where the party is. Call the kernel
-directly when you want the rules without a game, for example in a combat simulator, a script that
+directly when you want the rules without a session, for example in a combat simulator, a script that
 tests game balance, or a script that checks authored content. The dungeon-crawl framework in
 `osrlib.crawl` is built on the kernel. Kernel modules never import from `osrlib.crawl`, so you
 can use them without it.
