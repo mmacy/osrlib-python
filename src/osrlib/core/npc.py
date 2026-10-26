@@ -1,16 +1,17 @@
 """NPC adventuring parties: rival groups of adventurers, generated with the SRD's procedure.
 
-An NPC is a person in the game whom no player controls. An NPC party is a group of NPC adventurers
-with classes, levels, gear, and treasure, like the players' party. A wandering monster table
-can call for one, or you can place one in an adventure as rivals.
+An NPC (non-player character) is a person in the game who isn't one of the players' characters. An
+NPC party is a group of NPC adventurers with classes, levels, gear, and treasure, like the
+players' party. A row of a wandering monster table can be an NPC party, or you can place one in
+an adventure as rivals.
 
 [`generate_npc_party`][osrlib.core.npc.generate_npc_party] is the entry point. Pass it the kind of
 party, `"basic"` or `"expert"`, and how many members it has. Also pass two seeded streams and an
 [`IdAllocator`][osrlib.core.monsters.IdAllocator] for the members' ids. It returns an
 [`NpcParty`][osrlib.core.npc.NpcParty]: the members with their gear and memorized spells, the
-alignment they share, and the treasure they carry. In a session, the
-[`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] command generates a party and opens an
-encounter with it for you.
+alignment they share, and the treasure they carry. In a session, the engine generates a party
+and opens an encounter with it for you when it resolves a
+[`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] command.
 
 The members are [`Character`][osrlib.core.character.Character] models, the same model as the
 players' characters, so every function that takes a character takes them. They fight with the
@@ -18,8 +19,8 @@ functions in [`osrlib.core.combat`][osrlib.core.combat] and cast with the functi
 [`osrlib.core.spells`][osrlib.core.spells]. When the players defeat one,
 [`npc_defeat_xp`][osrlib.core.npc.npc_defeat_xp] returns the experience points it's worth.
 
-This module doesn't decide how many adventurers appear. When a wandering monster table row is an NPC
-party, roll the `count_dice` of the table's row and pass the total as `count`.
+You set how many adventurers appear. When a wandering monster table row is an NPC party, roll the
+row's `count_dice` and pass the total as `count`.
 
 The members' rolls come from the stream keyed by
 [`NPC_PARTY_STREAM`][osrlib.core.npc.NPC_PARTY_STREAM]: the shared alignment, and each member's
@@ -32,8 +33,9 @@ In these places osrlib settles a rule the SRD leaves open, and
 [the adaptations register](https://mmacy.github.io/osrlib-python/adaptations/), the site page that
 lists every place osrlib commits to one reading of the rules, records each one:
 
-- NPC adventurers aren't checked against their class's minimum ability scores, because the SRD's
-  procedure rolls the class before the scores and gives no re-roll.
+- [`generate_npc_party`][osrlib.core.npc.generate_npc_party] doesn't check NPC adventurers
+  against their class's minimum ability scores, because the SRD's procedure rolls the class
+  before the scores and gives no re-roll.
 - The equipment kits are osrlib's, in place of the SRD's "normal adventuring gear".
 - A caster's spells are rolled at random from their class's list. The SRD lets the referee choose
   or roll, and only rolling gives the same party from the same seed.
@@ -110,8 +112,8 @@ generates an NPC party.
 
 The party's treasure and magic items come from
 [`TREASURE_STREAM`][osrlib.core.treasure.TREASURE_STREAM] instead. Because the streams are
-separate, a change to how NPC parties are generated doesn't shift the treasure rolls a save has
-already recorded.
+separate, a change to how NPC parties are generated doesn't change the treasure rolls in a save
+you've already made.
 """
 
 # The kits are osrlib's, in place of the SRD's "normal adventuring gear": weapons and armour for
@@ -136,7 +138,7 @@ _EXPERT_PLATE_CLASSES = ("cleric", "dwarf", "fighter")
 
 _SUPPLIES = ("rations_standard", "waterskin", "torch")
 
-# The magic item sub-tables, in the order the master table prints them. An expert member's magic
+# The magic item sub-tables, in the order they appear in the master table. An expert member's magic
 # item rolls go through them in this order.
 _SUB_TABLE_ORDER = (
     MagicItemType.ARMOUR,
@@ -157,8 +159,8 @@ class NpcParty(BaseModel):
     encounter: roll the monster reaction with [`roll_reaction`][osrlib.core.combat.roll_reaction],
     fight them with the functions in [`osrlib.core.combat`][osrlib.core.combat], and, if the
     players win, award [`npc_defeat_xp`][osrlib.core.npc.npc_defeat_xp] for each member defeated.
-    In a session, execute [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] instead, which
-    generates the party and opens the encounter in one command.
+    In a session, execute a [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] command
+    instead. The engine generates the party and opens the encounter for you.
     """
 
     model_config = ConfigDict(validate_assignment=True)
@@ -322,7 +324,7 @@ def _roll_expert_items(
         instances = generate_magic_item(category, tier="expert", stream=treasure_stream, allocator=allocator)
         for instance in instances:
             if not _item_usable(member, definition, instance):
-                continue  # An item nobody can use is dropped, with no re-roll, as written.
+                continue  # An item the member can't use is dropped, with no re-roll, as written.
             member.inventory.items.append(instance)
             _maybe_equip_upgrade(member, definition, instance)
 
@@ -337,11 +339,11 @@ def generate_npc_party(
 ) -> NpcParty:
     """Generate a party of NPC adventurers, with their gear, spells, and treasure.
 
-    Use it when a game needs other adventurers, like a wandering encounter or a rival party in a
+    Use it when you need other adventurers, like a wandering encounter or a rival party in a
     room of an adventure. You pass the number of members, because the encounter table or the adventure
-    sets it. Everything else is rolled here. In a session, execute
-    [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] instead, which calls this and opens an
-    encounter with the party.
+    sets it. Everything else is rolled here. In a session, execute a
+    [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] command instead. The engine calls this
+    function and opens an encounter with the party.
 
     The party shares one alignment, rolled once. Then each member gets, in turn:
 
@@ -361,11 +363,11 @@ def generate_npc_party(
     1 hit point. Each level after the first is added with
     [`level_up`][osrlib.core.classes.level_up], which rolls a die only when that level adds a hit
     die. The expert level dice can put a dwarf, fighter, or thief above name level, the level at
-    which a character may build a stronghold, and a level past name level rolls no die.
+    which a character may build a stronghold, and no die is rolled for a level past name level.
 
-    Members aren't checked against their class's minimum ability scores, because the SRD's
-    procedure rolls the class before the scores. An elf here can have an INT too low for a player
-    character elf.
+    This function doesn't check members against their class's minimum ability scores, because the
+    SRD's procedure rolls the class before the scores. An elf here can have an INT too low for a
+    player character elf.
 
     The rolls come from the two streams in a fixed order, so the same seeds give the same party.
     The alignment and then each member's rolls, in member order, come from `npc_stream`. Each

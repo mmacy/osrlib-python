@@ -2,7 +2,7 @@
 
 osrlib puts no prose in an event. A [`GameSession`][osrlib.crawl.session.GameSession]
 responds to a command with typed events made of structured facts, like who attacked, what they
-rolled, and how much damage landed, and you decide what a player reads. This
+rolled, and how much damage they dealt, and you decide what a player reads. This
 module is the default formatter that comes with osrlib.
 [`format_message`][osrlib.messages.format_message] takes an event and returns a plain
 English sentence, so you can print a session's output before you write a renderer of your
@@ -16,18 +16,18 @@ template per code. Every event class declares the codes it can use in `allowed_c
 defines.
 [The message code reference](https://mmacy.github.io/osrlib-python/reference/message-codes/)
 lists the same codes with the event class of each one, its default visibility, and its
-template. Read it when you decide which codes your front end handles differently.
+template. Read it when you decide which codes to handle differently.
 
 Use this formatter for a log, a transcript, a debugging view, or the first working version
 of a game. When you want your own wording, replace the whole formatter: read the event's
 fields and write your own line, or pass the event to a narrator. There's nothing here to
-configure, no way to register a template, and no translation. Your front end has the same
-structured fields this formatter reads, so it can write any wording it likes. Entity ids
+configure, no way to register a template, and no translation. You have the same structured
+fields this formatter reads, so you can write any wording you like. Entity ids
 come out as ids, like `orc-1`, because an event refers to creatures by id. The quest and
 objective events are the exception: they include a display name the adventure's author
 wrote, and the line uses it.
 
-Formatting only builds a string. It reads no files, makes no calls, and changes nothing,
+`format_message` only builds a string. It reads no files, makes no calls, and changes nothing,
 so you can call it on any event from any source.
 
 Typical usage:
@@ -65,13 +65,14 @@ __all__ = [
 
 
 def _entered(event: Any) -> str:
-    """The arrival line, which reads a stairs crossing as the climb or descent it was.
+    """The arrival line, which describes a stairs crossing as the climb or descent it was.
 
     The event's `via` is the only source of the direction. No other field gives the direction
-    the party went, and where the party stands now is no help to a line rendered from the log after
-    the fact. The kinds that state no direction (a trapdoor, a chute, a passage, a
+    the party went, and the party's current position doesn't help when a line is rendered from the log
+    later. The kinds without a direction (a trapdoor, a chute, a passage, a
     trap, the entrance, a referee's placement) get the plain arrival line. A stairs crossing into
-    another dungeon still includes the dungeon's name, since the level number alone would hide the bigger move.
+    another dungeon still includes the dungeon's name, because the level number alone wouldn't
+    show the change of dungeon.
     """
     verb = {"stairs_up": "climbs", "stairs_down": "descends"}.get(event.via or "")
     if verb is not None and event.level_number is not None:
@@ -132,7 +133,7 @@ def _morale(event: MoraleCheckedEvent, outcome: str) -> str:
 
 
 def _morale_held(event: MoraleCheckedEvent) -> bool:
-    """Whether the side keeps fighting: `held`, or the score on an event from a save written before that field."""
+    """Whether the side keeps fighting: `held`, or the score for an event from a save made before `held` existed."""
     return event.score >= 12 if event.held is None else event.held
 
 
@@ -457,8 +458,8 @@ def format_message(event: Event) -> str:
 
     Write your own formatter when you want control of the wording. This one prints entity
     ids as ids, writes only English, and has no way to change a template. Every fact it uses
-    is a typed field on the event, so your version reads the same fields and uses the names
-    your game gives things.
+    is a typed field on the event, so your version can read the same fields and use your
+    own names for things.
 
     Args:
         event: Any event, from a command result, a session's event log, or a save you loaded.

@@ -11,7 +11,7 @@ fire in the order of that tuple. Triggers do nothing until you register an
 [`Interpreter`][osrlib.crawl.interpreter.Interpreter] on the session with
 [`GameSession.register_listener`][osrlib.crawl.session.GameSession.register_listener]. The
 interpreter matches the events of every accepted command against the adventure's triggers, and
-executes the commands of each trigger that fires. A trigger that fires produces these events:
+executes the commands of each trigger that fires. When a trigger fires, you get these events:
 
 - A [`TriggerFiredEvent`][osrlib.crawl.events.TriggerFiredEvent] with the trigger's `fired` text.
 - The events its commands produce.
@@ -23,13 +23,13 @@ executes the commands of each trigger that fires. A trigger that fires produces 
 `session.fired_triggers` records which triggers have fired.
 
 A gate ([`GateSpec`][osrlib.crawl.gates.GateSpec]) tests the state of the game when the party
-attempts something. A trigger reacts to the events a command produced, so it fires when
+attempts something. A trigger matches the events a command produced, so it fires when
 something happens, not while something is true. The lever that opens the portcullis is a
-trigger, and the door that needs the brass key is a gate.
+trigger, and the locked door you open with the brass key is a gate.
 
 A trigger has these parts:
 
-- A pattern ([`TriggerPattern`][osrlib.crawl.triggers.TriggerPattern]) says which event to
+- A pattern ([`TriggerPattern`][osrlib.crawl.triggers.TriggerPattern]) is the event to
   react to: the party entering an area, a level, a dungeon, or the town
   ([`AreaEnteredPattern`][osrlib.crawl.triggers.AreaEnteredPattern],
   [`LevelEnteredPattern`][osrlib.crawl.triggers.LevelEnteredPattern],
@@ -38,25 +38,25 @@ A trigger has these parts:
   ([`ItemAcquiredPattern`][osrlib.crawl.triggers.ItemAcquiredPattern]), a monster defeated
   ([`MonsterDefeatedPattern`][osrlib.crawl.triggers.MonsterDefeatedPattern]), or a flag written
   ([`FlagSetPattern`][osrlib.crawl.triggers.FlagSetPattern]). The interpreter matches a pattern
-  against the event, never against the current state. A command that a trigger runs can move
-  the party, but each event still describes the moment it happened.
+  against the event, never against the current state. A command that the interpreter runs for
+  a trigger can move the party, but each event still describes the moment it happened.
 - Conditions ([`ConditionSpec`][osrlib.crawl.gates.ConditionSpec]) narrow the match. Each one has
   to hold, against the session's state at the moment of the match. A condition with
-  `consumes=True` fails validation, because a trigger reacts to something that has already
+  `consumes=True` fails validation, because a trigger matches an event that has already
   happened, and there's no attempt to charge a toll for.
 - Consequences ([`ConsequenceCommand`][osrlib.crawl.commands.ConsequenceCommand]) are the referee
-  commands the trigger runs, in the order you write them. A grant or award addresses the party
-  with [`PARTY_SELECTOR`][osrlib.crawl.triggers.PARTY_SELECTOR] or
+  commands the interpreter runs when the trigger fires, in the order you write them. In a grant
+  or award, write [`PARTY_SELECTOR`][osrlib.crawl.triggers.PARTY_SELECTOR] or
   [`FIRST_LIVING_SELECTOR`][osrlib.crawl.triggers.FIRST_LIVING_SELECTOR] in place of a character
   id.
 - A narrative block ([`NarrativeBlock`][osrlib.crawl.narrative.NarrativeBlock]) contains the
   trigger's text. `fired` is a line for the referee, and `journal` is a line for the players.
   Write `journal` for the text the players should see.
 
-Use a quest ([`QuestSpec`][osrlib.crawl.quests.QuestSpec]) instead when the adventure has to
-track progress toward a goal. A quest uses these same patterns and conditions. The guide
-[Gates, triggers, and quests](https://mmacy.github.io/osrlib-python/guides/gates-triggers-quests/)
-builds all three in one adventure document.
+Use a quest ([`QuestSpec`][osrlib.crawl.quests.QuestSpec]) instead when you need to track
+progress toward a goal. A quest's clauses use these same patterns and conditions. For an
+adventure document that uses all three, see
+[Gates, triggers, and quests](https://mmacy.github.io/osrlib-python/guides/gates-triggers-quests/).
 """
 
 from typing import Annotated, Literal
@@ -116,7 +116,7 @@ class AreaEnteredPattern(BaseModel):
     """A pattern that matches the party entering a keyed area.
 
     It matches a [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] for
-    an area. An area id is unique only within its level, so the pattern names the dungeon,
+    an area. An area id is unique only within its level, so the pattern includes the dungeon,
     the level, and the area. Use
     [`LevelEnteredPattern`][osrlib.crawl.triggers.LevelEnteredPattern] to react to the party
     arriving anywhere on a level.
@@ -237,8 +237,8 @@ class ItemAcquiredPattern(BaseModel):
     catalog, which is the built-in items plus the adventure's bundled items, or from the
     magic-item catalog.
 
-    The event reports a mundane item by its catalog id and a magic item by its instance id,
-    which the session assigns. To match a magic item, the interpreter looks up that instance
+    The event contains a mundane item's catalog id, or a magic item's instance id, which the
+    session assigns. To match a magic item, the interpreter looks up that instance
     in the acquiring member's inventory and compares its catalog id.
 
     Examples:
@@ -295,10 +295,10 @@ class MonsterDefeatedPattern(BaseModel):
 class FlagSetPattern(BaseModel):
     """A pattern that matches a write to a session flag.
 
-    It matches the write, not the flag's state. When you or another trigger execute
-    [`SetFlag`][osrlib.crawl.commands.SetFlag], the session emits a
-    [`FlagSetEvent`][osrlib.crawl.events.FlagSetEvent], and a trigger watching that flag
-    fires. The pattern compares the value that was written, so writing a flag again with the
+    It matches the write, not the flag's state. When you execute
+    [`SetFlag`][osrlib.crawl.commands.SetFlag], or the interpreter executes it for a trigger,
+    the session emits a [`FlagSetEvent`][osrlib.crawl.events.FlagSetEvent], and a trigger with a
+    pattern for that flag fires. The pattern compares the value that was written, so writing a flag again with the
     value it already has still matches. To test the value a flag has now, use a
     [`FlagEqualsCondition`][osrlib.crawl.gates.FlagEqualsCondition] instead.
 
@@ -343,8 +343,8 @@ TriggerPattern = Annotated[
 Annotate a field with this alias when you write your own model that contains an authored
 pattern. Pydantic then picks the member from the `pattern_type` value in the document.
 It's the type of [`TriggerSpec.when`][osrlib.crawl.triggers.TriggerSpec.when] and of
-[`TriggerClause.pattern`][osrlib.crawl.quests.TriggerClause.pattern], so a quest can react
-to the same events a trigger can. The `pattern_type` values are part of the document format, so a
+[`TriggerClause.pattern`][osrlib.crawl.quests.TriggerClause.pattern], so a quest clause can
+match the same events a trigger can. The `pattern_type` values are part of the document format, so a
 later release can add a member but doesn't rename one within a schema version."""
 
 
@@ -363,8 +363,8 @@ class TriggerSpec(BaseModel):
     has fired stays fired after a save, a load, or a replay. Set `repeatable=True` for a
     trigger that fires every time its pattern matches.
 
-    The [`Interpreter`][osrlib.crawl.interpreter.Interpreter] example runs a trigger in a
-    session from start to finish.
+    For a trigger in a session from start to finish, see the
+    [`Interpreter`][osrlib.crawl.interpreter.Interpreter] example.
 
     Examples:
         ```python
@@ -392,9 +392,9 @@ class TriggerSpec(BaseModel):
 
     id: str = Field(min_length=1)
     """The trigger's id, unique across the adventure. `session.fired_triggers` records it, and
-    every command the trigger runs has `source` set to `trigger:{id}`."""
+    every command the interpreter runs for the trigger has `source` set to `trigger:{id}`."""
     when: TriggerPattern
-    """The event the trigger reacts to, as one member of
+    """The pattern of the event that fires the trigger, as one member of
     [`TriggerPattern`][osrlib.crawl.triggers.TriggerPattern]."""
     conditions: tuple[ConditionSpec, ...] = ()
     """Extra tests, every one of which has to hold when an event matches `when`. There's no
@@ -405,7 +405,8 @@ class TriggerSpec(BaseModel):
     """Whether the trigger fires every time its pattern matches. With `False`, the default,
     it fires once per session."""
     consequences: tuple[ConsequenceCommand, ...] = ()
-    """The referee commands the trigger runs, in the order you write them. The interpreter
+    """The referee commands the interpreter runs when the trigger fires, in the order you write
+    them. The interpreter
     replaces [`PARTY_SELECTOR`][osrlib.crawl.triggers.PARTY_SELECTOR] and
     [`FIRST_LIVING_SELECTOR`][osrlib.crawl.triggers.FIRST_LIVING_SELECTOR] with the members
     they select. When the session rejects one command, the interpreter drops it, records a
@@ -422,7 +423,7 @@ class TriggerSpec(BaseModel):
         """A trigger's conditions are tests, never tolls.
 
         Consumption is an effect of a *successful command*, reported through that
-        command's events. A trigger observes an event that has already happened, so a
+        command's events. A trigger matches an event that has already happened, so a
         toll here would have nothing to charge against.
         """
         for condition in self.conditions:
@@ -432,11 +433,11 @@ class TriggerSpec(BaseModel):
 
     @model_validator(mode="after")
     def _consequences_carry_no_source(self) -> TriggerSpec:
-        """The `source` stamp belongs to whoever issues the command, not the document.
+        """Whoever issues a command sets its `source`, not the document.
 
-        Consequences are issued stamped with the trigger's id, so an authored
-        stamp would either be overwritten or, worse, accepted: a line in the log
-        claiming a source that never issued the command.
+        The interpreter issues consequences with the trigger's id as their `source`, so a
+        source written in the document would either be overwritten or be accepted, and the
+        log would then show a source that never issued the command.
         """
         for position, consequence in enumerate(self.consequences):
             if consequence.source is not None:

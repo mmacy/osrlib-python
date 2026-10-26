@@ -9,13 +9,13 @@ whole game. Inside one, [`osrlib.crawl.battle`][osrlib.crawl.battle] calls these
 functions in the B/X round sequence, so a session logs the same events these functions
 return.
 
-In the order a combat round uses them:
+In the order you use them in a combat round:
 
 - [`roll_initiative`][osrlib.core.combat.roll_initiative] takes one
   [`Participant`][osrlib.core.combat.Participant] per combatant and returns the acting
   order.
 - [`validate_attack`][osrlib.core.combat.validate_attack] takes an attacker, a defender,
-  and what it attacks with, and returns the reasons the attack isn't allowed. It changes
+  and what the attacker attacks with, and returns the reasons the attack isn't allowed. It changes
   nothing.
 - [`resolve_attack`][osrlib.core.combat.resolve_attack] rolls one attack, applies the
   damage to the defender, and returns an [`AttackResult`][osrlib.core.combat.AttackResult].
@@ -27,7 +27,7 @@ In the order a combat round uses them:
   [`check_morale`][osrlib.core.combat.check_morale] rolls the check and returns a
   [`MoraleResult`][osrlib.core.combat.MoraleResult].
 
-Some attacks resolve through a function of their own instead of `resolve_attack`:
+Some attacks resolve through a separate function instead of `resolve_attack`:
 [`resolve_splash_attack`][osrlib.core.combat.resolve_splash_attack] for thrown holy water
 and oil, [`resolve_breath`][osrlib.core.combat.resolve_breath] for breath weapons,
 [`resolve_gaze`][osrlib.core.combat.resolve_gaze] for petrifying gazes, and
@@ -63,14 +63,14 @@ from the advancement stream.
 
 Each function that resolves part of a fight returns events, either as a list or in the
 `events` tuple of a frozen result model. Append them to your log. The result models also
-have the outcome as plain fields, like `hit` and `damage`, for a caller that doesn't keep
+have the outcome as plain fields, like `hit` and `damage`, in case you don't keep
 a log. [`damage_roll`][osrlib.core.combat.damage_roll] and `falling_damage` only roll
 dice, and return a [`RollResult`][osrlib.core.dice.RollResult] with no events.
 
 Damage from an attack goes through these steps in this order:
 
 1. The immunity gate. This is osrlib's name for the check of whether the defender's
-   defenses let the attack harm it at all. If they don't, no damage is rolled and a
+   defenses let the attack harm it at all. If they don't, osrlib rolls no damage, and a
    [`DamageAbsorbedEvent`][osrlib.core.events.DamageAbsorbedEvent] reports the hit.
 2. The damage roll: the dice, the attacker's STR modifier in melee, magic and spell
    bonuses, then the doublings for a brace, a charge, or a back-stab. The total is at
@@ -238,8 +238,8 @@ COMBAT_STREAM = StreamName.COMBAT
 
 Pass it to [`RngStreams.get`][osrlib.core.rng.RngStreams.get] to get the stream that most
 functions in this module draw from. Reaction rolls, natural healing, and energy drain
-draw from other streams, which their functions name. A
-[`GameSession`][osrlib.crawl.session.GameSession] draws its battles from this key too.
+draw from other streams, which their functions' descriptions give. A
+[`GameSession`][osrlib.crawl.session.GameSession] draws its battle rolls from this key too.
 
 A stream key is a name. The same master seed and the same key always produce the same
 sequence of draws, so a script that seeds its streams the same way rolls the same fight
@@ -268,9 +268,9 @@ of swung.
 _HELPLESS = (Condition.PARALYSED, Condition.ASLEEP)
 _CANNOT_ACT = (Condition.DEAD, Condition.PETRIFIED, Condition.PARALYSED, Condition.ASLEEP)
 
-# Holy water, the torch, and the oil flask are gear with combat stats, and each presents
-# a fixed damage source. Holy water presents the `holy` key, which only undead targets
-# admit. A torch and lit oil deal fire damage because they burn, and fire is what counts
+# Holy water, the torch, and the oil flask are gear with combat stats, and each has
+# a fixed damage source. Holy water has the `holy` key, which harms only undead
+# targets. A torch and lit oil deal fire damage because they burn, and fire is what counts
 # against a troll's regeneration.
 _HOLY_ITEM_ID = "holy_water"
 _FIRE_ITEM_IDS = ("torch", "oil_flask")
@@ -431,12 +431,12 @@ class AttackContext(BaseModel):
     *Protection from normal missiles* then blocks it, and it doesn't hit a paralysed or
     sleeping defender automatically, as a melee attack does. osrlib never marks a monster
     attack as a small missile by itself, because some monster missiles, like a hurled
-    boulder, are not small.
+    boulder, aren't small.
     """
 
 
 class DamageSource(BaseModel):
-    """What one source of damage presents to the defender's defenses.
+    """The properties of one source of damage that the defender's defenses are checked against.
 
     osrlib checks it against the defender's defenses to decide whether the damage harms the
     defender, and how much.
@@ -463,11 +463,11 @@ class DamageSource(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     keys: tuple[str, ...] = ()
-    """The material and enchantment keys the source presents, like `silver`, `magic`, or `holy`.
+    """The material and enchantment keys of the source, like `silver`, `magic`, or `holy`.
 
     A monster that only some materials can harm lists them in its `harmed_only_by`
-    defense. A source harms that monster only when it presents one of the listed keys, so a
-    magic weapon presents `magic` and a silver one presents `silver`. Damage reductions
+    defense. A source harms that monster only when it has one of the listed keys, so a
+    magic weapon has `magic` and a silver one has `silver`. Damage reductions
     can also depend on the keys, like the wraith's half damage from silver.
     """
 
@@ -483,18 +483,18 @@ class DamageSource(BaseModel):
 
     A monster that's immune only to the ordinary form of an element, as a red dragon is to
     fire, takes damage from a magical source of that element and none from a nonmagical
-    one. *Protection from normal missiles* blocks only a nonmagical missile. A
-    `harmed_only_by` defense reads `keys` instead, so a magic source also presents the
+    one. *Protection from normal missiles* blocks only a nonmagical missile. osrlib checks
+    a `harmed_only_by` defense against `keys` instead, so a magic source also has the
     `magic` key.
     """
 
     kind: str = "weapon"
     """How the damage is delivered, like `weapon`, `breath`, or `falling`.
 
-    Any string is accepted. [`damage_source_for`][osrlib.core.combat.damage_source_for]
+    The model accepts any string. [`damage_source_for`][osrlib.core.combat.damage_source_for]
     sets `weapon`, `unarmed`, `monster`, or `splash`, and the rest of osrlib uses
-    `breath`, `spell`, `device`, `effect`, `trap`, `falling`, and `deprivation`. The
-    rules read it in two places. When a destructive source kills a creature, its magic
+    `breath`, `spell`, `device`, `effect`, `trap`, `falling`, and `deprivation`. osrlib
+    reads it in two places. When a destructive source kills a creature, its magic
     items save versus breath for `breath`, versus spells for `spell`, versus wands for
     `device`, and versus death for any other kind. A monster that uses fire is immune to
     a nonmagical fire source of kind `splash`, which is burning oil.
@@ -514,7 +514,7 @@ class DamageSource(BaseModel):
     [`damage_source_for`][osrlib.core.combat.damage_source_for] sets it for a character's
     missile weapon and a thrown splash item. It sets it for a monster attack only when the
     context's `monster_missile` is true, because some monster missiles, like a hurled
-    boulder, are not small.
+    boulder, aren't small.
     """
 
 
@@ -536,8 +536,8 @@ class AttackRollResult(BaseModel):
     """Whether the attack hit without a roll.
 
     That happens in melee against a defender that's paralysed or asleep. It also happens
-    against a monster whose template has no armour class, which is how a template marks
-    that no attack roll is needed, as for green slime and yellow mould. When this is true,
+    against a monster whose template has no armour class, which means attacks against it
+    need no roll, as for green slime and yellow mould. When this is true,
     `roll`, `total`, and `required` are `None`, and no draw was taken.
     """
 
@@ -592,7 +592,7 @@ class AttackResult(BaseModel):
     damage: int | None = None
     """The damage rolled, before the defender's reductions, or `None` when none was rolled.
 
-    No damage is rolled on a miss, on an absorbed hit, or when a blade kills a sleeping
+    osrlib rolls no damage on a miss, on an absorbed hit, or when a blade kills a sleeping
     defender outright. It's 0 for an unlit oil flask that hits, and for a monster attack
     that deals no hit point damage, like a wight's touch.
 
@@ -623,8 +623,8 @@ class SaveResult(BaseModel):
     auto: bool = False
     """Whether the target passed without a roll.
 
-    That happens when a monster's energy defense saves for it against a magical effect of
-    that element, as a red dragon's does against a *fire ball*. When this is true, `roll`
+    That happens when a monster's energy defense gives it an automatic save against a
+    magical effect of that element, as a red dragon's does against a *fire ball*. When this is true, `roll`
     and `required` are `None`, and no draw was taken.
     """
 
@@ -660,9 +660,9 @@ class MoraleResult(BaseModel):
     """
 
     exempt: bool = False
-    """Whether the side's morale score excused it from rolling.
+    """Whether the side's morale score means it doesn't roll.
 
-    A score of 2 or less never fights, and a score of 12 or more never checks. When this is
+    A side with a score of 2 or less never fights, and a side with 12 or more never checks. When this is
     true, `roll` is `None` and no draw was taken.
     """
 
@@ -675,7 +675,7 @@ class MoraleResult(BaseModel):
     events: tuple[Event, ...] = ()
     """The check's [`MoraleCheckedEvent`][osrlib.core.events.MoraleCheckedEvent], ready to append to your log.
 
-    It's visible to the referee only, because players learn a side's nerve from what it
+    It's visible to the referee only, because players learn a side's morale from what it
     does.
     """
 
@@ -706,7 +706,7 @@ class Participant(BaseModel):
     slow: bool = False
     """Whether the combatant fights with a slow weapon, like a two-handed sword.
 
-    A slow combatant acts after every combatant that isn't slow, whatever the dice say.
+    A slow combatant acts after every combatant that isn't slow, whatever the rolls are.
     """
 
     modifier: int = 0
@@ -784,8 +784,8 @@ class TargetingMode(StrEnum):
     """The ways [`select_targets`][osrlib.core.combat.select_targets] chooses targets from a list of candidates.
 
     Pass one to `select_targets` with the candidates it chooses from. A spell that targets
-    creatures targets with one of these modes, and so does a breath weapon. Nothing in
-    `osrlib.core` works out who is in range: you supply the candidates. Inside a session,
+    creatures targets with one of these modes, and so does a breath weapon. `osrlib.core`
+    doesn't work out who is in range, so you supply the candidates. Inside a session,
     [`osrlib.crawl.battle`][osrlib.crawl.battle] supplies them from the distances it
     tracks.
 
@@ -794,7 +794,7 @@ class TargetingMode(StrEnum):
     """
 
     SELF = "self"
-    """The caster or user only. Put the caster first in the candidates, because the first one is taken."""
+    """The caster or user only. Put the caster first in the candidates, because `select_targets` takes the first one."""
 
     SINGLE = "single"
     """One creature: the first candidate."""
@@ -805,8 +805,8 @@ class TargetingMode(StrEnum):
     HD_BUDGET = "hd_budget"
     """Candidates taken weakest first until a Hit Dice budget runs out, the way *sleep* works.
 
-    A candidate with more Hit Dice than the budget has left is skipped, and the selection
-    goes on down the list.
+    `select_targets` skips a candidate with more Hit Dice than the budget has left, and goes
+    on down the list.
     """
 
     AREA = "area"
@@ -827,7 +827,7 @@ def _entity_id(combatant: Any) -> str:
 
 
 def alignments_differ(source: Creature, target: Creature) -> bool:
-    """Return whether two creatures have different alignments, as a ward against another alignment reads it.
+    """Return whether two creatures have different alignments, in the sense a ward against another alignment uses.
 
     Wards like *protection from evil* protect against creatures "of another alignment",
     and this function gives that answer.
@@ -958,8 +958,8 @@ def attack_facet(attack: Attack) -> WeaponTemplate | CombatFacet | None:
     """Return the damage dice, qualities, and ranges behind any attack.
 
     Use it to read those stats without checking which form of
-    [`Attack`][osrlib.core.combat.Attack] you have. A weapon returns itself, a gear item
-    returns its `combat` field, and a magic weapon returns its base weapon. The functions
+    [`Attack`][osrlib.core.combat.Attack] you have. It returns a weapon as it is, a gear
+    item's `combat` field, and a magic weapon's base weapon. The functions
     that resolve attacks read these stats themselves, so you need this function to show an
     attack's stats or to choose between attacks, not to resolve one.
 
@@ -1126,7 +1126,7 @@ def _range_band_modifier(attack: Attack, context: AttackContext) -> int | None:
 
 
 def damage_source_for(attacker: Creature, attack: Attack, context: AttackContext) -> DamageSource:
-    """Build the damage source an attack presents to the defender's defenses.
+    """Build the damage source of an attack, for checking against the defender's defenses.
 
     [`resolve_attack`][osrlib.core.combat.resolve_attack] builds one for you on every hit.
     Call this function yourself to ask
@@ -1135,17 +1135,17 @@ def damage_source_for(attacker: Creature, attack: Attack, context: AttackContext
     like a trap or a spell, construct a [`DamageSource`][osrlib.core.combat.DamageSource]
     yourself.
 
-    What each attack presents:
+    What each attack's source has:
 
-    - A silver weapon presents the `silver` key, and a magic weapon presents `magic`.
-    - Holy water presents `holy`.
+    - A silver weapon has the `silver` key, and a magic weapon has `magic`.
+    - Holy water has `holy`.
     - A torch, and an oil flask with `lit` set in the context, deal fire. Fire counts
       against a troll's regeneration.
-    - A weapon, but not an unarmed strike, presents `magic` while its wielder is under the
+    - A weapon, but not an unarmed strike, has `magic` while its wielder is under the
       *striking* spell.
-    - A monster attack presents no keys, and its `kind` is `monster`.
-    - A missile weapon used at a distance, and thrown oil or holy water, is marked as a
-      small missile. A monster attack is marked only when the context's
+    - A monster attack has no keys, and its `kind` is `monster`.
+    - The function marks a missile weapon used at a distance, and thrown oil or holy water,
+      as a small missile. It marks a monster attack only when the context's
       `monster_missile` is true.
 
     The `hd5_counts_as_magical` ruleset flag lets a strong monster harm monsters that only
@@ -1265,13 +1265,14 @@ def validate_attack(
     Args:
         attacker: The attacking [`Creature`][osrlib.core.creature.Creature], which a
             [`Character`][osrlib.core.character.Character] and a
-            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy. Only its
-            conditions are read.
-        defender: The defending `Creature`, a `Character` or a `MonsterInstance`. Nothing is
-            read from it.
+            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy. The function
+            reads only its conditions.
+        defender: The defending `Creature`, a `Character` or a `MonsterInstance`. The function
+            doesn't read it.
         attack: The [`Attack`][osrlib.core.combat.Attack], or `None` for unarmed.
-        context: The attack's context. Only `distance_feet` and `fired_last_round` are read.
-        ruleset: The ruleset in play. Only `weapon_reload` is read.
+        context: The attack's context. The function reads only `distance_feet` and
+            `fired_last_round`.
+        ruleset: The ruleset in play. The function reads only `weapon_reload`.
 
     Returns:
         The reasons the attack isn't allowed, as
@@ -1392,12 +1393,12 @@ def attack_roll(
       defender, like *protection from evil*.
     - The context's `situational_modifier`.
 
-    The defender's armour class is adjusted too. Its shield doesn't count against an
-    attack from behind or while it retreats, and an ally's bonus from the context does.
+    The function adjusts the defender's armour class too. Its shield doesn't count against
+    an attack from behind or while it retreats, and an ally's bonus from the context does.
 
-    Two defenders are hit automatically, with no roll and no draw. One is a defender that's
-    paralysed or asleep and attacked in melee. The other is a monster whose template has
-    no armour class, which is how a template marks that no attack roll is needed, as for
+    The function hits two kinds of defender automatically, with no roll and no draw. One is
+    a defender that's paralysed or asleep and attacked in melee. The other is a monster
+    whose template has no armour class, which means attacks against it need no roll, as for
     green slime and yellow mould.
 
     A natural 20 always hits and a natural 1 always misses. The total needed comes from
@@ -1425,7 +1426,7 @@ def attack_roll(
 
     Raises:
         ValueError: If the defender has no `armour_class` attribute, which means it isn't
-            a combatant. Nothing is drawn first.
+            a combatant. The function draws nothing first.
 
     Examples:
         ```python
@@ -1556,9 +1557,9 @@ def check_immunity(
 
     The defender is immune in these cases:
 
-    - It's a monster that only some materials can harm, and the source presents none of
+    - It's a monster that only some materials can harm, and the source has none of
       them. A steel sword can't harm a werewolf, and a silver dagger can.
-    - The source presents `holy` and the defender isn't undead. Holy water harms only the
+    - The source has the `holy` key and the defender isn't undead. Holy water harms only the
       undead, and gets through any material defense an undead monster has.
     - It's a monster that uses fire, and the source is burning oil.
     - It's a monster immune to the source's element. A monster immune to every form of
@@ -1578,8 +1579,9 @@ def check_immunity(
             [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy.
         source: The damage source.
         ruleset: The ruleset in play.
-        attacker: The attacking `Creature`, a `Character` or a `MonsterInstance`. Only the
-            `hd5_counts_as_magical` rule reads it, and without it that rule doesn't apply.
+        attacker: The attacking `Creature`, a `Character` or a `MonsterInstance`. The function
+            reads it only for the `hd5_counts_as_magical` rule, and without it that rule
+            doesn't apply.
 
     Returns:
         True when the defender is immune and no damage should be rolled.
@@ -1690,8 +1692,8 @@ def damage_roll(
         ruleset: The ruleset in play.
         stream: The stream to draw the damage dice from, usually
             [`COMBAT_STREAM`][osrlib.core.combat.COMBAT_STREAM].
-        defender: The defending `Creature`, a `Character` or a `MonsterInstance`. Only a
-            magic weapon with a bonus against certain monsters reads it.
+        defender: The defending `Creature`, a `Character` or a `MonsterInstance`. The function
+            reads it only for a magic weapon with a bonus against certain monsters.
 
     Returns:
         The damage roll. `rolls` contains each die, and `total` the damage to pass to
@@ -1842,8 +1844,8 @@ def deal_damage(
     2. Reductions for the source's element apply, like *resist fire*. Each takes 1 point
        off each die in `rolls` and leaves every die at least 1, so damage with no `rolls`
        isn't reduced.
-    3. The hit points come off, stopping at 0. When you pass a `clock`, a
-       [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] records the round in its
+    3. The hit points come off, stopping at 0. When you pass a `clock`, the function records
+       the round in a [`MonsterInstance`][osrlib.core.monsters.MonsterInstance]'s
        `last_damaged_round`. A troll's regeneration waits after that round, and a dead
        troll gets back up 2d6 rounds after it.
     4. Damage of an element that stops a monster's regeneration, like fire and acid for a
@@ -1861,16 +1863,16 @@ def deal_damage(
     Args:
         target: The [`Combatant`][osrlib.core.creature.Combatant] taking the damage, which a
             [`Character`][osrlib.core.character.Character] and a
-            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy. Changed
-            in place. Its saving throws are what its magic items save against when a
+            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy. The function
+            changes it in place. Its saving throws are what its magic items save against when a
             destructive source kills it.
         amount: The damage rolled, before reductions.
         source: Where the damage comes from. Which reductions apply, whether the damage counts
             against regeneration, and whether a kill destroys equipment all depend on it.
-        attacker_id: The attacker's entity id, for the event. `None` when nothing attacked.
+        attacker_id: The attacker's entity id, for the event. `None` when there's no attacker.
         rolls: The damage dice as rolled. They appear in the event and set how much a
             reduction per die can take.
-        clock: The game clock. When you pass it, a monster's `last_damaged_round` is set.
+        clock: The game clock. When you pass it, the function sets a monster's `last_damaged_round`.
         ruleset: The ruleset in play. Whether magic items save when a destructive source
             kills the target depends on it.
         stream: The stream the magic items' saves draw from, which is the stream of
@@ -1982,28 +1984,29 @@ def destroy_equipment(
     """Destroy everything a victim carries, as a breath weapon or *disintegrate* does when it kills.
 
     [`deal_damage`][osrlib.core.combat.deal_damage] calls this when a destructive source
-    kills its target, so you rarely call it yourself. The *disintegrate* spell calls it
-    directly, because the spell destroys the victim and what it carried without dealing
-    damage.
+    kills its target, so you rarely call it yourself.
+    [`cast_spell`][osrlib.core.spells.cast_spell] calls it directly for *disintegrate*,
+    because the spell destroys the victim and what it carried without dealing damage.
 
     Under the `magic_item_death_save` ruleset flag, which is on by default, each magic item
-    the victim carries gets a saving throw. The item rolls 1d20 and saves on the victim's
-    own target number in the category that matches the source: versus breath for a breath
-    weapon, versus spells for a spell, versus wands for a device, and versus death for
-    anything else. The item adds its best bonus, the highest of its attack, damage, and
-    armour class bonuses, so a cursed item saves at its penalty. The items that save stay
-    in the inventory's `items` list, no longer equipped. The rolls produce no events of
-    their own, and the one event reports the outcome.
+    the victim carries gets a saving throw. The function rolls 1d20 for the item, which
+    saves on the victim's target number in the category that matches the source: versus
+    breath for a breath weapon, versus spells for a spell, versus wands for a device, and
+    versus death for anything else. The roll adds the item's best bonus, the highest of its
+    attack, damage, and armour class bonuses, so a cursed item saves at its penalty. The
+    items that save stay in the inventory's `items` list, no longer equipped. The rolls have
+    no events, and the one event reports the outcome.
 
     Args:
         target: The victim, a [`Combatant`][osrlib.core.creature.Combatant], which a
             [`Character`][osrlib.core.character.Character] and a
-            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy. Its
-            inventory is emptied except for the magic items that saved, and nothing is left
-            wielded, worn, or on its fingers.
+            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy. The
+            function empties its inventory except for the magic items that saved, and leaves
+            nothing wielded, worn, or on its fingers.
         source: The destructive damage source, whose `kind` picks the saving throw
-            category. `None` saves versus death.
-        ruleset: The ruleset in play. `None` skips the saves, so every item is destroyed.
+            category. With `None`, the items save versus death.
+        ruleset: The ruleset in play. With `None`, the function skips the saves and destroys
+            every item.
         stream: The stream the items' saves draw from, one draw for each magic item.
 
     Returns:
@@ -2012,8 +2015,8 @@ def destroy_equipment(
         carries nothing.
 
     Raises:
-        ValueError: If the saves are on, the victim carries a magic item, and no `stream`
-            was passed. Nothing is changed first.
+        ValueError: If the saves are on, the victim carries a magic item, and you passed no
+            `stream`. The function changes nothing first.
 
     Examples:
         ```python
@@ -2098,13 +2101,13 @@ def resolve_attack(
 ) -> AttackResult:
     """Resolve one attack from start to finish: the roll, the immunity check, and the damage.
 
-    This is the function most callers need. It rolls the attack, checks whether the
+    This is the function you usually need. It rolls the attack, checks whether the
     defender is immune, rolls the damage, and applies it. It changes the defender, so the
     hit points are already gone when you read the result. To check first whether the attack
     is allowed, call [`validate_attack`][osrlib.core.combat.validate_attack], which draws
     nothing and changes nothing.
 
-    Other attacks have functions of their own:
+    Other attacks have separate functions:
 
     - Thrown oil or holy water:
       [`resolve_splash_attack`][osrlib.core.combat.resolve_splash_attack], which also
@@ -2117,10 +2120,11 @@ def resolve_attack(
 
     The steps always run in this order. First the attack roll, through
     [`attack_roll`][osrlib.core.combat.attack_roll]. On a hit,
-    [`check_immunity`][osrlib.core.combat.check_immunity]: when the defender is immune, no
-    damage is rolled and a [`DamageAbsorbedEvent`][osrlib.core.events.DamageAbsorbedEvent]
-    reports the hit. Otherwise [`damage_roll`][osrlib.core.combat.damage_roll] rolls the
-    damage and [`deal_damage`][osrlib.core.combat.deal_damage] applies it.
+    [`check_immunity`][osrlib.core.combat.check_immunity]: when the defender is immune, the
+    function rolls no damage, and a
+    [`DamageAbsorbedEvent`][osrlib.core.events.DamageAbsorbedEvent] reports the hit. Otherwise
+    [`damage_roll`][osrlib.core.combat.damage_roll] rolls the damage and [`deal_damage`][osrlib.core.combat.deal_damage]
+    applies it.
 
     Three hits end early:
 
@@ -2136,8 +2140,8 @@ def resolve_attack(
         attacker: The attacking [`Combatant`][osrlib.core.creature.Combatant], which a
             [`Character`][osrlib.core.character.Character] and a
             [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy.
-        defender: The defending `Combatant`, a `Character` or a `MonsterInstance`. Changed
-            in place when damage lands.
+        defender: The defending `Combatant`, a `Character` or a `MonsterInstance`. The
+            function changes it in place when damage lands.
         attack: The [`Attack`][osrlib.core.combat.Attack], or `None` for unarmed.
         context: The attack's context. `AttackContext()` is the plain melee case.
         ruleset: The ruleset in play.
@@ -2145,8 +2149,8 @@ def resolve_attack(
             [`COMBAT_STREAM`][osrlib.core.combat.COMBAT_STREAM]. The attack roll takes one
             draw, and none on an automatic hit. A hit that deals damage then takes one draw
             for each damage die, and more when the attacker is under *striking*.
-        clock: The game clock. When you pass it, a damaging hit sets a monster defender's
-            `last_damaged_round`, which delays a troll's regeneration.
+        clock: The game clock. When you pass it, the function sets a monster defender's
+            `last_damaged_round` on a damaging hit, which delays a troll's regeneration.
 
     Returns:
         The attack's outcome. `attack_roll` has the roll. `absorbed` is true when the
@@ -2239,13 +2243,13 @@ def splash_douse_definition(attack: Attack, source: DamageSource) -> EffectDefin
     it for you on a hit that deals damage. Call this function yourself only to attach the
     douse through your own [`EffectsLedger`][osrlib.core.effects.EffectsLedger]. Build the
     `source` with [`damage_source_for`][osrlib.core.combat.damage_source_for] from the same
-    attack and context, so the second hit presents the same keys and element as the first.
+    attack and context, so the second hit has the same keys and element as the first.
 
     Args:
-        attack: The splash item. Its combat stats' damage dice are rolled again for the
+        attack: The splash item. The ledger rolls its combat stats' damage dice again for the
             second hit.
-        source: The damage source of the first hit. The second hit presents the same keys
-            and element.
+        source: The damage source of the first hit. The second hit has the same keys and
+            element.
 
     Returns:
         A one-round [`EffectDefinition`][osrlib.core.effects.EffectDefinition] whose expiry
@@ -2359,7 +2363,7 @@ def resolve_splash_attack(
             [`Character`][osrlib.core.character.Character] and a
             [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy.
         defender: The target, a `Combatant`, which a `Character` and a `MonsterInstance`
-            both satisfy. Changed in place when damage lands.
+            both satisfy. The function changes it in place when damage lands.
         attack: The holy water or oil flask, as a
             [`GearTemplate`][osrlib.core.items.GearTemplate] from
             [`load_equipment`][osrlib.data.load_equipment].
@@ -2449,7 +2453,8 @@ def participant_modifier(combatant: Combatant, *, monster_modifier: int = 0) -> 
         combatant: The [`Combatant`][osrlib.core.creature.Combatant] rolling, which a
             [`Character`][osrlib.core.character.Character] and a
             [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy.
-        monster_modifier: The modifier to use for a monster. It's ignored for a character.
+        monster_modifier: The modifier to use for a monster. The function ignores it for a
+            character.
 
     Returns:
         The modifier to put in the `Participant`'s `modifier` field. It can be negative.
@@ -2502,7 +2507,7 @@ def roll_initiative(participants: Sequence[Participant], *, ruleset: Ruleset, st
     on that roll. Under the `individual_initiative` ruleset flag, each participant rolls
     1d6 and adds its modifier.
 
-    A tie is always re-rolled. The tabletop rules let the referee re-roll a tie or resolve
+    The function re-rolls every tie. The tabletop rules let the referee re-roll a tie or resolve
     the tied actions at the same time, and osrlib re-rolls because acting at the same time
     would need a different combat model. Every side or participant in a tie rolls again,
     in the order you passed them, until no two totals are the same. A slow participant
@@ -2576,8 +2581,8 @@ def roll_initiative(participants: Sequence[Participant], *, ruleset: Ruleset, st
 def check_morale(subject: str, score: int, *, modifier: int = 0, stream: RngStream) -> MoraleResult:
     """Check a side's morale: 2d6 against its morale score, where a roll over the score breaks it.
 
-    Call this when something tests a side's nerve, and act on the result yourself: nothing
-    here makes anyone flee or surrender.
+    Call this when a side must check morale, and act on the result yourself: this function
+    doesn't make anyone flee or surrender.
     [`morale_triggers`][osrlib.core.combat.morale_triggers] tells you when a side must
     check. To apply the rule that a side which holds twice stops checking, call
     [`MoraleTracker.check`][osrlib.core.combat.MoraleTracker.check] instead. A monster's
@@ -2585,14 +2590,15 @@ def check_morale(subject: str, score: int, *, modifier: int = 0, stream: RngStre
 
     The check is for a side, not a creature. A spell like *bless* changes a creature's
     morale, so read that change with [`morale_modifier`][osrlib.core.combat.morale_modifier]
-    and add it to the `modifier` you pass. A score of 2 or less never fights, and a score
-    of 12 or more never checks. Both are exempt: no roll is made, no draw is taken, and
-    the modifier doesn't count.
+    and add it to the `modifier` you pass. A side with a score of 2 or less never fights,
+    and a side with 12 or more never checks. Both are exempt: the function makes no roll,
+    takes no draw, and ignores the modifier.
 
     Args:
-        subject: The side's key. It appears in the event, so a listener can name the side.
-        score: The morale score, which is 2 to 12 on a stat block. Any integer is accepted.
-            A score of 2 or less never fights, and 12 or more always does.
+        subject: The side's key. It appears in the event, so you can show which side checked.
+        score: The morale score, which is 2 to 12 on a stat block. The function accepts any
+            integer. A side with a score of 2 or less never fights, and a side with 12 or
+            more always does.
         modifier: The adjustment to the roll. A value outside −2 to +2 counts as −2 or +2.
         stream: The stream the 2d6 comes from, usually
             [`COMBAT_STREAM`][osrlib.core.combat.COMBAT_STREAM]. Two draws for a rolled
@@ -2601,7 +2607,7 @@ def check_morale(subject: str, score: int, *, modifier: int = 0, stream: RngStre
     Returns:
         The outcome. Its [`MoraleCheckedEvent`][osrlib.core.events.MoraleCheckedEvent] has
         the verdict in `held` for every code, exempt checks included. The event is visible
-        to the referee only, because players learn a side's nerve from what it does.
+        to the referee only, because players learn a side's morale from what it does.
 
     Examples:
         ```python
@@ -2660,8 +2666,8 @@ class ReactionRollResult(BaseModel):
     total: int
     """`roll` plus `modifier`.
 
-    It can fall outside 2 to 12. A total below 2 reads as 2, and a total above 12 reads as
-    12.
+    It can fall outside 2 to 12. `roll_reaction` reads a total below 2 as 2, and a total
+    above 12 as 12.
     """
 
     events: tuple[Event, ...] = ()
@@ -2681,8 +2687,9 @@ def roll_reaction(*, modifier: int = 0, stream: RngStream) -> ReactionRollResult
     can lead to [`start_battle`][osrlib.crawl.battle.start_battle].
 
     You supply the modifier, from the `npc_reaction_modifier` of the character who speaks
-    to the monsters, because the tabletop rules apply it only when one character speaks. A
-    total outside 2 to 12 reads as the nearest end of the table, and isn't an error.
+    to the monsters, because the tabletop rules apply it only when one character speaks. The
+    function reads a total outside 2 to 12 as the nearest end of the table, and doesn't
+    treat it as an error.
 
     Args:
         modifier: The speaking character's CHA modifier to reactions, when a character
@@ -2740,7 +2747,7 @@ class MoraleTracker(BaseModel):
     passed: dict[str, int] = {}
     """How many checks each side has held, by the side's key as you pass it to `check`.
 
-    A side at 2 is never checked again.
+    The tracker never checks a side at 2 again.
     """
 
     def check(self, subject: str, score: int, *, modifier: int = 0, stream: RngStream) -> MoraleResult | None:
@@ -2753,14 +2760,14 @@ class MoraleTracker(BaseModel):
         Args:
             subject: The side's key. The tracker counts each key apart, so two groups of
                 goblins with different keys are counted apart.
-            score: The morale score, which is 2 to 12 on a stat block. Any integer is
-                accepted. A score of 2 or less, or of 12 or more, is exempt, as in
+            score: The morale score, which is 2 to 12 on a stat block. The method accepts
+                any integer. A score of 2 or less, or of 12 or more, is exempt, as in
                 `check_morale`.
             modifier: The adjustment to the roll. A value outside −2 to +2 counts as −2
                 or +2.
             stream: The stream the 2d6 comes from, usually
-                [`COMBAT_STREAM`][osrlib.core.combat.COMBAT_STREAM]. No draw is taken once
-                the side has held twice.
+                [`COMBAT_STREAM`][osrlib.core.combat.COMBAT_STREAM]. The method takes no draw
+                once the side has held twice.
 
         Returns:
             The check's outcome, or `None` when the side has held twice and fights until
@@ -2835,7 +2842,7 @@ def cannot_move(combatant: Creature) -> bool:
     Ask this before you let a creature move, flee, or close to melee. It's true for an
     [`incapacitated`][osrlib.core.combat.incapacitated] creature, which is dead, paralysed,
     turned to stone, or asleep, and for an entangled one, which is caught in a *web*.
-    Nothing in this module moves creatures, so nothing here calls it for you.
+    Nothing in this module moves creatures, so no function here calls it for you.
 
     Args:
         combatant: The [`Creature`][osrlib.core.creature.Creature] to ask about, which a
@@ -2967,14 +2974,14 @@ def saving_throw(
 ) -> SaveResult:
     """Roll a saving throw: 1d20 plus modifiers, which passes at or above the target's number for the category.
 
-    Call this whenever something forces a save, then act on `passed` yourself: the save
+    Call this whenever something forces a save, then act on `passed` yourself: the function
     reports the outcome and changes nothing. Pick the category from
     [`SaveCategory`][osrlib.core.combat.SaveCategory].
     [`resolve_breath`][osrlib.core.combat.resolve_breath] and
-    [`resolve_gaze`][osrlib.core.combat.resolve_gaze] already roll their own saves, so you
+    [`resolve_gaze`][osrlib.core.combat.resolve_gaze] already roll the saves they need, so you
     need this function for spells, traps, poisons, and saves of your own.
 
-    The roll adds the target's own bonuses for you:
+    The roll adds the target's bonuses for you:
 
     - A character's WIS modifier, when `magical` is true and the category isn't breath.
       The rules say the WIS bonus "does not normally include saves against breath
@@ -2987,21 +2994,22 @@ def saving_throw(
       add on top of the spell bonuses.
 
     Pass any other adjustment, like a referee's ruling, in `modifier`. A monster whose
-    defense saves for it against a magical form of an element, as a dragon's does against
-    its own element, passes without a roll and without a draw.
+    defenses give it an automatic save against a magical effect of an element, as a red
+    dragon has against magical fire, passes without a roll and without a draw.
 
     Args:
         target: The saving [`Combatant`][osrlib.core.creature.Combatant], which a
             [`Character`][osrlib.core.character.Character] and a
             [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy.
         category: The saving throw category.
-        modifier: Your adjustment, added to the target's own bonuses.
+        modifier: Your adjustment, added to the target's bonuses.
         magical: Whether the effect is magical. It turns on the WIS modifier, and a
             monster's automatic save against an element needs it.
-        element: The effect's element, like `fire`, or `None`. Element bonuses and
-            automatic saves read it.
+        element: The effect's element, like `fire`, or `None`. The function reads it for
+            element bonuses and automatic saves.
         source: The `Creature` whose attack or ability forced the save, a `Character` or a
-            `MonsterInstance`. Only bonuses against another alignment read it.
+            `MonsterInstance`. The function reads it only for bonuses against another
+            alignment.
         stream: The stream the d20 comes from, usually
             [`COMBAT_STREAM`][osrlib.core.combat.COMBAT_STREAM]. One draw, or none for an
             automatic save.
@@ -3091,10 +3099,10 @@ def apply_healing(target: Creature, amount: int, *, source: str = "magical") -> 
     Args:
         target: The [`Creature`][osrlib.core.creature.Creature] to heal, which a
             [`Character`][osrlib.core.character.Character] and a
-            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy. Changed
-            in place.
-        amount: The hit points to restore, 0 or more. Healing past the maximum is cut to
-            the maximum, and isn't an error.
+            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy. The
+            function changes it in place.
+        amount: The hit points to restore, 0 or more. The function cuts healing past the
+            maximum to the maximum, and doesn't treat it as an error.
         source: The kind of healing: `magical`, the default, `natural`, or
             `regeneration`. It decides which conditions block the healing, and appears in
             the event.
@@ -3106,7 +3114,7 @@ def apply_healing(target: Creature, amount: int, *, source: str = "magical") -> 
         list.
 
     Raises:
-        ValueError: If `amount` is negative. Nothing is changed first.
+        ValueError: If `amount` is negative. The function changes nothing first.
 
     Examples:
         ```python
@@ -3149,27 +3157,27 @@ def natural_healing(target: Creature, stream: RngStream, *, ledger: EffectsLedge
     """Heal one full day of complete rest: 1d3 hit points.
 
     Call this once for each day of rest without interruption. You decide whether the rest
-    was interrupted, and a session's rest procedure decides it for you. For healing from a
+    was interrupted. In a session, the rest procedure decides it for you. For healing from a
     spell or a potion, call [`apply_healing`][osrlib.core.combat.apply_healing] instead,
     which takes the amount you rolled.
 
     An effect that slows healing makes the target heal less often, not heal less. Mummy
     rot makes natural healing ten times slower, so the target heals on every tenth day of
-    rest. An effect with a `healing_rest_days` param heals once in that many days of rest,
-    which is 2 for *cause disease* and for a cursed scroll's "twice the usual amount of
-    time". The effect counts the days itself, and when several apply, the slowest one
-    counts. A diseased target doesn't heal at all when you pass no `ledger`.
+    rest. With an effect that has a `healing_rest_days` param, the target heals once in that
+    many days of rest, which is 2 for *cause disease* and for a cursed scroll's "twice the
+    usual amount of time". The function counts the days in the effect's `state`, and when
+    several effects apply, the slowest one counts. A diseased target doesn't heal at all when you pass no `ledger`.
 
     Args:
         target: The resting [`Creature`][osrlib.core.creature.Creature], which a
             [`Character`][osrlib.core.character.Character] and a
-            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy. Changed
-            in place.
+            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy. The
+            function changes it in place.
         stream: The stream the 1d3 comes from. Natural healing draws from
-            [`EFFECTS_STREAM`][osrlib.core.effects.EFFECTS_STREAM], with the draws that
-            effects make, not from the combat stream. One draw on a day the target heals,
+            [`EFFECTS_STREAM`][osrlib.core.effects.EFFECTS_STREAM], with the draws for
+            effects, not from the combat stream. One draw on a day the target heals,
             and none on a day it doesn't.
-        ledger: The [`EffectsLedger`][osrlib.core.effects.EffectsLedger] that holds the
+        ledger: The [`EffectsLedger`][osrlib.core.effects.EffectsLedger] that contains the
             target's effects. Without it, no effect can slow the healing.
 
     Returns:
@@ -3229,8 +3237,8 @@ def falling_damage(feet: int, stream: RngStream) -> RollResult | None:
             [`COMBAT_STREAM`][osrlib.core.combat.COMBAT_STREAM].
 
     Returns:
-        The damage roll, or `None` for a fall under 10 feet, which rolls no dice and takes
-        no draw.
+        The damage roll, or `None` for a fall under 10 feet, for which the function rolls no
+        dice and takes no draw.
 
     Examples:
         ```python
@@ -3255,8 +3263,8 @@ def falling_damage(feet: int, stream: RngStream) -> RollResult | None:
 def drain_monster_hd(monster: MonsterInstance, *, levels: int = 1, stream: RngStream) -> list[Event]:
     """Drain Hit Dice from a monster, which is how energy drain works on a monster.
 
-    The rules drain "one experience level (or Hit Die)": a character loses levels and a
-    monster loses Hit Dice. Call this when something drains a monster. For a character,
+    The rules say energy drain takes "one experience level (or Hit Die)": a character loses
+    levels and a monster loses Hit Dice. Call this when something drains a monster. For a character,
     call [`drain_levels`][osrlib.core.classes.drain_levels].
     [`resolve_energy_drain`][osrlib.core.combat.resolve_energy_drain] calls the right one
     of the two for you after an undead creature's hit. This function changes the monster.
@@ -3265,12 +3273,12 @@ def drain_monster_hd(monster: MonsterInstance, *, levels: int = 1, stream: RngSt
     current hit points, and its THAC0 and saving throws become those of its new Hit Dice.
     Neither hit point total falls below 1, so losing hit points never kills a monster.
 
-    A monster already at 1 Hit Die is killed instead. No die is rolled for that step, no
-    Hit Die comes off, and the event counts the last one as lost.
+    The function kills a monster already at 1 Hit Die instead. It rolls no die for that step
+    and takes no Hit Die off, and the event counts the last one as lost.
 
     Args:
         monster: The drained [`MonsterInstance`][osrlib.core.monsters.MonsterInstance].
-            Changed in place.
+            The function changes it in place.
         levels: How many Hit Dice the drain takes.
         stream: The stream the d8s for lost hit points come from. Drain undoes
             advancement, so it draws from
@@ -3364,8 +3372,8 @@ def resolve_energy_drain(attacker: MonsterInstance, target: Creature, *, stream:
         attacker: The draining [`MonsterInstance`][osrlib.core.monsters.MonsterInstance],
             whose template has an `energy_drain` ability.
         target: The drained [`Creature`][osrlib.core.creature.Creature], a
-            [`Character`][osrlib.core.character.Character] or a `MonsterInstance`, which
-            decides whether levels or Hit Dice come off. Changed in place.
+            [`Character`][osrlib.core.character.Character] or a `MonsterInstance`. Its type
+            decides whether levels or Hit Dice come off. The function changes it in place.
         stream: The stream the dice for lost hit points come from. Drain undoes
             advancement, so it draws from
             [`ADVANCEMENT_STREAM`][osrlib.core.character.ADVANCEMENT_STREAM], not the
@@ -3384,7 +3392,7 @@ def resolve_energy_drain(attacker: MonsterInstance, target: Creature, *, stream:
 
     Raises:
         ValueError: If the attacker has no `energy_drain` ability, so it doesn't drain.
-            Nothing is changed first.
+            The function changes nothing first.
 
     Examples:
         ```python
@@ -3413,7 +3421,7 @@ def resolve_energy_drain(attacker: MonsterInstance, target: Creature, *, stream:
     levels = int(params.get("levels", 1))
     if getattr(target, "definition", None) is not None:
         # A class definition is a character's, and its absence is what marks a monster.
-        # The branch has settled which the target is, and the casts say so, since a `getattr`
+        # The branch has settled which the target is, and the casts state that, since a `getattr`
         # test proves nothing to the type checker. The type name stays quoted because
         # `Character` is imported for type checking alone and `cast` never evaluates it.
         character = cast("Character", target)
@@ -3485,11 +3493,10 @@ def select_targets(
 
     [`cast_spell`][osrlib.core.spells.cast_spell] calls this for a spell that targets up
     to a number of creatures, or a budget of Hit Dice. Call it yourself to apply the same
-    rules to an effect of your own. You supply the candidates, because nothing in
-    `osrlib.core` tracks where creatures stand: who's in range or in the blast is your
-    judgment. In a session, [`osrlib.crawl.battle`][osrlib.crawl.battle] supplies them from
-    the distances it tracks. Pass the selected targets to whatever resolves the effect,
-    like [`saving_throw`][osrlib.core.combat.saving_throw] or
+    rules to an effect of your own. You supply the candidates, because `osrlib.core` has no
+    record of where creatures stand: who's in range or in the blast is your judgment. In a session,
+    [`osrlib.crawl.battle`][osrlib.crawl.battle] supplies them from the distances it tracks. Pass the selected targets
+    to whatever resolves the effect, like [`saving_throw`][osrlib.core.combat.saving_throw] or
     [`deal_damage`][osrlib.core.combat.deal_damage].
 
     Each [`TargetingMode`][osrlib.core.combat.TargetingMode] chooses its targets this way:
@@ -3500,8 +3507,8 @@ def select_targets(
     - `area` and `gaze` take every candidate.
     - `hd_budget` takes candidates weakest first, by
       [`effective_hd`][osrlib.core.combat.effective_hd], with equal ones in your order,
-      until the budget runs out. A candidate with more Hit Dice than the budget has left is
-      skipped, and the selection goes on down the list. That's how *sleep* works.
+      until the budget runs out. It skips a candidate with more Hit Dice than the budget has
+      left, and goes on down the list. That's how *sleep* works.
 
     Args:
         mode: The targeting mode.
@@ -3514,7 +3521,7 @@ def select_targets(
             [`COMBAT_STREAM`][osrlib.core.combat.COMBAT_STREAM]. Only `count_dice` draws.
         count: The fixed N for `up_to_n`.
         count_dice: The dice expression, like `1d4`, for a rolled N in `up_to_n`. When you
-            pass both, `count` is used.
+            pass both, the function uses `count`.
         hd_budget: The Hit Dice budget for `hd_budget`, which that mode requires.
 
     Returns:
@@ -3589,12 +3596,13 @@ def resolve_gaze(
 
     Call this once each round for a basilisk, a medusa, or another monster whose gaze
     turns creatures to stone, as well as whatever it does with its attacks. You supply the
-    creatures in melee with it, because nothing in `osrlib.core` tracks where creatures
+    creatures in melee with it, because `osrlib.core` has no record of where creatures
     stand.
 
     Each of those creatures saves versus paralysis, unless it's averting its eyes or is
-    already [`incapacitated`][osrlib.core.combat.incapacitated]. A failed save attaches a
-    permanent petrification effect, which gives the `petrified` condition. A petrified
+    already [`incapacitated`][osrlib.core.combat.incapacitated]. On a failed save, the
+    function attaches a permanent petrification effect, which gives the `petrified`
+    condition. A petrified
     creature isn't dead, and the effect can be ended. A creature that fights with its eyes
     averted takes a penalty to hit, which you apply through the `situational_modifier` of
     its [`AttackContext`][osrlib.core.combat.AttackContext]. Using a mirror against the
@@ -3602,7 +3610,7 @@ def resolve_gaze(
 
     Args:
         gazer: The gazing [`Creature`][osrlib.core.creature.Creature], usually a
-            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance]. Nothing is read from it.
+            [`MonsterInstance`][osrlib.core.monsters.MonsterInstance]. The function doesn't read it.
         engaged: The creatures in melee with the gazer, each a
             [`Combatant`][osrlib.core.creature.Combatant], which a
             [`Character`][osrlib.core.character.Character] and a `MonsterInstance` both
@@ -3612,8 +3620,8 @@ def resolve_gaze(
             that saves.
         ledger: The [`EffectsLedger`][osrlib.core.effects.EffectsLedger] the petrification
             effect is attached to.
-        clock: The game clock. Its current round is recorded as the round the effect was
-            attached.
+        clock: The game clock. The function records its current round as the round the
+            effect was attached.
         allocator: The [`IdAllocator`][osrlib.core.monsters.IdAllocator] that assigns the
             effect ids.
         registry: Your creatures by entity id, so the ledger can find the targets.
@@ -3685,7 +3693,7 @@ def validate_breath(monster: MonsterInstance) -> list[Rejection]:
 
     Args:
         monster: The breathing [`MonsterInstance`][osrlib.core.monsters.MonsterInstance].
-            Its `breath_uses_today` is checked against the limit.
+            The function checks its `breath_uses_today` against the limit.
 
     Returns:
         The reasons the monster can't breathe, as
@@ -3738,7 +3746,7 @@ def resolve_breath(
     Call this instead of [`resolve_attack`][osrlib.core.combat.resolve_attack] when a
     monster breathes. There's no attack roll: every target saves versus breath instead,
     and the whole breath resolves in one call. You supply the creatures caught in it,
-    because nothing in `osrlib.core` tracks where creatures stand. Call
+    because `osrlib.core` has no record of where creatures stand. Call
     [`validate_breath`][osrlib.core.combat.validate_breath] first, because breathing past
     the daily limit raises an error instead of returning a rejection. This function adds
     one to the monster's daily count and changes every target it harms.
@@ -3747,8 +3755,8 @@ def resolve_breath(
 
     - A dragon's breath deals damage equal to the dragon's current hit points, so a
       wounded dragon's breath is weaker. A dragon breathes up to three times a day.
-    - A hellhound's breath rolls its listed dice, with no daily limit. The dice are rolled
-      again for each target.
+    - A hellhound's breath rolls its listed dice, with no daily limit. The function rolls
+      the dice again for each target.
     - A sea dragon's spittle kills a target that fails its save, and does nothing to one
       that passes.
 
@@ -3767,14 +3775,14 @@ def resolve_breath(
         targets: The creatures caught in the breath, each a
             [`Combatant`][osrlib.core.creature.Combatant], which a
             [`Character`][osrlib.core.character.Character] and a `MonsterInstance` both
-            satisfy. Changed in place.
+            satisfy. The function changes them in place.
         ruleset: The ruleset in play.
         stream: The stream every draw comes from, usually
             [`COMBAT_STREAM`][osrlib.core.combat.COMBAT_STREAM]: one save for each target,
             the damage dice when the breath rolls them, and the saves of the magic items of
             each target it kills.
-        clock: The game clock. When you pass it, a breath that deals damage sets each
-            monster target's `last_damaged_round`.
+        clock: The game clock. When you pass it, the function sets the `last_damaged_round`
+            of each monster target the breath damages.
 
     Returns:
         The events for each target, in the order you passed the targets. A target immune
@@ -3787,8 +3795,8 @@ def resolve_breath(
 
     Raises:
         ValueError: If the monster has no breath weapon, or has used up its breath for the
-            day. Nothing is drawn or changed first. Breathing anyway is a mistake in the
-            calling code, not a move the rules reject, so call `validate_breath` first.
+            day. The function draws nothing and changes nothing first. Breathing anyway is a
+            mistake in your code, not a move the rules reject, so call `validate_breath` first.
 
     Examples:
         ```python

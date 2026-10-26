@@ -1,25 +1,26 @@
-"""The attributes the rules read from a character or a monster instance, as protocols.
+"""The attributes that rules functions read from a character or a monster instance, as protocols.
 
 A rules function in [`osrlib.core.combat`][osrlib.core.combat], [`osrlib.core.spells`][osrlib.core.spells],
 and [`osrlib.core.effects`][osrlib.core.effects] takes the creature it acts on as one of the three protocols
-here, unless it needs a single concrete type, and then its entry says so. A protocol is a type that lists the
+here, unless it needs a single concrete type, and then its entry states that. A protocol is a type that lists the
 attributes a value must have, with no base class to inherit. A [`Character`][osrlib.core.character.Character] and a
 [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] have those attributes, so you pass either without a
-cast, and pyright checks that anything else you pass has the attributes the function reads. You never
-instantiate a protocol. Read one to learn what a function needs from its argument, and annotate your own
-functions with it when they take either kind of creature.
+cast, and pyright checks that anything else you pass has the attributes the function reads. You don't
+instantiate a protocol. Read one to learn which attributes a function reads from its argument, and annotate
+your own functions with it when they take either kind of creature.
 
 The members, from the base up:
 
 - [`Creature`][osrlib.core.creature.Creature]: an id, a name, an alignment, hit points, conditions, and stat
   modifiers.
-- [`Combatant`][osrlib.core.creature.Combatant]: a `Creature` with the numbers an attack, an initiative roll,
-  or a saving throw reads.
-- [`Caster`][osrlib.core.creature.Caster]: a `Creature` with what memorizing and casting spells read.
+- [`Combatant`][osrlib.core.creature.Combatant]: a `Creature` with the numbers that the attack, initiative,
+  and saving throw functions read.
+- [`Caster`][osrlib.core.creature.Caster]: a `Creature` with what the functions that memorize and cast spells
+  read.
 
 A function that needs an attribute only one concrete type has, like a monster's template or a character's
 inventory, either takes that concrete type or works without the attribute when it's missing. The function's
-`Args` entry says which.
+`Args` entry states which.
 
 Typical usage:
 
@@ -71,7 +72,7 @@ __all__ = [
 
 @runtime_checkable
 class Creature(Protocol):
-    """What every rules function needs from the creature it acts on.
+    """The attributes every rules function reads from the creature it acts on.
 
     A [`Character`][osrlib.core.character.Character] and a [`MonsterInstance`][osrlib.core.monsters.MonsterInstance]
     both satisfy this, and so does anything of your own with these attributes. Functions that read only these
@@ -79,7 +80,7 @@ class Creature(Protocol):
     [`apply_healing`][osrlib.core.combat.apply_healing], and [`incapacitated`][osrlib.core.combat.incapacitated],
     take it. A function that also reads combat numbers takes [`Combatant`][osrlib.core.creature.Combatant].
 
-    The hit points, conditions, and stat modifiers are writable, because the rules change them: damage lowers
+    The hit points, conditions, and stat modifiers are writable, because rules functions change them: damage lowers
     `current_hp`, a spell adds to `conditions`, an effect attaches a modifier. The id, name, and alignment are
     read-only properties, so a class can supply them as plain attributes or compute them. A monster's name,
     for example, comes from its template.
@@ -109,7 +110,7 @@ class Creature(Protocol):
 
     @property
     def name(self) -> str:
-        """The display name: the one a character was created with, or the one a monster's template gives."""
+        """The display name: the one a character was created with, or the one from a monster's template."""
         ...
 
     @property
@@ -122,7 +123,7 @@ class Creature(Protocol):
         ...
 
     current_hp: int
-    """Hit points now. The rules lower and raise it in place."""
+    """Hit points now. Rules functions lower and raise it in place."""
     max_hp: int
     """The most hit points the creature can have. Healing stops here."""
     conditions: tuple[ActiveCondition, ...]
@@ -135,7 +136,7 @@ class Creature(Protocol):
 
 @runtime_checkable
 class Combatant(Creature, Protocol):
-    """A creature with the numbers an attack, an initiative roll, or a saving throw reads.
+    """A creature with the numbers that the attack, initiative, and saving throw functions read.
 
     [`attack_roll`][osrlib.core.combat.attack_roll], [`resolve_attack`][osrlib.core.combat.resolve_attack],
     [`saving_throw`][osrlib.core.combat.saving_throw], and
@@ -161,8 +162,8 @@ class Combatant(Creature, Protocol):
     def thac0(self) -> int:
         """The roll on 1d20 this creature needs to hit armour class 0 (THAC0).
 
-        The attack matrix is entered with it: a lower number hits more often. It applies to descending armour class,
-        where a lower armour class is better.
+        osrlib looks it up in the attack matrix, and a creature with a lower THAC0 hits more often. It applies to
+        descending armour class, where a lower armour class is better.
         """
         ...
 
@@ -175,7 +176,7 @@ class Combatant(Creature, Protocol):
     def armour_class(self) -> int | None:
         """Descending armour class, where lower is better.
 
-        `None` for a creature no attack roll is made against: an attack hits it without a roll. Green slime and
+        `None` for a creature that attacks hit without a roll. Green slime and
         yellow mould are the monsters in the compiled data with no armour class.
         """
         ...
@@ -214,7 +215,7 @@ class Caster(Creature, Protocol):
     [`cast_spell`][osrlib.core.spells.cast_spell], and [`disrupt_casting`][osrlib.core.spells.disrupt_casting]
     take this. A [`Character`][osrlib.core.character.Character] satisfies it and a
     [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] does not, because monsters in the compiled data never
-    cast. The class, which sets the spell list and the number of slots, is not part of the protocol: those functions
+    cast. The class, which sets the spell list and the number of slots, isn't part of the protocol: those functions
     take the [`ClassDefinition`][osrlib.core.classes.ClassDefinition] or the
     [`CasterProfile`][osrlib.core.spells.CasterProfile] as a separate argument.
 

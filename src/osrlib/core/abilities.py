@@ -2,11 +2,11 @@
 
 Start with [`load_ability_tables`][osrlib.data.load_ability_tables], which gives you an
 [`AbilityTables`][osrlib.core.abilities.AbilityTables] with the SRD's printed tables.
-Pass any of its accessors a score from 3 to 18 and get the number the rules apply: the
+Pass any of its accessors a score from 3 to 18 and get the number that applies: the
 melee modifier for strength, the armour class modifier for dexterity, the hit points per
 Hit Die for constitution, and so on. A [`Character`][osrlib.core.character.Character]
-offers the results it needs as properties, so call the accessors yourself only when you
-have a bare score and no character.
+has properties for these results, so call the accessors yourself only when you have a
+bare score and no character.
 
 The module also has two functions that roll dice.
 [`ability_check`][osrlib.core.abilities.ability_check] rolls the SRD's general check for
@@ -19,7 +19,7 @@ The rest of the module is the third step of character creation, where a player t
 points between abilities before play.
 [`validate_adjustment`][osrlib.core.abilities.validate_adjustment] reports whether a
 proposed trade is legal, and [`apply_adjustment`][osrlib.core.abilities.apply_adjustment]
-carries it out. [`create_character`][osrlib.core.character.create_character] runs the
+applies it. [`create_character`][osrlib.core.character.create_character] runs the
 whole creation sequence, so call these two only when you build a character step by step
 and let a player choose.
 
@@ -36,13 +36,13 @@ The members, in the order you use them:
   stream, and returns an [`OpenDoorsResult`][osrlib.core.abilities.OpenDoorsResult].
 - [`AbilityAdjustment`][osrlib.core.abilities.AbilityAdjustment]: a proposed trade, which
   [`validate_adjustment`][osrlib.core.abilities.validate_adjustment] checks and
-  [`apply_adjustment`][osrlib.core.abilities.apply_adjustment] carries out.
+  [`apply_adjustment`][osrlib.core.abilities.apply_adjustment] applies.
 - [`MIN_SCORE`][osrlib.core.abilities.MIN_SCORE],
   [`MAX_SCORE`][osrlib.core.abilities.MAX_SCORE], and
   [`ADJUSTMENT_FLOOR`][osrlib.core.abilities.ADJUSTMENT_FLOOR]: the limits on a score.
 
-Scores run 3 to 18. That's what 3d6 can roll, what the SRD's tables list, and what the
-adjustment step has to stay inside.
+Scores run 3 to 18. That's the range of a 3d6 roll and of the SRD's tables, and the
+adjustment step can't take a score outside it.
 
 Typical usage:
 
@@ -107,7 +107,7 @@ MAX_SCORE = 18
 """The highest an ability score can be, which is 18.
 
 Eighteen is what three dice showing 6 add up to, and the top row of every table here.
-The points trade at character creation can't raise a score past it. The accessors and
+When a player trades points at character creation, the trade can't raise a score past it. The accessors and
 [`ability_check`][osrlib.core.abilities.ability_check] raise `ValueError` above it,
 because the tables have no row for a higher score.
 """
@@ -126,11 +126,11 @@ class AbilityScore(StrEnum):
 
     Use these as the keys of a score dictionary, which is how every function here and in
     [`osrlib.core.character`][osrlib.core.character] passes a character's abilities
-    around. Include all six keys: a [`Character`][osrlib.core.character.Character] refuses a
-    score dictionary that's missing one.
+    around. Include all six keys: a [`Character`][osrlib.core.character.Character] raises a
+    pydantic `ValidationError` for a score dictionary that's missing one.
 
-    The lowercase values are what characters and saved games store, and they stay fixed
-    within a `schema_version`, the version stamp that marks a serialized model's format.
+    Characters and saved games contain the lowercase values, and they stay fixed within a
+    `schema_version`, the version stamp that identifies a serialized model's format.
     """
 
     STR = "str"
@@ -156,8 +156,8 @@ class Literacy(StrEnum):
     """How well a character reads and writes, which their intelligence score sets.
 
     Read it off [`AbilityTables.literacy`][osrlib.core.abilities.AbilityTables.literacy], passing the
-    character's intelligence score. No rule in osrlib reads it. What a character who can't read is
-    kept from doing, like reading a scroll, a map, or an inscription, is your game's decision.
+    character's intelligence score. osrlib's rules don't use it. You decide what a character who
+    can't read is unable to do, like reading a scroll, a map, or an inscription.
     """
 
     ILLITERATE = "illiterate"
@@ -173,11 +173,11 @@ class Literacy(StrEnum):
 class ScoreBand(BaseModel):
     """The run of scores one table row covers, like 4 to 5.
 
-    The SRD prints its modifier tables in bands rather than one row per score, and osrlib
-    keeps them that way. Each table's row model, like
+    The SRD prints its modifier tables in bands instead of one row per score, and osrlib
+    stores them the same way. Each table's row model, like
     [`StrengthRow`][osrlib.core.abilities.StrengthRow], is a band with that row's columns
     added. You read these when you read a whole table off
-    [`AbilityTables`][osrlib.core.abilities.AbilityTables], for instance to draw the table
+    [`AbilityTables`][osrlib.core.abilities.AbilityTables], for example to draw the table
     on screen. To look up a single score, call an accessor instead.
     """
 
@@ -197,7 +197,7 @@ class ScoreBand(BaseModel):
 
 
 class StrengthRow(ScoreBand):
-    """One row of the strength table: a band of scores, with the melee modifier and open-doors chance it grants.
+    """One row of the strength table: a band of scores, with its melee modifier and open-doors chance.
 
     Read the rows from [`AbilityTables.strength`][osrlib.core.abilities.AbilityTables.strength] to draw
     the table. To look up one score, call
@@ -217,7 +217,7 @@ class StrengthRow(ScoreBand):
 
 
 class IntelligenceRow(ScoreBand):
-    """One row of the intelligence table: a band of scores, with the languages and literacy it grants.
+    """One row of the intelligence table: a band of scores, with its languages and literacy.
 
     Read the rows from [`AbilityTables.intelligence`][osrlib.core.abilities.AbilityTables.intelligence] to
     draw the table. To look up one score, call
@@ -236,7 +236,7 @@ class IntelligenceRow(ScoreBand):
 
 
 class WisdomRow(ScoreBand):
-    """One row of the wisdom table: a band of scores, with the saving throw modifier it grants.
+    """One row of the wisdom table: a band of scores, with its saving throw modifier.
 
     Wisdom grants no other bonus. Read the rows from
     [`AbilityTables.wisdom`][osrlib.core.abilities.AbilityTables.wisdom] to draw the table. To look up
@@ -262,19 +262,19 @@ class DexterityRow(ScoreBand):
     """The armour class bonus. Subtract it from a descending armour class, or add it to an ascending one."""
 
     missile: int
-    """What to add to a missile attack roll. It doesn't touch missile damage."""
+    """What to add to a missile attack roll. It doesn't change missile damage."""
 
     initiative: int
     """What to add to an individual initiative roll.
 
     It applies only when the `individual_initiative` flag on
-    [`Ruleset`][osrlib.core.ruleset.Ruleset] is on. Otherwise initiative is rolled once
-    for a whole side.
+    [`Ruleset`][osrlib.core.ruleset.Ruleset] is on. Otherwise each side rolls initiative
+    once.
     """
 
 
 class ConstitutionRow(ScoreBand):
-    """One row of the constitution table: a band of scores, with the hit point modifier it grants.
+    """One row of the constitution table: a band of scores, with its hit point modifier.
 
     Constitution grants no other bonus. Read the rows from
     [`AbilityTables.constitution`][osrlib.core.abilities.AbilityTables.constitution] to draw the table. To
@@ -305,10 +305,10 @@ class CharismaRow(ScoreBand):
     """What to add to the reaction roll that sets how monsters or NPCs respond when they meet the party."""
 
     max_retainers: int = Field(ge=0)
-    """How many retainers, hired followers, the character may have at once. No rule in osrlib reads it."""
+    """How many retainers, hired followers, the character may have at once. osrlib's rules don't use it."""
 
     retainer_loyalty: int = Field(ge=0)
-    """The loyalty score a retainer of this character starts with. No rule in osrlib reads it."""
+    """The loyalty score a retainer of this character starts with. osrlib's rules don't use it."""
 
 
 class PrimeRequisiteRow(ScoreBand):
@@ -316,7 +316,7 @@ class PrimeRequisiteRow(ScoreBand):
 
     A prime requisite is the ability a class is built around: wisdom for a cleric,
     strength for a fighter. This table applies to a class with a single prime requisite. A
-    class with more than one has its own tiers on its class definition, and
+    class with more than one has separate tiers in its class definition, and
     [`xp_modifier_pct`][osrlib.core.classes.xp_modifier_pct] reads the right one for any
     class.
     """
@@ -431,7 +431,7 @@ class AbilityTables(BaseModel):
         return self._row(self.strength, score).melee
 
     def open_doors_chance(self, score: int) -> int:
-        """Return the chance in 6 that a strength score forces a stuck door open.
+        """Return the chance in 6 that a character with this strength forces a stuck door open.
 
         Pass the result to
         [`open_doors_check`][osrlib.core.abilities.open_doors_check], which rolls against
@@ -462,9 +462,8 @@ class AbilityTables(BaseModel):
     def additional_languages(self, score: int) -> int:
         """Return how many languages beyond the native ones an intelligence score grants.
 
-        The choices themselves are checked by
-        [`validate_extra_languages`][osrlib.core.character.validate_extra_languages],
-        which reads this same allowance.
+        [`validate_extra_languages`][osrlib.core.character.validate_extra_languages]
+        checks the choices themselves, and it reads this same allowance.
 
         Args:
             score: An intelligence score from 3 to 18.
@@ -543,8 +542,8 @@ class AbilityTables(BaseModel):
     def ac_modifier(self, score: int) -> int:
         """Return what a dexterity score is worth to armour class.
 
-        The number is a bonus: it's subtracted from a descending armour class, where
-        lower is better, and added to an ascending one.
+        The number is a bonus. Subtract it from a descending armour class, where lower
+        is better, or add it to an ascending one.
         [`Character.armour_class`][osrlib.core.character.Character.armour_class] applies
         it for you.
 
@@ -597,9 +596,9 @@ class AbilityTables(BaseModel):
     def initiative_modifier(self, score: int) -> int:
         """Return what a dexterity score adds to an individual initiative roll.
 
-        It is read only when the `individual_initiative` flag on
-        [`Ruleset`][osrlib.core.ruleset.Ruleset] is on. With the flag off, initiative is
-        rolled once for a whole side and no ability modifier applies.
+        osrlib uses it only when the `individual_initiative` flag on
+        [`Ruleset`][osrlib.core.ruleset.Ruleset] is on. With the flag off, each side rolls
+        initiative once and no ability modifier applies.
 
         Args:
             score: A dexterity score from 3 to 18.
@@ -682,7 +681,7 @@ class AbilityTables(BaseModel):
     def max_retainers(self, score: int) -> int:
         """Return how many hired followers a charisma score lets a character keep at once.
 
-        osrlib has no rules for retainers, so this number is for your own game to apply.
+        osrlib has no rules for retainers, so applying this number is up to you.
 
         Args:
             score: A charisma score from 3 to 18.
@@ -707,9 +706,9 @@ class AbilityTables(BaseModel):
     def retainer_loyalty(self, score: int) -> int:
         """Return the loyalty a retainer of a character with this charisma score starts with.
 
-        In the SRD, a loyalty check rolls against this score when a retainer is asked to do
-        something risky. osrlib has no rules for retainers, so the number is for your own
-        game to apply.
+        In the SRD, the referee rolls a loyalty check against this score when a retainer is
+        asked to do something risky. osrlib has no rules for retainers, so applying the
+        number is up to you.
 
         Args:
             score: A charisma score from 3 to 18.
@@ -819,14 +818,14 @@ def ability_check(score: int, stream: RngStream, modifier: int = 0) -> AbilityCh
     [`thief_skill_check`][osrlib.core.classes.thief_skill_check] for a thief's skills.
 
     The roll is a d20, and the check succeeds when the roll plus the modifier is at or
-    under the score, so a higher score succeeds more often. The SRD leaves the difficulty
+    under the score, so a character with a higher score succeeds more often. The SRD leaves the difficulty
     to the referee and suggests "a –4 modifier for an easy task or +4 for a difficult
     task". A natural 1 always succeeds and a natural 20 always fails, the opposite of an
     attack roll.
 
     Args:
         score: The ability score to check against, from 3 to 18.
-        stream: The stream the d20 draws from.
+        stream: The stream to draw the d20 from.
         modifier: The difficulty, added to the roll. Positive makes the check harder.
 
     Returns:
@@ -868,9 +867,9 @@ def open_doors_check(chance: int, stream: RngStream) -> OpenDoorsResult:
 
     Get the chance from
     [`AbilityTables.open_doors_chance`][osrlib.core.abilities.AbilityTables.open_doors_chance]
-    for the character's strength. A d6 at or under the chance opens the door. The function
-    only rolls and reports the result. Opening the door, and whatever else the attempt
-    costs the party, are yours to apply.
+    for the character's strength. The attempt succeeds on a d6 roll at or under the chance.
+    The function only rolls and reports the result. You apply the consequences: opening the
+    door, and whatever else the attempt costs the party.
 
     In a session, execute [`ForceDoor`][osrlib.crawl.commands.ForceDoor] instead. It
     applies those consequences for you: the party makes noise, a success opens the door
@@ -879,7 +878,7 @@ def open_doors_check(chance: int, stream: RngStream) -> OpenDoorsResult:
 
     Args:
         chance: The chance in 6, from 0 to 6.
-        stream: The stream the d6 draws from.
+        stream: The stream to draw the d6 from.
 
     Returns:
         The outcome, including the d6 roll for display.
@@ -913,7 +912,7 @@ class AbilityAdjustment(BaseModel):
     """A proposed trade of ability points, made once while a character is being created.
 
     Build one from what the player chose, check it with
-    [`validate_adjustment`][osrlib.core.abilities.validate_adjustment], and carry it out
+    [`validate_adjustment`][osrlib.core.abilities.validate_adjustment], and apply it
     with [`apply_adjustment`][osrlib.core.abilities.apply_adjustment], or pass it to
     [`create_character`][osrlib.core.character.create_character] as `adjustment`. The
     exchange rate is two points down for one point up. The points bought can go only into
@@ -968,22 +967,23 @@ def validate_adjustment(
     prime_requisites: tuple[AbilityScore, ...],
     may_not_lower: tuple[AbilityScore, ...] = (),
 ) -> list[Rejection]:
-    """Check a proposed points trade against the rules, and say what is wrong with it.
+    """Check a proposed points trade against the rules, and return what's wrong with it.
 
     Call this before [`apply_adjustment`][osrlib.core.abilities.apply_adjustment] and show
     the player what comes back. An empty list means the trade is legal. The two functions
     take the same four arguments, so you can pass the same ones to both.
 
-    The rules it enforces come from the SRD's third character-creation step, as osrlib
-    reads it in
+    The rules it enforces come from the SRD's third character-creation step. osrlib's
+    interpretation of that step is in
     [the adaptations register](https://mmacy.github.io/osrlib-python/adaptations/), the
-    page that lists every place osrlib commits to one reading of the rules:
+    page that lists each place where osrlib chooses one interpretation of the rules. The
+    rules are these:
 
     - Only strength, intelligence, and wisdom may be lowered.
     - A prime requisite of the chosen class may not be lowered, and neither may an ability
       the class forbids lowering, which is why a thief may not lower strength.
-    - Each score comes down by an even amount, because the two-for-one trade is worked out
-      per score, and an odd amount would leave half a point.
+    - Each score comes down by an even amount, because osrlib works out the two-for-one
+      trade per score, and an odd amount would leave half a point.
     - The points bought add up to half the points sold, and go only into the class's prime
       requisites.
     - No score is lowered below [`ADJUSTMENT_FLOOR`][osrlib.core.abilities.ADJUSTMENT_FLOOR]
@@ -1080,11 +1080,11 @@ def apply_adjustment(
     prime_requisites: tuple[AbilityScore, ...],
     may_not_lower: tuple[AbilityScore, ...] = (),
 ) -> dict[AbilityScore, int]:
-    """Carry out a points trade and return the adjusted scores.
+    """Apply a points trade and return the adjusted scores.
 
     Call [`validate_adjustment`][osrlib.core.abilities.validate_adjustment] first, with the
-    same arguments. This function validates again and refuses to produce scores the rules
-    forbid, so an exception here means your code let an illegal trade through, not that
+    same arguments. This function validates again and refuses to produce scores that break
+    the rules, so an exception here means your code let an illegal trade through, not that
     the player chose badly. It applies the whole trade or nothing.
 
     Pass the result as `scores` when you construct the
@@ -1095,13 +1095,13 @@ def apply_adjustment(
     Args:
         scores: The rolled scores, with all six abilities present. This dictionary isn't
             changed. The adjusted scores come back in a new one.
-        adjustment: The trade to carry out.
+        adjustment: The trade to apply.
         prime_requisites: The chosen class's prime requisites.
         may_not_lower: Abilities this class forbids lowering.
 
     Returns:
         A new score dictionary with the points moved. It has the same keys as `scores`, and
-        the abilities the trade didn't touch keep their rolled values.
+        the abilities the trade didn't change have their rolled values.
 
     Raises:
         ValueError: If the trade breaks any rule

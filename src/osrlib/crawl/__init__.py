@@ -1,43 +1,45 @@
-"""The crawl framework, with the adventure content models, the game session, and the dungeon crawl loop.
+"""The crawl framework: adventure content, the game session, and the procedures the session runs.
 
 `osrlib.crawl` is the layer you build a dungeon crawler on. It contains the content models you author an
 adventure with, the [`GameSession`][osrlib.crawl.session.GameSession] that runs one, and the
-procedures the session dispatches to while the party explores, talks, and fights. It sits on top of
-the `osrlib.core` kernel, which has the characters, items, dice, the clock, and the rules that need
-no dungeon around them. The dependency runs one way: the kernel never imports from here, so you can
-use the core rules on their own and reach for this package when you want a running game.
+procedures the session runs while the party explores, meets monsters, and fights. It sits on top of
+the `osrlib.core` kernel, which has the characters, items, dice, the clock, and the rules that don't
+depend on a dungeon. The dependency runs one way: the kernel never imports from here, so you can
+use the core rules on their own and add this package when you want a running game.
 
 The crawl framework has these modules:
 
-- [`osrlib.crawl.dungeon`][osrlib.crawl.dungeon] takes cell coordinates and gives you the geometry:
-  levels, the edges that make walls and doors, keyed areas, features, traps, and transitions, plus
-  [`DungeonState`][osrlib.crawl.dungeon.DungeonState], the state the session records over that frozen content in play.
-- [`osrlib.crawl.adventure`][osrlib.crawl.adventure] takes dungeons and a town and gives you an
-  [`Adventure`][osrlib.crawl.adventure.Adventure], the root document a session runs, with
-  [`validate_adventure`][osrlib.crawl.adventure.validate_adventure] to check every id in it resolves.
-- [`osrlib.crawl.party`][osrlib.crawl.party] takes characters and gives you a
-  [`Party`][osrlib.crawl.party.Party] in marching order, which the session moves as one body.
+- [`osrlib.crawl.dungeon`][osrlib.crawl.dungeon]: build dungeon levels from cells, the edges
+  between them (walls, doors, and openings), keyed areas, features, traps, and transitions like
+  stairs. [`DungeonState`][osrlib.crawl.dungeon.DungeonState] is where the session records how
+  play changes that content.
+- [`osrlib.crawl.adventure`][osrlib.crawl.adventure]: combine dungeons and a town into an
+  [`Adventure`][osrlib.crawl.adventure.Adventure], the document a session plays, and check it with
+  [`validate_adventure`][osrlib.crawl.adventure.validate_adventure].
+- [`osrlib.crawl.party`][osrlib.crawl.party]: put characters in a
+  [`Party`][osrlib.crawl.party.Party], in marching order. The session moves the party as one group.
 - [`osrlib.crawl.gates`][osrlib.crawl.gates], [`osrlib.crawl.triggers`][osrlib.crawl.triggers], and
-  [`osrlib.crawl.quests`][osrlib.crawl.quests] take event patterns and conditions and give you the
-  authored behavior an adventure contains: what the party needs before a door opens, what fires when the
-  party walks in, and what the party is trying to accomplish.
-  [`osrlib.crawl.narrative`][osrlib.crawl.narrative] is the prose block you attach to any of them.
-- [`osrlib.crawl.stocking`][osrlib.crawl.stocking] takes a level number and an RNG stream and gives
-  you one keyed area's rolled contents, so you can fill rooms from the B/X tables instead of by hand.
-- [`osrlib.crawl.content_pack`][osrlib.crawl.content_pack] takes finished room content and gives you a
-  portable document with the geometry left out, for moving stocked rooms between adventures.
-- [`osrlib.crawl.session`][osrlib.crawl.session] takes a party and an adventure and gives you the
-  running game: one [`execute`][osrlib.crawl.session.GameSession.execute] call per player action.
-- [`osrlib.crawl.commands`][osrlib.crawl.commands] is what you hand `execute`, and
-  [`osrlib.crawl.events`][osrlib.crawl.events] is what comes back.
-  [`osrlib.crawl.views`][osrlib.crawl.views] turns the session into the state you draw, in either the
-  player's or the referee's visibility.
-- [`osrlib.crawl.interpreter`][osrlib.crawl.interpreter] is the listener that plays an adventure's
-  triggers and quests, and
-  [`osrlib.crawl.exploration`][osrlib.crawl.exploration],
+  [`osrlib.crawl.quests`][osrlib.crawl.quests]: write the rules an adventure adds, like what the
+  party needs before a door opens, what happens when the party enters an area, and what the party
+  is trying to accomplish. [`osrlib.crawl.narrative`][osrlib.crawl.narrative] is the text you
+  attach to any of them.
+- [`osrlib.crawl.stocking`][osrlib.crawl.stocking]: roll a room's monsters and treasure from the
+  B/X tables instead of choosing them by hand.
+- [`osrlib.crawl.content_pack`][osrlib.crawl.content_pack]: move finished room contents from one
+  adventure to another, without the map.
+- [`osrlib.crawl.session`][osrlib.crawl.session]: start a game from a party and an adventure, and
+  run it with one [`execute`][osrlib.crawl.session.GameSession.execute] call per player action.
+- [`osrlib.crawl.commands`][osrlib.crawl.commands] has what you pass to `execute`, and
+  [`osrlib.crawl.events`][osrlib.crawl.events] has what comes back.
+  [`osrlib.crawl.views`][osrlib.crawl.views] has the state you draw, as the players may see it or
+  as the referee (the game master) sees it.
+- [`osrlib.crawl.interpreter`][osrlib.crawl.interpreter]: run an adventure's triggers and quests.
+  If the adventure has any, register an interpreter on the session with
+  `session.register_listener(Interpreter(session))`.
+- [`osrlib.crawl.exploration`][osrlib.crawl.exploration],
   [`osrlib.crawl.encounter`][osrlib.crawl.encounter], and
-  [`osrlib.crawl.battle`][osrlib.crawl.battle] are the procedures the session runs for you. You read
-  them to learn what a command does. You rarely call into them yourself.
+  [`osrlib.crawl.battle`][osrlib.crawl.battle]: the procedures the session runs for you. Read them
+  to learn what a command does. You rarely call them yourself.
 
 Typical usage:
 

@@ -21,14 +21,14 @@ it acted for. What it does appears in the command's events as
 [`ObjectiveCompletedEvent`][osrlib.crawl.events.ObjectiveCompletedEvent],
 [`QuestCompletedEvent`][osrlib.crawl.events.QuestCompletedEvent],
 [`AdventureCompletedEvent`][osrlib.crawl.events.AdventureCompletedEvent], and
-[`NoteRecordedEvent`][osrlib.crawl.events.NoteRecordedEvent], plus whatever the
-consequences and rewards themselves emit.
+[`NoteRecordedEvent`][osrlib.crawl.events.NoteRecordedEvent], plus the events that the
+consequences and rewards emit.
 
-Acting only through commands keeps the game replayable. The interpreter returns no events
-of its own and stores nothing between commands, so a replay, which runs with no listeners
-at all, rebuilds the same game by executing the same command log again. Every effect a
-trigger or a quest has is a command in that log, and each of those commands has a `source`
-field that names the trigger or quest that issued it, like `"trigger:the-door-shuts"`.
+Acting only through commands keeps the game replayable. The interpreter returns no events and
+stores nothing between commands, so a replay, which runs with no listeners at all, rebuilds the
+same game by executing the same command log again. Every effect a trigger or a quest has is a
+command in that log, and each of those commands has a `source` field that refers to the trigger
+or quest that issued it, like `"trigger:the-door-shuts"`.
 
 Write your own listener instead when you want something that triggers and quests can't
 express. The guide
@@ -179,9 +179,9 @@ def _matches_monster_defeated(pattern: MonsterDefeatedPattern, event: Event) -> 
 def _matches_flag_set(pattern: FlagSetPattern, event: Event) -> bool:
     """That flag was written, with that value or with any value at all.
 
-    The comparison is against the value the write set, not the value the flag has now: a
-    trigger watches the edge, and a consequence earlier in the same batch may already have
-    written the key again.
+    The comparison is against the value the write set, not the value the flag has now. A trigger
+    reacts to the write, and a consequence earlier in the same batch may already have written
+    the key again.
     """
     if not isinstance(event, FlagSetEvent) or event.key != pattern.key:
         return False
@@ -219,24 +219,24 @@ class Interpreter:
     session.register_listener(Interpreter(session))
     ```
 
-    Registering it twice fires everything twice, as it would for any listener. A session
-    restored from a save needs the registration again, because listeners are code and a save
-    contains only data. There's no state to restore: the interpreter's entry in
-    `listener_state` is empty and stays empty for the life of the session.
+    Registering it twice fires everything twice, as it would for any listener. Register it again
+    on a session restored from a save, because listeners are code and a save contains only data.
+    There's no state to restore: the interpreter's entry in `listener_state` is empty and stays
+    empty for the life of the session.
 
     For each accepted command, the interpreter goes through the command's events in the order
     they happened. For each event, it checks the adventure's triggers in the order the
     adventure lists them, and then its quests in the same way. A trigger matches when its
     pattern fits the event, it hasn't fired yet or is `repeatable`, and every one of its
     conditions holds against the session's state at that moment. A trigger that matches fires
-    at once, before the next trigger is checked, so a later trigger's conditions see what an
-    earlier firing has already changed.
+    at once, before the next trigger is checked, so a later trigger's conditions are checked
+    against what an earlier firing has already changed.
 
     A firing executes these commands, each with `source="trigger:{id}"`:
 
     1. [`MarkTriggerFired`][osrlib.crawl.commands.MarkTriggerFired], with the narrative's
-       `fired` text. It comes first, so a trigger that fires only once can't fire again on
-       the events of its own consequences.
+       `fired` text. It comes first, so a trigger that fires only once can't fire again on the
+       events of its consequences.
     2. The consequences, in the order the trigger lists them. The selectors `@party` and
        `@first` are replaced by the ids of the living members they select, so the log records
        real character ids and a replay matches.
@@ -244,31 +244,31 @@ class Interpreter:
        `journal` text, when it has one. It comes last, so the entry records the clock time
        after the consequences.
 
-    A quest executes these commands, each with `source="quest:{id}"`. A quest clause
+    For a quest, the interpreter executes these commands, each with `source="quest:{id}"`. A quest clause
     ([`TriggerClause`][osrlib.crawl.quests.TriggerClause]) matches an event exactly the way a
     trigger does, with the same patterns and the same conditions, and the quest is checked in
     this order:
 
-    1. An inactive quest whose activation clause matches gets
+    1. For an inactive quest whose activation clause matches, the interpreter executes
        [`ActivateQuest`][osrlib.crawl.commands.ActivateQuest], and the check goes on to the
        objectives of the quest it just activated. The same event that starts a quest can
        complete an objective in it.
-    2. The objectives of an active quest are checked in the order the quest lists them. A
-       hidden objective that hasn't been revealed or completed gets
+    2. The objectives of an active quest are checked in the order the quest lists them. For a
+       hidden objective that hasn't been revealed or completed, the interpreter executes
        [`RevealObjective`][osrlib.crawl.commands.RevealObjective] when its `reveal_when`
-       matches. An incomplete objective gets
-       [`CompleteObjective`][osrlib.crawl.commands.CompleteObjective] when its `when`
-       matches. An objective that's completed before it's revealed doesn't need a reveal,
-       because completing an objective reveals it.
+       matches. For an incomplete objective, it executes
+       [`CompleteObjective`][osrlib.crawl.commands.CompleteObjective] when its `when` matches.
+       An objective that's completed before it's revealed doesn't need a reveal, because
+       completing an objective reveals it.
     3. As soon as an objective completes, the quest's completion rule (`all` or `any`) is
-       checked against the objectives' state. When the rule holds, the quest gets
-       [`CompleteQuest`][osrlib.crawl.commands.CompleteQuest], followed by the rewards in
-       the order the quest lists them, with selectors replaced as they are for a trigger's
-       consequences. When the quest concludes the adventure, the session is already in
-       `victory` before the first reward, so a reward that is illegal there, like spawning
-       monsters, is dropped with a note.
+       checked against the objectives' state. When the rule holds, the interpreter executes
+       [`CompleteQuest`][osrlib.crawl.commands.CompleteQuest], followed by the rewards in the
+       order the quest lists them, with selectors replaced as they are for a trigger's
+       consequences. When the quest concludes the adventure, the session is already in `victory`
+       before the first reward, so a reward that is illegal there, like spawning monsters, is
+       dropped with a note.
 
-    Each check sees the state the earlier commands left. A flag an earlier firing set can
+    Each check runs against the state the earlier commands left. A flag an earlier firing set can
     satisfy a later clause's condition for the same event, and a quest completed earlier in
     the check stays completed for everything after it.
 
@@ -279,13 +279,12 @@ class Interpreter:
     the first objective to complete finishes the quest. Under the `all` rule it can't happen:
     the quest completes only after every objective has.
 
-    The interpreter doesn't follow up on quest commands your game executes itself. It checks
+    The interpreter doesn't follow up on quest commands you execute yourself. It checks
     the completion rule only after a completion it issued, and no pattern matches the quest
-    events, so a game that completes the last objective itself must complete the quest
-    itself too. For the same reason, a
-    [`CompleteQuest`][osrlib.crawl.commands.CompleteQuest] your game executes grants no
-    rewards. Only the interpreter issues rewards, and a replay executes the reward commands
-    themselves.
+    events, so if you complete the last objective yourself, complete the quest yourself too. For
+    the same reason, a [`CompleteQuest`][osrlib.crawl.commands.CompleteQuest] command you
+    execute grants no rewards. Only the interpreter issues rewards, and a replay executes the
+    reward commands themselves.
 
     When a command fails, the interpreter goes on, and the log records why. A rejected
     consequence or reward is dropped without affecting the others, like a spawn while an
@@ -300,10 +299,10 @@ class Interpreter:
     level deeper than the event that caused it. For an event at depth five or deeper, the
     interpreter issues nothing. It still checks every trigger, and every clause of a quest
     that's already active, and records a note for each command it would have issued. The
-    exception is a quest the event would have activated: it records one note for the
-    activation and checks none of that quest's objectives for this event. No state changes
-    in any of these cases, so a trigger that fires only once can still fire later, and a
-    quest step waits for its clause to match again. A trigger or a quest clause matches an
+    exception is a quest the event would have activated. For that quest, the interpreter records
+    one note for the activation and checks none of that quest's objectives for this event. No
+    state changes in any of these cases, so a trigger that fires only once can still fire later,
+    and a quest step waits for its clause to match again. A trigger or a quest clause matches an
     event, not a state, so the suppressed event doesn't match again.
 
     It returns no events, because the commands it executed already logged everything it
@@ -366,7 +365,7 @@ class Interpreter:
     """
 
     key = "osrlib.interpreter"
-    """The listener key, which names this listener's entry in the session's `listener_state`.
+    """The key of this listener's entry in the session's `listener_state`.
     Registering the interpreter creates the entry, and it's an empty dict for the life of the
     session, because the interpreter stores nothing between commands."""
 
@@ -546,7 +545,7 @@ class Interpreter:
         """Resolve an authored command's party selector into the commands it stands for.
 
         A literal character id is not a selector and is passed through untouched: an
-        id a document could not have known is rejected like any other command, dropped
+        id the document's author could not have known is rejected like any other command, dropped
         and noted.
         """
         if not isinstance(consequence, GrantItem | GrantCoins | AwardXP):
@@ -566,7 +565,7 @@ class Interpreter:
         self._issue(RecordNote(text=f"{owner.label}: {site} ({command.command_type}) dropped ({reason})"), owner)
 
     def _truncated(self, owner: _Owner, what: str, depth: int) -> None:
-        """Record what the cascade bound suppressed. Nothing moved, so it can happen again."""
+        """Record what the depth limit suppressed. No state changed, so it can happen again."""
         self._issue(
             RecordNote(
                 text=(f"{owner.label}: {what}, the cascade reached depth {depth} past the limit of {_MAX_MATCH_DEPTH}")

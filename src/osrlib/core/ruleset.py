@@ -1,27 +1,28 @@
-"""The house rules a game plays under, as one frozen set of flags.
+"""The house rules for a game, as one frozen set of flags.
 
 [`Ruleset`][osrlib.core.ruleset.Ruleset] is the entry point and almost the whole module.
 Build one at the start of a game, pass it to
 [`GameSession.new`][osrlib.crawl.session.GameSession.new] or, away from a session, to
 each kernel function that takes a `ruleset` argument. The model is frozen, so a game
-uses one ruleset from start to finish. The resolution functions read its flags on every
-call, so there's no setup step, and a save stores the ruleset so a game resumes under the
+uses one ruleset from start to finish. The rules functions read its flags on every
+call, so there's no setup step. A save contains the ruleset, so a loaded game uses the
 rules it began with.
 
-`Ruleset()` with no arguments plays the SRD as written. Each flag is either an optional
-rule or an adaptation. An optional rule is an alternative the SRD prints beside its
-default procedure. An adaptation is osrlib's answer to a decision the tabletop game
-leaves to a human referee, which a program that runs without a referee has to make.
+`Ruleset()` with no arguments gives you the SRD rules as written. Each flag is either an
+optional rule or an adaptation. An optional rule is an alternative the SRD prints beside
+its default procedure. An adaptation is a default osrlib chooses for a decision that the
+tabletop game leaves to a human referee. A program that runs without a referee has to
+make that decision.
 The two enum flags, [`EncumbranceMode`][osrlib.core.ruleset.EncumbranceMode] and
 [`XpAwardTiming`][osrlib.core.ruleset.XpAwardTiming], pick among alternatives instead of
 switching one behavior on and off.
 
 Each flag is a field of [`Ruleset`][osrlib.core.ruleset.Ruleset], documented there and in
 [the ruleset options guide](https://mmacy.github.io/osrlib-python/guides/ruleset-options/)
-with the play it changes.
-[The adaptations register](https://mmacy.github.io/osrlib-python/adaptations/) lists every
-place osrlib supplies a default the tabletop game leaves to a referee, with the reasoning
-behind each one.
+with what each flag changes in play.
+[The adaptations register](https://mmacy.github.io/osrlib-python/adaptations/) lists each
+default osrlib supplies for a decision the tabletop game leaves to a referee, with the
+reasoning behind each one.
 
 Typical usage:
 
@@ -40,8 +41,8 @@ assert house_rules.variable_weapon_damage is True
 ```
 """
 
-# Every flag here is read by a behavior that exists. Don't add a flag whose behavior
-# doesn't exist yet. A new flag with a default needs no schema_version bump.
+# Code reads every flag here. Don't add a flag before the code that reads it exists.
+# Adding a flag with a default doesn't require a schema_version bump.
 
 from enum import StrEnum
 
@@ -55,20 +56,21 @@ __all__ = [
 
 
 class XpAwardTiming(StrEnum):
-    """When a party is paid the experience points it has earned.
+    """When a party receives the experience points it has earned.
 
-    Set it on [`Ruleset.xp_award_timing`][osrlib.core.ruleset.Ruleset]. The choice sets
-    the game's pacing: `ON_RETURN` pays only once the party gets back to town alive,
-    and `IMMEDIATE` pays as the party goes, which suits a game with no trip home.
+    Set it on [`Ruleset.xp_award_timing`][osrlib.core.ruleset.Ruleset]. The choice affects
+    the game's pacing. With `ON_RETURN`, the party gets its experience only once it's back
+    in town alive. With `IMMEDIATE`, it gets experience as it earns it, which suits a game
+    with no trip home.
 
-    The lowercase values are what saved games store, and they stay fixed within a
-    `schema_version`, the version stamp that marks a serialized model's format.
+    Saved games contain the lowercase values, and they stay fixed within a
+    `schema_version`, the version stamp that identifies a serialized model's format.
     """
 
     ON_RETURN = "on_return"
-    """Award experience when the party survives and returns to town, as the tabletop rules have it.
+    """Award experience when the party survives and returns to town, as in the tabletop rules.
 
-    osrlib pays the experience for defeated monsters and recovered treasure only when the
+    osrlib awards the experience for defeated monsters and recovered treasure only when the
     party gets back to town. Treasure lost on the way earns nothing.
     """
 
@@ -76,20 +78,20 @@ class XpAwardTiming(StrEnum):
     """Award experience as it's earned: monsters at the end of each encounter, treasure as it's picked up.
 
     This is an adaptation for continuous play, where the party may never make a trip
-    home. Reaching town pays nothing extra, and dropping treasure doesn't take the
-    experience back.
+    home. The party gets nothing extra when it reaches town, and dropping treasure doesn't
+    take the experience back.
     """
 
 
 class EncumbranceMode(StrEnum):
-    """Which system tracks what the party is carrying, and how much it slows them down.
+    """Which system osrlib uses to track what the party carries, and how much it slows them down.
 
     Set it on [`Ruleset.encumbrance`][osrlib.core.ruleset.Ruleset]. The weights and the
     movement rates are in [`osrlib.core.items`][osrlib.core.items], and
     [`movement_rate_feet`][osrlib.core.items.movement_rate_feet] reads this choice.
 
-    The lowercase values are what saved games store, and they stay fixed within a
-    `schema_version`, the version stamp that marks a serialized model's format.
+    Saved games contain the lowercase values, and they stay fixed within a
+    `schema_version`, the version stamp that identifies a serialized model's format.
     """
 
     NONE = "none"
@@ -111,13 +113,13 @@ class EncumbranceMode(StrEnum):
 
 
 class Ruleset(BaseModel):
-    """The rules a game plays under: one flag per decision osrlib lets you make.
+    """The rules for a game: one flag per decision osrlib lets you make.
 
     Build one at the start of a game and pass it to
     [`GameSession.new`][osrlib.crawl.session.GameSession.new], or to each kernel function
-    that takes a `ruleset` argument. `Ruleset()` plays the SRD as written, so name only the
-    flags you want to change. The model is frozen, so you can't change a ruleset mid-game.
-    Saves and replays store it, so a resumed game plays under the rules it started with. An
+    that takes a `ruleset` argument. `Ruleset()` gives you the SRD rules as written, so pass
+    only the flags you want to change. The model is frozen, so you can't change a ruleset
+    mid-game. Saves and replays contain it, so a resumed game uses the rules it started with. An
     unknown field name raises a pydantic `ValidationError`, so a misspelled flag fails
     instead of doing nothing.
 
@@ -145,7 +147,7 @@ class Ruleset(BaseModel):
     hp_reroll_at_first_level: bool = False
     """Reroll a first-level hit die that comes up 1 or 2. An optional rule, off by default.
 
-    Turn it on and the raw die is rerolled until it shows 3 or more, before the CON
+    Turn it on and osrlib rerolls the raw die until it shows 3 or more, before the CON
     modifier is added, so a first-level character starts with at least 3 hit points before
     that modifier.
     """
@@ -203,7 +205,7 @@ class Ruleset(BaseModel):
     The SRD prints this among its invulnerability rules. Turn it on and a monster of 5 or
     more Hit Dice gets past such a defense, and so does a monster that has the same kind
     of defense itself. osrlib applies the rule only where the defense is limited to silver
-    and magic, as the rule's wording has it, and reads "another invulnerable monster" as a
+    and magic, as the rule is worded, and interprets "another invulnerable monster" as a
     monster with such a defense.
     """
 
@@ -219,7 +221,7 @@ class Ruleset(BaseModel):
     """
 
     xp_award_timing: XpAwardTiming = XpAwardTiming.ON_RETURN
-    """When earned experience is paid out. On return by default, which is the tabletop rule.
+    """When the party receives earned experience. On return by default, which is the tabletop rule.
 
     See [`XpAwardTiming`][osrlib.core.ruleset.XpAwardTiming]. The immediate setting is an
     adaptation, and it suits a game whose party never goes home.
@@ -228,12 +230,12 @@ class Ruleset(BaseModel):
     deprivation_penalties: bool = False
     """Attach mechanical penalties to going without food or water. An adaptation, off by default.
 
-    The tabletop rules leave starvation penalties to the referee. The party's food and
-    water are tracked either way, so this flag changes only what happens once they run
-    out. Turn it on and a schedule osrlib takes from the SRD's examples applies:
+    The tabletop rules leave starvation penalties to the referee. osrlib tracks the party's
+    food and water either way, so this flag changes only what happens once they run out.
+    Turn it on and osrlib applies this schedule, which it bases on the SRD's examples:
 
-    - After one full day without food or water, −1 to attack rolls, and rest is needed
-      twice as often, so fatigue sets in after three turns without rest instead of six.
+    - After one full day without food or water, −1 to attack rolls, and the character needs
+      rest twice as often, so fatigue sets in after three turns without rest instead of six.
     - After two days, movement rate also halves.
     - From the third day on, the character also loses 1d4 hit points each day.
 
@@ -257,6 +259,6 @@ class Ruleset(BaseModel):
     it fights across, divided by the five feet one combatant needs. Each dungeon cell is
     ten feet wide, so two may fight side by side in a one-cell corridor and four in a room
     two cells across. The SRD notes that two or three characters can fight side by side
-    in a ten-foot passage, and osrlib takes the lower number. Turn the flag off and there's
+    in a ten-foot passage, and osrlib uses the lower number. Turn the flag off and there's
     no cap, so every combatant may melee.
     """

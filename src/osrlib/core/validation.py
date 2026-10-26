@@ -5,22 +5,24 @@ The module has one member,
 build them. Every kernel validator returns a list of them, empty when the input is
 legal. When a session refuses a command, the
 [`CommandResult`][osrlib.crawl.commands.CommandResult] it returns lists them too. Read
-their codes to find out what went wrong, and turn them into whatever your interface
-shows the player.
+their codes to find out what went wrong, and turn them into the message you show the
+player.
 
-Each rules area pairs a validator with the function that applies the change:
+Each rules area has a validator and a function that applies the change:
 [`validate_adjustment`][osrlib.core.abilities.validate_adjustment] with
 [`apply_adjustment`][osrlib.core.abilities.apply_adjustment],
 [`validate_purchase`][osrlib.core.items.validate_purchase] with
 [`purchase`][osrlib.core.items.purchase], and so on. Call the validator, show the
-rejections if there are any, and call the apply function only on an empty list. A change
-its validator refuses is a mistake in your code, not a move the rules disallow, so the
-apply function raises `ValueError` instead of returning a rejection. The exceptions
+rejections if there are any, and call the apply function only on an empty list. Passing
+the apply function a change that its validator refuses is a mistake in your code, not a
+player's illegal move, so the apply function raises `ValueError` instead of returning a
+rejection. The exceptions
 osrlib raises for other kinds of failure are in [`osrlib.errors`][osrlib.errors].
 
-Validation runs before anything changes. A refused input draws no random numbers,
-advances no game time, and changes nothing. You can offer a move, show why it was
-refused, and let the player pick again with the game in the same state.
+Validators run before anything changes. When a validator refuses an input, osrlib draws
+no random numbers, advances no game time, and changes nothing. You can offer a move, show
+why the validator refused it, and let the player pick again with the game in the same
+state.
 
 Typical usage:
 
@@ -56,12 +58,12 @@ _CODE_PATTERN = re.compile(r"[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+")
 
 
 class Rejection(BaseModel):
-    """One reason the rules refused an input, as a code plus the facts behind it.
+    """One reason a validator refused an input, as a code plus the facts behind it.
 
     A validator returns these. Match on `code` to decide what to tell the player, and read
     `params` for the numbers and names to put in the sentence. osrlib writes no English
-    into a rejection, so write your own wording for the codes your game can produce, and
-    show the code itself for the rest.
+    into a rejection, so write your own wording for the codes you expect, and show the
+    code itself for the rest.
     [The rejection code reference](https://mmacy.github.io/osrlib-python/reference/rejection-codes/)
     lists every code osrlib returns, with what it means.
 

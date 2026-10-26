@@ -21,7 +21,7 @@ parameter contains the gate's authored refusal text. When the condition holds, t
 contains the gate's authored success text in its `narrative`: a
 [`DoorEvent`][osrlib.crawl.events.DoorEvent] for a door, or a
 [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] for a transition into another
-level or dungeon. When the gate takes an item as a toll, an
+level or dungeon. When the session takes an item as the gate's toll, an
 [`ItemConsumedEvent`][osrlib.crawl.events.ItemConsumedEvent] comes before that event.
 
 A gate has no state. [`condition_holds`][osrlib.crawl.gates.condition_holds] reads the session at
@@ -31,7 +31,7 @@ refuses the party at that key's door again.
 The engine evaluates every condition with
 [`condition_holds`][osrlib.crawl.gates.condition_holds], and compares flag values with
 [`flag_values_equal`][osrlib.crawl.gates.flag_values_equal].
-[`first_holder`][osrlib.crawl.gates.first_holder] finds the member a toll takes an item from.
+[`first_holder`][osrlib.crawl.gates.first_holder] finds the member the session takes a toll item from.
 Call these functions when your own code has to give the same answers as the engine.
 
 Gates, triggers, and quest clauses all use the same conditions.
@@ -40,8 +40,8 @@ Gates, triggers, and quest clauses all use the same conditions.
 - [`HasItemCondition`][osrlib.crawl.gates.HasItemCondition]: a party member carries an item with
   that catalog id, equipped or in the pack.
   [`Inventory.carried_item`][osrlib.core.items.Inventory.carried_item] does the matching. With
-  `consumes=True`, a successful command takes one of the item from the first member in marching
-  order who carries it.
+  `consumes=True`, the session takes one of the item after a successful command, from the first
+  member in marching order who carries it.
 - [`FlagEqualsCondition`][osrlib.crawl.gates.FlagEqualsCondition]: a session flag has a given
   value. You write flags with [`SetFlag`][osrlib.crawl.commands.SetFlag].
 - [`EffectActiveCondition`][osrlib.crawl.gates.EffectActiveCondition]: a party member has an
@@ -56,7 +56,7 @@ Use a gate when the party has to meet a condition to get through. When you want 
 happen because the party did something, write a trigger
 ([`TriggerSpec`][osrlib.crawl.triggers.TriggerSpec]) instead. The guide
 [Gates, triggers, and quests](https://mmacy.github.io/osrlib-python/guides/gates-triggers-quests/)
-builds all three in an adventure you can run.
+shows how to build all three in an adventure you can run.
 """
 
 from collections.abc import Mapping, Sequence
@@ -118,10 +118,10 @@ class HasItemCondition(BaseModel):
     """The catalog id to look for, from the equipment catalog (built-in items plus the
     adventure's bundled ones) or the magic-item catalog."""
     consumes: bool = False
-    """Whether a successful attempt takes the item. `True` makes the item a toll: every time
-    the gated command succeeds, the session takes one of the item from the first member in
-    marching order who carries it. A door that swings shut then takes another key to open.
-    Only a gate can take a toll. In a trigger's or a quest's conditions, `True` fails
+    """Whether the session takes the item on a successful attempt. `True` makes the item a toll:
+    every time the gated command succeeds, the session takes one of the item from the first
+    member in marching order who carries it. A door that swings shut then needs another key to
+    open. Only a gate can charge a toll. In a trigger's or a quest's conditions, `True` fails
     validation with a pydantic `ValidationError`, because a trigger or a quest reacts to
     something that has already happened, and there's no attempt to charge."""
 
@@ -152,7 +152,7 @@ class FlagEqualsCondition(BaseModel):
     """The discriminator value, `flag_equals`. It appears in every document that
     includes this condition, and you never set it yourself."""
     key: str = Field(min_length=1)
-    """The name of the flag to read, as `session.flags` stores it."""
+    """The name of the flag to read, as it appears in `session.flags`."""
     value: str | int | bool
     """The value the flag has to have. Values of different types are never equal, so write
     the same type that the [`SetFlag`][osrlib.crawl.commands.SetFlag] for this flag writes."""
@@ -162,10 +162,10 @@ class EffectActiveCondition(BaseModel):
     """A condition that holds when an active effect of `kind` is attached to a party member.
 
     Use it when the party has to invoke an item, not only carry it: the item grants an
-    effect, and the gate requires that effect. The condition reads the session's effects
-    ledger ([`EffectsLedger`][osrlib.core.effects.EffectsLedger]), which records every
-    active effect. An effect attached to a location doesn't count, because the condition
-    looks only at party members.
+    effect, and the gate requires that effect. To evaluate it, `condition_holds` reads the
+    session's effects ledger ([`EffectsLedger`][osrlib.core.effects.EffectsLedger]), which
+    records every active effect. An effect attached to a location doesn't count, because
+    `condition_holds` checks only party members for this condition.
 
     Examples:
         ```python
@@ -345,7 +345,7 @@ def condition_holds(
 def flag_values_equal(stored: str | int | bool, expected: str | int | bool) -> bool:
     """Return whether two flag values are equal, using the strict comparison the engine uses.
 
-    Two values are equal when Python says they are and either both or neither are `bool`.
+    Two values are equal when Python's `==` returns True and either both or neither are `bool`.
     Python treats `True == 1` as true, but in an authored document they are different
     values. A flag set to `True` doesn't satisfy an authored `1`, and an authored `True`
     doesn't match a stored `1`. Call this function when your code has to compare flag
@@ -357,8 +357,8 @@ def flag_values_equal(stored: str | int | bool, expected: str | int | bool) -> b
     values are equal.
 
     Args:
-        stored: The value in `session.flags`, or the value a
-            [`FlagSetEvent`][osrlib.crawl.events.FlagSetEvent] reports.
+        stored: The value in `session.flags`, or the value in a
+            [`FlagSetEvent`][osrlib.crawl.events.FlagSetEvent].
         expected: The value written in the adventure document.
 
     Returns:

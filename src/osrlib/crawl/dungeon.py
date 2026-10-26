@@ -132,12 +132,12 @@ is off its level's grid."""
 class Direction(StrEnum):
     """The four grid directions the party faces and moves in.
 
-    Every part of the crawl uses these: the way [`MoveParty`][osrlib.crawl.commands.MoveParty]
-    steps, the side of a cell [`OpenDoor`][osrlib.crawl.commands.OpenDoor] works on, and the way a
-    transition turns the party on arrival. There is no up or down. A
+    You use these for the way [`MoveParty`][osrlib.crawl.commands.MoveParty] steps, the side of a
+    cell [`OpenDoor`][osrlib.crawl.commands.OpenDoor] works on, and the way a transition turns the
+    party on arrival. There is no up or down. A
     [`TransitionSpec`][osrlib.crawl.dungeon.TransitionSpec] moves the party between levels.
 
-    The values are lowercase strings, like `"north"`, and commands, events, and saves use them.
+    The values are lowercase strings, like `"north"`, and they appear in commands, events, and saves.
     """
 
     NORTH = "north"
@@ -255,10 +255,10 @@ def cell_ref(dungeon_id: str, level_number: int, position: Position) -> str:
     """Return the string that identifies one cell in a whole adventure.
 
     A key in a level's `edges` map locates a cell within one level. A cell reference also includes
-    the dungeon and the level, so it locates the cell anywhere in the adventure. The overlay and the
-    effects system use it: [`DungeonState.piles`][osrlib.crawl.dungeon.DungeonState.piles] is keyed
-    by it, and an [`ActiveEffect.target_ref`][osrlib.core.effects.ActiveEffect.target_ref] in this
-    form puts an effect on a dungeon cell instead of on a creature.
+    the dungeon and the level, so it locates the cell anywhere in the adventure.
+    [`DungeonState.piles`][osrlib.crawl.dungeon.DungeonState.piles] is keyed by it, and an
+    [`ActiveEffect.target_ref`][osrlib.core.effects.ActiveEffect.target_ref] in this form puts an
+    effect on a dungeon cell instead of on a creature.
 
     The format is `"cell:{dungeon}:{level}:{x},{y}"`, like `"cell:crypt:1:2,3"`.
 
@@ -286,8 +286,8 @@ def edge_ref(dungeon_id: str, level_number: int, position: Position, direction: 
 
     [`DungeonState.doors`][osrlib.crawl.dungeon.DungeonState.doors] is keyed by it, so it is how you
     look up a door's open, wedged, discovered, and unlocked flags from a cell and a direction. The
-    reference ends with the edge's [`edge_key`][osrlib.crawl.dungeon.edge_key], so both sides of a
-    door give the same reference, and the door has one state. Pass the result to
+    reference ends with the edge's [`edge_key`][osrlib.crawl.dungeon.edge_key], so you get the same
+    reference from either side of a door, and the door has one state. Pass the result to
     [`DungeonState.door`][osrlib.crawl.dungeon.DungeonState.door].
 
     The format is `"{dungeon}:{level}:{x},{y}:{side}"`, like `"crypt:1:1,0:west"`.
@@ -322,8 +322,9 @@ class EdgeKind(StrEnum):
     OPEN = "open"
     """Nothing stands here, and the party can walk across."""
     WALL = "wall"
-    """A wall, which the party can't cross. A level also reports an edge with no entry in its `edges`
-    map as a wall, so you write this kind only to state a wall explicitly."""
+    """A wall, which the party can't cross. [`LevelSpec.edge`][osrlib.crawl.dungeon.LevelSpec.edge]
+    also returns a wall for an edge with no entry in the level's `edges` map, so you write this kind
+    only to state a wall explicitly."""
     DOOR = "door"
     """A door, which the edge's [`DoorSpec`][osrlib.crawl.dungeon.DoorSpec] describes. An edge of this
     kind must have a `door`, and an edge of any other kind must not."""
@@ -340,7 +341,7 @@ class DoorSpec(BaseModel):
     Attributes:
         kind: Whether the party can see the door from the start, or has to find it.
         stuck: Whether the party has to force the door open.
-        locked: Whether the door has to be unlocked before it opens.
+        locked: Whether the party has to unlock the door before it opens.
         starts_open: Whether the door stands open at the start of the game.
         requires: A condition the party has to meet to open the door.
 
@@ -358,18 +359,18 @@ class DoorSpec(BaseModel):
 
     kind: Literal["normal", "secret"] = "normal"
     """`"normal"` for a door the party can see, or `"secret"` for one it has to find. A secret door is
-    hidden until a [`Search`][osrlib.crawl.commands.Search] for secret doors finds it, which sets
-    `discovered` in the door's [`DoorState`][osrlib.crawl.dungeon.DoorState]. Until then the party
+    hidden until the party finds it with a [`Search`][osrlib.crawl.commands.Search] for secret
+    doors, which sets `discovered` in the door's [`DoorState`][osrlib.crawl.dungeon.DoorState]. Until then the party
     can't open it, listen at it, or walk through it, and the player view shows the edge as a wall."""
     stuck: bool = False
-    """Whether the door is stuck shut. [`OpenDoor`][osrlib.crawl.commands.OpenDoor] is refused on a
-    stuck door, so the party has to force it open with
+    """Whether the door is stuck shut. The session refuses [`OpenDoor`][osrlib.crawl.commands.OpenDoor]
+    on a stuck door, so the party has to force it open with
     [`ForceDoor`][osrlib.crawl.commands.ForceDoor]. Forcing is a Strength-based roll, and it makes
-    noise whether or not it works. `ForceDoor` is refused on a door that isn't stuck."""
+    noise whether or not it works. The session refuses `ForceDoor` on a door that isn't stuck."""
     locked: bool = False
-    """Whether the door is locked. Both [`OpenDoor`][osrlib.crawl.commands.OpenDoor] and
-    [`ForceDoor`][osrlib.crawl.commands.ForceDoor] are refused on a locked door until it is unlocked,
-    by a thief's [`PickLock`][osrlib.crawl.commands.PickLock] or by a referee's
+    """Whether the door is locked. The session refuses both [`OpenDoor`][osrlib.crawl.commands.OpenDoor]
+    and [`ForceDoor`][osrlib.crawl.commands.ForceDoor] on a locked door until it is unlocked, by a
+    thief's [`PickLock`][osrlib.crawl.commands.PickLock] or by a referee's
     [`SetDoorState`][osrlib.crawl.commands.SetDoorState]. A door that is both locked and stuck has to
     be unlocked and then forced."""
     starts_open: bool = False
@@ -379,8 +380,8 @@ class DoorSpec(BaseModel):
     requires: GateSpec | None = None
     """A gate on opening the door, or `None` for a door that opens without one. A gate
     ([`GateSpec`][osrlib.crawl.gates.GateSpec]) is a condition, like carrying a key, that the
-    session checks each time the party tries to open or force the door. It is checked last, after
-    the door's other reasons to refuse. It is separate from `locked`: to open a locked door with a gate,
+    session checks each time the party tries to open or force the door. The session checks it last,
+    after every other reason to refuse the command. It is separate from `locked`: to open a locked door with a gate,
     the party has to unlock it and meet the gate's condition. [`PickLock`][osrlib.crawl.commands.PickLock] deals only
     with the lock, and [`SetDoorState`][osrlib.crawl.commands.SetDoorState] changes the door without
     checking the gate. The gate guards opening the door, not passing through it, so the party walks
@@ -454,8 +455,8 @@ class TransitionSpec(BaseModel):
 
     A transition leads one way only, and osrlib doesn't add the way back. Stairs the party can climb
     back up are two transitions, one on each level, each pointing at the other. Leave out the second
-    one and you have a chute: [`UseStairs`][osrlib.crawl.commands.UseStairs] is refused at the
-    bottom, because no transition stands on the arrival cell. A passage's way back is a second
+    one and you have a chute: the session refuses [`UseStairs`][osrlib.crawl.commands.UseStairs]
+    at the bottom, because no transition stands on the arrival cell. A passage's way back is a second
     passage. It stands on the first passage's destination cell, on the side opposite the first
     passage's `to_facing`. Its destination is the first passage's cell, and its `to_facing` is
     opposite the first passage's `side`.
@@ -515,7 +516,7 @@ class TransitionSpec(BaseModel):
     """What the party sees and uses: `"stairs_up"`, `"stairs_down"`, `"trapdoor"`, `"chute"`, or
     `"passage"`. The first four kinds all work the same way: the party takes them with
     [`UseStairs`][osrlib.crawl.commands.UseStairs], the destination fields set where it goes, and the
-    kind is reported on the arrival event for a front end to describe. The party crosses a
+    session reports the kind on the arrival event, so you can describe it. The party crosses a
     `"passage"` by walking across its `side` instead."""
     position: Position
     """The cell on this level where the transition stands. The party has to stand here to use it
@@ -533,7 +534,7 @@ class TransitionSpec(BaseModel):
     to_position: Position
     """The cell the party arrives at, on the destination level's grid."""
     to_facing: Direction
-    """The direction the party faces on arrival. A front end draws the view facing this way."""
+    """The direction the party faces on arrival. Draw the party's view facing this way."""
     requires: GateSpec | None = None
     """A gate on taking the transition, or `None` for one with no gate.
     [`UseStairs`][osrlib.crawl.commands.UseStairs], or [`MoveParty`][osrlib.crawl.commands.MoveParty]
@@ -541,7 +542,7 @@ class TransitionSpec(BaseModel):
     that takes an item takes it then, as the party crosses. The gate's `success` text goes on the
     arrival's [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent], and the session
     emits that event only when the party changes level or dungeon. A transition to another cell of
-    the same level emits no such event, so its gate's `success` text is never shown.
+    the same level emits no such event, so no event contains its gate's `success` text.
 
     A transition in a [`TrapEffect`][osrlib.crawl.dungeon.TrapEffect] can't have a gate, because a
     trap moves the party by force and the party attempts nothing. `TrapEffect` raises `ValueError`
@@ -606,13 +607,13 @@ class TrapEffect(BaseModel):
 
     damage_dice: str | None = None
     """The damage the trap deals, as a dice expression like `"1d6"`, or `None` for a trap that deals
-    none. With `volley_dice` set, it is the damage of each projectile. The expression is checked when
-    you construct the model, so a malformed one fails then, not when the trap springs."""
+    none. With `volley_dice` set, it is the damage of each projectile. The model checks the
+    expression when you construct it, so a malformed one fails then, not when the trap springs."""
     volley_dice: str | None = None
     """How many projectiles the trap fires, as a dice expression, or `None` for a trap that fires one
     or none. Use it for a dart trap: `volley_dice="1d6"` with `damage_dice="1d4"` fires 1d6 darts
-    and rolls 1d4 damage for each. A dice expression can't say "roll this many times that much", so
-    it takes two fields. Set it only with `damage_dice`."""
+    and rolls 1d4 damage for each. There's no dice expression for "roll this many times that much",
+    so a volley uses two fields. Set it only with `damage_dice`."""
     save: SaveSpec | None = None
     """The saving throw the victim rolls, or `None` for a trap that allows none. Its `category` is the
     saving throw to roll, and its `on_save` sets what a passed save does to the damage:
@@ -690,8 +691,8 @@ class TrapSpec(BaseModel):
     never springs again. The party can find a trap before it springs: a room trap with a
     [`Search`][osrlib.crawl.commands.Search] for room traps, and a treasure trap with a thief's
     [`InspectTreasure`][osrlib.crawl.commands.InspectTreasure]. A room trap that the party has found
-    no longer springs, so the party walks around it. A treasure trap that the party has found still
-    rolls to spring when the cache is opened, until a thief takes it out with
+    no longer springs, so the party walks around it. For a treasure trap that the party has found,
+    the session still rolls when the party opens the cache, until a thief takes it out with
     [`RemoveTreasureTrap`][osrlib.crawl.commands.RemoveTreasureTrap]. There is no way to disarm a room
     trap.
 
@@ -742,8 +743,9 @@ class TrapSpec(BaseModel):
     trigger: Literal["enter", "open"]
     """The action that springs the trap.
 
-    - `"enter"`: the party moves into a cell of the trapped area. The trap rolls on every move into
-      one of its cells, including moves within the area, until it springs or the party finds it.
+    - `"enter"`: the party moves into a cell of the trapped area. The session rolls for the trap on
+      every move into one of its cells, including moves within the area, until it springs or the
+      party finds it.
     - `"open"` on a room trap: the party opens or forces a door on an edge of one of the area's
       cells, from either side, like a blade that drops when the door swings.
     - `"open"` on a treasure trap: the party opens the cache with
@@ -769,8 +771,8 @@ class TrapSpec(BaseModel):
 class ValuableSpec(BaseModel):
     """A gem or piece of jewellery that you place in a cache by hand.
 
-    Use it when the treasure is a particular thing with a name, not one of the gems the treasure
-    tables roll. Put it in the `valuables` of a [`FeatureSpec`][osrlib.crawl.dungeon.FeatureSpec].
+    Use it when the treasure is a particular thing with a name, not one of the gems the session
+    rolls on the treasure tables. Put it in the `valuables` of a [`FeatureSpec`][osrlib.crawl.dungeon.FeatureSpec].
     When the party empties the cache with [`TakeTreasure`][osrlib.crawl.commands.TakeTreasure], the
     session turns it into a [`ValuableInstance`][osrlib.core.items.ValuableInstance] with an id.
 
@@ -797,11 +799,11 @@ class ValuableSpec(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     kind: Literal["gem", "jewellery"]
-    """Whether the valuable is a gem or jewellery. No rule in osrlib depends on it. It is there for
-    display, and for any rule your game applies to one kind and not the other."""
+    """Whether the valuable is a gem or jewellery. No rule in osrlib depends on it. Use it for display,
+    and for any rule you apply to one kind and not the other."""
     name: str = ""
     """The name the party sees, like `"The abbot's seal ring"`. Leave it empty for an unnamed
-    valuable, like the ones the treasure tables roll."""
+    valuable, like the ones the session rolls on the treasure tables."""
     value_gp: int = Field(ge=0)
     """What the valuable is worth in gold pieces. It sells for this much in town, and it is worth
     this much experience to the party."""
@@ -817,8 +819,8 @@ class AreaTreasureSpec(BaseModel):
     but don't want to choose it. The session rolls it the first time the party enters the area, and
     puts the result on the cell where the party entered, as a
     [`GeneratedCache`][osrlib.crawl.dungeon.GeneratedCache]. The party takes it with
-    [`TakeTreasure`][osrlib.crawl.commands.TakeTreasure]. A roll that comes up empty puts nothing
-    down. Rolled treasure is never trapped. To trap treasure, write a
+    [`TakeTreasure`][osrlib.crawl.commands.TakeTreasure]. If the roll comes up empty, the session
+    puts nothing down. Rolled treasure is never trapped. To trap treasure, write a
     [`FeatureSpec`][osrlib.crawl.dungeon.FeatureSpec] with a trap.
 
     When the treasure belongs to the monsters in the room, use the `hoard` flag of the area's
@@ -853,7 +855,8 @@ class AreaTreasureSpec(BaseModel):
     unguarded: bool = False
     """Whether to roll on the OSE SRD's table for unguarded treasure instead of listing letters. The
     table has a row for each band of dungeon levels, and the session uses the row for the number of
-    the level the area is on, so deeper levels give more. Set this or `letters`, not both."""
+    the level the area is on, so the treasure is bigger on deeper levels. Set this or `letters`, not
+    both."""
 
     @model_validator(mode="after")
     def _letters_or_unguarded(self) -> AreaTreasureSpec:
@@ -863,7 +866,7 @@ class AreaTreasureSpec(BaseModel):
 
 
 class TreasureBundle(BaseModel):
-    """Rolled treasure kept together as one lot: coins, valuables, and magic items.
+    """Rolled treasure grouped as one lot: coins, valuables, and magic items.
 
     When the session spawns monsters, it rolls the treasure they carry into bundles. You find them
     on an [`EncounterGroup`][osrlib.crawl.encounter.EncounterGroup]: `member_treasure` contains what
@@ -873,8 +876,8 @@ class TreasureBundle(BaseModel):
     for which bundles drop. The session also uses a bundle while it rolls a hoard, then moves the
     contents into a [`GeneratedCache`][osrlib.crawl.dungeon.GeneratedCache].
 
-    Unlike the authored models in this module, a bundle is mutable, because rolling treasure adds to
-    it one entry at a time.
+    Unlike the authored models in this module, a bundle is mutable, because the session adds to it
+    one entry at a time as it rolls treasure.
 
     Attributes:
         coins: The coins in the bundle.
@@ -895,7 +898,7 @@ class TreasureBundle(BaseModel):
     def empty(self) -> bool:
         """Whether the bundle has no coins, valuables, or magic items.
 
-        A hoard can roll nothing at all. The session checks this before it puts a cache down, so it
+        The session can roll nothing at all for a hoard. It checks this before it puts a cache down, so it
         never puts down an empty one.
         """
         return self.coins.total_coins == 0 and not self.valuables and not self.magic_items
@@ -914,8 +917,8 @@ class GeneratedCache(BaseModel):
     Whatever the party can't carry goes into a [`DropPile`][osrlib.crawl.dungeon.DropPile] on the
     same cell.
 
-    Rolled treasure is never trapped. Trapped treasure is something you write, not something a roll
-    produces. That choice is one of the entries in
+    The session never traps treasure it rolls, so the only trapped treasure is treasure you write.
+    That choice is one of the entries in
     [the adaptations register](https://mmacy.github.io/osrlib-python/adaptations/), the page that
     lists where osrlib picks one reading of an unclear rule or sets a default behind a
     [`Ruleset`][osrlib.core.ruleset.Ruleset] option.
@@ -956,13 +959,13 @@ class FeatureSpec(BaseModel):
 
     osrlib runs one kind of feature for you, the `treasure_cache`. The party empties it with
     [`TakeTreasure`][osrlib.crawl.commands.TakeTreasure] and the feature's id, and the contents go to
-    the party. The magic items you list are created only when the cache is emptied. Their details,
-    like charges, quantities, or whether a sword is intelligent, are rolled then, on the treasure
-    stream, by [`instantiate_magic_item`][osrlib.core.treasure.instantiate_magic_item]. A
+    the party. The session creates the magic items you list only when the party empties the cache.
+    It rolls their details then, like charges, quantities, or whether a sword is intelligent, on the
+    treasure stream, with [`instantiate_magic_item`][osrlib.core.treasure.instantiate_magic_item]. A
     `construction_trick` is one of the OSE SRD's odd architectural features, like a room that rotates
     or a passage that is an illusion. The party finds one with a
-    [`Search`][osrlib.crawl.commands.Search] for construction, and your front end describes what it
-    does. osrlib does nothing with a `custom` feature.
+    [`Search`][osrlib.crawl.commands.Search] for construction, and you describe what it does.
+    osrlib does nothing with a `custom` feature.
 
     Attributes:
         id: The feature's id, unique across its level.
@@ -1000,16 +1003,16 @@ class FeatureSpec(BaseModel):
 
     id: str
     """The feature's id. It has to be unique across the level, counting the features on the level
-    and on all its areas together. [`TakeTreasure`][osrlib.crawl.commands.TakeTreasure] and the other
-    feature commands use it. The id `"pile"` is reserved for the drop pile on a cell, and
+    and on all its areas together. You pass it to [`TakeTreasure`][osrlib.crawl.commands.TakeTreasure]
+    and the other feature commands. The id `"pile"` is reserved for the drop pile on a cell, and
     [`validate_adventure`][osrlib.crawl.adventure.validate_adventure] reports a feature that uses
     it."""
     kind: Literal["treasure_cache", "construction_trick", "custom"]
-    """What kind of feature this is. osrlib runs `"treasure_cache"` for the party. Your front end
-    decides what `"construction_trick"` and `"custom"` do."""
+    """What kind of feature this is. osrlib runs `"treasure_cache"` for the party. You decide what
+    `"construction_trick"` and `"custom"` do."""
     description: str = ""
-    """Text for a front end to show when the party finds the feature. Events give the feature's id,
-    not its text, so a front end looks the text up here."""
+    """Text to show when the party finds the feature. Events contain the feature's id, not its text,
+    so look the text up here."""
     cell: Position | None = None
     """The cell the feature is on. A feature listed on a level needs one. A feature listed on an area
     can leave it `None`, and then the party can reach it from any cell of the area. When you set it
@@ -1023,7 +1026,7 @@ class FeatureSpec(BaseModel):
     """Magic items in the cache, by template id. Use an id from
     [`load_magic_items`][osrlib.data.load_magic_items]`()`, listed in
     [the magic item id index](https://mmacy.github.io/osrlib-python/reference/content-ids/magic-items/).
-    An adventure can't bundle magic items, so only built-in ids work here."""
+    You can't bundle magic items in an adventure, so only built-in ids work here."""
     coins: Coins = Coins()
     """Coins in the cache, by denomination."""
     valuables: tuple[ValuableSpec, ...] = ()
@@ -1078,8 +1081,8 @@ class KeyedMonster(BaseModel):
     count_dice: str | None = None
     """How many appear, as a dice expression like `"2d4"`. The session rolls it on the
     [`WANDERING_STREAM`][osrlib.crawl.session.WANDERING_STREAM] when the monsters spawn, and a roll
-    below 1 counts as 1. Set this or `count_fixed`, not both. The expression is checked when you
-    construct the model, so a malformed one fails then, not during play."""
+    below 1 counts as 1. Set this or `count_fixed`, not both. The model checks the expression when
+    you construct it, so a malformed one fails then, not during play."""
     count_fixed: int | None = None
     """How many appear, as a fixed number. Set this or `count_dice`, not both. A printed adventure
     usually gives a fixed number, and so does [`stock_area`][osrlib.crawl.stocking.stock_area] when
@@ -1103,9 +1106,10 @@ class KeyedEncounter(BaseModel):
     """The monsters waiting in a keyed area, and what you decide about them in advance.
 
     Put one on an [`AreaSpec`][osrlib.crawl.dungeon.AreaSpec]. The monsters spawn when the party
-    enters any cell of the area, and the session opens an encounter. Surprise, distance, and reaction
-    are rolled unless you set them here. When the encounter ends with every monster slain or routed,
-    the area is clear, and entering it again spawns nothing.
+    enters any cell of the area, and the session opens an encounter. The session rolls surprise,
+    distance, and reaction, though you can set the reaction here, and stop the monsters from being
+    surprised. When the encounter ends with every monster slain or routed, the area is clear, and no
+    monsters spawn when the party enters it again.
 
     Attributes:
         monsters: The monster lines, each a template and a count.
@@ -1135,8 +1139,8 @@ class KeyedEncounter(BaseModel):
     """The monster lines in the encounter, at least one. See
     [`KeyedMonster`][osrlib.crawl.dungeon.KeyedMonster]."""
     alignment: Alignment | None = None
-    """The alignment every spawned monster takes, for a template that allows more than one. `None`,
-    the default, rolls it as usual. It has to be an alignment that each line's template allows, and
+    """The alignment every spawned monster takes, for a template that allows more than one. With
+    `None`, the default, the session rolls it as usual. It has to be an alignment that each line's template allows, and
     [`validate_adventure`][osrlib.crawl.adventure.validate_adventure] reports one that isn't."""
     aware: bool = False
     """Whether the monsters expect the party. Aware monsters can't be surprised, so set it for a
@@ -1149,8 +1153,8 @@ class KeyedEncounter(BaseModel):
     """Whether the monsters have their lair treasure. With the default, `True`, the session rolls the
     treasure types in each monster's `treasure` when the monsters spawn, and puts the result on the
     first cell of the area as a [`GeneratedCache`][osrlib.crawl.dungeon.GeneratedCache]. Set it
-    `False` for a monster room with no treasure. B/X stocking often produces one, because the
-    stocking roll gives treasure to only some monster rooms."""
+    `False` for a monster room with no treasure. Stocking a dungeon by the B/X rules often produces
+    one, because only some monster rooms get treasure on the stocking roll."""
 
 
 class AreaSpec(BaseModel):
@@ -1159,8 +1163,8 @@ class AreaSpec(BaseModel):
     Areas are how you key a dungeon, the way a printed adventure numbers its rooms. Each area covers
     some cells of a [`LevelSpec`][osrlib.crawl.dungeon.LevelSpec], and a cell outside every area is
     corridor. When the party moves into a cell of the area, the session rolls the area's treasure,
-    rolls for a trap that springs on entering, and spawns the encounter, in that order. Your front end shows the
-    area's description.
+    rolls for a trap that springs on entering, and spawns the encounter, in that order. Showing the
+    area's description is up to you.
 
     Attributes:
         id: The area's id, unique across its level.
@@ -1194,13 +1198,13 @@ class AreaSpec(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     id: str
-    """The area's id, unique within the level. Events give it, triggers match on it, and the overlay
-    records the area's encounter, treasure, and trap by it."""
+    """The area's id, unique within the level. Events contain it, triggers match on it, and the
+    overlay stores the state of the area's encounter, treasure, and trap under it."""
     name: str = ""
-    """The room's name, for a front end to show, like `"Guard post"` or `"The abbot's cell"`."""
+    """The room's name, to show the player, like `"Guard post"` or `"The abbot's cell"`."""
     description: str = ""
-    """Text for a front end to show when the party walks in. Events give the area's id, not its text,
-    so a front end looks the text up here."""
+    """Text to show when the party walks in. Events contain the area's id, not its text, so look the
+    text up here."""
     cells: tuple[Position, ...] = Field(min_length=1)
     """The cells the area covers, at least one. They don't have to touch each other, though a room's
     cells usually do. Every cell has to be on the level's grid. The first cell is where the session
@@ -1219,7 +1223,7 @@ class AreaSpec(BaseModel):
     edge of one of the area's cells."""
     treasure: AreaTreasureSpec | None = None
     """Treasure the session rolls the first time the party enters, for a room with treasure and no
-    monster guarding it, or `None`. A room whose treasure belongs to its monsters uses the
+    monster guarding it, or `None`. For a room whose treasure belongs to its monsters, use the
     encounter's `hoard` flag instead."""
 
     @model_validator(mode="after")
@@ -1230,7 +1234,7 @@ class AreaSpec(BaseModel):
 
 
 class WanderingSpec(BaseModel):
-    """A level's wandering-monster check: how often it rolls, and on what table.
+    """A level's wandering-monster check: how often the session rolls it, and on what table.
 
     Every [`LevelSpec`][osrlib.crawl.dungeon.LevelSpec] has one. The default is the B/X rule, so you
     write your own only to change the chance or the monsters. The session runs the check as the
@@ -1271,12 +1275,11 @@ class WanderingSpec(BaseModel):
 class LevelSpec(BaseModel):
     """One dungeon level: a grid of 10-foot cells with its edges, rooms, and stairs.
 
-    A level is where the grid and its contents come together. You give it a size, declare the edges
-    that aren't walls, key some of its cells as areas, and add features and transitions. Then you
-    put one or more levels in a [`DungeonSpec`][osrlib.crawl.dungeon.DungeonSpec], and the dungeon in
-    an [`Adventure`][osrlib.crawl.adventure.Adventure].
+    You give a level a size, declare the edges that aren't walls, key some of its cells as areas, and add features and
+    transitions. Then you put one or more levels in a [`DungeonSpec`][osrlib.crawl.dungeon.DungeonSpec], and the dungeon
+    in an [`Adventure`][osrlib.crawl.adventure.Adventure].
 
-    Its methods read the level back the way the session does: whether a cell is on the grid, what
+    Its methods return what the session looks up about a level: whether a cell is on the grid, what
     stands on one side of it, which area it belongs to, and whether a transition stands on it. Call
     them to draw a map, or to check a level while you write it.
 
@@ -1315,10 +1318,10 @@ class LevelSpec(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     number: int = Field(ge=1)
-    """The level's number, 1 or more, where level 1 is the top. The rules use it: it selects the
+    """The level's number, 1 or more, where level 1 is the top. The session uses it to select the
     built-in wandering-monster table and the row of the unguarded-treasure table. The numbers have to
-    be unique within a dungeon, and a [`TransitionSpec`][osrlib.crawl.dungeon.TransitionSpec] uses
-    one to say where it leads."""
+    be unique within a dungeon, and a [`TransitionSpec`][osrlib.crawl.dungeon.TransitionSpec] refers
+    to the level it leads to by its number."""
     width: int = Field(ge=1)
     """How many cells wide the grid is, west to east. `x` runs from `0` to `width - 1`."""
     height: int = Field(ge=1)
@@ -1346,16 +1349,16 @@ class LevelSpec(BaseModel):
     entrance: Position | None = None
     """The cell the party arrives at from town, or `None` for a level with no way in from outside.
     [`EnterDungeon`][osrlib.crawl.commands.EnterDungeon] puts the party here facing north, whatever
-    is around the cell. [`TravelToTown`][osrlib.crawl.commands.TravelToTown] is refused unless the
-    party stands on its level's entrance. One level of every dungeon needs an entrance, and
+    is around the cell. The session refuses [`TravelToTown`][osrlib.crawl.commands.TravelToTown]
+    unless the party stands on its level's entrance. One level of every dungeon needs an entrance, and
     [`validate_adventure`][osrlib.crawl.adventure.validate_adventure] reports a dungeon without
     one."""
     guidance: str = ""
     """Instructions for a narrator that uses a language model, while the party is on this level: the
     mood of the place, what to say about it, and what never to say.
 
-    osrlib never reads it, no event includes it, and no rule depends on it. Your narrator reads it
-    from the adventure document. The player view doesn't include it, so treat it like an area's
+    osrlib never reads it, no event includes it, and no rule depends on it. To use it, read it from
+    the adventure document. The player view doesn't include it, so treat it like an area's
     description, and don't show it to a player as written."""
 
     def in_bounds(self, position: Position) -> bool:
@@ -1442,7 +1445,8 @@ class LevelSpec(BaseModel):
     def transition_at(self, position: Position) -> TransitionSpec | None:
         """Return the stairs, trapdoor, or chute on a cell, or `None`.
 
-        [`UseStairs`][osrlib.crawl.commands.UseStairs] is refused on a cell where this returns `None`.
+        The session refuses [`UseStairs`][osrlib.crawl.commands.UseStairs] on a cell where this
+        returns `None`.
         That is what makes a chute one way: no transition stands on the arrival cell. Call it to draw
         stairs on a map, or to offer `UseStairs` only where it works. It never returns a passage,
         because the party walks through a passage with
@@ -1535,15 +1539,15 @@ class DungeonSpec(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     id: str
-    """The dungeon's id, unique within the adventure.
-    [`EnterDungeon`][osrlib.crawl.commands.EnterDungeon], the town's `travel_turns`, transitions
-    between dungeons, and every reference in the overlay use it."""
+    """The dungeon's id, unique within the adventure. You use it in
+    [`EnterDungeon`][osrlib.crawl.commands.EnterDungeon], the town's `travel_turns`, and transitions
+    between dungeons, and every reference in the overlay includes it."""
     name: str = ""
-    """The dungeon's name, for a front end to show, like `"The Old Crypt"`."""
+    """The dungeon's name, to show the player, like `"The Old Crypt"`."""
     levels: tuple[LevelSpec, ...] = Field(min_length=1)
     """The dungeon's levels, at least one, each with a unique `number`. Look a level up by its number
-    with [`level`][osrlib.crawl.dungeon.DungeonSpec.level], not by its position in the tuple. The order
-    matters in one place: [`EnterDungeon`][osrlib.crawl.commands.EnterDungeon] puts the party on the
+    with [`level`][osrlib.crawl.dungeon.DungeonSpec.level], not by its position in the tuple. Only
+    [`EnterDungeon`][osrlib.crawl.commands.EnterDungeon] depends on the order: it puts the party on the
     entrance of the first level in this tuple that has one, facing north."""
 
     @model_validator(mode="after")
@@ -1617,8 +1621,8 @@ class PartyLocation(BaseModel):
     position: Position | None = None
     """The cell the party stands on, and `None` in town."""
     facing: Direction | None = None
-    """The direction the party faces, and `None` in town. A front end draws the view facing this
-    way. [`MoveParty`][osrlib.crawl.commands.MoveParty] includes a direction, so the party can
+    """The direction the party faces, and `None` in town. Draw the party's view facing this way.
+    [`MoveParty`][osrlib.crawl.commands.MoveParty] includes a direction, so the party can
     step any way, whichever way it faces, and the step turns it to face the way it moved."""
 
     @model_validator(mode="after")
@@ -1643,7 +1647,7 @@ class DoorState(BaseModel):
     Attributes:
         open: Whether the door stands open.
         wedged: Whether a spike holds it.
-        discovered: Whether a secret door has been found.
+        discovered: Whether the party has found a secret door.
         unlocked: Whether a locked door has been unlocked.
         opened_by_party: Whether the party opened it.
     """
@@ -1657,8 +1661,9 @@ class DoorState(BaseModel):
     """Whether an iron spike holds the door, from [`WedgeDoor`][osrlib.crawl.commands.WedgeDoor]. A
     wedged door doesn't swing shut behind the party, and the party can't close it."""
     discovered: bool = False
-    """Whether a secret door has been found. Until a [`Search`][osrlib.crawl.commands.Search] for
-    secret doors sets it, a `secret` door is a wall to the party. A normal door ignores it."""
+    """Whether the party has found a secret door. Until a [`Search`][osrlib.crawl.commands.Search]
+    for secret doors sets it, a `secret` door is a wall to the party. It has no effect on a normal
+    door."""
     unlocked: bool = False
     """Whether a locked door has been unlocked, by a thief's
     [`PickLock`][osrlib.crawl.commands.PickLock] or by a referee's
@@ -1686,7 +1691,8 @@ class DroppedItem(BaseModel):
     item_id: str
     """The item's template id, from the built-in equipment catalog or the adventure's `items`."""
     quantity: int = Field(ge=1)
-    """How many are in the stack, at least 1. A stack that runs out is removed from the pile."""
+    """How many are in the stack, at least 1. The session removes a stack from the pile when it runs
+    out."""
 
 
 class DropPile(BaseModel):
@@ -1782,12 +1788,12 @@ class DungeonState(BaseModel):
     seen: dict[str, list[Position]] = {}
     """The cells the party's light has shown it, as lists of positions keyed `"{dungeon}:{level}"`.
     It is what the party remembers of the map. Only the player view reads it, and it never affects
-    movement cost. New cells are added in sorted `(x, y)` order, so the same game always saves the
-    same bytes."""
+    movement cost. [`mark_seen`][osrlib.crawl.dungeon.DungeonState.mark_seen] adds new cells in
+    sorted `(x, y)` order, so the same game always saves the same bytes."""
     doors: dict[str, DoorState] = {}
     """Each door's [`DoorState`][osrlib.crawl.dungeon.DoorState], keyed by
-    [`edge_ref`][osrlib.crawl.dungeon.edge_ref]. A door gets an entry the first time play changes
-    it, so a door nothing has changed has none. Read one through
+    [`edge_ref`][osrlib.crawl.dungeon.edge_ref]. A door gets an entry the first time it changes in
+    play, so an unchanged door has none. Read one through
     [`door`][osrlib.crawl.dungeon.DungeonState.door]."""
     sprung_traps: list[str] = []
     """The traps that have sprung, as area or feature references. A sprung trap never springs
@@ -1800,15 +1806,15 @@ class DungeonState(BaseModel):
     """The traps the party has found, as area or feature references: room traps from a
     [`Search`][osrlib.crawl.commands.Search], and treasure traps from a thief's
     [`InspectTreasure`][osrlib.crawl.commands.InspectTreasure]. A room trap here no longer springs. A
-    treasure trap here can still spring when the cache is opened, and it has to be here before
+    treasure trap here can still spring when the party opens the cache, and it has to be here before
     [`RemoveTreasureTrap`][osrlib.crawl.commands.RemoveTreasureTrap] can take it out."""
     found_tricks: list[str] = []
     """The construction tricks the party has found with a
     [`Search`][osrlib.crawl.commands.Search] for construction, as feature references."""
     emptied_caches: list[str] = []
-    """The caches you wrote that the party has emptied, as feature references. An emptied cache gives
-    nothing more. A cache the session rolled isn't listed here: it is removed from
-    `generated_caches` instead."""
+    """The caches you wrote that the party has emptied, as feature references. The party gets nothing
+    more from an emptied cache. A cache the session rolled isn't listed here. The session removes it
+    from `generated_caches` instead."""
     piles: dict[str, DropPile] = {}
     """What lies on the floor, keyed by [`cell_ref`][osrlib.crawl.dungeon.cell_ref]. See
     [`DropPile`][osrlib.crawl.dungeon.DropPile]."""
@@ -1819,10 +1825,11 @@ class DungeonState(BaseModel):
     removes the entry. See [`GeneratedCache`][osrlib.crawl.dungeon.GeneratedCache]."""
     generated_treasure_areas: list[str] = []
     """The areas whose [`AreaTreasureSpec`][osrlib.crawl.dungeon.AreaTreasureSpec] the session has
-    already rolled, as area references, so entering a room twice doesn't roll its treasure twice."""
+    already rolled, as area references, so the session doesn't roll a room's treasure again when the
+    party enters it a second time."""
     resolved_encounters: list[str] = []
     """The areas whose keyed encounter ended with every monster slain or routed, as area references.
-    Entering one of these areas again spawns no monsters."""
+    When the party enters one of these areas again, no monsters spawn."""
     listen_attempts: dict[str, list[str]] = {}
     """Which characters have listened at each door, as lists of character ids keyed by
     [`edge_ref`][osrlib.crawl.dungeon.edge_ref]. Each character gets one try at each door, so a bad
@@ -1841,7 +1848,7 @@ class DungeonState(BaseModel):
     lock_failures: dict[str, dict[str, int]] = {}
     """Which thieves failed to pick each lock, keyed by [`edge_ref`][osrlib.crawl.dungeon.edge_ref].
     Each value maps a character id to the thief's level at the time. A thief who failed a lock can
-    try it again after gaining a level, so the level is recorded."""
+    try it again after gaining a level, so the session records the level."""
 
     def is_explored(self, dungeon_id: str, level_number: int, position: Position) -> bool:
         """Return whether the party has walked into a cell.
@@ -1901,8 +1908,8 @@ class DungeonState(BaseModel):
         visible either: the player view shows piles only on cells the party has walked into, which is
         where piles form.
 
-        Marking a cell twice changes nothing. New cells are added in sorted `(x, y)` order, whatever
-        order you pass them in, so the same game always saves the same bytes.
+        Marking a cell twice changes nothing. This method adds new cells in sorted `(x, y)` order,
+        whatever order you pass them in, so the same game always saves the same bytes.
 
         Args:
             dungeon_id: The dungeon's id.
@@ -1917,18 +1924,18 @@ class DungeonState(BaseModel):
     def door(self, ref: str) -> DoorState:
         """Return one door's live state, creating the entry the first time you ask.
 
-        Door entries are not created up front, so this is how you read one without worrying about
+        The session doesn't create door entries up front, so this is how you read one without worrying about
         whether the party has reached that door yet. The object it returns is the one in the map, so
         writing to it writes to the overlay.
 
         Args:
-            ref: The door's [`edge_ref`][osrlib.crawl.dungeon.edge_ref]. Both sides of a door
-                canonicalize to the same reference, so either one reaches the same state.
+            ref: The door's [`edge_ref`][osrlib.crawl.dungeon.edge_ref]. You get the same reference
+                from either side of a door, so either side reaches the same state.
 
         Returns:
-            The door's overlay entry, freshly created and all-`False` when the door has not been
-            touched before. A door you authored `starts_open` is seeded to open by the session,
-            not here.
+            The door's overlay entry, freshly created and all-`False` when the door has no entry
+            yet. For a door whose spec sets `starts_open`, the session sets `open`, not this
+            method.
 
         Examples:
             ```python

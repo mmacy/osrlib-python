@@ -18,25 +18,25 @@ quest or an objective. You get the beats back in the `narrative` field of an eve
 [`TriggerFiredEvent`][osrlib.crawl.events.TriggerFiredEvent], or
 [`QuestActivatedEvent`][osrlib.crawl.events.QuestActivatedEvent], in the `text` of a
 [`JournalEntryAddedEvent`][osrlib.crawl.events.JournalEntryAddedEvent], or in the parameters of the
-rejection a gate returns.
+rejection the session returns when a gate's condition isn't met.
 
 The three audiences are:
 
-- The display beats, `refusal`, `success`, `fired`, `offer`, `progress`, and `completion`, which a
-  front end shows exactly as written. A front end is the code you write to show the game to a
-  player. The default English formatter,
+- The display beats, `refusal`, `success`, `fired`, `offer`, `progress`, and `completion`, which
+  you show exactly as written in the code you write to show the game to a player. The default
+  English formatter,
   [`format_message`][osrlib.messages.format_message], appends an event's beat after its templated
   line, so a plain transcript shows the author's words unchanged.
 - The `journal` beat, the object's entry in the party's journal (the written record the session
-  keeps of the adventure). Only a trigger uses it. A trigger's `fired` beat goes on a referee-only
-  event that players never see, so write the line meant for the players in `journal`. A quest
-  writes the display beat it showed to the journal instead.
-- The `guidance` beat, instructions for a front end that narrates with a language model. It is never
-  shown as written. A narrator treats it as authored content, the same way it treats an area's
+  keeps of the adventure). osrlib reads it only for a trigger. A trigger's `fired` beat goes on a
+  referee-only event that players never see, so write the line meant for the players in `journal`.
+  For a quest, the session writes the display beat it showed to the journal instead.
+- The `guidance` beat, instructions for a language model that narrates the game. Don't show it to a
+  player as written. Give it to the narrator as authored content, the same way you give it an area's
   description.
 
 Which beats osrlib reads, and who sees them, depends on the object the block belongs to. The block has no
-visibility setting of its own. Text meant for a player reaches them on a player-visible event or in
+visibility setting. Text meant for a player reaches them on a player-visible event or in
 a rejection. The conditions, flags, and guidance that produced it stay in referee-only events and in
 the adventure document.
 """
@@ -55,23 +55,24 @@ class NarrativeBlock(BaseModel):
     text. The empty string, the default, means the beat isn't written, so a block with only a
     refusal is normal. Which beats osrlib reads depends on the object the block belongs to:
 
-    - For a gate ([`GateSpec`][osrlib.crawl.gates.GateSpec]), osrlib reads `refusal` and `success`. A refused
-      attempt returns `refusal` in its rejection, and a successful one puts `success` on its event.
+    - For a gate ([`GateSpec`][osrlib.crawl.gates.GateSpec]), osrlib reads `refusal` and `success`. When the
+      session refuses an attempt, its rejection includes `refusal`. When an attempt succeeds, its event
+      includes `success`.
     - For a trigger ([`TriggerSpec`][osrlib.crawl.triggers.TriggerSpec]), osrlib reads `fired` and
-      `journal` when its consequences run. `fired` goes on a referee-only event, so it is the referee's line
+      `journal` when its consequences run. `fired` goes on a referee-only event, so it's the referee's line
       about what happened. `journal` is the players' line about the same moment.
     - For a quest ([`QuestSpec`][osrlib.crawl.quests.QuestSpec]), osrlib reads `offer` when the quest
       activates and `completion` when it completes.
     - For an objective ([`ObjectiveSpec`][osrlib.crawl.quests.ObjectiveSpec]), osrlib reads `offer`
-      when the objective is revealed and `progress` when it completes. An objective that completes before it is revealed
-      shows only `progress`.
+      when the objective is revealed and `progress` when it completes. If an objective completes before
+      it's revealed, the session uses only its `progress`.
 
     osrlib ignores the beats it doesn't read for an object, like `progress` on a quest, `completion` on an
     objective, `fired` on a gate, or `offer` on a trigger. A block that sets them still parses.
 
     Two fields apply to every object. `guidance` is instructions for a narrator that uses a language
     model, and osrlib never reads it. `speaker` is an attribution, like "the bronze sentinel" or
-    "Sister Halda", that a front end can show in front of a beat.
+    "Sister Halda", that you can show in front of a beat.
 
     Examples:
         ```python
@@ -98,9 +99,9 @@ class NarrativeBlock(BaseModel):
     success: str = ""
     """A gate's success line. It goes in the `narrative` of the event for the successful attempt: a
     [`DoorEvent`][osrlib.crawl.events.DoorEvent] for a door, or a
-    [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] for a transition. A transition
-    to another cell of the same level emits no `LocationEnteredEvent`, so its `success` line is never
-    shown."""
+    [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] for a transition. The session
+    emits no `LocationEnteredEvent` for a transition to another cell of the same level, so that
+    transition's `success` line never appears."""
     fired: str = ""
     """A trigger's firing line, for the referee. It goes in the `narrative` of the
     [`TriggerFiredEvent`][osrlib.crawl.events.TriggerFiredEvent], which players never see."""
@@ -117,16 +118,16 @@ class NarrativeBlock(BaseModel):
     """A trigger's journal line, for the players. When the trigger fires, the
     [`Interpreter`][osrlib.crawl.interpreter.Interpreter] adds it to the journal with
     [`AddJournalEntry`][osrlib.crawl.commands.AddJournalEntry]. osrlib doesn't read it on a quest,
-    because a quest writes the line it showed to the journal."""
+    because for a quest the session writes the line it showed to the journal."""
     guidance: str = ""
-    """Instructions for a narrator that uses a language model, while the object is in play. It is
-    never shown to a player as written.
+    """Instructions for a narrator that uses a language model, while the object is in play. It isn't
+    text to show a player as written.
 
     osrlib never reads it, no event includes it, and no rule depends on it. Read it from the
     adventure document when your narrator writes its text. The adventure document is referee-only
     content, so don't show the field to a player. [`LevelSpec.guidance`][osrlib.crawl.dungeon.LevelSpec.guidance]
     does the same job for a whole level."""
     speaker: str = ""
-    """An attribution, like "the bronze sentinel", that a front end can show in front of a beat.
+    """An attribution, like "the bronze sentinel", that you can show in front of a beat.
     osrlib reads it only on a quest, and passes it to the player view as
     [`QuestView.speaker`][osrlib.crawl.views.QuestView.speaker]."""

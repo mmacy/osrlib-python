@@ -2,10 +2,10 @@
 
 [`GameClock`][osrlib.core.clock.GameClock] is the entry point. Create one, call
 [`advance`][osrlib.core.clock.GameClock.advance] whenever the party spends time, and
-read `rounds`, `turns`, and `days` off it. Each advance returns the turn and day
-boundaries it crossed, as [`BoundaryCrossing`][osrlib.core.clock.BoundaryCrossing]
-values. Act on each one the way your game handles the end of a turn or a day: burn a
-torch down, check for wandering monsters, eat a day's rations.
+read `rounds`, `turns`, and `days` off it. Each call to `advance` returns the turn and
+day boundaries the clock crossed, as [`BoundaryCrossing`][osrlib.core.clock.BoundaryCrossing]
+values. Handle each one as the end of a turn or a day: burn a torch down, check for
+wandering monsters, or eat a day's rations.
 
 The members, in the order you use them:
 
@@ -73,7 +73,7 @@ __all__ = [
 SECONDS_PER_ROUND = 10
 """How many seconds of story time one combat round takes.
 
-Nothing in the rules reads this. It's here so you can put a wall-clock duration on the
+The rules functions don't use this. It's here so you can put a wall-clock duration on the
 screen, or pace an animation, without writing 10 into your own code. The B/X rules give
 no unit finer than the round, so there's nothing below it to count.
 """
@@ -144,12 +144,12 @@ _ROUNDS_PER_UNIT: dict[TimeUnit, int] = {
 
 
 class BoundaryCrossing(BaseModel):
-    """One turn or day boundary that a clock advance passed.
+    """One turn or day boundary that the clock passed during an advance.
 
     [`advance`][osrlib.core.clock.GameClock.advance] returns a list of these, earliest
-    first. Go through the list in order and do what your game does at the end of each
-    turn or day. There are no round crossings: every round is a round boundary, so their
-    count is the number of rounds you advanced.
+    first. Go through the list in order and handle the end of each turn or day. There are no
+    round crossings: every round is a round boundary, so their count is the number of rounds
+    you advanced.
 
     The model is frozen, so you can keep a crossing as a record of when something
     happened.
@@ -232,7 +232,7 @@ class GameClock(BaseModel):
     rounds: int = Field(default=0, ge=0)
     """Rounds elapsed since the start of the game.
 
-    The clock's only stored value. `turns` and `days` are read off it. Advancing is what
+    The clock's only stored value. `turns` and `days` are computed from it. Advancing is what
     normally changes it, and it can never go below zero.
     """
 
@@ -263,8 +263,8 @@ class GameClock(BaseModel):
 
         If you're aging effects as well as counting time, call
         [`EffectsLedger.advance`][osrlib.core.effects.EffectsLedger.advance] instead and
-        pass it this clock. It advances the clock for you and returns the events that
-        effects produced as they ticked and expired. This method changes no effects. In a
+        pass it this clock. It advances the clock for you and returns the events for
+        effects that ticked and expired. This method changes no effects. In a
         session, call
         [`GameSession.advance_rounds`][osrlib.crawl.session.GameSession.advance_rounds]
         instead.

@@ -1,20 +1,20 @@
 """Where every random number in osrlib comes from: named, seeded, repeatable streams.
 
 [`RngStreams`][osrlib.core.rng.RngStreams] is the entry point. Make one from a master
-seed, the single integer that all of a game's randomness is derived from. Ask it for a
-stream by name with [`get`][osrlib.core.rng.RngStreams.get], and pass that stream to
-whatever you call: [`roll`][osrlib.core.dice.roll], the combat and treasure functions,
+seed, the integer that every random number in a game comes from. Get a stream from it by
+name with [`get`][osrlib.core.rng.RngStreams.get], and pass that stream to the function
+you call, like [`roll`][osrlib.core.dice.roll], the combat and treasure functions, or
 character creation. A [`GameSession`][osrlib.crawl.session.GameSession] builds a
-container from the seed you give it and passes the right stream to each rule, so during
-ordinary play you never touch this module.
+container from the seed you give it and passes the right stream to each rules function,
+so in a game that uses a session you don't call this module yourself.
 
 The members, in the order you use them:
 
-- [`RngStreams`][osrlib.core.rng.RngStreams]: takes a master seed and keeps a game's
+- [`RngStreams`][osrlib.core.rng.RngStreams]: takes a master seed and stores a game's
   streams.
 - [`RngStreams.get`][osrlib.core.rng.RngStreams.get]: takes a stream name and returns
   the [`RngStream`][osrlib.core.rng.RngStream] for it.
-- [`StreamName`][osrlib.core.rng.StreamName]: the names a session draws from.
+- [`StreamName`][osrlib.core.rng.StreamName]: the stream names a session uses.
 - [`RngStream.randbelow`][osrlib.core.rng.RngStream.randbelow]: takes a bound and
   returns a random number below it. [`roll`][osrlib.core.dice.roll] calls it for you.
 - [`RngStreams.export_states`][osrlib.core.rng.RngStreams.export_states] and
@@ -25,15 +25,15 @@ The members, in the order you use them:
   returns the numbers that start the stream, for checking another implementation.
 
 Each stream name has a separate sequence. Rolling a hundred treasure hoards doesn't
-change the next attack roll. A new draw added to one subsystem changes no other
-subsystem's results, so a saved game replays and a bug reproduces.
+change the next attack roll. Adding a draw to one subsystem doesn't change the results of
+any other subsystem, so you can replay a saved game and reproduce a bug.
 [`StreamName`][osrlib.core.rng.StreamName] lists every stream a running session draws
 from, and each `*_STREAM` constant in the library is one of its members. Each member's
 docstring and
 [the RNG streams reference](https://mmacy.github.io/osrlib-python/reference/rng-streams/)
 describe what that stream covers. Code you run without a session can use any name. Ask
-for the same name again to get the same stream back. It continues from where it stopped, and
-doesn't start the sequence over.
+for the same name again to get the same stream back. It continues from where it stopped instead
+of starting the sequence over.
 
 The same master seed and the same stream name give the same draws, in this release and
 in every later one. The generator is PCG64, in the `pcg_setseq_128_xsl_rr_64` form with
@@ -45,9 +45,9 @@ implementation does. A stream's starting numbers come from
 bytes, most significant first. An implementation that differs in any of these steps
 draws different numbers, so it can't replay an osrlib game.
 
-osrlib never uses Python's `random` module and keeps no generator of its own. If you
-write a rule of your own to run beside osrlib's, take a stream as an argument the same
-way.
+osrlib never uses Python's `random` module, and streams are its only random number
+generator. If you write a rule of your own to run beside osrlib's, take a stream as an
+argument the same way.
 
 Typical usage:
 
@@ -94,17 +94,17 @@ _SEED_BOUND = 1 << 128
 class StreamName(StrEnum):
     """Every stream name a running session draws from.
 
-    Each member is a string, so `StreamName.COMBAT` and `"combat"` are the same stream to
-    [`RngStreams.get`][osrlib.core.rng.RngStreams.get] and the same key in a save file. Draw with a
-    member rather than a string you type out. A mistyped name raises no error:
+    Each member is a string, so [`RngStreams.get`][osrlib.core.rng.RngStreams.get] returns the same
+    stream for `StreamName.COMBAT` and `"combat"`, and a save file uses the same key for both. Draw
+    with a member instead of a string you type out. A mistyped name raises no error:
     [`get`][osrlib.core.rng.RngStreams.get] makes a new stream for it, and you get plausible
     numbers from that stream instead of the one you meant.
 
     Each `*_STREAM` constant in the library, like
     [`COMBAT_STREAM`][osrlib.core.combat.COMBAT_STREAM], is one of these members, and each member's
     docstring gives its constant. The member docstrings and
-    [the RNG streams reference](https://mmacy.github.io/osrlib-python/reference/rng-streams/) say what
-    each stream covers.
+    [the RNG streams reference](https://mmacy.github.io/osrlib-python/reference/rng-streams/) describe
+    what each stream covers.
 
     A rule you write yourself isn't limited to these names.
     [`RngStreams.get`][osrlib.core.rng.RngStreams.get] makes a stream for any string you pass it.
@@ -170,17 +170,17 @@ class StreamName(StrEnum):
     [`MONSTER_ACTION_STREAM`][osrlib.crawl.session.MONSTER_ACTION_STREAM]."""
 
     ADJUDICATION = "adjudication"
-    """The referee's freeform dice rolls, kept apart from the streams the rules draw from. Its constant is
+    """The referee's freeform dice rolls, separate from the streams rules functions draw from. Its constant is
     [`ADJUDICATION_STREAM`][osrlib.crawl.session.ADJUDICATION_STREAM]."""
 
 
 def derive_init_pair(master_seed: int, key: str) -> tuple[int, int]:
-    """Work out the two numbers PCG64 needs to start a named stream.
+    """Compute the two numbers that start a named PCG64 stream.
 
     You rarely call this. [`RngStreams.get`][osrlib.core.rng.RngStreams.get] calls it for
     you, and [`RngStream.from_seed_material`][osrlib.core.rng.RngStream.from_seed_material]
-    wraps it in one step. Reach for it when you're checking osrlib's forking against
-    another implementation, or building the same stream in another language.
+    wraps it in one step. Use it when you check how osrlib derives its streams against
+    another implementation, or when you build the same stream in another language.
 
     The seed material is `SHA-256(master_seed_bytes + b":" + stream_key_utf8)`, with the
     master seed written as exactly 16 bytes, most significant first. The digest's first
@@ -265,7 +265,7 @@ class RngStreamState(BaseModel):
 
 
 class RngStream:
-    """One named sequence of random numbers, which you pass to whatever needs to roll.
+    """One named sequence of random numbers, which you pass to any function that rolls.
 
     Get one from [`RngStreams.get`][osrlib.core.rng.RngStreams.get]. For a single stream
     with no container, as in a test, call
@@ -273,8 +273,8 @@ class RngStream:
     the kernel that rolls anything takes one of these, and streams are the only source of
     randomness in the library.
 
-    Each draw advances the stream, so two calls give two different results, and the order
-    of your calls is part of what the seed determines. Pass the stream itself, never a
+    Each draw advances the stream, so each call gets the next number in the sequence, and the
+    order of your calls is part of what the seed determines. Pass the stream itself, never a
     copy. Draw with [`randbelow`][osrlib.core.rng.RngStream.randbelow] for a bounded
     number, or call [`roll`][osrlib.core.dice.roll] with a dice expression.
 
@@ -324,7 +324,7 @@ class RngStream:
         """Build the named stream for a master seed, in one step.
 
         Use this when you want a single stream and no container. When you want several,
-        use [`RngStreams`][osrlib.core.rng.RngStreams] instead: it keeps each stream and
+        use [`RngStreams`][osrlib.core.rng.RngStreams] instead, which stores each stream and
         saves them all together.
 
         Args:
@@ -350,7 +350,7 @@ class RngStream:
 
     @classmethod
     def restore(cls, snapshot: RngStreamState) -> RngStream:
-        """Rebuild a stream at the position a snapshot recorded.
+        """Rebuild a stream at the position saved in a snapshot.
 
         Use it when you load a game you saved yourself.
         [`load_game`][osrlib.persistence.load_game] restores a session's streams for you.
@@ -417,9 +417,9 @@ class RngStream:
 
         This is the generator's raw output, with no bound applied. For a die or any
         bounded value, call [`randbelow`][osrlib.core.rng.RngStream.randbelow] instead.
-        A remainder of this number biases the result. Computing one yourself also uses a
-        different number of raw draws than osrlib does, so the stream falls out of step
-        with a replay.
+        If you take a remainder of this number, the result is biased. Computing a bounded
+        value yourself also uses a different number of raw draws than osrlib does, so the
+        stream falls out of step with a replay.
 
         The stream advances first and then produces the output from its new state,
         following the reference C implementation.
@@ -446,15 +446,15 @@ class RngStream:
     def randbelow(self, n: int) -> int:
         """Draw a number from 0 up to but not including `n`, each equally likely.
 
-        This is the bounded draw everything in osrlib is built on. For a die, add 1:
+        This is the bounded draw that the rest of osrlib uses. For a die, add 1:
         `stream.randbelow(6) + 1` is a d6. For a dice expression, call
         [`roll`][osrlib.core.dice.roll] instead and let it do the arithmetic.
 
         How many raw numbers a single call consumes varies. The method takes the top bits
-        of a raw draw and throws the candidate away if it's at or above `n`, which is
-        what keeps every result equally likely. A bound that's a power of two never throws
-        anything away, and bounds of 3, 6, 10, 12, 20, and 100 sometimes do, so a stream's
-        position after a roll depends on which values came up rather than on how many
+        of a raw draw and discards the candidate if it's at or above `n`, which makes
+        every result equally likely. With a bound that's a power of two, the method never
+        discards a draw. With bounds of 3, 6, 10, 12, 20, and 100 it sometimes does, so a
+        stream's position after a roll depends on which values came up, not on how many
         times you called. `randbelow(1)` returns 0 and still uses a draw.
 
         Args:
@@ -490,15 +490,15 @@ class RngStreams:
     """All of a game's random number streams, forked from one master seed.
 
     Make one with the seed you want the game to run on, then call
-    [`get`][osrlib.core.rng.RngStreams.get] for each stream you need. The container makes
-    a stream the first time you ask for its name and keeps it, so asking again gives you
+    [`get`][osrlib.core.rng.RngStreams.get] for each stream you need. The container creates
+    a stream the first time you ask for its name and stores it, so if you ask again, you get
     the same stream at the position you left it.
 
-    Keep one container for the whole game and pass streams out of it. Two containers on
-    the same seed draw the same numbers, so streams from a second container repeat the
+    Keep one container for the whole game and pass streams out of it. Two containers with
+    the same seed give the same numbers, so streams from a second container repeat the
     rolls the first one already made.
 
-    A [`GameSession`][osrlib.crawl.session.GameSession] keeps one of these, so you build
+    A [`GameSession`][osrlib.crawl.session.GameSession] has one of these, so you build
     your own only when you run the kernel, osrlib's rules functions, without a session.
     Save the position of every stream with
     [`export_states`][osrlib.core.rng.RngStreams.export_states] and put them back with
@@ -548,7 +548,7 @@ class RngStreams:
         return self._master_seed
 
     def get(self, key: str) -> RngStream:
-        """Return the stream with this name, making it the first time you ask.
+        """Return the stream with this name, and create it the first time you ask.
 
         Pass the stream to the function that rolls, like [`roll`][osrlib.core.dice.roll].
 
@@ -588,8 +588,8 @@ class RngStreams:
         yourself only when you save a game you built without one.
 
         A name you've never passed to [`get`][osrlib.core.rng.RngStreams.get] is left out.
-        That stream has drawn nothing, and `get` makes it from the master seed the first
-        time you ask for it.
+        You haven't drawn from that stream, and `get` makes it from the master seed the
+        first time you ask for it.
 
         Returns:
             One position per name you've passed to `get` or restored, in sorted name order,
@@ -609,12 +609,12 @@ class RngStreams:
         return {key: self._streams[key].export_state() for key in sorted(self._streams)}
 
     def restore_states(self, states: dict[str, RngStreamState]) -> None:
-        """Put saved stream positions back, so a loaded game draws on from where it stopped.
+        """Put saved stream positions back, so each stream in a loaded game continues from where it stopped.
 
         Call it on a container made with the master seed the game was saved under. Each
         stream named in `states` is replaced with a new stream at the saved position. A
         stream object you got from [`get`][osrlib.core.rng.RngStreams.get] before this call
-        keeps its old position, so call `get` again afterwards. A stream not named in
+        stays at its old position, so call `get` again afterwards. A stream not named in
         `states` is left as it is.
 
         Args:

@@ -6,9 +6,10 @@ You build a [`Party`][osrlib.crawl.party.Party] from
 [`GameSession.new`][osrlib.crawl.session.GameSession.new] with the adventure. From then on the
 session moves the party as one group. `session.party` is the same object you passed.
 
-The order of the member list is the marching order, and no other field records it, so the first
-member is the one in front. [`ReorderParty`][osrlib.crawl.commands.ReorderParty] is the only
-command that changes that order, and it calls [`reorder`][osrlib.crawl.party.Party.reorder].
+The order of the member list is the marching order, and it isn't recorded anywhere else, so the
+first member is the one in front. [`ReorderParty`][osrlib.crawl.commands.ReorderParty] is the
+only command that changes that order. The session calls
+[`reorder`][osrlib.crawl.party.Party.reorder] when it accepts one.
 
 Dead members stay in the list, with their gear still on them. No command removes a member. The
 rules that count party members skip the dead: movement rate, combat ranks, traps, and food and
@@ -33,9 +34,8 @@ class Party(BaseModel):
 
     Construct one with at least one member and pass it to
     [`GameSession.new`][osrlib.crawl.session.GameSession.new], which assigns each member an id and
-    keeps the party for the life of the session. The methods report what the game needs to know about
-    the group as a whole: who is still alive, how fast the group walks, and who stands where in a
-    fight.
+    keeps the party for the life of the session. The methods return facts about the group as a whole:
+    who is still alive, how fast the group walks, and who stands where in a fight.
 
     A party is mutable. The session heals, wounds, and re-equips its members in place, and assigning
     a new list to `members` validates it. The list is never empty: when the last member dies, the

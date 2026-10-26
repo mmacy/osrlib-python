@@ -17,7 +17,7 @@ because a finished character has no record of the choices that made it. The crea
 check each choice when it's made.
 
 To create a character one step at a time while a player makes the choices, call these functions
-in the order the SRD's character-creation steps set:
+in the order the SRD gives for creating a character:
 
 1. [`roll_ability_scores`][osrlib.core.character.roll_ability_scores] rolls the six ability scores.
 2. [`validate_class_choice`][osrlib.core.character.validate_class_choice] checks the scores against
@@ -48,15 +48,15 @@ creation function emits events, because creation happens before a session starts
 Advancement is in [`osrlib.core.classes`][osrlib.core.classes]: experience awards, leveling up, and
 energy drain, which takes levels away. To store a character on its own, call
 [`to_document`][osrlib.core.character.Character.to_document]. To store a group of characters, call
-[`party_to_document`][osrlib.core.character.party_to_document]. A whole game in progress, characters
-included, is saved by [`save_game`][osrlib.persistence.save_game].
+[`party_to_document`][osrlib.core.character.party_to_document]. To store a whole game in progress,
+characters included, call [`save_game`][osrlib.persistence.save_game].
 
 Creation and advancement draw from two separate streams, keyed by
 [`CHARACTER_CREATION_STREAM`][osrlib.core.character.CHARACTER_CREATION_STREAM] and
 [`ADVANCEMENT_STREAM`][osrlib.core.character.ADVANCEMENT_STREAM]. A stream key is the name of one
 independent random-number sequence in an [`RngStreams`][osrlib.core.rng.RngStreams] set. The two
-streams are separate so that a change to the creation rules never shifts the level-up rolls a save
-has already recorded.
+streams are separate so that a change to the creation rules never changes the level-up rolls in a
+save you've already made.
 
 Typical usage:
 
@@ -155,7 +155,7 @@ it resolves energy drain.
 It is separate from
 [`CHARACTER_CREATION_STREAM`][osrlib.core.character.CHARACTER_CREATION_STREAM]. A change to the
 creation rules can change how many draws creation takes. Because the streams are separate, that
-change doesn't shift the advancement rolls a save has already recorded.
+change doesn't change the advancement rolls in a save you've already made.
 """
 
 ABILITY_ROLL_ORDER = (
@@ -226,10 +226,10 @@ class Character(BaseModel):
     model_config = ConfigDict(validate_assignment=True, extra="ignore")
 
     id: str | None = None
-    """The character's id within a game, like `"character-0001"`, or `None` before a game assigns one.
+    """The character's id within a game, like `"character-0001"`, or `None` before a session assigns one.
 
     [`GameSession.new`][osrlib.crawl.session.GameSession.new] assigns an id to each party member whose id is `None`,
-    from the session's [`IdAllocator`][osrlib.core.monsters.IdAllocator]. Commands name a character by this id. An
+    from the session's [`IdAllocator`][osrlib.core.monsters.IdAllocator]. Commands refer to a character by this id. An
     event about a character with no id uses the character's `name` instead.
     """
 
@@ -259,7 +259,7 @@ class Character(BaseModel):
     """The character's total experience points.
 
     Award experience with [`apply_xp`][osrlib.core.classes.apply_xp], which adds to this total and levels the character
-    up when it reaches the next level's threshold. Assigning a new total here changes no level.
+    up when it reaches the next level's threshold. Assigning a new total here doesn't change the level.
     """
 
     scores: dict[AbilityScore, int]
@@ -355,8 +355,9 @@ class Character(BaseModel):
 
         Read it for anything that depends on the class: the progression table, the armour and weapon
         policies, the class abilities, and the level titles. Pass it as the `definition` argument of the
-        functions in [`osrlib.core.classes`][osrlib.core.classes]. The catalog is loaded once and
-        cached, so reading this property again costs almost nothing.
+        functions in [`osrlib.core.classes`][osrlib.core.classes].
+        [`load_classes`][osrlib.data.load_classes] loads the catalog once and caches it, so
+        reading this property again costs almost nothing.
         """
         return load_classes().get(self.class_id)
 
@@ -403,8 +404,9 @@ class Character(BaseModel):
         """The chance in 6 of forcing a stuck door open, from STR.
 
         Roll 1d6, and the door opens on a roll equal to or less than this number. To roll it, pass
-        it to [`detection_check`][osrlib.core.classes.detection_check]. In a session, the
-        [`ForceDoor`][osrlib.crawl.commands.ForceDoor] command reads it for you.
+        it to [`detection_check`][osrlib.core.classes.detection_check]. In a session, the engine
+        reads it for you when it resolves a [`ForceDoor`][osrlib.crawl.commands.ForceDoor]
+        command.
         """
         return self._tables().open_doors_chance(self.scores[AbilityScore.STR])
 
@@ -418,8 +420,8 @@ class Character(BaseModel):
         """The DEX modifier to an individual initiative roll, from −2 to +2.
 
         It applies only when the `individual_initiative` flag of the
-        [`Ruleset`][osrlib.core.ruleset.Ruleset] is on. Group initiative, the default, rolls once
-        for each side and ignores it.
+        [`Ruleset`][osrlib.core.ruleset.Ruleset] is on. With group initiative, the default, each
+        side rolls once, and this modifier doesn't apply.
         """
         return self._tables().initiative_modifier(self.scores[AbilityScore.DEX])
 
@@ -440,11 +442,11 @@ class Character(BaseModel):
 
     @property
     def npc_reaction_modifier(self) -> int:
-        """The CHA modifier to a monster reaction roll when this character speaks to the monsters, from −2 to +2.
+        """The CHA modifier to a monster reaction roll when this character talks to the monsters, from −2 to +2.
 
         Pass it as the `modifier` of [`roll_reaction`][osrlib.core.combat.roll_reaction]. In a
-        session, the [`Parley`][osrlib.crawl.commands.Parley] command applies the speaker's modifier
-        for you.
+        session, the engine applies the speaker's modifier for you when it resolves a
+        [`Parley`][osrlib.crawl.commands.Parley] command.
         """
         return self._tables().npc_reaction_modifier(self.scores[AbilityScore.CHA])
 
@@ -630,10 +632,10 @@ class Character(BaseModel):
     def from_document(cls, document: Mapping[str, object]) -> Character:
         """Rebuild a character from a document written by [`to_document`][osrlib.core.character.Character.to_document].
 
-        Fields in the payload that this release doesn't recognize are ignored, so a document from a
-        later release that only added fields still loads. A document with a newer schema version
-        than this release supports is refused, because the fields this release reads may mean
-        something different in it.
+        This method ignores fields in the payload that this release doesn't recognize, so a
+        document from a later release that only added fields still loads. It refuses a document
+        with a newer schema version than this release supports, because the fields this release
+        reads may mean something different in it.
 
         Args:
             document: The document [`to_document`][osrlib.core.character.Character.to_document]
@@ -740,7 +742,7 @@ def party_to_document(characters: Sequence[Character]) -> dict[str, object]:
 def party_from_document(document: Mapping[str, object]) -> list[Character]:
     """Rebuild the characters in a document written by [`party_to_document`][osrlib.core.character.party_to_document].
 
-    Each character is validated as it loads. If one fails, the whole load fails, so you never get
+    This function validates each character as it loads. If one fails, the whole load fails, so you never get
     part of the group. Pass the list to [`Party`][osrlib.crawl.party.Party] as its `members` to
     play them.
 
@@ -931,8 +933,8 @@ def validate_class_choice(scores: dict[AbilityScore, int], definition: ClassDefi
     DEX 9.
 
     For the built-in classes, checking before the adjustment is enough. The adjustment can lower
-    only STR, INT, and WIS, never below 9, and no built-in requirement is above 9. A class you write
-    yourself with a minimum above 9 in STR, INT, or WIS needs a second check after the adjustment.
+    only STR, INT, and WIS, never below 9, and no built-in requirement is above 9. If you write a
+    class with a minimum above 9 in STR, INT, or WIS, check the scores again after the adjustment.
 
     Args:
         scores: The rolled scores, before any adjustment, with all six abilities present.
@@ -984,9 +986,9 @@ def roll_hit_points(
     `hp_reroll_at_first_level` option. For the hit points a character gains at later levels, use
     [`level_up`][osrlib.core.classes.level_up].
 
-    With `hp_reroll_at_first_level` on in the ruleset, a die showing 1 or 2 is thrown again until it
-    shows 3 or more. The test is on the die before the CON modifier, and the result includes every
-    throw.
+    With `hp_reroll_at_first_level` on in the ruleset, this function throws a die that shows 1 or 2
+    again until it shows 3 or more. The test is on the die before the CON modifier, and the result
+    includes every throw.
 
     Args:
         definition: The character's class. Its first-level progression row gives the hit die.
@@ -1035,10 +1037,10 @@ def validate_extra_languages(definition: ClassDefinition, int_score: int, choice
     [`load_languages`][osrlib.data.load_languages], check the choices here, then store them in
     [`extra_languages`][osrlib.core.character.Character.extra_languages].
 
-    A choice is refused when it isn't a choosable language, when it repeats another choice, or when
+    This function rejects a choice when it isn't a choosable language, when it repeats another choice, or when
     the class already grants it. Each of these rejections includes the language, so you can show
-    the player which choice to change. Choosing more languages than the INT allows is refused once
-    for the whole list, with the number allowed and the number chosen.
+    the player which choice to change. If the player chooses more languages than the INT allows,
+    you get one rejection for the whole list, with the number allowed and the number chosen.
 
     Args:
         definition: The chosen class. The languages it grants can't be chosen again as extras.
@@ -1099,11 +1101,11 @@ def validate_starting_spells(
     write it with [`choose_starting_spells`][osrlib.core.character.choose_starting_spells]. Whether the
     player or the referee chooses is up to you. This function only checks the choice.
 
-    A choice is refused when the spell id is unknown, when it repeats, when the spell is on another
+    This function rejects a choice when the spell id is unknown, when it repeats, when the spell is on another
     class's list, or when the number of spells at any spell level doesn't match the book's size at
-    that level. Too few is refused as well as too many, because the SRD gives a starting book a
+    that level. It rejects too few as well as too many, because the SRD gives a starting book a
     fixed size. A cleric has no spell book, because clerics receive their spells from a deity, so
-    any choice for a cleric or for a class that casts no spells is refused.
+    it rejects any choice for a cleric or for a class that casts no spells.
 
     Args:
         definition: The character's class.
@@ -1179,14 +1181,13 @@ def choose_starting_spells(
     Use it when you create a character step by step and the player has chosen their first spell.
     It refuses a character whose book already has spells in it, checks the choice with
     [`validate_starting_spells`][osrlib.core.character.validate_starting_spells], and then stores
-    the ids in [`spell_book`][osrlib.core.character.Character.spell_book]. When anything is
-    refused, nothing is written.
-    [`create_character`][osrlib.core.character.create_character] writes the book for you when you
-    pass `starting_spell_ids`.
+    the ids in [`spell_book`][osrlib.core.character.Character.spell_book]. When it refuses
+    anything, it writes nothing. [`create_character`][osrlib.core.character.create_character]
+    writes the book for you when you pass `starting_spell_ids`.
 
     A spell in the book can't be cast yet. To prepare spells for casting, call
-    [`memorize_spells`][osrlib.core.spells.memorize_spells], which an arcane caster fills from
-    the book.
+    [`memorize_spells`][osrlib.core.spells.memorize_spells]. An arcane caster memorizes spells
+    only from the book.
 
     Args:
         character: The character to write to. Changed in place when the choice is legal.

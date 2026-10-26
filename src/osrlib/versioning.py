@@ -26,23 +26,23 @@ The members, in the order you use them:
 
 The two stamps have different purposes.
 
-Use [`SCHEMA_VERSION`][osrlib.versioning.SCHEMA_VERSION] to know whether a document can
-still be read. It's one integer shared by every document kind, and it changes only when the format of
-stored data changes in a way that would break a reader. A document stamped lower than the
-running library's number is read and brought forward. One stamped higher is refused with
+Use [`SCHEMA_VERSION`][osrlib.versioning.SCHEMA_VERSION] to find out whether osrlib can
+still read a document. It's one integer shared by every document kind, and it changes only when the format of
+stored data changes in a way that would break a reader. osrlib reads a document stamped lower
+than the running library's number and upgrades it. For a document stamped higher, it raises
 [`SaveVersionError`][osrlib.errors.SaveVersionError], because this version can't read what a
 later version added.
 
-Use [`engine_version`][osrlib.versioning.engine_version] to know whether a game can still
-be reproduced. It's the installed package version, and it changes with every release, including
+Use [`engine_version`][osrlib.versioning.engine_version] to find out whether you can still
+reproduce a game. It's the installed package version, and it changes with every release, including
 releases that change no document format. Rules can change between releases, so a recorded
 command log run again under a different engine can resolve differently. When you pass the
-recorded version, [`replay_game`][osrlib.persistence.replay_game] refuses a mismatch instead
-of producing a game that differs without saying so. Loading a save works across engine
+recorded version, [`replay_game`][osrlib.persistence.replay_game] raises an error on a mismatch
+instead of producing a game that differs with no warning. Loading a save works across engine
 versions, because a save contains the state instead of computing it again.
 
 If you store documents, keep both numbers with them. From `schema_version` you know whether
-the library in front of you can open the file, and from `engine_version` whether a replay of
+the installed library can open the file, and from `engine_version` whether a replay of
 it is still valid.
 
 Typical usage:
@@ -75,16 +75,16 @@ SCHEMA_VERSION = 4
 """The schema version this library writes, and the highest it can read.
 
 Every document [`stamp_document`][osrlib.versioning.stamp_document] produces includes this
-number. Saves, characters, parties, and content packs are stamped with it, and the formats
-of commands and events are versioned by it too. There's one schema version for the whole
+number. osrlib stamps saves, characters, parties, and content packs with it, and the same
+number versions the formats of commands and events. There's one schema version for the whole
 library, not one per kind.
 
 Compare a stored document's `schema_version` with this number to know what you can do
 with it:
 
-- Lower: the document still loads. The reader brings it up to date on the way in, through
-  [`MIGRATIONS`][osrlib.persistence.MIGRATIONS] for a save, so you need no code of your own
-  for old files.
+- Lower: the document still loads. osrlib upgrades it when it reads it, through
+  [`MIGRATIONS`][osrlib.persistence.MIGRATIONS] for a save, so you don't need code of your
+  own for old files.
 - Equal: it loads as written.
 - Higher: a later osrlib wrote it, and reading it raises
   [`SaveVersionError`][osrlib.errors.SaveVersionError].
@@ -97,7 +97,7 @@ include, and readers fill those with their defaults.
 What each version changes in an older save:
 
 - Version 2 drops the recovered-treasure ledger from the save payload. The
-  end-of-adventure award is worked out from the valuation taken when the party left town.
+  session works out the end-of-adventure award from the valuation it records when the party leaves town.
 - Version 3 allows only `"open"` as a treasure trap's `trigger`, the one action that
   springs a cache. The migration rewrites an `"enter"` trigger to `"open"`, and a content
   pack gets the same rewrite when it loads.
@@ -116,11 +116,11 @@ changes the version your documents are stamped with without changing what's in t
 def engine_version() -> str:
     """Return the version of the installed osrlib package.
 
-    This is the second stamp on every document, and it lets a replay detect that the rules
-    have changed. [`stamp_document`][osrlib.versioning.stamp_document] calls it for you, so
+    This is the second stamp on every document, and `replay_game` uses it to detect that the
+    rules may have changed. [`stamp_document`][osrlib.versioning.stamp_document] calls it for you, so
     you usually read the value out of a document instead of calling this function. Pass that
     value to [`replay_game`][osrlib.persistence.replay_game] as `recorded_engine_version`
-    when you want the replay refused if the rules have changed since it was recorded.
+    when you want it to raise an error if the engine version has changed since the log was recorded.
 
     Call it directly to label a bug report, or to compare with a stamp you stored
     elsewhere. It isn't the schema version. This number changes with every release, including
@@ -159,14 +159,14 @@ def stamp_document(kind: str, payload: Mapping[str, object]) -> dict[str, object
     nothing inside it.
 
     Args:
-        kind: What the document contains, like `"character"` or `"party"`. The reader passes
-            the same string to `check_document`, which refuses a document of any other kind,
-            so pick one name per document type and keep it.
+        kind: What the document contains, like `"character"` or `"party"`. When you read the
+            document back, pass the same string to `check_document`, which raises an error for
+            a document of any other kind. Pick one name per document type and keep it.
         payload: The serialized content, in JSON-compatible values.
 
     Returns:
         A new dict with `kind`, `schema_version`, `engine_version`, and `payload` keys. The
-            payload is a shallow copy, so later edits to the mapping you passed do not reach
+            payload is a shallow copy, so later edits to the mapping you passed don't change
             the document, though edits to objects nested inside it do.
 
     Raises:
@@ -204,18 +204,17 @@ def check_document(document: Mapping[str, object], expected_kind: str) -> dict[s
     and then validate the payload, so call it directly only for a document kind you
     stamped yourself with [`stamp_document`][osrlib.versioning.stamp_document].
 
-    A document with an older schema version passes, and bringing its payload up to date is
-    the caller's job, as `load_game` does through
-    [`MIGRATIONS`][osrlib.persistence.MIGRATIONS]. Extra keys in the envelope are ignored, so
-    a document written by a later release with the same schema version still reads. The
-    `engine_version` key isn't checked.
+    A document with an older schema version passes, and you upgrade its payload yourself, as
+    `load_game` does through [`MIGRATIONS`][osrlib.persistence.MIGRATIONS]. The function
+    ignores extra keys in the envelope, so you can still read a document that a later release
+    wrote with the same schema version. It doesn't check the `engine_version` key.
 
     Args:
         document: A mapping produced by
             [`stamp_document`][osrlib.versioning.stamp_document], usually parsed back from
             JSON.
-        expected_kind: The `kind` string you expect, like `"character"`. A document of any
-            other kind is refused, which is what stops a party document from being read as a
+        expected_kind: The `kind` string you expect, like `"character"`. The function raises
+            an error for a document of any other kind, so a party document can't be read as a
             save.
 
     Returns:
@@ -227,8 +226,8 @@ def check_document(document: Mapping[str, object], expected_kind: str) -> dict[s
             `schema_version`, or `payload`, has a non-integer `schema_version` or a
             non-mapping payload, or is of a kind other than `expected_kind`.
         SaveVersionError: If the document's `schema_version` is higher than
-            [`SCHEMA_VERSION`][osrlib.versioning.SCHEMA_VERSION], meaning it was written by a
-            newer osrlib.
+            [`SCHEMA_VERSION`][osrlib.versioning.SCHEMA_VERSION], meaning a newer osrlib
+            wrote it.
 
     Examples:
         ```python

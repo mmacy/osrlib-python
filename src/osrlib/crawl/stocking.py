@@ -2,19 +2,19 @@
 
 B/X fills an unkeyed dungeon room with dice: the referee rolls a d6 for whether the room has a
 monster, a trap, something special, or nothing, and a second d6 for whether it has treasure. This module runs that
-procedure for you while you write an adventure. It isn't part of play: nothing here touches a
-session, and what it returns is content for you to place, not game state.
+procedure for you while you write an adventure. It isn't part of play. It doesn't read or change a
+session, and it returns content for you to place, not game state.
 
 The members, in the order you use them:
 
 - [`stock_area`][osrlib.crawl.stocking.stock_area] takes a dungeon level number, a monster catalog,
   and an [`RngStream`][osrlib.core.rng.RngStream], and rolls one room.
-- [`StockedArea`][osrlib.crawl.stocking.StockedArea] is what it returns. Its `contents` says what
-  kind of room it is. At most one of its `encounter`, `npc_party`, and `treasure` is set. Copy an
+- [`StockedArea`][osrlib.crawl.stocking.StockedArea] is what it returns. Its `contents` field gives
+  the kind of room. At most one of its `encounter`, `npc_party`, and `treasure` is set. Copy an
   `encounter` (a [`KeyedEncounter`][osrlib.crawl.dungeon.KeyedEncounter]) or a `treasure` (an
   [`AreaTreasureSpec`][osrlib.crawl.dungeon.AreaTreasureSpec]) onto the
   [`AreaSpec`][osrlib.crawl.dungeon.AreaSpec] for that room.
-- [`StockedNpcParty`][osrlib.crawl.stocking.StockedNpcParty] is what `npc_party` holds when the
+- [`StockedNpcParty`][osrlib.crawl.stocking.StockedNpcParty] is the value of `npc_party` when the
   monster roll comes up as a party of NPC adventurers (characters the referee runs).
 
 The tables come from the compiled data: the room-contents table is
@@ -26,16 +26,16 @@ level give the same room every time. The order is the one the session uses for a
 encounter, so stocking a monster room gives exactly what a wandering encounter on the same table row would:
 
 1. The room-contents d6. Then the treasure d6, but only when the row it selected gives a chance of
-   treasure. For a row with no chance, no second die is rolled.
+   treasure. For a row with no chance, `stock_area` doesn't roll a second die.
 2. On a monster room, the d20 for the encounter table's row, then that row's count dice. For a row
-   with a fixed count, no count dice are rolled. A count below 1 counts as 1.
+   with a fixed count, it rolls no count dice. A count below 1 counts as 1.
 3. Then, for a row whose monster depends on a die roll, like a hydra whose number of heads is
    rolled, one roll that picks the monster for the whole group. For a row that lists several
    monsters, one pick for each individual, each monster equally likely.
 
-A monster room's individuals are grouped into [`KeyedMonster`][osrlib.crawl.dungeon.KeyedMonster]
+`stock_area` groups a monster room's individuals into [`KeyedMonster`][osrlib.crawl.dungeon.KeyedMonster]
 lines with fixed counts, the way a printed adventure gives concrete numbers that you can review and
-edit. An empty or trap room that rolled treasure gets an `AreaTreasureSpec` for unguarded treasure.
+edit. An empty or trap room with treasure gets an `AreaTreasureSpec` for unguarded treasure.
 A monster room's treasure is the encounter's `hoard` flag instead. A trap or a special room gets no
 model, because B/X describes those with example lists for the referee rather than with tables, and
 an NPC party gets only its kind and size. You design the traps, the specials, and the NPC parties
@@ -115,7 +115,7 @@ class StockedArea(BaseModel):
 
     [`stock_area`][osrlib.crawl.stocking.stock_area] returns one. Read `contents` to find out what
     kind of room you rolled, then copy the payload that came with it onto the
-    [`AreaSpec`][osrlib.crawl.dungeon.AreaSpec] you are building for that room.
+    [`AreaSpec`][osrlib.crawl.dungeon.AreaSpec] you're building for that room.
 
     There is at most one payload:
 
@@ -141,20 +141,20 @@ class StockedArea(BaseModel):
     is a magical or unusual feature, and a trap is a room trap. B/X describes both with example lists
     for the referee, so neither comes with a model."""
     treasure_present: bool
-    """Whether the treasure d6 rolled within the row's chance of treasure. It is always `False` when
-    the row gives no chance, which is the case for a special room, and then no die is rolled. On a
-    monster room it is the same value as the encounter's `hoard` flag."""
+    """Whether the treasure d6 rolled within the row's chance of treasure. It's always `False` when
+    the row gives no chance, as for a special room, and then `stock_area` rolls no die. On a
+    monster room it's the same value as the encounter's `hoard` flag."""
     encounter: KeyedEncounter | None = None
     """The monsters in the room, on a monster room, and `None` otherwise. Each line has a fixed count
-    that is already rolled. The encounter's `hoard` is the same as `treasure_present`. It is also
+    that is already rolled. The encounter's `hoard` is the same as `treasure_present`. It's also
     `None` on a monster room whose encounter roll produced an NPC party."""
     npc_party: StockedNpcParty | None = None
-    """The NPC party the encounter roll produced, or `None`. It is set only on a monster room, and
+    """The NPC party the encounter roll produced, or `None`. It's set only on a monster room, and
     never together with `encounter`. See [`StockedNpcParty`][osrlib.crawl.stocking.StockedNpcParty]."""
     treasure: AreaTreasureSpec | None = None
-    """Unguarded treasure for an empty or trap room that rolled some, and `None` otherwise. It is
+    """Unguarded treasure for an empty or trap room that rolled some, and `None` otherwise. It's
     always the unguarded form, never treasure type letters, because a treasure type is a monster's
-    hoard and no monster lives here. The session rolls the treasure itself the first time the party
+    hoard and no monster lives here. The session rolls the treasure the first time the party
     enters the area."""
 
 
@@ -172,7 +172,7 @@ def stock_area(
     monster room it then rolls on an encounter table: `table` when you pass one, and the compiled
     table for `level_number` otherwise. Copy the payload of the
     [`StockedArea`][osrlib.crawl.stocking.StockedArea] it returns onto the
-    [`AreaSpec`][osrlib.crawl.dungeon.AreaSpec] you are building, then check the finished adventure
+    [`AreaSpec`][osrlib.crawl.dungeon.AreaSpec] you're building, then check the finished adventure
     with [`validate_adventure`][osrlib.crawl.adventure.validate_adventure].
 
     Every draw comes from `stream`, in the order the [`osrlib.crawl.stocking`][osrlib.crawl.stocking]
@@ -191,14 +191,14 @@ def stock_area(
             [`load_monsters`][osrlib.data.load_monsters]`()` when the adventure bundles no monsters.
             When it does, pass the built-in catalog combined with the bundled templates, which is
             what [`GameSession.effective_monsters`][osrlib.crawl.session.GameSession.effective_monsters]
-            returns for a session. Because every id is looked up, a stocked encounter refers only to
+            returns for a session. Because `stock_area` looks up every id, a stocked encounter refers only to
             monsters that exist.
-        stream: The [`RngStream`][osrlib.core.rng.RngStream] that every draw advances. It is the only
+        stream: The [`RngStream`][osrlib.core.rng.RngStream] that every draw advances. It's the only
             source of randomness in the call.
         table: An encounter table to roll on instead of the compiled one for the level, usually a
             level's [`WanderingSpec.table`][osrlib.crawl.dungeon.WanderingSpec.table]. The session's
-            wandering check rolls on that table too, so a level with monsters you chose is stocked
-            from them. `None`, the default, uses
+            wandering check rolls on that table too, so passing it stocks the room with the monsters
+            you chose for the level. `None`, the default, uses
             [`load_encounter_tables`][osrlib.data.load_encounter_tables] for the level.
 
     Returns:

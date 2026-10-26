@@ -1,12 +1,12 @@
 """Treasure tables, and the functions that generate coins, gems, jewellery, and magic items from them.
 
-This module turns a treasure type into loot. It takes the compiled tables that
-[`load_treasure_tables`][osrlib.data.load_treasure_tables] returns and produces a
+The functions in this module turn a treasure type into loot. They take the compiled tables that
+[`load_treasure_tables`][osrlib.data.load_treasure_tables] returns and produce a
 [`GeneratedTreasure`][osrlib.core.items.GeneratedTreasure]: coins, gems and jewellery,
 and magic item instances ready for an
 [`Inventory`][osrlib.core.items.Inventory] or a chest in a dungeon.
 
-Which entry point you want depends on what you are stocking:
+Which entry point you want depends on what you're stocking:
 
 - [`generate_treasure`][osrlib.core.treasure.generate_treasure] for a treasure type,
   the letter in a monster's stat block.
@@ -15,16 +15,16 @@ Which entry point you want depends on what you are stocking:
 - [`generate_magic_item`][osrlib.core.treasure.generate_magic_item] for one magic item
   rolled at random, and
   [`instantiate_magic_item`][osrlib.core.treasure.instantiate_magic_item] for a
-  particular item you have already chosen.
+  particular item you've already chosen.
 - [`plan_treasure_ref`][osrlib.core.treasure.plan_treasure_ref] to work out what a
   monster's treasure entry means: what each monster carries and what is in its lair.
 - [`roll_room_contents`][osrlib.core.treasure.roll_room_contents] to stock a room at
-  all, which is the roll that settles whether there is treasure to generate.
+  all, which is the roll that decides whether there's treasure to generate.
 
 In a running game, the session generates an area's treasure for you when the party first
 enters the area, and a monster's carried treasure when the monster appears. The party
 picks treasure up with the [`TakeTreasure`][osrlib.crawl.commands.TakeTreasure] command. Call these functions
-directly when you are using the rules without a session, or building an adventure ahead
+directly when you're using the rules without a session, or building an adventure ahead
 of play.
 
 Every function that generates treasure takes a tier, either `"basic"` or `"expert"`. The
@@ -117,7 +117,7 @@ TREASURE_STREAM = StreamName.TREASURE
 Pass `streams.get(TREASURE_STREAM)` to any generation function, where `streams` is the
 [`RngStreams`][osrlib.core.rng.RngStreams] of the session or of your own master seed.
 Using the named stream is what makes a hoard reproducible: every stream advances
-independently, so the treasure a party finds does not change because a fight went
+independently, so the treasure a party finds doesn't change because a fight went
 differently.
 
 The generation functions draw from whatever stream you pass. A session uses this one, so
@@ -202,7 +202,7 @@ class CoinQuantity(BaseModel):
 
     The printed multiplier is part of the dice expression, so an entry that reads
     `1d6 × 1,000 gp` arrives here as dice of `1d6×1000` and a denomination of gold. Roll it
-    with [`roll`][osrlib.core.dice.roll] if you are generating by hand. The generation
+    with [`roll`][osrlib.core.dice.roll] if you're generating by hand. The generation
     functions do it for you.
     """
 
@@ -232,7 +232,7 @@ class MagicAllotment(BaseModel):
     - `pool`: choose evenly among the types in `categories`, then roll that type's table, as
       in "a magic sword, suit of armour, or weapon".
 
-    Exactly one of `count` and `count_dice` sizes the clause. Only an `any` clause has
+    Exactly one of `count` and `count_dice` is set, and it gives the number of items. Only an `any` clause has
     exclusions, because a clause that specifies its type has nothing to exclude.
     """
 
@@ -247,7 +247,7 @@ class MagicAllotment(BaseModel):
     count: int | None = None
     """A fixed number of items, or `None` when the count is rolled."""
     count_dice: str | None = None
-    """The number of items as a dice expression, or `None` when it is fixed."""
+    """The number of items as a dice expression, or `None` when it's fixed."""
     exclude: tuple[MagicItemType, ...] = ()
     """Types an `any` clause re-rolls. Empty on the other kinds."""
 
@@ -276,7 +276,7 @@ class MagicAllotment(BaseModel):
 class TreasureEntry(BaseModel):
     """One printed line of a treasure type, which is one thing that might be in the hoard.
 
-    A treasure type is a list of these, and generation walks them in order. Each has exactly
+    A treasure type is a list of these, and generation goes through them in order. Each has exactly
     one payload, so an entry is coins, or gems, or jewellery, or magic items, never a
     mixture. Generate a list of them with
     [`generate_treasure_entries`][osrlib.core.treasure.generate_treasure_entries], which is
@@ -342,7 +342,7 @@ class TreasureTypeTable(BaseModel):
     """
     average_gp: float = Field(ge=0)
     """The average value of a hoard of this type in gold pieces, as the rules print it. Use it to plan an
-    adventure. Generation doesn't aim at it, so a single hoard can be worth far more or less.
+    adventure. Generation doesn't adjust a hoard toward it, so a single hoard can be worth far more or less.
     """
     entries: tuple[TreasureEntry, ...] = Field(min_length=1)
     """The printed lines, in order. See [`TreasureEntry`][osrlib.core.treasure.TreasureEntry]."""
@@ -391,8 +391,8 @@ class GemValueTable(BaseModel):
     """What one piece of jewellery is worth, as a dice expression."""
     manual_notes: tuple[str, ...] = ()
     """The rules the referee applies by hand, as printed: that rough treatment can halve a piece of jewellery's value,
-    and that several gems may be combined into fewer, larger ones. osrlib does neither. Show these to the referee if
-    your game applies them.
+    and that several gems may be combined into fewer, larger ones. osrlib does neither. If you use these rules, show
+    them to the referee.
     """
 
     @field_validator("jewellery_dice")
@@ -502,7 +502,7 @@ class MagicItemTypeTable(BaseModel):
             The selected type.
 
         Raises:
-            ValueError: If the tier is not one of the two, or the roll is outside 1 to 100.
+            ValueError: If the tier isn't one of the two, or the roll is outside 1 to 100.
 
         Examples:
             ```python
@@ -548,11 +548,11 @@ class StockingTable(BaseModel):
     """The *Random Dungeon Room Contents* table, which lists what to put in a room when you stock a dungeon.
 
     Rolling it takes two steps, so call
-    [`roll_room_contents`][osrlib.core.treasure.roll_room_contents] unless you are rolling by
+    [`roll_room_contents`][osrlib.core.treasure.roll_room_contents] unless you're rolling by
     hand. It rolls the contents, then the treasure chance that goes with them, and returns
     both.
 
-    You use this table to fill a dungeon level before anyone explores it. Play never rolls on it.
+    You use this table to fill a dungeon level before anyone explores it. The session never rolls on it during play.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -673,8 +673,8 @@ class UnguardedTreasureTable(BaseModel):
         """
         if level < 1:
             raise ValueError(f"dungeon levels are 1-based, got {level}")
-        # Same clamp-into-the-last-band convention the encounter tables use for
-        # dungeon levels past their printed range.
+        # A dungeon level past the printed range gets the last band, as it does
+        # in the encounter tables.
         for band in self.bands:
             if level <= band.max_level:
                 return band
@@ -747,9 +747,9 @@ class TreasureTables(BaseModel):
 class RoomContentsResult(BaseModel):
     """What one roll on the room stocking table produced.
 
-    Returned by [`roll_room_contents`][osrlib.core.treasure.roll_room_contents]. It reports
-    both rolls so an adventure author can see how a room was decided, and so a tool that
-    stocks a level can log it.
+    Returned by [`roll_room_contents`][osrlib.core.treasure.roll_room_contents]. It contains
+    both rolls, so you can see how a room was decided, or log the rolls when you stock a
+    level with a tool.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -777,9 +777,9 @@ class TreasureRefPlan(BaseModel):
     block is lair treasure whatever section it belongs to, so the bandit's `U (A)` means the
     band carries type U between them and the camp has a type A hoard.
 
-    Some references generate nothing at all. Where a stat block marks the treasure special
-    or describes it below, the referee writes it, and those parts are left out of the plan.
-    So are the two adjustments the rules leave to the referee: reducing a hoard for a small
+    Some references have nothing to generate. Where a stat block marks the treasure special
+    or describes it below, the referee writes it, and `plan_treasure_ref` leaves those parts
+    out of the plan. It also leaves out the two adjustments the rules leave to the referee: reducing a hoard for a small
     lair, and changing a hoard's value by hand.
     """
 
@@ -800,8 +800,8 @@ class TreasureRefPlan(BaseModel):
 def plan_treasure_ref(ref: TreasureRef) -> TreasureRefPlan:
     """Work out what a monster's treasure entry means.
 
-    Call this before you generate a monster's treasure. The letters on a stat block are not all
-    generated at the same moment, and this sorts them into the ones you roll for the lair, the
+    Call this before you generate a monster's treasure. You don't generate all the letters on a
+    stat block at the same moment, and this sorts them into the ones you roll for the lair, the
     ones you roll for each monster, and the ones you roll for the group. Then call
     [`generate_treasure`][osrlib.core.treasure.generate_treasure] for each letter, `multiplier`
     times over, and add `extra_gp` to the lair hoard.
@@ -814,7 +814,7 @@ def plan_treasure_ref(ref: TreasureRef) -> TreasureRefPlan:
         The plan. See [`TreasureRefPlan`][osrlib.core.treasure.TreasureRefPlan].
 
     Raises:
-        ValueError: If the reference has a letter that is not a treasure type.
+        ValueError: If the reference has a letter that isn't a treasure type.
 
     Examples:
         ```python
@@ -853,7 +853,7 @@ def plan_treasure_ref(ref: TreasureRef) -> TreasureRefPlan:
 
 
 def roll_room_contents(stream: RngStream) -> RoomContentsResult:
-    """Roll what is in a room and whether there is treasure with it.
+    """Roll what is in a room and whether there's treasure with it.
 
     Use it to fill a dungeon level before play. It rolls a d6 for the contents. When the
     selected row gives a chance of treasure, it rolls a second d6 for that. A row with no
@@ -899,7 +899,7 @@ def roll_room_contents(stream: RngStream) -> RoomContentsResult:
 
 
 def _int_param(params: Mapping[str, Any], key: str, default: int = 0) -> int:
-    """Read an integer param from schema-validated data the type checker cannot key by name."""
+    """Read an integer param from schema-validated data the type checker can't key by name."""
     return int(params.get(key, default))
 
 
@@ -1042,8 +1042,8 @@ def _require_tier(tier: str) -> None:
 def _generate_scroll_spells(template: Any, *, tier: str, stream: RngStream) -> dict[str, Any]:
     """Roll a spell scroll's contents: the 1-in-4 chance of a divine scroll, then each spell.
 
-    Each inscribed spell rolls its level on the scroll spell-level table, under the tier's
-    column, and then picks evenly among the class list's spells of that level. The rules let
+    For each inscribed spell, it rolls the level on the scroll spell-level table, under the
+    tier's column, and then picks evenly among the class list's spells of that level. The rules let
     the referee choose the spells or roll for them, and osrlib always rolls, so a scroll is
     reproducible from the stream.
     """
@@ -1079,15 +1079,15 @@ def instantiate_magic_item(
     and this function rolls what the item's SRD page leaves to chance: what a
     generic suit of enchanted armour is made of, how many charges a wand has, how many
     arrows are in the bundle, how many wishes the ring has, which spells are on the scroll,
-    how many levels the sword can drain, and last of all whether a sword is sentient. Nothing
-    is left unrolled: the instance that comes back is ready to use.
+    how many levels the sword can drain, and last of all whether a sword is sentient. It rolls
+    all of these, so the instance that comes back is ready to use.
 
     When you want the item chosen at random too, call
     [`generate_magic_item`][osrlib.core.treasure.generate_magic_item], which rolls the tables
     and then calls this.
 
-    The copy comes back unidentified. In a session, the first use of the item identifies it,
-    and so does [`IdentifyItem`][osrlib.crawl.commands.IdentifyItem].
+    The copy comes back unidentified. In a session, the engine identifies it the first time a
+    character uses it, and [`IdentifyItem`][osrlib.crawl.commands.IdentifyItem] identifies it too.
 
     Args:
         item_id: The item to create, as an id from [`load_magic_items`][osrlib.data.load_magic_items], listed in
@@ -1170,7 +1170,7 @@ def generate_magic_item(
 ) -> list[MagicItemInstance]:
     """Roll one magic item at random: which kind, which item, and all its details.
 
-    Three steps in one call. When `category` is `None` it rolls the master *Magic Item Type*
+    It does three steps in one call. When `category` is `None`, it rolls the master *Magic Item Type*
     table for the kind, re-rolling anything you excluded. Then it rolls that kind's table
     for the item. Then
     [`instantiate_magic_item`][osrlib.core.treasure.instantiate_magic_item] rolls the item's
@@ -1253,7 +1253,7 @@ def generate_treasure_entries(
     example, the hoard a treasure map leads to is a list of entries in the map template's
     `hoard_recipe`.
 
-    Entries are resolved in printed order. For each one, it makes the presence roll if the
+    It resolves the entries in printed order. For each one, it makes the presence roll if the
     entry has a chance, then rolls the quantity dice, then resolves each gem, piece of
     jewellery, or magic item completely before the next begins. That order doesn't change, so
     the same seed and the same entries always give the same result.
@@ -1350,7 +1350,7 @@ def generate_treasure(
     [`plan_treasure_ref`][osrlib.core.treasure.plan_treasure_ref] works out from the stat
     block.
 
-    Nothing is placed. Put what comes back in a chest, give it to a monster, or add it to an
+    It doesn't place anything. Put what comes back in a chest, give it to a monster, or add it to an
     inventory.
 
     Args:
@@ -1358,8 +1358,8 @@ def generate_treasure(
             [`TreasureTables.treasure_types`][osrlib.core.treasure.TreasureTables] on
             [`load_treasure_tables`][osrlib.data.load_treasure_tables], or see
             [the treasure type index](https://mmacy.github.io/osrlib-python/reference/content-ids/treasure-types/).
-        tier: `"basic"` or `"expert"`, the printed B or X column for magic items. A game
-            chooses by how experienced the party is. A session uses Basic while the party's
+        tier: `"basic"` or `"expert"`, the printed B or X column for magic items. Choose
+            by how experienced the party is. A session uses Basic while the party's
             highest living level is 1 to 3 and Expert from 4 up, decided when the treasure
             is generated.
         stream: The RNG stream to draw from, conventionally

@@ -18,13 +18,13 @@ differently.
 Each subclass stands for one failure, with the response it needs:
 
 - [`ContentValidationError`][osrlib.errors.ContentValidationError]: a document, dice
-  expression, or adventure is malformed, or a replayed command is refused. For malformed input,
+  expression, or adventure is malformed, or the session rejects a command during a replay. For malformed input,
   show the message and stop, because the same input fails the same way. For a refused replay,
   check that you passed the starting party, adventure, ruleset, and seed the game began with.
 - [`SaveVersionError`][osrlib.errors.SaveVersionError]: a document is well formed but a newer
   osrlib wrote it. Tell the player to upgrade.
-- [`ReplayVersionError`][osrlib.errors.ReplayVersionError]: a command log is being replayed
-  under a different engine version than the one that recorded it. Load the save instead.
+- [`ReplayVersionError`][osrlib.errors.ReplayVersionError]: you're replaying a command log
+  under a different engine version than the one it was recorded under. Load the save instead.
 
 How you report a failure is up to you: an HTTP status code, a process exit code, a dialog.
 A later version can add an exception type but won't remove or repurpose one, so an
@@ -67,7 +67,7 @@ class OsrlibError(Exception):
     osrlib raises only the subclasses, never `OsrlibError` itself. Don't raise it from your own
     code either, because a handler that catches a bare `OsrlibError` can't tell what happened.
 
-    It doesn't cover a player choice the rules refuse, which comes back as a
+    It doesn't cover a player choice that a validator refuses, which comes back as a
     [`Rejection`][osrlib.core.validation.Rejection] instead of being raised. It doesn't cover
     a mistake in your own call either, which raises the standard `ValueError` or `TypeError`.
     An `except OsrlibError` lets those two through, so a bug in your call still shows up as a
@@ -88,12 +88,12 @@ class OsrlibError(Exception):
 
 
 class ContentValidationError(OsrlibError):
-    """Raised when content handed to the library is malformed.
+    """Raised when content passed to the library is malformed.
 
-    osrlib can't understand what it read, so it can't recover. Show the message, which says
+    osrlib can't parse what it read, so it can't recover. Show the message, which describes
     what was wrong, and stop using that input. Retrying with the same input fails the same way.
 
-    It comes from the places where osrlib reads something from outside itself:
+    osrlib raises it where it reads input from outside the library:
 
     - [`parse`][osrlib.core.dice.parse], on a dice expression that doesn't match the grammar.
     - [`load_game`][osrlib.persistence.load_game],
@@ -101,7 +101,7 @@ class ContentValidationError(OsrlibError):
       [`Character.from_document`][osrlib.core.character.Character.from_document],
       [`party_from_document`][osrlib.core.character.party_from_document], and
       [`ContentPack.from_document`][osrlib.crawl.content_pack.ContentPack.from_document], on a
-      document whose envelope, kind, or payload isn't what they expect.
+      document whose envelope, kind, or payload doesn't match what they accept.
     - [`parse_command`][osrlib.crawl.commands.parse_command],
       [`parse_event`][osrlib.core.events.parse_event], and
       [`parse_any_event`][osrlib.crawl.events.parse_any_event], on a command or event of a
@@ -112,8 +112,8 @@ class ContentValidationError(OsrlibError):
     - The loaders in [`osrlib.data`][osrlib.data], when the data included in the package fails
       model validation.
     - [`replay_game`][osrlib.persistence.replay_game], when the log contains a command type
-      this version doesn't recognize, or when a logged command is refused on replay. A refusal
-      means the replay has diverged from the game it was meant to reproduce.
+      this version doesn't recognize, or when the session rejects a logged command during the
+      replay. A rejection means the replay has diverged from the game it was meant to reproduce.
 
     A document that's well formed but stamped with a newer schema version raises
     [`SaveVersionError`][osrlib.errors.SaveVersionError] instead, and the player can fix that
@@ -138,17 +138,17 @@ class SaveVersionError(OsrlibError):
 
     Every document osrlib writes includes a `schema_version`, the number of its format, and
     [`check_document`][osrlib.versioning.check_document] compares it with
-    [`SCHEMA_VERSION`][osrlib.versioning.SCHEMA_VERSION] before any field is read. A higher
+    [`SCHEMA_VERSION`][osrlib.versioning.SCHEMA_VERSION] before it reads any field. A higher
     number than the running library's means the document can contain structures this version
-    doesn't recognize, so the read stops there instead of misreading them.
+    doesn't recognize, so `check_document` stops the read there instead of misreading them.
 
     Catch this separately from
     [`ContentValidationError`][osrlib.errors.ContentValidationError] where a player is
     watching, because the player can fix it: the file is fine, and the library is behind. Tell
-    them to upgrade osrlib and try again. An older document needs no handling from you, because
-    the osrlib readers bring it up to the current format.
+    them to upgrade osrlib and try again. You don't need to handle an older document, because
+    osrlib's readers upgrade it to the current format.
 
-    It reaches you from [`load_game`][osrlib.persistence.load_game],
+    You get it from [`load_game`][osrlib.persistence.load_game],
     [`Character.from_document`][osrlib.core.character.Character.from_document],
     [`party_from_document`][osrlib.core.character.party_from_document],
     [`replay_game`][osrlib.persistence.replay_game] by way of its party document,
@@ -176,9 +176,10 @@ class ReplayVersionError(OsrlibError):
     Only [`replay_game`][osrlib.persistence.replay_game] raises it, and only when you pass
     `recorded_engine_version`. Leave that argument out and the replay runs without the check.
 
-    A replay runs the recorded commands again from the same seed, and it depends on the rules
-    resolving them the same way. A rules change between releases can change an outcome, and
-    the replayed game would then differ from the game that was played, with no error. The
+    A replay runs the recorded commands again from the same seed, and the result matches the
+    original game only if osrlib resolves each command the same way. A rules change between
+    releases can change an outcome, and the replayed game would then differ from the game that
+    was played, with no error. The
     version check raises this exception before the first command runs instead.
 
     When you catch it, load the save instead of replaying its log.

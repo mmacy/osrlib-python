@@ -3,8 +3,8 @@
 A monster has two models. A [`MonsterTemplate`][osrlib.core.monsters.MonsterTemplate] is a stat
 block: the shared description of one kind of creature, so one troll template describes every
 troll. A [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] is one creature in play, with
-separate hit points, wounds, and conditions. You spawn an instance from a template, and nothing
-that happens to the instance changes the template or the other instances spawned from it.
+separate hit points, wounds, and conditions. You spawn an instance from a template, and a change
+to the instance doesn't change the template or the other instances spawned from it.
 
 The members, in the order you use them:
 
@@ -58,13 +58,13 @@ text, and the numbers the SRD gives, in `params`. The combat functions read four
 referee to read. What a monster resists is in [`Defenses`][osrlib.core.monsters.Defenses], which
 the combat functions check every time an attack hits.
 
-Each monster page in the SRD becomes one template per creature it describes, so a page that prints
+Each monster page in the SRD becomes one template per creature it describes, so a page with
 several sizes of hydra becomes one template per size. A template that covered several creatures
 couldn't be spawned by itself.
 
 Hit points are rolled on the [`MONSTER_SPAWN_STREAM`][osrlib.core.monsters.MONSTER_SPAWN_STREAM]
 stream, which is separate from the combat stream. A change to the combat rules therefore never
-changes the creatures a seeded scenario spawns.
+changes the creatures that spawn in a seeded scenario.
 
 Typical usage:
 
@@ -129,19 +129,19 @@ A stream key identifies one independent random-number sequence inside an
 [`RngStreams`][osrlib.core.rng.RngStreams] set. Pass `streams.get(MONSTER_SPAWN_STREAM)` as the
 `stream` argument of [`spawn_monster`][osrlib.core.monsters.spawn_monster].
 
-It is separate from the combat stream so that a change to how a fight resolves never alters the
-creatures a seeded scenario puts in front of the players.
+It is separate from the combat stream so that a change to how a fight resolves never changes the
+creatures that spawn in a seeded scenario.
 """
 
 
 class DamageKey(StrEnum):
-    """A kind of damage source that a monster's defenses can name.
+    """A kind of damage source that a monster's defenses can list.
 
-    A monster that only certain kinds of attack can hurt lists them in
-    [`Defenses.harmed_only_by`][osrlib.core.monsters.Defenses.harmed_only_by]. A monster that takes
-    reduced damage from a kind lists it in
-    [`DamageReduction.keys`][osrlib.core.monsters.DamageReduction.keys]. The damage rules compare
-    these with the keys and the element of the attack's
+    For a monster that only certain kinds of attack can hurt,
+    [`Defenses.harmed_only_by`][osrlib.core.monsters.Defenses.harmed_only_by] lists them. For a
+    monster that takes reduced damage from a kind,
+    [`DamageReduction.keys`][osrlib.core.monsters.DamageReduction.keys] lists it. The damage rules
+    compare these with the keys and the element of the attack's
     [`DamageSource`][osrlib.core.combat.DamageSource].
 
     `holy` works differently from the others. Holy water presents it, and against an undead target
@@ -253,8 +253,8 @@ class Defenses(BaseModel):
     Read it as [`MonsterTemplate.defenses`][osrlib.core.monsters.MonsterTemplate.defenses]. Every
     time an attack hits, [`check_immunity`][osrlib.core.combat.check_immunity] reads it before any
     damage is rolled, and [`deal_damage`][osrlib.core.combat.deal_damage] applies the reductions.
-    The SRD's wording for the same defenses is in the template's `abilities`, for a front end to
-    show. Frozen.
+    The SRD's wording for the same defenses is in the template's `abilities`, for you to show.
+    Frozen.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -321,7 +321,7 @@ class MonsterHitDice(BaseModel):
     """
 
     fixed_hp: int | None = None
-    """Hit points that are not rolled, like a normal bat's 1 or a hydra's 8 per head. `None` when the dice decide."""
+    """Hit points that are not rolled, like a normal bat's 1 or a hydra's 8 per head. `None` when they're rolled."""
 
     @model_validator(mode="after")
     def _rollable_or_fixed(self) -> MonsterHitDice:
@@ -396,7 +396,7 @@ class AttackRoutine(BaseModel):
 
     Read them from [`MonsterTemplate.attacks`][osrlib.core.monsters.MonsterTemplate.attacks]. Most
     creatures have one. A creature with more than one uses one of them in a round, not all of them:
-    a dragon either claws and bites or breathes. The referee or your game decides which. Frozen.
+    a dragon either claws and bites or breathes. You or the referee decide which. Frozen.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -473,8 +473,8 @@ class AlignmentSpec(BaseModel):
 
     Read it as [`MonsterTemplate.alignment`][osrlib.core.monsters.MonsterTemplate.alignment].
     [`spawn_monster`][osrlib.core.monsters.spawn_monster] gives each creature it spawns one
-    alignment, because the wards that depend on alignment, like *protection from evil*, need a
-    single answer. Frozen.
+    alignment, because the wards that depend on alignment, like *protection from evil*, need one
+    alignment to test against. Frozen.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -528,7 +528,7 @@ class NumberAppearingValue(BaseModel):
     """The dice to roll, like `"1d8"`. `None` when the count is fixed or given in prose."""
 
     fixed: int | None = None
-    """A flat count. `None` when dice or prose decide."""
+    """A flat count. `None` when the count is rolled or given in prose."""
 
     see_below: bool = False
     """True when the SRD gives no number here and the creature's description gives it instead. `dice` and `fixed`
@@ -606,7 +606,7 @@ class TreasureRef(BaseModel):
     """
 
     extra_gp: int = Field(default=0, ge=0)
-    """Gold pieces the stat block adds to the lair hoard on top of the rolled treasure, like a cloud giant's 5,000."""
+    """Gold pieces added to the lair hoard on top of the rolled treasure, like a cloud giant's 5,000."""
 
     multiplier: int = Field(default=1, ge=1)
     """How many times to generate every listed letter, as with a noble's `V × 3`.
@@ -632,8 +632,7 @@ class MonsterAbility(BaseModel):
     The combat functions find an ability by its tag and read the numbers in `params`, so a monster's
     special powers are data rather than code. Frozen.
 
-    An ability marked `manual` is text for a referee to read and act on, and nothing in osrlib uses
-    it.
+    An ability marked `manual` is text for a referee to read and act on, and osrlib doesn't use it.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -693,7 +692,7 @@ class MonsterTemplate(BaseModel):
 
     Get one from [`load_monsters`][osrlib.data.load_monsters]`().get(monster_id)`.
     [The monster id index](https://mmacy.github.io/osrlib-python/reference/content-ids/monsters/) lists the ids. Then
-    call [`spawn_monster`][osrlib.core.monsters.spawn_monster] to put a creature in front of the players.
+    call [`spawn_monster`][osrlib.core.monsters.spawn_monster] to put a creature into play.
     To write a monster of your own, construct one, and pass it to `spawn_monster` the same way.
 
     A template is frozen, and play never changes it. Every creature of its kind shares it. The hit
@@ -816,8 +815,8 @@ class MonsterTemplate(BaseModel):
     overrides_applied: tuple[str, ...] = ()
     """The field paths, like `"categories"`, that a correction changed when this template was compiled from the SRD.
 
-    Empty when the SRD page compiled without corrections. It records where the data departs from the
-    SRD for anyone checking it, and osrlib never reads it during play.
+    Empty when the SRD page compiled without corrections. Read it when you check osrlib's data
+    against the SRD. osrlib doesn't read it during play.
     """
 
     @model_validator(mode="after")
@@ -833,8 +832,8 @@ class MonsterTemplate(BaseModel):
         """Return this monster's ability with `tag`, or `None` when it has none.
 
         Use it to find out whether a creature has a power and to read the numbers behind it in one
-        step: the troll's regeneration rate, the number of levels a wight's touch drains, the shape
-        and element of a dragon's breath.
+        step: the troll's regeneration rate, the number of levels a wight's touch drains, the
+        `shape` and `element` of a dragon's breath.
 
         Args:
             tag: The ability tag to look for, like `"regeneration"` or `"energy_drain"`.
@@ -867,7 +866,7 @@ class MonsterCatalog(BaseModel):
     [`load_monsters`][osrlib.data.load_monsters] returns the built-in catalog. It validates the data
     on the first call and returns the same object on every later call. Look a monster up by id with
     [`get`][osrlib.core.monsters.MonsterCatalog.get], or iterate `monsters` to filter by Hit Dice,
-    category, or anything else an encounter table needs.
+    category, or anything else you need for an encounter table.
 
     Constructing one raises `pydantic.ValidationError` when two templates have the same id. Frozen.
     """
@@ -931,7 +930,7 @@ class MonsterInstance(BaseModel):
     [`osrlib.core.effects`][osrlib.core.effects] therefore accept either one, through the protocols
     in [`osrlib.core.creature`][osrlib.core.creature].
 
-    The instance doesn't copy what the template defines: read that through `template`. For the
+    The instance doesn't copy what the template defines. Read that through `template`. For the
     values a drain changes, read the instance's properties, like
     [`thac0`][osrlib.core.monsters.MonsterInstance.thac0] and
     [`saves`][osrlib.core.monsters.MonsterInstance.saves], rather than the template's fields.
@@ -983,7 +982,7 @@ class MonsterInstance(BaseModel):
     """
 
     last_damaged_round: int | None = None
-    """The combat round in which it was last hurt, which regeneration counts its delay from. `None` before anything
+    """The combat round in which it was last hurt, from which the regeneration delay is counted. `None` before anything
     has hurt it.
     """
 
@@ -1097,9 +1096,9 @@ def spawn_monster(
 ) -> MonsterInstance:
     """Put one creature into play: roll its hit points and give it an entity id.
 
-    Call it once for each creature an encounter puts in front of the players. You can spawn from the
+    Call it once for each creature in an encounter. You can spawn from the
     same template as often as you like. Each creature gets separate hit points, wounds, and
-    conditions, and nothing that happens to one changes the template or the other creatures spawned
+    conditions, and what happens to one doesn't affect the template or the other creatures spawned
     from it.
 
     Pass the creature to the functions in [`osrlib.core.combat`][osrlib.core.combat] to fight it.
@@ -1112,11 +1111,11 @@ def spawn_monster(
     than 1. A creature whose hit points the SRD fixes, like a normal bat's 1 or a hydra's 8 per
     head, gets that number, and nothing is rolled.
 
-    The creature gets one alignment here, because a ward like *protection from evil* needs one to
-    test. The alignment is the one you pass, or else the template's usual alignment, or else the
-    template's only option. When the template offers several alignments with no usual one and you
-    pass none, the creature's `alignment` is `None`. Such a ward treats it as being of a different
-    alignment, so the ward protects the party.
+    The creature gets one alignment here, because a ward like *protection from evil* needs one
+    alignment to test against. The alignment is the one you pass, or else the template's usual
+    alignment, or else the template's only option. When the template offers several alignments
+    with no usual one and you pass none, the creature's `alignment` is `None`. Such a ward treats
+    it as being of a different alignment, so the ward protects the party.
 
     Args:
         template: The stat block to spawn from, from
@@ -1174,14 +1173,14 @@ def spawn_monster(
 class IdAllocator(BaseModel):
     """Hands out entity ids, each one unique within a game.
 
-    Every creature, effect, and valuable a game creates needs an id, and an allocator gives it one.
+    Every creature, effect, and valuable in a game needs an id, and an allocator gives it one.
     A [`GameSession`][osrlib.crawl.session.GameSession] has one allocator and uses it everywhere it
     needs an id, so inside a session, pass the session's `allocator` rather than a new one. Outside
     a session, construct one and pass the same one to every call that takes an allocator.
 
     Ids count up per prefix and never repeat, so a save and its replay refer to the same creature by
-    the same id. The counters are a plain field, so an allocator saves and loads with
-    `model_dump` and `model_validate` and continues the count.
+    the same id. The counters are a plain field, so you can save and load an allocator with
+    `model_dump` and `model_validate`, and it continues the count.
 
     Examples:
         ```python
@@ -1212,7 +1211,7 @@ class IdAllocator(BaseModel):
         it is returned.
 
         Args:
-            prefix: What kind of thing is being named, like `"monster"`, `"effect"`, `"npc"`,
+            prefix: What kind of thing the id is for, like `"monster"`, `"effect"`, `"npc"`,
                 or `"valuable"`.
 
         Returns:

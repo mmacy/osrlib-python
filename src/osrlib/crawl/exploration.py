@@ -1,8 +1,8 @@
 """The rules behind the exploring and town commands, and the per-turn checks for fatigue, food, and wandering monsters.
 
-This module contains the rules behind the commands a party gives while it explores a dungeon, in
-`exploring` mode, or visits town, in `town` mode: moving, doors, searching, traps, treasure, items,
-light, rest, spells, shopping, and temple healing.
+A party gives these commands while it explores a dungeon, in `exploring` mode, or visits town, in
+`town` mode: moving, doors, searching, traps, treasure, items, light, rest, spells, shopping, and
+temple healing.
 [`DropItems`][osrlib.crawl.commands.DropItems] and [`UseItem`][osrlib.crawl.commands.UseItem] also
 work in `encounter` mode, so the party can drop or use gear while monsters stand in front of it.
 
@@ -13,8 +13,8 @@ You don't call a command handler here yourself. Build one of the command models 
 [`CommandResult`][osrlib.crawl.commands.CommandResult]. It contains either
 [`Rejection`][osrlib.core.validation.Rejection] models that give the reason the session refused the
 command, or the event models of [`osrlib.crawl.events`][osrlib.crawl.events] that record what happened. The
-session checks a command before it runs any of it, so a refused command rolls no dice, changes no
-state, and costs no game time.
+session checks a command before it runs any of it, so for a refused command it rolls no dice,
+changes no state, and spends no game time.
 
 The public functions here are the checks the session runs as time passes, rather than in answer to a
 command:
@@ -32,12 +32,12 @@ command:
 
 [`GameSession.advance_turns`][osrlib.crawl.session.GameSession.advance_turns] and
 [`GameSession.advance_rounds`][osrlib.crawl.session.GameSession.advance_rounds] run the last three
-on their schedules, so a front end that moves time by executing commands doesn't call them. Call
+on their schedules, so if you move time by executing commands, you don't call them. Call
 `exploration_rate` and `wandering_interval` to show the party's numbers on a status display. Call
 the other three yourself only when you advance `GameSession.clock` directly instead of through those
 methods, because each one changes the session.
 
-The constants name what those checks attach and what the temple sells.
+The constants cover what those checks attach and what the temple sells.
 [`FATIGUE_KIND`][osrlib.crawl.exploration.FATIGUE_KIND],
 [`EXHAUSTED_KIND`][osrlib.crawl.exploration.EXHAUSTED_KIND], and
 [`DEPRIVATION_KIND`][osrlib.crawl.exploration.DEPRIVATION_KIND] are the effect kinds of the
@@ -55,11 +55,11 @@ odometer goes back to zero. At the base rate of 120 feet a turn, a turn passes a
 unexplored cells, or 36 into explored ones. An action that takes a turn, like a search, advances the
 clock a whole turn and sets the odometer back to zero.
 
-Trap resolution draws from [`EXPLORATION_STREAM`][osrlib.crawl.session.EXPLORATION_STREAM]: the
-2-in-6 spring check (a d6 roll of 1 or 2 springs the trap), the saving throws, the damage, and the number of darts or
-other missiles. The duration of a condition a trap attaches is rolled from
-[`EFFECTS_STREAM`][osrlib.core.effects.EFFECTS_STREAM] instead, like every other effect's
-duration.
+The session draws the rolls for a trap from
+[`EXPLORATION_STREAM`][osrlib.crawl.session.EXPLORATION_STREAM]: the 2-in-6 spring check (a d6 roll
+of 1 or 2 springs the trap), the saving throws, the damage, and the number of darts or other
+missiles. It rolls the duration of a condition a trap attaches on
+[`EFFECTS_STREAM`][osrlib.core.effects.EFFECTS_STREAM] instead, like every other effect's duration.
 
 Typical usage:
 
@@ -278,8 +278,8 @@ Query it the same way as [`FATIGUE_KIND`][osrlib.crawl.exploration.FATIGUE_KIND]
 under this kind unless
 [`Ruleset.deprivation_penalties`][osrlib.core.ruleset.Ruleset.deprivation_penalties] is on, because
 the penalties for going hungry or thirsty are optional.
-[`consume_provisions`][osrlib.crawl.exploration.consume_provisions] keeps the day counts that decide
-it either way, in `session.deprivation`. The effect applies −1 to attack rolls. It attaches on the
+[`consume_provisions`][osrlib.crawl.exploration.consume_provisions] keeps the day counts it depends
+on either way, in `session.deprivation`. The effect applies −1 to attack rolls. It attaches on the
 first day a member goes without food or water, and is released on the first day they have both.
 """
 
@@ -424,7 +424,7 @@ def _materialize_door(session, direction: Direction) -> DoorState:
     """The stored overlay entry for the door on one side of the party's cell.
 
     When the party forces or opens a door, the handler sets `opened_by_party` on
-    this entry, and the rule that swings doors shut behind the party reads that flag.
+    this entry, and the code that swings doors shut behind the party reads that flag.
     """
     edge = _level(session).edge(_position(session), direction)
     return _store_door_state(session, edge, _edge_ref(session, direction))
@@ -492,9 +492,9 @@ def _sight_line_feet(session) -> int | None:
     this equals the room's extent from the party's cell, since the farthest corner
     is exactly the longer of the two runs away in grid (Chebyshev) distance.
 
-    This is geometry, never illumination: darkness never shortens the line,
-    because a monster the party cannot see is still exactly as far away as it is.
-    Light governs surprise, not distance.
+    It measures geometry, not light: darkness doesn't shorten the line, because a
+    monster the party can't see is just as far away. Light affects surprise, not
+    distance.
 
     Args:
         session (osrlib.crawl.session.GameSession): The running session.
@@ -544,8 +544,8 @@ def _light_reveal(session) -> tuple[str | None, set[Position]]:
     explored set, so seeing a room doesn't make walking it later any cheaper. The
     session does persist the result as map memory. After every accepted command it
     adds these cells to
-    [`DungeonState.seen`][osrlib.crawl.dungeon.DungeonState.seen], so a front
-    end's automap can still show the glimpsed room after the party walks on. Torchlight
+    [`DungeonState.seen`][osrlib.crawl.dungeon.DungeonState.seen], so an
+    automap can still show the glimpsed room after the party walks on. Torchlight
     fills the keyed room whole and spills through open doorways out to the light's
     radius. Walls, and shut or undiscovered doors, stop it. Empty unless the party
     stands in a dungeon with a light burning.
@@ -577,11 +577,11 @@ def _light_reveal(session) -> tuple[str | None, set[Position]]:
         default=_DEFAULT_LIGHT_FEET // _CELL_FEET,
     )
     origin = tuple(location.position)
-    # The keyed room the party stands in is lit to its far corners, because you
-    # are standing inside it, so its open-connected cells reveal even past the
-    # torch's reach. Elsewhere, light spills through open passages only within
-    # that straight-line (Chebyshev) reach. Both honour real passability: the
-    # flood only crosses an edge sight passes, so walls and shut or undiscovered
+    # The keyed room the party stands in is lit to its far corners, because the
+    # party is standing inside it, so its open-connected cells are revealed even
+    # past the torch's reach. Elsewhere, light spills through open passages only
+    # within that straight-line (Chebyshev) reach. Both cases follow passability:
+    # the flood only crosses an edge sight passes, so walls and shut or undiscovered
     # doors stop it, and an alcove sealed off inside a keyed room stays dark.
     area = level.area_at(origin)
     in_room = {tuple(cell) for cell in area.cells} if area is not None else frozenset()
@@ -745,7 +745,7 @@ def check_fatigue(session) -> list[Event]:
 
     [`GameSession.advance_turns`][osrlib.crawl.session.GameSession.advance_turns] calls this for
     every turn that passes while the session is in `exploring` mode, except a turn spent resting, so
-    a front end that moves time by executing commands doesn't call it. Call it yourself when you
+    if you move time by executing commands, you don't call it. Call it yourself when you
     move the clock some other way. To ask whether the party is already fatigued, query
     [`FATIGUE_KIND`][osrlib.crawl.exploration.FATIGUE_KIND] against `session.ledger` instead of
     calling this. A completed [`Rest`][osrlib.crawl.commands.Rest] releases the effect and sets the
@@ -867,23 +867,23 @@ def consume_provisions(session) -> list[Event]:
     One call covers one day. Each living member eats a standard ration, or an iron ration when they
     have no standard one, since fresh food spoils first. Each drinks from a waterskin they carry.
     The waterskin isn't used up, so carrying one covers every day. In town nobody goes short:
-    a member's rations are still eaten, and a member with none is fed anyway.
+    a member still eats their rations, and a member with none is fed anyway.
 
     [`GameSession.advance_rounds`][osrlib.crawl.session.GameSession.advance_rounds] calls this each
-    time the clock crosses into a new day, and every command that passes time goes through it, so a
-    front end that moves time by executing commands doesn't call this. Call it yourself when you
+    time the clock crosses into a new day, and every command that passes time goes through it, so
+    if you move time by executing commands, you don't call this. Call it yourself when you
     move the clock some other way.
 
     `session.deprivation` maps each member's id to a
     [`DeprivationState`][osrlib.crawl.session.DeprivationState] that counts the days in a row the
     member has gone without food and without water. A day with food sets the food count back to
-    zero, and a day without adds one, and the same goes for water. The counts are kept whatever the
-    ruleset says, so you can show a hunger indicator without turning the penalties on. When
-    [`Ruleset.deprivation_penalties`][osrlib.core.ruleset.Ruleset.deprivation_penalties] is on, the
-    counts also cost the member: −1 to attack rolls and fatigue twice as fast from one day, half
-    movement from two, and 1d4 damage a day from three. Food and water don't add up: the worse of
-    the two counts sets the penalty. The SRD gives examples rather than a schedule, so osrlib
-    chose this one and records it in the
+    zero, and a day without adds one, and the same goes for water. This function keeps the counts
+    however the ruleset is set, so you can show a hunger indicator without turning the penalties on.
+    When [`Ruleset.deprivation_penalties`][osrlib.core.ruleset.Ruleset.deprivation_penalties] is on,
+    the member also takes penalties from the counts: −1 to attack rolls and fatigue twice as fast
+    from one day, half movement from two, and 1d4 damage a day from three. Food and water don't add
+    up: the worse of the two counts sets the penalty. The SRD gives examples rather than a schedule,
+    so osrlib chose this one and records it in the
     [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/).
 
     Args:
@@ -1033,7 +1033,7 @@ def _find_item(member, item_id: str):
     to pick a lock with are mundane equipment by definition, and a caller that
     goes on to read `instance.template` needs the mundane instance this returns.
     Anything that finds an item in order to *take* one uses the wider lookup, so
-    that finding and taking can never disagree.
+    a found item is always one that can be taken.
     """
     for instance in member.inventory.all_instances():
         if not isinstance(instance, MagicItemInstance) and instance.template.id == item_id:
@@ -1126,7 +1126,7 @@ def wandering_check(session, *, resting: bool = False) -> tuple[list[Event], boo
 
     [`GameSession.advance_turns`][osrlib.crawl.session.GameSession.advance_turns] calls this every
     [`wandering_interval`][osrlib.crawl.exploration.wandering_interval] turns while the session is in
-    `exploring` mode, so a front end that moves time by executing commands doesn't call it. Call it
+    `exploring` mode, so if you move time by executing commands, you don't call it. Call it
     yourself to run the checks from a clock of your own, or to make an extra check the rules don't
     schedule.
 
@@ -1137,8 +1137,8 @@ def wandering_check(session, *, resting: bool = False) -> tuple[list[Event], boo
     accepts the encounter commands. When `advance_turns` made the call, it passes no more time.
 
     The chance starts from the level's chance in six. It goes up 1 for noise since the last check
-    and 1 for light as bright as daylight, and down 1 while the party rests, and it's kept between
-    0 and 6. When the chance is 0 there is no roll: the check reports a miss and draws nothing.
+    and 1 for light as bright as daylight, and down 1 while the party rests, and it's limited to the
+    range 0 to 6. When the chance is 0 there is no roll: the check reports a miss and draws nothing.
 
     The check die draws from [`WANDERING_STREAM`][osrlib.crawl.session.WANDERING_STREAM], and so
     do the d20 roll on the encounter table, the count dice, and the choice among a row's monsters.
@@ -1148,7 +1148,7 @@ def wandering_check(session, *, resting: bool = False) -> tuple[list[Event], boo
     carry from [`TREASURE_STREAM`][osrlib.core.treasure.TREASURE_STREAM], and the encounter's
     surprise, distance, and reaction rolls from
     [`ENCOUNTER_STREAM`][osrlib.crawl.session.ENCOUNTER_STREAM]. Because the streams are separate,
-    a change in one part of a game doesn't change the dice another part rolls.
+    a change in one part of a game doesn't change the dice another part gets.
 
     Args:
         session (osrlib.crawl.session.GameSession): The running session.
@@ -1156,7 +1156,7 @@ def wandering_check(session, *, resting: bool = False) -> tuple[list[Event], boo
 
     Returns:
         The check's events, and True when an encounter opened. The events start with one
-        [`WanderingCheckEvent`][osrlib.crawl.events.WanderingCheckEvent] that gives the chance and
+        [`WanderingCheckEvent`][osrlib.crawl.events.WanderingCheckEvent] that contains the chance and
         the roll, with `roll` set to None when the chance was 0. On a hit, the encounter's opening
         events follow it, after an
         [`NpcPartySpawnedEvent`][osrlib.crawl.events.NpcPartySpawnedEvent] when the monsters are an
@@ -1232,7 +1232,7 @@ def wandering_check(session, *, resting: bool = False) -> tuple[list[Event], boo
     count = max(1, count)
     entry = row.entry
     if entry.kind == "npc_party":
-        # An NPC-party row generates a party rather than a monster group. The check
+        # An NPC-party row generates a party rather than a monster group. This function
         # rolls the row's count dice on the wandering stream, the generator builds the
         # party, and the encounter opens as usual: surprise for both sides, distance,
         # and a reaction roll. NPC parties roll on the reaction table like monsters,
@@ -1430,7 +1430,7 @@ def _resolve_trap(session, trap: TrapSpec, *, triggerer) -> list[Event]:
     """Resolve a sprung trap's effect: damage is automatic, with no attack roll.
 
     A passed save spares the victim outright when it negates, and always spares
-    them from the kill and the condition, whatever `on_save` says, the rule
+    them from the kill and the condition, whatever `on_save` is, the rule
     [`_resolve_kill`][osrlib.core.spells] and [`_resolve_attachment`][osrlib.core.spells]
     apply on the spell side. A passed `half` save halves damage, rolled and
     falling alike.
@@ -1849,8 +1849,8 @@ def _handle_enter_dungeon(session, command: EnterDungeon) -> tuple[list[Rejectio
     entrance_level = next((level for level in dungeon.levels if level.entrance is not None), None)
     if entrance_level is None:
         return [Rejection(code="session.command.unknown_location", params={"dungeon": command.dungeon_id})], []
-    # The award values what the party actually brings back: each departure
-    # snapshots the valuation, and the return award is the difference.
+    # The award is based on what the party brings back: each departure
+    # records the valuation, and the return award is the difference.
     session.snapshot_treasure()
     travel = session.adventure.town.travel_turns.get(command.dungeon_id, 0)
     events, _ = session.advance_turns(travel, field=False)
@@ -1943,7 +1943,7 @@ def _consumed_item_id(instance) -> str:
     """What a consumption reports: a magic item's instance id, else the catalog id.
 
     A player-visible event never includes an unidentified item's true identity, so
-    the event for a consumed magic item gives only its session-scoped instance id.
+    the event for a consumed magic item contains only its session-scoped instance id.
     """
     return instance.instance_id if isinstance(instance, MagicItemInstance) else instance.template.id
 
@@ -2215,9 +2215,9 @@ def _refund_trap_search(session, dungeon_id: str, level_number: int, position: P
     Call this when the secret door on `position`'s `direction` side is discovered. A secret door is
     one edge shared by two cells, and a `room_traps` search from either cell covers that edge. While
     the door is undiscovered it reads as blank wall from both cells, and the trap behind it is out
-    of reach from both, so a member who searched the far cell had no chance at that trap either. The
-    discovery therefore refunds both cells, not only the one it was named from. Attempts of other
-    kinds, and attempts on every other cell, stand.
+    of reach from both, so a member who searched the far cell had no chance at that trap either. So
+    on discovery, this function refunds both cells, not only the one it was named from. Attempts of
+    other kinds, and attempts on every other cell, stand.
 
     Args:
         session (osrlib.crawl.session.GameSession): The running session.
@@ -2533,8 +2533,8 @@ _SPREAD_MODES: dict[EncumbranceMode, EncumbranceMode] = {
     EncumbranceMode.BASIC: EncumbranceMode.BASIC,
     EncumbranceMode.DETAILED: EncumbranceMode.DETAILED,
 }
-"""The weight that `_distribute_haul` compares loads by. `none` tracks nothing at all, so the
-distribution compares treasure weight anyway (the loot still shouldn't all go to one
+"""The weight that `_distribute_haul` compares loads by. Under `none` the session tracks no weight,
+so the distribution compares treasure weight anyway (the loot still shouldn't all go to one
 member) and never refuses a load."""
 
 
@@ -2889,7 +2889,7 @@ def _validate_carried(member, item_ids: tuple[str, ...], coins: Coins) -> list[R
     may leave its bearer.
 
     A magic instance id identifies one instance, so a command that lists it twice
-    asks for something the member doesn't carry: the whole instance leaves on the
+    requests something the member doesn't carry: the whole instance leaves on the
     first listing, and nothing is left for the second.
     """
     counts: dict[str, int] = {}
@@ -3457,9 +3457,9 @@ def _merge_generated(bundle, generated) -> None:
 def _generate_carried_treasure(session, instances):
     """Generate carried treasure at spawn: individual letters per monster, group per group.
 
-    Individual letters (P-T) read each instance's template, since packed-variant
-    pools may mix. Group letters (U-V) read the first instance's, because the row's
-    members share a stat block. The `multiplier` repeats the whole listed
+    For individual letters (P-T), it reads each instance's template, since packed-variant
+    pools may mix. For group letters (U-V), it reads the first instance's, because the
+    row's members share a stat block. The `multiplier` repeats the whole listed
     generation (for example, the Noble's `V × 3`). Returns `(member_treasure,
     group_bundle)` for the encounter group.
     """
@@ -3497,8 +3497,8 @@ def _field_npc_party(session, kind: Literal["basic", "expert"], count: int):
     """Generate an NPC party, register its members, and return them with the events.
 
     Members register in `session.npcs` (allocator prefix `npc`). The referee-only
-    roster event gives classes and levels, while the player-facing encounter event
-    gives "adventurers" and the count.
+    roster event contains classes and levels, while the player-facing encounter event
+    contains "adventurers" and the count.
     """
     from osrlib.core.npc import NPC_PARTY_STREAM, generate_npc_party
     from osrlib.core.treasure import TREASURE_STREAM
@@ -3951,7 +3951,7 @@ def _use_scroll(session, member, instance: MagicItemInstance, template, command)
                 return [Rejection(code="magic.cast.unknown_target", params={"target": target_ref})], []
         context = _cast_context(session, targets, in_combat=False)
         # The kernel's pre-check, asked about a caster at the scroll's level, which is
-        # the level `cast_from_scroll` resolves at. The crawl refuses here what the kernel
+        # the level `cast_from_scroll` resolves at. This handler refuses here what the kernel
         # would refuse there, before the scroll is spent.
         cast_rejections = validate_scroll_cast(
             member,
@@ -4220,7 +4220,7 @@ maps to `remove_curse_c`, the cleric's version of that spell rather than the mag
 The SRD's town rules don't list temple services, so osrlib chose these names and prices and records
 the choice in [the adaptations register](https://mmacy.github.io/osrlib-python/adaptations/). Every
 service is always available. Whether a town is big enough to have a temple, or a cleric is in
-today, is for your game to decide.
+today, is up to you.
 
 Don't change the prices in this dict. The purchase handler reads it at the moment of sale, every
 session in the process shares it, and a replayed purchase would charge the changed price.

@@ -1,8 +1,8 @@
 """Load the compiled B/X rules content: classes, spells, monsters, items, languages, and tables.
 
-A content id names an entry in one of these catalogs: a class id, a spell id, a monster id, an
-equipment or magic item id, a language id, or a treasure-type letter. An adventure can also
-bundle monster and item templates with ids of its own. Each `load_*` function returns one
+A content id identifies an entry in one of these catalogs: a class id, a spell id, a monster id,
+an equipment or magic item id, a language id, or a treasure-type letter. An adventure can also
+bundle monster and item templates, with ids that aren't in these catalogs. Each `load_*` function returns one
 catalog, and the catalog's entries are the valid ids:
 `[entry.id for entry in load_classes().classes]` lists every class id, and the other catalogs
 work the same way. The content-id pages on the documentation site list the same ids:
@@ -41,7 +41,7 @@ before play starts.
 
 Each loader caches its result. The first call reads the data and validates it, and every
 later call in the process returns the same catalog object. That object is a frozen model,
-shared with every other caller. Play creates mutable instances from these templates, the way
+shared with every other caller. During play, osrlib creates mutable instances from these templates, the way
 [`spawn_monster`][osrlib.core.monsters.spawn_monster] creates a
 [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] from a template.
 
@@ -51,8 +51,8 @@ to a JSON file in an installed copy is lost at the next upgrade. To add content 
 construct the model yourself, like a [`MonsterTemplate`][osrlib.core.monsters.MonsterTemplate],
 and pass it to the same functions you pass the included entries to. To use your own monster or
 item template in a session, bundle it with the [`Adventure`][osrlib.crawl.adventure.Adventure]
-that uses it. A data file that is missing, has no JSON object at its top level, or fails validation raises
-[`ContentValidationError`][osrlib.errors.ContentValidationError] rather than returning a
+that uses it. If a data file is missing, has no JSON object at its top level, or fails validation, the loader
+raises [`ContentValidationError`][osrlib.errors.ContentValidationError] instead of returning a
 partial catalog.
 
 The compiled data is Open Game Content under the Open Game License 1.0a. The license text
@@ -122,7 +122,7 @@ class Language(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     id: str
-    """The id to pass wherever a language id is taken, like `"gnoll"` or `"common"`."""
+    """The id to pass wherever a function takes a language id, like `"gnoll"` or `"common"`."""
 
     name: str
     """The display name to show a player, like `"Gnoll"`."""
@@ -140,10 +140,10 @@ class LanguageCatalog(BaseModel):
 
     [`load_languages`][osrlib.data.load_languages] returns this catalog, and
     [`get`][osrlib.data.LanguageCatalog.get] returns one
-    [`Language`][osrlib.data.Language] from it by id. Each id appears once: validation rejects
-    a catalog with a repeated id.
+    [`Language`][osrlib.data.Language] from it by id. Each id appears once, and a catalog with a
+    repeated id fails validation.
 
-    The model is frozen, and the loader returns the same instance to every caller.
+    The model is frozen, and the loader returns the same instance on every call.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -170,7 +170,7 @@ class LanguageCatalog(BaseModel):
         before you pass them to [`create_character`][osrlib.core.character.create_character],
         call [`validate_extra_languages`][osrlib.core.character.validate_extra_languages]
         instead. It checks the whole set against a class and an INT score, and returns a
-        rejection for each problem rather than raising on the first unknown id.
+        rejection for each problem instead of raising on the first unknown id.
 
         Args:
             language_id: A language id, like `"gnoll"`. Any `id` in
@@ -306,10 +306,10 @@ def load_equipment() -> EquipmentCatalog:
     [`validate_equip`][osrlib.core.items.validate_equip] and
     [`equip`][osrlib.core.items.equip] take. `treasure_weights` is a separate list, which
     [`treasure_weight_coins`][osrlib.core.items.treasure_weight_coins] reads to weigh the coins
-    and gems a character finds rather than buys.
+    and gems a character finds instead of buying.
 
     Magic items are in a separate catalog, from [`load_magic_items`][osrlib.data.load_magic_items].
-    This catalog contains only the items in this package. A session also finds the item
+    This catalog contains only the items in this package. A session also looks up the item
     templates an adventure bundles.
 
     Returns:
@@ -346,7 +346,7 @@ def load_monsters() -> MonsterCatalog:
     [`MonsterTemplate`][osrlib.core.monsters.MonsterTemplate] that
     [`spawn_monster`][osrlib.core.monsters.spawn_monster] turns into a mutable
     [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] with rolled hit points and a
-    session-unique id. The instance is what fights. The template stays shared and
+    session-unique id. The instance is the creature that fights. The template stays shared and
     unchanged however many instances you spawn from it.
 
     A session looks up a monster id from a dungeon or an encounter table in this catalog and
@@ -390,8 +390,8 @@ def load_combat_tables() -> CombatTables:
     [`xp_band_label`][osrlib.core.tables.xp_band_label] to
     [`CombatTables.xp_row`][osrlib.core.tables.CombatTables.xp_row].
 
-    Most of combat needs no table from you: [`attack_roll`][osrlib.core.combat.attack_roll]
-    and [`saving_throw`][osrlib.core.combat.saving_throw] read what they need themselves.
+    You don't pass tables for most of combat: [`attack_roll`][osrlib.core.combat.attack_roll]
+    and [`saving_throw`][osrlib.core.combat.saving_throw] read the tables they need themselves.
     Load the tables to show the numbers, or to award XP without a session. No content-id page
     covers this catalog, because hit dice and armour class are its keys, not ids.
 
@@ -514,7 +514,7 @@ def load_magic_items() -> MagicItemCatalog:
     the sentient sword tables, so you rarely read them yourself.
 
     An id identifies a kind of item, not one particular item. Two potions of healing share a template.
-    As instances, each has its own instance id, charges, and identification state. Mundane gear
+    As instances, each has a separate instance id, charges, and identification state. Mundane gear
     is in [`load_equipment`][osrlib.data.load_equipment].
 
     Returns:
