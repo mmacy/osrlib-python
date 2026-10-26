@@ -1,13 +1,23 @@
 """Rolling dice from the strings the rules are written in.
 
-[`roll`][osrlib.core.dice.roll] is the entry point: hand it a dice expression like
+[`roll`][osrlib.core.dice.roll] is the entry point. Pass it a dice expression like
 `"3d6"` and an [`RngStream`][osrlib.core.rng.RngStream] from
 [`RngStreams.get`][osrlib.core.rng.RngStreams.get], and it returns a
 [`RollResult`][osrlib.core.dice.RollResult] with each die and the total. Call
 [`parse`][osrlib.core.dice.parse] first only when you want to check an expression
-without rolling it, or to inspect its parts. Every dice field in the compiled SRD data
-is written in this grammar, so monster damage, treasure quantities, and spell effects all
-go straight to `roll`.
+without rolling it, or to read its parts. Every dice field in the compiled SRD data
+is written in this grammar, so you can pass monster damage, treasure quantities, and
+spell effects straight to `roll`.
+
+The members, in the order you use them:
+
+- [`roll`][osrlib.core.dice.roll]: takes an expression and a stream, and returns a
+  [`RollResult`][osrlib.core.dice.RollResult].
+- [`parse`][osrlib.core.dice.parse]: takes an expression string and returns a
+  [`DiceExpression`][osrlib.core.dice.DiceExpression], or raises if the string is
+  malformed.
+- [`ALLOWED_SIDES`][osrlib.core.dice.ALLOWED_SIDES]: the die sizes an expression may
+  name.
 
 The grammar is `NdS` with an optional `+M` or `-M` modifier and an optional `×K`
 multiplier, with `x` and `*` accepted as ASCII aliases for `×`: `3d6`, `1d6+1`, `1d4-1`,
@@ -23,12 +33,12 @@ A total is `(sum of the dice + M) × K`, so the modifier applies before the mult
 That isn't ordinary arithmetic precedence: `2d6+1×10` means `(2d6 + 1) × 10`, the
 convention B/X treasure rolls are printed in, not `2d6 + 10`.
 
-Totals aren't clamped, so `1d4-1` can come out 0 and `1d4-2` can come out −1. If you're
-rolling damage and want the floor of 1 hit point, that floor belongs to combat, and
+Totals aren't clamped, so `1d4-1` can come out 0 and `1d4-2` can come out −1. The rule
+that an attack deals at least 1 point of damage belongs to combat, and
 [`resolve_attack`][osrlib.core.combat.resolve_attack] applies it for you.
 
 There's no default stream and no module-level random number generator. You pass the
-stream on every call, which is what makes a game replayable.
+stream on every call, and that's what makes a game replayable.
 """
 
 import re
@@ -55,10 +65,9 @@ Read the set to offer a picker or to check a size before you build an expression
 [`ContentValidationError`][osrlib.errors.ContentValidationError] on anything else, so a
 d7 never reaches a rules function.
 
-The set is closed, so adding to it isn't the way to roll an unusual die. Draw
-that one yourself with
-[`RngStream.randbelow`][osrlib.core.rng.RngStream.randbelow], which takes any positive
-bound.
+The set is a `frozenset`, so you can't add to it. To roll a die of another size, draw
+it yourself with [`RngStream.randbelow`][osrlib.core.rng.RngStream.randbelow], which
+takes any positive bound.
 """
 
 # Canonical ASCII digits only, no leading zeros, bounded lengths. What parse accepts is
@@ -81,13 +90,14 @@ class DiceExpression(BaseModel):
 
     [`parse`][osrlib.core.dice.parse] returns one. Read its fields to show a roll before
     it happens ("2d6+1, ×10"), to work out a range, or to check what a piece of content
-    will roll. Pass it back to [`roll`][osrlib.core.dice.roll] when you want the result.
-    Handing `roll` the same expression object repeatedly saves reparsing the string each
-    time.
+    will roll. Pass it to [`roll`][osrlib.core.dice.roll] when you want the result.
+    Passing `roll` the same expression object each time saves parsing the string again.
 
-    Building one directly is legal and validated, so you can assemble an expression from
-    parts instead of formatting a string. The model is frozen, so make a changed copy with
-    `expression.model_copy(update={"count": 4})`.
+    You can also construct one from its parts instead of formatting a string, and the
+    constructor validates them. The model is frozen. To change a part, make a new one
+    with `DiceExpression.model_validate(expression.model_dump() | {"count": 4})`, which
+    validates the result. pydantic's `model_copy(update=...)` skips validation, so it can
+    produce a die size outside [`ALLOWED_SIDES`][osrlib.core.dice.ALLOWED_SIDES].
 
     Examples:
         ```python
@@ -136,12 +146,11 @@ class DiceExpression(BaseModel):
 class RollResult(BaseModel):
     """What a dice roll produced: each die, and the total they add up to.
 
-    [`roll`][osrlib.core.dice.roll] returns one. Take `total` for the number the rules
-    call for, and show `rolls` to the player. The game's events include the individual
-    dice for the same reason: so an interface can put them on the screen.
-
-    Attack and damage resolution in [`osrlib.core.combat`][osrlib.core.combat] hands back
-    results with these fields too, so one piece of display code covers both.
+    [`roll`][osrlib.core.dice.roll] returns one. Use `total` as the number the rules
+    call for, and show `rolls` to the player if your interface displays dice.
+    [`damage_roll`][osrlib.core.combat.damage_roll] returns one too, and a
+    [`DamageDealtEvent`][osrlib.core.events.DamageDealtEvent] lists its dice in `rolls`,
+    so the same display code covers damage.
 
     Examples:
         ```python
@@ -238,9 +247,9 @@ def roll(expression: str | DiceExpression, stream: RngStream) -> RollResult:
     replay. Take the number out of `total` and show `rolls` if your interface displays
     dice.
 
-    Dice are rolled left to right, and one die of size S draws
-    [`randbelow(S)`][osrlib.core.rng.RngStream.randbelow] plus 1. That mapping is fixed:
-    changing it would change every roll in every existing saved game.
+    The dice are rolled one at a time, and each die of size S is
+    [`randbelow(S)`][osrlib.core.rng.RngStream.randbelow] plus 1. That mapping doesn't
+    change between releases, because a change would alter the rolls of every saved game.
 
     Args:
         expression: What to roll, as a string this parses for you or as a

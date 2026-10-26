@@ -1,24 +1,35 @@
 """How much game time has passed, counted in rounds.
 
-[`GameClock`][osrlib.core.clock.GameClock] is the entry point: you create one, call
+[`GameClock`][osrlib.core.clock.GameClock] is the entry point. Create one, call
 [`advance`][osrlib.core.clock.GameClock.advance] whenever the party spends time, and
 read `rounds`, `turns`, and `days` off it. Each advance returns the turn and day
 boundaries it crossed, as [`BoundaryCrossing`][osrlib.core.clock.BoundaryCrossing]
-values, so you can run whatever your game does at the end of a turn or a day: burn a
+values. Act on each one the way your game handles the end of a turn or a day: burn a
 torch down, check for wandering monsters, eat a day's rations.
+
+The members, in the order you use them:
+
+- [`GameClock`][osrlib.core.clock.GameClock]: the clock, as a count of rounds.
+- [`GameClock.advance`][osrlib.core.clock.GameClock.advance]: takes an amount and a
+  [`TimeUnit`][osrlib.core.clock.TimeUnit], moves the clock, and returns a list of
+  [`BoundaryCrossing`][osrlib.core.clock.BoundaryCrossing] values.
+- [`SECONDS_PER_ROUND`][osrlib.core.clock.SECONDS_PER_ROUND],
+  [`ROUNDS_PER_TURN`][osrlib.core.clock.ROUNDS_PER_TURN],
+  [`TURNS_PER_DAY`][osrlib.core.clock.TURNS_PER_DAY], and
+  [`ROUNDS_PER_DAY`][osrlib.core.clock.ROUNDS_PER_DAY]: the conversions between units.
 
 In an ordinary game you never build a clock yourself. A
 [`GameSession`][osrlib.crawl.session.GameSession] has one and advances it as commands
-consume time, and
+take time, and
 [`EffectsLedger.advance`][osrlib.core.effects.EffectsLedger.advance] takes the session's
-clock when it ages poison, light, and the rest. Build your own when you use the kernel
-without a session and still want time to pass.
+clock when it ages poison, light, and other effects. Build your own when you use the
+kernel, osrlib's rules functions, without a session and still want time to pass.
 
 B/X measures time in three units: the round of 10 seconds, the turn of 10 minutes, and
-the day. The clock stores one integer count of rounds, the finest unit, so the arithmetic
-is exact and the whole clock saves as one number. An advance that ends exactly on a
-boundary counts as crossing it: a torch lit at turn 0 burns out when the clock reaches
-turn 6, not turn 7.
+the day. The clock stores one integer count of rounds, the smallest unit, so the
+arithmetic is exact and the whole clock saves as one number. An advance that ends
+exactly on a boundary counts as crossing it: a torch lit at turn 0 burns out when the
+clock reaches turn 6, not turn 7.
 
 Typical usage:
 
@@ -74,17 +85,16 @@ The round is the combat unit and the turn is the exploration unit, and this is t
 conversion between them. Use it to say how long something lasts in the other unit: a
 torch that burns for six turns burns for `6 * ROUNDS_PER_TURN` rounds.
 
-Don't reassign it to play at a different scale. Every duration the SRD prints is quoted
-in turns or rounds at this ratio, so changing it rescales them all at once, with nothing
-to show for it. To work in a unit of your own, advance the clock by rounds and convert
-the result yourself.
+Every duration the SRD prints, in turns or in rounds, assumes this ratio, so don't
+reassign it. To work in a unit of your own, advance the clock by rounds and convert the
+result yourself.
 """
 
 TURNS_PER_DAY = 144
 """How many exploration turns make up one day.
 
-That's a full 24 hours of turns, not only the ones spent underground. The day boundary
-is where the rules put daily events, like eating and preparing spells.
+That's a full 24 hours of turns, not only the ones spent underground. A session
+consumes the party's daily rations and water at each day boundary.
 """
 
 ROUNDS_PER_DAY = ROUNDS_PER_TURN * TURNS_PER_DAY
@@ -115,15 +125,14 @@ class TimeUnit(StrEnum):
     TURN = "turn"
     """The exploration unit, ten minutes of story time.
 
-    A search or an attempt to pick a lock takes a turn. Walking through the dungeon adds
-    up toward a turn, and a party covers its exploration movement rate in one.
+    A search takes a turn, and so does the shortest rest. Walking through the dungeon adds up
+    toward a turn, and a party covers its exploration movement rate in one.
     """
 
     DAY = "day"
     """The supply unit, a full day of story time.
 
-    A session consumes the party's rations and water on each day boundary, and a caster
-    prepares spells once a day.
+    A session consumes the party's rations and water at each day boundary.
     """
 
 
@@ -137,10 +146,10 @@ _ROUNDS_PER_UNIT: dict[TimeUnit, int] = {
 class BoundaryCrossing(BaseModel):
     """One turn or day boundary that a clock advance passed.
 
-    [`advance`][osrlib.core.clock.GameClock.advance] returns a list of these, oldest
-    first. Walk the list and do whatever your game does at the end of a turn or the end of
-    a day, in the order the boundaries arrived. There are no round crossings: every
-    round is a round boundary, so the count of them is the advance itself.
+    [`advance`][osrlib.core.clock.GameClock.advance] returns a list of these, earliest
+    first. Go through the list in order and do what your game does at the end of each
+    turn or day. There are no round crossings: every round is a round boundary, so their
+    count is the number of rounds you advanced.
 
     The model is frozen, so you can keep a crossing as a record of when something
     happened.
@@ -188,18 +197,21 @@ class GameClock(BaseModel):
 
     Call `GameClock()` to start a game at time zero, or `GameClock(rounds=n)` to resume
     one. A [`GameSession`][osrlib.crawl.session.GameSession] creates one and stores it
-    on `session.clock`, so reach for the constructor only when you're running the kernel
-    without a session.
+    on `session.clock`, so call the constructor only when you run the kernel without a
+    session. In a session, spend time by executing commands, or with
+    [`GameSession.advance_rounds`][osrlib.crawl.session.GameSession.advance_rounds] and
+    [`GameSession.advance_turns`][osrlib.crawl.session.GameSession.advance_turns]. Those
+    also age effects and consume rations. Advancing `session.clock` yourself does neither.
 
-    Unlike most models in the kernel this one is mutable:
-    [`advance`][osrlib.core.clock.GameClock.advance] moves the same clock forward rather
-    than returning a new one, because everything that spends time shares one clock. Pass
-    the clock itself to anything that consumes time, not a copy, or their views of the
-    game's time drift apart. Assigning `rounds` directly works and is validated, but
-    skips the boundary report, so prefer `advance`.
+    Unlike most models in the kernel, this one is mutable.
+    [`advance`][osrlib.core.clock.GameClock.advance] moves the same clock forward instead
+    of returning a new one, because everything that spends time shares one clock. Pass
+    the clock itself to anything that takes time, not a copy, or the copies fall out of
+    step. Assigning `rounds` directly works and is validated, but it reports no
+    boundaries, so use `advance`.
 
-    The clock saves as one integer, and `GameClock.model_validate(document)` reads it
-    back.
+    The clock saves as one field, `rounds`, and `GameClock.model_validate(document)` reads
+    it back.
 
     Examples:
         ```python
@@ -246,14 +258,16 @@ class GameClock(BaseModel):
         """Advance the clock and report the turn and day boundaries crossed.
 
         Call this whenever the party spends time, then act on the crossings you get
-        back. The clock moves in place, and the return value is the report rather than a new
-        clock.
+        back. The clock moves in place, and the return value is the list of crossings,
+        not a new clock.
 
         If you're aging effects as well as counting time, call
         [`EffectsLedger.advance`][osrlib.core.effects.EffectsLedger.advance] instead and
-        hand it this clock: it advances the clock for you and returns the events that
-        expiring and ticking effects produced. Advancing the clock here does nothing to
-        effects on its own.
+        pass it this clock. It advances the clock for you and returns the events that
+        effects produced as they ticked and expired. This method changes no effects. In a
+        session, call
+        [`GameSession.advance_rounds`][osrlib.crawl.session.GameSession.advance_rounds]
+        instead.
 
         Args:
             n: How many units to advance. Must be non-negative. Zero is legal and crosses

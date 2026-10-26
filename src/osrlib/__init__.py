@@ -1,10 +1,11 @@
 """B/X (1981 Basic/Expert) rules engine for turn-based dungeon crawlers.
 
-osrlib applies the rules and keeps the state of a game. It draws nothing, asks a player
-nothing, waits for nothing, and makes no network calls. You hand it a command, it resolves
-the rules, and it returns typed events that describe what happened. Turning those into something a
-player reads is your program's job. Every random draw comes from a named, seeded stream, so
-the same seed and the same commands replay the same game.
+osrlib applies the rules and keeps the state of a game. It has no screen or input of its own,
+never waits for a player, and makes no network calls. You write the program a player uses, and
+it calls osrlib. You hand osrlib a command, an object that describes one player action. osrlib
+resolves the rules and returns typed events, each a record of one thing that happened. Your
+program turns those events into what the player sees. Every random number comes from a named,
+seeded stream, so the same seed and the same commands replay the same game.
 
 Each name is defined in exactly one module, and the package root re-exports nothing, so you
 import each name from the module that defines it. The modules fall into three layers.
@@ -15,8 +16,7 @@ The kernel, under `osrlib.core`, is the rules on their own: no session, no dunge
 adventure. You hand a function the inputs a rule needs, plus a seeded stream and a ruleset,
 and it returns the outcome and the events that describe it. Call it directly to roll a
 character, resolve an attack, or price a sword with no game running. Kernel modules never
-import from `osrlib.crawl`, so what you build on the kernel keeps working whatever the crawl
-framework does above it.
+import from `osrlib.crawl`, so you can use them without it.
 
 | Module | What it's for |
 | --- | --- |
@@ -33,12 +33,12 @@ framework does above it.
 | [`osrlib.core.spells`][] | A caster and a spell in, memorization, casting, and turning undead out. |
 | [`osrlib.core.tables`][] | Hit dice or an armour class in, the printed row for it out. |
 | [`osrlib.core.character`][] | Creation choices and a stream in, a character or refusals out. |
-| [`osrlib.core.npc`][] | A party level and a stream in, a generated NPC adventuring party out. |
+| [`osrlib.core.npc`][] | A kind and a count in, a generated party of non-player characters (NPCs) out. |
+| [`osrlib.core.creature`][] | The attributes the rules read, so they take a character or a monster alike. |
 | [`osrlib.core.combat`][] | Combatants and a stream in, initiative, attacks, damage, and saves out. |
-| [`osrlib.core.effects`][] | A condition or effect in, a ledger that ticks and expires it out. |
-| [`osrlib.core.creature`][] | A character or a monster in, the attributes the rules read out, as protocols. |
+| [`osrlib.core.effects`][] | A timed effect, like a *sleep* spell, in, a ledger that runs it and ends it on time out. |
 | [`osrlib.core.treasure`][] | A treasure type and a stream in, coins, valuables, and magic items out. |
-| [`osrlib.core.events`][] | The base class every event inherits, and the contract its code follows. |
+| [`osrlib.core.events`][] | The base class every event inherits, and the events the kernel functions return. |
 
 ## The crawl framework
 
@@ -75,11 +75,11 @@ the exceptions, the message formatter, and the save and version documents.
 
 | Module | What it's for |
 | --- | --- |
-| [`osrlib.data`][] | A content id in, the frozen rules entry behind it out. |
+| [`osrlib.data`][] | An id like `"fighter"` or `"goblin"` in, the frozen rules entry for it out. |
 | [`osrlib.errors`][] | The exceptions the library raises, and which failure each one stands for. |
 | [`osrlib.messages`][] | An event in, a line of default English out. |
 | [`osrlib.persistence`][] | A session in, a save document out, and back again by loading or replaying. |
-| [`osrlib.versioning`][] | The two version stamps on every document, and the envelope for them. |
+| [`osrlib.versioning`][] | The two version stamps on every saved document, and the wrapper that holds them. |
 
 ## Quickstart
 

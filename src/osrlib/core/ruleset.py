@@ -4,20 +4,21 @@
 Build one at the start of a game, pass it to
 [`GameSession.new`][osrlib.crawl.session.GameSession.new] or, away from a session, to
 each kernel function that takes a `ruleset` argument. The model is frozen, so a game
-keeps one ruleset from start to finish. The resolution functions read its flags on every
+uses one ruleset from start to finish. The resolution functions read its flags on every
 call, so there's no setup step, and a save stores the ruleset so a game resumes under the
 rules it began with.
 
-`Ruleset()` with no arguments plays the SRD as written, which is what you want unless
-you have a reason to change something. Each flag is either an optional rule the SRD
-prints as an alternative to its default, or an adaptation: a decision the tabletop
-game leaves to a human referee, which a program running unattended has to make somehow.
+`Ruleset()` with no arguments plays the SRD as written. Each flag is either an optional
+rule or an adaptation. An optional rule is an alternative the SRD prints beside its
+default procedure. An adaptation is osrlib's answer to a decision the tabletop game
+leaves to a human referee, which a program that runs without a referee has to make.
 The two enum flags, [`EncumbranceMode`][osrlib.core.ruleset.EncumbranceMode] and
 [`XpAwardTiming`][osrlib.core.ruleset.XpAwardTiming], pick among alternatives instead of
 switching one behavior on and off.
 
 Each flag is a field of [`Ruleset`][osrlib.core.ruleset.Ruleset], documented there and in
-[the ruleset options guide][ruleset-options] with the play it changes.
+[the ruleset options guide](https://mmacy.github.io/osrlib-python/guides/ruleset-options/)
+with the play it changes.
 [The adaptations register](https://mmacy.github.io/osrlib-python/adaptations/) lists every
 place osrlib supplies a default the tabletop game leaves to a referee, with the reasoning
 behind each one.
@@ -56,8 +57,8 @@ __all__ = [
 class XpAwardTiming(StrEnum):
     """When a party is paid the experience points it has earned.
 
-    Set it on [`Ruleset.xp_award_timing`][osrlib.core.ruleset.Ruleset]. The choice is
-    about pacing: `ON_RETURN` pays only once the party gets out of the dungeon alive,
+    Set it on [`Ruleset.xp_award_timing`][osrlib.core.ruleset.Ruleset]. The choice sets
+    the game's pacing: `ON_RETURN` pays only once the party gets back to town alive,
     and `IMMEDIATE` pays as the party goes, which suits a game with no trip home.
 
     The lowercase values are what saved games store, and they stay fixed within a
@@ -65,10 +66,10 @@ class XpAwardTiming(StrEnum):
     """
 
     ON_RETURN = "on_return"
-    """Award experience when the party survives and returns to safety, as the tabletop rules have it.
+    """Award experience when the party survives and returns to town, as the tabletop rules have it.
 
-    Experience for defeated monsters and recovered treasure is held until the party gets
-    back to town, and treasure lost on the way is never paid for.
+    osrlib pays the experience for defeated monsters and recovered treasure only when the
+    party gets back to town. Treasure lost on the way earns nothing.
     """
 
     IMMEDIATE = "immediate"
@@ -84,8 +85,8 @@ class EncumbranceMode(StrEnum):
     """Which system tracks what the party is carrying, and how much it slows them down.
 
     Set it on [`Ruleset.encumbrance`][osrlib.core.ruleset.Ruleset]. The weights and the
-    movement rates live in [`osrlib.core.items`][osrlib.core.items], which reads this
-    choice.
+    movement rates are in [`osrlib.core.items`][osrlib.core.items], and
+    [`movement_rate_feet`][osrlib.core.items.movement_rate_feet] reads this choice.
 
     The lowercase values are what saved games store, and they stay fixed within a
     `schema_version`, the version stamp that marks a serialized model's format.
@@ -95,34 +96,35 @@ class EncumbranceMode(StrEnum):
     """Track nothing: every character moves at the base rate of 120 feet per turn, whatever they carry."""
 
     BASIC = "basic"
-    """Set movement rate from worn armour, and from whether the character is carrying a significant amount of treasure.
+    """Set movement rate from worn armour, and from whether the character carries a significant amount of treasure.
 
-    This is the SRD's default and the mode a `Ruleset()` picks. A character whose
-    tracked weight passes the maximum load cannot move at all.
+    This is the SRD's default and the mode `Ruleset()` uses. A character whose tracked
+    weight passes the maximum load can't move at all.
     """
 
     DETAILED = "detailed"
     """Total the coin weight of armour, gear, and treasure, and set movement rate from banded weight thresholds.
 
-    Heavier bookkeeping than `BASIC`, and the same maximum load: past it, the character
-    cannot move.
+    It counts more than `BASIC` does. The maximum load is the same, and past it the
+    character can't move.
     """
 
 
 class Ruleset(BaseModel):
     """The rules a game plays under: one flag per decision osrlib lets you make.
 
-    Build one at the start of a game and pass it wherever a `ruleset` argument appears.
-    `Ruleset()` plays the SRD as written, so name only the flags you want to change. The
-    model is frozen, so you cannot edit a ruleset mid-game, and it goes into saves and
-    replays, so a resumed game keeps the rules it started with. It also rejects an
-    unknown field name, which turns a misspelled flag into a pydantic
-    `ValidationError` rather than a setting that does nothing.
+    Build one at the start of a game and pass it to
+    [`GameSession.new`][osrlib.crawl.session.GameSession.new], or to each kernel function
+    that takes a `ruleset` argument. `Ruleset()` plays the SRD as written, so name only the
+    flags you want to change. The model is frozen, so you can't change a ruleset mid-game.
+    Saves and replays store it, so a resumed game plays under the rules it started with. An
+    unknown field name raises a pydantic `ValidationError`, so a misspelled flag fails
+    instead of doing nothing.
 
-    Each flag is one of two kinds. An optional rule is an alternative the SRD itself
-    prints beside its standard procedure, and osrlib's default is the book's. An adaptation is
-    a default osrlib supplies where the tabletop game hands the decision to a human
-    referee, and [the adaptations register](https://mmacy.github.io/osrlib-python/adaptations/)
+    Each flag is one of two kinds. An optional rule is an alternative the SRD prints
+    beside its standard procedure, and osrlib's default is the book's. An adaptation is a
+    default osrlib supplies where the tabletop game leaves the decision to a human
+    referee. [The adaptations register](https://mmacy.github.io/osrlib-python/adaptations/)
     gives the reasoning behind each one.
 
     Examples:
@@ -160,18 +162,20 @@ class Ruleset(BaseModel):
     """Let each weapon deal the damage its description lists. An optional rule, on by default.
 
     Turn it off and every weapon deals 1d6, and so does every piece of gear swung as one,
-    which is the SRD's baseline combat system. Either way an unarmed attack deals 1d2, which is
-    a separate rule from weapon damage, and monsters always deal the damage printed
-    in their descriptions.
+    which is the SRD's baseline combat system. The exception is a character wearing a
+    girdle of giant strength, whose weapon attacks deal 2d8. With the flag on, the girdle
+    doubles weapon damage instead. Either way, an unarmed attack deals 1d2, and monsters
+    deal the damage printed in their descriptions.
     """
 
     individual_initiative: bool = False
     """Roll initiative for each combatant instead of once per side. An optional rule, off by default.
 
     Turn it on and every participant rolls a separate 1d6. A character adds its DEX
-    modifier, and a halfling adds its class initiative bonus on top. The tabletop game leaves a monster's
-    initiative modifier to the referee, so osrlib takes one from the caller and defaults
-    it to 0.
+    modifier, and a halfling also adds its class initiative bonus. The tabletop game
+    leaves a monster's initiative modifier to the referee, so you pass one to
+    [`participant_modifier`][osrlib.core.combat.participant_modifier], and it's 0 if you
+    don't.
     """
 
     thac0_arithmetic: bool = False
@@ -179,59 +183,61 @@ class Ruleset(BaseModel):
 
     An optional rule, off by default. Turn it on and the number to roll is `THAC0 − AC`
     with no clamping. The SRD's ascending-armour-class procedure is the same arithmetic,
-    so this one flag covers both presentations. The only difference is that the matrix's
-    cells stay within 2 to 20, which shows once modifiers push a total past those bounds.
+    so this one flag covers both. Every number in the matrix is within 2 to 20, and the
+    subtraction has no such limit, so the two differ only when `THAC0 − AC` falls outside that
+    range.
     """
 
     weapon_reload: bool = False
     """Stop a weapon with the reload quality, mainly the crossbow, from firing two rounds running.
 
     An optional rule, off by default. Turn it on and the attack validator refuses the shot
-    when the combat context you pass shows the weapon fired last round. The kernel enforces the rule
-    from the context it's given. Keeping track of what fired when is the battle layer's
-    job.
+    when the combat context you pass shows the weapon fired last round. In a session, the
+    battle code records what fired each round. Without a session, you set that in the
+    context yourself.
     """
 
     hd5_counts_as_magical: bool = False
     """Let big monsters hurt creatures that only silver or magic weapons can harm. An optional rule, off by default.
 
     The SRD prints this among its invulnerability rules. Turn it on and a monster of 5 or
-    more Hit Dice gets past such a defense, and so does a monster that has the same defense
-    itself. Following the rule's wording, osrlib applies it only where the defense is
-    limited to silver and magic, and reads "another invulnerable monster" as one bearing
-    such a defense.
+    more Hit Dice gets past such a defense, and so does a monster that has the same kind
+    of defense itself. osrlib applies the rule only where the defense is limited to silver
+    and magic, as the rule's wording has it, and reads "another invulnerable monster" as a
+    monster with such a defense.
     """
 
     magic_item_death_save: bool = True
     """Give a dead character's magic items a saving throw against the effect that killed their owner.
 
-    An optional rule the SRD leaves to the referee, on by default. osrlib rolls a save for
-    each magic item in the dead character's inventory, using the owner's save values against the
-    destructive source's category and adding the item's best combat bonus. Items that
-    survive go into a drop pile at
-    the victim's cell, where the party can pick them up, rather than vanishing with the
-    body.
+    An optional rule the SRD leaves to the referee, on by default. It applies when a
+    destructive source, like a breath weapon or *disintegrate*, kills a character and
+    destroys their equipment. osrlib rolls a save for each magic item in the dead
+    character's inventory, using the owner's save values against the source's category
+    and adding the item's best combat bonus. An item that saves isn't destroyed. Turn the
+    flag off and every item is destroyed.
     """
 
     xp_award_timing: XpAwardTiming = XpAwardTiming.ON_RETURN
     """When earned experience is paid out. On return by default, which is the tabletop rule.
 
     See [`XpAwardTiming`][osrlib.core.ruleset.XpAwardTiming]. The immediate setting is an
-    adaptation, osrlib's default where the tabletop game hands the decision to a referee,
-    and it suits a game whose party never goes home.
+    adaptation, and it suits a game whose party never goes home.
     """
 
     deprivation_penalties: bool = False
     """Attach mechanical penalties to going without food or water. An adaptation, off by default.
 
-    An adaptation is a default osrlib supplies where the tabletop game hands the decision
-    to a referee, and the tabletop rules leave starvation penalties to the referee's
-    discretion. The party's food and water are tracked either way, so this flag changes
-    only what happens once they run out. Turn it on and the schedule osrlib draws from the
-    SRD's examples applies. After one full day without: −1 to attack rolls, and rest needed
-    twice as often, so fatigue sets in after three unrested turns rather than six. After
-    two days, movement halves as well. From the third day on, 1d4 hit points are lost per
-    day. Hunger and thirst don't stack, so whichever is worse applies.
+    The tabletop rules leave starvation penalties to the referee. The party's food and
+    water are tracked either way, so this flag changes only what happens once they run
+    out. Turn it on and a schedule osrlib takes from the SRD's examples applies:
+
+    - After one full day without food or water, −1 to attack rolls, and rest is needed
+      twice as often, so fatigue sets in after three turns without rest instead of six.
+    - After two days, movement rate also halves.
+    - From the third day on, the character also loses 1d4 hit points each day.
+
+    Hunger and thirst don't add together: the longer of the two counts.
     [The adaptations register](https://mmacy.github.io/osrlib-python/adaptations/) has the
     reasoning.
     """
@@ -239,20 +245,18 @@ class Ruleset(BaseModel):
     aoe_friendly_fire: bool = True
     """Let an area effect cast at a monster group in melee catch the party members fighting it.
 
-    An adaptation (a default osrlib supplies where the tabletop game hands the decision to a
-    referee), on by default. Turn it off and an area effect aimed at
-    a monster group never counts party members among its candidates, which makes a
-    fireball safe to drop on a melee.
+    An adaptation, on by default. Turn it off and an area effect aimed at a monster group
+    never counts party members among its targets, so a fireball is safe to cast at
+    monsters the party is fighting in melee.
     """
 
     formation_width_limit: bool = True
     """Cap how many combatants can fight side by side, by how wide the passage is.
 
-    An adaptation (a default osrlib supplies where the tabletop game hands the decision to a
-    referee), on by default. The cap is the party's frontage divided
-    by the five feet one combatant needs, and frontage is ten feet per dungeon cell, so two
-    may fight abreast in a one-cell corridor and four in a room two cells across. That
-    follows the SRD's note about two or three characters fighting side by side in a
-    ten-foot passage, taking the lower of the two numbers. Turn it off and the cap lifts,
-    so every combatant may melee.
+    An adaptation, on by default. The cap is the party's frontage, the width of the space
+    it fights across, divided by the five feet one combatant needs. Each dungeon cell is
+    ten feet wide, so two may fight side by side in a one-cell corridor and four in a room
+    two cells across. The SRD notes that two or three characters can fight side by side
+    in a ten-foot passage, and osrlib takes the lower number. Turn the flag off and there's
+    no cap, so every combatant may melee.
     """

@@ -1,50 +1,49 @@
 """Authored quests, their objectives, and the clauses that start and finish them.
 
-A quest is an errand the session tracks: what starts it, what it asks for,
-what it pays, and whether finishing it ends the adventure.
+A quest is a task the session tracks for the party: what starts it, what it asks for, what it
+pays, and whether finishing it ends the adventure.
 
-You write [`QuestSpec`][osrlib.crawl.quests.QuestSpec]s into the
-`quests` tuple of an [`Adventure`][osrlib.crawl.adventure.Adventure], and that tuple's
-order is document order. A session seeds one
-[`QuestState`][osrlib.crawl.session.QuestState] per quest at construction and keeps them
-in `session.quests`, keyed by quest id, with each quest's objectives keyed in the order
-[`QuestSpec.objectives`][osrlib.crawl.quests.QuestSpec] lists them, so every walk over
-either is deterministic. Nothing advances that state until your game registers an
-[`Interpreter`][osrlib.crawl.interpreter.Interpreter] on the session, and even then the
-state moves only through the quest lifecycle commands
+You write [`QuestSpec`][osrlib.crawl.quests.QuestSpec]s into the `quests` tuple of an
+[`Adventure`][osrlib.crawl.adventure.Adventure], each with one or more
+[`ObjectiveSpec`][osrlib.crawl.quests.ObjectiveSpec]s. When a session starts, it creates one
+[`QuestState`][osrlib.crawl.session.QuestState] for each quest and keeps them in
+`session.quests`, keyed by quest id and in the order of the tuple. Each quest's objective
+states are in the order of [`QuestSpec.objectives`][osrlib.crawl.quests.QuestSpec.objectives].
+
+Quests don't advance until you register an
+[`Interpreter`][osrlib.crawl.interpreter.Interpreter] on the session. The interpreter advances
+quest state with the quest commands
 [`ActivateQuest`][osrlib.crawl.commands.ActivateQuest],
 [`RevealObjective`][osrlib.crawl.commands.RevealObjective],
 [`CompleteObjective`][osrlib.crawl.commands.CompleteObjective], and
-[`CompleteQuest`][osrlib.crawl.commands.CompleteQuest]. Each one emits a
-player-visible event:
-[`QuestActivatedEvent`][osrlib.crawl.events.QuestActivatedEvent],
+[`CompleteQuest`][osrlib.crawl.commands.CompleteQuest]. Those commands emit player-visible
+events: [`QuestActivatedEvent`][osrlib.crawl.events.QuestActivatedEvent],
 [`ObjectiveRevealedEvent`][osrlib.crawl.events.ObjectiveRevealedEvent],
 [`ObjectiveCompletedEvent`][osrlib.crawl.events.ObjectiveCompletedEvent],
-[`QuestCompletedEvent`][osrlib.crawl.events.QuestCompletedEvent], and, for the quest
-that concludes the adventure,
-[`AdventureCompletedEvent`][osrlib.crawl.events.AdventureCompletedEvent]. The active
-quests and their revealed objectives reach a front end through
+[`QuestCompletedEvent`][osrlib.crawl.events.QuestCompletedEvent], and, for a quest that ends
+the adventure, [`AdventureCompletedEvent`][osrlib.crawl.events.AdventureCompletedEvent]. A
+front end shows the active quests and their revealed objectives from
 [`PlayerView.quests`][osrlib.crawl.views.PlayerView].
 
-A quest uses the trigger vocabulary rather than a separate one. An
-activation, an objective's completion, and a hidden objective's reveal are each a
-[`TriggerClause`][osrlib.crawl.quests.TriggerClause]: a
-[`TriggerPattern`][osrlib.crawl.triggers.TriggerPattern] that identifies the event, plus the
-[`ConditionSpec`][osrlib.crawl.gates.ConditionSpec]s that have to hold when it matches.
-An authored [`TriggerSpec`][osrlib.crawl.triggers.TriggerSpec] uses the same patterns, which
-match events rather than states, and evaluates its conditions the same way. Rewards are the same
-[`ConsequenceCommand`][osrlib.crawl.commands.ConsequenceCommand] types under the same
+A quest reacts to events the same way a trigger does. A quest's activation, an objective's
+completion, and a hidden objective's reveal are each a
+[`TriggerClause`][osrlib.crawl.quests.TriggerClause]. A clause pairs a
+[`TriggerPattern`][osrlib.crawl.triggers.TriggerPattern], which says which event to react to,
+with [`ConditionSpec`][osrlib.crawl.gates.ConditionSpec]s that have to hold when the event
+matches. A [`TriggerSpec`][osrlib.crawl.triggers.TriggerSpec] uses the same patterns and
+conditions. A quest's rewards are the same
+[`ConsequenceCommand`][osrlib.crawl.commands.ConsequenceCommand]s a trigger runs, with the same
 party selectors ([`PARTY_SELECTOR`][osrlib.crawl.triggers.PARTY_SELECTOR] and
 [`FIRST_LIVING_SELECTOR`][osrlib.crawl.triggers.FIRST_LIVING_SELECTOR]).
 
-A quest only observes events. A clause condition with `consumes=True` is rejected at
-parse for the reason a trigger's is: the event a clause matches has already happened,
-so the quest has no attempt to charge a toll against.
+A quest only reacts to events. A clause condition with `consumes=True` fails validation for the
+same reason a trigger's does: the event the clause matches has already happened, so there's no
+attempt to charge a toll for.
 
-Author a trigger instead when nothing has to be scored and the adventure only has to
-react. The guide
+Write a trigger instead when the adventure only has to react, and nothing has to track
+progress. The guide
 [Gates, triggers, and quests](https://mmacy.github.io/osrlib-python/guides/gates-triggers-quests/)
-runs a quest end to end from an adventure document.
+runs a quest from start to finish in an adventure document.
 """
 
 from typing import Literal
@@ -66,12 +65,13 @@ __all__ = [
 class TriggerClause(BaseModel):
     """A pattern to match, and the conditions that must hold when an event matches it.
 
-    A quest uses clauses in three places, and they behave the same in all three: the
+    A quest uses clauses in three places, and they work the same way in all three: the
     `activation` of a [`QuestSpec`][osrlib.crawl.quests.QuestSpec], and the `when` and
     `reveal_when` of an [`ObjectiveSpec`][osrlib.crawl.quests.ObjectiveSpec]. The
-    [`Interpreter`][osrlib.crawl.interpreter.Interpreter] matches a clause exactly the
-    way it matches a [`TriggerSpec`][osrlib.crawl.triggers.TriggerSpec], so a quest and a
-    trigger can never disagree about what an event means.
+    [`Interpreter`][osrlib.crawl.interpreter.Interpreter] matches a clause the same way it
+    matches a [`TriggerSpec`][osrlib.crawl.triggers.TriggerSpec], so an event that matches a
+    trigger's pattern and conditions also matches a clause with that pattern and those
+    conditions.
 
     Examples:
         ```python
@@ -92,15 +92,14 @@ class TriggerClause(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     pattern: TriggerPattern
-    """The event pattern the clause matches, one member of
-    [`TriggerPattern`][osrlib.crawl.triggers.TriggerPattern]. The field is `pattern`
-    rather than `when`, so an objective's completion clause reads
-    `objective.when.pattern`."""
+    """The event the clause reacts to, as one member of
+    [`TriggerPattern`][osrlib.crawl.triggers.TriggerPattern]. The field is named `pattern`,
+    not `when`, so an objective's completion pattern is `objective.when.pattern`."""
     conditions: tuple[ConditionSpec, ...] = ()
-    """Extra tests that all have to hold at the moment of the match. The tuple is an AND
-    with no combinators, and each condition is evaluated live against session state
-    through [`condition_holds`][osrlib.crawl.gates.condition_holds]. A condition with
-    `consumes=True` is rejected at parse."""
+    """Extra tests, every one of which has to hold when an event matches `pattern`. There's
+    no way to write "or". The interpreter evaluates each condition against the session at
+    that moment with [`condition_holds`][osrlib.crawl.gates.condition_holds]. A condition
+    with `consumes=True` fails validation with a pydantic `ValidationError`."""
 
     @model_validator(mode="after")
     def _conditions_never_consume(self) -> TriggerClause:
@@ -121,17 +120,18 @@ class ObjectiveSpec(BaseModel):
 
     Put your objectives in the `objectives` tuple of a
     [`QuestSpec`][osrlib.crawl.quests.QuestSpec], in the order the quest log should show
-    them. Their live state is [`ObjectiveState`][osrlib.crawl.session.ObjectiveState],
-    and the revealed ones reach a front end as
-    [`ObjectiveView`][osrlib.crawl.views.ObjectiveView]s.
+    them. The session tracks each objective in play as an
+    [`ObjectiveState`][osrlib.crawl.session.ObjectiveState], and a front end gets the
+    revealed ones as [`ObjectiveView`][osrlib.crawl.views.ObjectiveView]s.
 
-    An objective's state changes one way only. Hidden becomes revealed and incomplete becomes
-    complete, and neither goes back, because there's no way to author a repeating objective.
+    An objective's state changes in one direction only. A hidden objective becomes
+    revealed, an incomplete one becomes complete, and neither change is undone. There's no
+    way to write an objective that repeats.
 
-    A hidden objective with no `reveal_when` is normal. It appears on the list when it
+    A hidden objective with no `reveal_when` is normal. It appears in the quest log when it
     completes, because completing an objective reveals it. `reveal_when` on an objective
-    that starts visible is rejected at parse, since a reveal clause for something already
-    on the list would never be read.
+    that starts visible fails validation with a pydantic `ValidationError`, because the
+    interpreter would never read it.
 
     Examples:
         ```python
@@ -145,7 +145,7 @@ class ObjectiveSpec(BaseModel):
             when=TriggerClause(pattern=ItemAcquiredPattern(item_id="holy_water")),
             narrative=NarrativeBlock(progress="The flask is yours, and the shrine is quiet again."),
         )
-        print(recover.hidden, recover.reveal_when)  # visible from the start, so no reveal clause
+        print(recover.hidden, recover.reveal_when)  # visible from the start, so it has no reveal clause
         # False None
         ```
     """
@@ -153,25 +153,26 @@ class ObjectiveSpec(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     id: str = Field(min_length=1)
-    """The objective's id, unique within its quest and free to repeat in another. It is
-    the key its state and its view use, and the label everything falls back to when
-    `name` is unauthored."""
+    """The objective's id. It has to be unique within its quest, and another quest can use
+    the same id. The objective's state and view use it as their key, and it's shown in
+    place of `name` when `name` is empty."""
     name: str = ""
-    """The objective's display label, the words a quest log shows beside its checkbox. Empty
-    means unauthored, and then the view, the lifecycle events, and the default formatter all
-    show the id instead."""
+    """The objective's display name, the words a quest log shows beside its checkbox. When
+    it's empty, the view, the quest events, and the default message text show the id
+    instead."""
     when: TriggerClause
-    """The clause that completes the objective. Completing it also reveals it, so a
-    hidden objective needs no reveal clause to show up once it is done."""
+    """The clause that completes the objective. Completing an objective also reveals it,
+    so a hidden objective needs no reveal clause to appear once it's done."""
     hidden: bool = False
-    """Whether the objective starts off the party's list. A hidden objective has no view
-    until it is revealed."""
+    """Whether the objective starts hidden from the party. A hidden objective has no view
+    until it's revealed."""
     reveal_when: TriggerClause | None = None
-    """The clause that reveals a hidden objective ahead of its completion. It is rejected
-    at parse on an objective that starts visible."""
+    """The clause that reveals a hidden objective before it completes. On an objective that
+    starts visible, it fails validation with a pydantic `ValidationError`."""
     narrative: NarrativeBlock | None = None
-    """The objective's beats. osrlib reads two of the block's fields: `offer`, the line its reveal
-    shows and journals, and `progress`, the line its completion shows and journals."""
+    """The objective's text. osrlib reads two fields of the block: `offer`, the line shown
+    and added to the journal when the objective is revealed, and `progress`, the line shown
+    and added to the journal when it completes."""
 
     @model_validator(mode="after")
     def _only_a_hidden_objective_reveals(self) -> ObjectiveSpec:
@@ -186,17 +187,18 @@ class QuestSpec(BaseModel):
 
     Put your quests in the `quests` tuple of an
     [`Adventure`][osrlib.crawl.adventure.Adventure], and register an
-    [`Interpreter`][osrlib.crawl.interpreter.Interpreter] on the session to play them. A
-    spec on its own is inert data. Its live state is
-    [`QuestState`][osrlib.crawl.session.QuestState] in `session.quests`, and an active
-    quest reaches a front end as a [`QuestView`][osrlib.crawl.views.QuestView].
+    [`Interpreter`][osrlib.crawl.interpreter.Interpreter] on the session to run them. The
+    interpreter is the only part of osrlib that reads a quest, so without it the quest
+    doesn't advance. The session tracks each quest in play as a
+    [`QuestState`][osrlib.crawl.session.QuestState] in `session.quests`, and a front end
+    gets each active quest as a [`QuestView`][osrlib.crawl.views.QuestView].
 
-    Rewards are issued after the quest completes, in authored order, and only when the
-    interpreter itself ruled the quest complete. A quest your game completes by hand with
-    [`CompleteQuest`][osrlib.crawl.commands.CompleteQuest] pays nothing.
+    The interpreter runs the rewards after the quest completes, in the order you write
+    them, and only when the interpreter itself completed the quest. A quest you complete
+    with [`CompleteQuest`][osrlib.crawl.commands.CompleteQuest] pays no rewards.
 
     Examples:
-        A quest that starts when the party enters the crypt and ends when someone picks up a
+        A quest that starts when the party enters the crypt and ends when a member picks up a
         flask of holy water:
 
         ```python
@@ -261,45 +263,49 @@ class QuestSpec(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     id: str = Field(min_length=1)
-    """The quest's id, unique across the adventure. It keys the quest's state, and the
-    `source` stamp on every command the quest issues contains it, in the form
-    `quest:{id}`."""
+    """The quest's id, unique across the adventure. `session.quests` uses it as the key, and
+    every command the quest runs has `source` set to `quest:{id}`."""
     name: str = Field(min_length=1)
-    """The quest's display name, included in its lifecycle events and its view so a
-    renderer needs no document to look it up in."""
+    """The quest's display name. The quest events and the quest's view include it, so a
+    front end can show it without the adventure document."""
     activation: TriggerClause | None = None
-    """The clause that brings the quest into play. `None` means the quest is active from
-    session start, from round 0, with no activation beat to show, because no command has
-    run yet to report one. With an authored clause, the quest
-    activates during play, when the clause matches."""
+    """The clause that starts the quest. With `None`, the quest is active from the start of
+    the session. No command runs to start it, so no
+    [`QuestActivatedEvent`][osrlib.crawl.events.QuestActivatedEvent] reports it, but its
+    [`QuestView`][osrlib.crawl.views.QuestView] still shows the `offer` text. With a clause,
+    the quest starts when an event matches the clause."""
     objectives: tuple[ObjectiveSpec, ...] = Field(min_length=1)
-    """What the quest asks for, in the order a quest log should show it. At least one is
-    required, because a quest with no objectives under the `"all"` rule would be
+    """What the quest asks for, in the order a quest log should show the objectives. At least
+    one is required, because a quest with no objectives under the `"all"` rule would be
     complete from the start."""
     rewards: tuple[ConsequenceCommand, ...] = ()
-    """The referee commands issued after the quest completes, in authored order, with
+    """The referee commands the interpreter runs after the quest completes, in the order you
+    write them. The interpreter replaces
     [`PARTY_SELECTOR`][osrlib.crawl.triggers.PARTY_SELECTOR] and
-    [`FIRST_LIVING_SELECTOR`][osrlib.crawl.triggers.FIRST_LIVING_SELECTOR] expanded to
-    the members they select. Each reward is applied or dropped independently. An authored `source` is
-    rejected at parse, because the interpreter stamps it for the quest."""
+    [`FIRST_LIVING_SELECTOR`][osrlib.crawl.triggers.FIRST_LIVING_SELECTOR] with the members
+    they select. When the session rejects one reward, the interpreter drops it, records a
+    note, and runs the rest. A reward with `source` set fails validation with a pydantic
+    `ValidationError`, because the interpreter sets `source` itself."""
     completion: Literal["all", "any"] = "all"
-    """The completion rule: `"all"` requires every objective, `"any"` completes on the first
-    objective completed.
+    """The rule for completing the quest. With `"all"`, the quest completes when every
+    objective is complete. With `"any"`, it completes when the first objective completes.
 
-    The quest walk stops at the completion it issues, so when one event would complete two
-    objectives at once, the second one is left incomplete and finishes on the next event
-    that matches its clause. Under `"any"` that is what usually happens, since the first
-    objective to complete finishes the quest and the rest stay open."""
+    Once the quest is complete, its other objectives never change. Under `"any"`, an
+    objective that wasn't complete stays incomplete, even when the same event matched its
+    clause."""
     concludes_adventure: bool = False
-    """Whether finishing this quest ends the adventure. The session moves to `victory`
-    and emits an
-    [`AdventureCompletedEvent`][osrlib.crawl.events.AdventureCompletedEvent], which
-    happens before the first reward is issued, so a reward that would resume play there
-    is dropped with a note."""
+    """Whether completing this quest ends the adventure. The session moves to `victory`
+    mode and emits an
+    [`AdventureCompletedEvent`][osrlib.crawl.events.AdventureCompletedEvent] before the
+    interpreter runs the first reward. A reward that `victory` mode doesn't allow, like
+    [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] or
+    [`PlaceParty`][osrlib.crawl.commands.PlaceParty], is rejected, and the interpreter drops
+    it and records a note. Grants and experience awards still apply."""
     narrative: NarrativeBlock | None = None
-    """The quest's beats. osrlib reads two of the block's fields: `offer`, the line its activation
-    shows and journals, and `completion`, the line its completion shows and journals.
-    Per-objective beats are on the objectives."""
+    """The quest's text. osrlib reads two fields of the block: `offer`, the line shown and
+    added to the journal when the quest starts, and `completion`, the line shown and added
+    to the journal when it completes. Each objective has its own text in its
+    [`ObjectiveSpec.narrative`][osrlib.crawl.quests.ObjectiveSpec.narrative]."""
 
     @model_validator(mode="after")
     def _objective_ids_unique(self) -> QuestSpec:

@@ -1,50 +1,62 @@
-"""The player character: the model, creating one step by step, and saving one to a document.
+"""Player characters: the model, the functions that create one, and the documents that store one.
 
 Start here when you need a party. [`create_character`][osrlib.core.character.create_character] is
-the entry point: hand it a name, a class id, an alignment, a
-[`Ruleset`][osrlib.core.ruleset.Ruleset], and a seeded random-number stream from
-[`osrlib.core.rng`][osrlib.core.rng], and it returns a first-level
-[`Character`][osrlib.core.character.Character] together with the raw dice it rolled. Put the
-characters you get into a [`Party`][osrlib.crawl.party.Party] to play them, or use them on their
-own with the combat, magic, and item functions of the core kernel.
+the entry point. Pass it a name, a class id, an alignment, a [`Ruleset`][osrlib.core.ruleset.Ruleset],
+and a seeded random-number stream from [`osrlib.core.rng`][osrlib.core.rng]. It returns a
+first-level [`Character`][osrlib.core.character.Character] and the raw dice it rolled. Put the
+characters you create into a [`Party`][osrlib.crawl.party.Party] to play them, or pass them to the
+combat, magic, and item functions in [`osrlib.core`][osrlib.core] on their own.
 
 [`Character`][osrlib.core.character.Character] is a mutable pydantic model. Its derived values are
-properties computed from the stored fields, so they can't fall out of step with them. They include
-the ability modifiers, both armour classes, movement rate, and the language list. Validation on
-the model is structural: score ranges, a level within the class's bounds, current hit points no
-higher than maximum. Whether a creation step was
-legal is checked by the creation functions when the step happens, because a finished character
-has no record of the choices that made it.
+properties computed from the stored fields each time you read them. They include THAC0 (the d20
+roll needed to hit armour class 0), the saving throws, the ability modifiers, both armour classes,
+and the language list. Validation on the model is
+structural: the scores are in range, the level is within the class's maximum, and current hit
+points are no higher than maximum. The model can't check whether a character was created legally,
+because a finished character has no record of the choices that made it. The creation functions
+check each choice when it's made.
 
-Creation follows the SRD's character-creation steps as pure functions you drive one at a time
-when a player is making the choices:
-[`roll_ability_scores`][osrlib.core.character.roll_ability_scores],
-[`validate_class_choice`][osrlib.core.character.validate_class_choice],
-[`apply_adjustment`][osrlib.core.abilities.apply_adjustment],
-[`validate_starting_spells`][osrlib.core.character.validate_starting_spells] with
-[`choose_starting_spells`][osrlib.core.character.choose_starting_spells],
-[`roll_hit_points`][osrlib.core.character.roll_hit_points],
-[`validate_extra_languages`][osrlib.core.character.validate_extra_languages],
-[`roll_starting_gold`][osrlib.core.character.roll_starting_gold], and then buying and equipping
-gear through [`osrlib.core.items`][osrlib.core.items]. Each validating step returns a list of
-[`Rejection`][osrlib.core.validation.Rejection] records rather than raising, so you can show the
-player what went wrong and let them choose again. Creation emits no events: it happens before a
-session starts, and the first events belong to play.
-[`create_character`][osrlib.core.character.create_character] runs the whole sequence in one call
-when every choice is known upfront, and raises instead of returning rejections.
+To create a character one step at a time while a player makes the choices, call these functions
+in the order the SRD's character-creation steps set:
 
-Advancement, which is leveling up, energy drain, and experience awards, lives in
-[`osrlib.core.classes`][osrlib.core.classes], the module that also defines the class a character
-plays. Saving a character to disk goes through
-[`to_document`][osrlib.core.character.Character.to_document] and
-[`party_to_document`][osrlib.core.character.party_to_document], whose output
-[`osrlib.persistence`][osrlib.persistence] writes as part of a whole-game save.
+1. [`roll_ability_scores`][osrlib.core.character.roll_ability_scores] rolls the six ability scores.
+2. [`validate_class_choice`][osrlib.core.character.validate_class_choice] checks the scores against
+   the class the player picks.
+3. [`validate_adjustment`][osrlib.core.abilities.validate_adjustment] and
+   [`apply_adjustment`][osrlib.core.abilities.apply_adjustment] check and apply a trade of ability
+   points, if the player wants one.
+4. [`validate_starting_spells`][osrlib.core.character.validate_starting_spells] checks an arcane
+   caster's first spell.
+5. [`roll_hit_points`][osrlib.core.character.roll_hit_points] rolls first-level hit points.
+6. [`validate_extra_languages`][osrlib.core.character.validate_extra_languages] checks the extra
+   languages a high INT allows.
+7. [`roll_starting_gold`][osrlib.core.character.roll_starting_gold] rolls the starting money.
 
-A session draws from two stream keys here:
-[`CHARACTER_CREATION_STREAM`][osrlib.core.character.CHARACTER_CREATION_STREAM] for creation draws
-and [`ADVANCEMENT_STREAM`][osrlib.core.character.ADVANCEMENT_STREAM] for in-play level-up hit point
-rolls. They stay separate so that a change to the creation rules never shifts advancement draws
-already recorded in a save.
+Then construct the [`Character`][osrlib.core.character.Character] from the results. Pass the
+scores as `scores`, the hit points as both `max_hp` and `current_hp`, `level=1`, `xp=0`, the class
+definition's `race`, and the name, class id, alignment, and extra languages. To use scores a player
+chose instead of rolled ones, skip step 1 and pass those scores. Write the spell
+book with [`choose_starting_spells`][osrlib.core.character.choose_starting_spells], and buy and
+equip gear with [`validate_purchase`][osrlib.core.items.validate_purchase],
+[`purchase`][osrlib.core.items.purchase], and [`equip`][osrlib.core.items.equip]. Each validating
+function returns a list of [`Rejection`][osrlib.core.validation.Rejection] records rather than
+raising, so you can show the player what went wrong and let them choose again.
+[`create_character`][osrlib.core.character.create_character] runs the same steps in one call when
+every choice is known in advance, and raises `ValueError` on the first illegal choice instead. No
+creation function emits events, because creation happens before a session starts.
+
+Advancement is in [`osrlib.core.classes`][osrlib.core.classes]: experience awards, leveling up, and
+energy drain, which takes levels away. To store a character on its own, call
+[`to_document`][osrlib.core.character.Character.to_document]. To store a group of characters, call
+[`party_to_document`][osrlib.core.character.party_to_document]. A whole game in progress, characters
+included, is saved by [`save_game`][osrlib.persistence.save_game].
+
+Creation and advancement draw from two separate streams, keyed by
+[`CHARACTER_CREATION_STREAM`][osrlib.core.character.CHARACTER_CREATION_STREAM] and
+[`ADVANCEMENT_STREAM`][osrlib.core.character.ADVANCEMENT_STREAM]. A stream key is the name of one
+independent random-number sequence in an [`RngStreams`][osrlib.core.rng.RngStreams] set. The two
+streams are separate so that a change to the creation rules never shifts the level-up rolls a save
+has already recorded.
 
 Typical usage:
 
@@ -118,32 +130,32 @@ __all__ = [
 ]
 
 CHARACTER_CREATION_STREAM = StreamName.CHARACTER_CREATION
-"""The stream key every session uses for creation draws.
+"""The stream key for character-creation draws, `"character_creation"`.
 
-A stream key identifies one independent random-number sequence inside an
-[`RngStreams`][osrlib.core.rng.RngStreams] set. Pass
-`streams.get(CHARACTER_CREATION_STREAM)` as the `stream` argument of
-[`create_character`][osrlib.core.character.create_character] and of the stepwise creation
-functions, which draw ability scores, the first-level hit die, and starting gold from it in that
-order.
+A stream key is the name of one independent random-number sequence in an
+[`RngStreams`][osrlib.core.rng.RngStreams] set. Pass `streams.get(CHARACTER_CREATION_STREAM)` as the
+`stream` argument of [`create_character`][osrlib.core.character.create_character] and of the
+stepwise creation functions. `create_character` draws the ability scores, the first-level hit
+points, and the starting gold from it, in that order.
 
-Use a different key only when you want creation draws kept apart from the ones a session already
-records, for example when you roll throwaway characters beside a live game. Pass your own key to
-`streams.get`. Don't change this constant, because a save records each stream's position under its
-key and restores the stream by that key.
+To roll a whole party from one seed, pass the same stream to each call. Each character's draws
+continue where the previous character's stopped, so the same seed and the same calls always give
+the same party.
 """
 
 ADVANCEMENT_STREAM = StreamName.ADVANCEMENT
-"""The stream key every session uses for in-play advancement draws.
+"""The stream key for advancement draws, `"advancement"`: the hit dice rolled when a level is gained or lost.
 
 Pass `streams.get(ADVANCEMENT_STREAM)` as the `stream` argument of
-[`level_up`][osrlib.core.classes.level_up], [`apply_xp`][osrlib.core.classes.apply_xp], and
-[`drain_levels`][osrlib.core.classes.drain_levels], which roll hit dice on it.
+[`apply_xp`][osrlib.core.classes.apply_xp], [`level_up`][osrlib.core.classes.level_up], and
+[`drain_levels`][osrlib.core.classes.drain_levels]. A
+[`GameSession`][osrlib.crawl.session.GameSession] uses this key when it awards experience and when
+it resolves energy drain.
 
 It is separate from
-[`CHARACTER_CREATION_STREAM`][osrlib.core.character.CHARACTER_CREATION_STREAM] so that a change to
-the creation rules, which would consume a different number of draws, never shifts advancement rolls
-a save has already recorded.
+[`CHARACTER_CREATION_STREAM`][osrlib.core.character.CHARACTER_CREATION_STREAM]. A change to the
+creation rules can change how many draws creation takes. Because the streams are separate, that
+change doesn't shift the advancement rolls a save has already recorded.
 """
 
 ABILITY_ROLL_ORDER = (
@@ -154,39 +166,39 @@ ABILITY_ROLL_ORDER = (
     AbilityScore.CON,
     AbilityScore.CHA,
 )
-"""The order [`roll_ability_scores`][osrlib.core.character.roll_ability_scores] draws the six abilities.
+"""The order in which [`roll_ability_scores`][osrlib.core.character.roll_ability_scores] rolls the six abilities.
 
-This is the SRD's listing order, and it is fixed. Read it when you are displaying rolled scores in
-the order the dice came up, or when you are reproducing a draw sequence by hand from a recorded
-seed. The order is part of what makes a seeded creation reproducible, so don't reassign it.
+The order is STR, INT, WIS, DEX, CON, CHA, as the SRD lists them. Read it to show rolled scores in
+the order the dice came up, or to match recorded rolls to their abilities by hand. The same stream
+always gives the same six scores because the order never changes, so don't reassign this name.
 """
 
 
 class Character(BaseModel):
-    """A player character: the stored state of one played person, and the values derived from it.
+    """A player character: the stored state of one character, and the values derived from it.
 
-    Get one from [`create_character`][osrlib.core.character.create_character], from the stepwise
-    creation functions in this module, or from
-    [`from_document`][osrlib.core.character.Character.from_document] when reloading a save.
-    Construct one directly only when you already have every value, as in a test fixture.
+    Get one from [`create_character`][osrlib.core.character.create_character], or from
+    [`from_document`][osrlib.core.character.Character.from_document] when you load a stored
+    character. Construct one directly when you create a character step by step with the other
+    creation functions in this module, or when you already have every value, as in a test.
 
-    Put characters in a [`Party`][osrlib.crawl.party.Party] to explore with them, hand one to the
-    combat functions in [`osrlib.core.combat`][osrlib.core.combat] as an attacker or a target, to
-    [`osrlib.core.spells`][osrlib.core.spells] as a caster, and to
-    [`level_up`][osrlib.core.classes.level_up] or [`apply_xp`][osrlib.core.classes.apply_xp] to
-    advance it. A [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] exposes the same
-    combatant surface, so those functions take either.
+    Put characters in a [`Party`][osrlib.crawl.party.Party] to explore with them. Pass one to the
+    functions in [`osrlib.core.combat`][osrlib.core.combat] as an attacker or a target, to the
+    functions in [`osrlib.core.spells`][osrlib.core.spells] as a caster, and to
+    [`apply_xp`][osrlib.core.classes.apply_xp] or [`level_up`][osrlib.core.classes.level_up] to
+    advance it. A [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] has the same combat
+    attributes, so the combat functions take either.
 
     The model is mutable and validates on assignment. Setting a field to a value that breaks a rule
     raises a pydantic `ValidationError`. Validation is structural only. It checks that the six scores
-    are present and in range, that the level is within the class's maximum, and that current hit
-    points do not exceed maximum hit points. It does not check that the character was created
-    legally, because a finished character has no record of how it was created.
+    are present and in range, that `class_id` is the id of a class in
+    [`load_classes`][osrlib.data.load_classes], that the level is within the class's maximum, and
+    that current hit points don't exceed maximum hit points. It doesn't check that the character was
+    created legally, because a finished character has no record of how it was created.
 
     Nothing derived is stored. THAC0, attack bonus, saving throws, ability modifiers, both armour
-    classes, and the language list are properties recomputed from the stored fields every time you
-    read them, so a level change or a swapped piece of armour shows up immediately and nothing can
-    fall out of step.
+    classes, and the language list are properties recomputed from the stored fields each time you
+    read them, so a level change or a swapped piece of armour shows up at once.
 
     Examples:
         ```python
@@ -214,34 +226,40 @@ class Character(BaseModel):
     model_config = ConfigDict(validate_assignment=True, extra="ignore")
 
     id: str | None = None
-    """The entity id, which a [`GameSession`][osrlib.crawl.session.GameSession] assigns from its
-    [`IdAllocator`][osrlib.core.monsters.IdAllocator] when the character joins. `None` until then, and events fall back
-    to the name while it is unset.
+    """The character's id within a game, like `"character-0001"`, or `None` before a game assigns one.
+
+    [`GameSession.new`][osrlib.crawl.session.GameSession.new] assigns an id to each party member whose id is `None`,
+    from the session's [`IdAllocator`][osrlib.core.monsters.IdAllocator]. Commands name a character by this id. An
+    event about a character with no id uses the character's `name` instead.
     """
 
     name: str = Field(min_length=1)
-    """The character's name. At least one character long."""
+    """The character's name, for display. It can't be empty."""
 
     class_id: str
-    """The class this character plays, like `"fighter"`.
+    """The id of the character's class, like `"fighter"`.
 
     Valid ids come from [`load_classes`][osrlib.data.load_classes] and are listed in
-    [the class id index][classes-index]. Read [`definition`][osrlib.core.character.Character.definition] to get
-    the class itself.
+    [the class id index](https://mmacy.github.io/osrlib-python/reference/content-ids/classes/). Read
+    [`definition`][osrlib.core.character.Character.definition] for the class itself.
     """
 
     race: str = Field(pattern=r"^[a-z][a-z0-9_]*$")
-    """The character's people, like `"human"` or `"dwarf"`, as a lowercase identifier. Creation copies it from the
-    class. No rules procedure reads it: racial abilities resolve through the class's ability tags instead, so a new race
-    needs no code.
+    """The character's race, like `"human"` or `"dwarf"`, as a lowercase identifier.
+
+    Creation copies it from the class's [`race`][osrlib.core.classes.ClassDefinition.race]. No rules function reads it.
+    What a race can do, like a dwarf's infravision, comes from the class's
+    [`abilities`][osrlib.core.classes.ClassDefinition.abilities].
     """
 
     level: int = Field(ge=1)
     """The experience level, 1 through the class's maximum."""
 
     xp: int = Field(ge=0)
-    """Experience points accumulated. Advancement compares this against the thresholds in the class's progression table.
-    Award XP with [`apply_xp`][osrlib.core.classes.apply_xp] rather than by assigning here.
+    """The character's total experience points.
+
+    Award experience with [`apply_xp`][osrlib.core.classes.apply_xp], which adds to this total and levels the character
+    up when it reaches the next level's threshold. Assigning a new total here changes no level.
     """
 
     scores: dict[AbilityScore, int]
@@ -250,53 +268,65 @@ class Character(BaseModel):
     """
 
     alignment: Alignment
-    """Lawful, neutral, or chaotic. It also fixes
+    """Lawful, neutral, or chaotic. It sets the secret language in
     [`alignment_tongue`][osrlib.core.character.Character.alignment_tongue].
     """
 
     extra_languages: tuple[str, ...] = ()
-    """The extra language ids a high INT granted at creation, validated by
-    [`validate_extra_languages`][osrlib.core.character.validate_extra_languages].
+    """The language ids chosen at creation because of a high INT. Check the choice with
+    [`validate_extra_languages`][osrlib.core.character.validate_extra_languages] before you store it.
     """
 
     max_hp: int = Field(ge=1)
     """Maximum hit points, at least 1."""
 
     current_hp: int = Field(ge=0)
-    """Current hit points, from 0 up to `max_hp`. Reaching 0 means the character has dropped. Death itself is the
-    `dead` condition, applied by [`kill`][osrlib.core.effects.kill], rather than a hit point value.
+    """Current hit points, from 0 up to `max_hp`.
+
+    A character at 0 hit points is out of the fight. Whether a character is dead is the `dead` condition, which
+    [`kill`][osrlib.core.effects.kill] applies, not a hit point value.
     """
 
     inventory: Inventory = Field(default_factory=Inventory)
-    """Everything carried, worn, and wielded, plus the purse. See [`Inventory`][osrlib.core.items.Inventory] and the
-    buying and equipping functions in [`osrlib.core.items`][osrlib.core.items].
+    """Everything the character carries, wears, and wields, and their coins. See
+    [`Inventory`][osrlib.core.items.Inventory] and the buying and equipping functions in
+    [`osrlib.core.items`][osrlib.core.items].
     """
 
     carrying_treasure: bool = False
-    """Whether the character is carrying enough treasure to slow them down. Basic encumbrance leaves the threshold to
-    the referee, so osrlib leaves it to you: set this flag and
-    [`movement_rate`][osrlib.core.character.Character.movement_rate] drops the rate a step. Ignored under the other
-    encumbrance modes.
+    """Whether the character is carrying enough treasure to slow them down, under basic encumbrance.
+
+    The basic encumbrance rules leave the amount to the referee, so osrlib leaves it to you. Set this flag, and
+    [`movement_rate`][osrlib.core.character.Character.movement_rate] drops the character to the next slower rate.
+    The other encumbrance modes ignore it.
     """
 
     conditions: tuple[ActiveCondition, ...] = ()
-    """The conditions in effect, like poisoned or paralyzed. Apply and clear them through
-    [`osrlib.core.effects`][osrlib.core.effects]. Test one with [`has_condition`][osrlib.core.effects.has_condition].
+    """The conditions in effect, like poisoned or paralysed.
+
+    Apply and clear them with the functions in [`osrlib.core.effects`][osrlib.core.effects]. Test for one with
+    [`has_condition`][osrlib.core.effects.has_condition].
     """
 
     stat_modifiers: tuple[ActiveModifier, ...] = ()
-    """Timed bonuses and penalties from spells and items, applied by [`osrlib.core.effects`][osrlib.core.effects]."""
+    """Timed bonuses and penalties from spells and items. The functions in
+    [`osrlib.core.effects`][osrlib.core.effects] apply and remove them.
+    """
 
     spell_book: tuple[str, ...] = ()
-    """The spell ids an arcane caster can memorize from, in the order they were learned. Empty for clerics, whose spells
-    come from their deity, and for non-casters.
+    """The spell ids in an arcane caster's spell book, in the order they were added.
+
+    An arcane caster memorizes spells only from this book. It's empty for divine casters like the cleric, who memorize
+    from their whole class list, and for classes that cast no spells.
     """
 
     memorized_spells: tuple[MemorizedSpell, ...] = ()
-    """The prepared copies a caster may cast, as [`MemorizedSpell`][osrlib.core.spells.MemorizedSpell] records in
-    memorization order. The order determines which copy goes first: casting spends the first matching copy, and
-    energy drain removes the newest first. How many of each level fit is derived from the class's progression row,
-    not stored, so leveling up and being drained both recompute it.
+    """The spells the caster has memorized and can cast, as [`MemorizedSpell`][osrlib.core.spells.MemorizedSpell]
+    records in the order they were memorized.
+
+    Fill it with [`memorize_spells`][osrlib.core.spells.memorize_spells]. Casting spends the first matching copy in
+    the list, and energy drain removes copies from the end. How many spells of each level fit comes from the class's
+    progression row for the current level, so it changes when the level does.
     """
 
     @field_validator("scores")
@@ -321,40 +351,42 @@ class Character(BaseModel):
 
     @property
     def definition(self) -> ClassDefinition:
-        """The class this character plays, looked up from the loaded catalog by `class_id`.
+        """The character's class, looked up by `class_id` in [`load_classes`][osrlib.data.load_classes].
 
         Read it for anything that depends on the class: the progression table, the armour and weapon
-        policies, the class abilities, the level titles. The catalog is loaded once and cached, so
-        reading this property repeatedly costs nothing.
+        policies, the class abilities, and the level titles. Pass it as the `definition` argument of the
+        functions in [`osrlib.core.classes`][osrlib.core.classes]. The catalog is loaded once and
+        cached, so reading this property again costs almost nothing.
         """
         return load_classes().get(self.class_id)
 
     @property
     def thac0(self) -> int:
-        """The number the character must roll to hit armour class 0, from the current level's row.
+        """The d20 roll the character needs to hit armour class 0, from the current level's progression row.
 
-        Descending armour class is the SRD's default presentation. Use
-        [`attack_bonus`][osrlib.core.character.Character.attack_bonus] instead if your front end
-        shows ascending armour class. The two describe the same attack.
+        THAC0 goes with descending armour class, where a lower armour class is better. If you show
+        ascending armour class instead, use
+        [`attack_bonus`][osrlib.core.character.Character.attack_bonus]. The two describe the same
+        attack.
         """
         return self.definition.row(self.level).thac0
 
     @property
     def attack_bonus(self) -> int:
-        """The bonus added to an attack roll under ascending armour class, from the current level's row.
+        """The bonus added to an attack roll under ascending armour class, from the current level's progression row.
 
-        The ascending presentation of [`thac0`][osrlib.core.character.Character.thac0]. Both come
-        from the same progression row, so they always agree.
+        It's [`thac0`][osrlib.core.character.Character.thac0] for ascending armour class, where a
+        higher armour class is better. Both come from the same row, so they always agree.
         """
         return self.definition.row(self.level).attack_bonus
 
     @property
     def saves(self) -> SavingThrows:
-        """The five saving throw targets for the current level.
+        """The five saving throw targets for the current level, from the progression row.
 
-        Roll a d20 against the relevant field and succeed on that number or higher. Leveling and
-        energy drain both change this the moment they change the level, because it is read from
-        the progression row rather than stored.
+        A save succeeds on a d20 roll equal to or higher than the target for the kind of danger.
+        [`saving_throw`][osrlib.core.combat.saving_throw] rolls one for you. The targets change as
+        soon as the level does.
         """
         return self.definition.row(self.level).saves
 
@@ -370,14 +402,15 @@ class Character(BaseModel):
     def open_doors_chance(self) -> int:
         """The chance in 6 of forcing a stuck door open, from STR.
 
-        Roll 1d6 and succeed on this number or less. Force-door attempts in a crawl go through
-        [`osrlib.crawl.exploration`][osrlib.crawl.exploration], which reads this for you.
+        Roll 1d6, and the door opens on a roll equal to or less than this number. To roll it, pass
+        it to [`detection_check`][osrlib.core.classes.detection_check]. In a session, the
+        [`ForceDoor`][osrlib.crawl.commands.ForceDoor] command reads it for you.
         """
         return self._tables().open_doors_chance(self.scores[AbilityScore.STR])
 
     @property
     def missile_modifier(self) -> int:
-        """The DEX modifier added to missile attack rolls, from −3 to +3. It does not change damage."""
+        """The DEX modifier added to missile attack rolls, from −3 to +3. It doesn't change damage."""
         return self._tables().missile_modifier(self.scores[AbilityScore.DEX])
 
     @property
@@ -386,16 +419,17 @@ class Character(BaseModel):
 
         It applies only when the `individual_initiative` flag of the
         [`Ruleset`][osrlib.core.ruleset.Ruleset] is on. Group initiative, the default, rolls once
-        per side and ignores it.
+        for each side and ignores it.
         """
         return self._tables().initiative_modifier(self.scores[AbilityScore.DEX])
 
     @property
     def hit_point_modifier(self) -> int:
-        """The CON modifier added to each Hit Die rolled, from −3 to +3.
+        """The CON modifier added to each hit die rolled, from −3 to +3.
 
-        Creation and [`level_up`][osrlib.core.classes.level_up] add it per die and floor the gain
-        at 1 hit point, so a poor CON never costs a character hit points outright.
+        [`roll_hit_points`][osrlib.core.character.roll_hit_points] and
+        [`level_up`][osrlib.core.classes.level_up] add it to each die, and a die always gains at
+        least 1 hit point, however low the CON.
         """
         return self._tables().hit_point_modifier(self.scores[AbilityScore.CON])
 
@@ -406,34 +440,35 @@ class Character(BaseModel):
 
     @property
     def npc_reaction_modifier(self) -> int:
-        """The CHA modifier applied to NPC reaction rolls, from −2 to +2.
+        """The CHA modifier to a monster reaction roll when this character speaks to the monsters, from −2 to +2.
 
-        During a crawl, the session applies it to reaction rolls for you. See
-        [`osrlib.crawl.encounter`][osrlib.crawl.encounter].
+        Pass it as the `modifier` of [`roll_reaction`][osrlib.core.combat.roll_reaction]. In a
+        session, the [`Parley`][osrlib.crawl.commands.Parley] command applies the speaker's modifier
+        for you.
         """
         return self._tables().npc_reaction_modifier(self.scores[AbilityScore.CHA])
 
     @property
     def alignment_tongue(self) -> str:
-        """The secret language shared by everyone of this alignment, as a language id.
+        """The secret language everyone of this alignment speaks, as a language id.
 
         Every character speaks the tongue of their alignment and no other. The id is
-        `alignment_` followed by the alignment's serialized value, so a lawful character speaks
-        `"alignment_lawful"`. These are not entries in the language catalog that
-        [`load_languages`][osrlib.data.load_languages] returns. They are derived here, so changing
-        a character's alignment changes the tongue in the same moment.
+        `alignment_` followed by the alignment's value, so a lawful character speaks
+        `"alignment_lawful"`. These ids aren't in the language catalog that
+        [`load_languages`][osrlib.data.load_languages] returns. This property builds the id from
+        `alignment`, so a change of alignment changes the tongue at once.
         """
         return f"alignment_{self.alignment.value}"
 
     @property
     def languages(self) -> tuple[str, ...]:
-        """Every language the character speaks, as ids, in a fixed order.
+        """Every language the character speaks, as language ids.
 
-        The alignment tongue comes first, then the languages the class grants with Common at the
-        front, then the extras picked at creation for a high INT. Compare against another speaker's
-        list to decide whether two people can talk to each other. The ids other than the alignment
-        tongue are catalog ids from [`load_languages`][osrlib.data.load_languages], listed in
-        [the language id index][languages-index].
+        The alignment tongue comes first. The languages the class grants come next, starting with
+        `"common"`. The extra languages chosen at creation come last. To find out whether two
+        characters can talk to each other, look for an id in both lists. Every id except the
+        alignment tongue is a catalog id from [`load_languages`][osrlib.data.load_languages], listed
+        in [the language id index](https://mmacy.github.io/osrlib-python/reference/content-ids/languages/).
         """
         return (self.alignment_tongue, *self.definition.languages, *self.extra_languages)
 
@@ -485,13 +520,13 @@ class Character(BaseModel):
 
     @property
     def armour_class(self) -> int:
-        """The character's armour class in the descending presentation, where lower is better.
+        """The character's descending armour class, where lower is better.
 
-        Unarmoured is 9. Worn armour sets the base, shields and always-active magic items subtract
-        their bonus, and the DEX modifier subtracts on top. Equipping or removing armour changes
-        this at once, because it is computed from the inventory rather than stored. Use
-        [`armour_class_ascending`][osrlib.core.character.Character.armour_class_ascending] if your
-        front end shows ascending armour class.
+        An unarmoured character is 9. Worn armour sets the base. A shield's bonus, the bonus of a
+        worn ring that protects all the time, and the DEX modifier each subtract from it. It's
+        computed from the inventory each time you read it, so equipping or removing armour changes
+        it at once. If you show ascending armour class, use
+        [`armour_class_ascending`][osrlib.core.character.Character.armour_class_ascending].
         """
         dex_modifier = self._tables().ac_modifier(self.scores[AbilityScore.DEX])
         base, bonus = self._armour_parts(ascending=False)
@@ -499,11 +534,11 @@ class Character(BaseModel):
 
     @property
     def armour_class_ascending(self) -> int:
-        """The character's armour class in the ascending presentation, where higher is better.
+        """The character's ascending armour class, where higher is better.
 
-        Unarmoured is 10, and every bonus adds. It describes the same defense as
-        [`armour_class`][osrlib.core.character.Character.armour_class]. The two presentations
-        always agree.
+        An unarmoured character is 10, and every bonus adds to it. It describes the same defense
+        as [`armour_class`][osrlib.core.character.Character.armour_class], so the two always
+        agree.
         """
         dex_modifier = self._tables().ac_modifier(self.scores[AbilityScore.DEX])
         base, bonus = self._armour_parts(ascending=True)
@@ -512,18 +547,18 @@ class Character(BaseModel):
     def movement_rate(self, ruleset: Ruleset) -> int:
         """Return how far this character moves in one exploration turn, in feet.
 
-        What the rate depends on is the ruleset's encumbrance mode: nothing at all under `none`,
-        the worn armour category and the
-        [`carrying_treasure`][osrlib.core.character.Character] flag under `basic`, and the total
-        weight carried under `detailed`. A character loaded past the maximum cannot move and gets
-        0.
+        What sets the rate depends on the `encumbrance` mode of the ruleset. Under `none`, every
+        character moves 120 feet. Under `basic`, the rate depends on the worn armour and on the
+        [`carrying_treasure`][osrlib.core.character.Character.carrying_treasure] flag. Under
+        `detailed`, it depends on the total weight carried. Under `basic` and `detailed`, a
+        character carrying more than the maximum load can't move, and the rate is 0.
 
-        A party moves at its slowest living member's rate, so for a party call
-        [`Party.movement_rate`][osrlib.crawl.party.Party.movement_rate] instead of calling this
-        per member.
+        A party moves at the rate of its slowest living member. For a party, call
+        [`Party.movement_rate`][osrlib.crawl.party.Party.movement_rate] instead of calling this for
+        each member.
 
         Args:
-            ruleset: The ruleset in play, whose encumbrance mode governs what counts.
+            ruleset: The ruleset in play. What counts depends on its `encumbrance` mode.
 
         Returns:
             The rate in feet per turn: 120, 90, 60, 30, or 0.
@@ -555,19 +590,17 @@ class Character(BaseModel):
     def to_document(self) -> dict[str, object]:
         """Return this character as a JSON-ready document stamped with its schema and engine versions.
 
-        The stamp is what lets a later version of osrlib decide whether it can read the document.
-        Use this to store one character on its own, and use
-        [`party_to_document`][osrlib.core.character.party_to_document] for a whole party, and the
-        save functions in [`osrlib.persistence`][osrlib.persistence] to store a session, which already includes
-        its characters.
-
-        Read it back with
-        [`from_document`][osrlib.core.character.Character.from_document].
+        Use it to store one character on its own, like a character a player keeps between games.
+        To store a group of characters, use
+        [`party_to_document`][osrlib.core.character.party_to_document]. To store a game in
+        progress, use [`save_game`][osrlib.persistence.save_game], which includes the characters.
+        Load the document with [`from_document`][osrlib.core.character.Character.from_document].
+        The version stamp lets a later release of osrlib tell whether it can read the document.
 
         Returns:
-            The stamped envelope, whose payload is the serialized character. Every value is a
-            JSON type, so you can hand the result straight to
-            [`json.dump`][json.dump].
+            A dict with the keys `kind`, `schema_version`, `engine_version`, and `payload`.
+            `kind` is `"character"`, and `payload` contains the character's fields. Every value is
+            a JSON type, so you can pass the result straight to [`json.dump`][json.dump].
 
         Examples:
             ```python
@@ -597,24 +630,24 @@ class Character(BaseModel):
     def from_document(cls, document: Mapping[str, object]) -> Character:
         """Rebuild a character from a document written by [`to_document`][osrlib.core.character.Character.to_document].
 
-        Fields in the payload that this version does not recognize are ignored, so a document written
-        by a later release that only added fields still loads. A document whose schema version is
-        newer than this release understands is refused instead, because the fields this release
-        recognizes may mean something different in it.
+        Fields in the payload that this release doesn't recognize are ignored, so a document from a
+        later release that only added fields still loads. A document with a newer schema version
+        than this release supports is refused, because the fields this release reads may mean
+        something different in it.
 
         Args:
-            document: The stamped envelope, as returned by
-                [`to_document`][osrlib.core.character.Character.to_document] or read back from
-                JSON.
+            document: The document [`to_document`][osrlib.core.character.Character.to_document]
+                returned, or the same document read back from JSON.
 
         Returns:
-            The character, with every derived value recomputed from the loaded state.
+            A new character, with every derived value computed from the loaded fields.
 
         Raises:
-            ContentValidationError: If the envelope is not a character document, or the payload
-                does not validate as a character.
-            osrlib.errors.SaveVersionError: If the document's schema version is newer than this library
-                understands. Tell the player to upgrade osrlib.
+            ContentValidationError: If the document isn't a character document, or its payload
+                doesn't validate as a character. The document is damaged or isn't one
+                `to_document` wrote, so loading it again fails the same way.
+            osrlib.errors.SaveVersionError: If the document's schema version is newer than this
+                release supports. Upgrade osrlib to load it.
 
         Examples:
             Store a character as JSON and load it back:
@@ -652,24 +685,26 @@ class Character(BaseModel):
 
 
 def party_to_document(characters: Sequence[Character]) -> dict[str, object]:
-    """Return a group of characters as one JSON-ready document, stamped with its versions.
+    """Return a group of characters as one JSON-ready document, stamped with its schema and engine versions.
 
-    Use this to store a roster you build once and reuse, like a set of pre-generated characters
-    a front end offers at the start of a game. It writes only the characters: marching
-    order, shared light sources, and the rest of a playing party's state belong to
-    [`Party`][osrlib.crawl.party.Party] and are saved with the session by
-    [`osrlib.persistence`][osrlib.persistence].
+    Use it to store a group of characters you create once and use again, like a set of ready-made
+    characters a player can pick from. [`replay_game`][osrlib.persistence.replay_game] also
+    takes one, as the party the game started with. For that, call this before you pass the
+    characters to [`GameSession.new`][osrlib.crawl.session.GameSession.new], which assigns their
+    ids.
 
-    Read it back with
-    [`party_from_document`][osrlib.core.character.party_from_document], which returns the
-    characters in the order you passed them.
+    The document contains only the characters. Marching order and the rest of a
+    [`Party`][osrlib.crawl.party.Party]'s state belong to a game in progress, which
+    [`save_game`][osrlib.persistence.save_game] stores. Load the document with
+    [`party_from_document`][osrlib.core.character.party_from_document].
 
     Args:
         characters: The characters to store, in the order you want them back.
 
     Returns:
-        The stamped envelope, whose payload contains the serialized characters under
-        `"characters"`. Every value is a JSON type.
+        A dict with the keys `kind`, `schema_version`, `engine_version`, and `payload`. `kind`
+        is `"party"`, and `payload` contains the characters as a list under `"characters"`. Every
+        value is a JSON type.
 
     Examples:
         ```python
@@ -705,20 +740,23 @@ def party_to_document(characters: Sequence[Character]) -> dict[str, object]:
 def party_from_document(document: Mapping[str, object]) -> list[Character]:
     """Rebuild the characters in a document written by [`party_to_document`][osrlib.core.character.party_to_document].
 
-    Each character is validated on the way in, so a malformed member fails the whole load rather
-    than producing a half-built roster.
+    Each character is validated as it loads. If one fails, the whole load fails, so you never get
+    part of the group. Pass the list to [`Party`][osrlib.crawl.party.Party] as its `members` to
+    play them.
 
     Args:
-        document: The stamped envelope, as returned by
-            [`party_to_document`][osrlib.core.character.party_to_document] or read back from JSON.
+        document: The document [`party_to_document`][osrlib.core.character.party_to_document]
+            returned, or the same document read back from JSON.
 
     Returns:
-        The characters, in the order they were stored.
+        New characters, in the order they were stored.
 
     Raises:
-        ContentValidationError: If the envelope is not a party document, if its payload contains no
-            `"characters"` list, or if a member does not validate as a character.
-        osrlib.errors.SaveVersionError: If the document's schema version is newer than this library understands.
+        ContentValidationError: If the document isn't a party document, its payload has no
+            `"characters"` list, or a character in it doesn't validate. The document is damaged
+            or isn't one `party_to_document` wrote, so loading it again fails the same way.
+        osrlib.errors.SaveVersionError: If the document's schema version is newer than this
+            release supports. Upgrade osrlib to load it.
 
     Examples:
         Save a roster to a JSON file and load it back:
@@ -769,89 +807,91 @@ def party_from_document(document: Mapping[str, object]) -> list[Character]:
 
 
 class AbilityScoreRolls(BaseModel):
-    """The six rolled ability scores, with the individual dice kept so you can show them.
+    """The six rolled ability scores, with the dice behind each, so you can show them.
 
-    [`roll_ability_scores`][osrlib.core.character.roll_ability_scores] returns this, and
-    [`create_character`][osrlib.core.character.create_character] includes it in its result. Frozen,
-    because a roll doesn't change after it's made.
+    [`roll_ability_scores`][osrlib.core.character.roll_ability_scores] returns one, and
+    [`create_character`][osrlib.core.character.create_character] includes one in its result. Pass
+    `scores` to [`validate_class_choice`][osrlib.core.character.validate_class_choice]. Frozen.
     """
 
     model_config = ConfigDict(frozen=True)
 
     scores: dict[AbilityScore, int]
     """The total of each ability's three dice, keyed by [`AbilityScore`][osrlib.core.abilities.AbilityScore]. All six
-    are present, each 3 through 18.
+    abilities are present, each from 3 to 18.
     """
 
     rolls: dict[AbilityScore, tuple[int, int, int]]
-    """The three raw d6 results behind each score, in the order they were rolled, so a character sheet can show the dice
-    a player watched come up.
-    """
+    """The three d6 results behind each score, keyed the same way, in the order they were rolled."""
 
 
 class HitPointRoll(BaseModel):
-    """A first-level hit point roll: every die that was thrown, and the total it came to.
+    """A first-level hit point roll: every die thrown, and the hit points the character starts with.
 
-    [`roll_hit_points`][osrlib.core.character.roll_hit_points] returns this. Frozen.
+    [`roll_hit_points`][osrlib.core.character.roll_hit_points] returns one, and
+    [`create_character`][osrlib.core.character.create_character] includes one in its result. Use
+    `hit_points` as the new character's `max_hp` and `current_hp`. Frozen.
     """
 
     model_config = ConfigDict(frozen=True)
 
     rolls: tuple[int, ...]
-    """Every raw die result, in the order thrown. With the `hp_reroll_at_first_level` option on, the rejected 1s and 2s
-    are here too, and the last entry is the die that stood.
+    """Every die result, before the CON modifier, in the order thrown.
+
+    With the `hp_reroll_at_first_level` option of [`Ruleset`][osrlib.core.ruleset.Ruleset] on, the 1s and 2s that were
+    thrown again are here too, and the last entry is the die that counts. Otherwise there's one entry.
     """
 
     hit_points: int = Field(ge=1)
-    """The hit points the character starts with: the die that stood plus the CON modifier, floored at 1."""
+    """The hit points the character starts with: the last die plus the CON modifier, and at least 1."""
 
 
 class CharacterCreationResult(BaseModel):
-    """What [`create_character`][osrlib.core.character.create_character] returns: the character and its dice.
+    """What [`create_character`][osrlib.core.character.create_character] returns: the character, and the dice behind it.
 
-    The rolls are here so a front end can show a player how their character came out rather than
-    only the finished numbers. Frozen.
+    Use `character`, and show the rolls if you want a player to see how the character came out.
+    Frozen.
     """
 
     model_config = ConfigDict(frozen=True)
 
     character: Character
-    """The finished [`Character`][osrlib.core.character.Character], at first level with its purchases bought and its
-    equipment worn.
+    """The new [`Character`][osrlib.core.character.Character], at first level, with its purchases in its inventory and
+    its equipment worn or wielded.
     """
 
     ability_rolls: AbilityScoreRolls
-    """The ability scores as rolled, before any adjustment the caller asked for. Compare against `character.scores` to
-    show what the adjustment moved.
+    """The ability scores as rolled, before any adjustment. Compare them with `character.scores` to show what the
+    adjustment changed.
     """
 
     hit_point_roll: HitPointRoll
-    """The first-level hit die, or dice if the re-roll option was on."""
+    """The first-level hit point roll, with every die thrown."""
 
     gold_roll: RollResult
-    """The 3d6 × 10 starting money roll. Its `total` is the gold the character began with, before the purchases were
-    paid for.
+    """The 3d6 × 10 roll for starting money. Its `total` is the gold pieces the character had before paying for the
+    purchases.
     """
 
 
 def roll_ability_scores(stream: RngStream) -> AbilityScoreRolls:
     """Roll 3d6 for each of the six abilities, in the SRD's order: STR, INT, WIS, DEX, CON, CHA.
 
-    This is the first step of creating a character by hand. Show the result to the player, then
-    pass the scores to [`validate_class_choice`][osrlib.core.character.validate_class_choice] to
-    find out which classes they qualify for. If the player wants to trade points between abilities,
-    run [`apply_adjustment`][osrlib.core.abilities.apply_adjustment] after the class is chosen, the
-    order the SRD sets.
+    This is the first step of creating a character one step at a time. Show the result to the
+    player, then pass the scores to
+    [`validate_class_choice`][osrlib.core.character.validate_class_choice] to find out which
+    classes they qualify for. If the player wants to trade points between abilities after choosing
+    a class, check the trade with [`validate_adjustment`][osrlib.core.abilities.validate_adjustment]
+    and apply it with [`apply_adjustment`][osrlib.core.abilities.apply_adjustment].
 
     Call [`create_character`][osrlib.core.character.create_character] instead when the choices are
-    already known and you only want the finished character.
+    already known and you want only the finished character.
 
-    The draw order never changes. It is what makes a seeded creation reproducible, so the same
-    stream at the same position always yields the same six scores.
+    The same stream at the same position always gives the same six scores.
 
     Args:
-        stream: The stream to draw from, conventionally
-            `streams.get(CHARACTER_CREATION_STREAM)`. Eighteen dice are rolled from it.
+        stream: The stream to draw from, usually `streams.get(CHARACTER_CREATION_STREAM)`. It
+            advances by 18 dice.
 
     Returns:
         The six scores and the three dice behind each.
@@ -877,30 +917,31 @@ def roll_ability_scores(stream: RngStream) -> AbilityScoreRolls:
 
 
 def validate_class_choice(scores: dict[AbilityScore, int], definition: ClassDefinition) -> list[Rejection]:
-    """Check whether a set of rolled scores meets a class's minimum requirements.
+    """Check whether a set of rolled scores meets a class's minimum ability scores.
 
     Call it after [`roll_ability_scores`][osrlib.core.character.roll_ability_scores] and before the
-    ability adjustment, which is the order the SRD sets: a player picks a class they qualify for,
-    then trades points. Run it over every class in
-    [`load_classes`][osrlib.data.load_classes]`().classes` to build the list of classes to offer.
+    ability adjustment. That's the order the SRD sets: a player picks a class they qualify for, then
+    trades points. To build the list of classes to offer, call it for each class in
+    [`load_classes`][osrlib.data.load_classes]`().classes` and keep the ones with no rejections.
 
-    It reports rather than raises, so you can show a player why a class is closed to them. Each
-    failure includes the ability, the minimum the class requires, and the score that fell short. The
-    demi-human classes are the ones with requirements: the dwarf and the halfling require CON 9, the
-    elf requires INT 9, and the halfling also requires DEX 9.
+    It returns rejections rather than raising, so you can show a player why a class is closed to
+    them. Each rejection's `params` include the ability, the minimum the class requires, and the
+    score that fell short. Among the built-in classes, only the demi-humans have requirements: the
+    dwarf and the halfling require CON 9, the elf requires INT 9, and the halfling also requires
+    DEX 9.
 
-    Checking before adjustment is safe for the built-in classes. The adjustment step can lower only
-    STR, INT, and WIS, never below 9, and no built-in requirement is above 9. A custom class with a
-    minimum above 9 on STR, INT, or WIS needs a second check after the adjustment.
+    For the built-in classes, checking before the adjustment is enough. The adjustment can lower
+    only STR, INT, and WIS, never below 9, and no built-in requirement is above 9. A class you write
+    yourself with a minimum above 9 in STR, INT, or WIS needs a second check after the adjustment.
 
     Args:
-        scores: The rolled scores, before any adjustment.
+        scores: The rolled scores, before any adjustment, with all six abilities present.
         definition: The class the player chose, from
             [`load_classes`][osrlib.data.load_classes]`().get(class_id)`.
 
     Returns:
-        One [`Rejection`][osrlib.core.validation.Rejection] per unmet requirement, empty when the
-        class is open to these scores.
+        One [`Rejection`][osrlib.core.validation.Rejection] for each unmet requirement, or an
+        empty list when the scores qualify for the class.
 
     Examples:
         ```python
@@ -932,31 +973,30 @@ def validate_class_choice(scores: dict[AbilityScore, int], definition: ClassDefi
 def roll_hit_points(
     definition: ClassDefinition, con_modifier: int, ruleset: Ruleset, stream: RngStream
 ) -> HitPointRoll:
-    """Roll a first-level character's hit points: the class hit die plus the CON modifier, at least 1.
+    """Roll a first-level character's hit points: the class's hit die plus the CON modifier, and at least 1.
 
     Call it after the class is chosen and the scores are adjusted, so the CON modifier you pass is
-    the final one. Get that modifier from
-    [`load_ability_tables`][osrlib.data.load_ability_tables]`().hit_point_modifier(score)`, or read
-    [`hit_point_modifier`][osrlib.core.character.Character.hit_point_modifier] off a character that
-    already exists.
+    the final one. Get the modifier from
+    [`load_ability_tables`][osrlib.data.load_ability_tables]`().hit_point_modifier(score)`. Use the
+    result's `hit_points` as the new character's `max_hp` and `current_hp`.
 
-    Use [`level_up`][osrlib.core.classes.level_up] for hit points gained later. This function is
-    for first level only, and it is the only one that honours the re-roll option.
+    This function is for first level only, and it's the only one that applies the
+    `hp_reroll_at_first_level` option. For the hit points a character gains at later levels, use
+    [`level_up`][osrlib.core.classes.level_up].
 
-    With `hp_reroll_at_first_level` on in the ruleset, a die showing 1 or 2 is thrown again, and
-    again, until it shows 3 or more. The test is on the raw die, before the CON modifier, and the
-    result includes every throw.
+    With `hp_reroll_at_first_level` on in the ruleset, a die showing 1 or 2 is thrown again until it
+    shows 3 or more. The test is on the die before the CON modifier, and the result includes every
+    throw.
 
     Args:
-        definition: The character's class, whose progression row gives the hit die.
+        definition: The character's class. Its first-level progression row gives the hit die.
         con_modifier: The CON hit point modifier for the final scores. It may be negative, and the
-            total is floored at 1 either way.
+            hit points are at least 1 either way.
         ruleset: The ruleset in play, read for the `hp_reroll_at_first_level` option.
-        stream: The stream to draw from, conventionally
-            `streams.get(CHARACTER_CREATION_STREAM)`.
+        stream: The stream to draw from, usually `streams.get(CHARACTER_CREATION_STREAM)`.
 
     Returns:
-        Every die thrown and the hit points to start with.
+        Every die thrown, and the hit points the character starts with.
 
     Examples:
         ```python
@@ -985,29 +1025,30 @@ def roll_hit_points(
 
 
 def validate_extra_languages(definition: ClassDefinition, int_score: int, choices: Sequence[str]) -> list[Rejection]:
-    """Check the extra languages a high INT lets a character pick.
+    """Check the extra languages a character with a high INT chooses.
 
-    A character speaks their alignment tongue and whatever their class grants for free. An INT of
-    13 or more allows one to three extra languages. An INT of 12 or less allows none.
-    Call
-    [`load_ability_tables`][osrlib.data.load_ability_tables]`().additional_languages(int_score)`
-    to find out how many the player may take, offer the choosable entries from
-    [`load_languages`][osrlib.data.load_languages], then check the picks here before storing them
-    on [`extra_languages`][osrlib.core.character.Character].
+    Every character speaks their alignment tongue and the languages their class grants. An INT of
+    13 or more allows one to three extra languages, and an INT of 12 or less allows none. To find
+    out how many a player may choose, call
+    [`load_ability_tables`][osrlib.data.load_ability_tables]`().additional_languages(int_score)`.
+    Offer the languages whose `choosable` is True in
+    [`load_languages`][osrlib.data.load_languages], check the choices here, then store them in
+    [`extra_languages`][osrlib.core.character.Character.extra_languages].
 
-    A pick is refused when it is not a choosable language, when it repeats another pick, when the
-    class already grants it, or when the player took more than the score allows. Each refusal
-    includes the language, so you can show the player which pick to change.
+    A choice is refused when it isn't a choosable language, when it repeats another choice, or when
+    the class already grants it. Each of these rejections includes the language, so you can show
+    the player which choice to change. Choosing more languages than the INT allows is refused once
+    for the whole list, with the number allowed and the number chosen.
 
     Args:
-        definition: The chosen class. The languages it grants may not be taken again as extras.
+        definition: The chosen class. The languages it grants can't be chosen again as extras.
         int_score: The final INT score, after any adjustment.
         choices: The chosen language ids, from [`load_languages`][osrlib.data.load_languages] and
-            listed in [the language id index][languages-index].
+            listed in [the language id index](https://mmacy.github.io/osrlib-python/reference/content-ids/languages/).
 
     Returns:
-        One [`Rejection`][osrlib.core.validation.Rejection] per problem, empty when every pick
-        stands.
+        One [`Rejection`][osrlib.core.validation.Rejection] for each problem, or an empty list
+        when every choice is allowed.
 
     Examples:
         ```python
@@ -1048,29 +1089,32 @@ def validate_extra_languages(definition: ClassDefinition, int_score: int, choice
 def validate_starting_spells(
     definition: ClassDefinition, catalog: SpellCatalog, spell_ids: Sequence[str]
 ) -> list[Rejection]:
-    """Check a starting spell book against what the class may have at first level.
+    """Check the spells chosen for an arcane caster's starting spell book.
 
-    An arcane caster, which among the built-in classes means the magic-user and the elf, begins play
-    with as many spells written in the book as they can memorize, so at first level that is exactly
-    one first-level spell. Offer the player the first-level spells of their class's list from
-    [`load_spells`][osrlib.data.load_spells], check the pick here, then write it with
-    [`choose_starting_spells`][osrlib.core.character.choose_starting_spells]. Whether the player or
-    the referee picks is the game's decision. This function only checks whether a pick is legal.
+    An arcane caster, which among the built-in classes means the magic-user and the elf, starts with
+    as many spells in their book as they can memorize. At first level that's exactly one
+    first-level spell. To offer the player the first-level spells on their class's list, pass the
+    `spell_list` from [`caster_profile`][osrlib.core.spells.caster_profile] and the level 1 to
+    [`SpellCatalog.by_list`][osrlib.core.spells.SpellCatalog.by_list]. Check the choice here, then
+    write it with [`choose_starting_spells`][osrlib.core.character.choose_starting_spells]. Whether the
+    player or the referee chooses is up to you. This function only checks the choice.
 
-    A pick is refused when the spell id is unknown, when it repeats, when it belongs to the other
-    spell list, or when the number chosen at any level does not match the capacity exactly. Too few
-    is refused as well as too many, because the SRD gives a starting book a fixed size. A cleric
-    starts with no book at all, since clerical spells come from a deity rather than from writing,
-    so any pick for a cleric or for a non-caster is refused outright.
+    A choice is refused when the spell id is unknown, when it repeats, when the spell is on another
+    class's list, or when the number of spells at any spell level doesn't match the book's size at
+    that level. Too few is refused as well as too many, because the SRD gives a starting book a
+    fixed size. A cleric has no spell book, because clerics receive their spells from a deity, so
+    any choice for a cleric or for a class that casts no spells is refused.
 
     Args:
         definition: The character's class.
         catalog: The spell catalog from [`load_spells`][osrlib.data.load_spells].
-        spell_ids: The chosen spell ids, from `catalog` and listed in [the spell id index][spells-index].
+        spell_ids: The chosen spell ids, from `catalog` and listed in [the spell id
+            index](https://mmacy.github.io/osrlib-python/reference/content-ids/spells/).
 
     Returns:
-        One [`Rejection`][osrlib.core.validation.Rejection] per problem, empty when the book is
-        legal.
+        One [`Rejection`][osrlib.core.validation.Rejection] for each problem, or an empty list
+        when the book is legal. A class with no spell book and no spells chosen gives an empty
+        list.
 
     Examples:
         ```python
@@ -1132,28 +1176,28 @@ def choose_starting_spells(
 ) -> list[Rejection]:
     """Write an arcane caster's starting spell book onto the character.
 
-    Use it when you are creating a character step by step and the player has picked their first
-    spell. It checks the pick with
-    [`validate_starting_spells`][osrlib.core.character.validate_starting_spells] and refuses a
-    character whose book is already written, then stores the ids on
-    [`spell_book`][osrlib.core.character.Character]. Nothing is written when anything is refused,
-    so the character is never left half-changed.
-    [`create_character`][osrlib.core.character.create_character] does this for you when you pass
-    `starting_spell_ids`.
+    Use it when you create a character step by step and the player has chosen their first spell.
+    It refuses a character whose book already has spells in it, checks the choice with
+    [`validate_starting_spells`][osrlib.core.character.validate_starting_spells], and then stores
+    the ids in [`spell_book`][osrlib.core.character.Character.spell_book]. When anything is
+    refused, nothing is written.
+    [`create_character`][osrlib.core.character.create_character] writes the book for you when you
+    pass `starting_spell_ids`.
 
-    A written book is not yet a memorized spell. To prepare spells for casting, go through
-    [`osrlib.core.spells`][osrlib.core.spells], which fills the character's memorization slots from
+    A spell in the book can't be cast yet. To prepare spells for casting, call
+    [`memorize_spells`][osrlib.core.spells.memorize_spells], which an arcane caster fills from
     the book.
 
     Args:
-        character: The character to write to. Mutated in place when the pick is legal.
+        character: The character to write to. Changed in place when the choice is legal.
         definition: The character's class.
         catalog: The spell catalog from [`load_spells`][osrlib.data.load_spells].
-        spell_ids: The chosen spell ids, from `catalog` and listed in [the spell id index][spells-index].
+        spell_ids: The chosen spell ids, from `catalog` and listed in [the spell id
+            index](https://mmacy.github.io/osrlib-python/reference/content-ids/spells/).
 
     Returns:
-        One [`Rejection`][osrlib.core.validation.Rejection] per problem, empty when the book was
-        written.
+        One [`Rejection`][osrlib.core.validation.Rejection] for each problem, or an empty list
+        when the book was written.
 
     Examples:
         ```python
@@ -1196,20 +1240,19 @@ def choose_starting_spells(
 def roll_starting_gold(stream: RngStream) -> RollResult:
     """Roll a new character's starting money: 3d6 × 10 gold pieces.
 
-    This is the last draw of creation. Put the total into the character's purse
-    (`character.inventory.purse.gp`), then spend it with
-    [`validate_purchase`][osrlib.core.items.validate_purchase] and
-    [`purchase`][osrlib.core.items.purchase] from the equipment catalog.
-    [`create_character`][osrlib.core.character.create_character] does all of that for you when you
+    This is the last roll of creation. Put the total in the character's purse,
+    `character.inventory.purse.gp`. Then buy equipment with it: check each purchase with
+    [`validate_purchase`][osrlib.core.items.validate_purchase] and make it with
+    [`purchase`][osrlib.core.items.purchase].
+    [`create_character`][osrlib.core.character.create_character] does all of this for you when you
     pass `purchases`.
 
     Args:
-        stream: The stream to draw from, conventionally
-            `streams.get(CHARACTER_CREATION_STREAM)`. Three dice are rolled from it.
+        stream: The stream to draw from, usually `streams.get(CHARACTER_CREATION_STREAM)`. It
+            advances by three dice.
 
     Returns:
-        The [`RollResult`][osrlib.core.dice.RollResult], whose `total` is the starting gold in gold
-        pieces, between 30 and 180.
+        The roll. Its `total` is the starting money in gold pieces, from 30 to 180.
 
     Examples:
         ```python
@@ -1238,69 +1281,74 @@ def create_character(
     purchases: Sequence[tuple[str, int]] = (),
     equip_ids: Sequence[str] = (),
 ) -> CharacterCreationResult:
-    """Create a first-level character, making every choice you pass in one call.
+    """Create a first-level character in one call, with every choice passed in.
 
-    This is where a new caller starts. Give it a name, a class, an alignment, a ruleset, and a
-    seeded stream, and it rolls a whole character: ability scores, hit points, starting gold, and
-    the gear you asked it to buy. Put the characters you get into a
-    [`Party`][osrlib.crawl.party.Party] and you have something to play with.
+    Start here to make characters. Pass a name, a class id, an alignment, a ruleset, and a seeded
+    stream, and it rolls the whole character: ability scores, hit points, and starting gold. It
+    also makes the choices you pass: a trade of ability points, the first spell, extra languages,
+    and the gear to buy and equip. Put the characters you create into a
+    [`Party`][osrlib.crawl.party.Party], and pass the party to
+    [`GameSession.new`][osrlib.crawl.session.GameSession.new] to start a game.
 
-    To get a stream, build an [`RngStreams`][osrlib.core.rng.RngStreams] set from a seed and ask it
+    To get a stream, make an [`RngStreams`][osrlib.core.rng.RngStreams] set from a seed and ask it
     for the creation stream: `RngStreams(master_seed=2).get(CHARACTER_CREATION_STREAM)`. The same
-    seed always produces the same character, which is what makes a game replayable and a test
-    repeatable. Pass the same stream to several calls to roll a whole party from one seed, and each
-    call continues where the last one left off.
+    seed and the same arguments always create the same character. To roll a whole party from one
+    seed, pass the same stream to each call, and each call continues where the last one stopped.
 
-    Every decision is yours to supply, because the same call has to serve a player picking from a
-    menu and a script rolling a hundred characters. Drive the stepwise functions in this module
-    instead when a person is choosing as they go: those hand back
-    [`Rejection`][osrlib.core.validation.Rejection] records you can show, where this function
-    raises on the first illegal choice and reports nothing more.
+    You make every choice before the call, which suits a script or a ready-made character. When a
+    player chooses as they go, call the step-by-step functions in this module instead. Those return
+    [`Rejection`][osrlib.core.validation.Rejection] records you can show the player. This function
+    raises `ValueError` on the first illegal choice and reports nothing more.
 
-    The steps run in the SRD's order: roll the six scores, check them against the class
-    requirements, apply the ability adjustment, write the spell book, roll hit points, check the
-    extra languages, roll starting gold, then buy and equip. Draws come off the stream in that
-    order, so scores are always drawn first and gold last. Writing the spell book and checking
-    languages consume no draws.
+    The steps run in the SRD's order: roll the six scores, check them against the class's
+    requirements, apply the ability adjustment, check the spell book, roll hit points, check the
+    extra languages, roll starting gold, then buy and equip. The stream advances in that order, so
+    the scores are always rolled first and the gold last. The checks take no draws. The scores are
+    rolled before they're checked against the class, so scores that miss the requirements raise
+    after the stream has advanced. Call again with the same stream to roll new scores, or choose
+    another class.
 
     Args:
         name: The character's name.
         class_id: The class to play, like `"fighter"`, from
-            [`load_classes`][osrlib.data.load_classes] and listed in [the class id index][classes-index].
+            [`load_classes`][osrlib.data.load_classes] and listed in [the class id
+            index](https://mmacy.github.io/osrlib-python/reference/content-ids/classes/).
         alignment: Lawful, neutral, or chaotic.
-        ruleset: The ruleset in play. Its `hp_reroll_at_first_level` flag governs whether a poor
-            hit die is thrown again.
-        stream: The stream for the creation draws, conventionally
+        ruleset: The ruleset in play. When its `hp_reroll_at_first_level` flag is on, a hit die
+            showing 1 or 2 is thrown again.
+        stream: The stream for the creation draws, usually
             `streams.get(`[`CHARACTER_CREATION_STREAM`][osrlib.core.character.CHARACTER_CREATION_STREAM]`)`.
-        adjustment: An optional trade of points between abilities, built as an
+        adjustment: A trade of ability points, as an
             [`AbilityAdjustment`][osrlib.core.abilities.AbilityAdjustment]. It lowers one or more
-            of STR, INT, and WIS to raise a prime requisite, which is how a player gets a better
-            experience bonus.
-        starting_spell_ids: The spells written in an arcane caster's book, from
-            [`load_spells`][osrlib.data.load_spells] and listed in [the spell id index][spells-index]. It
-            must contain exactly what the class can memorize at first level, which is one first-level
-            spell for both the magic-user and the elf. Leave it empty for every other class.
+            of STR, INT, and WIS to raise a prime requisite, which earns the character a larger
+            experience bonus. With `None`, the scores stay as rolled.
+        starting_spell_ids: The spells in an arcane caster's starting spell book, from
+            [`load_spells`][osrlib.data.load_spells] and listed in [the spell id
+            index](https://mmacy.github.io/osrlib-python/reference/content-ids/spells/). The magic-user and the elf must
+            have exactly one first-level spell here. Leave it empty for every other class.
         extra_languages: The extra languages a high INT allows, from
             [`load_languages`][osrlib.data.load_languages] and listed in
-            [the language id index][languages-index]. An INT of 12 or less allows none.
-        purchases: What to buy from the starting gold, as `(item_id, lots)` pairs bought in the
+            [the language id index](https://mmacy.github.io/osrlib-python/reference/content-ids/languages/). An INT of
+            12 or less allows none.
+        purchases: What to buy with the starting gold, as `(item_id, lots)` pairs, bought in the
             order given. `item_id` comes from [`load_equipment`][osrlib.data.load_equipment] and is
-            listed in [the equipment id index][equipment-index]. A lot is the catalog's unit of sale: weapons
-            and armour sell one at a time, so `lots` is how many, while gear and ammunition
-            sell in fixed bundles, and one lot of torches is six torches.
-        equip_ids: Which of the bought items to wear or wield, in order. An item must have been
-            bought first, and the class's armour and weapon policies must allow it.
+            listed in [the equipment id index](https://mmacy.github.io/osrlib-python/reference/content-ids/equipment/).
+            A lot is the unit an item is sold in. Weapons and armour sell one at a time, so `lots` is how many. Gear and
+            ammunition sell in fixed bundles, so one lot of torches is six torches.
+        equip_ids: The ids of bought items to wear or wield, equipped in the order given. Each one
+            must be in `purchases`, and the class's armour and weapon rules must allow it.
 
     Returns:
-        The finished character together with the dice creation rolled, so you can show a player how
-        they came out.
+        The new character, and the dice rolled to create it.
 
     Raises:
-        ValueError: On the first illegal decision: an unknown class, spell, language, or item id;
-            scores that miss the class requirements; an adjustment the class forbids; a spell book
-            of the wrong size; more languages than the INT allows; a purchase the starting gold
-            cannot cover; or an item the class may not equip. Drive the stepwise functions yourself
-            when you need to know which choices failed and why.
+        ValueError: On the first illegal choice. Illegal choices are an unknown class, spell,
+            language, or item id, scores that miss the class's requirements, an adjustment the
+            rules forbid, and a spell book of the wrong size. So are more languages than the INT
+            allows, a purchase the starting gold can't cover, an item in `equip_ids` that wasn't
+            bought, and an item the class can't equip. The message includes the choice that
+            failed. To find out every choice that fails and why, call the step-by-step functions
+            instead.
 
     Examples:
         ```python

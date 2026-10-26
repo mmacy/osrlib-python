@@ -1,60 +1,63 @@
 """Save a game, load it back, or rebuild it by replaying what the player did.
 
-A stored game becomes a running [`GameSession`][osrlib.crawl.session.GameSession] in one of
-two ways, load or replay, and both produce the same session. The module has these members:
+A stored game becomes a running [`GameSession`][osrlib.crawl.session.GameSession] again in
+one of two ways: load or replay. Save with `save_game`, then restore with one of the other two:
 
 - [`save_game`][osrlib.persistence.save_game]: a session in, a save document out.
 - [`load_game`][osrlib.persistence.load_game]: a save document in, a session ready to
-  continue out.
+  continue out. Use this to resume play.
 - [`replay_game`][osrlib.persistence.replay_game]: the seed, the starting party, the
-  adventure, the ruleset, and the command log in, the same session rebuilt out.
+  adventure, the ruleset, and the command log in, the same session rebuilt out. Use this
+  to check that the commands reproduce the game.
+
+These members serve special cases:
+
 - [`session_state`][osrlib.persistence.session_state]: a session in, the save's contents
   without the version stamps out.
 - [`MIGRATIONS`][osrlib.persistence.MIGRATIONS]: the steps `load_game` runs to bring an
   older save forward.
 
-The one you want most of the time is save and load.
-[`save_game`][osrlib.persistence.save_game] turns a live session into a plain dictionary you
-can write as JSON, and [`load_game`][osrlib.persistence.load_game] turns that dictionary
-back into a session that continues where it left off. A save is self-contained: it includes
-the adventure content, so loading needs no other file, and you can hand a player a
-save without handing them the adventure it came from.
+Most of the time you save and load. [`save_game`][osrlib.persistence.save_game] turns a
+session into a plain dictionary you can write as JSON.
+[`load_game`][osrlib.persistence.load_game] turns that dictionary back into a session that
+continues from where it was. A save includes the adventure content, so loading needs no
+other file, and you can give a player a save without the adventure file it came from.
 
-The other way is replay. [`replay_game`][osrlib.persistence.replay_game] starts from
-nothing but the master seed, the party as it stood before play began, the adventure, the
-ruleset, and the list of commands the player issued, and runs the whole game again from the
-first command. Because every random draw in osrlib comes from a seeded stream, the second
-run produces the same rolls as the first, and the session it produces matches the one a load
-of the same game produces, field for field. That match depends on the party document being
-the one you took before any session touched the party, because
-[`GameSession.new`][osrlib.crawl.session.GameSession.new] assigns the member ids itself.
-Replay is for auditing a game, reproducing a bug report, or checking that a rules change
-changed nothing it shouldn't have.
+The other way is replay. [`replay_game`][osrlib.persistence.replay_game] starts from the
+master seed, the party as it was before play began, the adventure, the ruleset, and the list
+of commands the session accepted. It runs the whole game again from the first command.
+Every random draw in osrlib comes from a seeded stream, so the second run makes the same
+rolls as the first. The replayed session matches a load of the same game, except for what
+listeners added: the events they wrote themselves and their saved state. That match also
+depends on the party document being the one you took before any session used the party,
+because [`GameSession.new`][osrlib.crawl.session.GameSession.new] assigns the member ids
+itself. Use replay to audit a game, to reproduce a bug report, or to check that a rules
+change changed nothing it shouldn't have.
 
-A save contains the session's whole state: the party, the adventure content, the explored
-dungeon, the clock, the active effects, the spawned monsters and NPCs, flags, fired
-triggers, the journal, quest progress, listener state, the session mode, the exploration
-counters, any encounter or battle in progress, every RNG stream's position, and the master
-seed. Beside that state, the save contains two records of what happened: the log of accepted commands, and
-the log of events unless you ask for it to be left out. A load rebuilds the session from the
-state alone and re-derives nothing from the logs, which is why loading costs the same however
-long the game has run.
+A save contains the session's state: the party, the adventure content, the ruleset, the
+explored dungeon, the clock, the id allocator, the active effects, the spawned monsters and
+NPCs, flags, fired triggers, the journal, quest progress, listener state, death records,
+defeated monsters, the session mode, the exploration counters, any encounter or battle in
+progress, every RNG stream's position, and the master seed. Beside that state, the save
+contains two logs of what happened: the accepted commands, and the events, unless you leave
+the events out. A load rebuilds the session from the state and re-runs none of the logged
+commands.
 
-The two logs do different jobs. The command log is what
-[`replay_game`][osrlib.persistence.replay_game] consumes, so a save without it can be loaded
-but not replayed. The event log is the transcript a front end shows, and it's the part you
-can drop, with `include_event_log=False`, when the save is only meant to be resumed.
+The two logs do different jobs. [`replay_game`][osrlib.persistence.replay_game] runs the
+command log, which every save includes. The event log is the transcript a front end shows.
+Leave it out with `include_event_log=False` when the save is only for resuming play.
 
-A save is a stamped document of kind `"save"`, the envelope described in
-[`osrlib.versioning`][osrlib.versioning]. Its `schema_version` is what lets an older save
-still load: [`load_game`][osrlib.persistence.load_game] runs the payload through
-[`MIGRATIONS`][osrlib.persistence.MIGRATIONS] on the way in, step by step, until it reaches
-the format this library reads. Its `engine_version` is what guards replay, because the same
-commands under different rules can produce a different game.
-[`replay_game`][osrlib.persistence.replay_game] refuses that with
-[`ReplayVersionError`][osrlib.errors.ReplayVersionError] when you give it the recorded
-version to compare. Loading a save works across engine versions, because a load reads
-state rather than re-deriving it.
+A save is a stamped document of kind `"save"`, the envelope that
+[`osrlib.versioning`][osrlib.versioning] describes. The envelope has two version stamps.
+`schema_version` is the save format. [`load_game`][osrlib.persistence.load_game] runs an
+older payload through [`MIGRATIONS`][osrlib.persistence.MIGRATIONS], one step at a time,
+until it reaches the format this osrlib reads. `engine_version` is the osrlib version that
+wrote the save, and it guards replay, because the same commands under different rules can
+produce a different game. [`replay_game`][osrlib.persistence.replay_game] raises
+[`ReplayVersionError`][osrlib.errors.ReplayVersionError] when you pass it the recorded
+version and it doesn't match. Loading works across engine versions, because a load reads
+the saved state rather than re-running the commands. A save with a newer `schema_version`
+than this osrlib reads doesn't load.
 
 Typical usage:
 
@@ -76,7 +79,7 @@ rules = Ruleset()
 roll = RngStreams(master_seed=7).get(CHARACTER_CREATION_STREAM)
 pc = create_character(name="Hild", class_id="fighter", alignment=Alignment.LAWFUL, ruleset=rules, stream=roll)
 
-# Keep the party as it stands before any session touches it: that is what a replay starts from.
+# Keep the party as it is before any session uses it. A replay starts from this document.
 starting_party = party_to_document([pc.character])
 
 level = LevelSpec(number=1, width=1, height=1, entrance=(0, 0))
@@ -211,31 +214,31 @@ def _migrate_3_to_4(payload: dict) -> dict:
 MIGRATIONS: dict[int, Callable[[dict], dict]] = {1: _migrate_1_to_2, 2: _migrate_2_to_3, 3: _migrate_3_to_4}
 """The steps that bring an old save payload forward, one schema version at a time.
 
-`MIGRATIONS[n]` rewrites a payload written at schema version `n` into the format version
-`n + 1` reads. [`load_game`][osrlib.persistence.load_game] walks the chain for you, from
-whatever version the document was stamped with up to
-[`SCHEMA_VERSION`][osrlib.versioning.SCHEMA_VERSION], so a save from an older release loads
-without any code of yours.
+Each key is a schema version `n`, and its value is a function that takes a payload written
+at version `n` and returns it in the format of version `n + 1`.
+[`load_game`][osrlib.persistence.load_game] runs the steps for you, from the version the
+document was stamped with up to [`SCHEMA_VERSION`][osrlib.versioning.SCHEMA_VERSION], so a
+save from an older release loads with no code of yours.
 
-Read it when you want to know what an old save loses or gains on the way in, or to check
-that a version you still have stored can be loaded at all: a version with no step in this
-chain can't, and `load_game` raises
-[`ContentValidationError`][osrlib.errors.ContentValidationError] that identifies the missing step.
-Nothing here is a hook. Adding an entry doesn't extend the library, since the chain only ever
-runs up to [`SCHEMA_VERSION`][osrlib.versioning.SCHEMA_VERSION].
+Read it to check that a version you still have stored can load. A version with no step here
+can't, and `load_game` raises
+[`ContentValidationError`][osrlib.errors.ContentValidationError], and its message gives the
+versions of the missing step. Nothing here is a hook. Adding an entry doesn't extend the library, since
+the chain only runs up to [`SCHEMA_VERSION`][osrlib.versioning.SCHEMA_VERSION].
 """
 
 
 def session_state(session: GameSession, *, include_event_log: bool = True) -> dict:
     """Serialize a session's whole state, without the document envelope around it.
 
-    This is the payload [`save_game`][osrlib.persistence.save_game] stamps, offered on its
-    own for when the envelope is in your way: embedding a session inside a larger document of
-    your own, comparing two sessions field by field, or inspecting what a session contains.
-    Call `save_game` instead whenever you mean to store the result, because a payload with no
-    envelope has no version stamps, and no reader can tell later which osrlib wrote it.
+    This is the payload that [`save_game`][osrlib.persistence.save_game] wraps in its
+    envelope. Use it when you don't want the envelope: to embed a session in a larger document
+    of your own, to compare two sessions field by field, or to inspect what a session contains.
+    Call `save_game` instead whenever you store the result. A payload with no envelope has no
+    version stamps, so [`load_game`][osrlib.persistence.load_game] can't read it, and nobody
+    can tell later which osrlib wrote it.
 
-    Nothing on the session changes. You can keep the result and serialize it whenever you
+    The call doesn't change the session. You can keep the result and serialize it whenever you
     like. If you mean to edit it, copy it first with `copy.deepcopy` or a JSON round trip.
     Some nested values in the result are objects the session also refers to, so an edit to
     one of them changes the session too. These are the values inside a listener's
@@ -243,16 +246,16 @@ def session_state(session: GameSession, *, include_event_log: bool = True) -> di
     dict.
 
     Args:
-        session: The session to serialize. It may be in any mode, mid-encounter or
-            mid-battle included.
-        include_event_log: Whether to include the transcript. Pass False to leave the event
-            log out, which makes a long game's save much smaller. The accepted-command log is
-            included either way, because a replay needs it.
+        session: The session to serialize, in any mode, including during an encounter or a
+            battle.
+        include_event_log: Whether to include the event log. Pass False to leave it out, which
+            makes a long game's payload much smaller. The command log is included either way,
+            because a replay needs it.
 
     Returns:
-        A new dict of JSON-compatible values, ready for `json.dumps`, with the session's
-            state, the accepted-command log under `command_log`, and the transcript under
-            `event_log` when `include_event_log` is True.
+        A new dict of JSON-compatible values, ready for `json.dumps`. It contains the session's
+            state, the accepted commands under `command_log`, and, when `include_event_log` is
+            True, the events under `event_log`.
 
     Examples:
         ```python
@@ -329,22 +332,23 @@ def session_state(session: GameSession, *, include_event_log: bool = True) -> di
 def save_game(session: GameSession, *, include_event_log: bool = True) -> dict:
     """Serialize a session to a save document you can store.
 
-    This is how you write a game to disk: take the result, hand it to `json.dumps`, and put
-    it wherever you keep saves. Call it as often as you like. It reads the session and
-    changes nothing, so saving mid-encounter or mid-battle is as safe as saving in town.
+    To write a game to disk, pass the result to `json.dumps` and store the string wherever
+    you keep saves. Restore it later with [`load_game`][osrlib.persistence.load_game]. Call
+    this as often as you like. It reads the session and changes nothing, so you can save in
+    any mode, including during an encounter or a battle.
 
-    The result is a stamped document of kind `"save"`, described in
-    [`osrlib.versioning`][osrlib.versioning]. The session state sits under `payload`, beside
-    the schema and engine versions. A later [`load_game`][osrlib.persistence.load_game]
-    checks the schema version before it reads the payload.
-    [`session_state`][osrlib.persistence.session_state] gives you the payload without the
-    envelope, for when you're embedding it in a document of your own rather than storing it.
+    The result is a stamped document of kind `"save"`, the envelope that
+    [`osrlib.versioning`][osrlib.versioning] describes. The session state is under `payload`,
+    beside the schema and engine versions. `load_game` checks the schema version before it
+    reads the payload. [`session_state`][osrlib.persistence.session_state] gives you the
+    payload without the envelope, for when you embed it in a document of your own rather
+    than store it.
 
     Args:
         session: The session to save.
-        include_event_log: Whether to include the transcript. Pass False to leave the event
-            log out and keep only the state and the accepted-command log, which is all a
-            resume or a replay needs.
+        include_event_log: Whether to include the event log. Pass False to keep only the state
+            and the command log, which is all a load needs. A replay also needs the starting
+            party, which no save contains.
 
     Returns:
         A new dict of JSON-compatible values with `kind`, `schema_version`, `engine_version`,
@@ -411,37 +415,40 @@ def _migrate(
 def load_game(document: Mapping[str, object]) -> GameSession:
     """Restore a session from a save document.
 
-    Hand it what you read back from storage and you get a live
-    [`GameSession`][osrlib.crawl.session.GameSession], standing where it stood when
-    [`save_game`][osrlib.persistence.save_game] wrote it: same position, same clock, same hit
-    points, same RNG streams, so the next roll is the roll the saved game was about to make.
+    Pass it the save document, parsed back from JSON, and you get a
+    [`GameSession`][osrlib.crawl.session.GameSession] in the state it had when
+    [`save_game`][osrlib.persistence.save_game] wrote it. The party is in the same place, with
+    the same clock, hit points, and RNG streams, so the next roll is the roll the saved game
+    was about to make.
 
-    One thing doesn't come back. Listeners are your code, and a save can't store code, so the
-    restored session has none registered. Call
-    [`register_listener`][osrlib.crawl.session.GameSession.register_listener] again for each
-    one, including the [`Interpreter`][osrlib.crawl.interpreter.Interpreter] if your game
-    uses it, before you execute another command. Each listener's state was saved and is
-    waiting under its key.
+    Code you attached to the session doesn't come back, because a save can't store code. The
+    restored session has no listeners and no
+    [`action_policies`][osrlib.crawl.session.GameSession.action_policies]. Before you execute
+    another command, call [`register_listener`][osrlib.crawl.session.GameSession.register_listener]
+    again for each listener, including the [`Interpreter`][osrlib.crawl.interpreter.Interpreter]
+    if your game uses it, and set your action policies again. Each listener's state is in the
+    save, under its key, and the restored session hands it to the listener on its next call.
 
-    An older save needs nothing from you. The document is checked, then walked forward
-    through [`MIGRATIONS`][osrlib.persistence.MIGRATIONS] one schema version at a time before
-    anything is rebuilt. An event in the transcript whose type this version of osrlib doesn't
-    recognize is kept as it was found and written back out unchanged on the next save, so a
-    log loses no entries by passing through an older library.
+    An older save needs nothing from you. The call checks the document, then brings the
+    payload forward through [`MIGRATIONS`][osrlib.persistence.MIGRATIONS], one schema version
+    at a time, before it rebuilds anything. An event in the event log whose type this osrlib
+    doesn't define is kept as a dict and written back out unchanged by the next save, so the log
+    loses no entries when an older osrlib loads it.
 
     Args:
-        document: A document produced by [`save_game`][osrlib.persistence.save_game], usually
-            parsed back from JSON.
+        document: A document that [`save_game`][osrlib.persistence.save_game] produced,
+            usually parsed back from JSON.
 
     Returns:
-        The restored session, with no listeners registered.
+        The restored session, with no listeners or action policies registered.
 
     Raises:
-        ContentValidationError: If the envelope or the payload is malformed, if a logged
-            command is of a type this version doesn't recognize, or if no migration step exists
-            for the document's schema version.
-        osrlib.errors.SaveVersionError: If a newer osrlib wrote the document. Tell the player to upgrade.
-            There's nothing to repair in the file.
+        ContentValidationError: If the document isn't a save, if the envelope or the payload
+            is malformed, if a logged command is of a type this osrlib doesn't define, or if no
+            migration step exists for the document's schema version. A retry with the same
+            document fails the same way.
+        osrlib.errors.SaveVersionError: If the document's schema version is newer than this osrlib
+            reads. Tell the player to upgrade osrlib. The file itself is fine.
 
     Examples:
         ```python
@@ -564,63 +571,67 @@ def replay_game(
 ) -> GameSession:
     """Rebuild a session by running its recorded commands again from the seed.
 
-    Where [`load_game`][osrlib.persistence.load_game] restores a stored state, this plays the
-    game a second time: a fresh session on the same master seed, then every command in the
-    log, in order. Each random draw comes from a seeded stream, so the rolls fall the same
-    way, and the session you get back matches the one a load of the same save produces.
+    [`load_game`][osrlib.persistence.load_game] restores a stored state. This call plays the
+    game a second time instead: it starts a new session on the same master seed, then
+    executes every command in the log, in order. Each random draw comes from a seeded stream,
+    so the rolls come out the same, and the session you get back matches a load of the same
+    save, apart from what listeners added.
 
     Use it to audit a game, to reproduce a player's bug report from their save, or to check
     that a rules change you made changed nothing it shouldn't have. Use `load_game` for
-    everything else, including resuming play, because a replay costs the whole game again and
-    gives you nothing a load doesn't.
+    everything else, including resuming play. A replay re-runs the whole game, and gives you
+    nothing a load doesn't.
 
-    To replay a stored game, load its save with `load_game` first and take the seed, the
+    To replay a stored game, load its save with `load_game` first. Take the seed, the
     adventure, the ruleset, and the command log from the restored session's `master_seed`,
     `adventure`, `ruleset`, and `command_log`. Loading brings an older save up to the
     current schema, so those values are in the format this osrlib reads. Take
     `recorded_engine_version` from the save document's `engine_version`.
 
-    The save doesn't contain the starting party, so you have to plan for `party_document`.
-    It must be the party as it stood before any session touched it, because
+    The save doesn't contain the starting party, so keep it yourself. `party_document` must be
+    the party as it was before any session used it, because
     [`GameSession.new`][osrlib.crawl.session.GameSession.new] assigns member ids itself, in
-    party order, the same way both times. Take that document with
-    [`party_to_document`][osrlib.core.character.party_to_document] when you roll the party,
+    party order, the same way both times. Make that document with
+    [`party_to_document`][osrlib.core.character.party_to_document] when you create the party,
     and keep it beside your saves.
 
-    The replayed session gets no listeners, and needs none. Everything a listener did during
-    the original game, whether an interpreter firing a trigger's consequences or your own
-    code awarding a prize, it did by issuing a command the session accepted and logged. Those
-    commands are in the log already, and re-executing them rebuilds every effect. A listener
-    registered on a replay would issue them a second time and make the replay diverge from the original game.
+    The replayed session gets no listeners. Each command a listener executed during the
+    original game, like an [`Interpreter`][osrlib.crawl.interpreter.Interpreter] running a
+    trigger's consequences, was accepted and logged, so the replay executes it again from the
+    log. A listener registered on a replay would execute those commands a second time, and the
+    replay would no longer match the original game. Two things a listener produces aren't
+    commands, so a replay doesn't rebuild them: the events it returns itself, and its state.
+    The replayed session's `event_log` lacks those events, and its `listener_state` is empty.
 
     Args:
         seed: The master seed the original session ran under, from the save's `master_seed`.
-        party_document: The starting party, stamped by
-            [`party_to_document`][osrlib.core.character.party_to_document] before the party
-            joined any session.
+        party_document: The starting party, from
+            [`party_to_document`][osrlib.core.character.party_to_document], made before the
+            party joined any session.
         adventure: The adventure the game was played in.
         ruleset: The ruleset the game was played under. A different one can change outcomes,
-            and nothing here detects that.
+            and this call doesn't detect that.
         commands: The accepted commands, in order, either as
             [`Command`][osrlib.crawl.commands.Command] objects or as the dicts a save stores
             under `command_log`.
-        recorded_engine_version: The `engine_version` from the save this log came from. Pass
-            it to have the replay refuse to run under different rules. Leave it out and the
-            replay runs unchecked.
+        recorded_engine_version: The `engine_version` from the save the log came from. Pass
+            it to have the replay refuse to run under a different osrlib version. Leave it out
+            and the replay runs without that check.
 
     Returns:
         The replayed session, in the state the original reached, with no listeners registered.
 
     Raises:
         ReplayVersionError: If `recorded_engine_version` is given and doesn't match the
-            running [`engine_version`][osrlib.versioning.engine_version]. Load the save
-            instead, which works across engine versions.
+            installed [`engine_version`][osrlib.versioning.engine_version]. The call raises
+            before it runs any command. Load the save instead, which works across engine
+            versions.
         ContentValidationError: If `party_document` isn't a valid party document, if
             `adventure` fails the checks [`GameSession.new`][osrlib.crawl.session.GameSession.new]
-            runs, if a logged command is of a type this version doesn't recognize or its fields don't fit
-            that type, or if a logged command is refused this time. The log contains only
-            commands that were accepted the first time, so a refusal means the replay has
-            diverged from the game it was meant to reproduce. Check that you passed the
+            runs, if a logged command is of a type this osrlib doesn't define or its fields
+            don't fit that type, or if the session rejects a logged command. The log contains
+            only commands the original session accepted, so a rejection means the replay no
+            longer matches the game it was meant to reproduce. Check that you passed the
             starting party, the same ruleset, and the same seed.
         osrlib.errors.SaveVersionError: If a newer osrlib wrote `party_document`.
 

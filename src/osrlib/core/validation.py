@@ -1,24 +1,26 @@
-"""The refusal a validator hands back when the rules say no.
+"""The refusal a validator returns when the rules don't allow an input.
 
 The module has one member,
-[`Rejection`][osrlib.core.validation.Rejection]. You don't usually build one, you read
-them. Every kernel validator returns a list of them, empty when the input is legal, and
-so does every command a session refuses to run. Read their codes to find out what went wrong, and turn
-them into whatever your interface shows the player.
+[`Rejection`][osrlib.core.validation.Rejection]. You usually read rejections rather than
+build them. Every kernel validator returns a list of them, empty when the input is
+legal. When a session refuses a command, the
+[`CommandResult`][osrlib.crawl.commands.CommandResult] it returns lists them too. Read
+their codes to find out what went wrong, and turn them into whatever your interface
+shows the player.
 
 Each rules area pairs a validator with the function that applies the change:
 [`validate_adjustment`][osrlib.core.abilities.validate_adjustment] with
 [`apply_adjustment`][osrlib.core.abilities.apply_adjustment],
-[`validate_purchase`][osrlib.core.items.validate_purchase] with the purchase itself,
-and so on. Call the validator, show the rejections if there are any, and call the apply
-step only on an empty list. Applying a change its validator refuses is a mistake in your
-code rather than a move the rules disallow, so the apply step raises `ValueError`
-instead of returning a rejection. The exceptions osrlib raises for the other kinds of
-mistake are in [`osrlib.errors`][osrlib.errors].
+[`validate_purchase`][osrlib.core.items.validate_purchase] with
+[`purchase`][osrlib.core.items.purchase], and so on. Call the validator, show the
+rejections if there are any, and call the apply function only on an empty list. A change
+its validator refuses is a mistake in your code, not a move the rules disallow, so the
+apply function raises `ValueError` instead of returning a rejection. The exceptions
+osrlib raises for other kinds of failure are in [`osrlib.errors`][osrlib.errors].
 
-Validation runs before anything changes: a refused input draws no randomness, advances no
-game time, and changes nothing, so you can offer a move, show why it was refused, and
-let the player pick again with the game in exactly the state it was.
+Validation runs before anything changes. A refused input draws no random numbers,
+advances no game time, and changes nothing. You can offer a move, show why it was
+refused, and let the player pick again with the game in the same state.
 
 Typical usage:
 
@@ -57,14 +59,14 @@ class Rejection(BaseModel):
     """One reason the rules refused an input, as a code plus the facts behind it.
 
     A validator returns these. Match on `code` to decide what to tell the player, and read
-    `params` for the numbers and names to put in the sentence. Match on the code rather
-    than on any text, because osrlib never puts English in a rejection. Write your own
-    wording for the codes your game can produce, and show the code itself for the rest.
-    [The rejection code reference][rejection-codes] lists every code the engine emits with
-    what it means.
+    `params` for the numbers and names to put in the sentence. osrlib writes no English
+    into a rejection, so write your own wording for the codes your game can produce, and
+    show the code itself for the rest.
+    [The rejection code reference](https://mmacy.github.io/osrlib-python/reference/rejection-codes/)
+    lists every code osrlib returns, with what it means.
 
-    Build one yourself only when you're writing your own validator, for a house rule or
-    a custom item, and want it to report a refusal the same way the kernel does.
+    Build one yourself only when you write your own validator, for a house rule or a
+    custom item, and want it to report a refusal the same way osrlib does.
 
     The model is frozen, so you can keep a rejection around and compare rejections for
     equality.
@@ -85,16 +87,18 @@ class Rejection(BaseModel):
     """Which refusal this is, as a dotted message code like `items.equip.armour_forbidden`.
 
     Match on this value to choose what to show the player. A code is two or more
-    snake_case segments joined by dots, and the first segment names the subsystem that
+    snake_case segments joined by dots, and the first segment is the subsystem that
     refused. Building a rejection with any other format raises a pydantic
     `ValidationError`.
     """
 
     params: dict[str, int | str | tuple[int | str, ...]] = {}
-    """The facts the refusal turns on, like the ability that was too low or the class that may not wear the armour.
+    """The facts behind the refusal, like the ability that was too low or the class that may not wear the armour.
 
     Values are integers, strings, or tuples of either. Which keys appear depends on the
-    code, so read the keys the codes you handle use and skip any you don't recognize.
+    code, so read the keys of the codes you handle and skip any you don't recognize. A
+    string is an id or a value name, except where an adventure's author wrote the text,
+    like a gate's refusal line in the `refusal` key.
     """
 
     @field_validator("code")

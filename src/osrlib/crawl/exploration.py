@@ -1,43 +1,65 @@
-"""The exploration turn: movement, doors, searching, traps, light, rest, and wandering checks.
+"""The rules behind the exploring and town commands, and the per-turn checks for fatigue, food, and wandering monsters.
 
-This module holds the rules behind the commands of the two session modes outside combat: `exploring`,
-where the party walks a dungeon, and `town`, where it shops, rests, and buys healing. Two of those
-commands also serve
-`encounter` mode, because the party can hand out and use gear while monsters stand in front of it:
-[`DropItems`][osrlib.crawl.commands.DropItems] and [`UseItem`][osrlib.crawl.commands.UseItem]. You
-don't call a handler here yourself. You build one of the command models in
+This module contains the rules behind the commands a party gives while it explores a dungeon, in
+`exploring` mode, or visits town, in `town` mode: moving, doors, searching, traps, treasure, items,
+light, rest, spells, shopping, and temple healing.
+[`DropItems`][osrlib.crawl.commands.DropItems] and [`UseItem`][osrlib.crawl.commands.UseItem] also
+work in `encounter` mode, so the party can drop or use gear while monsters stand in front of it.
+
+You don't call a command handler here yourself. Build one of the command models in
 [`osrlib.crawl.commands`][osrlib.crawl.commands], like [`MoveParty`][osrlib.crawl.commands.MoveParty],
-[`Search`][osrlib.crawl.commands.Search] or [`Rest`][osrlib.crawl.commands.Rest], and pass it to
-[`GameSession.execute`][osrlib.crawl.session.GameSession.execute]. You get back a
-[`CommandResult`][osrlib.crawl.commands.CommandResult] that contains either
-[`Rejection`][osrlib.core.validation.Rejection] models that describe why the command was refused, or
-the event models of [`osrlib.crawl.events`][osrlib.crawl.events] that describe what happened. The session
-validates a command before it runs any of it, so a rejected command rolls no dice, changes no state, and
-costs no game time.
+[`Search`][osrlib.crawl.commands.Search], or [`Rest`][osrlib.crawl.commands.Rest], and pass it to
+[`GameSession.execute`][osrlib.crawl.session.GameSession.execute]. The session returns a
+[`CommandResult`][osrlib.crawl.commands.CommandResult]. It contains either
+[`Rejection`][osrlib.core.validation.Rejection] models that give the reason the session refused the
+command, or the event models of [`osrlib.crawl.events`][osrlib.crawl.events] that record what happened. The
+session checks a command before it runs any of it, so a refused command rolls no dice, changes no
+state, and costs no game time.
 
-The rest of the public surface here is the per-turn bookkeeping that runs on the session's cadence
-rather than on a command: [`exploration_rate`][osrlib.crawl.exploration.exploration_rate],
-[`check_fatigue`][osrlib.crawl.exploration.check_fatigue],
-[`consume_provisions`][osrlib.crawl.exploration.consume_provisions],
-[`wandering_interval`][osrlib.crawl.exploration.wandering_interval] and
-[`wandering_check`][osrlib.crawl.exploration.wandering_check].
-[`GameSession.advance_turns`][osrlib.crawl.session.GameSession.advance_turns] calls each of them on
-its schedule, so a front end that moves time by executing commands doesn't have to. Call them
-yourself to read the party's current numbers for a status display, or to run one of the checks when
-you drive the clock some other way.
+The public functions here are the checks the session runs as time passes, rather than in answer to a
+command:
 
-Movement accrues on the session's odometer,
+- [`exploration_rate`][osrlib.crawl.exploration.exploration_rate] takes the session and returns the
+  party's movement rate in feet per turn.
+- [`wandering_interval`][osrlib.crawl.exploration.wandering_interval] takes the session and returns
+  how many turns pass between wandering-monster checks on the party's level.
+- [`check_fatigue`][osrlib.crawl.exploration.check_fatigue] attaches the penalty for going too long
+  without rest, and returns its events.
+- [`consume_provisions`][osrlib.crawl.exploration.consume_provisions] feeds and waters the party for
+  one day, and returns its events.
+- [`wandering_check`][osrlib.crawl.exploration.wandering_check] rolls one wandering-monster check,
+  and returns its events and whether an encounter opened.
+
+[`GameSession.advance_turns`][osrlib.crawl.session.GameSession.advance_turns] and
+[`GameSession.advance_rounds`][osrlib.crawl.session.GameSession.advance_rounds] run the last three
+on their schedules, so a front end that moves time by executing commands doesn't call them. Call
+`exploration_rate` and `wandering_interval` to show the party's numbers on a status display. Call
+the other three yourself only when you advance `GameSession.clock` directly instead of through those
+methods, because each one changes the session.
+
+The constants name what those checks attach and what the temple sells.
+[`FATIGUE_KIND`][osrlib.crawl.exploration.FATIGUE_KIND],
+[`EXHAUSTED_KIND`][osrlib.crawl.exploration.EXHAUSTED_KIND], and
+[`DEPRIVATION_KIND`][osrlib.crawl.exploration.DEPRIVATION_KIND] are the effect kinds of the
+penalties for going without rest, running from a long chase, and going without food or water.
+[`EXHAUSTED_DEFINITION`][osrlib.crawl.exploration.EXHAUSTED_DEFINITION] is the exhaustion effect
+itself, and [`HEALING_SERVICES`][osrlib.crawl.exploration.HEALING_SERVICES] is the temple's price
+list.
+
+The session counts movement on its odometer,
 [`GameSession.odometer_thirds`][osrlib.crawl.session.GameSession.odometer_thirds], in thirds of a
-foot. Stepping into an unexplored cell costs 30 units and stepping into an explored one costs 10,
-which is the SRD's rule that familiar ground moves three times as fast. When the accrued total
-reaches three times the party's exploration rate, the clock advances one full turn and the odometer
-resets. An action that costs a turn advances
-a whole turn outright and absorbs whatever partial move was pending.
+foot. A step into a cell the party hasn't explored costs 30 units, and a step into an explored one
+costs 10, which is the SRD's rule that the party crosses familiar ground three times as fast. When
+the total reaches three times the party's exploration rate, the clock advances one turn and the
+odometer goes back to zero. At the base rate of 120 feet a turn, a turn passes after 12 steps into
+unexplored cells, or 36 into explored ones. An action that takes a turn, like a search, advances the
+clock a whole turn and sets the odometer back to zero.
 
-Trap resolution draws on the [`EXPLORATION_STREAM`][osrlib.crawl.session.EXPLORATION_STREAM]: the
-2-in-6 spring check, the saving throws, the damage, and the volley counts. Durations rolled when a
-condition attaches draw on the [`EFFECTS_STREAM`][osrlib.core.effects.EFFECTS_STREAM] instead, as
-every other effect attachment in the engine does.
+Trap resolution draws from [`EXPLORATION_STREAM`][osrlib.crawl.session.EXPLORATION_STREAM]: the
+2-in-6 spring check (a d6 roll of 1 or 2 springs the trap), the saving throws, the damage, and the number of darts or
+other missiles. The duration of a condition a trap attaches is rolled from
+[`EFFECTS_STREAM`][osrlib.core.effects.EFFECTS_STREAM] instead, like every other effect's
+duration.
 
 Typical usage:
 
@@ -228,36 +250,37 @@ __all__ = [
 ]
 
 FATIGUE_KIND = "fatigue"
-"""The effect kind under which the unrested-fatigue penalty is attached.
+"""The effect kind of the penalty for going too long without rest.
 
 Pass it with a member's id to
 [`EffectsLedger.active_on`][osrlib.core.effects.EffectsLedger.active_on] to ask whether that member
-is fatigued: `session.ledger.active_on(member.id, FATIGUE_KIND)` returns the live effects, so an
-empty list means rested. That query is how a status display reports the condition, and it is what
-[`check_fatigue`][osrlib.crawl.exploration.check_fatigue] itself checks before attaching anything.
-The effect applies −1 to attack rolls and −1 to damage rolls, lasts until something releases it, and
-a [`Rest`][osrlib.crawl.commands.Rest] command is what releases it in play.
+is fatigued: `session.ledger.active_on(member.id, FATIGUE_KIND)` returns the active effects, and an
+empty list means the member is rested. Use that query for a status display.
+[`check_fatigue`][osrlib.crawl.exploration.check_fatigue] makes the same query before it attaches
+anything. The effect applies −1 to attack rolls and −1 to damage rolls and has no duration. In play,
+a completed [`Rest`][osrlib.crawl.commands.Rest] releases it.
 """
 
 EXHAUSTED_KIND = "exhausted"
-"""The effect kind under which the post-pursuit exhaustion penalty is attached.
+"""The effect kind of the penalty for running from a long chase.
 
 Query it the same way as [`FATIGUE_KIND`][osrlib.crawl.exploration.FATIGUE_KIND]. A party that keeps
-running for the full length of a pursuit and gets away is exhausted when the chase ends, and three
-turns of [`Rest`][osrlib.crawl.commands.Rest] clear it.
-[`EXHAUSTED_DEFINITION`][osrlib.crawl.exploration.EXHAUSTED_DEFINITION] is the blueprint that gets
-attached under this kind.
+running until a chase lasts [`PURSUIT_ROUND_CAP`][osrlib.crawl.encounter.PURSUIT_ROUND_CAP] rounds
+gets away and is exhausted, and three turns of [`Rest`][osrlib.crawl.commands.Rest] clear it.
+[`EXHAUSTED_DEFINITION`][osrlib.crawl.exploration.EXHAUSTED_DEFINITION] is the effect attached
+under this kind.
 """
 
 DEPRIVATION_KIND = "deprivation"
-"""The effect kind under which the going-without penalty is attached.
+"""The effect kind of the penalty for going without food or water.
 
 Query it the same way as [`FATIGUE_KIND`][osrlib.crawl.exploration.FATIGUE_KIND]. Nothing attaches
-under this kind unless the `deprivation_penalties` ruleset flag is on, because the penalties for
-going hungry or thirsty are optional. The day counters that decide it are kept either way, in
-`session.deprivation`, by [`consume_provisions`][osrlib.crawl.exploration.consume_provisions]. The
-effect applies −1 to attack rolls, attaches on the first day a member goes without food or water,
-and is released on the day they are short of neither.
+under this kind unless
+[`Ruleset.deprivation_penalties`][osrlib.core.ruleset.Ruleset.deprivation_penalties] is on, because
+the penalties for going hungry or thirsty are optional.
+[`consume_provisions`][osrlib.crawl.exploration.consume_provisions] keeps the day counts that decide
+it either way, in `session.deprivation`. The effect applies −1 to attack rolls. It attaches on the
+first day a member goes without food or water, and is released on the first day they have both.
 """
 
 _FATIGUE_DEFINITION = EffectDefinition(
@@ -269,8 +292,6 @@ _FATIGUE_DEFINITION = EffectDefinition(
     ),
 )
 
-# Exhaustion's −2 to AC is modelled as `attack_penalty_of_attackers` +2: attackers of the
-# exhausted creature gain +2, which is exactly descending AC worsened by 2.
 EXHAUSTED_DEFINITION = EffectDefinition(
     kind=EXHAUSTED_KIND,
     condition=Condition.EXHAUSTED,
@@ -281,21 +302,21 @@ EXHAUSTED_DEFINITION = EffectDefinition(
         ModifierSpec(kind="attack_penalty_of_attackers", value=2),
     ),
 )
-"""The blueprint for exhaustion: −2 to attack rolls, −2 to damage rolls, and −2 to armour class.
+"""The exhaustion effect: −2 to attack rolls, −2 to damage rolls, and 2 points worse armour class.
 
-The encounter procedure attaches this to every living member when a pursuit runs its full length and
-the party gets away, and three turns of [`Rest`][osrlib.crawl.commands.Rest] release it. It is
-exported so that a front end or a replacement encounter procedure can attach the same exhaustion
-through [`EffectsLedger.attach`][osrlib.core.effects.EffectsLedger.attach] instead of building a
-second definition, which would leave a member under two penalties at once. To ask whether a member
-is exhausted, query [`EXHAUSTED_KIND`][osrlib.crawl.exploration.EXHAUSTED_KIND] rather than this
-object.
+The session attaches it to every living member who isn't already exhausted when a chase lasts
+[`PURSUIT_ROUND_CAP`][osrlib.crawl.encounter.PURSUIT_ROUND_CAP] rounds and the party gets away, and
+three turns of [`Rest`][osrlib.crawl.commands.Rest] release it. Attach this same definition with
+[`EffectsLedger.attach`][osrlib.core.effects.EffectsLedger.attach] when your own code exhausts a
+member. A second definition of your own would leave a member under two penalties at once. To ask
+whether a member is exhausted, query [`EXHAUSTED_KIND`][osrlib.crawl.exploration.EXHAUSTED_KIND]
+rather than this object.
 
 The definition grants [`Condition.EXHAUSTED`][osrlib.core.effects.Condition] and stacks as `ignore`,
-so attaching it to an already exhausted member does nothing. It has no duration, so the ledger keeps
-it until something releases it: rest is what does that in play, and time alone won't. The −2 to
-armour class is modelled as an `attack_penalty_of_attackers` modifier of +2, so attackers of an
-exhausted creature get +2 to hit, which is exactly descending armour class worsened by 2.
+so attaching it to a member who is already exhausted does nothing. It has no duration, so it stays
+until something releases it: in play, rest does, and time alone doesn't. The worse armour class is
+an `attack_penalty_of_attackers` modifier of +2, so attackers of an exhausted creature get +2 to
+hit, which is the same as descending armour class 2 points worse.
 """
 
 _DEPRIVATION_DEFINITION = EffectDefinition(
@@ -318,7 +339,7 @@ def _level(session):
 
 
 def _dungeon_coords(session) -> tuple[str, int, Position]:
-    """The dungeon location's fields, narrowed: callers run only in dungeon mode."""
+    """The dungeon location's fields, narrowed: callers run only while the party is in a dungeon."""
     location = _location(session)
     if location.dungeon_id is None or location.level_number is None or location.position is None:
         raise ValueError("the party is not at a dungeon location")
@@ -441,7 +462,7 @@ def _sight_passes(session, level, location, cell: Position, direction: Direction
 
     Args:
         session (osrlib.crawl.session.GameSession): The running session.
-        level (osrlib.crawl.dungeon.LevelSpec): The level holding the cell.
+        level (osrlib.crawl.dungeon.LevelSpec): The level that contains the cell.
         location: The party's dungeon location, for the door overlay's refs.
         cell: The cell sight leaves.
         direction: Which of the cell's four edges sight crosses.
@@ -616,21 +637,20 @@ def exploration_rate(session) -> int:
     """Return the party's exploration rate in feet per turn.
 
     A party moves at the pace of its slowest living member, so that member's movement rate is the
-    party's. Read it to show a movement allowance, to work out how much ground the party covers in a turn, or to
-    find out whether the party can move at all. A rate of 0 means that a living member is carrying
-    too much to move, or that no member is living. In the first case the session rejects a
+    party's. Read it to show how far the party moves in a turn, or to find out whether the party can
+    move at all. A rate of 0 means that a living member is carrying too much to move, or that no
+    member is living. In the first case the session refuses a
     [`MoveParty`][osrlib.crawl.commands.MoveParty] with `exploration.move.cannot_move` and the
     reason `overloaded`, until the member lightens the load with
     [`DropItems`][osrlib.crawl.commands.DropItems] or [`GiveItems`][osrlib.crawl.commands.GiveItems].
-    In the second, the session is
-    already in `game_over`.
+    In the second case the session is already in `game_over`.
 
-    For one character's movement allowance rather than the party's, call
-    [`Character.movement_rate`][osrlib.core.character.Character.movement_rate], which is what this
-    reads for each member.
+    For one character's movement rate rather than the party's, call
+    [`Character.movement_rate`][osrlib.core.character.Character.movement_rate], which this function
+    calls for each member.
 
-    You don't spend the rate yourself. The session charges each step against it on an odometer and
-    advances the clock a turn when the odometer fills. The value changes as the party's load does,
+    You don't spend the rate yourself. The session counts each step against it on an odometer and
+    advances the clock a turn when the odometer fills. The rate changes as the party's load does,
     so read it again after anything that changes what the party carries.
 
     Under the `deprivation_penalties` ruleset flag, a member two or more days into the worse of
@@ -716,20 +736,20 @@ def _fatigue_threshold(session) -> int:
 
 
 def check_fatigue(session) -> list[Event]:
-    """Attach the unrested-fatigue penalty once the party has gone too long without a rest.
+    """Attach the fatigue penalty once the party has gone too long without a rest.
 
     The SRD's dungeon rule is that a party rests one turn in every six, and a party that presses on
-    takes −1 to attack rolls and −1 to damage rolls until it does. This is the check for that rule:
-    it reads the session's `turns_since_rest` counter, and when the counter has reached the
-    threshold it attaches the fatigue effect to every living member who isn't fatigued already.
+    takes −1 to attack rolls and −1 to damage rolls until it does. This is the check for that rule.
+    It reads the session's `turns_since_rest` counter. When the counter has reached the threshold, it
+    attaches the fatigue effect to every living member who isn't fatigued already.
 
-    [`GameSession.advance_turns`][osrlib.crawl.session.GameSession.advance_turns] calls this once
-    for every turn the party spends in the field without resting, so a front end that moves time by
-    executing commands doesn't call it. Call it yourself when you drive the clock some other way. To
-    ask whether the party is already fatigued, query
-    [`FATIGUE_KIND`][osrlib.crawl.exploration.FATIGUE_KIND] against the ledger instead of calling
-    this. A [`Rest`][osrlib.crawl.commands.Rest] command releases the effect and returns the counter
-    to zero.
+    [`GameSession.advance_turns`][osrlib.crawl.session.GameSession.advance_turns] calls this for
+    every turn that passes while the session is in `exploring` mode, except a turn spent resting, so
+    a front end that moves time by executing commands doesn't call it. Call it yourself when you
+    move the clock some other way. To ask whether the party is already fatigued, query
+    [`FATIGUE_KIND`][osrlib.crawl.exploration.FATIGUE_KIND] against `session.ledger` instead of
+    calling this. A completed [`Rest`][osrlib.crawl.commands.Rest] releases the effect and sets the
+    counter back to zero.
 
     The threshold is six unrested turns, or three when the `deprivation_penalties` ruleset flag is
     on and some living member has gone a full day without food or water.
@@ -844,24 +864,27 @@ def _credit_exhaustion_rest(session, rest_turns: int) -> list[Event]:
 def consume_provisions(session) -> list[Event]:
     """Feed and water every living member for one day, and report who went short.
 
-    One call covers one day. Each living member eats a standard ration, falling back to an iron
-    ration when they have no standard one, since fresh food spoils first. Each drinks from a carried
-    waterskin, which isn't used up, so carrying one covers the day with no per-pint bookkeeping. In
-    town nobody goes short: carried rations are still eaten, and a member with none is fed anyway.
+    One call covers one day. Each living member eats a standard ration, or an iron ration when they
+    have no standard one, since fresh food spoils first. Each drinks from a waterskin they carry.
+    The waterskin isn't used up, so carrying one covers every day. In town nobody goes short:
+    a member's rations are still eaten, and a member with none is fed anyway.
 
-    [`GameSession.advance_rounds`][osrlib.crawl.session.GameSession.advance_rounds] crosses each day
-    boundary and calls this for you, and every path that moves the clock goes through it, so a
+    [`GameSession.advance_rounds`][osrlib.crawl.session.GameSession.advance_rounds] calls this each
+    time the clock crosses into a new day, and every command that passes time goes through it, so a
     front end that moves time by executing commands doesn't call this. Call it yourself when you
-    drive the clock some other way.
+    move the clock some other way.
 
-    A day met resets that member's counter for that resource in `session.deprivation`, and a day
-    missed raises it by one. The counters are kept whatever the ruleset says, so you can show a
-    hunger indicator without turning the penalties on. Under the `deprivation_penalties` flag the
-    counters also cost the member something, on a schedule drawn from the SRD's examples as a
-    documented adaptation (see the
-    [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/)): −1 to attack rolls and fatigue twice as
-    fast from one day, halved movement from two, and 1d4 damage a day from three. Food and water
-    don't stack, so the worse of the two tracks is the one that applies.
+    `session.deprivation` maps each member's id to a
+    [`DeprivationState`][osrlib.crawl.session.DeprivationState] that counts the days in a row the
+    member has gone without food and without water. A day with food sets the food count back to
+    zero, and a day without adds one, and the same goes for water. The counts are kept whatever the
+    ruleset says, so you can show a hunger indicator without turning the penalties on. When
+    [`Ruleset.deprivation_penalties`][osrlib.core.ruleset.Ruleset.deprivation_penalties] is on, the
+    counts also cost the member: −1 to attack rolls and fatigue twice as fast from one day, half
+    movement from two, and 1d4 damage a day from three. Food and water don't add up: the worse of
+    the two counts sets the penalty. The SRD gives examples rather than a schedule, so osrlib
+    chose this one and records it in the
+    [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/).
 
     Args:
         session (osrlib.crawl.session.GameSession): The running session.
@@ -977,9 +1000,10 @@ def _consume_item(member, item_id: str, quantity: int = 1) -> ItemInstance | Mag
 
     The lookup is
     [`Inventory.carried_item`][osrlib.core.items.Inventory.carried_item], which searches
-    everything the member carries, mundane and magic alike. A `has_item` gate uses the
-    same lookup, so a toll can take anything a gate can find. A stack spent
-    exactly leaves the inventory, and a deeper one decrements.
+    everything the member carries, mundane and magic alike. A `has_item` gate checks
+    with the same lookup, so the engine can take as a toll any item that satisfies
+    the gate. A stack spent to zero leaves the inventory, and a larger stack goes down
+    by the quantity taken.
 
     Args:
         member (osrlib.core.character.Character): The carrier.
@@ -1038,19 +1062,20 @@ def _remove_instance(member, instance: ItemInstance | MagicItemInstance) -> None
 def wandering_interval(session) -> int:
     """Return how many turns pass between wandering-monster checks on the level the party is on.
 
-    Each dungeon level has its own interval, two turns in the SRD. The session counts turns
-    against this number and, when the count reaches it, runs
+    Each dungeon level has an interval, set in its
+    [`WanderingSpec`][osrlib.crawl.dungeon.WanderingSpec]. The default is two turns, as in the SRD.
+    The session counts turns against this number. When the count reaches it, the session runs
     [`wandering_check`][osrlib.crawl.exploration.wandering_check] and starts counting again. Read it
-    to tell a player how much dungeon time is left before the next check, or to drive the same
-    cadence from a clock of your own.
+    to show how often the checks come, or to run checks on the same schedule from a clock of your
+    own.
 
     Args:
         session (osrlib.crawl.session.GameSession): The running session.
 
     Returns:
-        The interval in turns for the level the party is on. Outside a dungeon the return is
-        1000000000, a number the turn counter never reaches, because town time and overland travel
-        run no wandering cadence.
+        The interval in turns for the level the party is on. Outside a dungeon it's 1000000000, a
+        number the turn counter never reaches, because no wandering-monster checks run in town or
+        on the road.
 
     Examples:
         ```python
@@ -1100,47 +1125,47 @@ def wandering_check(session, *, resting: bool = False) -> tuple[list[Event], boo
     """Roll one wandering-monster check, and on a hit spawn the monsters and open the encounter.
 
     [`GameSession.advance_turns`][osrlib.crawl.session.GameSession.advance_turns] calls this every
-    [`wandering_interval`][osrlib.crawl.exploration.wandering_interval] turns the party spends in
-    the field, so a front end that moves time by executing commands doesn't call it. Call it
-    yourself to drive the cadence from a clock of your own, or to make a check the rules don't
-    schedule, like one a trigger in your adventure asks for.
+    [`wandering_interval`][osrlib.crawl.exploration.wandering_interval] turns while the session is in
+    `exploring` mode, so a front end that moves time by executing commands doesn't call it. Call it
+    yourself to run the checks from a clock of your own, or to make an extra check the rules don't
+    schedule.
 
-    The check changes the session whether or not it hits: it clears the session's noise flag, since
-    that noise counted for this check and doesn't count again. On a hit it also spawns the monsters
-    into the session registry, opens an encounter, and puts the session into encounter mode, at
-    which point the exploring commands stop being legal and the encounter commands become so. The
-    session's turn loop stops the rest of the span when that happens, and what to do next is yours
-    to decide.
+    The check changes the session whether or not it hits. It clears the session's noise flag,
+    because the noise has now counted for a check. On a hit it also spawns the monsters into the
+    session, opens an encounter, and puts the session in `encounter` mode, or `battle` mode when
+    the monsters attack at once. From then on the session refuses the exploring commands and
+    accepts the encounter commands. When `advance_turns` made the call, it passes no more time.
 
-    The chance starts from the level's number in six, adds 1 for noise since the last check,
-    adds 1 for light as bright as daylight, and subtracts 1 while the party rests, clamped to the
-    range 0 to 6. When the chance clamps to 0 there is no roll: the check reports a miss and draws
-    nothing.
+    The chance starts from the level's chance in six. It goes up 1 for noise since the last check
+    and 1 for light as bright as daylight, and down 1 while the party rests, and it's kept between
+    0 and 6. When the chance is 0 there is no roll: the check reports a miss and draws nothing.
 
-    The check die draws from the [`WANDERING_STREAM`][osrlib.crawl.session.WANDERING_STREAM], and so
-    do the d20 table roll, the count dice and the picks among a row's variants. For a row that lists
-    an NPC party, the engine generates a real party rather than rolling again, drawing its composition from the
-    [`NPC_PARTY_STREAM`][osrlib.core.npc.NPC_PARTY_STREAM]. Hit points for spawned monsters draw
-    from the [`MONSTER_SPAWN_STREAM`][osrlib.core.monsters.MONSTER_SPAWN_STREAM], the treasure the
-    spawn carries from the [`TREASURE_STREAM`][osrlib.core.treasure.TREASURE_STREAM], and the
-    encounter's surprise, distance, and reaction rolls from the
-    [`ENCOUNTER_STREAM`][osrlib.crawl.session.ENCOUNTER_STREAM]. Keeping them apart is what lets one
-    part of a game change without moving another part's dice.
+    The check die draws from [`WANDERING_STREAM`][osrlib.crawl.session.WANDERING_STREAM], and so
+    do the d20 roll on the encounter table, the count dice, and the choice among a row's monsters.
+    For a row that lists an NPC adventuring party, the engine generates the party, drawing who is in
+    it from [`NPC_PARTY_STREAM`][osrlib.core.npc.NPC_PARTY_STREAM]. Spawned monsters' hit points
+    draw from [`MONSTER_SPAWN_STREAM`][osrlib.core.monsters.MONSTER_SPAWN_STREAM], the treasure they
+    carry from [`TREASURE_STREAM`][osrlib.core.treasure.TREASURE_STREAM], and the encounter's
+    surprise, distance, and reaction rolls from
+    [`ENCOUNTER_STREAM`][osrlib.crawl.session.ENCOUNTER_STREAM]. Because the streams are separate,
+    a change in one part of a game doesn't change the dice another part rolls.
 
     Args:
         session (osrlib.crawl.session.GameSession): The running session.
         resting: True while the party is resting, which applies the −1 to the chance.
 
     Returns:
-        The check's events, and True when an encounter opened. The events open with one
-        [`WanderingCheckEvent`][osrlib.crawl.events.WanderingCheckEvent] giving the chance and the
-        roll, with `roll` set to None when the chance was 0. A hit adds the spawn events and the
-        encounter's opening events after it.
+        The check's events, and True when an encounter opened. The events start with one
+        [`WanderingCheckEvent`][osrlib.crawl.events.WanderingCheckEvent] that gives the chance and
+        the roll, with `roll` set to None when the chance was 0. On a hit, the encounter's opening
+        events follow it, after an
+        [`NpcPartySpawnedEvent`][osrlib.crawl.events.NpcPartySpawnedEvent] when the monsters are an
+        NPC party.
 
     Raises:
-        ValueError: If the party isn't in a dungeon. Town time and travel have no wandering
-            check. The call changes nothing before it raises. To check first, test that
-            `session.dungeon_state.location.kind` is `"dungeon"`.
+        ValueError: If the party isn't in a dungeon, because no wandering-monster checks run in
+            town or on the road. The call changes nothing before it raises. To check first, test
+            that `session.dungeon_state.location.kind` is `"dungeon"`.
 
     Examples:
         ```python
@@ -1207,11 +1232,11 @@ def wandering_check(session, *, resting: bool = False) -> tuple[list[Event], boo
     count = max(1, count)
     entry = row.entry
     if entry.kind == "npc_party":
-        # An NPC-party row builds a real party instead of rolling again. The check
-        # rolls the row's printed count dice on the wandering stream, the generator makes
-        # the party, and the encounter procedure runs unchanged: surprise both ways,
-        # distance, and a reaction roll. NPC parties react on the table like anyone,
-        # parley works, and keyed stances don't apply.
+        # An NPC-party row generates a party rather than a monster group. The check
+        # rolls the row's count dice on the wandering stream, the generator builds the
+        # party, and the encounter opens as usual: surprise for both sides, distance,
+        # and a reaction roll. NPC parties roll on the reaction table like monsters,
+        # parley works on them, and an author's fixed stance doesn't apply.
         party, bundle, npc_events = _field_npc_party(session, entry.party_kind, count)
         events.extend(npc_events)
         events.extend(
@@ -1376,8 +1401,8 @@ def _door_trap_check(session, direction: Direction, *, triggerer=None) -> list[E
     meaning the named `triggerer`, or the first living member in marching order,
     and passes to the next member standing if an earlier spring killed the opener.
     The engine rolls no die for a trap with no living victim left, and a spring whose effect
-    carried the party away from the door (a chute) cancels the springs behind
-    it: the party is no longer performing the opening.
+    moved the party away from the door (a chute) cancels the springs after it:
+    the party is no longer at the door it opened.
     """
     dungeon_id, level_number, position = _dungeon_coords(session)
     level = _level(session)
@@ -1629,9 +1654,9 @@ def _keyed_encounter_check(session) -> list[Event]:
         templates.append(template)
         instances = session.spawn(keyed.template_id, count, alignment=area.encounter.alignment)
         groups.append((template.name, instances))
-        # The engine generates carried treasure at spawn, per keyed line in printed order.
-        # The lair hoard follows it, and that draw order on the treasure stream
-        # is fixed.
+        # Carried treasure is generated at spawn, one keyed line at a time in the order
+        # the author listed them, and the lair hoard after that. Keep this order: it
+        # fixes the draws on the treasure stream.
         carried.append(_generate_carried_treasure(session, instances))
     # The lair hoard is gated: a keyed encounter the author marked hoardless (a
     # stocking roll that gave the monster room no treasure) gets no cache.
@@ -1750,7 +1775,7 @@ def _swing_shut(session, *, previous, leaving_level: bool = False) -> list[Event
             continue
         cell_part, side = ref.removeprefix(prefix).split(":")
         x, y = (int(value) for value in cell_part.split(","))
-        # The canonical key names the edge from its south/east cell's north/west
+        # The canonical key identifies the edge from its south/east cell's north/west
         # side: the two adjoining cells are (x, y) and its north/west neighbour.
         neighbour = step((x, y), Direction.NORTH if side == "north" else Direction.WEST)
         if leaving_level or location.position not in ((x, y), neighbour):
@@ -2435,9 +2460,9 @@ def _handle_take_treasure(session, command: TakeTreasure) -> tuple[list[Rejectio
             # The party knows the trap is there and sees it fail to fire. An
             # unknown trap that doesn't spring stays referee-only (no leak).
             events.append(TrapEvent(code="exploration.trap.safe", trap_ref=ref, character_id=opener.id))
-    # The spring check may just have felled somebody: the packs get filled by
-    # whoever is still standing, and a named recipient who went down hands the job
-    # back to the party rather than stranding the haul on a corpse.
+    # The spring check may have felled somebody. Whoever is still standing takes the
+    # haul, and when the named recipient went down, the rest of the party takes it
+    # instead.
     carriers = [member for member in carriers if not incapacitated(member)] or session.party.living_members()
     if not carriers:
         # The trap took the whole party: looting needs a living looter. Nothing is
@@ -2452,7 +2477,7 @@ def _handle_take_treasure(session, command: TakeTreasure) -> tuple[list[Rejectio
     haul = DropPile(
         coins=feature.coins,
         items=[DroppedItem(item_id=item_id, quantity=1) for item_id in feature.item_ids],
-        # Authored named valuables (the example's MacGuffin) instantiate on take.
+        # Named valuables the author placed, like a quest item, are created on take.
         valuables=[
             ValuableInstance(
                 instance_id=session.allocator.allocate("valuable"),
@@ -2463,9 +2488,9 @@ def _handle_take_treasure(session, command: TakeTreasure) -> tuple[list[Rejectio
             )
             for spec in feature.valuables
         ],
-        # Authored magic items instantiate on take as well: creation details roll
-        # on the treasure stream at the tier in force when the cache is emptied,
-        # exactly as a generated hoard's would.
+        # Magic items the author placed are created on take as well. Their details roll
+        # on the treasure stream at the tier in force when the cache is emptied, as a
+        # generated hoard's do.
         magic_items=[
             instantiate_magic_item(
                 item_id,
@@ -2863,9 +2888,9 @@ def _validate_carried(member, item_ids: tuple[str, ...], coins: Coins) -> list[R
     The member must carry every named item and coin, and no revealed cursed item
     may leave its bearer.
 
-    A magic instance id names one instance, so naming it twice in one command asks
-    for something the member does not carry: the whole instance leaves on the first
-    naming, and the second has nothing behind it.
+    A magic instance id identifies one instance, so a command that lists it twice
+    asks for something the member doesn't carry: the whole instance leaves on the
+    first listing, and nothing is left for the second.
     """
     counts: dict[str, int] = {}
     named_magic: set[str] = set()
@@ -3590,7 +3615,7 @@ def _area_treasure_check(session) -> list:
     """Generate an area's declared treasure on first entry.
 
     Discovery needs a living discoverer. The engine generates nothing for a party
-    with no one left standing, like one a chute carried into the cell and killed.
+    with no one left standing, like one a chute dropped into the cell and killed.
     """
     from osrlib.data import load_treasure_tables
 
@@ -3828,7 +3853,7 @@ def _use_scroll(session, member, instance: MagicItemInstance, template, command)
     stream = session.streams.get(MAGIC_STREAM)
     events: list[Event] = []
     if template.cursed:
-        # Merely looking at the baneful script curses the reader, class regardless.
+        # Looking at a cursed scroll curses the reader, whatever their class.
         _remove_instance(member, instance)
         events.extend(_identify_item_events(session, member, instance))
         curse = template.curses[session.streams.get(EFFECTS_STREAM).randbelow(len(template.curses))]
@@ -3972,8 +3997,9 @@ def _use_scroll(session, member, instance: MagicItemInstance, template, command)
         events.extend(result.events)
         events.extend(_stationary_silence(session, spell, result, targets))
         return [], events
-    # Everything else on the scroll table (protection from magic, treasure maps)
-    # is manual prose: reading it is supported, and the game narrates the item's `manual` text.
+    # The engine resolves no other scroll, like protection from magic or a treasure
+    # map. Reading one is allowed, and the event includes its `manual` text for the
+    # game to narrate.
     _remove_instance(member, instance)
     events.extend(_identify_item_events(session, member, instance))
     events.append(
@@ -4183,19 +4209,18 @@ HEALING_SERVICES: dict[HealingService, tuple[str, int]] = {
     "remove_curse": ("remove_curse_c", 200),
     "raise_dead": ("raise_dead", 1500),
 }
-"""The temple's healing services: each service name mapped to its spell id and its price in gp.
+"""The temple's healing services: each service name mapped to its spell id and its price in gold pieces.
 
-The keys are typed [`HealingService`][osrlib.crawl.commands.HealingService], the same closed set
-[`PurchaseHealing`][osrlib.crawl.commands.PurchaseHealing] accepts in its `service` field, so read
-this to build a price list for a town screen and to check the party's coin against a price before
-you send the command. The spell id is the entry the purchase resolves through, which is why *remove
-curse* maps to `remove_curse_c`, the cleric list's version of that spell rather than the magic-user
-list's.
+The keys are the [`HealingService`][osrlib.crawl.commands.HealingService] values that
+[`PurchaseHealing`][osrlib.crawl.commands.PurchaseHealing] accepts in its `service` field. Read
+this to build a price list for a town screen, and to check the party's gold against a price before
+you send the command. The spell id is the spell the temple casts, which is why *remove curse*
+maps to `remove_curse_c`, the cleric's version of that spell rather than the magic-user's.
 
-The service names and the prices are a documented adaptation over the SRD's open-ended base-town
-prose (see [the adaptations register](https://mmacy.github.io/osrlib-python/adaptations/)). This
-table doesn't model availability. The size of the town, the standing of its temple, and whether a cleric is
-in today are game questions left to your front end.
+The SRD's town rules don't list temple services, so osrlib chose these names and prices and records
+the choice in [the adaptations register](https://mmacy.github.io/osrlib-python/adaptations/). Every
+service is always available. Whether a town is big enough to have a temple, or a cleric is in
+today, is for your game to decide.
 
 Don't change the prices in this dict. The purchase handler reads it at the moment of sale, every
 session in the process shares it, and a replayed purchase would charge the changed price.

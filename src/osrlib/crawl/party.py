@@ -1,19 +1,18 @@
-"""The crawl party: marching order, group movement, and combat ranks.
+"""The adventuring party: marching order, group movement, and combat ranks.
 
-You build a [`Party`][osrlib.crawl.party.Party] out of the
-[`Character`][osrlib.core.character.Character]s your game rolled up, and you hand it to
-[`GameSession.new`][osrlib.crawl.session.GameSession.new] beside the adventure. From then on the
-session manages it: the party moves as one body, and `session.party` is where you read it back.
+You build a [`Party`][osrlib.crawl.party.Party] from
+[`Character`][osrlib.core.character.Character] objects, usually ones
+[`create_character`][osrlib.core.character.create_character] made, and pass it to
+[`GameSession.new`][osrlib.crawl.session.GameSession.new] with the adventure. From then on the
+session moves the party as one group. `session.party` is the same object you passed.
 
 The order of the member list is the marching order, and no other field records it, so the first
 member is the one in front. [`ReorderParty`][osrlib.crawl.commands.ReorderParty] is the only
-command that rewrites that order, and [`reorder`][osrlib.crawl.party.Party.reorder] is what it calls.
+command that changes that order, and it calls [`reorder`][osrlib.crawl.party.Party.reorder].
 
-Dead members stay in the list. Their gear is still on them, so removing them would lose it. Leaving
-a body behind is a choice your game makes with the referee commands, and the rules never make it
-for you. The rules that count party members skip the dead: movement rate,
-combat ranks, ability checks, and provisions all read
-[`living_members`][osrlib.crawl.party.Party.living_members].
+Dead members stay in the list, with their gear still on them. No command removes a member. The
+rules that count party members skip the dead: movement rate, combat ranks, traps, and food and
+water all use [`living_members`][osrlib.crawl.party.Party.living_members].
 """
 
 from collections.abc import Sequence
@@ -33,14 +32,14 @@ class Party(BaseModel):
     """The adventuring party, in marching order.
 
     Construct one with at least one member and pass it to
-    [`GameSession.new`][osrlib.crawl.session.GameSession.new], which assigns each member an entity id
-    and keeps the party for the life of the session. The methods here report what the crawl procedures
-    need to know about the group as a whole: who is still standing, how fast the group walks, and who
-    stands where in a fight.
+    [`GameSession.new`][osrlib.crawl.session.GameSession.new], which assigns each member an id and
+    keeps the party for the life of the session. The methods report what the game needs to know about
+    the group as a whole: who is still alive, how fast the group walks, and who stands where in a
+    fight.
 
-    A party is mutable and validates on assignment, so the session can heal, wound, and re-equip its
-    members in place. The list is never empty: a party whose last member dies ends the session in
-    `game_over` rather than emptying out.
+    A party is mutable. The session heals, wounds, and re-equips its members in place, and assigning
+    a new list to `members` validates it. The list is never empty: when the last member dies, the
+    session ends in `game_over` and the dead stay in the list.
 
     Attributes:
         members: The characters, front of the line first.
@@ -72,19 +71,19 @@ class Party(BaseModel):
     model_config = ConfigDict(validate_assignment=True)
 
     members: list[Character] = Field(min_length=1)
-    """The party's characters, in marching order: index 0 walks in front and meets what the party
-    walks into first. At least one member is required. Ids are assigned by
-    [`GameSession.new`][osrlib.crawl.session.GameSession.new] when the party joins a session, so a
-    party you just built has `None` in every `Character.id` until then. Change the order with the
-    [`ReorderParty`][osrlib.crawl.commands.ReorderParty] command rather than by assigning here, so
-    the change is logged and replays."""
+    """The party's characters, in marching order: index 0 walks in front and meets whatever the party
+    walks into first. At least one member is required.
+    [`GameSession.new`][osrlib.crawl.session.GameSession.new] assigns ids when the party joins a
+    session, so a member you just built has `None` as its `id` until then. Change the order by
+    executing [`ReorderParty`][osrlib.crawl.commands.ReorderParty], not by assigning to this field,
+    so the change is logged and a replay reproduces it."""
 
     def living_members(self) -> list[Character]:
         """Return the living members, in marching order.
 
-        A member is living until something gives them the `dead` condition. This is the list every
-        group rule works from, so a fallen member stops counting toward movement, ranks, and checks
-        the moment they drop, without leaving the party.
+        A member is living until they have the `dead` condition. Every rule that applies to the group
+        uses this list, so a member who dies stops counting toward movement, ranks, and checks at
+        once, without leaving the party.
 
         Returns:
             The members without the `dead` condition, in marching order. Empty when the whole party
@@ -95,12 +94,14 @@ class Party(BaseModel):
     def member(self, character_id: str) -> Character:
         """Return the member with `character_id`.
 
-        Use this to turn an id out of a command or an event back into the character it refers to. Ids
-        come from [`GameSession.new`][osrlib.crawl.session.GameSession.new], which stamps each member
-        as `character-NNNN` in party order, and events include them rather than names.
+        Use this to turn an id from a command or an event into the character it refers to. Events
+        identify characters by id, not by name. The ids come from
+        [`GameSession.new`][osrlib.crawl.session.GameSession.new], which gives each member an id like
+        `character-0001`, in party order. Inside a session,
+        [`GameSession.member`][osrlib.crawl.session.GameSession.member] does the same lookup.
 
         Args:
-            character_id: The member's entity id.
+            character_id: The member's id, like `"character-0001"`.
 
         Returns:
             The character. Dead members are returned too, because their gear and their record are
@@ -153,14 +154,15 @@ class Party(BaseModel):
 
         B/X moves a group at the pace of its slowest member, so one overloaded character slows
         everybody. Call [`Character.movement_rate`][osrlib.core.character.Character.movement_rate]
-        for one character's allowance, and
-        [`exploration_rate`][osrlib.crawl.exploration.exploration_rate] for the rate the running
-        session charges the party, which computes the same minimum and halves a member's rate first
-        when hunger or thirst has caught up with them under the `deprivation_penalties` ruleset flag.
+        for one character's rate. For the rate a running session uses, call
+        [`exploration_rate`][osrlib.crawl.exploration.exploration_rate]. It takes the same minimum,
+        but first halves the rate of a member who has gone too long without food or water, when the
+        `deprivation_penalties` ruleset option is on.
 
         Args:
-            ruleset: The ruleset whose encumbrance mode governs. Encumbrance is what turns carried
-                weight into a rate, and the modes differ in what they weigh.
+            ruleset: The ruleset whose encumbrance option applies. Encumbrance is the rule that
+                turns what a character carries into a movement rate, and the options differ in what
+                they count.
 
         Returns:
             The rate in feet per exploration turn: 120, 90, 60, 30, or 0. A rate of 0 means the party
@@ -197,19 +199,20 @@ class Party(BaseModel):
     def ranks(self, width: int) -> list[list[Character]]:
         """Chunk the living members into combat ranks of `width`, in marching order.
 
-        A rank is one row of the formation: the first `width` living members stand in front and take
-        the melee, the rest queue behind them. Battle calls this for you with the width it measured
-        from the space the party is standing in, so you rarely pass your own. Call it yourself to
-        draw the formation, or to answer "who is in front" outside a fight.
+        A rank is one row of the formation. The first `width` living members stand in front and
+        fight in melee, and the rest stand behind them. During a battle, the session calls this
+        with a width it works out from the space the party stands in, so you rarely choose a width
+        yourself. Call it to draw the formation, or to find out who is in front outside a fight.
 
-        Ranks are derived on every read rather than stored, so when a front-rank member dies, the
-        next living member is in front from the next read on.
+        The ranks aren't stored. Each call works them out again, so when a front-rank member dies,
+        the next living member is in front from the next call on.
 
         Args:
-            width: How many characters stand abreast. Battle derives this from the party's frontage
-                (see [`FIGHTER_FRONTAGE_FEET`][osrlib.crawl.battle.FIGHTER_FRONTAGE_FEET]) while the
-                `formation_width_limit` ruleset flag is on, and puts the whole party in one rank when
-                it is off.
+            width: How many characters stand side by side. In a battle, the session works this out
+                from the width of the space the party stands in (see
+                [`FIGHTER_FRONTAGE_FEET`][osrlib.crawl.battle.FIGHTER_FRONTAGE_FEET]) while the
+                `formation_width_limit` ruleset option is on, and puts the whole party in one rank
+                when it's off.
 
         Returns:
             The ranks, front first. The last rank contains the remainder and can be shorter than
@@ -254,19 +257,19 @@ class Party(BaseModel):
     def reorder(self, character_ids: Sequence[str]) -> None:
         """Rewrite the marching order in place.
 
-        This is what [`ReorderParty`][osrlib.crawl.commands.ReorderParty] calls once it has accepted
-        the command. Issue that command through
+        The session calls this when it accepts a
+        [`ReorderParty`][osrlib.crawl.commands.ReorderParty] command. Execute that command with
         [`GameSession.execute`][osrlib.crawl.session.GameSession.execute] rather than calling this
-        yourself, so the change is logged and a replay reproduces it.
+        method yourself, so the change is logged and a replay reproduces it.
 
         Args:
-            character_ids: Every member's id, in the new order. It has to be a permutation of the
-                current membership: no id may be added, dropped, or repeated. Dead members are named
-                here like anyone else, since they are still in the party.
+            character_ids: Every member's id, in the new order. It must list each current member
+                exactly once, with no other ids. Include the dead members, because they're still in
+                the party.
 
         Raises:
-            ValueError: If the ids are not exactly the current membership, or if any member has no id
-                yet (a party that has not joined a session).
+            ValueError: If the ids aren't exactly the current members' ids, or if any member has no id
+                yet because the party hasn't joined a session. The order doesn't change.
         """
         by_id = {member.id: member for member in self.members if member.id is not None}
         if len(by_id) != len(self.members) or sorted(character_ids) != sorted(by_id):
