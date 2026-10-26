@@ -183,8 +183,8 @@ def _migrate_3_to_4(payload: dict) -> dict:
     `action="hold"` with no move, which is what that round played as: the round resolver had no
     branch for a `withdraw`, so the member who declared one stood there. On any other action the
     `move` field was never read, so it is cleared and the action stands. The command log is the
-    only place a declaration is stored, since a battle keeps its round bookkeeping and not the
-    round's declarations.
+    only place a declaration is stored, since a battle's state contains its round bookkeeping and not
+    the round's declarations.
 
     Schema 4 also drops two fields osrlib never wrote, the boolean on
     [`EncounterGroup`][osrlib.crawl.encounter.EncounterGroup] that marked a monster group as having
@@ -439,7 +439,7 @@ def load_game(document: Mapping[str, object]) -> GameSession:
 
     Raises:
         ContentValidationError: If the envelope or the payload is malformed, if a logged
-            command is of a type this version doesn't know, or if no migration step exists
+            command is of a type this version doesn't recognize, or if no migration step exists
             for the document's schema version.
         SaveVersionError: If a newer osrlib wrote the document. Tell the player to upgrade.
             There's nothing to repair in the file.
@@ -504,7 +504,7 @@ def load_game(document: Mapping[str, object]) -> GameSession:
         session.fired_triggers = [str(entry) for entry in payload.get("fired_triggers", [])]
         session.journal = [JournalEntry.model_validate(entry) for entry in payload.get("journal", [])]
         if "quests" in payload:
-            # A payload without the block keeps the seed the constructor built from
+            # For a payload without the block, the session keeps the block the constructor seeded from
             # the save's adventure, which is right for a save from a release whose
             # adventures had no quests: that seed is the empty block anyway.
             session.quests = {key: QuestState.model_validate(value) for key, value in payload["quests"].items()}
@@ -617,7 +617,7 @@ def replay_game(
             running [`engine_version`][osrlib.versioning.engine_version]. Load the save
             instead, which works across engine versions.
         ContentValidationError: If `party_document` isn't a valid party document, if a
-            logged command is of a type this version doesn't know or its fields don't fit
+            logged command is of a type this version doesn't recognize or its fields don't fit
             that type, or if a logged command is refused this time. The log contains only
             commands that were accepted the first time, so a refusal means the replay has
             diverged from the game it was meant to reproduce. Check that you passed the

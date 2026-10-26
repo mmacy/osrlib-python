@@ -4257,10 +4257,10 @@ def _healing_payers(session, patient: Character, cost_gp: int) -> list[tuple[Cha
 
     The treated member pays first, then the rest of the party in marching order, dead
     members included. A purse pays in whole gold pieces, because
-    [`CoinPurse.spend`][osrlib.core.items.CoinPurse.spend] prices in gold. It puts in as much
-    of what is still owed as its gold covers and keeps whatever it is worth below a gold
-    piece, so the last purse charged pays the outstanding remainder and the purses after it
-    pay nothing.
+    [`CoinPurse.spend`][osrlib.core.items.CoinPurse.spend] prices in gold. It pays as much of
+    what is still owed as its total value covers, rounded down to a whole gold piece, and
+    keeps any value below a gold piece, so the last purse charged pays the outstanding
+    remainder and the purses after it pay nothing.
 
     Planning and charging are separate so the funds check stays a pure validation step: a
     party whose whole gold pieces fall short is refused before any purse is opened.

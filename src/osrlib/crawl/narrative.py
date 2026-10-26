@@ -9,8 +9,8 @@ You write one into the `narrative` field of a gate
 ([`QuestSpec`][osrlib.crawl.quests.QuestSpec]), or a quest objective
 ([`ObjectiveSpec`][osrlib.crawl.quests.ObjectiveSpec]), all of which are part of the
 [`Adventure`][osrlib.crawl.adventure.Adventure] document. The block is inert: osrlib
-doesn't evaluate it. The code that evaluates the block's *carrier*, meaning the gate,
-trigger, quest, or objective it's attached to, reads it: the exploration handlers of
+doesn't evaluate it. The code that evaluates the gate, trigger, quest, or objective the
+block is attached to reads it: the exploration handlers of
 [`GameSession.execute`][osrlib.crawl.session.GameSession.execute] for a gate and the
 [`Interpreter`][osrlib.crawl.interpreter.Interpreter] for a trigger or a quest. The
 beats then reach you as the `narrative` field of an event like
@@ -26,15 +26,15 @@ The three audiences are:
   formatter ([`format_message`][osrlib.messages.format_message]) appends the beat from
   an event after the templated line, so a bare transcript shows the authored words
   exactly as you wrote them.
-- The journal form, the carrier's entry in the party's written record. A quest beat does
+- The journal form, the object's entry in the party's written record. A quest beat does
   not use it, because what a quest journals is the display text it showed, so the
-  journal reads as the transcript of what the table was told. Use the field for carriers
+  journal reads as the transcript of what the table was told. Use the field for objects
   whose display beat the players never see: a trigger's `fired` text is included on a
   referee-visibility event, so write the line meant for the table here.
 - LLM guidance, steering for a narrating front end that is never displayed as written.
   It's as trusted as an area's description, which narration already uses.
 
-Which beats are read, and who may see them, depends on the carrier. The block has no
+Which beats are read, and who may see them, depends on the object it's attached to. The block has no
 visibility setting. Authored text that reaches a player is included on a player-visible
 event or inside a rejection, while the mechanics that produced it, meaning conditions,
 flags, and guidance, stay on the referee's side of the screen.

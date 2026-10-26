@@ -1313,7 +1313,7 @@ pydantic `TypeAdapter` to validate serialized events. Because the union is discr
 generates is a tagged union your API consumers can read.
 
 Prefer [`parse_event`][osrlib.core.events.parse_event] for reading back a stored log: it does the same
-validation but returns `None` for an event type this release doesn't know, rather than raising. Annotate with
+validation but returns `None` for an event type this release doesn't define, rather than raising. Annotate with
 [`Event`][osrlib.core.events.Event] instead where any event will do.
 
 ```python

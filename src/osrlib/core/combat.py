@@ -3293,8 +3293,8 @@ def select_targets(
 ) -> tuple[list[Creature], list[Event]]:
     """Resolve the shared targeting model against an explicit candidate list.
 
-    Spells, breath weapons, and thrown weapons all choose their victims through this one
-    function, so a caster, a dragon, and a flask of oil pick targets by the same rules.
+    Spells, breath weapons, and thrown weapons all get their targets from this one
+    function, so the same rules select targets for each of them.
     You supply the candidates, because nothing in the kernel tracks position: who's in
     range, in the blast, or engaged with the gazer is your judgment, and a session's
     battle machine supplies it from its range track. Hand the selected targets to whichever

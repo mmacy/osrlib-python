@@ -1364,7 +1364,7 @@ def open_book_capacity(caster: Caster, definition: ClassDefinition, catalog: Spe
 
     Returns:
         One count per spell level on the caster's progression row, lowest level first. An empty
-        tuple for a class that keeps no spell book, which is every divine caster and every
+        tuple for a class with no spell book, which is every divine caster and every
         non-caster.
 
     Examples:

@@ -154,10 +154,10 @@ MAX_RINGS_WORN = 2
 
 [`validate_equip`][osrlib.core.items.validate_equip] rejects a third ring with
 `items.ring.hands_full` rather than letting it on, because in the tabletop rules a
-third ring makes none of them function. Nothing reads this constant at attack or
-effect time, so changing it here would let a third ring be worn without granting it
-any behavior. Apply your own cap before you call [`equip`][osrlib.core.items.equip] if
-you want more ring slots.
+third ring makes none of them function. Only `validate_equip` reads this constant. If
+you raise it, a third ring can be worn and grants its bonuses like the other two,
+because nothing applies the rule that a third ring stops them all working. Apply your own cap before you call
+[`equip`][osrlib.core.items.equip] if you want more ring slots.
 """
 
 MAX_LOAD_COINS = 1600
@@ -2850,7 +2850,7 @@ def equip(inventory: Inventory, definition: ClassDefinition, instance: ItemInsta
         definition: The character's class definition, from
             [`ClassCatalog.get`][osrlib.core.classes.ClassCatalog.get].
         instance: The item to equip. It must be in this inventory's item list. Equip what
-            the character is holding, not a template or a copy.
+            the character is carrying, not a template or a copy.
 
     Raises:
         ValueError: If the item is not in the item list, or the class cannot equip it. Ask

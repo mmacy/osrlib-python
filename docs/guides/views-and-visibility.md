@@ -56,7 +56,7 @@ assert "lever-east" not in journal_view.model_dump_json()
 assert referee_after.fired_triggers == ("lever-east",)
 ```
 
-Quests split the same way, in more detail. `PlayerView.quests` contains the **active** quests only, in document order. A quest the party hasn't been given yet is absent, because an activation clause is a connection like any other, and a finished quest is no longer in `PlayerView.quests`, because its record is the journal. Under each quest, only the **revealed** objectives appear. A hidden objective's id is not in the projection at all until its `reveal_when` clause fires or the objective completes, which is why `ObjectiveView.state` needs only `"incomplete"` and `"complete"`. The player view contains nothing else about a quest: no clause, no pattern, no condition, no reward, and no `guidance` from any narrative block or level.
+Quests split the same way, in more detail. `PlayerView.quests` contains the **active** quests only, in document order. A quest the party hasn't been given yet is absent, because the clause that activates it is hidden from the players, the same as a trigger's logic. A finished quest is no longer in `PlayerView.quests`, because its record is the journal. Under each quest, only the **revealed** objectives appear. A hidden objective's id is not in the projection at all until its `reveal_when` clause fires or the objective completes, which is why `ObjectiveView.state` needs only `"incomplete"` and `"complete"`. The player view contains nothing else about a quest: no clause, no pattern, no condition, no reward, and no `guidance` from any narrative block or level.
 
 ```{.python .no-run}
 # Active quests only, revealed objectives only, and none of the setup behind them.

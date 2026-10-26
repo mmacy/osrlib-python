@@ -1594,8 +1594,8 @@ def regeneration_definition(params: Mapping[str, Any]) -> EffectDefinition:
 
     Args:
         params: The ability's params. The tick reads four keys. `per_round` is how many hit points come back
-            each round. `delay_rounds` is how many rounds of quiet the monster needs after being damaged before
-            healing resumes. `revive` is a dice expression for how long the monster lies dead before getting
+            each round. `delay_rounds` is how many rounds must pass after the monster last took damage before it
+            heals again. `revive` is a dice expression for how long the monster lies dead before getting
             back up. `while_alive` is True for a monster that heals only while living. Anything else is left
             untouched, and any list becomes a tuple so the definition stays hashable.
 

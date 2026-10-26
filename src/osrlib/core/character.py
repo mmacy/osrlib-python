@@ -880,8 +880,8 @@ def roll_hit_points(
     for first level only, and it is the only one that honours the re-roll option.
 
     With `hp_reroll_at_first_level` on in the ruleset, a die showing 1 or 2 is thrown again, and
-    again, until it shows 3 or more. The test is on the raw die, before the CON modifier, and every
-    throw is kept in the result.
+    again, until it shows 3 or more. The test is on the raw die, before the CON modifier, and the
+    result includes every throw.
 
     Args:
         definition: The character's class, whose progression row gives the hit die.

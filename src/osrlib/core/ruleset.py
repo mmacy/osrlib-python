@@ -178,8 +178,8 @@ class Ruleset(BaseModel):
 
     An optional rule, off by default. Turn it on and the number to roll is `THAC0 − AC`
     with no clamping. The SRD's ascending-armour-class procedure is the same arithmetic,
-    so this one flag covers both presentations. The matrix differs only in keeping its
-    cells within 2 to 20, which shows once modifiers push a total past those bounds.
+    so this one flag covers both presentations. The only difference is that the matrix's
+    cells stay within 2 to 20, which shows once modifiers push a total past those bounds.
     """
 
     weapon_reload: bool = False

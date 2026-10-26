@@ -1740,10 +1740,10 @@ class PurchaseHealing(Command):
 
     The temple charges the party, not the patient. The fee comes out of the treated
     member's purse first and then out of the other members' purses in marching order,
-    dead members included. A purse pays in whole gold pieces, as much of what is still
-    owed as its gold covers, so a purse that cannot cover the rest hands over all of
-    its gold and keeps only what it is worth below a gold piece. The last purse
-    charged pays the remainder, and the purses after it pay nothing.
+    dead members included. A purse pays in whole gold pieces: as much of what is still
+    owed as its total value covers, rounded down to a whole gold piece. A purse that
+    can't cover the rest pays that amount and keeps any value below a gold piece. The
+    last purse charged pays the remainder, and the purses after it pay nothing.
 
     The coin below a gold piece in a purse cannot go toward the fee, so what the party
     can spend is the whole gold pieces in its purses rather than their total worth. Two
@@ -2582,7 +2582,7 @@ class RollDice(Command):
     An authorial roll for freeform adjudication. The referee resolves a *chance*
     outcome the content model can't express (a puzzle, a bluff, "does the frayed
     rope hold?") by rolling through the engine rather than inventing a number, so
-    the result is logged, replayable, and grounded in a typed event. Referee
+    the result is logged, replayable, and reported as a typed event. Referee
     commands are legal in every mode, terminal modes included. The roll draws from
     the dedicated
     [`ADJUDICATION_STREAM`][osrlib.crawl.session.ADJUDICATION_STREAM], so an ad-hoc

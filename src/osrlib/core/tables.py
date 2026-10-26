@@ -97,7 +97,7 @@ a column.
 
 # The attack matrix's HD rows as (max effective HD, THAC0). Effective HD is the count plus
 # 1 for a bonus hit-point modifier, the "attack as 1 HD higher" rule. A negative modifier
-# keeps the unmodified row, so the goblin's 1-1 stays on 19 [0].
+# leaves the monster on the unmodified row, so the goblin's 1-1 stays on 19 [0].
 _MATRIX_HD_ROWS = (
     (1, 19),
     (2, 18),
