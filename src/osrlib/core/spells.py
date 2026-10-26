@@ -2224,7 +2224,7 @@ def _perform_cast(
 
 
 class _ScrollReader:
-    """A caster proxy: the reader's body at the scroll's caster level.
+    """A caster proxy: the scroll's reader, with `level` replaced by the scroll's caster level.
 
     Attribute reads and writes pass through to the reader, so conditions and modifiers apply to the
     real character. Only `level` is answered here, because a scroll spell resolves at the minimum

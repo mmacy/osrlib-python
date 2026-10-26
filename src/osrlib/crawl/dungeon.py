@@ -1483,7 +1483,7 @@ class DoorState(BaseModel):
     The party walks through an open door without opening it again."""
     wedged: bool = False
     """Whether an iron spike holds the door, from [`WedgeDoor`][osrlib.crawl.commands.WedgeDoor]. A
-    wedged door does not swing shut behind the party, which is the point of carrying spikes."""
+    wedged door does not swing shut behind the party."""
     discovered: bool = False
     """Whether a secret door has been found. A `secret` door does nothing for the party until a
     successful secret-door [`Search`][osrlib.crawl.commands.Search] sets this. Until then the edge reads

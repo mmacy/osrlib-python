@@ -1,4 +1,4 @@
-"""The projection API: the player's safe whitelist and the referee's full state.
+"""The two views of a session: the fields a player may see, and the referee's full state.
 
 A view is the snapshot a front end renders: everything on the screen after a command,
 in one frozen object.

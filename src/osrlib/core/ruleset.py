@@ -39,7 +39,7 @@ assert house_rules.variable_weapon_damage is True
 """
 
 # Every flag here is read by a behavior that exists. Don't add a flag whose behavior
-# doesn't exist yet. Adding new flags with defaults is schema-legal.
+# doesn't exist yet. A new flag with a default needs no schema_version bump.
 
 from enum import StrEnum
 

@@ -2641,8 +2641,8 @@ def _hand_valuable(carriers, ruleset, valuable):
 def _even_shares(headrooms: list[int], total: int) -> list[int]:
     """Split `total` coins as evenly across the carriers as their headroom allows.
 
-    Every coin weighs one, whatever its metal, so an even split of a denomination is
-    even in worth *and* even in weight, so the fair split also keeps the loads
+    Every coin weighs one, whatever its metal. An even split of a denomination is
+    therefore even in worth *and* in weight, so the fair split also keeps the loads
     even. A carrier who would pass their maximum load takes only what
     fits and their surplus re-splits among the rest. The sub-coin remainder goes to
     the front of the march.

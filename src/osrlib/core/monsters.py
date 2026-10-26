@@ -1082,8 +1082,8 @@ class IdAllocator(BaseModel):
         """Return the next unused id under `prefix`.
 
         Each prefix counts independently and never repeats, so calling it twice with the same
-        prefix gives two different ids. It mutates the allocator, which is the point: the id is
-        spent once it is returned.
+        prefix gives two different ids. It mutates the allocator, so an id is spent once
+        it is returned.
 
         Args:
             prefix: What kind of thing is being named, like `"monster"`, `"effect"`, `"npc"`,

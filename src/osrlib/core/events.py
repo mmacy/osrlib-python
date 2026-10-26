@@ -142,10 +142,10 @@ class Event(BaseModel):
     which sets who may see it. Everything else is on the subclass, which you reach by checking `event_type` or by an
     `isinstance` test.
 
-    Subclass it to add your own events for rules osrlib doesn't cover. Add structured fields only, keep the
-    code discipline, and give the class a unique `event_type` if you want it to parse back from a saved
-    log. A subclass that turns off `frozen`, or sets `extra` to anything but `"ignore"`, raises `TypeError` as
-    soon as it is defined, because either one would break the guarantees above.
+    Subclass it to add your own events for rules osrlib doesn't cover. Add structured fields only, report each
+    outcome as a dotted code rather than a sentence, and give the class a unique `event_type` if you want it to
+    parse back from a saved log. A subclass that turns off `frozen`, or sets `extra` to anything but `"ignore"`,
+    raises `TypeError` as soon as it is defined, because either one would break the guarantees above.
 
     Events never change once made, so keep a list of them as a log and read it whenever you like.
 
@@ -1341,9 +1341,9 @@ def _known_event_types() -> frozenset[str]:
 def parse_event(data: Mapping[str, object]) -> Event | None:
     """Turn one stored event back into its class, or `None` if this release doesn't define its type.
 
-    Use this to read a saved log or a stream of events from somewhere else. Skipping what it doesn't recognize
-    is the point: a log written by a newer release replays under an older one, minus the events the older one has
-    no class for. Filter the `None` results out and carry on.
+    Use this to read a saved log or a stream of events from somewhere else. It skips what it doesn't recognize, so
+    a log written by a newer release replays under an older one, minus the events the older one has no class
+    for. Filter the `None` results out and carry on.
 
     It covers the core rules' events only. To read a log that also contains the crawl's, use
     [`parse_any_event`][osrlib.crawl.events.parse_any_event], which covers both.

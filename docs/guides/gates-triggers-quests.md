@@ -2,7 +2,7 @@
 
 You want a door that opens only with the right key, a lever that opens a portcullis across the map, an errand that ends the adventure when the party finishes it. You author all three as data: a **gate** guards an attempt, a **trigger** reacts to an event, and a **quest** tracks progress toward an ending. All three live in the adventure document beside the dungeons they connect. They have no effect until your game registers the library's [`Interpreter`][osrlib.crawl.interpreter.Interpreter], a listener like the ones in [Listeners and flags](listeners-and-flags.md). The library includes it because every authored adventure needs one. [The complete program](#the-complete-program) at the end runs as written, and every snippet along the way comes from it. Where a snippet comes from [the TUI crawler's](../front-ends/tui-crawler.md) authored adventure instead, the text says so.
 
-The door, the edge and its [`DoorSpec`][osrlib.crawl.dungeon.DoorSpec], is dungeon geometry. [Building an adventure](../getting-started/building-an-adventure.md#the-grid-and-its-edges) covers it, along with the keyed areas and transitions you attach these conditions to.
+The door (the edge and its [`DoorSpec`][osrlib.crawl.dungeon.DoorSpec]) is dungeon geometry. [Building an adventure](../getting-started/building-an-adventure.md#the-grid-and-its-edges) covers it, along with the keyed areas and transitions you attach these conditions to.
 
 ## Gating a door or a stair
 

@@ -391,7 +391,7 @@ def remove_condition(target: Creature, condition: Condition, effect_id: str | No
     This is the other half of [`grant_condition`][osrlib.core.effects.grant_condition], and it matches on the
     pair: the condition and the `effect_id` you granted it under. Pass the same `effect_id` you granted with, or
     nothing is removed. A creature charmed by two effects keeps the second charm after you remove the first,
-    which is the point of recording which effect granted each condition.
+    because each of the creature's conditions records the effect that granted it.
 
     You call this for conditions you granted yourself. A condition that came from an attached effect is taken
     back for you when the effect expires or you release it through

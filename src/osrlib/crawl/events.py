@@ -1303,7 +1303,7 @@ class CurseRevealedEvent(Event):
     visibility: Visibility = Visibility.PLAYER
     """Player visibility: the bearer learns about the curse when it takes hold."""
     character_id: str
-    """The member the curse has attached itself to."""
+    """The member who has the cursed item."""
     instance_id: str
     """The session-scoped id of the cursed item."""
     template_id: str
@@ -1755,7 +1755,7 @@ class QuestActivatedEvent(Event):
     """The quest's display name, so a renderer needs no copy of the adventure to show it."""
     narrative: str | None = None
     """The offer beat the author wrote, or `None` when there's none. The same line is appended to
-    the journal, so this event and that entry report one moment once."""
+    the journal with no separate journal event, so the table sees it once."""
 
 
 class ObjectiveRevealedEvent(Event):

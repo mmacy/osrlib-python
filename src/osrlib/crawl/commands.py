@@ -1299,7 +1299,7 @@ class LearnSpell(Command):
           game is over.
         - `session.command.unknown_member` - `character_id` names no party member.
         - `session.command.member_incapacitated` - the member cannot act.
-        - `magic.book.not_arcane` - the class keeps no spell book.
+        - `magic.book.not_arcane` - the class isn't an arcane caster.
         - `magic.book.unknown_spell` - `spell_id` names no spell.
         - `magic.book.wrong_list` - the spell is off the caster's spell list.
         - `magic.book.duplicate` - the book already contains the spell.
@@ -1315,8 +1315,8 @@ class LearnSpell(Command):
     command_type: Literal["learn_spell"] = "learn_spell"
     character_id: str
     """The arcane caster whose book grows, by
-    [`MemberView.id`][osrlib.crawl.views.MemberView.id]. A class that keeps no spell book is
-    refused with `magic.book.not_arcane`."""
+    [`MemberView.id`][osrlib.crawl.views.MemberView.id]. A member whose class isn't an arcane
+    caster is refused with `magic.book.not_arcane`."""
     spell_id: str
     """The spell to write into the book, from
     [`load_spells`][osrlib.data.load_spells] (see [the spell id index][spells-index]). It has
@@ -2549,8 +2549,8 @@ class AdvanceTime(Command):
     """Referee: advance the clock directly.
 
     Referee commands are legal in every mode, terminal modes included, so the clock
-    a revival window is measured in keeps running after the party falls. Time
-    passes with full bookkeeping (effect expiries, provisions on day boundaries)
+    keeps running after the party falls, and the revival spells measure their windows
+    on that clock. Time passes with full bookkeeping (effect expiries, provisions on day boundaries)
     but no wandering cadence, because the referee controls encounters.
 
     Modes:
@@ -3008,8 +3008,8 @@ The other referee commands are left out for one of three reasons:
   [`RevealObjective`][osrlib.crawl.commands.RevealObjective],
   [`CompleteObjective`][osrlib.crawl.commands.CompleteObjective], and
   [`CompleteQuest`][osrlib.crawl.commands.CompleteQuest] are the vocabulary the
-  trigger and quest interpreter uses for its bookkeeping. It marks, journals,
-  annotates, and advances quest state on the author's behalf, so an authored copy
+  trigger and quest interpreter uses for its bookkeeping. It marks triggers,
+  adds journal entries, records notes, and advances quest state on the author's behalf, so an authored copy
   would double the record.
 - [`IdentifyItem`][osrlib.crawl.commands.IdentifyItem] addresses a magic item by its
   session-scoped instance id, which doesn't exist until a session runs, so no

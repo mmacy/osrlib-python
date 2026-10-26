@@ -1854,8 +1854,8 @@ def destroy_equipment(
     destructive source's category: a breath weapon saves versus breath, a destructive
     spell versus spells, a device versus wands, anything else versus death. The item adds
     its best combat bonus, meaning the highest of its attack, damage, and armour class
-    bonuses, so a cursed item saves at its penalty. Survivors stay in the item list and
-    the event's `saved_items` lists their instance ids, and a session puts them in a drop
+    bonuses, so a cursed item saves at its penalty. Survivors end up in the item list, equipped
+    or not, and the event's `saved_items` lists their instance ids. A session puts them in a drop
     pile at the victim's cell, where the party can pick them up. The rolls themselves are
     silent, and the event reports the outcome.
 
