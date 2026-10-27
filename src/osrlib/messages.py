@@ -1,33 +1,34 @@
 """Turn an event into a line of English.
 
-osrlib never puts prose in an event. A [`GameSession`][osrlib.crawl.session.GameSession]
+osrlib puts no prose in an event. A [`GameSession`][osrlib.crawl.session.GameSession]
 responds to a command with typed events made of structured facts, like who attacked, what they
-rolled, and how much damage landed, and your front end decides what a player reads. This
+rolled, and how much damage they dealt, and you decide what a player reads. This
 module is the default formatter that comes with osrlib.
 [`format_message`][osrlib.messages.format_message] takes an event and returns a plain
-English sentence, so you can print a session's output before you've written any rendering of
-your own.
+English sentence, so you can print a session's output before you write a renderer of your
+own.
 
-The event's `code` determines the line you get. It's a dotted name like `combat.attack.hit` that
-identifies the outcome the event records, and this module has one template per code. Every
-event class declares the codes it can use in `allowed_codes`, and
+The event's `code` determines the line you get. A code is a dotted name like
+`combat.attack.hit` that identifies the outcome the event records, and this module has one
+template per code. Every event class declares the codes it can use in `allowed_codes`, and
 [`ALL_EVENT_CLASSES`][osrlib.crawl.events.ALL_EVENT_CLASSES] lists every event class, so
 `{code for cls in ALL_EVENT_CLASSES for code in cls.allowed_codes}` is every code osrlib
-defines. [The message-code reference][message-codes] lists the same codes with the event class
-behind each one, its default visibility, and its template. Read it when you're deciding which
-codes your front end handles differently.
+defines.
+[The message code reference](https://mmacy.github.io/osrlib-python/reference/message-codes/)
+lists the same codes with the event class of each one, its default visibility, and its
+template. Read it when you decide which codes to handle differently.
 
 Use this formatter for a log, a transcript, a debugging view, or the first working version
-of a game. Replace it when you want your own wording, and you replace the whole of it:
-read the event's fields and write your own line, or hand the event to a narrator. There's
-nothing here to configure, no way to register a template, and no translation, because a
-front end that cares about wording already has the structured fields it needs to write any
-wording it likes. Entity ids come out as ids, since only your game has a name for
-`orc-1`. The quest and objective events are the exception, and include a display name the
-adventure's author wrote.
+of a game. When you want your own wording, replace the whole formatter: read the event's
+fields and write your own line, or pass the event to a narrator. There's nothing here to
+configure, no way to register a template, and no translation. You have the same structured
+fields this formatter reads, so you can write any wording you like. Entity ids
+come out as ids, like `orc-1`, because an event refers to creatures by id. The quest and
+objective events are the exception: they include a display name the adventure's author
+wrote, and the line uses it.
 
-Formatting is string work. It reads no files, makes no calls, and changes nothing, so it's
-safe on any event from any source.
+`format_message` only builds a string. It reads no files, makes no calls, and changes nothing,
+so you can call it on any event from any source.
 
 Typical usage:
 
@@ -64,13 +65,14 @@ __all__ = [
 
 
 def _entered(event: Any) -> str:
-    """The arrival line, which reads a stairs crossing as the climb or descent it was.
+    """The arrival line, which describes a stairs crossing as the climb or descent it was.
 
     The event's `via` is the only source of the direction. No other field gives the direction
-    the party went, and where the party stands now is no help to a line rendered from the log after
-    the fact. The kinds that state no direction (a trapdoor, a chute, a passage, a
+    the party went, and the party's current position doesn't help when a line is rendered from the log
+    later. The kinds without a direction (a trapdoor, a chute, a passage, a
     trap, the entrance, a referee's placement) get the plain arrival line. A stairs crossing into
-    another dungeon still includes the dungeon's name, since the level number alone would hide the bigger move.
+    another dungeon still includes the dungeon's name, because the level number alone wouldn't
+    show the change of dungeon.
     """
     verb = {"stairs_up": "climbs", "stairs_down": "descends"}.get(event.via or "")
     if verb is not None and event.level_number is not None:
@@ -131,7 +133,7 @@ def _morale(event: MoraleCheckedEvent, outcome: str) -> str:
 
 
 def _morale_held(event: MoraleCheckedEvent) -> bool:
-    """Whether the side keeps fighting: `held`, or the score on an event from a save written before that field."""
+    """Whether the side keeps fighting: `held`, or the score for an event from a save made before `held` existed."""
     return event.score >= 12 if event.held is None else event.held
 
 
@@ -438,27 +440,26 @@ def format_message(event: Event) -> str:
     events stay hidden.
 
     A session's `event_log` can also contain plain dicts. After
-    [`load_game`][osrlib.persistence.load_game], an entry whose event type this osrlib
-    doesn't recognize stays the dict it was in the save. Skip those, or print their `code`
-    key, before you filter on `visibility`. A dict has no `visibility` attribute, and this
-    function takes an event object, not a dict.
+    [`load_game`][osrlib.persistence.load_game], an entry whose event type this version of
+    osrlib doesn't recognize stays the dict it was in the save. Skip those, or print their
+    `code` key, before you filter on `visibility`. A dict has no `visibility` attribute, and
+    this function takes an event object, not a dict.
 
     On an event osrlib built, it doesn't raise and it doesn't return an empty string. An
-    event whose code has no template comes back as the code itself, so a log written by a
-    newer osrlib than the one reading it still prints, one plain line per event, instead of
-    failing part way through. An event you assemble by hand can still raise `AttributeError`,
-    because a template reads the fields its event class declares: give an event a code
-    from another class and the field that template needs isn't there. When you build an event
-    by hand, use the class that declares its code.
+    event whose code has no template, like a base [`Event`][osrlib.core.events.Event] you
+    build with a code of your own, comes back as the code itself. An event you build by hand
+    can still raise `AttributeError`, because a template reads the fields its event class
+    declares: give an event a code from another class and the field that template needs
+    isn't there. When you build an event by hand, use the class that declares its code.
 
     Some events include a `narrative`, the sentence an adventure's author wrote for that
-    moment. When one is there it's appended to the templated line, word for word, because the
-    wording of authored text belongs to the author.
+    moment. When there is one, it's added to the end of the templated line, word for word,
+    because the wording of authored text belongs to the author.
 
-    Write your own formatter as soon as you want control of the wording. This one prints
-    entity ids as ids, writes only English, and has no hook for changing a template. Every
-    fact it uses is a typed field on the event, so your version reads the same fields and
-    uses the names your game gives things.
+    Write your own formatter when you want control of the wording. This one prints entity
+    ids as ids, writes only English, and has no way to change a template. Every fact it uses
+    is a typed field on the event, so your version can read the same fields and use your
+    own names for things.
 
     Args:
         event: Any event, from a command result, a session's event log, or a save you loaded.

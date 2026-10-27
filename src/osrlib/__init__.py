@@ -1,91 +1,91 @@
 """B/X (1981 Basic/Expert) rules engine for turn-based dungeon crawlers.
 
-osrlib applies the rules and keeps the state of a game. It draws nothing, asks a player
-nothing, waits for nothing, and makes no network calls. You hand it a command, it resolves
-the rules, and it returns typed events that describe what happened. Turning those into something a
-player reads is your program's job. Every random draw comes from a named, seeded stream, so
-the same seed and the same commands replay the same game.
+osrlib applies the rules of a game and stores its state. It has no user interface (UI), never
+waits for a player, and makes no network calls. You write the program a player uses, and that
+program calls osrlib. You pass osrlib a command, an object that describes one player action.
+osrlib applies the rules and returns typed events, each a record of one thing that happened. Your
+program turns those events into what the player sees. Every random number comes from a named,
+seeded stream, so if you replay the same commands from the same seed, you get the same game.
 
-Each name is defined in exactly one module, and the package root re-exports nothing, so you
-import each name from the module that defines it. The modules fall into three layers.
+Each name is defined in one module, and the package root doesn't re-export any names, so import
+each name from the module that defines it. osrlib has three layers of modules.
 
 ## The core kernel
 
-The kernel, under `osrlib.core`, is the rules on their own: no session, no dungeon, no
-adventure. You hand a function the inputs a rule needs, plus a seeded stream and a ruleset,
-and it returns the outcome and the events that describe it. Call it directly to roll a
-character, resolve an attack, or price a sword with no game running. Kernel modules never
-import from `osrlib.crawl`, so what you build on the kernel keeps working whatever the crawl
-framework does above it.
+The kernel, under `osrlib.core`, contains the rules without a session, a dungeon, or an
+adventure. You pass a kernel function the inputs for one rule, plus a seeded stream and a
+ruleset, and it returns the outcome and the events that describe it. Call kernel functions
+directly to roll a character, resolve an attack, or price a sword without starting a session.
+Kernel modules never import from `osrlib.crawl`, so you can use them without it.
 
 | Module | What it's for |
 | --- | --- |
-| [`osrlib.core.rng`][] | A master seed in, one named stream per subsystem out. |
-| [`osrlib.core.dice`][] | A dice expression in, a parsed expression or a roll with its dice out. |
-| [`osrlib.core.ruleset`][] | The optional rules you switch on, in one model the kernel reads. |
-| [`osrlib.core.clock`][] | Rounds in, turns and days out, with the boundaries each crossing reports. |
-| [`osrlib.core.alignment`][] | The three alignments, shared by characters and monsters. |
-| [`osrlib.core.validation`][] | The refusal value a rules check returns instead of raising. |
-| [`osrlib.core.abilities`][] | An ability score in, the modifier or chance the tables grant it out. |
-| [`osrlib.core.classes`][] | A class definition and a character in, titles, XP, and advancement out. |
-| [`osrlib.core.monsters`][] | A monster template in, a spawned creature with its hit points out. |
-| [`osrlib.core.items`][] | Templates and an inventory in, purchases, equipment, and encumbrance out. |
-| [`osrlib.core.spells`][] | A caster and a spell in, memorization, casting, and turning undead out. |
-| [`osrlib.core.tables`][] | Hit dice or an armour class in, the printed row for it out. |
-| [`osrlib.core.character`][] | Creation choices and a stream in, a character or refusals out. |
-| [`osrlib.core.npc`][] | A party level and a stream in, a generated NPC adventuring party out. |
-| [`osrlib.core.combat`][] | Combatants and a stream in, initiative, attacks, damage, and saves out. |
-| [`osrlib.core.effects`][] | A condition or effect in, a ledger that ticks and expires it out. |
-| [`osrlib.core.creature`][] | A character or a monster in, the attributes the rules read out, as protocols. |
-| [`osrlib.core.treasure`][] | A treasure type and a stream in, coins, valuables, and magic items out. |
-| [`osrlib.core.events`][] | The base class every event inherits, and the contract its code follows. |
+| [`osrlib.core.rng`][] | Turn a master seed into a separate random-number stream for each subsystem. |
+| [`osrlib.core.dice`][] | Parse a dice expression like `"2d6+1"`, and roll it. |
+| [`osrlib.core.ruleset`][] | Turn optional rules on or off, in one model the kernel reads. |
+| [`osrlib.core.clock`][] | Count game time in rounds, and report each turn and day that passes. |
+| [`osrlib.core.alignment`][] | The three alignments that characters and monsters share. |
+| [`osrlib.core.validation`][] | The refusal a rules check returns instead of raising an exception. |
+| [`osrlib.core.abilities`][] | Look up the modifier or chance an ability score gives, and make ability checks. |
+| [`osrlib.core.classes`][] | Read a class's titles and level table, and award experience points (XP). |
+| [`osrlib.core.monsters`][] | Read monster templates, and spawn a monster with rolled hit points. |
+| [`osrlib.core.items`][] | Buy and equip items, and work out how much a character carries. |
+| [`osrlib.core.spells`][] | Memorize and cast spells, and turn undead. |
+| [`osrlib.core.tables`][] | Look up the printed tables, like the attack roll a THAC0 needs against an armour class. |
+| [`osrlib.core.character`][] | Roll a 1st-level character, in one call or one step at a time. |
+| [`osrlib.core.npc`][] | Generate a party of non-player characters (NPCs). |
+| [`osrlib.core.creature`][] | The attributes rules functions read, so they accept a character or a monster. |
+| [`osrlib.core.combat`][] | Roll initiative, attacks, damage, saving throws, and morale. |
+| [`osrlib.core.effects`][] | Run a timed effect, like a *sleep* spell, against the clock and end it on time. |
+| [`osrlib.core.treasure`][] | Roll treasure from a treasure type: coins, gems, jewellery, and magic items. |
+| [`osrlib.core.events`][] | The base class of every event, and the events the kernel functions return. |
 
 ## The crawl framework
 
-The crawl framework, under `osrlib.crawl`, is the game around those rules: a party in a
-mapped dungeon, driven by commands. You author the content, start a session, and hand it one
-command per player action. The session runs the exploration, encounter, and battle procedures
-for you and returns the events. The table lists the modules you author content with
+The crawl framework, under `osrlib.crawl`, is the game built on those rules: a party that
+explores a mapped dungeon, driven by commands. You author the content, start a session, and pass
+it one command per player action. The session runs the exploration, encounter, and battle
+procedures for you and returns the events. The table lists the modules for authoring content
 first, then the session and the modules it runs.
 
 | Module | What it's for |
 | --- | --- |
-| [`osrlib.crawl.dungeon`][] | Cells, edges, doors, areas, and traps in, a mapped dungeon out. |
-| [`osrlib.crawl.adventure`][] | Dungeons and a town in, one adventure a session can play out. |
-| [`osrlib.crawl.party`][] | Characters in, marching order, group movement, and combat ranks out. |
-| [`osrlib.crawl.gates`][] | A gate's condition and a session in, whether the gate opens out. |
-| [`osrlib.crawl.triggers`][] | An event pattern in, a match against what just happened out. |
-| [`osrlib.crawl.quests`][] | Objectives and the clauses that complete them, as authored content. |
-| [`osrlib.crawl.narrative`][] | The authored text on a mechanical object, one block per audience. |
-| [`osrlib.crawl.stocking`][] | An empty area and a stream in, its monsters and treasure out. |
-| [`osrlib.crawl.content_pack`][] | Room contents without the map, out of one adventure and into another. |
-| [`osrlib.crawl.session`][] | A party, an adventure, and a seed in, a game taking commands out. |
-| [`osrlib.crawl.commands`][] | Every command you can execute, each with the modes it's legal in. |
-| [`osrlib.crawl.events`][] | Every event a command can emit, and the parser that reads one back. |
-| [`osrlib.crawl.views`][] | A session in, what a player may see or what a referee may see out. |
-| [`osrlib.crawl.interpreter`][] | The listener you register on a session to play the adventure's triggers and quests. |
-| [`osrlib.crawl.exploration`][] | Movement, doors, searching, light, rest, and wandering checks. |
-| [`osrlib.crawl.encounter`][] | A meeting in, surprise, distance, reaction, evasion, and pursuit out. |
-| [`osrlib.crawl.battle`][] | An encounter that came to blows in, a round-by-round battle out. |
+| [`osrlib.crawl.dungeon`][] | Build dungeon levels from cells, edges, doors, areas, and traps. |
+| [`osrlib.crawl.adventure`][] | Combine dungeons and a town into an adventure a session can play, and validate it. |
+| [`osrlib.crawl.party`][] | Put characters in marching order, and move them as one group. |
+| [`osrlib.crawl.gates`][] | Write the conditions the party must meet before it can go through a door or a transition. |
+| [`osrlib.crawl.triggers`][] | Write what happens when an event you describe occurs in play. |
+| [`osrlib.crawl.quests`][] | Write quests: their objectives and the events that complete them. |
+| [`osrlib.crawl.narrative`][] | Write the text shown with a gate, trigger, or quest, and the guidance for a narrator. |
+| [`osrlib.crawl.stocking`][] | Roll a room's monsters and treasure from the B/X tables. |
+| [`osrlib.crawl.content_pack`][] | Move room contents from one adventure to another, without the map. |
+| [`osrlib.crawl.session`][] | Start a game from a party, an adventure, and a seed, and run it one command at a time. |
+| [`osrlib.crawl.commands`][] | Every command you can execute, and the session modes each one is legal in. |
+| [`osrlib.crawl.events`][] | Every event a command can return, and the parser that reads a stored one. |
+| [`osrlib.crawl.views`][] | What the players may see of a session, or the fuller view for the referee (game master). |
+| [`osrlib.crawl.interpreter`][] | Register this listener on a session to run the adventure's triggers and quests. |
+| [`osrlib.crawl.exploration`][] | How the session runs movement, doors, searching, light, rest, and wandering checks. |
+| [`osrlib.crawl.encounter`][] | How the session runs surprise, distance, reaction, evasion, and pursuit. |
+| [`osrlib.crawl.battle`][] | How the session runs a battle, one round at a time. |
 
 ## Shared services
 
-The shared services sit at the top level and serve both layers: the compiled rules content,
+The shared services are at the top level, and both layers use them: the compiled rules content,
 the exceptions, the message formatter, and the save and version documents.
 
 | Module | What it's for |
 | --- | --- |
-| [`osrlib.data`][] | A content id in, the frozen rules entry behind it out. |
-| [`osrlib.errors`][] | The exceptions the library raises, and which failure each one stands for. |
-| [`osrlib.messages`][] | An event in, a line of default English out. |
-| [`osrlib.persistence`][] | A session in, a save document out, and back again by loading or replaying. |
-| [`osrlib.versioning`][] | The two version stamps on every document, and the envelope for them. |
+| [`osrlib.data`][] | Load the compiled rules content and look up an entry by id, like `"fighter"` or `"goblin"`. |
+| [`osrlib.errors`][] | The exceptions osrlib raises, and the failure each one means. |
+| [`osrlib.messages`][] | Turn an event into a line of default English text. |
+| [`osrlib.persistence`][] | Save a session to a document, and restore it by loading or replaying. |
+| [`osrlib.versioning`][] | The two version numbers in every saved document, and the wrapper that contains them. |
 
 ## Quickstart
 
-The quickstart runs the whole loop: characters, party, adventure, session, commands,
-events, save, and load. The documentation site at https://mmacy.github.io/osrlib-python/
-walks through this example step by step.
+The quickstart goes through the whole loop: characters, party, adventure, session, commands,
+events, save, and load. For a step-by-step explanation of this example, see the quickstart at
+https://mmacy.github.io/osrlib-python/getting-started/quickstart/.
 
 ```python
 from osrlib.core.alignment import Alignment

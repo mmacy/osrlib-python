@@ -1,39 +1,46 @@
-"""NPC adventuring parties: a rival band of adventurers, rolled up from the SRD's procedure.
+"""NPC adventuring parties: rival groups of adventurers, generated with the SRD's procedure.
 
-[`generate_npc_party`][osrlib.core.npc.generate_npc_party] is the entry point. Tell it how many
-members and whether they are the Basic or the Expert kind, hand it two seeded streams and an
-[`IdAllocator`][osrlib.core.monsters.IdAllocator], and you get an
-[`NpcParty`][osrlib.core.npc.NpcParty]: a band of classed characters with gear, memorized spells,
-and treasure to take off them. Use it when a wandering monster roll turns up other adventurers,
-or when you want a rival party for an encounter you are writing.
+An NPC (non-player character) is a person in the game who isn't one of the players' characters. An
+NPC party is a group of NPC adventurers with classes, levels, gear, and treasure, like the
+players' party. A row of a wandering monster table can be an NPC party, or you can place one in
+an adventure as rivals.
 
-Its members are ordinary [`Character`][osrlib.core.character.Character] models, the same ones the
-players use, so everything else in the library takes them as they are: they fight through
-[`osrlib.core.combat`][osrlib.core.combat], cast through
-[`osrlib.core.spells`][osrlib.core.spells], and can be put into a
-[`Party`][osrlib.crawl.party.Party] if you want to run them as one.
-[`npc_defeat_xp`][osrlib.core.npc.npc_defeat_xp] gives the experience a party earns for defeating
-one of them.
+[`generate_npc_party`][osrlib.core.npc.generate_npc_party] is the entry point. Pass it the kind of
+party, `"basic"` or `"expert"`, and how many members it has. Also pass two seeded streams and an
+[`IdAllocator`][osrlib.core.monsters.IdAllocator] for the members' ids. It returns an
+[`NpcParty`][osrlib.core.npc.NpcParty]: the members with their gear and memorized spells, the
+alignment they share, and the treasure they carry. In a session, the engine generates a party
+and opens an encounter with it for you when it resolves a
+[`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] command.
 
-How many adventurers appear is not decided here. Roll the count from the wandering monster table
-that produced the encounter, then pass it in.
+The members are [`Character`][osrlib.core.character.Character] models, the same model as the
+players' characters, so every function that takes a character takes them. They fight with the
+functions in [`osrlib.core.combat`][osrlib.core.combat] and cast with the functions in
+[`osrlib.core.spells`][osrlib.core.spells]. When the players defeat one,
+[`npc_defeat_xp`][osrlib.core.npc.npc_defeat_xp] returns the experience points it's worth.
 
-Every member's draws come from the
-[`NPC_PARTY_STREAM`][osrlib.core.npc.NPC_PARTY_STREAM] stream: the class and level, the ability
-scores, the hit points, the spells they have prepared. The party's treasure and the Expert band's
-magic items come from the [`TREASURE_STREAM`][osrlib.core.treasure.TREASURE_STREAM] stream instead,
-because they are treasure rolls and belong with the rest of a game's treasure statistics.
+You set how many adventurers appear. When a wandering monster table row is an NPC party, roll the
+row's `count_dice` and pass the total as `count`.
 
-Four things here are osrlib's reading rather than the SRD's letter, and all four appear in
+The members' rolls come from the stream keyed by
+[`NPC_PARTY_STREAM`][osrlib.core.npc.NPC_PARTY_STREAM]: the shared alignment, and each member's
+class, level, ability scores, hit points, and spells. The party's treasure and the expert members'
+magic items come from the stream keyed by
+[`TREASURE_STREAM`][osrlib.core.treasure.TREASURE_STREAM] instead, with the rest of a game's
+treasure rolls.
+
+In these places osrlib settles a rule the SRD leaves open, and
 [the adaptations register](https://mmacy.github.io/osrlib-python/adaptations/), the site page that
-lists the places where osrlib settles an ambiguous rule one way or supplies a default the
-tabletop game leaves to a referee. NPC adventurers are not checked against their class's ability
-requirements, because the SRD's procedure rolls the class before the scores and offers no re-roll.
-The equipment kits are osrlib's, standing in for the SRD's "normal adventuring gear". Casters get
-spells rolled at random from the ones their class may cast, since the SRD lets the referee choose
-or roll and only rolling is repeatable. An Expert band's magic items are rolled at 5% per level
-against each kind of item the member could use, and an item nobody can use is dropped rather than
-re-rolled.
+lists every place osrlib commits to one reading of the rules, records each one:
+
+- [`generate_npc_party`][osrlib.core.npc.generate_npc_party] doesn't check NPC adventurers
+  against their class's minimum ability scores, because the SRD's procedure rolls the class
+  before the scores and gives no re-roll.
+- The equipment kits are osrlib's, in place of the SRD's "normal adventuring gear".
+- A caster's spells are rolled at random from their class's list. The SRD lets the referee choose
+  or roll, and only rolling gives the same party from the same seed.
+- An expert member rolls for magic items at 5% per level for each kind of item they could use. An
+  item the member can't use is dropped, not rolled again.
 
 Typical usage:
 
@@ -94,28 +101,30 @@ __all__ = [
 ]
 
 NPC_PARTY_STREAM = StreamName.NPC_PARTY
-"""The stream key every session uses for rolling up NPC adventurers.
+"""The stream key for generating NPC adventurers, `"npc_party"`.
 
-A stream key identifies one independent random-number sequence inside an
+A stream key is the name of one independent random-number sequence in an
 [`RngStreams`][osrlib.core.rng.RngStreams] set. Pass `streams.get(NPC_PARTY_STREAM)` as the
-`npc_stream` argument of [`generate_npc_party`][osrlib.core.npc.generate_npc_party], which draws
-the party's alignment and then each member's class, level, ability scores, hit points, and spells
-from it.
+`npc_stream` argument of [`generate_npc_party`][osrlib.core.npc.generate_npc_party]. It rolls the
+party's alignment from this stream, and then each member's class, level, ability scores, hit
+points, and spells. A [`GameSession`][osrlib.crawl.session.GameSession] uses this key when it
+generates an NPC party.
 
-The party's treasure and its magic items do not come from this stream. They are treasure rolls, and
-they draw from [`TREASURE_STREAM`][osrlib.core.treasure.TREASURE_STREAM] so that a change to how NPC
-parties are built does not shift the treasure a game has already recorded.
+The party's treasure and magic items come from
+[`TREASURE_STREAM`][osrlib.core.treasure.TREASURE_STREAM] instead. Because the streams are
+separate, a change to how NPC parties are generated doesn't change the treasure rolls in a save
+you've already made.
 """
 
-# The kits are osrlib's, standing in for the SRD's "normal adventuring gear": weapons and
-# armour per class, worn and wielded at generation. Every member also gets a lot of standard
-# rations, a waterskin, and a lot of torches, which are the supplies the survival procedures read.
+# The kits are osrlib's, in place of the SRD's "normal adventuring gear": weapons and armour for
+# each class, worn and wielded at generation. Every member also gets one lot of standard rations,
+# a waterskin, and one lot of torches, the supplies the survival rules read.
 _KITS: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
     # class_id: (item ids granted, item ids equipped)
     "cleric": (("mace", "chainmail", "shield"), ("mace", "chainmail", "shield")),
-    # The battle axe is two-handed, so the dwarf carries the shield without wielding it. The
-    # equip validator refuses the combination, so the kit lists the shield as granted but not
-    # equipped.
+    # The battle axe is two-handed, so the dwarf carries the shield without using it. The equip
+    # validator refuses a shield with a two-handed weapon, so the kit grants the shield but doesn't
+    # equip it.
     "dwarf": (("battle_axe", "chainmail", "shield"), ("battle_axe", "chainmail")),
     "elf": (("sword", "long_bow", "arrows", "chainmail"), ("sword", "long_bow", "chainmail")),
     "fighter": (("sword", "chainmail", "shield"), ("sword", "chainmail", "shield")),
@@ -124,12 +133,13 @@ _KITS: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
     "thief": (("sword", "leather", "thieves_tools"), ("sword", "leather")),
 }
 
-# Expert-tier Clerics, Dwarves, and Fighters upgrade body armour to plate mail.
+# In an expert party, clerics, dwarves, and fighters wear plate mail instead of chainmail.
 _EXPERT_PLATE_CLASSES = ("cleric", "dwarf", "fighter")
 
 _SUPPLIES = ("rations_standard", "waterskin", "torch")
 
-# The order the master table prints its sub-tables in. The Expert magic item rolls walk it.
+# The magic item sub-tables, in the order they appear in the master table. An expert member's magic
+# item rolls go through them in this order.
 _SUB_TABLE_ORDER = (
     MagicItemType.ARMOUR,
     MagicItemType.MISC,
@@ -143,58 +153,64 @@ _SUB_TABLE_ORDER = (
 
 
 class NpcParty(BaseModel):
-    """A band of NPC adventurers, with the alignment they share and the treasure they carry.
+    """A party of NPC adventurers, with the alignment they share and the treasure they carry.
 
-    Returned by [`generate_npc_party`][osrlib.core.npc.generate_npc_party]. Run them as an
-    encounter: roll reaction with [`osrlib.crawl.encounter`][osrlib.crawl.encounter], fight them
-    through [`osrlib.core.combat`][osrlib.core.combat], and award
-    [`npc_defeat_xp`][osrlib.core.npc.npc_defeat_xp] per member if the players win. In a session,
-    execute [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] instead, which generates the band
-    and opens the encounter in one logged command.
+    [`generate_npc_party`][osrlib.core.npc.generate_npc_party] returns one. Run the members as an
+    encounter: roll the monster reaction with [`roll_reaction`][osrlib.core.combat.roll_reaction],
+    fight them with the functions in [`osrlib.core.combat`][osrlib.core.combat], and, if the
+    players win, award [`npc_defeat_xp`][osrlib.core.npc.npc_defeat_xp] for each member defeated.
+    In a session, execute a [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] command
+    instead. The engine generates the party and opens the encounter for you.
     """
 
     model_config = ConfigDict(validate_assignment=True)
 
     kind: Literal["basic", "expert"]
-    """`"basic"` for a band of low-level adventurers or `"expert"` for a seasoned one. It determines the level dice, the
-    armour the members wear, and whether they carry magic items.
+    """`"basic"` for a party of low-level adventurers, or `"expert"` for a higher-level one.
+
+    The dice rolled for each member's level, the armour the members wear, and whether they roll for magic items all
+    depend on it.
     """
 
     alignment: Alignment
-    """The alignment the whole band shares. One roll covers everyone, so reactions, parleys, and the wards that turn on
-    alignment all have a single answer.
+    """The alignment every member shares, from one roll for the whole party. A spell that works differently against
+    another alignment, like *protection from evil*, treats every member the same way.
     """
 
     members: list[Character]
-    """The adventurers, as ordinary [`Character`][osrlib.core.character.Character] models with ids from the allocator
-    you passed. Everything in the library that takes a character takes these.
+    """The adventurers, as [`Character`][osrlib.core.character.Character] models.
+
+    Each member's `id` comes from the allocator you passed, like `"npc-0001"`. Each member's `name` is the class name
+    and the member's position, like `"Thief adventurer 2"`. Every function that takes a character takes these.
     """
 
     treasure: GeneratedTreasure
-    """What the band carries between them, rolled once for the group rather than per member. In a crawl the band
-    carries it as one bundle, which drops on the party's cell as a pile once the whole band is slain. A band with
-    a member who ran takes it with them.
+    """The coins, valuables, and magic items the party carries, rolled once for the whole party.
+
+    In a session, the treasure drops where the players' party stands once every member is slain. If any member fled
+    or routed, the party takes the treasure away with it.
     """
 
 
 def npc_defeat_xp(level: int) -> int:
-    """Return the experience a party earns for defeating one NPC adventurer of this level.
+    """Return the experience points a party earns for defeating one NPC adventurer of this level.
 
-    Call it once per defeated member of an [`NpcParty`][osrlib.core.npc.NpcParty], add the results
-    together with whatever else the party overcame, and hand the total to
-    [`apply_xp`][osrlib.core.classes.apply_xp] for each surviving character.
+    Call it once for each defeated member of an [`NpcParty`][osrlib.core.npc.NpcParty], and add
+    the results to the rest of the party's experience. Divide the total among the surviving
+    characters and award each share with [`apply_xp`][osrlib.core.classes.apply_xp]. In a
+    session, the session counts defeated NPCs for you.
 
-    The SRD prices monsters by Hit Dice and says nothing about classed NPCs, so osrlib prices an
-    NPC adventurer as a monster of as many Hit Dice as they have levels, with no bonus for special
-    abilities. [The adaptations register](https://mmacy.github.io/osrlib-python/adaptations/), the
-    site page that lists the places where osrlib settles an ambiguous rule one way, includes this
+    The SRD gives experience for monsters by Hit Dice, and gives no rule for NPC adventurers. osrlib
+    counts an NPC adventurer as a monster with as many Hit Dice as the NPC has levels, and no
+    special abilities. [The adaptations register](https://mmacy.github.io/osrlib-python/adaptations/),
+    the site page that lists every place osrlib commits to one reading of the rules, records this
     reading.
 
     Args:
-        level: The NPC's class level.
+        level: The NPC's level, 1 or higher.
 
     Returns:
-        The experience for defeating them.
+        The experience points for defeating the NPC.
 
     Examples:
         ```python
@@ -308,7 +324,7 @@ def _roll_expert_items(
         instances = generate_magic_item(category, tier="expert", stream=treasure_stream, allocator=allocator)
         for instance in instances:
             if not _item_usable(member, definition, instance):
-                continue  # An item nobody can use is dropped, with no re-roll, as written.
+                continue  # An item the member can't use is dropped, with no re-roll, as written.
             member.inventory.items.append(instance)
             _maybe_equip_upgrade(member, definition, instance)
 
@@ -321,50 +337,58 @@ def generate_npc_party(
     treasure_stream: RngStream,
     allocator: Any,
 ) -> NpcParty:
-    """Roll up a band of NPC adventurers, complete with gear, spells, and treasure.
+    """Generate a party of NPC adventurers, with their gear, spells, and treasure.
 
-    Use it when your game needs other adventurers: a wandering encounter, a rival party in a keyed
-    room, a patrol. You supply the size, because the table that produced the encounter sets how many
-    appear. Everything else is rolled here.
+    Use it when you need other adventurers, like a wandering encounter or a rival party in a
+    room of an adventure. You pass the number of members, because the encounter table or the adventure
+    sets it. Everything else is rolled here. In a session, execute a
+    [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] command instead. The engine calls this
+    function and opens an encounter with the party.
 
-    The band shares one alignment, rolled once, so their reaction to the players and their
-    vulnerability to wards that depend on alignment have a single answer. Then each member in turn gets a
-    class and a level from the SRD's table, ability scores rolled 3d6 in order, hit points,
-    experience set to the threshold for their level, an equipment kit their class can use, and, if
-    they cast, spells prepared at random from their class's list. Every kit includes rations, a
-    waterskin, and torches. In an Expert band, clerics, dwarves, and fighters wear plate mail
-    instead of chainmail, and each member gets a 5% chance per level at each kind of magic item
-    they could use. The shared treasure is treasure types U and V rolled together.
+    The party shares one alignment, rolled once. Then each member gets, in turn:
 
-    Hit points come in two parts, and the split determines how many draws a member takes. The first level's hit
-    die is rolled here, directly, with the CON modifier added and the total floored at 1. Every
-    level after the first goes through [`level_up`][osrlib.core.classes.level_up], one call per
-    level, and each of those calls takes a draw only when that level's row adds a hit die. The
-    Expert level dice can put a dwarf, fighter, or thief above name level, the level at which a
-    character may build a stronghold. Each level past name level takes no draw.
+    - A class and a level, from the SRD's NPC party table.
+    - Ability scores, 3d6 for each ability in order.
+    - Hit points for that level.
+    - Experience points equal to the threshold for that level.
+    - An equipment kit their class can use, with rations, a waterskin, and torches.
+    - If they cast spells, memorized spells rolled at random from their class's list.
 
-    Members are not checked against their class's ability requirements, because in the SRD's procedure
-    their class is rolled before their scores. An elf here may have an INT a player character would not be allowed.
+    In an expert party, clerics, dwarves, and fighters wear plate mail instead of chainmail. Each
+    expert member also has a 5% chance per level of a magic item from each kind of item they could
+    use. The party's treasure is treasure types U and V, rolled once for the whole party and added
+    together.
 
-    The draws come off the two streams in a fixed order, which is what makes a seeded encounter
-    repeatable: the alignment and every member's rolls from `npc_stream` in member order, then
-    each member's magic items and finally the shared treasure from `treasure_stream`.
+    The first level's hit die is rolled directly, with the CON modifier added, and gives at least
+    1 hit point. Each level after the first is added with
+    [`level_up`][osrlib.core.classes.level_up], which rolls a die only when that level adds a hit
+    die. The expert level dice can put a dwarf, fighter, or thief above name level, the level at
+    which a character may build a stronghold, and no die is rolled for a level past name level.
+
+    This function doesn't check members against their class's minimum ability scores, because the
+    SRD's procedure rolls the class before the scores. An elf here can have an INT too low for a
+    player character elf.
+
+    The rolls come from the two streams in a fixed order, so the same seeds give the same party.
+    The alignment and then each member's rolls, in member order, come from `npc_stream`. Each
+    member's magic items, and then the party's treasure, come from `treasure_stream`.
 
     Args:
-        kind: `"basic"` for a band of levels 1 to 3, or `"expert"` for a seasoned one whose level
-            dice depend on the class rolled.
-        count: How many adventurers appear. Roll it from the encounter table that produced the encounter.
-        npc_stream: The stream for the members themselves, conventionally
+        kind: `"basic"` for a party of levels 1 to 3, or `"expert"` for a higher-level party,
+            whose level dice depend on the class rolled.
+        count: How many adventurers appear. Roll it from the `count_dice` of the encounter table
+            row for the party.
+        npc_stream: The stream for the members, usually
             `streams.get(`[`NPC_PARTY_STREAM`][osrlib.core.npc.NPC_PARTY_STREAM]`)`.
-        treasure_stream: The stream for their magic items and their shared treasure, conventionally
-            `streams.get(`[`TREASURE_STREAM`][osrlib.core.treasure.TREASURE_STREAM]`)`, so those
-            rolls count in the treasure statistics with every other treasure roll.
-        allocator: The [`IdAllocator`][osrlib.core.monsters.IdAllocator] that assigns ids to the members and
-            the items and valuables they carry. Pass the session's allocator so the new ids don't
-            collide with ids already in play.
+        treasure_stream: The stream for the magic items and the party's treasure, usually
+            `streams.get(`[`TREASURE_STREAM`][osrlib.core.treasure.TREASURE_STREAM]`)`.
+        allocator: The [`IdAllocator`][osrlib.core.monsters.IdAllocator] that assigns ids to the
+            members and to the magic items and valuables they carry. In a session, pass
+            [`GameSession.allocator`][osrlib.crawl.session.GameSession.allocator], so the new ids
+            don't repeat ids already in the game.
 
     Returns:
-        The band, its shared alignment, and its treasure.
+        The party: its members, their shared alignment, and their treasure.
 
     Examples:
         ```python

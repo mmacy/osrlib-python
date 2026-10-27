@@ -1,50 +1,62 @@
 """Authored triggers, which run referee commands when something happens in play.
 
-A trigger pairs an event pattern, optionally narrowed by conditions, with the referee
-commands that run when an event matches it.
+A trigger pairs an event pattern with referee commands. When an event matches the pattern, and
+the trigger's optional conditions hold, the commands run. Referee commands are the commands that
+change the game directly, like [`GrantItem`][osrlib.crawl.commands.GrantItem] or
+[`SetFlag`][osrlib.crawl.commands.SetFlag].
 
-You write [`TriggerSpec`][osrlib.crawl.triggers.TriggerSpec]s into
-the `triggers` tuple of an [`Adventure`][osrlib.crawl.adventure.Adventure], and that
-tuple's order is document order: triggers matching one event fire in it. Nothing plays
-them until your game registers an
+You write [`TriggerSpec`][osrlib.crawl.triggers.TriggerSpec]s into the `triggers` tuple of an
+[`Adventure`][osrlib.crawl.adventure.Adventure]. When one event matches several triggers, they
+fire in the order of that tuple. Triggers do nothing until you register an
 [`Interpreter`][osrlib.crawl.interpreter.Interpreter] on the session with
-[`GameSession.register_listener`][osrlib.crawl.session.GameSession.register_listener].
-The interpreter matches every accepted command's events against the adventure's triggers
-and issues each firing's commands. A firing shows up as a
-[`TriggerFiredEvent`][osrlib.crawl.events.TriggerFiredEvent], which includes the `fired`
-beat, as a [`JournalEntryAddedEvent`][osrlib.crawl.events.JournalEntryAddedEvent]
-when the block authors a journal form, as whatever events its consequences produce,
-and as a [`NoteRecordedEvent`][osrlib.crawl.events.NoteRecordedEvent] for a
-consequence the engine refused. `session.fired_triggers` records which triggers have fired.
+[`GameSession.register_listener`][osrlib.crawl.session.GameSession.register_listener]. The
+interpreter matches the events of every accepted command against the adventure's triggers, and
+executes the commands of each trigger that fires. When a trigger fires, you get these events:
 
-A gate ([`GateSpec`][osrlib.crawl.gates.GateSpec]) tests the state of the game at the
-moment the party attempts something. A trigger reacts to the events a command produced, so
-it fires when something happens, not while something is true. The lever that opens the
-portcullis is a trigger, and the door that needs the brass key is a gate.
+- A [`TriggerFiredEvent`][osrlib.crawl.events.TriggerFiredEvent] with the trigger's `fired` text.
+- The events its commands produce.
+- A [`NoteRecordedEvent`][osrlib.crawl.events.NoteRecordedEvent] for each command the session
+  rejected.
+- A [`JournalEntryAddedEvent`][osrlib.crawl.events.JournalEntryAddedEvent] when the trigger has
+  `journal` text.
 
-The pieces:
+`session.fired_triggers` records which triggers have fired.
 
-- A pattern ([`TriggerPattern`][osrlib.crawl.triggers.TriggerPattern]) identifies the
-  event to react to: a location crossed, an item acquired, a monster defeated, a flag
-  written.
-  Patterns are matched against the events themselves and never against current state,
-  because a consequence can move the party inside the same batch while an event still
-  describes the moment it reported.
-- Conditions ([`ConditionSpec`][osrlib.crawl.gates.ConditionSpec]) narrow the firing
-  further, all of them evaluated live against session state at match time. A condition
-  with `consumes=True` is rejected at parse, because a trigger reacts to something that
-  has already happened and has no attempt to charge a toll against.
-- Consequences ([`ConsequenceCommand`][osrlib.crawl.commands.ConsequenceCommand]) are
-  the referee commands the firing issues, in authored order.
-- A narrative block ([`NarrativeBlock`][osrlib.crawl.narrative.NarrativeBlock]) contains
-  the trigger's text. `fired` is the referee's beat and `journal` the players', so write
-  a journal form for the line the table should see.
+A gate ([`GateSpec`][osrlib.crawl.gates.GateSpec]) tests the state of the game when the party
+attempts something. A trigger matches the events a command produced, so it fires when
+something happens, not while something is true. The lever that opens the portcullis is a
+trigger, and the locked door you open with the brass key is a gate.
 
-Reach for a quest ([`QuestSpec`][osrlib.crawl.quests.QuestSpec]) instead when the
-adventure has to track progress toward an ending. A quest uses these same patterns and
-conditions. The guide
-[Gates, triggers, and quests](https://mmacy.github.io/osrlib-python/guides/gates-triggers-quests/)
-runs all three from one adventure document.
+A trigger has these parts:
+
+- A pattern ([`TriggerPattern`][osrlib.crawl.triggers.TriggerPattern]) is the event to
+  react to: the party entering an area, a level, a dungeon, or the town
+  ([`AreaEnteredPattern`][osrlib.crawl.triggers.AreaEnteredPattern],
+  [`LevelEnteredPattern`][osrlib.crawl.triggers.LevelEnteredPattern],
+  [`DungeonEnteredPattern`][osrlib.crawl.triggers.DungeonEnteredPattern],
+  [`TownEnteredPattern`][osrlib.crawl.triggers.TownEnteredPattern]), a member acquiring an item
+  ([`ItemAcquiredPattern`][osrlib.crawl.triggers.ItemAcquiredPattern]), a monster defeated
+  ([`MonsterDefeatedPattern`][osrlib.crawl.triggers.MonsterDefeatedPattern]), or a flag written
+  ([`FlagSetPattern`][osrlib.crawl.triggers.FlagSetPattern]). The interpreter matches a pattern
+  against the event, never against the current state. A command that the interpreter runs for
+  a trigger can move the party, but each event still describes the moment it happened.
+- Conditions ([`ConditionSpec`][osrlib.crawl.gates.ConditionSpec]) narrow the match. Each one has
+  to hold, against the session's state at the moment of the match. A condition with
+  `consumes=True` fails validation, because a trigger matches an event that has already
+  happened, and there's no attempt to charge a toll for.
+- Consequences ([`ConsequenceCommand`][osrlib.crawl.commands.ConsequenceCommand]) are the referee
+  commands the interpreter runs when the trigger fires, in the order you write them. In a grant
+  or award, write [`PARTY_SELECTOR`][osrlib.crawl.triggers.PARTY_SELECTOR] or
+  [`FIRST_LIVING_SELECTOR`][osrlib.crawl.triggers.FIRST_LIVING_SELECTOR] in place of a character
+  id.
+- A narrative block ([`NarrativeBlock`][osrlib.crawl.narrative.NarrativeBlock]) contains the
+  trigger's text. `fired` is a line for the referee, and `journal` is a line for the players.
+  Write `journal` for the text the players should see.
+
+Use a quest ([`QuestSpec`][osrlib.crawl.quests.QuestSpec]) instead when you need to track
+progress toward a goal. A quest's clauses use these same patterns and conditions. For an
+adventure document that uses all three, see
+[Gates, triggers, and quests](https://mmacy.github.io/osrlib-python/guides/gates-triggers-quests/).
 """
 
 from typing import Annotated, Literal
@@ -70,51 +82,52 @@ __all__ = [
 ]
 
 PARTY_SELECTOR = "@party"
-"""The `character_id` an authored consequence writes to address the whole party.
+"""The `character_id` to write in an authored grant or award that goes to every living member.
 
 Write it as the `character_id` of a
 [`GrantItem`][osrlib.crawl.commands.GrantItem],
 [`GrantCoins`][osrlib.crawl.commands.GrantCoins], or
 [`AwardXP`][osrlib.crawl.commands.AwardXP] in a trigger's consequences or a quest's
-rewards, where a concrete character id would be a guess: a document written before play
-can't contain the ids a session assigns.
+rewards. An adventure document can't contain real character ids, because a session assigns
+them when it starts. [`validate_adventure`][osrlib.crawl.adventure.validate_adventure] rejects
+any other `character_id` in those three commands, so every authored grant or award uses this
+selector or [`FIRST_LIVING_SELECTOR`][osrlib.crawl.triggers.FIRST_LIVING_SELECTOR].
 
-The [`Interpreter`][osrlib.crawl.interpreter.Interpreter] expands it at issue time into
-one command per living member, in marching order, so the command log stays concrete and
-replays exactly. A party with nobody left standing expands to no commands at all,
-because a reward for the dead is nothing rather than an error. Use
-[`FIRST_LIVING_SELECTOR`][osrlib.crawl.triggers.FIRST_LIVING_SELECTOR] when one member
-should receive the whole thing. The interpreter expands a selector in no other command, and
-passes a literal character id through untouched."""
+Before the [`Interpreter`][osrlib.crawl.interpreter.Interpreter] runs the command, it replaces
+the command with one copy for each living member, in marching order, each with that member's
+id. The command log records those copies, so a replay doesn't depend on the selector. When no
+member is alive, the command expands to nothing, and the interpreter records no note. Use
+`FIRST_LIVING_SELECTOR` when one member should receive the whole reward."""
 
 FIRST_LIVING_SELECTOR = "@first"
-"""The `character_id` an authored consequence writes to address one member.
+"""The `character_id` to write in an authored grant or award that goes to one member.
 
-The [`Interpreter`][osrlib.crawl.interpreter.Interpreter] expands it at issue time to
-the first living member in marching order, which is the treasure-recipient convention:
-one object goes to one member, and the party sorts it out with
-[`GiveItems`][osrlib.crawl.commands.GiveItems]. With nobody standing there is no
-recipient, so the consequence is dropped and a
-[`NoteRecordedEvent`][osrlib.crawl.events.NoteRecordedEvent] records why, rather than the
-engine guessing. Use [`PARTY_SELECTOR`][osrlib.crawl.triggers.PARTY_SELECTOR] when every
-member should receive the reward."""
+Before the [`Interpreter`][osrlib.crawl.interpreter.Interpreter] runs the command, it replaces
+the selector with the id of the first living member in marching order. That member receives
+the whole grant or award, and the party can share it out with
+[`GiveItems`][osrlib.crawl.commands.GiveItems]. When no member is alive, the interpreter drops
+the command and records why in a
+[`NoteRecordedEvent`][osrlib.crawl.events.NoteRecordedEvent]. Use
+[`PARTY_SELECTOR`][osrlib.crawl.triggers.PARTY_SELECTOR] when every living member should
+receive the reward."""
 
 
 class AreaEnteredPattern(BaseModel):
     """A pattern that matches the party entering a keyed area.
 
-    Matches a [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] for an
-    area. Area ids are scoped to their level, so the pattern includes the whole triple: an
-    area id of `"shrine"` means nothing without the dungeon and level it belongs to.
-    Reach for [`LevelEnteredPattern`][osrlib.crawl.triggers.LevelEnteredPattern] when the
-    whole level is the crossing you want.
+    It matches a [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] for
+    an area. An area id is unique only within its level, so the pattern includes the dungeon,
+    the level, and the area. Use
+    [`LevelEnteredPattern`][osrlib.crawl.triggers.LevelEnteredPattern] to react to the party
+    arriving anywhere on a level.
 
     Examples:
         ```python
         from osrlib.crawl.triggers import AreaEnteredPattern
 
         shrine = AreaEnteredPattern(dungeon_id="barrow", level_number=2, area_id="shrine")
-        assert shrine.pattern_type == "area_entered"
+        print(shrine.model_dump(mode="json"))  # the form the pattern takes in an adventure document
+        # {'pattern_type': 'area_entered', 'dungeon_id': 'barrow', 'level_number': 2, 'area_id': 'shrine'}
         ```
     """
 
@@ -128,24 +141,24 @@ class AreaEnteredPattern(BaseModel):
     level_number: int = Field(ge=1)
     """The 1-based number of the level the area belongs to."""
     area_id: str = Field(min_length=1)
-    """The keyed area's id, as the level's
-    [`AreaSpec`][osrlib.crawl.dungeon.AreaSpec] authored it."""
+    """The id of the area, from its [`AreaSpec`][osrlib.crawl.dungeon.AreaSpec] on that
+    level."""
 
 
 class LevelEnteredPattern(BaseModel):
     """A pattern that matches the party arriving on a dungeon level.
 
-    It matches however the party got there: a stair between levels and an entry from
-    town both put it on the level. When one move enters both a dungeon and a level, the
-    engine reports only the dungeon entry, and this pattern counts that as arriving on the
-    level too.
+    It matches however the party got there, by a stair from another level or by entering
+    the dungeon from town. When one move enters both a dungeon and a level, the engine
+    reports only the dungeon entry, and this pattern matches that report too.
 
     Examples:
         ```python
         from osrlib.crawl.triggers import LevelEnteredPattern
 
         deeper = LevelEnteredPattern(dungeon_id="barrow", level_number=2)
-        assert deeper.pattern_type == "level_entered"
+        print(deeper.model_dump(mode="json"))
+        # {'pattern_type': 'level_entered', 'dungeon_id': 'barrow', 'level_number': 2}
         ```
     """
 
@@ -164,17 +177,17 @@ class DungeonEnteredPattern(BaseModel):
     """A pattern that matches the party crossing into a dungeon, from town or another dungeon.
 
     It matches a [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] for a
-    dungeon.
-    Use it for a trigger that belongs to walking in the front door, and
-    [`LevelEnteredPattern`][osrlib.crawl.triggers.LevelEnteredPattern] for one that
-    belongs to a particular level.
+    dungeon. Use it to react to the party entering the dungeon, and
+    [`LevelEnteredPattern`][osrlib.crawl.triggers.LevelEnteredPattern] to react to the party
+    reaching a particular level.
 
     Examples:
         ```python
         from osrlib.crawl.triggers import DungeonEnteredPattern
 
         arrival = DungeonEnteredPattern(dungeon_id="barrow")
-        assert arrival.pattern_type == "dungeon_entered"
+        print(arrival.model_dump(mode="json"))
+        # {'pattern_type': 'dungeon_entered', 'dungeon_id': 'barrow'}
         ```
     """
 
@@ -190,17 +203,18 @@ class DungeonEnteredPattern(BaseModel):
 class TownEnteredPattern(BaseModel):
     """A pattern that matches the party arriving in the adventure's town, however it got there.
 
-    An adventure has one town, so the pattern needs no fields. A homecoming trigger fires
-    on the return trip and on a referee's placement alike. Pair it with a
-    [`HasItemCondition`][osrlib.crawl.gates.HasItemCondition] for the errand that is
-    finished only when the party walks home carrying the thing.
+    An adventure has one town, so the pattern has no fields. It matches when the party
+    travels back to town and when a referee command places the party there. Pair it with a
+    [`HasItemCondition`][osrlib.crawl.gates.HasItemCondition] for an errand that is done only
+    when the party comes home carrying an item.
 
     Examples:
         ```python
         from osrlib.crawl.triggers import TownEnteredPattern
 
         home = TownEnteredPattern()
-        assert home.pattern_type == "town_entered"
+        print(home.model_dump(mode="json"))
+        # {'pattern_type': 'town_entered'}
         ```
     """
 
@@ -214,22 +228,26 @@ class TownEnteredPattern(BaseModel):
 class ItemAcquiredPattern(BaseModel):
     """A pattern that matches a party member acquiring an item with `item_id`.
 
-    It matches an [`ItemAcquiredEvent`][osrlib.crawl.events.ItemAcquiredEvent], however
-    the item arrived: out of a cache, from a referee's grant, or from another member's
-    hands. The ids it accepts are the ones a `has_item` condition checks, from the effective
-    equipment catalog, meaning the built-in items plus the adventure's bundled ones, or
-    the magic-item catalog.
+    It matches an [`ItemAcquiredEvent`][osrlib.crawl.events.ItemAcquiredEvent], so it
+    matches an item the party takes as treasure, buys in town, or gets from a referee's
+    [`GrantItem`][osrlib.crawl.commands.GrantItem]. An item one member hands to another
+    doesn't match, because [`GiveItems`][osrlib.crawl.commands.GiveItems] reports an
+    [`ItemsGivenEvent`][osrlib.crawl.events.ItemsGivenEvent] instead. It accepts the same ids as a
+    [`HasItemCondition`][osrlib.crawl.gates.HasItemCondition]: ids from the equipment
+    catalog, which is the built-in items plus the adventure's bundled items, or from the
+    magic-item catalog.
 
-    The acquisition event reports mundane items by catalog id and magic items by their
-    session-scoped instance id, so a magic `item_id` matches by resolving that instance
-    against the acquiring character's inventory.
+    The event contains a mundane item's catalog id, or a magic item's instance id, which the
+    session assigns. To match a magic item, the interpreter looks up that instance
+    in the acquiring member's inventory and compares its catalog id.
 
     Examples:
         ```python
         from osrlib.crawl.triggers import ItemAcquiredPattern
 
         taken = ItemAcquiredPattern(item_id="brass_key")
-        assert taken.pattern_type == "item_acquired"
+        print(taken.model_dump(mode="json"))
+        # {'pattern_type': 'item_acquired', 'item_id': 'brass_key'}
         ```
     """
 
@@ -239,26 +257,27 @@ class ItemAcquiredPattern(BaseModel):
     """The discriminator value, `item_acquired`. It appears in the document, and you
     never set it yourself."""
     item_id: str = Field(min_length=1)
-    """The catalog id of the item to watch for, from the equipment catalog (built-in plus
-    adventure-bundled) or the magic-item catalog. For a magic item, author the template
-    id rather than an instance id."""
+    """The catalog id of the item to watch for, from the equipment catalog or the
+    magic-item catalog. For a magic item, write its catalog id, not an instance id."""
 
 
 class MonsterDefeatedPattern(BaseModel):
     """A pattern that matches a monster of `template_id` being slain or routed.
 
-    Both outcomes count as a defeat, and the pattern matches either one the same way. Defeats are
-    reported at battle end through
-    [`MonsterDefeatedEvent`][osrlib.crawl.events.MonsterDefeatedEvent], so a boss falling
-    opens the portcullis once the fighting stops and never mid-round. Don't author a trigger
-    that has to fire the instant a blow kills.
+    Slain and routed both count as defeated, and the pattern matches either one. The engine
+    reports each defeat with a
+    [`MonsterDefeatedEvent`][osrlib.crawl.events.MonsterDefeatedEvent] when the encounter
+    closes, not when the monster falls. A trigger on a boss therefore fires after the
+    fighting stops, never in the middle of a round. No pattern matches the moment of a
+    kill.
 
     Examples:
         ```python
         from osrlib.crawl.triggers import MonsterDefeatedPattern
 
         beaten = MonsterDefeatedPattern(template_id="ogre")
-        assert beaten.pattern_type == "monster_defeated"
+        print(beaten.model_dump(mode="json"))
+        # {'pattern_type': 'monster_defeated', 'template_id': 'ogre'}
         ```
     """
 
@@ -268,29 +287,28 @@ class MonsterDefeatedPattern(BaseModel):
     """The discriminator value, `monster_defeated`. It appears in the document, and you
     never set it yourself."""
     template_id: str = Field(min_length=1)
-    """The monster template id to watch for, from the monster catalog (built-in plus
-    adventure-bundled). It is the template, not a session-scoped instance id, so every
-    monster of that kind matches."""
+    """The id of the monster to watch for, from the monster catalog, which is the built-in
+    monsters plus the adventure's bundled monsters. It's the catalog id, not an instance id,
+    so every monster of that kind matches."""
 
 
 class FlagSetPattern(BaseModel):
     """A pattern that matches a write to a session flag.
 
-    It matches the write, not the flag's state. Your game, or another trigger's consequence,
-    executes
-    [`SetFlag`][osrlib.crawl.commands.SetFlag], the write emits a
-    [`FlagSetEvent`][osrlib.crawl.events.FlagSetEvent], and the trigger watching that key
-    fires. The match is against the value the write set, so a flag rewritten with the
-    value it already had still fires. To ask about the value a flag has now instead of a
-    write that just happened, use a
-    [`FlagEqualsCondition`][osrlib.crawl.gates.FlagEqualsCondition].
+    It matches the write, not the flag's state. When you execute
+    [`SetFlag`][osrlib.crawl.commands.SetFlag], or the interpreter executes it for a trigger,
+    the session emits a [`FlagSetEvent`][osrlib.crawl.events.FlagSetEvent], and a trigger with a
+    pattern for that flag fires. The pattern compares the value that was written, so writing a flag again with the
+    value it already has still matches. To test the value a flag has now, use a
+    [`FlagEqualsCondition`][osrlib.crawl.gates.FlagEqualsCondition] instead.
 
     Examples:
         ```python
         from osrlib.crawl.triggers import FlagSetPattern
 
         pulled = FlagSetPattern(key="crypt.lever", value="pulled")
-        assert pulled.pattern_type == "flag_set"
+        print(pulled.model_dump(mode="json"))
+        # {'pattern_type': 'flag_set', 'key': 'crypt.lever', 'value': 'pulled'}
         ```
     """
 
@@ -300,14 +318,14 @@ class FlagSetPattern(BaseModel):
     """The discriminator value, `flag_set`. It appears in the document, and you
     never set it yourself."""
     key: str = Field(min_length=1)
-    """The flag name to watch."""
+    """The name of the flag to watch."""
     value: str | int | bool | None = None
-    """The written value to match, or `None` to match any write of the key. `None` is
-    unambiguous because a flag value is a `str`, an `int`, or a `bool` and never `None`.
-    An authored value compares through
-    [`flag_values_equal`][osrlib.crawl.gates.flag_values_equal], the same strict
-    comparison a [`FlagEqualsCondition`][osrlib.crawl.gates.FlagEqualsCondition] uses,
-    so a stored `True` never matches an authored `1`."""
+    """The written value to match, or `None` to match any write of the flag. A flag value is
+    a `str`, an `int`, or a `bool`, never `None`, so `None` can't be mistaken for a value.
+    The pattern compares values with
+    [`flag_values_equal`][osrlib.crawl.gates.flag_values_equal], the same strict comparison
+    a [`FlagEqualsCondition`][osrlib.crawl.gates.FlagEqualsCondition] uses, so a written
+    `True` doesn't match an authored `1`."""
 
 
 TriggerPattern = Annotated[
@@ -324,29 +342,29 @@ TriggerPattern = Annotated[
 
 Annotate a field with this alias when you write your own model that contains an authored
 pattern. Pydantic then picks the member from the `pattern_type` value in the document.
-It is the type of [`TriggerSpec.when`][osrlib.crawl.triggers.TriggerSpec] and of
-[`TriggerClause.pattern`][osrlib.crawl.quests.TriggerClause], so a quest watches exactly
-what a trigger watches. The `pattern_type` values are part of the document format, so a
+It's the type of [`TriggerSpec.when`][osrlib.crawl.triggers.TriggerSpec.when] and of
+[`TriggerClause.pattern`][osrlib.crawl.quests.TriggerClause.pattern], so a quest clause can
+match the same events a trigger can. The `pattern_type` values are part of the document format, so a
 later release can add a member but doesn't rename one within a schema version."""
 
 
 class TriggerSpec(BaseModel):
-    """One authored trigger: when it fires, what must hold, and what happens.
+    """One authored trigger: what it reacts to, what has to hold, and what happens.
 
     Put your triggers in the `triggers` tuple of an
     [`Adventure`][osrlib.crawl.adventure.Adventure], and register an
-    [`Interpreter`][osrlib.crawl.interpreter.Interpreter] on the session to play them. A
-    spec on its own is inert data, and the engine reads it only through that
-    listener.
+    [`Interpreter`][osrlib.crawl.interpreter.Interpreter] on the session to run them. The
+    interpreter is the only part of osrlib that reads a trigger, so without it the
+    trigger does nothing.
 
-    A trigger fires once ever by default. The fired-mark that
-    [`MarkTriggerFired`][osrlib.crawl.commands.MarkTriggerFired] writes is session state,
-    so once-only survives a save, a load, and a replay, and `session.fired_triggers` is
-    where you read it. `repeatable=True` is the authored opt-in for a trigger that fires
-    every time its pattern matches.
+    By default a trigger fires once per session. When it fires, the interpreter executes
+    [`MarkTriggerFired`][osrlib.crawl.commands.MarkTriggerFired], which adds the trigger's
+    id to `session.fired_triggers`. That record is part of the session, so a trigger that
+    has fired stays fired after a save, a load, or a replay. Set `repeatable=True` for a
+    trigger that fires every time its pattern matches.
 
-    The [`Interpreter`][osrlib.crawl.interpreter.Interpreter] example runs a trigger in a
-    session from start to finish.
+    For a trigger in a session from start to finish, see the
+    [`Interpreter`][osrlib.crawl.interpreter.Interpreter] example.
 
     Examples:
         ```python
@@ -373,40 +391,39 @@ class TriggerSpec(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     id: str = Field(min_length=1)
-    """The trigger's id, unique across the adventure. It is what `session.fired_triggers` records,
-    and what the `source` stamp on every command the firing issues contains, in the form
-    `trigger:{id}`."""
+    """The trigger's id, unique across the adventure. `session.fired_triggers` records it, and
+    every command the interpreter runs for the trigger has `source` set to `trigger:{id}`."""
     when: TriggerPattern
-    """The observable that fires it, one member of
+    """The pattern of the event that fires the trigger, as one member of
     [`TriggerPattern`][osrlib.crawl.triggers.TriggerPattern]."""
     conditions: tuple[ConditionSpec, ...] = ()
-    """Extra tests that all have to hold at the moment of the match. The tuple is an AND
-    with no combinators, and each condition is evaluated live against session state
-    through [`condition_holds`][osrlib.crawl.gates.condition_holds]. A condition with
-    `consumes=True` is rejected at parse."""
+    """Extra tests, every one of which has to hold when an event matches `when`. There's no
+    way to write "or". The interpreter evaluates each condition against the session at
+    that moment with [`condition_holds`][osrlib.crawl.gates.condition_holds]. A condition
+    with `consumes=True` fails validation with a pydantic `ValidationError`."""
     repeatable: bool = False
-    """Whether the trigger fires every time its pattern matches. The default fires it
-    once for the life of the session."""
+    """Whether the trigger fires every time its pattern matches. With `False`, the default,
+    it fires once per session."""
     consequences: tuple[ConsequenceCommand, ...] = ()
-    """The referee commands the firing issues, in authored order, with
-    [`PARTY_SELECTOR`][osrlib.crawl.triggers.PARTY_SELECTOR] and
-    [`FIRST_LIVING_SELECTOR`][osrlib.crawl.triggers.FIRST_LIVING_SELECTOR] expanded to
-    the members they select. Each command is applied or dropped independently, so one
-    rejection never stops the rest. The tuple may be empty: a trigger whose only job is
-    its journal beat is normal. An authored `source` is rejected at parse, because
-    the interpreter stamps it for the trigger."""
+    """The referee commands the interpreter runs when the trigger fires, in the order you write
+    them. The interpreter
+    replaces [`PARTY_SELECTOR`][osrlib.crawl.triggers.PARTY_SELECTOR] and
+    [`FIRST_LIVING_SELECTOR`][osrlib.crawl.triggers.FIRST_LIVING_SELECTOR] with the members
+    they select. When the session rejects one command, the interpreter drops it, records a
+    note, and runs the rest. The tuple can be empty, for a trigger that only adds a journal
+    entry. A command with `source` set fails validation with a pydantic `ValidationError`,
+    because the interpreter sets `source` itself."""
     narrative: NarrativeBlock | None = None
-    """The trigger's authored text. osrlib reads two beats of the block: `fired`,
-    reported by the referee-visibility
-    [`TriggerFiredEvent`][osrlib.crawl.events.TriggerFiredEvent], and `journal`, which
-    becomes a player-visible journal entry."""
+    """The trigger's authored text. osrlib reads two fields of the block. `fired` goes on the
+    [`TriggerFiredEvent`][osrlib.crawl.events.TriggerFiredEvent], which only the referee
+    sees. `journal` becomes a journal entry that the players see."""
 
     @model_validator(mode="after")
     def _conditions_never_consume(self) -> TriggerSpec:
         """A trigger's conditions are tests, never tolls.
 
         Consumption is an effect of a *successful command*, reported through that
-        command's events. A trigger observes an event that has already happened, so a
+        command's events. A trigger matches an event that has already happened, so a
         toll here would have nothing to charge against.
         """
         for condition in self.conditions:
@@ -416,11 +433,11 @@ class TriggerSpec(BaseModel):
 
     @model_validator(mode="after")
     def _consequences_carry_no_source(self) -> TriggerSpec:
-        """The `source` stamp belongs to whoever issues the command, not the document.
+        """Whoever issues a command sets its `source`, not the document.
 
-        Consequences are issued stamped with the trigger's id, so an authored
-        stamp would either be overwritten or, worse, accepted: a line in the log
-        claiming a source that never issued the command.
+        The interpreter issues consequences with the trigger's id as their `source`, so a
+        source written in the document would either be overwritten or be accepted, and the
+        log would then show a source that never issued the command.
         """
         for position, consequence in enumerate(self.consequences):
             if consequence.source is not None:

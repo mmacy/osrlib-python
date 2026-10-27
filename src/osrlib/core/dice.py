@@ -1,19 +1,29 @@
 """Rolling dice from the strings the rules are written in.
 
-[`roll`][osrlib.core.dice.roll] is the entry point: hand it a dice expression like
+[`roll`][osrlib.core.dice.roll] is the entry point. Pass it a dice expression like
 `"3d6"` and an [`RngStream`][osrlib.core.rng.RngStream] from
 [`RngStreams.get`][osrlib.core.rng.RngStreams.get], and it returns a
 [`RollResult`][osrlib.core.dice.RollResult] with each die and the total. Call
 [`parse`][osrlib.core.dice.parse] first only when you want to check an expression
-without rolling it, or to inspect its parts. Every dice field in the compiled SRD data
-is written in this grammar, so monster damage, treasure quantities, and spell effects all
-go straight to `roll`.
+without rolling it, or to read its parts. Every dice field in the compiled SRD data
+is written in this grammar, so you can pass monster damage, treasure quantities, and
+spell effects straight to `roll`.
+
+The members, in the order you use them:
+
+- [`roll`][osrlib.core.dice.roll]: takes an expression and a stream, and returns a
+  [`RollResult`][osrlib.core.dice.RollResult].
+- [`parse`][osrlib.core.dice.parse]: takes an expression string and returns a
+  [`DiceExpression`][osrlib.core.dice.DiceExpression], or raises if the string is
+  malformed.
+- [`ALLOWED_SIDES`][osrlib.core.dice.ALLOWED_SIDES]: the die sizes an expression may
+  use.
 
 The grammar is `NdS` with an optional `+M` or `-M` modifier and an optional `×K`
 multiplier, with `x` and `*` accepted as ASCII aliases for `×`: `3d6`, `1d6+1`, `1d4-1`,
 `2d6×10`. `N` defaults to 1, `d%` means `d100`, and the die sizes are the closed set
 {2, 3, 4, 6, 8, 10, 12, 20, 100}. Parsing ignores case and surrounding whitespace,
-rejects whitespace inside the expression, and fixes the order as dice, then modifier,
+rejects whitespace inside the expression, and requires the order dice, then modifier,
 then multiplier. Numerals are plain ASCII digits with no leading zeros: the dice count
 runs 1 to 999, the modifier's magnitude reaches 999999, and the multiplier runs 1 to
 999999. Anything else raises
@@ -23,12 +33,12 @@ A total is `(sum of the dice + M) × K`, so the modifier applies before the mult
 That isn't ordinary arithmetic precedence: `2d6+1×10` means `(2d6 + 1) × 10`, the
 convention B/X treasure rolls are printed in, not `2d6 + 10`.
 
-Totals aren't clamped, so `1d4-1` can come out 0 and `1d4-2` can come out −1. If you're
-rolling damage and want the floor of 1 hit point, that floor belongs to combat, and
+Totals aren't clamped, so `1d4-1` can come out 0 and `1d4-2` can come out −1. The rule
+that an attack deals at least 1 point of damage is a combat rule, and
 [`resolve_attack`][osrlib.core.combat.resolve_attack] applies it for you.
 
 There's no default stream and no module-level random number generator. You pass the
-stream on every call, which is what makes a game replayable.
+stream on every call, and that's what makes a game replayable.
 """
 
 import re
@@ -47,23 +57,22 @@ __all__ = [
 ]
 
 ALLOWED_SIDES = frozenset({2, 3, 4, 6, 8, 10, 12, 20, 100})
-"""Every die size an expression may name: 2, 3, 4, 6, 8, 10, 12, 20, and 100.
+"""Every die size an expression may use: 2, 3, 4, 6, 8, 10, 12, 20, and 100.
 
-These are the dice the B/X rules roll and the only sizes the compiled SRD data contains.
+These are the dice B/X uses and the only sizes the compiled SRD data contains.
 Read the set to offer a picker or to check a size before you build an expression.
 [`parse`][osrlib.core.dice.parse] checks it for you and raises
 [`ContentValidationError`][osrlib.errors.ContentValidationError] on anything else, so a
 d7 never reaches a rules function.
 
-The set is closed, so adding to it isn't the way to roll an unusual die. Draw
-that one yourself with
-[`RngStream.randbelow`][osrlib.core.rng.RngStream.randbelow], which takes any positive
-bound.
+The set is a `frozenset`, so you can't add to it. To roll a die of another size, draw
+it yourself with [`RngStream.randbelow`][osrlib.core.rng.RngStream.randbelow], which
+takes any positive bound.
 """
 
-# Canonical ASCII digits only, no leading zeros, bounded lengths. What parse accepts is
-# the grammar, so the things \d would quietly admit (Unicode digits, 5000-digit numerals)
-# are rejected here rather than found later to be part of the contract.
+# Canonical ASCII digits only, no leading zeros, bounded lengths. Whatever parse accepts
+# becomes part of the grammar, so this pattern rejects what \d would accept (Unicode digits,
+# 5000-digit numerals) before anyone comes to depend on it.
 _EXPRESSION_PATTERN = re.compile(
     r"""
     (?P<count>[1-9][0-9]{0,2})?
@@ -80,14 +89,15 @@ class DiceExpression(BaseModel):
     """A dice expression taken apart: how many dice, of what size, plus what, times what.
 
     [`parse`][osrlib.core.dice.parse] returns one. Read its fields to show a roll before
-    it happens ("2d6+1, ×10"), to work out a range, or to check what a piece of content
-    will roll. Pass it back to [`roll`][osrlib.core.dice.roll] when you want the result.
-    Handing `roll` the same expression object repeatedly saves reparsing the string each
-    time.
+    it happens ("2d6+1, ×10"), to work out a range, or to check which dice a piece of
+    content uses. Pass it to [`roll`][osrlib.core.dice.roll] when you want the result.
+    Passing `roll` the same expression object each time saves parsing the string again.
 
-    Building one directly is legal and validated, so you can assemble an expression from
-    parts instead of formatting a string. The model is frozen, so make a changed copy with
-    `expression.model_copy(update={"count": 4})`.
+    You can also construct one from its parts instead of formatting a string, and the
+    constructor validates them. The model is frozen. To change a part, make a new one
+    with `DiceExpression.model_validate(expression.model_dump() | {"count": 4})`, which
+    validates the result. pydantic's `model_copy(update=...)` skips validation, so it can
+    produce a die size outside [`ALLOWED_SIDES`][osrlib.core.dice.ALLOWED_SIDES].
 
     Examples:
         ```python
@@ -113,7 +123,7 @@ class DiceExpression(BaseModel):
     """How many sides each die has.
 
     One of [`ALLOWED_SIDES`][osrlib.core.dice.ALLOWED_SIDES]. Any other value raises a
-    pydantic `ValidationError`. A `d%` in the source string arrives here as 100.
+    pydantic `ValidationError`. A `d%` in the source string becomes 100 here.
     """
 
     modifier: int = 0
@@ -136,12 +146,11 @@ class DiceExpression(BaseModel):
 class RollResult(BaseModel):
     """What a dice roll produced: each die, and the total they add up to.
 
-    [`roll`][osrlib.core.dice.roll] returns one. Take `total` for the number the rules
-    call for, and show `rolls` to the player. The game's events include the individual
-    dice for the same reason: so an interface can put them on the screen.
-
-    Attack and damage resolution in [`osrlib.core.combat`][osrlib.core.combat] hands back
-    results with these fields too, so one piece of display code covers both.
+    [`roll`][osrlib.core.dice.roll] returns one. Use `total` as the result of the
+    roll, and show `rolls` to the player if you display dice.
+    [`damage_roll`][osrlib.core.combat.damage_roll] returns one too, and a
+    [`DamageDealtEvent`][osrlib.core.events.DamageDealtEvent] lists its dice in `rolls`,
+    so you can use the same display code for damage.
 
     Examples:
         ```python
@@ -167,7 +176,7 @@ class RollResult(BaseModel):
     """The multiplier that was applied after the modifier, copied from the expression."""
 
     total: int
-    """The number the rules use: the sum of the dice, plus the modifier, times the multiplier.
+    """The result of the roll: the sum of the dice, plus the modifier, times the multiplier.
 
     Not clamped, so a `1d4-1` roll can total 0.
     """
@@ -176,8 +185,8 @@ class RollResult(BaseModel):
 def parse(expression: str) -> DiceExpression:
     """Take a dice expression string apart into its dice, modifier, and multiplier.
 
-    Call this to check an expression a player or an adventure file supplied before you
-    trust it, or to read its parts. To roll instead, call
+    Call this to check an expression that a player or an adventure file supplies before
+    you trust it, or to read its parts. To roll instead, call
     [`roll`][osrlib.core.dice.roll], which parses the string itself. Parsing first saves
     nothing unless you roll the same expression many times.
 
@@ -232,21 +241,20 @@ def parse(expression: str) -> DiceExpression:
 def roll(expression: str | DiceExpression, stream: RngStream) -> RollResult:
     """Roll a dice expression, drawing from the stream you pass.
 
-    This is the one way dice are rolled in osrlib. Get a stream from
+    osrlib rolls most of its dice with this function. Get a stream from
     [`RngStreams.get`][osrlib.core.rng.RngStreams.get] and reuse it: the same seed and
-    the same sequence of calls give the same rolls, which is what makes a saved game
-    replay. Take the number out of `total` and show `rolls` if your interface displays
-    dice.
+    the same sequence of calls give the same rolls, which is what lets you replay a saved
+    game. Use the number in `total`, and show `rolls` if you display dice.
 
-    Dice are rolled left to right, and one die of size S draws
-    [`randbelow(S)`][osrlib.core.rng.RngStream.randbelow] plus 1. That mapping is fixed:
-    changing it would change every roll in every existing saved game.
+    The function rolls the dice one at a time, and each die of size S is
+    [`randbelow(S)`][osrlib.core.rng.RngStream.randbelow] plus 1. That mapping doesn't
+    change between releases, because a change would alter the rolls of every saved game.
 
     Args:
-        expression: What to roll, as a string this parses for you or as a
+        expression: What to roll, as a string that `roll` parses for you or as a
             [`DiceExpression`][osrlib.core.dice.DiceExpression] you already parsed.
-        stream: The stream the dice draw from. It advances, so passing the same stream
-            again gives different dice.
+        stream: The stream to draw from. It advances, so passing the same stream again
+            continues the sequence instead of repeating the dice.
 
     Returns:
         The dice and the total. The total isn't clamped, so it can be zero or negative

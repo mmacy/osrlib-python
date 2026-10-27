@@ -1,57 +1,66 @@
 """Roll what one keyed room contains, from the B/X stocking tables.
 
-[`stock_area`][osrlib.crawl.stocking.stock_area] is the entry point, and the two models here are what
-it returns. Give it a dungeon level number,
-a monster catalog, and an RNG stream, and it rolls one room the way the B/X procedure does: the
-room-contents d6, the treasure chance that row prints, and, on a monster room, the level's encounter
-table and the count that row calls for. What comes back is a frozen
-[`StockedArea`][osrlib.crawl.stocking.StockedArea] containing content models you can read, edit, and
-place: a [`KeyedEncounter`][osrlib.crawl.dungeon.KeyedEncounter] to drop on an
-[`AreaSpec`][osrlib.crawl.dungeon.AreaSpec], or an
-[`AreaTreasureSpec`][osrlib.crawl.dungeon.AreaTreasureSpec] to put on one. It is an authoring tool,
-not part of play: nothing here touches a session, and a stocked area is content rather than state.
+B/X fills an unkeyed dungeon room with dice: the referee rolls a d6 for whether the room has a
+monster, a trap, something special, or nothing, and a second d6 for whether it has treasure. This module runs that
+procedure for you while you write an adventure. It isn't part of play. It doesn't read or change a
+session, and it returns content for you to place, not game state.
 
-The tables it rolls on are already compiled data. The room-contents d6 with its per-row treasure chance is
-[`StockingTable`][osrlib.core.treasure.StockingTable], the encounter tables are
-[`load_encounter_tables`][osrlib.data.load_encounter_tables], and the treasure generators live in
-`osrlib.core.treasure`. This module is the procedure that puts them together.
+The members, in the order you use them:
 
-Every draw comes from the one stream you pass, in a fixed order, so the same stream state and the same
-level give the same room every time. The order matches the crawl's wandering resolution, so
-stocking a row yields exactly what a wandering encounter on that row would:
+- [`stock_area`][osrlib.crawl.stocking.stock_area] takes a dungeon level number, a monster catalog,
+  and an [`RngStream`][osrlib.core.rng.RngStream], and rolls one room.
+- [`StockedArea`][osrlib.crawl.stocking.StockedArea] is what it returns. Its `contents` field gives
+  the kind of room. At most one of its `encounter`, `npc_party`, and `treasure` is set. Copy an
+  `encounter` (a [`KeyedEncounter`][osrlib.crawl.dungeon.KeyedEncounter]) or a `treasure` (an
+  [`AreaTreasureSpec`][osrlib.crawl.dungeon.AreaTreasureSpec]) onto the
+  [`AreaSpec`][osrlib.crawl.dungeon.AreaSpec] for that room.
+- [`StockedNpcParty`][osrlib.crawl.stocking.StockedNpcParty] is the value of `npc_party` when the
+  monster roll comes up as a party of NPC adventurers (characters the referee runs).
 
-1. the room-contents d6, then the treasure d6, the second only when the selected row prints a
-   non-zero treasure chance (a row with no printed chance consumes no die).
-2. on a monster room, the encounter table's d20 row, then that row's count dice (a row with a fixed
-   count consumes none). A count below 1 counts as 1.
-3. then either one `variant_dice` roll, which is the hydra form where the printed hit-dice roll
-   selects the template once, or, for a row with several template ids, one pick per individual, each id equally likely.
+The tables come from the compiled data: the room-contents table is
+[`StockingTable`][osrlib.core.treasure.StockingTable], and the encounter tables come from
+[`load_encounter_tables`][osrlib.data.load_encounter_tables].
 
-A monster room's rolled individuals are grouped into
-[`KeyedMonster`][osrlib.crawl.dungeon.KeyedMonster] lines with fixed counts, because a printed module
-gives concrete numbers and a concrete number is what you review and edit. An empty or trap room that
-rolled treasure gets an unguarded `AreaTreasureSpec`. A monster room's treasure is the encounter's
-`hoard` flag rather than a second declaration. Traps and specials produce no model at all, because
-B/X prints example lists for those as referee prose rather than as tables, and an NPC-party row has no
-authorable content either, so `stock_area` reports the kind and the count and stops. You design
-the traps, the specials, and any NPC party yourself.
+Every draw comes from the stream you pass, in a fixed order, so the same stream state and the same
+level give the same room every time. The order is the one the session uses for a wandering
+encounter, so stocking a monster room gives exactly what a wandering encounter on the same table row would:
+
+1. The room-contents d6. Then the treasure d6, but only when the row it selected gives a chance of
+   treasure. For a row with no chance, `stock_area` doesn't roll a second die.
+2. On a monster room, the d20 for the encounter table's row, then that row's count dice. For a row
+   with a fixed count, it rolls no count dice. A count below 1 counts as 1.
+3. Then, for a row whose monster depends on a die roll, like a hydra whose number of heads is
+   rolled, one roll that picks the monster for the whole group. For a row that lists several
+   monsters, one pick for each individual, each monster equally likely.
+
+`stock_area` groups a monster room's individuals into [`KeyedMonster`][osrlib.crawl.dungeon.KeyedMonster]
+lines with fixed counts, the way a printed adventure gives concrete numbers that you can review and
+edit. An empty or trap room with treasure gets an `AreaTreasureSpec` for unguarded treasure.
+A monster room's treasure is the encounter's `hoard` flag instead. A trap or a special room gets no
+model, because B/X describes those with example lists for the referee rather than with tables, and
+an NPC party gets only its kind and size. You design the traps, the specials, and the NPC parties
+yourself.
 
 Typical usage:
 
 ```python
 from osrlib.core.rng import RngStream
+from osrlib.crawl.dungeon import AreaSpec
 from osrlib.crawl.stocking import stock_area
 from osrlib.data import load_monsters
 
 catalog = load_monsters()
-stream = RngStream.from_seed_material(7, "stocking")
-for _ in range(3):
-    area = stock_area(1, catalog=catalog, stream=stream)
-    lines = [(line.template_id, line.count_fixed) for line in (area.encounter.monsters if area.encounter else ())]
-    print(area.contents, area.treasure_present, lines)
-# monster False [('gecko', 3)]
-# monster False [('trader', 3)]
-# special False []
+stream = RngStream.from_seed_material(23, "stocking")
+areas = []
+for number in range(1, 4):
+    stocked = stock_area(1, catalog=catalog, stream=stream)
+    room = AreaSpec(id=f"room-{number}", cells=((number, 0),), encounter=stocked.encounter, treasure=stocked.treasure)
+    areas.append(room)
+
+print([(area.id, area.encounter is not None, area.treasure is not None) for area in areas])
+# [('room-1', True, False), ('room-2', True, False), ('room-3', False, True)]
+print([(line.template_id, line.count_fixed) for line in areas[0].encounter.monsters])
+# [('skeleton', 7)]
 ```
 """
 
@@ -75,74 +84,78 @@ __all__ = [
 
 
 class StockedNpcParty(BaseModel):
-    """The party kind and size a monster room's encounter row rolled.
+    """The kind and size of NPC party that a monster room's encounter roll produced.
 
-    No content model describes an NPC party. A party is built during play from character classes and
-    their gear rather than from a keyed encounter or treasure letters, so
-    [`stock_area`][osrlib.crawl.stocking.stock_area] has nothing to hand back and place. The roll still
-    selected a row and a count, so the function reports those. To put the party in play, execute
+    An NPC party is a band of adventurers the referee runs. No content model describes one, because
+    the session builds the party during play from character classes and gear, not from monster
+    templates and treasure letters. So [`stock_area`][osrlib.crawl.stocking.stock_area] has no model
+    to hand back. It reports the kind and the count the roll gave instead.
+
+    You get one in [`StockedArea.npc_party`][osrlib.crawl.stocking.StockedArea.npc_party], only on a
+    room whose `contents` is `"monster"`. To put a party in play, execute
     [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] with this `kind` as its `party_kind`, from
-    your game or from a trigger's consequences.
-
-    You get one on [`StockedArea.npc_party`][osrlib.crawl.stocking.StockedArea], and only on a room
-    whose `contents` is `"monster"`.
+    your own code or as a trigger's consequence.
 
     Attributes:
-        kind: Which encounter list the party came off.
-        count: How many are in it.
+        kind: Which NPC party table the roll selected.
+        count: How many adventurers are in the party.
     """
 
     model_config = ConfigDict(frozen=True)
 
     kind: Literal["basic", "expert"]
-    """Which of the two NPC-party lists the row came off: `"basic"` or `"expert"`. The two lists
-    describe different sorts of party, and the row you rolled selects one of the two."""
+    """Which NPC party table the encounter row selected: `"basic"` for a party of low-level
+    adventurers, or `"expert"` for a higher-level one."""
     count: int = Field(ge=1)
-    """How many are in the party, from the row's count. A count below 1 counts as 1."""
+    """How many adventurers are in the party, from the row's count. A count below 1 counts as 1."""
 
 
 class StockedArea(BaseModel):
     """The content the stocking rolls produced for one keyed room, for you to place on an area.
 
-    This is what [`stock_area`][osrlib.crawl.stocking.stock_area] returns. Read `contents` first to
-    find out what sort of room you rolled, then take whichever payload came with it and write it onto
-    an [`AreaSpec`][osrlib.crawl.dungeon.AreaSpec] you are building.
+    [`stock_area`][osrlib.crawl.stocking.stock_area] returns one. Read `contents` to find out what
+    kind of room you rolled, then copy the payload that came with it onto the
+    [`AreaSpec`][osrlib.crawl.dungeon.AreaSpec] you're building for that room.
 
-    There is at most one payload: `encounter` for a monster room, `npc_party` for a monster room
-    whose encounter row turned out to be an NPC party, or `treasure` for an empty or trap room that
-    rolled treasure. A monster room's treasure is its encounter's `hoard` flag rather than a separate
-    declaration, so `treasure` is always `None` there. Traps and specials have no payload at all,
-    because B/X leaves those to the referee.
+    There is at most one payload:
+
+    - `encounter` on a monster room.
+    - `npc_party` on a monster room whose encounter roll produced an NPC party.
+    - `treasure` on an empty or trap room that rolled treasure.
+
+    A monster room's treasure is its encounter's `hoard` flag, so `treasure` is always `None` on a
+    monster room. A trap or a special room has no payload, because B/X leaves those to the referee.
 
     Attributes:
         contents: What the room-contents d6 rolled.
         treasure_present: Whether the treasure d6 gave the room treasure.
         encounter: The monsters, on a monster room.
-        npc_party: The NPC party, when the encounter row rolled one.
+        npc_party: The NPC party, when the encounter roll produced one.
         treasure: The unguarded treasure, on an empty or trap room that rolled some.
     """
 
     model_config = ConfigDict(frozen=True)
 
     contents: Literal["empty", "monster", "special", "trap"]
-    """The room-contents d6's result: `"empty"`, `"monster"`, `"special"`, or `"trap"`. A special is
-    a magical or unusual feature and a trap is a room trap, and B/X prints example lists for both as
-    referee prose, so neither comes with a model."""
+    """What the room-contents d6 rolled: `"empty"`, `"monster"`, `"special"`, or `"trap"`. A special
+    is a magical or unusual feature, and a trap is a room trap. B/X describes both with example lists
+    for the referee, so neither comes with a model."""
     treasure_present: bool
-    """Whether the treasure d6 rolled within the row's treasure chance. It is always `False` when the
-    row prints no treasure chance, which is the case for a special, and no die is rolled then. On a monster room
-    this is the same value as the encounter's `hoard` flag."""
+    """Whether the treasure d6 rolled within the row's chance of treasure. It's always `False` when
+    the row gives no chance, as for a special room, and then `stock_area` rolls no die. On a
+    monster room it's the same value as the encounter's `hoard` flag."""
     encounter: KeyedEncounter | None = None
-    """The monsters in the room, on a monster room, and `None` otherwise. The lines have fixed
-    counts, already rolled, and the encounter's `hoard` follows `treasure_present`. It is `None` on a
-    monster room whose row rolled an NPC party."""
+    """The monsters in the room, on a monster room, and `None` otherwise. Each line has a fixed count
+    that is already rolled. The encounter's `hoard` is the same as `treasure_present`. It's also
+    `None` on a monster room whose encounter roll produced an NPC party."""
     npc_party: StockedNpcParty | None = None
-    """The NPC party the encounter row rolled, or `None`. Only ever set on a monster room, and never
-    alongside `encounter`. See [`StockedNpcParty`][osrlib.crawl.stocking.StockedNpcParty]."""
+    """The NPC party the encounter roll produced, or `None`. It's set only on a monster room, and
+    never together with `encounter`. See [`StockedNpcParty`][osrlib.crawl.stocking.StockedNpcParty]."""
     treasure: AreaTreasureSpec | None = None
-    """Unguarded treasure for an empty or trap room that rolled some, and `None` otherwise. It is
-    always the unguarded form rather than named letters, since nothing is lairing here to have a
-    printed hoard."""
+    """Unguarded treasure for an empty or trap room that rolled some, and `None` otherwise. It's
+    always the unguarded form, never treasure type letters, because a treasure type is a monster's
+    hoard and no monster lives here. The session rolls the treasure the first time the party
+    enters the area."""
 
 
 def stock_area(
@@ -154,58 +167,61 @@ def stock_area(
 ) -> StockedArea:
     """Roll one keyed room's contents from the B/X stocking tables.
 
-    Call this once per room you want the dice to fill, while you are authoring. It rolls the
-    room-contents d6 and, when that row prints a treasure chance, the treasure d6. On a monster room
-    it then rolls the encounter table, using `table` when you pass one and the level's compiled band
-    otherwise. Take the [`StockedArea`][osrlib.crawl.stocking.StockedArea] it returns and write its
-    payload onto an [`AreaSpec`][osrlib.crawl.dungeon.AreaSpec] you are building, then check the
-    finished adventure with
-    [`validate_adventure`][osrlib.crawl.adventure.validate_adventure].
+    Call it once for each room you want the dice to fill while you write an adventure. It rolls the
+    room-contents d6 and, when the row it selects gives a chance of treasure, the treasure d6. On a
+    monster room it then rolls on an encounter table: `table` when you pass one, and the compiled
+    table for `level_number` otherwise. Copy the payload of the
+    [`StockedArea`][osrlib.crawl.stocking.StockedArea] it returns onto the
+    [`AreaSpec`][osrlib.crawl.dungeon.AreaSpec] you're building, then check the finished adventure
+    with [`validate_adventure`][osrlib.crawl.adventure.validate_adventure].
 
-    Every draw comes from `stream` in the fixed order [`osrlib.crawl.stocking`][osrlib.crawl.stocking]
-    sets out, so the result is reproducible from the stream's state and the level alone. Pass the same
-    stream to successive calls to stock a whole level, and it advances between rooms.
+    Every draw comes from `stream`, in the order the [`osrlib.crawl.stocking`][osrlib.crawl.stocking]
+    module describes, so the same stream state and level always give the same room. To stock a whole
+    level, pass the same stream to each call. It advances from one room to the next.
 
-    This is not something you call during play. It writes nothing, reads no session, and rolls
-    content models rather than spawning anything. The session's wandering check is
-    [`wandering_check`][osrlib.crawl.exploration.wandering_check], and it works from the same tables.
+    Don't call it during play. It writes nothing, reads no session, and spawns nothing. The
+    wandering-monster check during play is
+    [`wandering_check`][osrlib.crawl.exploration.wandering_check], which rolls on the same tables.
 
     Args:
-        level_number: The dungeon level being stocked. It selects the compiled encounter band when you
-            pass no `table`. The level also determines the unguarded-treasure band the resulting
-            `AreaTreasureSpec` rolls on later, during play.
-        catalog: The monster catalog to resolve rolled ids against. Pass
+        level_number: The dungeon level the room is on, 1 or more. Without a `table`, it selects the
+            compiled encounter table for that level. It doesn't affect unguarded treasure here: the
+            session rolls that during play, from the number of the level the area is on.
+        catalog: The monster catalog to look up each rolled monster id in. Pass
             [`load_monsters`][osrlib.data.load_monsters]`()` when the adventure bundles no monsters.
             When it does, pass the built-in catalog combined with the bundled templates, which is
             what [`GameSession.effective_monsters`][osrlib.crawl.session.GameSession.effective_monsters]
-            returns for a session. Every rolled id is resolved through it the way spawning resolves it
-            during play, so a stocked encounter can only refer to monsters that exist.
-        stream: The [`RngStream`][osrlib.core.rng.RngStream] every draw advances. It is what makes the
-            result reproducible, and it is the only randomness in the call.
-        table: An encounter table to roll on instead of the level's compiled band, usually a level's
-            [`WanderingSpec.table`][osrlib.crawl.dungeon.WanderingSpec]. The crawl's wandering check
-            uses the same table, so a level with custom inhabitants stocks from them too. `None` uses
+            returns for a session. Because `stock_area` looks up every id, a stocked encounter refers only to
+            monsters that exist.
+        stream: The [`RngStream`][osrlib.core.rng.RngStream] that every draw advances. It's the only
+            source of randomness in the call.
+        table: An encounter table to roll on instead of the compiled one for the level, usually a
+            level's [`WanderingSpec.table`][osrlib.crawl.dungeon.WanderingSpec.table]. The session's
+            wandering check rolls on that table too, so passing it stocks the room with the monsters
+            you chose for the level. `None`, the default, uses
             [`load_encounter_tables`][osrlib.data.load_encounter_tables] for the level.
 
     Returns:
         What the room contains. See [`StockedArea`][osrlib.crawl.stocking.StockedArea].
 
     Raises:
-        ValueError: If the encounter table rolls a monster id that `catalog` doesn't contain. Pass a
+        ValueError: If the encounter roll gives a monster id that `catalog` doesn't contain. Pass a
             catalog that includes the adventure's bundled monsters, or fix the table. Spawning raises
             the same error during play.
 
     Examples:
         ```python
         from osrlib.core.rng import RngStream
+        from osrlib.crawl.dungeon import AreaSpec
         from osrlib.crawl.stocking import stock_area
         from osrlib.data import load_monsters
 
-        area = stock_area(1, catalog=load_monsters(), stream=RngStream.from_seed_material(7, "stocking"))
-        print(area.contents, area.treasure_present)
+        stocked = stock_area(1, catalog=load_monsters(), stream=RngStream.from_seed_material(7, "stocking"))
+        print(stocked.contents, stocked.treasure_present)
         # monster False
 
-        print([(line.template_id, line.count_fixed) for line in area.encounter.monsters])
+        guard_room = AreaSpec(id="guard-room", cells=((2, 0),), encounter=stocked.encounter, treasure=stocked.treasure)
+        print([(line.template_id, line.count_fixed) for line in guard_room.encounter.monsters])
         # [('gecko', 3)]
         ```
     """
@@ -214,9 +230,9 @@ def stock_area(
     treasure_present = result.treasure_present
     if contents == "monster":
         return _stock_monster_room(level_number, catalog, stream, table, treasure_present)
-    # Empty and trap rooms that rolled treasure get an unguarded cache. A special never
-    # rolls treasure, because its printed chance is zero, and like every non-monster room
-    # it has no encounter: the referee designs the special and the trap.
+    # An empty or trap room that rolled treasure gets unguarded treasure. A special room
+    # never gets treasure, because its chance is zero, and no room except a monster room
+    # has an encounter: the referee designs the special and the trap.
     treasure = AreaTreasureSpec(unguarded=True) if treasure_present and contents in ("empty", "trap") else None
     return StockedArea(contents=contents, treasure_present=treasure_present, treasure=treasure)
 

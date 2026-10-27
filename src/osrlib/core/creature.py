@@ -1,19 +1,26 @@
-"""The attributes the rules read from a character or a monster instance, as protocols.
+"""The attributes that rules functions read from a character or a monster instance, as protocols.
 
 A rules function in [`osrlib.core.combat`][osrlib.core.combat], [`osrlib.core.spells`][osrlib.core.spells],
 and [`osrlib.core.effects`][osrlib.core.effects] takes the creature it acts on as one of the three protocols
-here, unless what it reads needs a single concrete type, in which case it takes that type and its
-entry says so. A [`Character`][osrlib.core.character.Character] and a
-[`MonsterInstance`][osrlib.core.monsters.MonsterInstance] satisfy the protocols structurally, so you pass
-either without a cast, and pyright checks that whatever else you pass has the attributes the function
-reads. Nothing here is instantiated. Read a protocol to learn what a function needs from its argument, and
-annotate your own code with it when you write a function that takes either kind of creature.
+here, unless it needs a single concrete type, and then its entry states that. A protocol is a type that lists the
+attributes a value must have, with no base class to inherit. A [`Character`][osrlib.core.character.Character] and a
+[`MonsterInstance`][osrlib.core.monsters.MonsterInstance] have those attributes, so you pass either without a
+cast, and pyright checks that anything else you pass has the attributes the function reads. You don't
+instantiate a protocol. Read one to learn which attributes a function reads from its argument, and annotate
+your own functions with it when they take either kind of creature.
 
-[`Creature`][osrlib.core.creature.Creature] is the base: an id, a name, hit points, conditions, and stat
-modifiers. [`Combatant`][osrlib.core.creature.Combatant] adds the combat numbers an attack or a saving throw reads.
-[`Caster`][osrlib.core.creature.Caster] adds what memorizing and casting read. A function that needs an attribute
-only one concrete type has, like a monster's template or a character's inventory, either takes that
-concrete type or reads the attribute with `getattr` and a default. The function's `Args` entry says which.
+The members, from the base up:
+
+- [`Creature`][osrlib.core.creature.Creature]: an id, a name, an alignment, hit points, conditions, and stat
+  modifiers.
+- [`Combatant`][osrlib.core.creature.Combatant]: a `Creature` with the numbers that the attack, initiative,
+  and saving throw functions read.
+- [`Caster`][osrlib.core.creature.Caster]: a `Creature` with what the functions that memorize and cast spells
+  read.
+
+A function that needs an attribute only one concrete type has, like a monster's template or a character's
+inventory, either takes that concrete type or works without the attribute when it's missing. The function's
+`Args` entry states which.
 
 Typical usage:
 
@@ -39,10 +46,10 @@ goblin = spawn_monster(load_monsters().get("goblin"), id="monster-0001", stream=
 def hurt(creature: Creature) -> bool:
     return creature.current_hp < creature.max_hp
 
-def can_be_hit(combatant: Combatant) -> bool:
+def needs_attack_roll(combatant: Combatant) -> bool:
     return combatant.armour_class is not None
 
-print(hurt(hero), hurt(goblin), can_be_hit(hero), can_be_hit(goblin))
+print(hurt(hero), hurt(goblin), needs_attack_roll(hero), needs_attack_roll(goblin))
 # False False True True
 ```
 """
@@ -65,7 +72,7 @@ __all__ = [
 
 @runtime_checkable
 class Creature(Protocol):
-    """What every rules function needs from the creature it acts on.
+    """The attributes every rules function reads from the creature it acts on.
 
     A [`Character`][osrlib.core.character.Character] and a [`MonsterInstance`][osrlib.core.monsters.MonsterInstance]
     both satisfy this, and so does anything of your own with these attributes. Functions that read only these
@@ -73,10 +80,10 @@ class Creature(Protocol):
     [`apply_healing`][osrlib.core.combat.apply_healing], and [`incapacitated`][osrlib.core.combat.incapacitated],
     take it. A function that also reads combat numbers takes [`Combatant`][osrlib.core.creature.Combatant].
 
-    The hit points, conditions, and stat modifiers are writable, because the rules change them: damage lowers
-    `current_hp`, a spell appends to `conditions`, an effect attaches a modifier. The id, name, and alignment are
-    read-only here, because a monster's name comes from its template and a character's id is `None` until a
-    session assigns one.
+    The hit points, conditions, and stat modifiers are writable, because rules functions change them: damage lowers
+    `current_hp`, a spell adds to `conditions`, an effect attaches a modifier. The id, name, and alignment are
+    read-only properties, so a class can supply them as plain attributes or compute them. A monster's name,
+    for example, comes from its template.
 
     Examples:
         ```python
@@ -94,29 +101,31 @@ class Creature(Protocol):
 
     @property
     def id(self) -> str | None:
-        """The entity id a session assigned, or `None` for a character not yet in a session.
+        """The creature's entity id, or `None` for a character not yet in a session.
 
-        Events refer to creatures by it.
+        A monster gets its id when it's spawned, and a session assigns a character's. Events refer to
+        creatures by it.
         """
         ...
 
     @property
     def name(self) -> str:
-        """The display name: the one a character was created with, or the one a monster's template gives."""
+        """The display name: the one a character was created with, or the one from a monster's template."""
         ...
 
     @property
     def alignment(self) -> Alignment | None:
         """The creature's [`Alignment`][osrlib.core.alignment.Alignment].
 
-        `None` for a monster whose template lists none.
+        `None` for a monster spawned with no alignment chosen from a template that allows several and has no
+        usual one, like the bandit.
         """
         ...
 
     current_hp: int
-    """Hit points now. The rules lower and raise it in place."""
+    """Hit points now. Rules functions lower and raise it in place."""
     max_hp: int
-    """The hit-point ceiling healing cannot pass."""
+    """The most hit points the creature can have. Healing stops here."""
     conditions: tuple[ActiveCondition, ...]
     """The active [`ActiveCondition`][osrlib.core.effects.ActiveCondition] entries, in the order they were granted.
     Read them through [`has_condition`][osrlib.core.effects.has_condition]."""
@@ -127,13 +136,13 @@ class Creature(Protocol):
 
 @runtime_checkable
 class Combatant(Creature, Protocol):
-    """A creature with the numbers an attack, an initiative roll, or a saving throw reads.
+    """A creature with the numbers that the attack, initiative, and saving throw functions read.
 
     [`attack_roll`][osrlib.core.combat.attack_roll], [`resolve_attack`][osrlib.core.combat.resolve_attack],
     [`saving_throw`][osrlib.core.combat.saving_throw], and
     [`participant_modifier`][osrlib.core.combat.participant_modifier] take this. Both concrete creature types
-    satisfy it. Every number is read-only, because each one is derived: a character's from class, level, and
-    gear, a monster's from its template and its drained hit dice.
+    satisfy it. Every number is read-only, because each one is computed: a character's from class, level, and
+    gear, a monster's from its template and any Hit Dice drained from it.
 
     Examples:
         ```python
@@ -153,8 +162,8 @@ class Combatant(Creature, Protocol):
     def thac0(self) -> int:
         """The roll on 1d20 this creature needs to hit armour class 0 (THAC0).
 
-        The attack matrix is entered with it: a lower number hits more often. It applies to descending armour class,
-        where a lower armour class is better.
+        osrlib looks it up in the attack matrix, and a creature with a lower THAC0 hits more often. It applies to
+        descending armour class, where a lower armour class is better.
         """
         ...
 
@@ -165,12 +174,16 @@ class Combatant(Creature, Protocol):
 
     @property
     def armour_class(self) -> int | None:
-        """Descending armour class, or `None` for a creature an attack roll cannot hit."""
+        """Descending armour class, where lower is better.
+
+        `None` for a creature that attacks hit without a roll. Green slime and
+        yellow mould are the monsters in the compiled data with no armour class.
+        """
         ...
 
     @property
     def armour_class_ascending(self) -> int | None:
-        """The ascending form of `armour_class`, or `None` on the same terms."""
+        """Ascending armour class, where higher is better. `None` whenever `armour_class` is `None`."""
         ...
 
     @property
@@ -180,7 +193,7 @@ class Combatant(Creature, Protocol):
 
     @property
     def melee_modifier(self) -> int:
-        """The bonus added to a melee attack and its damage, from strength or from an effect."""
+        """The bonus added to a melee attack and its damage, from strength. A monster's is 0."""
         ...
 
     @property
@@ -202,7 +215,7 @@ class Caster(Creature, Protocol):
     [`cast_spell`][osrlib.core.spells.cast_spell], and [`disrupt_casting`][osrlib.core.spells.disrupt_casting]
     take this. A [`Character`][osrlib.core.character.Character] satisfies it and a
     [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] does not, because monsters in the compiled data never
-    cast. The class, which sets the spell list and the number of slots, is not part of the protocol: those functions
+    cast. The class, which sets the spell list and the number of slots, isn't part of the protocol: those functions
     take the [`ClassDefinition`][osrlib.core.classes.ClassDefinition] or the
     [`CasterProfile`][osrlib.core.spells.CasterProfile] as a separate argument.
 
@@ -229,8 +242,8 @@ class Caster(Creature, Protocol):
     """
 
     level: int
-    """The caster's level, which sets slots, range, and effect size. A scroll is read at the scroll's level
-    rather than the reader's."""
+    """The caster's level, which sets the number of spell slots, a spell's range, and its effect size. A spell
+    read from a scroll uses the scroll's level, not the reader's."""
     spell_book: tuple[str, ...]
     """The spell ids in an arcane caster's spell book. Empty for a divine caster."""
     memorized_spells: tuple[MemorizedSpell, ...]
