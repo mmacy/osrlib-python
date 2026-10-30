@@ -29,9 +29,6 @@ Saving throws are forced where a test needs a particular outcome: a `save_bonus`
 one of −20 makes every save fail. The penalty tests compare two sessions on the same seed and setup, one with the
 stance and one without, and check the difference in each attack's `modifier`, which no draw affects. Each test
 asserts its own preconditions, so a test that stops exercising its case fails loudly.
-
-Tests marked `xfail(reason="chunk: avert-eyes", strict=True)` are the chunk's acceptance tests. The unmarked ones are
-guards that pass before and after it.
 """
 
 import pytest
@@ -63,8 +60,6 @@ from osrlib.crawl.party import Party
 from osrlib.crawl.session import GameSession
 from osrlib.data import load_classes
 from osrlib.persistence import replay_game, session_state
-
-CHUNK = pytest.mark.xfail(reason="chunk: avert-eyes", strict=True)
 
 ALWAYS_PASS = 20
 """A save bonus no d20 can fail with."""
@@ -276,7 +271,6 @@ class TestTheField:
 class TestAStanceSparesTheGaze:
     """A member who averts their eyes, or fights by a mirror, never meets the gaze in that round."""
 
-    @CHUNK
     @pytest.mark.parametrize("template_id", ["basilisk", "medusa"])
     def test_an_averting_member_never_meets_the_gaze_whichever_side_acts_first(self, template_id):
         game = _battle(template_id, ("Hild", "Brakk"))
@@ -293,7 +287,6 @@ class TestAStanceSparesTheGaze:
 
         assert orders == {True, False}, "precondition: both sides acted first in some round"
 
-    @CHUNK
     def test_a_failed_save_petrifies_the_one_who_looked_and_not_the_one_who_averted(self):
         game = _battle("medusa", ("Hild", "Brakk"), save_bonus=ALWAYS_FAIL)
         hild, brakk = game.party.members
@@ -305,7 +298,6 @@ class TestAStanceSparesTheGaze:
         assert not _saves(events, hild.id)
         assert not has_condition(hild, Condition.PETRIFIED)
 
-    @CHUNK
     def test_a_mirror_spares_the_gaze(self):
         game = _battle("medusa", ("Hild", "Brakk"), grants=((0, "mirror"),), save_bonus=ALWAYS_FAIL)
         hild, brakk = game.party.members
@@ -319,7 +311,6 @@ class TestAStanceSparesTheGaze:
             assert not _saves(events, hild.id), f"the mirror didn't spare Hild in round {round_number}"
             assert not has_condition(hild, Condition.PETRIFIED)
 
-    @CHUNK
     @pytest.mark.parametrize("stance", ["avert_eyes", "mirror"])
     def test_the_stance_lasts_one_round(self, stance):
         game = _battle("medusa", ("Hild", "Brakk"), grants=((0, "mirror"),))
@@ -334,7 +325,6 @@ class TestAStanceSparesTheGaze:
         assert _gaze_saves(exposed, brakk.id) == 1, "precondition: the gaze ran in the next round"
         assert _gaze_saves(exposed, hild.id) == 1, "with no stance declared, the member meets the gaze again"
 
-    @CHUNK
     @pytest.mark.parametrize("action", ["attack", "cast", "use_item", "turn_undead", "hold", "move"])
     def test_the_stance_goes_with_every_action(self, action):
         hild = _character("Hild", "cleric", memorized_spells=(MemorizedSpell(spell_id="cure_light_wounds"),))
@@ -368,7 +358,6 @@ class TestAStanceSparesTheGaze:
 class TestNotAvertingIsUnchanged:
     """A member with no stance meets the gaze and keeps their numbers, whatever the members beside them do."""
 
-    @CHUNK
     def test_a_looker_beside_an_averter_still_meets_the_gaze(self):
         game = _battle("basilisk", ("Hild", "Brakk"))
         hild, brakk = game.party.members
@@ -412,7 +401,6 @@ def _paired(template_id: str, *, distance_feet: int = 5, grants=(), equips=()) -
 class TestThePenalties:
     """Averting costs −4 on every attack roll and gives a gazer +2 against the averter. A mirror costs −1."""
 
-    @CHUNK
     def test_averting_costs_minus_four_and_the_gazer_gains_plus_two_for_that_round(self):
         plain, guarded = _paired("basilisk")
         hild = plain.party.members[0].id
@@ -438,7 +426,6 @@ class TestThePenalties:
             plain_next, attacker_ids=basilisk, defender_ids={hild}
         )
 
-    @CHUNK
     def test_the_minus_four_applies_to_an_attack_on_any_monster_and_no_other_monster_gains(self):
         plain, guarded = _paired("ogre")
         hild = plain.party.members[0].id
@@ -453,7 +440,6 @@ class TestThePenalties:
         assert _modifiers(guarded_events, attacker_ids={hild}, defender_ids=ogre) == [mine[0] - 4]
         assert _modifiers(guarded_events, attacker_ids=ogre, defender_ids={hild}) == theirs, "only a gazer gains +2"
 
-    @CHUNK
     def test_the_minus_four_applies_to_a_missile_attack(self):
         plain, guarded = _paired("ogre", distance_feet=60, grants=((0, "short_bow"),), equips=((0, "short_bow"),))
         hild = plain.party.members[0].id
@@ -466,7 +452,6 @@ class TestThePenalties:
         assert len(shots) == 1 and shots[0].attack_name == "Short bow", "precondition: Hild shot her bow"
         assert _modifiers(guarded_events, attacker_ids={hild}, defender_ids=ogre) == [shots[0].modifier - 4]
 
-    @CHUNK
     def test_a_mirror_costs_minus_one_and_gives_the_gazer_nothing(self):
         plain, guarded = _paired("basilisk", grants=((0, "mirror"),))
         hild = plain.party.members[0].id
@@ -516,7 +501,6 @@ def _surprised(
 class TestTheSurpriseGaze:
     """Characters a basilisk surprises meet its gaze in its free round, at any distance and in any rank."""
 
-    @CHUNK
     @pytest.mark.parametrize("distance_feet", [60, 5])
     def test_a_basilisk_that_surprises_the_party_gazes_once_at_every_member(self, distance_feet):
         game, events = _surprised("basilisk", distance_feet)
@@ -526,7 +510,6 @@ class TestTheSurpriseGaze:
         gaze_rolls = [event for event in events if isinstance(event, AttackRolledEvent) and event.attack_name == "gaze"]
         assert not gaze_rolls, "a gaze takes no attack roll"
 
-    @CHUNK
     def test_the_surprise_gaze_petrifies_on_a_failed_save(self):
         game, events = _surprised("basilisk", 60, save_bonus=ALWAYS_FAIL)
 
@@ -579,7 +562,6 @@ class TestARefusedRoundCostsNothing:
         assert not has_condition(hild, Condition.AVERTED_EYES)
         assert _state_without_logs(game) == before
 
-    @CHUNK
     def test_a_mirror_stance_from_a_member_without_a_mirror_is_refused(self):
         game = _battle("medusa", ("Hild", "Brakk"), grants=((1, "mirror"),))
         hild, brakk = game.party.members
@@ -627,7 +609,6 @@ class TestDeterminism:
             assert _stream_states(guarded) == _stream_states(plain)
         assert not has_condition(guarded.party.members[2], Condition.AVERTED_EYES)
 
-    @CHUNK
     def test_a_battle_with_stances_replays_from_its_command_log(self):
         members = [_character("Hild"), _character("Brakk")]
         party_document = party_to_document(members)
