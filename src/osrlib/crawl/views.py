@@ -362,10 +362,11 @@ class EncounterView(BaseModel):
     ruleset's `formation_width_limit` flag is off. Only these members can make a
     `fighting_withdrawal` or a `retreat` alone. A melee attack declared for anyone else is
     rejected with `battle.declaration.not_in_front_rank`, and inside melee reach a weapon
-    that is both melee and missile counts as a melee weapon. The one exception is a member
+    that is both melee and missile counts as a melee weapon. A staff of striking is a melee
+    weapon, so a `use_item` of one is refused the same way. The one exception is a member
     whom a front-rank member names in
     [`BattleDeclaration.replacement_id`][osrlib.crawl.commands.BattleDeclaration.replacement_id]
-    to step up this round, who may declare a melee attack."""
+    to step up this round, who may declare a melee attack or strike with the staff."""
     immobile: tuple[str, ...] = ()
     """The declarers who can't move this round. In practice they're the entangled members,
     because the other conditions that stop a move stop every declaration as well. A `move`

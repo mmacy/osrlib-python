@@ -121,7 +121,7 @@
       "hp_lost": 4,
       "levels_lost": 1,
       "new_level": 1,
-      "spawn_consequence": "A successfully hit target permanently loses one experience level (or Hit Die). This incurs a loss of one Hit Die of hit points, as well as all other benefits due to the drained level (e.g. spells, saving throws, etc.). A character’s XP is reduced to halfway between the former and new levels. A person drained of all levels becomes a wight in 1d4 days, under the control of the wight that killed them.",
+      "spawn_consequence": null,
       "target_id": "pc-fighter",
       "visibility": "player",
       "xp_after": 1000

@@ -174,8 +174,15 @@ class TestWiring:
         streams = RngStreams(master_seed=9)
         wight = spawn_monster(load_monsters().get("wight"), id="m-w", stream=streams.get("monster_spawn"))
         fighter = make_fighter(4)
-        events = resolve_energy_drain(wight, fighter, stream=FixedStream([5]))
+        resolve_energy_drain(wight, fighter, stream=FixedStream([5]))
         assert fighter.level == 3 and fighter.xp == 6_000
+
+    def test_a_wight_touch_that_kills_carries_the_spawn_consequence(self):
+        streams = RngStreams(master_seed=9)
+        wight = spawn_monster(load_monsters().get("wight"), id="m-w", stream=streams.get("monster_spawn"))
+        fighter = make_fighter(1)
+        events = resolve_energy_drain(wight, fighter, stream=FixedStream([]))
+        assert events[0].code == "combat.drain.slain"
         assert "becomes a wight" in events[0].spawn_consequence
 
     def test_spectre_touch_drains_two_by_tag(self):
