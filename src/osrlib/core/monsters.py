@@ -693,10 +693,12 @@ class MonsterAbility(BaseModel):
     """The ability's identifier, a lowercase name like `"regeneration"`.
 
     The combat functions read four tags: `"regeneration"`, `"energy_drain"`, `"breath_weapon"`, and
-    `"uses_fire"`. Battle also reads `"paralysis"`, `"poison"`, `"disease"`, and `"petrification"`
-    when a monster's attack hits. It reads `"averting_eyes"` for the bonus a gazer gains against a
-    creature that averts its eyes, and a `"surprise"` ability whose `params` have `meets_gaze` for a
-    gaze, like the basilisk's, that reaches every character the monster surprises.
+    `"uses_fire"`. Battle also reads `"paralysis"`, `"poison"`, `"disease"`, `"petrification"`, and
+    `"blindness"` when a monster's attack hits. It reads `"averting_eyes"` for the bonus a gazer gains
+    against a creature that averts its eyes, and a `"surprise"` ability whose `params` have
+    `meets_gaze` for a gaze, like the basilisk's, that reaches every character the monster surprises.
+    The default action policy reads `attacks_others` in a `"paralysis"` ability's `params`, which the
+    ghoul's and the thoul's have, and turns the monster from the members it has paralysed.
     """
 
     name: str = Field(min_length=1)

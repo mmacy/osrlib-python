@@ -54,9 +54,10 @@ ALWAYS_PASS = 20
 ALWAYS_FAIL = -20
 """A save penalty no d20 can pass with: a roll of 20 minus 20 is below every saving throw value."""
 
-APPLIED_KINDS = frozenset({"paralysis", "poison", "disease", "energy_drain", "petrification"})
-"""The effect kinds this file shows battle applying. A monster's attack effect of one of these
-kinds counts as applied when the monster's ability with that tag isn't `manual`."""
+APPLIED_KINDS = frozenset({"paralysis", "poison", "disease", "energy_drain", "petrification", "blindness"})
+"""The effect kinds this file shows battle applying, and `blindness`, which `test_monster_tactics.py`
+shows. A monster's attack effect of one of these kinds counts as applied when the monster's ability
+with that tag isn't `manual`."""
 
 
 # ---------------------------------------------------------------------- setup

@@ -9024,6 +9024,7 @@
           "manual": false,
           "name": "Paralysis",
           "params": {
+            "attacks_others": true,
             "duration": "2d4",
             "unaffected": [
               "elf",
@@ -24373,11 +24374,11 @@
     {
       "abilities": [
         {
-          "manual": true,
+          "manual": false,
           "name": "Blinding spit",
           "params": {},
           "prose": "Range: 6’. A hit causes permanent blindness (save vs poison).",
-          "tag": "blinding_spit"
+          "tag": "blindness"
         },
         {
           "manual": false,
@@ -25567,6 +25568,7 @@
           "manual": false,
           "name": "Paralysis",
           "params": {
+            "attacks_others": true,
             "duration": "2d4",
             "unaffected": [
               "elf",

@@ -364,6 +364,11 @@ def start_encounter(
     leaves open. The [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/) lists it as
     the blind-party adaptation.
 
+    When the party is surprised and a monster's `surprise` ability has `meets_gaze`, as the
+    basilisk's does, every living member meets that monster's petrifying gaze once, here, at any
+    distance and whatever the stance. Each saves versus paralysis or turns to stone. That holds when
+    the monsters are surprised too. A battle that opens from this encounter doesn't repeat the gaze.
+
     A monster whose template has the `regeneration` ability, like a troll or a thoul, starts to
     regenerate when this function opens its encounter. Before the function rolls anything, it
     attaches the effect that [`regeneration_definition`][osrlib.core.effects.regeneration_definition]
@@ -405,8 +410,8 @@ def start_encounter(
         [`EncounterStartedEvent`][osrlib.crawl.events.EncounterStartedEvent],
         the [`ReactionRolledEvent`][osrlib.core.events.ReactionRolledEvent] unless you passed
         `pinned_stance`, and the [`StanceChangedEvent`][osrlib.crawl.events.StanceChangedEvent].
-        Then come the events of anything the stance or surprise starts, which can include a
-        battle and its first round.
+        The saving throws of a basilisk's surprise gaze come among them. Then come the events of
+        anything the stance or surprise starts, which can include a battle and its first round.
 
     Examples:
         ```python
@@ -464,11 +469,13 @@ def start_encounter(
         assert session.encounter.groups[0].monster_ids == ["monster-0001", "monster-0002"]
         ```
     """
+    from osrlib.crawl import battle as battle_module
     from osrlib.crawl import exploration
     from osrlib.crawl.session import ENCOUNTER_STREAM
 
     stream = session.streams.get(ENCOUNTER_STREAM)
-    events: list[Event] = _attach_regeneration(session, [instance for _, instances in groups for instance in instances])
+    opened = [instance for _, instances in groups for instance in instances]
+    events: list[Event] = _attach_regeneration(session, opened)
     lit, _ = session.party_light()
 
     monsters_surprised = False
@@ -541,6 +548,11 @@ def start_encounter(
             monsters_surprised=monsters_surprised,
         )
     )
+    if party_surprised:
+        # "Characters surprised by a basilisk meet its gaze": every member meets it once, here, whether
+        # or not the monsters are surprised too and whatever the stance turns out to be. The monsters'
+        # free round, when they get one, doesn't repeat it.
+        events.extend(battle_module._surprise_gazes(session, opened))
 
     if pinned_stance is not None:
         stance = pinned_stance
@@ -552,8 +564,6 @@ def start_encounter(
     events.append(StanceChangedEvent(stance=stance.value))
 
     if stance is ReactionResult.ATTACKS:
-        from osrlib.crawl import battle as battle_module
-
         # A surprise advantage becomes a free battle round for either side: the
         # round the surprised monsters would have sat out is the party's free
         # round, and a surprised party gives the monsters theirs.

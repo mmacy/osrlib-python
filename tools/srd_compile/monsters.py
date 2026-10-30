@@ -110,14 +110,16 @@ _ABILITY_PARAMS: dict[tuple[str, str | None, str], tuple[str, dict[str, object],
     ("Wraith.md", None, "Energy drain"): ("energy_drain", {"levels": 1, "xp_policy": "level_minimum"}, False),
     ("Spectre.md", None, "Energy drain"): ("energy_drain", {"levels": 2, "xp_policy": "level_minimum"}, False),
     ("Vampire.md", None, "Energy drain"): ("energy_drain", {"levels": 2, "xp_policy": "level_minimum"}, False),
+    # "After paralysing a target, ghouls will attack others", and the same of thouls: the default
+    # action policy reads `attacks_others` and turns the monster from the members it has paralysed.
     ("Ghoul.md", None, "Paralysis"): (
         "paralysis",
-        {"duration": "2d4", "unit": "turn", "unaffected": ["elf", "larger_than_ogre"]},
+        {"duration": "2d4", "unit": "turn", "unaffected": ["elf", "larger_than_ogre"], "attacks_others": True},
         False,
     ),
     ("Thoul.md", None, "Paralysis"): (
         "paralysis",
-        {"duration": "2d4", "unit": "turn", "unaffected": ["elf", "larger_than_ogre"]},
+        {"duration": "2d4", "unit": "turn", "unaffected": ["elf", "larger_than_ogre"], "attacks_others": True},
         False,
     ),
     ("Carcass_Crawler.md", None, "Paralysis"): ("paralysis", {"duration": "2d4", "unit": "turn"}, False),
@@ -150,6 +152,9 @@ _ABILITY_PARAMS: dict[tuple[str, str | None, str], tuple[str, dict[str, object],
         {"outcome": "death", "onset_dice": "1d10", "onset_unit": "turn"},
         False,
     ),
+    # "A hit causes permanent blindness (save vs poison)." The spit's attack lists the `blindness`
+    # effect, and battle applies it under this tag.
+    ("Snake.md", "Spitting Cobra", "Blinding spit"): ("blindness", {}, False),
     # The sea snake's slow-acting onset interacts with *neutralize poison* (25% failure
     # after onset) — referee territory; the tarantella's dance and the giant
     # centipede's sickness are not death outcomes. All three stay manual.

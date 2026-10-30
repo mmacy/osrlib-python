@@ -623,22 +623,6 @@ class TestTheLaterRoutineApplies:
         assert damage and all(event.amount >= 1 for event in damage)
         assert not has_condition(fighter, Condition.POISONED)
 
-    def test_the_cobras_spit_applies_no_save_in_battle(self):
-        """Blindness stays with the referee, as the register says, whichever routine policy is in force."""
-        game, cobra = _battle("spitting_cobra")
-        fighter = game.party.members[0]
-        _with_policy(game, None)
-
-        hit = False
-        for _ in range(20):
-            events = _round(game)
-            rolled = _rolls(events, cobra.id)
-            assert rolled and {event.attack_name for event in rolled} == {"spit"}
-            hit = hit or bool(_hits(events, cobra.id, "spit"))
-            assert not _saves(events, fighter.id)
-        assert hit, "precondition: a spit hit"
-        assert not has_condition(fighter, Condition.BLIND)
-
 
 # ---------------------------------------------------------------------- a game's own policy
 

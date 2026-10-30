@@ -72,17 +72,19 @@ During a round, the session also applies these rules without a command for them:
   between initiative and their turn to act.
 - Each monster group checks morale when the rules call for it.
 - When a monster hits, the session applies the effects its attack lists, each with the save the
-  SRD gives: paralysis, poison, mummy rot, energy drain, and petrification. The
+  SRD gives: paralysis, poison, mummy rot, energy drain, petrification, and the spitting cobra's
+  blindness. The
   [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/) lists the effects
   the session leaves to the referee.
 - A petrifying gaze, like the basilisk's or the medusa's, reaches each member of the party's
   front rank once a round while the gazer's group is in melee. It takes no attack roll, and
-  [`resolve_gaze`][osrlib.core.combat.resolve_gaze] skips a member who is averting their eyes.
+  [`resolve_gaze`][osrlib.core.combat.resolve_gaze] skips a member who is averting their eyes
+  or is blind.
   A member averts them, or watches a mirror instead, through
   [`BattleDeclaration.gaze_defense`][osrlib.crawl.commands.BattleDeclaration.gaze_defense], and
-  the session applies that stance's penalties to the round's attack rolls. In the monsters'
-  free round after they surprise the party, a basilisk's gaze reaches every member of the
-  party, at any distance.
+  the session applies that stance's penalties to the round's attack rolls. Every member of a
+  party a basilisk surprises meets its gaze once, at any distance, as the encounter opens, so
+  a battle that opens from that encounter doesn't repeat it.
 - Turned undead attack no one. When a cleric turns only some of a group, the turned members
   break away as a new group, which runs, and the rest fight on.
 - A member's invisibility ends when the member attacks, throws or uses an item other than a
@@ -198,7 +200,7 @@ assert "combat.initiative.rolled" in [event.code for event in result.events]
 """
 
 import math
-from collections.abc import Collection, Mapping, Sequence
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from typing import Any, NamedTuple, Protocol
 
 from pydantic import BaseModel, ConfigDict
@@ -558,6 +560,16 @@ class ScriptedPolicy:
     picks a target at random from the party's front rank, leaving out invisible members and members
     whose *protection from evil* bars that monster. When no target is left, the monster holds.
 
+    Among the targets left, the monster passes over a member turned to stone while a target that
+    isn't stone is in reach, because a statue is out of the fight. A monster whose `paralysis`
+    ability has the param `attacks_others`, like the ghoul and the thoul, also passes over a
+    paralysed member while a target that is neither paralysed nor stone is in reach, as the OSE
+    SRD's "After paralysing a target, ghouls will attack others" says. A paralysed member comes
+    before a statue. When every target in reach is stone, the monster attacks a statue. The policy
+    picks a target once a round, so a paralysing hit doesn't move the rest of that round's attacks
+    to another target. A monster with no paralysed or petrified member among its targets draws
+    exactly as it would without these rules.
+
     The monster then picks which of its attack routines to use, with equal chance among the routines
     whose [`use`][osrlib.core.monsters.AttackRoutine.use] is `PRIMARY` or `ALTERNATIVE`, and names
     it in [`MonsterAction.routine`][osrlib.crawl.battle.MonsterAction.routine]. A thoul claws or
@@ -688,7 +700,7 @@ class ScriptedPolicy:
             if group.distance_feet > MELEE_RANGE_FEET:
                 actions.append(MonsterAction(monster_id=monster.id, kind="close"))
                 continue
-            targets = _reachable_targets(session, monster, pool)
+            targets = _preferred_targets(monster, _reachable_targets(session, monster, pool))
             if not targets:
                 actions.append(MonsterAction(monster_id=monster.id, kind="hold"))
                 continue
@@ -721,7 +733,11 @@ class NpcPartyPolicy:
        leaving out invisible members.
     4. A member with a missile weapon shoots while the group is farther away than
        [`MELEE_RANGE_FEET`][osrlib.crawl.battle.MELEE_RANGE_FEET].
-    5. Otherwise, the member closes and attacks in melee, the same as a monster.
+    5. Otherwise, the member closes and attacks in melee. Once in range, it picks its target at
+       random from the party's front rank, leaving out invisible members, and passes over a member
+       turned to stone while a target that isn't stone is in reach, as a monster does. The ghoul's
+       and the thoul's rule about paralysed members belongs to their abilities, so an NPC still
+       picks a paralysed member.
 
     NPCs declare their spells at the start of the round. An attack that hits or a failed saving
     throw can disrupt an NPC's spell, as it can the party's, because the SRD's rule applies to both
@@ -848,7 +864,7 @@ class NpcPartyPolicy:
                 else:
                     actions.append(MonsterAction(monster_id=npc.id, kind="close"))
                 continue
-            targets = _reachable_targets(session, npc, pool)
+            targets = _passing_over_statues(_reachable_targets(session, npc, pool))
             if not targets:
                 actions.append(MonsterAction(monster_id=npc.id, kind="hold"))
                 continue
@@ -910,6 +926,45 @@ def _npc_wielded(npc, *, missile: bool, distance_feet: int = MELEE_RANGE_FEET):
         elif WeaponQuality.MELEE in qualities or WeaponQuality.MISSILE not in qualities:
             return attack
     return None
+
+
+def _preferred_targets(monster: MonsterInstance, targets: list) -> list:
+    """Narrow the targets a monster can reach to the ones `ScriptedPolicy` lets it pick.
+
+    The monster passes over statues, as `_passing_over_statues` says. A monster whose `paralysis`
+    ability has the param `attacks_others`, like the ghoul and the thoul, also passes over a
+    paralysed member while a target that is neither paralysed nor stone is in reach. The targets
+    keep their order, and a list with no paralysed or petrified member comes back unchanged, so the
+    policy's draw over it is the draw it made before these rules.
+    """
+    targets = _passing_over_statues(targets)
+    if _attacks_others(monster):
+        active = [
+            target
+            for target in targets
+            if not has_condition(target, Condition.PARALYSED) and not has_condition(target, Condition.PETRIFIED)
+        ]
+        if active:
+            return active
+    return targets
+
+
+def _passing_over_statues(targets: list) -> list:
+    """Leave out the members turned to stone while a target that isn't stone is in reach.
+
+    A statue is out of the fight, so neither a monster under `ScriptedPolicy` nor an NPC adventurer
+    under `NpcPartyPolicy` picks one while it has another choice. When every target is stone, all of
+    them come back, so the attacker picks a statue rather than holding. The targets keep their
+    order, and a list with no statue comes back unchanged.
+    """
+    standing = [target for target in targets if not has_condition(target, Condition.PETRIFIED)]
+    return standing or targets
+
+
+def _attacks_others(monster: MonsterInstance) -> bool:
+    """Whether the monster turns from the members it paralyses, as the ghoul's and the thoul's entries say."""
+    ability = monster.template.ability("paralysis")
+    return ability is not None and not ability.manual and bool(ability.params.get("attacks_others"))
 
 
 _PICKED_ROUTINE_USES = frozenset({RoutineUse.PRIMARY, RoutineUse.ALTERNATIVE})
@@ -3487,7 +3542,7 @@ def _resolve_monster_melee(session, monster, target, *, retreating: bool, routin
     return events
 
 
-_HIT_EFFECT_KINDS = frozenset({"paralysis", "poison", "disease", "energy_drain", "petrification"})
+_HIT_EFFECT_KINDS = frozenset({"paralysis", "poison", "disease", "energy_drain", "petrification", "blindness"})
 """The attack effects that battle applies when a monster hits. The adaptations register lists the rest."""
 
 
@@ -3535,6 +3590,9 @@ def _apply_hit_effect(session, monster, target, kind: str, params: Mapping[str, 
       to stone.
     - `poison` makes the target save versus death, with the ability's `save_modifier`, or die. The
       target dies at once, or when the onset in the ability's params runs out.
+    - `blindness`, the spitting cobra's spit, makes the target save versus death, the category for
+      poison, or be blinded for good. The effect is permanent and isn't dispellable, and a target
+      that's already blind saves again but gains nothing more.
 
     A monster that's immune to the condition the effect brings rolls no save and takes nothing.
     Saves draw from the combat stream, rolled durations and onsets from the effects stream, and
@@ -3567,6 +3625,10 @@ def _apply_hit_effect(session, monster, target, kind: str, params: Mapping[str, 
     elif kind == "petrification":
         condition = Condition.PETRIFIED
         definition = EffectDefinition(kind="petrification", condition=condition, permanent=True)
+    elif kind == "blindness":
+        category = SaveCategory.DEATH
+        condition = Condition.BLIND
+        definition = EffectDefinition(kind="blindness", condition=condition, permanent=True, stacking="ignore")
     else:
         category = SaveCategory.DEATH
         modifier = _int_param(params, "save_modifier")
@@ -3655,35 +3717,55 @@ def _resolve_gazes(session, group, *, free_round: bool, mirrored: Collection[str
     A gaze takes no attack roll and no action. Every living gazer that isn't incapacitated uses it
     before its group acts, whatever the policy then chooses for it. While the gazer's group is in
     melee, the gaze reaches the party's front rank, less the members in `mirrored`, who fight by a
-    mirror this round. In the monsters' free round after they surprise the party (`free_round`), a
-    gazer with a `surprise` ability that says so, the basilisk, gazes instead at every living member
-    at any distance, so no member meets its gaze twice in that round. `resolve_gaze` skips a
-    character who is averting their eyes or is incapacitated, and rolls a save versus paralysis on
-    the combat stream for each of the others.
+    mirror this round. `resolve_gaze` skips a character who is averting their eyes, is blind, or is
+    incapacitated, and rolls a save versus paralysis on the combat stream for each of the others.
+
+    In the monsters' free round (`free_round`) of an encounter that opened with the party surprised,
+    a gazer whose `surprise` ability says so, the basilisk, already turned its gaze on every member
+    in `_surprise_gazes` as the encounter opened, so it doesn't gaze again in that round.
     """
-    in_melee = group.distance_feet <= MELEE_RANGE_FEET
+    if group.distance_feet > MELEE_RANGE_FEET:
+        return []
     events: list[Event] = []
     for monster in _living_monsters(session, group):
         if incapacitated(monster) or _petrifying_gaze(monster) is None:
             continue
-        if free_round and _surprise_gaze(monster):
-            engaged = session.party.living_members()
-        elif in_melee:
-            engaged = [member for member in _party_front_rank(session) if member.id not in mirrored]
-        else:
+        if free_round and session.encounter.party_surprised and _surprise_gaze(monster):
             continue
-        events.extend(
-            resolve_gaze(
-                monster,
-                engaged,
-                stream=session.streams.get(COMBAT_STREAM),
-                ledger=session.ledger,
-                clock=session.clock,
-                allocator=session.allocator,
-                registry=session.registry(),
-            )
-        )
+        engaged = [member for member in _party_front_rank(session) if member.id not in mirrored]
+        events.extend(_gaze(session, monster, engaged))
     return events
+
+
+def _surprise_gazes(session, monsters: Iterable) -> list[Event]:
+    """Turn each surprise gazer's petrifying gaze on every living member of the party it surprised.
+
+    `start_encounter` calls this as the encounter opens, when the party is surprised, as the OSE
+    SRD's "Characters surprised by a basilisk meet its gaze" says. A monster gazes when its
+    `surprise` ability has `meets_gaze`, it has a petrifying gaze, and it isn't incapacitated. The
+    gaze reaches every living member once, at any distance and in any rank, and no stance spares
+    it, because the party hasn't declared anything yet. `resolve_gaze` skips a member who is blind
+    or already incapacitated, and rolls a save versus paralysis on the combat stream for each of
+    the others.
+    """
+    events: list[Event] = []
+    for monster in monsters:
+        if incapacitated(monster) or _petrifying_gaze(monster) is None or not _surprise_gaze(monster):
+            continue
+        events.extend(_gaze(session, monster, session.party.living_members()))
+    return events
+
+
+def _gaze(session, monster, engaged: list) -> list[Event]:
+    return resolve_gaze(
+        monster,
+        engaged,
+        stream=session.streams.get(COMBAT_STREAM),
+        ledger=session.ledger,
+        clock=session.clock,
+        allocator=session.allocator,
+        registry=session.registry(),
+    )
 
 
 _AVERT_EYES_PENALTY = -4
