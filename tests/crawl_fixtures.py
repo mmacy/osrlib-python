@@ -487,7 +487,7 @@ def build_portcullis_adventure() -> Adventure:
     - `portcullis-rises` fires when the lever flag is written and sets that door
       open, with a referee beat and a journal form.
     - `guard-ambush` fires when the party steps into `guardroom` at (4,0) — which
-      keeps two goblins of its own, so the trigger's spawn meets an encounter that
+      has two goblins of its own, so the trigger's spawn joins an encounter that
       is already open.
     """
     gate = GateSpec(
@@ -530,7 +530,7 @@ def build_portcullis_adventure() -> Adventure:
             when=AreaEnteredPattern(dungeon_id="keep", level_number=1, area_id="guardroom"),
             consequences=(SpawnMonsters(template_id="goblin", count_fixed=1, distance_feet=30),),
             narrative=NarrativeBlock(
-                fired="A third goblin was meant to drop from the rafters.",
+                fired="A third goblin drops from the rafters.",
                 journal="Something moved in the rafters of the guardroom.",
             ),
         ),

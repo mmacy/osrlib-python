@@ -118,6 +118,7 @@ def sample_event(event_class, code):
         "BattleEndedEvent": dict(),
         "FlagSetEvent": dict(key="portcullis_open", value=True),
         "MonstersSpawnedEvent": dict(template_id="goblin", monster_ids=("monster-0001",)),
+        "EncounterGroupJoinedEvent": dict(group_id="group-0002", label="goblin", count=2, distance_feet=30),
         "XpAwardedEvent": dict(character_id="pc-1", award=100, modified_award=110, level_after=2),
         "CharacterLeveledUpEvent": dict(
             character_id="pc-1",

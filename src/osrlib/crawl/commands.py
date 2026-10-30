@@ -1431,8 +1431,11 @@ class Rest(Command):
     a day of rest counts as sleep, which casters need before
     [`PrepareSpells`][osrlib.crawl.commands.PrepareSpells]. A full day of rest also applies
     natural healing to every living member. In a dungeon, a wandering-monster check that
-    turns up monsters interrupts the rest and opens an encounter. An interrupted rest
-    clears nothing, counts as no sleep, and heals nobody.
+    turns up monsters interrupts the rest and opens an encounter. An interrupted rest still
+    counts the full turns the party rested before the monsters came. One full turn clears
+    fatigue, and each full turn counts toward the three that clear exhaustion. A rest
+    interrupted during its first turn clears nothing. An interrupted rest isn't sleep and
+    heals nobody.
 
     Modes:
         `town`, `exploring`
@@ -1446,7 +1449,7 @@ class Rest(Command):
         wandering-monster checks. Then comes a [`RestedEvent`][osrlib.crawl.events.RestedEvent]
         with code `exploration.rest.rested`. An interrupted rest ends with the encounter's
         opening events and a `RestedEvent` with code `exploration.rest.interrupted`
-        instead. A completed rest that clears fatigue or exhaustion adds a
+        instead. A rest that clears fatigue or exhaustion, interrupted or not, adds a
         [`FatigueEvent`][osrlib.crawl.events.FatigueEvent] or an
         [`ExhaustionEvent`][osrlib.crawl.events.ExhaustionEvent], and a full day's natural
         healing adds a [`HealingAppliedEvent`][osrlib.core.events.HealingAppliedEvent]
@@ -2319,7 +2322,8 @@ class TurnUndead(Command):
     battle, declare a `turn_undead`
     [`BattleDeclaration`][osrlib.crawl.commands.BattleDeclaration] instead. Presenting the
     symbol is an aggressive act: if any monster is left neither turned nor destroyed, the
-    monsters attack at once and battle starts.
+    monsters that weren't turned attack at once and battle starts. The turned members of a
+    partly turned group break away as a new group and flee.
 
     Modes:
         `encounter`
@@ -2343,7 +2347,9 @@ class TurnUndead(Command):
         ([`EncounterEndedEvent`][osrlib.crawl.events.EncounterEndedEvent]). Otherwise a
         [`StanceChangedEvent`][osrlib.crawl.events.StanceChangedEvent] to `attacks`
         comes before the round, and battle starts after it
-        ([`BattleStartedEvent`][osrlib.crawl.events.BattleStartedEvent]).
+        ([`BattleStartedEvent`][osrlib.crawl.events.BattleStartedEvent]). A
+        [`MonsterFledEvent`][osrlib.crawl.events.MonsterFledEvent] follows for each new group
+        of turned members.
     """
 
     allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.ENCOUNTER})
@@ -2835,13 +2841,23 @@ class SetFlag(Command):
 
 
 class SpawnMonsters(Command):
-    """Referee: create monsters at a distance from the party and open an encounter with them.
+    """Referee: create monsters at a distance from the party, in a new encounter or the open one.
 
     Use it for an encounter you decide on, like monsters an LLM referee brings in or
-    a scripted ambush. The party must be standing in a dungeon with no encounter already
-    open, because encounters take place on the dungeon grid. Spawning isn't legal once the
-    session has ended, because it would start new play. Set exactly one of `count_dice` and
+    a scripted ambush. Use it also for monsters that arrive during a fight, like the
+    animals a lycanthrope summons. The party must be standing in a dungeon, because
+    encounters take place on the dungeon grid. Spawning isn't legal once the session has
+    ended, because it would start new play. Set exactly one of `count_dice` and
     `count_fixed`, or constructing the command fails validation.
+
+    When no encounter is open, the command opens one with the monsters. When an encounter
+    or a battle is open, the monsters join it as one new group at `distance_feet`. The
+    group rolls no surprise or reaction. It shares the encounter's stance and surprise, so
+    if the monsters already there are sitting out a round because the party surprised
+    them, the new group sits it out too. The command takes no time and runs no round, so
+    the group first acts in the next round, on the monster side. During a chase, the
+    session refuses the command, because a chase runs at the pace of its slowest group and
+    a group that joined could change that pace.
 
     Modes:
         `town`, `exploring`, `encounter`, `battle`
@@ -2849,18 +2865,25 @@ class SpawnMonsters(Command):
     Rejections:
         - `session.command.wrong_mode` - the session has ended.
         - `session.command.unknown_monster` - `template_id` matches no monster.
-        - `session.command.encounter_in_progress` - an encounter or battle is
-          already open.
         - `session.command.not_in_dungeon` - the party is not on a dungeon cell.
+        - `encounter.spawn.mid_pursuit` - the monsters are chasing the party, and no
+          new group can join during a chase.
 
     Events:
-        [`MonstersSpawnedEvent`][osrlib.crawl.events.MonstersSpawnedEvent], then
-        the encounter's opening:
+        [`MonstersSpawnedEvent`][osrlib.crawl.events.MonstersSpawnedEvent]. When the
+        command opens an encounter, the encounter's opening follows: an
+        [`EffectAttachedEvent`][osrlib.core.events.EffectAttachedEvent] for each monster that
+        regenerates, like a troll,
         [`SurpriseRolledEvent`][osrlib.crawl.events.SurpriseRolledEvent]s,
         [`EncounterStartedEvent`][osrlib.crawl.events.EncounterStartedEvent], the
         reaction roll, and a
         [`StanceChangedEvent`][osrlib.crawl.events.StanceChangedEvent]. When the monsters'
-        reaction is to attack, battle opens at once.
+        reaction is to attack, battle opens at once. When the monsters join an open
+        encounter, an `EffectAttachedEvent` for each monster that regenerates and an
+        [`EncounterGroupJoinedEvent`][osrlib.crawl.events.EncounterGroupJoinedEvent], which
+        the players see, follow instead. When the group joins a battle and its morale score
+        is 2, a [`MonsterFledEvent`][osrlib.crawl.events.MonsterFledEvent] comes last,
+        because a monster with that score won't fight.
     """
 
     allowed_modes: ClassVar[frozenset[SessionMode]] = _ALL_MODES - frozenset(
@@ -2884,10 +2907,11 @@ class SpawnMonsters(Command):
     """How many to spawn, as an exact number. Use it when the author chose the number. Set
     exactly one of this and `count_dice`."""
     distance_feet: int = Field(ge=0)
-    """How far away the monsters appear, in feet. The encounter opens at this distance, which
-    determines whether missiles reach, how long closing in takes, and whether the party can
-    outrun the monsters. B/X uses 2d6 times 10 feet for a wandering encounter, so a number in
-    that range is typical. `0` puts them right next to the party."""
+    """How far away the monsters appear, in feet. A new encounter opens at this distance, and
+    a group that joins an open encounter starts at it. The distance determines whether
+    missiles reach, how long closing in takes, and whether the party can outrun the monsters.
+    B/X uses 2d6 times 10 feet for a wandering encounter, so a number in that range is
+    typical. `0` puts them right next to the party."""
 
     @field_validator("count_dice")
     @classmethod

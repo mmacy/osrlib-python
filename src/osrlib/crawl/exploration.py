@@ -110,7 +110,7 @@ from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, Literal
 
 from osrlib.core.classes import detection_chance, detection_check, thief_skill_check
-from osrlib.core.clock import TimeUnit
+from osrlib.core.clock import ROUNDS_PER_TURN, TimeUnit
 from osrlib.core.combat import (
     DamageSource,
     SaveCategory,
@@ -258,7 +258,8 @@ is fatigued: `session.ledger.active_on(member.id, FATIGUE_KIND)` returns the act
 empty list means the member is rested. Use that query for a status display.
 [`check_fatigue`][osrlib.crawl.exploration.check_fatigue] makes the same query before it attaches
 anything. The effect applies −1 to attack rolls and −1 to damage rolls and has no duration. In play,
-a completed [`Rest`][osrlib.crawl.commands.Rest] releases it.
+a [`Rest`][osrlib.crawl.commands.Rest] releases it once the party has rested one full turn, even if a
+wandering monster interrupts the rest later.
 """
 
 EXHAUSTED_KIND = "exhausted"
@@ -409,9 +410,10 @@ def _store_door_state(session, edge, ref: str) -> DoorState:
         The stored, mutable entry.
     """
     state = session.dungeon_state.doors.get(ref)
-    if state is not None:
-        return state
-    return _seed(edge, session.dungeon_state.door(ref))
+    if state is None:
+        state = _seed(edge, DoorState())
+        session.dungeon_state.doors[ref] = state
+    return state
 
 
 def _door_state(session, direction: Direction) -> DoorState:
@@ -748,8 +750,9 @@ def check_fatigue(session) -> list[Event]:
     if you move time by executing commands, you don't call it. Call it yourself when you
     move the clock some other way. To ask whether the party is already fatigued, query
     [`FATIGUE_KIND`][osrlib.crawl.exploration.FATIGUE_KIND] against `session.ledger` instead of
-    calling this. A completed [`Rest`][osrlib.crawl.commands.Rest] releases the effect and sets the
-    counter back to zero.
+    calling this. A [`Rest`][osrlib.crawl.commands.Rest] releases the effect and sets the counter back
+    to zero once the party has rested one full turn, even if a wandering monster interrupts the rest
+    later.
 
     The threshold is six unrested turns, or three when the `deprivation_penalties` ruleset flag is
     on and some living member has gone a full day without food or water.
@@ -1448,7 +1451,9 @@ def _resolve_trap(session, trap: TrapSpec, *, triggerer) -> list[Event]:
     for victim in victims:
         passed = False
         if effect.save is not None:
-            save = saving_throw(victim, SaveCategory(effect.save.category), stream=stream)
+            save = saving_throw(
+                victim, SaveCategory(effect.save.category), modifier=effect.save.modifier, stream=stream
+            )
             events.extend(save.events)
             passed = save.passed
             if passed and effect.save.on_save == "negates":
@@ -1548,8 +1553,10 @@ def _relocate(
     """Move the party to a cell (transitions, slides): explore, events, hooks.
 
     `narrative` is the authored success beat of the gate the party satisfied to get
-    here, and it goes out on the level- or dungeon-crossing event. A relocation that
-    crosses no boundary emits no such event, so there is nowhere to put a beat.
+    here. It goes out on the level- or dungeon-crossing event. A relocation within one
+    level emits no such event, so the beat goes out on a `PartyMovedEvent` for the
+    landing cell instead, which a relocation that isn't `walked` emits only to report
+    the beat.
 
     `via` and `transition_ref` are the caller's account of the crossing: the kind of
     the transition taken and the cell it stands on for `UseStairs` and for a passage,
@@ -1605,9 +1612,15 @@ def _relocate(
             )
         )
     events.extend(leave_events)
-    if walked:
+    # Within one level there is no crossing event, so the PartyMovedEvent for the landing cell
+    # contains the gate's success text. The session emits that event for every passage, and for
+    # stairs only when there is text to show.
+    beat = narrative if same_level else None
+    if walked or beat:
         events.append(
-            PartyMovedEvent(code="exploration.party.moved", x=position[0], y=position[1], facing=facing.value)
+            PartyMovedEvent(
+                code="exploration.party.moved", x=position[0], y=position[1], facing=facing.value, narrative=beat
+            )
         )
     state.mark_explored(dungeon_id, level_number, position)
     events.extend(_boundary_events(session, old_area, position))
@@ -1659,8 +1672,12 @@ def _keyed_encounter_check(session) -> list[Event]:
         # fixes the draws on the treasure stream.
         carried.append(_generate_carried_treasure(session, instances))
     # The lair hoard is gated: a keyed encounter the author marked hoardless (a
-    # stocking roll that gave the monster room no treasure) gets no cache.
-    events = _generate_lair_hoard(session, area, templates) if area.encounter.hoard else []
+    # stocking roll that gave the monster room no treasure) gets no cache. A lair's
+    # hoard is rolled once, so a party that evades and comes back finds the same cache.
+    events: list[Event] = []
+    if area.encounter.hoard and area_ref not in session.dungeon_state.generated_lair_hoards:
+        session.dungeon_state.generated_lair_hoards.append(area_ref)
+        events = _generate_lair_hoard(session, area, templates)
     events.extend(
         encounter_module.start_encounter(
             session,
@@ -3096,7 +3113,7 @@ def _handle_light_source(session, command: LightSource) -> tuple[list[Rejection]
             pile.items.remove(entry)
         else:
             entry.quantity -= 1
-        if not pile.items and pile.coins.total_coins == 0:
+        if not pile.items and pile.coins.total_coins == 0 and not pile.valuables and not pile.magic_items:
             del session.dungeon_state.piles[_cell_ref(session)]
         _, attach_events = session.ledger.attach(
             burning_oil_pool_definition(),
@@ -3258,6 +3275,7 @@ def _handle_purchase_equipment(session, command: PurchaseEquipment) -> tuple[lis
 
 def _handle_rest(session, command: Rest) -> tuple[list[Rejection], list[Event]]:
     turns = {"turn": 1, "night": 48, "day": 144}[command.kind]
+    start = session.clock.rounds
     resting_events, interrupted = (
         _spend_turn(session, resting=True) if turns == 1 else session.advance_turns(turns, resting=True)
     )
@@ -3265,6 +3283,13 @@ def _handle_rest(session, command: Rest) -> tuple[list[Rejection], list[Event]]:
     if turns > 1:
         session.odometer_thirds = 0
     if interrupted:
+        # The wandering check is the first step of a turn, so every whole turn of elapsed time
+        # before it is a full turn rested. Those turns still clear fatigue and count toward
+        # exhaustion, but an interrupted rest isn't sleep and heals nobody.
+        rested_turns = (session.clock.rounds - start) // ROUNDS_PER_TURN
+        if rested_turns:
+            events.extend(_clear_fatigue(session))
+            events.extend(_credit_exhaustion_rest(session, rested_turns))
         events.append(RestedEvent(code="exploration.rest.interrupted", kind=command.kind))
         return [], events
     events.extend(_clear_fatigue(session))

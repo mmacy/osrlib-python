@@ -2008,8 +2008,10 @@ def destroy_equipment(
     breath for a breath weapon, versus spells for a spell, versus wands for a device, and
     versus death for anything else. The roll adds the item's best bonus, the highest of its
     attack, damage, and armour class bonuses, so a cursed item saves at its penalty. The
-    items that save stay in the inventory's `items` list, no longer equipped. The rolls have
-    no events, and the one event reports the outcome.
+    items that save stay in the inventory's `items` list, no longer equipped. In a
+    [`GameSession`][osrlib.crawl.session.GameSession], the session then moves a dead party
+    member's saved items to a drop pile on the party's cell, in the same command, where the
+    party can pick them up. The rolls have no events, and the one event reports the outcome.
 
     Args:
         target: The victim, a [`Combatant`][osrlib.core.creature.Combatant], which a
