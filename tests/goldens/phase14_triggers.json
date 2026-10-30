@@ -244,6 +244,15 @@
       "visibility": "referee"
     },
     {
+      "code": "encounter.group.joined",
+      "count": 1,
+      "distance_feet": 30,
+      "event_type": "encounter_group_joined",
+      "group_id": "group-0002",
+      "label": "goblin",
+      "visibility": "player"
+    },
+    {
       "code": "session.journal.entry_added",
       "event_type": "journal_entry_added",
       "rounds": 61,
@@ -345,6 +354,7 @@
     "Reaction roll: 7+0 = 7 — uncertain.",
     "Trigger guard-ambush fired. A third goblin drops from the rafters.",
     "Spawned 1 × goblin: monster-0003.",
+    "More monsters join the encounter: 1 × goblin at 30'.",
     "Journal: Something moved in the rafters of the guardroom."
   ]
 }

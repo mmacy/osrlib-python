@@ -36,6 +36,8 @@ You follow the encounter through events from
 - An [`EncounterStartedEvent`][osrlib.crawl.events.EncounterStartedEvent] with the number of
   monsters and the distance.
 - A [`StanceChangedEvent`][osrlib.crawl.events.StanceChangedEvent] each time the stance changes.
+- An [`EncounterGroupJoinedEvent`][osrlib.crawl.events.EncounterGroupJoinedEvent] each time a
+  `SpawnMonsters` adds a group to the open encounter.
 - [`EvasionEvent`][osrlib.crawl.events.EvasionEvent] and
   [`PursuitEvent`][osrlib.crawl.events.PursuitEvent] while the party runs, and an
   [`ExhaustionEvent`][osrlib.crawl.events.ExhaustionEvent] when a chase goes on long enough to
@@ -143,6 +145,7 @@ from osrlib.crawl.commands import DropItems, EngageBattle, Evade, Parley, Sessio
 from osrlib.crawl.dungeon import TreasureBundle
 from osrlib.crawl.events import (
     EncounterEndedEvent,
+    EncounterGroupJoinedEvent,
     EncounterStartedEvent,
     EvasionEvent,
     ExhaustionEvent,
@@ -573,9 +576,16 @@ def _join_encounter(session, *, label: str, instances: list, distance_feet: int)
 
     The group rolls no surprise and no reaction. It shares the encounter's stance and surprise and,
     in a battle, the battle's round. The function resolves nothing and doesn't advance the clock, so
-    the group first acts in the next encounter or battle round. In a battle, a group whose morale
+    the group first acts in the next encounter or battle round. A monster that regenerates starts to
+    regenerate as it joins, as it would when its encounter opens. In a battle, a group whose morale
     score is 2 runs at once, as it would have if it had been there when the battle started.
+
+    Returns:
+        An [`EffectAttachedEvent`][osrlib.core.events.EffectAttachedEvent] for each monster that
+        regenerates, the [`EncounterGroupJoinedEvent`][osrlib.crawl.events.EncounterGroupJoinedEvent],
+        and a [`MonsterFledEvent`][osrlib.crawl.events.MonsterFledEvent] when the group runs at once.
     """
+    events = _attach_regeneration(session, instances)
     group = EncounterGroup(
         id=session.allocator.allocate("group"),
         label=label,
@@ -583,11 +593,16 @@ def _join_encounter(session, *, label: str, instances: list, distance_feet: int)
         distance_feet=distance_feet,
     )
     session.encounter.groups.append(group)
-    if session.battle is None:
-        return []
-    from osrlib.crawl import battle as battle_module
+    events.append(
+        EncounterGroupJoinedEvent(
+            group_id=group.id, label=label, count=len(group.monster_ids), distance_feet=distance_feet
+        )
+    )
+    if session.battle is not None:
+        from osrlib.crawl import battle as battle_module
 
-    return battle_module._flee_if_unwilling(session, group)
+        events.extend(battle_module._flee_if_unwilling(session, group))
+    return events
 
 
 def _attach_regeneration(session, instances: list) -> list[Event]:

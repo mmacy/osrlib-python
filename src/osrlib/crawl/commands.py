@@ -2869,9 +2869,12 @@ class SpawnMonsters(Command):
         [`EncounterStartedEvent`][osrlib.crawl.events.EncounterStartedEvent], the
         reaction roll, and a
         [`StanceChangedEvent`][osrlib.crawl.events.StanceChangedEvent]. When the monsters'
-        reaction is to attack, battle opens at once. When the group joins a battle and its
-        morale score is 2, a [`MonsterFledEvent`][osrlib.crawl.events.MonsterFledEvent]
-        follows, because a monster with that score won't fight.
+        reaction is to attack, battle opens at once. When the monsters join an open
+        encounter, an `EffectAttachedEvent` for each monster that regenerates and an
+        [`EncounterGroupJoinedEvent`][osrlib.crawl.events.EncounterGroupJoinedEvent], which
+        the players see, follow instead. When the group joins a battle and its morale score
+        is 2, a [`MonsterFledEvent`][osrlib.crawl.events.MonsterFledEvent] comes last,
+        because a monster with that score won't fight.
     """
 
     allowed_modes: ClassVar[frozenset[SessionMode]] = _ALL_MODES - frozenset(
