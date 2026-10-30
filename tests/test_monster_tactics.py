@@ -42,7 +42,7 @@ from osrlib.core.ruleset import Ruleset
 from osrlib.core.tables import ReactionResult
 from osrlib.crawl import encounter as encounter_module
 from osrlib.crawl.adventure import Adventure, TownSpec
-from osrlib.crawl.battle import MonsterAction, ScriptedPolicy
+from osrlib.crawl.battle import MonsterAction, NpcPartyPolicy, ScriptedPolicy
 from osrlib.crawl.commands import (
     BattleDeclaration,
     EngageBattle,
@@ -50,6 +50,7 @@ from osrlib.crawl.commands import (
     ResolveBattleRound,
     SessionMode,
     SpawnMonsters,
+    SpawnNpcParty,
 )
 from osrlib.crawl.dungeon import DungeonSpec, Edge, EdgeKind, LevelSpec
 from osrlib.crawl.party import Party
@@ -552,6 +553,97 @@ class TestStatues:
         assert len(rolled) >= 5, "precondition: the basilisk bit in several rounds"
         assert not has_condition(brakk, Condition.PETRIFIED), "precondition: Brakk is still flesh"
         assert {event.defender_id for event in rolled} == {brakk.id}
+
+
+# ---------------------------------------------------------------------- NPC adventurers
+
+
+def _npc_battle(names: tuple[str, ...] = ("Hild", "Brakk")) -> GameSession:
+    """A battle at 5' against a band of one NPC adventurer who melees, with neither side surprised."""
+    for seed in SEEDS:
+        game = _session(seed, _members(*names))
+        result = game.execute(SpawnNpcParty(party_kind="basic", count_fixed=1, distance_feet=5))
+        assert result.accepted
+        surprise = [event for event in result.events if event.code == "encounter.surprise.rolled"]
+        if not surprise or any(event.roll is not None and event.roll <= event.threshold for event in surprise):
+            continue
+        if game.mode is SessionMode.ENCOUNTER:
+            assert game.execute(EngageBattle()).accepted
+        if game.mode is not SessionMode.BATTLE or game.battle.round != 0:
+            continue
+        assert game.encounter.groups[0].distance_feet == 5
+        npc = game.combatant(_monster_id(game))
+        assert getattr(npc, "definition", None) is not None, "precondition: the band is NPC adventurers"
+        if [action.kind for action in _choose_npc(game)] != ["melee"]:
+            continue  # a caster or a drinker: the test needs one who melees
+        return game
+    raise AssertionError("precondition: no seed opened a battle with an NPC adventurer who melees")
+
+
+def _choose_npc(game: GameSession) -> list[MonsterAction]:
+    """Call the NPC party policy for the battle's only group, as the session does."""
+    return NpcPartyPolicy().choose(game, game.encounter.groups[0], game.streams.get(MONSTER_ACTION_STREAM))
+
+
+def _npc_targets(game: GameSession, calls: int = POLICY_CALLS) -> list[str]:
+    targets = []
+    for _ in range(calls):
+        actions = _choose_npc(game)
+        assert [action.kind for action in actions] == ["melee"], "precondition: the NPC attacks in melee"
+        targets.append(actions[0].target_id)
+    return targets
+
+
+class TestNpcAdventurersAndStatues:
+    """`NpcPartyPolicy` melees "the same as a monster", so an NPC adventurer passes over a statue too.
+
+    The ghoul's rule about paralysed members belongs to the ghoul's and the thoul's abilities, so it doesn't apply
+    to NPC adventurers.
+    """
+
+    @CHUNK
+    def test_an_npc_never_picks_a_statue_while_another_target_is_in_reach(self):
+        game = _npc_battle()
+        hild, brakk = game.party.members
+        _petrify(game, hild)
+        assert _front_rank_ids(game) == [hild.id, brakk.id], "precondition: the statue still stands in the front rank"
+
+        assert set(_npc_targets(game)) == {brakk.id}
+
+    def test_a_front_rank_of_statues_is_attacked_as_before(self):
+        """A guard: with only statues in reach, the NPC picks one of them, with the same draw as before."""
+        game = _npc_battle(("Hild", "Brakk", "Sable"))
+        hild, brakk, sable = game.party.members
+        _petrify(game, hild)
+        _petrify(game, brakk)
+        front = _front_rank_ids(game)
+        assert front == [hild.id, brakk.id], "precondition: Sable stands behind the statues"
+        assert not incapacitated(sable)
+        stream = game.streams.get(MONSTER_ACTION_STREAM)
+
+        for _ in range(POLICY_CALLS):
+            replica = RngStream.restore(stream.export_state())
+            actions = _choose_npc(game)
+            assert [action.kind for action in actions] == ["melee"]
+            assert actions[0].target_id == front[replica.randbelow(len(front))]
+            assert stream.export_state() == replica.export_state()
+
+    @pytest.mark.parametrize("paralysed", [False, True])
+    def test_an_npc_with_no_statue_in_reach_draws_as_before(self, paralysed):
+        """A guard: the target draw is `randbelow` over the front rank, and a paralysed member stays a candidate."""
+        game = _npc_battle()
+        if paralysed:
+            _paralyse(game, game.party.members[0])
+        front = _front_rank_ids(game)
+        assert len(front) == 2
+        stream = game.streams.get(MONSTER_ACTION_STREAM)
+
+        for _ in range(POLICY_CALLS):
+            replica = RngStream.restore(stream.export_state())
+            actions = _choose_npc(game)
+            assert [action.kind for action in actions] == ["melee"]
+            assert actions[0].target_id == front[replica.randbelow(len(front))]
+            assert stream.export_state() == replica.export_state(), "the policy drew differently than before"
 
 
 # ---------------------------------------------------------------------- draws
