@@ -2940,6 +2940,9 @@ class SpawnNpcParty(Command):
     encounter already open. Like [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters], the
     command isn't legal once the session has ended, because it would start new play.
 
+    Set `count_fixed` for a band of an exact size, `count_dice` to roll the size, or neither
+    to roll the B/X number for `party_kind`. Setting both fails validation.
+
     Modes:
         `town`, `exploring`, `encounter`, `battle`
 
@@ -2967,8 +2970,12 @@ class SpawnNpcParty(Command):
     count_dice: str | None = None
     """How many adventurers, as a dice expression rolled on the session's
     [`ENCOUNTER_STREAM`][osrlib.crawl.session.ENCOUNTER_STREAM]. With `None`, the default, the
-    engine rolls the B/X number for `party_kind`: 1d4+4 for `basic` and 1d6+3 for `expert`. A malformed
-    expression raises when the command is constructed. A roll below 1 counts as 1."""
+    engine rolls the B/X number for `party_kind`: 1d4+4 for `basic` and 1d6+3 for `expert`, unless
+    `count_fixed` is set. A malformed expression raises when the command is constructed. A roll
+    below 1 counts as 1. Don't set it together with `count_fixed`."""
+    count_fixed: int | None = Field(default=None, ge=1)
+    """How many adventurers, as an exact number. Use it when the author chose the size of the band.
+    The session rolls nothing for the size. Don't set it together with `count_dice`."""
     distance_feet: int = Field(ge=0)
     """How far away the NPC party appears, in feet, on the same terms as
     [`SpawnMonsters.distance_feet`][osrlib.crawl.commands.SpawnMonsters.distance_feet]."""
@@ -2979,6 +2986,12 @@ class SpawnNpcParty(Command):
         if value is not None:
             parse(value)
         return value
+
+    @model_validator(mode="after")
+    def _dice_or_fixed(self) -> SpawnNpcParty:
+        if self.count_dice is not None and self.count_fixed is not None:
+            raise ValueError("set at most one of count_dice or count_fixed")
+        return self
 
 
 class SetDoorState(Command):

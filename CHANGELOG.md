@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] takes an exact band size in the new `count_fixed` field, so a referee can place a band of four adventurers (#167). Before, the size had to be a dice expression, and `"4"` isn't one. Set at most one of `count_fixed` and `count_dice`. With neither, the band rolls the B/X number for its kind as before. A saved command without the field still parses.
+
 ### Fixed
 
 - [`UseItem`][osrlib.crawl.commands.UseItem] with a potion and a `target_id` that names someone other than the member using it is now refused with `items.use.target_not_allowed`. Before, the session accepted the command and the carrier drank the potion, so a front end that expected the target to drink got no warning. A `target_id` of `None` or the user's own id drinks the potion as before, and a healing device still takes another member (#174).
