@@ -61,8 +61,9 @@ All weights are in coins, the SRD's unit of encumbrance at ten coins to the poun
 Coins themselves weigh 1 each. The `encumbrance` setting of
 [`Ruleset`][osrlib.core.ruleset.Ruleset] picks what is weighed: nothing, treasure alone
 (basic), or treasure and equipment (detailed). Under basic and detailed encumbrance,
-tracked weight above [`MAX_LOAD_COINS`][osrlib.core.items.MAX_LOAD_COINS] means the
-character can't move. osrlib doesn't cap how much an inventory contains.
+tracked weight above the maximum load means the character can't move. The maximum load is
+[`MAX_LOAD_COINS`][osrlib.core.items.MAX_LOAD_COINS], which worn gauntlets of ogre power
+raise under detailed encumbrance. osrlib doesn't cap how much an inventory contains.
 
 Typical usage:
 
@@ -186,7 +187,8 @@ return is in coins. Under basic and detailed encumbrance,
 [`movement_rate_feet`][osrlib.core.items.movement_rate_feet] returns 0 above this figure,
 and the slowest band of detailed encumbrance ends here. osrlib doesn't stop you from
 putting more in an [`Inventory`][osrlib.core.items.Inventory], but the movement rate is
-then 0.
+then 0. Under detailed encumbrance, worn gauntlets of ogre power raise this limit and every
+band before it by 1,000 coins.
 """
 
 BASE_MOVEMENT_FEET = 120
@@ -2052,7 +2054,9 @@ class Inventory(BaseModel):
     and an unequipped item goes back on the end.
 
     osrlib doesn't cap what a character can carry. Weight affects the movement rate instead:
-    past [`MAX_LOAD_COINS`][osrlib.core.items.MAX_LOAD_COINS] the character can't move.
+    past the maximum load the character can't move. The maximum load is
+    [`MAX_LOAD_COINS`][osrlib.core.items.MAX_LOAD_COINS], which worn gauntlets of ogre power
+    raise under detailed encumbrance.
     """
 
     model_config = ConfigDict(validate_assignment=True)
@@ -2404,7 +2408,7 @@ def treasure_weight_coins(inventory: Inventory) -> int:
     wands. Every coin weighs 1, whatever its metal.
 
     A stack of those magic items weighs its template's `weight_coins` times its quantity,
-    and a spent stack still weighs one, because a quantity of 0 counts as 1. Rings and
+    so a spent stack, at quantity 0, weighs nothing. Rings and
     miscellaneous items weigh nothing, because their pages give no weight. A bag of holding
     weighs its printed loaded weight while it contains anything. Enchanted weapons and
     armour count as equipment, like the mundane kind, rather than as treasure. That way
@@ -2444,7 +2448,7 @@ def treasure_weight_coins(inventory: Inventory) -> int:
                 MagicItemCategory.STAFF,
                 MagicItemCategory.WAND,
             ):
-                total += template.weight_coins * max(1, instance.quantity)
+                total += template.weight_coins * instance.quantity
             elif "loaded_weight_coins" in template.params and instance.state.get("holding"):
                 total += _int_param(template.params, "loaded_weight_coins")
     return total
@@ -2461,9 +2465,10 @@ def equipment_weight_coins(inventory: Inventory) -> int:
     other template. Gear has no per-item weights, so carrying any gear at all adds a flat
     [`MISC_GEAR_WEIGHT_COINS`][osrlib.core.items.MISC_GEAR_WEIGHT_COINS] and no more.
 
-    An enchanted weapon or suit of armour weighs what its mundane base item weighs, read
-    from the instance's `base_item_id`. Enchanted armour and shields weigh half, rounded
-    down, because the rules make enchanted armour lighter than the mundane kind.
+    An enchanted weapon or suit of armour weighs what its mundane base item weighs. The base
+    is the instance's `base_item_id`, or the template's when the instance has none. Enchanted
+    armour and shields weigh half, rounded down, because the rules make enchanted armour
+    lighter than the mundane kind.
 
     Args:
         inventory: The inventory to weigh.
@@ -2493,9 +2498,10 @@ def equipment_weight_coins(inventory: Inventory) -> int:
     has_gear = False
     for instance in inventory.all_instances():
         if isinstance(instance, MagicItemInstance):
-            if instance.base_item_id is None:
+            base_id = _magic_base_item_id(instance)
+            if base_id is None:
                 continue
-            base = load_equipment().get(instance.base_item_id)
+            base = load_equipment().get(base_id)
             weight = getattr(base, "weight_coins", 0)
             template = magic_item_template(instance)
             if template.category is MagicItemCategory.ARMOUR:
@@ -2562,6 +2568,59 @@ def _int_param(params: Mapping[str, Any], key: str, default: int = 0) -> int:
     return int(params.get(key, default))
 
 
+def _magic_base_item_id(instance: MagicItemInstance) -> str | None:
+    """Return the equipment id of an enchanted item's mundane base, or `None` when it has none.
+
+    The instance's `base_item_id` comes first, because
+    [`instantiate_magic_item`][osrlib.core.treasure.instantiate_magic_item] records a rolled
+    item's base there. The template's `base_item_id` is the fallback, for an item whose template
+    sets its base, like a shield +1 built without the instance field.
+    """
+    return instance.base_item_id or magic_item_template(instance).base_item_id
+
+
+def _load_bonus_coins(inventory: Inventory, mode: EncumbranceMode) -> int:
+    """Return how far worn items raise the detailed encumbrance bands and the maximum load, in coins.
+
+    Gauntlets of ogre power add their template's `max_load_bonus_coins` while they're worn.
+    Their page gives the extra weight under detailed encumbrance, so the bonus is 0 under the
+    other modes. Two items with the bonus don't stack: the largest applies.
+
+    Args:
+        inventory: The inventory whose equipped items to read.
+        mode: The encumbrance mode in play.
+
+    Returns:
+        The bonus in coins, 0 when nothing worn grants one.
+    """
+    if mode is not EncumbranceMode.DETAILED:
+        return 0
+    return max(
+        (
+            _int_param(magic_item_template(instance).params, "max_load_bonus_coins")
+            for instance in inventory.equipped_instances()
+            if isinstance(instance, MagicItemInstance)
+        ),
+        default=0,
+    )
+
+
+def _max_load_coins(inventory: Inventory, mode: EncumbranceMode) -> int:
+    """Return the most weight the character can carry and still move, in coins.
+
+    It's [`MAX_LOAD_COINS`][osrlib.core.items.MAX_LOAD_COINS], raised under detailed
+    encumbrance by worn gauntlets of ogre power.
+
+    Args:
+        inventory: The inventory whose equipped items to read.
+        mode: The encumbrance mode in play.
+
+    Returns:
+        The maximum load in coins.
+    """
+    return MAX_LOAD_COINS + _load_bonus_coins(inventory, mode)
+
+
 def _worn_armour_category(worn: Any) -> ArmourCategory | None:
     """Return the worn body armour's category, resolving enchanted armour's base.
 
@@ -2577,11 +2636,12 @@ def _worn_armour_category(worn: Any) -> ArmourCategory | None:
     if worn is None:
         return None
     if isinstance(worn, MagicItemInstance):
-        if worn.base_item_id is None:
+        base_id = _magic_base_item_id(worn)
+        if base_id is None:
             return None
         from osrlib.data import load_equipment
 
-        base = load_equipment().get(worn.base_item_id)
+        base = load_equipment().get(base_id)
         return base.category if isinstance(base, ArmourTemplate) else None
     return worn.template.category if isinstance(worn.template, ArmourTemplate) else None
 
@@ -2605,11 +2665,13 @@ def movement_rate_feet(inventory: Inventory, ruleset: Ruleset, carrying_treasure
       Unarmoured is 120' and 90' hauling. Light armour 90' and 60'. Heavy armour 60' and
       30'.
     - `detailed`: the weight carried, against the printed thresholds, which are inclusive:
-      120' up to 400 coins, 90' up to 600, 60' up to 800, 30' up to the maximum load.
+      120' up to 400 coins, 90' up to 600, 60' up to 800, 30' up to the maximum load. Worn
+      gauntlets of ogre power add their 1,000 coins to every threshold and to the maximum
+      load, so the wearer moves at 120' up to 1,400 coins.
 
-    Under `basic` and `detailed`, weight past
-    [`MAX_LOAD_COINS`][osrlib.core.items.MAX_LOAD_COINS] means the character can't move at
-    all.
+    Under `basic` and `detailed`, weight past the maximum load means the character can't move
+    at all. The maximum load is [`MAX_LOAD_COINS`][osrlib.core.items.MAX_LOAD_COINS], plus
+    the gauntlets' bonus under `detailed`.
 
     Args:
         inventory: The inventory to weigh.
@@ -2641,15 +2703,16 @@ def movement_rate_feet(inventory: Inventory, ruleset: Ruleset, carrying_treasure
     if mode is EncumbranceMode.NONE:
         return BASE_MOVEMENT_FEET
     tracked = tracked_weight_coins(inventory, mode)
-    if tracked > MAX_LOAD_COINS:
+    if tracked > _max_load_coins(inventory, mode):
         return 0
     if mode is EncumbranceMode.BASIC:
         without, with_treasure = _BASIC_RATES[_worn_armour_category(inventory.worn_armour)]
         return with_treasure if carrying_treasure else without
+    bonus = _load_bonus_coins(inventory, mode)
     for threshold, rate in _DETAILED_RATES:
-        if tracked <= threshold:
+        if tracked <= threshold + bonus:
             return rate
-    return 0  # unreachable: tracked > MAX_LOAD_COINS returned above
+    return 0  # unreachable: tracked past the maximum load returned above
 
 
 def encounter_movement_rate(base_rate_feet: int) -> int:
@@ -2780,7 +2843,7 @@ def purchase(inventory: Inventory, template: ItemTemplate, lots: int = 1) -> Ite
 def _wielded_qualities(instance: ItemInstance | MagicItemInstance) -> tuple[WeaponQuality, ...]:
     """Return a wielded instance's weapon qualities. For an enchanted weapon, return its base item's."""
     if isinstance(instance, MagicItemInstance):
-        base_id = instance.base_item_id or magic_item_template(instance).base_item_id
+        base_id = _magic_base_item_id(instance)
         if base_id is None:
             return ()
         from osrlib.data import load_equipment
@@ -2868,7 +2931,7 @@ def _validate_equip_magic(
     if template.category in (MagicItemCategory.POTION, MagicItemCategory.SCROLL):
         return [Rejection(code="items.equip.not_equippable", params={"item": instance.instance_id})]
     if template.category in (MagicItemCategory.SWORD, MagicItemCategory.WEAPON, MagicItemCategory.ARMOUR):
-        base_id = instance.base_item_id or template.base_item_id
+        base_id = _magic_base_item_id(instance)
         if base_id is None:
             return [Rejection(code="items.equip.not_equippable", params={"item": instance.instance_id})]
         base = load_equipment().get(base_id)
@@ -3020,7 +3083,7 @@ def validate_equip(
 def _is_shield_instance(instance: ItemInstance | MagicItemInstance) -> bool:
     """Return whether an instance is the shield, mundane or enchanted."""
     if isinstance(instance, MagicItemInstance):
-        return (instance.base_item_id or magic_item_template(instance).base_item_id) == "shield"
+        return _magic_base_item_id(instance) == "shield"
     return isinstance(instance.template, ArmourTemplate) and instance.template.is_shield
 
 

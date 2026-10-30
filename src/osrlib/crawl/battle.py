@@ -25,7 +25,8 @@ You follow the battle through events from [`osrlib.crawl.events`][osrlib.crawl.e
 - [`SpellDeclaredEvent`][osrlib.crawl.events.SpellDeclaredEvent] for each spell declared that
   round.
 - [`GroupMovedEvent`][osrlib.crawl.events.GroupMovedEvent] when a group's distance changes.
-- [`MonsterFledEvent`][osrlib.crawl.events.MonsterFledEvent] when a group breaks and runs.
+- [`MonsterFledEvent`][osrlib.crawl.events.MonsterFledEvent] when a group breaks and runs, and
+  when the turned members of a group break away as a new group.
 - [`MonstersLeftBehindEvent`][osrlib.crawl.events.MonstersLeftBehindEvent] for helpless members a
   running group leaves behind.
 - [`BattleEndedEvent`][osrlib.crawl.events.BattleEndedEvent] with victory, defeat, or flight.
@@ -66,6 +67,16 @@ During a round, the session also applies these rules without a command for them:
 - A caster who declared a spell loses it if an attack hits them, or they fail a saving throw,
   between initiative and their turn to act.
 - Each monster group checks morale when the rules call for it.
+- When a monster hits, the session applies the effects its attack lists, each with the save the
+  SRD gives: paralysis, poison, mummy rot, energy drain, and petrification. The
+  [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/) lists the effects
+  the session leaves to the referee.
+- A petrifying gaze, like the basilisk's or the medusa's, reaches each member of the party's
+  front rank once a round while the gazer's group is in melee. It takes no attack roll, and
+  [`resolve_gaze`][osrlib.core.combat.resolve_gaze] skips a member who is averting their eyes,
+  but no command lets a member avert them yet.
+- Turned undead attack no one. When a cleric turns only some of a group, the turned members
+  break away as a new group, which runs, and the rest fight on.
 - A member's invisibility ends when the member attacks, throws or uses an item other than a
   potion, or turns undead. [`cast_spell`][osrlib.core.spells.cast_spell] ends it when the member
   casts.
@@ -182,6 +193,8 @@ from typing import Any, Protocol
 
 from pydantic import BaseModel, ConfigDict
 
+from osrlib.core.character import ADVANCEMENT_STREAM
+from osrlib.core.clock import TimeUnit
 from osrlib.core.combat import (
     COMBAT_STREAM,
     AttackContext,
@@ -196,14 +209,17 @@ from osrlib.core.combat import (
     morale_triggers,
     resolve_attack,
     resolve_breath,
+    resolve_energy_drain,
+    resolve_gaze,
     resolve_splash_attack,
     roll_initiative,
+    saving_throw,
     validate_attack,
     validate_breath,
 )
 from osrlib.core.creature import Creature
 from osrlib.core.dice import roll
-from osrlib.core.effects import EFFECTS_STREAM, Condition, has_condition
+from osrlib.core.effects import EFFECTS_STREAM, Condition, EffectDefinition, has_condition, kill
 from osrlib.core.events import AttackRolledEvent, Event, SavingThrowRolledEvent, SpellDisruptedEvent
 from osrlib.core.items import (
     GearTemplate,
@@ -213,7 +229,7 @@ from osrlib.core.items import (
     WeaponQuality,
     magic_item_template,
 )
-from osrlib.core.monsters import MonsterInstance
+from osrlib.core.monsters import MonsterAbility, MonsterAttack, MonsterInstance
 from osrlib.core.spells import (
     MAGIC_STREAM,
     cast_spell,
@@ -275,7 +291,7 @@ FLEE_EXIT_FEET = 120
 
 A group that fails a morale check turns and runs its full movement rate each round. Once its
 distance is greater than this, the session marks the group fled. A fled group takes no further
-action, the session rejects an attack declared against it with
+action, the session rejects every declaration aimed at it with
 `battle.declaration.unknown_group`, and a battle in which every group has fled or died ends in
 victory. Until the group gets this far, the party can still chase it or shoot at it. A group whose
 living members are all afraid or turned, but which didn't fail a morale check, also counts as gone
@@ -296,10 +312,11 @@ class BattleState(BaseModel):
     [`osrlib.crawl.commands`][osrlib.crawl.commands] instead of writing to this model. Referee
     commands are allowed in `battle` mode, so a referee can grant an item, award experience, set a
     flag, or advance the clock during a fight. The command log records the command, so a replay
-    reproduces the change. [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters],
-    [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty], and
+    reproduces the change. [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] adds a new
+    monster group to the fight between rounds, and the group acts from the next round.
+    [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] and
     [`PlaceParty`][osrlib.crawl.commands.PlaceParty] are the exceptions. The session rejects them
-    with `session.command.encounter_in_progress` while an encounter is open, so no new group can
+    with `session.command.encounter_in_progress` while an encounter is open, so an NPC party can't
     join a fight, and the party can't be moved out of one.
     """
 
@@ -465,9 +482,11 @@ class ActionPolicy(Protocol):
         the group's morale check and before the group moves or attacks. For a group of NPC
         adventurers, it comes at the start of the round, before initiative, because NPCs declare
         their spells then, as the party does. The session doesn't call it for a group that has fled
-        or has no living members, for a monster group that failed morale and is running, or for any
-        group while [`BattleState.monsters_hold_rounds`][osrlib.crawl.battle.BattleState.monsters_hold_rounds]
-        is above zero.
+        or has no living members, for a monster group that is running because it failed morale or
+        because its living members are all turned or afraid, or for any group while
+        [`BattleState.monsters_hold_rounds`][osrlib.crawl.battle.BattleState.monsters_hold_rounds]
+        is above zero. The group you choose for has no living turned members, because the session
+        moves them into a separate group before it calls your policy.
 
         Args:
             session (osrlib.crawl.session.GameSession): The running session. Read the party, the
@@ -483,8 +502,8 @@ class ActionPolicy(Protocol):
         Returns:
             The actions to resolve, in the order they resolve. Return an empty list for a group that
             does nothing. Leave out members that are dead, incapacitated, or confused, as the built-in
-            policies do. The session skips an action for a dead or confused member and resolves
-            confusion itself.
+            policies do. The session skips an action for a dead, confused, or turned member, and it
+            resolves confusion itself.
         """
         ...
 
@@ -1142,9 +1161,11 @@ def start_battle(session, *, party_free_round: bool = False, monsters_free_round
     [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound] command.
 
     A group whose morale score is 2 runs away as soon as the battle starts, as the SRD's morale
-    rule says, and that can end the battle before any round. A side that surprised the other gets
-    one free round. The monsters' free round runs inside this call, before the party can act. On
-    the party's free round, the monsters do nothing during the first `ResolveBattleRound`.
+    rule says, and that can end the battle before any round. In a group that a cleric turned only
+    in part, the turned members break away as a new group, which runs from the first round. A
+    side that surprised the other gets one free round. The monsters' free round runs inside this
+    call, before the party can act. On the party's free round, the monsters do nothing during the
+    first `ResolveBattleRound`.
 
     Args:
         session (osrlib.crawl.session.GameSession): The running session, with `session.encounter` set.
@@ -1209,9 +1230,8 @@ def start_battle(session, *, party_free_round: bool = False, monsters_free_round
     session.mode = SessionMode.BATTLE
     events: list[Event] = [BattleStartedEvent()]
     for group in session.encounter.groups:
-        if _group_morale_score(session, group) == 2 and not group.fled:
-            group.fled = True
-            events.append(MonsterFledEvent(code="battle.side.fled", group_id=group.id))
+        events.extend(_flee_if_unwilling(session, group))
+    events.extend(_split_off_turned(session))
     end_events = _check_ends(session, party_retreating=False)
     if end_events is not None:
         return [*events, *end_events]
@@ -1223,6 +1243,18 @@ def start_battle(session, *, party_free_round: bool = False, monsters_free_round
         if end_events is not None:
             events.extend(end_events)
     return events
+
+
+def _flee_if_unwilling(session, group) -> list[Event]:
+    """Send a group whose morale score is 2 out of the battle, because the SRD says it won't fight.
+
+    The group runs as it enters the battle: when the battle starts, or when a referee's spawn adds
+    it to a battle that's already running.
+    """
+    if group.fled or _group_morale_score(session, group) != 2:
+        return []
+    group.fled = True
+    return [MonsterFledEvent(code="battle.side.fled", group_id=group.id)]
 
 
 def _check_ends(session, *, party_retreating: bool) -> list[Event] | None:
@@ -1389,8 +1421,10 @@ def _validate_declaration(session, declaration: BattleDeclaration, member) -> li
     if declaration.action == "move":
         if declaration.move is None:
             return [Rejection(code="battle.declaration.missing_move", params={"character": member.id})]
-        if declaration.move == "close" and _group_by_id(session, declaration.target_group_id) is None:
-            return [Rejection(code="battle.declaration.unknown_group", params={"character": member.id})]
+        if declaration.move == "close":
+            group = _group_by_id(session, declaration.target_group_id)
+            if group is None or group.fled:
+                return [Rejection(code="battle.declaration.unknown_group", params={"character": member.id})]
         from osrlib.core.combat import cannot_move
 
         if cannot_move(member):
@@ -1475,17 +1509,38 @@ def _validate_declaration(session, declaration: BattleDeclaration, member) -> li
 
 
 def _cast_targets(session, declaration: BattleDeclaration, spell) -> tuple[list, int | None, list[Rejection]]:
-    """Resolve a cast declaration's targets: explicit ids, or the area footprint."""
+    """Resolve a cast declaration's targets: explicit ids, the area footprint, or a group's living members.
+
+    A cast in an `area` mode aims at `target_group_id`, and its targets are the group's living members
+    that fit the area footprint, followed by the party's front rank when `aoe_friendly_fire` applies.
+    A cast in an `hd_budget` mode with a `target_group_id` and no `targets` targets every living
+    member of the group, in spawn order, and the kernel spends the budget on them weakest first.
+    That's the same cast as naming those members one by one, so a front end with only the player
+    view's group ids can cast *sleep*. When both are set, the cast uses the named `targets`. For a
+    group that isn't in the encounter, or that has fled, this returns a
+    `battle.declaration.unknown_group` rejection.
+    """
     try:
         mode = spell.mode(declaration.spell_mode, reversed=declaration.reversed)
     except ValueError:
         return [], None, [Rejection(code="magic.cast.unknown_mode", params={"mode": declaration.spell_mode or ""})]
     targeting = mode.targeting
-    if targeting is not None and targeting.mode is TargetingMode.AREA:
+    if targeting is not None and (
+        targeting.mode is TargetingMode.AREA
+        or (
+            targeting.mode is TargetingMode.HD_BUDGET
+            and not declaration.targets
+            and declaration.target_group_id is not None
+        )
+    ):
         group = _group_by_id(session, declaration.target_group_id)
-        if group is None:
-            return [], None, [Rejection(code="battle.declaration.unknown_group", params={})]
-        candidates = _area_candidates(session, group, targeting.shape, targeting.dimensions)
+        if group is None or group.fled:
+            unknown = Rejection(code="battle.declaration.unknown_group", params={"character": declaration.character_id})
+            return [], None, [unknown]
+        if targeting.mode is TargetingMode.AREA:
+            candidates = _area_candidates(session, group, targeting.shape, targeting.dimensions)
+        else:
+            candidates = _living_monsters(session, group)
         return candidates, group.distance_feet, []
     registry = session.registry()
     targets: list = []
@@ -2349,6 +2404,7 @@ def _party_magic(session, by_member, pending_casters, disrupted, acted, state) -
                 stream=session.streams.get(MAGIC_STREAM),
             )
             events.extend(result.events)
+            events.extend(_split_off_turned(session))
             events.extend(_break_invisibility(session, member))
             events.extend(_release_concentration(session, member.id, state))
             acted.add(member.id)
@@ -2537,11 +2593,11 @@ def _monster_block(
 ) -> list[Event]:
     from osrlib.crawl.session import MONSTER_ACTION_STREAM
 
-    events: list[Event] = []
     pending_casters = pending_casters or {}
     disrupted = disrupted if disrupted is not None else set()
     acted = acted if acted is not None else set()
     fire_damaged = fire_damaged if fire_damaged is not None else set()
+    events = _split_off_turned(session)
     for group in list(session.encounter.groups):
         if group.fled or not _living_monsters(session, group):
             continue
@@ -2559,6 +2615,8 @@ def _monster_block(
             if group.distance_feet > FLEE_EXIT_FEET:
                 group.fled = True
             continue
+        events.extend(_resolve_gazes(session, group))
+        _watch_disruption(events, pending_casters, disrupted, acted)
         if npc_actions is not None and group.id in npc_actions:
             actions = npc_actions[group.id]
         else:
@@ -2569,6 +2627,8 @@ def _monster_block(
             monster = session.combatant(action.monster_id)
             if has_condition(monster, Condition.DEAD) or has_condition(monster, Condition.CONFUSED):
                 continue
+            if has_condition(monster, Condition.TURNED):
+                continue  # a turned monster harms no one, whatever its policy chose
             if action.kind == "close" and not moved:
                 if cannot_move(monster):
                     continue
@@ -2766,16 +2826,65 @@ def _leave_helpless_behind(session, group) -> list[Event]:
     return [MonstersLeftBehindEvent(group_id=stay_behind.id, source_group_id=group.id, count=len(left_ids))]
 
 
+def _split_off_turned(session) -> list[Event]:
+    """Move the turned members of each partly turned group into a new group.
+
+    The OSE SRD's turned undead "flee from the cleric's presence if possible, and will not harm
+    the cleric". A group whose living members are all turned or afraid already runs as a whole.
+    In a group with a living member that is neither turned nor afraid, the turned members break
+    away. They become a new group at the same distance, and each one takes the treasure it
+    carries, because routed monsters flee with their treasure. The group's shared bundle stays with
+    the members who fight on, so it drops only when they're all slain. Every living member
+    of the new group is turned, so the monster block moves it away as it moves a wholly turned
+    group, and leaves behind any member who can't move. The members who fight on stay in the
+    original group, so the group's id and the policy registered for it don't change. Dead members
+    stay in the original group's record, as they do in `_leave_helpless_behind`.
+
+    The session calls this when a battle starts, after each turning in the magic phase, and at
+    the top of each monster block. The last call handles a group that becomes partly turned
+    later: a group of turned and afraid members becomes one when the fear on a member ends.
+    """
+    from osrlib.crawl.encounter import EncounterGroup
+
+    events: list[Event] = []
+    for group in list(session.encounter.groups):
+        if group.fled or group.fleeing or _group_all_shaken(session, group):
+            continue
+        turned_ids = [
+            monster.id for monster in _living_monsters(session, group) if has_condition(monster, Condition.TURNED)
+        ]
+        if not turned_ids:
+            continue
+        runners = EncounterGroup(
+            id=session.allocator.allocate("group"),
+            label=group.label,
+            monster_ids=turned_ids,
+            distance_feet=group.distance_feet,
+        )
+        for monster_id in turned_ids:
+            bundle = group.member_treasure.pop(monster_id, None)
+            if bundle is not None:
+                runners.member_treasure[monster_id] = bundle
+        group.monster_ids = [monster_id for monster_id in group.monster_ids if monster_id not in set(turned_ids)]
+        session.encounter.groups.append(runners)
+        events.append(MonsterFledEvent(code="battle.side.fled", group_id=runners.id))
+    return events
+
+
 def _group_morale(session, group, fire_damaged) -> list[Event]:
     """Check a group's morale automatically, running the kernel's triggers through the per-battle tracker.
 
     A conditional alternate resolves from the round's context. Fear of fire, for
     example, applies when the round's damage included fire. The spell morale
     modifier applies under the usual morale-modifier rule.
+
+    A group that's already running makes no check, whether it failed morale or its
+    living members are all turned or afraid. Its triggers stay pending. If the fear
+    on its members ends and it stops running, it judges them then.
     """
     state = session.battle
     score = _group_morale_score(session, group)
-    if score is None or group.fleeing:
+    if score is None or group.fleeing or _group_all_shaken(session, group):
         return []
     members = [session.combatant(monster_id) for monster_id in group.monster_ids]
     if all(incapacitated(member) for member in members):
@@ -2832,8 +2941,6 @@ def _confused_overrides(session, group, actions) -> list[Event]:
             bool(params.get("resave_at_hd_count_2_with_bonus")) and hd.count == 2 and hd.modifier > 0
         )
         if qualifies:
-            from osrlib.core.combat import saving_throw
-
             save = saving_throw(
                 monster,
                 SaveCategory(str(params.get("resave_category", "spells"))),
@@ -2871,11 +2978,18 @@ def _behaviour_outcome(params, total: int) -> str:
 
 
 def _resolve_monster_melee(session, monster, target, *, party_retreating: bool) -> list[Event]:
+    """Resolve a monster's attack routine against one target, with what each hit does beyond damage.
+
+    An attack named `gaze` takes no attack roll, so this function skips it. `_resolve_gazes` runs a
+    petrifying gaze once a round instead.
+    """
     events: list[Event] = []
     routine = monster.template.attacks[0] if monster.template.attacks else None
     if routine is None:
         return []
     for attack in routine.attacks:
+        if attack.name == "gaze":
+            continue
         for _ in range(attack.count):
             if has_condition(target, Condition.DEAD):
                 return events
@@ -2900,7 +3014,192 @@ def _resolve_monster_melee(session, monster, target, *, party_retreating: bool) 
                 clock=session.clock,
             )
             events.extend(result.events)
+            if result.attack_roll.hit and not result.absorbed:
+                events.extend(_apply_hit_effects(session, monster, target, attack))
             events.extend(_identify_worn_items(session, target))
+    return events
+
+
+_HIT_EFFECT_KINDS = frozenset({"paralysis", "poison", "disease", "energy_drain", "petrification"})
+"""The attack effects that battle applies when a monster hits. The adaptations register lists the rest."""
+
+
+def _apply_hit_effects(session, monster, target, attack: MonsterAttack) -> list[Event]:
+    """Apply each effect a monster's attack lists to the target the attack hit.
+
+    The effects apply once for each hit, so a target hit by two paralysing claws saves twice. A dead
+    or petrified target takes none of them.
+    """
+    events: list[Event] = []
+    for kind in attack.effects:
+        if has_condition(target, Condition.DEAD) or has_condition(target, Condition.PETRIFIED):
+            break
+        ability = _hit_ability(monster, kind)
+        if ability is not None:
+            events.extend(_apply_hit_effect(session, monster, target, kind, ability.params))
+    return events
+
+
+def _hit_ability(monster, kind: str) -> MonsterAbility | None:
+    """Return the ability that contains an attack effect's parameters, or None when battle doesn't apply the effect.
+
+    Battle applies a kind in `_HIT_EFFECT_KINDS` when the monster's ability for it isn't manual. The
+    basilisk has two `petrification` abilities. `_resolve_gazes` uses the one with the `gaze` vector,
+    so this function reads only an ability with the `touch` vector or with no vector.
+    """
+    if kind not in _HIT_EFFECT_KINDS:
+        return None
+    for ability in monster.template.abilities:
+        if ability.tag == kind and ability.params.get("vector", "touch") == "touch":
+            return None if ability.manual else ability
+    return None
+
+
+def _apply_hit_effect(session, monster, target, kind: str, params: Mapping[str, Any]) -> list[Event]:
+    """Apply one attack effect to the target, with the save the SRD gives for it.
+
+    - `energy_drain` takes levels or Hit Dice through `resolve_energy_drain`. There's no save.
+    - `disease` gives the target the disease in the ability's `kind` param, like mummy rot. There's no
+      save, and only magic removes it.
+    - `paralysis` makes the target save versus paralysis or be paralysed for the ability's duration.
+      When the ability's `unaffected` list includes `elf`, a character whose class has
+      `ghoul_paralysis_immunity` rolls no save and isn't paralysed.
+    - `petrification` makes the target save versus paralysis, the category for petrification, or turn
+      to stone.
+    - `poison` makes the target save versus death, with the ability's `save_modifier`, or die. The
+      target dies at once, or when the onset in the ability's params runs out.
+
+    A monster that's immune to the condition the effect brings rolls no save and takes nothing.
+    Saves draw from the combat stream, rolled durations and onsets from the effects stream, and
+    energy drain from the advancement stream.
+    """
+    if kind == "energy_drain":
+        return resolve_energy_drain(monster, target, stream=session.streams.get(ADVANCEMENT_STREAM))
+    if kind == "disease":
+        disease = EffectDefinition(
+            kind=str(params.get("kind", "disease")),
+            condition=Condition.DISEASED,
+            permanent=True,
+            stacking="ignore",
+        )
+        return _attach_hit_effect(session, target, disease)
+    category = SaveCategory.PARALYSIS
+    modifier = 0
+    condition: Condition
+    definition: EffectDefinition | None
+    if kind == "paralysis":
+        if _spared_by_ghoul_immunity(target, params):
+            return []
+        condition = Condition.PARALYSED
+        definition = EffectDefinition(
+            kind="paralysis",
+            condition=condition,
+            duration_unit=TimeUnit(str(params.get("unit", "turn"))),
+            duration_dice=str(params.get("duration", "2d4")),
+        )
+    elif kind == "petrification":
+        condition = Condition.PETRIFIED
+        definition = EffectDefinition(kind="petrification", condition=condition, permanent=True)
+    else:
+        category = SaveCategory.DEATH
+        modifier = _int_param(params, "save_modifier")
+        condition = Condition.POISONED
+        definition = _poison_onset(params)
+    defenses = getattr(getattr(target, "template", None), "defenses", None)
+    if defenses is not None and condition in defenses.condition_immunities:
+        return []
+    save = saving_throw(target, category, modifier=modifier, source=monster, stream=session.streams.get(COMBAT_STREAM))
+    events = list(save.events)
+    if save.passed:
+        return events
+    if definition is None:
+        events.extend(kill(target))
+    else:
+        events.extend(_attach_hit_effect(session, target, definition))
+    return events
+
+
+def _poison_onset(params: Mapping[str, Any]) -> EffectDefinition | None:
+    """Return the effect that kills when a poison's onset runs out, or None for a poison that kills at once.
+
+    The effect's kind is `poison`, so the session records the death it causes as a poison death.
+    """
+    unit = params.get("onset_unit")
+    if unit is None:
+        return None
+    amount = params.get("onset_amount")
+    dice = params.get("onset_dice")
+    return EffectDefinition(
+        kind="poison",
+        condition=Condition.POISONED,
+        duration_unit=TimeUnit(str(unit)),
+        duration_amount=int(amount) if amount is not None else None,
+        duration_dice=str(dice) if dice is not None else None,
+        expiry="death",
+    )
+
+
+def _spared_by_ghoul_immunity(target, params: Mapping[str, Any]) -> bool:
+    """Return whether the target is an elf and the paralysis ability's `unaffected` list includes elves.
+
+    The elf's immunity is a class ability, `ghoul_paralysis_immunity`, so this function reads it from
+    the character's class. The `unaffected` list also includes `larger_than_ogre`, but osrlib has no
+    model of size, so no creature is spared for its size.
+    """
+    if "elf" not in params.get("unaffected", ()):
+        return False
+    definition = getattr(target, "definition", None)
+    return definition is not None and any(ability.tag == "ghoul_paralysis_immunity" for ability in definition.abilities)
+
+
+def _attach_hit_effect(session, target, definition: EffectDefinition) -> list[Event]:
+    _, events = session.ledger.attach(
+        definition,
+        target.id,
+        clock=session.clock,
+        allocator=session.allocator,
+        registry=session.registry(),
+        stream=session.streams.get(EFFECTS_STREAM),
+    )
+    return events
+
+
+def _petrifying_gaze(monster) -> MonsterAbility | None:
+    """Return the monster's petrifying gaze, like the basilisk's or the medusa's, or None when it has none."""
+    template = getattr(monster, "template", None)
+    if template is None:
+        return None
+    for ability in template.abilities:
+        if ability.tag == "petrification" and ability.params.get("vector") == "gaze" and not ability.manual:
+            return ability
+    return None
+
+
+def _resolve_gazes(session, group) -> list[Event]:
+    """Turn each gazer's petrifying gaze on the party's front rank, once a round, while its group is in melee.
+
+    A gaze takes no attack roll and no action. Every living gazer that isn't incapacitated uses it
+    before its group acts, whatever the policy then chooses for it. `resolve_gaze` skips a character
+    who is averting their eyes or is incapacitated, and rolls a save versus paralysis on the combat
+    stream for each of the others.
+    """
+    if group.distance_feet > MELEE_RANGE_FEET:
+        return []
+    events: list[Event] = []
+    for monster in _living_monsters(session, group):
+        if incapacitated(monster) or _petrifying_gaze(monster) is None:
+            continue
+        events.extend(
+            resolve_gaze(
+                monster,
+                _party_front_rank(session),
+                stream=session.streams.get(COMBAT_STREAM),
+                ledger=session.ledger,
+                clock=session.clock,
+                allocator=session.allocator,
+                registry=session.registry(),
+            )
+        )
     return events
 
 

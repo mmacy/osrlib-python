@@ -1049,8 +1049,9 @@ class TakeTreasure(Command):
     By default the haul spreads across the living members. Each item goes to a member
     whose class can use it, so the fighter takes the plate mail and the magic-user takes
     the arcane scroll. Gems and jewellery divide by worth, and coins divide evenly,
-    denomination by denomination. No member is loaded past the 1,600-coin maximum load, so
-    a pickup can't stop the party moving. The party moves at its slowest member's rate,
+    denomination by denomination. No member is loaded past their maximum load, so a pickup
+    can't stop the party moving. The maximum load is 1,600 coins, or 2,600 for a member who
+    wears gauntlets of ogre power under detailed encumbrance. The party moves at its slowest member's rate,
     so a heavy load on one member slows everyone. Name `recipient_id` to have one member
     take the whole haul instead, up to their maximum load. Whatever the carriers can't
     carry stays in the pile on the cell, and the party can lighten its load and come back
@@ -2325,7 +2326,8 @@ class TurnUndead(Command):
     battle, declare a `turn_undead`
     [`BattleDeclaration`][osrlib.crawl.commands.BattleDeclaration] instead. Presenting the
     symbol is an aggressive act: if any monster is left neither turned nor destroyed, the
-    monsters attack at once and battle starts.
+    monsters that weren't turned attack at once and battle starts. The turned members of a
+    partly turned group break away as a new group and flee.
 
     Modes:
         `encounter`
@@ -2349,7 +2351,9 @@ class TurnUndead(Command):
         ([`EncounterEndedEvent`][osrlib.crawl.events.EncounterEndedEvent]). Otherwise a
         [`StanceChangedEvent`][osrlib.crawl.events.StanceChangedEvent] to `attacks`
         comes before the round, and battle starts after it
-        ([`BattleStartedEvent`][osrlib.crawl.events.BattleStartedEvent]).
+        ([`BattleStartedEvent`][osrlib.crawl.events.BattleStartedEvent]). A
+        [`MonsterFledEvent`][osrlib.crawl.events.MonsterFledEvent] follows for each new group
+        of turned members.
     """
 
     allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.ENCOUNTER})
@@ -2407,9 +2411,12 @@ class BattleDeclaration(BaseModel):
     [`EncounterGroupView.id`][osrlib.crawl.views.EncounterGroupView.id] from
     [`EncounterView.groups`][osrlib.crawl.views.EncounterView.groups]. An `attack` needs it, and
     so do a `close` move, a `cast` of a spell that covers an area, a thrown item, and a wand,
-    staff, or rod that strikes or covers an area. The session refuses a group that isn't in the
-    encounter with `battle.declaration.unknown_group`, and refuses a group that has fled the same
-    way when the action is an attack or an item."""
+    staff, or rod that strikes or covers an area. A `cast` in an `hd_budget` mode, like *sleep*,
+    can use it in place of `targets`. The session then spends the spell's Hit Dice budget on the
+    group's living members, weakest first. The session refuses a group that isn't in the
+    encounter, or one whose
+    [`EncounterGroupView.fled`][osrlib.crawl.views.EncounterGroupView.fled] is true, with
+    `battle.declaration.unknown_group`."""
     weapon_id: str | None = None
     """Which wielded weapon to attack with: a mundane weapon's catalog id, a magic weapon's
     per-instance id, or `None` to strike unarmed. The weapon has to be equipped already, so
@@ -2436,8 +2443,10 @@ class BattleDeclaration(BaseModel):
     """The spell's targets, named as in
     [`CastSpell.targets`][osrlib.crawl.commands.CastSpell.targets]: member ids, monster ids, or
     a `cell:` reference. Leave it empty for a spell that covers an area, which takes
-    `target_group_id` instead. The session refuses an invisible target with
-    `battle.declaration.invisible_target`."""
+    `target_group_id` instead. For an `hd_budget` mode, you can also leave it empty and set
+    `target_group_id`. That's the same cast as naming every living member of the group in spawn
+    order. When both are set, the session uses `targets`. The session refuses an invisible target
+    with `battle.declaration.invisible_target`."""
     move: Literal["close", "fighting_withdrawal", "retreat"] | None = None
     """Which movement a `move` declaration makes.
 
@@ -2841,13 +2850,23 @@ class SetFlag(Command):
 
 
 class SpawnMonsters(Command):
-    """Referee: create monsters at a distance from the party and open an encounter with them.
+    """Referee: create monsters at a distance from the party, in a new encounter or the open one.
 
     Use it for an encounter you decide on, like monsters an LLM referee brings in or
-    a scripted ambush. The party must be standing in a dungeon with no encounter already
-    open, because encounters take place on the dungeon grid. Spawning isn't legal once the
-    session has ended, because it would start new play. Set exactly one of `count_dice` and
+    a scripted ambush. Use it also for monsters that arrive during a fight, like the
+    animals a lycanthrope summons. The party must be standing in a dungeon, because
+    encounters take place on the dungeon grid. Spawning isn't legal once the session has
+    ended, because it would start new play. Set exactly one of `count_dice` and
     `count_fixed`, or constructing the command fails validation.
+
+    When no encounter is open, the command opens one with the monsters. When an encounter
+    or a battle is open, the monsters join it as one new group at `distance_feet`. The
+    group rolls no surprise or reaction. It shares the encounter's stance and surprise, so
+    if the monsters already there are sitting out a round because the party surprised
+    them, the new group sits it out too. The command takes no time and runs no round, so
+    the group first acts in the next round, on the monster side. During a chase, the
+    session refuses the command, because a chase runs at the pace of its slowest group and
+    a group that joined could change that pace.
 
     Modes:
         `town`, `exploring`, `encounter`, `battle`
@@ -2855,20 +2874,25 @@ class SpawnMonsters(Command):
     Rejections:
         - `session.command.wrong_mode` - the session has ended.
         - `session.command.unknown_monster` - `template_id` matches no monster.
-        - `session.command.encounter_in_progress` - an encounter or battle is
-          already open.
         - `session.command.not_in_dungeon` - the party is not on a dungeon cell.
+        - `encounter.spawn.mid_pursuit` - the monsters are chasing the party, and no
+          new group can join during a chase.
 
     Events:
-        [`MonstersSpawnedEvent`][osrlib.crawl.events.MonstersSpawnedEvent], then
-        the encounter's opening: an
+        [`MonstersSpawnedEvent`][osrlib.crawl.events.MonstersSpawnedEvent]. When the
+        command opens an encounter, the encounter's opening follows: an
         [`EffectAttachedEvent`][osrlib.core.events.EffectAttachedEvent] for each monster that
         regenerates, like a troll,
         [`SurpriseRolledEvent`][osrlib.crawl.events.SurpriseRolledEvent]s,
         [`EncounterStartedEvent`][osrlib.crawl.events.EncounterStartedEvent], the
         reaction roll, and a
         [`StanceChangedEvent`][osrlib.crawl.events.StanceChangedEvent]. When the monsters'
-        reaction is to attack, battle opens at once.
+        reaction is to attack, battle opens at once. When the monsters join an open
+        encounter, an `EffectAttachedEvent` for each monster that regenerates and an
+        [`EncounterGroupJoinedEvent`][osrlib.crawl.events.EncounterGroupJoinedEvent], which
+        the players see, follow instead. When the group joins a battle and its morale score
+        is 2, a [`MonsterFledEvent`][osrlib.crawl.events.MonsterFledEvent] comes last,
+        because a monster with that score won't fight.
     """
 
     allowed_modes: ClassVar[frozenset[SessionMode]] = _ALL_MODES - frozenset(
@@ -2892,10 +2916,11 @@ class SpawnMonsters(Command):
     """How many to spawn, as an exact number. Use it when the author chose the number. Set
     exactly one of this and `count_dice`."""
     distance_feet: int = Field(ge=0)
-    """How far away the monsters appear, in feet. The encounter opens at this distance, which
-    determines whether missiles reach, how long closing in takes, and whether the party can
-    outrun the monsters. B/X uses 2d6 times 10 feet for a wandering encounter, so a number in
-    that range is typical. `0` puts them right next to the party."""
+    """How far away the monsters appear, in feet. A new encounter opens at this distance, and
+    a group that joins an open encounter starts at it. The distance determines whether
+    missiles reach, how long closing in takes, and whether the party can outrun the monsters.
+    B/X uses 2d6 times 10 feet for a wandering encounter, so a number in that range is
+    typical. `0` puts them right next to the party."""
 
     @field_validator("count_dice")
     @classmethod
