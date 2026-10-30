@@ -1399,7 +1399,8 @@ class GameSession:
         allocator, and is added to `monsters`, where the rest of the engine can find it.
         Spawning alone puts nothing in front of the party, and the session mode doesn't change.
         To field the monsters, pass them to
-        [`start_encounter`][osrlib.crawl.encounter.start_encounter].
+        [`start_encounter`][osrlib.crawl.encounter.start_encounter]. A monster that regenerates,
+        like a troll, starts to regenerate when its encounter opens, not when it spawns.
 
         To put monsters in front of the party as the referee, execute
         [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] instead, which spawns them and opens
