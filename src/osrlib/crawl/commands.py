@@ -2407,9 +2407,12 @@ class BattleDeclaration(BaseModel):
     [`EncounterGroupView.id`][osrlib.crawl.views.EncounterGroupView.id] from
     [`EncounterView.groups`][osrlib.crawl.views.EncounterView.groups]. An `attack` needs it, and
     so do a `close` move, a `cast` of a spell that covers an area, a thrown item, and a wand,
-    staff, or rod that strikes or covers an area. The session refuses a group that isn't in the
-    encounter with `battle.declaration.unknown_group`, and refuses a group that has fled the same
-    way when the action is an attack or an item."""
+    staff, or rod that strikes or covers an area. A `cast` in an `hd_budget` mode, like *sleep*,
+    can use it in place of `targets`. The session then spends the spell's Hit Dice budget on the
+    group's living members, weakest first. The session refuses a group that isn't in the
+    encounter, or one whose
+    [`EncounterGroupView.fled`][osrlib.crawl.views.EncounterGroupView.fled] is true, with
+    `battle.declaration.unknown_group`."""
     weapon_id: str | None = None
     """Which wielded weapon to attack with: a mundane weapon's catalog id, a magic weapon's
     per-instance id, or `None` to strike unarmed. The weapon has to be equipped already, so
@@ -2436,8 +2439,10 @@ class BattleDeclaration(BaseModel):
     """The spell's targets, named as in
     [`CastSpell.targets`][osrlib.crawl.commands.CastSpell.targets]: member ids, monster ids, or
     a `cell:` reference. Leave it empty for a spell that covers an area, which takes
-    `target_group_id` instead. The session refuses an invisible target with
-    `battle.declaration.invisible_target`."""
+    `target_group_id` instead. For an `hd_budget` mode, you can also leave it empty and set
+    `target_group_id`. That's the same cast as naming every living member of the group in spawn
+    order. When both are set, the session uses `targets`. The session refuses an invisible target
+    with `battle.declaration.invisible_target`."""
     move: Literal["close", "fighting_withdrawal", "retreat"] | None = None
     """Which movement a `move` declaration makes.
 
