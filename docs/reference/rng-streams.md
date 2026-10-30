@@ -11,7 +11,7 @@ The table below lists every key, the constant for it, and what it governs.
 | Stream key | Constant | Governs |
 | --- | --- | --- |
 | `"character_creation"` | [`CHARACTER_CREATION_STREAM`][osrlib.core.character.CHARACTER_CREATION_STREAM] | Character creation: ability scores, first-level hit points, starting gold. |
-| `"advancement"` | [`ADVANCEMENT_STREAM`][osrlib.core.character.ADVANCEMENT_STREAM] | In-play advancement: level-up hit point rolls. |
+| `"advancement"` | [`ADVANCEMENT_STREAM`][osrlib.core.character.ADVANCEMENT_STREAM] | In-play advancement: level-up hit point rolls, and the hit points lost to energy drain. |
 | `"combat"` | [`COMBAT_STREAM`][osrlib.core.combat.COMBAT_STREAM] | Battle resolution: attack rolls, damage rolls, saving throws, morale checks, initiative, reaction rolls. |
 | `"effects"` | [`EFFECTS_STREAM`][osrlib.core.effects.EFFECTS_STREAM] | Draws inside the effects engine: onset and duration dice, revival delays. |
 | `"monster_spawn"` | [`MONSTER_SPAWN_STREAM`][osrlib.core.monsters.MONSTER_SPAWN_STREAM] | Monster spawning: hit point rolls when a monster instance is created. |
@@ -30,7 +30,7 @@ Character creation and in-play advancement are split into two separate streams s
 
 The [`CHARACTER_CREATION_STREAM`][osrlib.core.character.CHARACTER_CREATION_STREAM] (key `"character_creation"`) covers one-time creation draws: rolling ability scores, first-level hit points, and starting gold.
 
-The [`ADVANCEMENT_STREAM`][osrlib.core.character.ADVANCEMENT_STREAM] (key `"advancement"`) covers hit point rolls when a character levels up during play.
+The [`ADVANCEMENT_STREAM`][osrlib.core.character.ADVANCEMENT_STREAM] (key `"advancement"`) covers hit point rolls when a character levels up during play, and the hit point rolls for the levels or Hit Dice that energy drain takes away.
 
 ## Combat and effects streams
 

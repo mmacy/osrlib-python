@@ -98,10 +98,10 @@ class NarrativeBlock(BaseModel):
     rejection has no `refusal` parameter."""
     success: str = ""
     """A gate's success line. It goes in the `narrative` of the event for the successful attempt: a
-    [`DoorEvent`][osrlib.crawl.events.DoorEvent] for a door, or a
-    [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] for a transition. The session
-    emits no `LocationEnteredEvent` for a transition to another cell of the same level, so that
-    transition's `success` line never appears."""
+    [`DoorEvent`][osrlib.crawl.events.DoorEvent] for a door, a
+    [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] for a transition to another
+    level, or a [`PartyMovedEvent`][osrlib.crawl.events.PartyMovedEvent] for a transition to another
+    cell of the same level."""
     fired: str = ""
     """A trigger's firing line, for the referee. It goes in the `narrative` of the
     [`TriggerFiredEvent`][osrlib.crawl.events.TriggerFiredEvent], which players never see."""

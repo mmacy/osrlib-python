@@ -93,6 +93,7 @@ class TestConsequenceSurface:
             "SetDoorState": dict(dungeon_id="delve", level_number=1, x=2, y=0, direction="south", open=True),
             "PlaceParty": dict(location={"kind": "town"}),
             "AdvanceTime": dict(n=1, unit="turn"),
+            "EndEncounter": dict(outcome="parley", resolve_area=True),
             "RemoveItem": dict(character_id="@carrier", item_id="holy_water"),
             "RemoveCoins": dict(character_id=FIRST_LIVING_SELECTOR, coins={"gp": 10}),
         }

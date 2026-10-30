@@ -29,13 +29,14 @@ attribute. The session refuses a command sent in any other mode with
 Referee commands are issued by game logic rather than by a player: a
 [`Listener`][osrlib.crawl.session.Listener] you write, the interpreter that runs an
 adventure's triggers, or an LLM referee. They grant and take away items and coins, award
-XP, set flags, spawn monsters, move the clock, and record quest progress. Each one's
-summary starts with "Referee:". They're legal in every mode, and the session logs and replays them like any
-other command. The exceptions are the ones that would restart play once the session has
-ended: [`PlaceParty`][osrlib.crawl.commands.PlaceParty] is illegal in `victory`, and
+XP, set flags, spawn monsters, end encounters, move the clock, and record quest progress.
+Each one's summary starts with "Referee:". They're legal in every mode, and the session logs
+and replays them like any other command. The exceptions are the ones that would restart play
+once the session has ended: [`PlaceParty`][osrlib.crawl.commands.PlaceParty] is illegal in `victory`, and
 [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] and
 [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] are illegal in `victory` and
-`game_over`.
+`game_over`. [`EndEncounter`][osrlib.crawl.commands.EndEncounter] closes an open encounter, so
+it's legal only in `encounter` and `battle`.
 
 Each command class's docstring states its contract in three sections. `Modes:` lists the session
 modes that accept it, `Rejections:` lists the codes it can be refused with, and `Events:`
@@ -97,6 +98,7 @@ The commands, grouped by what the party is doing:
   [`RollDice`][osrlib.crawl.commands.RollDice],
   [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters],
   [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty],
+  [`EndEncounter`][osrlib.crawl.commands.EndEncounter],
   [`RecordNote`][osrlib.crawl.commands.RecordNote],
   [`AddJournalEntry`][osrlib.crawl.commands.AddJournalEntry],
   [`MarkTriggerFired`][osrlib.crawl.commands.MarkTriggerFired], and the quest commands
@@ -189,6 +191,7 @@ __all__ = [
     "CompleteQuest",
     "ConsequenceCommand",
     "DropItems",
+    "EndEncounter",
     "EngageBattle",
     "EnterDungeon",
     "EquipItem",
@@ -355,8 +358,9 @@ class Command(BaseModel):
     `session.command.wrong_mode`. The base class allows every mode. Each play command narrows
     the set, and so do the referee commands
     [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters],
-    [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty], and
-    [`PlaceParty`][osrlib.crawl.commands.PlaceParty]. Each command's `Modes:` section lists
+    [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty],
+    [`PlaceParty`][osrlib.crawl.commands.PlaceParty], and
+    [`EndEncounter`][osrlib.crawl.commands.EndEncounter]. Each command's `Modes:` section lists
     its set."""
 
     @classmethod
@@ -1049,8 +1053,9 @@ class TakeTreasure(Command):
     By default the haul spreads across the living members. Each item goes to a member
     whose class can use it, so the fighter takes the plate mail and the magic-user takes
     the arcane scroll. Gems and jewellery divide by worth, and coins divide evenly,
-    denomination by denomination. No member is loaded past the 1,600-coin maximum load, so
-    a pickup can't stop the party moving. The party moves at its slowest member's rate,
+    denomination by denomination. No member is loaded past their maximum load, so a pickup
+    can't stop the party moving. The maximum load is 1,600 coins, or 2,600 for a member who
+    wears gauntlets of ogre power under detailed encumbrance. The party moves at its slowest member's rate,
     so a heavy load on one member slows everyone. Name `recipient_id` to have one member
     take the whole haul instead, up to their maximum load. Whatever the carriers can't
     carry stays in the pile on the cell, and the party can lighten its load and come back
@@ -2410,9 +2415,12 @@ class BattleDeclaration(BaseModel):
     [`EncounterGroupView.id`][osrlib.crawl.views.EncounterGroupView.id] from
     [`EncounterView.groups`][osrlib.crawl.views.EncounterView.groups]. An `attack` needs it, and
     so do a `close` move, a `cast` of a spell that covers an area, a thrown item, and a wand,
-    staff, or rod that strikes or covers an area. The session refuses a group that isn't in the
-    encounter with `battle.declaration.unknown_group`, and refuses a group that has fled the same
-    way when the action is an attack or an item."""
+    staff, or rod that strikes or covers an area. A `cast` in an `hd_budget` mode, like *sleep*,
+    can use it in place of `targets`. The session then spends the spell's Hit Dice budget on the
+    group's living members, weakest first. The session refuses a group that isn't in the
+    encounter, or one whose
+    [`EncounterGroupView.fled`][osrlib.crawl.views.EncounterGroupView.fled] is true, with
+    `battle.declaration.unknown_group`."""
     weapon_id: str | None = None
     """Which wielded weapon to attack with: a mundane weapon's catalog id, a magic weapon's
     per-instance id, or `None` to strike unarmed. The weapon has to be equipped already, so
@@ -2439,8 +2447,10 @@ class BattleDeclaration(BaseModel):
     """The spell's targets, named as in
     [`CastSpell.targets`][osrlib.crawl.commands.CastSpell.targets]: member ids, monster ids, or
     a `cell:` reference. Leave it empty for a spell that covers an area, which takes
-    `target_group_id` instead. The session refuses an invisible target with
-    `battle.declaration.invisible_target`."""
+    `target_group_id` instead. For an `hd_budget` mode, you can also leave it empty and set
+    `target_group_id`. That's the same cast as naming every living member of the group in spawn
+    order. When both are set, the session uses `targets`. The session refuses an invisible target
+    with `battle.declaration.invisible_target`."""
     move: Literal["close", "fighting_withdrawal", "retreat"] | None = None
     """Which movement a `move` declaration makes.
 
@@ -2938,13 +2948,23 @@ class SetFlag(Command):
 
 
 class SpawnMonsters(Command):
-    """Referee: create monsters at a distance from the party and open an encounter with them.
+    """Referee: create monsters at a distance from the party, in a new encounter or the open one.
 
     Use it for an encounter you decide on, like monsters an LLM referee brings in or
-    a scripted ambush. The party must be standing in a dungeon with no encounter already
-    open, because encounters take place on the dungeon grid. Spawning isn't legal once the
-    session has ended, because it would start new play. Set exactly one of `count_dice` and
+    a scripted ambush. Use it also for monsters that arrive during a fight, like the
+    animals a lycanthrope summons. The party must be standing in a dungeon, because
+    encounters take place on the dungeon grid. Spawning isn't legal once the session has
+    ended, because it would start new play. Set exactly one of `count_dice` and
     `count_fixed`, or constructing the command fails validation.
+
+    When no encounter is open, the command opens one with the monsters. When an encounter
+    or a battle is open, the monsters join it as one new group at `distance_feet`. The
+    group rolls no surprise or reaction. It shares the encounter's stance and surprise, so
+    if the monsters already there are sitting out a round because the party surprised
+    them, the new group sits it out too. The command takes no time and runs no round, so
+    the group first acts in the next round, on the monster side. During a chase, the
+    session refuses the command, because a chase runs at the pace of its slowest group and
+    a group that joined could change that pace.
 
     Modes:
         `town`, `exploring`, `encounter`, `battle`
@@ -2952,20 +2972,25 @@ class SpawnMonsters(Command):
     Rejections:
         - `session.command.wrong_mode` - the session has ended.
         - `session.command.unknown_monster` - `template_id` matches no monster.
-        - `session.command.encounter_in_progress` - an encounter or battle is
-          already open.
         - `session.command.not_in_dungeon` - the party is not on a dungeon cell.
+        - `encounter.spawn.mid_pursuit` - the monsters are chasing the party, and no
+          new group can join during a chase.
 
     Events:
-        [`MonstersSpawnedEvent`][osrlib.crawl.events.MonstersSpawnedEvent], then
-        the encounter's opening: an
+        [`MonstersSpawnedEvent`][osrlib.crawl.events.MonstersSpawnedEvent]. When the
+        command opens an encounter, the encounter's opening follows: an
         [`EffectAttachedEvent`][osrlib.core.events.EffectAttachedEvent] for each monster that
         regenerates, like a troll,
         [`SurpriseRolledEvent`][osrlib.crawl.events.SurpriseRolledEvent]s,
         [`EncounterStartedEvent`][osrlib.crawl.events.EncounterStartedEvent], the
         reaction roll, and a
         [`StanceChangedEvent`][osrlib.crawl.events.StanceChangedEvent]. When the monsters'
-        reaction is to attack, battle opens at once.
+        reaction is to attack, battle opens at once. When the monsters join an open
+        encounter, an `EffectAttachedEvent` for each monster that regenerates and an
+        [`EncounterGroupJoinedEvent`][osrlib.crawl.events.EncounterGroupJoinedEvent], which
+        the players see, follow instead. When the group joins a battle and its morale score
+        is 2, a [`MonsterFledEvent`][osrlib.crawl.events.MonsterFledEvent] comes last,
+        because a monster with that score won't fight.
     """
 
     allowed_modes: ClassVar[frozenset[SessionMode]] = _ALL_MODES - frozenset(
@@ -2989,10 +3014,11 @@ class SpawnMonsters(Command):
     """How many to spawn, as an exact number. Use it when the author chose the number. Set
     exactly one of this and `count_dice`."""
     distance_feet: int = Field(ge=0)
-    """How far away the monsters appear, in feet. The encounter opens at this distance, which
-    determines whether missiles reach, how long closing in takes, and whether the party can
-    outrun the monsters. B/X uses 2d6 times 10 feet for a wandering encounter, so a number in
-    that range is typical. `0` puts them right next to the party."""
+    """How far away the monsters appear, in feet. A new encounter opens at this distance, and
+    a group that joins an open encounter starts at it. The distance determines whether
+    missiles reach, how long closing in takes, and whether the party can outrun the monsters.
+    B/X uses 2d6 times 10 feet for a wandering encounter, so a number in that range is
+    typical. `0` puts them right next to the party."""
 
     @field_validator("count_dice")
     @classmethod
@@ -3055,6 +3081,60 @@ class SpawnNpcParty(Command):
         if value is not None:
             parse(value)
         return value
+
+
+class EndEncounter(Command):
+    """Referee: close the open encounter when the party talks its way past or walks away.
+
+    Use it when the party pays a toll, bluffs the guards, or walks away from monsters that let
+    it go. The session closes the encounter the same way it does when the party wins or gets
+    away. Monsters slain earlier in the encounter count as defeated and drop their treasure.
+    Monsters still standing aren't defeated and are worth no experience. Effects on the
+    encounter's monsters end, and the clock advances, so the encounter costs at least one turn.
+    The session then switches to `exploring`.
+
+    In `battle`, the command closes the battle too. It emits no
+    [`BattleEndedEvent`][osrlib.crawl.events.BattleEndedEvent], because the
+    `EncounterEndedEvent` closes both, so check the session's mode to know the fight is over.
+
+    A keyed area's monsters are back each time the party walks into the area, until every one
+    of them is slain or routed. Set `resolve_area` to `True` to mark the area resolved now, so
+    the monsters don't come back. The command is legal only while an encounter is open, so the
+    flag can't resolve an area whose encounter is already closed.
+
+    The command can be an authored consequence, so a trigger can close the encounter. For
+    example, a trigger can close the encounter and resolve the area when a flag records that
+    the party paid the toll.
+
+    Modes:
+        `encounter`, `battle`
+
+    Rejections:
+        - `session.command.wrong_mode` - no encounter is open.
+
+    Events:
+        A [`MonsterDefeatedEvent`][osrlib.crawl.events.MonsterDefeatedEvent] for each monster
+        that was slain or routed earlier in the encounter, the events of effects ending on the
+        encounter's monsters, and the experience award when the ruleset awards it immediately.
+        Then the [`EncounterEndedEvent`][osrlib.crawl.events.EncounterEndedEvent] with the
+        command's `outcome`, and the events of the clock advance.
+    """
+
+    allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.ENCOUNTER, SessionMode.BATTLE})
+
+    command_type: Literal["end_encounter"] = "end_encounter"
+    outcome: Literal["parley", "departed"]
+    """How the encounter ended, as the `outcome` of the
+    [`EncounterEndedEvent`][osrlib.crawl.events.EncounterEndedEvent]. Use `"parley"` when the
+    party and the monsters came to terms, like a toll paid or a bluff believed. Use
+    `"departed"` when one side left the other, like a party that walks away from monsters
+    that let it go, or a chase that you call off."""
+    resolve_area: bool = False
+    """Whether to mark the keyed area the encounter came from as resolved, so its monsters
+    don't appear when the party next walks in. With `False`, the default, the area stays
+    unresolved and its monsters are back the next time the party enters it. An encounter that
+    didn't come from a keyed area, like a wandering or spawned one, has no area to resolve,
+    and the flag does nothing."""
 
 
 class SetDoorState(Command):
@@ -3628,6 +3708,7 @@ ALL_COMMAND_CLASSES: tuple[type[Command], ...] = (
     RevealObjective,
     CompleteObjective,
     CompleteQuest,
+    EndEncounter,
     RemoveItem,
     RemoveCoins,
 )
@@ -3674,6 +3755,7 @@ CONSEQUENCE_COMMAND_CLASSES: tuple[type[Command], ...] = (
     SetDoorState,
     PlaceParty,
     AdvanceTime,
+    EndEncounter,
     RemoveItem,
     RemoveCoins,
 )
@@ -3717,6 +3799,7 @@ ConsequenceCommand = Annotated[
     | SetDoorState
     | PlaceParty
     | AdvanceTime
+    | EndEncounter
     | RemoveItem
     | RemoveCoins,
     Field(discriminator="command_type"),

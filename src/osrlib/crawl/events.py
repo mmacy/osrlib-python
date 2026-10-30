@@ -100,6 +100,7 @@ __all__ = [
     "DiceRolledEvent",
     "DoorEvent",
     "EncounterEndedEvent",
+    "EncounterGroupJoinedEvent",
     "EncounterStartedEvent",
     "EvasionEvent",
     "ExhaustionEvent",
@@ -157,7 +158,10 @@ class PartyMovedEvent(Event):
     unchanged cell and the new facing. For a `MoveParty` through a passage, the event has
     the cell the party arrives on, and it comes after the
     [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] when the passage
-    leads to another level. Redraw a first-person view from this event.
+    leads to another level. A [`UseStairs`][osrlib.crawl.commands.UseStairs] that takes the
+    party to another cell of the same level emits one for the landing cell only when the
+    transition's gate has success text, which the event then contains in `narrative`.
+    Redraw a first-person view from this event.
 
     A step that a wall, a closed door, or the edge of the map blocks emits no event. The
     session refuses the command with the rejection code `exploration.move.blocked`, and
@@ -182,6 +186,12 @@ class PartyMovedEvent(Event):
     a step, the party faces the way it went, so this changes on a step as well as on a turn. After
     a step through a passage, the party faces the way the adventure's author set for the passage's
     far side."""
+    narrative: str | None = None
+    """The success text the adventure's author wrote on the gate of a transition that took the party to
+    another cell of the same level, or `None`. For a transition to another level, the text is on the
+    [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] instead.
+    [`format_message`][osrlib.messages.format_message] adds it after the line it builds from the
+    code."""
 
 
 class LocationEnteredEvent(Event):
@@ -236,7 +246,9 @@ class LocationEnteredEvent(Event):
     there was no gate or no text. A gate is a condition the author puts on a door or a transition,
     like a key the party must have. The author wrote this text, not the engine, and
     [`format_message`][osrlib.messages.format_message] adds it after the line it builds from the
-    code."""
+    code. The session reports no level entry for a transition to another cell of the same level, so
+    that transition's gate text is on the [`PartyMovedEvent`][osrlib.crawl.events.PartyMovedEvent]
+    for the landing cell."""
     via: str | None = None
     """How the party got there, on level and dungeon entries: the kind of the transition it took
     (`"stairs_down"`, `"stairs_up"`, `"trapdoor"`, or `"chute"`), `"passage"` for a passage it
@@ -849,6 +861,37 @@ class EncounterStartedEvent(Event):
     starts."""
 
 
+class EncounterGroupJoinedEvent(Event):
+    """A new monster group joined the encounter or battle already open, with what the party can see of it.
+
+    Emitted by [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] when an encounter or a
+    battle is open, after the [`MonstersSpawnedEvent`][osrlib.crawl.events.MonstersSpawnedEvent]
+    for the same monsters. The players learn of the new group from this event, as they learn of
+    the first groups from [`EncounterStartedEvent`][osrlib.crawl.events.EncounterStartedEvent].
+    The session rolls no surprise or reaction for the group, which acts from the next round.
+    """
+
+    allowed_codes: ClassVar[frozenset[str]] = frozenset({"encounter.group.joined"})
+    """The only message code this event uses."""
+
+    event_type: Literal["encounter_group_joined"] = "encounter_group_joined"
+    """The event type, `encounter_group_joined`, which identifies this class in serialized form."""
+    code: str = "encounter.group.joined"
+    """The message code, always `encounter.group.joined`."""
+    visibility: Visibility = Visibility.PLAYER
+    """Player visibility: the party sees the new monsters arrive."""
+    group_id: str
+    """The new group's id, the same as its
+    [`EncounterGroupView.id`][osrlib.crawl.views.EncounterGroupView.id] in the player view. To
+    attack the group, put this id in a battle declaration's `target_group_id`."""
+    label: str
+    """The group's label: the `template_id` from the `SpawnMonsters` command, like `"goblin"`."""
+    count: int
+    """How many creatures are in the group."""
+    distance_feet: int
+    """How far away the group is, in feet, when it joins."""
+
+
 class SurpriseRolledEvent(Event):
     """One side's surprise die, rolled in secret.
 
@@ -1015,8 +1058,10 @@ class EncounterEndedEvent(Event):
     """Player visibility: the party knows the encounter is behind it."""
     outcome: str
     """How it ended: `"victory"` when the monsters were beaten, `"evaded"` when the party got away
-    before or during a fight, `"escaped"` when the party got away at the end of a chase, or
-    `"turned"` when undead were driven off."""
+    before or during a fight, `"escaped"` when the party got away at the end of a chase,
+    `"turned"` when undead were driven off, or the outcome of an
+    [`EndEncounter`][osrlib.crawl.commands.EndEncounter]: `"parley"` when the party talked or paid its
+    way past, or `"departed"` when it walked away from monsters that let it go."""
 
 
 class BattleStartedEvent(Event):
@@ -1544,12 +1589,16 @@ class FlagSetEvent(Event):
 class MonstersSpawnedEvent(Event):
     """Monsters were put into the session by the referee.
 
-    Emitted by [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters], before the
-    encounter with them opens in the same result.
+    Emitted by [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters], first in its
+    result. When no encounter is open, the events of the encounter's opening follow. When
+    one is open, the monsters join it as a new group.
 
     It's referee visibility and contains ids rather than a description. The party
     learns what walked in from
-    [`EncounterStartedEvent`][osrlib.crawl.events.EncounterStartedEvent].
+    [`EncounterStartedEvent`][osrlib.crawl.events.EncounterStartedEvent] when the
+    encounter opens, or from
+    [`EncounterGroupJoinedEvent`][osrlib.crawl.events.EncounterGroupJoinedEvent] when the
+    monsters join an open one.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"session.monsters.spawned"})
@@ -2014,6 +2063,7 @@ CRAWL_EVENT_CLASSES: tuple[type[Event], ...] = (
     ProvisionsEvent,
     WanderingCheckEvent,
     EncounterStartedEvent,
+    EncounterGroupJoinedEvent,
     SurpriseRolledEvent,
     StanceChangedEvent,
     EvasionEvent,

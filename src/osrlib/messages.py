@@ -329,6 +329,9 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
         + (" — the monsters are surprised" if event.monsters_surprised else "")
         + "."
     ),
+    "encounter.group.joined": lambda event: (
+        f"More monsters join the encounter: {event.count} × {event.label} at {event.distance_feet}'."
+    ),
     "encounter.surprise.rolled": lambda event: (
         f"Surprise ({event.side}): "
         + (f"rolled {event.roll}" if event.roll is not None else "no roll")

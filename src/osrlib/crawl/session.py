@@ -115,6 +115,7 @@ from osrlib.core.events import (
     DamageDealtEvent,
     DeathEvent,
     EffectExpiredEvent,
+    EquipmentDestroyedEvent,
     Event,
     SavingThrowRolledEvent,
     Visibility,
@@ -135,6 +136,7 @@ from osrlib.crawl.commands import (
     CommandResult,
     CompleteObjective,
     CompleteQuest,
+    EndEncounter,
     GrantCoins,
     GrantItem,
     IdentifyItem,
@@ -1114,6 +1116,7 @@ class GameSession:
         if rejections:
             return CommandResult(accepted=False, rejections=tuple(rejections))
         self.command_log.append(command)
+        self._pile_saved_items(events)
         if self._record_deaths(events):
             events.extend(self._end_on_party_wipe())
         self.event_log.extend(events)
@@ -1408,9 +1411,10 @@ class GameSession:
 
         To put monsters in front of the party as the referee, execute
         [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] instead, which spawns them and opens
-        the encounter in one command. This method isn't a command, so the command log doesn't
-        record it, and [`replay_game`][osrlib.persistence.replay_game] won't reproduce a game if you
-        call it during play.
+        an encounter with them, or adds them to the open one, in one command. This method isn't a
+        command, so the command log doesn't record it, and
+        [`replay_game`][osrlib.persistence.replay_game] won't reproduce a game if you call it
+        during play.
 
         Args:
             template_id: Any id in the session's
@@ -1896,6 +1900,38 @@ class GameSession:
 
     # ------------------------------------------------------------------ death records
 
+    def _pile_saved_items(self, events: Sequence[Event]) -> None:
+        """Move a dead member's magic items that made their save to a drop pile on the party's cell.
+
+        [`destroy_equipment`][osrlib.core.combat.destroy_equipment] leaves those items in the dead member's
+        inventory, where no command can reach them, because a dead member can't give or drop anything. The
+        session moves them to the pile in the same command that killed the member, so the party picks them up
+        with [`TakeTreasure`][osrlib.crawl.commands.TakeTreasure] and the feature id `"pile"`. A monster's
+        saved items stay where they are, because a slain NPC adventurer's whole inventory goes to the pile
+        when the encounter ends.
+
+        Args:
+            events: The just-executed command's events, in order.
+        """
+        from osrlib.crawl import exploration
+        from osrlib.crawl.dungeon import DropPile
+
+        if self.dungeon_state.location.kind != "dungeon":
+            return
+        members = {member.id: member for member in self.party.members}
+        for event in events:
+            if not isinstance(event, EquipmentDestroyedEvent) or not event.saved_items:
+                continue
+            member = members.get(event.target_id)
+            if member is None:
+                continue
+            pile = self.dungeon_state.piles.setdefault(exploration._cell_ref(self), DropPile())
+            for instance_id in event.saved_items:
+                instance = member.inventory.magic_item(instance_id)
+                if instance is not None:
+                    exploration._remove_instance(member, instance)
+                    pile.magic_items.append(instance)
+
     def _record_deaths(self, events: Sequence[Event]) -> bool:
         """Record party deaths with the clock round and the cause just resolved.
 
@@ -2370,12 +2406,14 @@ def _handle_spawn_monsters(session: GameSession, command: SpawnMonsters) -> tupl
         session.effective_monsters.get(command.template_id)
     except ValueError:
         return [Rejection(code="session.command.unknown_monster", params={"template": command.template_id})], []
-    if session.encounter is not None or session.battle is not None:
-        return [Rejection(code="session.command.encounter_in_progress")], []
     if session.dungeon_state.location.kind != "dungeon":
         # Encounters live on the dungeon grid: the combat space, silence cells,
         # and formation widths all need a party cell to stand on.
         return [Rejection(code="session.command.not_in_dungeon")], []
+    if session.encounter is not None and session.encounter.pursuit is not None:
+        # A chase runs at the pace of its slowest group, so a group that joined it would
+        # change who gets away.
+        return [Rejection(code="encounter.spawn.mid_pursuit")], []
     if command.count_fixed is not None:
         count = command.count_fixed
     elif command.count_dice is not None:
@@ -2387,6 +2425,15 @@ def _handle_spawn_monsters(session: GameSession, command: SpawnMonsters) -> tupl
     events: list[Event] = [
         MonstersSpawnedEvent(template_id=command.template_id, monster_ids=tuple(instance.id for instance in instances))
     ]
+    if session.encounter is not None:
+        # Monsters that arrive mid-fight, like a lycanthrope's summoned animals, join the
+        # encounter or battle already open instead of opening a new one.
+        events.extend(
+            encounter_module._join_encounter(
+                session, label=command.template_id, instances=instances, distance_feet=command.distance_feet
+            )
+        )
+        return [], events
     events.extend(
         encounter_module.start_encounter(
             session,
@@ -2544,6 +2591,22 @@ def _handle_roll_dice(session: GameSession, command: RollDice) -> tuple[list[Rej
     return [], [DiceRolledEvent(expression=command.expression, total=result.total, rolls=result.rolls)]
 
 
+def _handle_end_encounter(session: GameSession, command: EndEncounter) -> tuple[list[Rejection], list[Event]]:
+    from osrlib.crawl import encounter as encounter_module
+
+    state = session.encounter
+    if state is None:  # unreachable: the mode gate admits only encounter and battle, which have one open
+        raise ValueError("EndEncounter reached the handler with no open encounter")
+    area_ref = state.area_ref
+    # A battle closes first, as it does before the session ends a won battle's
+    # encounter, and the encounter's closing event stands for both.
+    session.battle = None
+    events = encounter_module.end_encounter(session, command.outcome)
+    if command.resolve_area and area_ref is not None and area_ref not in session.dungeon_state.resolved_encounters:
+        session.dungeon_state.resolved_encounters.append(area_ref)
+    return [], events
+
+
 _REFEREE_HANDLERS = {
     GrantItem: _handle_grant_item,
     GrantCoins: _handle_grant_coins,
@@ -2563,6 +2626,7 @@ _REFEREE_HANDLERS = {
     RevealObjective: _handle_reveal_objective,
     CompleteObjective: _handle_complete_objective,
     CompleteQuest: _handle_complete_quest,
+    EndEncounter: _handle_end_encounter,
     RemoveItem: _handle_remove_item,
     RemoveCoins: _handle_remove_coins,
 }
