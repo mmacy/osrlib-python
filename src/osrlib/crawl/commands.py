@@ -2543,10 +2543,17 @@ class BattleDeclaration(BaseModel):
 
     The replacement has to be a living member behind the front rank who is in
     [`EncounterView.declarers`][osrlib.crawl.views.EncounterView.declarers], isn't in
-    `immobile`, and hasn't declared a `cast`, a `fighting_withdrawal`, or a `retreat`. A
-    spell caster can't move and cast in the same round. Two withdrawing members can't name
-    the same replacement. From the movement step on, the replacement stands in the front
-    rank, so they may declare a melee attack against a group in reach this round."""
+    `immobile`, isn't charmed or confused, and hasn't declared a `cast`, a
+    `fighting_withdrawal`, or a `retreat`. A charmed member acts for the charmer and a
+    confused one acts at random, so neither steps up for the party. A spell caster can't
+    move and cast in the same round. Two withdrawing members can't name the same
+    replacement. From the movement step on, the replacement stands in the front rank, so
+    they may declare a melee attack against a group in reach this round.
+
+    The session checks the replacement again when the movement step comes. A replacement
+    who has died, can no longer move, or has become incapacitated, charmed, or confused by
+    then doesn't step up. The two members stay where they are, no event reports the swap,
+    and the replacement's melee attack doesn't resolve."""
     item_id: str | None = None
     """Which item a `use_item` declaration uses: a magic item's per-instance id for a potion, a
     scroll, a wand, a staff, or a rod, or a mundane item's catalog id for an item thrown at a

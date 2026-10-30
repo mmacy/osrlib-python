@@ -1182,10 +1182,11 @@ class MemberWithdrewEvent(Event):
     hasn't moved, and no group's distance has changed.
 
     The events come in the marching order of the withdrawing members, before the party's
-    `close`, if the round has one. A swap that can't happen when the movement step comes,
-    because one of the two has died or can no longer move, or because the ranks shifted
-    and one of them no longer stands where they did, reports nothing, and the two stay where
-    they are.
+    `close`, if the round has one. A swap that can't happen when the movement step comes
+    reports nothing, and the two stay where they are. That happens when one of the two has
+    died or can no longer move, when the replacement can no longer act on the party's behalf
+    because they are incapacitated, charmed, or confused, or when the ranks shifted and one
+    of them no longer stands where they did.
 
     Redraw a battle screen's ranks from this event, or read them again from
     [`PlayerView.party`][osrlib.crawl.views.PlayerView.party] and

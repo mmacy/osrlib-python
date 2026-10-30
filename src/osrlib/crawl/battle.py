@@ -1595,18 +1595,34 @@ def _can_step_up(
     """Whether a named replacement can step up into the front rank this round.
 
     The replacement has to be a living member behind the front rank, so an unknown id, a dead
-    member, and a member of the front rank are all out. They have to be able to declare and to move.
-    Their own declaration can't be a `cast`, because "The spell caster cannot move and cast a spell
-    in the same round", or a defensive move, which takes a member out of the front rank, not into it.
+    member, and a member of the front rank are all out. They have to be able to declare, to move,
+    and to act on the party's behalf (see `_acts_for_party`). Their own declaration can't be a
+    `cast`, because "The spell caster cannot move and cast a spell in the same round", or a
+    defensive move, which takes a member out of the front rank, not into it.
     """
     if rank_of.get(replacement_id, 0) == 0 or replacement_id not in able:
         return False
-    if cannot_move(session.member(replacement_id)):
+    replacement = session.member(replacement_id)
+    if cannot_move(replacement) or not _acts_for_party(replacement):
         return False
     declaration = by_id[replacement_id]
     if declaration.action == "cast":
         return False
     return not (declaration.action == "move" and declaration.move in _DEFENSIVE_MOVES)
+
+
+def _acts_for_party(member) -> bool:
+    """Whether a member can still act on the party's behalf, as a replacement who steps up has to.
+
+    An incapacitated member can't act at all. A charmed member acts for the charmer, and a confused
+    member acts on a behavior roll, so neither steps up into the front rank for the party. Both the
+    validation pre-phase and the movement step ask this, so a replacement who is already charmed or
+    confused is refused when the round is declared, and one who becomes so before the movement step
+    stays where they are.
+    """
+    return not (
+        incapacitated(member) or has_condition(member, Condition.CHARMED) or has_condition(member, Condition.CONFUSED)
+    )
 
 
 def _projected_front_rank(session, plan: Sequence[_Withdrawal]) -> set[str]:
@@ -2319,10 +2335,12 @@ def _swap_ranks(session, swaps: Sequence[_Withdrawal]) -> list[MemberWithdrewEve
 
     The swaps run in the marching order of the withdrawing members, as `_plan_withdrawals` planned
     them. A swap happens only if, when the movement step comes, the withdrawing member still stands
-    in the front rank, the replacement still stands behind it, and both can still move. A side that
-    acted first can change any of that. Otherwise the two stay where they are and nothing reports
-    the swap. The order stays changed after the round. A swap takes no draw. The party block runs
-    this at the start of its movement step, before `_party_movement` moves the formation.
+    in the front rank, the replacement still stands behind it, both can still move, and the
+    replacement can still act on the party's behalf (see `_acts_for_party`), which a member who is
+    incapacitated, charmed, or confused can't. A side that acted first can change any of that.
+    Otherwise the two stay where they are and nothing reports the swap. The order stays changed
+    after the round. A swap takes no draw. The party block runs this at the start of its movement
+    step, before `_party_movement` moves the formation.
 
     Returns:
         A `MemberWithdrewEvent` for each swap that happened.
@@ -2334,7 +2352,10 @@ def _swap_ranks(session, swaps: Sequence[_Withdrawal]) -> list[MemberWithdrewEve
         behind = {member.id for rank in ranks[1:] for member in rank}
         if swap.member_id not in front or swap.replacement_id not in behind:
             continue
-        if cannot_move(session.member(swap.member_id)) or cannot_move(session.member(swap.replacement_id)):
+        replacement = session.member(swap.replacement_id)
+        if cannot_move(session.member(swap.member_id)) or cannot_move(replacement):
+            continue
+        if not _acts_for_party(replacement):
             continue
         members = list(session.party.members)
         ids = [member.id for member in members]
