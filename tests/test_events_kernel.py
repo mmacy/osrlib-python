@@ -70,6 +70,9 @@ def sample_event(event_class, code):
         ),
         "SpellCastEvent": dict(caster_id="pc-1", spell_id="fire_ball", mode="damage", target_ids=("monster-0001",)),
         "SpellDisruptedEvent": dict(caster_id="pc-1", spell_id="fire_ball"),
+        "DeclarationFizzledEvent": dict(
+            actor_id="pc-1", item_id="magic-item-0001", reason="combat.attack.out_of_reach"
+        ),
         "SpellForgottenEvent": dict(caster_id="pc-1", spell_id="sleep"),
         "SpellBookUpdatedEvent": dict(caster_id="pc-1", spell_id="web"),
         "UndeadTurnedEvent": dict(
