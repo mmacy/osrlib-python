@@ -130,6 +130,7 @@ from osrlib.crawl.adventure import Adventure, _effective_equipment, _effective_m
 from osrlib.crawl.commands import (
     ActivateQuest,
     AddJournalEntry,
+    AddMember,
     AdvanceTime,
     AwardXP,
     Command,
@@ -2210,6 +2211,10 @@ def _handle_remove_coins(session: GameSession, command: RemoveCoins) -> tuple[li
     return [], [ItemsRemovedEvent(character_id=_member_id(member), coins_gp_value=command.coins.value_gp)]
 
 
+def _handle_add_member(session: GameSession, command: AddMember) -> tuple[list[Rejection], list[Event]]:
+    raise NotImplementedError("chunk: add-member")
+
+
 def _handle_award_xp(session: GameSession, command: AwardXP) -> tuple[list[Rejection], list[Event]]:
     try:
         member = session.member(command.character_id)
@@ -2633,4 +2638,5 @@ _REFEREE_HANDLERS = {
     EndEncounter: _handle_end_encounter,
     RemoveItem: _handle_remove_item,
     RemoveCoins: _handle_remove_coins,
+    AddMember: _handle_add_member,
 }
