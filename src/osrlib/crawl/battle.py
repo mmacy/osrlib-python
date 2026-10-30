@@ -78,7 +78,8 @@ During a round, the session also applies these rules without a command for them:
   the session leaves to the referee.
 - A petrifying gaze, like the basilisk's or the medusa's, reaches each member of the party's
   front rank once a round while the gazer's group is in melee. It takes no attack roll, and
-  [`resolve_gaze`][osrlib.core.combat.resolve_gaze] skips a member who is averting their eyes.
+  [`resolve_gaze`][osrlib.core.combat.resolve_gaze] skips a member who is averting their eyes
+  or is blind.
   A member averts them, or watches a mirror instead, through
   [`BattleDeclaration.gaze_defense`][osrlib.crawl.commands.BattleDeclaration.gaze_defense], and
   the session applies that stance's penalties to the round's attack rolls. Every member of a
@@ -3716,7 +3717,7 @@ def _resolve_gazes(session, group, *, free_round: bool, mirrored: Collection[str
     A gaze takes no attack roll and no action. Every living gazer that isn't incapacitated uses it
     before its group acts, whatever the policy then chooses for it. While the gazer's group is in
     melee, the gaze reaches the party's front rank, less the members in `mirrored`, who fight by a
-    mirror this round. `resolve_gaze` skips a character who is averting their eyes or is
+    mirror this round. `resolve_gaze` skips a character who is averting their eyes, is blind, or is
     incapacitated, and rolls a save versus paralysis on the combat stream for each of the others.
 
     In the monsters' free round (`free_round`) of an encounter that opened with the party surprised,
@@ -3743,9 +3744,9 @@ def _surprise_gazes(session, monsters: Iterable) -> list[Event]:
     SRD's "Characters surprised by a basilisk meet its gaze" says. A monster gazes when its
     `surprise` ability has `meets_gaze`, it has a petrifying gaze, and it isn't incapacitated. The
     gaze reaches every living member once, at any distance and in any rank, and no stance spares
-    it, because the party hasn't declared anything yet. `resolve_gaze` skips a member who is
-    already incapacitated, and rolls a save versus paralysis on the combat stream for each of the
-    others.
+    it, because the party hasn't declared anything yet. `resolve_gaze` skips a member who is blind
+    or already incapacitated, and rolls a save versus paralysis on the combat stream for each of
+    the others.
     """
     events: list[Event] = []
     for monster in monsters:

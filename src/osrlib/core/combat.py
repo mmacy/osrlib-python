@@ -3630,8 +3630,9 @@ def resolve_gaze(
     creatures in melee with it, because `osrlib.core` has no record of where creatures
     stand.
 
-    Each of those creatures saves versus paralysis, unless it's averting its eyes or is
-    already [`incapacitated`][osrlib.core.combat.incapacitated]. On a failed save, the
+    Each of those creatures saves versus paralysis, unless it's averting its eyes, is blind,
+    or is already [`incapacitated`][osrlib.core.combat.incapacitated]. A creature that can't
+    see can't meet a gaze, so the function skips one with the `blind` condition. On a failed save, the
     function attaches a permanent petrification effect, which gives the `petrified`
     condition. A petrified
     creature isn't dead, and the effect can be ended. A creature that fights with its eyes
@@ -3695,7 +3696,11 @@ def resolve_gaze(
     """
     events: list[Event] = []
     for target in engaged:
-        if has_condition(target, Condition.AVERTED_EYES) or incapacitated(target):
+        if (
+            has_condition(target, Condition.AVERTED_EYES)
+            or has_condition(target, Condition.BLIND)
+            or incapacitated(target)
+        ):
             continue
         save = saving_throw(target, SaveCategory.PARALYSIS, stream=stream)
         events.extend(save.events)
