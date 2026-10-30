@@ -69,9 +69,6 @@ from osrlib.crawl.session import EXPLORATION_STREAM, GameSession
 from osrlib.messages import format_message
 from osrlib.persistence import load_game, save_game
 
-CHUNK = "chunk: loot-and-traps"
-
-
 # ---------------------------------------------------------------------- shared helpers
 
 
@@ -136,7 +133,6 @@ def spring_gas(seed: int, modifier: int):
 class TestTrapSaveModifier:
     """Item 15: the trap's save adds `effect.save.modifier`."""
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_a_large_bonus_makes_every_save_pass(self):
         sprung = 0
         for seed in range(1, 60):
@@ -151,7 +147,6 @@ class TestTrapSaveModifier:
             assert session.mode is SessionMode.EXPLORING
         assert sprung >= 5, "the scenario must spring the trap often enough to mean something"
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_a_large_penalty_makes_every_save_fail(self):
         sprung = 0
         for seed in range(1, 60):
@@ -254,7 +249,6 @@ def breath_kill(ruleset: Ruleset | None = None, *, need_saved: bool):
 class TestBreathSavedItems:
     """Item 16: the magic items that survive a breath kill land in a pile on the victim's cell."""
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_saved_items_leave_the_body_for_a_pile_on_the_cell(self):
         session, victim, event = breath_kill(need_saved=True)
         saved = set(event.saved_items)
@@ -265,7 +259,6 @@ class TestBreathSavedItems:
         assert saved <= {item.instance_id for item in pile.magic_items}
         assert all(item.template_id == "sword_plus_1" for item in pile.magic_items if item.instance_id in saved)
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_the_party_takes_the_saved_items_from_the_pile(self):
         session, victim, event = breath_kill(need_saved=True)
         saved = set(event.saved_items)
@@ -334,7 +327,6 @@ class TestLairHoardOnce:
         assert list(caches) == [hoard.cache_ref]
         assert caches[hoard.cache_ref].cell_ref == cell_ref("crypt", 1, (1, 0))
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_a_second_visit_finds_the_same_cache(self):
         session, hoard = first_visit()
         before = {key: cache.model_copy(deep=True) for key, cache in session.dungeon_state.generated_caches.items()}
@@ -342,14 +334,12 @@ class TestLairHoardOnce:
         assert not [event for event in events if event.code == "treasure.hoard.generated"]
         assert session.dungeon_state.generated_caches == before
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_a_second_visit_spends_no_treasure_draws(self):
         session, _ = first_visit()
         stream_before = session.streams.get(TREASURE_STREAM).export_state()
         visit_and_evade(session)
         assert session.streams.get(TREASURE_STREAM).export_state() == stream_before
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_a_taken_hoard_is_not_rolled_again(self):
         session = lair_session()
         events = visit_and_evade(session)
@@ -362,7 +352,6 @@ class TestLairHoardOnce:
         assert not [event for event in events if event.code == "treasure.hoard.generated"]
         assert session.dungeon_state.generated_caches == {}
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_the_record_survives_a_save_and_load(self):
         session, hoard = first_visit()
         restored = load_game(save_game(session))
@@ -402,7 +391,6 @@ def ruby() -> ValuableInstance:
 class TestOilPileKeepsTreasure:
     """Item 18: lighting the last oil flask in a pile removes the pile only when nothing is left in it."""
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_a_valuable_keeps_the_pile(self):
         session, ref = oil_pile_session(
             DropPile(items=[DroppedItem(item_id="oil_flask", quantity=1)], valuables=[ruby()])
@@ -413,7 +401,6 @@ class TestOilPileKeepsTreasure:
         assert pile.items == []
         assert [valuable.instance_id for valuable in pile.valuables] == ["valuable-0099"]
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_a_magic_item_keeps_the_pile(self):
         sword = MagicItemInstance(instance_id="magic-item-0099", template_id="sword_plus_1")
         session, ref = oil_pile_session(
@@ -425,7 +412,6 @@ class TestOilPileKeepsTreasure:
         assert pile.items == []
         assert [item.instance_id for item in pile.magic_items] == ["magic-item-0099"]
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_the_party_can_still_take_the_valuable(self):
         session, _ = oil_pile_session(
             DropPile(items=[DroppedItem(item_id="oil_flask", quantity=1)], valuables=[ruby()])
@@ -487,7 +473,6 @@ def narrated(events) -> list:
 class TestGateSuccessWithinOneLevel:
     """Item 22: a gated transition's success text reaches the players whatever the destination."""
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_a_passage_within_the_level_shows_the_success_text(self):
         passage = TransitionSpec(
             kind="passage",
@@ -507,7 +492,6 @@ class TestGateSuccessWithinOneLevel:
         assert len(carriers) == 1
         assert SUCCESS in format_message(carriers[0])
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_stairs_within_the_level_show_the_success_text(self):
         stairs = TransitionSpec(
             kind="stairs_down",
@@ -585,7 +569,6 @@ class TestReadingADoorChangesNothing:
         assert result.accepted
         assert session.dungeon_state.location.position == (1, 0)
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_after_a_read_the_party_still_walks_through(self):
         session = vestibule_session()
         front_end_reads_the_door(session)
@@ -593,13 +576,11 @@ class TestReadingADoorChangesNothing:
         assert result.accepted, [rejection.code for rejection in result.rejections]
         assert session.dungeon_state.location.position == (1, 0)
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_after_a_read_the_view_still_shows_it_open(self):
         session = vestibule_session()
         front_end_reads_the_door(session)
         assert door_view_open(session) is True
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_after_a_read_a_saved_game_still_has_it_open(self):
         session = vestibule_session()
         front_end_reads_the_door(session)
@@ -614,7 +595,6 @@ class TestACopiedDoorStateIsASnapshot:
 
     REF = "crypt:1:0,0:east"
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     @pytest.mark.parametrize(
         "copier", [lambda state: state.model_copy(), copy.copy, copy.deepcopy], ids=["model_copy", "copy", "deepcopy"]
     )
