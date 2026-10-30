@@ -618,9 +618,11 @@ class GameSession:
         """
         self.party = party
         """The party, in marching order. The order determines who is in the front rank in a fight.
-        [`ReorderParty`][osrlib.crawl.commands.ReorderParty] is the only command that rearranges
-        it, and [`AddMember`][osrlib.crawl.commands.AddMember] is the only command that adds a
-        member, at the back."""
+        [`ReorderParty`][osrlib.crawl.commands.ReorderParty] sets it outside a fight. In a battle, a
+        member who withdraws alone trades places with the member named in
+        [`BattleDeclaration.replacement_id`][osrlib.crawl.commands.BattleDeclaration.replacement_id].
+        [`AddMember`][osrlib.crawl.commands.AddMember] is the only command that adds a member, at
+        the back."""
         self.adventure = adventure
         """The adventure being played: its town, dungeons, quests, and any content it bundles. It's
         frozen, and a save contains a copy of it, so a saved game needs no other file to

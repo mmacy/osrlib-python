@@ -391,8 +391,11 @@ class AttackContext(BaseModel):
     """Whether the defender is retreating.
 
     The attacker gets +2 to hit and the defender's shield doesn't count. A
-    [`GameSession`][osrlib.crawl.session.GameSession] sets it for a monster group that's
-    fleeing and for a party that declared a retreat.
+    [`GameSession`][osrlib.crawl.session.GameSession] sets it for an attack on a monster
+    group that's fleeing. It also sets it for every attack the monster side makes on a party
+    member who declared a retreat that round, alone or with the whole party. It's set from the
+    start of the round, so it holds against monsters that act before the member moves. A
+    retreat by the whole party sets it for every member.
     """
 
     braced: bool = False

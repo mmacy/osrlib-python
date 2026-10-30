@@ -539,8 +539,12 @@ class ReorderParty(Command):
 
     Marching order is the order the members walk in, front first. It determines who a door trap
     springs on, who reaches into a treasure cache, and who stands in the front rank when a
-    fight starts. This command is the only way to change it. It's legal in town and while
-    exploring, and the order is fixed once an encounter or battle has begun.
+    fight starts. This command sets it. It's legal in town and while exploring, and the
+    session refuses it once an encounter or battle has begun. In a battle, the order changes
+    only when a member makes a fighting withdrawal or a retreat alone and trades places with
+    the member named in
+    [`BattleDeclaration.replacement_id`][osrlib.crawl.commands.BattleDeclaration.replacement_id].
+    That change stays after the battle, until this command sets the order again.
 
     Modes:
         `town`, `exploring`
@@ -2410,8 +2414,10 @@ class BattleDeclaration(BaseModel):
     - `attack` takes `target_group_id` and, optionally, `weapon_id`. `None` means the
       wielded weapon that suits the attack, or bare hands when the member wields none.
     - `cast` takes `spell_id`, `spell_mode`, `reversed`, and `targets`.
-    - `move` takes `move`, and `target_group_id` for a `close`. It changes the distance
-      between the party and the monsters.
+    - `move` takes `move`, `target_group_id` for a `close`, and `replacement_id` for a
+      `fighting_withdrawal` or a `retreat` that the member makes alone. A formation move
+      changes the distance between the party and the monsters. A member's own move changes
+      the party's ranks instead.
     - `use_item` takes `item_id`. The member drinks a potion, reads a scroll, or uses a
       wand, staff, or rod, or throws a flask of oil or a similar item at `target_group_id`.
     - `turn_undead` needs nothing else. Turning resolves with the spells in the round, but
@@ -2507,21 +2513,50 @@ class BattleDeclaration(BaseModel):
     groups, the party closes on the group of the first `close` in
     [`ResolveBattleRound.declarations`][osrlib.crawl.commands.ResolveBattleRound.declarations].
 
-    `fighting_withdrawal` backs the party away from every group at half that rate. A member
-    who declares it makes no attack that round, because a member declares one action per
-    round.
+    `fighting_withdrawal` and `retreat` are the SRD's two ways out of melee. When every
+    member in `declarers` declares the same one, the whole formation makes it.
+    `fighting_withdrawal` then backs the party away from every group at half that rate.
+    `retreat` backs the party away at the full rate and ends the battle. It becomes a chase,
+    or a clean escape when no monster can chase. A round whose only declarer declares one is
+    a formation move too.
 
-    `retreat` backs the party away at the full rate. A round in which every member retreats
-    ends the battle. It becomes a chase, or a clean escape when no monster can chase.
+    Otherwise each `fighting_withdrawal` or `retreat` is the declaring member's own. It
+    doesn't move the party. The member, who has to stand in the front rank, steps back and
+    trades places in the marching order with the back-rank member named in `replacement_id`.
+    The round goes on, and the battle with it.
 
-    The party moves as one formation, and no member can leave it. So `fighting_withdrawal`
-    and `retreat` are legal only when every member in `declarers` declares the same one.
-    When some members declare one of them and others don't, a member who declares `close`
-    included, the session refuses the whole round with `battle.declaration.formation_split`.
-    The result contains one rejection for each of the two moves the round splits on, and each
-    one lists who declared that move and who didn't.
+    A member who declares either move makes no attack that round, whether the move is the
+    formation's or their own, because a member declares one action per round. A member who
+    retreats, alone or with the formation, is easier to hit for the whole round, whichever side
+    acts first: attackers get +2 against them and ignore their shield.
     [The adaptations register](https://mmacy.github.io/osrlib-python/adaptations/)
-    describes this rule in full."""
+    describes these rules in full."""
+    replacement_id: str | None = None
+    """The back-rank member who steps up into this member's place, for a `fighting_withdrawal`
+    or a `retreat` that this member makes alone, by
+    [`MemberView.id`][osrlib.crawl.views.MemberView.id]. Leave it `None` for every other
+    declaration, a formation move included.
+
+    The two members trade places in the marching order in the party's movement step, and the
+    order stays that way after the battle. Each rank stands five feet behind the one in front
+    of it, so a replacement two ranks back is ten feet away. The withdrawing member has to
+    cover that distance at up to half their encounter movement rate for a fighting withdrawal,
+    or their full encounter rate for a retreat. The replacement has to cover it at up to their
+    full encounter rate. *Haste* doubles either limit for the member who bears it.
+
+    The replacement has to be a living member behind the front rank who is in
+    [`EncounterView.declarers`][osrlib.crawl.views.EncounterView.declarers], isn't in
+    `immobile`, isn't charmed or confused, and hasn't declared a `cast`, a
+    `fighting_withdrawal`, or a `retreat`. A charmed member acts for the charmer and a
+    confused one acts at random, so neither steps up for the party. A spell caster can't
+    move and cast in the same round. Two withdrawing members can't name the same
+    replacement. From the movement step on, the replacement stands in the front rank, so
+    they may declare a melee attack against a group in reach this round.
+
+    The session checks the replacement again when the movement step comes. A replacement
+    who has died, can no longer move, or has become incapacitated, charmed, or confused by
+    then doesn't step up. The two members stay where they are, no event reports the swap,
+    and the replacement's melee attack doesn't resolve."""
     item_id: str | None = None
     """Which item a `use_item` declaration uses: a magic item's per-instance id for a potion, a
     scroll, a wand, a staff, or a rod, or a mundane item's catalog id for an item thrown at a
@@ -2560,16 +2595,23 @@ class ResolveBattleRound(Command):
           recognize. A `BattleDeclaration` with one already fails validation when it's
           constructed, so normal play never reaches this check.
         - Move declarations: `battle.declaration.missing_move`,
-          `battle.declaration.unknown_group`, `battle.declaration.cannot_move`, and
-          `battle.declaration.formation_split` when some declarers make a
-          `fighting_withdrawal` or a `retreat` and others don't. There is one
-          `formation_split` for each of the two moves the round splits on. Its `others`
-          lists every other declarer of the round, including any who chose the other
-          move. So a round that splits on both moves comes back with two, the fighting
-          withdrawal's first and the retreat's second.
+          `battle.declaration.unknown_group`, and `battle.declaration.cannot_move`.
+        - A `fighting_withdrawal` or a `retreat` that a member makes alone gets at most
+          one of these, the first that applies:
+          `battle.declaration.not_in_front_rank` when the member stands behind the front
+          rank, `battle.declaration.no_replacement` when the declaration names no
+          `replacement_id`, `battle.declaration.replacement_unavailable` when the named
+          member can't step up, and `battle.declaration.replacement_too_far` when either
+          member can't cover the distance between their ranks. Each has the withdrawing
+          member's id as its `character` param. The last two also have the replacement's
+          id as `replacement`, and `replacement_too_far` has the distance as
+          `distance_feet`. A declaration in a formation move that names a
+          `replacement_id` gets `replacement_unavailable`, because every declarer is
+          moving with the formation.
         - Attack declarations: `battle.declaration.unknown_group`,
           `battle.declaration.no_target`, `battle.declaration.weapon_not_wielded`,
-          `battle.declaration.not_in_front_rank`, and the kernel attack checks
+          `battle.declaration.not_in_front_rank` for a melee attack from outside the front
+          rank as the round's swaps leave it, and the kernel attack checks
           `combat.attack.out_of_reach`, `combat.attack.out_of_range`,
           `combat.attack.reload`, `combat.attack.attacker_incapacitated`,
           `combat.attack.attacker_blind`.
@@ -2605,7 +2647,9 @@ class ResolveBattleRound(Command):
         side order.
 
         Movement: a [`GroupMovedEvent`][osrlib.crawl.events.GroupMovedEvent] each time the
-        distance to a group changes.
+        distance to a group changes, and a
+        [`MemberWithdrewEvent`][osrlib.crawl.events.MemberWithdrewEvent] each time a member
+        who withdraws alone trades places with a member from a back rank.
 
         Missiles and melee:
         [`AttackRolledEvent`][osrlib.core.events.AttackRolledEvent],

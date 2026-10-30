@@ -7,9 +7,12 @@ You build a [`Party`][osrlib.crawl.party.Party] from
 session moves the party as one group. `session.party` is the same object you passed.
 
 The order of the member list is the marching order, and it isn't recorded anywhere else, so the
-first member is the one in front. [`ReorderParty`][osrlib.crawl.commands.ReorderParty] is the
-only command that rearranges that order. The session calls
-[`reorder`][osrlib.crawl.party.Party.reorder] when it accepts one. The referee command
+first member is the one in front. [`ReorderParty`][osrlib.crawl.commands.ReorderParty] sets that
+order outside a fight, and the session calls [`reorder`][osrlib.crawl.party.Party.reorder] when it
+accepts one. In a battle, a member who makes a fighting withdrawal or a retreat alone trades places
+with the member named in
+[`BattleDeclaration.replacement_id`][osrlib.crawl.commands.BattleDeclaration.replacement_id], and
+the order stays that way after the battle. The referee command
 [`AddMember`][osrlib.crawl.commands.AddMember] adds a new member at the back.
 
 Dead members stay in the list, with their gear still on them. No command removes a member. The
@@ -78,9 +81,11 @@ class Party(BaseModel):
     [`GameSession.new`][osrlib.crawl.session.GameSession.new] assigns ids when the party joins a
     session, so a member you just built has `None` as its `id` until then. To add a member during
     play, execute [`AddMember`][osrlib.crawl.commands.AddMember], which assigns the new member's
-    id and puts them at the back, rather than appending to this list. Change the order by
-    executing [`ReorderParty`][osrlib.crawl.commands.ReorderParty], not by assigning to this field,
-    so the change is logged and a replay reproduces it."""
+    id and puts them at the back, rather than appending to this list. Change the order with a
+    command, not by assigning to this field, so the change is logged and a replay reproduces it.
+    Outside a fight, execute [`ReorderParty`][osrlib.crawl.commands.ReorderParty]. In a battle, a
+    member who withdraws alone names the member to trade places with in
+    [`BattleDeclaration.replacement_id`][osrlib.crawl.commands.BattleDeclaration.replacement_id]."""
 
     def living_members(self) -> list[Character]:
         """Return the living members, in marching order.

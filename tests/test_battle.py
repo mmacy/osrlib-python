@@ -1156,18 +1156,19 @@ class TestAScrollDeclarationIsJudgedAtTheScrollsLevel:
 
 
 class TestAFormationMoveNeedsEveryDeclarer:
-    """The party moves as one formation and a member cannot leave it (the adaptations register, battle
-    section). A `fighting_withdrawal` or a `retreat` is therefore a legal declaration only when every
-    declarer makes the same one. A round in which some declare it and some do not is refused whole with
-    `battle.declaration.formation_split`, one rejection per defensive move declared, whose params name
-    the `move`, the `declared` members who chose it, and the `others` who did not, each tuple in
-    marching order. The refusal costs no draw, no round, no distance, and no event, as every other
-    illegal declaration costs nothing. `close` is not a formation move in this sense: the first `close`
-    in marching order advances the formation for everyone, so a lone `close` stays legal.
+    """A `fighting_withdrawal` or a `retreat` that every declarer makes moves the whole formation (the
+    adaptations register, battle section). One that not every declarer makes is the declaring member's
+    own: a front-rank member trades places with the back-rank member named in `replacement_id`, and
+    `test_single_withdrawal.py` locks that. A round in which some members make a defensive move with no
+    replacement named is refused whole, with `battle.declaration.no_replacement` for each front-rank
+    member and `battle.declaration.not_in_front_rank` for each member behind the front rank. The
+    refusal costs no draw, no round, no distance, and no event, as every other illegal declaration costs
+    nothing. `close` needs no agreement: the first `close` in marching order advances the formation for
+    everyone, so a lone `close` stays legal.
     """
 
     @pytest.mark.parametrize("move", ["fighting_withdrawal", "retreat"])
-    def test_a_lone_defensive_move_is_refused_whole(self, move):
+    def test_a_lone_defensive_move_with_no_replacement_is_refused_whole(self, move):
         from osrlib.core.combat import COMBAT_STREAM
 
         session = battle_session(distance=40)
@@ -1178,11 +1179,9 @@ class TestAFormationMoveNeedsEveryDeclarer:
         result = session.execute(ResolveBattleRound(declarations=hold_all(session, extra=(lone,))))
         assert not result.accepted
         assert result.events == ()
-        split = [rejection for rejection in result.rejections if rejection.code == "battle.declaration.formation_split"]
-        assert len(split) == 1
-        assert split[0].params["move"] == move
-        assert tuple(split[0].params["declared"]) == ("character-0001",)
-        assert tuple(split[0].params["others"]) == ("character-0002", "character-0003", "character-0004")
+        assert [(rejection.code, dict(rejection.params)) for rejection in result.rejections] == [
+            ("battle.declaration.no_replacement", {"character": "character-0001"})
+        ]
         assert session.streams.get(COMBAT_STREAM).export_state() == combat_before
         assert session.battle.round == round_before
         assert session.encounter.groups[0].distance_feet == distance_before
@@ -1195,26 +1194,23 @@ class TestAFormationMoveNeedsEveryDeclarer:
         )
         result = session.execute(ResolveBattleRound(declarations=hold_all(session, extra=retreating)))
         assert not result.accepted
-        split = [rejection for rejection in result.rejections if rejection.code == "battle.declaration.formation_split"]
-        assert len(split) == 1
-        assert tuple(split[0].params["declared"]) == ("character-0001", "character-0002", "character-0003")
-        assert tuple(split[0].params["others"]) == ("character-0004",)
+        assert sorted((rejection.code, rejection.params.get("character")) for rejection in result.rejections) == [
+            ("battle.declaration.no_replacement", "character-0001"),
+            ("battle.declaration.no_replacement", "character-0002"),
+            ("battle.declaration.not_in_front_rank", "character-0003"),
+        ]
         assert session.battle is not None and session.battle.round == 0
 
-    def test_two_defensive_moves_in_one_round_are_refused_once_each(self):
+    def test_two_members_withdrawing_alone_each_need_a_replacement(self):
         session = battle_session(distance=40)
         first = BattleDeclaration(character_id="character-0001", action="move", move="retreat")
         second = BattleDeclaration(character_id="character-0002", action="move", move="fighting_withdrawal")
         result = session.execute(ResolveBattleRound(declarations=hold_all(session, extra=(first, second))))
         assert not result.accepted
-        split = sorted(
-            (rejection.params["move"], tuple(rejection.params["declared"]), tuple(rejection.params["others"]))
-            for rejection in result.rejections
-            if rejection.code == "battle.declaration.formation_split"
-        )
-        assert split == [
-            ("fighting_withdrawal", ("character-0002",), ("character-0001", "character-0003", "character-0004")),
-            ("retreat", ("character-0001",), ("character-0002", "character-0003", "character-0004")),
+        refused = sorted(((rejection.code, dict(rejection.params)) for rejection in result.rejections), key=repr)
+        assert refused == [
+            ("battle.declaration.no_replacement", {"character": "character-0001"}),
+            ("battle.declaration.no_replacement", {"character": "character-0002"}),
         ]
 
     def test_every_declarer_withdrawing_moves_the_formation(self):
