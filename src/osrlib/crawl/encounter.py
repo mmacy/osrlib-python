@@ -25,7 +25,9 @@ You rarely call `start_encounter` yourself. The session calls it for the
 [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] and
 [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] commands, for the wandering-monster
 check, and when the party enters a keyed area that has monsters. Call it directly when your own
-code decides that a group has just come into view.
+code decides that a group has just come into view. The session doesn't call it for a
+`SpawnMonsters` executed while an encounter is open. The new group joins that encounter and rolls
+no surprise or reaction.
 
 You follow the encounter through events from
 [`osrlib.crawl.events`][osrlib.crawl.events]:
@@ -34,6 +36,8 @@ You follow the encounter through events from
 - An [`EncounterStartedEvent`][osrlib.crawl.events.EncounterStartedEvent] with the number of
   monsters and the distance.
 - A [`StanceChangedEvent`][osrlib.crawl.events.StanceChangedEvent] each time the stance changes.
+- An [`EncounterGroupJoinedEvent`][osrlib.crawl.events.EncounterGroupJoinedEvent] each time a
+  `SpawnMonsters` adds a group to the open encounter.
 - [`EvasionEvent`][osrlib.crawl.events.EvasionEvent] and
   [`PursuitEvent`][osrlib.crawl.events.PursuitEvent] while the party runs, and an
   [`ExhaustionEvent`][osrlib.crawl.events.ExhaustionEvent] when a chase goes on long enough to
@@ -141,6 +145,7 @@ from osrlib.crawl.commands import DropItems, EngageBattle, Evade, Parley, Sessio
 from osrlib.crawl.dungeon import TreasureBundle
 from osrlib.crawl.events import (
     EncounterEndedEvent,
+    EncounterGroupJoinedEvent,
     EncounterStartedEvent,
     EvasionEvent,
     ExhaustionEvent,
@@ -183,10 +188,11 @@ class EncounterGroup(BaseModel):
     """One monster group in an encounter: its members, its distance, and the treasure it carries.
 
     You get these from `session.encounter.groups`. The session creates them when an encounter
-    opens and updates them during the battle, and loading a save restores them, so you don't
-    construct one yourself. Much of a fight works by group instead of by monster: a failed
-    morale check breaks a whole group at once, and a party member's attack identifies a group in
-    the `target_group_id` of a [`BattleDeclaration`][osrlib.crawl.commands.BattleDeclaration].
+    opens or a [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] adds a group to it, and
+    updates them during the battle. Loading a save restores them, so you don't construct one
+    yourself. Much of a fight works by group instead of by monster: a failed morale check breaks a
+    whole group at once, and a party member's attack identifies a group in the `target_group_id` of
+    a [`BattleDeclaration`][osrlib.crawl.commands.BattleDeclaration].
     """
 
     model_config = ConfigDict(validate_assignment=True)
@@ -215,7 +221,7 @@ class EncounterGroup(BaseModel):
     party can still attack it."""
     fled: bool = False
     """True once the group has run past [`FLEE_EXIT_FEET`][osrlib.crawl.battle.FLEE_EXIT_FEET] and left
-    the fight, or when its morale score is 2 and it ran as the battle started. The session rejects an
+    the fight, or when its morale score is 2 and it ran as it entered the battle. The session rejects an
     attack declared against it with `battle.declaration.unknown_group`."""
     member_treasure: dict[str, TreasureBundle] = {}
     """The treasure each member carries, keyed by monster id. The session rolls it when it spawns the
@@ -563,6 +569,40 @@ def start_encounter(
         # before the party's first command, and a battle that opens in that
         # round begins with the monsters' free round.
         events.extend(_end_of_round(session, party_lost_beat=True))
+    return events
+
+
+def _join_encounter(session, *, label: str, instances: list, distance_feet: int) -> list[Event]:
+    """Add one group to the open encounter between rounds, without opening the encounter again.
+
+    The group rolls no surprise and no reaction. It shares the encounter's stance and surprise and,
+    in a battle, the battle's round. The function resolves nothing and doesn't advance the clock, so
+    the group first acts in the next encounter or battle round. A monster that regenerates starts to
+    regenerate as it joins, as it would when its encounter opens. In a battle, a group whose morale
+    score is 2 runs at once, as it would have if it had been there when the battle started.
+
+    Returns:
+        An [`EffectAttachedEvent`][osrlib.core.events.EffectAttachedEvent] for each monster that
+        regenerates, the [`EncounterGroupJoinedEvent`][osrlib.crawl.events.EncounterGroupJoinedEvent],
+        and a [`MonsterFledEvent`][osrlib.crawl.events.MonsterFledEvent] when the group runs at once.
+    """
+    events = _attach_regeneration(session, instances)
+    group = EncounterGroup(
+        id=session.allocator.allocate("group"),
+        label=label,
+        monster_ids=[instance.id for instance in instances],
+        distance_feet=distance_feet,
+    )
+    session.encounter.groups.append(group)
+    events.append(
+        EncounterGroupJoinedEvent(
+            group_id=group.id, label=label, count=len(group.monster_ids), distance_feet=distance_feet
+        )
+    )
+    if session.battle is not None:
+        from osrlib.crawl import battle as battle_module
+
+        events.extend(battle_module._flee_if_unwilling(session, group))
     return events
 
 

@@ -10,9 +10,8 @@ wiring is authored data and whose only actor is the registered interpreter:
   player's own command;
 - the party walks through the grille that now stands open;
 - stepping into the guardroom opens the room's own keyed encounter, and the
-  area-entered trigger's spawn arrives to find it already open: the consequence is
-  dropped alone and a note says exactly why, while the trigger's journal beat still
-  lands.
+  area-entered trigger's spawn joins that open encounter as a second group, while the
+  trigger's journal beat still lands.
 
 The milestone the file records: the scenario authored as data, live with the
 interpreter registered, replays identically with no listeners — command and event logs
@@ -119,10 +118,10 @@ def run_scenario(seed: int) -> tuple[GameSession, list[dict]]:
         raise RuntimeError(f"the run wrote {len(session.journal)} journal entries, not 2")
     if session.listener_state != {Interpreter.key: {}}:
         raise RuntimeError(f"the interpreter kept state: {session.listener_state}")
-    if not any(command.command_type == "record_note" for command in session.command_log):
-        raise RuntimeError("the colliding spawn recorded no note")
-    if any(command.command_type == "spawn_monsters" for command in session.command_log):
-        raise RuntimeError("the colliding spawn was accepted; it must be dropped")
+    if any(command.command_type == "record_note" for command in session.command_log):
+        raise RuntimeError("the ambush spawn was dropped with a note; it must join the open encounter")
+    if not any(command.command_type == "spawn_monsters" for command in session.command_log):
+        raise RuntimeError("the ambush spawn was not logged")
     return session, refusals
 
 

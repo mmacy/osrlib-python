@@ -100,6 +100,7 @@ __all__ = [
     "DiceRolledEvent",
     "DoorEvent",
     "EncounterEndedEvent",
+    "EncounterGroupJoinedEvent",
     "EncounterStartedEvent",
     "EvasionEvent",
     "ExhaustionEvent",
@@ -848,6 +849,37 @@ class EncounterStartedEvent(Event):
     starts."""
 
 
+class EncounterGroupJoinedEvent(Event):
+    """A new monster group joined the encounter or battle already open, with what the party can see of it.
+
+    Emitted by [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] when an encounter or a
+    battle is open, after the [`MonstersSpawnedEvent`][osrlib.crawl.events.MonstersSpawnedEvent]
+    for the same monsters. The players learn of the new group from this event, as they learn of
+    the first groups from [`EncounterStartedEvent`][osrlib.crawl.events.EncounterStartedEvent].
+    The session rolls no surprise or reaction for the group, which acts from the next round.
+    """
+
+    allowed_codes: ClassVar[frozenset[str]] = frozenset({"encounter.group.joined"})
+    """The only message code this event uses."""
+
+    event_type: Literal["encounter_group_joined"] = "encounter_group_joined"
+    """The event type, `encounter_group_joined`, which identifies this class in serialized form."""
+    code: str = "encounter.group.joined"
+    """The message code, always `encounter.group.joined`."""
+    visibility: Visibility = Visibility.PLAYER
+    """Player visibility: the party sees the new monsters arrive."""
+    group_id: str
+    """The new group's id, the same as its
+    [`EncounterGroupView.id`][osrlib.crawl.views.EncounterGroupView.id] in the player view. To
+    attack the group, put this id in a battle declaration's `target_group_id`."""
+    label: str
+    """The group's label: the `template_id` from the `SpawnMonsters` command, like `"goblin"`."""
+    count: int
+    """How many creatures are in the group."""
+    distance_feet: int
+    """How far away the group is, in feet, when it joins."""
+
+
 class SurpriseRolledEvent(Event):
     """One side's surprise die, rolled in secret.
 
@@ -1543,12 +1575,16 @@ class FlagSetEvent(Event):
 class MonstersSpawnedEvent(Event):
     """Monsters were put into the session by the referee.
 
-    Emitted by [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters], before the
-    encounter with them opens in the same result.
+    Emitted by [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters], first in its
+    result. When no encounter is open, the events of the encounter's opening follow. When
+    one is open, the monsters join it as a new group.
 
     It's referee visibility and contains ids rather than a description. The party
     learns what walked in from
-    [`EncounterStartedEvent`][osrlib.crawl.events.EncounterStartedEvent].
+    [`EncounterStartedEvent`][osrlib.crawl.events.EncounterStartedEvent] when the
+    encounter opens, or from
+    [`EncounterGroupJoinedEvent`][osrlib.crawl.events.EncounterGroupJoinedEvent] when the
+    monsters join an open one.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"session.monsters.spawned"})
@@ -1986,6 +2022,7 @@ CRAWL_EVENT_CLASSES: tuple[type[Event], ...] = (
     ProvisionsEvent,
     WanderingCheckEvent,
     EncounterStartedEvent,
+    EncounterGroupJoinedEvent,
     SurpriseRolledEvent,
     StanceChangedEvent,
     EvasionEvent,

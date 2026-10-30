@@ -286,9 +286,10 @@ class Interpreter:
     execute grants no rewards. Only the interpreter issues rewards, and a replay executes the
     reward commands themselves.
 
-    When a command fails, the interpreter goes on, and the log records why. A rejected
-    consequence or reward is dropped without affecting the others, like a spawn while an
-    encounter is already open, or a grant to a character who isn't in the party. A
+    When a command fails, the interpreter goes on, and the log records why. The interpreter
+    drops a rejected consequence or reward without affecting the others, like a
+    [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] while an encounter is already
+    open, or a grant to a character who isn't in the party. A
     [`RecordNote`][osrlib.crawl.commands.RecordNote] then records the trigger or quest, the
     dropped command's position and type, and the rejection code. If the party dies partway
     through and the session ends, the remaining commands are accepted or dropped by the
