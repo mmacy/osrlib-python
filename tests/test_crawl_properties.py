@@ -116,7 +116,7 @@ def plant_magic_items(session) -> None:
     )
 
 
-PENDING_COMMANDS = frozenset({"AddMember"})
+PENDING_COMMANDS: frozenset[str] = frozenset()
 """Command classes whose handler belongs to a chunk still in flight.
 
 The fuzz leaves them out until the chunk merges, because a stub handler raises. The
