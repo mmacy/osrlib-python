@@ -410,9 +410,10 @@ def _store_door_state(session, edge, ref: str) -> DoorState:
         The stored, mutable entry.
     """
     state = session.dungeon_state.doors.get(ref)
-    if state is not None:
-        return state
-    return _seed(edge, session.dungeon_state.door(ref))
+    if state is None:
+        state = _seed(edge, DoorState())
+        session.dungeon_state.doors[ref] = state
+    return state
 
 
 def _door_state(session, direction: Direction) -> DoorState:
@@ -1450,7 +1451,9 @@ def _resolve_trap(session, trap: TrapSpec, *, triggerer) -> list[Event]:
     for victim in victims:
         passed = False
         if effect.save is not None:
-            save = saving_throw(victim, SaveCategory(effect.save.category), stream=stream)
+            save = saving_throw(
+                victim, SaveCategory(effect.save.category), modifier=effect.save.modifier, stream=stream
+            )
             events.extend(save.events)
             passed = save.passed
             if passed and effect.save.on_save == "negates":
@@ -1550,8 +1553,10 @@ def _relocate(
     """Move the party to a cell (transitions, slides): explore, events, hooks.
 
     `narrative` is the authored success beat of the gate the party satisfied to get
-    here, and it goes out on the level- or dungeon-crossing event. A relocation that
-    crosses no boundary emits no such event, so there is nowhere to put a beat.
+    here. It goes out on the level- or dungeon-crossing event. A relocation within one
+    level emits no such event, so the beat goes out on a `PartyMovedEvent` for the
+    landing cell instead, which a relocation that isn't `walked` emits only to report
+    the beat.
 
     `via` and `transition_ref` are the caller's account of the crossing: the kind of
     the transition taken and the cell it stands on for `UseStairs` and for a passage,
@@ -1607,9 +1612,15 @@ def _relocate(
             )
         )
     events.extend(leave_events)
-    if walked:
+    # Within one level there is no crossing event, so the PartyMovedEvent for the landing cell
+    # contains the gate's success text. The session emits that event for every passage, and for
+    # stairs only when there is text to show.
+    beat = narrative if same_level else None
+    if walked or beat:
         events.append(
-            PartyMovedEvent(code="exploration.party.moved", x=position[0], y=position[1], facing=facing.value)
+            PartyMovedEvent(
+                code="exploration.party.moved", x=position[0], y=position[1], facing=facing.value, narrative=beat
+            )
         )
     state.mark_explored(dungeon_id, level_number, position)
     events.extend(_boundary_events(session, old_area, position))
@@ -1661,8 +1672,12 @@ def _keyed_encounter_check(session) -> list[Event]:
         # fixes the draws on the treasure stream.
         carried.append(_generate_carried_treasure(session, instances))
     # The lair hoard is gated: a keyed encounter the author marked hoardless (a
-    # stocking roll that gave the monster room no treasure) gets no cache.
-    events = _generate_lair_hoard(session, area, templates) if area.encounter.hoard else []
+    # stocking roll that gave the monster room no treasure) gets no cache. A lair's
+    # hoard is rolled once, so a party that evades and comes back finds the same cache.
+    events: list[Event] = []
+    if area.encounter.hoard and area_ref not in session.dungeon_state.generated_lair_hoards:
+        session.dungeon_state.generated_lair_hoards.append(area_ref)
+        events = _generate_lair_hoard(session, area, templates)
     events.extend(
         encounter_module.start_encounter(
             session,
@@ -3095,7 +3110,7 @@ def _handle_light_source(session, command: LightSource) -> tuple[list[Rejection]
             pile.items.remove(entry)
         else:
             entry.quantity -= 1
-        if not pile.items and pile.coins.total_coins == 0:
+        if not pile.items and pile.coins.total_coins == 0 and not pile.valuables and not pile.magic_items:
             del session.dungeon_state.piles[_cell_ref(session)]
         _, attach_events = session.ledger.attach(
             burning_oil_pool_definition(),

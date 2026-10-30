@@ -115,6 +115,7 @@ from osrlib.core.events import (
     DamageDealtEvent,
     DeathEvent,
     EffectExpiredEvent,
+    EquipmentDestroyedEvent,
     Event,
     SavingThrowRolledEvent,
     Visibility,
@@ -1110,6 +1111,7 @@ class GameSession:
         if rejections:
             return CommandResult(accepted=False, rejections=tuple(rejections))
         self.command_log.append(command)
+        self._pile_saved_items(events)
         if self._record_deaths(events):
             events.extend(self._end_on_party_wipe())
         self.event_log.extend(events)
@@ -1892,6 +1894,38 @@ class GameSession:
         return events
 
     # ------------------------------------------------------------------ death records
+
+    def _pile_saved_items(self, events: Sequence[Event]) -> None:
+        """Move a dead member's magic items that made their save to a drop pile on the party's cell.
+
+        [`destroy_equipment`][osrlib.core.combat.destroy_equipment] leaves those items in the dead member's
+        inventory, where no command can reach them, because a dead member can't give or drop anything. The
+        session moves them to the pile in the same command that killed the member, so the party picks them up
+        with [`TakeTreasure`][osrlib.crawl.commands.TakeTreasure] and the feature id `"pile"`. A monster's
+        saved items stay where they are, because a slain NPC adventurer's whole inventory goes to the pile
+        when the encounter ends.
+
+        Args:
+            events: The just-executed command's events, in order.
+        """
+        from osrlib.crawl import exploration
+        from osrlib.crawl.dungeon import DropPile
+
+        if self.dungeon_state.location.kind != "dungeon":
+            return
+        members = {member.id: member for member in self.party.members}
+        for event in events:
+            if not isinstance(event, EquipmentDestroyedEvent) or not event.saved_items:
+                continue
+            member = members.get(event.target_id)
+            if member is None:
+                continue
+            pile = self.dungeon_state.piles.setdefault(exploration._cell_ref(self), DropPile())
+            for instance_id in event.saved_items:
+                instance = member.inventory.magic_item(instance_id)
+                if instance is not None:
+                    exploration._remove_instance(member, instance)
+                    pile.magic_items.append(instance)
 
     def _record_deaths(self, events: Sequence[Event]) -> bool:
         """Record party deaths with the clock round and the cause just resolved.

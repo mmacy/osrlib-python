@@ -39,6 +39,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "east",
+      "narrative": null,
       "visibility": "player",
       "x": 1,
       "y": 0
