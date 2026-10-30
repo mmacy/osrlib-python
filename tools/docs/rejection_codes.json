@@ -36,6 +36,7 @@
   "encounter.evade.nothing_to_drop": "The party tries to drop treasure or food to slow its pursuers, but no living party member is carrying anything of that kind to drop.",
   "encounter.none_active": "The command applies only during an encounter, but no encounter is currently active in the session.",
   "encounter.parley.mid_pursuit": "The party tries to open negotiations while a pursuit is underway, and parley isn't available once a chase has started.",
+  "encounter.spawn.mid_pursuit": "The referee tries to spawn monsters while a pursuit is underway, and no new group can join an encounter once a chase has started.",
   "encounter.turning.mid_pursuit": "A cleric tries to turn undead while a pursuit is underway, and turning isn't available once a chase has started.",
   "exploration.action.requires_light": "The character tried to take an action that needs light, and neither the party's active light source nor the character's infravision (where it would apply) is available.",
   "exploration.door.already_closed": "The party tried to close a door that is already closed.",

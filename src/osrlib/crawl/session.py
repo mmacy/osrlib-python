@@ -2265,6 +2265,10 @@ def _handle_spawn_monsters(session: GameSession, command: SpawnMonsters) -> tupl
         # Encounters live on the dungeon grid: the combat space, silence cells,
         # and formation widths all need a party cell to stand on.
         return [Rejection(code="session.command.not_in_dungeon")], []
+    if session.encounter is not None and session.encounter.pursuit is not None:
+        # A chase runs at the pace of its slowest group, so a group that joined it would
+        # change who gets away.
+        return [Rejection(code="encounter.spawn.mid_pursuit")], []
     if command.count_fixed is not None:
         count = command.count_fixed
     elif command.count_dice is not None:

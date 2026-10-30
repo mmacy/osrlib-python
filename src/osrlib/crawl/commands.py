@@ -2848,9 +2848,12 @@ class SpawnMonsters(Command):
 
     When no encounter is open, the command opens one with the monsters. When an encounter
     or a battle is open, the monsters join it as one new group at `distance_feet`. The
-    group rolls no surprise or reaction, and it shares the encounter's stance. The command
-    takes no time and runs no round, so the group first acts in the next round, on the
-    monster side.
+    group rolls no surprise or reaction. It shares the encounter's stance and surprise, so
+    if the monsters already there are sitting out a round because the party surprised
+    them, the new group sits it out too. The command takes no time and runs no round, so
+    the group first acts in the next round, on the monster side. During a chase, the
+    session refuses the command, because a chase runs at the pace of its slowest group and
+    a group that joined could change that pace.
 
     Modes:
         `town`, `exploring`, `encounter`, `battle`
@@ -2859,6 +2862,8 @@ class SpawnMonsters(Command):
         - `session.command.wrong_mode` - the session has ended.
         - `session.command.unknown_monster` - `template_id` matches no monster.
         - `session.command.not_in_dungeon` - the party is not on a dungeon cell.
+        - `encounter.spawn.mid_pursuit` - the monsters are chasing the party, and no
+          new group can join during a chase.
 
     Events:
         [`MonstersSpawnedEvent`][osrlib.crawl.events.MonstersSpawnedEvent]. When the
