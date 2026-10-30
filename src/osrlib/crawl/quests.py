@@ -284,8 +284,9 @@ class QuestSpec(BaseModel):
     write them. The interpreter replaces
     [`PARTY_SELECTOR`][osrlib.crawl.triggers.PARTY_SELECTOR],
     [`FIRST_LIVING_SELECTOR`][osrlib.crawl.triggers.FIRST_LIVING_SELECTOR], and
-    [`CARRIER_SELECTOR`][osrlib.crawl.triggers.CARRIER_SELECTOR] with the members they select. When the session rejects one reward, the interpreter drops it, records a
-    note, and runs the rest. A reward with `source` set fails validation with a pydantic
+    [`CARRIER_SELECTOR`][osrlib.crawl.triggers.CARRIER_SELECTOR] with the members they select.
+    When the session rejects one reward, the interpreter drops it, records a note, and runs the
+    rest. A reward with `source` set fails validation with a pydantic
     `ValidationError`, because the interpreter sets `source` itself."""
     completion: Literal["all", "any"] = "all"
     """The rule for completing the quest. With `"all"`, the quest completes when every
