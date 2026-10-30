@@ -52,8 +52,6 @@ from osrlib.crawl.exploration import EXHAUSTED_DEFINITION, EXHAUSTED_KIND, FATIG
 from osrlib.crawl.party import Party
 from osrlib.crawl.session import GameSession
 
-BUG = "chunk: rest-credit"
-
 DWARF = "character-0001"
 """The party's searcher. A dwarf has infravision, so it can search without a light."""
 MAGIC_USER = "character-0002"
@@ -264,7 +262,6 @@ def uninterrupted_rest(session: GameSession, kind: RestKind) -> CommandResult:
 
 
 class TestFatigue:
-    @pytest.mark.xfail(reason=BUG, strict=True)
     @pytest.mark.parametrize(("kind", "boundary"), [("turn", 1), ("night", 1), ("night", 4)])
     def test_rest_interrupted_after_full_turns_clears_fatigue(self, kind, boundary):
         # Night at boundary 4 is the issue's reproduction. A one-turn rest started on a turn
@@ -281,21 +278,18 @@ class TestFatigue:
         assert "exploration.fatigue.recovered" not in codes(result)
         assert fully_fatigued(session)
 
-    @pytest.mark.xfail(reason=BUG, strict=True)
     def test_partial_first_turn_does_not_void_the_full_turn_after_it(self):
         # One full turn and 59 rounds of rest.
         session, result = interrupted_rest(SEED, kind="night", boundary=2, unrested=6, mid_turn=True)
         assert "exploration.fatigue.recovered" in codes(result)
         assert not fatigued(session)
 
-    @pytest.mark.xfail(reason=BUG, strict=True)
     def test_interrupted_day_clears_fatigue_but_heals_nobody(self):
         session, result = interrupted_rest(SEED, kind="day", boundary=2, unrested=6, wounded=True)
         assert all(member.current_hp == 1 for member in session.party.members)
         assert "exploration.fatigue.recovered" in codes(result)
         assert not fatigued(session)
 
-    @pytest.mark.xfail(reason=BUG, strict=True)
     def test_a_full_rested_turn_restarts_the_rest_cadence(self):
         # Four unrested turns, then a night broken after two full turns: the party has had its
         # rest, so fatigue comes six unrested turns later, not two. The boundary is 2 so that the
@@ -308,13 +302,11 @@ class TestFatigue:
 
 
 class TestExhaustion:
-    @pytest.mark.xfail(reason=BUG, strict=True)
     def test_interrupted_night_after_three_full_turns_clears_exhaustion(self):
         session, result = interrupted_rest(SEED, kind="night", boundary=3, unrested=4, exhaust=True)
         assert "encounter.exhaustion.recovered" in codes(result)
         assert not exhausted(session)
 
-    @pytest.mark.xfail(reason=BUG, strict=True)
     @pytest.mark.parametrize("mid_turn", [False, True])
     def test_two_full_turns_count_toward_the_next_rest(self, mid_turn):
         # Two full turns of an interrupted night, plus one more turn of rest, make three. Started
@@ -331,7 +323,6 @@ class TestExhaustion:
         assert "encounter.exhaustion.recovered" in codes(follow_up)
         assert not exhausted(session)
 
-    @pytest.mark.xfail(reason=BUG, strict=True)
     def test_one_full_turn_counts_once(self):
         # A night broken after one full turn credits exactly one: the first turn of rest after
         # it leaves the party exhausted, and the second clears it.
@@ -411,7 +402,6 @@ class TestUninterruptedRest:
 
 
 class TestDeterminism:
-    @pytest.mark.xfail(reason=BUG, strict=True)
     def test_same_seed_and_commands_give_the_same_events(self):
         def play() -> list[dict]:
             session, rest = interrupted_rest(SEED, kind="night", boundary=2, unrested=6, exhaust=True)
