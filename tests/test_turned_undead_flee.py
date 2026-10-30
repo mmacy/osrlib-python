@@ -34,8 +34,6 @@ from osrlib.crawl.encounter import end_encounter
 from osrlib.crawl.party import Party
 from osrlib.crawl.session import GameSession
 
-CHUNK = pytest.mark.xfail(reason="chunk: turned-undead-flee", strict=True)
-
 SOLO = ("cleric",)
 """The issue's reproduction party: one cleric, so every monster attack is aimed at the cleric who turned."""
 
@@ -170,7 +168,6 @@ def attacks_by(events: list[Event], attacker_ids: set[str]) -> list[Event]:
 # ---------------------------------------------------------------------- turned monsters harm no one
 
 
-@CHUNK
 def test_reproduction_turned_skeleton_does_not_attack_the_cleric():
     # The issue's reproduction, unchanged: one cleric, six skeletons, seed 4.
     session = new_session(4, SOLO)
@@ -184,7 +181,6 @@ def test_reproduction_turned_skeleton_does_not_attack_the_cleric():
     assert not offending
 
 
-@CHUNK
 @pytest.mark.parametrize("seed", PARTIAL_SEEDS)
 def test_turned_monsters_attack_no_one_in_later_rounds(seed):
     # Encounter-mode turning: no turned skeleton attacks anyone, the cleric above all, while the battle lasts.
@@ -200,7 +196,6 @@ def test_turned_monsters_attack_no_one_in_later_rounds(seed):
         assert not offending, f"round {round_number}: a turned skeleton attacked {offending[0].defender_id}"
 
 
-@CHUNK
 @pytest.mark.parametrize("seed", PARTIAL_SEEDS)
 def test_turning_declared_in_battle_stops_the_turned_from_attacking(seed):
     # A `turn_undead` declaration: no turned skeleton attacks after the turning resolves, in the same round or later.
@@ -213,7 +208,6 @@ def test_turning_declared_in_battle_stops_the_turned_from_attacking(seed):
     assert not offending
 
 
-@CHUNK
 def test_a_custom_policy_cannot_make_a_turned_monster_attack():
     # Turning is a rule the session enforces, not a tactic a policy chooses: even a policy that orders every
     # member to strike the cleric (or, once the cleric falls, anyone left standing) gets no blow from a turned one.
@@ -240,7 +234,6 @@ def test_a_custom_policy_cannot_make_a_turned_monster_attack():
     assert not attacks_by(all_events, turned)
 
 
-@CHUNK
 def test_a_turned_monster_that_cannot_flee_still_attacks_no_one():
     # The SRD's "flee ... if possible" leaves open what a turned monster does when it can't move. The register's
     # "individually turned members of a mixed group don't act" decides it: a webbed turned skeleton can't run, and
@@ -265,7 +258,6 @@ def test_a_turned_monster_that_cannot_flee_still_attacks_no_one():
 # ---------------------------------------------------------------------- turned monsters flee, the rest fight on
 
 
-@CHUNK
 @pytest.mark.parametrize("seed", (4, 12))
 def test_turned_monsters_flee_while_the_unturned_fight_on(seed):
     session = new_session(seed, TRIO)
@@ -302,7 +294,6 @@ def test_turned_monsters_flee_while_the_unturned_fight_on(seed):
     assert unturned_blows, "the unturned skeletons kept attacking"
 
 
-@CHUNK
 @pytest.mark.parametrize("seed", (4, 12))
 def test_turned_monsters_flee_after_a_turning_declared_in_battle(seed):
     session = new_session(seed, TRIO)
@@ -344,7 +335,6 @@ def _scenario_events(seed: int) -> tuple[list[dict], list[tuple]]:
     return [event.model_dump(mode="json") for event in events], groups
 
 
-@CHUNK
 def test_the_same_seed_and_commands_give_the_same_events():
     first = _scenario_events(4)
     second = _scenario_events(4)
@@ -410,7 +400,6 @@ def stock_the_group(session: GameSession) -> None:
         group.member_treasure[monster_id] = TreasureBundle(coins=Coins(gp=CARRIED_GP))
 
 
-@CHUNK
 def test_the_unturned_keep_the_shared_hoard_when_the_group_splits():
     session = new_session(4, TRIO)
     stock_the_group(session)
@@ -422,7 +411,6 @@ def test_the_unturned_keep_the_shared_hoard_when_the_group_splits():
     assert runners.group_treasure is None or runners.group_treasure.empty
 
 
-@CHUNK
 def test_killing_the_runners_drops_only_what_they_carry():
     session = new_session(4, TRIO)
     stock_the_group(session)
@@ -434,7 +422,6 @@ def test_killing_the_runners_drops_only_what_they_carry():
     assert dropped == CARRIED_GP * len(turned), "the unturned still stand, so the shared hoard stays with them"
 
 
-@CHUNK
 def test_a_running_group_rolls_no_morale_when_a_runner_dies():
     session = new_session(4, TRIO)
     turned, _ = turn_in_encounter(session)
