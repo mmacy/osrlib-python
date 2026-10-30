@@ -1610,8 +1610,9 @@ def _relocate(
             )
         )
     events.extend(leave_events)
-    # Within one level there is no crossing event, so the step reports the gate's success
-    # text: a passage's step always, and a stairs crossing's only when there is text to show.
+    # Within one level there is no crossing event, so the PartyMovedEvent for the landing cell
+    # contains the gate's success text. The session emits that event for every passage, and for
+    # stairs only when there is text to show.
     beat = narrative if same_level else None
     if walked or beat:
         events.append(

@@ -1894,7 +1894,7 @@ class GameSession:
     # ------------------------------------------------------------------ death records
 
     def _pile_saved_items(self, events: Sequence[Event]) -> None:
-        """Move the magic items that survived a member's destruction to a drop pile on the party's cell.
+        """Move a dead member's magic items that made their save to a drop pile on the party's cell.
 
         [`destroy_equipment`][osrlib.core.combat.destroy_equipment] leaves those items in the dead member's
         inventory, where no command can reach them, because a dead member can't give or drop anything. The

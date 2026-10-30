@@ -1676,8 +1676,8 @@ class DoorState(BaseModel):
     [`ForceDoor`][osrlib.crawl.commands.ForceDoor]. Only a door the party opened swings shut behind
     it, so a door that starts open, or that a referee opened, stays open."""
 
-    # Set on a state that `DungeonState.door` returned for a door with no entry. A write to a field
-    # calls it, so the write reaches the overlay while a read alone never adds an entry.
+    # `DungeonState.door` sets this on the state it returns for a door with no entry. Setting a field
+    # calls it, which stores the state in the overlay, so reading the state alone never adds an entry.
     _write_through: Callable[[DoorState, str, Any], None] | None = PrivateAttr(default=None)
 
     def __setattr__(self, name: str, value: Any) -> None:
@@ -1950,10 +1950,10 @@ class DungeonState(BaseModel):
         Setting one of that state's fields stores the state in `doors` as the door's entry, or, when
         the door has gained an entry since, sets the field on that entry.
 
-        A door with no entry is one that nothing in play has changed. The all-`False` state this
-        method returns for one ignores the door's [`DoorSpec`][osrlib.crawl.dungeon.DoorSpec]: a door
-        whose `starts_open` is set stands open in play, but the state reads `open` as `False`. To show
-        doors the way the party sees them, read the player view from
+        A door with no entry is one that nothing in play has changed. For such a door, the method
+        doesn't apply the door's [`DoorSpec`][osrlib.crawl.dungeon.DoorSpec]: a door whose
+        `starts_open` is set stands open in play, but the state the method returns reads `open` as
+        `False`. To show doors the way the party sees them, read the player view from
         [`GameSession.view`][osrlib.crawl.session.GameSession.view] instead.
 
         Args:

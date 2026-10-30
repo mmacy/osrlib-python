@@ -186,7 +186,7 @@ class PartyMovedEvent(Event):
     far side."""
     narrative: str | None = None
     """The success text the adventure's author wrote on the gate of a transition that took the party to
-    another cell of the same level, or `None`. A transition to another level puts this text on the
+    another cell of the same level, or `None`. For a transition to another level, the text is on the
     [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] instead.
     [`format_message`][osrlib.messages.format_message] adds it after the line it builds from the
     code."""
@@ -244,8 +244,9 @@ class LocationEnteredEvent(Event):
     there was no gate or no text. A gate is a condition the author puts on a door or a transition,
     like a key the party must have. The author wrote this text, not the engine, and
     [`format_message`][osrlib.messages.format_message] adds it after the line it builds from the
-    code. A transition to another cell of the same level reports no level entry, so its gate's text
-    is on the [`PartyMovedEvent`][osrlib.crawl.events.PartyMovedEvent] for the landing cell."""
+    code. The session reports no level entry for a transition to another cell of the same level, so
+    that transition's gate text is on the [`PartyMovedEvent`][osrlib.crawl.events.PartyMovedEvent]
+    for the landing cell."""
     via: str | None = None
     """How the party got there, on level and dungeon entries: the kind of the transition it took
     (`"stairs_down"`, `"stairs_up"`, `"trapdoor"`, or `"chute"`), `"passage"` for a passage it
