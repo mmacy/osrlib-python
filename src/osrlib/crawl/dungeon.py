@@ -1151,10 +1151,12 @@ class KeyedEncounter(BaseModel):
     as usual."""
     hoard: bool = True
     """Whether the monsters have their lair treasure. With the default, `True`, the session rolls the
-    treasure types in each monster's `treasure` when the monsters spawn, and puts the result on the
-    first cell of the area as a [`GeneratedCache`][osrlib.crawl.dungeon.GeneratedCache]. Set it
-    `False` for a monster room with no treasure. Stocking a dungeon by the B/X rules often produces
-    one, because only some monster rooms get treasure on the stocking roll."""
+    treasure types in each monster's `treasure` the first time the monsters spawn, and puts the
+    result on the first cell of the area as a [`GeneratedCache`][osrlib.crawl.dungeon.GeneratedCache].
+    If the party leaves and comes back before the area is clear, the monsters spawn again and the
+    session doesn't roll the hoard again. Set it `False` for a monster room with no treasure.
+    Stocking a dungeon by the B/X rules often produces one, because only some monster rooms get
+    treasure on the stocking roll."""
 
 
 class AreaSpec(BaseModel):
@@ -1769,6 +1771,7 @@ class DungeonState(BaseModel):
         piles: What is lying on the floor, by cell.
         generated_caches: Treasure the session rolled, by cache id.
         generated_treasure_areas: Areas whose treasure the session has already rolled.
+        generated_lair_hoards: Areas whose keyed encounter's hoard the session has already rolled.
         resolved_encounters: Areas whose keyed encounter has been cleared.
         listen_attempts: Who has listened at each door.
         search_attempts: Who has searched each cell for what.
@@ -1827,6 +1830,12 @@ class DungeonState(BaseModel):
     """The areas whose [`AreaTreasureSpec`][osrlib.crawl.dungeon.AreaTreasureSpec] the session has
     already rolled, as area references, so the session doesn't roll a room's treasure again when the
     party enters it a second time."""
+    generated_lair_hoards: list[str] = []
+    """The areas whose [`KeyedEncounter`][osrlib.crawl.dungeon.KeyedEncounter] hoard the session has
+    already rolled, as area references. The session rolls a lair's hoard the first time the party
+    meets its monsters. When the party leaves and comes back, the monsters spawn again, but the hoard
+    isn't rolled again: the party finds the cache from the first visit, or nothing if it took that
+    cache."""
     resolved_encounters: list[str] = []
     """The areas whose keyed encounter ended with every monster slain or routed, as area references.
     When the party enters one of these areas again, no monsters spawn."""
