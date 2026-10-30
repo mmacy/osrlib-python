@@ -24,8 +24,7 @@ register states under "The battle round":
 - The replacement may strike in melee the round they step up. A withdrawing member makes no attack.
 - A swap that can't happen when the movement step comes doesn't happen and reports nothing.
 
-Every acceptance test here is marked expected-to-fail until the chunk lands. The classes at the end
-are unmarked guards: they pin the formation moves as they are today, which the chunk must keep.
+The classes at the end check that the formation moves stay as they were.
 """
 
 import pytest
@@ -57,8 +56,6 @@ from osrlib.crawl.events import MemberWithdrewEvent
 from osrlib.crawl.session import GameSession
 from osrlib.data import load_classes, load_equipment, load_spells
 from osrlib.persistence import load_game, replay_game, save_game, session_state
-
-CHUNK = pytest.mark.xfail(reason="chunk: single-withdrawal", strict=True)
 
 BRAKK = "character-0001"
 """The fighter, with a sword. Front rank in the stock marching order."""
@@ -262,7 +259,6 @@ class _StrikeAt:
 # ---------------------------------------------------------------------- the swap
 
 
-@CHUNK
 class TestAFightingWithdrawalAlone:
     """One front-rank member falls back, a named back-rank member steps up, and the party stays put."""
 
@@ -320,7 +316,6 @@ class TestAFightingWithdrawalAlone:
         assert closing.distance_feet < (before[-1] if before else 40)
 
 
-@CHUNK
 class TestARetreatAlone:
     """A retreat alone trades places as a withdrawal does, and its penalties are the retreater's alone."""
 
@@ -383,7 +378,6 @@ class TestARetreatAlone:
         assert {attack.modifier for attack in attacks} == held_modifiers
 
 
-@CHUNK
 class TestTheMovementLimit:
     """Each rank stands 5' behind the one in front, and both members have to cover the distance."""
 
@@ -442,7 +436,6 @@ class TestTheMovementLimit:
         _assert_refused_cleanly(session, result, before)
 
 
-@CHUNK
 class TestWhenNoOneCanStepUp:
     """A member who withdraws alone needs a replacement who can take the front place this round."""
 
@@ -545,7 +538,6 @@ class TestWhenNoOneCanStepUp:
 # ---------------------------------------------------------------------- melee around the swap
 
 
-@CHUNK
 class TestSteppingUpIntoMelee:
     """From the movement step on the replacement stands in the front rank, and the withdrawn member doesn't."""
 
@@ -635,7 +627,6 @@ class TestAReplacementWhoCannotActWhenTheMomentComes:
         assert has_condition(session.member(WYNN), condition)
         return session, result
 
-    @CHUNK
     @pytest.mark.parametrize("condition", [Condition.CHARMED, Condition.CONFUSED])
     def test_a_charmed_or_confused_replacement_does_not_step_up(self, monkeypatch, condition):
         session, result = self._round_with_a_late_condition(monkeypatch, condition)
@@ -644,14 +635,13 @@ class TestAReplacementWhoCannotActWhenTheMomentComes:
         assert WYNN not in {attack.attacker_id for attack in _attacks(result)}
 
     def test_a_paralysed_replacement_does_not_step_up(self, monkeypatch):
-        """Unmarked guard: the implemented re-check already holds for a replacement who can't move."""
+        """The re-check also holds for a replacement who can't move."""
         session, result = self._round_with_a_late_condition(monkeypatch, Condition.PARALYSED)
         assert _swaps(result) == []
         assert _order(session) == [BRAKK, SABLE, WYNN, ELARA]
         assert WYNN not in {attack.attacker_id for attack in _attacks(result)}
 
 
-@CHUNK
 class TestNoAttackWhileWithdrawing:
     """The move is the member's one declared action: a withdrawing member makes no attack that round."""
 
@@ -677,7 +667,6 @@ class TestNoAttackWhileWithdrawing:
 # ---------------------------------------------------------------------- views
 
 
-@CHUNK
 class TestTheViewsAfterTheSwap:
     def test_the_player_view_shows_the_new_ranks(self):
         session = _battle(distance=5)
@@ -726,7 +715,6 @@ def _commanded_battle(seed: int) -> tuple[GameSession, list]:
     return session, start
 
 
-@CHUNK
 class TestDeterminism:
     def test_a_refused_withdrawal_costs_nothing(self):
         session = _battle(distance=5)
@@ -807,7 +795,6 @@ def _party_moved_off(result):
     return next(event for event in result.events if event.code == "battle.group.moved" and event.distance_feet > 5)
 
 
-@CHUNK
 class TestAFormationRetreatIsExposedAllRound:
     """Every declarer retreating is every member retreating, so the SRD's "This round" penalty covers the
     whole formation for the whole round, also when the monsters strike before the party moves off."""
@@ -834,7 +821,7 @@ class TestAFormationRetreatIsExposedAllRound:
 
 
 class TestTheFormationMovesStayAsTheyAre:
-    """Unmarked guards. A defensive move every declarer makes moves the whole formation, as before the chunk."""
+    """A defensive move every declarer makes moves the whole formation, as before."""
 
     def test_every_declarer_withdrawing_backs_the_formation_off_at_half_rate(self):
         session = _battle(distance=40)
