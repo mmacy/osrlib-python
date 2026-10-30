@@ -60,6 +60,7 @@ Player commands let the model drive the party's turn. Referee commands let it *r
 
 - [`SetFlag`][osrlib.crawl.commands.SetFlag] - record a durable fact (the lever was pulled, the alarm was raised) that listeners and later narration can react to. See [Listeners and flags](../guides/listeners-and-flags.md)
 - [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] and [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] - open an encounter at a chosen distance, by fixed count or dice
+- [`EndEncounter`][osrlib.crawl.commands.EndEncounter] - close the encounter when the party talks its way past or walks away, and optionally mark a keyed area resolved so its monsters don't come back
 - [`GrantItem`][osrlib.crawl.commands.GrantItem], [`GrantCoins`][osrlib.crawl.commands.GrantCoins], [`AwardXP`][osrlib.crawl.commands.AwardXP] - place rewards directly
 - [`SetDoorState`][osrlib.crawl.commands.SetDoorState] - rewrite any door's state anywhere: lock it, wedge it, reveal it
 - [`PlaceParty`][osrlib.crawl.commands.PlaceParty] and [`AdvanceTime`][osrlib.crawl.commands.AdvanceTime] - teleport the party, advance the clock

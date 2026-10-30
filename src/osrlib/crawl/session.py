@@ -134,6 +134,7 @@ from osrlib.crawl.commands import (
     CommandResult,
     CompleteObjective,
     CompleteQuest,
+    EndEncounter,
     GrantCoins,
     GrantItem,
     IdentifyItem,
@@ -2434,6 +2435,22 @@ def _handle_roll_dice(session: GameSession, command: RollDice) -> tuple[list[Rej
     return [], [DiceRolledEvent(expression=command.expression, total=result.total, rolls=result.rolls)]
 
 
+def _handle_end_encounter(session: GameSession, command: EndEncounter) -> tuple[list[Rejection], list[Event]]:
+    from osrlib.crawl import encounter as encounter_module
+
+    state = session.encounter
+    if state is None:  # unreachable: the mode gate admits only encounter and battle, which have one open
+        raise ValueError("EndEncounter reached the handler with no open encounter")
+    area_ref = state.area_ref
+    # A battle closes first, as it does before the session ends a won battle's
+    # encounter, and the encounter's closing event stands for both.
+    session.battle = None
+    events = encounter_module.end_encounter(session, command.outcome)
+    if command.resolve_area and area_ref is not None and area_ref not in session.dungeon_state.resolved_encounters:
+        session.dungeon_state.resolved_encounters.append(area_ref)
+    return [], events
+
+
 _REFEREE_HANDLERS = {
     GrantItem: _handle_grant_item,
     GrantCoins: _handle_grant_coins,
@@ -2453,4 +2470,5 @@ _REFEREE_HANDLERS = {
     RevealObjective: _handle_reveal_objective,
     CompleteObjective: _handle_complete_objective,
     CompleteQuest: _handle_complete_quest,
+    EndEncounter: _handle_end_encounter,
 }

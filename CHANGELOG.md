@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- A game can end an encounter peacefully with the referee command [`EndEncounter`][osrlib.crawl.commands.EndEncounter], when the party pays a toll, talks its way past, or walks away (#167). The command closes the encounter, and the battle if one is open, with the outcome `"parley"` or `"departed"`. The session logs the command, so a saved game and a replay close the encounter too. Before, the only way was to call [`end_encounter`][osrlib.crawl.encounter.end_encounter] directly, and a replay of that game stayed in the encounter. Set `resolve_area` to `True` to mark the keyed area the monsters came from as resolved, so they aren't there the next time the party walks in. An adventure can use the command as a trigger's consequence too.
+
 ### Fixed
 
 - [`UseItem`][osrlib.crawl.commands.UseItem] with a potion and a `target_id` that names someone other than the member using it is now refused with `items.use.target_not_allowed`. Before, the session accepted the command and the carrier drank the potion, so a front end that expected the target to drink got no warning. A `target_id` of `None` or the user's own id drinks the potion as before, and a healing device still takes another member (#174).
