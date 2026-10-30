@@ -5,11 +5,9 @@ Three findings from a playtest of a game built on osrlib, pinned here before the
 **A turning reaches only the monsters still in the fight.** A battle `turn_undead` names no group. It reaches every
 monster in the encounter, undead or not, and a monster that isn't undead comes out `unaffected`. That is why a
 turning declared against a medusa is accepted (see `test_avert_eyes.py`). The turning resolves in the magic phase,
-after the party's missiles, so the missiles can kill what it was meant for. Before this chunk the session passed
-every monster of every group to [`turn_undead`][osrlib.core.spells.turn_undead], the dead and the fled included. A
-skeleton shot dead in the missile phase was still read on the turning table, and the event said
-`magic.turning.turned` with nothing affected, which breaks the SRD's "At least one undead monster will always be
-affected on a successful turning". Now a turning reaches only the living monsters of the groups that haven't fled.
+after the party's missiles, so the missiles can kill what it was meant for. A turning reaches only the living
+monsters of the groups that haven't fled. A skeleton shot dead in the missile phase isn't read on the turning table,
+because the SRD says "At least one undead monster will always be affected on a successful turning".
 The magic phase's re-check refuses a turning with none left, with the code the other re-checks use for a missing
 target, `battle.declaration.no_target`, and the turning fizzles at `magic.turning.fizzled`. It draws nothing and
 costs what a `hold` costs. The check asks whether any monster is left, not whether any undead is left, so it never
@@ -71,14 +69,14 @@ from osrlib.crawl.commands import (
     ReorderParty,
     ResolveBattleRound,
     SessionMode,
+    TurnUndead,
+    UseItem,
 )
 from osrlib.crawl.events import MemberWithdrewEvent
 from osrlib.crawl.session import GameSession
 from osrlib.data import load_classes, load_monsters
 from osrlib.messages import format_message
 from test_phase2_goldens import run_wight_battle
-
-CHUNK = "chunk: turning-and-staff"
 
 FIGHTER = "character-0001"
 THIEF = "character-0002"
@@ -294,7 +292,6 @@ def lone_skeleton_under_the_wand(seed: int) -> tuple[GameSession, str, MagicItem
 class TestATurningWithNothingLeftToTurnFizzles:
     """A turning whose every monster died or left the battle earlier in the round fizzles in the magic phase."""
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_a_skeleton_shot_dead_in_the_missile_phase_leaves_nothing_to_turn(self):
         shot_dead, standing = [], []
         for seed in SCAN_SEEDS:
@@ -317,7 +314,6 @@ class TestATurningWithNothingLeftToTurnFizzles:
         assert shot_dead, "no seed let the missiles kill the skeleton first"
         assert standing, "no seed left the skeleton standing for the turning"
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_a_skeleton_killed_earlier_in_the_magic_phase_leaves_nothing_to_turn(self):
         session, skeleton_id, wand = lone_skeleton_under_the_wand(seed=0)
         result = session.execute(
@@ -330,7 +326,6 @@ class TestATurningWithNothingLeftToTurnFizzles:
         assert died_at < turning_index(result.events)
         assert_turning_fizzled_for_want_of_a_target(result.events)
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_a_turning_with_nothing_to_turn_costs_what_a_hold_costs(self):
         turning, skeleton_id, wand = lone_skeleton_under_the_wand(seed=0)
         turned = turning.execute(
@@ -368,7 +363,6 @@ class TestATurningReachesOnlyMonstersStillInTheFight:
     """A dead monster, or one whose group fled the battle, is never a candidate for a turning, even when living
     monsters remain for it to reach."""
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_a_kind_whose_last_monster_died_this_round_is_not_read_on_the_table(self):
         for seed in range(4):
             session = battle(seed, [("zombie", 1), ("skeleton", 2)], distance=40)
@@ -407,7 +401,6 @@ class TestATurningReachesOnlyMonstersStillInTheFight:
             assert fallen_id not in turned.affected_ids
             assert set(turned.affected_ids) <= set(standing.monster_ids)
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_a_group_that_fled_before_the_magic_phase_is_not_turned(self):
         fled_first, still_here = [], []
         for seed in SCAN_SEEDS:
@@ -493,7 +486,6 @@ def paralyse_the_fighter_before_the_swap(monkeypatch) -> None:
 class TestTheStaffOfStrikingIsAMeleeWeapon:
     """The SRD's staff of striking is "Used as a magical melee weapon", so only the front rank strikes with it."""
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     @pytest.mark.parametrize("member_id", [CLERIC, MAGIC_USER])
     def test_a_member_behind_the_front_rank_is_refused(self, member_id):
         session, group, staff = staff_battle(0)
@@ -518,7 +510,6 @@ class TestTheStaffOfStrikingIsAMeleeWeapon:
         assert stream_states(session) == streams
         assert session.battle.round == 0
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_a_replacement_whose_swap_did_not_happen_fizzles_in_the_magic_phase(self, monkeypatch):
         paralyse_the_fighter_before_the_swap(monkeypatch)
         checked = []
@@ -645,7 +636,6 @@ def drain_event(events) -> LevelDrainedEvent:
 class TestHpLostIsTheDropInMaximumHitPoints:
     """`LevelDrainedEvent.hp_lost` is how far the victim's maximum hit points fell."""
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_the_dwarf_from_the_playtest_reports_the_two_points_it_lost(self):
         # The playtest's dwarf went from level 2 to 1 and from 3 maximum hit points to 1, and the event said 7.
         wight = spawn("wight", "m-w")
@@ -654,14 +644,12 @@ class TestHpLostIsTheDropInMaximumHitPoints:
         assert dwarf.level == 1 and dwarf.max_hp == 1, "precondition: the floor of 1 stopped the loss"
         assert drain_event(events).hp_lost == 2
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_a_victim_already_at_one_maximum_hit_point_reports_none_lost(self):
         fighter = make_character("fighter", 2, max_hp=1)
         result = drain_levels(fighter, load_classes().get("fighter"), xp_policy="halfway", stream=FixedStream([4]))
         assert fighter.level == 1 and fighter.max_hp == 1
         assert drain_event(result.events).hp_lost == 0
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_a_two_level_drain_reports_the_whole_drop(self):
         fighter = make_character("fighter", 3, max_hp=4)
         result = drain_levels(
@@ -671,7 +659,6 @@ class TestHpLostIsTheDropInMaximumHitPoints:
         assert result.hp_rolls == (6, 6), "precondition: both levels rolled more than the maximum had to give"
         assert drain_event(result.events).hp_lost == 3
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_a_drain_that_kills_reports_the_drop_before_the_killing_level(self):
         spectre = spawn("spectre", "m-s")
         fighter = make_character("fighter", 2, max_hp=3)
@@ -681,7 +668,6 @@ class TestHpLostIsTheDropInMaximumHitPoints:
         assert fighter.max_hp == 1
         assert drained.hp_lost == 2
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_a_monster_drain_stopped_at_one_reports_the_drop(self):
         ogre = spawn("ogre", "m-o")
         ogre.max_hp = ogre.current_hp = 3
@@ -707,7 +693,6 @@ class TestTheSpawnConsequenceIsForADrainThatKills:
     """`LevelDrainedEvent.spawn_consequence` says what becomes of a character the undead kills, so a drain the
     character survives doesn't carry it."""
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_a_drain_the_character_survives_carries_none(self):
         fighter = make_character("fighter", 4, max_hp=24)
         prose = "A person drained of all levels becomes a wight in 1d4 days."
@@ -722,7 +707,6 @@ class TestTheSpawnConsequenceIsForADrainThatKills:
         assert drained.code == "combat.drain.drained"
         assert drained.spawn_consequence is None
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     @pytest.mark.parametrize("template_id", ["wight", "wraith", "spectre"])
     def test_an_undead_touch_the_character_survives_carries_none(self, template_id):
         fighter = make_character("fighter", 6, max_hp=36)
@@ -731,7 +715,6 @@ class TestTheSpawnConsequenceIsForADrainThatKills:
         assert drained.code == "combat.drain.drained"
         assert drained.spawn_consequence is None
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_the_drain_in_the_wight_golden_battle_carries_none(self):
         document = run_wight_battle()
         drained = next(event for event in document["events"] if event["code"] == "combat.drain.drained")
@@ -760,3 +743,47 @@ class TestTheSpawnConsequenceIsForADrainThatKills:
     def test_a_monster_victim_carries_none(self, victim):
         events = resolve_energy_drain(spawn("wight", "m-w"), spawn(victim, "m-v"), stream=FixedStream([4]))
         assert drain_event(events).spawn_consequence is None
+
+
+class TestATurningOutsideBattleSkipsTheDead:
+    """`TurnUndead` outside a battle reads only the living undead on the table, as a battle-round turning does."""
+
+    @pytest.mark.parametrize("seed", range(6))
+    def test_a_zombie_killed_before_the_turning_is_not_among_its_types(self, seed):
+        session = GameSession.new(build_party(), build_adventure(wandering_chance=0), seed=seed)
+        session.execute(GrantItem(character_id="character-0001", item_id="torch", quantity=6))
+        session.execute(GrantItem(character_id="character-0001", item_id="tinder_box"))
+        session.execute(EnterDungeon(dungeon_id="delve"))
+        for _ in range(20):
+            lit = session.execute(LightSource(character_id="character-0001", item_id="torch"))
+            if any(event.code == "exploration.light.lit" for event in lit.events):
+                break
+        zombies = session.spawn("zombie", 1)
+        skeletons = session.spawn("skeleton", 2)
+        encounter_module.start_encounter(
+            session,
+            groups=[("zombie", zombies), ("skeleton", skeletons)],
+            kind="spawned",
+            distance_feet=40,
+            pinned_stance=ReactionResult.INDIFFERENT,
+            party_aware=True,
+            monsters_roll_surprise=False,
+        )
+        zombie_id = session.encounter.groups[0].monster_ids[0]
+        session.combatant(zombie_id).current_hp = 1
+        wand = MagicItemInstance(instance_id="magic-item-9001", template_id="wand_of_cold", charges_remaining=5)
+        session.member("character-0004").inventory.items.append(wand)
+        used = session.execute(
+            UseItem(character_id="character-0004", item_id=wand.instance_id, target_id=session.encounter.groups[0].id)
+        )
+        assert used.accepted, "precondition: the wand use is accepted"
+        assert has_condition(session.combatant(zombie_id), Condition.DEAD), "precondition: the wand killed the zombie"
+        assert session.encounter is not None and session.battle is None, "precondition: the encounter goes on"
+
+        result = session.execute(TurnUndead(character_id="character-0003"))
+
+        assert result.accepted
+        turnings = [event for event in result.events if event.code.startswith("magic.turning.")]
+        assert turnings, "the turning reports an outcome"
+        for event in turnings:
+            assert [kind.template_id for kind in event.types] == ["skeleton"]
