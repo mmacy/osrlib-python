@@ -98,17 +98,22 @@ class Beats:
     def __init__(self) -> None:
         self.codes: set[str] = set()
         self.wandering_battle_won = False
+        self.area_fire_ball = False
 
     def note(self, events) -> None:
         for event in events:
             code = getattr(event, "code", None)
             if code:
                 self.codes.add(code)
+            if getattr(event, "spell_id", None) == "fire_ball" and len(getattr(event, "target_ids", ())) >= 2:
+                self.area_fire_ball = True
 
     def satisfied(self) -> list[str]:
         missing = [code for code in REQUIRED_CODES if code not in self.codes]
         if not self.wandering_battle_won:
             missing.append("<wandering battle won>")
+        if not self.area_fire_ball:
+            missing.append("<fire ball with two or more targets>")
         return missing
 
 
@@ -474,8 +479,8 @@ class Driver:
             self.move(Direction.WEST)
 
         # Camp on the level-1 corridor until the dice have sent a wandering
-        # encounter AND a blow has disrupted a casting (the resting −1 still
-        # leaves the wandering chance at 1-in-6 per check).
+        # encounter AND a blow has disrupted a casting (a plain rest checks at the
+        # level's full 2-in-6 chance, because only a hidden rest takes the −1).
         rests = 0
         while not self.beats.wandering_battle_won or "magic.cast.disrupted" not in self.beats.codes:
             rests += 1

@@ -29,6 +29,7 @@
     },
     {
       "command_type": "rest",
+      "hidden": false,
       "kind": "turn",
       "source": null
     },

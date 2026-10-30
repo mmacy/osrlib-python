@@ -808,7 +808,7 @@ class WanderingCheckEvent(Event):
     """Referee visibility: the referee makes the check in secret, and the party sees only what it produces."""
     chance: int
     """The chance in six that the check needed: the level's chance, adjusted for noise, bright
-    light, and resting, and limited to the range 0 to 6."""
+    light, and a hidden rest, and limited to the range 0 to 6."""
     roll: int | None = None
     """The d6 that was rolled, or `None` when the chance came out at zero and no die was
     rolled."""

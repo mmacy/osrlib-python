@@ -1471,7 +1471,7 @@ class TestWandering:
         events, _ = exploration.wandering_check(session)
         assert events[0].chance == 1
         assert session.noise_since_check is False  # reset by the check
-        # Resting lowers it back to zero (clamped, skip).
+        # Hiding lowers it back to zero (clamped, skip).
         session.noise_since_check = True
         events, _ = exploration.wandering_check(session, resting=True)
         assert events[0].chance == 0

@@ -1571,6 +1571,7 @@
     },
     {
       "command_type": "rest",
+      "hidden": false,
       "kind": "night",
       "source": null
     },
@@ -1678,114 +1679,37 @@
     },
     {
       "command_type": "rest",
+      "hidden": false,
       "kind": "turn",
       "source": null
     },
     {
       "command_type": "rest",
+      "hidden": false,
       "kind": "turn",
       "source": null
     },
     {
       "command_type": "rest",
+      "hidden": false,
       "kind": "turn",
       "source": null
     },
     {
       "command_type": "rest",
+      "hidden": false,
       "kind": "turn",
       "source": null
     },
     {
       "command_type": "rest",
+      "hidden": false,
       "kind": "turn",
       "source": null
     },
     {
       "command_type": "rest",
-      "kind": "turn",
-      "source": null
-    },
-    {
-      "character_id": "character-0001",
-      "command_type": "light_source",
-      "item_id": "torch",
-      "source": null
-    },
-    {
-      "character_id": "character-0001",
-      "command_type": "light_source",
-      "item_id": "torch",
-      "source": null
-    },
-    {
-      "command_type": "rest",
-      "kind": "turn",
-      "source": null
-    },
-    {
-      "command_type": "rest",
-      "kind": "turn",
-      "source": null
-    },
-    {
-      "command_type": "rest",
-      "kind": "turn",
-      "source": null
-    },
-    {
-      "command_type": "rest",
-      "kind": "turn",
-      "source": null
-    },
-    {
-      "command_type": "rest",
-      "kind": "turn",
-      "source": null
-    },
-    {
-      "command_type": "rest",
-      "kind": "turn",
-      "source": null
-    },
-    {
-      "command_type": "rest",
-      "kind": "turn",
-      "source": null
-    },
-    {
-      "character_id": "character-0001",
-      "command_type": "light_source",
-      "item_id": "torch",
-      "source": null
-    },
-    {
-      "command_type": "rest",
-      "kind": "turn",
-      "source": null
-    },
-    {
-      "command_type": "rest",
-      "kind": "turn",
-      "source": null
-    },
-    {
-      "command_type": "rest",
-      "kind": "turn",
-      "source": null
-    },
-    {
-      "command_type": "rest",
-      "kind": "turn",
-      "source": null
-    },
-    {
-      "command_type": "rest",
-      "kind": "turn",
-      "source": null
-    },
-    {
-      "command_type": "rest",
+      "hidden": false,
       "kind": "turn",
       "source": null
     },
@@ -1802,6 +1726,102 @@
       "source": null
     },
     {
+      "command_type": "rest",
+      "hidden": false,
+      "kind": "turn",
+      "source": null
+    },
+    {
+      "command_type": "rest",
+      "hidden": false,
+      "kind": "turn",
+      "source": null
+    },
+    {
+      "command_type": "rest",
+      "hidden": false,
+      "kind": "turn",
+      "source": null
+    },
+    {
+      "command_type": "rest",
+      "hidden": false,
+      "kind": "turn",
+      "source": null
+    },
+    {
+      "command_type": "rest",
+      "hidden": false,
+      "kind": "turn",
+      "source": null
+    },
+    {
+      "command_type": "rest",
+      "hidden": false,
+      "kind": "turn",
+      "source": null
+    },
+    {
+      "command_type": "rest",
+      "hidden": false,
+      "kind": "turn",
+      "source": null
+    },
+    {
+      "character_id": "character-0001",
+      "command_type": "light_source",
+      "item_id": "torch",
+      "source": null
+    },
+    {
+      "command_type": "rest",
+      "hidden": false,
+      "kind": "turn",
+      "source": null
+    },
+    {
+      "command_type": "rest",
+      "hidden": false,
+      "kind": "turn",
+      "source": null
+    },
+    {
+      "command_type": "rest",
+      "hidden": false,
+      "kind": "turn",
+      "source": null
+    },
+    {
+      "command_type": "rest",
+      "hidden": false,
+      "kind": "turn",
+      "source": null
+    },
+    {
+      "command_type": "rest",
+      "hidden": false,
+      "kind": "turn",
+      "source": null
+    },
+    {
+      "command_type": "rest",
+      "hidden": false,
+      "kind": "turn",
+      "source": null
+    },
+    {
+      "character_id": "character-0001",
+      "command_type": "light_source",
+      "item_id": "torch",
+      "source": null
+    },
+    {
+      "character_id": "character-0001",
+      "command_type": "light_source",
+      "item_id": "torch",
+      "source": null
+    },
+    {
       "character_id": "character-0001",
       "command_type": "light_source",
       "item_id": "torch",
@@ -1815,21 +1835,25 @@
     },
     {
       "command_type": "rest",
+      "hidden": false,
       "kind": "turn",
       "source": null
     },
     {
       "command_type": "rest",
+      "hidden": false,
       "kind": "turn",
       "source": null
     },
     {
       "command_type": "rest",
+      "hidden": false,
       "kind": "turn",
       "source": null
     },
     {
       "command_type": "rest",
+      "hidden": false,
       "kind": "turn",
       "source": null
     },
@@ -5770,7 +5794,7 @@
       "y": 0
     },
     {
-      "chance": 1,
+      "chance": 2,
       "code": "exploration.wandering.checked",
       "encounter": false,
       "event_type": "wandering_check",
@@ -5835,7 +5859,7 @@
       "visibility": "player"
     },
     {
-      "chance": 1,
+      "chance": 2,
       "code": "exploration.wandering.checked",
       "encounter": false,
       "event_type": "wandering_check",
@@ -5855,7 +5879,7 @@
       "visibility": "player"
     },
     {
-      "chance": 1,
+      "chance": 2,
       "code": "exploration.wandering.checked",
       "encounter": false,
       "event_type": "wandering_check",
@@ -5914,7 +5938,7 @@
       "visibility": "player"
     },
     {
-      "chance": 1,
+      "chance": 2,
       "code": "exploration.wandering.checked",
       "encounter": false,
       "event_type": "wandering_check",
@@ -5934,7 +5958,7 @@
       "visibility": "player"
     },
     {
-      "chance": 1,
+      "chance": 2,
       "code": "exploration.wandering.checked",
       "encounter": false,
       "event_type": "wandering_check",
@@ -5954,7 +5978,7 @@
       "visibility": "player"
     },
     {
-      "chance": 1,
+      "chance": 2,
       "code": "exploration.wandering.checked",
       "encounter": false,
       "event_type": "wandering_check",
@@ -5990,7 +6014,7 @@
       "visibility": "player"
     },
     {
-      "chance": 1,
+      "chance": 2,
       "code": "exploration.wandering.checked",
       "encounter": false,
       "event_type": "wandering_check",
@@ -6026,7 +6050,7 @@
       "visibility": "player"
     },
     {
-      "chance": 1,
+      "chance": 2,
       "code": "exploration.wandering.checked",
       "encounter": false,
       "event_type": "wandering_check",
@@ -6046,7 +6070,7 @@
       "visibility": "player"
     },
     {
-      "chance": 1,
+      "chance": 2,
       "code": "exploration.wandering.checked",
       "encounter": false,
       "event_type": "wandering_check",
@@ -6082,7 +6106,7 @@
       "visibility": "player"
     },
     {
-      "chance": 1,
+      "chance": 2,
       "code": "exploration.wandering.checked",
       "encounter": false,
       "event_type": "wandering_check",
@@ -6139,7 +6163,7 @@
       "visibility": "player"
     },
     {
-      "chance": 1,
+      "chance": 2,
       "code": "exploration.wandering.checked",
       "encounter": false,
       "event_type": "wandering_check",
@@ -6159,7 +6183,7 @@
       "visibility": "player"
     },
     {
-      "chance": 1,
+      "chance": 2,
       "code": "exploration.wandering.checked",
       "encounter": true,
       "event_type": "wandering_check",
@@ -7489,7 +7513,7 @@
     "The party moves to (2, 0), facing west.",
     "The party moves to (1, 0), facing west.",
     "The party moves to (0, 0), facing west.",
-    "Wandering check: 5 vs 1-in-6 — nothing comes.",
+    "Wandering check: 5 vs 2-in-6 — nothing comes.",
     "Effect effect-0012 (fatigue) on character-0005 is released.",
     "Effect effect-0013 (fatigue) on character-0001 is released.",
     "Effect effect-0014 (fatigue) on character-0002 is released.",
@@ -7498,10 +7522,10 @@
     "The party recovers from fatigue.",
     "The party rests (turn).",
     "The party rests (turn).",
-    "Wandering check: 4 vs 1-in-6 — nothing comes.",
+    "Wandering check: 4 vs 2-in-6 — nothing comes.",
     "The party rests (turn).",
     "The party rests (turn).",
-    "Wandering check: 3 vs 1-in-6 — nothing comes.",
+    "Wandering check: 3 vs 2-in-6 — nothing comes.",
     "The party rests (turn).",
     "Effect effect-0017 (light) on character-0001 expires.",
     "The torch carried by character-0001 gutters out.",
@@ -7509,31 +7533,31 @@
     "character-0001 fumbles with the tinder box — no flame.",
     "Effect effect-0018 (light) attached to character-0001.",
     "character-0001 lights a torch.",
-    "Wandering check: 3 vs 1-in-6 — nothing comes.",
+    "Wandering check: 3 vs 2-in-6 — nothing comes.",
     "The party rests (turn).",
     "The party rests (turn).",
-    "Wandering check: 6 vs 1-in-6 — nothing comes.",
+    "Wandering check: 6 vs 2-in-6 — nothing comes.",
     "The party rests (turn).",
     "The party rests (turn).",
-    "Wandering check: 4 vs 1-in-6 — nothing comes.",
+    "Wandering check: 4 vs 2-in-6 — nothing comes.",
     "The party rests (turn).",
     "The party rests (turn).",
     "Effect effect-0018 (light) on character-0001 expires.",
     "The torch carried by character-0001 gutters out.",
-    "Wandering check: 5 vs 1-in-6 — nothing comes.",
+    "Wandering check: 5 vs 2-in-6 — nothing comes.",
     "The party rests (turn).",
     "Effect effect-0019 (light) attached to character-0001.",
     "character-0001 lights a torch.",
     "The party rests (turn).",
-    "Wandering check: 6 vs 1-in-6 — nothing comes.",
+    "Wandering check: 6 vs 2-in-6 — nothing comes.",
     "The party rests (turn).",
     "The party rests (turn).",
-    "Wandering check: 5 vs 1-in-6 — nothing comes.",
+    "Wandering check: 5 vs 2-in-6 — nothing comes.",
     "The party rests (turn).",
     "The party rests (turn).",
     "Effect effect-0019 (light) on character-0001 expires.",
     "The torch carried by character-0001 gutters out.",
-    "Wandering check: 6 vs 1-in-6 — nothing comes.",
+    "Wandering check: 6 vs 2-in-6 — nothing comes.",
     "The party rests (turn).",
     "character-0001 fumbles with the tinder box — no flame.",
     "character-0001 fumbles with the tinder box — no flame.",
@@ -7541,10 +7565,10 @@
     "Effect effect-0020 (light) attached to character-0001.",
     "character-0001 lights a torch.",
     "The party rests (turn).",
-    "Wandering check: 6 vs 1-in-6 — nothing comes.",
+    "Wandering check: 6 vs 2-in-6 — nothing comes.",
     "The party rests (turn).",
     "The party rests (turn).",
-    "Wandering check: 1 vs 1-in-6 — an encounter!",
+    "Wandering check: 1 vs 2-in-6 — an encounter!",
     "Surprise (monsters): no roll, surprised on 1-2 — not surprised.",
     "Surprise (party): rolled 6, surprised on 1-2 — not surprised.",
     "Encounter: 6 × Dwarf at 30'.",

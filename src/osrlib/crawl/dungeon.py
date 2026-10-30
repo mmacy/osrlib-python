@@ -1264,7 +1264,7 @@ class WanderingSpec(BaseModel):
     chance_in_six: int = Field(default=1, ge=0, le=6)
     """The base chance, in six, that each check brings monsters. The default, 1, is the B/X rule. The
     session adjusts it for each check: noise since the last check adds 1, light as bright as
-    daylight adds 1, and resting subtracts 1, within 0 to 6. With 0, a level has wandering monsters
+    daylight adds 1, and a hidden rest subtracts 1, within 0 to 6. With 0, a level has wandering monsters
     only after noise or under bright light. Set it higher for a busier level."""
     interval_turns: int = Field(default=2, ge=1)
     """How many exploration turns pass between checks. The default, 2, is the B/X rule."""

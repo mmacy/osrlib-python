@@ -1438,7 +1438,11 @@ class Rest(Command):
     It's legal in town and while exploring. A rest clears the party's fatigue, and a night or
     a day of rest counts as sleep, which casters need before
     [`PrepareSpells`][osrlib.crawl.commands.PrepareSpells]. A full day of rest also applies
-    natural healing to every living member. In a dungeon, a wandering-monster check that
+    natural healing to every living member.
+
+    In a dungeon, the wandering-monster checks go on while the party rests, at the level's
+    usual chance, so wandering monsters can interrupt a rest. Set `hidden` when the party rests quietly in an
+    out-of-the-way place, and each check during the rest has a chance 1 lower. A check that
     turns up monsters interrupts the rest and opens an encounter. An interrupted rest still
     counts the full turns the party rested before the monsters came. One full turn clears
     fatigue, and each full turn counts toward the three that clear exhaustion. A rest
@@ -1474,6 +1478,15 @@ class Rest(Command):
     [`PrepareSpells`][osrlib.crawl.commands.PrepareSpells] needs, so a caster's day starts with
     a `night` or a `day` rest. Exhaustion from a chase clears after three turns of rest in
     total. In a dungeon, a wandering encounter can cut any of the three short."""
+    hidden: bool = False
+    """True when the party rests quietly in an out-of-the-way place, which the OSE SRD calls
+    hiding. Your game or the referee decides whether the place qualifies, and the session
+    accepts the flag as given. In a dungeon, each wandering-monster check during a hidden rest
+    has a chance 1 lower, after noise and bright light have raised it. On a level with the
+    usual chance of 1 in 6, the session rolls no check die during a hidden rest. With
+    `False`, the default, the checks run at the level's chance with noise and light added, as
+    they do while the party explores. In town no checks run, so a hidden rest there is the same
+    as any other rest."""
 
 
 class PrepareSpells(Command):
