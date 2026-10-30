@@ -1430,8 +1430,11 @@ class Rest(Command):
     a day of rest counts as sleep, which casters need before
     [`PrepareSpells`][osrlib.crawl.commands.PrepareSpells]. A full day of rest also applies
     natural healing to every living member. In a dungeon, a wandering-monster check that
-    turns up monsters interrupts the rest and opens an encounter. An interrupted rest
-    clears nothing, counts as no sleep, and heals nobody.
+    turns up monsters interrupts the rest and opens an encounter. An interrupted rest still
+    counts the full turns the party rested before the monsters came. One full turn clears
+    fatigue, and each full turn counts toward the three that clear exhaustion. A rest
+    interrupted during its first turn clears nothing. An interrupted rest isn't sleep and
+    heals nobody.
 
     Modes:
         `town`, `exploring`
@@ -1445,7 +1448,7 @@ class Rest(Command):
         wandering-monster checks. Then comes a [`RestedEvent`][osrlib.crawl.events.RestedEvent]
         with code `exploration.rest.rested`. An interrupted rest ends with the encounter's
         opening events and a `RestedEvent` with code `exploration.rest.interrupted`
-        instead. A completed rest that clears fatigue or exhaustion adds a
+        instead. A rest that clears fatigue or exhaustion, interrupted or not, adds a
         [`FatigueEvent`][osrlib.crawl.events.FatigueEvent] or an
         [`ExhaustionEvent`][osrlib.crawl.events.ExhaustionEvent], and a full day's natural
         healing adds a [`HealingAppliedEvent`][osrlib.core.events.HealingAppliedEvent]
@@ -1718,6 +1721,8 @@ class UseItem(Command):
           `items.use.target_required` (an area device used in an encounter needs a
           `target_id`), `items.use.unknown_target`, and `items.use.battle_only` (a device
           that strikes works only as a battle declaration).
+        - Potions: `items.use.target_not_allowed` (`target_id` names anyone but the member
+          using the potion).
 
     Events:
         [`ItemIdentifiedEvent`][osrlib.crawl.events.ItemIdentifiedEvent], and
@@ -1748,8 +1753,9 @@ class UseItem(Command):
     """Who the item is used on: a party member's id for a device that heals by touch, or an
     encounter group's
     [`EncounterGroupView.id`][osrlib.crawl.views.EncounterGroupView.id] for a device that
-    covers an area. Leave it `None` for a potion, which the member drinks. A healing device with
-    `None` heals the member using it."""
+    covers an area. Leave it `None` for a potion, which the member drinks. The session refuses a
+    potion with a `target_id` other than `character_id`, because the member using a potion is
+    the one who drinks it. A healing device with `None` heals the member using it."""
     spell_id: str | None = None
     """Which spell to read off a scroll that has more than one, from
     [`load_spells`][osrlib.data.load_spells] (see the
@@ -2854,7 +2860,9 @@ class SpawnMonsters(Command):
 
     Events:
         [`MonstersSpawnedEvent`][osrlib.crawl.events.MonstersSpawnedEvent], then
-        the encounter's opening:
+        the encounter's opening: an
+        [`EffectAttachedEvent`][osrlib.core.events.EffectAttachedEvent] for each monster that
+        regenerates, like a troll,
         [`SurpriseRolledEvent`][osrlib.crawl.events.SurpriseRolledEvent]s,
         [`EncounterStartedEvent`][osrlib.crawl.events.EncounterStartedEvent], the
         reaction roll, and a

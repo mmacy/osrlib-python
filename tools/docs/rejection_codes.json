@@ -88,6 +88,7 @@
   "items.scroll.wrong_caster": "The character tried to read an arcane or divine scroll but the character's class can't cast that kind of magic, and, for a thief attempting a magic-user scroll, doesn't meet the minimum level for that exception.",
   "items.use.battle_only": "The character tried to activate a magic device whose effect resolves as a strike against a target, which is only possible during battle.",
   "items.use.not_usable": "The character tried to activate a magic device, such as a wand, staff, or rod, whose own usability restriction doesn't permit that class to use it.",
+  "items.use.target_not_allowed": "The character tried to use a potion on a target other than the character drinking it.",
   "items.use.target_required": "The character tried to activate an area-effect magic device during an encounter without naming which monster group to target.",
   "items.use.unknown_target": "The character tried to activate a magic device against a target, an encounter group or a character, that doesn't exist, has already fled, or otherwise can't be resolved.",
   "magic.book.already_chosen": "The character's starting spell book has already been chosen once and cannot be set a second time.",
