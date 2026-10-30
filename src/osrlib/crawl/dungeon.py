@@ -540,9 +540,9 @@ class TransitionSpec(BaseModel):
     [`UseStairs`][osrlib.crawl.commands.UseStairs], or [`MoveParty`][osrlib.crawl.commands.MoveParty]
     for a passage, checks it after the command's other checks and before the party moves. A gate
     that takes an item takes it then, as the party crosses. The gate's `success` text goes on the
-    arrival's [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent], and the session
-    emits that event only when the party changes level or dungeon. A transition to another cell of
-    the same level emits no such event, so no event contains its gate's `success` text.
+    arrival's [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] when the party
+    changes level or dungeon. For a transition to another cell of the same level, it goes on the
+    [`PartyMovedEvent`][osrlib.crawl.events.PartyMovedEvent] for the landing cell.
 
     A transition in a [`TrapEffect`][osrlib.crawl.dungeon.TrapEffect] can't have a gate, because a
     trap moves the party by force and the party attempts nothing. `TrapEffect` raises `ValueError`

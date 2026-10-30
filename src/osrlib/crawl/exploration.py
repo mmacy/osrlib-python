@@ -1550,8 +1550,10 @@ def _relocate(
     """Move the party to a cell (transitions, slides): explore, events, hooks.
 
     `narrative` is the authored success beat of the gate the party satisfied to get
-    here, and it goes out on the level- or dungeon-crossing event. A relocation that
-    crosses no boundary emits no such event, so there is nowhere to put a beat.
+    here. It goes out on the level- or dungeon-crossing event. A relocation within one
+    level emits no such event, so the beat goes out on a `PartyMovedEvent` for the
+    landing cell instead, which a relocation that isn't `walked` emits only to report
+    the beat.
 
     `via` and `transition_ref` are the caller's account of the crossing: the kind of
     the transition taken and the cell it stands on for `UseStairs` and for a passage,
@@ -1607,9 +1609,14 @@ def _relocate(
             )
         )
     events.extend(leave_events)
-    if walked:
+    # Within one level there is no crossing event, so the step reports the gate's success
+    # text: a passage's step always, and a stairs crossing's only when there is text to show.
+    beat = narrative if same_level else None
+    if walked or beat:
         events.append(
-            PartyMovedEvent(code="exploration.party.moved", x=position[0], y=position[1], facing=facing.value)
+            PartyMovedEvent(
+                code="exploration.party.moved", x=position[0], y=position[1], facing=facing.value, narrative=beat
+            )
         )
     state.mark_explored(dungeon_id, level_number, position)
     events.extend(_boundary_events(session, old_area, position))

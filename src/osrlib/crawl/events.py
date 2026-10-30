@@ -156,7 +156,10 @@ class PartyMovedEvent(Event):
     unchanged cell and the new facing. For a `MoveParty` through a passage, the event has
     the cell the party arrives on, and it comes after the
     [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] when the passage
-    leads to another level. Redraw a first-person view from this event.
+    leads to another level. A [`UseStairs`][osrlib.crawl.commands.UseStairs] that takes the
+    party to another cell of the same level emits one for the landing cell only when the
+    transition's gate has success text, which the event then contains in `narrative`.
+    Redraw a first-person view from this event.
 
     A step that a wall, a closed door, or the edge of the map blocks emits no event. The
     session refuses the command with the rejection code `exploration.move.blocked`, and
@@ -181,6 +184,12 @@ class PartyMovedEvent(Event):
     a step, the party faces the way it went, so this changes on a step as well as on a turn. After
     a step through a passage, the party faces the way the adventure's author set for the passage's
     far side."""
+    narrative: str | None = None
+    """The success text the adventure's author wrote on the gate of a transition that took the party to
+    another cell of the same level, or `None`. A transition to another level puts this text on the
+    [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] instead.
+    [`format_message`][osrlib.messages.format_message] adds it after the line it builds from the
+    code."""
 
 
 class LocationEnteredEvent(Event):
@@ -235,7 +244,8 @@ class LocationEnteredEvent(Event):
     there was no gate or no text. A gate is a condition the author puts on a door or a transition,
     like a key the party must have. The author wrote this text, not the engine, and
     [`format_message`][osrlib.messages.format_message] adds it after the line it builds from the
-    code."""
+    code. A transition to another cell of the same level reports no level entry, so its gate's text
+    is on the [`PartyMovedEvent`][osrlib.crawl.events.PartyMovedEvent] for the landing cell."""
     via: str | None = None
     """How the party got there, on level and dungeon entries: the kind of the transition it took
     (`"stairs_down"`, `"stairs_up"`, `"trapdoor"`, or `"chute"`), `"passage"` for a passage it
