@@ -58,8 +58,6 @@ from osrlib.crawl.session import MONSTER_ACTION_STREAM, GameSession
 from osrlib.data import load_classes, load_monsters
 from osrlib.persistence import replay_game, session_state
 
-CHUNK = pytest.mark.xfail(reason="chunk: monster-tactics", strict=True)
-
 HIT_CODES = frozenset({"combat.attack.hit", "combat.attack.auto_hit"})
 
 ALWAYS_PASS = 20
@@ -285,7 +283,6 @@ def _until_spit_hits(game: GameSession, cobra_id: str, *, max_rounds: int = 30) 
 class TestTheSpittingCobrasSpit:
     """A spit hit makes the target save versus poison or be blinded for good."""
 
-    @CHUNK
     def test_the_catalog_gives_the_spit_an_ability_battle_applies(self):
         cobra = load_monsters().get("spitting_cobra")
         spit = next(attack for routine in cobra.attacks for attack in routine.attacks if attack.name == "spit")
@@ -297,7 +294,6 @@ class TestTheSpittingCobrasSpit:
         assert "A hit causes permanent blindness (save vs poison)." in blindness.prose
         assert cobra.ability("blinding_spit") is None, "one ability holds the spit, under the effect's tag"
 
-    @CHUNK
     def test_a_failed_save_blinds_for_good(self):
         game, hild, cobra = _cobra_battle(ALWAYS_FAIL)
 
@@ -320,7 +316,6 @@ class TestTheSpittingCobrasSpit:
             _play(game)
         assert has_condition(hild, Condition.BLIND)
 
-    @CHUNK
     def test_a_passed_save_leaves_the_target_seeing(self):
         game, hild, cobra = _cobra_battle(ALWAYS_PASS)
 
@@ -331,7 +326,7 @@ class TestTheSpittingCobrasSpit:
         assert not has_condition(hild, Condition.BLIND)
 
     def test_a_spit_that_misses_applies_nothing(self):
-        """A guard: a miss rolls no save and blinds no one, before and after the chunk."""
+        """A miss rolls no save and blinds no one."""
         game, hild, cobra = _cobra_battle(ALWAYS_FAIL)
 
         for _ in range(30):
@@ -344,7 +339,6 @@ class TestTheSpittingCobrasSpit:
                 return
         pytest.fail("precondition: the cobra's spit missed within 30 rounds")
 
-    @CHUNK
     def test_a_member_the_spit_blinded_cannot_attack(self):
         """The SRD's combat rules: "A blind character is unable to attack." The refused round costs nothing."""
         game, hild, cobra = _cobra_battle(ALWAYS_FAIL)
@@ -376,7 +370,6 @@ OTHER_PARALYSERS = ("carcass_crawler", "gelatinous_cube")
 class TestGhoulsAttackOthers:
     """A ghoul or a thoul passes over a member it has paralysed while another target is in reach."""
 
-    @CHUNK
     def test_the_catalog_marks_the_ghouls_and_the_thouls_paralysis(self):
         catalog = load_monsters()
         for template_id in PARALYSERS_THAT_ATTACK_OTHERS:
@@ -394,7 +387,6 @@ class TestGhoulsAttackOthers:
             assert "attack others" not in paralysis.prose
             assert "attacks_others" not in paralysis.params
 
-    @CHUNK
     @pytest.mark.parametrize("template_id", PARALYSERS_THAT_ATTACK_OTHERS)
     def test_it_picks_a_member_who_isnt_paralysed(self, template_id):
         game = _battle(template_id)
@@ -404,7 +396,6 @@ class TestGhoulsAttackOthers:
 
         assert set(_targets(game)) == {brakk.id}
 
-    @CHUNK
     @pytest.mark.parametrize("template_id", PARALYSERS_THAT_ATTACK_OTHERS)
     def test_it_picks_a_paralysed_member_before_a_statue(self, template_id):
         game = _battle(template_id)
@@ -442,7 +433,6 @@ class TestGhoulsAttackOthers:
 
         assert set(_targets(game)) == {hild.id, brakk.id}
 
-    @CHUNK
     def test_the_policy_reads_the_param_and_not_the_monster(self):
         """A carcass crawler given `attacks_others` turns to others, so the rule is data, not a list of ids."""
         game = _battle("carcass_crawler")
@@ -461,7 +451,6 @@ class TestGhoulsAttackOthers:
 
         assert set(_targets(game)) == {hild.id, brakk.id}
 
-    @CHUNK
     @pytest.mark.parametrize("template_id", PARALYSERS_THAT_ATTACK_OTHERS)
     def test_in_battle_it_turns_from_the_member_it_paralysed(self, template_id):
         """The playtest's case: once a member is paralysed, the monster's attacks go to the member still standing."""
@@ -511,7 +500,6 @@ EVERY_KIND = ("goblin", "ogre", "basilisk", "ghoul", "thoul", "carcass_crawler")
 class TestStatues:
     """A member turned to stone is out of the fight, so no monster picks one while another target is in reach."""
 
-    @CHUNK
     @pytest.mark.parametrize("template_id", EVERY_KIND)
     def test_no_monster_picks_a_statue_while_another_target_is_in_reach(self, template_id):
         game = _battle(template_id)
@@ -521,7 +509,6 @@ class TestStatues:
 
         assert set(_targets(game)) == {brakk.id}
 
-    @CHUNK
     def test_a_paralysed_member_comes_before_a_statue_for_any_monster(self):
         game = _battle("goblin")
         hild, brakk = game.party.members
@@ -552,7 +539,6 @@ class TestStatues:
             assert actions[0].target_id == front[replica.randbelow(len(front))]
             assert stream.export_state() == replica.export_state()
 
-    @CHUNK
     def test_in_battle_a_basilisk_bites_the_member_still_standing(self):
         """The playtest's case: a basilisk kept biting members it had already turned to stone."""
         game = _battle("basilisk")
@@ -616,7 +602,6 @@ class TestNpcAdventurersAndStatues:
     to NPC adventurers.
     """
 
-    @CHUNK
     def test_an_npc_never_picks_a_statue_while_another_target_is_in_reach(self):
         game = _npc_battle()
         hild, brakk = game.party.members
@@ -702,7 +687,6 @@ class TestDrawsAsBefore:
 class TestABlindMemberMeetsNoGaze:
     """Someone who can't see can't meet a gaze, so a blind front-rank member is spared it in battle."""
 
-    @CHUNK
     @pytest.mark.parametrize("template_id", ["basilisk", "medusa"])
     def test_a_blind_front_rank_member_is_spared_the_gaze(self, template_id):
         game = _battle(template_id)
@@ -774,7 +758,6 @@ ENCOUNTER_STANCES = (ReactionResult.FRIENDLY, ReactionResult.INDIFFERENT, Reacti
 class TestTheSurpriseGaze:
     """Every member of a party a basilisk surprises meets its gaze once, as the encounter opens."""
 
-    @CHUNK
     @pytest.mark.parametrize("stance", ENCOUNTER_STANCES)
     def test_it_comes_whatever_the_stance(self, stance):
         game, events = _opening("basilisk", stance)
@@ -783,7 +766,6 @@ class TestTheSurpriseGaze:
         for member in game.party.members:
             assert len(_saves(events, member.id, "paralysis")) == 1, f"{member.id} meets the basilisk's gaze once"
 
-    @CHUNK
     def test_it_reaches_the_back_rank_in_melee_range_too(self):
         game, events = _opening("basilisk", ReactionResult.INDIFFERENT, distance_feet=5)
 
@@ -791,7 +773,6 @@ class TestTheSurpriseGaze:
         for member in game.party.members:
             assert len(_saves(events, member.id, "paralysis")) == 1
 
-    @CHUNK
     def test_a_failed_save_turns_a_member_to_stone_outside_battle(self):
         game, events = _opening("basilisk", ReactionResult.INDIFFERENT, save_bonus=ALWAYS_FAIL)
 
@@ -800,7 +781,6 @@ class TestTheSurpriseGaze:
             assert [save.code for save in _saves(events, member.id)] == ["combat.save.failed"]
             assert has_condition(member, Condition.PETRIFIED)
 
-    @CHUNK
     def test_engaging_later_brings_no_second_gaze(self):
         game, opening = _opening("basilisk", ReactionResult.INDIFFERENT)
         assert game.mode is SessionMode.ENCOUNTER, "precondition: no battle opened"
@@ -815,7 +795,6 @@ class TestTheSurpriseGaze:
             assert not _saves(engage.events, member.id)
             assert not _saves(first_round, member.id)
 
-    @CHUNK
     def test_it_comes_when_the_basilisk_is_surprised_too(self):
         """The clause is about the characters, and a gaze is no action, so the basilisk's surprise changes nothing."""
         game, events = _opening("basilisk", ReactionResult.INDIFFERENT, both_surprised=True)
@@ -857,7 +836,6 @@ class TestTheSurpriseGaze:
         for member in game.party.members:
             assert not _saves(events, member.id)
 
-    @CHUNK
     def test_a_blind_member_is_spared_the_surprise_gaze(self):
         """Someone who can't see can't meet a gaze."""
         game, events = _opening("basilisk", ReactionResult.INDIFFERENT, blind=(0,))
@@ -886,7 +864,6 @@ class TestTheSurpriseGaze:
         assert engage.accepted
         assert not [event for event in engage.events if isinstance(event, SavingThrowRolledEvent)]
 
-    @CHUNK
     def test_the_playtests_spawn_meets_it_and_replays(self):
         """The playtest's case, by command: a referee spawn the basilisk surprises, which stays an encounter."""
         for seed in SEEDS:
