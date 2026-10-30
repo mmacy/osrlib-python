@@ -67,6 +67,14 @@ During a round, the session also applies these rules without a command for them:
 - A caster who declared a spell loses it if an attack hits them, or they fail a saving throw,
   between initiative and their turn to act.
 - Each monster group checks morale when the rules call for it.
+- When a monster hits, the session applies the effects its attack lists, each with the save the
+  SRD gives: paralysis, poison, mummy rot, energy drain, and petrification. The
+  [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/) lists the effects
+  the session leaves to the referee.
+- A petrifying gaze, like the basilisk's or the medusa's, reaches each member of the party's
+  front rank once a round while the gazer's group is in melee. It takes no attack roll, and
+  [`resolve_gaze`][osrlib.core.combat.resolve_gaze] skips a member who is averting their eyes,
+  but no command lets a member avert them yet.
 - Turned undead attack no one. When a cleric turns only some of a group, the turned members
   break away as a new group, which runs, and the rest fight on.
 - A member's invisibility ends when the member attacks, throws or uses an item other than a
@@ -185,6 +193,8 @@ from typing import Any, Protocol
 
 from pydantic import BaseModel, ConfigDict
 
+from osrlib.core.character import ADVANCEMENT_STREAM
+from osrlib.core.clock import TimeUnit
 from osrlib.core.combat import (
     COMBAT_STREAM,
     AttackContext,
@@ -199,14 +209,17 @@ from osrlib.core.combat import (
     morale_triggers,
     resolve_attack,
     resolve_breath,
+    resolve_energy_drain,
+    resolve_gaze,
     resolve_splash_attack,
     roll_initiative,
+    saving_throw,
     validate_attack,
     validate_breath,
 )
 from osrlib.core.creature import Creature
 from osrlib.core.dice import roll
-from osrlib.core.effects import EFFECTS_STREAM, Condition, has_condition
+from osrlib.core.effects import EFFECTS_STREAM, Condition, EffectDefinition, has_condition, kill
 from osrlib.core.events import AttackRolledEvent, Event, SavingThrowRolledEvent, SpellDisruptedEvent
 from osrlib.core.items import (
     GearTemplate,
@@ -216,7 +229,7 @@ from osrlib.core.items import (
     WeaponQuality,
     magic_item_template,
 )
-from osrlib.core.monsters import MonsterInstance
+from osrlib.core.monsters import MonsterAbility, MonsterAttack, MonsterInstance
 from osrlib.core.spells import (
     MAGIC_STREAM,
     cast_spell,
@@ -2568,6 +2581,8 @@ def _monster_block(
             if group.distance_feet > FLEE_EXIT_FEET:
                 group.fled = True
             continue
+        events.extend(_resolve_gazes(session, group))
+        _watch_disruption(events, pending_casters, disrupted, acted)
         if npc_actions is not None and group.id in npc_actions:
             actions = npc_actions[group.id]
         else:
@@ -2892,8 +2907,6 @@ def _confused_overrides(session, group, actions) -> list[Event]:
             bool(params.get("resave_at_hd_count_2_with_bonus")) and hd.count == 2 and hd.modifier > 0
         )
         if qualifies:
-            from osrlib.core.combat import saving_throw
-
             save = saving_throw(
                 monster,
                 SaveCategory(str(params.get("resave_category", "spells"))),
@@ -2931,11 +2944,18 @@ def _behaviour_outcome(params, total: int) -> str:
 
 
 def _resolve_monster_melee(session, monster, target, *, party_retreating: bool) -> list[Event]:
+    """Resolve a monster's attack routine against one target, with what each hit does beyond damage.
+
+    An attack named `gaze` takes no attack roll, so this function skips it. `_resolve_gazes` runs a
+    petrifying gaze once a round instead.
+    """
     events: list[Event] = []
     routine = monster.template.attacks[0] if monster.template.attacks else None
     if routine is None:
         return []
     for attack in routine.attacks:
+        if attack.name == "gaze":
+            continue
         for _ in range(attack.count):
             if has_condition(target, Condition.DEAD):
                 return events
@@ -2960,7 +2980,192 @@ def _resolve_monster_melee(session, monster, target, *, party_retreating: bool) 
                 clock=session.clock,
             )
             events.extend(result.events)
+            if result.attack_roll.hit and not result.absorbed:
+                events.extend(_apply_hit_effects(session, monster, target, attack))
             events.extend(_identify_worn_items(session, target))
+    return events
+
+
+_HIT_EFFECT_KINDS = frozenset({"paralysis", "poison", "disease", "energy_drain", "petrification"})
+"""The attack effects that battle applies when a monster hits. The adaptations register lists the rest."""
+
+
+def _apply_hit_effects(session, monster, target, attack: MonsterAttack) -> list[Event]:
+    """Apply each effect a monster's attack lists to the target the attack hit.
+
+    The effects apply once for each hit, so a target hit by two paralysing claws saves twice. A dead
+    or petrified target takes none of them.
+    """
+    events: list[Event] = []
+    for kind in attack.effects:
+        if has_condition(target, Condition.DEAD) or has_condition(target, Condition.PETRIFIED):
+            break
+        ability = _hit_ability(monster, kind)
+        if ability is not None:
+            events.extend(_apply_hit_effect(session, monster, target, kind, ability.params))
+    return events
+
+
+def _hit_ability(monster, kind: str) -> MonsterAbility | None:
+    """Return the ability that contains an attack effect's parameters, or None when battle doesn't apply the effect.
+
+    Battle applies a kind in `_HIT_EFFECT_KINDS` when the monster's ability for it isn't manual. The
+    basilisk has two `petrification` abilities. `_resolve_gazes` uses the one with the `gaze` vector,
+    so this function reads only an ability with the `touch` vector or with no vector.
+    """
+    if kind not in _HIT_EFFECT_KINDS:
+        return None
+    for ability in monster.template.abilities:
+        if ability.tag == kind and ability.params.get("vector", "touch") == "touch":
+            return None if ability.manual else ability
+    return None
+
+
+def _apply_hit_effect(session, monster, target, kind: str, params: Mapping[str, Any]) -> list[Event]:
+    """Apply one attack effect to the target, with the save the SRD gives for it.
+
+    - `energy_drain` takes levels or Hit Dice through `resolve_energy_drain`. There's no save.
+    - `disease` gives the target the disease in the ability's `kind` param, like mummy rot. There's no
+      save, and only magic removes it.
+    - `paralysis` makes the target save versus paralysis or be paralysed for the ability's duration.
+      When the ability's `unaffected` list includes `elf`, a character whose class has
+      `ghoul_paralysis_immunity` rolls no save and isn't paralysed.
+    - `petrification` makes the target save versus paralysis, the category for petrification, or turn
+      to stone.
+    - `poison` makes the target save versus death, with the ability's `save_modifier`, or die. The
+      target dies at once, or when the onset in the ability's params runs out.
+
+    A monster that's immune to the condition the effect brings rolls no save and takes nothing.
+    Saves draw from the combat stream, rolled durations and onsets from the effects stream, and
+    energy drain from the advancement stream.
+    """
+    if kind == "energy_drain":
+        return resolve_energy_drain(monster, target, stream=session.streams.get(ADVANCEMENT_STREAM))
+    if kind == "disease":
+        disease = EffectDefinition(
+            kind=str(params.get("kind", "disease")),
+            condition=Condition.DISEASED,
+            permanent=True,
+            stacking="ignore",
+        )
+        return _attach_hit_effect(session, target, disease)
+    category = SaveCategory.PARALYSIS
+    modifier = 0
+    condition: Condition
+    definition: EffectDefinition | None
+    if kind == "paralysis":
+        if _spared_by_ghoul_immunity(target, params):
+            return []
+        condition = Condition.PARALYSED
+        definition = EffectDefinition(
+            kind="paralysis",
+            condition=condition,
+            duration_unit=TimeUnit(str(params.get("unit", "turn"))),
+            duration_dice=str(params.get("duration", "2d4")),
+        )
+    elif kind == "petrification":
+        condition = Condition.PETRIFIED
+        definition = EffectDefinition(kind="petrification", condition=condition, permanent=True)
+    else:
+        category = SaveCategory.DEATH
+        modifier = _int_param(params, "save_modifier")
+        condition = Condition.POISONED
+        definition = _poison_onset(params)
+    defenses = getattr(getattr(target, "template", None), "defenses", None)
+    if defenses is not None and condition in defenses.condition_immunities:
+        return []
+    save = saving_throw(target, category, modifier=modifier, source=monster, stream=session.streams.get(COMBAT_STREAM))
+    events = list(save.events)
+    if save.passed:
+        return events
+    if definition is None:
+        events.extend(kill(target))
+    else:
+        events.extend(_attach_hit_effect(session, target, definition))
+    return events
+
+
+def _poison_onset(params: Mapping[str, Any]) -> EffectDefinition | None:
+    """Return the effect that kills when a poison's onset runs out, or None for a poison that kills at once.
+
+    The effect's kind is `poison`, so the session records the death it causes as a poison death.
+    """
+    unit = params.get("onset_unit")
+    if unit is None:
+        return None
+    amount = params.get("onset_amount")
+    dice = params.get("onset_dice")
+    return EffectDefinition(
+        kind="poison",
+        condition=Condition.POISONED,
+        duration_unit=TimeUnit(str(unit)),
+        duration_amount=int(amount) if amount is not None else None,
+        duration_dice=str(dice) if dice is not None else None,
+        expiry="death",
+    )
+
+
+def _spared_by_ghoul_immunity(target, params: Mapping[str, Any]) -> bool:
+    """Return whether the target is an elf and the paralysis ability's `unaffected` list includes elves.
+
+    The elf's immunity is a class ability, `ghoul_paralysis_immunity`, so this function reads it from
+    the character's class. The `unaffected` list also includes `larger_than_ogre`, but osrlib has no
+    model of size, so no creature is spared for its size.
+    """
+    if "elf" not in params.get("unaffected", ()):
+        return False
+    definition = getattr(target, "definition", None)
+    return definition is not None and any(ability.tag == "ghoul_paralysis_immunity" for ability in definition.abilities)
+
+
+def _attach_hit_effect(session, target, definition: EffectDefinition) -> list[Event]:
+    _, events = session.ledger.attach(
+        definition,
+        target.id,
+        clock=session.clock,
+        allocator=session.allocator,
+        registry=session.registry(),
+        stream=session.streams.get(EFFECTS_STREAM),
+    )
+    return events
+
+
+def _petrifying_gaze(monster) -> MonsterAbility | None:
+    """Return the monster's petrifying gaze, like the basilisk's or the medusa's, or None when it has none."""
+    template = getattr(monster, "template", None)
+    if template is None:
+        return None
+    for ability in template.abilities:
+        if ability.tag == "petrification" and ability.params.get("vector") == "gaze" and not ability.manual:
+            return ability
+    return None
+
+
+def _resolve_gazes(session, group) -> list[Event]:
+    """Turn each gazer's petrifying gaze on the party's front rank, once a round, while its group is in melee.
+
+    A gaze takes no attack roll and no action. Every living gazer that isn't incapacitated uses it
+    before its group acts, whatever the policy then chooses for it. `resolve_gaze` skips a character
+    who is averting their eyes or is incapacitated, and rolls a save versus paralysis on the combat
+    stream for each of the others.
+    """
+    if group.distance_feet > MELEE_RANGE_FEET:
+        return []
+    events: list[Event] = []
+    for monster in _living_monsters(session, group):
+        if incapacitated(monster) or _petrifying_gaze(monster) is None:
+            continue
+        events.extend(
+            resolve_gaze(
+                monster,
+                _party_front_rank(session),
+                stream=session.streams.get(COMBAT_STREAM),
+                ledger=session.ledger,
+                clock=session.clock,
+                allocator=session.allocator,
+                registry=session.registry(),
+            )
+        )
     return events
 
 
