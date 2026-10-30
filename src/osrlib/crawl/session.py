@@ -1546,7 +1546,7 @@ class GameSession:
         return out
 
     def advance_turns(
-        self, turns: int, *, resting: bool = False, field: bool | None = None
+        self, turns: int, *, resting: bool = False, hidden: bool = False, field: bool | None = None
     ) -> tuple[list[Event], bool]:
         """Advance whole turns, one at a time, applying the rules that run each turn.
 
@@ -1573,7 +1573,11 @@ class GameSession:
         Args:
             turns: How many turns to advance.
             resting: True while the party is resting. Resting turns don't count toward the next
-                required rest, and they lower the wandering chance by 1 in 6.
+                required rest. Resting alone doesn't change the wandering chance.
+            hidden: True while the party hides, resting quietly in an out-of-the-way place, which
+                lowers the chance of each wandering check in the span by 1 in 6. A
+                [`Rest`][osrlib.crawl.commands.Rest] with `hidden` set passes both `resting`
+                and `hidden`.
             field: Whether the rest and wandering rules apply. Defaults to whether the session is
                 in `exploring` mode, because the engine rolls for wandering monsters only in a
                 dungeon. Time in town and on the road doesn't count.
