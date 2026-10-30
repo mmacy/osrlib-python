@@ -2702,18 +2702,9 @@ class ResolveBattleRound(Command):
         if session.mode is SessionMode.ENCOUNTER:  # the goblins didn't attack first
             session.execute(EngageBattle())
 
-        def wielded_weapon_id(member):
-            # A magic weapon is named by its instance id, a mundane one by its catalog id.
-            wielded = member.inventory["wielded"]
-            if not wielded:
-                return None
-            return wielded[0].get("instance_id") or wielded[0]["template"]["id"]
-
         rounds = 0
         while session.mode is SessionMode.BATTLE:
-            view = session.view(Visibility.PLAYER)
-            encounter = view.encounter
-            weapons = {member.id: wielded_weapon_id(member) for member in view.party}
+            encounter = session.view(Visibility.PLAYER).encounter
             target = min((group for group in encounter.groups if group.count), key=lambda group: group.distance_feet)
             declarations = []
             for member_id in encounter.declarers:
@@ -2722,9 +2713,8 @@ class ResolveBattleRound(Command):
                         character_id=member_id, action="move", move="close", target_group_id=target.id
                     )
                 elif member_id in encounter.front_rank:
-                    declaration = BattleDeclaration(
-                        character_id=member_id, action="attack", target_group_id=target.id, weapon_id=weapons[member_id]
-                    )
+                    # With no weapon_id, the member attacks with the wielded weapon that suits the attack.
+                    declaration = BattleDeclaration(character_id=member_id, action="attack", target_group_id=target.id)
                 else:
                     declaration = BattleDeclaration(character_id=member_id, action="hold")
                 declarations.append(declaration)
