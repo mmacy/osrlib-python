@@ -265,7 +265,7 @@ melee-only attack, and a weapon that's both melee and missile is thrown or fired
 of swung.
 """
 
-_HELPLESS = (Condition.PARALYSED, Condition.ASLEEP)
+_HELPLESS = (Condition.PARALYSED, Condition.ASLEEP, Condition.PETRIFIED)
 _CANNOT_ACT = (Condition.DEAD, Condition.PETRIFIED, Condition.PARALYSED, Condition.ASLEEP)
 
 # Holy water, the torch, and the oil flask are gear with combat stats, and each has
@@ -428,8 +428,8 @@ class AttackContext(BaseModel):
     monster_missile: bool = False
     """Whether the monster's attack is a small missile, like a hobgoblin's arrow.
 
-    *Protection from normal missiles* then blocks it, and it doesn't hit a paralysed or
-    sleeping defender automatically, as a melee attack does. osrlib never marks a monster
+    *Protection from normal missiles* then blocks it, and it doesn't hit a paralysed,
+    sleeping, or petrified defender automatically, as a melee attack does. osrlib never marks a monster
     attack as a small missile by itself, because some monster missiles, like a hurled
     boulder, aren't small.
     """
@@ -535,7 +535,7 @@ class AttackRollResult(BaseModel):
     auto: bool = False
     """Whether the attack hit without a roll.
 
-    That happens in melee against a defender that's paralysed or asleep. It also happens
+    That happens in melee against a defender that's paralysed, asleep, or petrified. It also happens
     against a monster whose template has no armour class, which means attacks against it
     need no roll, as for green slime and yellow mould. When this is true,
     `roll`, `total`, and `required` are `None`, and no draw was taken.
@@ -1397,7 +1397,7 @@ def attack_roll(
     an attack from behind or while it retreats, and an ally's bonus from the context does.
 
     The function hits two kinds of defender automatically, with no roll and no draw. One is
-    a defender that's paralysed or asleep and attacked in melee. The other is a monster
+    a defender that's paralysed, asleep, or petrified and attacked in melee. The other is a monster
     whose template has no armour class, which means attacks against it need no roll, as for
     green slime and yellow mould.
 

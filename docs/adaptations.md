@@ -64,7 +64,7 @@ Pinned reading of "always act last, as if they had lost initiative" for the gene
 
 ### Helpless defenders are hit automatically in melee, consuming no attack draw
 
-Paralysed and sleeping defenders are hit automatically in melee: the engine consumes no attack roll and rolls only damage, per RAW. A `No hit roll required` defender (green slime, yellow mould) is likewise hit without a roll. Locked by `test_combat.py::TestAttackRoll::test_helpless_defender_auto_hit_consumes_no_draw`.
+Paralysed, sleeping, and petrified defenders are hit automatically in melee: the engine consumes no attack roll and rolls only damage, per RAW ("Helpless opponents, such as those magically paralysed or frozen, can be automatically hit in melee"). A petrified creature is frozen in stone, so it counts as helpless (#166). A `No hit roll required` defender (green slime, yellow mould) is likewise hit without a roll. Locked by `test_combat.py::TestAttackRoll::test_helpless_defender_auto_hit_consumes_no_draw` and `test_rules_calls.py::TestMeleeHitsAPetrifiedCreature`.
 
 ### Morale "incapacitated" means dead, paralysed, petrified, or asleep
 
