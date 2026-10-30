@@ -1143,8 +1143,8 @@ def wandering_check(session, *, resting: bool = False) -> tuple[list[Event], boo
     and 1 for light as bright as daylight, and down 1 while the party hides, and it's limited to the
     range 0 to 6. When the chance is 0 there is no roll: the check reports a miss and draws nothing.
     Resting alone doesn't change the chance. The OSE SRD lowers it only for a party that rests
-    quietly in an out-of-the-way place, which it calls hiding, and a
-    [`Rest`][osrlib.crawl.commands.Rest] with `hidden` set is how a game says so.
+    quietly in an out-of-the-way place, which it calls hiding. To say the party hides, a game sets
+    `hidden` on a [`Rest`][osrlib.crawl.commands.Rest].
 
     The check die draws from [`WANDERING_STREAM`][osrlib.crawl.session.WANDERING_STREAM], and so
     do the d20 roll on the encounter table, the count dice, and the choice among a row's monsters.
