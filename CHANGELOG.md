@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] works during an encounter or a battle, so a game can resolve the allies a monster summons mid-fight, like a lycanthrope's animals or a nixie's fish (#170). The command adds one new group to the open encounter at `distance_feet`, where the session used to refuse it with `session.command.encounter_in_progress`. The group rolls no surprise or reaction, shares the encounter's stance, and fights on the monster side from the next round. The spawn takes no time and runs no round. The session logs it like any other command, so loading a save or replaying the log reproduces it. When a trigger's `SpawnMonsters` consequence fires during an encounter, its monsters now join that encounter, where the interpreter used to drop the consequence with a note. In exploration the command opens an encounter as before, and the session still refuses `SpawnNpcParty` and `PlaceParty` during an encounter.
+
 ## [2.0.1] - 2026-10-30
 
 ### Changed
