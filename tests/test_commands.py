@@ -179,7 +179,6 @@ class TestConsequenceCensus:
         types = {cls.model_fields["command_type"].default for cls in CONSEQUENCE_COMMAND_CLASSES}
         assert types <= REFEREE_COMMANDS
 
-    @pytest.mark.xfail(reason="chunk: referee-items", strict=True)
     def test_the_exclusions_are_the_lifecycle_family_identify_item_and_roll_dice(self):
         types = {cls.model_fields["command_type"].default for cls in CONSEQUENCE_COMMAND_CLASSES}
         assert REFEREE_COMMANDS - types == {
@@ -203,7 +202,6 @@ class TestConsequenceCensus:
         names = [cls.__name__ for cls in CONSEQUENCE_COMMAND_CLASSES]
         assert len(set(names)) == len(names)
 
-    @pytest.mark.xfail(reason="chunk: referee-items", strict=True)
     def test_the_character_addressing_consequences_are_exactly_five(self):
         # Two sites enumerate these classes by hand and must grow together when they do:
         # `Interpreter._expand` (which turns a party selector into concrete commands)

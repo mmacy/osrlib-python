@@ -50,8 +50,6 @@ from osrlib.crawl.triggers import (
 from osrlib.messages import format_message
 from osrlib.persistence import load_game, replay_game, save_game, session_state
 
-CHUNK = pytest.mark.xfail(reason="chunk: referee-items", strict=True)
-
 CARRIER_SELECTOR = "@carrier"
 """The `RemoveItem` selector for the first living member in marching order who carries the item."""
 
@@ -155,7 +153,6 @@ def assert_replays(session: GameSession, adventure_document: Adventure) -> None:
 
 
 class TestTheCommandSurface:
-    @CHUNK
     def test_the_removal_commands_are_registered_at_the_end_of_the_census(self):
         from osrlib.crawl.commands import RemoveCoins, RemoveItem
 
@@ -163,21 +160,18 @@ class TestTheCommandSurface:
         assert RemoveItem.model_fields["command_type"].default == "remove_item"
         assert RemoveCoins.model_fields["command_type"].default == "remove_coins"
 
-    @CHUNK
     def test_the_removal_commands_are_authorable_consequences(self):
         from osrlib.crawl.commands import RemoveCoins, RemoveItem
 
         assert RemoveItem in CONSEQUENCE_COMMAND_CLASSES
         assert RemoveCoins in CONSEQUENCE_COMMAND_CLASSES
 
-    @CHUNK
     def test_the_removal_commands_are_legal_in_every_mode(self):
         from osrlib.crawl.commands import RemoveCoins, RemoveItem
 
         assert RemoveItem.allowed_modes == frozenset(SessionMode)
         assert RemoveCoins.allowed_modes == frozenset(SessionMode)
 
-    @CHUNK
     def test_remove_item_fields_and_defaults(self):
         from pydantic import ValidationError
 
@@ -188,7 +182,6 @@ class TestTheCommandSurface:
         with pytest.raises(ValidationError):
             RemoveItem(character_id=LEAD, item_id="torch", quantity=0)
 
-    @CHUNK
     def test_the_removal_commands_round_trip_through_json(self):
         from osrlib.crawl.commands import RemoveCoins, RemoveItem
 
@@ -203,7 +196,6 @@ class TestTheCommandSurface:
             assert parsed == command
             assert type(parsed) is type(command)
 
-    @CHUNK
     def test_the_removed_event_round_trips_and_renders(self):
         from osrlib.crawl.events import ALL_EVENT_CLASSES, ItemsRemovedEvent
 
@@ -226,7 +218,6 @@ class TestTheCommandSurface:
 
 
 class TestGrantItemMagic:
-    @CHUNK
     def test_a_magic_id_creates_unidentified_instances_and_reports_their_ids(self):
         session = new_session()
         result = session.execute(GrantItem(character_id=SECOND, item_id="potion_of_healing", quantity=2))
@@ -240,7 +231,6 @@ class TestGrantItemMagic:
         assert len(set(ids)) == 2, "each granted copy has its own instance id"
         assert list(result.events) == [ItemAcquiredEvent(character_id=SECOND, item_ids=ids, origin="grant")]
 
-    @CHUNK
     def test_a_granted_device_is_made_the_way_treasure_makes_it(self):
         session = new_session()
         result = session.execute(GrantItem(character_id=LEAD, item_id="wand_of_fire_balls"))
@@ -250,7 +240,6 @@ class TestGrantItemMagic:
         assert wand is not None and wand.template_id == "wand_of_fire_balls"
         assert wand.charges_remaining is not None and 2 <= wand.charges_remaining <= 20, "charges rolled as 2d10"
 
-    @CHUNK
     def test_the_player_view_masks_a_granted_magic_item(self):
         session = new_session()
         result = session.execute(GrantItem(character_id=LEAD, item_id="potion_of_healing"))
@@ -261,7 +250,6 @@ class TestGrantItemMagic:
         assert "template_id" not in entry
         assert "potion_of_healing" not in json.dumps(entry)
 
-    @CHUNK
     def test_a_member_can_drink_a_granted_potion(self):
         session = new_session()
         result = session.execute(GrantItem(character_id=LEAD, item_id="potion_of_healing"))
@@ -276,7 +264,6 @@ class TestGrantItemMagic:
         assert member.current_hp > 1
         assert member.inventory.magic_item(instance_id) is None, "the potion is gone once drunk"
 
-    @CHUNK
     def test_a_granted_cursed_ring_sticks_like_a_found_one(self):
         session = new_session()
         result = session.execute(GrantItem(character_id=LEAD, item_id="ring_of_weakness"))
@@ -287,7 +274,6 @@ class TestGrantItemMagic:
         stuck = session.execute(UnequipItem(character_id=LEAD, item_id=instance_id))
         assert [rejection.code for rejection in stuck.rejections] == ["items.curse.stuck"]
 
-    @CHUNK
     def test_a_magic_grant_replays(self):
         document = adventure()
         session = new_session(document)
@@ -328,7 +314,6 @@ def granted_magic(session: GameSession, character_id: str, item_id: str) -> str:
 
 
 class TestRemoveItem:
-    @CHUNK
     def test_a_catalog_id_removes_units_from_the_stack(self):
         from osrlib.crawl.commands import RemoveItem
         from osrlib.crawl.events import ItemsRemovedEvent
@@ -344,7 +329,6 @@ class TestRemoveItem:
         assert stream_states(session) == streams and session.clock.rounds == rounds, "a removal is bookkeeping"
         assert session.command_log[-1] == RemoveItem(character_id=LEAD, item_id="torch", quantity=2)
 
-    @CHUNK
     def test_removing_the_whole_stack_leaves_nothing_behind(self):
         from osrlib.crawl.commands import RemoveItem
 
@@ -354,7 +338,6 @@ class TestRemoveItem:
         assert units(session, LEAD, "torch") == 0
         assert session.member(LEAD).inventory.carried_item("torch") is None
 
-    @CHUNK
     def test_an_instance_id_removes_that_magic_item(self):
         from osrlib.crawl.commands import RemoveItem
         from osrlib.crawl.events import ItemsRemovedEvent
@@ -369,7 +352,6 @@ class TestRemoveItem:
         assert inventory.magic_item(keep) is not None, "only the named copy goes"
         assert list(result.events) == [ItemsRemovedEvent(character_id=LEAD, item_ids=(sell,))]
 
-    @CHUNK
     def test_an_instance_id_removes_a_whole_ammunition_stack(self):
         from osrlib.crawl.commands import RemoveItem
 
@@ -379,7 +361,6 @@ class TestRemoveItem:
         assert session.execute(RemoveItem(character_id=LEAD, item_id="magic-item-9001")).accepted
         assert session.member(LEAD).inventory.magic_item("magic-item-9001") is None
 
-    @CHUNK
     def test_an_instance_id_removes_a_valuable(self):
         from osrlib.crawl.commands import RemoveItem
         from osrlib.crawl.events import ItemsRemovedEvent
@@ -392,7 +373,6 @@ class TestRemoveItem:
         assert session.member(SECOND).inventory.valuables == []
         assert list(result.events) == [ItemsRemovedEvent(character_id=SECOND, item_ids=("valuable-9001",))]
 
-    @CHUNK
     def test_an_equipped_weapon_is_unequipped_and_removed(self):
         from osrlib.crawl.commands import RemoveItem
 
@@ -405,7 +385,6 @@ class TestRemoveItem:
         assert inventory.wielded == []
         assert units(session, LEAD, "sword") == 0, "unequipped and gone, not put back in the pack"
 
-    @CHUNK
     def test_worn_armour_is_unequipped_and_removed(self):
         from osrlib.crawl.commands import RemoveItem
 
@@ -420,7 +399,6 @@ class TestRemoveItem:
         assert units(session, LEAD, "chainmail") == 0
         assert member.armour_class == bare
 
-    @CHUNK
     def test_a_revealed_curse_does_not_stop_a_referee_removal(self):
         from osrlib.crawl.commands import RemoveItem
         from osrlib.crawl.events import ItemsRemovedEvent
@@ -438,7 +416,6 @@ class TestRemoveItem:
         removals = [event for event in result.events if isinstance(event, ItemsRemovedEvent)]
         assert removals == [ItemsRemovedEvent(character_id=LEAD, item_ids=(ring_id,))]
 
-    @CHUNK
     def test_an_unknown_member_is_refused(self):
         from osrlib.crawl.commands import RemoveItem
 
@@ -448,7 +425,6 @@ class TestRemoveItem:
             session, RemoveItem(character_id="character-0099", item_id="torch"), "session.command.unknown_member"
         )
 
-    @CHUNK
     def test_a_selector_sent_straight_to_the_session_is_an_unknown_member(self):
         from osrlib.crawl.commands import RemoveItem
 
@@ -459,7 +435,6 @@ class TestRemoveItem:
                 session, RemoveItem(character_id=selector, item_id="torch"), "session.command.unknown_member"
             )
 
-    @CHUNK
     def test_an_item_the_member_does_not_carry_is_refused(self):
         from osrlib.crawl.commands import RemoveItem
 
@@ -467,14 +442,12 @@ class TestRemoveItem:
         session.execute(GrantItem(character_id=SECOND, item_id="torch", quantity=6))
         assert_refused(session, RemoveItem(character_id=LEAD, item_id="torch"), "items.remove.not_carried")
 
-    @CHUNK
     def test_an_id_in_no_catalog_is_not_carried(self):
         from osrlib.crawl.commands import RemoveItem
 
         session = new_session()
         assert_refused(session, RemoveItem(character_id=LEAD, item_id="no_such_item"), "items.remove.not_carried")
 
-    @CHUNK
     def test_fewer_units_than_asked_for_is_refused(self):
         from osrlib.crawl.commands import RemoveItem
 
@@ -483,7 +456,6 @@ class TestRemoveItem:
         assert_refused(session, RemoveItem(character_id=LEAD, item_id="torch", quantity=7), "items.remove.not_carried")
         assert units(session, LEAD, "torch") == 6
 
-    @CHUNK
     def test_another_members_instance_is_refused(self):
         from osrlib.crawl.commands import RemoveItem
 
@@ -492,7 +464,6 @@ class TestRemoveItem:
         assert_refused(session, RemoveItem(character_id=LEAD, item_id=potion), "items.remove.not_carried")
         assert session.member(SECOND).inventory.magic_item(potion) is not None
 
-    @CHUNK
     def test_an_instance_id_with_a_quantity_other_than_one_is_refused(self):
         from osrlib.crawl.commands import RemoveItem
 
@@ -510,7 +481,6 @@ class TestRemoveItem:
 
 
 class TestRemoveCoins:
-    @CHUNK
     def test_it_removes_exactly_the_denominations_asked_for(self):
         from osrlib.crawl.commands import RemoveCoins
         from osrlib.crawl.events import ItemsRemovedEvent
@@ -526,7 +496,6 @@ class TestRemoveCoins:
         assert list(result.events) == [ItemsRemovedEvent(character_id=LEAD, coins_gp_value=toll.value_gp)]
         assert stream_states(session) == streams and session.clock.rounds == rounds, "a removal is bookkeeping"
 
-    @CHUNK
     def test_it_makes_no_change_from_another_denomination(self):
         from osrlib.crawl.commands import RemoveCoins
 
@@ -535,7 +504,6 @@ class TestRemoveCoins:
         assert_refused(session, RemoveCoins(character_id=LEAD, coins=Coins(sp=5)), "items.coins.insufficient")
         assert purse(session, LEAD)["gp"] == 100
 
-    @CHUNK
     def test_a_purse_short_of_any_denomination_is_refused(self):
         from osrlib.crawl.commands import RemoveCoins
 
@@ -545,7 +513,6 @@ class TestRemoveCoins:
         assert_refused(session, RemoveCoins(character_id=LEAD, coins=Coins(gp=11)), "items.coins.insufficient")
         assert purse(session, LEAD) == {"pp": 0, "gp": 10, "ep": 0, "sp": 2, "cp": 0}
 
-    @CHUNK
     def test_the_exact_purse_can_be_emptied(self):
         from osrlib.crawl.commands import RemoveCoins
 
@@ -554,7 +521,6 @@ class TestRemoveCoins:
         assert session.execute(RemoveCoins(character_id=LEAD, coins=Coins(gp=10, sp=2))).accepted
         assert purse(session, LEAD) == {"pp": 0, "gp": 0, "ep": 0, "sp": 0, "cp": 0}
 
-    @CHUNK
     def test_an_unknown_member_is_refused(self):
         from osrlib.crawl.commands import RemoveCoins
 
@@ -568,7 +534,6 @@ class TestRemoveCoins:
 
 
 class TestEveryModeAndReplay:
-    @CHUNK
     @pytest.mark.parametrize("mode", [SessionMode.GAME_OVER, SessionMode.VICTORY], ids=lambda mode: mode.value)
     def test_the_three_commands_execute_in_a_terminal_mode(self, mode):
         from osrlib.crawl.commands import RemoveCoins, RemoveItem
@@ -588,7 +553,6 @@ class TestEveryModeAndReplay:
             assert session.execute(command).accepted, command.command_type
         assert session.mode is mode
 
-    @CHUNK
     def test_the_commands_execute_while_exploring(self):
         from osrlib.crawl.commands import RemoveCoins, RemoveItem
 
@@ -599,7 +563,6 @@ class TestEveryModeAndReplay:
         assert session.execute(RemoveItem(character_id=LEAD, item_id="torch")).accepted
         assert session.execute(RemoveCoins(character_id=LEAD, coins=Coins(gp=5))).accepted
 
-    @CHUNK
     def test_a_shop_sequence_saves_loads_and_replays(self):
         from osrlib.crawl.commands import RemoveCoins, RemoveItem
 
@@ -654,7 +617,6 @@ def complete_errand(session: GameSession) -> None:
 
 
 class TestCarrierSelector:
-    @CHUNK
     def test_a_quest_completion_takes_the_quest_item_from_its_first_carrier(self):
         from osrlib.crawl.commands import RemoveItem
         from osrlib.crawl.events import ItemsRemovedEvent
@@ -677,7 +639,6 @@ class TestCarrierSelector:
         assert notes(session) == []
         assert_replays(session, document)
 
-    @CHUNK
     def test_a_dead_carrier_is_passed_over(self):
         from osrlib.crawl.commands import RemoveItem
 
@@ -692,7 +653,6 @@ class TestCarrierSelector:
         assert units(session, SECOND, QUEST_ITEM.id) == 1
         assert units(session, FOURTH, QUEST_ITEM.id) == 0
 
-    @CHUNK
     def test_with_no_carrier_the_consequence_drops_with_a_note(self):
         from osrlib.crawl.commands import RemoveItem
 
@@ -714,7 +674,6 @@ class TestCarrierSelector:
         assert session.flags["blessed"] is True, "one dropped consequence never stops the rest"
         assert session.member(LEAD).inventory.model_dump(mode="json") == state
 
-    @CHUNK
     def test_party_removes_from_every_living_member_and_notes_who_had_none(self):
         from osrlib.crawl.commands import RemoveItem
 
@@ -732,7 +691,6 @@ class TestCarrierSelector:
         assert units(session, THIRD, "torch") == 5
         assert notes(session) == ["trigger rot: consequence 0 (remove_item) dropped (items.remove.not_carried)"] * 2
 
-    @CHUNK
     def test_first_removes_from_the_lead_survivor(self):
         from osrlib.crawl.commands import RemoveItem
 
@@ -760,7 +718,6 @@ class TestTollTrigger:
         )
         return adventure(triggers=(trigger,))
 
-    @CHUNK
     def test_entering_the_dungeon_takes_the_toll(self):
         from osrlib.crawl.events import ItemsRemovedEvent
 
@@ -775,7 +732,6 @@ class TestTollTrigger:
         assert notes(session) == []
         assert_replays(session, document)
 
-    @CHUNK
     def test_a_toll_nobody_can_pay_drops_with_a_note(self):
         session = played(self.toll())
         session.execute(GrantCoins(character_id=LEAD, coins=Coins(sp=40)))
@@ -786,7 +742,6 @@ class TestTollTrigger:
 
 
 class TestMagicRewards:
-    @CHUNK
     def test_a_quest_reward_can_grant_a_magic_item(self):
         document = quest_adventure(GrantItem(character_id=FIRST_LIVING_SELECTOR, item_id="potion_of_healing"))
         session = played(document)
@@ -826,7 +781,6 @@ def town_trigger(*consequences) -> Adventure:
 
 
 class TestValidation:
-    @CHUNK
     def test_the_removal_selectors_are_accepted_on_a_consequence(self):
         from osrlib.crawl.commands import RemoveCoins, RemoveItem
 
@@ -840,7 +794,6 @@ class TestValidation:
             )
         )
 
-    @CHUNK
     def test_the_removal_selectors_are_accepted_on_a_reward(self):
         from osrlib.crawl.commands import RemoveCoins, RemoveItem
 
@@ -851,7 +804,6 @@ class TestValidation:
             )
         )
 
-    @CHUNK
     def test_a_literal_member_id_on_a_removal_is_an_error(self):
         from osrlib.crawl.commands import RemoveCoins, RemoveItem
 
@@ -864,14 +816,12 @@ class TestValidation:
         assert f"trigger 'reward': consequence 0 names character '{LEAD}'" in message
         assert f"trigger 'reward': consequence 1 names character '{SECOND}'" in message
 
-    @CHUNK
     def test_a_literal_member_id_on_a_removal_reward_is_an_error(self):
         from osrlib.crawl.commands import RemoveItem
 
         message = validation_message(quest_adventure(RemoveItem(character_id=LEAD, item_id=QUEST_ITEM.id)))
         assert f"quest 'errand': reward 0 names character '{LEAD}'" in message
 
-    @CHUNK
     def test_the_carrier_selector_belongs_to_remove_item_alone(self):
         from osrlib.crawl.commands import RemoveCoins
 
@@ -882,7 +832,6 @@ class TestValidation:
         message = validation_message(town_trigger(GrantItem(character_id=CARRIER_SELECTOR, item_id="torch")))
         assert f"trigger 'reward': consequence 0 names character '{CARRIER_SELECTOR}'" in message
 
-    @CHUNK
     def test_an_authored_grant_may_name_a_magic_item(self):
         validate(town_trigger(GrantItem(character_id=PARTY_SELECTOR, item_id="potion_of_healing")))
         validate(quest_adventure(GrantItem(character_id=FIRST_LIVING_SELECTOR, item_id="wand_of_fire_balls")))
