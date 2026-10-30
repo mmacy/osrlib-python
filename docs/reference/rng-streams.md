@@ -50,7 +50,7 @@ The [`MAGIC_STREAM`][osrlib.core.spells.MAGIC_STREAM] (key `"magic"`) covers eve
 
 ## Treasure stream
 
-The [`TREASURE_STREAM`][osrlib.core.treasure.TREASURE_STREAM] (key `"treasure"`) covers treasure generation end to end, in the order a treasure entry is printed: whether a treasure type is present at all, how much of it there is, and the resolution of each individual coin hoard, gem, piece of jewellery, or magic item.
+The [`TREASURE_STREAM`][osrlib.core.treasure.TREASURE_STREAM] (key `"treasure"`) covers treasure generation end to end, in the order a treasure entry is printed: whether a treasure type is present at all, how much of it there is, and the resolution of each individual coin hoard, gem, piece of jewellery, or magic item. The session also rolls the details of a magic item granted with [`GrantItem`][osrlib.crawl.commands.GrantItem] on this stream, like a wand's charges.
 
 ## Crawl-session streams
 

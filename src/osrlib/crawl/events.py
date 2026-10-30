@@ -116,6 +116,7 @@ __all__ = [
     "ItemsDroppedEvent",
     "ItemsGivenEvent",
     "ItemsLeftBehindEvent",
+    "ItemsRemovedEvent",
     "JournalEntryAddedEvent",
     "LightEvent",
     "ListenedEvent",
@@ -1967,6 +1968,33 @@ class AdventureCompletedEvent(Event):
     [`QuestCompletedEvent`][osrlib.crawl.events.QuestCompletedEvent], or `None`."""
 
 
+class ItemsRemovedEvent(Event):
+    """A referee took items or coins away from a party member.
+
+    Emitted by [`RemoveItem`][osrlib.crawl.commands.RemoveItem] and
+    [`RemoveCoins`][osrlib.crawl.commands.RemoveCoins]. What was removed has left the
+    game, so update the member's inventory on screen. To find out why, read the `source` of
+    the command that emitted it.
+    """
+
+    allowed_codes: ClassVar[frozenset[str]] = frozenset({"session.items.removed"})
+    """The only message code this event uses."""
+
+    event_type: Literal["items_removed"] = "items_removed"
+    """The event type, `items_removed`, which identifies this class in serialized form."""
+    code: str = "session.items.removed"
+    """The message code, always `session.items.removed`."""
+    visibility: Visibility = Visibility.PLAYER
+    """Player visibility: the party knows what it no longer has."""
+    character_id: str
+    """The member who lost the items or coins."""
+    item_ids: tuple[str, ...] = ()
+    """What was removed, in the same id form the acquisition used: a mundane item's catalog id once
+    for each unit, and the instance id of a magic item or a valuable. Empty for a removal of coins."""
+    coins_gp_value: int = 0
+    """The coins removed, as their value in gold pieces. 0 for a removal of items."""
+
+
 CRAWL_EVENT_CLASSES: tuple[type[Event], ...] = (
     PartyMovedEvent,
     LocationEnteredEvent,
@@ -2023,6 +2051,7 @@ CRAWL_EVENT_CLASSES: tuple[type[Event], ...] = (
     ObjectiveCompletedEvent,
     QuestCompletedEvent,
     AdventureCompletedEvent,
+    ItemsRemovedEvent,
 )
 """The event classes defined in this module, in the order they're declared.
 

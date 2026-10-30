@@ -60,7 +60,8 @@ Player commands let the model drive the party's turn. Referee commands let it *r
 
 - [`SetFlag`][osrlib.crawl.commands.SetFlag] - record a durable fact (the lever was pulled, the alarm was raised) that listeners and later narration can react to. See [Listeners and flags](../guides/listeners-and-flags.md)
 - [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] and [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] - open an encounter at a chosen distance, by fixed count or dice
-- [`GrantItem`][osrlib.crawl.commands.GrantItem], [`GrantCoins`][osrlib.crawl.commands.GrantCoins], [`AwardXP`][osrlib.crawl.commands.AwardXP] - place rewards directly
+- [`GrantItem`][osrlib.crawl.commands.GrantItem], [`GrantCoins`][osrlib.crawl.commands.GrantCoins], [`AwardXP`][osrlib.crawl.commands.AwardXP] - place rewards directly, magic items included
+- [`RemoveItem`][osrlib.crawl.commands.RemoveItem], [`RemoveCoins`][osrlib.crawl.commands.RemoveCoins] - take items or coins away: a price, a toll, armour a shop buys back
 - [`SetDoorState`][osrlib.crawl.commands.SetDoorState] - rewrite any door's state anywhere: lock it, wedge it, reveal it
 - [`PlaceParty`][osrlib.crawl.commands.PlaceParty] and [`AdvanceTime`][osrlib.crawl.commands.AdvanceTime] - teleport the party, advance the clock
 - [`AddJournalEntry`][osrlib.crawl.commands.AddJournalEntry] and [`RecordNote`][osrlib.crawl.commands.RecordNote] - what the agent records in the game world: a journal entry is written for the players and appears in their view, and a note is for the referee only and stays out of the player view
