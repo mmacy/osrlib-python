@@ -815,7 +815,11 @@ def _handle_turn_undead(session, command: TurnUndead) -> tuple[list[Rejection], 
     turning_rejections = validate_turn_undead(member, definition)
     if turning_rejections:
         return turning_rejections, []
-    candidates = _monsters(session, state)
+    from osrlib.crawl import battle as battle_module
+
+    # A wand fired in an earlier encounter round can leave a dead monster in a group, and a dead
+    # monster isn't present to be turned.
+    candidates = battle_module._turning_candidates(session)
     result = turn_undead(
         member,
         definition,
@@ -836,8 +840,6 @@ def _handle_turn_undead(session, command: TurnUndead) -> tuple[list[Rejection], 
         return [], events
     # Presenting the symbol is an aggressive act: surviving unturned monsters
     # attack (see the adaptations register), and battle begins at once.
-    from osrlib.crawl import battle as battle_module
-
     state.stance = ReactionResult.ATTACKS.value
     events.append(StanceChangedEvent(stance=state.stance))
     events.extend(session.advance_rounds(1))

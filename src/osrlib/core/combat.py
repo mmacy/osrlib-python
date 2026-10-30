@@ -3349,7 +3349,7 @@ def drain_monster_hd(monster: MonsterInstance, *, levels: int = 1, stream: RngSt
 
     monster_id = _entity_id(monster)
     former = monster.hit_dice_count
-    hp_lost = 0
+    former_max_hp = monster.max_hp
     slain = False
     for _ in range(levels):
         if monster.hit_dice_count <= 1:
@@ -3359,7 +3359,6 @@ def drain_monster_hd(monster: MonsterInstance, *, levels: int = 1, stream: RngSt
         monster.drained_hd += 1
         monster.current_hp = max(1, monster.current_hp - lost)
         monster.max_hp = max(1, monster.max_hp - lost)
-        hp_lost += lost
     events: list[Event] = []
     if slain:
         # The killing Hit Die counts as lost, mirroring character drain.
@@ -3369,7 +3368,7 @@ def drain_monster_hd(monster: MonsterInstance, *, levels: int = 1, stream: RngSt
                 target_id=monster_id,
                 levels_lost=former - monster.hit_dice_count + 1,
                 new_level=0,
-                hp_lost=hp_lost,
+                hp_lost=former_max_hp - monster.max_hp,
             )
         )
         events.extend(kill(monster))
@@ -3380,7 +3379,7 @@ def drain_monster_hd(monster: MonsterInstance, *, levels: int = 1, stream: RngSt
             target_id=monster_id,
             levels_lost=former - monster.hit_dice_count,
             new_level=monster.hit_dice_count,
-            hp_lost=hp_lost,
+            hp_lost=former_max_hp - monster.max_hp,
         )
     )
     events.append(HitPointsReportedEvent(target_id=monster_id, current_hp=monster.current_hp, max_hp=monster.max_hp))

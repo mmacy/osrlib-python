@@ -2362,6 +2362,10 @@ class TurnUndead(Command):
     monsters that weren't turned attack at once and battle starts. The turned members of a
     partly turned group break away as a new group and flee.
 
+    The turning reaches every living monster in the encounter's groups that haven't fled.
+    A monster killed earlier in the encounter, by a wand for example, isn't read on the
+    turning table.
+
     Modes:
         `encounter`
 

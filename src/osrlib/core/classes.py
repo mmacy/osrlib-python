@@ -1304,6 +1304,7 @@ def drain_levels(
     if xp_policy not in ("halfway", "level_minimum"):
         raise ValueError(f"unknown xp policy {xp_policy!r}")
     former_level = character.level
+    former_max_hp = character.max_hp
     hp_rolls: list[int] = []
     hp_lost = 0
     slain = False
@@ -1337,7 +1338,7 @@ def drain_levels(
                 target_id=character.id or character.name,
                 levels_lost=levels_lost,
                 new_level=0,
-                hp_lost=hp_lost,
+                hp_lost=former_max_hp - character.max_hp,
                 spawn_consequence=spawn_consequence,
             )
         )
@@ -1363,9 +1364,8 @@ def drain_levels(
             target_id=character.id or character.name,
             levels_lost=former_level - character.level,
             new_level=character.level,
-            hp_lost=hp_lost,
+            hp_lost=former_max_hp - character.max_hp,
             xp_after=xp_after,
-            spawn_consequence=spawn_consequence,
         )
     )
     events.append(
