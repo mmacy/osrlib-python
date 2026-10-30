@@ -2805,8 +2805,18 @@ def _is_arcane_caster(target: Any) -> bool:
 
 
 def _monster_hit_dice(target: Any) -> Any | None:
+    """A monster's Hit Dice as it has them now: the template's, with the count less any drained Hit Dice.
+
+    Energy drain takes Hit Dice away, so a 4+1 ogre drained of one is a 3+1 creature to *sleep*. Returns `None` for a
+    target that isn't a monster.
+    """
     template = getattr(target, "template", None)
-    return template.hit_dice if template is not None else None
+    if template is None:
+        return None
+    drained = getattr(target, "drained_hd", 0)
+    if drained == 0:
+        return template.hit_dice
+    return template.hit_dice.model_copy(update={"count": target.hit_dice_count})
 
 
 def _eligible(target: Any, mode: SpellMode) -> bool:

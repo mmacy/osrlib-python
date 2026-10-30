@@ -1,5 +1,5 @@
 {
-  "engine_version": "1.4.0",
+  "engine_version": "2.0.1",
   "kind": "party",
   "payload": {
     "characters": [
@@ -91,6 +91,7 @@
         "max_hp": 2,
         "memorized_spells": [],
         "name": "Adelheid",
+        "nonregen_damage": 0,
         "race": "human",
         "scores": {
           "cha": 15,
@@ -209,6 +210,7 @@
         "max_hp": 2,
         "memorized_spells": [],
         "name": "Borin",
+        "nonregen_damage": 0,
         "race": "dwarf",
         "scores": {
           "cha": 17,
@@ -283,6 +285,7 @@
         "max_hp": 5,
         "memorized_spells": [],
         "name": "Cirdan",
+        "nonregen_damage": 0,
         "race": "elf",
         "scores": {
           "cha": 14,
@@ -359,6 +362,7 @@
         "max_hp": 4,
         "memorized_spells": [],
         "name": "Dagmar",
+        "nonregen_damage": 0,
         "race": "human",
         "scores": {
           "cha": 9,
@@ -482,6 +486,7 @@
         "max_hp": 2,
         "memorized_spells": [],
         "name": "Elderberry",
+        "nonregen_damage": 0,
         "race": "halfling",
         "scores": {
           "cha": 14,
@@ -652,6 +657,7 @@
         "max_hp": 3,
         "memorized_spells": [],
         "name": "Falk",
+        "nonregen_damage": 0,
         "race": "human",
         "scores": {
           "cha": 11,
@@ -785,6 +791,7 @@
         "max_hp": 1,
         "memorized_spells": [],
         "name": "Grima",
+        "nonregen_damage": 0,
         "race": "human",
         "scores": {
           "cha": 10,

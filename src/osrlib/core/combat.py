@@ -1862,8 +1862,12 @@ def deal_damage(
        the round in a [`MonsterInstance`][osrlib.core.monsters.MonsterInstance]'s
        `last_damaged_round`. A troll's regeneration waits after that round, and a dead
        troll gets back up 2d6 rounds after it.
-    4. Damage of an element that stops a monster's regeneration, like fire and acid for a
-       troll, also adds to the monster's `nonregen_damage`, up to its maximum hit points.
+    4. Damage of an element that stops a target's regeneration also adds to the target's
+       `nonregen_damage`, up to its maximum hit points. Fire and acid stop a troll's
+       regeneration and the regeneration of a character who wears a ring of regeneration.
+       For any damage to a target that regenerates, the function first cuts
+       `nonregen_damage` to the damage the target had before this hit, because healing
+       from another source, like a potion, heals that damage too.
     5. At 0 hit points the target dies, through [`kill`][osrlib.core.effects.kill]. A
        monster that regenerates after death dies for good only when its
        `nonregen_damage` reaches its maximum hit points. Then a destructive source
@@ -1940,22 +1944,29 @@ def deal_damage(
     events: list[Event] = []
     target_id = _entity_id(target)
     already_dead = has_condition(target, Condition.DEAD)
+    damage_before = target.max_hp - target.current_hp
     target.current_hp = max(0, target.current_hp - amount)
     if clock is not None and hasattr(target, "last_damaged_round"):
-        # Only a monster instance has the round stamp and the non-regenerable ledger below.
-        # The type checker can't see that this `hasattr` and the regeneration ability prove
-        # the target is one, so each use casts to the type the branch already established.
+        # Only a monster instance has the round stamp. The type checker can't see that
+        # this `hasattr` proves the target is one, so the use casts to that type.
         cast(MonsterInstance, target).last_damaged_round = clock.rounds
-    regeneration = _monster_ability_params(target, "regeneration")
+    # A troll regenerates by its template's ability, and a character by a worn ring of
+    # regeneration. Both record the damage the regeneration can't heal in `nonregen_damage`.
+    regeneration = _monster_ability_params(target, "regeneration") or _item_effect_params(target, "regeneration")
     blocked = False
     newly_permanent = False
-    if regeneration is not None and source.element is not None:
+    if regeneration is not None:
+        # The type checker can't see that a regeneration ability or ring proves the target
+        # has the `nonregen_damage` field, so the uses cast to the two types that have it.
+        regenerator = cast("Character | MonsterInstance", target)
+        # Healing from another source heals the blocked damage too, so the record never
+        # counts more than the damage the target had before this hit.
+        before = min(regenerator.nonregen_damage, damage_before)
+        regenerator.nonregen_damage = before
         blocked_by = tuple(str(element) for element in regeneration.get("blocked_by", ()))
-        blocked = source.element in blocked_by
+        blocked = source.element is not None and source.element in blocked_by
         if blocked:
-            regenerator = cast(MonsterInstance, target)
-            before = regenerator.nonregen_damage
-            regenerator.nonregen_damage = min(regenerator.max_hp, regenerator.nonregen_damage + amount)
+            regenerator.nonregen_damage = min(regenerator.max_hp, before + amount)
             newly_permanent = before < regenerator.max_hp <= regenerator.nonregen_damage
     keys = source.keys if source.element is None or source.element in source.keys else (*source.keys, source.element)
     events.append(
@@ -1975,7 +1986,7 @@ def deal_damage(
         permanent = (
             regeneration is not None
             and regeneration.get("revive") is not None
-            and cast(MonsterInstance, target).nonregen_damage >= target.max_hp
+            and cast("Character | MonsterInstance", target).nonregen_damage >= target.max_hp
         )
         events.extend(kill(target, permanent=permanent))
         if source.destructive:

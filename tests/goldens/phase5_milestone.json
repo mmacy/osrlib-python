@@ -3684,6 +3684,7 @@
           "max_hp": 6,
           "memorized_spells": [],
           "name": "Brakka",
+          "nonregen_damage": 0,
           "race": "human",
           "scores": {
             "cha": 13,
@@ -3759,6 +3760,7 @@
           "max_hp": 3,
           "memorized_spells": [],
           "name": "Wynn",
+          "nonregen_damage": 0,
           "race": "human",
           "scores": {
             "cha": 11,
@@ -3833,6 +3835,7 @@
           "max_hp": 3,
           "memorized_spells": [],
           "name": "Sable",
+          "nonregen_damage": 0,
           "race": "human",
           "scores": {
             "cha": 16,
@@ -3906,6 +3909,7 @@
           "max_hp": 1,
           "memorized_spells": [],
           "name": "Elandril",
+          "nonregen_damage": 0,
           "race": "human",
           "scores": {
             "cha": 11,

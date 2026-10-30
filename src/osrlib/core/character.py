@@ -287,6 +287,15 @@ class Character(BaseModel):
     [`kill`][osrlib.core.effects.kill] applies, not a hit point value.
     """
 
+    nonregen_damage: int = Field(default=0, ge=0)
+    """Fire and acid damage that a worn ring of regeneration can't heal, up to `max_hp`.
+
+    [`deal_damage`][osrlib.core.combat.deal_damage] adds fire and acid damage here while the character wears the ring,
+    and the ring heals the character only up to `max_hp` less this amount. Other healing, like a potion, heals this
+    damage too. The next time the character takes damage while wearing the ring, `deal_damage` first cuts this value
+    to the damage the character had before that hit. It's 0 for a character who has never worn the ring.
+    """
+
     inventory: Inventory = Field(default_factory=Inventory)
     """Everything the character carries, wears, and wields, and their coins. See
     [`Inventory`][osrlib.core.items.Inventory] and the buying and equipping functions in

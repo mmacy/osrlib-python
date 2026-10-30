@@ -6874,6 +6874,7 @@
           "max_hp": 20,
           "memorized_spells": [],
           "name": "Brakk",
+          "nonregen_damage": 0,
           "race": "human",
           "scores": {
             "cha": 12,
@@ -6919,6 +6920,7 @@
             }
           ],
           "name": "Faelwen",
+          "nonregen_damage": 0,
           "race": "elf",
           "scores": {
             "cha": 15,
@@ -6961,6 +6963,7 @@
           "max_hp": 7,
           "memorized_spells": [],
           "name": "Sable",
+          "nonregen_damage": 0,
           "race": "human",
           "scores": {
             "cha": 5,
@@ -7010,6 +7013,7 @@
             }
           ],
           "name": "Wynn",
+          "nonregen_damage": 0,
           "race": "human",
           "scores": {
             "cha": 12,
@@ -7071,6 +7075,7 @@
             }
           ],
           "name": "Elara",
+          "nonregen_damage": 0,
           "race": "human",
           "scores": {
             "cha": 13,
