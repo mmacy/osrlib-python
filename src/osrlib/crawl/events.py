@@ -122,6 +122,7 @@ __all__ = [
     "LightEvent",
     "ListenedEvent",
     "LocationEnteredEvent",
+    "MemberWithdrewEvent",
     "MonsterDefeatedEvent",
     "MonsterFledEvent",
     "MonstersLeftBehindEvent",
@@ -1169,6 +1170,41 @@ class GroupMovedEvent(Event):
     hand to hand."""
 
 
+class MemberWithdrewEvent(Event):
+    """A party member stepped back out of the front rank, and a member from behind took their place.
+
+    Emitted by [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound] in the party's
+    movement step, once for each member who made a fighting withdrawal or a retreat alone and
+    named a [`replacement_id`][osrlib.crawl.commands.BattleDeclaration.replacement_id]. The two
+    members have traded places in the marching order, so the withdrawing member now stands
+    where the replacement stood, and the replacement stands in the front rank. The party
+    hasn't moved, and no group's distance has changed.
+
+    The events come in the marching order of the withdrawing members, before the party's
+    `close`, if the round has one. A swap that can't happen when the movement step comes,
+    because one of the two has died or can no longer move, or because the ranks shifted
+    and one of them no longer stands where they did, reports nothing, and the two stay where
+    they are.
+
+    Redraw a battle screen's ranks from this event, or read them again from
+    [`PlayerView.party`][osrlib.crawl.views.PlayerView.party] and
+    [`EncounterView.front_rank`][osrlib.crawl.views.EncounterView.front_rank].
+    """
+
+    allowed_codes: ClassVar[frozenset[str]] = frozenset({"battle.member.withdrew", "battle.member.retreated"})
+    """`battle.member.withdrew` for a fighting withdrawal and `battle.member.retreated` for a
+    retreat."""
+
+    event_type: Literal["member_withdrew"] = "member_withdrew"
+    """The event type, `member_withdrew`, which identifies this class in serialized form."""
+    visibility: Visibility = Visibility.PLAYER
+    """Player visibility: the party sees its own ranks change."""
+    character_id: str
+    """The member who stepped back, by party member id."""
+    replacement_id: str
+    """The member who stepped up into the front rank in their place, by party member id."""
+
+
 class MonsterFledEvent(Event):
     """A monster group broke and ran.
 
@@ -2074,6 +2110,7 @@ CRAWL_EVENT_CLASSES: tuple[type[Event], ...] = (
     BattleRoundEvent,
     SpellDeclaredEvent,
     GroupMovedEvent,
+    MemberWithdrewEvent,
     MonsterFledEvent,
     MonstersLeftBehindEvent,
     MonsterDefeatedEvent,

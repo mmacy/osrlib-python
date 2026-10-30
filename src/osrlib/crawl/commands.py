@@ -2404,8 +2404,10 @@ class BattleDeclaration(BaseModel):
     - `attack` takes `target_group_id` and, optionally, `weapon_id`. `None` means bare
       hands.
     - `cast` takes `spell_id`, `spell_mode`, `reversed`, and `targets`.
-    - `move` takes `move`, and `target_group_id` for a `close`. It changes the distance
-      between the party and the monsters.
+    - `move` takes `move`, `target_group_id` for a `close`, and `replacement_id` for a
+      `fighting_withdrawal` or a `retreat` that the member makes alone. A formation move
+      changes the distance between the party and the monsters. A member's own move changes
+      the party's ranks instead.
     - `use_item` takes `item_id`. The member drinks a potion, reads a scroll, or uses a
       wand, staff, or rod, or throws a flask of oil or a similar item at `target_group_id`.
     - `turn_undead` needs nothing else. Turning resolves with the spells in the round, but
@@ -2478,21 +2480,42 @@ class BattleDeclaration(BaseModel):
     groups, the party closes on the group of the first `close` in
     [`ResolveBattleRound.declarations`][osrlib.crawl.commands.ResolveBattleRound.declarations].
 
-    `fighting_withdrawal` backs the party away from every group at half that rate. A member
-    who declares it makes no attack that round, because a member declares one action per
-    round.
+    `fighting_withdrawal` and `retreat` are the SRD's two ways out of melee. When every
+    member in `declarers` declares the same one, the whole formation makes it.
+    `fighting_withdrawal` then backs the party away from every group at half that rate.
+    `retreat` backs the party away at the full rate and ends the battle. It becomes a chase,
+    or a clean escape when no monster can chase. A round whose only declarer declares one is
+    a formation move too.
 
-    `retreat` backs the party away at the full rate. A round in which every member retreats
-    ends the battle. It becomes a chase, or a clean escape when no monster can chase.
+    Otherwise each `fighting_withdrawal` or `retreat` is the declaring member's own. It
+    doesn't move the party. The member, who has to stand in the front rank, steps back and
+    trades places in the marching order with the back-rank member named in `replacement_id`.
+    A retreating member is easier to hit for the whole round: attackers get +2 against them
+    and ignore their shield. The round goes on, and the battle with it.
 
-    The party moves as one formation, and no member can leave it. So `fighting_withdrawal`
-    and `retreat` are legal only when every member in `declarers` declares the same one.
-    When some members declare one of them and others don't, a member who declares `close`
-    included, the session refuses the whole round with `battle.declaration.formation_split`.
-    The result contains one rejection for each of the two moves the round splits on, and each
-    one lists who declared that move and who didn't.
+    A member who declares either move makes no attack that round, whether the move is the
+    formation's or their own, because a member declares one action per round.
     [The adaptations register](https://mmacy.github.io/osrlib-python/adaptations/)
-    describes this rule in full."""
+    describes these rules in full."""
+    replacement_id: str | None = None
+    """The back-rank member who steps up into this member's place, for a `fighting_withdrawal`
+    or a `retreat` that this member makes alone, by
+    [`MemberView.id`][osrlib.crawl.views.MemberView.id]. Leave it `None` for every other
+    declaration, a formation move included.
+
+    The two members trade places in the marching order in the party's movement step, and the
+    order stays that way after the battle. Each rank stands five feet behind the one in front
+    of it, so a replacement two ranks back is ten feet away. The withdrawing member has to
+    cover that distance at up to half their encounter movement rate for a fighting withdrawal,
+    or their full encounter rate for a retreat. The replacement has to cover it at up to their
+    full encounter rate. *Haste* doubles either limit for the member who bears it.
+
+    The replacement has to be a living member behind the front rank who is in
+    [`EncounterView.declarers`][osrlib.crawl.views.EncounterView.declarers], isn't in
+    `immobile`, and hasn't declared a `cast`, a `fighting_withdrawal`, or a `retreat`. A
+    spell caster can't move and cast in the same round. Two withdrawing members can't name
+    the same replacement. From the movement step on, the replacement stands in the front
+    rank, so they may declare a melee attack against a group in reach this round."""
     item_id: str | None = None
     """Which item a `use_item` declaration uses: a magic item's per-instance id for a potion, a
     scroll, a wand, a staff, or a rod, or a mundane item's catalog id for an item thrown at a
@@ -2576,7 +2599,9 @@ class ResolveBattleRound(Command):
         side order.
 
         Movement: a [`GroupMovedEvent`][osrlib.crawl.events.GroupMovedEvent] each time the
-        distance to a group changes.
+        distance to a group changes, and a
+        [`MemberWithdrewEvent`][osrlib.crawl.events.MemberWithdrewEvent] each time a member
+        who withdraws alone trades places with a member from a back rank.
 
         Missiles and melee:
         [`AttackRolledEvent`][osrlib.core.events.AttackRolledEvent],
