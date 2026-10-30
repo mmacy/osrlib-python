@@ -625,8 +625,8 @@ class SpellEffect(BaseModel):
     """The conditions a `cure` effect lifts. *Cure light wounds*' `cure_paralysis` mode lifts `paralysed`.
 
     Casting releases each ledger effect on the target that puts one of these conditions on it.
-    Paralysis comes off however it was put on: casting also removes a `paralysed` condition that
-    no ledger effect holds, like one granted with [`grant_condition`][osrlib.core.effects.grant_condition].
+    Paralysis comes off however it was put on: casting also removes a `paralysed` condition with no
+    ledger effect behind it, like one granted with [`grant_condition`][osrlib.core.effects.grant_condition].
     The other conditions come off only with the ledger effect that granted them.
     """
 
@@ -3288,7 +3288,7 @@ def _resolve_cure(
             state.affect(target)
         if Condition.PARALYSED in effect.cures_conditions and not isinstance(target, str):
             # *Cure light wounds* negates paralysing effects, so paralysis comes off
-            # however it was put on, including a record no ledger effect holds.
+            # however it was put on, including a record with no ledger effect behind it.
             for record in [record for record in target.conditions if record.condition is Condition.PARALYSED]:
                 state.events.extend(remove_condition(target, Condition.PARALYSED, record.effect_id))
                 state.affect(target)

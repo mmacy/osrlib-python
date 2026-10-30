@@ -4413,8 +4413,8 @@ def _healing_would_work(service: str, member: Character, spell, context) -> bool
     """Return whether a temple service would do anything for the member.
 
     *Raise dead* needs a dead member, and *cure disease* a diseased one. *Neutralize poison*
-    needs a poisoned member, or one that poison killed within the spell's revival window,
-    which the cast context carries from the death records. The other services always count
+    needs a poisoned member, or one that poison killed within the spell's revival window.
+    `_cast_context` works out how long ago from the session's death records. The other services always count
     as working. The check reads state only, so a refusal draws nothing and changes nothing.
     """
     if service == "raise_dead":

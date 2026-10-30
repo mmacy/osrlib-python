@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
-- [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] takes an exact band size in the new `count_fixed` field, so a referee can place a band of four adventurers (#167). Before, the size had to be a dice expression, and `"4"` isn't one. Set at most one of `count_fixed` and `count_dice`. With neither, the band rolls the B/X number for its kind as before. A saved command without the field still parses.
+- [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] takes an exact band size in the new `count_fixed` field, so a referee can place a band of four adventurers (#167). Before, the size had to be a dice expression, and `"4"` isn't one. Set at most one of `count_fixed` and `count_dice`. With neither, the session rolls the B/X number for the band's kind as before. A saved command without the field still parses.
 
 ### Fixed
 
@@ -25,7 +25,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - A caster maintains one concentration spell at a time (#167). Casting a concentration spell in battle ends the one the caster already maintains. Before, both kept running. A spell that needs no concentration still leaves the maintained one alone.
 - *Cure light wounds* cast to cure paralysis removes the `paralysed` condition however the target got it (#166). Before, it released only ledger effects, so a target that a game paralysed with [`grant_condition`][osrlib.core.effects.grant_condition] stayed paralysed and the cast reported no effect. The spell still removes no other condition.
 - The temple refuses a healing service that would do nothing, and takes no payment for it (#167). [`PurchaseHealing`][osrlib.crawl.commands.PurchaseHealing] for `raise_dead` on a living member, `cure_disease` on a member who isn't diseased, or `neutralize_poison` on a member who isn't poisoned is rejected with the new code `town.healing.no_effect`. Before, the party paid 1,500 gp to raise a living member and the spell did nothing. A party that can't pay the fee still gets `items.purchase.insufficient_funds` first.
-- A chute trap drops the party only when at least one member fails the save (#167). When every save passes, the party stays on the trapped cell. Before, a [`TrapEffect`][osrlib.crawl.dungeon.TrapEffect] with a `transition` moved the party whatever the saves rolled. A chute with no save still always drops the party, and the saves take the same draws as before.
+- A chute trap drops the party only when at least one member fails the save (#167). When every save passes, the party stays on the trapped cell. Before, a [`TrapEffect`][osrlib.crawl.dungeon.TrapEffect] with a `transition` moved the party whatever the saves rolled. A chute with no save still always drops the party, and the session rolls the saves as before.
 - A melee attack on a petrified creature hits automatically, as on a paralysed or sleeping one (#166). [`attack_roll`][osrlib.core.combat.attack_roll] reports `combat.attack.auto_hit` and draws no d20, so only the damage is rolled. A missile attack on a petrified creature is still rolled.
 
 ## [2.0.1] - 2026-10-30
