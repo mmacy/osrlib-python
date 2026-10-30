@@ -4,8 +4,8 @@ Regenerate with `uv run python tests/generate_phase14_goldens.py` (and explain w
 the commit message). The golden records a scripted delve whose only actor besides the
 player is the registered interpreter: a gate refusal that costs nothing, a lever flag
 whose trigger opens the portcullis and writes the party's journal, a walk through the
-raised grille, and an ambush trigger whose spawn arrives to find the guardroom's own
-encounter already open and is dropped with a note.
+raised grille, and an ambush trigger whose spawn joins the guardroom's own encounter,
+which is already open.
 
 It is where the milestone is checked: the scenario is authored data, and the same log
 replayed with no listeners at all reaches the same world — command and event logs
@@ -113,18 +113,18 @@ class TestMilestoneBeats:
         moves = [event for event in golden["event_log"] if event.get("code") == "exploration.party.moved"]
         assert [event["x"] for event in moves] == [1, 2, 3, 4], "past the door at (2,0) and on to the guardroom"
 
-    def test_the_colliding_spawn_drops_alone_and_the_note_says_why(self, golden):
-        assert not any(entry["command_type"] == "spawn_monsters" for entry in golden["command_log"])
-        note = next(event for event in golden["event_log"] if event.get("code") == "session.note.recorded")
-        assert note["text"] == (
-            "trigger guard-ambush: consequence 0 (spawn_monsters) dropped (session.command.encounter_in_progress)"
-        )
-        assert note["visibility"] == "referee"
-        # The firing itself still happened, and its journal beat still landed.
+    def test_the_ambush_spawn_joins_the_open_encounter(self, golden):
+        spawns = [entry for entry in golden["command_log"] if entry["command_type"] == "spawn_monsters"]
+        assert [entry["source"] for entry in spawns] == [AMBUSH]
+        assert not any(event.get("code") == "session.note.recorded" for event in golden["event_log"])
+        spawned = [event for event in golden["event_log"] if event.get("code") == "session.monsters.spawned"]
+        assert [(event["template_id"], len(event["monster_ids"])) for event in spawned] == [("goblin", 1)]
+        assert golden["final_state"]["mode"] == "encounter", "the ambusher joined; nothing reopened or closed it"
+        # The firing itself happened, and its journal beat landed.
         assert golden["final_state"]["fired_triggers"] == ["portcullis-rises", "guard-ambush"]
         assert [entry["command_type"] for entry in golden["command_log"] if entry["source"] == AMBUSH] == [
             "mark_trigger_fired",
-            "record_note",
+            "spawn_monsters",
             "add_journal_entry",
         ]
 
