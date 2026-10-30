@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- When a wandering monster interrupts a rest, the full turns the party rested before the monsters came now count (#169). Before, a 48-turn night broken after four full turns cleared neither fatigue nor exhaustion. Now one full turn of rest clears fatigue. Each full turn also counts toward the three that clear exhaustion from a chase, and the next rest adds to that count. A rest interrupted during its first turn still clears nothing. An interrupted night still isn't sleep for preparing spells, and an interrupted day still heals nobody. The fix makes no new draws, and no golden file changed.
+
 ## [2.0.1] - 2026-10-30
 
 ### Changed
