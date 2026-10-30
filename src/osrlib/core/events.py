@@ -381,7 +381,8 @@ class DamageDealtEvent(Event):
 
     non_regenerable: bool = False
     """True when the target regenerates and this damage's element stops its regeneration, as fire and acid do for
-    a troll. Such damage can't be regenerated, and once enough of it adds up, the troll stays dead."""
+    a troll or for a character who wears a ring of regeneration. Such damage can't be regenerated, and once enough of
+    it adds up, a troll stays dead."""
 
 
 class DamageAbsorbedEvent(Event):
