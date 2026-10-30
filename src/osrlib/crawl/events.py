@@ -100,6 +100,7 @@ __all__ = [
     "DiceRolledEvent",
     "DoorEvent",
     "EncounterEndedEvent",
+    "EncounterGroupJoinedEvent",
     "EncounterStartedEvent",
     "EvasionEvent",
     "ExhaustionEvent",
@@ -705,7 +706,8 @@ class RestedEvent(Event):
     Emitted by [`Rest`][osrlib.crawl.commands.Rest]. A completed rest clears the
     penalty for going without rest, counts toward recovering from exhaustion after a
     chase, and, for a full day, heals the party. A wandering monster that arrives during
-    the rest interrupts it, and an interrupted rest does none of that.
+    the rest interrupts it. An interrupted rest heals nobody, but each full turn rested
+    before the monsters came still clears that penalty and counts toward recovery.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"exploration.rest.rested", "exploration.rest.interrupted"})
@@ -731,8 +733,8 @@ class FatigueEvent(Event):
     `exploration.fatigue.gained` comes from any command that passes a turn while the
     session is in `exploring` mode, once the party has gone too long without resting
     (see [`check_fatigue`][osrlib.crawl.exploration.check_fatigue]).
-    `exploration.fatigue.recovered` comes from a completed
-    [`Rest`][osrlib.crawl.commands.Rest].
+    `exploration.fatigue.recovered` comes from a [`Rest`][osrlib.crawl.commands.Rest] once the
+    party has rested one full turn, even if a wandering monster interrupts it later.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"exploration.fatigue.gained", "exploration.fatigue.recovered"})
@@ -856,6 +858,37 @@ class EncounterStartedEvent(Event):
     monsters_surprised: bool = False
     """Whether the monsters were caught off guard, which gives the party a free round if the fight
     starts."""
+
+
+class EncounterGroupJoinedEvent(Event):
+    """A new monster group joined the encounter or battle already open, with what the party can see of it.
+
+    Emitted by [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] when an encounter or a
+    battle is open, after the [`MonstersSpawnedEvent`][osrlib.crawl.events.MonstersSpawnedEvent]
+    for the same monsters. The players learn of the new group from this event, as they learn of
+    the first groups from [`EncounterStartedEvent`][osrlib.crawl.events.EncounterStartedEvent].
+    The session rolls no surprise or reaction for the group, which acts from the next round.
+    """
+
+    allowed_codes: ClassVar[frozenset[str]] = frozenset({"encounter.group.joined"})
+    """The only message code this event uses."""
+
+    event_type: Literal["encounter_group_joined"] = "encounter_group_joined"
+    """The event type, `encounter_group_joined`, which identifies this class in serialized form."""
+    code: str = "encounter.group.joined"
+    """The message code, always `encounter.group.joined`."""
+    visibility: Visibility = Visibility.PLAYER
+    """Player visibility: the party sees the new monsters arrive."""
+    group_id: str
+    """The new group's id, the same as its
+    [`EncounterGroupView.id`][osrlib.crawl.views.EncounterGroupView.id] in the player view. To
+    attack the group, put this id in a battle declaration's `target_group_id`."""
+    label: str
+    """The group's label: the `template_id` from the `SpawnMonsters` command, like `"goblin"`."""
+    count: int
+    """How many creatures are in the group."""
+    distance_feet: int
+    """How far away the group is, in feet, when it joins."""
 
 
 class SurpriseRolledEvent(Event):
@@ -1138,7 +1171,12 @@ class MonsterFledEvent(Event):
 
     Emitted by [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound] when
     a group fails a morale check. When a battle opens, it's also emitted for a group
-    whose morale is so low that it never fights at all. A running group moves away each
+    whose morale is so low that it never fights at all. When a cleric turns only some of
+    a group, the turned members break away as a new group, and `group_id` is the new
+    group's id. The split happens as the battle opens after a
+    [`TurnUndead`][osrlib.crawl.commands.TurnUndead], or in the round a `turn_undead`
+    declaration resolves. If the rest of the group was afraid at the time, the split
+    happens in the round the fear ends instead. A running group moves away each
     round and is gone once it's more than
     [`FLEE_EXIT_FEET`][osrlib.crawl.battle.FLEE_EXIT_FEET] from the party. Its members
     still count as defeated for the experience award.
@@ -1548,12 +1586,16 @@ class FlagSetEvent(Event):
 class MonstersSpawnedEvent(Event):
     """Monsters were put into the session by the referee.
 
-    Emitted by [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters], before the
-    encounter with them opens in the same result.
+    Emitted by [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters], first in its
+    result. When no encounter is open, the events of the encounter's opening follow. When
+    one is open, the monsters join it as a new group.
 
     It's referee visibility and contains ids rather than a description. The party
     learns what walked in from
-    [`EncounterStartedEvent`][osrlib.crawl.events.EncounterStartedEvent].
+    [`EncounterStartedEvent`][osrlib.crawl.events.EncounterStartedEvent] when the
+    encounter opens, or from
+    [`EncounterGroupJoinedEvent`][osrlib.crawl.events.EncounterGroupJoinedEvent] when the
+    monsters join an open one.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"session.monsters.spawned"})
@@ -1991,6 +2033,7 @@ CRAWL_EVENT_CLASSES: tuple[type[Event], ...] = (
     ProvisionsEvent,
     WanderingCheckEvent,
     EncounterStartedEvent,
+    EncounterGroupJoinedEvent,
     SurpriseRolledEvent,
     StanceChangedEvent,
     EvasionEvent,

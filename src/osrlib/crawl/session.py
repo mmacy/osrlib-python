@@ -1401,13 +1401,15 @@ class GameSession:
         allocator, and is added to `monsters`, where the rest of the engine can find it.
         Spawning alone puts nothing in front of the party, and the session mode doesn't change.
         To field the monsters, pass them to
-        [`start_encounter`][osrlib.crawl.encounter.start_encounter].
+        [`start_encounter`][osrlib.crawl.encounter.start_encounter]. A monster that regenerates,
+        like a troll, starts to regenerate when its encounter opens, not when it spawns.
 
         To put monsters in front of the party as the referee, execute
         [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] instead, which spawns them and opens
-        the encounter in one command. This method isn't a command, so the command log doesn't
-        record it, and [`replay_game`][osrlib.persistence.replay_game] won't reproduce a game if you
-        call it during play.
+        an encounter with them, or adds them to the open one, in one command. This method isn't a
+        command, so the command log doesn't record it, and
+        [`replay_game`][osrlib.persistence.replay_game] won't reproduce a game if you call it
+        during play.
 
         Args:
             template_id: Any id in the session's
@@ -2293,12 +2295,14 @@ def _handle_spawn_monsters(session: GameSession, command: SpawnMonsters) -> tupl
         session.effective_monsters.get(command.template_id)
     except ValueError:
         return [Rejection(code="session.command.unknown_monster", params={"template": command.template_id})], []
-    if session.encounter is not None or session.battle is not None:
-        return [Rejection(code="session.command.encounter_in_progress")], []
     if session.dungeon_state.location.kind != "dungeon":
         # Encounters live on the dungeon grid: the combat space, silence cells,
         # and formation widths all need a party cell to stand on.
         return [Rejection(code="session.command.not_in_dungeon")], []
+    if session.encounter is not None and session.encounter.pursuit is not None:
+        # A chase runs at the pace of its slowest group, so a group that joined it would
+        # change who gets away.
+        return [Rejection(code="encounter.spawn.mid_pursuit")], []
     if command.count_fixed is not None:
         count = command.count_fixed
     elif command.count_dice is not None:
@@ -2310,6 +2314,15 @@ def _handle_spawn_monsters(session: GameSession, command: SpawnMonsters) -> tupl
     events: list[Event] = [
         MonstersSpawnedEvent(template_id=command.template_id, monster_ids=tuple(instance.id for instance in instances))
     ]
+    if session.encounter is not None:
+        # Monsters that arrive mid-fight, like a lycanthrope's summoned animals, join the
+        # encounter or battle already open instead of opening a new one.
+        events.extend(
+            encounter_module._join_encounter(
+                session, label=command.template_id, instances=instances, distance_feet=command.distance_feet
+            )
+        )
+        return [], events
     events.extend(
         encounter_module.start_encounter(
             session,
