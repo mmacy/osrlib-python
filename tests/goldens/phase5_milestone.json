@@ -35,6 +35,7 @@
         {
           "action": "move",
           "character_id": "character-0001",
+          "gaze_defense": null,
           "item_id": null,
           "move": "close",
           "replacement_id": null,
@@ -48,6 +49,7 @@
         {
           "action": "move",
           "character_id": "character-0002",
+          "gaze_defense": null,
           "item_id": null,
           "move": "close",
           "replacement_id": null,
@@ -61,6 +63,7 @@
         {
           "action": "move",
           "character_id": "character-0003",
+          "gaze_defense": null,
           "item_id": null,
           "move": "close",
           "replacement_id": null,
@@ -74,6 +77,7 @@
         {
           "action": "move",
           "character_id": "character-0004",
+          "gaze_defense": null,
           "item_id": null,
           "move": "close",
           "replacement_id": null,
@@ -93,6 +97,7 @@
         {
           "action": "attack",
           "character_id": "character-0001",
+          "gaze_defense": null,
           "item_id": null,
           "move": null,
           "replacement_id": null,
@@ -106,6 +111,7 @@
         {
           "action": "attack",
           "character_id": "character-0002",
+          "gaze_defense": null,
           "item_id": null,
           "move": null,
           "replacement_id": null,
@@ -119,6 +125,7 @@
         {
           "action": "hold",
           "character_id": "character-0003",
+          "gaze_defense": null,
           "item_id": null,
           "move": null,
           "replacement_id": null,
@@ -132,6 +139,7 @@
         {
           "action": "hold",
           "character_id": "character-0004",
+          "gaze_defense": null,
           "item_id": null,
           "move": null,
           "replacement_id": null,
@@ -151,6 +159,7 @@
         {
           "action": "attack",
           "character_id": "character-0001",
+          "gaze_defense": null,
           "item_id": null,
           "move": null,
           "replacement_id": null,
@@ -164,6 +173,7 @@
         {
           "action": "attack",
           "character_id": "character-0002",
+          "gaze_defense": null,
           "item_id": null,
           "move": null,
           "replacement_id": null,
@@ -177,6 +187,7 @@
         {
           "action": "hold",
           "character_id": "character-0003",
+          "gaze_defense": null,
           "item_id": null,
           "move": null,
           "replacement_id": null,
@@ -190,6 +201,7 @@
         {
           "action": "hold",
           "character_id": "character-0004",
+          "gaze_defense": null,
           "item_id": null,
           "move": null,
           "replacement_id": null,
@@ -209,6 +221,7 @@
         {
           "action": "attack",
           "character_id": "character-0001",
+          "gaze_defense": null,
           "item_id": null,
           "move": null,
           "replacement_id": null,
@@ -222,6 +235,7 @@
         {
           "action": "attack",
           "character_id": "character-0002",
+          "gaze_defense": null,
           "item_id": null,
           "move": null,
           "replacement_id": null,
@@ -235,6 +249,7 @@
         {
           "action": "hold",
           "character_id": "character-0003",
+          "gaze_defense": null,
           "item_id": null,
           "move": null,
           "replacement_id": null,
@@ -248,6 +263,7 @@
         {
           "action": "hold",
           "character_id": "character-0004",
+          "gaze_defense": null,
           "item_id": null,
           "move": null,
           "replacement_id": null,
@@ -267,6 +283,7 @@
         {
           "action": "move",
           "character_id": "character-0001",
+          "gaze_defense": null,
           "item_id": null,
           "move": "close",
           "replacement_id": null,
@@ -280,6 +297,7 @@
         {
           "action": "move",
           "character_id": "character-0002",
+          "gaze_defense": null,
           "item_id": null,
           "move": "close",
           "replacement_id": null,
@@ -293,6 +311,7 @@
         {
           "action": "move",
           "character_id": "character-0003",
+          "gaze_defense": null,
           "item_id": null,
           "move": "close",
           "replacement_id": null,
@@ -306,6 +325,7 @@
         {
           "action": "move",
           "character_id": "character-0004",
+          "gaze_defense": null,
           "item_id": null,
           "move": "close",
           "replacement_id": null,
@@ -325,6 +345,7 @@
         {
           "action": "move",
           "character_id": "character-0001",
+          "gaze_defense": null,
           "item_id": null,
           "move": "close",
           "replacement_id": null,
@@ -338,6 +359,7 @@
         {
           "action": "move",
           "character_id": "character-0002",
+          "gaze_defense": null,
           "item_id": null,
           "move": "close",
           "replacement_id": null,
@@ -351,6 +373,7 @@
         {
           "action": "move",
           "character_id": "character-0003",
+          "gaze_defense": null,
           "item_id": null,
           "move": "close",
           "replacement_id": null,
@@ -364,6 +387,7 @@
         {
           "action": "move",
           "character_id": "character-0004",
+          "gaze_defense": null,
           "item_id": null,
           "move": "close",
           "replacement_id": null,
@@ -423,6 +447,7 @@
         {
           "action": "move",
           "character_id": "character-0001",
+          "gaze_defense": null,
           "item_id": null,
           "move": "close",
           "replacement_id": null,
@@ -436,6 +461,7 @@
         {
           "action": "move",
           "character_id": "character-0002",
+          "gaze_defense": null,
           "item_id": null,
           "move": "close",
           "replacement_id": null,
@@ -449,6 +475,7 @@
         {
           "action": "move",
           "character_id": "character-0003",
+          "gaze_defense": null,
           "item_id": null,
           "move": "close",
           "replacement_id": null,
@@ -462,6 +489,7 @@
         {
           "action": "move",
           "character_id": "character-0004",
+          "gaze_defense": null,
           "item_id": null,
           "move": "close",
           "replacement_id": null,
@@ -481,6 +509,7 @@
         {
           "action": "attack",
           "character_id": "character-0001",
+          "gaze_defense": null,
           "item_id": null,
           "move": null,
           "replacement_id": null,
@@ -494,6 +523,7 @@
         {
           "action": "attack",
           "character_id": "character-0002",
+          "gaze_defense": null,
           "item_id": null,
           "move": null,
           "replacement_id": null,
@@ -507,6 +537,7 @@
         {
           "action": "hold",
           "character_id": "character-0003",
+          "gaze_defense": null,
           "item_id": null,
           "move": null,
           "replacement_id": null,
@@ -520,6 +551,7 @@
         {
           "action": "hold",
           "character_id": "character-0004",
+          "gaze_defense": null,
           "item_id": null,
           "move": null,
           "replacement_id": null,
@@ -539,6 +571,7 @@
         {
           "action": "attack",
           "character_id": "character-0001",
+          "gaze_defense": null,
           "item_id": null,
           "move": null,
           "replacement_id": null,
@@ -552,6 +585,7 @@
         {
           "action": "attack",
           "character_id": "character-0002",
+          "gaze_defense": null,
           "item_id": null,
           "move": null,
           "replacement_id": null,
@@ -565,6 +599,7 @@
         {
           "action": "hold",
           "character_id": "character-0003",
+          "gaze_defense": null,
           "item_id": null,
           "move": null,
           "replacement_id": null,
@@ -578,6 +613,7 @@
         {
           "action": "hold",
           "character_id": "character-0004",
+          "gaze_defense": null,
           "item_id": null,
           "move": null,
           "replacement_id": null,
@@ -597,6 +633,7 @@
         {
           "action": "attack",
           "character_id": "character-0001",
+          "gaze_defense": null,
           "item_id": null,
           "move": null,
           "replacement_id": null,
@@ -610,6 +647,7 @@
         {
           "action": "attack",
           "character_id": "character-0002",
+          "gaze_defense": null,
           "item_id": null,
           "move": null,
           "replacement_id": null,
@@ -623,6 +661,7 @@
         {
           "action": "hold",
           "character_id": "character-0003",
+          "gaze_defense": null,
           "item_id": null,
           "move": null,
           "replacement_id": null,
@@ -636,6 +675,7 @@
         {
           "action": "hold",
           "character_id": "character-0004",
+          "gaze_defense": null,
           "item_id": null,
           "move": null,
           "replacement_id": null,
@@ -661,6 +701,7 @@
         {
           "action": "move",
           "character_id": "character-0001",
+          "gaze_defense": null,
           "item_id": null,
           "move": "close",
           "replacement_id": null,
@@ -674,6 +715,7 @@
         {
           "action": "move",
           "character_id": "character-0002",
+          "gaze_defense": null,
           "item_id": null,
           "move": "close",
           "replacement_id": null,
@@ -687,6 +729,7 @@
         {
           "action": "move",
           "character_id": "character-0003",
+          "gaze_defense": null,
           "item_id": null,
           "move": "close",
           "replacement_id": null,
@@ -700,6 +743,7 @@
         {
           "action": "move",
           "character_id": "character-0004",
+          "gaze_defense": null,
           "item_id": null,
           "move": "close",
           "replacement_id": null,
@@ -719,6 +763,7 @@
         {
           "action": "attack",
           "character_id": "character-0001",
+          "gaze_defense": null,
           "item_id": null,
           "move": null,
           "replacement_id": null,
@@ -732,6 +777,7 @@
         {
           "action": "attack",
           "character_id": "character-0003",
+          "gaze_defense": null,
           "item_id": null,
           "move": null,
           "replacement_id": null,
@@ -745,6 +791,7 @@
         {
           "action": "hold",
           "character_id": "character-0004",
+          "gaze_defense": null,
           "item_id": null,
           "move": null,
           "replacement_id": null,
@@ -764,6 +811,7 @@
         {
           "action": "attack",
           "character_id": "character-0001",
+          "gaze_defense": null,
           "item_id": null,
           "move": null,
           "replacement_id": null,
@@ -777,6 +825,7 @@
         {
           "action": "attack",
           "character_id": "character-0003",
+          "gaze_defense": null,
           "item_id": null,
           "move": null,
           "replacement_id": null,
@@ -790,6 +839,7 @@
         {
           "action": "hold",
           "character_id": "character-0004",
+          "gaze_defense": null,
           "item_id": null,
           "move": null,
           "replacement_id": null,
@@ -809,6 +859,7 @@
         {
           "action": "attack",
           "character_id": "character-0001",
+          "gaze_defense": null,
           "item_id": null,
           "move": null,
           "replacement_id": null,
@@ -822,6 +873,7 @@
         {
           "action": "attack",
           "character_id": "character-0003",
+          "gaze_defense": null,
           "item_id": null,
           "move": null,
           "replacement_id": null,
@@ -835,6 +887,7 @@
         {
           "action": "hold",
           "character_id": "character-0004",
+          "gaze_defense": null,
           "item_id": null,
           "move": null,
           "replacement_id": null,
@@ -854,6 +907,7 @@
         {
           "action": "move",
           "character_id": "character-0001",
+          "gaze_defense": null,
           "item_id": null,
           "move": "close",
           "replacement_id": null,
@@ -867,6 +921,7 @@
         {
           "action": "move",
           "character_id": "character-0003",
+          "gaze_defense": null,
           "item_id": null,
           "move": "close",
           "replacement_id": null,
@@ -880,6 +935,7 @@
         {
           "action": "move",
           "character_id": "character-0004",
+          "gaze_defense": null,
           "item_id": null,
           "move": "close",
           "replacement_id": null,

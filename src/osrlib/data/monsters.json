@@ -1039,9 +1039,11 @@
     {
       "abilities": [
         {
-          "manual": true,
+          "manual": false,
           "name": "Surprise",
-          "params": {},
+          "params": {
+            "meets_gaze": true
+          },
           "prose": "Characters surprised by a basilisk meet its gaze.",
           "tag": "surprise"
         },
@@ -1064,7 +1066,7 @@
           "tag": "petrification"
         },
         {
-          "manual": true,
+          "manual": false,
           "name": "Averting eyes",
           "params": {},
           "prose": "-4 penalty to-hit; the basilisk gains a +2 bonus to attack.",
@@ -17115,7 +17117,7 @@
           "tag": "petrification"
         },
         {
-          "manual": true,
+          "manual": false,
           "name": "Averting eyes",
           "params": {},
           "prose": "-4 penalty to-hit; the medusa gains a +2 bonus to attack.",
