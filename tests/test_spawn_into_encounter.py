@@ -465,5 +465,5 @@ class TestNoJoinDuringAChase:
         result = session.execute(SpawnMonsters(template_id="zombie", count_fixed=1, distance_feet=300))
         assert not result.accepted
         assert [rejection.code for rejection in result.rejections] == ["encounter.spawn.mid_pursuit"]
-        assert result.events == []
+        assert result.events == ()
         assert snapshot(session) == before
