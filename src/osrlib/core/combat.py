@@ -1643,7 +1643,7 @@ def check_immunity(
     if ruleset.hd5_counts_as_magical and attacker is not None and gate_values <= {"silver", "magic"}:
         attacker_template = getattr(attacker, "template", None)
         if attacker_template is not None:
-            if attacker_template.hit_dice.count >= 5:
+            if getattr(attacker, "hit_dice_count", attacker_template.hit_dice.count) >= 5:
                 return False
             attacker_gate = {key.value for key in attacker_template.defenses.harmed_only_by}
             if attacker_gate and attacker_gate <= {"silver", "magic"}:
