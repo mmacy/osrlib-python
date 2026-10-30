@@ -409,7 +409,6 @@ class TestSelectors:
 
 
 class TestDrops:
-    @pytest.mark.xfail(reason="chunk: spawn-into-encounter", strict=True)
     def test_a_spawn_that_meets_an_open_encounter_joins_it(self):
         session = played(build_keep())
         session.execute(EnterDungeon(dungeon_id="keep"))

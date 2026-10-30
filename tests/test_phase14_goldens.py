@@ -72,7 +72,6 @@ def replayed(golden):
 
 
 class TestScriptedRun:
-    @pytest.mark.xfail(reason="chunk: spawn-into-encounter", strict=True)
     def test_the_whole_golden_matches_byte_for_byte(self, golden):
         assert canonical(build_golden(golden["master_seed"])) == canonical(golden), REGENERATE_HINT
 
@@ -136,7 +135,6 @@ class TestMilestoneBeats:
 
 
 class TestReplayIsTheMilestone:
-    @pytest.mark.xfail(reason="chunk: spawn-into-encounter", strict=True)
     def test_the_replay_reaches_the_same_state_but_the_empty_listener_slot(self, scripted, replayed):
         session, _ = scripted
         live_slot, live = without_listener_state(session)
@@ -156,7 +154,6 @@ class TestReplayIsTheMilestone:
     def test_streams_clock_doors_and_the_trigger_blocks_match_the_golden(self, golden, replayed):
         assert canonical(snapshot(replayed)) == canonical(golden["final_state"]), REGENERATE_HINT
 
-    @pytest.mark.xfail(reason="chunk: spawn-into-encounter", strict=True)
     def test_a_save_loads_back_to_the_replayed_state(self, scripted, replayed):
         session, _ = scripted
         restored = load_game(json.loads(json.dumps(save_game(session))))

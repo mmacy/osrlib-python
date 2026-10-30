@@ -37,8 +37,6 @@ from osrlib.errors import ContentValidationError
 from osrlib.messages import format_message
 from osrlib.persistence import load_game, replay_game, save_game, session_state
 
-CHUNK = pytest.mark.xfail(reason="chunk: spawn-into-encounter", strict=True)
-
 SEED = 5
 """With this seed, the opening spawn leaves an indifferent encounter and a party that wasn't surprised.
 
@@ -172,7 +170,6 @@ class TestValidationStaysPure:
         assert snapshot(session) == before
 
 
-@CHUNK
 class TestSpawnInEncounter:
     def test_the_spawn_is_accepted_and_adds_a_group_at_the_distance(self):
         session = in_encounter()
@@ -253,7 +250,6 @@ class TestSpawnInEncounter:
         assert attackers & set(added.monster_ids)
 
 
-@CHUNK
 class TestSpawnInBattle:
     def test_the_spawn_is_accepted_and_adds_a_group_without_running_a_round(self):
         session = in_battle()
@@ -311,7 +307,6 @@ class TestSpawnInBattle:
         assert added.distance_feet == 40
 
 
-@CHUNK
 class TestSaveLoadAndReplay:
     def test_a_save_after_a_mid_encounter_spawn_loads_and_continues_identically(self):
         session = in_encounter()
@@ -352,7 +347,6 @@ class TestPlayersSeeTheJoin:
     player view shows it.
     """
 
-    @CHUNK
     @pytest.mark.parametrize("setup", [in_encounter, in_battle], ids=["encounter", "battle"])
     def test_one_player_event_announces_the_new_group(self, setup):
         from osrlib.crawl.events import EncounterGroupJoinedEvent
@@ -427,7 +421,6 @@ class TestAGroupThatWillNotFight:
 class TestAJoiningTrollRegenerates:
     """A monster that regenerates starts to regenerate when it joins, as it would when its encounter opens."""
 
-    @CHUNK
     @pytest.mark.parametrize("setup", [in_encounter, in_battle], ids=["encounter", "battle"])
     def test_the_join_attaches_regeneration_and_reports_it(self, setup):
         session = setup()
@@ -458,7 +451,6 @@ class TestNoJoinDuringAChase:
     that was being caught get away.
     """
 
-    @CHUNK
     def test_a_spawn_during_a_pursuit_is_refused_and_changes_nothing(self):
         session = in_pursuit()
         before = snapshot(session)
