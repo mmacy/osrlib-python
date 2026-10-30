@@ -39,6 +39,9 @@ REFEREE_COMMANDS = {
     "reveal_objective",
     "complete_objective",
     "complete_quest",
+    "end_encounter",
+    "remove_item",
+    "remove_coins",
 }
 
 # The referee commands a terminal session withholds, each because it would resume
@@ -50,6 +53,17 @@ RESUME_PLAY_CARVE_OUTS = {
     "spawn_monsters": frozenset({SessionMode.GAME_OVER, SessionMode.VICTORY}),
     "spawn_npc_party": frozenset({SessionMode.GAME_OVER, SessionMode.VICTORY}),
 }
+
+# The referee commands that act on an open encounter, so only the two modes that have
+# one accept them: `EndEncounter` closes the encounter, and there's none to close in
+# town, while exploring, or once the session has ended.
+ENCOUNTER_BOUND_CARVE_OUTS = {
+    "end_encounter": frozenset(SessionMode) - frozenset({SessionMode.ENCOUNTER, SessionMode.BATTLE}),
+}
+
+# Every referee command's withheld modes, keyed by command type. A referee command
+# missing from this map is legal in every mode.
+REFEREE_CARVE_OUTS = RESUME_PLAY_CARVE_OUTS | ENCOUNTER_BOUND_CARVE_OUTS
 
 
 def sample_command(command_class):
@@ -110,6 +124,9 @@ def sample_command(command_class):
         "RevealObjective": dict(quest_id="the-idol", objective_id="return-home"),
         "CompleteObjective": dict(quest_id="the-idol", objective_id="recover-idol"),
         "CompleteQuest": dict(quest_id="the-idol"),
+        "EndEncounter": dict(outcome="parley", resolve_area=True),
+        "RemoveItem": dict(character_id="pc-1", item_id="torch", quantity=2),
+        "RemoveCoins": dict(character_id="pc-1", coins={"gp": 5}),
     }
     return command_class(**samples[command_class.__name__])
 
@@ -146,12 +163,12 @@ class TestModes:
         for command_class in ALL_COMMAND_CLASSES:
             assert command_class.allowed_modes, command_class.__name__
 
-    def test_referee_commands_are_legal_everywhere_but_the_resume_play_carve_outs(self):
+    def test_referee_commands_are_legal_everywhere_but_the_carve_outs(self):
         for command_class in ALL_COMMAND_CLASSES:
             command_type = command_class.model_fields["command_type"].default
             if command_type not in REFEREE_COMMANDS:
                 continue
-            withheld = RESUME_PLAY_CARVE_OUTS.get(command_type, frozenset())
+            withheld = REFEREE_CARVE_OUTS.get(command_type, frozenset())
             assert command_class.allowed_modes == frozenset(SessionMode) - withheld, command_class.__name__
 
     def test_battle_round_is_battle_only(self):
@@ -176,6 +193,8 @@ class TestConsequenceCensus:
         assert types <= REFEREE_COMMANDS
 
     def test_the_exclusions_are_the_lifecycle_family_identify_item_and_roll_dice(self):
+        # `end_encounter` is a referee command outside all three exclusions, so the spec
+        # puts it on the consequence surface and it's absent from this set.
         types = {cls.model_fields["command_type"].default for cls in CONSEQUENCE_COMMAND_CLASSES}
         assert REFEREE_COMMANDS - types == {
             # The interpreter's own vocabulary: it marks, journals, annotates, and
@@ -198,14 +217,14 @@ class TestConsequenceCensus:
         names = [cls.__name__ for cls in CONSEQUENCE_COMMAND_CLASSES]
         assert len(set(names)) == len(names)
 
-    def test_the_character_addressing_consequences_are_exactly_three(self):
-        # Two sites enumerate this trio by hand and must grow together when it does:
+    def test_the_character_addressing_consequences_are_exactly_five(self):
+        # Two sites enumerate these classes by hand and must grow together when they do:
         # `Interpreter._expand` (which turns a party selector into concrete commands)
-        # and `_validate_trigger` in adventure.py (which rejects a literal id). A new
+        # and `_validate_consequence` in adventure.py (which rejects a literal id). A new
         # consequence class carrying `character_id` that skipped both would silently
         # take a selector string as a character id.
         addressing = {cls.__name__ for cls in CONSEQUENCE_COMMAND_CLASSES if "character_id" in cls.model_fields}
-        assert addressing == {"GrantItem", "GrantCoins", "AwardXP"}
+        assert addressing == {"GrantItem", "GrantCoins", "AwardXP", "RemoveItem", "RemoveCoins"}
 
     def test_the_union_members_are_the_census_in_order(self):
         # The union is spelled out for the type checker; this is the tripwire that

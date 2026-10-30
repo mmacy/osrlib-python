@@ -84,7 +84,9 @@ During a round, the session also applies these rules without a command for them:
   roll is made.
 - A protection ward ends when a party member attacks in melee a monster that the ward keeps out.
 - The effects of a concentration spell end when the caster declares anything other than `cast`
-  or `hold`, or when the caster's next spell is disrupted or fizzles.
+  or `hold`, when the caster's next spell is disrupted or fizzles, or when the caster casts
+  another concentration spell. Turning the undead ends them too, even when the turning never
+  resolves.
 - The session picks the targets of a party member's area spell without a roll.
   `ceil(span / 10) × width` creatures fit in the area, where `span` is the area's size in feet and
   `width` is the rank width, and the area fills with the target group's living members in the order they were spawned.
@@ -291,7 +293,7 @@ FLEE_EXIT_FEET = 120
 
 A group that fails a morale check turns and runs its full movement rate each round. Once its
 distance is greater than this, the session marks the group fled. A fled group takes no further
-action, the session rejects an attack declared against it with
+action, the session rejects every declaration aimed at it with
 `battle.declaration.unknown_group`, and a battle in which every group has fled or died ends in
 victory. Until the group gets this far, the party can still chase it or shoot at it. A group whose
 living members are all afraid or turned, but which didn't fail a morale check, also counts as gone
@@ -348,9 +350,10 @@ class BattleState(BaseModel):
     evil* bars a monster from attacking a character, the monster can attack that character anyway once
     it's on this list, as the spell's text in the SRD says."""
     concentration: dict[str, list[str]] = {}
-    """For each caster id, the effect ids of the concentration spell that caster maintains. The effects
-    end when that caster declares anything other than `cast` or `hold`, or when the caster's next
-    spell is disrupted or fizzles."""
+    """For each caster id, the effect ids of the concentration spell that caster maintains. A caster
+    maintains one at a time. The effects end when that caster declares anything other than `cast` or
+    `hold`, `turn_undead` included, when the caster's next spell is disrupted or fizzles, or when the
+    caster casts another concentration spell."""
 
 
 class MonsterAction(BaseModel):
@@ -1421,8 +1424,10 @@ def _validate_declaration(session, declaration: BattleDeclaration, member) -> li
     if declaration.action == "move":
         if declaration.move is None:
             return [Rejection(code="battle.declaration.missing_move", params={"character": member.id})]
-        if declaration.move == "close" and _group_by_id(session, declaration.target_group_id) is None:
-            return [Rejection(code="battle.declaration.unknown_group", params={"character": member.id})]
+        if declaration.move == "close":
+            group = _group_by_id(session, declaration.target_group_id)
+            if group is None or group.fled:
+                return [Rejection(code="battle.declaration.unknown_group", params={"character": member.id})]
         from osrlib.core.combat import cannot_move
 
         if cannot_move(member):
@@ -1507,17 +1512,38 @@ def _validate_declaration(session, declaration: BattleDeclaration, member) -> li
 
 
 def _cast_targets(session, declaration: BattleDeclaration, spell) -> tuple[list, int | None, list[Rejection]]:
-    """Resolve a cast declaration's targets: explicit ids, or the area footprint."""
+    """Resolve a cast declaration's targets: explicit ids, the area footprint, or a group's living members.
+
+    A cast in an `area` mode aims at `target_group_id`, and its targets are the group's living members
+    that fit the area footprint, followed by the party's front rank when `aoe_friendly_fire` applies.
+    A cast in an `hd_budget` mode with a `target_group_id` and no `targets` targets every living
+    member of the group, in spawn order, and the kernel spends the budget on them weakest first.
+    That's the same cast as naming those members one by one, so a front end with only the player
+    view's group ids can cast *sleep*. When both are set, the cast uses the named `targets`. For a
+    group that isn't in the encounter, or that has fled, this returns a
+    `battle.declaration.unknown_group` rejection.
+    """
     try:
         mode = spell.mode(declaration.spell_mode, reversed=declaration.reversed)
     except ValueError:
         return [], None, [Rejection(code="magic.cast.unknown_mode", params={"mode": declaration.spell_mode or ""})]
     targeting = mode.targeting
-    if targeting is not None and targeting.mode is TargetingMode.AREA:
+    if targeting is not None and (
+        targeting.mode is TargetingMode.AREA
+        or (
+            targeting.mode is TargetingMode.HD_BUDGET
+            and not declaration.targets
+            and declaration.target_group_id is not None
+        )
+    ):
         group = _group_by_id(session, declaration.target_group_id)
-        if group is None:
-            return [], None, [Rejection(code="battle.declaration.unknown_group", params={})]
-        candidates = _area_candidates(session, group, targeting.shape, targeting.dimensions)
+        if group is None or group.fled:
+            unknown = Rejection(code="battle.declaration.unknown_group", params={"character": declaration.character_id})
+            return [], None, [unknown]
+        if targeting.mode is TargetingMode.AREA:
+            candidates = _area_candidates(session, group, targeting.shape, targeting.dimensions)
+        else:
+            candidates = _living_monsters(session, group)
         return candidates, group.distance_feet, []
     registry = session.registry()
     targets: list = []
@@ -2437,24 +2463,33 @@ def _party_magic(session, by_member, pending_casters, disrupted, acted, state) -
         # The stationary *silence* form anchors in battle too: the battle's
         # location is the party's position (see the adaptations register).
         events.extend(exploration._stationary_silence(session, spell, result, targets))
-        _track_concentration(session, member.id, spell, result, state)
+        events.extend(_track_concentration(session, member.id, spell, result, state))
         acted.add(member.id)
-    # Any declaration other than these three releases the actor's concentration
-    # (see the adaptations register).
+    # Any declaration other than these two releases the actor's concentration, a
+    # turning included, even one the round stopped before it resolved (see the
+    # adaptations register).
     for member, declaration in by_member.values():
-        if declaration.action not in ("cast", "turn_undead", "hold"):
+        if declaration.action not in ("cast", "hold"):
             events.extend(_release_concentration(session, member.id, state))
     return events
 
 
-def _track_concentration(session, caster_id: str, spell, result, state) -> None:
+def _track_concentration(session, caster_id: str, spell, result, state) -> list[Event]:
+    """Make a concentration spell the caster's only maintained one, and return the release events.
+
+    A caster maintains one concentration spell at a time, so casting one ends the spell the
+    caster already maintains, even when the new spell attaches no effect. A spell that needs no
+    concentration leaves the maintained one alone.
+    """
     if spell.duration_spec.kind != "concentration":
-        return
+        return []
     from osrlib.core.events import EffectAttachedEvent
 
+    events = _release_concentration(session, caster_id, state)
     effect_ids = [event.effect_id for event in result.events if isinstance(event, EffectAttachedEvent)]
     if effect_ids:
-        state.concentration.setdefault(caster_id, []).extend(effect_ids)
+        state.concentration[caster_id] = effect_ids
+    return events
 
 
 def _release_concentration(session, caster_id: str, state) -> list[Event]:

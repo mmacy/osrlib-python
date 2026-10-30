@@ -17,6 +17,8 @@ session in `encounter` mode. From there, you drive it with the encounter command
 - [`TurnUndead`][osrlib.crawl.commands.TurnUndead] ends the encounter when every monster is
   turned or destroyed, and otherwise starts a battle.
 - [`EngageBattle`][osrlib.crawl.commands.EngageBattle] starts a battle.
+- The referee command [`EndEncounter`][osrlib.crawl.commands.EndEncounter] ends the encounter
+  when the party talks its way past or walks away.
 
 [`end_encounter`][osrlib.crawl.encounter.end_encounter] closes the encounter and puts the session
 back in `exploring` mode.
@@ -177,10 +179,8 @@ attack and damage rolls, and attackers get +2 to hit them), with an
 [`PursuitEvent`][osrlib.crawl.events.PursuitEvent] with the code `encounter.pursuit.escaped` and
 closes the encounter with the outcome `"escaped"`.
 
-The cap isn't a ruleset setting, so every chase uses the same cap. You can end a chase sooner
-by calling [`end_encounter`][osrlib.crawl.encounter.end_encounter]. That call isn't a command,
-so the session doesn't record it in the command log, and
-[`replay_game`][osrlib.persistence.replay_game] won't reproduce it.
+The cap isn't a ruleset setting, so every chase uses the same cap. To end a chase sooner, send
+[`EndEncounter`][osrlib.crawl.commands.EndEncounter] with the outcome `"departed"`.
 """
 
 
@@ -221,8 +221,9 @@ class EncounterGroup(BaseModel):
     party can still attack it."""
     fled: bool = False
     """True once the group has run past [`FLEE_EXIT_FEET`][osrlib.crawl.battle.FLEE_EXIT_FEET] and left
-    the fight, or when its morale score is 2 and it ran as it entered the battle. The session rejects an
-    attack declared against it with `battle.declaration.unknown_group`."""
+    the fight, or when its morale score is 2 and it ran as it entered the battle. The session refuses
+    every battle declaration that names it, an attack, a move to close, an item, or a spell, with
+    `battle.declaration.unknown_group`."""
     member_treasure: dict[str, TreasureBundle] = {}
     """The treasure each member carries, keyed by monster id. The session rolls it when it spawns the
     monster, from the treasure types for individuals (P through T). When the encounter closes, a slain
@@ -276,7 +277,9 @@ class EncounterState(BaseModel):
     area_ref: str | None = None
     """The keyed area's reference, when `kind` is `"keyed"`. When every monster in the encounter is
     slain or routed, [`end_encounter`][osrlib.crawl.encounter.end_encounter] marks the area's
-    encounter resolved, so entering the area again doesn't start another fight."""
+    encounter resolved, so entering the area again doesn't start another fight.
+    [`EndEncounter`][osrlib.crawl.commands.EndEncounter] with `resolve_area=True` marks it resolved
+    when the party gets past the monsters some other way."""
     groups: list[EncounterGroup] = Field(min_length=1)
     """The monster groups, each an [`EncounterGroup`][osrlib.crawl.encounter.EncounterGroup], in the
     order they were spawned. There's always at least one."""
@@ -1104,10 +1107,13 @@ def _drop_loot(session, state: EncounterState) -> list[Event]:
 def end_encounter(session, outcome: str) -> list[Event]:
     """Close the open encounter: record defeats, drop loot, release effects, and advance the clock.
 
-    Call this when your own code decides the encounter is over, for example because the party
-    talked its way past or walked away. You seldom need to. The session calls it when the party wins
-    a battle, evades, escapes a chase, or turns every monster. There must be an encounter open when
-    you call it. If `session.encounter` is None, it raises `AttributeError`, because the function
+    You seldom call this yourself. The session calls it when the party wins a battle, evades,
+    escapes a chase, or turns every monster. When the party talks its way past or walks away, send
+    [`EndEncounter`][osrlib.crawl.commands.EndEncounter] instead. The command calls this function,
+    and the session records the command in the command log, so
+    [`replay_game`][osrlib.persistence.replay_game] reproduces the close. The session doesn't
+    record a direct call, so a replay of the game stays in the encounter. There must be an encounter open when you call
+    it. If `session.encounter` is None, it raises `AttributeError`, because the function
     doesn't check for an open encounter first. When it returns, `session.encounter` is None. If the
     session was in `encounter` or `battle` mode, it's now in `exploring` mode.
 
@@ -1139,8 +1145,9 @@ def end_encounter(session, outcome: str) -> list[Event]:
         session (osrlib.crawl.session.GameSession): The running session, with `session.encounter` set.
         outcome: The outcome recorded on the
             [`EncounterEndedEvent`][osrlib.crawl.events.EncounterEndedEvent] and shown in its default
-            message text. The session passes `"victory"`, `"evaded"`, `"escaped"`, or `"turned"`.
-            osrlib doesn't check the value, so you can pass any label.
+            message text. The session passes `"victory"`, `"evaded"`, `"escaped"`, or `"turned"`,
+            and [`EndEncounter`][osrlib.crawl.commands.EndEncounter] passes `"parley"` or
+            `"departed"`. osrlib doesn't check the value, so you can pass any label.
 
     Returns:
         The [`MonsterDefeatedEvent`][osrlib.crawl.events.MonsterDefeatedEvent]s, the events of
@@ -1158,9 +1165,8 @@ def end_encounter(session, outcome: str) -> list[Event]:
         from osrlib.core.rng import RngStreams
         from osrlib.core.ruleset import Ruleset
         from osrlib.crawl.adventure import Adventure, TownSpec
-        from osrlib.crawl.commands import EnterDungeon, SessionMode, SpawnMonsters
+        from osrlib.crawl.commands import EndEncounter, EnterDungeon, SessionMode, SpawnMonsters
         from osrlib.crawl.dungeon import DungeonSpec, Edge, EdgeKind, LevelSpec
-        from osrlib.crawl.encounter import end_encounter
         from osrlib.crawl.party import Party
         from osrlib.crawl.session import GameSession
 
@@ -1188,9 +1194,10 @@ def end_encounter(session, outcome: str) -> list[Event]:
         session.execute(SpawnMonsters(template_id="goblin", count_fixed=2, distance_feet=30))
         opened_at = session.clock.rounds
 
-        # The party talks its way clear: close the encounter on your own terms.
-        events = end_encounter(session, "evaded")
-        assert [event.code for event in events] == ["encounter.ended"]
+        # The party talks its way clear. The command runs end_encounter and is logged.
+        result = session.execute(EndEncounter(outcome="parley"))
+        assert [event.code for event in result.events] == ["encounter.ended"]
+        assert result.events[0].outcome == "parley"
         assert session.encounter is None
         assert session.mode is SessionMode.EXPLORING
         assert session.clock.rounds == opened_at + 60  # a turn is 60 rounds, and an encounter costs at least one
