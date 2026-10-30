@@ -57,14 +57,17 @@
     },
     {
       "command_type": "mark_trigger_fired",
-      "narrative": "A third goblin was meant to drop from the rafters.",
+      "narrative": "A third goblin drops from the rafters.",
       "source": "trigger:guard-ambush",
       "trigger_id": "guard-ambush"
     },
     {
-      "command_type": "record_note",
+      "command_type": "spawn_monsters",
+      "count_dice": null,
+      "count_fixed": 1,
+      "distance_feet": 30,
       "source": "trigger:guard-ambush",
-      "text": "trigger guard-ambush: consequence 0 (spawn_monsters) dropped (session.command.encounter_in_progress)"
+      "template_id": "goblin"
     },
     {
       "command_type": "add_journal_entry",
@@ -89,6 +92,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "east",
+      "narrative": null,
       "visibility": "player",
       "x": 1,
       "y": 0
@@ -97,6 +101,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "east",
+      "narrative": null,
       "visibility": "player",
       "x": 2,
       "y": 0
@@ -136,6 +141,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "east",
+      "narrative": null,
       "visibility": "player",
       "x": 3,
       "y": 0
@@ -144,6 +150,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "east",
+      "narrative": null,
       "visibility": "player",
       "x": 4,
       "y": 0
@@ -227,15 +234,27 @@
     {
       "code": "session.trigger.fired",
       "event_type": "trigger_fired",
-      "narrative": "A third goblin was meant to drop from the rafters.",
+      "narrative": "A third goblin drops from the rafters.",
       "trigger_id": "guard-ambush",
       "visibility": "referee"
     },
     {
-      "code": "session.note.recorded",
-      "event_type": "note_recorded",
-      "text": "trigger guard-ambush: consequence 0 (spawn_monsters) dropped (session.command.encounter_in_progress)",
+      "code": "session.monsters.spawned",
+      "event_type": "monsters_spawned",
+      "monster_ids": [
+        "monster-0003"
+      ],
+      "template_id": "goblin",
       "visibility": "referee"
+    },
+    {
+      "code": "encounter.group.joined",
+      "count": 1,
+      "distance_feet": 30,
+      "event_type": "encounter_group_joined",
+      "group_id": "group-0002",
+      "label": "goblin",
+      "visibility": "player"
     },
     {
       "code": "session.journal.entry_added",
@@ -295,7 +314,7 @@
       },
       "monster_spawn": {
         "inc": 122248844825476364257671620342058704215,
-        "state": 288998010088381104956447344210552317964
+        "state": 51892714631545201824025335658651152531
       },
       "treasure": {
         "inc": 241878447094209998521488183906797731573,
@@ -337,8 +356,9 @@
     "Reaction roll: 7+0 = 7 — uncertain.",
     "The monsters' bearing: uncertain.",
     "Reaction roll: 7+0 = 7 — uncertain.",
-    "Trigger guard-ambush fired. A third goblin was meant to drop from the rafters.",
-    "Referee note: trigger guard-ambush: consequence 0 (spawn_monsters) dropped (session.command.encounter_in_progress)",
+    "Trigger guard-ambush fired. A third goblin drops from the rafters.",
+    "Spawned 1 × goblin: monster-0003.",
+    "More monsters join the encounter: 1 × goblin at 30'.",
     "Journal: Something moved in the rafters of the guardroom."
   ]
 }

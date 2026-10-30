@@ -54,7 +54,8 @@ text, and the numbers the SRD gives, in `params`. The combat functions read four
 `regeneration` in [`deal_damage`][osrlib.core.combat.deal_damage], `energy_drain` in
 [`resolve_energy_drain`][osrlib.core.combat.resolve_energy_drain], `breath_weapon` in
 [`resolve_breath`][osrlib.core.combat.resolve_breath], and `uses_fire` in
-[`check_immunity`][osrlib.core.combat.check_immunity]. An ability marked `manual` is text for a
+[`check_immunity`][osrlib.core.combat.check_immunity]. Battle also reads `paralysis`, `poison`,
+`disease`, and `petrification` when a monster's attack hits. An ability marked `manual` is text for a
 referee to read. What a monster resists is in [`Defenses`][osrlib.core.monsters.Defenses], which
 the combat functions check every time an attack hits.
 
@@ -641,7 +642,8 @@ class MonsterAbility(BaseModel):
     """The ability's identifier, a lowercase name like `"regeneration"`.
 
     The combat functions read four tags: `"regeneration"`, `"energy_drain"`, `"breath_weapon"`, and
-    `"uses_fire"`.
+    `"uses_fire"`. Battle also reads `"paralysis"`, `"poison"`, `"disease"`, and `"petrification"`
+    when a monster's attack hits.
     """
 
     name: str = Field(min_length=1)

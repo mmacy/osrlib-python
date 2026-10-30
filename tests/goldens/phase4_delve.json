@@ -2069,6 +2069,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "east",
+      "narrative": null,
       "visibility": "player",
       "x": 1,
       "y": 0
@@ -2077,6 +2078,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "south",
+      "narrative": null,
       "visibility": "player",
       "x": 1,
       "y": 1
@@ -2107,6 +2109,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "north",
+      "narrative": null,
       "visibility": "player",
       "x": 1,
       "y": 0
@@ -2115,6 +2118,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "south",
+      "narrative": null,
       "visibility": "player",
       "x": 1,
       "y": 1
@@ -2145,6 +2149,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "north",
+      "narrative": null,
       "visibility": "player",
       "x": 1,
       "y": 0
@@ -2153,6 +2158,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "south",
+      "narrative": null,
       "visibility": "player",
       "x": 1,
       "y": 1
@@ -2183,6 +2189,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "north",
+      "narrative": null,
       "visibility": "player",
       "x": 1,
       "y": 0
@@ -2191,6 +2198,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "south",
+      "narrative": null,
       "visibility": "player",
       "x": 1,
       "y": 1
@@ -2250,6 +2258,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "north",
+      "narrative": null,
       "visibility": "player",
       "x": 1,
       "y": 0
@@ -2258,6 +2267,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "east",
+      "narrative": null,
       "visibility": "player",
       "x": 2,
       "y": 0
@@ -2266,6 +2276,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "east",
+      "narrative": null,
       "visibility": "player",
       "x": 3,
       "y": 0
@@ -2318,6 +2329,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "south",
+      "narrative": null,
       "visibility": "player",
       "x": 3,
       "y": 1
@@ -2817,6 +2829,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "east",
+      "narrative": null,
       "visibility": "player",
       "x": 4,
       "y": 1
@@ -2925,6 +2938,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "east",
+      "narrative": null,
       "visibility": "player",
       "x": 5,
       "y": 1
@@ -2933,6 +2947,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "east",
+      "narrative": null,
       "visibility": "player",
       "x": 6,
       "y": 1
@@ -2953,6 +2968,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "east",
+      "narrative": null,
       "visibility": "player",
       "x": 1,
       "y": 0
@@ -2971,6 +2987,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "south",
+      "narrative": null,
       "visibility": "player",
       "x": 1,
       "y": 1
@@ -3380,6 +3397,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "north",
+      "narrative": null,
       "visibility": "player",
       "x": 1,
       "y": 0
@@ -3388,6 +3406,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "east",
+      "narrative": null,
       "visibility": "player",
       "x": 2,
       "y": 0
@@ -3406,6 +3425,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "east",
+      "narrative": null,
       "visibility": "player",
       "x": 3,
       "y": 0
@@ -3414,6 +3434,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "south",
+      "narrative": null,
       "visibility": "player",
       "x": 3,
       "y": 1
@@ -3515,6 +3536,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "north",
+      "narrative": null,
       "visibility": "player",
       "x": 3,
       "y": 0
@@ -3523,6 +3545,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "east",
+      "narrative": null,
       "visibility": "player",
       "x": 4,
       "y": 0
@@ -3531,6 +3554,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "east",
+      "narrative": null,
       "visibility": "player",
       "x": 5,
       "y": 0
@@ -3539,6 +3563,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "south",
+      "narrative": null,
       "visibility": "player",
       "x": 5,
       "y": 1
@@ -4785,6 +4810,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "north",
+      "narrative": null,
       "visibility": "player",
       "x": 5,
       "y": 0
@@ -4793,6 +4819,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "east",
+      "narrative": null,
       "visibility": "player",
       "x": 6,
       "y": 0
@@ -4801,6 +4828,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "south",
+      "narrative": null,
       "visibility": "player",
       "x": 6,
       "y": 1
@@ -5178,6 +5206,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "north",
+      "narrative": null,
       "visibility": "player",
       "x": 6,
       "y": 0
@@ -5603,6 +5632,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "west",
+      "narrative": null,
       "visibility": "player",
       "x": 5,
       "y": 0
@@ -5611,6 +5641,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "west",
+      "narrative": null,
       "visibility": "player",
       "x": 4,
       "y": 0
@@ -5619,6 +5650,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "west",
+      "narrative": null,
       "visibility": "player",
       "x": 3,
       "y": 0
@@ -5627,6 +5659,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "west",
+      "narrative": null,
       "visibility": "player",
       "x": 2,
       "y": 0
@@ -5635,6 +5668,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "west",
+      "narrative": null,
       "visibility": "player",
       "x": 1,
       "y": 0
@@ -5643,6 +5677,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "west",
+      "narrative": null,
       "visibility": "player",
       "x": 0,
       "y": 0
@@ -5663,6 +5698,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "west",
+      "narrative": null,
       "visibility": "player",
       "x": 5,
       "y": 1
@@ -5671,6 +5707,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "west",
+      "narrative": null,
       "visibility": "player",
       "x": 4,
       "y": 1
@@ -5691,6 +5728,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "west",
+      "narrative": null,
       "visibility": "player",
       "x": 3,
       "y": 1
@@ -5699,6 +5737,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "north",
+      "narrative": null,
       "visibility": "player",
       "x": 3,
       "y": 0
@@ -5707,6 +5746,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "west",
+      "narrative": null,
       "visibility": "player",
       "x": 2,
       "y": 0
@@ -5715,6 +5755,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "west",
+      "narrative": null,
       "visibility": "player",
       "x": 1,
       "y": 0
@@ -5723,6 +5764,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "west",
+      "narrative": null,
       "visibility": "player",
       "x": 0,
       "y": 0
@@ -6801,7 +6843,7 @@
   },
   "master_seed": 20260715,
   "party_document": {
-    "engine_version": "1.7.0",
+    "engine_version": "2.0.1",
     "kind": "party",
     "payload": {
       "characters": [
