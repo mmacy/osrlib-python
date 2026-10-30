@@ -92,6 +92,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "east",
+      "narrative": null,
       "visibility": "player",
       "x": 1,
       "y": 0
@@ -100,6 +101,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "east",
+      "narrative": null,
       "visibility": "player",
       "x": 2,
       "y": 0
@@ -139,6 +141,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "east",
+      "narrative": null,
       "visibility": "player",
       "x": 3,
       "y": 0
@@ -147,6 +150,7 @@
       "code": "exploration.party.moved",
       "event_type": "party_moved",
       "facing": "east",
+      "narrative": null,
       "visibility": "player",
       "x": 4,
       "y": 0

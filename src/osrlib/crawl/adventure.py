@@ -58,6 +58,8 @@ from osrlib.crawl.commands import (
     GrantCoins,
     GrantItem,
     PlaceParty,
+    RemoveCoins,
+    RemoveItem,
     SetDoorState,
     SpawnMonsters,
 )
@@ -76,6 +78,7 @@ from osrlib.crawl.dungeon import (
 from osrlib.crawl.gates import ConditionSpec, GateSpec, HasItemCondition
 from osrlib.crawl.quests import QuestSpec
 from osrlib.crawl.triggers import (
+    CARRIER_SELECTOR,
     FIRST_LIVING_SELECTOR,
     PARTY_SELECTOR,
     AreaEnteredPattern,
@@ -623,6 +626,7 @@ def _validate_consequence(
     adventure: Adventure,
     monsters: MonsterCatalog,
     equipment: EquipmentCatalog,
+    magic: MagicItemCatalog,
     errors: list[str],
 ) -> None:
     """Resolve one authored consequence's references and its character addressing.
@@ -631,18 +635,20 @@ def _validate_consequence(
     quest's rewards alike. `site` is the subject at the start of each error line, like
     `trigger 'reward': consequence 0` or `quest 'the-idol': reward 0`.
     """
-    if isinstance(consequence, GrantItem | GrantCoins | AwardXP):
+    if isinstance(consequence, GrantItem | GrantCoins | AwardXP | RemoveItem | RemoveCoins):
         # Character ids are allocated per session, so a document can never contain one:
-        # authored consequences address the party through the selectors.
-        if consequence.character_id not in (PARTY_SELECTOR, FIRST_LIVING_SELECTOR):
+        # authored consequences address the party through the selectors. Only a removal of
+        # an item has a carrier to look for.
+        selectors = (PARTY_SELECTOR, FIRST_LIVING_SELECTOR)
+        if isinstance(consequence, RemoveItem):
+            selectors = (*selectors, CARRIER_SELECTOR)
+        if consequence.character_id not in selectors:
             errors.append(
-                f"{site} names character {consequence.character_id!r}; an authored consequence "
-                f"addresses {PARTY_SELECTOR!r} or {FIRST_LIVING_SELECTOR!r}"
+                f"{site} names character {consequence.character_id!r}; an authored "
+                f"{consequence.command_type} addresses {' or '.join(repr(selector) for selector in selectors)}"
             )
-    if isinstance(consequence, GrantItem):
-        try:
-            equipment.get(consequence.item_id)
-        except ValueError:
+    if isinstance(consequence, GrantItem | RemoveItem):
+        if _dangling_condition_item(HasItemCondition(item_id=consequence.item_id), equipment, magic) is not None:
             errors.append(f"{site} references unknown item {consequence.item_id!r}")
     elif isinstance(consequence, SpawnMonsters):
         try:
@@ -680,7 +686,9 @@ def _validate_trigger(
     owner = f"trigger {trigger.id!r}"
     _validate_clause(trigger.when, trigger.conditions, owner, adventure, monsters, equipment, magic, errors)
     for position, consequence in enumerate(trigger.consequences):
-        _validate_consequence(consequence, f"{owner}: consequence {position}", adventure, monsters, equipment, errors)
+        _validate_consequence(
+            consequence, f"{owner}: consequence {position}", adventure, monsters, equipment, magic, errors
+        )
 
 
 def _validate_quest(
@@ -721,7 +729,7 @@ def _validate_quest(
                 errors,
             )
     for position, reward in enumerate(quest.rewards):
-        _validate_consequence(reward, f"{owner}: reward {position}", adventure, monsters, equipment, errors)
+        _validate_consequence(reward, f"{owner}: reward {position}", adventure, monsters, equipment, magic, errors)
 
 
 def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment: EquipmentCatalog) -> None:
@@ -766,14 +774,17 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
 
     For each trigger, it checks that the id is unique, and that the area, level, dungeon, item, or
     monster its pattern refers to exists. For each of the trigger's consequences, it checks that a
-    granted item and a spawned monster resolve, that a door-state change refers to an edge where a door
-    stands, and that a party placement is on the grid. For each quest, it checks that the id is
+    granted or removed item resolves in the equipment catalog or the magic item catalog, that a spawned
+    monster resolves, that a door-state change refers to an edge where a door stands, and that a party
+    placement is on the grid. For each quest, it checks that the id is
     unique, and runs the same checks over each of its clauses (its activation, each objective's
     completion, and each hidden objective's reveal) and over each reward.
 
-    A consequence or reward that gives something to a character has to address the party with a
-    party selector, not a character id. [`GameSession.new`][osrlib.crawl.session.GameSession.new]
-    gives out character ids, so no character id written in an adventure can refer to a character.
+    A consequence or reward that gives something to a character or takes something away has to
+    address the party with a selector, not a character id. Every such command accepts `"@party"` and
+    `"@first"`, and a [`RemoveItem`][osrlib.crawl.commands.RemoveItem] also accepts `"@carrier"`.
+    [`GameSession.new`][osrlib.crawl.session.GameSession.new] gives out character ids, so no
+    character id written in an adventure can refer to a character.
 
     It doesn't check flag keys. Any key can be set during play, so an unset key isn't an error in the
     document.

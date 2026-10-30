@@ -806,7 +806,10 @@ class EquipmentDestroyedEvent(Event):
     nothing.
 
     When the ruleset's `magic_item_death_save` flag is on, `destroy_equipment` rolls a save for each magic item, and
-    `saved_items` lists the ones that survive. They stay in the victim's inventory.
+    `saved_items` lists the ones that survive. `destroy_equipment` leaves them in the victim's inventory. When the
+    victim is a party member, a [`GameSession`][osrlib.crawl.session.GameSession] moves them to a drop pile on the
+    party's cell in the same command, and the party picks them up with
+    [`TakeTreasure`][osrlib.crawl.commands.TakeTreasure] and the feature id `"pile"`.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"combat.equipment.destroyed"})

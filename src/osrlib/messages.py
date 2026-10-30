@@ -430,6 +430,13 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
     ),
     "session.quest.completed": lambda event: f"Quest complete: {event.name}.",
     "session.adventure.completed": lambda event: f"The adventure is over: {event.name or event.quest_id} is finished.",
+    "session.items.removed": lambda event: (
+        f"{event.character_id} gives up "
+        + (", ".join(event.item_ids) if event.item_ids else "")
+        + (" and " if event.item_ids and event.coins_gp_value else "")
+        + (f"{event.coins_gp_value} gp in coin" if event.coins_gp_value else "")
+        + "."
+    ),
 }
 
 

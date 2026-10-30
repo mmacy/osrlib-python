@@ -117,6 +117,7 @@ __all__ = [
     "ItemsDroppedEvent",
     "ItemsGivenEvent",
     "ItemsLeftBehindEvent",
+    "ItemsRemovedEvent",
     "JournalEntryAddedEvent",
     "LightEvent",
     "ListenedEvent",
@@ -157,7 +158,10 @@ class PartyMovedEvent(Event):
     unchanged cell and the new facing. For a `MoveParty` through a passage, the event has
     the cell the party arrives on, and it comes after the
     [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] when the passage
-    leads to another level. Redraw a first-person view from this event.
+    leads to another level. A [`UseStairs`][osrlib.crawl.commands.UseStairs] that takes the
+    party to another cell of the same level emits one for the landing cell only when the
+    transition's gate has success text, which the event then contains in `narrative`.
+    Redraw a first-person view from this event.
 
     A step that a wall, a closed door, or the edge of the map blocks emits no event. The
     session refuses the command with the rejection code `exploration.move.blocked`, and
@@ -182,6 +186,12 @@ class PartyMovedEvent(Event):
     a step, the party faces the way it went, so this changes on a step as well as on a turn. After
     a step through a passage, the party faces the way the adventure's author set for the passage's
     far side."""
+    narrative: str | None = None
+    """The success text the adventure's author wrote on the gate of a transition that took the party to
+    another cell of the same level, or `None`. For a transition to another level, the text is on the
+    [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] instead.
+    [`format_message`][osrlib.messages.format_message] adds it after the line it builds from the
+    code."""
 
 
 class LocationEnteredEvent(Event):
@@ -236,7 +246,9 @@ class LocationEnteredEvent(Event):
     there was no gate or no text. A gate is a condition the author puts on a door or a transition,
     like a key the party must have. The author wrote this text, not the engine, and
     [`format_message`][osrlib.messages.format_message] adds it after the line it builds from the
-    code."""
+    code. The session reports no level entry for a transition to another cell of the same level, so
+    that transition's gate text is on the [`PartyMovedEvent`][osrlib.crawl.events.PartyMovedEvent]
+    for the landing cell."""
     via: str | None = None
     """How the party got there, on level and dungeon entries: the kind of the transition it took
     (`"stairs_down"`, `"stairs_up"`, `"trapdoor"`, or `"chute"`), `"passage"` for a passage it
@@ -1046,8 +1058,10 @@ class EncounterEndedEvent(Event):
     """Player visibility: the party knows the encounter is behind it."""
     outcome: str
     """How it ended: `"victory"` when the monsters were beaten, `"evaded"` when the party got away
-    before or during a fight, `"escaped"` when the party got away at the end of a chase, or
-    `"turned"` when undead were driven off."""
+    before or during a fight, `"escaped"` when the party got away at the end of a chase,
+    `"turned"` when undead were driven off, or the outcome of an
+    [`EndEncounter`][osrlib.crawl.commands.EndEncounter]: `"parley"` when the party talked or paid its
+    way past, or `"departed"` when it walked away from monsters that let it go."""
 
 
 class BattleStartedEvent(Event):
@@ -2003,6 +2017,33 @@ class AdventureCompletedEvent(Event):
     [`QuestCompletedEvent`][osrlib.crawl.events.QuestCompletedEvent], or `None`."""
 
 
+class ItemsRemovedEvent(Event):
+    """A referee took items or coins away from a party member.
+
+    Emitted by [`RemoveItem`][osrlib.crawl.commands.RemoveItem] and
+    [`RemoveCoins`][osrlib.crawl.commands.RemoveCoins]. What was removed has left the
+    game, so update the member's inventory on screen. To find out why, read the `source` of
+    the command that emitted it.
+    """
+
+    allowed_codes: ClassVar[frozenset[str]] = frozenset({"session.items.removed"})
+    """The only message code this event uses."""
+
+    event_type: Literal["items_removed"] = "items_removed"
+    """The event type, `items_removed`, which identifies this class in serialized form."""
+    code: str = "session.items.removed"
+    """The message code, always `session.items.removed`."""
+    visibility: Visibility = Visibility.PLAYER
+    """Player visibility: the party knows what it no longer has."""
+    character_id: str
+    """The member who lost the items or coins."""
+    item_ids: tuple[str, ...] = ()
+    """What was removed, in the same id form the acquisition used: a mundane item's catalog id once
+    for each unit, and the instance id of a magic item or a valuable. Empty for a removal of coins."""
+    coins_gp_value: int = 0
+    """The coins removed, as their value in gold pieces. 0 for a removal of items."""
+
+
 CRAWL_EVENT_CLASSES: tuple[type[Event], ...] = (
     PartyMovedEvent,
     LocationEnteredEvent,
@@ -2060,6 +2101,7 @@ CRAWL_EVENT_CLASSES: tuple[type[Event], ...] = (
     ObjectiveCompletedEvent,
     QuestCompletedEvent,
     AdventureCompletedEvent,
+    ItemsRemovedEvent,
 )
 """The event classes defined in this module, in the order they're declared.
 

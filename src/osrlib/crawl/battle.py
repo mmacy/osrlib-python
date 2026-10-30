@@ -293,7 +293,7 @@ FLEE_EXIT_FEET = 120
 
 A group that fails a morale check turns and runs its full movement rate each round. Once its
 distance is greater than this, the session marks the group fled. A fled group takes no further
-action, the session rejects an attack declared against it with
+action, the session rejects every declaration aimed at it with
 `battle.declaration.unknown_group`, and a battle in which every group has fled or died ends in
 victory. Until the group gets this far, the party can still chase it or shoot at it. A group whose
 living members are all afraid or turned, but which didn't fail a morale check, also counts as gone
@@ -1424,8 +1424,10 @@ def _validate_declaration(session, declaration: BattleDeclaration, member) -> li
     if declaration.action == "move":
         if declaration.move is None:
             return [Rejection(code="battle.declaration.missing_move", params={"character": member.id})]
-        if declaration.move == "close" and _group_by_id(session, declaration.target_group_id) is None:
-            return [Rejection(code="battle.declaration.unknown_group", params={"character": member.id})]
+        if declaration.move == "close":
+            group = _group_by_id(session, declaration.target_group_id)
+            if group is None or group.fled:
+                return [Rejection(code="battle.declaration.unknown_group", params={"character": member.id})]
         from osrlib.core.combat import cannot_move
 
         if cannot_move(member):
@@ -1510,17 +1512,38 @@ def _validate_declaration(session, declaration: BattleDeclaration, member) -> li
 
 
 def _cast_targets(session, declaration: BattleDeclaration, spell) -> tuple[list, int | None, list[Rejection]]:
-    """Resolve a cast declaration's targets: explicit ids, or the area footprint."""
+    """Resolve a cast declaration's targets: explicit ids, the area footprint, or a group's living members.
+
+    A cast in an `area` mode aims at `target_group_id`, and its targets are the group's living members
+    that fit the area footprint, followed by the party's front rank when `aoe_friendly_fire` applies.
+    A cast in an `hd_budget` mode with a `target_group_id` and no `targets` targets every living
+    member of the group, in spawn order, and the kernel spends the budget on them weakest first.
+    That's the same cast as naming those members one by one, so a front end with only the player
+    view's group ids can cast *sleep*. When both are set, the cast uses the named `targets`. For a
+    group that isn't in the encounter, or that has fled, this returns a
+    `battle.declaration.unknown_group` rejection.
+    """
     try:
         mode = spell.mode(declaration.spell_mode, reversed=declaration.reversed)
     except ValueError:
         return [], None, [Rejection(code="magic.cast.unknown_mode", params={"mode": declaration.spell_mode or ""})]
     targeting = mode.targeting
-    if targeting is not None and targeting.mode is TargetingMode.AREA:
+    if targeting is not None and (
+        targeting.mode is TargetingMode.AREA
+        or (
+            targeting.mode is TargetingMode.HD_BUDGET
+            and not declaration.targets
+            and declaration.target_group_id is not None
+        )
+    ):
         group = _group_by_id(session, declaration.target_group_id)
-        if group is None:
-            return [], None, [Rejection(code="battle.declaration.unknown_group", params={})]
-        candidates = _area_candidates(session, group, targeting.shape, targeting.dimensions)
+        if group is None or group.fled:
+            unknown = Rejection(code="battle.declaration.unknown_group", params={"character": declaration.character_id})
+            return [], None, [unknown]
+        if targeting.mode is TargetingMode.AREA:
+            candidates = _area_candidates(session, group, targeting.shape, targeting.dimensions)
+        else:
+            candidates = _living_monsters(session, group)
         return candidates, group.distance_feet, []
     registry = session.registry()
     targets: list = []

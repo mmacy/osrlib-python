@@ -28,14 +28,15 @@ attribute. The session refuses a command sent in any other mode with
 
 Referee commands are issued by game logic rather than by a player: a
 [`Listener`][osrlib.crawl.session.Listener] you write, the interpreter that runs an
-adventure's triggers, or an LLM referee. They grant items and XP, set flags, spawn
-monsters, move the clock, and record quest progress. Each one's summary starts with
-"Referee:". They're legal in every mode, and the session logs and replays them like any
-other command. The exceptions are the ones that would restart play once the session has
-ended: [`PlaceParty`][osrlib.crawl.commands.PlaceParty] is illegal in `victory`, and
+adventure's triggers, or an LLM referee. They grant and take away items and coins, award
+XP, set flags, spawn monsters, end encounters, move the clock, and record quest progress.
+Each one's summary starts with "Referee:". They're legal in every mode, and the session logs
+and replays them like any other command. The exceptions are the ones that would restart play
+once the session has ended: [`PlaceParty`][osrlib.crawl.commands.PlaceParty] is illegal in `victory`, and
 [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] and
 [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] are illegal in `victory` and
-`game_over`.
+`game_over`. [`EndEncounter`][osrlib.crawl.commands.EndEncounter] closes an open encounter, so
+it's legal only in `encounter` and `battle`.
 
 Each command class's docstring states its contract in three sections. `Modes:` lists the session
 modes that accept it, `Rejections:` lists the codes it can be refused with, and `Events:`
@@ -86,6 +87,8 @@ The commands, grouped by what the party is doing:
   with one [`BattleDeclaration`][osrlib.crawl.commands.BattleDeclaration] per member.
 - Referee commands: [`GrantItem`][osrlib.crawl.commands.GrantItem],
   [`GrantCoins`][osrlib.crawl.commands.GrantCoins],
+  [`RemoveItem`][osrlib.crawl.commands.RemoveItem],
+  [`RemoveCoins`][osrlib.crawl.commands.RemoveCoins],
   [`AwardXP`][osrlib.crawl.commands.AwardXP],
   [`IdentifyItem`][osrlib.crawl.commands.IdentifyItem],
   [`SetFlag`][osrlib.crawl.commands.SetFlag],
@@ -95,6 +98,7 @@ The commands, grouped by what the party is doing:
   [`RollDice`][osrlib.crawl.commands.RollDice],
   [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters],
   [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty],
+  [`EndEncounter`][osrlib.crawl.commands.EndEncounter],
   [`RecordNote`][osrlib.crawl.commands.RecordNote],
   [`AddJournalEntry`][osrlib.crawl.commands.AddJournalEntry],
   [`MarkTriggerFired`][osrlib.crawl.commands.MarkTriggerFired], and the quest commands
@@ -187,6 +191,7 @@ __all__ = [
     "CompleteQuest",
     "ConsequenceCommand",
     "DropItems",
+    "EndEncounter",
     "EngageBattle",
     "EnterDungeon",
     "EquipItem",
@@ -212,6 +217,8 @@ __all__ = [
     "PurchaseEquipment",
     "PurchaseHealing",
     "RecordNote",
+    "RemoveCoins",
+    "RemoveItem",
     "RemoveTreasureTrap",
     "ReorderParty",
     "ResolveBattleRound",
@@ -351,8 +358,9 @@ class Command(BaseModel):
     `session.command.wrong_mode`. The base class allows every mode. Each play command narrows
     the set, and so do the referee commands
     [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters],
-    [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty], and
-    [`PlaceParty`][osrlib.crawl.commands.PlaceParty]. Each command's `Modes:` section lists
+    [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty],
+    [`PlaceParty`][osrlib.crawl.commands.PlaceParty], and
+    [`EndEncounter`][osrlib.crawl.commands.EndEncounter]. Each command's `Modes:` section lists
     its set."""
 
     @classmethod
@@ -1045,8 +1053,9 @@ class TakeTreasure(Command):
     By default the haul spreads across the living members. Each item goes to a member
     whose class can use it, so the fighter takes the plate mail and the magic-user takes
     the arcane scroll. Gems and jewellery divide by worth, and coins divide evenly,
-    denomination by denomination. No member is loaded past the 1,600-coin maximum load, so
-    a pickup can't stop the party moving. The party moves at its slowest member's rate,
+    denomination by denomination. No member is loaded past their maximum load, so a pickup
+    can't stop the party moving. The maximum load is 1,600 coins, or 2,600 for a member who
+    wears gauntlets of ogre power under detailed encumbrance. The party moves at its slowest member's rate,
     so a heavy load on one member slows everyone. Name `recipient_id` to have one member
     take the whole haul instead, up to their maximum load. Whatever the carriers can't
     carry stays in the pile on the cell, and the party can lighten its load and come back
@@ -2412,9 +2421,12 @@ class BattleDeclaration(BaseModel):
     [`EncounterGroupView.id`][osrlib.crawl.views.EncounterGroupView.id] from
     [`EncounterView.groups`][osrlib.crawl.views.EncounterView.groups]. An `attack` needs it, and
     so do a `close` move, a `cast` of a spell that covers an area, a thrown item, and a wand,
-    staff, or rod that strikes or covers an area. The session refuses a group that isn't in the
-    encounter with `battle.declaration.unknown_group`, and refuses a group that has fled the same
-    way when the action is an attack or an item."""
+    staff, or rod that strikes or covers an area. A `cast` in an `hd_budget` mode, like *sleep*,
+    can use it in place of `targets`. The session then spends the spell's Hit Dice budget on the
+    group's living members, weakest first. The session refuses a group that isn't in the
+    encounter, or one whose
+    [`EncounterGroupView.fled`][osrlib.crawl.views.EncounterGroupView.fled] is true, with
+    `battle.declaration.unknown_group`."""
     weapon_id: str | None = None
     """Which wielded weapon to attack with: a mundane weapon's catalog id, a magic weapon's
     per-instance id, or `None` to strike unarmed. The weapon has to be equipped already, so
@@ -2441,8 +2453,10 @@ class BattleDeclaration(BaseModel):
     """The spell's targets, named as in
     [`CastSpell.targets`][osrlib.crawl.commands.CastSpell.targets]: member ids, monster ids, or
     a `cell:` reference. Leave it empty for a spell that covers an area, which takes
-    `target_group_id` instead. The session refuses an invisible target with
-    `battle.declaration.invisible_target`."""
+    `target_group_id` instead. For an `hd_budget` mode, you can also leave it empty and set
+    `target_group_id`. That's the same cast as naming every living member of the group in spawn
+    order. When both are set, the session uses `targets`. The session refuses an invisible target
+    with `battle.declaration.invisible_target`."""
     move: Literal["close", "fighting_withdrawal", "retreat"] | None = None
     """Which movement a `move` declaration makes.
 
@@ -2706,9 +2720,17 @@ class ResolveBattleRound(Command):
 class GrantItem(Command):
     """Referee: put an item straight into a member's pack.
 
-    Use it to hand out a reward, a found item, or a starting kit. Nobody pays, and no shop
-    is involved. Referee commands are legal in every mode, terminal modes included, and the
-    session logs and replays them like any other command.
+    Use it to hand out a reward, a found item, a starting kit, or a potion the party buys
+    from a shop your game runs. Nobody pays, so charge the price with
+    [`RemoveCoins`][osrlib.crawl.commands.RemoveCoins] when there is one. Referee commands
+    are legal in every mode, terminal modes included, and the session logs and replays
+    them like any other command.
+
+    A magic item is created the way treasure is. It arrives unidentified, and whatever its
+    item page leaves to chance, like a wand's charges, is rolled on
+    [`TREASURE_STREAM`][osrlib.core.treasure.TREASURE_STREAM] by
+    [`instantiate_magic_item`][osrlib.core.treasure.instantiate_magic_item]. A mundane grant
+    makes no draws.
 
     Modes:
         `town`, `exploring`, `encounter`, `battle`, `game_over`, `victory`
@@ -2717,11 +2739,12 @@ class GrantItem(Command):
         - `session.command.unknown_member` - `character_id` matches no party member.
         - `session.command.unknown_item` - `item_id` matches no item in the session's
           [`effective_equipment`][osrlib.crawl.session.GameSession.effective_equipment]
-          catalog: neither a built-in id nor one the adventure bundles.
+          catalog or the magic item catalog.
 
     Events:
-        [`ItemAcquiredEvent`][osrlib.crawl.events.ItemAcquiredEvent] with the
-        granted items and `origin` `"grant"`.
+        [`ItemAcquiredEvent`][osrlib.crawl.events.ItemAcquiredEvent] with `origin`
+        `"grant"`. Its `item_ids` repeat a mundane item's catalog id once for each unit, and
+        list each new magic item by its instance id.
     """
 
     command_type: Literal["grant_item"] = "grant_item"
@@ -2734,15 +2757,19 @@ class GrantItem(Command):
     session assigns member ids when it starts. The trigger and quest interpreter replaces the selector
     with member ids before it issues the command."""
     item_id: str
-    """Which item to create, from the session's
-    [`effective_equipment`][osrlib.crawl.session.GameSession.effective_equipment] catalog:
-    either a built-in id from [`load_equipment`][osrlib.data.load_equipment] (see the
+    """Which item to create. The session looks in its
+    [`effective_equipment`][osrlib.crawl.session.GameSession.effective_equipment] catalog
+    first, for a built-in id from [`load_equipment`][osrlib.data.load_equipment] (see the
     [equipment id index](https://mmacy.github.io/osrlib-python/reference/content-ids/equipment/))
-    or one the adventure bundles."""
+    or one the adventure bundles. Then it looks in the magic item catalog,
+    [`load_magic_items`][osrlib.data.load_magic_items] (see the
+    [magic item id index](https://mmacy.github.io/osrlib-python/reference/content-ids/magic-items/))."""
     quantity: int = Field(default=1, ge=1)
     """How many to place, counted as single items rather than as purchase lots.
     `quantity=6` grants six torches, the same number one lot of torches from
-    [`PurchaseEquipment`][osrlib.crawl.commands.PurchaseEquipment] delivers."""
+    [`PurchaseEquipment`][osrlib.crawl.commands.PurchaseEquipment] delivers. For a magic
+    item, it's how many separate magic items to create, each with its own instance id and
+    its own rolls. `quantity=2` of a bundle of arrows +1 grants two bundles."""
 
 
 class GrantCoins(Command):
@@ -2777,6 +2804,87 @@ class GrantCoins(Command):
     weight, so a large grant can overload the member. An overloaded member slows the whole
     party, or stops it moving, and then the session refuses
     [`MoveParty`][osrlib.crawl.commands.MoveParty] with `exploration.move.cannot_move`."""
+
+
+class RemoveItem(Command):
+    """Referee: take an item away from a member, the inverse of [`GrantItem`][osrlib.crawl.commands.GrantItem].
+
+    Use it when your game takes something the party has: armour a shop buys back, a quest
+    item used up when the quest completes, or an offering left on an altar. The item is
+    gone, not dropped, so nothing can pick it back up. Pay for it with
+    [`GrantCoins`][osrlib.crawl.commands.GrantCoins] when your game pays. Referee commands
+    are legal in every mode, terminal modes included.
+
+    An equipped item comes off first and then goes, and any effect it attached ends, as
+    [`UnequipItem`][osrlib.crawl.commands.UnequipItem] would end it. A revealed curse
+    doesn't stop the removal, because a curse stops only the bearer from taking the item
+    off. A removal makes no draws and takes no time.
+
+    Modes:
+        `town`, `exploring`, `encounter`, `battle`, `game_over`, `victory`
+
+    Rejections:
+        - `session.command.unknown_member` - `character_id` matches no party member.
+        - `items.remove.not_carried` - the member doesn't carry `quantity` units of
+          `item_id`, or `item_id` is an instance id and `quantity` isn't 1.
+
+    Events:
+        [`ItemsRemovedEvent`][osrlib.crawl.events.ItemsRemovedEvent] with the removed
+        items. When an equipped magic item's effects end, their events come first.
+    """
+
+    command_type: Literal["remove_item"] = "remove_item"
+    character_id: str
+    """The member who loses the item, by
+    [`MemberView.id`][osrlib.crawl.views.MemberView.id]. A command you issue yourself has a
+    member id here, and the session refuses any other value with `session.command.unknown_member`.
+    A consequence or a reward in an adventure document has a selector instead, because the
+    session assigns member ids when it starts. `"@party"` takes the item from every living
+    member, `"@first"` from the first living member, and `"@carrier"` from the first living
+    member in marching order who carries it. The trigger and quest interpreter replaces the
+    selector with member ids before it issues the command."""
+    item_id: str
+    """Which item to take. A mundane item's catalog id, like `"torch"`, takes units from the
+    member's pack first and then from what the member has equipped. A magic item's or a
+    valuable's instance id, like `"magic-item-0003"` or `"valuable-0002"`, takes that one
+    item. A magic item's catalog id isn't accepted, because two copies of a magic item can
+    differ, so the session refuses it with `items.remove.not_carried`. Read instance ids from
+    the member's inventory in the referee view."""
+    quantity: int = Field(default=1, ge=1)
+    """How many units of a mundane item to take. It has to be 1 for an instance id."""
+
+
+class RemoveCoins(Command):
+    """Referee: take coins out of a member's purse, the inverse of [`GrantCoins`][osrlib.crawl.commands.GrantCoins].
+
+    Use it to charge a price or a toll. The session takes exactly the coins you name and
+    makes no change, so a member who has gold but no silver can't pay a toll in silver.
+    Convert the price to the coins the member has before you send it. Referee commands are
+    legal in every mode, terminal modes included. A removal makes no draws and takes no time.
+
+    Modes:
+        `town`, `exploring`, `encounter`, `battle`, `game_over`, `victory`
+
+    Rejections:
+        - `session.command.unknown_member` - `character_id` matches no party member.
+        - `items.coins.insufficient` - the purse has fewer coins of some denomination than
+          `coins` asks for.
+
+    Events:
+        [`ItemsRemovedEvent`][osrlib.crawl.events.ItemsRemovedEvent] with the coins' value.
+    """
+
+    command_type: Literal["remove_coins"] = "remove_coins"
+    character_id: str
+    """The member whose purse pays, by
+    [`MemberView.id`][osrlib.crawl.views.MemberView.id]. A command you issue yourself has a
+    member id here, and the session refuses any other value with `session.command.unknown_member`.
+    A consequence or a reward in an adventure document has a party selector instead,
+    `"@party"` for every living member or `"@first"` for the first living member, because the
+    session assigns member ids when it starts. The trigger and quest interpreter replaces the selector
+    with member ids before it issues the command."""
+    coins: Coins
+    """The coins to take, by denomination. The purse must contain at least this many of each."""
 
 
 class AwardXP(Command):
@@ -2992,6 +3100,60 @@ class SpawnNpcParty(Command):
         if self.count_dice is not None and self.count_fixed is not None:
             raise ValueError("set at most one of count_dice or count_fixed")
         return self
+
+
+class EndEncounter(Command):
+    """Referee: close the open encounter when the party talks its way past or walks away.
+
+    Use it when the party pays a toll, bluffs the guards, or walks away from monsters that let
+    it go. The session closes the encounter the same way it does when the party wins or gets
+    away. Monsters slain earlier in the encounter count as defeated and drop their treasure.
+    Monsters still standing aren't defeated and are worth no experience. Effects on the
+    encounter's monsters end, and the clock advances, so the encounter costs at least one turn.
+    The session then switches to `exploring`.
+
+    In `battle`, the command closes the battle too. It emits no
+    [`BattleEndedEvent`][osrlib.crawl.events.BattleEndedEvent], because the
+    `EncounterEndedEvent` closes both, so check the session's mode to know the fight is over.
+
+    A keyed area's monsters are back each time the party walks into the area, until every one
+    of them is slain or routed. Set `resolve_area` to `True` to mark the area resolved now, so
+    the monsters don't come back. The command is legal only while an encounter is open, so the
+    flag can't resolve an area whose encounter is already closed.
+
+    The command can be an authored consequence, so a trigger can close the encounter. For
+    example, a trigger can close the encounter and resolve the area when a flag records that
+    the party paid the toll.
+
+    Modes:
+        `encounter`, `battle`
+
+    Rejections:
+        - `session.command.wrong_mode` - no encounter is open.
+
+    Events:
+        A [`MonsterDefeatedEvent`][osrlib.crawl.events.MonsterDefeatedEvent] for each monster
+        that was slain or routed earlier in the encounter, the events of effects ending on the
+        encounter's monsters, and the experience award when the ruleset awards it immediately.
+        Then the [`EncounterEndedEvent`][osrlib.crawl.events.EncounterEndedEvent] with the
+        command's `outcome`, and the events of the clock advance.
+    """
+
+    allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.ENCOUNTER, SessionMode.BATTLE})
+
+    command_type: Literal["end_encounter"] = "end_encounter"
+    outcome: Literal["parley", "departed"]
+    """How the encounter ended, as the `outcome` of the
+    [`EncounterEndedEvent`][osrlib.crawl.events.EncounterEndedEvent]. Use `"parley"` when the
+    party and the monsters came to terms, like a toll paid or a bluff believed. Use
+    `"departed"` when one side left the other, like a party that walks away from monsters
+    that let it go, or a chase that you call off."""
+    resolve_area: bool = False
+    """Whether to mark the keyed area the encounter came from as resolved, so its monsters
+    don't appear when the party next walks in. With `False`, the default, the area stays
+    unresolved and its monsters are back the next time the party enters it. An encounter that
+    didn't come from a keyed area, like a wandering or spawned one, has no area to resolve,
+    and the flag does nothing."""
 
 
 class SetDoorState(Command):
@@ -3565,6 +3727,9 @@ ALL_COMMAND_CLASSES: tuple[type[Command], ...] = (
     RevealObjective,
     CompleteObjective,
     CompleteQuest,
+    EndEncounter,
+    RemoveItem,
+    RemoveCoins,
 )
 """Every command class, in a fixed order. These are the members of the
 [`AnyCommand`][osrlib.crawl.commands.AnyCommand] union.
@@ -3609,6 +3774,9 @@ CONSEQUENCE_COMMAND_CLASSES: tuple[type[Command], ...] = (
     SetDoorState,
     PlaceParty,
     AdvanceTime,
+    EndEncounter,
+    RemoveItem,
+    RemoveCoins,
 )
 """The referee commands an adventure document may contain as authored consequences, in a
 fixed order.
@@ -3635,9 +3803,10 @@ The other referee commands are left out for these reasons:
 - An adventure document can't use the result of [`RollDice`][osrlib.crawl.commands.RollDice],
   so an authored roll would only use up draws from the adjudication stream.
 
-In an authored consequence, the `character_id` of a grant or an award is a party
+In an authored consequence, the `character_id` of a grant, a removal, or an award is a
 selector, `"@party"` or `"@first"`, never a member id, because the session assigns
-member ids when it starts. See [`osrlib.crawl.triggers`][osrlib.crawl.triggers] for the selectors."""
+member ids when it starts. A [`RemoveItem`][osrlib.crawl.commands.RemoveItem] can also
+use `"@carrier"`. See [`osrlib.crawl.triggers`][osrlib.crawl.triggers] for the selectors."""
 
 ConsequenceCommand = Annotated[
     GrantItem
@@ -3648,7 +3817,10 @@ ConsequenceCommand = Annotated[
     | SpawnNpcParty
     | SetDoorState
     | PlaceParty
-    | AdvanceTime,
+    | AdvanceTime
+    | EndEncounter
+    | RemoveItem
+    | RemoveCoins,
     Field(discriminator="command_type"),
 ]
 """The type of an authored consequence: a union of the classes in

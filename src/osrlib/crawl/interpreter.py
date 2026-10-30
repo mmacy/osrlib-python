@@ -54,13 +54,16 @@ from osrlib.crawl.commands import (
     GrantItem,
     MarkTriggerFired,
     RecordNote,
+    RemoveCoins,
+    RemoveItem,
     RevealObjective,
 )
 from osrlib.crawl.events import FlagSetEvent, ItemAcquiredEvent, LocationEnteredEvent, MonsterDefeatedEvent
 from osrlib.crawl.gates import ConditionSpec, condition_holds, flag_values_equal
 from osrlib.crawl.quests import QuestSpec, TriggerClause
-from osrlib.crawl.session import GameSession, QuestState
+from osrlib.crawl.session import GameSession, QuestState, _removal_rejection
 from osrlib.crawl.triggers import (
+    CARRIER_SELECTOR,
     FIRST_LIVING_SELECTOR,
     PARTY_SELECTOR,
     AreaEnteredPattern,
@@ -237,9 +240,9 @@ class Interpreter:
     1. [`MarkTriggerFired`][osrlib.crawl.commands.MarkTriggerFired], with the narrative's
        `fired` text. It comes first, so a trigger that fires only once can't fire again on the
        events of its consequences.
-    2. The consequences, in the order the trigger lists them. The selectors `@party` and
-       `@first` are replaced by the ids of the living members they select, so the log records
-       real character ids and a replay matches.
+    2. The consequences, in the order the trigger lists them. The selectors `@party`,
+       `@first`, and `@carrier` are replaced by the ids of the living members they select, so
+       the log records real character ids and a replay matches.
     3. [`AddJournalEntry`][osrlib.crawl.commands.AddJournalEntry] with the narrative's
        `journal` text, when it has one. It comes last, so the entry records the clock time
        after the consequences.
@@ -289,9 +292,12 @@ class Interpreter:
     When a command fails, the interpreter goes on, and the log records why. The interpreter
     drops a rejected consequence or reward without affecting the others, like a
     [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] while an encounter is already
-    open, or a grant to a character who isn't in the party. A
+    open, a grant to a character who isn't in the party, or a toll the first member can't
+    pay. A
     [`RecordNote`][osrlib.crawl.commands.RecordNote] then records the trigger or quest, the
-    dropped command's position and type, and the rejection code. If the party dies partway
+    dropped command's position and type, and the rejection code. When a selector selects
+    nobody, like `@carrier` when no living member carries the item, the interpreter drops the
+    command the same way, and the note gives that reason instead of a rejection code. If the party dies partway
     through and the session ends, the remaining commands are accepted or dropped by the
     ordinary rules of the `game_over` mode.
 
@@ -547,9 +553,9 @@ class Interpreter:
 
         A literal character id is not a selector and is passed through untouched: an
         id the document's author could not have known is rejected like any other command, dropped
-        and noted.
+        and noted. So is the carrier selector on any command but a removal of an item.
         """
-        if not isinstance(consequence, GrantItem | GrantCoins | AwardXP):
+        if not isinstance(consequence, GrantItem | GrantCoins | AwardXP | RemoveItem | RemoveCoins):
             return [consequence]
         living = self._session.party.living_members()
         if consequence.character_id == PARTY_SELECTOR:
@@ -559,6 +565,21 @@ class Interpreter:
                 self._note_drop(owner, site, consequence, f"no living member for {FIRST_LIVING_SELECTOR}")
                 return []
             return [consequence.model_copy(update={"character_id": living[0].id})]
+        if consequence.character_id == CARRIER_SELECTOR and isinstance(consequence, RemoveItem):
+            # The carrier is the first member the removal would succeed against, found with the
+            # check the session runs, so the session never refuses the command it expands to.
+            carrier = next(
+                (
+                    member
+                    for member in living
+                    if _removal_rejection(member, consequence.item_id, consequence.quantity) is None
+                ),
+                None,
+            )
+            if carrier is None:
+                self._note_drop(owner, site, consequence, f"no living member carries it for {CARRIER_SELECTOR}")
+                return []
+            return [consequence.model_copy(update={"character_id": carrier.id})]
         return [consequence]
 
     def _note_drop(self, owner: _Owner, site: str, command: Command, reason: str) -> None:

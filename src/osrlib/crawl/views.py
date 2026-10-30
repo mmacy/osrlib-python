@@ -312,6 +312,13 @@ class EncounterGroupView(BaseModel):
     """The conditions visible on the living members of the group, as
     [`Condition`][osrlib.core.effects.Condition] serialized values, sorted and deduplicated so
     the same condition on six goblins appears once."""
+    fled: bool = False
+    """True once the group has run away and left the battle. It's the same value as
+    [`EncounterGroup.fled`][osrlib.crawl.encounter.EncounterGroup]. A fled group stays in
+    [`EncounterView.groups`][osrlib.crawl.views.EncounterView.groups], and the session refuses every
+    declaration aimed at it with `battle.declaration.unknown_group`, so don't offer it as a target. A
+    group that is running but hasn't got away yet isn't fled, and you can still close on it, shoot at it,
+    or cast at it."""
 
 
 class EncounterView(BaseModel):
@@ -1018,6 +1025,7 @@ def _encounter_view(session) -> EncounterView | None:
                 count=len(living),
                 distance_feet=group.distance_feet,
                 visible_conditions=tuple(conditions),
+                fled=group.fled,
             )
         )
     declarers = _able_declarers(session)

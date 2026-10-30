@@ -254,8 +254,10 @@ def command_strategy():
                 fields[field_name] = st.integers(min_value=0 if field_name != "level_number" else 1, max_value=4)
             elif field_name in ("open", "wedged", "discovered", "unlocked"):
                 fields[field_name] = st.sampled_from([None, True, False])
-            elif field_name == "reversed":
+            elif field_name in ("reversed", "resolve_area"):
                 fields[field_name] = st.booleans()
+            elif field_name == "outcome":
+                fields[field_name] = st.sampled_from(["parley", "departed"])
             elif field_name in ("targets", "selections"):
                 fields[field_name] = st.just(())
             elif field_name == "count_dice":
@@ -431,7 +433,7 @@ def test_the_player_view_never_leaks(seed, commands):
     # Monster internals: no HP fields beyond the party's own.
     if parsed.get("encounter"):
         for group in parsed["encounter"]["groups"]:
-            assert set(group) == {"id", "label", "count", "distance_feet", "visible_conditions"}
+            assert set(group) == {"id", "label", "count", "distance_feet", "visible_conditions", "fled"}
     # Referee-visibility outcomes never appear (views carry no events at all).
     assert "exploration.detection.rolled" not in blob
     # Gate wiring is content wiring, and content wiring is the game's secret: the
