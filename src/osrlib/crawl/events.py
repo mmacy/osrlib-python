@@ -1014,8 +1014,10 @@ class EncounterEndedEvent(Event):
     """Player visibility: the party knows the encounter is behind it."""
     outcome: str
     """How it ended: `"victory"` when the monsters were beaten, `"evaded"` when the party got away
-    before or during a fight, `"escaped"` when the party got away at the end of a chase, or
-    `"turned"` when undead were driven off."""
+    before or during a fight, `"escaped"` when the party got away at the end of a chase,
+    `"turned"` when undead were driven off, or the outcome of an
+    [`EndEncounter`][osrlib.crawl.commands.EndEncounter]: `"parley"` when the party talked or paid its
+    way past, or `"departed"` when it walked away from monsters that let it go."""
 
 
 class BattleStartedEvent(Event):
