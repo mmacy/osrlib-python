@@ -870,7 +870,13 @@ class LevelDrainedEvent(Event):
     """The victim's level, or Hit Dice, after the drain. 0 when the drain killed it."""
 
     hp_lost: int
-    """The maximum hit points the victim lost with the levels."""
+    """How far the drain lowered the victim's maximum hit points: the maximum before the drain less the maximum
+    after it.
+
+    While the victim has a level or a Hit Die left, maximum hit points don't drop below 1, so this can be less than
+    the hit points rolled for the lost levels. A level-2 character with 3 maximum hit points who rolls a 7 for the
+    lost level is left with 1, so `hp_lost` is 2. A drain that kills doesn't lower the maximum for the killing
+    level, so it counts only the levels lost before that one."""
 
     xp_after: int | None = None
     """The character's experience points after the drain. Depending on the draining monster, they're either
@@ -880,7 +886,10 @@ class LevelDrainedEvent(Event):
     spawn_consequence: str | None = None
     """What the rules say becomes of a character this undead creature kills, like rising as a wight in 1d4
     days under the control of its killer. osrlib kills the victim, and playing out what it becomes is up to you.
-    `None` for a monster victim, and when the undead creature's rules say nothing about it."""
+
+    It's set only on a `combat.drain.slain` event for a character, because it describes a victim the drain killed.
+    `None` on every `combat.drain.drained` event, for a monster victim, and when the undead creature's rules say
+    nothing about it."""
 
 
 class MonsterRevivedEvent(Event):
@@ -1156,8 +1165,9 @@ class DeclarationFizzledEvent(Event):
     """Why the declaration fizzled: the code of the first check that failed when the session checked it again.
 
     Any check the declaration passed at the start of the round can fail, so read the code and don't assume a
-    cause. A staff of striking whose group ran out of reach gives `combat.attack.out_of_reach`, and a wand aimed at
-    a group that left the battle gives `battle.declaration.unknown_group`. Match on it as you match on the code of a
+    cause. A staff of striking whose group ran out of reach gives `combat.attack.out_of_reach`, a wand aimed at
+    a group that left the battle gives `battle.declaration.unknown_group`, and a turning with no living monster
+    left in the battle gives `battle.declaration.no_target`. Match on it as you match on the code of a
     [`Rejection`][osrlib.core.validation.Rejection]. [The rejection code reference][rejection-codes] explains each
     code.
     """

@@ -465,7 +465,9 @@ def _arm_for_every_kind(session: GameSession) -> None:
             state={"spell_list": "magic_user", "spells": ("fire_ball",)},
         )
     )
-    session.member(CLERIC).inventory.items.append(
+    # The staff is a melee weapon, so it goes to the elf, who stands in the front rank.
+    assert ELF in _encounter(session).front_rank
+    session.member(ELF).inventory.items.append(
         MagicItemInstance(
             instance_id="magic-item-9003", template_id="staff_of_striking", identified=True, charges_remaining=5
         )
@@ -486,7 +488,7 @@ DECLARATION_KINDS = {
         character_id=MAGIC_USER, action="use_item", item_id="magic-item-9001", target_group_id=group_id
     ),
     "staff that strikes": lambda group_id: BattleDeclaration(
-        character_id=CLERIC, action="use_item", item_id="magic-item-9003", target_group_id=group_id
+        character_id=ELF, action="use_item", item_id="magic-item-9003", target_group_id=group_id
     ),
     "area spell": lambda group_id: BattleDeclaration(
         character_id=MAGIC_USER, action="cast", spell_id="fire_ball", spell_mode="damage", target_group_id=group_id

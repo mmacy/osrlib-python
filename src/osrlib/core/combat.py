@@ -3301,7 +3301,9 @@ def drain_monster_hd(monster: MonsterInstance, *, levels: int = 1, stream: RngSt
 
     For each Hit Die drained, the monster loses a rolled d8 from both its maximum and its
     current hit points, and its THAC0 and saving throws become those of its new Hit Dice.
-    Neither hit point total falls below 1, so losing hit points never kills a monster.
+    Neither hit point total falls below 1, so losing hit points never kills a monster. The
+    event's `hp_lost` is how far the maximum fell, which is less than the d8s rolled when the
+    floor of 1 stops it.
 
     The function kills a monster already at 1 Hit Die instead. It rolls no die for that step
     and takes no Hit Die off, and the event counts the last one as lost.
@@ -3347,7 +3349,7 @@ def drain_monster_hd(monster: MonsterInstance, *, levels: int = 1, stream: RngSt
 
     monster_id = _entity_id(monster)
     former = monster.hit_dice_count
-    hp_lost = 0
+    former_max_hp = monster.max_hp
     slain = False
     for _ in range(levels):
         if monster.hit_dice_count <= 1:
@@ -3357,7 +3359,6 @@ def drain_monster_hd(monster: MonsterInstance, *, levels: int = 1, stream: RngSt
         monster.drained_hd += 1
         monster.current_hp = max(1, monster.current_hp - lost)
         monster.max_hp = max(1, monster.max_hp - lost)
-        hp_lost += lost
     events: list[Event] = []
     if slain:
         # The killing Hit Die counts as lost, mirroring character drain.
@@ -3367,7 +3368,7 @@ def drain_monster_hd(monster: MonsterInstance, *, levels: int = 1, stream: RngSt
                 target_id=monster_id,
                 levels_lost=former - monster.hit_dice_count + 1,
                 new_level=0,
-                hp_lost=hp_lost,
+                hp_lost=former_max_hp - monster.max_hp,
             )
         )
         events.extend(kill(monster))
@@ -3378,7 +3379,7 @@ def drain_monster_hd(monster: MonsterInstance, *, levels: int = 1, stream: RngSt
             target_id=monster_id,
             levels_lost=former - monster.hit_dice_count,
             new_level=monster.hit_dice_count,
-            hp_lost=hp_lost,
+            hp_lost=former_max_hp - monster.max_hp,
         )
     )
     events.append(HitPointsReportedEvent(target_id=monster_id, current_hp=monster.current_hp, max_hp=monster.max_hp))
@@ -3395,8 +3396,8 @@ def resolve_energy_drain(attacker: MonsterInstance, target: Creature, *, stream:
     [`Character`][osrlib.core.character.Character], which has a class, loses levels
     through [`drain_levels`][osrlib.core.classes.drain_levels]. A
     [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] loses Hit Dice through
-    [`drain_monster_hd`][osrlib.core.combat.drain_monster_hd]. For a character, the
-    ability's text about what the victim becomes appears in the drain event.
+    [`drain_monster_hd`][osrlib.core.combat.drain_monster_hd]. When the drain kills a
+    character, the ability's text about what the victim becomes appears in the drain event.
 
     Args:
         attacker: The draining [`MonsterInstance`][osrlib.core.monsters.MonsterInstance],

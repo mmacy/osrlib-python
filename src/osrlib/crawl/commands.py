@@ -2362,6 +2362,10 @@ class TurnUndead(Command):
     monsters that weren't turned attack at once and battle starts. The turned members of a
     partly turned group break away as a new group and flee.
 
+    The turning reaches every living monster in the encounter's groups that haven't fled.
+    A monster killed earlier in the encounter, by a wand for example, isn't read on the
+    turning table.
+
     Modes:
         `encounter`
 
@@ -2420,7 +2424,10 @@ class BattleDeclaration(BaseModel):
       the party's ranks instead.
     - `use_item` takes `item_id`. The member drinks a potion, reads a scroll, or uses a
       wand, staff, or rod, or throws a flask of oil or a similar item at `target_group_id`.
-    - `turn_undead` needs nothing else. Turning resolves with the spells in the round, but
+      A staff of striking is a melee weapon, so only a member in `front_rank` can strike
+      with it.
+    - `turn_undead` needs nothing else. It reaches every living monster in the groups that
+      haven't fled when it resolves. Turning resolves with the spells in the round, but
       a hit can't disrupt it, because it's a class ability rather than a spell.
     - `hold` does nothing. A member with no legal action declares it, because every member
       in `declarers` needs a declaration.
@@ -2660,7 +2667,10 @@ class ResolveBattleRound(Command):
           `magic.cast.not_reversible`, `magic.cast.target_count`,
           `magic.cast.out_of_range`.
         - Turn-undead declarations: `magic.turning.not_a_turner`,
-          `magic.turning.caster_incapacitated`.
+          `magic.turning.caster_incapacitated`, and `battle.declaration.no_target` when no
+          living monster is left in a group that hasn't fled. A round is never accepted with
+          no such monster, so only the magic phase's check meets this last one, and the
+          turning fizzles.
         - `battle.declaration.no_mirror` - a member who carries no mirror declares a
           `gaze_defense` of `mirror`, with any action. The rejection has the member's id
           as its `character` param.
@@ -2668,8 +2678,10 @@ class ResolveBattleRound(Command):
           `battle.declaration.unknown_group`, `battle.declaration.no_target`,
           `items.use.not_usable`, `items.device.inert`, `items.scroll.spent`,
           `items.scroll.no_such_spell`, `items.scroll.wrong_caster`,
-          `exploration.action.requires_light`, and `combat.attack.out_of_reach`. A
-          scroll read can also get the cast checks on its spell and targets
+          `exploration.action.requires_light`, and `combat.attack.out_of_reach`. A staff of
+          striking is a melee weapon, so its use also gets
+          `battle.declaration.not_in_front_rank` from a member outside the front rank as the
+          round's swaps leave it. A scroll read can also get the cast checks on its spell and targets
           (`magic.cast.unknown_mode`, `magic.cast.unknown_target`,
           `battle.declaration.invisible_target`, `magic.cast.target_count`,
           `magic.cast.out_of_range`, `magic.cast.caster_incapacitated`,

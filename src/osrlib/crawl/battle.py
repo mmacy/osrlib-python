@@ -951,6 +951,18 @@ def _living_monsters(session, group) -> list:
     ]
 
 
+def _turning_candidates(session) -> list:
+    """The monsters a turning reaches: the living members of every group that hasn't fled.
+
+    They come in the encounter's group order and each group's monster order, so a replay passes them to
+    [`turn_undead`][osrlib.core.spells.turn_undead] in the same order. A dead monster, or one whose group
+    left the battle, isn't present to be turned.
+    """
+    return [
+        monster for group in session.encounter.groups if not group.fled for monster in _living_monsters(session, group)
+    ]
+
+
 FIGHTER_FRONTAGE_FEET = 5
 """The width, in feet, that one combatant needs to fight side by side with the next.
 
@@ -1669,6 +1681,21 @@ def _validate_declaration(
     The pre-phase passes `front_rank`, the ids of the front rank as the round's swaps will leave it
     (see `_projected_front_rank`), so a replacement who steps up may declare a melee attack. Without
     it, a melee attack is judged against the front rank as it stands.
+
+    A staff of striking `use_item` is a melee attack too, because the staff is "Used as a magical melee
+    weapon", so it gets the same rank check: a member outside `front_rank`, or outside the front rank as it
+    stands when `front_rank` isn't passed, is refused with `battle.declaration.not_in_front_rank` and the
+    member's id as the `character` param. The check applies only while `formation_width_limit` is on, as
+    for a melee attack. `_validate_magic_item_declaration` makes it after the fled-group check and before
+    the reach check, the order a melee attack's rank and reach checks take.
+
+    A `turn_undead` names no group. It reaches every living monster in every group that hasn't fled, undead
+    or not, as `_party_magic` passes them to [`turn_undead`][osrlib.core.spells.turn_undead]. After the
+    checks of [`validate_turn_undead`][osrlib.core.spells.validate_turn_undead], a turning with no such
+    monster left is refused with `battle.declaration.no_target` and the member's id as the `character`
+    param. A battle always has a living monster when a round is accepted, so only the magic phase's
+    re-check meets this refusal, when the phases before it killed or drove off every monster. The check
+    doesn't ask whether any monster is undead, so it never tells the player what is undead for free.
     """
     state = session.battle
     if declaration.action == "hold":
@@ -1716,7 +1743,7 @@ def _validate_declaration(
 
         magic = member.inventory.magic_item(declaration.item_id) if declaration.item_id else None
         if magic is not None:
-            return _validate_magic_item_declaration(session, declaration, member, magic)
+            return _validate_magic_item_declaration(session, declaration, member, magic, front_rank=front_rank)
         group = _group_by_id(session, declaration.target_group_id)
         if group is None or group.fled:
             return [Rejection(code="battle.declaration.unknown_group", params={"character": member.id})]
@@ -1729,7 +1756,12 @@ def _validate_declaration(
         context = AttackContext(distance_feet=group.distance_feet, lit=True)
         return validate_attack(member, pool[0], instance.template, context, ruleset=session.ruleset)
     if declaration.action == "turn_undead":
-        return validate_turn_undead(member, load_classes().get(member.class_id))
+        rejections = validate_turn_undead(member, load_classes().get(member.class_id))
+        if rejections:
+            return rejections
+        if not _turning_candidates(session):
+            return [Rejection(code="battle.declaration.no_target", params={"character": member.id})]
+        return []
     if declaration.action == "cast":
         if declaration.spell_id is None or declaration.spell_mode is None:
             return [Rejection(code="battle.declaration.missing_spell", params={"character": member.id})]
@@ -1857,7 +1889,9 @@ def _area_candidates(session, group, shape: str | None, dimensions: dict) -> lis
     return candidates
 
 
-def _validate_magic_item_declaration(session, declaration: BattleDeclaration, member, instance) -> list[Rejection]:
+def _validate_magic_item_declaration(
+    session, declaration: BattleDeclaration, member, instance, *, front_rank: set[str] | None = None
+) -> list[Rejection]:
     """The `use_item` declaration widened: potions, scrolls, and devices (magic phase).
 
     A potion targets the drinker. Wands, staves, and rods target a group and
@@ -1870,6 +1904,13 @@ def _validate_magic_item_declaration(session, declaration: BattleDeclaration, me
     validation pre-phase, and again in the magic phase immediately before the read or the use resolves,
     because the phases between the two can change what these checks read. It reads state and takes no draw,
     so the second run costs nothing and changes nothing.
+
+    A staff of striking (an effect of kind `striking`) is "Used as a magical melee weapon", so only a member
+    in the front rank may use it, as for a melee attack (see `_validate_declaration`). In the pre-phase that is
+    the front rank as the round's swaps will leave it, so a replacement who steps up may strike. In the magic
+    phase it is the front rank as it stands, so a replacement whose swap didn't happen fizzles with
+    `battle.declaration.not_in_front_rank`. The rank check comes after `battle.declaration.unknown_group`, so a
+    staff aimed at a fled group is still refused for the group.
     """
     from osrlib.crawl import exploration
 
@@ -1934,6 +1975,11 @@ def _validate_magic_item_declaration(session, declaration: BattleDeclaration, me
             if group is None or group.fled:
                 return [Rejection(code="battle.declaration.unknown_group", params={"character": member.id})]
             if effect_spec.kind == "striking":
+                if _formation_width(session) is not None:
+                    if front_rank is None:
+                        front_rank = {front.id for front in _party_front_rank(session)}
+                    if member.id not in front_rank:
+                        return [Rejection(code="battle.declaration.not_in_front_rank", params={"character": member.id})]
                 if group.distance_feet > MELEE_RANGE_FEET:
                     return [Rejection(code="combat.attack.out_of_reach", params={"distance_feet": group.distance_feet})]
                 if not _monster_pool(session, group):
@@ -2719,6 +2765,12 @@ def _party_magic(session, by_member, pending_casters, disrupted, acted, state) -
     `items.device.activated`, and breaks no invisibility. A turning that fizzles costs nothing and draws
     nothing. A fizzled device use or turning still releases the actor's concentration, as every declaration
     other than a cast or a hold does.
+
+    A turning reaches only the living monsters of the groups that haven't fled, in the encounter's group order
+    and each group's monster order. A dead monster, or one in a fled group, is never a candidate, so its kind is
+    never read on the turning table and never appears in the event's `types`. A turning with no such monster
+    left, because the missile phase or a declaration earlier in this magic phase killed them or drove them from
+    the battle, fizzles with `battle.declaration.no_target`.
     """
     events: list[Event] = []
     for member, declaration in by_member.values():
@@ -2765,13 +2817,10 @@ def _party_magic(session, by_member, pending_casters, disrupted, acted, state) -
                 events.extend(_release_concentration(session, member.id, state))
                 acted.add(member.id)
                 continue
-            candidates = [
-                session.combatant(monster_id) for group in session.encounter.groups for monster_id in group.monster_ids
-            ]
             result = turn_undead(
                 member,
                 load_classes().get(member.class_id),
-                candidates,
+                _turning_candidates(session),
                 ledger=session.ledger,
                 clock=session.clock,
                 allocator=session.allocator,
