@@ -55,8 +55,6 @@ from osrlib.crawl.party import Party
 from osrlib.crawl.session import DeathRecord, GameSession
 from osrlib.data import load_classes, load_equipment, load_monsters, load_spells
 
-CHUNK = pytest.mark.xfail(reason="chunk: rules-calls", strict=True)
-
 NO_EFFECT_CODE = "town.healing.no_effect"
 """The rejection a temple service gets when it would do nothing to the member."""
 
@@ -192,7 +190,6 @@ class TestTurningEndsConcentration:
         assert in_ledger(game, effect_id)
         assert concentration_of(game, osric.id) == [effect_id]
 
-    @CHUNK
     def test_a_declared_turning_ends_concentration_even_when_confusion_stops_it(self):
         # A confused cleric's turning never resolves, so only the declaration can end
         # the concentration. Today `turn_undead` sits beside `cast` and `hold` among the
@@ -237,7 +234,6 @@ class TestOneConcentrationSpellAtATime:
         lost = any(event.code in ("magic.cast.disrupted", "magic.cast.fizzled") for event in result.events)
         return resolved and not lost
 
-    @CHUNK
     def test_casting_a_second_concentration_spell_ends_the_first(self):
         assert load_spells().get("phantasmal_force").duration_spec.kind == "concentration"
         game, mira, effect_id = self._mage_in_battle()
@@ -328,7 +324,6 @@ class TestCureLightWoundsLiftsParalysis:
             for event in result.events
         )
 
-    @CHUNK
     def test_lifts_paralysis_granted_without_an_effect(self):
         brand = self._brand()
         grant_condition(brand, Condition.PARALYSED, None)
@@ -338,7 +333,6 @@ class TestCureLightWoundsLiftsParalysis:
         assert not result.no_effect
         assert self._condition_removed(result, Condition.PARALYSED)
 
-    @CHUNK
     def test_lifts_paralysis_whose_effect_the_ledger_does_not_hold(self):
         brand = self._brand()
         grant_condition(brand, Condition.PARALYSED, "effect-0099")  # an owner the ledger never saw
@@ -347,7 +341,6 @@ class TestCureLightWoundsLiftsParalysis:
         assert not result.no_effect
         assert self._condition_removed(result, Condition.PARALYSED)
 
-    @CHUNK
     def test_lifts_only_paralysis(self):
         brand = self._brand()
         grant_condition(brand, Condition.PARALYSED, None)
@@ -418,7 +411,6 @@ class TestTempleRefusesAUselessService:
     no state, like every other rejected command.
     """
 
-    @CHUNK
     @pytest.mark.parametrize("service", ["raise_dead", "cure_disease", "neutralize_poison"])
     def test_a_service_that_would_do_nothing_is_refused_before_payment(self, service):
         game = temple_session()
@@ -433,7 +425,6 @@ class TestTempleRefusesAUselessService:
         assert not result.events
         assert fingerprint(game) == before
 
-    @CHUNK
     def test_raise_dead_on_a_living_member_whose_friend_is_dead_is_still_refused(self):
         # Paying for the wrong member is the case the refusal guards: the dead friend
         # doesn't make the living patient's service do anything.
@@ -559,7 +550,6 @@ class TestChuteNeedsAFailedSave:
     passes, nobody moves, and the party stays on the trapped cell.
     """
 
-    @CHUNK
     def test_one_member_who_saves_stays_put(self):
         effect = TrapEffect(transition=CHUTE, save=PARALYSIS_SAVE)
         seed = find_seed(effect, size=1, wanted=[PASSED])
@@ -567,21 +557,18 @@ class TestChuteNeedsAFailedSave:
         assert any(event.code == "exploration.trap.sprung" for event in result.events)
         assert location(game) == (1, (1, 0))
 
-    @CHUNK
     def test_a_party_that_all_save_stays_put(self):
         effect = TrapEffect(transition=CHUTE, save=PARALYSIS_SAVE)
         seed = find_seed(effect, size=3, wanted=[PASSED, PASSED, PASSED])
         game, result = step_into_trap(effect, size=3, seed=seed)
         assert location(game) == (1, (1, 0))
 
-    @CHUNK
     def test_a_triggerer_who_saves_spares_the_party(self):
         effect = TrapEffect(transition=CHUTE, save=PARALYSIS_SAVE)
         seed = find_seed(effect, size=2, wanted=[PASSED], affects="triggerer")
         game, _ = step_into_trap(effect, size=2, seed=seed, affects="triggerer")
         assert location(game) == (1, (1, 0))
 
-    @CHUNK
     def test_a_chute_everyone_saves_against_is_a_trap_with_no_chute(self):
         # Determinism: the saves are rolled as before, and passing them costs no further
         # draw and emits nothing more than the same trap would without a chute.
@@ -669,13 +656,11 @@ class TestMeleeHitsAPetrifiedCreature:
     required."
     """
 
-    @CHUNK
     def test_melee_against_a_petrified_creature_hits_automatically(self):
         result, _ = strike(helpless_goblin(Condition.PETRIFIED))
         assert result.events[0].code == "combat.attack.auto_hit"
         assert result.events[0].roll is None
 
-    @CHUNK
     def test_the_attack_roll_against_a_petrified_creature_draws_nothing(self):
         goblin = helpless_goblin(Condition.PETRIFIED)
         stream = RngStreams(master_seed=1).get(COMBAT_STREAM)
@@ -686,7 +671,6 @@ class TestMeleeHitsAPetrifiedCreature:
         assert rolled.hit and rolled.auto and rolled.roll is None
         assert stream.export_state() == before
 
-    @CHUNK
     def test_a_petrified_creature_costs_the_draws_a_paralysed_one_does(self):
         # Determinism: an automatic hit skips the d20 and rolls only damage, so the stream
         # ends where it ends after the same attack on a paralysed creature. (An asleep
@@ -730,7 +714,6 @@ class TestSpawnNpcPartyTakesAFixedSize:
     kind. Setting both fails validation, as on `SpawnMonsters`.
     """
 
-    @CHUNK
     @pytest.mark.parametrize("size", [1, 4, 7])
     def test_a_fixed_size_spawns_exactly_that_many(self, size):
         for seed in (3, 11, 29):
@@ -738,19 +721,16 @@ class TestSpawnNpcPartyTakesAFixedSize:
             _, roster = npc_band(command, seed)
             assert len(roster.npc_ids) == size
 
-    @CHUNK
     def test_the_field_is_a_positive_integer_or_none(self):
         assert SpawnNpcParty(party_kind="expert", distance_feet=30).count_fixed is None
         with pytest.raises(ValidationError) as caught:
             SpawnNpcParty(party_kind="expert", count_fixed=0, distance_feet=30)
         assert any(error["loc"] == ("count_fixed",) for error in caught.value.errors())
 
-    @CHUNK
     def test_setting_both_fails_validation(self):
         with pytest.raises(ValidationError):
             SpawnNpcParty(party_kind="basic", count_dice="1d3", count_fixed=2, distance_feet=30)
 
-    @CHUNK
     def test_a_serialized_fixed_size_round_trips(self):
         command = SpawnNpcParty(party_kind="basic", count_fixed=5, distance_feet=30)
         parsed = parse_command(command.model_dump(mode="json"))
