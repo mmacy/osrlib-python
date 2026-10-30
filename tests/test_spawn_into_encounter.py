@@ -31,7 +31,9 @@ from osrlib.crawl.commands import (
 )
 from osrlib.crawl.events import MonstersSpawnedEvent
 from osrlib.crawl.session import GameSession
+from osrlib.data import load_monsters
 from osrlib.errors import ContentValidationError
+from osrlib.messages import format_message
 from osrlib.persistence import load_game, replay_game, save_game, session_state
 
 CHUNK = pytest.mark.xfail(reason="chunk: spawn-into-encounter", strict=True)
@@ -335,3 +337,87 @@ class TestSaveLoadAndReplay:
         replayed = replay(session)
         assert session_state(replayed) == session_state(session)
         assert replayed.view(Visibility.REFEREE) == session.view(Visibility.REFEREE)
+
+
+JOINED = "encounter.group.joined"
+
+
+class TestPlayersSeeTheJoin:
+    """A group that joins an open encounter or battle is announced to the players.
+
+    The spawn's `MonstersSpawnedEvent` is referee bookkeeping. In exploration the players learn of the
+    monsters from `EncounterStartedEvent`, but a join opens nothing, so it needs its own player event:
+    an `EncounterGroupJoinedEvent` with code `encounter.group.joined` that names the new group as the
+    player view shows it.
+    """
+
+    @CHUNK
+    @pytest.mark.parametrize("setup", [in_encounter, in_battle], ids=["encounter", "battle"])
+    def test_one_player_event_announces_the_new_group(self, setup):
+        from osrlib.crawl.events import EncounterGroupJoinedEvent
+
+        session = setup()
+        result = session.execute(SpawnMonsters(template_id="goblin", count_fixed=3, distance_feet=40))
+        assert result.accepted
+        group = session.encounter.groups[-1]
+        joined = [event for event in result.events if event.code == JOINED]
+        assert len(joined) == 1
+        (event,) = joined
+        assert isinstance(event, EncounterGroupJoinedEvent)
+        assert event.visibility is Visibility.PLAYER
+        assert (event.group_id, event.label, event.count, event.distance_feet) == (group.id, group.label, 3, 40)
+        assert format_message(event)
+        codes = [event.code for event in result.events]
+        assert codes.index("session.monsters.spawned") < codes.index(JOINED)
+
+    def test_a_spawn_in_exploration_announces_no_join(self):
+        result = start_session().execute(SpawnMonsters(template_id="goblin", count_fixed=2, distance_feet=60))
+        assert result.accepted
+        assert JOINED not in [event.code for event in result.events]
+
+
+def craven_session(seed: int = SEED) -> GameSession:
+    """The battle fixture, with an adventure that bundles a goblin whose morale of 2 means it never fights."""
+    craven = (
+        load_monsters().get("goblin").model_copy(update={"id": "craven_goblin", "name": "Craven Goblin", "morale": 2})
+    )
+    adventure = build_adventure(wandering_chance=0).model_copy(update={"monsters": (craven,)})
+    session = GameSession.new(build_party(), adventure, seed=seed)
+    setup = (
+        GrantItem(character_id=FIGHTER, item_id="torch", quantity=6),
+        GrantItem(character_id=FIGHTER, item_id="tinder_box"),
+        EnterDungeon(dungeon_id="delve"),
+    )
+    for command in setup:
+        assert session.execute(command).accepted, command.command_type
+    for _ in range(20):
+        result = session.execute(LightSource(character_id=FIGHTER, item_id="torch"))
+        if any(event.code == "exploration.light.lit" for event in result.events):
+            break
+    assert session.execute(SpawnMonsters(template_id="goblin", count_fixed=2, distance_feet=60)).accepted
+    assert session.execute(EngageBattle()).accepted
+    assert session.mode is SessionMode.BATTLE
+    return session
+
+
+class TestAGroupThatWillNotFight:
+    """The SRD says a monster with morale 2 "will not fight".
+
+    One that joins a battle flees at once, as it would at the start of a battle.
+    """
+
+    def test_it_flees_as_it_joins_and_never_attacks(self):
+        session = craven_session()
+        before = snapshot(session)["battle"]
+        result = session.execute(SpawnMonsters(template_id="craven_goblin", count_fixed=2, distance_feet=10))
+        assert result.accepted
+        group = session.encounter.groups[-1]
+        fled = [event for event in result.events if event.code == "battle.side.fled"]
+        assert [event.group_id for event in fled] == [group.id]
+        assert group.fleeing or group.fled
+        assert snapshot(session)["battle"] == before, "the join runs no round"
+        for _ in range(3):
+            if session.mode is not SessionMode.BATTLE:
+                break
+            events = session.execute(ResolveBattleRound(declarations=hold_all(session))).events
+            assert not [attack for attack in attacks(events) if attack.attacker_id in group.monster_ids]
