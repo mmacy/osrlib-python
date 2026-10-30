@@ -2857,7 +2857,9 @@ class SpawnMonsters(Command):
 
     Events:
         [`MonstersSpawnedEvent`][osrlib.crawl.events.MonstersSpawnedEvent], then
-        the encounter's opening:
+        the encounter's opening: an
+        [`EffectAttachedEvent`][osrlib.core.events.EffectAttachedEvent] for each monster that
+        regenerates, like a troll,
         [`SurpriseRolledEvent`][osrlib.crawl.events.SurpriseRolledEvent]s,
         [`EncounterStartedEvent`][osrlib.crawl.events.EncounterStartedEvent], the
         reaction roll, and a
