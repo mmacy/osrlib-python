@@ -296,10 +296,11 @@ class BattleState(BaseModel):
     [`osrlib.crawl.commands`][osrlib.crawl.commands] instead of writing to this model. Referee
     commands are allowed in `battle` mode, so a referee can grant an item, award experience, set a
     flag, or advance the clock during a fight. The command log records the command, so a replay
-    reproduces the change. [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters],
-    [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty], and
+    reproduces the change. [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] adds a new
+    monster group to the fight between rounds, and the group acts from the next round.
+    [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] and
     [`PlaceParty`][osrlib.crawl.commands.PlaceParty] are the exceptions. The session rejects them
-    with `session.command.encounter_in_progress` while an encounter is open, so no new group can
+    with `session.command.encounter_in_progress` while an encounter is open, so an NPC party can't
     join a fight, and the party can't be moved out of one.
     """
 
@@ -1209,9 +1210,7 @@ def start_battle(session, *, party_free_round: bool = False, monsters_free_round
     session.mode = SessionMode.BATTLE
     events: list[Event] = [BattleStartedEvent()]
     for group in session.encounter.groups:
-        if _group_morale_score(session, group) == 2 and not group.fled:
-            group.fled = True
-            events.append(MonsterFledEvent(code="battle.side.fled", group_id=group.id))
+        events.extend(_flee_if_unwilling(session, group))
     end_events = _check_ends(session, party_retreating=False)
     if end_events is not None:
         return [*events, *end_events]
@@ -1223,6 +1222,18 @@ def start_battle(session, *, party_free_round: bool = False, monsters_free_round
         if end_events is not None:
             events.extend(end_events)
     return events
+
+
+def _flee_if_unwilling(session, group) -> list[Event]:
+    """Send a group whose morale score is 2 out of the battle, because the SRD says it won't fight.
+
+    The group runs as it enters the battle: when the battle starts, or when a referee's spawn adds
+    it to a battle that's already running.
+    """
+    if group.fled or _group_morale_score(session, group) != 2:
+        return []
+    group.fled = True
+    return [MonsterFledEvent(code="battle.side.fled", group_id=group.id)]
 
 
 def _check_ends(session, *, party_retreating: bool) -> list[Event] | None:

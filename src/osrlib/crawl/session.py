@@ -1403,9 +1403,10 @@ class GameSession:
 
         To put monsters in front of the party as the referee, execute
         [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] instead, which spawns them and opens
-        the encounter in one command. This method isn't a command, so the command log doesn't
-        record it, and [`replay_game`][osrlib.persistence.replay_game] won't reproduce a game if you
-        call it during play.
+        an encounter with them, or adds them to the open one, in one command. This method isn't a
+        command, so the command log doesn't record it, and
+        [`replay_game`][osrlib.persistence.replay_game] won't reproduce a game if you call it
+        during play.
 
         Args:
             template_id: Any id in the session's
@@ -2259,8 +2260,6 @@ def _handle_spawn_monsters(session: GameSession, command: SpawnMonsters) -> tupl
         session.effective_monsters.get(command.template_id)
     except ValueError:
         return [Rejection(code="session.command.unknown_monster", params={"template": command.template_id})], []
-    if session.encounter is not None or session.battle is not None:
-        return [Rejection(code="session.command.encounter_in_progress")], []
     if session.dungeon_state.location.kind != "dungeon":
         # Encounters live on the dungeon grid: the combat space, silence cells,
         # and formation widths all need a party cell to stand on.
@@ -2276,6 +2275,15 @@ def _handle_spawn_monsters(session: GameSession, command: SpawnMonsters) -> tupl
     events: list[Event] = [
         MonstersSpawnedEvent(template_id=command.template_id, monster_ids=tuple(instance.id for instance in instances))
     ]
+    if session.encounter is not None:
+        # Monsters that arrive mid-fight, like a lycanthrope's summoned animals, join the
+        # encounter or battle already open instead of opening a new one.
+        events.extend(
+            encounter_module._join_encounter(
+                session, label=command.template_id, instances=instances, distance_feet=command.distance_feet
+            )
+        )
+        return [], events
     events.extend(
         encounter_module.start_encounter(
             session,
