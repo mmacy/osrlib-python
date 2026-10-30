@@ -2407,8 +2407,8 @@ class BattleDeclaration(BaseModel):
 
     `action` determines which other fields apply. Leave the others at their defaults.
 
-    - `attack` takes `target_group_id` and, optionally, `weapon_id`. `None` means bare
-      hands.
+    - `attack` takes `target_group_id` and, optionally, `weapon_id`. `None` means the
+      wielded weapon that suits the attack, or bare hands when the member wields none.
     - `cast` takes `spell_id`, `spell_mode`, `reversed`, and `targets`.
     - `move` takes `move`, and `target_group_id` for a `close`. It changes the distance
       between the party and the monsters.
@@ -2447,11 +2447,29 @@ class BattleDeclaration(BaseModel):
     [`EncounterGroupView.fled`][osrlib.crawl.views.EncounterGroupView.fled] is true, with
     `battle.declaration.unknown_group`."""
     weapon_id: str | None = None
-    """Which wielded weapon to attack with: a mundane weapon's catalog id, a magic weapon's
-    per-instance id, or `None` to strike unarmed. The weapon has to be equipped already, so
-    equip it with [`EquipItem`][osrlib.crawl.commands.EquipItem] before the fight. The session
-    refuses a weapon that's only carried with `battle.declaration.weapon_not_wielded`. Whether the
-    attack is melee or missile depends on the weapon's qualities and the group's distance."""
+    """Which wielded weapon to attack with: a mundane weapon's catalog id or a magic weapon's
+    per-instance id. The weapon has to be equipped already, so equip it with
+    [`EquipItem`][osrlib.crawl.commands.EquipItem] before the fight. The session refuses a weapon
+    that's only carried with `battle.declaration.weapon_not_wielded`. Whether the attack is melee
+    or missile depends on the weapon's qualities and the group's distance.
+
+    Leave it `None` to attack with the wielded weapon that suits the attack. The group's distance
+    when the round is accepted decides which attack that is: a melee attack at 5' or less, and a
+    missile attack beyond 5'. The session goes through the member's wielded items in the order they
+    were equipped and takes the first one with the `melee` quality for a melee attack, or the
+    `missile` quality for a missile attack. For a missile attack, it takes the first one whose long
+    range reaches the group. Only when none reaches does it take the first missile weapon, and the
+    session then refuses the attack with `combat.attack.out_of_range`. A torch counts, because the
+    weapon table lists it as a melee weapon. A splash weapon, like a flask of oil or a vial of holy
+    water, never counts, because a `use_item` declaration throws it. A wand, or another magic item
+    with no base weapon, has no weapon stats, so it never counts either. A member with no weapon that
+    suits the attack strikes unarmed.
+
+    The session makes this choice once, when it accepts the round. The attack then resolves as if
+    you had named that weapon, even when the distance changes before the attack resolves. The
+    command log keeps the declaration as you sent it, with `None`. The attack's
+    [`AttackRolledEvent`][osrlib.core.events.AttackRolledEvent] names the weapon used in
+    `attack_name`."""
     spell_id: str | None = None
     """Which spell a `cast` declaration casts, from [`load_spells`][osrlib.data.load_spells]
     (see the

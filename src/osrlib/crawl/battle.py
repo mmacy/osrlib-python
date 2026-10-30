@@ -1450,9 +1450,13 @@ def _validate_declaration(session, declaration: BattleDeclaration, member) -> li
     """Judge one declaration against the state it refers to, and return every reason it cannot stand.
 
     This runs twice on the declarations the round accepts. Once in the validation pre-phase, where a
-    rejection refuses the whole command, and again in the magic phase, immediately before a `cast`
-    resolves, because the phases between the two can change what these checks read. It reads state and
-    takes no draw, so running it a second time costs nothing and changes nothing.
+    rejection refuses the whole command, and again in the magic phase, immediately before a `cast`, a
+    `turn_undead`, or a device or scroll `use_item` resolves, because the phases between the two can change
+    what these checks read. It reads state and takes no draw, so running it a second time costs nothing and
+    changes nothing.
+
+    An `attack` with no `weapon_id` is judged with the weapon that `BattleDeclaration.weapon_id` says the
+    session chooses, from the group's distance when the round is accepted.
     """
     state = session.battle
     if declaration.action == "hold":
@@ -1646,10 +1650,10 @@ def _validate_magic_item_declaration(session, declaration: BattleDeclaration, me
     A scroll read resolves in the magic phase too, through the declaration's
     spell fields.
 
-    For a scroll this runs twice, as `_validate_declaration`'s `cast` branch does: once in the
-    validation pre-phase, and again in the magic phase immediately before the read resolves, because the
-    phases between the two can change what these checks read. It reads state and takes no draw, so the
-    second run costs nothing and changes nothing.
+    For a scroll or a device this runs twice, as `_validate_declaration`'s `cast` branch does: once in the
+    validation pre-phase, and again in the magic phase immediately before the read or the use resolves,
+    because the phases between the two can change what these checks read. It reads state and takes no draw,
+    so the second run costs nothing and changes nothing.
     """
     from osrlib.crawl import exploration
 
@@ -2404,9 +2408,20 @@ def _party_magic(session, by_member, pending_casters, disrupted, acted, state) -
     `magic.cast.disrupted` rather than `magic.cast.fizzled`. The disruption comes from the attack that
     hit, so it's the outcome the players saw.
 
-    A cast, and a scroll read inside `_resolve_scroll_cast`, is judged again immediately before it resolves,
-    with the checks it passed at the top of the round, and one that now fails any of them fizzles instead of
-    reaching the kernel. A device use and a turning are not judged again.
+    A cast, a scroll read inside `_resolve_scroll_cast`, a device use (a wand, staff, or rod), and a turning
+    are each judged again immediately before they resolve, with the checks they passed at the top of the
+    round. One that now fails any of them fizzles instead of resolving, and the re-check takes no draw, so a
+    declaration that passes it resolves with the same draws in the same order as before. A potion has no
+    check to fail.
+
+    A fizzled cast or scroll read reports a `SpellDisruptedEvent` at `magic.cast.fizzled`, and the caster loses
+    the memorized copy, or the scroll its spell, as a disruption loses them. A fizzled device use reports a
+    `DeclarationFizzledEvent` at `magic.device.fizzled` with the declared instance id as `item_id`, and a fizzled
+    turning reports one at `magic.turning.fizzled` with no `item_id`. Each event's `reason` is the first rejection
+    code of the re-check. A device was never used, so it keeps its charge, isn't identified, emits no
+    `items.device.activated`, and breaks no invisibility. A turning that fizzles costs nothing and draws
+    nothing. A fizzled device use or turning still releases the actor's concentration, as every declaration
+    other than a cast or a hold does.
     """
     events: list[Event] = []
     for member, declaration in by_member.values():
