@@ -1435,7 +1435,8 @@ def _resolve_trap(session, trap: TrapSpec, *, triggerer) -> list[Event]:
     them from the kill and the condition, whatever `on_save` is, the rule
     [`_resolve_kill`][osrlib.core.spells] and [`_resolve_attachment`][osrlib.core.spells]
     apply on the spell side. A passed `half` save halves damage, rolled and
-    falling alike.
+    falling alike. A transition moves the whole party when at least one victim
+    fails the save, and always when the trap allows no save.
 
     Draws run on the exploration stream, since these are the trap
     procedure's dice. Durations rolled when a condition attaches run on the effects stream
@@ -1447,12 +1448,16 @@ def _resolve_trap(session, trap: TrapSpec, *, triggerer) -> list[Event]:
     victims = [triggerer] if trap.affects == "triggerer" else list(session.party.living_members())
     effect = trap.effect
     events: list[Event] = []
+    # A chute with no save takes everyone. With a save, it takes the party only
+    # when some victim fails it.
+    someone_failed = effect.save is None
     for victim in victims:
         passed = False
         if effect.save is not None:
             save = saving_throw(victim, SaveCategory(effect.save.category), stream=stream)
             events.extend(save.events)
             passed = save.passed
+            someone_failed = someone_failed or not passed
             if passed and effect.save.on_save == "negates":
                 continue
         # Past the negates gate, `passed` means a made "half" save: damage halves,
@@ -1519,9 +1524,9 @@ def _resolve_trap(session, trap: TrapSpec, *, triggerer) -> list[Event]:
                 stream=session.streams.get(EFFECTS_STREAM),
             )
             events.extend(attach_events)
-    if effect.transition is not None:
+    if effect.transition is not None and someone_failed:
         # A slide relocates the whole party. The party model has one location,
-        # so a trap transition moves everyone.
+        # so a trap transition moves everyone or no one.
         events.extend(
             _relocate(
                 session,
