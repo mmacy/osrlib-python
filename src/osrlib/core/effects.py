@@ -197,7 +197,8 @@ class Condition(StrEnum):
 
     BLIND = "blind"
     """Unable to see. [`validate_attack`][osrlib.core.combat.validate_attack] rejects the creature's attacks with
-    `combat.attack.attacker_blind`."""
+    `combat.attack.attacker_blind`. A battle in a [`GameSession`][osrlib.crawl.session.GameSession] gives it for good
+    to a creature a spitting cobra's spit hits, when the creature fails its save versus death."""
 
     CHARMED = "charmed"
     """Under a charm. The monsters that can't be charmed, the undead and the golems among them, have it in

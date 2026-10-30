@@ -364,6 +364,11 @@ def start_encounter(
     leaves open. The [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/) lists it as
     the blind-party adaptation.
 
+    When the party is surprised and a monster's `surprise` ability has `meets_gaze`, as the
+    basilisk's does, every living member meets that monster's petrifying gaze once, here, at any
+    distance and whatever the stance. Each saves versus paralysis or turns to stone. That holds when
+    the monsters are surprised too. A battle that opens from this encounter doesn't repeat the gaze.
+
     A monster whose template has the `regeneration` ability, like a troll or a thoul, starts to
     regenerate when this function opens its encounter. Before the function rolls anything, it
     attaches the effect that [`regeneration_definition`][osrlib.core.effects.regeneration_definition]
@@ -405,8 +410,8 @@ def start_encounter(
         [`EncounterStartedEvent`][osrlib.crawl.events.EncounterStartedEvent],
         the [`ReactionRolledEvent`][osrlib.core.events.ReactionRolledEvent] unless you passed
         `pinned_stance`, and the [`StanceChangedEvent`][osrlib.crawl.events.StanceChangedEvent].
-        Then come the events of anything the stance or surprise starts, which can include a
-        battle and its first round.
+        The saving throws of a basilisk's surprise gaze come among them. Then come the events of
+        anything the stance or surprise starts, which can include a battle and its first round.
 
     Examples:
         ```python

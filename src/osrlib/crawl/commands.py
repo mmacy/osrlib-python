@@ -2592,9 +2592,9 @@ class BattleDeclaration(BaseModel):
     round until the round ends. It draws nothing and emits no event of its own. The command log
     keeps it with the declaration. A member in the back rank, or one who can't act and so
     doesn't declare, is out of the gaze's reach or already spared by it, so neither needs a
-    stance. A party the monsters surprise declares nothing in the monsters' free round, and in
-    that round a basilisk's gaze reaches every member of the party, as the SRD's "Characters
-    surprised by a basilisk meet its gaze" says.
+    stance. A party a basilisk surprises meets its gaze as the encounter opens, every member once,
+    before the party can declare anything, as the SRD's "Characters surprised by a basilisk meet
+    its gaze" says. No stance spares that gaze.
     [The adaptations register](https://mmacy.github.io/osrlib-python/adaptations/) describes the
     gaze in full."""
 

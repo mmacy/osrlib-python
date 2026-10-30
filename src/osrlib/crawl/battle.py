@@ -72,7 +72,8 @@ During a round, the session also applies these rules without a command for them:
   between initiative and their turn to act.
 - Each monster group checks morale when the rules call for it.
 - When a monster hits, the session applies the effects its attack lists, each with the save the
-  SRD gives: paralysis, poison, mummy rot, energy drain, and petrification. The
+  SRD gives: paralysis, poison, mummy rot, energy drain, petrification, and the spitting cobra's
+  blindness. The
   [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/) lists the effects
   the session leaves to the referee.
 - A petrifying gaze, like the basilisk's or the medusa's, reaches each member of the party's
@@ -80,9 +81,9 @@ During a round, the session also applies these rules without a command for them:
   [`resolve_gaze`][osrlib.core.combat.resolve_gaze] skips a member who is averting their eyes.
   A member averts them, or watches a mirror instead, through
   [`BattleDeclaration.gaze_defense`][osrlib.crawl.commands.BattleDeclaration.gaze_defense], and
-  the session applies that stance's penalties to the round's attack rolls. In the monsters'
-  free round after they surprise the party, a basilisk's gaze reaches every member of the
-  party, at any distance.
+  the session applies that stance's penalties to the round's attack rolls. Every member of a
+  party a basilisk surprises meets its gaze once, at any distance, as the encounter opens, so
+  a battle that opens from that encounter doesn't repeat it.
 - Turned undead attack no one. When a cleric turns only some of a group, the turned members
   break away as a new group, which runs, and the rest fight on.
 - A member's invisibility ends when the member attacks, throws or uses an item other than a
@@ -557,6 +558,16 @@ class ScriptedPolicy:
     [`MELEE_RANGE_FEET`][osrlib.crawl.battle.MELEE_RANGE_FEET] closes. Once in range, each monster
     picks a target at random from the party's front rank, leaving out invisible members and members
     whose *protection from evil* bars that monster. When no target is left, the monster holds.
+
+    Among the targets left, the monster passes over a member turned to stone while a target that
+    isn't stone is in reach, because a statue is out of the fight. A monster whose `paralysis`
+    ability has the param `attacks_others`, like the ghoul and the thoul, also passes over a
+    paralysed member while a target that is neither paralysed nor stone is in reach, as the OSE
+    SRD's "After paralysing a target, ghouls will attack others" says. A paralysed member comes
+    before a statue. When every target in reach is stone, the monster attacks a statue. The policy
+    picks a target once a round, so a paralysing hit doesn't move the rest of that round's attacks
+    to another target. A monster with no paralysed or petrified member among its targets draws
+    exactly as it would without these rules.
 
     The monster then picks which of its attack routines to use, with equal chance among the routines
     whose [`use`][osrlib.core.monsters.AttackRoutine.use] is `PRIMARY` or `ALTERNATIVE`, and names

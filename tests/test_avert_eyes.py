@@ -20,10 +20,11 @@ attack." The equipment catalog has a `mirror`, so a member who carries one may f
 their attack rolls that round take −1, and no monster gains a bonus. A member who carries no mirror is refused with
 `battle.declaration.no_mirror`. A gazer that sees its own reflection is left to the referee.
 
-**Surprise.** "Characters surprised by a basilisk meet its gaze." In the monsters' free round after they surprise
-the party, each basilisk gazes once at every living member, back rank included, at whatever distance the encounter
-opened. That gaze takes the place of the front-rank gaze, so no member meets the gaze twice in the round. The
-medusa's entry has no such clause, so a medusa's free round is unchanged.
+**Surprise.** "Characters surprised by a basilisk meet its gaze." When a basilisk surprises the party and the
+battle opens at once, every living member, back rank included, meets its gaze once in the opening events, at
+whatever distance the encounter opened. No member meets the gaze twice in the monsters' free round. The medusa's
+entry has no such clause, so a medusa's free round is unchanged. `test_monster_tactics.py` pins the surprise gaze
+in an encounter that doesn't open a battle.
 
 Saving throws are forced where a test needs a particular outcome: a `save_bonus` of +20 makes every save pass and
 one of −20 makes every save fail. The penalty tests compare two sessions on the same seed and setup, one with the
@@ -499,7 +500,7 @@ def _surprised(
 
 
 class TestTheSurpriseGaze:
-    """Characters a basilisk surprises meet its gaze in its free round, at any distance and in any rank."""
+    """Characters a basilisk surprises meet its gaze once as a battle opens, at any distance and in any rank."""
 
     @pytest.mark.parametrize("distance_feet", [60, 5])
     def test_a_basilisk_that_surprises_the_party_gazes_once_at_every_member(self, distance_feet):
