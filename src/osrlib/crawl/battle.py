@@ -77,8 +77,12 @@ During a round, the session also applies these rules without a command for them:
   the session leaves to the referee.
 - A petrifying gaze, like the basilisk's or the medusa's, reaches each member of the party's
   front rank once a round while the gazer's group is in melee. It takes no attack roll, and
-  [`resolve_gaze`][osrlib.core.combat.resolve_gaze] skips a member who is averting their eyes,
-  but no command lets a member avert them yet.
+  [`resolve_gaze`][osrlib.core.combat.resolve_gaze] skips a member who is averting their eyes.
+  A member averts them, or watches a mirror instead, through
+  [`BattleDeclaration.gaze_defense`][osrlib.crawl.commands.BattleDeclaration.gaze_defense], and
+  the session applies that stance's penalties to the round's attack rolls. In the monsters'
+  free round after they surprise the party, a basilisk's gaze reaches every member of the
+  party, at any distance.
 - Turned undead attack no one. When a cleric turns only some of a group, the turned members
   break away as a new group, which runs, and the rest fight on.
 - A member's invisibility ends when the member attacks, throws or uses an item other than a

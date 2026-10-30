@@ -2425,6 +2425,9 @@ class BattleDeclaration(BaseModel):
     - `hold` does nothing. A member with no legal action declares it, because every member
       in `declarers` needs a declaration.
 
+    `gaze_defense` goes with any action. It guards the member against a petrifying gaze, like
+    a basilisk's or a medusa's, for this round only.
+
     For a fight that opens and runs with declared attacks until it ends, see the
     [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound] example.
     """
@@ -2562,6 +2565,38 @@ class BattleDeclaration(BaseModel):
     scroll, a wand, a staff, or a rod, or a mundane item's catalog id for an item thrown at a
     group, like a flask of oil. The session refuses a mundane item with no combat use, or a
     magic item that can't be used in battle, with `battle.declaration.item_unusable`."""
+    gaze_defense: Literal["avert_eyes", "mirror"] | None = None
+    """How this member guards against a petrifying gaze this round, or `None` to fight looking
+    straight at the monsters.
+
+    A petrifying gaze reaches each member of the party's front rank once a round while the
+    gazer's group is in melee, and each member it reaches saves versus paralysis or turns to
+    stone. The OSE SRD's basilisk entry says "Unless averting eyes or using a mirror, characters
+    in melee are affected each round", and this field picks one of the two.
+
+    - `avert_eyes` gives the member the `averted_eyes` condition for the round, so the gaze
+      passes them by. The basilisk's and the medusa's entries set the cost: "-4 penalty
+      to-hit; the basilisk gains a +2 bonus to attack". Every attack roll the member makes this
+      round takes −4, whatever it's aimed at, because the SRD gives the penalty without naming a
+      target. Each attack a gazing monster makes on the member this round gains +2. The SRD
+      names the gazer for that bonus, so other monsters' attacks gain nothing.
+    - `mirror` has the member fight by watching a mirror, so the gaze passes them by too. The
+      basilisk's entry says "The reflection of a basilisk is harmless. Fighting by looking in a
+      mirror incurs a -1 penalty to attack." Every attack roll the member makes this round takes
+      −1, whatever it's aimed at, and no monster gains a bonus. The member has to carry a
+      `mirror` from the equipment catalog, or the session refuses the declaration with
+      `battle.declaration.no_mirror`. The SRD's rule that a gazer that sees its own reflection
+      saves or turns to stone is left to the referee.
+
+    The stance goes with any `action`, and it lasts from the moment the session accepts the
+    round until the round ends. It draws nothing and emits no event of its own. The command log
+    keeps it with the declaration. A member in the back rank, or one who can't act and so
+    doesn't declare, is out of the gaze's reach or already spared by it, so neither needs a
+    stance. A party the monsters surprise declares nothing in the monsters' free round, and in
+    that round a basilisk's gaze reaches every member of the party, as the SRD's "Characters
+    surprised by a basilisk meet its gaze" says.
+    [The adaptations register](https://mmacy.github.io/osrlib-python/adaptations/) describes the
+    gaze in full."""
 
 
 class ResolveBattleRound(Command):

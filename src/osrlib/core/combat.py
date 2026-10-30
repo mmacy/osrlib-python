@@ -3635,8 +3635,11 @@ def resolve_gaze(
     condition. A petrified
     creature isn't dead, and the effect can be ended. A creature that fights with its eyes
     averted takes a penalty to hit, which you apply through the `situational_modifier` of
-    its [`AttackContext`][osrlib.core.combat.AttackContext]. Using a mirror against the
-    gaze is left to the referee.
+    its [`AttackContext`][osrlib.core.combat.AttackContext], as you do the gazer's bonus
+    against it. This function doesn't model a mirror, so leave a creature that watches the
+    gazer in a mirror out of `engaged`. A battle in a
+    [`GameSession`][osrlib.crawl.session.GameSession] does all of this for you, from
+    [`BattleDeclaration.gaze_defense`][osrlib.crawl.commands.BattleDeclaration.gaze_defense].
 
     Args:
         gazer: The gazing [`Creature`][osrlib.core.creature.Creature], usually a
