@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-10-30
+
+### Changed
+
+- The API reference was checked against the code and corrected (#157, #158, #160, #163, #165). More than 130 docstrings that described something the code doesn't do now match it. Members a reader calls or builds have tested examples, and each member says what to call first, what to do with the result, and what can go wrong. Content-id links are absolute URLs, so they work in `help()` and in editor hover text as well as on the documentation site. Only docstrings and comments changed: the code, the data, every rule, and every draw sequence are the same as in 2.0.0.
+
 ## [2.0.0] - 2026-10-15
 
 ### Added
@@ -178,7 +184,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The documentation site: quickstart, guides, front-end walk-throughs, and a full reference for every command, event, rejection code, message code, RNG stream, and content id.
 - The typed surface: complete type hints under `py.typed`, checked in CI.
 
-[Unreleased]: https://github.com/mmacy/osrlib-python/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/mmacy/osrlib-python/compare/v2.0.1...HEAD
+[2.0.1]: https://github.com/mmacy/osrlib-python/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/mmacy/osrlib-python/compare/v1.8.0...v2.0.0
 [1.8.0]: https://github.com/mmacy/osrlib-python/compare/v1.7.1...v1.8.0
 [1.7.1]: https://github.com/mmacy/osrlib-python/compare/v1.7.0...v1.7.1
