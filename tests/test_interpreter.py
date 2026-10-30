@@ -409,18 +409,22 @@ class TestSelectors:
 
 
 class TestDrops:
-    def test_a_spawn_that_meets_an_open_encounter_drops_and_records_why(self):
+    @pytest.mark.xfail(reason="chunk: spawn-into-encounter", strict=True)
+    def test_a_spawn_that_meets_an_open_encounter_joins_it(self):
         session = played(build_keep())
         session.execute(EnterDungeon(dungeon_id="keep"))
         session.execute(SetFlag(key=LEVER_KEY, value="pulled"))
         for _ in range(4):
             session.execute(MoveParty(direction=Direction.EAST))
         assert session.mode.value == "encounter", "the guardroom's own goblins opened it"
-        assert "guard-ambush" in session.fired_triggers, "the trigger fired; its consequence is what dropped"
-        assert notes(session) == [
-            "trigger guard-ambush: consequence 0 (spawn_monsters) dropped (session.command.encounter_in_progress)"
-        ]
-        assert [command for command in session.command_log if command.command_type == "spawn_monsters"] == []
+        assert "guard-ambush" in session.fired_triggers
+        assert notes(session) == []
+        spawns = [command for command in session.command_log if command.command_type == "spawn_monsters"]
+        assert len(spawns) == 1
+        joined = session.encounter.groups[-1]
+        assert joined.label == "goblin"
+        assert len(joined.monster_ids) == 1
+        assert joined.distance_feet == 30
 
     def test_a_dropped_consequence_does_not_stop_the_ones_after_it(self):
         trigger = TriggerSpec(
