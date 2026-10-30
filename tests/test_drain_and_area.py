@@ -25,8 +25,6 @@ group's living members in spawn order up to the footprint's capacity, then the e
 `aoe_friendly_fire`. Named `targets` still win when both are set.
 """
 
-import pytest
-
 from crawl_fixtures import build_adventure
 from osrlib.core.abilities import AbilityScore
 from osrlib.core.character import ADVANCEMENT_STREAM, Character
@@ -55,8 +53,6 @@ from osrlib.crawl.commands import (
 from osrlib.crawl.party import Party
 from osrlib.crawl.session import GameSession
 from osrlib.data import load_classes, load_monsters, load_spells
-
-CHUNK = "chunk: drain-and-area"
 
 FIGHTER = "character-0001"
 SECOND_FIGHTER = "character-0002"
@@ -214,7 +210,6 @@ class TestConfusionResavesByTheHitDiceLeft:
         assert (boar.count, boar.modifier) == (3, 0)
         assert len(confusion_resaves("boar", 0)) == 1
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_a_boar_drained_to_2_hd_makes_no_resave(self):
         assert confusion_resaves("boar", 1) == []
 
@@ -223,7 +218,6 @@ class TestConfusionResavesByTheHitDiceLeft:
         assert (lizard.count, lizard.modifier) == (2, 1)
         assert len(confusion_resaves("lizard_man", 0)) == 1
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_a_lizard_man_drained_to_1_plus_1_makes_no_resave(self):
         assert confusion_resaves("lizard_man", 1) == []
 
@@ -286,12 +280,10 @@ class TestProtectionWardBandsByTheHitDiceLeft:
         session, (first, second) = ward_scene(affected_1_3=0, affected_4_5=1, drained_first=False)
         assert chosen_kinds(session) == {first.id: "hold", second.id: "melee"}
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_a_wraith_drained_to_3_hd_counts_in_the_1_to_3_band(self):
         session, (drained, whole) = ward_scene(affected_1_3=1, affected_4_5=0, drained_first=True)
         assert chosen_kinds(session) == {drained.id: "hold", whole.id: "melee"}
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_a_wraith_drained_to_3_hd_leaves_the_4_to_5_band(self):
         # With one wraith barred in the 4-5 band, the barred one is the whole wraith, not the first in spawn order.
         session, (drained, whole) = ward_scene(affected_1_3=0, affected_4_5=1, drained_first=True)
@@ -329,7 +321,6 @@ class TestFiveHitDiceCountsByTheHitDiceLeft:
         assert grizzly.hit_dice_count == 5 and not grizzly.template.defenses.harmed_only_by
         assert harms_the_wight(grizzly)
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_a_grizzly_drained_to_4_hd_cannot_harm_a_wight(self):
         grizzly = kernel_monster("grizzly_bear", drained=1)
         assert grizzly.hit_dice_count == 4
@@ -454,14 +445,12 @@ class TestAnHdBudgetSpellWithAnAreaAimedAtAGroup:
         session = goblins_in_the_corridor(DEATH_SEED)
         assert len(selected(round_with(session, death_spell(targets=living_ids(session))))) > CUBE_CAPACITY
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_a_death_spell_aimed_at_a_group_takes_only_what_its_cube_holds(self):
         by_group = goblins_in_the_corridor(DEATH_SEED)
         cube = living_ids(by_group)[:CUBE_CAPACITY]
         result = round_with(by_group, death_spell(group_id=by_group.encounter.groups[0].id))
         assert set(selected(result)) <= set(cube)
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_aiming_a_death_spell_at_a_group_is_naming_what_its_cube_holds(self):
         by_group = goblins_in_the_corridor(DEATH_SEED)
         by_name = goblins_in_the_corridor(DEATH_SEED)
@@ -471,7 +460,6 @@ class TestAnHdBudgetSpellWithAnAreaAimedAtAGroup:
         assert selected(named) == cube, "precondition: the budget pays for the whole cube"
         assert fingerprint(by_group, aimed) == fingerprint(by_name, named)
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_a_death_spell_aimed_at_a_group_in_melee_catches_the_front_rank(self):
         # Under `aoe_friendly_fire`, an area that lands on a group at melee range takes the engaged front rank after
         # the monsters, as a *fire ball* does.
