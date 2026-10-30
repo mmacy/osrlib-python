@@ -202,9 +202,10 @@ class Ruleset(BaseModel):
     hd5_counts_as_magical: bool = False
     """Let big monsters hurt creatures that only silver or magic weapons can harm. An optional rule, off by default.
 
-    The SRD prints this among its invulnerability rules. Turn it on and a monster of 5 or
+    The SRD prints this among its invulnerability rules. Turn it on and a monster with 5 or
     more Hit Dice gets past such a defense, and so does a monster that has the same kind
-    of defense itself. osrlib applies the rule only where the defense is limited to silver
+    of defense itself. A monster an energy drain has taken Hit Dice from counts only the
+    Hit Dice it has left. osrlib applies the rule only where the defense is limited to silver
     and magic, as the rule is worded, and interprets "another invulnerable monster" as a
     monster with such a defense.
     """

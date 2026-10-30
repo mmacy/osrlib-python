@@ -2442,7 +2442,9 @@ class BattleDeclaration(BaseModel):
     so do a `close` move, a `cast` of a spell that covers an area, a thrown item, and a wand,
     staff, or rod that strikes or covers an area. A `cast` in an `hd_budget` mode, like *sleep*,
     can use it in place of `targets`. The session then spends the spell's Hit Dice budget on the
-    group's living members, weakest first. The session refuses a group that isn't in the
+    group's living members, weakest first. A mode with an area, like *death spell*'s 60' cube,
+    takes only the members its area would take, as a `cast` of a spell that covers an area does.
+    The session refuses a group that isn't in the
     encounter, or one whose
     [`EncounterGroupView.fled`][osrlib.crawl.views.EncounterGroupView.fled] is true, with
     `battle.declaration.unknown_group`."""
@@ -2493,8 +2495,9 @@ class BattleDeclaration(BaseModel):
     [`CastSpell.targets`][osrlib.crawl.commands.CastSpell.targets]: member ids, monster ids, or
     a `cell:` reference. Leave it empty for a spell that covers an area, which takes
     `target_group_id` instead. For an `hd_budget` mode, you can also leave it empty and set
-    `target_group_id`. That's the same cast as naming every living member of the group in spawn
-    order. When both are set, the session uses `targets`. The session refuses an invisible target
+    `target_group_id`. For a mode with no area, like *sleep*'s, that's the same cast as naming every
+    living member of the group in spawn order. A mode with an area, like *death spell*'s, takes the
+    members its area would take. When both are set, the session uses `targets`. The session refuses an invisible target
     with `battle.declaration.invisible_target`."""
     move: Literal["close", "fighting_withdrawal", "retreat"] | None = None
     """Which movement a `move` declaration makes.
