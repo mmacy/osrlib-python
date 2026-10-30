@@ -29,13 +29,14 @@ attribute. The session refuses a command sent in any other mode with
 Referee commands are issued by game logic rather than by a player: a
 [`Listener`][osrlib.crawl.session.Listener] you write, the interpreter that runs an
 adventure's triggers, or an LLM referee. They grant items and XP, set flags, spawn
-monsters, move the clock, and record quest progress. Each one's summary starts with
-"Referee:". They're legal in every mode, and the session logs and replays them like any
-other command. The exceptions are the ones that would restart play once the session has
-ended: [`PlaceParty`][osrlib.crawl.commands.PlaceParty] is illegal in `victory`, and
+monsters, end encounters, move the clock, and record quest progress. Each one's summary
+starts with "Referee:". They're legal in every mode, and the session logs and replays them
+like any other command. The exceptions are the ones that would restart play once the session
+has ended: [`PlaceParty`][osrlib.crawl.commands.PlaceParty] is illegal in `victory`, and
 [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] and
 [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] are illegal in `victory` and
-`game_over`.
+`game_over`. [`EndEncounter`][osrlib.crawl.commands.EndEncounter] closes an open encounter, so
+it's legal only in `encounter` and `battle`.
 
 Each command class's docstring states its contract in three sections. `Modes:` lists the session
 modes that accept it, `Rejections:` lists the codes it can be refused with, and `Events:`
@@ -95,6 +96,7 @@ The commands, grouped by what the party is doing:
   [`RollDice`][osrlib.crawl.commands.RollDice],
   [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters],
   [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty],
+  [`EndEncounter`][osrlib.crawl.commands.EndEncounter],
   [`RecordNote`][osrlib.crawl.commands.RecordNote],
   [`AddJournalEntry`][osrlib.crawl.commands.AddJournalEntry],
   [`MarkTriggerFired`][osrlib.crawl.commands.MarkTriggerFired], and the quest commands
@@ -187,6 +189,7 @@ __all__ = [
     "CompleteQuest",
     "ConsequenceCommand",
     "DropItems",
+    "EndEncounter",
     "EngageBattle",
     "EnterDungeon",
     "EquipItem",
@@ -351,8 +354,9 @@ class Command(BaseModel):
     `session.command.wrong_mode`. The base class allows every mode. Each play command narrows
     the set, and so do the referee commands
     [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters],
-    [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty], and
-    [`PlaceParty`][osrlib.crawl.commands.PlaceParty]. Each command's `Modes:` section lists
+    [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty],
+    [`PlaceParty`][osrlib.crawl.commands.PlaceParty], and
+    [`EndEncounter`][osrlib.crawl.commands.EndEncounter]. Each command's `Modes:` section lists
     its set."""
 
     @classmethod
@@ -2981,6 +2985,60 @@ class SpawnNpcParty(Command):
         return value
 
 
+class EndEncounter(Command):
+    """Referee: close the open encounter when the party talks its way past or walks away.
+
+    Use it when the party pays a toll, bluffs the guards, or walks away from monsters that let
+    it go. The session closes the encounter the same way it does when the party wins or gets
+    away. Monsters slain earlier in the encounter count as defeated and drop their treasure.
+    Monsters still standing aren't defeated and are worth no experience. Effects on the
+    encounter's monsters end, and the clock advances, so the encounter costs at least one turn.
+    The session then switches to `exploring`.
+
+    In `battle`, the command closes the battle too. It emits no
+    [`BattleEndedEvent`][osrlib.crawl.events.BattleEndedEvent], because the
+    `EncounterEndedEvent` closes both, so check the session's mode to know the fight is over.
+
+    A keyed area's monsters are back each time the party walks into the area, until every one
+    of them is slain or routed. Set `resolve_area` to `True` to mark the area resolved now, so
+    the monsters don't come back. The command is legal only while an encounter is open, so the
+    flag can't resolve an area whose encounter is already closed.
+
+    The command can be an authored consequence, so a trigger can close the encounter. For
+    example, a trigger can close the encounter and resolve the area when a flag records that
+    the party paid the toll.
+
+    Modes:
+        `encounter`, `battle`
+
+    Rejections:
+        - `session.command.wrong_mode` - no encounter is open.
+
+    Events:
+        A [`MonsterDefeatedEvent`][osrlib.crawl.events.MonsterDefeatedEvent] for each monster
+        that was slain or routed earlier in the encounter, the events of effects ending on the
+        encounter's monsters, and the experience award when the ruleset awards it immediately.
+        Then the [`EncounterEndedEvent`][osrlib.crawl.events.EncounterEndedEvent] with the
+        command's `outcome`, and the events of the clock advance.
+    """
+
+    allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.ENCOUNTER, SessionMode.BATTLE})
+
+    command_type: Literal["end_encounter"] = "end_encounter"
+    outcome: Literal["parley", "departed"]
+    """How the encounter ended, as the `outcome` of the
+    [`EncounterEndedEvent`][osrlib.crawl.events.EncounterEndedEvent]. Use `"parley"` when the
+    party and the monsters came to terms, like a toll paid or a bluff believed. Use
+    `"departed"` when one side left the other, like a party that walks away from monsters
+    that let it go, or a chase that you call off."""
+    resolve_area: bool = False
+    """Whether to mark the keyed area the encounter came from as resolved, so its monsters
+    don't appear when the party next walks in. With `False`, the default, the area stays
+    unresolved and its monsters are back the next time the party enters it. An encounter that
+    didn't come from a keyed area, like a wandering or spawned one, has no area to resolve,
+    and the flag does nothing."""
+
+
 class SetDoorState(Command):
     """Referee: change the state of a door on any level of any dungeon.
 
@@ -3552,6 +3610,7 @@ ALL_COMMAND_CLASSES: tuple[type[Command], ...] = (
     RevealObjective,
     CompleteObjective,
     CompleteQuest,
+    EndEncounter,
 )
 """Every command class, in a fixed order. These are the members of the
 [`AnyCommand`][osrlib.crawl.commands.AnyCommand] union.
@@ -3596,6 +3655,7 @@ CONSEQUENCE_COMMAND_CLASSES: tuple[type[Command], ...] = (
     SetDoorState,
     PlaceParty,
     AdvanceTime,
+    EndEncounter,
 )
 """The referee commands an adventure document may contain as authored consequences, in a
 fixed order.
@@ -3635,7 +3695,8 @@ ConsequenceCommand = Annotated[
     | SpawnNpcParty
     | SetDoorState
     | PlaceParty
-    | AdvanceTime,
+    | AdvanceTime
+    | EndEncounter,
     Field(discriminator="command_type"),
 ]
 """The type of an authored consequence: a union of the classes in

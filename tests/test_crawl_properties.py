@@ -254,8 +254,10 @@ def command_strategy():
                 fields[field_name] = st.integers(min_value=0 if field_name != "level_number" else 1, max_value=4)
             elif field_name in ("open", "wedged", "discovered", "unlocked"):
                 fields[field_name] = st.sampled_from([None, True, False])
-            elif field_name == "reversed":
+            elif field_name in ("reversed", "resolve_area"):
                 fields[field_name] = st.booleans()
+            elif field_name == "outcome":
+                fields[field_name] = st.sampled_from(["parley", "departed"])
             elif field_name in ("targets", "selections"):
                 fields[field_name] = st.just(())
             elif field_name == "count_dice":
