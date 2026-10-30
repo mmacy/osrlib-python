@@ -128,12 +128,12 @@ from osrlib.core.effects import EFFECTS_STREAM, Condition, EffectDefinition, Mod
 from osrlib.core.events import Event, SavingThrowRolledEvent
 from osrlib.core.items import (
     COIN_VALUES_CP,
-    MAX_LOAD_COINS,
     Coins,
     ItemInstance,
     ItemTemplate,
     MagicItemCategory,
     MagicItemInstance,
+    _max_load_coins,
     equip,
     magic_item_template,
     tracked_weight_coins,
@@ -2544,14 +2544,16 @@ def _carry_load(member, ruleset) -> int:
 
 
 def _within_max_load(member, ruleset) -> bool:
-    """Return whether the member is still inside the 1,600-coin maximum load.
+    """Return whether the member is still inside their maximum load.
 
-    Always true under the `none` encumbrance mode, which tracks no weight and imposes
-    no cap.
+    The maximum load is 1,600 coins, raised under detailed encumbrance by worn gauntlets
+    of ogre power. Always true under the `none` encumbrance mode, which tracks no weight
+    and imposes no cap.
     """
     if ruleset.encumbrance is EncumbranceMode.NONE:
         return True
-    return tracked_weight_coins(member.inventory, ruleset.encumbrance) <= MAX_LOAD_COINS
+    mode = ruleset.encumbrance
+    return tracked_weight_coins(member.inventory, mode) <= _max_load_coins(member.inventory, mode)
 
 
 def _coin_headroom(member, ruleset, wanted: int) -> int:
@@ -2565,7 +2567,8 @@ def _coin_headroom(member, ruleset, wanted: int) -> int:
     """
     if ruleset.encumbrance is EncumbranceMode.NONE:
         return wanted
-    return max(0, MAX_LOAD_COINS - tracked_weight_coins(member.inventory, ruleset.encumbrance))
+    mode = ruleset.encumbrance
+    return max(0, _max_load_coins(member.inventory, mode) - tracked_weight_coins(member.inventory, mode))
 
 
 def _uncarry(collection: list, instance) -> None:
@@ -2753,7 +2756,7 @@ def _distribute_haul(session, carriers, haul: DropPile) -> tuple[list[Event], Dr
     valuables and coins, which can be split to even out the loads. Items (magic items first, then gear) go to a
     carrier whose class can use them, breaking ties toward the lightest load. Gems and
     jewellery divide by worth, and coins divide evenly per denomination. No carrier is
-    loaded past the 1,600-coin maximum load, so a take can never immobilise a carrier
+    loaded past their maximum load, so a take can never immobilise a carrier
     that some other arrangement would have kept moving.
 
     Args:

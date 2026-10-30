@@ -920,17 +920,23 @@ def _magic_base(attack: MagicItemInstance) -> WeaponTemplate | None:
     return base if isinstance(base, WeaponTemplate) else None
 
 
-def _magic_weapon_bonus(attack: Attack, defender: Any | None) -> int:
-    """Return an enchanted arm's effective bonus against a defender.
+def _magic_weapon_bonus(attack: Attack, defender: Any | None, *, damage: bool) -> int:
+    """Return an enchanted arm's effective attack or damage bonus against a defender.
 
-    The base bonus applies unless a versus clause matches the defender's template
-    (by category tag or template id), in which case the clause's alternate bonus
-    swaps in. Characters have no template and never match a clause.
+    The template's `attack_bonus` applies to the attack roll and its `damage_bonus` to the
+    damage roll, unless a versus clause matches the defender's template (by category tag or
+    template id). Then the clause's single `bonus` replaces both. Characters have no
+    template and never match a clause.
+
+    Args:
+        attack: The attack. Anything but an enchanted item adds 0.
+        defender: The defender, or `None` when there isn't one.
+        damage: True for the damage roll's bonus, False for the attack roll's.
     """
     if not isinstance(attack, MagicItemInstance):
         return 0
     template = magic_item_template(attack)
-    bonus = template.attack_bonus
+    bonus = template.damage_bonus if damage else template.attack_bonus
     defender_template = getattr(defender, "template", None)
     if defender_template is not None:
         for clause in template.versus:
@@ -1486,7 +1492,7 @@ def attack_roll(
     if context.defender_retreating:
         modifier += 2
     # An enchanted arm's bonus (versus-clauses swapping in their alternate).
-    modifier += _magic_weapon_bonus(attack, defender)
+    modifier += _magic_weapon_bonus(attack, defender, damage=False)
     # Spell stat modifiers: the attacker's bonuses (*bless* and *blight*) and
     # the defender's ward penalty on attackers of another alignment (*protection
     # from evil*), each under the cumulative rule. Then the defender's
@@ -1666,8 +1672,8 @@ def damage_roll(
 
     1. The attack's dice. A monster attack with a fixed amount rolls no dice.
     2. The attacker's STR modifier, on a melee attack that isn't a monster attack.
-    3. A magic weapon's bonus, using its higher bonus when `defender` is one of the
-       monsters it's made against.
+    3. A magic weapon's damage bonus. When `defender` is one of the monsters the weapon
+       is made against, the bonus for those monsters replaces it.
     4. Spell bonuses, like *bless*, and the extra die of *striking* on a weapon attack.
     5. The doublings: a braced weapon against a charge, a charging attack with a lance or
        other charge weapon, the multipliers of magic like a potion of giant strength or of
@@ -1697,7 +1703,11 @@ def damage_roll(
 
     Returns:
         The damage roll. `rolls` contains each die, and `total` the damage to pass to
-        `deal_damage`.
+        `deal_damage`. `modifier` contains every flat amount added to the dice: steps 2 to 4,
+        any modifier in the dice expression, and a monster attack's fixed amount. `multiplier`
+        is the product of the step 5 doublings. So `total` is
+        `(sum(rolls) + modifier) * multiplier`, raised to 1 when it would be lower, and 0 for
+        an attack that deals no hit point damage.
 
     Raises:
         ValueError: If the attack has no combat stats to roll damage from: a gear item like
@@ -1759,7 +1769,7 @@ def damage_roll(
     if not missile and not isinstance(attack, MonsterAttack):
         amount += melee_modifier_for(attacker)
     # An enchanted arm's damage bonus (the versus alternate against a match).
-    amount += _magic_weapon_bonus(attack, defender)
+    amount += _magic_weapon_bonus(attack, defender, damage=True)
     # Spell stat modifiers join the sum before the doublings: *bless*'s flat bonus
     # on any attack, *striking*'s extra die on weapon attacks only, never on an
     # unarmed strike or a monster's natural attack.
@@ -1770,31 +1780,35 @@ def damage_roll(
             bonus = roll(striking, stream)
             rolls = (*rolls, *bonus.rolls)
             amount += bonus.total
+    # Every flat amount added to the dice so far, a fixed amount included, is the modifier.
+    modifier = amount - sum(rolls)
+    multiplier = 1
     qualities = _qualities(attack)
     if context.braced and WeaponQuality.BRACE in qualities:
-        amount *= 2
+        multiplier *= 2
     if context.charging and WeaponQuality.CHARGE in qualities:
-        amount *= 2
+        multiplier *= 2
     if not isinstance(attack, MonsterAttack):
         # Item damage multipliers apply after the flat bonuses, beside the quality
         # doublings: giant strength on weapon attacks, growth on melee attacks
         # (unarmed included), and the girdle's double under the variable-damage
         # default.
         if attack is not None:
-            multiplier = modifier_total(attacker, "damage_multiplier")
-            if multiplier > 1:
-                amount *= multiplier
+            item_multiplier = modifier_total(attacker, "damage_multiplier")
+            if item_multiplier > 1:
+                multiplier *= item_multiplier
             if girdle is not None and ruleset.variable_weapon_damage:
-                amount *= 2
+                multiplier *= 2
         if not missile:
             melee_multiplier = modifier_total(attacker, "melee_damage_multiplier")
             if melee_multiplier > 1:
-                amount *= melee_multiplier
+                multiplier *= melee_multiplier
     if context.behind_target and context.target_unaware:
         back_stab = _class_ability_params(attacker, "back_stab")
         if back_stab is not None:
-            amount *= int(back_stab.get("damage_multiplier", 1))
-    return RollResult(rolls=rolls, modifier=0, multiplier=1, total=max(1, amount))
+            multiplier *= int(back_stab.get("damage_multiplier", 1))
+    total = (sum(rolls) + modifier) * multiplier
+    return RollResult(rolls=rolls, modifier=modifier, multiplier=multiplier, total=max(1, total))
 
 
 def _item_effect_params(combatant: Any, effect_kind: str) -> dict[str, Any] | None:
@@ -3448,7 +3462,8 @@ def effective_hd(combatant: Creature) -> int:
     *sleep* would take.
 
     A monster counts its Hit Dice without the hit point bonus after them, so a 2+1 HD
-    monster counts as 2. A monster under 1 Hit Die counts as 1. A
+    monster counts as 2. A drained monster counts the Hit Dice it has left, its
+    `hit_dice_count`. A monster under 1 Hit Die counts as 1. A
     character counts its level.
 
     Args:
@@ -3474,9 +3489,8 @@ def effective_hd(combatant: Creature) -> int:
         assert effective_hd(spawn_monster(catalog.get("normal_rat"), id="rat-1", stream=spawn)) == 1  # under 1 HD
         ```
     """
-    template = getattr(combatant, "template", None)
-    if template is not None:
-        return max(1, template.hit_dice.count)
+    if isinstance(combatant, MonsterInstance):
+        return max(1, combatant.hit_dice_count)
     return max(1, getattr(combatant, "level", 1))
 
 
