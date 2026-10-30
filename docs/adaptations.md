@@ -472,7 +472,7 @@ Available space caps combatants fighting abreast. RAW prints one number and leav
 
 ### `magic_item_death_save` (default on)
 
-The SRD's referee-optional save for a dead character's magic items, given a default: when a kill destroys equipment (lightning, disintegration), the engine rolls each carried magic item against the owner's save value for the source's category (breath as breath, spells as spells, devices as wands, anything else as death), plus the item's best combat bonus, the highest of its attack, damage, and AC bonuses, while a cursed item saves at its penalty. Items that survive go to the drop pile instead of vanishing, and `EquipmentDestroyedEvent.saved_items` lists them. Off means items share their owner's fate. Locked by `test_combat.py::TestDestroyEquipment`.
+The SRD's referee-optional save for a dead character's magic items, given a default: when a kill destroys equipment (lightning, disintegration), the engine rolls each carried magic item against the owner's save value for the source's category (breath as breath, spells as spells, devices as wands, anything else as death), plus the item's best combat bonus, the highest of its attack, damage, and AC bonuses, while a cursed item saves at its penalty. Items that survive go to the drop pile instead of vanishing, and `EquipmentDestroyedEvent.saved_items` lists them. When the victim is a party member, the session moves the items to the drop pile on the party's cell in the command that killed the member, because no command can take anything from a dead member's inventory. Off means items share their owner's fate. Locked by `test_combat.py::TestDestroyEquipment` and `test_loot_and_traps.py::TestBreathSavedItems`.
 
 ### `xp_award_timing` (default `on_return`)
 
