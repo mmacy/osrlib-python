@@ -93,6 +93,7 @@ class TestConsequenceSurface:
             "SetDoorState": dict(dungeon_id="delve", level_number=1, x=2, y=0, direction="south", open=True),
             "PlaceParty": dict(location={"kind": "town"}),
             "AdvanceTime": dict(n=1, unit="turn"),
+            "EndEncounter": dict(outcome="parley", resolve_area=True),
         }
         for command_class in CONSEQUENCE_COMMAND_CLASSES:
             command = command_class(**samples[command_class.__name__])

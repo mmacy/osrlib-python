@@ -52,7 +52,7 @@ from osrlib.crawl.commands import (
 from osrlib.crawl.dungeon import Direction
 from osrlib.crawl.session import DeprivationState, GameSession
 from osrlib.persistence import load_game, save_game, session_state
-from test_commands import REFEREE_COMMANDS, RESUME_PLAY_CARVE_OUTS, sample_command
+from test_commands import REFEREE_CARVE_OUTS, REFEREE_COMMANDS, sample_command
 
 TERMINAL_MODES = frozenset({SessionMode.GAME_OVER, SessionMode.VICTORY})
 
@@ -125,7 +125,11 @@ def assert_session_ended(session: GameSession, events) -> None:
 
 
 class TestTheLegalityCensus:
-    """Terminal-mode membership follows referee-ness, with three exceptions."""
+    """Terminal-mode membership follows referee-ness, with four exceptions.
+
+    Three referee commands are withheld because they would resume play, and
+    `EndEncounter` because an ended session has no encounter to close.
+    """
 
     def test_terminal_names_exactly_game_over_and_victory(self):
         assert {mode for mode in SessionMode if mode.terminal} == TERMINAL_MODES
@@ -139,7 +143,7 @@ class TestTheLegalityCensus:
             command_type = command_class.model_fields["command_type"].default
             if command_type not in REFEREE_COMMANDS:
                 continue
-            withheld = RESUME_PLAY_CARVE_OUTS.get(command_type, frozenset())
+            withheld = REFEREE_CARVE_OUTS.get(command_type, frozenset())
             assert command_class.allowed_modes & TERMINAL_MODES == TERMINAL_MODES - withheld, command_class.__name__
 
     def test_the_carve_outs_are_the_three_commands_that_resume_play(self):
