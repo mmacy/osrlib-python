@@ -48,7 +48,6 @@ CLERIC = "character-0004"
 MAGIC_USER = "character-0005"
 
 UNKNOWN_GROUP = "battle.declaration.unknown_group"
-CHUNK = "chunk: battle-player-view"
 
 CASTER_BEHIND = (FIGHTER, THIEF, ELF, CLERIC, MAGIC_USER)
 """A marching order that keeps the elf out of the front rank, so no melee blow disrupts its *sleep*."""
@@ -250,7 +249,6 @@ class TestAnHdBudgetSpellAimedAtAGroup:
     `target_group_id` beside them, so a saved command log replays as it did.
     """
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_a_sleep_aimed_at_a_group_needs_only_the_player_view(self):
         session = _battle_three_goblins()
         view = session.view(Visibility.PLAYER)
@@ -273,7 +271,6 @@ class TestAnHdBudgetSpellAimedAtAGroup:
         assert after.id == group.id
         assert "asleep" in after.visible_conditions
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     @pytest.mark.parametrize("shape", list(GROUP_SHAPES))
     def test_aiming_at_a_group_is_naming_every_living_member(self, shape):
         build = GROUP_SHAPES[shape]
@@ -291,7 +288,6 @@ class TestAnHdBudgetSpellAimedAtAGroup:
         assert _selected(named), "precondition: the named cast put someone to sleep"
         assert _fingerprint(by_group, aimed) == _fingerprint(by_name, named)
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_the_budget_goes_weakest_first_through_a_mixed_group(self):
         session = _delve(seed=2, order=CASTER_BEHIND)
         assert session.execute(SpawnNpcParty(party_kind="basic", distance_feet=60)).accepted
@@ -322,7 +318,6 @@ class TestAnHdBudgetSpellAimedAtAGroup:
         assert selected in kernel_choices, "the kernel's weakest-first choice over the group, for a 2d8 budget"
         assert _slept(result) == list(selected)
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_another_group_stays_awake(self):
         session = _battle(5, (("goblin", 2), ("kobold", 4)), distance=40, order=CASTER_BEHIND)
         goblins, kobolds = session.encounter.groups
@@ -337,7 +332,6 @@ class TestAnHdBudgetSpellAimedAtAGroup:
         assert set(slept) <= set(kobolds.monster_ids)
         assert not any(has_condition(session.combatant(goblin), Condition.ASLEEP) for goblin in goblins.monster_ids)
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_an_undead_group_spends_the_copy_and_sleeps_nobody(self):
         session = _battle(5, (("skeleton", 3),), distance=40, order=CASTER_BEHIND)
         group = _encounter(session).groups[0]
@@ -349,7 +343,6 @@ class TestAnHdBudgetSpellAimedAtAGroup:
         assert "magic.cast.no_effect" in [event.code for event in result.events]
         assert _sleep_copies(session) == 0
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_a_group_not_in_the_encounter_is_refused_whole(self):
         session = _battle_three_goblins()
         before = _snapshot(session)
@@ -363,7 +356,7 @@ class TestAnHdBudgetSpellAimedAtAGroup:
 
     @pytest.mark.parametrize(
         "aim",
-        [pytest.param("group", marks=pytest.mark.xfail(reason=CHUNK, strict=True)), "every living member"],
+        ["group", "every living member"],
     )
     def test_the_same_seed_gives_the_same_round(self, aim):
         runs = []
@@ -508,14 +501,6 @@ DECLARATION_KINDS = {
     "hd_budget spell": lambda group_id: _sleep(group_id=group_id),
 }
 
-_XFAIL = pytest.mark.xfail(reason=CHUNK, strict=True)
-
-REFUSED_TODAY = {"attack", "thrown item", "wand that covers an area", "staff that strikes"}
-"""The kinds the session already refuses at a fled group. The rest are accepted, or refused for another reason."""
-
-ACCEPTED_AT_A_LIVE_GROUP_TODAY = set(DECLARATION_KINDS) - {"hd_budget spell"}
-"""Every kind is legal at a group still in the fight. The hd_budget spell is item 16's fix."""
-
 
 class TestAFledGroup:
     """Issue #162, item 17: the player view marks a fled group, and every declaration at one is refused.
@@ -534,9 +519,7 @@ class TestAFledGroup:
     can still chase it or shoot at it.
     """
 
-    @pytest.mark.parametrize(
-        "kind", [pytest.param(kind, marks=() if kind in REFUSED_TODAY else _XFAIL) for kind in DECLARATION_KINDS]
-    )
+    @pytest.mark.parametrize("kind", list(DECLARATION_KINDS))
     def test_every_declaration_at_a_fled_group_is_refused_alike(self, kind):
         session = _goblins_breaking("fled")
         _arm_for_every_kind(session)
@@ -550,10 +533,7 @@ class TestAFledGroup:
 
     @pytest.mark.parametrize(
         "kind",
-        [
-            pytest.param(kind, marks=() if kind in ACCEPTED_AT_A_LIVE_GROUP_TODAY else _XFAIL)
-            for kind in DECLARATION_KINDS
-        ],
+        list(DECLARATION_KINDS),
     )
     def test_the_same_declaration_at_the_group_still_fighting_is_accepted(self, kind):
         session = _goblins_breaking("fled")
@@ -574,7 +554,6 @@ class TestAFledGroup:
         assert [group.id for group in groups] == [goblins.id, hobgoblins.id]
         assert groups[0].distance_feet == goblins.distance_feet > FLEE_EXIT_FEET
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_the_player_view_marks_a_fled_group(self):
         session = _goblins_breaking("fled")
         goblins, hobgoblins = session.encounter.groups
@@ -585,7 +564,6 @@ class TestAFledGroup:
         assert _fled_flag(groups[goblins.id]) is True
         assert _fled_flag(groups[hobgoblins.id]) is False
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_a_group_still_running_is_not_marked_fled(self):
         session = _goblins_breaking("fleeing")
         goblins = session.encounter.groups[0]
@@ -593,7 +571,7 @@ class TestAFledGroup:
 
         assert _fled_flag(_encounter(session).groups[0]) is False
 
-    @pytest.mark.parametrize("kind", ["move close", "area spell", pytest.param("hd_budget spell", marks=_XFAIL)])
+    @pytest.mark.parametrize("kind", ["move close", "area spell", "hd_budget spell"])
     def test_a_group_still_running_can_still_be_named(self, kind):
         session = _goblins_breaking("fleeing")
         goblins = session.encounter.groups[0]
@@ -603,7 +581,6 @@ class TestAFledGroup:
 
         assert result.accepted, [(rejection.code, dict(rejection.params)) for rejection in result.rejections]
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_the_player_view_alone_offers_only_close_moves_the_session_accepts(self):
         offered = _encounter(_goblins_breaking("fled")).groups
         assert len(offered) == 2
@@ -615,7 +592,6 @@ class TestAFledGroup:
 
             assert result.accepted is not _fled_flag(group), (group.id, result.rejections)
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_the_fled_field_is_additive(self):
         field = EncounterGroupView.model_fields.get("fled")
         assert field is not None
