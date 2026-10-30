@@ -199,7 +199,7 @@ assert "combat.initiative.rolled" in [event.code for event in result.events]
 """
 
 import math
-from collections.abc import Collection, Mapping, Sequence
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from typing import Any, NamedTuple, Protocol
 
 from pydantic import BaseModel, ConfigDict
@@ -699,7 +699,7 @@ class ScriptedPolicy:
             if group.distance_feet > MELEE_RANGE_FEET:
                 actions.append(MonsterAction(monster_id=monster.id, kind="close"))
                 continue
-            targets = _reachable_targets(session, monster, pool)
+            targets = _preferred_targets(monster, _reachable_targets(session, monster, pool))
             if not targets:
                 actions.append(MonsterAction(monster_id=monster.id, kind="hold"))
                 continue
@@ -921,6 +921,33 @@ def _npc_wielded(npc, *, missile: bool, distance_feet: int = MELEE_RANGE_FEET):
         elif WeaponQuality.MELEE in qualities or WeaponQuality.MISSILE not in qualities:
             return attack
     return None
+
+
+def _preferred_targets(monster: MonsterInstance, targets: list) -> list:
+    """Narrow the targets a monster can reach to the ones `ScriptedPolicy` lets it pick.
+
+    A member turned to stone is out of the fight, so the monster passes over one while a target that
+    isn't stone is in reach. A monster whose `paralysis` ability has the param `attacks_others`, like
+    the ghoul and the thoul, also passes over a paralysed member while a target that is neither
+    paralysed nor stone is in reach. When every target is stone, all of them come back, so the
+    monster attacks a statue rather than holding. The targets keep their order, and a list with no
+    paralysed or petrified member comes back unchanged, so the policy's draw over it is the draw it
+    made before these rules.
+    """
+    standing = [target for target in targets if not has_condition(target, Condition.PETRIFIED)]
+    if not standing:
+        return targets
+    if _attacks_others(monster):
+        active = [target for target in standing if not has_condition(target, Condition.PARALYSED)]
+        if active:
+            return active
+    return standing
+
+
+def _attacks_others(monster: MonsterInstance) -> bool:
+    """Whether the monster turns from the members it paralyses, as the ghoul's and the thoul's entries say."""
+    ability = monster.template.ability("paralysis")
+    return ability is not None and not ability.manual and bool(ability.params.get("attacks_others"))
 
 
 _PICKED_ROUTINE_USES = frozenset({RoutineUse.PRIMARY, RoutineUse.ALTERNATIVE})
@@ -3449,7 +3476,7 @@ def _resolve_monster_melee(session, monster, target, *, retreating: bool, routin
     return events
 
 
-_HIT_EFFECT_KINDS = frozenset({"paralysis", "poison", "disease", "energy_drain", "petrification"})
+_HIT_EFFECT_KINDS = frozenset({"paralysis", "poison", "disease", "energy_drain", "petrification", "blindness"})
 """The attack effects that battle applies when a monster hits. The adaptations register lists the rest."""
 
 
@@ -3497,6 +3524,9 @@ def _apply_hit_effect(session, monster, target, kind: str, params: Mapping[str, 
       to stone.
     - `poison` makes the target save versus death, with the ability's `save_modifier`, or die. The
       target dies at once, or when the onset in the ability's params runs out.
+    - `blindness`, the spitting cobra's spit, makes the target save versus death, the category for
+      poison, or be blinded for good. The effect is permanent and isn't dispellable, and a target
+      that's already blind saves again but gains nothing more.
 
     A monster that's immune to the condition the effect brings rolls no save and takes nothing.
     Saves draw from the combat stream, rolled durations and onsets from the effects stream, and
@@ -3529,6 +3559,10 @@ def _apply_hit_effect(session, monster, target, kind: str, params: Mapping[str, 
     elif kind == "petrification":
         condition = Condition.PETRIFIED
         definition = EffectDefinition(kind="petrification", condition=condition, permanent=True)
+    elif kind == "blindness":
+        category = SaveCategory.DEATH
+        condition = Condition.BLIND
+        definition = EffectDefinition(kind="blindness", condition=condition, permanent=True, stacking="ignore")
     else:
         category = SaveCategory.DEATH
         modifier = _int_param(params, "save_modifier")
@@ -3617,35 +3651,55 @@ def _resolve_gazes(session, group, *, free_round: bool, mirrored: Collection[str
     A gaze takes no attack roll and no action. Every living gazer that isn't incapacitated uses it
     before its group acts, whatever the policy then chooses for it. While the gazer's group is in
     melee, the gaze reaches the party's front rank, less the members in `mirrored`, who fight by a
-    mirror this round. In the monsters' free round after they surprise the party (`free_round`), a
-    gazer with a `surprise` ability that says so, the basilisk, gazes instead at every living member
-    at any distance, so no member meets its gaze twice in that round. `resolve_gaze` skips a
-    character who is averting their eyes or is incapacitated, and rolls a save versus paralysis on
-    the combat stream for each of the others.
+    mirror this round. `resolve_gaze` skips a character who is averting their eyes or is
+    incapacitated, and rolls a save versus paralysis on the combat stream for each of the others.
+
+    In the monsters' free round (`free_round`) of an encounter that opened with the party surprised,
+    a gazer whose `surprise` ability says so, the basilisk, already turned its gaze on every member
+    in `_surprise_gazes` as the encounter opened, so it doesn't gaze again in that round.
     """
-    in_melee = group.distance_feet <= MELEE_RANGE_FEET
+    if group.distance_feet > MELEE_RANGE_FEET:
+        return []
     events: list[Event] = []
     for monster in _living_monsters(session, group):
         if incapacitated(monster) or _petrifying_gaze(monster) is None:
             continue
-        if free_round and _surprise_gaze(monster):
-            engaged = session.party.living_members()
-        elif in_melee:
-            engaged = [member for member in _party_front_rank(session) if member.id not in mirrored]
-        else:
+        if free_round and session.encounter.party_surprised and _surprise_gaze(monster):
             continue
-        events.extend(
-            resolve_gaze(
-                monster,
-                engaged,
-                stream=session.streams.get(COMBAT_STREAM),
-                ledger=session.ledger,
-                clock=session.clock,
-                allocator=session.allocator,
-                registry=session.registry(),
-            )
-        )
+        engaged = [member for member in _party_front_rank(session) if member.id not in mirrored]
+        events.extend(_gaze(session, monster, engaged))
     return events
+
+
+def _surprise_gazes(session, monsters: Iterable) -> list[Event]:
+    """Turn each surprise gazer's petrifying gaze on every living member of the party it surprised.
+
+    `start_encounter` calls this as the encounter opens, when the party is surprised, as the OSE
+    SRD's "Characters surprised by a basilisk meet its gaze" says. A monster gazes when its
+    `surprise` ability has `meets_gaze`, it has a petrifying gaze, and it isn't incapacitated. The
+    gaze reaches every living member once, at any distance and in any rank, and no stance spares
+    it, because the party hasn't declared anything yet. `resolve_gaze` skips a member who is
+    already incapacitated, and rolls a save versus paralysis on the combat stream for each of the
+    others.
+    """
+    events: list[Event] = []
+    for monster in monsters:
+        if incapacitated(monster) or _petrifying_gaze(monster) is None or not _surprise_gaze(monster):
+            continue
+        events.extend(_gaze(session, monster, session.party.living_members()))
+    return events
+
+
+def _gaze(session, monster, engaged: list) -> list[Event]:
+    return resolve_gaze(
+        monster,
+        engaged,
+        stream=session.streams.get(COMBAT_STREAM),
+        ledger=session.ledger,
+        clock=session.clock,
+        allocator=session.allocator,
+        registry=session.registry(),
+    )
 
 
 _AVERT_EYES_PENALTY = -4

@@ -469,11 +469,13 @@ def start_encounter(
         assert session.encounter.groups[0].monster_ids == ["monster-0001", "monster-0002"]
         ```
     """
+    from osrlib.crawl import battle as battle_module
     from osrlib.crawl import exploration
     from osrlib.crawl.session import ENCOUNTER_STREAM
 
     stream = session.streams.get(ENCOUNTER_STREAM)
-    events: list[Event] = _attach_regeneration(session, [instance for _, instances in groups for instance in instances])
+    opened = [instance for _, instances in groups for instance in instances]
+    events: list[Event] = _attach_regeneration(session, opened)
     lit, _ = session.party_light()
 
     monsters_surprised = False
@@ -546,6 +548,11 @@ def start_encounter(
             monsters_surprised=monsters_surprised,
         )
     )
+    if party_surprised:
+        # "Characters surprised by a basilisk meet its gaze": every member meets it once, here, whether
+        # or not the monsters are surprised too and whatever the stance turns out to be. The monsters'
+        # free round, when they get one, doesn't repeat it.
+        events.extend(battle_module._surprise_gazes(session, opened))
 
     if pinned_stance is not None:
         stance = pinned_stance
@@ -557,8 +564,6 @@ def start_encounter(
     events.append(StanceChangedEvent(stance=stance.value))
 
     if stance is ReactionResult.ATTACKS:
-        from osrlib.crawl import battle as battle_module
-
         # A surprise advantage becomes a free battle round for either side: the
         # round the surprised monsters would have sat out is the party's free
         # round, and a surprised party gives the monsters theirs.
