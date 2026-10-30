@@ -13,8 +13,9 @@ import pytest
 
 from osrlib.core.alignment import Alignment
 from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character
-from osrlib.core.effects import Condition, EffectDefinition, has_condition
+from osrlib.core.effects import Condition, EffectDefinition, has_condition, kill
 from osrlib.core.events import Event
+from osrlib.core.items import Coins
 from osrlib.core.rng import RngStreams
 from osrlib.core.ruleset import Ruleset
 from osrlib.crawl.adventure import Adventure, TownSpec
@@ -28,7 +29,8 @@ from osrlib.crawl.commands import (
     SpawnMonsters,
     TurnUndead,
 )
-from osrlib.crawl.dungeon import DungeonSpec, Edge, EdgeKind, LevelSpec
+from osrlib.crawl.dungeon import DungeonSpec, Edge, EdgeKind, LevelSpec, TreasureBundle
+from osrlib.crawl.encounter import end_encounter
 from osrlib.crawl.party import Party
 from osrlib.crawl.session import GameSession
 
@@ -394,3 +396,49 @@ def test_a_fully_turned_group_in_battle_retreats_as_a_whole_as_before():
     assert "battle.ended.victory" in codes
     outcomes = {event.monster_id: event.outcome for event in all_events if event.code == "battle.monster.defeated"}
     assert outcomes == dict.fromkeys(turned, "routed")
+
+
+SHARED_GP = 100
+CARRIED_GP = 10
+
+
+def stock_the_group(session: GameSession) -> None:
+    """Give the skeletons a shared hoard and each one a purse, as a keyed lair would."""
+    (group,) = session.encounter.groups
+    group.group_treasure = TreasureBundle(coins=Coins(gp=SHARED_GP))
+    for monster_id in group.monster_ids:
+        group.member_treasure[monster_id] = TreasureBundle(coins=Coins(gp=CARRIED_GP))
+
+
+@CHUNK
+def test_the_unturned_keep_the_shared_hoard_when_the_group_splits():
+    session = new_session(4, TRIO)
+    stock_the_group(session)
+    turned, _ = turn_in_encounter(session)
+    stayers = group_of(session, next(iter(living_monster_ids(session) - turned)))
+    runners = group_of(session, next(iter(turned)))
+    assert stayers.id != runners.id, "precondition: the turned skeletons split off"
+    assert stayers.group_treasure is not None and stayers.group_treasure.coins.gp == SHARED_GP
+    assert runners.group_treasure is None or runners.group_treasure.empty
+
+
+@CHUNK
+def test_killing_the_runners_drops_only_what_they_carry():
+    session = new_session(4, TRIO)
+    stock_the_group(session)
+    turned, _ = turn_in_encounter(session)
+    for monster_id in sorted(turned):
+        kill(session.combatant(monster_id))
+    end_encounter(session, "evaded")
+    dropped = sum(pile.coins.gp for pile in session.dungeon_state.piles.values())
+    assert dropped == CARRIED_GP * len(turned), "the unturned still stand, so the shared hoard stays with them"
+
+
+@CHUNK
+def test_a_running_group_rolls_no_morale_when_a_runner_dies():
+    session = new_session(4, TRIO)
+    turned, _ = turn_in_encounter(session)
+    runners = group_of(session, next(iter(turned)))
+    kill(session.combatant(sorted(turned)[0]))
+    events = hold_round(session)
+    assert not [event for event in events if event.code.startswith("combat.morale") and event.subject == runners.id]
