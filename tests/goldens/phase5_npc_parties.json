@@ -185,6 +185,7 @@
         "max_hp": 3,
         "memorized_spells": [],
         "name": "Halfling adventurer 1",
+        "nonregen_damage": 0,
         "race": "halfling",
         "scores": {
           "cha": 13,
@@ -337,6 +338,7 @@
         "max_hp": 10,
         "memorized_spells": [],
         "name": "Dwarf adventurer 2",
+        "nonregen_damage": 0,
         "race": "dwarf",
         "scores": {
           "cha": 13,
@@ -488,6 +490,7 @@
         "max_hp": 5,
         "memorized_spells": [],
         "name": "Thief adventurer 3",
+        "nonregen_damage": 0,
         "race": "human",
         "scores": {
           "cha": 6,
@@ -640,6 +643,7 @@
         "max_hp": 2,
         "memorized_spells": [],
         "name": "Dwarf adventurer 4",
+        "nonregen_damage": 0,
         "race": "dwarf",
         "scores": {
           "cha": 10,
@@ -833,6 +837,7 @@
           }
         ],
         "name": "Elf adventurer 5",
+        "nonregen_damage": 0,
         "race": "elf",
         "scores": {
           "cha": 13,
@@ -1063,6 +1068,7 @@
         "max_hp": 44,
         "memorized_spells": [],
         "name": "Fighter adventurer 1",
+        "nonregen_damage": 0,
         "race": "human",
         "scores": {
           "cha": 11,
@@ -1282,6 +1288,7 @@
         "max_hp": 19,
         "memorized_spells": [],
         "name": "Halfling adventurer 2",
+        "nonregen_damage": 0,
         "race": "halfling",
         "scores": {
           "cha": 12,
@@ -1517,6 +1524,7 @@
         "max_hp": 37,
         "memorized_spells": [],
         "name": "Halfling adventurer 3",
+        "nonregen_damage": 0,
         "race": "halfling",
         "scores": {
           "cha": 14,
@@ -1668,6 +1676,7 @@
         "max_hp": 15,
         "memorized_spells": [],
         "name": "Thief adventurer 4",
+        "nonregen_damage": 0,
         "race": "human",
         "scores": {
           "cha": 10,
@@ -1853,6 +1862,7 @@
         "max_hp": 43,
         "memorized_spells": [],
         "name": "Fighter adventurer 5",
+        "nonregen_damage": 0,
         "race": "human",
         "scores": {
           "cha": 10,
@@ -2016,6 +2026,7 @@
         "max_hp": 16,
         "memorized_spells": [],
         "name": "Thief adventurer 6",
+        "nonregen_damage": 0,
         "race": "human",
         "scores": {
           "cha": 12,
@@ -2165,6 +2176,7 @@
         "max_hp": 7,
         "memorized_spells": [],
         "name": "Fighter adventurer 7",
+        "nonregen_damage": 0,
         "race": "human",
         "scores": {
           "cha": 12,
