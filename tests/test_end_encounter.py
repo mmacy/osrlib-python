@@ -72,8 +72,6 @@ from osrlib.crawl.triggers import FlagSetPattern, TriggerSpec
 from osrlib.errors import ContentValidationError
 from osrlib.persistence import load_game, replay_game, save_game, session_state
 
-CHUNK = pytest.mark.xfail(reason="chunk: end-encounter", strict=True)
-
 SEED = 7
 
 GUARDROOM_REF = "crypt:1:guardroom"
@@ -272,7 +270,6 @@ def issue_session(members) -> GameSession:
 
 
 class TestTheCommandModel:
-    @CHUNK
     def test_fields_and_defaults(self):
         command = end("parley")
         assert command.command_type == "end_encounter"
@@ -280,26 +277,22 @@ class TestTheCommandModel:
         assert command.resolve_area is False
         assert end("departed", resolve_area=True).resolve_area is True
 
-    @CHUNK
     @pytest.mark.parametrize("outcome", ["victory", "evaded", "escaped", "turned", "", "PARLEY"])
     def test_outcome_is_parley_or_departed_only(self, outcome):
         with pytest.raises(ValidationError):
             end(outcome)
 
-    @CHUNK
     def test_outcome_is_required(self):
         from osrlib.crawl.commands import EndEncounter
 
         with pytest.raises(ValidationError):
             EndEncounter()
 
-    @CHUNK
     def test_the_command_is_frozen(self):
         command = end("parley")
         with pytest.raises(ValidationError):
             command.outcome = "departed"
 
-    @CHUNK
     @pytest.mark.parametrize("command_fields", [dict(outcome="parley"), dict(outcome="departed", resolve_area=True)])
     def test_round_trip_through_json(self, command_fields):
         from osrlib.crawl.commands import EndEncounter
@@ -314,18 +307,15 @@ class TestTheCommandModel:
         assert type(parsed) is EndEncounter
         assert TypeAdapter(AnyCommand).validate_python(payload) == command
 
-    @CHUNK
     def test_a_malformed_payload_raises_on_parse(self):
         with pytest.raises(ContentValidationError):
             parse_command({"command_type": "end_encounter", "outcome": "victory"})
 
-    @CHUNK
     def test_it_is_appended_to_the_command_census(self):
         from osrlib.crawl.commands import EndEncounter
 
         assert ALL_COMMAND_CLASSES.index(EndEncounter) == COMMAND_INDEX
 
-    @CHUNK
     def test_modes_are_encounter_and_battle(self):
         from osrlib.crawl.commands import EndEncounter
 
@@ -336,7 +326,6 @@ class TestTheCommandModel:
 
 
 class TestClosingTheEncounter:
-    @CHUNK
     @pytest.mark.parametrize("mode", LIVE_MODES)
     @pytest.mark.parametrize("outcome", OUTCOMES)
     def test_closes_with_the_outcome_and_returns_to_exploring(self, outcome, mode):
@@ -358,7 +347,6 @@ class TestClosingTheEncounter:
         assert game.odometer_thirds == 0
         assert game.command_log[-1] == end(outcome)
 
-    @CHUNK
     @pytest.mark.parametrize("outcome", OUTCOMES)
     def test_closes_a_spawned_encounter(self, outcome):
         game = new_game()
@@ -369,7 +357,6 @@ class TestClosingTheEncounter:
         assert game.encounter is None and game.battle is None
         assert [event.outcome for event in ended_events(result.events)] == [outcome]
 
-    @CHUNK
     @pytest.mark.parametrize("outcome", OUTCOMES)
     def test_takes_the_same_path_as_end_encounter_in_an_encounter(self, outcome):
         # Two sessions on one seed reach the same encounter. One closes it with the
@@ -391,7 +378,6 @@ class TestClosingTheEncounter:
             assert game.execute(RecordNote(text="The goblins let the party by.")).accepted
         assert state_but_the_logs(by_command) == state_but_the_logs(by_kernel)
 
-    @CHUNK
     @pytest.mark.parametrize("outcome", OUTCOMES)
     def test_takes_the_same_path_as_end_encounter_in_a_battle(self, outcome):
         # In a battle the command also closes the battle, as the session does before
@@ -410,7 +396,6 @@ class TestClosingTheEncounter:
             assert game.execute(RecordNote(text="The goblins lower their spears.")).accepted
         assert state_but_the_logs(by_command) == state_but_the_logs(by_kernel)
 
-    @CHUNK
     def test_ends_a_chase(self):
         # Hellhounds run exactly as fast as the party, so the chase would run to the
         # round cap. The referee calls it off instead.
@@ -435,7 +420,6 @@ class TestClosingTheEncounter:
 
 
 class TestDefeatAndExperience:
-    @CHUNK
     @pytest.mark.parametrize("mode", LIVE_MODES)
     @pytest.mark.parametrize("outcome", OUTCOMES)
     def test_monsters_left_standing_are_not_defeated(self, outcome, mode):
@@ -448,7 +432,6 @@ class TestDefeatAndExperience:
         assert game.defeated_monsters == []
         assert not any(has_condition(goblin, Condition.DEAD) for goblin in goblins)
 
-    @CHUNK
     @pytest.mark.parametrize("outcome", OUTCOMES)
     def test_a_peaceful_close_awards_no_experience_when_awards_are_immediate(self, outcome):
         game = new_game(ruleset=Ruleset(xp_award_timing=XpAwardTiming.IMMEDIATE))
@@ -460,7 +443,6 @@ class TestDefeatAndExperience:
         assert defeated_events(result.events) == []
         assert game.defeated_monsters == []
 
-    @CHUNK
     def test_a_monster_slain_earlier_in_the_battle_is_defeated(self):
         game = new_game(seed=ONE_SLAIN_SEED)
         _group, slain, standing = battle_with_one_slain(game)
@@ -486,7 +468,6 @@ class TestDefeatAndExperience:
 
 
 class TestResolvingTheArea:
-    @CHUNK
     @pytest.mark.parametrize("mode", LIVE_MODES)
     @pytest.mark.parametrize("outcome", OUTCOMES)
     def test_without_the_flag_the_guards_are_back_next_time(self, outcome, mode):
@@ -501,7 +482,6 @@ class TestResolvingTheArea:
         assert game.encounter.area_ref == GUARDROOM_REF
         assert set(game.encounter.groups[0].monster_ids).isdisjoint(first_guards)
 
-    @CHUNK
     @pytest.mark.parametrize("mode", LIVE_MODES)
     @pytest.mark.parametrize("outcome", OUTCOMES)
     def test_with_the_flag_walking_back_in_starts_nothing(self, outcome, mode):
@@ -515,7 +495,6 @@ class TestResolvingTheArea:
         assert game.encounter is None
         assert game.dungeon_state.resolved_encounters == [GUARDROOM_REF]
 
-    @CHUNK
     def test_the_flag_resolves_the_area_through_the_same_path_as_end_encounter(self):
         # The flag adds one thing to a plain close: the area's reference, once.
         by_command, by_kernel = new_game(), new_game()
@@ -528,7 +507,6 @@ class TestResolvingTheArea:
             assert game.execute(RecordNote(text="The toll is paid.")).accepted
         assert state_but_the_logs(by_command) == state_but_the_logs(by_kernel)
 
-    @CHUNK
     @pytest.mark.parametrize("outcome", OUTCOMES)
     def test_the_flag_does_nothing_for_a_spawned_encounter(self, outcome):
         game = new_game()
@@ -539,7 +517,6 @@ class TestResolvingTheArea:
         assert game.dungeon_state.resolved_encounters == before == []
         assert game.mode is SessionMode.EXPLORING
 
-    @CHUNK
     def test_the_flag_never_resolves_the_area_the_party_stands_in_for_a_spawned_encounter(self):
         # The party parleys past the guardroom's goblins without resolving it, so it
         # stands in an unresolved keyed area. A spawned encounter there didn't come
@@ -559,7 +536,6 @@ class TestResolvingTheArea:
 
 
 class TestRefusals:
-    @CHUNK
     @pytest.mark.parametrize("resolve_area", [False, True])
     @pytest.mark.parametrize("mode", ["town", "exploring", "game_over", "victory"])
     def test_refused_outside_an_encounter_at_no_cost(self, mode, resolve_area):
@@ -580,7 +556,6 @@ class TestRefusals:
         assert game.command_log == logged
         assert len(game.event_log) == events_logged
 
-    @CHUNK
     def test_refused_in_an_unresolved_keyed_area_once_its_encounter_is_over(self):
         # The flag can't reach back to an area whose encounter already closed.
         game = new_game()
@@ -599,7 +574,6 @@ class TestRefusals:
 
 
 class TestViews:
-    @CHUNK
     @pytest.mark.parametrize("mode", LIVE_MODES)
     def test_both_views_show_the_encounter_closed(self, mode):
         game = new_game()
@@ -622,7 +596,6 @@ class TestViews:
 
 
 class TestSaveAndLoad:
-    @CHUNK
     @pytest.mark.parametrize("mode", LIVE_MODES)
     def test_a_restored_session_closes_the_encounter_the_same_way(self, mode):
         game = new_game()
@@ -633,7 +606,6 @@ class TestSaveAndLoad:
         assert session_state(restored) == session_state(game)
         assert restored.mode is SessionMode.EXPLORING
 
-    @CHUNK
     def test_the_close_and_the_resolved_area_survive_a_save(self):
         game = new_game()
         walk_into_guardroom(game)
@@ -649,7 +621,6 @@ class TestSaveAndLoad:
 
 
 class TestReplay:
-    @CHUNK
     def test_the_issue_reproduction_replays_with_the_command(self):
         # Issue #167, item 23, rewritten to close the encounter with the command
         # instead of the bare `end_encounter` call.
@@ -672,7 +643,6 @@ class TestReplay:
         assert replayed.clock.rounds == game.clock.rounds
         assert session_state(replayed) == session_state(game)
 
-    @CHUNK
     @pytest.mark.parametrize("mode", LIVE_MODES)
     def test_a_resolved_keyed_area_replays_from_the_serialized_log(self, mode):
         game = new_game()
@@ -685,7 +655,6 @@ class TestReplay:
         assert replayed.dungeon_state.resolved_encounters == [GUARDROOM_REF]
         assert session_state(replayed) == session_state(game)
 
-    @CHUNK
     def test_an_unresolved_close_replays_into_the_second_meeting(self):
         game = new_game()
         walk_into_guardroom(game)
@@ -696,7 +665,6 @@ class TestReplay:
         assert replayed.mode is SessionMode.ENCOUNTER
         assert session_state(replayed) == session_state(game)
 
-    @CHUNK
     def test_a_battle_closed_after_a_kill_replays_with_its_defeat_record(self):
         game = new_game(seed=ONE_SLAIN_SEED)
         _group, slain, _standing = battle_with_one_slain(game)
@@ -712,7 +680,6 @@ class TestReplay:
 class TestAsAnAuthoredConsequence:
     """The spec's consequence surface is every referee command but the three exclusions it names."""
 
-    @CHUNK
     def test_it_is_a_consequence_class(self):
         from osrlib.crawl.commands import EndEncounter
 
@@ -720,7 +687,6 @@ class TestAsAnAuthoredConsequence:
         command = end("parley", resolve_area=True)
         assert TypeAdapter(ConsequenceCommand).validate_python(command.model_dump(mode="json")) == command
 
-    @CHUNK
     def test_a_trigger_pays_the_toll_and_resolves_the_guardroom(self):
         from osrlib.crawl.commands import EndEncounter
         from osrlib.crawl.interpreter import Interpreter

@@ -188,7 +188,6 @@ class TestConsequenceCensus:
         types = {cls.model_fields["command_type"].default for cls in CONSEQUENCE_COMMAND_CLASSES}
         assert types <= REFEREE_COMMANDS
 
-    @pytest.mark.xfail(reason="chunk: end-encounter", strict=True)
     def test_the_exclusions_are_the_lifecycle_family_identify_item_and_roll_dice(self):
         # `end_encounter` is a referee command outside all three exclusions, so the spec
         # puts it on the consequence surface and it's absent from this set.
