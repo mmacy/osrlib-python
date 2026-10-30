@@ -2661,6 +2661,9 @@ class ResolveBattleRound(Command):
           `magic.cast.out_of_range`.
         - Turn-undead declarations: `magic.turning.not_a_turner`,
           `magic.turning.caster_incapacitated`.
+        - `battle.declaration.no_mirror` - a member who carries no mirror declares a
+          `gaze_defense` of `mirror`, with any action. The rejection has the member's id
+          as its `character` param.
         - Item declarations: `battle.declaration.item_unusable`,
           `battle.declaration.unknown_group`, `battle.declaration.no_target`,
           `items.use.not_usable`, `items.device.inert`, `items.scroll.spent`,

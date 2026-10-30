@@ -229,7 +229,15 @@ from osrlib.core.combat import (
 )
 from osrlib.core.creature import Creature
 from osrlib.core.dice import roll
-from osrlib.core.effects import EFFECTS_STREAM, Condition, EffectDefinition, has_condition, kill
+from osrlib.core.effects import (
+    EFFECTS_STREAM,
+    Condition,
+    EffectDefinition,
+    grant_condition,
+    has_condition,
+    kill,
+    remove_condition,
+)
 from osrlib.core.events import (
     AttackRolledEvent,
     DeclarationFizzledEvent,
@@ -2070,7 +2078,9 @@ def _resolve_striking(session, member, instance, declaration: BattleDeclaration)
     target = pool[0]
     template = magic_item_template(instance)
     stream = session.streams.get(COMBAT_STREAM)
-    context = AttackContext(distance_feet=MELEE_RANGE_FEET)
+    context = AttackContext(
+        distance_feet=MELEE_RANGE_FEET, situational_modifier=_gaze_stance_modifier(member, declaration)
+    )
     rolled = attack_roll(member, target, instance, context=context, ruleset=session.ruleset, stream=stream)
     events = list(rolled.events)
     if rolled.hit and template.effect is not None:
@@ -2136,12 +2146,19 @@ def _handle_resolve_battle_round(session, command: ResolveBattleRound) -> tuple[
     front_rank = _projected_front_rank(session, swaps)
     for member, declaration in by_member.values():
         rejections.extend(_validate_declaration(session, declaration, member, front_rank=front_rank))
+        if declaration.gaze_defense == "mirror" and member.inventory.carried_item(_MIRROR_ITEM_ID) is None:
+            rejections.append(Rejection(code="battle.declaration.no_mirror", params={"character": member.id}))
     rejections.extend(withdrawal_rejections)
     if rejections:
         # The session rejects the whole command and lists every rejection. Partial
         # acceptance would complicate replay (see the adaptations register).
         return rejections, []
 
+    # The gaze stances hold from here to the end of the round, whichever side acts first.
+    averting = _avert_eyes(by_member)
+    mirrored = frozenset(
+        member.id for member, declaration in by_member.values() if declaration.gaze_defense == "mirror"
+    )
     state.round += 1
     events: list[Event] = [BattleRoundEvent(round=state.round)]
 
@@ -2238,6 +2255,7 @@ def _handle_resolve_battle_round(session, command: ResolveBattleRound) -> tuple[
             retreating=retreating,
             withdrawn=withdrawn,
             npc_actions=npc_actions,
+            mirrored=mirrored,
         )
 
     blocks = (party_block, monster_block) if party_first else (monster_block, party_block)
@@ -2266,6 +2284,7 @@ def _handle_resolve_battle_round(session, command: ResolveBattleRound) -> tuple[
         end = _check_ends(session, party_retreating=formation == "retreat")
         if end is not None:
             events.extend(end)
+    _end_averting(averting)
     return [], events
 
 
@@ -2443,6 +2462,7 @@ def _resolve_party_attack(session, member, declaration, fired, fire_damaged) -> 
         target = pool[0]  # the first living, visible monster in the reachable rank
         context = AttackContext(
             distance_feet=group.distance_feet if missile else MELEE_RANGE_FEET,
+            situational_modifier=_gaze_stance_modifier(member, declaration),
             fired_last_round=member.id in state.fired_last_round,
             defender_retreating=group.fleeing,
         )
@@ -2611,7 +2631,11 @@ def _resolve_use_item(session, member, declaration, fire_damaged) -> list[Event]
         # combat facet (holy water, a flask of burning oil) before the round ran.
         return []
     template = instance.template
-    context = AttackContext(distance_feet=group.distance_feet, lit=True)
+    context = AttackContext(
+        distance_feet=group.distance_feet,
+        situational_modifier=_gaze_stance_modifier(member, declaration),
+        lit=True,
+    )
     result = resolve_splash_attack(
         member,
         pool[0],
@@ -2858,9 +2882,10 @@ def _confused_party_overrides(session, by_member, fire_damaged) -> list[Event]:
     sends them at a fellow party member, and `no_action` leaves them babbling.
     """
     events: list[Event] = []
-    for member, _ in by_member.values():
+    for member, declaration in by_member.values():
         if incapacitated(member) or not has_condition(member, Condition.CONFUSED):
             continue
+        stance_modifier = _gaze_stance_modifier(member, declaration)
         confusion_effects = [
             effect
             for effect in session.ledger.active_on(member.id)
@@ -2895,7 +2920,7 @@ def _confused_party_overrides(session, by_member, fire_damaged) -> list[Event]:
                     pool = _monster_pool(session, nearest)
                     if pool:
                         target = pool[session.streams.get(COMBAT_STREAM).randbelow(len(pool))]
-                        context = AttackContext(distance_feet=MELEE_RANGE_FEET)
+                        context = AttackContext(distance_feet=MELEE_RANGE_FEET, situational_modifier=stance_modifier)
                         result = resolve_attack(
                             member,
                             target,
@@ -2912,7 +2937,9 @@ def _confused_party_overrides(session, by_member, fire_damaged) -> list[Event]:
             if fellows:
                 target = fellows[session.streams.get(COMBAT_STREAM).randbelow(len(fellows))]
                 context = AttackContext(
-                    distance_feet=MELEE_RANGE_FEET, defender_ally_ac_bonus=_ally_protection_bonus(session, target)
+                    distance_feet=MELEE_RANGE_FEET,
+                    situational_modifier=stance_modifier,
+                    defender_ally_ac_bonus=_ally_protection_bonus(session, target),
                 )
                 result = resolve_attack(
                     member,
@@ -2951,13 +2978,15 @@ def _monster_block(
     retreating: Collection[str] = frozenset(),
     withdrawn: Collection[str] = frozenset(),
     npc_actions: dict[str, list[MonsterAction]] | None = None,
+    mirrored: Collection[str] = frozenset(),
 ) -> list[Event]:
     """Resolve the monster side's block: morale, flight, gazes, and the actions each group's policy chose.
 
     `retreating` names the party members a retreat exposes this round (see `_retreating_members`),
     and every attack against one of them gets the retreat's penalties. `withdrawn` names the members
     who stepped back out of the front rank earlier in the round. A melee attack chosen against one of
-    them is skipped, because melee no longer reaches them.
+    them is skipped, because melee no longer reaches them. `mirrored` names the members who fight by
+    a mirror this round, whom a petrifying gaze passes by (see `_resolve_gazes`).
     """
     from osrlib.crawl.session import MONSTER_ACTION_STREAM
 
@@ -2983,7 +3012,7 @@ def _monster_block(
             if group.distance_feet > FLEE_EXIT_FEET:
                 group.fled = True
             continue
-        events.extend(_resolve_gazes(session, group))
+        events.extend(_resolve_gazes(session, group, free_round=free_round, mirrored=mirrored))
         _watch_disruption(events, pending_casters, disrupted, acted)
         if npc_actions is not None and group.id in npc_actions:
             actions = npc_actions[group.id]
@@ -3389,6 +3418,7 @@ def _resolve_monster_melee(session, monster, target, *, retreating: bool, routin
                 continue
             context = AttackContext(
                 distance_feet=MELEE_RANGE_FEET,
+                situational_modifier=_gazer_bonus(monster, target),
                 defender_retreating=retreating,
                 defender_ally_ac_bonus=_ally_protection_bonus(session, target),
             )
@@ -3563,24 +3593,40 @@ def _petrifying_gaze(monster) -> MonsterAbility | None:
     return None
 
 
-def _resolve_gazes(session, group) -> list[Event]:
-    """Turn each gazer's petrifying gaze on the party's front rank, once a round, while its group is in melee.
+def _surprise_gaze(monster) -> bool:
+    """Whether characters the monster surprises meet its gaze, as the basilisk's `surprise` ability says."""
+    template = getattr(monster, "template", None)
+    ability = template.ability("surprise") if template is not None else None
+    return ability is not None and not ability.manual and bool(ability.params.get("meets_gaze"))
+
+
+def _resolve_gazes(session, group, *, free_round: bool, mirrored: Collection[str]) -> list[Event]:
+    """Turn each gazer's petrifying gaze on the party, once a round.
 
     A gaze takes no attack roll and no action. Every living gazer that isn't incapacitated uses it
-    before its group acts, whatever the policy then chooses for it. `resolve_gaze` skips a character
-    who is averting their eyes or is incapacitated, and rolls a save versus paralysis on the combat
-    stream for each of the others.
+    before its group acts, whatever the policy then chooses for it. While the gazer's group is in
+    melee, the gaze reaches the party's front rank, less the members in `mirrored`, who fight by a
+    mirror this round. In the monsters' free round after they surprise the party (`free_round`), a
+    gazer with a `surprise` ability that says so, the basilisk, gazes instead at every living member
+    at any distance, so no member meets its gaze twice in that round. `resolve_gaze` skips a
+    character who is averting their eyes or is incapacitated, and rolls a save versus paralysis on
+    the combat stream for each of the others.
     """
-    if group.distance_feet > MELEE_RANGE_FEET:
-        return []
+    in_melee = group.distance_feet <= MELEE_RANGE_FEET
     events: list[Event] = []
     for monster in _living_monsters(session, group):
         if incapacitated(monster) or _petrifying_gaze(monster) is None:
             continue
+        if free_round and _surprise_gaze(monster):
+            engaged = session.party.living_members()
+        elif in_melee:
+            engaged = [member for member in _party_front_rank(session) if member.id not in mirrored]
+        else:
+            continue
         events.extend(
             resolve_gaze(
                 monster,
-                _party_front_rank(session),
+                engaged,
                 stream=session.streams.get(COMBAT_STREAM),
                 ledger=session.ledger,
                 clock=session.clock,
@@ -3589,6 +3635,64 @@ def _resolve_gazes(session, group) -> list[Event]:
             )
         )
     return events
+
+
+_AVERT_EYES_PENALTY = -4
+"""The attack roll penalty for fighting with averted eyes, the basilisk's and the medusa's "-4 penalty to-hit"."""
+
+_GAZER_BONUS_AGAINST_AVERTED = 2
+"""A gazer's attack bonus against a creature averting its eyes: "the basilisk gains a +2 bonus to attack"."""
+
+_MIRROR_PENALTY = -1
+"""The attack roll penalty for fighting by a mirror: "Fighting by looking in a mirror incurs a -1 penalty to attack"."""
+
+_MIRROR_ITEM_ID = "mirror"
+"""The equipment catalog's mirror, which a member has to carry to fight by one."""
+
+
+def _avert_eyes(by_member) -> list:
+    """Give each member who declared `avert_eyes` the `averted_eyes` condition, and return those members.
+
+    The condition has no effect behind it, so nothing draws and the grant's event is dropped: the stance
+    emits nothing of its own. A member who already has the same record, which only a host can give, isn't
+    returned, so `_end_averting` leaves that record alone.
+    """
+    return [
+        member
+        for member, declaration in by_member.values()
+        if declaration.gaze_defense == "avert_eyes" and grant_condition(member, Condition.AVERTED_EYES, None)
+    ]
+
+
+def _end_averting(averting) -> None:
+    """Take back the `averted_eyes` condition `_avert_eyes` gave, at the end of the round, again without an event."""
+    for member in averting:
+        remove_condition(member, Condition.AVERTED_EYES, None)
+
+
+def _gaze_stance_modifier(member, declaration: BattleDeclaration) -> int:
+    """The penalty a member's gaze stance puts on every attack roll they make this round.
+
+    Averting the eyes costs −4 and fighting by a mirror costs −1, whatever the attack is aimed at,
+    because the SRD gives both penalties without naming a target.
+    """
+    if has_condition(member, Condition.AVERTED_EYES):
+        return _AVERT_EYES_PENALTY
+    if declaration.gaze_defense == "mirror":
+        return _MIRROR_PENALTY
+    return 0
+
+
+def _gazer_bonus(monster, target) -> int:
+    """A gazer's bonus to attack a target averting its eyes, from the monster's `averting_eyes` ability.
+
+    Only a monster whose entry gives the bonus gains it, so an ogre beside a basilisk gains nothing.
+    """
+    template = getattr(monster, "template", None)
+    ability = template.ability("averting_eyes") if template is not None else None
+    if ability is None or ability.manual or not has_condition(target, Condition.AVERTED_EYES):
+        return 0
+    return _GAZER_BONUS_AGAINST_AVERTED
 
 
 def _resolve_breath(session, monster, group) -> list[Event]:

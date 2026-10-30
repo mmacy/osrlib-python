@@ -694,7 +694,9 @@ class MonsterAbility(BaseModel):
 
     The combat functions read four tags: `"regeneration"`, `"energy_drain"`, `"breath_weapon"`, and
     `"uses_fire"`. Battle also reads `"paralysis"`, `"poison"`, `"disease"`, and `"petrification"`
-    when a monster's attack hits.
+    when a monster's attack hits. It reads `"averting_eyes"` for the bonus a gazer gains against a
+    creature that averts its eyes, and a `"surprise"` ability whose `params` have `meets_gaze` for a
+    gaze, like the basilisk's, that reaches every character the monster surprises.
     """
 
     name: str = Field(min_length=1)

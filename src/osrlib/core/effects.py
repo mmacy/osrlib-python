@@ -227,7 +227,10 @@ class Condition(StrEnum):
 
     AVERTED_EYES = "averted_eyes"
     """Fighting with eyes turned away from a gaze attack. [`resolve_gaze`][osrlib.core.combat.resolve_gaze] skips
-    the creature. Pass the attack penalty for fighting blind yourself, in the attack context."""
+    the creature. Pass the attack penalty for fighting blind yourself, in the attack context. A battle in a
+    [`GameSession`][osrlib.crawl.session.GameSession] grants it for one round to a member who declares the
+    [`gaze_defense`][osrlib.crawl.commands.BattleDeclaration.gaze_defense] `avert_eyes`, and applies the
+    penalty and the gazer's bonus itself."""
 
     POISONED = "poisoned"
     """Poisoned. The monsters that can't be poisoned, the undead and the cave locust among them, have it in

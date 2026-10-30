@@ -124,8 +124,14 @@ _ABILITY_PARAMS: dict[tuple[str, str | None, str], tuple[str, dict[str, object],
     ("Gelatinous_Cube.md", None, "Paralysis"): ("paralysis", {"duration": "2d4", "unit": "turn"}, False),
     ("Basilisk.md", None, "Petrifying touch"): ("petrification", {"vector": "touch"}, False),
     ("Basilisk.md", None, "Petrifying gaze"): ("petrification", {"vector": "gaze"}, False),
+    # Battle gazes at every member of a party the basilisk surprises, and applies the averting
+    # penalties to a member who declares the stance. The mirrors bullets stay manual, because a
+    # gazer that sees its own reflection is left to the referee.
+    ("Basilisk.md", None, "Surprise"): ("surprise", {"meets_gaze": True}, False),
+    ("Basilisk.md", None, "Averting eyes"): ("averting_eyes", {}, False),
     ("Cockatrice.md", None, "Petrification"): ("petrification", {"vector": "touch"}, False),
     ("Medusa.md", None, "Petrification"): ("petrification", {"vector": "gaze"}, False),
+    ("Medusa.md", None, "Averting eyes"): ("averting_eyes", {}, False),
     ("Gorgon.md", None, "Petrifying breath"): ("petrification", {"vector": "breath"}, False),
     ("Killer_Bee.md", None, "Poison"): ("poison", {"outcome": "death"}, False),
     ("Scorpion%2C_Giant.md", None, "Poison"): ("poison", {"outcome": "death"}, False),
