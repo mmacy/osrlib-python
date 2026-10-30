@@ -21,7 +21,7 @@ The table below lists every key, the constant for it, and what it governs.
 | `"wandering"` | [`WANDERING_STREAM`][osrlib.crawl.session.WANDERING_STREAM] | Wandering monsters: the wandering check, group counts, variant picks. |
 | `"encounter"` | [`ENCOUNTER_STREAM`][osrlib.crawl.session.ENCOUNTER_STREAM] | Encounter setup: surprise, distance, reaction rolls, distraction, and group counts for monsters or NPC parties spawned by command. |
 | `"exploration"` | [`EXPLORATION_STREAM`][osrlib.crawl.session.EXPLORATION_STREAM] | Exploration: forcing doors, listening, searching, traps, tinder, and thief skill checks. |
-| `"monster_action"` | [`MONSTER_ACTION_STREAM`][osrlib.crawl.session.MONSTER_ACTION_STREAM] | Monster action policy during battle: which action a monster group takes each round and which target it picks. |
+| `"monster_action"` | [`MONSTER_ACTION_STREAM`][osrlib.crawl.session.MONSTER_ACTION_STREAM] | Monster action policy during battle: which action a monster group takes each round, which target it picks, and which attack routine a monster uses when it has a free choice. |
 | `"adjudication"` | [`ADJUDICATION_STREAM`][osrlib.crawl.session.ADJUDICATION_STREAM] | The referee's ad-hoc adjudication rolls: freeform dice commanded through the seeded session. |
 
 ## Character streams
@@ -62,7 +62,7 @@ The [`ENCOUNTER_STREAM`][osrlib.crawl.session.ENCOUNTER_STREAM] (key `"encounter
 
 The [`EXPLORATION_STREAM`][osrlib.crawl.session.EXPLORATION_STREAM] (key `"exploration"`) covers the rest of dungeon exploration: forcing doors, listening at doors, searching for secret doors or traps, disarming or triggering traps, lighting tinder, and thief skill checks like picking locks.
 
-The [`MONSTER_ACTION_STREAM`][osrlib.crawl.session.MONSTER_ACTION_STREAM] (key `"monster_action"`) covers the action policy that drives monster groups during battle: which action a group takes on its turn and which target it selects. Because the policy has a separate stream, swapping in a different monster action policy never shifts the combat stream's attack and damage rolls.
+The [`MONSTER_ACTION_STREAM`][osrlib.crawl.session.MONSTER_ACTION_STREAM] (key `"monster_action"`) covers the action policy that drives monster groups during battle: which action a group takes on its turn, which target it selects, and which attack routine a monster uses when its stat block offers a free choice. A monster with only one routine to choose from makes no draw for it. Because the policy has a separate stream, swapping in a different monster action policy never shifts the combat stream's attack and damage rolls.
 
 The [`ADJUDICATION_STREAM`][osrlib.crawl.session.ADJUDICATION_STREAM] (key `"adjudication"`) covers the referee's ad-hoc rolls for freeform adjudication: dice commanded through the seeded session to resolve a chance outcome the content model can't express, like whether a frayed rope holds. Because these rolls have a separate stream, an ad-hoc referee roll never changes the draws of any other stream. The outcomes of encounters, combat, and exploration stay the same under replay, however many adjudication rolls the referee makes in between them.
 
