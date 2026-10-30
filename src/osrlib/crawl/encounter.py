@@ -215,8 +215,9 @@ class EncounterGroup(BaseModel):
     party can still attack it."""
     fled: bool = False
     """True once the group has run past [`FLEE_EXIT_FEET`][osrlib.crawl.battle.FLEE_EXIT_FEET] and left
-    the fight, or when its morale score is 2 and it ran as the battle started. The session rejects an
-    attack declared against it with `battle.declaration.unknown_group`."""
+    the fight, or when its morale score is 2 and it ran as the battle started. The session refuses every
+    battle declaration that names it, an attack, a move to close, an item, or a spell, with
+    `battle.declaration.unknown_group`."""
     member_treasure: dict[str, TreasureBundle] = {}
     """The treasure each member carries, keyed by monster id. The session rolls it when it spawns the
     monster, from the treasure types for individuals (P through T). When the encounter closes, a slain
