@@ -1,7 +1,6 @@
 """Acceptance tests for the item and rules fixes reported as items 28 to 34 of issue #166.
 
-Each class covers one item. A test marked `xfail(reason="chunk: item-rules")` fails on `main` because of the bug
-it names, and a test without the marker pins nearby behavior that is already right and must stay right.
+Each class covers one item. Its tests pin the fixed behavior, and the nearby behavior that was already right.
 
 Two of the bugs show only with a magic item template the compiled catalog doesn't ship: a weapon whose attack and
 damage bonuses differ, and enchanted body armour whose template names its base. The `custom_magic_items` fixture
@@ -54,8 +53,6 @@ from osrlib.crawl.dungeon import DropPile, DungeonSpec, LevelSpec, cell_ref
 from osrlib.crawl.party import Party
 from osrlib.crawl.session import GameSession
 from osrlib.data import load_classes, load_equipment, load_magic_items, load_monsters, load_spells
-
-CHUNK = pytest.mark.xfail(reason="chunk: item-rules", strict=True)
 
 NONE = Ruleset(encumbrance=EncumbranceMode.NONE)
 BASIC = Ruleset(encumbrance=EncumbranceMode.BASIC)
@@ -168,7 +165,6 @@ def custom_magic_items(monkeypatch) -> MagicItemCatalog:
 class TestGauntletsOfOgrePower:
     """Item 28: worn gauntlets raise the carrying capacity by the template's `max_load_bonus_coins`."""
 
-    @CHUNK
     def test_worn_gauntlets_raise_every_detailed_threshold(self):
         # 1,400 coins without becoming encumbered, then each later band 1,000 coins further on.
         for weight, expected in (
@@ -185,14 +181,12 @@ class TestGauntletsOfOgrePower:
             assert tracked_weight_coins(inventory, EncumbranceMode.DETAILED) == weight  # gauntlets weigh nothing
             assert movement_rate_feet(inventory, DETAILED) == expected, weight
 
-    @CHUNK
     def test_the_issue_reproduction_moves_at_full_rate(self):
         inventory = Inventory(purse=CoinPurse(gp=1300))
         assert movement_rate_feet(inventory, DETAILED) == 30  # bare-handed: past 800, inside 1,600
         worn_gauntlets(inventory)
         assert movement_rate_feet(inventory, DETAILED) == 120
 
-    @CHUNK
     def test_worn_gauntlets_raise_the_maximum_load(self):
         hauler = character(strength=10)
         hauler.inventory.purse.gp = MAX_LOAD_COINS + 1
@@ -202,7 +196,6 @@ class TestGauntletsOfOgrePower:
         hauler.inventory.purse.gp = MAX_LOAD_COINS + GAUNTLETS_BONUS + 1
         assert hauler.movement_rate(DETAILED) == 0  # the raised maximum still binds
 
-    @CHUNK
     def test_a_wearer_takes_a_haul_up_to_the_raised_maximum_load(self):
         game = gauntlet_session(worn=True)
         wearer = game.party.members[0]
@@ -275,19 +268,16 @@ class TestEnchantedWeaponDamageBonus:
         assert enchanted.rolls == mundane.rolls and len(mundane.rolls) == 1  # the same d8
         return mundane.total, enchanted.total
 
-    @CHUNK
     def test_damage_adds_the_damage_bonus(self, custom_magic_items):
         assert magic_item_template(magic("blade_of_wounding")).attack_bonus == 0
         mundane, enchanted = self.damage_pair(character(strength=13), "blade_of_wounding", monster("goblin"))
         assert enchanted == mundane + 3
 
-    @CHUNK
     def test_damage_ignores_the_attack_bonus(self, custom_magic_items):
         assert magic_item_template(magic("blade_of_accuracy")).damage_bonus == 0
         mundane, enchanted = self.damage_pair(character(strength=13), "blade_of_accuracy", monster("goblin"))
         assert enchanted == mundane
 
-    @CHUNK
     def test_without_a_versus_match_damage_adds_the_damage_bonus(self, custom_magic_items):
         goblin = monster("goblin")
         assert "undead" not in goblin.template.categories
@@ -334,19 +324,16 @@ class TestEffectiveHitDiceAfterDrain:
         assert effective_hd(monster("mountain_lion")) == 3  # 3+2 counts as 3
         assert effective_hd(monster("kobold")) == 1
 
-    @CHUNK
     def test_a_drained_monster_counts_its_remaining_hit_dice(self):
         assert effective_hd(self.drained("ogre", 1)) == 3
         assert effective_hd(self.drained("mountain_lion", 2)) == 1
 
-    @CHUNK
     def test_a_drained_monster_costs_its_remaining_hit_dice_from_a_budget(self):
         ogre = self.drained("ogre", 1)
         goblin = monster("goblin", "monster-0002")
         selected, _ = select_targets(TargetingMode.HD_BUDGET, [ogre, goblin], stream=combat_stream(1), hd_budget=4)
         assert selected == [goblin, ogre]  # 1 + 3 fits a budget of 4
 
-    @CHUNK
     def test_sleep_takes_a_drained_monster_first_as_the_weakest(self):
         lion = self.drained("mountain_lion", 2)  # 3+2 drained to 1+2, which counts as 1
         gnoll = monster("gnoll", "monster-0002")  # 2 HD
@@ -380,7 +367,6 @@ class TestSpentStackWeight:
         assert treasure_weight_coins(Inventory(items=[magic("potion_of_healing")])) == 10
         assert treasure_weight_coins(Inventory(items=[magic("potion_of_healing", quantity=3)])) == 30
 
-    @CHUNK
     def test_a_spent_stack_weighs_nothing(self):
         inventory = Inventory(items=[magic("potion_of_healing", quantity=0)])
         assert inventory.carried_item("potion_of_healing") is None
@@ -388,7 +374,6 @@ class TestSpentStackWeight:
         assert tracked_weight_coins(inventory, EncumbranceMode.BASIC) == 0
         assert tracked_weight_coins(inventory, EncumbranceMode.DETAILED) == 0
 
-    @CHUNK
     def test_a_spent_stack_does_not_slow_the_carrier(self):
         inventory = Inventory(purse=CoinPurse(gp=400), items=[magic("staff_of_healing", quantity=0)])
         assert inventory.carried_item("staff_of_healing") is None
@@ -407,17 +392,14 @@ class TestEnchantedItemBase:
         assert equipment_weight_coins(Inventory(items=[magic("shield_plus_1", base_item_id="shield")])) == 50
         assert equipment_weight_coins(Inventory(items=[magic("sword_plus_1", base_item_id="sword")])) == 60
 
-    @CHUNK
     def test_a_hand_built_shield_weighs_like_a_generated_one(self):
         hand_built = Inventory(items=[magic("shield_plus_1")])
         generated = Inventory(items=[magic("shield_plus_1", base_item_id="shield")])
         assert equipment_weight_coins(hand_built) == equipment_weight_coins(generated) == 50  # a shield, halved
 
-    @CHUNK
     def test_a_hand_built_sword_weighs_a_sword(self):
         assert equipment_weight_coins(Inventory(items=[magic("sword_plus_1")])) == 60
 
-    @CHUNK
     def test_a_hand_built_sword_slows_a_detailed_carrier(self):
         inventory = Inventory(purse=CoinPurse(gp=360), items=[magic("sword_plus_1")])
         assert movement_rate_feet(inventory, DETAILED) == 90  # 360 + 60 = 420, past the 120' band
@@ -435,7 +417,6 @@ class TestEnchantedItemBase:
         assert movement_rate_feet(inventory, BASIC) == 90  # light armour
         assert equipment_weight_coins(inventory) == 100  # leather 200, halved
 
-    @CHUNK
     def test_worn_armour_whose_template_names_its_base_moves_at_that_rate(self, custom_magic_items):
         inventory = Inventory(items=[magic("plate_of_warding")])
         armour = inventory.items[0]
@@ -477,7 +458,6 @@ class TestDamageRollTotal:
         result = damage_roll(wight, touch, context=AttackContext(), ruleset=Ruleset(), stream=combat_stream(3))
         assert result.total == 0 == self.rule(result)
 
-    @CHUNK
     def test_the_strength_modifier_is_in_the_modifier(self):
         fighter = character(strength=16)
         assert melee_modifier_for(fighter) == 2
@@ -487,7 +467,6 @@ class TestDamageRollTotal:
         assert result.modifier == 2 and result.multiplier == 1
         assert result.total == self.rule(result) == result.rolls[0] + 2
 
-    @CHUNK
     def test_a_magic_weapon_and_a_blessing_join_the_modifier(self):
         fighter = character(strength=16)
         fighter.stat_modifiers = (ActiveModifier(kind="damage_bonus", value=1, effect_id="effect-0001"),)
@@ -502,7 +481,6 @@ class TestDamageRollTotal:
         assert result.modifier == 2 + 2 + 1  # Strength, the sword's +2, and the blessing
         assert result.total == self.rule(result)
 
-    @CHUNK
     def test_a_back_stab_doubling_is_in_the_multiplier(self):
         thief = character("thief", strength=16)
         result = damage_roll(
@@ -515,7 +493,6 @@ class TestDamageRollTotal:
         assert result.multiplier == 2 and result.modifier == 2
         assert result.total == self.rule(result) == (result.rolls[0] + 2) * 2
 
-    @CHUNK
     def test_a_braced_spear_against_a_charge_doubles_through_the_multiplier(self):
         fighter = character(strength=16)
         result = damage_roll(
@@ -528,7 +505,6 @@ class TestDamageRollTotal:
         assert result.multiplier == 2
         assert result.total == self.rule(result)
 
-    @CHUNK
     def test_a_fixed_damage_attack_obeys_the_rule(self):
         camel = monster("camel")
         bite = camel.template.attacks[0].attacks[0]
@@ -537,7 +513,6 @@ class TestDamageRollTotal:
         assert result.rolls == () and result.total == 1
         assert result.total == self.rule(result)
 
-    @CHUNK
     @pytest.mark.parametrize("strength", [4, 6, 13, 16, 18])
     def test_the_rule_holds_across_strength_and_dice(self, strength):
         fighter = character(strength=strength)
