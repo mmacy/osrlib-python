@@ -6,9 +6,8 @@ wandering monsters being encountered." A plain `Rest` in a dungeon checks at the
 with noise and bright light added as usual, so resting carries a risk. A `Rest` with `hidden` set
 takes the register's −1 on every check it spans.
 
-The tests marked `chunk: rest-hiding` describe behavior the chunk adds. The unmarked tests pass
-before the chunk and must keep passing after it. Most of them pin the hidden half of the rule, so
-an implementation that drops the −1 everywhere fails them.
+Many tests pin the hidden half of the rule, so an implementation that drops the −1 everywhere
+fails them.
 
 Every scenario runs on a one-level dungeon whose wandering interval is one turn, so each turn of
 rest makes exactly one check. The encounter table is all grey oozes, so a check that hits opens an
@@ -163,7 +162,6 @@ HIDDEN_CASES = [
 class TestOneTurnRest:
     """One turn of rest makes one check, at a chance set by the level, the modifiers, and `hidden`."""
 
-    @pytest.mark.xfail(reason="chunk: rest-hiding", strict=True)
     @pytest.mark.parametrize(("level_chance", "noise", "bright", "expected"), PLAIN_CASES)
     def test_a_plain_rest_checks_at_the_level_chance_with_noise_and_light(self, level_chance, noise, bright, expected):
         session = dungeon_session(level_chance, noise=noise, bright=bright)
@@ -186,7 +184,6 @@ class TestOneTurnRest:
 
 
 class TestRestingCarriesRisk:
-    @pytest.mark.xfail(reason="chunk: rest-hiding", strict=True)
     def test_plain_rests_on_a_one_in_six_level_are_sometimes_interrupted(self):
         session = dungeon_session(1)
         for _ in range(60):
@@ -218,7 +215,6 @@ class TestRestingCarriesRisk:
 class TestLongRests:
     """A night or a day of rest passes `hidden` to every check it spans, through the multi-turn path."""
 
-    @pytest.mark.xfail(reason="chunk: rest-hiding", strict=True)
     @pytest.mark.parametrize("kind", ["turn", "night", "day"])
     def test_every_check_in_a_plain_rest_rolls_at_the_level_chance(self, kind: RestKind):
         session = dungeon_session(1)
@@ -251,7 +247,6 @@ class TestLongRests:
         assert session.clock.rounds - start == REST_TURNS[kind] * ROUNDS_PER_TURN
         assert wandering_state(session) == before
 
-    @pytest.mark.xfail(reason="chunk: rest-hiding", strict=True)
     def test_a_hidden_night_on_a_two_in_six_level_rolls_every_check_at_one_in_six(self):
         session = dungeon_session(2)
         result = session.execute(Rest(kind="night", hidden=True))
@@ -273,7 +268,6 @@ class TestLongRests:
 class TestAdvanceTurns:
     """`GameSession.advance_turns` keeps fatigue (`resting`) and the −1 (`hidden`) apart."""
 
-    @pytest.mark.xfail(reason="chunk: rest-hiding", strict=True)
     def test_resting_alone_does_not_lower_the_chance(self):
         session = dungeon_session(1)
         before = wandering_state(session)
@@ -290,7 +284,6 @@ class TestAdvanceTurns:
         assert (check.chance, check.roll) == (0, None)
         assert wandering_state(session) == before
 
-    @pytest.mark.xfail(reason="chunk: rest-hiding", strict=True)
     def test_hidden_lowers_the_chance_without_resting(self):
         session = dungeon_session(2)
         turns_since_rest = session.turns_since_rest
@@ -339,7 +332,6 @@ class TestCommandLog:
         assert isinstance(legacy, Rest)
         assert legacy.hidden is False
 
-    @pytest.mark.xfail(reason="chunk: rest-hiding", strict=True)
     def test_a_logged_hidden_rest_replays_and_loads_as_hidden(self):
         session = dungeon_session(1)
         hidden = session.execute(Rest(kind="turn", hidden=True))
