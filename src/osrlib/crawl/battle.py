@@ -1758,10 +1758,12 @@ def _cast_targets(session, declaration: BattleDeclaration, spell) -> tuple[list,
 
     A cast in an `area` mode aims at `target_group_id`, and its targets are the group's living members
     that fit the area footprint, followed by the party's front rank when `aoe_friendly_fire` applies.
-    A cast in an `hd_budget` mode with a `target_group_id` and no `targets` targets every living
-    member of the group, in spawn order, and the kernel spends the budget on them weakest first.
-    That's the same cast as naming those members one by one, so a front end with only the player
-    view's group ids can cast *sleep*. When both are set, the cast uses the named `targets`. For a
+    A cast in an `hd_budget` mode with a `target_group_id` and no `targets` takes the group's living
+    members in spawn order, and the kernel spends the budget on them weakest first. A mode with no
+    area, like *sleep*, takes every living member. That's the same cast as naming those members one by
+    one, so a front end with only the player view's group ids can cast *sleep*. A mode with an area,
+    like *death spell*'s 60' cube, takes only the candidates the area footprint takes, as an `area`
+    mode does. When both are set, the cast uses the named `targets`. For a
     group that isn't in the encounter, or that has fled, this returns a
     `battle.declaration.unknown_group` rejection.
     """
@@ -1782,7 +1784,7 @@ def _cast_targets(session, declaration: BattleDeclaration, spell) -> tuple[list,
         if group is None or group.fled:
             unknown = Rejection(code="battle.declaration.unknown_group", params={"character": declaration.character_id})
             return [], None, [unknown]
-        if targeting.mode is TargetingMode.AREA:
+        if targeting.mode is TargetingMode.AREA or targeting.shape is not None:
             candidates = _area_candidates(session, group, targeting.shape, targeting.dimensions)
         else:
             candidates = _living_monsters(session, group)
@@ -2525,7 +2527,8 @@ def _ward_bars_monster(session, monster) -> bool:
 
     A ward bars matching monsters up to its rolled per-HD-band count (the 1-3,
     4-5, and 6+ HD bands), counted in spawn order among the encounter's matching
-    monsters. The scroll of protection from elementals bars every elemental it matches, with no count.
+    monsters. A monster's band follows the Hit Dice it has left, so a drained monster counts in a lower band.
+    The scroll of protection from elementals bars every elemental it matches, with no count.
     """
     wards = _party_wards(session)
     if not wards:
@@ -2540,7 +2543,7 @@ def _ward_bars_monster(session, monster) -> bool:
             continue
         if params.get("all_affected"):
             return True
-        hd = template.hit_dice.count
+        hd = monster.hit_dice_count
         band_key = "affected_1_3" if hd <= 3 else ("affected_4_5" if hd <= 5 else "affected_6_plus")
         count = int(params.get(band_key, 0))
         if count <= 0:
@@ -2563,7 +2566,7 @@ def _ward_matches(monster, params) -> bool:
 
 
 def _hd_band(monster) -> str:
-    hd = monster.template.hit_dice.count
+    hd = monster.hit_dice_count
     return "affected_1_3" if hd <= 3 else ("affected_4_5" if hd <= 5 else "affected_6_plus")
 
 
@@ -3286,6 +3289,7 @@ def _group_morale(session, group, fire_damaged) -> list[Event]:
 def _confused_overrides(session, group, actions, *, retreating: Collection[str] = frozenset()) -> list[Event]:
     """The confusion check the round handler runs each round: re-save, then the 2d6 behavior roll.
 
+    Whether a monster re-saves depends on the Hit Dice it has left, so a drained monster may lose the re-save.
     The re-save runs on the magic stream, and the behavior roll and its pick of a
     target in its group run on the combat stream. The round handler makes these rolls,
     distinct from the ledger's tick-time effects. A confused monster that attacks a party
@@ -3302,10 +3306,12 @@ def _confused_overrides(session, group, actions, *, retreating: Collection[str] 
             continue
         effect = confusion_effects[0]
         params = effect.definition.params
-        hd = monster.template.hit_dice
+        hd_count = monster.hit_dice_count
         resave_min = int(params.get("resave_hd_min_count", 3))
-        qualifies = hd.count >= resave_min or (
-            bool(params.get("resave_at_hd_count_2_with_bonus")) and hd.count == 2 and hd.modifier > 0
+        qualifies = hd_count >= resave_min or (
+            bool(params.get("resave_at_hd_count_2_with_bonus"))
+            and hd_count == 2
+            and monster.template.hit_dice.modifier > 0
         )
         if qualifies:
             save = saving_throw(

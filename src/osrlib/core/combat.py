@@ -1578,9 +1578,9 @@ def check_immunity(
       missile. An arrow or a thrown flask is blocked, and a hurled boulder or a magic
       arrow isn't.
 
-    Under the `hd5_counts_as_magical` ruleset flag, a monster attacker of 5 or more Hit
-    Dice, or one that only silver or magic can harm itself, can harm a monster that only
-    silver or magic can harm.
+    Under the `hd5_counts_as_magical` ruleset flag, a monster attacker with 5 or more Hit
+    Dice left after any energy drain, or one that only silver or magic can harm itself, can
+    harm a monster that only silver or magic can harm.
 
     Args:
         defender: The defending [`Creature`][osrlib.core.creature.Creature], which a
@@ -1646,7 +1646,7 @@ def check_immunity(
     if ruleset.hd5_counts_as_magical and attacker is not None and gate_values <= {"silver", "magic"}:
         attacker_template = getattr(attacker, "template", None)
         if attacker_template is not None:
-            if attacker_template.hit_dice.count >= 5:
+            if getattr(attacker, "hit_dice_count", attacker_template.hit_dice.count) >= 5:
                 return False
             attacker_gate = {key.value for key in attacker_template.defenses.harmed_only_by}
             if attacker_gate and attacker_gate <= {"silver", "magic"}:
