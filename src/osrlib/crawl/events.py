@@ -694,7 +694,8 @@ class RestedEvent(Event):
     Emitted by [`Rest`][osrlib.crawl.commands.Rest]. A completed rest clears the
     penalty for going without rest, counts toward recovering from exhaustion after a
     chase, and, for a full day, heals the party. A wandering monster that arrives during
-    the rest interrupts it, and an interrupted rest does none of that.
+    the rest interrupts it. An interrupted rest heals nobody, but each full turn rested
+    before the monsters came still clears that penalty and counts toward recovery.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"exploration.rest.rested", "exploration.rest.interrupted"})
@@ -720,8 +721,8 @@ class FatigueEvent(Event):
     `exploration.fatigue.gained` comes from any command that passes a turn while the
     session is in `exploring` mode, once the party has gone too long without resting
     (see [`check_fatigue`][osrlib.crawl.exploration.check_fatigue]).
-    `exploration.fatigue.recovered` comes from a completed
-    [`Rest`][osrlib.crawl.commands.Rest].
+    `exploration.fatigue.recovered` comes from a [`Rest`][osrlib.crawl.commands.Rest] once the
+    party has rested one full turn, even if a wandering monster interrupts it later.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"exploration.fatigue.gained", "exploration.fatigue.recovered"})
@@ -1127,7 +1128,12 @@ class MonsterFledEvent(Event):
 
     Emitted by [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound] when
     a group fails a morale check. When a battle opens, it's also emitted for a group
-    whose morale is so low that it never fights at all. A running group moves away each
+    whose morale is so low that it never fights at all. When a cleric turns only some of
+    a group, the turned members break away as a new group, and `group_id` is the new
+    group's id. The split happens as the battle opens after a
+    [`TurnUndead`][osrlib.crawl.commands.TurnUndead], or in the round a `turn_undead`
+    declaration resolves. If the rest of the group was afraid at the time, the split
+    happens in the round the fear ends instead. A running group moves away each
     round and is gone once it's more than
     [`FLEE_EXIT_FEET`][osrlib.crawl.battle.FLEE_EXIT_FEET] from the party. Its members
     still count as defeated for the experience award.

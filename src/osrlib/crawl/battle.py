@@ -25,7 +25,8 @@ You follow the battle through events from [`osrlib.crawl.events`][osrlib.crawl.e
 - [`SpellDeclaredEvent`][osrlib.crawl.events.SpellDeclaredEvent] for each spell declared that
   round.
 - [`GroupMovedEvent`][osrlib.crawl.events.GroupMovedEvent] when a group's distance changes.
-- [`MonsterFledEvent`][osrlib.crawl.events.MonsterFledEvent] when a group breaks and runs.
+- [`MonsterFledEvent`][osrlib.crawl.events.MonsterFledEvent] when a group breaks and runs, and
+  when the turned members of a group break away as a new group.
 - [`MonstersLeftBehindEvent`][osrlib.crawl.events.MonstersLeftBehindEvent] for helpless members a
   running group leaves behind.
 - [`BattleEndedEvent`][osrlib.crawl.events.BattleEndedEvent] with victory, defeat, or flight.
@@ -72,7 +73,10 @@ During a round, the session also applies these rules without a command for them:
   the session leaves to the referee.
 - A petrifying gaze, like the basilisk's or the medusa's, reaches each member of the party's
   front rank once a round while the gazer's group is in melee. It takes no attack roll, and
-  [`resolve_gaze`][osrlib.core.combat.resolve_gaze] skips a member who is averting their eyes.
+  [`resolve_gaze`][osrlib.core.combat.resolve_gaze] skips a member who is averting their eyes,
+  but no command lets a member avert them yet.
+- Turned undead attack no one. When a cleric turns only some of a group, the turned members
+  break away as a new group, which runs, and the rest fight on.
 - A member's invisibility ends when the member attacks, throws or uses an item other than a
   potion, or turns undead. [`cast_spell`][osrlib.core.spells.cast_spell] ends it when the member
   casts.
@@ -477,9 +481,11 @@ class ActionPolicy(Protocol):
         the group's morale check and before the group moves or attacks. For a group of NPC
         adventurers, it comes at the start of the round, before initiative, because NPCs declare
         their spells then, as the party does. The session doesn't call it for a group that has fled
-        or has no living members, for a monster group that failed morale and is running, or for any
-        group while [`BattleState.monsters_hold_rounds`][osrlib.crawl.battle.BattleState.monsters_hold_rounds]
-        is above zero.
+        or has no living members, for a monster group that is running because it failed morale or
+        because its living members are all turned or afraid, or for any group while
+        [`BattleState.monsters_hold_rounds`][osrlib.crawl.battle.BattleState.monsters_hold_rounds]
+        is above zero. The group you choose for has no living turned members, because the session
+        moves them into a separate group before it calls your policy.
 
         Args:
             session (osrlib.crawl.session.GameSession): The running session. Read the party, the
@@ -495,8 +501,8 @@ class ActionPolicy(Protocol):
         Returns:
             The actions to resolve, in the order they resolve. Return an empty list for a group that
             does nothing. Leave out members that are dead, incapacitated, or confused, as the built-in
-            policies do. The session skips an action for a dead or confused member and resolves
-            confusion itself.
+            policies do. The session skips an action for a dead, confused, or turned member, and it
+            resolves confusion itself.
         """
         ...
 
@@ -1154,9 +1160,11 @@ def start_battle(session, *, party_free_round: bool = False, monsters_free_round
     [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound] command.
 
     A group whose morale score is 2 runs away as soon as the battle starts, as the SRD's morale
-    rule says, and that can end the battle before any round. A side that surprised the other gets
-    one free round. The monsters' free round runs inside this call, before the party can act. On
-    the party's free round, the monsters do nothing during the first `ResolveBattleRound`.
+    rule says, and that can end the battle before any round. In a group that a cleric turned only
+    in part, the turned members break away as a new group, which runs from the first round. A
+    side that surprised the other gets one free round. The monsters' free round runs inside this
+    call, before the party can act. On the party's free round, the monsters do nothing during the
+    first `ResolveBattleRound`.
 
     Args:
         session (osrlib.crawl.session.GameSession): The running session, with `session.encounter` set.
@@ -1224,6 +1232,7 @@ def start_battle(session, *, party_free_round: bool = False, monsters_free_round
         if _group_morale_score(session, group) == 2 and not group.fled:
             group.fled = True
             events.append(MonsterFledEvent(code="battle.side.fled", group_id=group.id))
+    events.extend(_split_off_turned(session))
     end_events = _check_ends(session, party_retreating=False)
     if end_events is not None:
         return [*events, *end_events]
@@ -2361,6 +2370,7 @@ def _party_magic(session, by_member, pending_casters, disrupted, acted, state) -
                 stream=session.streams.get(MAGIC_STREAM),
             )
             events.extend(result.events)
+            events.extend(_split_off_turned(session))
             events.extend(_break_invisibility(session, member))
             events.extend(_release_concentration(session, member.id, state))
             acted.add(member.id)
@@ -2549,11 +2559,11 @@ def _monster_block(
 ) -> list[Event]:
     from osrlib.crawl.session import MONSTER_ACTION_STREAM
 
-    events: list[Event] = []
     pending_casters = pending_casters or {}
     disrupted = disrupted if disrupted is not None else set()
     acted = acted if acted is not None else set()
     fire_damaged = fire_damaged if fire_damaged is not None else set()
+    events = _split_off_turned(session)
     for group in list(session.encounter.groups):
         if group.fled or not _living_monsters(session, group):
             continue
@@ -2583,6 +2593,8 @@ def _monster_block(
             monster = session.combatant(action.monster_id)
             if has_condition(monster, Condition.DEAD) or has_condition(monster, Condition.CONFUSED):
                 continue
+            if has_condition(monster, Condition.TURNED):
+                continue  # a turned monster harms no one, whatever its policy chose
             if action.kind == "close" and not moved:
                 if cannot_move(monster):
                     continue
@@ -2780,16 +2792,65 @@ def _leave_helpless_behind(session, group) -> list[Event]:
     return [MonstersLeftBehindEvent(group_id=stay_behind.id, source_group_id=group.id, count=len(left_ids))]
 
 
+def _split_off_turned(session) -> list[Event]:
+    """Move the turned members of each partly turned group into a new group.
+
+    The OSE SRD's turned undead "flee from the cleric's presence if possible, and will not harm
+    the cleric". A group whose living members are all turned or afraid already runs as a whole.
+    In a group with a living member that is neither turned nor afraid, the turned members break
+    away. They become a new group at the same distance, and each one takes the treasure it
+    carries, because routed monsters flee with their treasure. The group's shared bundle stays with
+    the members who fight on, so it drops only when they're all slain. Every living member
+    of the new group is turned, so the monster block moves it away as it moves a wholly turned
+    group, and leaves behind any member who can't move. The members who fight on stay in the
+    original group, so the group's id and the policy registered for it don't change. Dead members
+    stay in the original group's record, as they do in `_leave_helpless_behind`.
+
+    The session calls this when a battle starts, after each turning in the magic phase, and at
+    the top of each monster block. The last call handles a group that becomes partly turned
+    later: a group of turned and afraid members becomes one when the fear on a member ends.
+    """
+    from osrlib.crawl.encounter import EncounterGroup
+
+    events: list[Event] = []
+    for group in list(session.encounter.groups):
+        if group.fled or group.fleeing or _group_all_shaken(session, group):
+            continue
+        turned_ids = [
+            monster.id for monster in _living_monsters(session, group) if has_condition(monster, Condition.TURNED)
+        ]
+        if not turned_ids:
+            continue
+        runners = EncounterGroup(
+            id=session.allocator.allocate("group"),
+            label=group.label,
+            monster_ids=turned_ids,
+            distance_feet=group.distance_feet,
+        )
+        for monster_id in turned_ids:
+            bundle = group.member_treasure.pop(monster_id, None)
+            if bundle is not None:
+                runners.member_treasure[monster_id] = bundle
+        group.monster_ids = [monster_id for monster_id in group.monster_ids if monster_id not in set(turned_ids)]
+        session.encounter.groups.append(runners)
+        events.append(MonsterFledEvent(code="battle.side.fled", group_id=runners.id))
+    return events
+
+
 def _group_morale(session, group, fire_damaged) -> list[Event]:
     """Check a group's morale automatically, running the kernel's triggers through the per-battle tracker.
 
     A conditional alternate resolves from the round's context. Fear of fire, for
     example, applies when the round's damage included fire. The spell morale
     modifier applies under the usual morale-modifier rule.
+
+    A group that's already running makes no check, whether it failed morale or its
+    living members are all turned or afraid. Its triggers stay pending. If the fear
+    on its members ends and it stops running, it judges them then.
     """
     state = session.battle
     score = _group_morale_score(session, group)
-    if score is None or group.fleeing:
+    if score is None or group.fleeing or _group_all_shaken(session, group):
         return []
     members = [session.combatant(monster_id) for monster_id in group.monster_ids]
     if all(incapacitated(member) for member in members):

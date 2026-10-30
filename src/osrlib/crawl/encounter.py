@@ -43,7 +43,9 @@ You follow the encounter through events from
 - An [`EncounterEndedEvent`][osrlib.crawl.events.EncounterEndedEvent] with the outcome.
 
 The reaction roll is reported as a
-[`ReactionRolledEvent`][osrlib.core.events.ReactionRolledEvent] that only the referee sees.
+[`ReactionRolledEvent`][osrlib.core.events.ReactionRolledEvent] that only the referee sees. For
+each monster that regenerates, like a troll, `start_encounter` also reports an
+[`EffectAttachedEvent`][osrlib.core.events.EffectAttachedEvent], which only the referee sees.
 
 The stance is the monsters' current attitude toward the party, set by the reaction roll on 2d6.
 The OSE SRD leaves what each result means in play to a human referee, so osrlib applies these
@@ -129,7 +131,7 @@ assert session.encounter.round == 1
 from pydantic import BaseModel, ConfigDict, Field
 
 from osrlib.core.combat import cannot_move, roll_reaction
-from osrlib.core.effects import Condition, has_condition
+from osrlib.core.effects import Condition, has_condition, regeneration_definition
 from osrlib.core.events import Event
 from osrlib.core.items import Coins
 from osrlib.core.spells import MAGIC_STREAM, turn_undead, validate_turn_undead
@@ -222,7 +224,8 @@ class EncounterGroup(BaseModel):
     group_treasure: TreasureBundle | None = None
     """The treasure the group shares, rolled at spawn from the treasure types for groups (U and V), or
     None when the group has none. It drops on the party's cell only when every member is slain. If
-    any member routed, the group's treasure goes with the runners."""
+    any member routed, the group's treasure goes with the runners. When the turned members of a
+    partly turned group break away, the group's treasure stays with the members who fight on."""
 
 
 class PursuitState(BaseModel):
@@ -352,6 +355,16 @@ def start_encounter(
     leaves open. The [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/) lists it as
     the blind-party adaptation.
 
+    A monster whose template has the `regeneration` ability, like a troll or a thoul, starts to
+    regenerate when this function opens its encounter. Before the function rolls anything, it
+    attaches the effect that [`regeneration_definition`][osrlib.core.effects.regeneration_definition]
+    builds from the ability's params. Attaching the effect uses no random draws. From then on, the
+    effects ledger heals the monster in each round the clock advances, at the rate the params set.
+    A troll never gets back the damage it took from fire or acid. A slain troll gets back up 2d6
+    rounds after the round it was killed in, unless fire and acid alone did as much damage as its
+    maximum hit points. [`end_encounter`][osrlib.crawl.encounter.end_encounter] releases the
+    effect, so a troll that is still dead when the encounter closes stays dead.
+
     Args:
         session (osrlib.crawl.session.GameSession): The running session. Its party must be in a
             dungeon, and no encounter may already be open.
@@ -376,9 +389,11 @@ def start_encounter(
             reaction or spend a random draw on one. Pass `ReactionResult.ATTACKS` to start a battle at once.
 
     Returns:
-        The opening events, in the order they happened: a
-        [`SurpriseRolledEvent`][osrlib.crawl.events.SurpriseRolledEvent] for the monsters and one
-        for the party, the [`EncounterStartedEvent`][osrlib.crawl.events.EncounterStartedEvent],
+        The opening events, in the order they happened: an
+        [`EffectAttachedEvent`][osrlib.core.events.EffectAttachedEvent] for each monster that
+        regenerates, a [`SurpriseRolledEvent`][osrlib.crawl.events.SurpriseRolledEvent] for the
+        monsters and one for the party, the
+        [`EncounterStartedEvent`][osrlib.crawl.events.EncounterStartedEvent],
         the [`ReactionRolledEvent`][osrlib.core.events.ReactionRolledEvent] unless you passed
         `pinned_stance`, and the [`StanceChangedEvent`][osrlib.crawl.events.StanceChangedEvent].
         Then come the events of anything the stance or surprise starts, which can include a
@@ -444,7 +459,7 @@ def start_encounter(
     from osrlib.crawl.session import ENCOUNTER_STREAM
 
     stream = session.streams.get(ENCOUNTER_STREAM)
-    events: list[Event] = []
+    events: list[Event] = _attach_regeneration(session, [instance for _, instances in groups for instance in instances])
     lit, _ = session.party_light()
 
     monsters_surprised = False
@@ -548,6 +563,30 @@ def start_encounter(
         # before the party's first command, and a battle that opens in that
         # round begins with the monsters' free round.
         events.extend(_end_of_round(session, party_lost_beat=True))
+    return events
+
+
+def _attach_regeneration(session, instances: list) -> list[Event]:
+    """Attach the regeneration effect to each instance whose template has the `regeneration` ability.
+
+    The effect lasts until [`end_encounter`][osrlib.crawl.encounter.end_encounter] releases it with
+    the rest of the encounter's effects. Attaching it uses no random draws, so the encounter's rolls
+    are the same whether or not its monsters regenerate.
+    """
+    events: list[Event] = []
+    for instance in instances:
+        template = getattr(instance, "template", None)
+        ability = template.ability("regeneration") if template is not None else None
+        if ability is None:
+            continue
+        _, attach_events = session.ledger.attach(
+            regeneration_definition(ability.params),
+            instance.id,
+            clock=session.clock,
+            allocator=session.allocator,
+            registry=session.registry(),
+        )
+        events.extend(attach_events)
     return events
 
 
