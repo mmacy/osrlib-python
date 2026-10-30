@@ -2490,11 +2490,12 @@ class BattleDeclaration(BaseModel):
     Otherwise each `fighting_withdrawal` or `retreat` is the declaring member's own. It
     doesn't move the party. The member, who has to stand in the front rank, steps back and
     trades places in the marching order with the back-rank member named in `replacement_id`.
-    A retreating member is easier to hit for the whole round: attackers get +2 against them
-    and ignore their shield. The round goes on, and the battle with it.
+    The round goes on, and the battle with it.
 
     A member who declares either move makes no attack that round, whether the move is the
-    formation's or their own, because a member declares one action per round.
+    formation's or their own, because a member declares one action per round. A member who
+    retreats, alone or with the formation, is easier to hit for the whole round, whichever side
+    acts first: attackers get +2 against them and ignore their shield.
     [The adaptations register](https://mmacy.github.io/osrlib-python/adaptations/)
     describes these rules in full."""
     replacement_id: str | None = None

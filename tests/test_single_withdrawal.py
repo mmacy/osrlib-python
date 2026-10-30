@@ -19,7 +19,8 @@ register states under "The battle round":
 - The refusals: `battle.declaration.not_in_front_rank` for a back-rank member,
   `battle.declaration.no_replacement`, `battle.declaration.replacement_unavailable`, and
   `battle.declaration.replacement_too_far`.
-- A retreat's penalties fall on the retreating member alone and last the whole round.
+- A retreat's penalties fall on each member who retreats, alone or with the formation, and last the
+  whole round, whichever side acts first.
 - The replacement may strike in melee the round they step up. A withdrawing member makes no attack.
 - A swap that can't happen when the movement step comes doesn't happen and reports nothing.
 
@@ -719,6 +720,58 @@ class TestDeterminism:
         assert [event.model_dump() for event in again.events] == [event.model_dump() for event in original.events]
 
 
+def _everyone(move: str) -> list[BattleDeclaration]:
+    """The same defensive move for every stock member, which makes it the formation's."""
+    return [_withdraw(member_id, move=move) for member_id in (BRAKK, SABLE, WYNN, ELARA)]
+
+
+def _assert_shielded(session) -> int:
+    """Precondition: Brakk wears a shield. Returns its AC bonus."""
+    shield = session.member(BRAKK).inventory.shield
+    assert shield is not None
+    assert shield.template.ac_bonus == load_equipment().get("shield").ac_bonus
+    return shield.template.ac_bonus
+
+
+def _assert_exposed(result, baseline, shield_bonus: int) -> None:
+    """Every attack is the held twin's attack at +2, with Brakk's shield ignored."""
+    pairs = list(zip(_attacks(result), _attacks(baseline), strict=True))
+    assert pairs, "precondition: the monsters struck"
+    for attack, held in pairs:
+        assert (attack.attacker_id, attack.defender_id) == (held.attacker_id, held.defender_id)
+        assert attack.modifier == held.modifier + 2
+        ignored = shield_bonus if attack.defender_id == BRAKK else 0
+        assert attack.defender_ac == held.defender_ac + ignored
+
+
+def _party_moved_off(result):
+    """The formation's own move: the first group move to a greater distance than melee range."""
+    return next(event for event in result.events if event.code == "battle.group.moved" and event.distance_feet > 5)
+
+
+@CHUNK
+class TestAFormationRetreatIsExposedAllRound:
+    """Every declarer retreating is every member retreating, so the SRD's "This round" penalty covers the
+    whole formation for the whole round, also when the monsters strike before the party moves off."""
+
+    def test_monsters_who_strike_first_get_the_bonus_and_ignore_the_shield(self):
+        retreating = _battle(distance=5, count=4, seed=MONSTERS_FIRST_SEED, shield=True)
+        holding = _battle(distance=5, count=4, seed=MONSTERS_FIRST_SEED, shield=True)
+        shield_bonus = _assert_shielded(retreating)
+        result = _round(retreating, *_everyone("retreat"))
+        baseline = _round(holding)
+        assert result.accepted, _rejections(result)
+        # Preconditions: the goblins win initiative in both, strike at Brakk and Sable before the
+        # party moves off, and the round is the formation's retreat.
+        assert _monsters_acted_first(retreating, result)
+        assert _monsters_acted_first(holding, baseline)
+        moved = _party_moved_off(result)
+        assert all(_position(result, attack) < _position(result, moved) for attack in _attacks(result))
+        assert {attack.defender_id for attack in _attacks(result)} == {BRAKK, SABLE}
+        assert "battle.ended.fled" in [event.code for event in result.events]
+        _assert_exposed(result, baseline, shield_bonus)
+
+
 # ---------------------------------------------------------------------- guards: the formation moves as they are
 
 
@@ -769,6 +822,22 @@ class TestTheFormationMovesStayAsTheyAre:
         assert result.accepted, _rejections(result)
         assert SABLE not in {attack.attacker_id for attack in _attacks(result)}
         assert SABLE not in session.battle.fired_last_round
+
+    def test_a_formation_retreat_is_exposed_once_the_party_has_moved(self):
+        retreating = _battle(distance=5, count=4, seed=PARTY_FIRST_SEED, shield=True)
+        holding = _battle(distance=5, count=4, seed=PARTY_FIRST_SEED, shield=True)
+        for game in (retreating, holding):
+            game.action_policies[_group(game)] = _StrikeAt(BRAKK)
+        shield_bonus = _assert_shielded(retreating)
+        result = _round(retreating, *_everyone("retreat"))
+        baseline = _round(holding)
+        assert result.accepted, _rejections(result)
+        # Preconditions: the party wins initiative in both, and the goblins strike after it moves off.
+        assert not _monsters_acted_first(retreating, result)
+        assert not _monsters_acted_first(holding, baseline)
+        moved = _party_moved_off(result)
+        assert all(_position(result, attack) > _position(result, moved) for attack in _attacks(result))
+        _assert_exposed(result, baseline, shield_bonus)
 
     def test_reorder_party_stays_refused_in_battle(self):
         session = _battle(distance=5)
