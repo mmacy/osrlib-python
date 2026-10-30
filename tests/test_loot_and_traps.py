@@ -15,6 +15,8 @@
   spec sets `starts_open` still stands open afterwards.
 """
 
+import copy
+
 import pytest
 
 from crawl_fixtures import build_adventure, build_open_door_adventure, build_party
@@ -48,6 +50,7 @@ from osrlib.crawl.dungeon import (
     DroppedItem,
     DropPile,
     DungeonSpec,
+    DungeonState,
     Edge,
     EdgeKind,
     KeyedEncounter,
@@ -604,3 +607,30 @@ class TestReadingADoorChangesNothing:
         assert door_view_open(restored) is True
         assert restored.execute(MoveParty(direction=Direction.EAST)).accepted
         assert restored.dungeon_state.location.position == (1, 0)
+
+
+class TestACopiedDoorStateIsASnapshot:
+    """A copy of a door state is the caller's own. Writing to it never changes the session's doors."""
+
+    REF = "crypt:1:0,0:east"
+
+    @pytest.mark.xfail(reason=CHUNK, strict=True)
+    @pytest.mark.parametrize(
+        "copier", [lambda state: state.model_copy(), copy.copy, copy.deepcopy], ids=["model_copy", "copy", "deepcopy"]
+    )
+    def test_writing_to_a_copy_of_an_unread_door_stores_nothing(self, copier):
+        doors = DungeonState()
+        snapshot = copier(doors.door(self.REF))
+        snapshot.open = True
+        assert self.REF not in doors.doors
+        assert doors.door(self.REF).open is False
+
+    @pytest.mark.parametrize(
+        "copier", [lambda state: state.model_copy(), copy.copy, copy.deepcopy], ids=["model_copy", "copy", "deepcopy"]
+    )
+    def test_writing_to_a_copy_of_a_stored_door_leaves_the_stored_one(self, copier):
+        doors = DungeonState()
+        doors.door(self.REF).open = True
+        snapshot = copier(doors.door(self.REF))
+        snapshot.open = False
+        assert doors.door(self.REF).open is True
