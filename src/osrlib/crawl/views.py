@@ -359,14 +359,18 @@ class EncounterView(BaseModel):
     front_rank: tuple[str, ...] = ()
     """The living members close enough to attack in melee, in marching order. That is the
     party's first rank at the current formation width, or every living member when the
-    ruleset's `formation_width_limit` flag is off. A melee attack declared for anyone
-    else is rejected with `battle.declaration.not_in_front_rank`, and inside melee reach a
-    weapon that is both melee and missile counts as a melee weapon."""
+    ruleset's `formation_width_limit` flag is off. Only these members can make a
+    `fighting_withdrawal` or a `retreat` alone. A melee attack declared for anyone else is
+    rejected with `battle.declaration.not_in_front_rank`, and inside melee reach a weapon
+    that is both melee and missile counts as a melee weapon. The one exception is a member
+    whom a front-rank member names in
+    [`BattleDeclaration.replacement_id`][osrlib.crawl.commands.BattleDeclaration.replacement_id]
+    to step up this round, who may declare a melee attack."""
     immobile: tuple[str, ...] = ()
     """The declarers who can't move this round. In practice they're the entangled members,
     because the other conditions that stop a move stop every declaration as well. A `move`
     declaration of any kind from one of them is rejected with
-    `battle.declaration.cannot_move`."""
+    `battle.declaration.cannot_move`, and none of them can step up as a replacement."""
     reloading: tuple[str, ...] = ()
     """The members who may not fire a `reload` weapon this round, because they fired one
     last round (`combat.attack.reload`). Empty when the ruleset's `weapon_reload` flag is

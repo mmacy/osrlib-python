@@ -615,9 +615,10 @@ class GameSession:
                 which doesn't validate the rest of a saved adventure.
         """
         self.party = party
-        """The party, in marching order. The order determines who is in the front rank in a fight, and
-        [`ReorderParty`][osrlib.crawl.commands.ReorderParty] is the only command that changes
-        it."""
+        """The party, in marching order. The order determines who is in the front rank in a fight.
+        [`ReorderParty`][osrlib.crawl.commands.ReorderParty] sets it outside a fight. In a battle, a
+        member who withdraws alone trades places with the member named in
+        [`BattleDeclaration.replacement_id`][osrlib.crawl.commands.BattleDeclaration.replacement_id]."""
         self.adventure = adventure
         """The adventure being played: its town, dungeons, quests, and any content it bundles. It's
         frozen, and a save contains a copy of it, so a saved game needs no other file to

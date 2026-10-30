@@ -533,8 +533,12 @@ class ReorderParty(Command):
 
     Marching order is the order the members walk in, front first. It determines who a door trap
     springs on, who reaches into a treasure cache, and who stands in the front rank when a
-    fight starts. This command is the only way to change it. It's legal in town and while
-    exploring, and the order is fixed once an encounter or battle has begun.
+    fight starts. This command sets it. It's legal in town and while exploring, and the
+    session refuses it once an encounter or battle has begun. In a battle, the order changes
+    only when a member makes a fighting withdrawal or a retreat alone and trades places with
+    the member named in
+    [`BattleDeclaration.replacement_id`][osrlib.crawl.commands.BattleDeclaration.replacement_id].
+    That change stays after the battle, until this command sets the order again.
 
     Modes:
         `town`, `exploring`
@@ -2555,16 +2559,23 @@ class ResolveBattleRound(Command):
           recognize. A `BattleDeclaration` with one already fails validation when it's
           constructed, so normal play never reaches this check.
         - Move declarations: `battle.declaration.missing_move`,
-          `battle.declaration.unknown_group`, `battle.declaration.cannot_move`, and
-          `battle.declaration.formation_split` when some declarers make a
-          `fighting_withdrawal` or a `retreat` and others don't. There is one
-          `formation_split` for each of the two moves the round splits on. Its `others`
-          lists every other declarer of the round, including any who chose the other
-          move. So a round that splits on both moves comes back with two, the fighting
-          withdrawal's first and the retreat's second.
+          `battle.declaration.unknown_group`, and `battle.declaration.cannot_move`.
+        - A `fighting_withdrawal` or a `retreat` that a member makes alone gets at most
+          one of these, the first that applies:
+          `battle.declaration.not_in_front_rank` when the member stands behind the front
+          rank, `battle.declaration.no_replacement` when the declaration names no
+          `replacement_id`, `battle.declaration.replacement_unavailable` when the named
+          member can't step up, and `battle.declaration.replacement_too_far` when either
+          member can't cover the distance between their ranks. Each has the withdrawing
+          member's id as its `character` param. The last two also have the replacement's
+          id as `replacement`, and `replacement_too_far` has the distance as
+          `distance_feet`. A declaration in a formation move that names a
+          `replacement_id` gets `replacement_unavailable`, because every declarer is
+          moving with the formation.
         - Attack declarations: `battle.declaration.unknown_group`,
           `battle.declaration.no_target`, `battle.declaration.weapon_not_wielded`,
-          `battle.declaration.not_in_front_rank`, and the kernel attack checks
+          `battle.declaration.not_in_front_rank` for a melee attack from outside the front
+          rank as the round's swaps leave it, and the kernel attack checks
           `combat.attack.out_of_reach`, `combat.attack.out_of_range`,
           `combat.attack.reload`, `combat.attack.attacker_incapacitated`,
           `combat.attack.attacker_blind`.
