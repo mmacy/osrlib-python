@@ -421,3 +421,19 @@ class TestAGroupThatWillNotFight:
                 break
             events = session.execute(ResolveBattleRound(declarations=hold_all(session))).events
             assert not [attack for attack in attacks(events) if attack.attacker_id in group.monster_ids]
+
+
+class TestAJoiningTrollRegenerates:
+    """A monster that regenerates starts to regenerate when it joins, as it would when its encounter opens."""
+
+    @CHUNK
+    @pytest.mark.parametrize("setup", [in_encounter, in_battle], ids=["encounter", "battle"])
+    def test_the_join_attaches_regeneration_and_reports_it(self, setup):
+        session = setup()
+        result = session.execute(SpawnMonsters(template_id="troll", count_fixed=1, distance_feet=60))
+        assert result.accepted
+        (troll_id,) = session.encounter.groups[-1].monster_ids
+        effects = session.ledger.active_on(troll_id, "regeneration")
+        assert len(effects) == 1
+        attached = [event for event in result.events if event.code == "effects.effect.attached"]
+        assert [event.effect_id for event in attached] == [effects[0].effect_id]
