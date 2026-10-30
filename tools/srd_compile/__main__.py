@@ -99,11 +99,13 @@ def main() -> None:
 
     monsters_data = monsters.compile_monsters(srd_dir)
     apply_overrides(monsters_data["monsters"], load_overrides("monsters.json"))
+    monsters.label_routines(monsters_data["monsters"])
     monsters.validate_xp(monsters_data["monsters"], combat_tables_data["xp_awards"])
     _write(out_dir, "monsters.json", MonsterCatalog.model_validate(monsters_data), monsters.source_pages(srd_dir))
 
     spells_data = spells.compile_spells(srd_dir, monsters_data["monsters"])
     apply_overrides(spells_data["spells"], load_overrides("spells.json"))
+    monsters.label_routines([monster for spell in spells_data["spells"] for monster in spell["conjured_monsters"]])
     _write(out_dir, "spells.json", SpellCatalog.model_validate(spells_data), spells.source_pages(srd_dir))
 
     # Encounter-table overrides apply inside the compiler (they normalize the printed

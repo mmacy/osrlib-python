@@ -231,7 +231,7 @@ from osrlib.core.items import (
     WeaponQuality,
     magic_item_template,
 )
-from osrlib.core.monsters import MonsterAbility, MonsterAttack, MonsterInstance
+from osrlib.core.monsters import MonsterAbility, MonsterAttack, MonsterInstance, RoutineUse
 from osrlib.core.spells import (
     MAGIC_STREAM,
     cast_spell,
@@ -398,7 +398,8 @@ class MonsterAction(BaseModel):
     Any routine can be named, whatever its
     [`use`][osrlib.core.monsters.AttackRoutine.use]. Battle rolls the attacks of a `PRIMARY`,
     `ALTERNATIVE`, or `SITUATIONAL` routine, and rolls nothing for a `SPECIAL` one. An index the
-    template doesn't have makes the action impossible, so the session skips it."""
+    template doesn't have, a negative one included, makes the action impossible, so the session
+    skips it. An NPC adventurer fights with its weapon and ignores this field."""
 
 
 class ActionPolicy(Protocol):
@@ -534,6 +535,13 @@ class ScriptedPolicy:
     picks a target at random from the party's front rank, leaving out invisible members and members
     whose *protection from evil* bars that monster. When no target is left, the monster holds.
 
+    The monster then picks which of its attack routines to use, with equal chance among the routines
+    whose [`use`][osrlib.core.monsters.AttackRoutine.use] is `PRIMARY` or `ALTERNATIVE`, and names
+    it in [`MonsterAction.routine`][osrlib.crawl.battle.MonsterAction.routine]. A thoul claws or
+    swings a weapon, and a mule kicks or bites. The policy never picks a `SITUATIONAL` or `SPECIAL`
+    routine, such as an elephant's trample or a vampire's gaze. A monster with only one routine to
+    pick from draws nothing for it.
+
     The monster data has no ranges for monsters' missile attacks, so osrlib treats them like melee:
     the monster closes first, then attacks. This is an adaptation, a place where osrlib commits to
     one reading of a rule the SRD leaves open. The
@@ -542,8 +550,9 @@ class ScriptedPolicy:
     spellcasting, which is the referee's call.
 
     Write a policy of your own when you want a group to hold a chokepoint, focus its attacks, back
-    off, or cast. To keep these tactics and change one thing, wrap this policy and change the
-    actions its `choose` returns, as the example does.
+    off, cast, or use a situational routine when your game decides its situation applies. To keep
+    these tactics and change one thing, wrap this policy and change the actions its `choose`
+    returns, as the example does.
     [`NpcPartyPolicy`][osrlib.crawl.battle.NpcPartyPolicy] is the built-in policy for NPC adventurers,
     which also heals, drinks potions, casts, and shoots.
 
@@ -661,7 +670,8 @@ class ScriptedPolicy:
                 actions.append(MonsterAction(monster_id=monster.id, kind="hold"))
                 continue
             target = targets[stream.randbelow(len(targets))]
-            actions.append(MonsterAction(monster_id=monster.id, kind="melee", target_id=target.id))
+            routine = _pick_routine(monster, stream)
+            actions.append(MonsterAction(monster_id=monster.id, kind="melee", target_id=target.id, routine=routine))
         return actions
 
 
@@ -877,6 +887,24 @@ def _npc_wielded(npc, *, missile: bool, distance_feet: int = MELEE_RANGE_FEET):
         elif WeaponQuality.MELEE in qualities or WeaponQuality.MISSILE not in qualities:
             return attack
     return None
+
+
+_PICKED_ROUTINE_USES = frozenset({RoutineUse.PRIMARY, RoutineUse.ALTERNATIVE})
+"""The routines `ScriptedPolicy` picks among. A situational or special routine is left to a game's own policy."""
+
+
+def _pick_routine(monster: MonsterInstance, stream) -> int | None:
+    """Pick the routine a melee action uses, with equal chance among the monster's primary and alternative routines.
+
+    A monster with one such routine draws nothing and gets None, which resolves its first routine, so
+    the stream advances only for a monster that has a choice to make.
+    """
+    candidates = [
+        index for index, routine in enumerate(monster.template.attacks) if routine.use in _PICKED_ROUTINE_USES
+    ]
+    if len(candidates) < 2:
+        return None
+    return candidates[stream.randbelow(len(candidates))]
 
 
 def _breath_usable(monster: MonsterInstance, distance_feet: int) -> bool:
@@ -2668,7 +2696,11 @@ def _monster_block(
                         _resolve_npc_attack(session, monster, target, group, missile=False, retreating=party_retreating)
                     )
                 else:
-                    events.extend(_resolve_monster_melee(session, monster, target, party_retreating=party_retreating))
+                    events.extend(
+                        _resolve_monster_melee(
+                            session, monster, target, party_retreating=party_retreating, routine=action.routine
+                        )
+                    )
                 _watch_disruption(events, pending_casters, disrupted, acted)
             elif action.kind == "npc_shoot":
                 target = session.registry().get(action.target_id)
@@ -2997,18 +3029,31 @@ def _behaviour_outcome(params, total: int) -> str:
     return "no_action"
 
 
-def _resolve_monster_melee(session, monster, target, *, party_retreating: bool) -> list[Event]:
-    """Resolve a monster's attack routine against one target, with what each hit does beyond damage.
+_UNROLLED_ATTACK_NAMES = frozenset({"gaze", "breath"})
+"""Attack entries battle never rolls as attacks, whichever routine holds them.
 
-    An attack named `gaze` takes no attack roll, so this function skips it. `_resolve_gazes` runs a
-    petrifying gaze once a round instead.
+A petrifying gaze runs through `_resolve_gazes` once a round, a breath weapon through a `"breath"`
+action, and the rest are left to the referee.
+"""
+
+
+def _resolve_monster_melee(
+    session, monster, target, *, party_retreating: bool, routine: int | None = None
+) -> list[Event]:
+    """Resolve one of a monster's attack routines against one target, with what each hit does beyond damage.
+
+    `routine` is an index into the template's `attacks`, and None resolves the first routine, as a
+    confused monster's attack does. An index the template doesn't have, a negative one included,
+    resolves nothing, so the session skips the action. A `SPECIAL` routine resolves nothing either,
+    and an attack named `gaze` or `breath` takes no attack roll in any routine.
     """
     events: list[Event] = []
-    routine = monster.template.attacks[0] if monster.template.attacks else None
-    if routine is None:
+    routines = monster.template.attacks
+    index = 0 if routine is None else routine
+    if not 0 <= index < len(routines) or routines[index].use is RoutineUse.SPECIAL:
         return []
-    for attack in routine.attacks:
-        if attack.name == "gaze":
+    for attack in routines[index].attacks:
+        if attack.name in _UNROLLED_ATTACK_NAMES:
             continue
         for _ in range(attack.count):
             if has_condition(target, Condition.DEAD):

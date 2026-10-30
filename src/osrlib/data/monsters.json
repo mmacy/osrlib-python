@@ -848,7 +848,7 @@
               "name": "thrown rock"
             }
           ],
-          "use": "primary"
+          "use": "situational"
         }
       ],
       "categories": [],
@@ -1559,7 +1559,7 @@
               "name": "breath"
             }
           ],
-          "use": "primary"
+          "use": "special"
         }
       ],
       "categories": [],
@@ -2139,7 +2139,7 @@
               "name": "breath"
             }
           ],
-          "use": "primary"
+          "use": "special"
         }
       ],
       "categories": [],
@@ -2402,7 +2402,7 @@
               "name": "weapon"
             }
           ],
-          "use": "primary"
+          "use": "situational"
         }
       ],
       "categories": [
@@ -3114,7 +3114,7 @@
               "name": "ram"
             }
           ],
-          "use": "primary"
+          "use": "situational"
         }
       ],
       "categories": [],
@@ -3735,7 +3735,7 @@
               "name": "jump"
             }
           ],
-          "use": "primary"
+          "use": "situational"
         },
         {
           "attacks": [
@@ -3752,7 +3752,7 @@
               "name": "spit"
             }
           ],
-          "use": "primary"
+          "use": "situational"
         }
       ],
       "categories": [],
@@ -4159,7 +4159,7 @@
               "name": "breath"
             }
           ],
-          "use": "primary"
+          "use": "special"
         }
       ],
       "categories": [],
@@ -4310,7 +4310,7 @@
               "name": "boulder"
             }
           ],
-          "use": "primary"
+          "use": "situational"
         }
       ],
       "categories": [],
@@ -4914,7 +4914,7 @@
               "name": "rock"
             }
           ],
-          "use": "primary"
+          "use": "situational"
         }
       ],
       "categories": [],
@@ -5268,7 +5268,7 @@
               "name": "weapon"
             }
           ],
-          "use": "primary"
+          "use": "situational"
         },
         {
           "attacks": [
@@ -5285,7 +5285,7 @@
               "name": "magic"
             }
           ],
-          "use": "primary"
+          "use": "special"
         }
       ],
       "categories": [],
@@ -6029,7 +6029,7 @@
               "name": "breath"
             }
           ],
-          "use": "primary"
+          "use": "special"
         }
       ],
       "categories": [],
@@ -7082,7 +7082,7 @@
               "name": "trample"
             }
           ],
-          "use": "primary"
+          "use": "situational"
         }
       ],
       "categories": [],
@@ -7952,7 +7952,7 @@
               "name": "boulder"
             }
           ],
-          "use": "primary"
+          "use": "situational"
         }
       ],
       "categories": [],
@@ -8256,7 +8256,7 @@
               "name": "spray"
             }
           ],
-          "use": "primary"
+          "use": "situational"
         }
       ],
       "categories": [],
@@ -8393,7 +8393,7 @@
               "name": "boulder"
             }
           ],
-          "use": "primary"
+          "use": "situational"
         }
       ],
       "categories": [],
@@ -11091,7 +11091,7 @@
               "name": "breath"
             }
           ],
-          "use": "primary"
+          "use": "special"
         }
       ],
       "categories": [],
@@ -11234,7 +11234,7 @@
               "name": "breath"
             }
           ],
-          "use": "primary"
+          "use": "special"
         }
       ],
       "categories": [],
@@ -11544,7 +11544,7 @@
               "name": "breath"
             }
           ],
-          "use": "primary"
+          "use": "special"
         }
       ],
       "categories": [],
@@ -12466,7 +12466,7 @@
               "name": "breath"
             }
           ],
-          "use": "primary"
+          "use": "special"
         }
       ],
       "categories": [],
@@ -12624,7 +12624,7 @@
               "name": "breath"
             }
           ],
-          "use": "primary"
+          "use": "special"
         }
       ],
       "categories": [],
@@ -12782,7 +12782,7 @@
               "name": "breath"
             }
           ],
-          "use": "primary"
+          "use": "special"
         }
       ],
       "categories": [],
@@ -12940,7 +12940,7 @@
               "name": "breath"
             }
           ],
-          "use": "primary"
+          "use": "special"
         }
       ],
       "categories": [],
@@ -13098,7 +13098,7 @@
               "name": "breath"
             }
           ],
-          "use": "primary"
+          "use": "special"
         }
       ],
       "categories": [],
@@ -16647,7 +16647,7 @@
               "name": "tail spike"
             }
           ],
-          "use": "primary"
+          "use": "situational"
         }
       ],
       "categories": [],
@@ -16784,7 +16784,7 @@
               "name": "trample"
             }
           ],
-          "use": "primary"
+          "use": "situational"
         }
       ],
       "categories": [],
@@ -16911,7 +16911,7 @@
               "name": "spell"
             }
           ],
-          "use": "primary"
+          "use": "special"
         }
       ],
       "categories": [
@@ -17598,7 +17598,7 @@
               "name": "weapon"
             }
           ],
-          "use": "primary"
+          "use": "alternative"
         }
       ],
       "categories": [],
@@ -17859,7 +17859,7 @@
               "name": "bite"
             }
           ],
-          "use": "primary"
+          "use": "alternative"
         }
       ],
       "categories": [],
@@ -18386,7 +18386,7 @@
               "name": "group spell"
             }
           ],
-          "use": "primary"
+          "use": "special"
         }
       ],
       "categories": [
@@ -19377,7 +19377,7 @@
               "name": "trample"
             }
           ],
-          "use": "primary"
+          "use": "situational"
         }
       ],
       "categories": [],
@@ -21552,7 +21552,7 @@
               "name": "breath"
             }
           ],
-          "use": "primary"
+          "use": "special"
         }
       ],
       "categories": [],
@@ -22631,7 +22631,7 @@
               "name": "spray"
             }
           ],
-          "use": "primary"
+          "use": "situational"
         }
       ],
       "categories": [],
@@ -22958,7 +22958,7 @@
               "name": "breath"
             }
           ],
-          "use": "primary"
+          "use": "special"
         }
       ],
       "categories": [],
@@ -23095,7 +23095,7 @@
               "name": "squeeze"
             }
           ],
-          "use": "primary"
+          "use": "situational"
         }
       ],
       "categories": [],
@@ -24300,7 +24300,7 @@
               "name": "ram"
             }
           ],
-          "use": "primary"
+          "use": "situational"
         }
       ],
       "categories": [],
@@ -24433,7 +24433,7 @@
               "name": "bite"
             }
           ],
-          "use": "primary"
+          "use": "alternative"
         }
       ],
       "categories": [],
@@ -24833,7 +24833,7 @@
               "name": "trample"
             }
           ],
-          "use": "primary"
+          "use": "situational"
         }
       ],
       "categories": [],
@@ -25087,7 +25087,7 @@
               "name": "boulder"
             }
           ],
-          "use": "primary"
+          "use": "situational"
         }
       ],
       "categories": [],
@@ -25374,7 +25374,7 @@
               "name": "spray"
             }
           ],
-          "use": "primary"
+          "use": "situational"
         }
       ],
       "categories": [],
@@ -25629,7 +25629,7 @@
               "name": "weapon"
             }
           ],
-          "use": "primary"
+          "use": "alternative"
         }
       ],
       "categories": [],
@@ -25983,7 +25983,7 @@
               "name": "trample"
             }
           ],
-          "use": "primary"
+          "use": "situational"
         }
       ],
       "categories": [],
@@ -26460,7 +26460,7 @@
               "name": "trample"
             }
           ],
-          "use": "primary"
+          "use": "situational"
         }
       ],
       "categories": [],
@@ -27267,7 +27267,7 @@
               "name": "gaze"
             }
           ],
-          "use": "primary"
+          "use": "special"
         }
       ],
       "categories": [
@@ -27474,7 +27474,7 @@
               "name": "gaze"
             }
           ],
-          "use": "primary"
+          "use": "special"
         }
       ],
       "categories": [
@@ -27681,7 +27681,7 @@
               "name": "gaze"
             }
           ],
-          "use": "primary"
+          "use": "special"
         }
       ],
       "categories": [
@@ -29342,7 +29342,7 @@
               "name": "weapon"
             }
           ],
-          "use": "primary"
+          "use": "alternative"
         }
       ],
       "categories": [],
@@ -29912,7 +29912,7 @@
               "name": "breath"
             }
           ],
-          "use": "primary"
+          "use": "special"
         }
       ],
       "categories": [],
@@ -30437,7 +30437,7 @@
               "name": "trample"
             }
           ],
-          "use": "primary"
+          "use": "situational"
         }
       ],
       "categories": [],

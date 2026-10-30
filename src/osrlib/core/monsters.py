@@ -451,7 +451,9 @@ class AttackRoutine(BaseModel):
     """When the monster uses this routine. See [`RoutineUse`][osrlib.core.monsters.RoutineUse].
 
     The first routine of a template is `PRIMARY`. Every later routine in the built-in catalogs
-    carries one of the other labels, taken from the OSE SRD's text for that monster.
+    carries one of the other labels, taken from the OSE SRD's text for that monster. In a template
+    of your own, label each later routine: one you leave unlabelled is `PRIMARY` too, so the default
+    policy picks it as often as the first.
     """
 
 
