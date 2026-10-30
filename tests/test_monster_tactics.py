@@ -135,6 +135,11 @@ def _petrify(game: GameSession, member: Character) -> None:
     assert has_condition(member, Condition.PETRIFIED)
 
 
+def _blind(game: GameSession, member: Character) -> None:
+    _attach(game, member, EffectDefinition(kind="test_blindness", condition=Condition.BLIND, permanent=True))
+    assert has_condition(member, Condition.BLIND)
+
+
 def _make_invisible(game: GameSession, member: Character) -> None:
     _attach(game, member, EffectDefinition(kind="test_invisibility", condition=Condition.INVISIBLE, permanent=True))
     assert has_condition(member, Condition.INVISIBLE)
@@ -211,6 +216,16 @@ def _saves(events, target_id: str, category: str | None = None) -> list[SavingTh
         and event.target_id == target_id
         and (category is None or event.category == category)
     ]
+
+
+def _gaze_saves(events, monster_id: str, member_id: str) -> int:
+    """The member's saves versus paralysis, less those the monster's petrifying bites caused: the gazes they met."""
+    bites = sum(
+        1
+        for event in _rolls(events, monster_id)
+        if event.defender_id == member_id and event.attack_name == "bite" and event.code in HIT_CODES
+    )
+    return len(_saves(events, member_id, "paralysis")) - bites
 
 
 def _state_without_logs(game: GameSession) -> dict:
@@ -684,6 +699,28 @@ class TestDrawsAsBefore:
             assert stream.export_state() == replica.export_state()
 
 
+class TestABlindMemberMeetsNoGaze:
+    """Someone who can't see can't meet a gaze, so a blind front-rank member is spared it in battle."""
+
+    @CHUNK
+    @pytest.mark.parametrize("template_id", ["basilisk", "medusa"])
+    def test_a_blind_front_rank_member_is_spared_the_gaze(self, template_id):
+        game = _battle(template_id)
+        hild, brakk = game.party.members
+        for member in (hild, brakk):
+            _force_saves(game, member, ALWAYS_PASS)
+        _blind(game, hild)
+        assert _front_rank_ids(game) == [hild.id, brakk.id], "precondition: Hild stands in the front rank"
+        monster_id = _monster_id(game)
+
+        for _ in range(3):
+            assert game.encounter.groups[0].distance_feet == 5, "precondition: the gazer is in melee"
+            events = _play(game)
+            assert has_condition(hild, Condition.BLIND), "precondition: Hild is still blind"
+            assert _gaze_saves(events, monster_id, brakk.id) == 1, "precondition: the gaze reached Brakk"
+            assert _gaze_saves(events, monster_id, hild.id) == 0, "a blind member meets no gaze"
+
+
 # ---------------------------------------------------------------------- the surprise gaze
 
 
@@ -696,17 +733,21 @@ def _opening(
     both_surprised: bool = False,
     save_bonus: int = ALWAYS_PASS,
     names: tuple[str, ...] = ("Hild", "Brakk", "Sable"),
+    blind: tuple[int, ...] = (),
 ) -> tuple[GameSession, list]:
     """A party surprised by one monster, and the opening events of the encounter.
 
     `battle` says whether the opening must end in a battle (True), in encounter mode (False), or either (None).
     With `both_surprised`, the monster rolls for surprise too and loses. Otherwise it's aware and can't be surprised.
+    The members at the indexes in `blind` are blinded before the encounter opens.
     The party's front rank is Hild and Brakk, and Sable stands in the back rank.
     """
     for seed in SEEDS:
         game = _session(seed, _members(*names))
         for member in game.party.members:
             _force_saves(game, member, save_bonus)
+        for index in blind:
+            _blind(game, game.party.members[index])
         instances = game.spawn(template_id, 1)
         events = encounter_module.start_encounter(
             game,
@@ -815,6 +856,35 @@ class TestTheSurpriseGaze:
 
         for member in game.party.members:
             assert not _saves(events, member.id)
+
+    @CHUNK
+    def test_a_blind_member_is_spared_the_surprise_gaze(self):
+        """Someone who can't see can't meet a gaze."""
+        game, events = _opening("basilisk", ReactionResult.INDIFFERENT, blind=(0,))
+        hild, brakk, sable = game.party.members
+
+        assert has_condition(hild, Condition.BLIND), "precondition: Hild is blind as the encounter opens"
+        assert len(_saves(events, brakk.id, "paralysis")) == 1, "precondition: the surprise gaze ran"
+        assert len(_saves(events, sable.id, "paralysis")) == 1
+        assert not _saves(events, hild.id), "a blind member meets no gaze"
+
+    def test_a_basilisk_that_joins_an_open_encounter_doesnt_gaze(self):
+        """A guard: a basilisk spawned into an encounter already open surprised no one, so it meets no one's eyes."""
+        game, opening = _opening("goblin", ReactionResult.INDIFFERENT)
+        assert game.mode is SessionMode.ENCOUNTER and game.encounter.party_surprised, (
+            "precondition: surprised, no battle"
+        )
+        assert not [event for event in opening if isinstance(event, SavingThrowRolledEvent)]
+
+        joined = game.execute(SpawnMonsters(template_id="basilisk", count_fixed=1, distance_feet=60))
+
+        assert joined.accepted
+        assert "encounter.group.joined" in [event.code for event in joined.events], "precondition: it joined"
+        assert len(game.encounter.groups) == 2
+        assert not [event for event in joined.events if isinstance(event, SavingThrowRolledEvent)]
+        engage = game.execute(EngageBattle())
+        assert engage.accepted
+        assert not [event for event in engage.events if isinstance(event, SavingThrowRolledEvent)]
 
     @CHUNK
     def test_the_playtests_spawn_meets_it_and_replays(self):
