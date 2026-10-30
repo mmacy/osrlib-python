@@ -68,8 +68,6 @@ from osrlib.crawl.session import GameSession
 from osrlib.data import load_monsters
 from osrlib.persistence import load_game, replay_game, save_game
 
-XFAIL = pytest.mark.xfail(reason="chunk: monster-regeneration", strict=True)
-
 SEED = 7
 """The master seed of every session here. Each test asserts the state it depends on, so a seed that stops
 producing that state fails the test loudly rather than passing it."""
@@ -211,7 +209,6 @@ def test_the_catalog_has_regenerating_monsters():
     assert dict(troll.params) == {"blocked_by": ("fire", "acid"), "delay_rounds": 3, "per_round": 3, "revive": "2d6"}
 
 
-@XFAIL
 @pytest.mark.parametrize("template_id", REGENERATING_IDS)
 def test_spawn_monsters_attaches_each_regenerating_template(template_id):
     game = _session()
@@ -219,7 +216,6 @@ def test_spawn_monsters_attaches_each_regenerating_template(template_id):
     _assert_attached(game, result.events, monsters)
 
 
-@XFAIL
 def test_a_keyed_encounter_attaches_regeneration_to_its_troll_only():
     den = AreaSpec(
         id="den",
@@ -240,7 +236,6 @@ def test_a_keyed_encounter_attaches_regeneration_to_its_troll_only():
     assert game.ledger.active_on(by_template["ogre"].id, "regeneration") == []
 
 
-@XFAIL
 def test_a_wandering_encounter_attaches_regeneration():
     row = {"name": "Troll", "entry": MonsterEncounterEntry(monster_ids=("troll",)), "count_fixed": 1}
     table = EncounterTable(
@@ -263,7 +258,6 @@ def test_a_wandering_encounter_attaches_regeneration():
     _assert_attached(game, result.events, trolls)
 
 
-@XFAIL
 def test_an_adventure_bundled_template_with_the_ability_regenerates():
     """The session reads the ability off whatever template it spawns, not a list of catalog ids."""
     ogre = load_monsters().get("ogre")
@@ -312,7 +306,6 @@ def _expected_gain(monster: MonsterInstance, now: int, damaged_at: int, hp: int,
     return min(int(params["per_round"]), ceiling - hp)
 
 
-@XFAIL
 def test_a_troll_heals_per_round_after_the_delay_as_time_advances_outside_battle():
     game = _session()
     _, (troll,) = _spawn(game, "troll", count=1, distance_feet=60)
@@ -336,7 +329,6 @@ def test_a_troll_heals_per_round_after_the_delay_as_time_advances_outside_battle
     assert gains[-1] == 0  # already whole, so no tick heals it past its maximum
 
 
-@XFAIL
 def test_advance_rounds_heals_a_troll_and_reports_it():
     game = _session()
     _, (troll,) = _spawn(game, "troll", count=1, distance_feet=60)
@@ -354,7 +346,6 @@ def test_advance_rounds_heals_a_troll_and_reports_it():
     assert troll.current_hp == troll.max_hp
 
 
-@XFAIL
 def test_fire_and_acid_damage_never_regenerates():
     game = _session()
     _, (troll,) = _spawn(game, "troll", count=1, distance_feet=60)
@@ -369,7 +360,6 @@ def test_fire_and_acid_damage_never_regenerates():
     assert troll.current_hp == troll.max_hp - 5
 
 
-@XFAIL
 def test_a_thoul_heals_from_the_first_round_while_alive_and_stays_dead():
     game = _session()
     _, (hurt, slain) = _spawn(game, "thoul", count=2, distance_feet=60)
@@ -391,7 +381,6 @@ def test_a_thoul_heals_from_the_first_round_while_alive_and_stays_dead():
 # ---------------------------------------------------------------------- healing in battle
 
 
-@XFAIL
 def test_a_troll_hurt_in_battle_heals_after_the_delay_while_the_party_holds():
     game = _session()
     _, (troll,) = _spawn(game, "troll", count=1, distance_feet=5)
@@ -436,7 +425,6 @@ def _three_trolls(seed: int = SEED):
     return game, burned, slain, standing
 
 
-@XFAIL
 def test_a_slain_troll_revives_in_2d6_rounds_and_fights_again_unless_burned():
     game, burned, slain, standing = _three_trolls()
     killed_at = slain.last_damaged_round
@@ -468,7 +456,6 @@ def test_a_slain_troll_revives_in_2d6_rounds_and_fights_again_unless_burned():
     assert not has_condition(standing, Condition.DEAD)
 
 
-@XFAIL
 def test_a_troll_slain_last_ends_the_battle_and_its_revival_is_released():
     game = _session()
     _, (troll,) = _spawn(game, "troll", count=1, distance_feet=5)
@@ -507,7 +494,6 @@ def _revival_battle(seed: int) -> list:
     return _dump(game.event_log)
 
 
-@XFAIL
 def test_the_same_seed_and_commands_give_the_same_regeneration_and_revival_events():
     first = _revival_battle(SEED)
     assert any(event["code"] == "effects.regeneration.revived" for event in first)
@@ -530,7 +516,6 @@ def _commanded_battle() -> GameSession:
     return game
 
 
-@XFAIL
 def test_executing_and_replaying_the_command_log_give_the_same_events():
     game = _commanded_battle()
     events = _dump(game.event_log)
@@ -543,7 +528,6 @@ def test_executing_and_replaying_the_command_log_give_the_same_events():
     assert _dump(replayed.event_log) == events
 
 
-@XFAIL
 def test_a_saved_and_loaded_session_keeps_regenerating_the_same_way():
     game = _session()
     _, (troll,) = _spawn(game, "troll", count=1, distance_feet=60)
