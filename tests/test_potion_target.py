@@ -37,8 +37,6 @@ CARRIER_ID = "character-0001"
 OTHER_ID = "character-0002"
 CLERIC_ID = "character-0003"
 
-XFAIL = pytest.mark.xfail(reason="chunk: potion-target", strict=True)
-
 NOT_ALLOWED = "items.use.target_not_allowed"
 
 
@@ -107,7 +105,6 @@ MODE_BUILDERS = [
 class TestAPotionRefusesAnotherTarget:
     """A potion used on someone other than the user is refused, and the refusal costs nothing."""
 
-    @XFAIL
     @pytest.mark.parametrize("build", MODE_BUILDERS)
     def test_another_member_is_refused(self, build):
         session = build()
@@ -117,7 +114,6 @@ class TestAPotionRefusesAnotherTarget:
         assert result.events == ()
         assert drunk_by(result) == []
 
-    @XFAIL
     @pytest.mark.parametrize("build", MODE_BUILDERS)
     def test_an_id_that_matches_nobody_is_refused_the_same_way(self, build):
         session = build()
@@ -125,7 +121,6 @@ class TestAPotionRefusesAnotherTarget:
         assert not result.accepted
         assert [rejection.code for rejection in result.rejections] == [NOT_ALLOWED]
 
-    @XFAIL
     def test_the_comparison_is_to_the_user_not_to_the_first_member(self):
         # The carrier here is not the first member, so a fix that compares `target_id` to the first
         # member, or to the party leader, instead of to the user, still fails.
@@ -134,7 +129,6 @@ class TestAPotionRefusesAnotherTarget:
         assert not result.accepted
         assert [rejection.code for rejection in result.rejections] == [NOT_ALLOWED]
 
-    @XFAIL
     @pytest.mark.parametrize("build", MODE_BUILDERS)
     def test_a_refused_use_costs_no_draw_no_time_and_no_state(self, build):
         session = build()
@@ -152,7 +146,6 @@ class TestAPotionRefusesAnotherTarget:
         instance = session.member(CARRIER_ID).inventory.magic_item(POTION_ID)
         assert instance is not None and instance.identified is False
 
-    @XFAIL
     def test_a_refused_use_leaves_the_potion_for_the_right_use_afterwards(self):
         session = exploring_session()
         carrier = session.member(CARRIER_ID)
