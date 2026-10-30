@@ -3095,7 +3095,7 @@ def _handle_light_source(session, command: LightSource) -> tuple[list[Rejection]
             pile.items.remove(entry)
         else:
             entry.quantity -= 1
-        if not pile.items and pile.coins.total_coins == 0:
+        if not pile.items and pile.coins.total_coins == 0 and not pile.valuables and not pile.magic_items:
             del session.dungeon_state.piles[_cell_ref(session)]
         _, attach_events = session.ledger.attach(
             burning_oil_pool_definition(),
