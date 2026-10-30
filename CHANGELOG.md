@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Fixed
 
 - [`UseItem`][osrlib.crawl.commands.UseItem] with a potion and a `target_id` that names someone other than the member using it is now refused with `items.use.target_not_allowed`. Before, the session accepted the command and the carrier drank the potion, so a front end that expected the target to drink got no warning. A `target_id` of `None` or the user's own id drinks the potion as before, and a healing device still takes another member (#174).
+- When a wandering monster interrupts a rest, the full turns the party rested before the monsters came now count (#169). Before, a 48-turn night broken after four full turns cleared neither fatigue nor exhaustion. Now one full turn of rest clears fatigue. Each full turn also counts toward the three that clear exhaustion from a chase, and the next rest adds to that count. A rest interrupted during its first turn still clears nothing. An interrupted night still isn't sleep for preparing spells, and an interrupted day still heals nobody. The fix makes no new draws, and no golden file changed.
 
 ## [2.0.1] - 2026-10-30
 

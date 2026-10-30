@@ -1430,8 +1430,11 @@ class Rest(Command):
     a day of rest counts as sleep, which casters need before
     [`PrepareSpells`][osrlib.crawl.commands.PrepareSpells]. A full day of rest also applies
     natural healing to every living member. In a dungeon, a wandering-monster check that
-    turns up monsters interrupts the rest and opens an encounter. An interrupted rest
-    clears nothing, counts as no sleep, and heals nobody.
+    turns up monsters interrupts the rest and opens an encounter. An interrupted rest still
+    counts the full turns the party rested before the monsters came. One full turn clears
+    fatigue, and each full turn counts toward the three that clear exhaustion. A rest
+    interrupted during its first turn clears nothing. An interrupted rest isn't sleep and
+    heals nobody.
 
     Modes:
         `town`, `exploring`
@@ -1445,7 +1448,7 @@ class Rest(Command):
         wandering-monster checks. Then comes a [`RestedEvent`][osrlib.crawl.events.RestedEvent]
         with code `exploration.rest.rested`. An interrupted rest ends with the encounter's
         opening events and a `RestedEvent` with code `exploration.rest.interrupted`
-        instead. A completed rest that clears fatigue or exhaustion adds a
+        instead. A rest that clears fatigue or exhaustion, interrupted or not, adds a
         [`FatigueEvent`][osrlib.crawl.events.FatigueEvent] or an
         [`ExhaustionEvent`][osrlib.crawl.events.ExhaustionEvent], and a full day's natural
         healing adds a [`HealingAppliedEvent`][osrlib.core.events.HealingAppliedEvent]

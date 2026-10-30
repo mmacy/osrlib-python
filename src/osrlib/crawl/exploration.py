@@ -110,7 +110,7 @@ from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, Literal
 
 from osrlib.core.classes import detection_chance, detection_check, thief_skill_check
-from osrlib.core.clock import TimeUnit
+from osrlib.core.clock import ROUNDS_PER_TURN, TimeUnit
 from osrlib.core.combat import (
     DamageSource,
     SaveCategory,
@@ -258,7 +258,8 @@ is fatigued: `session.ledger.active_on(member.id, FATIGUE_KIND)` returns the act
 empty list means the member is rested. Use that query for a status display.
 [`check_fatigue`][osrlib.crawl.exploration.check_fatigue] makes the same query before it attaches
 anything. The effect applies −1 to attack rolls and −1 to damage rolls and has no duration. In play,
-a completed [`Rest`][osrlib.crawl.commands.Rest] releases it.
+a [`Rest`][osrlib.crawl.commands.Rest] releases it once the party has rested one full turn, even if a
+wandering monster interrupts the rest later.
 """
 
 EXHAUSTED_KIND = "exhausted"
@@ -748,8 +749,9 @@ def check_fatigue(session) -> list[Event]:
     if you move time by executing commands, you don't call it. Call it yourself when you
     move the clock some other way. To ask whether the party is already fatigued, query
     [`FATIGUE_KIND`][osrlib.crawl.exploration.FATIGUE_KIND] against `session.ledger` instead of
-    calling this. A completed [`Rest`][osrlib.crawl.commands.Rest] releases the effect and sets the
-    counter back to zero.
+    calling this. A [`Rest`][osrlib.crawl.commands.Rest] releases the effect and sets the counter back
+    to zero once the party has rested one full turn, even if a wandering monster interrupts the rest
+    later.
 
     The threshold is six unrested turns, or three when the `deprivation_penalties` ruleset flag is
     on and some living member has gone a full day without food or water.
@@ -3255,6 +3257,7 @@ def _handle_purchase_equipment(session, command: PurchaseEquipment) -> tuple[lis
 
 def _handle_rest(session, command: Rest) -> tuple[list[Rejection], list[Event]]:
     turns = {"turn": 1, "night": 48, "day": 144}[command.kind]
+    start = session.clock.rounds
     resting_events, interrupted = (
         _spend_turn(session, resting=True) if turns == 1 else session.advance_turns(turns, resting=True)
     )
@@ -3262,6 +3265,13 @@ def _handle_rest(session, command: Rest) -> tuple[list[Rejection], list[Event]]:
     if turns > 1:
         session.odometer_thirds = 0
     if interrupted:
+        # The wandering check is the first step of a turn, so every whole turn of elapsed time
+        # before it is a full turn rested. Those turns still clear fatigue and count toward
+        # exhaustion, but an interrupted rest isn't sleep and heals nobody.
+        rested_turns = (session.clock.rounds - start) // ROUNDS_PER_TURN
+        if rested_turns:
+            events.extend(_clear_fatigue(session))
+            events.extend(_credit_exhaustion_rest(session, rested_turns))
         events.append(RestedEvent(code="exploration.rest.interrupted", kind=command.kind))
         return [], events
     events.extend(_clear_fatigue(session))
