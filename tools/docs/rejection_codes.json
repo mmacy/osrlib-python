@@ -134,5 +134,6 @@
   "session.command.unknown_objective": "A quest lifecycle command referenced an objective id that the named quest doesn't define.",
   "session.command.unknown_quest": "A quest lifecycle command referenced a quest id that the adventure doesn't define; quest ids resolve against the adventure's own quest specs.",
   "session.command.wrong_mode": "The command isn't legal in the session's current mode, such as sending a battle-only command while the session isn't in battle.",
+  "town.healing.no_effect": "The party asked the temple for a service that would do nothing for the member: raise dead on a living member, cure disease on a member who isn't diseased, or neutralize poison on a member who isn't poisoned and didn't die of poison in the last 10 rounds. The temple refuses before it takes any payment.",
   "town.sell.no_fixed_value": "The party tried to sell a magic item, which carries no fixed market value a shop will pay for."
 }

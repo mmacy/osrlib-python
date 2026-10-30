@@ -20,6 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Turning the undead ends a cleric's concentration (#167). A cleric who declares `turn_undead` in [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound] stops maintaining a concentration spell, as with any action other than `cast` or `hold`. Before, a turning that confusion stopped left the spell running.
 - A caster maintains one concentration spell at a time (#167). Casting a concentration spell in battle ends the one the caster already maintains. Before, both kept running. A spell that needs no concentration still leaves the maintained one alone.
 - *Cure light wounds* cast to cure paralysis removes the `paralysed` condition however the target got it (#166). Before, it released only ledger effects, so a target that a game paralysed with [`grant_condition`][osrlib.core.effects.grant_condition] stayed paralysed and the cast reported no effect. The spell still removes no other condition.
+- The temple refuses a healing service that would do nothing, and takes no payment for it (#167). [`PurchaseHealing`][osrlib.crawl.commands.PurchaseHealing] for `raise_dead` on a living member, `cure_disease` on a member who isn't diseased, or `neutralize_poison` on a member who isn't poisoned is rejected with the new code `town.healing.no_effect`. Before, the party paid 1,500 gp to raise a living member and the spell did nothing. A party that can't pay the fee still gets `items.purchase.insufficient_funds` first.
 
 ## [2.0.1] - 2026-10-30
 

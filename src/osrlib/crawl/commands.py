@@ -2107,6 +2107,11 @@ class PurchaseHealing(Command):
           purses add up to less than the fee. Value below a gold piece in a purse
           doesn't count, so the session can refuse a party worth the price in mixed
           coins.
+        - `town.healing.no_effect` - the service would do nothing for the member:
+          `raise_dead` on a living member, `cure_disease` on a member who isn't diseased,
+          or `neutralize_poison` on a member who isn't poisoned and didn't die of poison
+          in the last 10 rounds. The session checks the party's funds first, so a party
+          that can't pay gets `items.purchase.insufficient_funds` instead.
 
     Events:
         A [`HealingPurchasedEvent`][osrlib.crawl.events.HealingPurchasedEvent] listing
@@ -2120,7 +2125,8 @@ class PurchaseHealing(Command):
     character_id: str
     """Who is treated, by [`MemberView.id`][osrlib.crawl.views.MemberView.id]. This member's
     purse pays first, and the rest of the party pays whatever is left. The member can be dead,
-    and `raise_dead` is the service for a dead member."""
+    and `raise_dead` is the service for a dead member. The session refuses `raise_dead` for a
+    living member."""
     service: HealingService
     """Which service to buy. The prices are fixed: `cure_light_wounds` 25 gp,
     `cure_serious_wounds` 100 gp, `cure_disease` 150 gp, `neutralize_poison` 150 gp,
