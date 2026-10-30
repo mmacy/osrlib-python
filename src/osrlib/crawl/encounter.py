@@ -222,7 +222,8 @@ class EncounterGroup(BaseModel):
     group_treasure: TreasureBundle | None = None
     """The treasure the group shares, rolled at spawn from the treasure types for groups (U and V), or
     None when the group has none. It drops on the party's cell only when every member is slain. If
-    any member routed, the group's treasure goes with the runners."""
+    any member routed, the group's treasure goes with the runners. When the turned members of a
+    partly turned group break away, the group's treasure stays with the members who fight on."""
 
 
 class PursuitState(BaseModel):

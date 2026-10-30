@@ -2783,8 +2783,9 @@ def _split_off_turned(session) -> list[Event]:
     The OSE SRD's turned undead "flee from the cleric's presence if possible, and will not harm
     the cleric". A group whose living members are all turned or afraid already runs as a whole.
     In a group with a living member that is neither turned nor afraid, the turned members break
-    away. They become a new group at the same distance. They take their treasure bundles and the
-    group's shared bundle, because routed monsters flee with their treasure. Every living member
+    away. They become a new group at the same distance, and each one takes the treasure it
+    carries, because routed monsters flee with their treasure. The group's shared bundle stays with
+    the members who fight on, so it drops only when they're all slain. Every living member
     of the new group is turned, so the monster block moves it away as it moves a wholly turned
     group, and leaves behind any member who can't move. The members who fight on stay in the
     original group, so the group's id and the policy registered for it don't change. Dead members
@@ -2810,9 +2811,7 @@ def _split_off_turned(session) -> list[Event]:
             label=group.label,
             monster_ids=turned_ids,
             distance_feet=group.distance_feet,
-            group_treasure=group.group_treasure,
         )
-        group.group_treasure = None
         for monster_id in turned_ids:
             bundle = group.member_treasure.pop(monster_id, None)
             if bundle is not None:
@@ -2829,10 +2828,14 @@ def _group_morale(session, group, fire_damaged) -> list[Event]:
     A conditional alternate resolves from the round's context. Fear of fire, for
     example, applies when the round's damage included fire. The spell morale
     modifier applies under the usual morale-modifier rule.
+
+    A group that's already running makes no check, whether it failed morale or its
+    living members are all turned or afraid. Its triggers stay pending. If the fear
+    on its members ends and it stops running, it judges them then.
     """
     state = session.battle
     score = _group_morale_score(session, group)
-    if score is None or group.fleeing:
+    if score is None or group.fleeing or _group_all_shaken(session, group):
         return []
     members = [session.combatant(monster_id) for monster_id in group.monster_ids]
     if all(incapacitated(member) for member in members):
