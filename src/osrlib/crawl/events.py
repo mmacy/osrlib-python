@@ -694,7 +694,8 @@ class RestedEvent(Event):
     Emitted by [`Rest`][osrlib.crawl.commands.Rest]. A completed rest clears the
     penalty for going without rest, counts toward recovering from exhaustion after a
     chase, and, for a full day, heals the party. A wandering monster that arrives during
-    the rest interrupts it, and an interrupted rest does none of that.
+    the rest interrupts it. An interrupted rest heals nobody, but each full turn rested
+    before the monsters came still clears that penalty and counts toward recovery.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"exploration.rest.rested", "exploration.rest.interrupted"})
@@ -720,8 +721,8 @@ class FatigueEvent(Event):
     `exploration.fatigue.gained` comes from any command that passes a turn while the
     session is in `exploring` mode, once the party has gone too long without resting
     (see [`check_fatigue`][osrlib.crawl.exploration.check_fatigue]).
-    `exploration.fatigue.recovered` comes from a completed
-    [`Rest`][osrlib.crawl.commands.Rest].
+    `exploration.fatigue.recovered` comes from a [`Rest`][osrlib.crawl.commands.Rest] once the
+    party has rested one full turn, even if a wandering monster interrupts it later.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"exploration.fatigue.gained", "exploration.fatigue.recovered"})
