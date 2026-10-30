@@ -2321,7 +2321,8 @@ class TurnUndead(Command):
     battle, declare a `turn_undead`
     [`BattleDeclaration`][osrlib.crawl.commands.BattleDeclaration] instead. Presenting the
     symbol is an aggressive act: if any monster is left neither turned nor destroyed, the
-    monsters attack at once and battle starts.
+    monsters that weren't turned attack at once and battle starts. The turned members of a
+    partly turned group break away as a new group and flee.
 
     Modes:
         `encounter`
@@ -2345,7 +2346,9 @@ class TurnUndead(Command):
         ([`EncounterEndedEvent`][osrlib.crawl.events.EncounterEndedEvent]). Otherwise a
         [`StanceChangedEvent`][osrlib.crawl.events.StanceChangedEvent] to `attacks`
         comes before the round, and battle starts after it
-        ([`BattleStartedEvent`][osrlib.crawl.events.BattleStartedEvent]).
+        ([`BattleStartedEvent`][osrlib.crawl.events.BattleStartedEvent]). A
+        [`MonsterFledEvent`][osrlib.crawl.events.MonsterFledEvent] follows for each new group
+        of turned members.
     """
 
     allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.ENCOUNTER})
