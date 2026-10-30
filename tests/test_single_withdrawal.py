@@ -38,6 +38,7 @@ from osrlib.core.events import AttackRolledEvent, InitiativeRolledEvent, Visibil
 from osrlib.core.ruleset import Ruleset
 from osrlib.core.spells import MemorizedSpell, memorize_spells
 from osrlib.core.tables import ReactionResult
+from osrlib.crawl import battle as battle_module
 from osrlib.crawl import encounter as encounter_module
 from osrlib.crawl.battle import MonsterAction
 from osrlib.crawl.commands import (
@@ -591,6 +592,63 @@ class TestSteppingUpIntoMelee:
         assert not _monsters_acted_first(session, result)
         assert BRAKK in {attack.defender_id for attack in _attacks(baseline)}
         assert BRAKK not in {attack.defender_id for attack in _attacks(result)}
+
+
+class TestAReplacementWhoCannotActWhenTheMomentComes:
+    """The swap is judged again in the movement step. A replacement who can no longer act on the party's
+    behalf by then doesn't step up: one who is incapacitated, charmed, or confused. The two stay where
+    they are, nothing reports the swap, and the replacement's melee attack doesn't resolve, because the
+    replacement never reached the front rank.
+
+    The condition lands between acceptance and the movement step through a wrapper around the battle
+    module's `_swap_ranks`, which the party block calls to start its movement step. The confusion is a
+    bare condition with no ledger effect behind it, so the behavior roll that would override a confused
+    member's declaration never runs, and the outcome takes no draw.
+    """
+
+    @staticmethod
+    def _afflict_before_the_move(monkeypatch, member_id: str, condition: Condition) -> list[bool]:
+        original = battle_module._swap_ranks
+        ran: list[bool] = []
+
+        def afflicted(session, swaps):
+            member = session.member(member_id)
+            member.conditions = (*member.conditions, ActiveCondition(condition=condition, effect_id="effect-9999"))
+            ran.append(True)
+            return original(session, swaps)
+
+        monkeypatch.setattr(battle_module, "_swap_ranks", afflicted)
+        return ran
+
+    def _round_with_a_late_condition(self, monkeypatch, condition: Condition):
+        session = _battle(distance=5)
+        # Preconditions: Wynn stands behind the front rank, free to act, when the round is declared.
+        assert WYNN in _view(session).declarers
+        assert WYNN not in _view(session).front_rank
+        assert not has_condition(session.member(WYNN), condition)
+        ran = self._afflict_before_the_move(monkeypatch, WYNN, condition)
+        strike = BattleDeclaration(character_id=WYNN, action="attack", target_group_id=_group(session))
+        result = _round(session, _withdraw(BRAKK, WYNN), strike)
+        assert result.accepted, _rejections(result)
+        # Preconditions: the condition landed in the movement step, and Wynn still bears it.
+        assert ran == [True]
+        assert has_condition(session.member(WYNN), condition)
+        return session, result
+
+    @CHUNK
+    @pytest.mark.parametrize("condition", [Condition.CHARMED, Condition.CONFUSED])
+    def test_a_charmed_or_confused_replacement_does_not_step_up(self, monkeypatch, condition):
+        session, result = self._round_with_a_late_condition(monkeypatch, condition)
+        assert _swaps(result) == []
+        assert _order(session) == [BRAKK, SABLE, WYNN, ELARA]
+        assert WYNN not in {attack.attacker_id for attack in _attacks(result)}
+
+    def test_a_paralysed_replacement_does_not_step_up(self, monkeypatch):
+        """Unmarked guard: the implemented re-check already holds for a replacement who can't move."""
+        session, result = self._round_with_a_late_condition(monkeypatch, Condition.PARALYSED)
+        assert _swaps(result) == []
+        assert _order(session) == [BRAKK, SABLE, WYNN, ELARA]
+        assert WYNN not in {attack.attacker_id for attack in _attacks(result)}
 
 
 @CHUNK
