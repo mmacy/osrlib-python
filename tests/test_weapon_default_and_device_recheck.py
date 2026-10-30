@@ -11,7 +11,9 @@ one another" and melee attacks "Are possible when opponents are 5' or less from 
 reads the group's distance when it accepts the round, then takes the first wielded item, in the order the
 member equipped them, with the `melee` quality for a melee attack or the `missile` quality for a missile
 attack. Among missile weapons it prefers the first whose long range reaches the group. The SRD's weapon table
-lists the torch with the `Melee` quality, so a torch counts. Holy water and burning oil are "Splash weapon"
+lists the torch with the `Melee` quality, so a torch counts, but only when the member wields no real weapon that
+suits the attack, because a member with a torch in one hand and a sword in the other swings the sword. Holy
+water and burning oil are "Splash weapon"
 entries that a `use_item` declaration throws, so they never count, and a wand has no weapon stats at all. A
 member with nothing that suits the attack strikes unarmed, as before. The choice is made once, when the round
 is accepted, so a round with `weapon_id=None` is exactly the round that names the chosen weapon. Most tests
@@ -212,6 +214,8 @@ EQUIVALENCE_CASES = [
     pytest.param(40, ("spear", "long_bow"), "spear", "Spear", id="the first missile weapon that reaches"),
     pytest.param(100, ("spear", "long_bow"), "long_bow", "Long bow", id="a later missile weapon that reaches"),
     pytest.param(5, ("torch",), "torch", "improvised", id="a torch is a melee weapon"),
+    pytest.param(5, ("torch", "sword"), "sword", "Sword", id="a sword over a torch equipped first"),
+    pytest.param(5, ("torch", "dagger"), "dagger", "Dagger", id="a dagger over a torch equipped first"),
     pytest.param(40, ("oil_flask", "short_bow"), "short_bow", "Short bow", id="a splash weapon is passed over"),
     pytest.param(200, ("short_bow",), "short_bow", None, id="a bow that cannot reach is still the bow"),
 ]
