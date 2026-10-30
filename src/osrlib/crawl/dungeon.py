@@ -74,7 +74,7 @@ print(crypt.level(1).edge((0, 0), Direction.NORTH).kind)
 
 from collections.abc import Callable, Iterable
 from enum import StrEnum
-from typing import Any, Literal
+from typing import Any, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator, model_validator
 
@@ -1686,6 +1686,26 @@ class DoorState(BaseModel):
         if name in type(self).model_fields and self._write_through is not None:
             self._write_through(self, name, value)
 
+    # A copy or a pickle is the caller's own snapshot, so it drops the hook and writes nothing back to the overlay.
+
+    def __copy__(self) -> Self:
+        """Return a shallow copy that doesn't write to the overlay."""
+        copied = super().__copy__()
+        copied._write_through = None
+        return copied
+
+    def __deepcopy__(self, memo: dict[int, Any] | None = None) -> Self:
+        """Return a deep copy that doesn't write to the overlay."""
+        copied = super().__deepcopy__(memo)
+        copied._write_through = None
+        return copied
+
+    def __getstate__(self) -> dict[Any, Any]:
+        """Return the state to pickle, without the hook to the overlay."""
+        state = super().__getstate__()
+        state["__pydantic_private__"] = {**(state["__pydantic_private__"] or {}), "_write_through": None}
+        return state
+
 
 class DroppedItem(BaseModel):
     """One stack of an ordinary item lying on the floor.
@@ -1954,7 +1974,9 @@ class DungeonState(BaseModel):
         doesn't apply the door's [`DoorSpec`][osrlib.crawl.dungeon.DoorSpec]: a door whose
         `starts_open` is set stands open in play, but the state the method returns reads `open` as
         `False`. To show doors the way the party sees them, read the player view from
-        [`GameSession.view`][osrlib.crawl.session.GameSession.view] instead.
+        [`GameSession.view`][osrlib.crawl.session.GameSession.view] instead. A first write through
+        this method, like `door(ref).discovered = True`, stores the entry with `open` set to `False`.
+        When the session's commands change a door, they store a new entry with `starts_open` applied.
 
         Args:
             ref: The door's [`edge_ref`][osrlib.crawl.dungeon.edge_ref]. You get the same reference
