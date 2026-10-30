@@ -5791,7 +5791,8 @@
                   "fixed_damage_options": [],
                   "name": "bite"
                 }
-              ]
+              ],
+              "use": "primary"
             }
           ],
           "categories": [],

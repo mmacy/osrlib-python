@@ -182,7 +182,8 @@
               "fixed_damage_options": [],
               "name": "mace"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -307,7 +308,8 @@
               "fixed_damage_options": [],
               "name": "blow"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -434,7 +436,8 @@
               "fixed_damage_options": [],
               "name": "blow"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -561,7 +564,8 @@
               "fixed_damage_options": [],
               "name": "blow"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -712,7 +716,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -827,7 +832,8 @@
               "fixed_damage_options": [],
               "name": "claw"
             }
-          ]
+          ],
+          "use": "primary"
         },
         {
           "attacks": [
@@ -841,7 +847,8 @@
               "fixed_damage_options": [],
               "name": "thrown rock"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -956,7 +963,8 @@
               "fixed_damage_options": [],
               "name": "weapon"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -1108,7 +1116,8 @@
               "fixed_damage_options": [],
               "name": "gaze"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -1217,7 +1226,8 @@
               "fixed_damage_options": [],
               "name": "weapon"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -1347,7 +1357,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -1532,7 +1543,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         },
         {
           "attacks": [
@@ -1546,7 +1558,8 @@
               "fixed_damage_options": [],
               "name": "breath"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -1686,7 +1699,8 @@
               "fixed_damage_options": [],
               "name": "touch"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -1801,7 +1815,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -1922,7 +1937,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -2107,7 +2123,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         },
         {
           "attacks": [
@@ -2121,7 +2138,8 @@
               "fixed_damage_options": [],
               "name": "breath"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -2225,7 +2243,8 @@
               "fixed_damage_options": [],
               "name": "tusk"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -2367,7 +2386,8 @@
               "fixed_damage_options": [],
               "name": "weapon"
             }
-          ]
+          ],
+          "use": "primary"
         },
         {
           "attacks": [
@@ -2381,7 +2401,8 @@
               "fixed_damage_options": [],
               "name": "weapon"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -2548,7 +2569,8 @@
               "fixed_damage_options": [],
               "name": "weapon"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -2689,7 +2711,8 @@
               "fixed_damage_options": [],
               "name": "fist"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -2849,7 +2872,8 @@
               "fixed_damage_options": [],
               "name": "weapon"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -2953,7 +2977,8 @@
               "fixed_damage_options": [],
               "name": "weapon"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -3071,7 +3096,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         },
         {
           "attacks": [
@@ -3087,7 +3113,8 @@
               "fixed_damage_options": [],
               "name": "ram"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -3187,7 +3214,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -3327,7 +3355,8 @@
               "fixed_damage_options": [],
               "name": "hoof"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -3439,7 +3468,8 @@
               "fixed_damage_options": [],
               "name": "tentacle"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -3558,7 +3588,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -3688,7 +3719,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         },
         {
           "attacks": [
@@ -3702,7 +3734,8 @@
               "fixed_damage_options": [],
               "name": "jump"
             }
-          ]
+          ],
+          "use": "primary"
         },
         {
           "attacks": [
@@ -3718,7 +3751,8 @@
               "fixed_damage_options": [],
               "name": "spit"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -3849,7 +3883,8 @@
               "fixed_damage_options": [],
               "name": "weapon"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -3953,7 +3988,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -4107,7 +4143,8 @@
               "fixed_damage_options": [],
               "name": "dragon: bite"
             }
-          ]
+          ],
+          "use": "primary"
         },
         {
           "attacks": [
@@ -4121,7 +4158,8 @@
               "fixed_damage_options": [],
               "name": "breath"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -4256,7 +4294,8 @@
               "fixed_damage_options": [],
               "name": "weapon"
             }
-          ]
+          ],
+          "use": "primary"
         },
         {
           "attacks": [
@@ -4270,7 +4309,8 @@
               "fixed_damage_options": [],
               "name": "boulder"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -4376,7 +4416,8 @@
               "fixed_damage_options": [],
               "name": "beak"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -4483,7 +4524,8 @@
               "fixed_damage_options": [],
               "name": "pincer"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -4611,7 +4653,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -4727,7 +4770,8 @@
               "fixed_damage_options": [],
               "name": "blow"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -4854,7 +4898,8 @@
               "fixed_damage_options": [],
               "name": "club"
             }
-          ]
+          ],
+          "use": "primary"
         },
         {
           "attacks": [
@@ -4868,7 +4913,8 @@
               "fixed_damage_options": [],
               "name": "rock"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -5011,7 +5057,8 @@
               "fixed_damage_options": [],
               "name": "weapon"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -5205,7 +5252,8 @@
               "fixed_damage_options": [],
               "name": "gore"
             }
-          ]
+          ],
+          "use": "primary"
         },
         {
           "attacks": [
@@ -5219,7 +5267,8 @@
               "fixed_damage_options": [],
               "name": "weapon"
             }
-          ]
+          ],
+          "use": "primary"
         },
         {
           "attacks": [
@@ -5235,7 +5284,8 @@
               "fixed_damage_options": [],
               "name": "magic"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -5352,7 +5402,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -5483,7 +5534,8 @@
               "fixed_damage_options": [],
               "name": "magic"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -5615,7 +5667,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -5712,7 +5765,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -5959,7 +6013,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         },
         {
           "attacks": [
@@ -5973,7 +6028,8 @@
               "fixed_damage_options": [],
               "name": "breath"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -6094,7 +6150,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -6231,7 +6288,8 @@
               "fixed_damage_options": [],
               "name": "magic"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -6343,7 +6401,8 @@
               "fixed_damage_options": [],
               "name": "weapon"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -6473,7 +6532,8 @@
               "fixed_damage_options": [],
               "name": "blow"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -6600,7 +6660,8 @@
               "fixed_damage_options": [],
               "name": "blow"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -6727,7 +6788,8 @@
               "fixed_damage_options": [],
               "name": "blow"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -6878,7 +6940,8 @@
               "fixed_damage_options": [],
               "name": "magic"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -7003,7 +7066,8 @@
               "fixed_damage_options": [],
               "name": "tusk"
             }
-          ]
+          ],
+          "use": "primary"
         },
         {
           "attacks": [
@@ -7017,7 +7081,8 @@
               "fixed_damage_options": [],
               "name": "trample"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -7126,7 +7191,8 @@
               "fixed_damage_options": [],
               "name": "weapon"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -7235,7 +7301,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -7335,7 +7402,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -7463,7 +7531,8 @@
               "fixed_damage_options": [],
               "name": "blow"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -7597,7 +7666,8 @@
               "fixed_damage_options": [],
               "name": "blow"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -7731,7 +7801,8 @@
               "fixed_damage_options": [],
               "name": "blow"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -7865,7 +7936,8 @@
               "fixed_damage_options": [],
               "name": "weapon"
             }
-          ]
+          ],
+          "use": "primary"
         },
         {
           "attacks": [
@@ -7879,7 +7951,8 @@
               "fixed_damage_options": [],
               "name": "boulder"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -8034,7 +8107,8 @@
               "fixed_damage_options": [],
               "name": "heat aura"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -8164,7 +8238,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         },
         {
           "attacks": [
@@ -8180,7 +8255,8 @@
               "fixed_damage_options": [],
               "name": "spray"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -8301,7 +8377,8 @@
               "fixed_damage_options": [],
               "name": "weapon"
             }
-          ]
+          ],
+          "use": "primary"
         },
         {
           "attacks": [
@@ -8315,7 +8392,8 @@
               "fixed_damage_options": [],
               "name": "boulder"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -8463,7 +8541,8 @@
               "fixed_damage_options": [],
               "name": "cold aura"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -8613,7 +8692,8 @@
               "fixed_damage_options": [],
               "name": "horn"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -8729,7 +8809,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -8857,7 +8938,8 @@
               "fixed_damage_options": [],
               "name": "touch"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -8996,7 +9078,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -9096,7 +9179,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -9196,7 +9280,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -9303,7 +9388,8 @@
               "fixed_damage_options": [],
               "name": "feeler"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -9403,7 +9489,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -9522,7 +9609,8 @@
               "fixed_damage_options": [],
               "name": "talons or beak"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -9629,7 +9717,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -9745,7 +9834,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -9872,7 +9962,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -10005,7 +10096,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -10135,7 +10227,8 @@
               "fixed_damage_options": [],
               "name": "spine"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -10235,7 +10328,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -10351,7 +10445,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -10456,7 +10551,8 @@
               "fixed_damage_options": [],
               "name": "weapon"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -10601,7 +10697,8 @@
               "fixed_damage_options": [],
               "name": "weapon"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -10758,7 +10855,8 @@
               "fixed_damage_options": [],
               "name": "weapon"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -10977,7 +11075,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         },
         {
           "attacks": [
@@ -10991,7 +11090,8 @@
               "fixed_damage_options": [],
               "name": "breath"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -11116,7 +11216,8 @@
               "fixed_damage_options": [],
               "name": "gore"
             }
-          ]
+          ],
+          "use": "primary"
         },
         {
           "attacks": [
@@ -11132,7 +11233,8 @@
               "fixed_damage_options": [],
               "name": "breath"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -11241,7 +11343,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -11425,7 +11528,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         },
         {
           "attacks": [
@@ -11439,7 +11543,8 @@
               "fixed_damage_options": [],
               "name": "breath"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -11581,7 +11686,8 @@
               "fixed_damage_options": [],
               "name": "touch"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -11698,7 +11804,8 @@
               "fixed_damage_options": [],
               "name": "touch"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -11831,7 +11938,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -11948,7 +12056,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -12057,7 +12166,8 @@
               "fixed_damage_options": [],
               "name": "weapon"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -12197,7 +12307,8 @@
               "fixed_damage_options": [],
               "name": "song"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -12339,7 +12450,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         },
         {
           "attacks": [
@@ -12353,7 +12465,8 @@
               "fixed_damage_options": [],
               "name": "breath"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -12495,7 +12608,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         },
         {
           "attacks": [
@@ -12509,7 +12623,8 @@
               "fixed_damage_options": [],
               "name": "breath"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -12651,7 +12766,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         },
         {
           "attacks": [
@@ -12665,7 +12781,8 @@
               "fixed_damage_options": [],
               "name": "breath"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -12807,7 +12924,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         },
         {
           "attacks": [
@@ -12821,7 +12939,8 @@
               "fixed_damage_options": [],
               "name": "breath"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -12963,7 +13082,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         },
         {
           "attacks": [
@@ -12977,7 +13097,8 @@
               "fixed_damage_options": [],
               "name": "breath"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -13084,7 +13205,8 @@
               "fixed_damage_options": [],
               "name": "weapon"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -13210,7 +13332,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -13315,7 +13438,8 @@
               "fixed_damage_options": [],
               "name": "weapon"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -13469,7 +13593,8 @@
               "fixed_damage_options": [],
               "name": "tail"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -13585,7 +13710,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -13701,7 +13827,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -13817,7 +13944,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -13933,7 +14061,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -14049,7 +14178,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -14165,7 +14295,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -14281,7 +14412,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -14397,7 +14529,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -14551,7 +14684,8 @@
               ],
               "name": "swarm"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -14711,7 +14845,8 @@
               ],
               "name": "swarm"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -14871,7 +15006,8 @@
               ],
               "name": "swarm"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -14993,7 +15129,8 @@
               "fixed_damage_options": [],
               "name": "blow"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -15118,7 +15255,8 @@
               "fixed_damage_options": [],
               "name": "blow"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -15271,7 +15409,8 @@
               "fixed_damage_options": [],
               "name": "sting"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -15382,7 +15521,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -15512,7 +15652,8 @@
               "fixed_damage_options": [],
               "name": "weapon"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -15632,7 +15773,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -15751,7 +15893,8 @@
               "fixed_damage_options": [],
               "name": "butt"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -15882,7 +16025,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -16010,7 +16154,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -16134,7 +16279,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -16243,7 +16389,8 @@
               "fixed_damage_options": [],
               "name": "weapon"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -16366,7 +16513,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -16483,7 +16631,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         },
         {
           "attacks": [
@@ -16497,7 +16646,8 @@
               "fixed_damage_options": [],
               "name": "tail spike"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -16618,7 +16768,8 @@
               "fixed_damage_options": [],
               "name": "tusk"
             }
-          ]
+          ],
+          "use": "primary"
         },
         {
           "attacks": [
@@ -16632,7 +16783,8 @@
               "fixed_damage_options": [],
               "name": "trample"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -16743,7 +16895,8 @@
               "fixed_damage_options": [],
               "name": "dagger"
             }
-          ]
+          ],
+          "use": "primary"
         },
         {
           "attacks": [
@@ -16757,7 +16910,8 @@
               "fixed_damage_options": [],
               "name": "spell"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -16875,7 +17029,8 @@
               "fixed_damage_options": [],
               "name": "butt"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -17018,7 +17173,8 @@
               "fixed_damage_options": [],
               "name": "snakebites"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -17169,7 +17325,8 @@
               "fixed_damage_options": [],
               "name": "weapon"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -17294,7 +17451,8 @@
               "fixed_damage_options": [],
               "name": "weapon"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -17424,7 +17582,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         },
         {
           "attacks": [
@@ -17438,7 +17597,8 @@
               "fixed_damage_options": [],
               "name": "weapon"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -17566,7 +17726,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -17682,7 +17843,8 @@
               "fixed_damage_options": [],
               "name": "kick"
             }
-          ]
+          ],
+          "use": "primary"
         },
         {
           "attacks": [
@@ -17696,7 +17858,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -17821,7 +17984,8 @@
               "fixed_damage_options": [],
               "name": "touch"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -17947,7 +18111,8 @@
               "fixed_damage_options": [],
               "name": "horn"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -18070,7 +18235,8 @@
               "fixed_damage_options": [],
               "name": "weapon"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -18202,7 +18368,8 @@
               "fixed_damage_options": [],
               "name": "weapon"
             }
-          ]
+          ],
+          "use": "primary"
         },
         {
           "attacks": [
@@ -18218,7 +18385,8 @@
               "fixed_damage_options": [],
               "name": "group spell"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -18331,7 +18499,8 @@
               "fixed_damage_options": [],
               "name": "weapon"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -18492,7 +18661,8 @@
               "fixed_damage_options": [],
               "name": "weapon"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -18619,7 +18789,8 @@
               "fixed_damage_options": [],
               "name": "swarm"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -18724,7 +18895,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -18836,7 +19008,8 @@
               "fixed_damage_options": [],
               "name": "talons or beak"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -18938,7 +19111,8 @@
               "fixed_damage_options": [],
               "name": "weapon"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -19072,7 +19246,8 @@
               "fixed_damage_options": [],
               "name": "bite per pack"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -19186,7 +19361,8 @@
               "fixed_damage_options": [],
               "name": "horn"
             }
-          ]
+          ],
+          "use": "primary"
         },
         {
           "attacks": [
@@ -19200,7 +19376,8 @@
               "fixed_damage_options": [],
               "name": "trample"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -19307,7 +19484,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -19433,7 +19611,8 @@
               "fixed_damage_options": [],
               "name": "touch"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -19562,7 +19741,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -19669,7 +19849,8 @@
               "fixed_damage_options": [],
               "name": "club"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -19785,7 +19966,8 @@
               "fixed_damage_options": [],
               "name": "oil spray"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -19934,7 +20116,8 @@
               "fixed_damage_options": [],
               "name": "weapon"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -20062,7 +20245,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -20188,7 +20372,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -20304,7 +20489,8 @@
               "fixed_damage_options": [],
               "name": "hoof"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -20464,7 +20650,8 @@
               "fixed_damage_options": [],
               "name": "weapon"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -20586,7 +20773,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -20700,7 +20888,8 @@
               "fixed_damage_options": [],
               "name": "dagger"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -20834,7 +21023,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -20928,7 +21118,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -21022,7 +21213,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -21150,7 +21342,8 @@
               "fixed_damage_options": [],
               "name": "sting"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -21343,7 +21536,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         },
         {
           "attacks": [
@@ -21357,7 +21551,8 @@
               "fixed_damage_options": [],
               "name": "breath"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -21495,7 +21690,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -21604,7 +21800,8 @@
               "fixed_damage_options": [],
               "name": "hoof"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -21718,7 +21915,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -21835,7 +22033,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -21944,7 +22143,8 @@
               "fixed_damage_options": [],
               "name": "magma jet"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -22052,7 +22252,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -22163,7 +22364,8 @@
               "fixed_damage_options": [],
               "name": "feeler"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -22287,7 +22489,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -22410,7 +22613,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         },
         {
           "attacks": [
@@ -22426,7 +22630,8 @@
               "fixed_damage_options": [],
               "name": "spray"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -22554,7 +22759,8 @@
               "fixed_damage_options": [],
               "name": "sting"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -22736,7 +22942,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         },
         {
           "attacks": [
@@ -22750,7 +22957,8 @@
               "fixed_damage_options": [],
               "name": "breath"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -22869,7 +23077,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         },
         {
           "attacks": [
@@ -22885,7 +23094,8 @@
               "fixed_damage_options": [],
               "name": "squeeze"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -23003,7 +23213,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -23126,7 +23337,8 @@
               "fixed_damage_options": [],
               "name": "touch"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -23261,7 +23473,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -23446,7 +23659,8 @@
               "fixed_damage_options": [],
               "name": "weapon"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -23566,7 +23780,8 @@
               "fixed_damage_options": [],
               "name": "butt"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -23680,7 +23895,8 @@
               "fixed_damage_options": [],
               "name": "butt"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -23811,7 +24027,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -23942,7 +24159,8 @@
               "fixed_damage_options": [],
               "name": "touch"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -24064,7 +24282,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         },
         {
           "attacks": [
@@ -24080,7 +24299,8 @@
               "fixed_damage_options": [],
               "name": "ram"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -24195,7 +24415,8 @@
               "fixed_damage_options": [],
               "name": "spit"
             }
-          ]
+          ],
+          "use": "primary"
         },
         {
           "attacks": [
@@ -24211,7 +24432,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -24320,7 +24542,8 @@
               "fixed_damage_options": [],
               "name": "spell"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -24491,7 +24714,8 @@
               "fixed_damage_options": [],
               "name": "beak"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -24593,7 +24817,8 @@
               "fixed_damage_options": [],
               "name": "tail"
             }
-          ]
+          ],
+          "use": "primary"
         },
         {
           "attacks": [
@@ -24607,7 +24832,8 @@
               "fixed_damage_options": [],
               "name": "trample"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -24723,7 +24949,8 @@
               "fixed_damage_options": [],
               "name": "beak"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -24844,7 +25071,8 @@
               "fixed_damage_options": [],
               "name": "weapon"
             }
-          ]
+          ],
+          "use": "primary"
         },
         {
           "attacks": [
@@ -24858,7 +25086,8 @@
               "fixed_damage_options": [],
               "name": "boulder"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -24998,7 +25227,8 @@
               "fixed_damage_options": [],
               "name": "lightning bolt"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -25126,7 +25356,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         },
         {
           "attacks": [
@@ -25142,7 +25373,8 @@
               "fixed_damage_options": [],
               "name": "spray"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -25258,7 +25490,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -25380,7 +25613,8 @@
               "fixed_damage_options": [],
               "name": "claw"
             }
-          ]
+          ],
+          "use": "primary"
         },
         {
           "attacks": [
@@ -25394,7 +25628,8 @@
               "fixed_damage_options": [],
               "name": "weapon"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -25527,7 +25762,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -25621,7 +25857,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -25730,7 +25967,8 @@
               "fixed_damage_options": [],
               "name": "butt"
             }
-          ]
+          ],
+          "use": "primary"
         },
         {
           "attacks": [
@@ -25744,7 +25982,8 @@
               "fixed_damage_options": [],
               "name": "trample"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -25858,7 +26097,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -25967,7 +26207,8 @@
               "fixed_damage_options": [],
               "name": "weapon"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -26086,7 +26327,8 @@
               "fixed_damage_options": [],
               "name": "fist"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -26202,7 +26444,8 @@
               "fixed_damage_options": [],
               "name": "gore"
             }
-          ]
+          ],
+          "use": "primary"
         },
         {
           "attacks": [
@@ -26216,7 +26459,8 @@
               "fixed_damage_options": [],
               "name": "trample"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -26340,7 +26584,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -26483,7 +26728,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -26600,7 +26846,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -26702,7 +26949,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -26821,7 +27069,8 @@
               "fixed_damage_options": [],
               "name": "horn"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -27000,7 +27249,8 @@
               "fixed_damage_options": [],
               "name": "touch"
             }
-          ]
+          ],
+          "use": "primary"
         },
         {
           "attacks": [
@@ -27016,7 +27266,8 @@
               "fixed_damage_options": [],
               "name": "gaze"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -27205,7 +27456,8 @@
               "fixed_damage_options": [],
               "name": "touch"
             }
-          ]
+          ],
+          "use": "primary"
         },
         {
           "attacks": [
@@ -27221,7 +27473,8 @@
               "fixed_damage_options": [],
               "name": "gaze"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -27410,7 +27663,8 @@
               "fixed_damage_options": [],
               "name": "touch"
             }
-          ]
+          ],
+          "use": "primary"
         },
         {
           "attacks": [
@@ -27426,7 +27680,8 @@
               "fixed_damage_options": [],
               "name": "gaze"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -27538,7 +27793,8 @@
               "fixed_damage_options": [],
               "name": "weapon"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -27644,7 +27900,8 @@
               "fixed_damage_options": [],
               "name": "weapon"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -27750,7 +28007,8 @@
               "fixed_damage_options": [],
               "name": "weapon"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -27875,7 +28133,8 @@
               "fixed_damage_options": [],
               "name": "hoof"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -27989,7 +28248,8 @@
               "fixed_damage_options": [],
               "name": "tentacle"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -28112,7 +28372,8 @@
               "fixed_damage_options": [],
               "name": "blow"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -28244,7 +28505,8 @@
               "fixed_damage_options": [],
               "name": "blow"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -28376,7 +28638,8 @@
               "fixed_damage_options": [],
               "name": "blow"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -28517,7 +28780,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -28705,7 +28969,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -28879,7 +29144,8 @@
               "fixed_damage_options": [],
               "name": "tusk/bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -29060,7 +29326,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         },
         {
           "attacks": [
@@ -29074,7 +29341,8 @@
               "fixed_damage_options": [],
               "name": "weapon"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -29258,7 +29526,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -29432,7 +29701,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -29626,7 +29896,8 @@
               "fixed_damage_options": [],
               "name": "bite"
             }
-          ]
+          ],
+          "use": "primary"
         },
         {
           "attacks": [
@@ -29640,7 +29911,8 @@
               "fixed_damage_options": [],
               "name": "breath"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -29771,7 +30043,8 @@
               "fixed_damage_options": [],
               "name": "touch"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -29889,7 +30162,8 @@
               "fixed_damage_options": [],
               "name": "hoof"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -30024,7 +30298,8 @@
               "fixed_damage_options": [],
               "name": "fist"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -30146,7 +30421,8 @@
               "fixed_damage_options": [],
               "name": "horn"
             }
-          ]
+          ],
+          "use": "primary"
         },
         {
           "attacks": [
@@ -30160,7 +30436,8 @@
               "fixed_damage_options": [],
               "name": "trample"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -30286,7 +30563,8 @@
               "fixed_damage_options": [],
               "name": "touch"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [
@@ -30423,7 +30701,8 @@
               "fixed_damage_options": [],
               "name": "sting"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -30560,7 +30839,8 @@
               "fixed_damage_options": [],
               "name": "spores"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [],
@@ -30676,7 +30956,8 @@
               "fixed_damage_options": [],
               "name": "weapon"
             }
-          ]
+          ],
+          "use": "primary"
         }
       ],
       "categories": [

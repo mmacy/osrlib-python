@@ -391,6 +391,14 @@ class MonsterAction(BaseModel):
     """Which mode of that spell to use, for `"npc_cast"`."""
     item_id: str | None = None
     """The instance id of the potion to drink, for `"npc_drink"`."""
+    routine: int | None = None
+    """Which of the monster's attack routines a `"melee"` action uses, as an index into its template's
+    [`attacks`][osrlib.core.monsters.MonsterTemplate.attacks]. None uses the first routine.
+
+    Any routine can be named, whatever its
+    [`use`][osrlib.core.monsters.AttackRoutine.use]. Battle rolls the attacks of a `PRIMARY`,
+    `ALTERNATIVE`, or `SITUATIONAL` routine, and rolls nothing for a `SPECIAL` one. An index the
+    template doesn't have makes the action impossible, so the session skips it."""
 
 
 class ActionPolicy(Protocol):
