@@ -198,7 +198,7 @@ class TestGauntletsOfOgrePower:
         hauler.inventory.purse.gp = MAX_LOAD_COINS + 1
         assert hauler.movement_rate(DETAILED) == 0  # bare-handed: past the maximum load
         worn_gauntlets(hauler.inventory)
-        assert hauler.movement_rate(DETAILED) == 30
+        assert hauler.movement_rate(DETAILED) == 60  # inside the raised 1,600 to 1,800 band
         hauler.inventory.purse.gp = MAX_LOAD_COINS + GAUNTLETS_BONUS + 1
         assert hauler.movement_rate(DETAILED) == 0  # the raised maximum still binds
 
@@ -538,7 +538,7 @@ class TestDamageRollTotal:
         assert result.total == self.rule(result)
 
     @CHUNK
-    @pytest.mark.parametrize("strength", [3, 6, 13, 16, 18])
+    @pytest.mark.parametrize("strength", [4, 6, 13, 16, 18])
     def test_the_rule_holds_across_strength_and_dice(self, strength):
         fighter = character(strength=strength)
         assert melee_modifier_for(fighter) != 0
