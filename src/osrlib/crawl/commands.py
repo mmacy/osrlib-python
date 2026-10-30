@@ -1718,6 +1718,8 @@ class UseItem(Command):
           `items.use.target_required` (an area device used in an encounter needs a
           `target_id`), `items.use.unknown_target`, and `items.use.battle_only` (a device
           that strikes works only as a battle declaration).
+        - Potions: `items.use.target_not_allowed` (`target_id` names anyone but the member
+          using the potion).
 
     Events:
         [`ItemIdentifiedEvent`][osrlib.crawl.events.ItemIdentifiedEvent], and
@@ -1748,8 +1750,9 @@ class UseItem(Command):
     """Who the item is used on: a party member's id for a device that heals by touch, or an
     encounter group's
     [`EncounterGroupView.id`][osrlib.crawl.views.EncounterGroupView.id] for a device that
-    covers an area. Leave it `None` for a potion, which the member drinks. A healing device with
-    `None` heals the member using it."""
+    covers an area. Leave it `None` for a potion, which the member drinks. The session refuses a
+    potion with a `target_id` other than `character_id`, because the member using a potion is
+    the one who drinks it. A healing device with `None` heals the member using it."""
     spell_id: str | None = None
     """Which spell to read off a scroll that has more than one, from
     [`load_spells`][osrlib.data.load_spells] (see the

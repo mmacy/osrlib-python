@@ -4179,6 +4179,13 @@ def _handle_use_item(session, command: UseItem) -> tuple[list[Rejection], list[E
         return [Rejection(code="exploration.item.not_carried", params={"item": command.item_id})], []
     template = magic_item_template(instance)
     if template.category is MagicItemCategory.POTION:
+        if command.target_id is not None and command.target_id != member.id:
+            return [
+                Rejection(
+                    code="items.use.target_not_allowed",
+                    params={"item": instance.instance_id, "target": command.target_id},
+                )
+            ], []
         rejections, events = _use_potion(session, member, instance, template)
     elif template.category is MagicItemCategory.SCROLL:
         rejections, events = _use_scroll(session, member, instance, template, command)
