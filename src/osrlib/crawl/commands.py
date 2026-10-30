@@ -29,14 +29,15 @@ attribute. The session refuses a command sent in any other mode with
 Referee commands are issued by game logic rather than by a player: a
 [`Listener`][osrlib.crawl.session.Listener] you write, the interpreter that runs an
 adventure's triggers, or an LLM referee. They grant and take away items and coins, award
-XP, set flags, spawn monsters, end encounters, move the clock, and record quest progress.
-Each one's summary starts with "Referee:". They're legal in every mode, and the session logs
-and replays them like any other command. The exceptions are the ones that would restart play
-once the session has ended: [`PlaceParty`][osrlib.crawl.commands.PlaceParty] is illegal in `victory`, and
+XP, add party members, set flags, spawn monsters, end encounters, move the clock, and record
+quest progress. Each one's summary starts with "Referee:". They're legal in every mode, and the
+session logs and replays them like any other command. The exceptions are the ones that would
+restart play once the session has ended: [`PlaceParty`][osrlib.crawl.commands.PlaceParty] is illegal in `victory`, and
 [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] and
 [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] are illegal in `victory` and
 `game_over`. [`EndEncounter`][osrlib.crawl.commands.EndEncounter] closes an open encounter, so
-it's legal only in `encounter` and `battle`.
+it's legal only in `encounter` and `battle`. [`AddMember`][osrlib.crawl.commands.AddMember]
+changes who is in the party, so it's legal only in `town` and `exploring`.
 
 Each command class's docstring states its contract in three sections. `Modes:` lists the session
 modes that accept it, `Rejections:` lists the codes it can be refused with, and `Events:`
@@ -89,6 +90,7 @@ The commands, grouped by what the party is doing:
   [`GrantCoins`][osrlib.crawl.commands.GrantCoins],
   [`RemoveItem`][osrlib.crawl.commands.RemoveItem],
   [`RemoveCoins`][osrlib.crawl.commands.RemoveCoins],
+  [`AddMember`][osrlib.crawl.commands.AddMember],
   [`AwardXP`][osrlib.crawl.commands.AwardXP],
   [`IdentifyItem`][osrlib.crawl.commands.IdentifyItem],
   [`SetFlag`][osrlib.crawl.commands.SetFlag],
@@ -166,6 +168,7 @@ from typing import Annotated, ClassVar, Literal, Union
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError, field_validator, model_validator
 
+from osrlib.core.character import Character
 from osrlib.core.clock import TimeUnit
 from osrlib.core.dice import parse
 from osrlib.core.events import Event
@@ -179,6 +182,7 @@ __all__ = [
     "CONSEQUENCE_COMMAND_CLASSES",
     "ActivateQuest",
     "AddJournalEntry",
+    "AddMember",
     "AdvanceTime",
     "AnyCommand",
     "AwardXP",
@@ -260,8 +264,9 @@ class SessionMode(StrEnum):
     `game_over` and `victory` are the terminal modes, which mean the session has ended.
     Play commands are refused in both. Referee commands stay legal in both, except the ones
     that would restart play: [`PlaceParty`][osrlib.crawl.commands.PlaceParty] is illegal in
-    `victory`, and [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] and
-    [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] are illegal in both. No play
+    `victory`, and [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters],
+    [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty], and
+    [`AddMember`][osrlib.crawl.commands.AddMember] are illegal in both. No play
     command leaves a terminal mode. A referee's `PlaceParty` is the only way out of
     `game_over`, and no command leaves `victory`.
     """
@@ -359,8 +364,9 @@ class Command(BaseModel):
     the set, and so do the referee commands
     [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters],
     [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty],
-    [`PlaceParty`][osrlib.crawl.commands.PlaceParty], and
-    [`EndEncounter`][osrlib.crawl.commands.EndEncounter]. Each command's `Modes:` section lists
+    [`PlaceParty`][osrlib.crawl.commands.PlaceParty],
+    [`EndEncounter`][osrlib.crawl.commands.EndEncounter], and
+    [`AddMember`][osrlib.crawl.commands.AddMember]. Each command's `Modes:` section lists
     its set."""
 
     @classmethod
@@ -2900,6 +2906,86 @@ class RemoveCoins(Command):
     """The coins to take, by denomination. The purse must contain at least this many of each."""
 
 
+class AddMember(Command):
+    """Referee: add a character to the party during play.
+
+    Use it to bring a new character into a running game: a replacement for a character who
+    died, a prisoner the party set free, or an adventurer the party meets in town. Build the
+    character the way you build a starting party member, with
+    [`create_character`][osrlib.core.character.create_character], and send it here. The
+    session gives the new member an id, puts them at the back of the marching order, and logs
+    the command, so a saved game and a replay both have the new member.
+
+    The id comes from the session's [`IdAllocator`][osrlib.core.monsters.IdAllocator] under
+    the `character` prefix, the way [`GameSession.new`][osrlib.crawl.session.GameSession.new]
+    assigns the starting party's ids, so it's the next `character-NNNN`. The session passes
+    over an id that a member already has, so the new id is unique in the party. Read it from the
+    event, and pass it in the `character_id` of later commands.
+
+    The new member joins at the back of the marching order, so the party's front rank stays as
+    it was. To move them, send [`ReorderParty`][osrlib.crawl.commands.ReorderParty], which is
+    legal in the same modes.
+
+    The session adds a copy of `character`, not the object you pass, because the command log
+    keeps the command as it arrived and a replay adds the member from it. The object you pass
+    is left as it was, with no id. Read the new member with
+    [`GameSession.member`][osrlib.crawl.session.GameSession.member].
+
+    The character must arrive fresh. Every condition and stat modifier on a character belongs
+    to an effect on the ledger of the game that applied it, and this session can't end an
+    effect it doesn't have, so the session refuses a character who has any, dead included. A
+    magic item or a valuable has an instance id from the game that created it, which could
+    match an id this session hands out, so the session refuses a character who carries one.
+    Mundane gear and coins are fine. Give magic items afterwards with
+    [`GrantItem`][osrlib.crawl.commands.GrantItem], which creates them with this session's ids.
+
+    When the party is in a dungeon, the coins the new member brings aren't treasure the party
+    found. The session adds them to
+    [`treasure_snapshot_cp`][osrlib.crawl.session.GameSession.treasure_snapshot_cp], so they
+    earn no experience when the party comes back to town.
+
+    Adding a member makes no draws and takes no time. The command is legal only in `town` and
+    `exploring`. During an encounter or a battle, the party's surprise, its chase pace, and the
+    members who declare each round are already settled, and once the session has ended, a new
+    member would restart play. To replace a party that was wiped out, first move it to town with
+    [`PlaceParty`][osrlib.crawl.commands.PlaceParty], which takes the session out of
+    `game_over`, and then add the new character.
+
+    Modes:
+        `town`, `exploring`
+
+    Rejections:
+        - `session.command.wrong_mode` - an encounter or a battle is open, or the session
+          has ended.
+        - `party.add.id_assigned` - the character's `id` isn't `None`. The character has an
+          id from another game, or is already a member.
+        - `party.add.under_effects` - the character has a condition, like `dead` or
+          `asleep`, or a stat modifier.
+        - `party.add.carries_instances` - the character carries a magic item or a valuable,
+          equipped or not.
+
+        The session checks in this order and reports the first that fails.
+
+    Events:
+        [`MemberAddedEvent`][osrlib.crawl.events.MemberAddedEvent] with the new member's id,
+        name, class, and level.
+    """
+
+    allowed_modes: ClassVar[frozenset[SessionMode]] = _FIELD_MODES
+
+    command_type: Literal["add_member"] = "add_member"
+    character: Character
+    """The character who joins, with `id` set to `None`, no conditions or stat modifiers, and no
+    magic items or valuables. Constructing the command copies the character, so a change you
+    make to your object afterwards doesn't reach the command, and the command log keeps the
+    character as you sent it."""
+
+    @field_validator("character", mode="after")
+    @classmethod
+    def _own_the_character(cls, value: Character) -> Character:
+        return value.model_copy(deep=True)
+
+
 class AwardXP(Command):
     """Referee: give one character experience points, apart from the XP the session awards.
 
@@ -3743,6 +3829,7 @@ ALL_COMMAND_CLASSES: tuple[type[Command], ...] = (
     EndEncounter,
     RemoveItem,
     RemoveCoins,
+    AddMember,
 )
 """Every command class, in a fixed order. These are the members of the
 [`AnyCommand`][osrlib.crawl.commands.AnyCommand] union.
@@ -3815,6 +3902,8 @@ The other referee commands are left out for these reasons:
   id, which the session assigns during play, so no document can contain one.
 - An adventure document can't use the result of [`RollDice`][osrlib.crawl.commands.RollDice],
   so an authored roll would only use up draws from the adjudication stream.
+- [`AddMember`][osrlib.crawl.commands.AddMember] carries a whole character, and an adventure
+  document carries no characters.
 
 In an authored consequence, the `character_id` of a grant, a removal, or an award is a
 selector, `"@party"` or `"@first"`, never a member id, because the session assigns

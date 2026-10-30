@@ -4,6 +4,8 @@ import json
 
 import pytest
 
+from osrlib.core.abilities import AbilityScore
+from osrlib.core.character import Character
 from osrlib.core.validation import Rejection
 from osrlib.crawl.commands import (
     ALL_COMMAND_CLASSES,
@@ -42,6 +44,7 @@ REFEREE_COMMANDS = {
     "end_encounter",
     "remove_item",
     "remove_coins",
+    "add_member",
 }
 
 # The referee commands a terminal session withholds, each because it would resume
@@ -61,9 +64,31 @@ ENCOUNTER_BOUND_CARVE_OUTS = {
     "end_encounter": frozenset(SessionMode) - frozenset({SessionMode.ENCOUNTER, SessionMode.BATTLE}),
 }
 
+# The referee commands that change who is in the party, so only the two modes where the
+# party is between encounters accept them: an open encounter or battle has already
+# settled surprise, the chase pace, and who declares, and an ended session would restart.
+ROSTER_CARVE_OUTS = {
+    "add_member": frozenset(SessionMode) - frozenset({SessionMode.TOWN, SessionMode.EXPLORING}),
+}
+
 # Every referee command's withheld modes, keyed by command type. A referee command
 # missing from this map is legal in every mode.
-REFEREE_CARVE_OUTS = RESUME_PLAY_CARVE_OUTS | ENCOUNTER_BOUND_CARVE_OUTS
+REFEREE_CARVE_OUTS = RESUME_PLAY_CARVE_OUTS | ENCOUNTER_BOUND_CARVE_OUTS | ROSTER_CARVE_OUTS
+
+
+def _recruit() -> Character:
+    """A fresh level 1 fighter with no id, the shape `AddMember` carries."""
+    return Character(
+        name="Ylva",
+        class_id="fighter",
+        race="human",
+        level=1,
+        xp=0,
+        scores={ability: 12 for ability in AbilityScore},
+        alignment="neutral",
+        max_hp=7,
+        current_hp=7,
+    )
 
 
 def sample_command(command_class):
@@ -127,6 +152,7 @@ def sample_command(command_class):
         "EndEncounter": dict(outcome="parley", resolve_area=True),
         "RemoveItem": dict(character_id="pc-1", item_id="torch", quantity=2),
         "RemoveCoins": dict(character_id="pc-1", coins={"gp": 5}),
+        "AddMember": dict(character=_recruit()),
     }
     return command_class(**samples[command_class.__name__])
 
@@ -210,6 +236,8 @@ class TestConsequenceCensus:
             "identify_item",
             # A draw no authored construct reads.
             "roll_dice",
+            # A whole character, which no adventure document carries.
+            "add_member",
         }
 
     def test_the_consequence_classes_are_a_subset_of_the_command_census(self):

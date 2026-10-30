@@ -437,6 +437,9 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
         + (f"{event.coins_gp_value} gp in coin" if event.coins_gp_value else "")
         + "."
     ),
+    "session.member.added": lambda event: (
+        f"{event.name}, a level {event.level} {event.class_id}, joins the party as {event.character_id}."
+    ),
 }
 
 
