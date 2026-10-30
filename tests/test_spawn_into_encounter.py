@@ -23,6 +23,7 @@ from osrlib.crawl.commands import (
     EngageBattle,
     EnterDungeon,
     EquipItem,
+    Evade,
     GrantItem,
     LightSource,
     ResolveBattleRound,
@@ -437,3 +438,32 @@ class TestAJoiningTrollRegenerates:
         assert len(effects) == 1
         attached = [event for event in result.events if event.code == "effects.effect.attached"]
         assert [event.effect_id for event in attached] == [effects[0].effect_id]
+
+
+def in_pursuit() -> GameSession:
+    """Two hostile wolves at 240 feet chase the party after it evades. Seed 1 gives that chase."""
+    session = start_session(1)
+    assert session.execute(SpawnMonsters(template_id="normal_wolf", count_fixed=2, distance_feet=240)).accepted
+    assert session.encounter is not None and session.battle is None
+    assert session.encounter.stance == "hostile", "precondition: the wolves are hostile"
+    assert session.execute(Evade()).accepted
+    assert session.encounter is not None and session.encounter.pursuit is not None, "precondition: a chase is on"
+    return session
+
+
+class TestNoJoinDuringAChase:
+    """A spawn during a pursuit is refused, as a parley or a turning is.
+
+    A pursuit runs at the pace of the slowest group, so a slow group that joined would let a party
+    that was being caught get away.
+    """
+
+    @CHUNK
+    def test_a_spawn_during_a_pursuit_is_refused_and_changes_nothing(self):
+        session = in_pursuit()
+        before = snapshot(session)
+        result = session.execute(SpawnMonsters(template_id="zombie", count_fixed=1, distance_feet=300))
+        assert not result.accepted
+        assert [rejection.code for rejection in result.rejections] == ["encounter.spawn.mid_pursuit"]
+        assert result.events == []
+        assert snapshot(session) == before
