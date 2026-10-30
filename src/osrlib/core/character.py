@@ -229,8 +229,10 @@ class Character(BaseModel):
     """The character's id within a game, like `"character-0001"`, or `None` before a session assigns one.
 
     [`GameSession.new`][osrlib.crawl.session.GameSession.new] assigns an id to each party member whose id is `None`,
-    from the session's [`IdAllocator`][osrlib.core.monsters.IdAllocator]. Commands refer to a character by this id. An
-    event about a character with no id uses the character's `name` instead.
+    from the session's [`IdAllocator`][osrlib.core.monsters.IdAllocator], and
+    [`AddMember`][osrlib.crawl.commands.AddMember] assigns one the same way to a character who joins during play.
+    Commands refer to a character by this id. An event about a character with no id uses the character's `name`
+    instead.
     """
 
     name: str = Field(min_length=1)

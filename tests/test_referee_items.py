@@ -153,10 +153,11 @@ def assert_replays(session: GameSession, adventure_document: Adventure) -> None:
 
 
 class TestTheCommandSurface:
-    def test_the_removal_commands_are_registered_at_the_end_of_the_census(self):
-        from osrlib.crawl.commands import RemoveCoins, RemoveItem
+    def test_the_removal_commands_are_registered_after_end_encounter(self):
+        from osrlib.crawl.commands import EndEncounter, RemoveCoins, RemoveItem
 
-        assert set(ALL_COMMAND_CLASSES[-2:]) == {RemoveItem, RemoveCoins}
+        after = ALL_COMMAND_CLASSES.index(EndEncounter) + 1
+        assert set(ALL_COMMAND_CLASSES[after : after + 2]) == {RemoveItem, RemoveCoins}
         assert RemoveItem.model_fields["command_type"].default == "remove_item"
         assert RemoveCoins.model_fields["command_type"].default == "remove_coins"
 

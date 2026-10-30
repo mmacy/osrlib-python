@@ -20,7 +20,8 @@ The members, in the order you use them:
   points, and returns a [`MonsterInstance`][osrlib.core.monsters.MonsterInstance].
 - The template's fields contain the rest of the stat block as models you read:
   [`MonsterHitDice`][osrlib.core.monsters.MonsterHitDice],
-  [`AttackRoutine`][osrlib.core.monsters.AttackRoutine] and
+  [`AttackRoutine`][osrlib.core.monsters.AttackRoutine] with
+  [`RoutineUse`][osrlib.core.monsters.RoutineUse], and
   [`MonsterAttack`][osrlib.core.monsters.MonsterAttack],
   [`MovementMode`][osrlib.core.monsters.MovementMode],
   [`MonsterSaves`][osrlib.core.monsters.MonsterSaves],
@@ -118,6 +119,7 @@ __all__ = [
     "MovementMode",
     "NumberAppearing",
     "NumberAppearingValue",
+    "RoutineUse",
     "TreasureRef",
     "XpNote",
     "spawn_monster",
@@ -392,18 +394,67 @@ class MonsterAttack(BaseModel):
         return value
 
 
+class RoutineUse(StrEnum):
+    """When a monster uses one of its attack routines, as the OSE SRD's stat block and description put it.
+
+    Read it as [`AttackRoutine.use`][osrlib.core.monsters.AttackRoutine.use]. The first routine of
+    every template is `PRIMARY`. Each later routine has one of the other three values, which tell a
+    policy whether it may pick the routine in a round of melee. The default policy,
+    [`ScriptedPolicy`][osrlib.crawl.battle.ScriptedPolicy], picks with equal chance among a
+    monster's `PRIMARY` and `ALTERNATIVE` routines. Your own policy can name any routine by its
+    index in [`MonsterAction.routine`][osrlib.crawl.battle.MonsterAction.routine].
+    """
+
+    PRIMARY = "primary"
+    """The first routine the stat block prints, which battle resolves when a policy names no routine."""
+
+    ALTERNATIVE = "alternative"
+    """A routine the monster may use in place of the first in any round, as the SRD's "or" offers.
+
+    A thoul claws or uses a weapon, and a mule kicks or bites. The default policy picks it as often
+    as the first routine.
+    """
+
+    SITUATIONAL = "situational"
+    """A routine the SRD ties to a situation osrlib doesn't model, so the default policy never picks it.
+
+    The situation is a range, a charge, a chance to trample, water, a ship, a form, or a loadout:
+    an elephant's trample, a giant's thrown boulder, a sperm whale's ram against a ship. A policy of
+    your own can name the routine when your game decides the situation applies, and battle then
+    rolls its attacks as melee attacks.
+    """
+
+    SPECIAL = "special"
+    """A routine battle never rolls as an attack: a breath, a gaze, or a spell.
+
+    A dragon breathes through a `"breath"` action, a petrifying gaze runs once a round before its
+    group acts, and the rest are left to the referee. Naming this routine in a `"melee"` action
+    makes the monster roll nothing that round.
+    """
+
+
 class AttackRoutine(BaseModel):
     """One set of attacks a monster can make in a round, chosen as a whole.
 
     Read them from [`MonsterTemplate.attacks`][osrlib.core.monsters.MonsterTemplate.attacks]. Most
     creatures have one. A creature with more than one uses one of them in a round, not all of them:
-    a dragon either claws and bites or breathes. You or the referee decide which. Frozen.
+    a dragon either claws and bites or breathes. The routine's `use` says when the SRD lets the
+    monster use it, and an action policy picks one each round. Frozen.
     """
 
     model_config = ConfigDict(frozen=True)
 
     attacks: tuple[MonsterAttack, ...] = Field(min_length=1)
     """The attacks the routine makes, at least one. See [`MonsterAttack`][osrlib.core.monsters.MonsterAttack]."""
+
+    use: RoutineUse = RoutineUse.PRIMARY
+    """When the monster uses this routine. See [`RoutineUse`][osrlib.core.monsters.RoutineUse].
+
+    The first routine of a template is `PRIMARY`. Every later routine in the built-in catalogs
+    carries one of the other labels, taken from the OSE SRD's text for that monster. In a template
+    of your own, label each later routine: one you leave unlabelled is `PRIMARY` too, so the default
+    policy picks it as often as the first.
+    """
 
 
 class MovementMode(BaseModel):

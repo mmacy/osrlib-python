@@ -18,6 +18,11 @@ REPO = Path(__file__).resolve().parent.parent
 
 _CROSSREF = re.compile(r"\]\[[^\]\s]+\]")
 
+# A JSON Schema `pattern` is an anchored regular expression, and a character class such as
+# `^[a-z][a-z0-9_]*$` looks like cross-reference markup to `_CROSSREF`. The catalog page
+# check drops these string literals from the rendered page before it searches.
+_SCHEMA_PATTERN = re.compile(r"&quot;\^[^&]*?\$&quot;")
+
 
 @pytest.fixture(scope="module")
 def site(tmp_path_factory: pytest.TempPathFactory) -> Path:
@@ -81,6 +86,6 @@ class TestSchemaProse:
         offenders = []
         for catalog in ("commands", "events"):
             for page in sorted((site / "reference" / catalog).glob("*/index.html")):
-                if _CROSSREF.search(page.read_text(encoding="utf-8")):
+                if _CROSSREF.search(_SCHEMA_PATTERN.sub("", page.read_text(encoding="utf-8"))):
                     offenders.append(f"{catalog}/{page.parent.name}")
         assert offenders == []

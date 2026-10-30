@@ -226,7 +226,13 @@ from osrlib.core.combat import (
 from osrlib.core.creature import Creature
 from osrlib.core.dice import roll
 from osrlib.core.effects import EFFECTS_STREAM, Condition, EffectDefinition, has_condition, kill
-from osrlib.core.events import AttackRolledEvent, Event, SavingThrowRolledEvent, SpellDisruptedEvent
+from osrlib.core.events import (
+    AttackRolledEvent,
+    DeclarationFizzledEvent,
+    Event,
+    SavingThrowRolledEvent,
+    SpellDisruptedEvent,
+)
 from osrlib.core.items import (
     GearTemplate,
     ItemInstance,
@@ -235,7 +241,7 @@ from osrlib.core.items import (
     WeaponQuality,
     magic_item_template,
 )
-from osrlib.core.monsters import MonsterAbility, MonsterAttack, MonsterInstance
+from osrlib.core.monsters import MonsterAbility, MonsterAttack, MonsterInstance, RoutineUse
 from osrlib.core.spells import (
     MAGIC_STREAM,
     cast_spell,
@@ -396,6 +402,15 @@ class MonsterAction(BaseModel):
     """Which mode of that spell to use, for `"npc_cast"`."""
     item_id: str | None = None
     """The instance id of the potion to drink, for `"npc_drink"`."""
+    routine: int | None = None
+    """Which of the monster's attack routines a `"melee"` action uses, as an index into its template's
+    [`attacks`][osrlib.core.monsters.MonsterTemplate.attacks]. None uses the first routine.
+
+    Any routine can be named, whatever its
+    [`use`][osrlib.core.monsters.AttackRoutine.use]. Battle rolls the attacks of a `PRIMARY`,
+    `ALTERNATIVE`, or `SITUATIONAL` routine, and rolls nothing for a `SPECIAL` one. An index the
+    template doesn't have, a negative one included, makes the action impossible, so the session
+    skips it. An NPC adventurer fights with its weapon and ignores this field."""
 
 
 class ActionPolicy(Protocol):
@@ -531,6 +546,13 @@ class ScriptedPolicy:
     picks a target at random from the party's front rank, leaving out invisible members and members
     whose *protection from evil* bars that monster. When no target is left, the monster holds.
 
+    The monster then picks which of its attack routines to use, with equal chance among the routines
+    whose [`use`][osrlib.core.monsters.AttackRoutine.use] is `PRIMARY` or `ALTERNATIVE`, and names
+    it in [`MonsterAction.routine`][osrlib.crawl.battle.MonsterAction.routine]. A thoul claws or
+    swings a weapon, and a mule kicks or bites. The policy never picks a `SITUATIONAL` or `SPECIAL`
+    routine, such as an elephant's trample or a vampire's gaze. A monster with only one routine to
+    pick from draws nothing for it.
+
     The monster data has no ranges for monsters' missile attacks, so osrlib treats them like melee:
     the monster closes first, then attacks. This is an adaptation, a place where osrlib commits to
     one reading of a rule the SRD leaves open. The
@@ -539,8 +561,9 @@ class ScriptedPolicy:
     spellcasting, which is the referee's call.
 
     Write a policy of your own when you want a group to hold a chokepoint, focus its attacks, back
-    off, or cast. To keep these tactics and change one thing, wrap this policy and change the
-    actions its `choose` returns, as the example does.
+    off, cast, or use a situational routine when your game decides its situation applies. To keep
+    these tactics and change one thing, wrap this policy and change the actions its `choose`
+    returns, as the example does.
     [`NpcPartyPolicy`][osrlib.crawl.battle.NpcPartyPolicy] is the built-in policy for NPC adventurers,
     which also heals, drinks potions, casts, and shoots.
 
@@ -658,7 +681,8 @@ class ScriptedPolicy:
                 actions.append(MonsterAction(monster_id=monster.id, kind="hold"))
                 continue
             target = targets[stream.randbelow(len(targets))]
-            actions.append(MonsterAction(monster_id=monster.id, kind="melee", target_id=target.id))
+            routine = _pick_routine(monster, stream)
+            actions.append(MonsterAction(monster_id=monster.id, kind="melee", target_id=target.id, routine=routine))
         return actions
 
 
@@ -874,6 +898,24 @@ def _npc_wielded(npc, *, missile: bool, distance_feet: int = MELEE_RANGE_FEET):
         elif WeaponQuality.MELEE in qualities or WeaponQuality.MISSILE not in qualities:
             return attack
     return None
+
+
+_PICKED_ROUTINE_USES = frozenset({RoutineUse.PRIMARY, RoutineUse.ALTERNATIVE})
+"""The routines `ScriptedPolicy` picks among. A situational or special routine is left to a game's own policy."""
+
+
+def _pick_routine(monster: MonsterInstance, stream) -> int | None:
+    """Pick the routine a melee action uses, with equal chance among the monster's primary and alternative routines.
+
+    A monster with one such routine draws nothing and gets None, which resolves its first routine, so
+    the stream advances only for a monster that has a choice to make.
+    """
+    candidates = [
+        index for index, routine in enumerate(monster.template.attacks) if routine.use in _PICKED_ROUTINE_USES
+    ]
+    if len(candidates) < 2:
+        return None
+    return candidates[stream.randbelow(len(candidates))]
 
 
 def _breath_usable(monster: MonsterInstance, distance_feet: int) -> bool:
@@ -1338,6 +1380,52 @@ def _find_wielded(member, weapon_id: str | None):
     return None
 
 
+def _with_default_weapon(session, declaration: BattleDeclaration, member) -> BattleDeclaration:
+    """Fill in the weapon of an `attack` that names none, as `BattleDeclaration.weapon_id` describes.
+
+    The group's distance decides the attack: melee at 5' or less, missile beyond. The weapon is the first
+    wielded item, in equip order, with that quality, and a real weapon comes before an improvised one: a gear
+    item whose stats come from its `combat` facet, like a torch. So a member who lit a torch and then drew a
+    sword swings the sword, and the torch counts only when nothing else suits the attack. For a missile
+    attack it's the first of those whose long range reaches the group, and the first missile weapon only
+    when none reaches. A splash weapon never counts, because a `use_item` declaration throws it, and neither
+    does an item with no weapon stats, like a wand. The session calls this once, when it
+    accepts the round, so the rest of the round reads the chosen weapon as if the player had named it.
+
+    Returns:
+        The declaration with `weapon_id` set to the chosen weapon's id: a magic weapon's instance id or a
+        mundane weapon's catalog id. The declaration itself when it isn't an `attack`, already names a weapon,
+        targets no group the battle still has, or the member wields nothing that suits the attack, which
+        leaves the attack unarmed.
+    """
+    if declaration.action != "attack" or declaration.weapon_id is not None:
+        return declaration
+    group = _group_by_id(session, declaration.target_group_id)
+    if group is None or group.fled:
+        return declaration
+    missile = group.distance_feet > MELEE_RANGE_FEET
+    wanted = WeaponQuality.MISSILE if missile else WeaponQuality.MELEE
+    weapons, improvised = [], []
+    for held in member.inventory.wielded:
+        is_magic = isinstance(held, MagicItemInstance)
+        facet = _declaration_facet(held if is_magic else held.template)
+        qualities = getattr(facet, "qualities", ())
+        if wanted in qualities and WeaponQuality.SPLASH not in qualities:
+            kind = improvised if not is_magic and isinstance(held.template, GearTemplate) else weapons
+            kind.append((held.instance_id if is_magic else held.template.id, facet))
+    suitable = weapons + improvised
+    if not suitable:
+        return declaration
+    chosen = suitable[0][0]
+    if missile:
+        for weapon_id, facet in suitable:
+            ranges = getattr(facet, "missile_ranges", None)
+            if ranges is None or group.distance_feet <= ranges.long.max_feet:
+                chosen = weapon_id
+                break
+    return declaration.model_copy(update={"weapon_id": chosen})
+
+
 def _declaration_facet(weapon):
     """The combat stats behind a declaration: a facet, a template, or a magic base."""
     if isinstance(weapon, MagicItemInstance):
@@ -1541,9 +1629,14 @@ def _validate_declaration(
     """Judge one declaration against the state it refers to, and return every reason it cannot stand.
 
     This runs twice on the declarations the round accepts. Once in the validation pre-phase, where a
-    rejection refuses the whole command, and again in the magic phase, immediately before a `cast`
-    resolves, because the phases between the two can change what these checks read. It reads state and
-    takes no draw, so running it a second time costs nothing and changes nothing.
+    rejection refuses the whole command, and again in the magic phase, immediately before a `cast`, a
+    `turn_undead`, or a device or scroll `use_item` resolves, because the phases between the two can change
+    what these checks read. It reads state and takes no draw, so running it a second time costs nothing and
+    changes nothing.
+
+    An `attack` with no `weapon_id` is judged with the weapon that `BattleDeclaration.weapon_id` says the
+    session chooses, from the group's distance when the round is accepted. `_handle_resolve_battle_round`
+    fills that weapon in with `_with_default_weapon` before it calls this.
 
     The pre-phase passes `front_rank`, the ids of the front rank as the round's swaps will leave it
     (see `_projected_front_rank`), so a replacement who steps up may declare a melee attack. Without
@@ -1743,10 +1836,10 @@ def _validate_magic_item_declaration(session, declaration: BattleDeclaration, me
     A scroll read resolves in the magic phase too, through the declaration's
     spell fields.
 
-    For a scroll this runs twice, as `_validate_declaration`'s `cast` branch does: once in the
-    validation pre-phase, and again in the magic phase immediately before the read resolves, because the
-    phases between the two can change what these checks read. It reads state and takes no draw, so the
-    second run costs nothing and changes nothing.
+    For a scroll or a device this runs twice, as `_validate_declaration`'s `cast` branch does: once in the
+    validation pre-phase, and again in the magic phase immediately before the read or the use resolves,
+    because the phases between the two can change what these checks read. It reads state and takes no draw,
+    so the second run costs nothing and changes nothing.
     """
     from osrlib.crawl import exploration
 
@@ -2012,8 +2105,12 @@ def _handle_resolve_battle_round(session, command: ResolveBattleRound) -> tuple[
         return rejections, []
     by_member = {}
     for declaration in command.declarations:
-        by_member[declaration.character_id] = (session.member(declaration.character_id), declaration)
-    withdrawal_rejections, swaps = _plan_withdrawals(session, declarers, command.declarations)
+        member = session.member(declaration.character_id)
+        # The default weapon is chosen once, here, so the round plays out as if the player had named it.
+        # The command log keeps the declaration as it was sent.
+        by_member[declaration.character_id] = (member, _with_default_weapon(session, declaration, member))
+    declarations = [declaration for _, declaration in by_member.values()]
+    withdrawal_rejections, swaps = _plan_withdrawals(session, declarers, declarations)
     front_rank = _projected_front_rank(session, swaps)
     for member, declaration in by_member.values():
         rejections.extend(_validate_declaration(session, declaration, member, front_rank=front_rank))
@@ -2059,8 +2156,8 @@ def _handle_resolve_battle_round(session, command: ResolveBattleRound) -> tuple[
     acted: set[str] = set()
     fired_this_round: list[str] = []
     fire_damaged_groups: set[str] = set()
-    formation = _formation_move(command.declarations)
-    retreating = _retreating_members(session, command.declarations, formation)
+    formation = _formation_move(declarations)
+    retreating = _retreating_members(session, declarations, formation)
     # The members who stepped back out of the front rank this round, and the replacements
     # whose swap didn't happen. The movement step fills both.
     withdrawn: set[str] = set()
@@ -2069,8 +2166,10 @@ def _handle_resolve_battle_round(session, command: ResolveBattleRound) -> tuple[
 
     def party_block() -> list[Event]:
         block: list[Event] = []
-        block.extend(_party_movement(session, by_member, swaps))
-        swapped = [event for event in block if isinstance(event, MemberWithdrewEvent)]
+        # The movement step: the swaps of members who withdraw alone, then the formation's move.
+        swapped = _swap_ranks(session, swaps)
+        block.extend(swapped)
+        block.extend(_party_movement(session, by_member))
         withdrawn.update(event.character_id for event in swapped)
         stranded.update(swap.replacement_id for swap in swaps)
         stranded.difference_update(event.replacement_id for event in swapped)
@@ -2174,8 +2273,8 @@ def _retreating_members(session, declarations: Sequence[BattleDeclaration], form
     )
 
 
-def _party_movement(session, by_member, swaps: Sequence[_Withdrawal]) -> list[Event]:
-    """Resolve the party's movement step: the formation's defensive move, or each swap and then a `close`.
+def _party_movement(session, by_member) -> list[Event]:
+    """Move the formation: its defensive move, or else the first `close`.
 
     A defensive move that every declarer makes moves the whole formation (see the
     [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/), under the battle
@@ -2184,9 +2283,9 @@ def _party_movement(session, by_member, swaps: Sequence[_Withdrawal]) -> list[Ev
     member declaring a fighting withdrawal backs the party off at half encounter rate, and that
     declaration is a move on its own, so the withdrawing party attacks nobody that round.
 
-    Otherwise the members who withdraw alone trade places with their replacements first (see
-    `_swap_ranks`). Then the first `close` in the round's declarations advances the formation on its
-    named group at encounter rate, stopping at 5'.
+    Otherwise the first `close` in the round's declarations advances the formation on its named
+    group at encounter rate, stopping at 5'. The members who withdraw alone have already traded places
+    with their replacements by then, earlier in the same movement step (see `_swap_ranks`).
     """
     declarations = [declaration for _, declaration in by_member.values()]
     events: list[Event] = []
@@ -2202,7 +2301,6 @@ def _party_movement(session, by_member, swaps: Sequence[_Withdrawal]) -> list[Ev
             group.distance_feet += rate
             events.append(GroupMovedEvent(group_id=group.id, distance_feet=group.distance_feet))
         return events
-    events.extend(_swap_ranks(session, swaps))
     for _member, declaration in by_member.values():
         if declaration.action == "move" and declaration.move == "close":
             group = _group_by_id(session, declaration.target_group_id)
@@ -2216,19 +2314,20 @@ def _party_movement(session, by_member, swaps: Sequence[_Withdrawal]) -> list[Ev
     return events
 
 
-def _swap_ranks(session, swaps: Sequence[_Withdrawal]) -> list[Event]:
+def _swap_ranks(session, swaps: Sequence[_Withdrawal]) -> list[MemberWithdrewEvent]:
     """Trade each withdrawing member's place in the marching order with their replacement's.
 
     The swaps run in the marching order of the withdrawing members, as `_plan_withdrawals` planned
     them. A swap happens only if, when the movement step comes, the withdrawing member still stands
     in the front rank, the replacement still stands behind it, and both can still move. A side that
     acted first can change any of that. Otherwise the two stay where they are and nothing reports
-    the swap. The order stays changed after the round. A swap takes no draw.
+    the swap. The order stays changed after the round. A swap takes no draw. The party block runs
+    this at the start of its movement step, before `_party_movement` moves the formation.
 
     Returns:
         A `MemberWithdrewEvent` for each swap that happened.
     """
-    events: list[Event] = []
+    events: list[MemberWithdrewEvent] = []
     for swap in swaps:
         ranks = _party_ranks(session)
         front = {member.id for member in ranks[0]} if ranks else set()
@@ -2554,9 +2653,20 @@ def _party_magic(session, by_member, pending_casters, disrupted, acted, state) -
     `magic.cast.disrupted` rather than `magic.cast.fizzled`. The disruption comes from the attack that
     hit, so it's the outcome the players saw.
 
-    A cast, and a scroll read inside `_resolve_scroll_cast`, is judged again immediately before it resolves,
-    with the checks it passed at the top of the round, and one that now fails any of them fizzles instead of
-    reaching the kernel. A device use and a turning are not judged again.
+    A cast, a scroll read inside `_resolve_scroll_cast`, a device use (a wand, staff, or rod), and a turning
+    are each judged again immediately before they resolve, with the checks they passed at the top of the
+    round. One that now fails any of them fizzles instead of resolving, and the re-check takes no draw, so a
+    declaration that passes it resolves with the same draws in the same order as before. A potion has no
+    check to fail.
+
+    A fizzled cast or scroll read reports a `SpellDisruptedEvent` at `magic.cast.fizzled`, and the caster loses
+    the memorized copy, or the scroll its spell, as a disruption loses them. A fizzled device use reports a
+    `DeclarationFizzledEvent` at `magic.device.fizzled` with the declared instance id as `item_id`, and a fizzled
+    turning reports one at `magic.turning.fizzled` with no `item_id`. Each event's `reason` is the first rejection
+    code of the re-check. A device was never used, so it keeps its charge, isn't identified, emits no
+    `items.device.activated`, and breaks no invisibility. A turning that fizzles costs nothing and draws
+    nothing. A fizzled device use or turning still releases the actor's concentration, as every declaration
+    other than a cast or a hold does.
     """
     events: list[Event] = []
     for member, declaration in by_member.values():
@@ -2569,6 +2679,21 @@ def _party_magic(session, by_member, pending_casters, disrupted, acted, state) -
                 continue  # thrown splash gear resolved in the missile phase
             instance = member.inventory.magic_item(declaration.item_id)
             category = magic_item_template(instance).category
+            if category in (MagicItemCategory.ROD, MagicItemCategory.STAFF, MagicItemCategory.WAND):
+                # The device use is judged again, as a cast is below. A refused one was never used, so
+                # it spends no charge, identifies nothing, and breaks no invisibility.
+                recheck = _validate_declaration(session, declaration, member)
+                if recheck:
+                    events.append(
+                        DeclarationFizzledEvent(
+                            code="magic.device.fizzled",
+                            actor_id=member.id,
+                            item_id=declaration.item_id,
+                            reason=recheck[0].code,
+                        )
+                    )
+                    acted.add(member.id)
+                    continue
             events.extend(_resolve_magic_item_use(session, member, declaration, state))
             if category is not MagicItemCategory.POTION:
                 # Unleashing a device or scroll is an attack for invisibility's
@@ -2578,7 +2703,16 @@ def _party_magic(session, by_member, pending_casters, disrupted, acted, state) -
             continue
         if declaration.action == "turn_undead":
             # Turning resolves in the magic phase but is never disruptable: it is
-            # a class ability, not a spell (see the adaptations register).
+            # a class ability, not a spell (see the adaptations register). It is judged
+            # again, though, and a refused one fizzles before it draws or costs anything.
+            recheck = _validate_declaration(session, declaration, member)
+            if recheck:
+                events.append(
+                    DeclarationFizzledEvent(code="magic.turning.fizzled", actor_id=member.id, reason=recheck[0].code)
+                )
+                events.extend(_release_concentration(session, member.id, state))
+                acted.add(member.id)
+                continue
             candidates = [
                 session.combatant(monster_id) for group in session.encounter.groups for monster_id in group.monster_ids
             ]
@@ -2855,7 +2989,9 @@ def _monster_block(
                         _resolve_npc_attack(session, monster, target, group, missile=False, retreating=exposed)
                     )
                 else:
-                    events.extend(_resolve_monster_melee(session, monster, target, retreating=exposed))
+                    events.extend(
+                        _resolve_monster_melee(session, monster, target, retreating=exposed, routine=action.routine)
+                    )
                 _watch_disruption(events, pending_casters, disrupted, acted)
             elif action.kind == "npc_shoot":
                 target = session.registry().get(action.target_id)
@@ -3187,18 +3323,29 @@ def _behaviour_outcome(params, total: int) -> str:
     return "no_action"
 
 
-def _resolve_monster_melee(session, monster, target, *, retreating: bool) -> list[Event]:
-    """Resolve a monster's attack routine against one target, with what each hit does beyond damage.
+_UNROLLED_ATTACK_NAMES = frozenset({"gaze", "breath"})
+"""Attack entries battle never rolls as attacks, whichever routine holds them.
 
-    An attack named `gaze` takes no attack roll, so this function skips it. `_resolve_gazes` runs a
-    petrifying gaze once a round instead.
+A petrifying gaze runs through `_resolve_gazes` once a round, a breath weapon through a `"breath"`
+action, and the rest are left to the referee.
+"""
+
+
+def _resolve_monster_melee(session, monster, target, *, retreating: bool, routine: int | None = None) -> list[Event]:
+    """Resolve one of a monster's attack routines against one target, with what each hit does beyond damage.
+
+    `routine` is an index into the template's `attacks`, and None resolves the first routine, as a
+    confused monster's attack does. An index the template doesn't have, a negative one included,
+    resolves nothing, so the session skips the action. A `SPECIAL` routine resolves nothing either,
+    and an attack named `gaze` or `breath` takes no attack roll in any routine.
     """
     events: list[Event] = []
-    routine = monster.template.attacks[0] if monster.template.attacks else None
-    if routine is None:
+    routines = monster.template.attacks
+    index = 0 if routine is None else routine
+    if not 0 <= index < len(routines) or routines[index].use is RoutineUse.SPECIAL:
         return []
-    for attack in routine.attacks:
-        if attack.name == "gaze":
+    for attack in routines[index].attacks:
+        if attack.name in _UNROLLED_ATTACK_NAMES:
             continue
         for _ in range(attack.count):
             if has_condition(target, Condition.DEAD):

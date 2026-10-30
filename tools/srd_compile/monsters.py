@@ -25,6 +25,10 @@ commas, the centaur attacks cell's trailing comma, the carcass crawler's stray
 parsers; semantic corrections (the bone golem's `2 or 4 × weapon` routines, the
 minotaur's missing bite damage) live in `overrides/monsters.json` with reasons.
 
+Every attack routine after the first is labelled with when the monster uses it, after the
+overrides apply: breaths, gazes, and spells by name, and the rest from the `_ROUTINE_USES`
+table. A later routine with no label fails the build, naming the monster.
+
 Printed XP is authoritative and ships as data; the compiler cross-validates every
 entry against the XP-awards table (base by HD row plus asterisks × bonus, both
 inflated by 250 per HD above 21) and fails the build on mismatch unless the entry's
@@ -233,6 +237,56 @@ _USES_FIRE_PAGES = {
     "Elemental.md": ("Fire Elemental",),
     "Salamander.md": ("Flame Salamander",),
     "Giant.md": ("Fire Giant",),
+}
+
+# Every attack routine carries a label saying when the monster uses it, one of the
+# `RoutineUse` values in osrlib.core.monsters. The first routine is always `primary`. A
+# later routine whose attacks are all a breath, a gaze, or a spell is `special` by its
+# name, so a new dragon or hellhound variant needs no entry. Every other later routine is
+# labelled in `_ROUTINE_USES`, by template id and the routine's attack name, from the
+# monster's text in the OSE SRD. `label_routines` fails the build on a later routine that
+# neither covers, so a new SRD monster with a second routine can't ship unlabelled.
+_SPECIAL_ROUTINE_NAMES = frozenset({"breath", "gaze", "spell", "group spell", "magic"})
+
+_ROUTINE_USES: dict[str, dict[str, str]] = {
+    # `alternative`: a free choice each round. The SRD prints "or" and names no situation.
+    "minotaur": {"weapon": "alternative"},
+    "mule": {"bite": "alternative"},
+    "spitting_cobra": {"bite": "alternative"},
+    "thoul": {"weapon": "alternative"},
+    "wererat": {"weapon": "alternative"},  # "Weapons: May also use weapons in animal form."
+    # `situational`: the SRD ties the routine to a situation osrlib doesn't model, so only a
+    # game's own action policy picks it. A form: the devil swine gores as a swine and wields
+    # a weapon in human form.
+    "devil_swine": {"weapon": "situational"},
+    # Range: a thrown or spat missile ("Boulder throwing: Up to 200'.").
+    "ape_white": {"thrown rock": "situational"},
+    "cloud_giant": {"boulder": "situational"},
+    "cyclops": {"rock": "situational"},  # "Rock throwing: Up to 200'."
+    "fire_giant": {"boulder": "situational"},
+    "frost_giant": {"boulder": "situational"},
+    "manticore": {"tail spike": "situational"},  # "Tail spikes: 180' range."
+    "stone_giant": {"boulder": "situational"},
+    # "Jump: ... 50% chance of jumping at a random opponent" and "Spit: Used defensively. 10' range."
+    "cave_locust": {"jump": "situational", "spit": "situational"},
+    # A chance: "Trample: 3-in-4 chance of trampling each round."
+    "elephant": {"trample": "situational"},
+    "mastodon": {"trample": "situational"},
+    "normal_rhinoceros": {"trample": "situational"},
+    "stegosaurus": {"trample": "situational"},
+    "titanothere": {"trample": "situational"},
+    "triceratops": {"trample": "situational"},
+    "woolly_rhinoceros": {"trample": "situational"},
+    # Water and ships.
+    "bull_shark": {"ram": "situational"},  # "Attack by ramming, then biting the stunned prey."
+    "freshwater_termite": {"spray": "situational"},  # "Irritant spray: Above water; maximum once a turn."
+    "saltwater_termite": {"spray": "situational"},
+    "swamp_termite": {"spray": "situational"},
+    "sea_serpent_lesser": {"squeeze": "situational"},  # "Squeeze: Coil around and crush a vessel"
+    "sperm_whale": {"ram": "situational"},  # "Ram ships: 10% likely to attack vessels"
+    # A loadout: "Weapons: 4×1-handed or 2×2-handed." The override in overrides/monsters.json
+    # splits the printed "2 or 4 × weapon" into the two routines.
+    "bone_golem": {"weapon": "situational"},
 }
 
 
@@ -512,6 +566,48 @@ def _parse_attacks(cell: str) -> list[dict[str, object]]:
             attacks.append(attack)
         routines.append({"attacks": attacks})
     return routines
+
+
+def label_routines(entries: list[dict[str, object]]) -> None:
+    """Label every attack routine of every entry with when the monster uses it.
+
+    The first routine is `primary`. A later routine whose attacks are all named in
+    `_SPECIAL_ROUTINE_NAMES` is `special`, and every other later routine takes its label
+    from `_ROUTINE_USES`. Run it after overrides, because an override can replace a
+    template's routines. The monsters printed on spell pages go through it too.
+
+    Args:
+        entries: Compiled monster-template dicts, labelled in place.
+
+    Raises:
+        ValueError: When a later routine has no label, naming each such monster, or when
+            `_ROUTINE_USES` labels a routine the monster doesn't have.
+    """
+    problems = []
+    for entry in entries:
+        table = _ROUTINE_USES.get(str(entry["id"]), {})
+        labelled = set()
+        routines = entry["attacks"]
+        assert isinstance(routines, list)
+        for index, routine in enumerate(routines):
+            names = [str(attack["name"]) for attack in routine["attacks"]]
+            key = ", ".join(names)
+            if index == 0:
+                routine["use"] = "primary"
+            elif all(name in _SPECIAL_ROUTINE_NAMES for name in names):
+                routine["use"] = "special"
+            elif key in table:
+                routine["use"] = table[key]
+                labelled.add(key)
+            else:
+                problems.append(f"{entry['id']} ({entry['page']}): routine {index + 1} ({key}) has no label")
+        for key in sorted(set(table) - labelled):
+            problems.append(f"{entry['id']} ({entry['page']}): no later routine is {key!r}, which _ROUTINE_USES labels")
+    if problems:
+        raise ValueError(
+            "attack routine labels (label each later routine in _ROUTINE_USES in tools/srd_compile/monsters.py):\n"
+            + "\n".join(problems)
+        )
 
 
 def _parse_movement(cell: str) -> list[dict[str, object]]:

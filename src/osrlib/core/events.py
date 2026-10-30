@@ -75,6 +75,7 @@ __all__ = [
     "DamageAbsorbedEvent",
     "DamageDealtEvent",
     "DeathEvent",
+    "DeclarationFizzledEvent",
     "EffectAttachedEvent",
     "EffectExpiredEvent",
     "EffectReleasedEvent",
@@ -1115,6 +1116,53 @@ class SpellDisruptedEvent(Event):
     """
 
 
+class DeclarationFizzledEvent(Event):
+    """A declared wand, staff, or rod use, or a declared turning, came to nothing, and cost nothing.
+
+    A session reports it during a battle round. In the round's magic phase, the session checks each declared
+    device use and turning again, just before it would resolve. If a check it passed at the start of the round now
+    fails, because something earlier in the round changed, the declaration fizzles. One example is a staff of
+    striking aimed at a group that runs out of melee reach before the magic phase. Another is a wand aimed at a
+    group that leaves the battle first. `reason` has the rejection code of the check that failed.
+
+    Nothing happened, and nothing was spent. The device was never used, so it keeps its charge and isn't
+    identified, and a turning has nothing to spend. Tell the player the action failed, and that the device still
+    has its charge. A cast or a scroll read that fizzles is reported by
+    [`SpellDisruptedEvent`][osrlib.core.events.SpellDisruptedEvent] instead, because a spell is lost.
+    """
+
+    allowed_codes: ClassVar[frozenset[str]] = frozenset({"magic.device.fizzled", "magic.turning.fizzled"})
+    """The two codes: `magic.device.fizzled` for a wand, staff, or rod use, and `magic.turning.fizzled` for a
+    turning."""
+
+    event_type: Literal["declaration_fizzled"] = "declaration_fizzled"
+    """The fixed string that identifies this event class in a serialized event."""
+
+    code: str
+    """Which declaration fizzled: `magic.device.fizzled` or `magic.turning.fizzled`."""
+
+    visibility: Visibility = Visibility.PLAYER
+    """Player visibility: everyone sees the action fail."""
+
+    actor_id: str
+    """The entity id of the member who declared the device use or the turning."""
+
+    item_id: str | None = None
+    """The device's per-instance id, the `item_id` the declaration named, on a `magic.device.fizzled` event. It's
+    the id the player already used, so it reveals nothing about a device that isn't identified. `None` on a
+    `magic.turning.fizzled` event."""
+
+    reason: str
+    """Why the declaration fizzled: the code of the first check that failed when the session checked it again.
+
+    Any check the declaration passed at the start of the round can fail, so read the code and don't assume a
+    cause. A staff of striking whose group ran out of reach gives `combat.attack.out_of_reach`, and a wand aimed at
+    a group that left the battle gives `battle.declaration.unknown_group`. Match on it as you match on the code of a
+    [`Rejection`][osrlib.core.validation.Rejection]. [The rejection code reference][rejection-codes] explains each
+    code.
+    """
+
+
 class SpellForgottenEvent(Event):
     """A caster forgot a memorized spell, because the caster no longer has room for it.
 
@@ -1300,6 +1348,7 @@ KERNEL_EVENT_CLASSES: tuple[type[Event], ...] = (
     SpellsMemorizedEvent,
     SpellCastEvent,
     SpellDisruptedEvent,
+    DeclarationFizzledEvent,
     SpellForgottenEvent,
     SpellBookUpdatedEvent,
     UndeadTurnedEvent,
@@ -1347,6 +1396,7 @@ KernelEvent = Annotated[
     | SpellsMemorizedEvent
     | SpellCastEvent
     | SpellDisruptedEvent
+    | DeclarationFizzledEvent
     | SpellForgottenEvent
     | SpellBookUpdatedEvent
     | UndeadTurnedEvent

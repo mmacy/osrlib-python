@@ -15,6 +15,8 @@ from crawl_fixtures import (
     build_party,
     build_portcullis_adventure,
 )
+from osrlib.core.abilities import AbilityScore
+from osrlib.core.character import Character
 from osrlib.core.events import Visibility
 from osrlib.core.items import Coins
 from osrlib.crawl.commands import (
@@ -33,7 +35,16 @@ from osrlib.crawl.quests import ObjectiveSpec, QuestSpec, TriggerClause
 from osrlib.crawl.session import GameSession
 from osrlib.crawl.triggers import TownEnteredPattern
 
-CHARACTER_IDS = ["character-0001", "character-0002", "character-0003", "character-0004", "character-0099"]
+# "character-0005" is the id the first member an `AddMember` adds gets, so the fuzz can
+# address a member who joined during play.
+CHARACTER_IDS = [
+    "character-0001",
+    "character-0002",
+    "character-0003",
+    "character-0004",
+    "character-0099",
+    "character-0005",
+]
 ITEM_IDS = [
     "torch",
     "sword",
@@ -105,11 +116,62 @@ def plant_magic_items(session) -> None:
     )
 
 
-def command_strategy():
-    """Schema-valid commands with plausible-to-nonsense field values."""
+PENDING_COMMANDS: frozenset[str] = frozenset()
+"""Command classes whose handler belongs to a chunk still in flight.
+
+The fuzz leaves them out until the chunk merges, because a stub handler raises. The
+chunk's own tests fuzz them under its xfail marker by passing `include_pending=True`.
+The lead empties this set when the chunk's markers come off.
+"""
+
+RECRUIT_SHAPES = ("fresh", "fresh", "with_id", "dead", "with_magic")
+"""The characters the fuzz offers `AddMember`: mostly fresh ones, plus one shape for each refusal.
+
+"fresh" is listed twice so the accepted path is the likelier draw.
+"""
+
+
+def recruit(shape: str) -> Character:
+    """Build a level 1 fighter in one of the `RECRUIT_SHAPES`."""
+    from osrlib.core.effects import ActiveCondition, Condition
+    from osrlib.core.items import Inventory, MagicItemInstance
+
+    character = Character(
+        name="Ylva",
+        class_id="fighter",
+        race="human",
+        level=1,
+        xp=0,
+        scores={ability: 12 for ability in AbilityScore},
+        alignment="neutral",
+        max_hp=7,
+        current_hp=7,
+    )
+    if shape == "with_id":
+        character.id = "character-0002"
+    elif shape == "dead":
+        character.conditions = (ActiveCondition(condition=Condition.DEAD),)
+    elif shape == "with_magic":
+        character.inventory = Inventory(
+            items=[MagicItemInstance(instance_id="magic-item-0001", template_id="potion_of_healing")]
+        )
+    return character
+
+
+def command_strategy(*, include_pending: bool = False):
+    """Schema-valid commands with plausible-to-nonsense field values.
+
+    Args:
+        include_pending: Whether to draw the classes in `PENDING_COMMANDS` too.
+    """
     samples = []
     for command_class in ALL_COMMAND_CLASSES:
         name = command_class.__name__
+        if name in PENDING_COMMANDS and not include_pending:
+            continue
+        if name == "AddMember":
+            samples.append(st.builds(command_class, character=st.sampled_from(RECRUIT_SHAPES).map(recruit)))
+            continue
         if name in ("PlaceParty",):
             samples.append(
                 st.builds(

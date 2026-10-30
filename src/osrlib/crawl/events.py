@@ -122,6 +122,7 @@ __all__ = [
     "LightEvent",
     "ListenedEvent",
     "LocationEnteredEvent",
+    "MemberAddedEvent",
     "MemberWithdrewEvent",
     "MonsterDefeatedEvent",
     "MonsterFledEvent",
@@ -2080,6 +2081,35 @@ class ItemsRemovedEvent(Event):
     """The coins removed, as their value in gold pieces. 0 for a removal of items."""
 
 
+class MemberAddedEvent(Event):
+    """A new member joined the party during play.
+
+    Emitted by [`AddMember`][osrlib.crawl.commands.AddMember]. The member is already in the
+    party, at the back of the marching order, so add them to the party on screen. Their full
+    sheet is in the views, under `character_id`. To find out why they joined, read the
+    `source` of the command that emitted the event.
+    """
+
+    allowed_codes: ClassVar[frozenset[str]] = frozenset({"session.member.added"})
+    """The only message code this event uses."""
+
+    event_type: Literal["member_added"] = "member_added"
+    """The event type, `member_added`, which identifies this class in serialized form."""
+    code: str = "session.member.added"
+    """The message code, always `session.member.added`."""
+    visibility: Visibility = Visibility.PLAYER
+    """Player visibility: the players see who joins them."""
+    character_id: str
+    """The id the session gave the new member, like `"character-0005"`. Later commands and
+    events refer to the member by this id."""
+    name: str
+    """The new member's name, so a log reads on its own without the party at hand."""
+    class_id: str
+    """The new member's class id, like `"fighter"`."""
+    level: int
+    """The new member's experience level when they joined."""
+
+
 CRAWL_EVENT_CLASSES: tuple[type[Event], ...] = (
     PartyMovedEvent,
     LocationEnteredEvent,
@@ -2139,6 +2169,7 @@ CRAWL_EVENT_CLASSES: tuple[type[Event], ...] = (
     QuestCompletedEvent,
     AdventureCompletedEvent,
     ItemsRemovedEvent,
+    MemberAddedEvent,
 )
 """The event classes defined in this module, in the order they're declared.
 

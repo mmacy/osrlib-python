@@ -120,7 +120,7 @@ from osrlib.core.events import (
     SavingThrowRolledEvent,
     Visibility,
 )
-from osrlib.core.items import EquipmentCatalog, ItemInstance
+from osrlib.core.items import EquipmentCatalog, ItemInstance, MagicItemInstance
 from osrlib.core.monsters import MONSTER_SPAWN_STREAM, IdAllocator, MonsterCatalog, MonsterInstance, spawn_monster
 from osrlib.core.rng import RngStreams, StreamName
 from osrlib.core.ruleset import Ruleset
@@ -130,6 +130,7 @@ from osrlib.crawl.adventure import Adventure, _effective_equipment, _effective_m
 from osrlib.crawl.commands import (
     ActivateQuest,
     AddJournalEntry,
+    AddMember,
     AdvanceTime,
     AwardXP,
     Command,
@@ -166,6 +167,7 @@ from osrlib.crawl.events import (
     JournalEntryAddedEvent,
     LightEvent,
     LocationEnteredEvent,
+    MemberAddedEvent,
     MonstersSpawnedEvent,
     NoteRecordedEvent,
     ObjectiveCompletedEvent,
@@ -618,7 +620,9 @@ class GameSession:
         """The party, in marching order. The order determines who is in the front rank in a fight.
         [`ReorderParty`][osrlib.crawl.commands.ReorderParty] sets it outside a fight. In a battle, a
         member who withdraws alone trades places with the member named in
-        [`BattleDeclaration.replacement_id`][osrlib.crawl.commands.BattleDeclaration.replacement_id]."""
+        [`BattleDeclaration.replacement_id`][osrlib.crawl.commands.BattleDeclaration.replacement_id].
+        [`AddMember`][osrlib.crawl.commands.AddMember] is the only command that adds a member, at
+        the back."""
         self.adventure = adventure
         """The adventure being played: its town, dungeons, quests, and any content it bundles. It's
         frozen, and a save contains a copy of it, so a saved game needs no other file to
@@ -787,7 +791,10 @@ class GameSession:
         [`load_game`][osrlib.persistence.load_game] instead.
 
         The session keeps the party you pass, not a copy, so from then on your character objects
-        are the session's live party members.
+        are the session's live party members. To add a member once play has begun, execute
+        [`AddMember`][osrlib.crawl.commands.AddMember], which gives the new member the next
+        `character-NNNN` id from the same allocator. Don't append to `party.members` yourself,
+        because the command log wouldn't record the change and a replay wouldn't have the member.
 
         This method checks the whole adventure before it builds anything, so an unknown monster id
         or a stair to a level that doesn't exist fails here, not partway through a delve.
@@ -2211,6 +2218,34 @@ def _handle_remove_coins(session: GameSession, command: RemoveCoins) -> tuple[li
     return [], [ItemsRemovedEvent(character_id=_member_id(member), coins_gp_value=command.coins.value_gp)]
 
 
+def _handle_add_member(session: GameSession, command: AddMember) -> tuple[list[Rejection], list[Event]]:
+    character = command.character
+    if character.id is not None:
+        return [Rejection(code="party.add.id_assigned", params={"character": character.id})], []
+    if character.conditions or character.stat_modifiers:
+        return [Rejection(code="party.add.under_effects", params={"name": character.name})], []
+    inventory = character.inventory
+    carried = [
+        *(instance.instance_id for instance in inventory.all_instances() if isinstance(instance, MagicItemInstance)),
+        *(valuable.instance_id for valuable in inventory.valuables),
+    ]
+    if carried:
+        return [Rejection(code="party.add.carries_instances", params={"name": character.name, "item": carried[0]})], []
+    # The command keeps the character as it arrived, so the log replays the same addition.
+    member = character.model_copy(deep=True)
+    taken = {existing.id for existing in session.party.members}
+    member.id = session.allocator.allocate("character")
+    while member.id in taken:
+        member.id = session.allocator.allocate("character")
+    session.party.members.append(member)
+    if session.treasure_snapshot_cp is not None:
+        # Coins carried in from outside the dungeon aren't treasure the party found.
+        session.treasure_snapshot_cp += member.inventory.purse.value_cp
+    return [], [
+        MemberAddedEvent(character_id=member.id, name=member.name, class_id=member.class_id, level=member.level)
+    ]
+
+
 def _handle_award_xp(session: GameSession, command: AwardXP) -> tuple[list[Rejection], list[Event]]:
     try:
         member = session.member(command.character_id)
@@ -2634,4 +2669,5 @@ _REFEREE_HANDLERS = {
     EndEncounter: _handle_end_encounter,
     RemoveItem: _handle_remove_item,
     RemoveCoins: _handle_remove_coins,
+    AddMember: _handle_add_member,
 }

@@ -70,6 +70,9 @@ def sample_event(event_class, code):
         ),
         "SpellCastEvent": dict(caster_id="pc-1", spell_id="fire_ball", mode="damage", target_ids=("monster-0001",)),
         "SpellDisruptedEvent": dict(caster_id="pc-1", spell_id="fire_ball"),
+        "DeclarationFizzledEvent": dict(
+            actor_id="pc-1", item_id="magic-item-0001", reason="combat.attack.out_of_reach"
+        ),
         "SpellForgottenEvent": dict(caster_id="pc-1", spell_id="sleep"),
         "SpellBookUpdatedEvent": dict(caster_id="pc-1", spell_id="web"),
         "UndeadTurnedEvent": dict(
@@ -97,6 +100,7 @@ def sample_event(event_class, code):
         ),
         "ItemsLeftBehindEvent": dict(item_ids=("valuable-0001",), coins_gp_value=40),
         "ItemsRemovedEvent": dict(character_id="pc-1", item_ids=("torch", "magic-item-0001"), coins_gp_value=10),
+        "MemberAddedEvent": dict(character_id="character-0005", name="Ylva", class_id="fighter", level=1),
         "LightEvent": dict(character_id="pc-1", source="torch"),
         "RestedEvent": dict(kind="night"),
         "FatigueEvent": dict(),
