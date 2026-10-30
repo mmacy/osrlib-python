@@ -40,6 +40,8 @@ REFEREE_COMMANDS = {
     "complete_objective",
     "complete_quest",
     "end_encounter",
+    "remove_item",
+    "remove_coins",
 }
 
 # The referee commands a terminal session withholds, each because it would resume
@@ -123,6 +125,8 @@ def sample_command(command_class):
         "CompleteObjective": dict(quest_id="the-idol", objective_id="recover-idol"),
         "CompleteQuest": dict(quest_id="the-idol"),
         "EndEncounter": dict(outcome="parley", resolve_area=True),
+        "RemoveItem": dict(character_id="pc-1", item_id="torch", quantity=2),
+        "RemoveCoins": dict(character_id="pc-1", coins={"gp": 5}),
     }
     return command_class(**samples[command_class.__name__])
 
@@ -213,14 +217,14 @@ class TestConsequenceCensus:
         names = [cls.__name__ for cls in CONSEQUENCE_COMMAND_CLASSES]
         assert len(set(names)) == len(names)
 
-    def test_the_character_addressing_consequences_are_exactly_three(self):
-        # Two sites enumerate this trio by hand and must grow together when it does:
+    def test_the_character_addressing_consequences_are_exactly_five(self):
+        # Two sites enumerate these classes by hand and must grow together when they do:
         # `Interpreter._expand` (which turns a party selector into concrete commands)
-        # and `_validate_trigger` in adventure.py (which rejects a literal id). A new
+        # and `_validate_consequence` in adventure.py (which rejects a literal id). A new
         # consequence class carrying `character_id` that skipped both would silently
         # take a selector string as a character id.
         addressing = {cls.__name__ for cls in CONSEQUENCE_COMMAND_CLASSES if "character_id" in cls.model_fields}
-        assert addressing == {"GrantItem", "GrantCoins", "AwardXP"}
+        assert addressing == {"GrantItem", "GrantCoins", "AwardXP", "RemoveItem", "RemoveCoins"}
 
     def test_the_union_members_are_the_census_in_order(self):
         # The union is spelled out for the type checker; this is the tripwire that

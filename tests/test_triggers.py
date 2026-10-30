@@ -94,6 +94,8 @@ class TestConsequenceSurface:
             "PlaceParty": dict(location={"kind": "town"}),
             "AdvanceTime": dict(n=1, unit="turn"),
             "EndEncounter": dict(outcome="parley", resolve_area=True),
+            "RemoveItem": dict(character_id="@carrier", item_id="holy_water"),
+            "RemoveCoins": dict(character_id=FIRST_LIVING_SELECTOR, coins={"gp": 10}),
         }
         for command_class in CONSEQUENCE_COMMAND_CLASSES:
             command = command_class(**samples[command_class.__name__])

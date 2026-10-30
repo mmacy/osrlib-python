@@ -124,6 +124,7 @@ from osrlib.core.items import EquipmentCatalog, ItemInstance
 from osrlib.core.monsters import MONSTER_SPAWN_STREAM, IdAllocator, MonsterCatalog, MonsterInstance, spawn_monster
 from osrlib.core.rng import RngStreams, StreamName
 from osrlib.core.ruleset import Ruleset
+from osrlib.core.treasure import TREASURE_STREAM, instantiate_magic_item
 from osrlib.core.validation import Rejection
 from osrlib.crawl.adventure import Adventure, _effective_equipment, _effective_monsters, validate_adventure
 from osrlib.crawl.commands import (
@@ -142,6 +143,8 @@ from osrlib.crawl.commands import (
     MarkTriggerFired,
     PlaceParty,
     RecordNote,
+    RemoveCoins,
+    RemoveItem,
     RevealObjective,
     RollDice,
     SessionMode,
@@ -159,6 +162,7 @@ from osrlib.crawl.events import (
     FlagSetEvent,
     GameOverEvent,
     ItemAcquiredEvent,
+    ItemsRemovedEvent,
     JournalEntryAddedEvent,
     LightEvent,
     LocationEnteredEvent,
@@ -174,7 +178,7 @@ from osrlib.crawl.events import (
 )
 from osrlib.crawl.party import Party
 from osrlib.crawl.quests import ObjectiveSpec, QuestSpec
-from osrlib.data import load_equipment, load_monsters
+from osrlib.data import load_equipment, load_magic_items, load_monsters
 from osrlib.errors import ContentValidationError
 from osrlib.versioning import SCHEMA_VERSION, engine_version
 
@@ -2072,14 +2076,29 @@ def _handle_grant_item(session: GameSession, command: GrantItem) -> tuple[list[R
     try:
         template = session.effective_equipment.get(command.item_id)
     except ValueError:
-        return [Rejection(code="session.command.unknown_item", params={"item": command.item_id})], []
-    member.inventory.items.append(ItemInstance(template=template, quantity=command.quantity))
-    events: list[Event] = [
-        ItemAcquiredEvent(
-            character_id=_member_id(member), item_ids=(command.item_id,) * command.quantity, origin="grant"
-        )
-    ]
-    return [], events
+        template = None
+    if template is not None:
+        member.inventory.items.append(ItemInstance(template=template, quantity=command.quantity))
+        item_ids = (command.item_id,) * command.quantity
+    else:
+        try:
+            load_magic_items().get(command.item_id)
+        except ValueError:
+            return [Rejection(code="session.command.unknown_item", params={"item": command.item_id})], []
+        from osrlib.crawl.exploration import _treasure_tier
+
+        # A granted magic item is made exactly as a placed one is when its cache is
+        # emptied: its rolls come off the treasure stream at the tier in force now.
+        tier = _treasure_tier(session)
+        granted = [
+            instantiate_magic_item(
+                command.item_id, tier=tier, stream=session.streams.get(TREASURE_STREAM), allocator=session.allocator
+            )
+            for _ in range(command.quantity)
+        ]
+        member.inventory.items.extend(granted)
+        item_ids = tuple(instance.instance_id for instance in granted)
+    return [], [ItemAcquiredEvent(character_id=_member_id(member), item_ids=item_ids, origin="grant")]
 
 
 def _handle_grant_coins(session: GameSession, command: GrantCoins) -> tuple[list[Rejection], list[Event]]:
@@ -2094,6 +2113,97 @@ def _handle_grant_coins(session: GameSession, command: GrantCoins) -> tuple[list
         ItemAcquiredEvent(character_id=_member_id(member), coins_gp_value=command.coins.value_gp, origin="grant")
     ]
     return [], events
+
+
+def _removal_rejection(member: Character, item_id: str, quantity: int) -> Rejection | None:
+    """Return why a removal of `quantity` of `item_id` from the member would be refused, or `None`.
+
+    The session's removal handler and the interpreter's carrier selector both call this, so the
+    session never refuses a removal the selector expanded. An instance id identifies one magic
+    item or valuable and takes a quantity of 1. Any other id counts the member's mundane
+    units of that catalog id, carried and equipped, so a magic item's catalog id counts none.
+    """
+    inventory = member.inventory
+    named = inventory.magic_item(item_id) is not None or any(
+        valuable.instance_id == item_id for valuable in inventory.valuables
+    )
+    if named:
+        carried = quantity == 1
+    else:
+        units = sum(
+            instance.quantity
+            for instance in inventory.all_instances()
+            if isinstance(instance, ItemInstance) and instance.template.id == item_id
+        )
+        carried = units >= quantity
+    if carried:
+        return None
+    return Rejection(code="items.remove.not_carried", params={"character": _member_id(member), "item": item_id})
+
+
+def _handle_remove_item(session: GameSession, command: RemoveItem) -> tuple[list[Rejection], list[Event]]:
+    from osrlib.crawl import exploration
+
+    try:
+        member = session.member(command.character_id)
+    except ValueError:
+        return [Rejection(code="session.command.unknown_member", params={"character": command.character_id})], []
+    rejection = _removal_rejection(member, command.item_id, command.quantity)
+    if rejection is not None:
+        return [rejection], []
+    inventory = member.inventory
+    events: list[Event] = []
+    magic = inventory.magic_item(command.item_id)
+    valuable = next((piece for piece in inventory.valuables if piece.instance_id == command.item_id), None)
+    if magic is not None:
+        # Removal ends what the item attached, as taking it off would, and skips the curse
+        # check: the referee is taking the item, not its bearer letting go of it.
+        events.extend(exploration._release_instance_effects(session, magic))
+        exploration._remove_instance(member, magic)
+        item_ids: tuple[str, ...] = (command.item_id,)
+    elif valuable is not None:
+        inventory.valuables.remove(valuable)
+        item_ids = (command.item_id,)
+    else:
+        # Units come out of the pack before anything the member has in use, so a removal
+        # takes the spare sword before the one in hand.
+        remaining = command.quantity
+        for instance in [*inventory.items, *inventory.equipped_instances()]:
+            if remaining == 0:
+                break
+            if not isinstance(instance, ItemInstance) or instance.template.id != command.item_id:
+                continue
+            taken = min(remaining, instance.quantity)
+            if taken == instance.quantity:
+                exploration._remove_instance(member, instance)
+            else:
+                instance.quantity -= taken
+            remaining -= taken
+        item_ids = (command.item_id,) * command.quantity
+    events.append(ItemsRemovedEvent(character_id=_member_id(member), item_ids=item_ids))
+    return [], events
+
+
+def _handle_remove_coins(session: GameSession, command: RemoveCoins) -> tuple[list[Rejection], list[Event]]:
+    try:
+        member = session.member(command.character_id)
+    except ValueError:
+        return [Rejection(code="session.command.unknown_member", params={"character": command.character_id})], []
+    purse = member.inventory.purse
+    denominations = ("pp", "gp", "ep", "sp", "cp")
+    for denomination in denominations:
+        if getattr(command.coins, denomination) > getattr(purse, denomination):
+            # The purse pays in the coins named or not at all: no change is made from
+            # another denomination.
+            return [
+                Rejection(
+                    code="items.coins.insufficient",
+                    params={"character": command.character_id, "coin": denomination},
+                )
+            ], []
+    for denomination in denominations:
+        setattr(purse, denomination, getattr(purse, denomination) - getattr(command.coins, denomination))
+    return [], [ItemsRemovedEvent(character_id=_member_id(member), coins_gp_value=command.coins.value_gp)]
 
 
 def _handle_award_xp(session: GameSession, command: AwardXP) -> tuple[list[Rejection], list[Event]]:
@@ -2517,4 +2627,6 @@ _REFEREE_HANDLERS = {
     CompleteObjective: _handle_complete_objective,
     CompleteQuest: _handle_complete_quest,
     EndEncounter: _handle_end_encounter,
+    RemoveItem: _handle_remove_item,
+    RemoveCoins: _handle_remove_coins,
 }
