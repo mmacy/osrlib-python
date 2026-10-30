@@ -205,8 +205,9 @@ class Condition(StrEnum):
     creature obeys. The recurring save that can end the charm is the effect's `charm_resave` tick."""
 
     PETRIFIED = "petrified"
-    """Turned to stone. The creature can't attack, cast, or move, and it counts as incapacitated for morale. The
-    ledger suspends its other effects: they neither tick nor age until the stone is undone. Stone is not death. *Stone
+    """Turned to stone. The creature can't attack, cast, or move, melee against it hits automatically, and it counts
+    as incapacitated for morale. The ledger suspends its other effects: they neither tick nor age until the stone is
+    undone. Stone is not death. *Stone
     to flesh* cures it, and the creature continues from where it was."""
 
     DISEASED = "diseased"

@@ -288,8 +288,8 @@ class AttackRolledEvent(Event):
     [`resolve_attack`][osrlib.core.combat.resolve_attack] reports it before the damage that follows. Read `code`
     for the outcome, and the number fields to show the arithmetic.
 
-    An automatic hit has no roll. It happens against a paralysed or sleeping defender in melee, or a monster with
-    no armour class, like green slime. Then `roll`, `total`, `required`, and `defender_ac` are `None`.
+    An automatic hit has no roll. It happens against a paralysed, sleeping, or petrified defender in melee, or a
+    monster with no armour class, like green slime. Then `roll`, `total`, `required`, and `defender_ac` are `None`.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset(
