@@ -185,7 +185,6 @@ PARALYSERS = ("ghoul", "thoul", "carcass_crawler", "gelatinous_cube")
 class TestParalysis:
     """A hit by a paralysing attack makes the defender save versus paralysis or be paralysed for 2d4 turns."""
 
-    @pytest.mark.xfail(reason="chunk: monster-attack-effects", strict=True)
     @pytest.mark.parametrize("template_id", PARALYSERS)
     def test_a_failed_save_paralyses_for_2d4_turns(self, template_id):
         game, monster = _battle(4, template_id)
@@ -205,7 +204,6 @@ class TestParalysis:
             assert rounds % ROUNDS_PER_TURN == 0 and 2 <= rounds // ROUNDS_PER_TURN <= 8, "2d4 turns"
             assert not effect.definition.dispellable, "what a monster inflicts isn't dispellable"
 
-    @pytest.mark.xfail(reason="chunk: monster-attack-effects", strict=True)
     @pytest.mark.parametrize("template_id", PARALYSERS)
     def test_a_passed_save_leaves_the_defender_free(self, template_id):
         game, monster = _battle(4, template_id)
@@ -221,7 +219,6 @@ class TestParalysis:
         assert not has_condition(fighter, Condition.PARALYSED)
         assert not _effects_with(game, fighter, Condition.PARALYSED)
 
-    @pytest.mark.xfail(reason="chunk: monster-attack-effects", strict=True)
     @pytest.mark.parametrize("template_id", ["ghoul", "thoul"])
     def test_elves_are_unaffected_by_ghoul_paralysis(self, template_id):
         game, monster = _battle(4, template_id, [_character("Elara", "elf"), _character("Hild")])
@@ -242,7 +239,6 @@ class TestParalysis:
         assert not _saves(events, elf.id, "paralysis"), "an unaffected elf rolls no save"
         assert not has_condition(elf, Condition.PARALYSED)
 
-    @pytest.mark.xfail(reason="chunk: monster-attack-effects", strict=True)
     def test_the_carcass_crawler_paralyses_elves(self):
         game, monster = _battle(4, "carcass_crawler", [_character("Elara", "elf")])
         elf = game.party.members[0]
@@ -260,7 +256,6 @@ class TestParalysis:
 class TestEnergyDrain:
     """A hit by a draining touch takes levels with no saving throw."""
 
-    @pytest.mark.xfail(reason="chunk: monster-attack-effects", strict=True)
     @pytest.mark.parametrize(
         ("template_id", "levels", "xp_after"),
         [
@@ -284,7 +279,6 @@ class TestEnergyDrain:
         assert fighter.level == 4 - levels, "no save, however good, stops the drain"
         assert fighter.xp == xp_after
 
-    @pytest.mark.xfail(reason="chunk: monster-attack-effects", strict=True)
     def test_draining_the_last_level_kills(self):
         game, monster = _battle(4, "wight", [_character(level=1)])
         fighter = game.party.members[0]
@@ -302,7 +296,6 @@ class TestEnergyDrain:
 class TestPoison:
     """A hit by a poisonous attack makes the defender save versus death or die, at once or after the onset."""
 
-    @pytest.mark.xfail(reason="chunk: monster-attack-effects", strict=True)
     @pytest.mark.parametrize("template_id", ["pit_viper", "killer_bee", "giant_rockfish"])
     def test_a_failed_save_against_a_deadly_poison_kills(self, template_id):
         game, monster = _battle(4, template_id)
@@ -316,7 +309,6 @@ class TestPoison:
         assert has_condition(fighter, Condition.DEAD)
         assert game.death_records[fighter.id].cause == "poison", "neutralize poison can revive the victim"
 
-    @pytest.mark.xfail(reason="chunk: monster-attack-effects", strict=True)
     def test_a_failed_save_against_a_slow_poison_kills_when_the_onset_ends(self):
         game, monster = _battle(4, "black_widow")
         fighter = game.party.members[0]
@@ -347,7 +339,6 @@ class TestPoison:
         assert record.round == first.expires_round
         assert record.cause == "poison"
 
-    @pytest.mark.xfail(reason="chunk: monster-attack-effects", strict=True)
     def test_a_passed_save_leaves_the_bite_damage(self):
         game, monster = _battle(4, "black_widow")
         fighter = game.party.members[0]
@@ -364,7 +355,6 @@ class TestPoison:
         assert not has_condition(fighter, Condition.POISONED)
         assert not _effects_with(game, fighter, Condition.POISONED)
 
-    @pytest.mark.xfail(reason="chunk: monster-attack-effects", strict=True)
     def test_the_crab_spiders_save_bonus_applies(self):
         game, monster = _battle(4, "crab_spider")
         fighter = game.party.members[0]
@@ -388,7 +378,6 @@ class TestPoison:
 class TestDisease:
     """A mummy's touch gives mummy rot to anyone it hits, with no saving throw."""
 
-    @pytest.mark.xfail(reason="chunk: monster-attack-effects", strict=True)
     def test_a_hit_infects_with_mummy_rot(self):
         game, monster = _battle(4, "mummy")
         fighter = game.party.members[0]
@@ -426,7 +415,6 @@ class TestPetrifyingTouch:
         names = _effect_attacks(monster, "petrification") - {"gaze"}
         return game, fighter, names
 
-    @pytest.mark.xfail(reason="chunk: monster-attack-effects", strict=True)
     @pytest.mark.parametrize("template_id", ["cockatrice", "basilisk"])
     def test_a_failed_save_turns_the_defender_to_stone(self, template_id):
         game, fighter, names = self._setup(template_id, ALWAYS_FAIL)
@@ -439,7 +427,6 @@ class TestPetrifyingTouch:
         effects = _effects_with(game, fighter, Condition.PETRIFIED)
         assert effects and all(effect.expires_round is None for effect in effects), "stone lasts until undone"
 
-    @pytest.mark.xfail(reason="chunk: monster-attack-effects", strict=True)
     @pytest.mark.parametrize("template_id", ["cockatrice", "basilisk"])
     def test_a_passed_save_leaves_the_defender_flesh(self, template_id):
         game, fighter, names = self._setup(template_id, ALWAYS_PASS)
@@ -460,7 +447,6 @@ class TestPetrifyingTouch:
 class TestGaze:
     """A petrifying gaze reaches every character in melee with the gazer, every round, with no attack roll."""
 
-    @pytest.mark.xfail(reason="chunk: monster-attack-effects", strict=True)
     @pytest.mark.parametrize("template_id", ["basilisk", "medusa"])
     def test_the_gaze_reaches_each_character_in_melee_every_round(self, template_id):
         members = [_character("Hild"), _character("Brakk"), _character("Sable")]
@@ -483,7 +469,6 @@ class TestGaze:
             ]
             assert not gaze_rolls, "a gaze takes no attack roll"
 
-    @pytest.mark.xfail(reason="chunk: monster-attack-effects", strict=True)
     def test_a_failed_save_against_the_gaze_turns_the_defender_to_stone(self):
         game, monster = _battle(4, "medusa")
         fighter = game.party.members[0]
@@ -497,7 +482,6 @@ class TestGaze:
         assert _saves(events, fighter.id, "paralysis")
         assert has_condition(fighter, Condition.PETRIFIED)
 
-    @pytest.mark.xfail(reason="chunk: monster-attack-effects", strict=True)
     def test_averting_the_eyes_avoids_the_gaze(self):
         game, _ = _battle(4, "medusa", [_character("Hild"), _character("Brakk")])
         averter, looker = game.party.members
@@ -580,7 +564,6 @@ class TestDeterminism:
             events += _round(game)
         return game, [event.model_dump(mode="json") for event in events]
 
-    @pytest.mark.xfail(reason="chunk: monster-attack-effects", strict=True)
     @pytest.mark.parametrize("template_id", ["ghoul", "wight", "black_widow", "mummy", "basilisk"])
     def test_replaying_a_battle_gives_the_same_events(self, template_id):
         first_game, first = self._play(4, template_id)
@@ -651,7 +634,6 @@ class TestCoverage:
     appear in `docs/adaptations.md`, in a section that names both the effect and the monster.
     """
 
-    @pytest.mark.xfail(reason="chunk: monster-attack-effects", strict=True)
     def test_every_attack_effect_is_applied_or_registered(self):
         sections = _register_sections()
         missing = []
@@ -668,7 +650,6 @@ class TestCoverage:
                     missing.append(f"{template.id}: {kind}")
         assert not missing, f"attack effects battle ignores and the register doesn't name: {missing}"
 
-    @pytest.mark.xfail(reason="chunk: monster-attack-effects", strict=True)
     def test_every_gaze_is_applied_or_registered(self):
         sections = _register_sections()
         missing = []
