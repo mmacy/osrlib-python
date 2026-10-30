@@ -732,7 +732,11 @@ class NpcPartyPolicy:
        leaving out invisible members.
     4. A member with a missile weapon shoots while the group is farther away than
        [`MELEE_RANGE_FEET`][osrlib.crawl.battle.MELEE_RANGE_FEET].
-    5. Otherwise, the member closes and attacks in melee, the same as a monster.
+    5. Otherwise, the member closes and attacks in melee. Once in range, it picks its target at
+       random from the party's front rank, leaving out invisible members, and passes over a member
+       turned to stone while a target that isn't stone is in reach, as a monster does. The ghoul's
+       and the thoul's rule about paralysed members belongs to their abilities, so an NPC still
+       picks a paralysed member.
 
     NPCs declare their spells at the start of the round. An attack that hits or a failed saving
     throw can disrupt an NPC's spell, as it can the party's, because the SRD's rule applies to both
@@ -859,7 +863,7 @@ class NpcPartyPolicy:
                 else:
                     actions.append(MonsterAction(monster_id=npc.id, kind="close"))
                 continue
-            targets = _reachable_targets(session, npc, pool)
+            targets = _passing_over_statues(_reachable_targets(session, npc, pool))
             if not targets:
                 actions.append(MonsterAction(monster_id=npc.id, kind="hold"))
                 continue
@@ -926,22 +930,34 @@ def _npc_wielded(npc, *, missile: bool, distance_feet: int = MELEE_RANGE_FEET):
 def _preferred_targets(monster: MonsterInstance, targets: list) -> list:
     """Narrow the targets a monster can reach to the ones `ScriptedPolicy` lets it pick.
 
-    A member turned to stone is out of the fight, so the monster passes over one while a target that
-    isn't stone is in reach. A monster whose `paralysis` ability has the param `attacks_others`, like
-    the ghoul and the thoul, also passes over a paralysed member while a target that is neither
-    paralysed nor stone is in reach. When every target is stone, all of them come back, so the
-    monster attacks a statue rather than holding. The targets keep their order, and a list with no
-    paralysed or petrified member comes back unchanged, so the policy's draw over it is the draw it
-    made before these rules.
+    The monster passes over statues, as `_passing_over_statues` says. A monster whose `paralysis`
+    ability has the param `attacks_others`, like the ghoul and the thoul, also passes over a
+    paralysed member while a target that is neither paralysed nor stone is in reach. The targets
+    keep their order, and a list with no paralysed or petrified member comes back unchanged, so the
+    policy's draw over it is the draw it made before these rules.
     """
-    standing = [target for target in targets if not has_condition(target, Condition.PETRIFIED)]
-    if not standing:
-        return targets
+    targets = _passing_over_statues(targets)
     if _attacks_others(monster):
-        active = [target for target in standing if not has_condition(target, Condition.PARALYSED)]
+        active = [
+            target
+            for target in targets
+            if not has_condition(target, Condition.PARALYSED) and not has_condition(target, Condition.PETRIFIED)
+        ]
         if active:
             return active
-    return standing
+    return targets
+
+
+def _passing_over_statues(targets: list) -> list:
+    """Leave out the members turned to stone while a target that isn't stone is in reach.
+
+    A statue is out of the fight, so neither a monster under `ScriptedPolicy` nor an NPC adventurer
+    under `NpcPartyPolicy` picks one while it has another choice. When every target is stone, all of
+    them come back, so the attacker picks a statue rather than holding. The targets keep their
+    order, and a list with no statue comes back unchanged.
+    """
+    standing = [target for target in targets if not has_condition(target, Condition.PETRIFIED)]
+    return standing or targets
 
 
 def _attacks_others(monster: MonsterInstance) -> bool:
