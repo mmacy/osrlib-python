@@ -409,9 +409,10 @@ def _store_door_state(session, edge, ref: str) -> DoorState:
         The stored, mutable entry.
     """
     state = session.dungeon_state.doors.get(ref)
-    if state is not None:
-        return state
-    return _seed(edge, session.dungeon_state.door(ref))
+    if state is None:
+        state = _seed(edge, DoorState())
+        session.dungeon_state.doors[ref] = state
+    return state
 
 
 def _door_state(session, direction: Direction) -> DoorState:

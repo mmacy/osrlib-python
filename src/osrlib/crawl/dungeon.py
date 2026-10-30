@@ -72,11 +72,11 @@ print(crypt.level(1).edge((0, 0), Direction.NORTH).kind)
 ```
 """
 
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from enum import StrEnum
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator, model_validator
 
 from osrlib.core.alignment import Alignment
 from osrlib.core.clock import TimeUnit
@@ -1676,6 +1676,16 @@ class DoorState(BaseModel):
     [`ForceDoor`][osrlib.crawl.commands.ForceDoor]. Only a door the party opened swings shut behind
     it, so a door that starts open, or that a referee opened, stays open."""
 
+    # Set on a state that `DungeonState.door` returned for a door with no entry. A write to a field
+    # calls it, so the write reaches the overlay while a read alone never adds an entry.
+    _write_through: Callable[[DoorState, str, Any], None] | None = PrivateAttr(default=None)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        """Set an attribute, and pass a field write on to the overlay when the state isn't in it yet."""
+        super().__setattr__(name, value)
+        if name in type(self).model_fields and self._write_through is not None:
+            self._write_through(self, name, value)
+
 
 class DroppedItem(BaseModel):
     """One stack of an ordinary item lying on the floor.
@@ -1931,20 +1941,28 @@ class DungeonState(BaseModel):
             self.seen.setdefault(key, []).extend(fresh)
 
     def door(self, ref: str) -> DoorState:
-        """Return one door's live state, creating the entry the first time you ask.
+        """Return one door's live state, which you can read or write.
 
-        The session doesn't create door entries up front, so this is how you read one without worrying about
-        whether the party has reached that door yet. The object it returns is the one in the map, so
-        writing to it writes to the overlay.
+        The session doesn't create door entries up front, so this is how you get one without worrying about
+        whether the party has reached that door yet. Reading the state never changes the overlay. When
+        the door has an entry, the method returns that entry, so writing to it writes to the overlay.
+        When the door has none, the method returns a new all-`False` state and doesn't store it.
+        Setting one of that state's fields stores the state in `doors` as the door's entry, or, when
+        the door has gained an entry since, sets the field on that entry.
+
+        A door with no entry is one that nothing in play has changed. The all-`False` state this
+        method returns for one ignores the door's [`DoorSpec`][osrlib.crawl.dungeon.DoorSpec]: a door
+        whose `starts_open` is set stands open in play, but the state reads `open` as `False`. To show
+        doors the way the party sees them, read the player view from
+        [`GameSession.view`][osrlib.crawl.session.GameSession.view] instead.
 
         Args:
             ref: The door's [`edge_ref`][osrlib.crawl.dungeon.edge_ref]. You get the same reference
                 from either side of a door, so either side reaches the same state.
 
         Returns:
-            The door's overlay entry, freshly created and all-`False` when the door has no entry
-            yet. For a door whose spec sets `starts_open`, the session sets `open`, not this
-            method.
+            The door's overlay entry, or a new all-`False` state that becomes the entry when you
+                first set one of its fields.
 
         Examples:
             ```python
@@ -1960,7 +1978,17 @@ class DungeonState(BaseModel):
             ```
         """
         state = self.doors.get(ref)
-        if state is None:
-            state = DoorState()
-            self.doors[ref] = state
+        if state is not None:
+            return state
+        state = DoorState()
+        state._write_through = lambda written, name, value: self._write_door(ref, written, name, value)
         return state
+
+    def _write_door(self, ref: str, state: DoorState, name: str, value: Any) -> None:
+        """Store a state from `door` on its first field write, or copy the write to the entry stored since."""
+        stored = self.doors.get(ref)
+        if stored is None:
+            state._write_through = None
+            self.doors[ref] = state
+        elif stored is not state:
+            setattr(stored, name, value)
