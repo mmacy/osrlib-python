@@ -644,8 +644,10 @@ class TrapEffect(BaseModel):
     `damage_dice`, and a `"half"` save halves it too."""
     transition: TransitionSpec | None = None
     """Where the trap moves the party, or `None` for a trap that moves no one. Use it for a chute
-    that slides the party to another cell or level. The party has one location, so a sprung trap
-    moves the whole party, whatever the saves were and whoever the trap hit. The transition can't
+    that slides the party to another cell or level. The party has one location, so the trap moves
+    the whole party or no one. With a `save`, it moves the party when at least one victim fails
+    the save, and leaves the party on the trapped cell when every victim passes. With no `save`,
+    it always moves the party. The transition can't
     have a `requires` gate, because the party doesn't choose to take it, and
     [`validate_adventure`][osrlib.crawl.adventure.validate_adventure] reports one whose `kind` is
     `"passage"`."""

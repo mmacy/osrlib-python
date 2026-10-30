@@ -2116,6 +2116,11 @@ class PurchaseHealing(Command):
           purses add up to less than the fee. Value below a gold piece in a purse
           doesn't count, so the session can refuse a party worth the price in mixed
           coins.
+        - `town.healing.no_effect` - the service would do nothing for the member:
+          `raise_dead` on a living member, `cure_disease` on a member who isn't diseased,
+          or `neutralize_poison` on a member who isn't poisoned and didn't die of poison
+          in the last 10 rounds. The session checks the party's funds first, so a party
+          that can't pay gets `items.purchase.insufficient_funds` instead.
 
     Events:
         A [`HealingPurchasedEvent`][osrlib.crawl.events.HealingPurchasedEvent] listing
@@ -2129,7 +2134,8 @@ class PurchaseHealing(Command):
     character_id: str
     """Who is treated, by [`MemberView.id`][osrlib.crawl.views.MemberView.id]. This member's
     purse pays first, and the rest of the party pays whatever is left. The member can be dead,
-    and `raise_dead` is the service for a dead member."""
+    and `raise_dead` is the service for a dead member. The session refuses `raise_dead` for a
+    living member."""
     service: HealingService
     """Which service to buy. The prices are fixed: `cure_light_wounds` 25 gp,
     `cure_serious_wounds` 100 gp, `cure_disease` 150 gp, `neutralize_poison` 150 gp,
@@ -3042,6 +3048,9 @@ class SpawnNpcParty(Command):
     encounter already open. Like [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters], the
     command isn't legal once the session has ended, because it would start new play.
 
+    Set `count_fixed` for a band of an exact size, `count_dice` to roll the size, or neither
+    to roll the B/X number for `party_kind`. Setting both fails validation.
+
     Modes:
         `town`, `exploring`, `encounter`, `battle`
 
@@ -3069,8 +3078,12 @@ class SpawnNpcParty(Command):
     count_dice: str | None = None
     """How many adventurers, as a dice expression rolled on the session's
     [`ENCOUNTER_STREAM`][osrlib.crawl.session.ENCOUNTER_STREAM]. With `None`, the default, the
-    engine rolls the B/X number for `party_kind`: 1d4+4 for `basic` and 1d6+3 for `expert`. A malformed
-    expression raises when the command is constructed. A roll below 1 counts as 1."""
+    engine rolls the B/X number for `party_kind`: 1d4+4 for `basic` and 1d6+3 for `expert`, unless
+    `count_fixed` is set. A malformed expression raises when the command is constructed. A roll
+    below 1 counts as 1. Don't set it together with `count_fixed`."""
+    count_fixed: int | None = Field(default=None, ge=1)
+    """How many adventurers, as an exact number. Use it when the author chose the size of the band.
+    The session rolls nothing for the size. Don't set it together with `count_dice`."""
     distance_feet: int = Field(ge=0)
     """How far away the NPC party appears, in feet, on the same terms as
     [`SpawnMonsters.distance_feet`][osrlib.crawl.commands.SpawnMonsters.distance_feet]."""
@@ -3081,6 +3094,12 @@ class SpawnNpcParty(Command):
         if value is not None:
             parse(value)
         return value
+
+    @model_validator(mode="after")
+    def _dice_or_fixed(self) -> SpawnNpcParty:
+        if self.count_dice is not None and self.count_fixed is not None:
+            raise ValueError("set at most one of count_dice or count_fixed")
+        return self
 
 
 class EndEncounter(Command):

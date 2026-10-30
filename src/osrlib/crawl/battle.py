@@ -84,7 +84,9 @@ During a round, the session also applies these rules without a command for them:
   roll is made.
 - A protection ward ends when a party member attacks in melee a monster that the ward keeps out.
 - The effects of a concentration spell end when the caster declares anything other than `cast`
-  or `hold`, or when the caster's next spell is disrupted or fizzles.
+  or `hold`, when the caster's next spell is disrupted or fizzles, or when the caster casts
+  another concentration spell. Turning the undead ends them too, even when the turning never
+  resolves.
 - The session picks the targets of a party member's area spell without a roll.
   `ceil(span / 10) × width` creatures fit in the area, where `span` is the area's size in feet and
   `width` is the rank width, and the area fills with the target group's living members in the order they were spawned.
@@ -348,9 +350,10 @@ class BattleState(BaseModel):
     evil* bars a monster from attacking a character, the monster can attack that character anyway once
     it's on this list, as the spell's text in the SRD says."""
     concentration: dict[str, list[str]] = {}
-    """For each caster id, the effect ids of the concentration spell that caster maintains. The effects
-    end when that caster declares anything other than `cast` or `hold`, or when the caster's next
-    spell is disrupted or fizzles."""
+    """For each caster id, the effect ids of the concentration spell that caster maintains. A caster
+    maintains one at a time. The effects end when that caster declares anything other than `cast` or
+    `hold`, `turn_undead` included, when the caster's next spell is disrupted or fizzles, or when the
+    caster casts another concentration spell."""
 
 
 class MonsterAction(BaseModel):
@@ -2460,24 +2463,33 @@ def _party_magic(session, by_member, pending_casters, disrupted, acted, state) -
         # The stationary *silence* form anchors in battle too: the battle's
         # location is the party's position (see the adaptations register).
         events.extend(exploration._stationary_silence(session, spell, result, targets))
-        _track_concentration(session, member.id, spell, result, state)
+        events.extend(_track_concentration(session, member.id, spell, result, state))
         acted.add(member.id)
-    # Any declaration other than these three releases the actor's concentration
-    # (see the adaptations register).
+    # Any declaration other than these two releases the actor's concentration, a
+    # turning included, even one the round stopped before it resolved (see the
+    # adaptations register).
     for member, declaration in by_member.values():
-        if declaration.action not in ("cast", "turn_undead", "hold"):
+        if declaration.action not in ("cast", "hold"):
             events.extend(_release_concentration(session, member.id, state))
     return events
 
 
-def _track_concentration(session, caster_id: str, spell, result, state) -> None:
+def _track_concentration(session, caster_id: str, spell, result, state) -> list[Event]:
+    """Make a concentration spell the caster's only maintained one, and return the release events.
+
+    A caster maintains one concentration spell at a time, so casting one ends the spell the
+    caster already maintains, even when the new spell attaches no effect. A spell that needs no
+    concentration leaves the maintained one alone.
+    """
     if spell.duration_spec.kind != "concentration":
-        return
+        return []
     from osrlib.core.events import EffectAttachedEvent
 
+    events = _release_concentration(session, caster_id, state)
     effect_ids = [event.effect_id for event in result.events if isinstance(event, EffectAttachedEvent)]
     if effect_ids:
-        state.concentration.setdefault(caster_id, []).extend(effect_ids)
+        state.concentration[caster_id] = effect_ids
+    return events
 
 
 def _release_concentration(session, caster_id: str, state) -> list[Event]:

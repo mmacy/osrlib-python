@@ -2455,15 +2455,15 @@ def _handle_spawn_npc_party(session: GameSession, command: SpawnNpcParty) -> tup
         return [Rejection(code="session.command.encounter_in_progress")], []
     if session.dungeon_state.location.kind != "dungeon":
         return [Rejection(code="session.command.not_in_dungeon")], []
-    if command.count_dice is not None:
-        count_dice = command.count_dice
+    if command.count_fixed is not None:
+        count = command.count_fixed
     else:
-        count_dice = next(
+        count_dice = command.count_dice or next(
             composition.count_dice
             for composition in load_encounter_tables().npc_compositions
             if composition.kind == command.party_kind
         )
-    count = max(1, roll(count_dice, session.streams.get(ENCOUNTER_STREAM)).total)
+        count = max(1, roll(count_dice, session.streams.get(ENCOUNTER_STREAM)).total)
     party, bundle, npc_events = exploration._field_npc_party(session, command.party_kind, count)
     events: list[Event] = list(npc_events)
     label = "Basic Adventurers" if command.party_kind == "basic" else "Expert Adventurers"

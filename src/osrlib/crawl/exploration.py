@@ -124,7 +124,7 @@ from osrlib.core.combat import (
 )
 from osrlib.core.creature import Creature
 from osrlib.core.dice import roll
-from osrlib.core.effects import EFFECTS_STREAM, Condition, EffectDefinition, ModifierSpec
+from osrlib.core.effects import EFFECTS_STREAM, Condition, EffectDefinition, ModifierSpec, has_condition
 from osrlib.core.events import Event, SavingThrowRolledEvent
 from osrlib.core.items import (
     COIN_VALUES_CP,
@@ -1436,7 +1436,8 @@ def _resolve_trap(session, trap: TrapSpec, *, triggerer) -> list[Event]:
     them from the kill and the condition, whatever `on_save` is, the rule
     [`_resolve_kill`][osrlib.core.spells] and [`_resolve_attachment`][osrlib.core.spells]
     apply on the spell side. A passed `half` save halves damage, rolled and
-    falling alike.
+    falling alike. A transition moves the whole party when at least one victim
+    fails the save, and always when the trap allows no save.
 
     Draws run on the exploration stream, since these are the trap
     procedure's dice. Durations rolled when a condition attaches run on the effects stream
@@ -1448,6 +1449,9 @@ def _resolve_trap(session, trap: TrapSpec, *, triggerer) -> list[Event]:
     victims = [triggerer] if trap.affects == "triggerer" else list(session.party.living_members())
     effect = trap.effect
     events: list[Event] = []
+    # A chute with no save takes everyone. With a save, it takes the party only
+    # when some victim fails it.
+    someone_failed = effect.save is None
     for victim in victims:
         passed = False
         if effect.save is not None:
@@ -1456,6 +1460,7 @@ def _resolve_trap(session, trap: TrapSpec, *, triggerer) -> list[Event]:
             )
             events.extend(save.events)
             passed = save.passed
+            someone_failed = someone_failed or not passed
             if passed and effect.save.on_save == "negates":
                 continue
         # Past the negates gate, `passed` means a made "half" save: damage halves,
@@ -1522,9 +1527,9 @@ def _resolve_trap(session, trap: TrapSpec, *, triggerer) -> list[Event]:
                 stream=session.streams.get(EFFECTS_STREAM),
             )
             events.extend(attach_events)
-    if effect.transition is not None:
+    if effect.transition is not None and someone_failed:
         # A slide relocates the whole party. The party model has one location,
-        # so a trap transition moves everyone.
+        # so a trap transition moves everyone or no one.
         events.extend(
             _relocate(
                 session,
@@ -4370,13 +4375,15 @@ def _handle_purchase_healing(session, command: PurchaseHealing) -> tuple[list[Re
         return [
             Rejection(code="items.purchase.insufficient_funds", params={"item": command.service, "cost_gp": cost_gp})
         ], []
+    context = _cast_context(session, [member], in_combat=False)
+    if not _healing_would_work(command.service, member, spell, context):
+        return [Rejection(code="town.healing.no_effect", params={"item": command.service, "character": member.id})], []
     from osrlib.core.spells import validate_cast
 
     temple_cleric = _temple_cleric(spell)
     temple_profile = caster_profile(temple_cleric.definition)
     if temple_profile is None:  # unreachable: the temple cleric is a cleric
         raise ValueError("the temple cleric has no casting profile")
-    context = _cast_context(session, [member], in_combat=False)
     cast_rejections = validate_cast(
         temple_cleric,
         spell,
@@ -4418,6 +4425,31 @@ def _handle_purchase_healing(session, command: PurchaseHealing) -> tuple[list[Re
     if command.service == "remove_curse":
         events.extend(_lift_curses(session, member))
     return [], events
+
+
+def _healing_would_work(service: str, member: Character, spell, context) -> bool:
+    """Return whether a temple service would do anything for the member.
+
+    *Raise dead* needs a dead member, and *cure disease* a diseased one. *Neutralize poison*
+    needs a poisoned member, or one that poison killed within the spell's revival window.
+    `_cast_context` works out how long ago from the session's death records. The other services always count
+    as working. The check reads state only, so a refusal draws nothing and changes nothing.
+    """
+    if service == "raise_dead":
+        return has_condition(member, Condition.DEAD)
+    if service == "cure_disease":
+        return has_condition(member, Condition.DISEASED)
+    if service == "neutralize_poison":
+        if has_condition(member, Condition.POISONED):
+            return True
+        effect = spell.modes[0].effect
+        window = int(effect.params.get("revive_window_rounds", 0)) if effect is not None else 0
+        return (
+            has_condition(member, Condition.DEAD)
+            and context.rounds_since_death is not None
+            and context.rounds_since_death <= window
+        )
+    return True
 
 
 def _temple_cleric(spell) -> Character:
