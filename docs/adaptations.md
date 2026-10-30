@@ -254,6 +254,10 @@ The time limit is 4 days per caster level above 7th, which is 0 days at level 7,
 
 "A **character** who has died from poisoning can be revived, if *neutralize poison* is cast within ten rounds": the kernel has no cause-of-death model, so supplying `CastContext.rounds_since_death` *is* the caller's attestation that the target died of poison within that many rounds. Omit it for any other death. Only a `Character` is revivable (the page's usage is titled "Characters"), and revival stands the subject up at 1 hp (pinned, since RAW names no hit point total). Locked by `test_casting.py::TestCuresAndRestoration`.
 
+### Cure light wounds removes paralysis from any source
+
+"Curing paralysis: Paralysing effects are negated." The `cure_paralysis` mode releases each ledger effect that paralyses the target, then removes any `paralysed` condition still left on it, such as one a game granted with `grant_condition` and no effect behind it. It removes no other condition. The other cures, like *cure disease* and *neutralize poison*, still lift a condition only by releasing the ledger effect that granted it (#166). Locked by `test_rules_calls.py::TestCureLightWoundsLiftsParalysis`.
+
 ### Silence automates both forms: moving on a failed save, stationary on a passed one
 
 A failed save attaches `silenced` (the casting validator consumes it) and the silence moves with the creature. On a passed save, RAW leaves a *stationary* area the creature can step out of. Location-bound effects anchor to cells, so the save-passed outcome attaches a stationary silence effect to the target's cell, pinned as the party's current cell (the encounter's abstract location). Creatures in that cell cannot cast while there, battles included. Locked by `test_casting.py::TestSilenceWebDispelFeeblemind`, `test_exploration.py::TestStationarySilence`, and `test_battle.py::TestSilencedCellInBattle`.
