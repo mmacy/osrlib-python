@@ -374,6 +374,43 @@ An area effect targets one group, and its capacity in creatures is `ceil(span / 
 
 The policy draws only from the monster-action stream. Monsters with a scripted pattern in their data follow it: an `uses_per_day` breath weapon opens with breath, then breath or melee with equal chance while daily uses remain (the dragons, RAW), and the engine rolls a `per_round_chance_in_six` gate each round (the hellhound). Otherwise a group beyond 5' closes and at 5' melees. Monster missile routines lack structured range data and stay close-then-melee (pinned), and groups never cast (casting tags are `manual` data). Morale is auto-invoked at the start of each monster block through a per-battle tracker. The triggers are first death and half incapacitated. A monster's alternate morale score applies when the round meets its condition (fear of fire when the round's damage included fire), and the spell morale modifier applies per the cumulative-effects rule. ML 2 groups rout when battle starts (none exist in the compiled data, so the branch is test-forced). A failed check means retreat exposure that round, then flight at full speed, leaving the battle past 120' (the pursuit sight figure, symmetric) as routed. Chasing routed monsters is left to the game (an evasion procedure with roles swapped, deferred). A group whose living members are all turned or afraid retreats as a whole, and individually turned members of a mixed group don't act (pinned). Locked by `test_battle.py::TestDefaultPolicy` and `TestMoraleAndEnds`.
 
+### Battle applies five kinds of monster attack effect and the petrifying gaze, and leaves the rest to the referee
+
+When a monster's attack hits in battle, the session applies each effect the attack lists if the effect is `paralysis`, `poison`, `disease`, `energy_drain`, or `petrification` and the monster's ability for it isn't `manual`. The effects apply once for each hit, so a target hit by two paralysing claws saves twice. The target saves versus paralysis against paralysis and petrification, and versus death, with the ability's modifier, against poison. A failed save against poison kills at once, or when the poison's onset runs out. Mummy rot and energy drain allow no save. An elf, whose class has `ghoul_paralysis_immunity`, rolls no save against the ghoul's or the thoul's paralysis and isn't paralysed. osrlib has no model of size, so the same paralysis affects a creature larger than an ogre, which the SRD exempts. A dead or petrified target takes none of these effects.
+
+The session runs the basilisk's and the medusa's petrifying gaze through `resolve_gaze` once a round while the gazer's group is at 5', before the group acts. The gaze reaches the party's front rank and takes no attack roll, and a character who is averting their eyes doesn't meet it. The session never rolls the basilisk's `gaze` attack entry as an attack.
+
+The session doesn't apply these attack effects and gazes, so the referee applies them from the monster's description:
+
+- `1d10_heat`: bronze golem.
+- `1d10_hull_damage`: lesser sea serpent, giant squid.
+- `2_hull_damage`: giant squid.
+- `6d6_hull_damage`: sperm whale.
+- `blindness`: spitting cobra.
+- `blistering`: oil beetle.
+- `blood_drain`: giant leech.
+- `blood_sucking`: stirge, giant weasel.
+- `charm`: devil swine, dryad, harpy, nixie, vampire.
+- `charming_gaze`: vampire.
+- `choking`: yellow mould.
+- `confusion`: normal bat.
+- `constriction`: giant octopus, rock python, giant squid.
+- `consume_flesh`: green slime.
+- `curse`: sprite.
+- `disease`, where the ability is `manual`: giant rat, normal rat.
+- `grab`: rhagodessa.
+- `knock_down`: horned chameleon.
+- `lodged_stinger`: killer bee.
+- `petrify`: gorgon.
+- `poison`, where the ability is `manual`: giant centipede, sea snake, tarantella.
+- `rusting`: rust monster.
+- `stench`: cave locust.
+- `strength_drain`: shadow.
+- `stun`: bull shark, freshwater termite, saltwater termite, swamp termite.
+- `unconsciousness`: giant vampire bat.
+
+Locked by `test_monster_attack_effects.py`.
+
 ### The session's context
 
 Character ids assign as `character-NNNN` from the session allocator in party order. Dead members stay in the party but count for nothing. The session records each character death's clock round and cause (`poison` when the killing resolution was a poison save or poison-delay expiry, else the source kind), feeding *raise dead*'s day count always and *neutralize poison*'s round window only for poison deaths, so a session supplies the values that a direct kernel caller has to attest. Session flags are referee-only (how the game's content uses them is secret) and neither view includes the seed, which lives only in the save. The player view is the enumerated whitelist locked by the leak property test, with undiscovered secret doors rendering as walls. `SetDoorState` emits referee-visibility door events, and `PlaceParty` triggers no hooks, traps, or keyed encounters, because it is a referee tool. Referee `AdvanceTime` runs full bookkeeping but no wandering cadence, since the referee controls encounters. `SpawnMonsters` rolls its count dice on the encounter stream and opens a standard encounter with both sides rolling surprise, in a dungeon only (the combat space needs a party cell) and never while an encounter is already running, and `PlaceParty` likewise rejects mid-encounter. Locked by `test_session.py` and `test_crawl_properties.py`.

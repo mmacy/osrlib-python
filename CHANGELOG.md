@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- When a monster's attack hits in battle, the session applies the effects the attack lists (#167). A ghoul's or a thoul's claw paralyses for 2d4 turns unless the target saves versus paralysis, and an elf isn't affected. A carcass crawler's tentacle and a gelatinous cube's touch paralyse the same way, elves included. A poisonous bite or sting kills unless the target saves versus death, either at once or when the poison's onset runs out, and the session records the death as a poison death, so *neutralize poison* can revive the character. A mummy's touch gives mummy rot, and a wight's, a wraith's, a spectre's, or a vampire's touch drains levels, with no save against either. A basilisk's bite and a cockatrice's beak turn the target to stone unless it saves versus petrification. The basilisk's and the medusa's petrifying gaze reaches each character in the party's front rank once a round while the gazer is in melee, with no attack roll, and a character who is averting their eyes doesn't meet it. The session no longer rolls the basilisk's gaze as an attack. The adaptations register lists the attack effects that the session leaves to the referee. In a battle against one of these monsters, the session now makes more draws from the combat, effects, and advancement streams, so the same seed and commands give a different battle than they gave under 2.0.1. No golden file changed.
+
 ## [2.0.1] - 2026-10-30
 
 ### Changed
