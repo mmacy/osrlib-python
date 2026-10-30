@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Fixed
 
 - [`UseItem`][osrlib.crawl.commands.UseItem] with a potion and a `target_id` that names someone other than the member using it is now refused with `items.use.target_not_allowed`. Before, the session accepted the command and the carrier drank the potion, so a front end that expected the target to drink got no warning. A `target_id` of `None` or the user's own id drinks the potion as before, and a healing device still takes another member (#174).
+- A trap's saving throw now adds the `modifier` of the trap's [`SaveSpec`][osrlib.core.spells.SaveSpec], as a spell's save does. Before, the session left the modifier out, so a trap you wrote with a bonus or a penalty on its save played as if it had none. The modifier changes whether the save passes, and the dice the session rolls are the same as before (#167).
 
 ## [2.0.1] - 2026-10-30
 

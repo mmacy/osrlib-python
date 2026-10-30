@@ -1448,7 +1448,9 @@ def _resolve_trap(session, trap: TrapSpec, *, triggerer) -> list[Event]:
     for victim in victims:
         passed = False
         if effect.save is not None:
-            save = saving_throw(victim, SaveCategory(effect.save.category), stream=stream)
+            save = saving_throw(
+                victim, SaveCategory(effect.save.category), modifier=effect.save.modifier, stream=stream
+            )
             events.extend(save.events)
             passed = save.passed
             if passed and effect.save.on_save == "negates":
