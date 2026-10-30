@@ -35,8 +35,6 @@ from osrlib.data import load_classes, load_monsters, load_spells
 from osrlib.persistence import load_game, save_game
 from osrlib.versioning import SCHEMA_VERSION
 
-CHUNK = "chunk: drain-and-regen"
-
 # ---------------------------------------------------------------------- the ring of regeneration
 
 WEARER_HP = 50
@@ -160,7 +158,6 @@ class TestRegenerationRing:
         events = advance(session, 5)
         assert healed(events, wearer) == 2 and wearer.current_hp == WEARER_HP  # it stops at the maximum
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_fire_ball_damage_never_regenerates(self):
         session, wearer, caster = ring_session()
         cast_events, fire = fire_ball(session, caster, wearer)
@@ -170,7 +167,6 @@ class TestRegenerationRing:
         assert wearer.current_hp == WEARER_HP - fire
         assert regenerating(session, wearer)  # the ring still runs, it has nothing it may heal
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_fire_ball_then_ordinary_damage_regenerates_only_the_ordinary_part(self):
         session, wearer, caster = ring_session()
         _, fire = fire_ball(session, caster, wearer)
@@ -180,7 +176,6 @@ class TestRegenerationRing:
         assert healed(events, wearer) == 5
         assert wearer.current_hp == WEARER_HP - fire
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     @pytest.mark.parametrize("element", ["fire", "acid"])
     def test_element_damage_never_regenerates(self, element):
         session, wearer, _ = ring_session()
@@ -189,7 +184,6 @@ class TestRegenerationRing:
         assert healed(advance(session, 10), wearer) == 0
         assert wearer.current_hp == WEARER_HP - 4
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     @pytest.mark.parametrize("element", ["fire", "acid"])
     @pytest.mark.parametrize("element_first", [True, False], ids=["element-first", "ordinary-first"])
     def test_ordinary_damage_regenerates_around_element_damage(self, element, element_first):
@@ -205,7 +199,6 @@ class TestRegenerationRing:
         assert healed(events, wearer) == 3
         assert wearer.current_hp == WEARER_HP - 4
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     @pytest.mark.parametrize("element", ["fire", "acid"])
     def test_the_damage_event_marks_element_damage_non_regenerable(self, element):
         session, wearer, _ = ring_session()
@@ -232,7 +225,6 @@ class TestRegenerationRing:
         assert healed(advance(session, 10), wearer) == 3
         assert wearer.current_hp == WEARER_HP
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_the_block_survives_a_save_and_a_load(self):
         session, wearer, _ = ring_session()
         hurt(session, wearer, 4, "fire")
@@ -367,7 +359,6 @@ class TestSleepOnDrainedMonsters:
         result = scene.cast("single_4_plus", [ogre])
         assert result.affected_ids == (ogre.id,) and asleep(ogre)
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_mode_one_has_no_effect_on_an_ogre_drained_to_3_plus_1(self):
         scene = SleepScene(BUDGET_3_SEED)
         ogre = scene.drained("ogre")
@@ -393,7 +384,6 @@ class TestSleepOnDrainedMonsters:
         result = scene.cast("hd_budget", [bugbear])
         assert result.affected_ids == (bugbear.id,) and asleep(bugbear)
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_mode_two_takes_an_ogre_drained_to_3_plus_1_for_3_hit_dice(self):
         assert sleep_budget(BUDGET_3_SEED) == 3  # a 4 HD cost would not fit
         scene = SleepScene(BUDGET_3_SEED)
@@ -403,7 +393,6 @@ class TestSleepOnDrainedMonsters:
         assert selection.target_ids == (ogre.id,)
         assert result.affected_ids == (ogre.id,) and asleep(ogre)
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_mode_two_takes_the_drained_ogre_and_still_excludes_an_undrained_one(self):
         assert sleep_budget(BUDGET_4_SEED) == 4
         scene = SleepScene(BUDGET_4_SEED)
@@ -421,7 +410,6 @@ class TestSleepOnDrainedMonsters:
         result = scene.cast("hd_budget", [grizzly])
         assert result.affected_ids == () and not asleep(grizzly)
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_mode_two_takes_a_grizzly_drained_to_4_hit_dice(self):
         assert sleep_budget(BUDGET_4_SEED) == 4
         scene = SleepScene(BUDGET_4_SEED)
