@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- Trolls, thouls, and vampires regenerate in play (#167). Until this release a spawned one never healed, though its template had the ability. A monster whose template has the `regeneration` ability now starts to regenerate when its encounter opens, whether it came from a [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] command, a keyed area, or a wandering-monster check. The command that opened the encounter reports an [`EffectAttachedEvent`][osrlib.core.events.EffectAttachedEvent] for each such monster. A hurt troll gets back 3 hit points a round, starting 3 rounds after it last took damage, and never gets back damage from fire or acid. A troll slain while its encounter is still running gets back up 2d6 rounds later and fights again, unless fire and acid alone did as much damage as its maximum hit points. A thoul or a vampire heals every round while it lives. The session releases the effect when the encounter ends, so a troll that is still dead then stays dead. The session rolls the revival delay on the effects stream. A game recorded under 2.0.1 that met one of these monsters replays differently under this release. No golden file changed.
+
 ## [2.0.1] - 2026-10-30
 
 ### Changed
