@@ -1640,7 +1640,7 @@ class GameSession:
                 self.wandering_counter += 1
                 if self.wandering_counter >= exploration.wandering_interval(self):
                     self.wandering_counter = 0
-                    check_events, encountered = exploration.wandering_check(self, resting=resting)
+                    check_events, encountered = exploration.wandering_check(self, resting=hidden)
                     events.extend(check_events)
                     if encountered:
                         return events, True

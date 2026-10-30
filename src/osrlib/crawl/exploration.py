@@ -721,10 +721,10 @@ def _accrue_movement(session, units: int) -> list[Event]:
     return []
 
 
-def _spend_turn(session, *, resting: bool = False) -> tuple[list[Event], bool]:
+def _spend_turn(session, *, resting: bool = False, hidden: bool = False) -> tuple[list[Event], bool]:
     """Advance one whole turn, absorbing the partial move (odometer reset)."""
     session.odometer_thirds = 0
-    return session.advance_turns(1, resting=resting)
+    return session.advance_turns(1, resting=resting, hidden=hidden)
 
 
 def _fatigue_threshold(session) -> int:
@@ -3286,7 +3286,9 @@ def _handle_rest(session, command: Rest) -> tuple[list[Rejection], list[Event]]:
     turns = {"turn": 1, "night": 48, "day": 144}[command.kind]
     start = session.clock.rounds
     resting_events, interrupted = (
-        _spend_turn(session, resting=True) if turns == 1 else session.advance_turns(turns, resting=True)
+        _spend_turn(session, resting=True, hidden=command.hidden)
+        if turns == 1
+        else session.advance_turns(turns, resting=True, hidden=command.hidden)
     )
     events = list(resting_events)
     if turns > 1:

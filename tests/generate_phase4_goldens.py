@@ -474,8 +474,8 @@ class Driver:
             self.move(Direction.WEST)
 
         # Camp on the level-1 corridor until the dice have sent a wandering
-        # encounter AND a blow has disrupted a casting (the resting −1 still
-        # leaves the wandering chance at 1-in-6 per check).
+        # encounter AND a blow has disrupted a casting (a plain rest checks at the
+        # level's full 2-in-6 chance, because only a hidden rest takes the −1).
         rests = 0
         while not self.beats.wandering_battle_won or "magic.cast.disrupted" not in self.beats.codes:
             rests += 1
