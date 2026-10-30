@@ -1379,10 +1379,12 @@ def _with_default_weapon(session, declaration: BattleDeclaration, member) -> Bat
     """Fill in the weapon of an `attack` that names none, as `BattleDeclaration.weapon_id` describes.
 
     The group's distance decides the attack: melee at 5' or less, missile beyond. The weapon is the first
-    wielded item, in equip order, with that quality. For a missile attack it's the first of those whose long
-    range reaches the group, and the first missile weapon only when none reaches. A splash weapon never
-    counts, because a `use_item` declaration throws it, and neither does an item with no weapon stats, like a
-    wand. The session calls this once, when it
+    wielded item, in equip order, with that quality, and a real weapon comes before an improvised one: a gear
+    item whose stats come from its `combat` facet, like a torch. So a member who lit a torch and then drew a
+    sword swings the sword, and the torch counts only when nothing else suits the attack. For a missile
+    attack it's the first of those whose long range reaches the group, and the first missile weapon only
+    when none reaches. A splash weapon never counts, because a `use_item` declaration throws it, and neither
+    does an item with no weapon stats, like a wand. The session calls this once, when it
     accepts the round, so the rest of the round reads the chosen weapon as if the player had named it.
 
     Returns:
@@ -1398,13 +1400,15 @@ def _with_default_weapon(session, declaration: BattleDeclaration, member) -> Bat
         return declaration
     missile = group.distance_feet > MELEE_RANGE_FEET
     wanted = WeaponQuality.MISSILE if missile else WeaponQuality.MELEE
-    suitable = []
+    weapons, improvised = [], []
     for held in member.inventory.wielded:
         is_magic = isinstance(held, MagicItemInstance)
         facet = _declaration_facet(held if is_magic else held.template)
         qualities = getattr(facet, "qualities", ())
         if wanted in qualities and WeaponQuality.SPLASH not in qualities:
-            suitable.append((held.instance_id if is_magic else held.template.id, facet))
+            kind = improvised if not is_magic and isinstance(held.template, GearTemplate) else weapons
+            kind.append((held.instance_id if is_magic else held.template.id, facet))
+    suitable = weapons + improvised
     if not suitable:
         return declaration
     chosen = suitable[0][0]

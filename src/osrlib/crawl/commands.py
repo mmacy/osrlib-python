@@ -2459,11 +2459,13 @@ class BattleDeclaration(BaseModel):
     were equipped and takes the first one with the `melee` quality for a melee attack, or the
     `missile` quality for a missile attack. For a missile attack, it takes the first one whose long
     range reaches the group. Only when none reaches does it take the first missile weapon, and the
-    session then refuses the attack with `combat.attack.out_of_range`. A torch counts, because the
-    weapon table lists it as a melee weapon. A splash weapon, like a flask of oil or a vial of holy
-    water, never counts, because a `use_item` declaration throws it. A wand, or another magic item
-    with no base weapon, has no weapon stats, so it never counts either. A member with no weapon that
-    suits the attack strikes unarmed.
+    session then refuses the attack with `combat.attack.out_of_range`. A real weapon comes before an
+    improvised one, a gear item like a torch, whatever order they were equipped in. So a member who
+    lit a torch and then drew a sword swings the sword. A torch still counts when nothing else suits
+    the attack, because the weapon table lists it as a melee weapon. A splash weapon, like a flask
+    of oil or a vial of holy water, never counts, because a `use_item` declaration throws it. A
+    wand, or another magic item with no base weapon, has no weapon stats, so it never counts either.
+    A member with no weapon that suits the attack strikes unarmed.
 
     The session makes this choice once, when it accepts the round. The attack then resolves as if
     you had named that weapon, even when the distance changes before the attack resolves. The
