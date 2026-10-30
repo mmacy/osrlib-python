@@ -1669,6 +1669,20 @@ def _validate_declaration(
     The pre-phase passes `front_rank`, the ids of the front rank as the round's swaps will leave it
     (see `_projected_front_rank`), so a replacement who steps up may declare a melee attack. Without
     it, a melee attack is judged against the front rank as it stands.
+
+    A staff of striking `use_item` is a melee attack too, because the staff is "Used as a magical melee
+    weapon", so it gets the same rank check: a member outside `front_rank`, or outside the front rank as it
+    stands when `front_rank` isn't passed, is refused with `battle.declaration.not_in_front_rank` and the
+    member's id as the `character` param. The check applies only while `formation_width_limit` is on, as
+    for a melee attack. `_validate_magic_item_declaration` makes it, after the group checks.
+
+    A `turn_undead` names no group. It reaches every living monster in every group that hasn't fled, undead
+    or not, as `_party_magic` passes them to [`turn_undead`][osrlib.core.spells.turn_undead]. After the
+    checks of [`validate_turn_undead`][osrlib.core.spells.validate_turn_undead], a turning with no such
+    monster left is refused with `battle.declaration.no_target` and the member's id as the `character`
+    param. A battle always has a living monster when a round is accepted, so only the magic phase's
+    re-check meets this refusal, when the phases before it killed or drove off every monster. The check
+    doesn't ask whether any monster is undead, so it never tells the player what is undead for free.
     """
     state = session.battle
     if declaration.action == "hold":
@@ -1870,6 +1884,13 @@ def _validate_magic_item_declaration(session, declaration: BattleDeclaration, me
     validation pre-phase, and again in the magic phase immediately before the read or the use resolves,
     because the phases between the two can change what these checks read. It reads state and takes no draw,
     so the second run costs nothing and changes nothing.
+
+    A staff of striking (an effect of kind `striking`) is "Used as a magical melee weapon", so only a member
+    in the front rank may use it, as for a melee attack (see `_validate_declaration`). In the pre-phase that is
+    the front rank as the round's swaps will leave it, so a replacement who steps up may strike. In the magic
+    phase it is the front rank as it stands, so a replacement whose swap didn't happen fizzles with
+    `battle.declaration.not_in_front_rank`. The rank check comes after `battle.declaration.unknown_group`, so a
+    staff aimed at a fled group is still refused for the group.
     """
     from osrlib.crawl import exploration
 
@@ -2719,6 +2740,12 @@ def _party_magic(session, by_member, pending_casters, disrupted, acted, state) -
     `items.device.activated`, and breaks no invisibility. A turning that fizzles costs nothing and draws
     nothing. A fizzled device use or turning still releases the actor's concentration, as every declaration
     other than a cast or a hold does.
+
+    A turning reaches only the living monsters of the groups that haven't fled, in the encounter's group order
+    and each group's monster order. A dead monster, or one in a fled group, is never a candidate, so its kind is
+    never read on the turning table and never appears in the event's `types`. A turning with no such monster
+    left, because the missile phase or a declaration earlier in this magic phase killed them or drove them from
+    the battle, fizzles with `battle.declaration.no_target`.
     """
     events: list[Event] = []
     for member, declaration in by_member.values():

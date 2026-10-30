@@ -332,7 +332,8 @@ class TestWightBattleGolden:
         # Fighter L2 threshold 2,000, L1 threshold 0: floored halfway is 1,000.
         assert drained["xp_after"] == 1_000 and document["fighter_xp"] == 1_000
         assert document["fighter_level"] == 1
-        assert "becomes a wight" in drained["spawn_consequence"]
+        # The fighter survives this drain. Which drain events carry the spawn consequence is pinned in
+        # test_turning_and_staff.py.
         assert codes[-2:] == ["combat.death.died", "combat.state.hit_points"] or "combat.death.died" in codes
 
     def test_replay_determinism(self):

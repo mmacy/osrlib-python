@@ -1183,6 +1183,7 @@ class DrainResult(BaseModel):
     """The hit points the drain takes, from both maximum and current hit points.
 
     Neither total drops below 1 while the character has a level left, so the totals can fall by less than this.
+    The `hp_lost` of the drain event in `events` is how far the maximum actually fell, so the two can differ.
     """
 
     xp_after: int | None = None
@@ -1249,8 +1250,10 @@ def drain_levels(
             `streams.get(`[`ADVANCEMENT_STREAM`][osrlib.core.character.ADVANCEMENT_STREAM]`)`,
             the stream that level gains draw from.
         spawn_consequence: A description of what a victim drained of all levels becomes, like the
-            description of the monster's `energy_drain` ability. This function copies it onto the
-            drain event for you to show, and osrlib doesn't act on it. `None` leaves it off.
+            description of the monster's `energy_drain` ability. When the drain kills the character,
+            this function copies it onto the `combat.drain.slain` event for you to show, and osrlib
+            doesn't act on it. A drain the character survives leaves it off its event, because the
+            character hasn't become anything. `None` leaves it off.
 
     Returns:
         What the character lost, and the events that describe it.

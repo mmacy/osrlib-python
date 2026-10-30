@@ -66,6 +66,7 @@ from osrlib.crawl.commands import (
     EquipItem,
     GrantItem,
     LightSource,
+    ReorderParty,
     ResolveBattleRound,
     SessionMode,
     SpawnMonsters,
@@ -405,12 +406,15 @@ class TestExplicitAndUnarmedAttacksStayAsTheyAre:
 def staff_battle(seed: int, *, identified: bool = False, invisible: bool = False):
     """Goblins at melee range that are already fleeing, and a cleric with a staff of striking aimed at them.
 
-    The declaration passes at the top of the round. When the monsters win initiative, the group runs 60 feet
-    before the party's magic phase, out of the staff's melee reach. When the party wins, the staff resolves at
-    5 feet. The group is still inside 120 feet either way, so it hasn't fled and the battle goes on.
+    The cleric leads the marching order, so they stand in the front rank, because the staff is "Used as a magical
+    melee weapon" and only the front rank can melee. The declaration passes at the top of the round. When the
+    monsters win initiative, the group runs 60 feet before the party's magic phase, out of the staff's melee reach.
+    When the party wins, the staff resolves at 5 feet. The group is still inside 120 feet either way, so it hasn't
+    fled and the battle goes on.
     """
     session = GameSession.new(build_party(), build_adventure(wandering_chance=0), seed=seed)
     _light_and_enter(session)
+    assert session.execute(ReorderParty(order=(CLERIC, FIGHTER, THIEF, MAGIC_USER))).accepted
     instances = session.spawn("goblin", 2)
     encounter_module.start_encounter(
         session,
@@ -422,6 +426,7 @@ def staff_battle(seed: int, *, identified: bool = False, invisible: bool = False
     )
     session.execute(EngageBattle())
     assert session.mode is SessionMode.BATTLE
+    assert CLERIC in session.view(Visibility.PLAYER).encounter.front_rank
     group = session.encounter.groups[0]
     group.fleeing = True
     staff = MagicItemInstance(

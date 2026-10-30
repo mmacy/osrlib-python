@@ -3301,7 +3301,9 @@ def drain_monster_hd(monster: MonsterInstance, *, levels: int = 1, stream: RngSt
 
     For each Hit Die drained, the monster loses a rolled d8 from both its maximum and its
     current hit points, and its THAC0 and saving throws become those of its new Hit Dice.
-    Neither hit point total falls below 1, so losing hit points never kills a monster.
+    Neither hit point total falls below 1, so losing hit points never kills a monster. The
+    event's `hp_lost` is how far the maximum fell, which is less than the d8s rolled when the
+    floor of 1 stops it.
 
     The function kills a monster already at 1 Hit Die instead. It rolls no die for that step
     and takes no Hit Die off, and the event counts the last one as lost.
@@ -3395,8 +3397,8 @@ def resolve_energy_drain(attacker: MonsterInstance, target: Creature, *, stream:
     [`Character`][osrlib.core.character.Character], which has a class, loses levels
     through [`drain_levels`][osrlib.core.classes.drain_levels]. A
     [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] loses Hit Dice through
-    [`drain_monster_hd`][osrlib.core.combat.drain_monster_hd]. For a character, the
-    ability's text about what the victim becomes appears in the drain event.
+    [`drain_monster_hd`][osrlib.core.combat.drain_monster_hd]. When the drain kills a
+    character, the ability's text about what the victim becomes appears in the drain event.
 
     Args:
         attacker: The draining [`MonsterInstance`][osrlib.core.monsters.MonsterInstance],
