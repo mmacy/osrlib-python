@@ -1,4 +1,4 @@
-"""Acceptance tests for monsters with more than one attack routine (chunk: attack-routines).
+"""Acceptance tests for monsters with more than one attack routine.
 
 A monster template lists one or more attack routines, and a monster uses one of them in a round.
 The OSE SRD joins them with "or", but its text says when each is used: a thoul claws or uses a
@@ -22,8 +22,7 @@ at all. These tests pin how the catalog labels each routine and how battle uses 
 - A game's own policy may name any routine. Battle rolls a `SITUATIONAL` routine as melee and
   rolls nothing for a `SPECIAL` one. It never rolls an entry named `gaze` or `breath` as an attack.
 
-Tests that pass today, or pass with the committed contract stubs, are left unmarked: they guard
-behavior the chunk must keep. Saving throws are forced where a test needs a particular outcome,
+Saving throws are forced where a test needs a particular outcome,
 with a `save_bonus` of +20 or -20, so a test never depends on which draw a save comes from. Each
 test asserts its own preconditions, so a test that stops exercising its case fails loudly.
 """
@@ -59,8 +58,6 @@ from osrlib.crawl.dungeon import DungeonSpec, Edge, EdgeKind, LevelSpec
 from osrlib.crawl.party import Party
 from osrlib.crawl.session import MONSTER_ACTION_STREAM, GameSession
 from osrlib.data import load_classes, load_monsters, load_spells
-
-CHUNK = "chunk: attack-routines"
 
 REPO = Path(__file__).resolve().parents[1]
 
@@ -364,7 +361,6 @@ class TestTheCatalog:
         assert _routine_names(catalog.get("elephant")) == [{"tusk"}, {"trample"}]
         assert _routine_names(catalog.get("basilisk")) == [{"bite", "gaze"}]
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     @pytest.mark.parametrize("template_id", sorted(EXPECTED_USES))
     def test_each_routine_carries_the_label_the_srd_gives(self, template_id):
         template = load_monsters().get(template_id)
@@ -434,7 +430,6 @@ class TestTheCompilerRefusesAnUnlabelledRoutine:
     breath, gaze, or spell rule can cover it.
     """
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_a_monster_page(self, tmp_path):
         process = _compile_edited_srd(
             tmp_path,
@@ -445,7 +440,6 @@ class TestTheCompilerRefusesAnUnlabelledRoutine:
         assert process.returncode != 0, "the compiler wrote data with an unlabelled routine"
         assert "goblin" in process.stderr.lower(), "the failure names the monster"
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_a_stat_block_on_a_spell_page(self, tmp_path):
         process = _compile_edited_srd(
             tmp_path,
@@ -463,7 +457,6 @@ class TestTheCompilerRefusesAnUnlabelledRoutine:
 class TestTheDefaultPolicyPicksARoutine:
     """Under `ScriptedPolicy`, a monster picks among its primary and alternative routines."""
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     @pytest.mark.parametrize("template_id", FREE_CHOICE)
     def test_a_free_choice_is_an_equal_chance(self, template_id):
         game, _ = _battle(template_id)
@@ -483,7 +476,6 @@ class TestTheDefaultPolicyPicksARoutine:
 
         assert set(chosen) == {0}
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_the_choice_draws_on_the_monster_action_stream_every_round(self):
         game, _ = _battle("spitting_cobra")
         stream = game.streams.get(MONSTER_ACTION_STREAM)
@@ -576,7 +568,6 @@ class TestOneCandidateDrawsAsToday:
 class TestTheLaterRoutineApplies:
     """The effects of a later routine apply when battle resolves it, with the save the SRD gives."""
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_the_spitting_cobra_spits_and_bites_under_the_default_policy(self):
         game, cobra = _battle("spitting_cobra")
         fighter = game.party.members[0]
@@ -589,7 +580,6 @@ class TestTheLaterRoutineApplies:
         assert set(rolled) == {"spit", "bite"}
         assert len(rolled) == 30, "one attack a round: the routines are alternatives, not a sequence"
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_a_failed_save_against_the_cobras_bite_kills_in_1d10_turns(self):
         game, cobra = _battle("spitting_cobra")
         fighter = game.party.members[0]
@@ -615,7 +605,6 @@ class TestTheLaterRoutineApplies:
         assert onset % ROUNDS_PER_TURN == 0
         assert poison.definition.expiry == "death"
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_a_passed_save_leaves_the_bite_damage(self):
         game, cobra = _battle("spitting_cobra")
         fighter = game.party.members[0]
@@ -667,7 +656,6 @@ class TestAGamesPolicyChoosesTheRoutine:
 
         assert rolled == {"spit"}
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_the_named_alternative_is_the_one_rolled(self):
         game, cobra = _battle("spitting_cobra")
         fighter = game.party.members[0]
@@ -680,7 +668,6 @@ class TestAGamesPolicyChoosesTheRoutine:
 
         assert rolled == ["bite"] * 10
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     @pytest.mark.parametrize(
         ("template_id", "index"),
         [
@@ -704,7 +691,6 @@ class TestAGamesPolicyChoosesTheRoutine:
             assert rolled == _expanded(routine), "each round rolls the named routine's attacks, and only those"
         assert routine.use is RoutineUse.SITUATIONAL, "the routine rolled is one the default policy never picks"
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_the_thouls_weapon_routine_doesnt_paralyse(self):
         game, thoul = _battle("thoul")
         fighter = game.party.members[0]
@@ -721,7 +707,6 @@ class TestAGamesPolicyChoosesTheRoutine:
         assert hit, "precondition: a weapon hit"
         assert not has_condition(fighter, Condition.PARALYSED)
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_a_wrapped_default_policy_can_switch_to_a_situational_routine(self):
         class TrampleAlways:
             def choose(self, session, group, stream):
@@ -739,7 +724,6 @@ class TestAGamesPolicyChoosesTheRoutine:
 
         assert rolled == {"trample"}
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     @pytest.mark.parametrize(("template_id", "index"), [("spitting_cobra", 2), ("spitting_cobra", -1), ("goblin", 1)])
     def test_an_index_the_template_lacks_is_skipped(self, template_id, index):
         """A negative index is not one the template has, so it isn't read from the end of the list."""
@@ -784,7 +768,6 @@ class TestSpecialRoutinesAreNeverRolled:
 
         assert rolled == {"bite"}
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     @pytest.mark.parametrize(
         ("template_id", "index"),
         [
@@ -852,7 +835,6 @@ class TestDeterminism:
             events += _round(game)
         return game, monster, [event.model_dump(mode="json") for event in events]
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     @pytest.mark.parametrize("template_id", ["spitting_cobra", "thoul", "minotaur"])
     def test_replaying_a_battle_gives_the_same_events(self, template_id):
         first_game, monster, first = self._play(template_id)
@@ -890,7 +872,6 @@ def _section(text: str, heading: str) -> str:
 class TestTheRegister:
     """The adaptations register describes the routine choice and no longer says battle uses only the first."""
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_the_register_no_longer_says_battle_uses_only_the_first_routine(self):
         stale = [
             sentence
@@ -899,14 +880,12 @@ class TestTheRegister:
         ]
         assert not stale, f"the register still says battle uses only the first routine: {stale}"
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_the_default_policy_section_names_the_routine_choice(self):
         section = _section(_register(), "The default action policy and morale")
         assert re.search(r"(?i)\battack routines?\b", section), (
             "the default policy's section says how it picks a routine"
         )
 
-    @pytest.mark.xfail(reason=CHUNK, strict=True)
     def test_the_register_leaves_situational_routines_to_a_games_policy(self):
         records = [
             sentence
