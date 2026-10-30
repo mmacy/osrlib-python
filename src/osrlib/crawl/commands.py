@@ -1045,8 +1045,9 @@ class TakeTreasure(Command):
     By default the haul spreads across the living members. Each item goes to a member
     whose class can use it, so the fighter takes the plate mail and the magic-user takes
     the arcane scroll. Gems and jewellery divide by worth, and coins divide evenly,
-    denomination by denomination. No member is loaded past the 1,600-coin maximum load, so
-    a pickup can't stop the party moving. The party moves at its slowest member's rate,
+    denomination by denomination. No member is loaded past their maximum load, so a pickup
+    can't stop the party moving. The maximum load is 1,600 coins, or 2,600 for a member who
+    wears gauntlets of ogre power under detailed encumbrance. The party moves at its slowest member's rate,
     so a heavy load on one member slows everyone. Name `recipient_id` to have one member
     take the whole haul instead, up to their maximum load. Whatever the carriers can't
     carry stays in the pile on the cell, and the party can lighten its load and come back
