@@ -30,8 +30,8 @@ emits no `items.device.activated`, and breaks no invisibility, because it was ne
 `item_id` is the device's instance id, which reveals nothing about an unidentified device. A fizzled turning
 has no `item_id`, draws nothing, and costs nothing.
 
-Tests of new behavior are marked expected-to-fail for the chunk. The unmarked classes pin behavior that has to
-stay as it is, the explicit weapon, bare hands, and a device the re-check passes, and they pass today.
+Some classes check behavior that stays as it was: the explicit weapon, bare hands, and a device the re-check
+passes.
 """
 
 from collections.abc import Callable
@@ -74,8 +74,6 @@ from osrlib.crawl.session import GameSession
 from osrlib.data import load_equipment, load_magic_items
 from osrlib.messages import format_message
 from osrlib.persistence import replay_game
-
-CHUNK = pytest.mark.xfail(reason="chunk: weapon-and-device", strict=True)
 
 FIGHTER = "character-0001"
 THIEF = "character-0002"
@@ -221,7 +219,6 @@ EQUIVALENCE_CASES = [
 ]
 
 
-@CHUNK
 class TestAnAttackWithNoWeaponUsesTheWieldedWeapon:
     """`weapon_id=None` attacks with the wielded weapon that suits the attack, chosen when the round is
     accepted, and the round is the one that names that weapon."""
@@ -516,7 +513,6 @@ def assert_device_fizzle(
     assert "lost" not in message.lower(), "a device that fizzles loses nothing"
 
 
-@CHUNK
 class TestADeviceUseIsJudgedAgainInTheMagicPhase:
     """A wand, staff, or rod declaration is judged again just before it resolves. One that now fails fizzles
     with `magic.device.fizzled`, keeps its charge, and costs what a `hold` costs."""
@@ -654,7 +650,6 @@ def skeleton_battle(seed: int) -> GameSession:
     return session
 
 
-@CHUNK
 class TestATurningIsJudgedAgainInTheMagicPhase:
     """A `turn_undead` declaration is judged again just before it resolves. One that now fails fizzles with
     `magic.turning.fizzled` and no `item_id`, instead of raising out of the round."""
