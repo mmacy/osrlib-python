@@ -337,6 +337,7 @@ from osrlib.crawl.events import (
     BattleRoundEvent,
     BattleStartedEvent,
     GroupMovedEvent,
+    MemberMovedEvent,
     MemberWithdrewEvent,
     MonsterFledEvent,
     MonstersLeftBehindEvent,
@@ -851,7 +852,7 @@ class ScriptedPolicy:
                     if monster.breath_uses_today < int(params["uses_per_day"]) and stream.randbelow(2) == 0:
                         actions.append(MonsterAction(monster_id=monster.id, kind="breath"))
                         continue
-            if group.distance_feet > MELEE_RANGE_FEET:
+            if _nearest_member_distance(session, group) > MELEE_RANGE_FEET:
                 actions.append(MonsterAction(monster_id=monster.id, kind="close"))
                 continue
             targets = _preferred_targets(monster, _reachable_targets(session, monster, pool))
@@ -1016,7 +1017,7 @@ class NpcPartyPolicy:
                     )
                 )
                 continue
-            if group.distance_feet > MELEE_RANGE_FEET:
+            if _nearest_member_distance(session, group) > MELEE_RANGE_FEET:
                 if _npc_wielded(npc, missile=True, distance_feet=group.distance_feet) is not None and pool:
                     target = pool[stream.randbelow(len(pool))]
                     actions.append(MonsterAction(monster_id=npc.id, kind="npc_shoot", target_id=target.id))
@@ -1176,9 +1177,9 @@ def _turning_candidates(session) -> list:
 FIGHTER_FRONTAGE_FEET = 5
 """The width, in feet, that one combatant needs to fight side by side with the next.
 
-The party's front rank is as wide as the space it stands in, divided by this, so two fit abreast in
+Each rank of the party is as wide as the space it stands in, divided by this, so two fit abreast in
 a ten-foot corridor, and a room fits as many as its shorter side allows. The session rejects a
-melee attack declared by a member outside the front rank with
+melee attack declared by a member within reach of a group but outside its front rank with
 `battle.declaration.not_in_front_rank`. The rank check doesn't apply to missile attacks, so the back
 ranks can still shoot.
 
@@ -1189,8 +1190,8 @@ fight side-by-side." osrlib uses the low end of that range, two in ten feet, or 
 and applies it to the space the party is standing in.
 
 To play without a width limit, turn off the ruleset's `formation_width_limit` flag, which puts every
-living member in the front rank. Changing this constant instead would change the width of every
-space in the game.
+living member at the same distance from a group in one rank. Changing this constant instead would
+change the width of every space in the game.
 """
 
 
@@ -1281,6 +1282,11 @@ def _formation_width(session) -> int | None:
 
 
 def _party_ranks(session) -> list[list]:
+    """The living members cut into rows of the formation width in marching order, wherever each one stands.
+
+    The monster side reads these rows: its melee pool, a breath, an area aimed at the party, and a gaze. The
+    party's own melee reads the ranks toward each group by distance instead (see `_ranks_toward`).
+    """
     width = _formation_width(session)
     living = session.party.living_members()
     if width is None:
@@ -1426,6 +1432,180 @@ def _haste_multiplier(session, entity_id: str, key: str) -> int:
 # ---------------------------------------------------------------------- positions on the range track
 
 
+class _Placement(NamedTuple):
+    """Where each party member stands on the range track, for the rules that measure distance, rank, and reach.
+
+    The round handler judges declarations against one of these, and the helpers for distance, ranks, and
+    reach take one. So the same code can read the battle as it stands, or as a round's planned changes
+    would leave it. `_placement` builds one.
+    """
+
+    advance_feet: Mapping[str, int]
+    """Each member's advance from the party line. A member with no entry stands on the line."""
+    arrived_round: Mapping[str, int]
+    """The round each member reached their advance. A member with no entry has stood there since round zero."""
+    order: tuple[str, ...]
+    """The living members' ids, in marching order."""
+    width: int | None
+    """The formation width, or None when the ruleset's `formation_width_limit` flag is off."""
+
+    def distance(self, member_id: str, group) -> int:
+        """The member's distance to the group: the group's distance from the line minus the member's advance."""
+        return group.distance_feet - self.advance_feet.get(member_id, 0)
+
+
+def _placement(session, trades: Sequence[_Trade] = ()) -> _Placement:
+    """Read where the party stands now, with the marching order after `trades`.
+
+    The validation pre-phase passes the round's planned trades, so a member brought to the front of a row
+    by a trade can declare a melee attack in the round of the trade. The rest of the round passes none and
+    reads the battle as it stands. The call reads state and takes no draw.
+    """
+    state = session.battle
+    order = [member.id for member in session.party.living_members()]
+    for trade in trades:
+        here, there = order.index(trade.member_id), order.index(trade.replacement_id)
+        order[here], order[there] = order[there], order[here]
+    return _Placement(
+        advance_feet=dict(state.advance_feet),
+        arrived_round=dict(state.arrived_round),
+        order=tuple(order),
+        width=_formation_width(session),
+    )
+
+
+def _member_distance(session, member_id: str, group) -> int:
+    """The member's distance to the group in the running battle."""
+    return group.distance_feet - session.battle.advance_feet.get(member_id, 0)
+
+
+def _nearest_member_distance(session, group) -> int:
+    """The smallest distance from any living member to the group, which decides whether the group closes.
+
+    Before any member has moved, every member stands on the party line, so this is the group's own
+    distance. A session with no living member gives the group's distance too.
+    """
+    living = session.party.living_members()
+    if session.battle is None or not living:
+        return group.distance_feet
+    return min(_member_distance(session, member.id, group) for member in living)
+
+
+def _ranks_toward(group, placement: _Placement) -> list[list[str]]:
+    """The party's ranks toward one group: the living members sorted by distance and cut into rows.
+
+    Members at the same distance stand in the order they got there, earliest first, and then in marching
+    order. A row holds at most `placement.width` members and never mixes distances. With no width limit, a
+    row holds every member at its distance. Each row lists its members in marching order. The sort key is
+    total, so the rows are the same for the same state.
+
+    Returns:
+        The rows, nearest first, as lists of member ids. Before any member has moved, these are the
+            marching-order ranks.
+    """
+    index = {member_id: position for position, member_id in enumerate(placement.order)}
+    nearest_first = sorted(
+        placement.order,
+        key=lambda member_id: (
+            placement.distance(member_id, group),
+            placement.arrived_round.get(member_id, 0),
+            index[member_id],
+        ),
+    )
+    rows: list[list[str]] = []
+    row_distance = None
+    for member_id in nearest_first:
+        distance = placement.distance(member_id, group)
+        full = placement.width is not None and bool(rows) and len(rows[-1]) >= placement.width
+        if not rows or distance != row_distance or full:
+            rows.append([])
+            row_distance = distance
+        rows[-1].append(member_id)
+    return [sorted(row, key=index.__getitem__) for row in rows]
+
+
+def _reachable_front_rank(group, placement: _Placement) -> list[str]:
+    """The first row toward the group when it stands within melee reach, else nobody, in marching order.
+
+    A row never mixes distances, so the whole first row is within reach or none of it is.
+    """
+    rows = _ranks_toward(group, placement)
+    if not rows or placement.distance(rows[0][0], group) > MELEE_RANGE_FEET:
+        return []
+    return rows[0]
+
+
+def _melee_rejection(member_id: str, group, placement: _Placement) -> Rejection | None:
+    """Return why a member can't fight a group hand to hand where `placement` puts them, or None when they can.
+
+    A member farther than 5' from the group gets `combat.attack.out_of_reach`, with that distance as
+    `distance_feet`. A member within 5' who isn't in the group's front rank gets
+    `battle.declaration.not_in_front_rank`, with the member's id as `character`. A melee attack and a staff
+    of striking take these checks, in this order, and the melee step asks the same question when the attack
+    comes up. The call reads state and takes no draw.
+    """
+    distance = placement.distance(member_id, group)
+    if distance > MELEE_RANGE_FEET:
+        return Rejection(code="combat.attack.out_of_reach", params={"distance_feet": distance})
+    if member_id not in _reachable_front_rank(group, placement):
+        return Rejection(code="battle.declaration.not_in_front_rank", params={"character": member_id})
+    return None
+
+
+def _nearest_group(session, member_id: str):
+    """The group nearest the member among the groups that haven't fled and have a living member.
+
+    When two are equally near, it's the one that comes first in the encounter's groups. A battle always
+    has such a group while a round runs. If none is left, the nearest group that hasn't fled stands in,
+    and then the encounter's first group.
+    """
+    groups = session.encounter.groups
+    fighting = [group for group in groups if not group.fled and _living_monsters(session, group)]
+    candidates = fighting or [group for group in groups if not group.fled] or list(groups[:1])
+    return min(candidates, key=lambda group: _member_distance(session, member_id, group))
+
+
+def _place(state: BattleState, member_id: str, advance: int) -> None:
+    """Put a member at a new advance, reached in the current round."""
+    state.advance_feet[member_id] = advance
+    state.arrived_round[member_id] = state.round
+
+
+def _line_shift(session, advance_feet: Mapping[str, int]) -> int:
+    """How far the party line moves back at the end of a movement step that leaves the members at `advance_feet`.
+
+    It's the foremost advance among the living members who aren't invisible, when that advance is below zero,
+    as a positive number of feet. It's zero when one of them stands on or forward of the line, or when every
+    living member is invisible.
+    """
+    seen = [
+        advance_feet.get(member.id, 0)
+        for member in session.party.living_members()
+        if not has_condition(member, Condition.INVISIBLE)
+    ]
+    return -max(seen) if seen and max(seen) < 0 else 0
+
+
+def _move_line_back(session) -> None:
+    """Move the party line back to the foremost member the monsters can see, when they all stand behind it.
+
+    The movement step calls this at its end. When every living member who isn't invisible has an advance
+    below zero, every member's advance and every group's distance grow by the foremost one's distance
+    behind the line. No distance between a member and a group changes, so there's no event. When every
+    living member is invisible, or one of them stands on or forward of the line, nothing changes. The call
+    takes no draw.
+    """
+    state = session.battle
+    living = session.party.living_members()
+    shift = _line_shift(session, state.advance_feet)
+    if shift == 0:
+        return
+    for member_id in [*state.advance_feet, *(member.id for member in living if member.id not in state.advance_feet)]:
+        state.advance_feet[member_id] = state.advance_feet.get(member_id, 0) + shift
+    for group in session.encounter.groups:
+        group.distance_feet += shift
+
+
 def member_distance_feet(session, member_id: str, group_id: str) -> int:
     """Return how far one party member stands from one monster group, in feet, in the running battle.
 
@@ -1457,7 +1637,14 @@ def member_distance_feet(session, member_id: str, group_id: str) -> int:
         ValueError: If no battle is running, `member_id` names no party member, or `group_id` names no
             group in the encounter. Nothing in the session changes.
     """
-    raise NotImplementedError("chunk: positions")
+    if session.battle is None:
+        raise ValueError("member_distance_feet needs a running battle")
+    if all(member.id != member_id for member in session.party.members):
+        raise ValueError(f"no party member has the id {member_id!r}")
+    group = _group_by_id(session, group_id)
+    if group is None:
+        raise ValueError(f"no group in the encounter has the id {group_id!r}")
+    return _member_distance(session, member_id, group)
 
 
 def group_front_rank(session, group_id: str) -> tuple[str, ...]:
@@ -1505,7 +1692,12 @@ def group_front_rank(session, group_id: str) -> tuple[str, ...]:
         ValueError: If no battle is running, or `group_id` names no group in the encounter. Nothing in
             the session changes.
     """
-    raise NotImplementedError("chunk: positions")
+    if session.battle is None:
+        raise ValueError("group_front_rank needs a running battle")
+    group = _group_by_id(session, group_id)
+    if group is None:
+        raise ValueError(f"no group in the encounter has the id {group_id!r}")
+    return tuple(_reachable_front_rank(group, _placement(session)))
 
 
 class BattleRoundPreview(BaseModel):
@@ -1726,6 +1918,11 @@ def _check_ends(session, *, party_retreating: bool) -> list[Event] | None:
     if party_retreating:
         from osrlib.crawl.encounter import PursuitState
 
+        # The chase starts from the member nearest a pursuer, so read the positions before the battle ends.
+        living = session.party.living_members()
+        distances = {
+            group.id: min(_member_distance(session, member.id, group) for member in living) for group in groups
+        }
         session.battle = None
         # Only a group still willing and able to pursue: not one that failed morale and
         # not the shaken (they are fleeing themselves), and not a group whose
@@ -1742,7 +1939,8 @@ def _check_ends(session, *, party_retreating: bool) -> list[Event] | None:
             return [BattleEndedEvent(code="battle.ended.fled"), *encounter_module.end_encounter(session, "evaded")]
         session.mode = SessionMode.ENCOUNTER
         session.encounter.evading = True
-        session.encounter.pursuit = PursuitState(gap_feet=min(group.distance_feet for group in pursuers))
+        gap = max(0, min(distances[group.id] for group in pursuers))
+        session.encounter.pursuit = PursuitState(gap_feet=gap)
         return [BattleEndedEvent(code="battle.ended.fled")]
     return None
 
@@ -1778,12 +1976,13 @@ def _find_wielded(member, weapon_id: str | None):
     return None
 
 
-def _with_default_weapon(session, declaration: BattleDeclaration, member) -> BattleDeclaration:
+def _with_default_weapon(session, declaration: BattleDeclaration, member, placement: _Placement) -> BattleDeclaration:
     """Fill in the weapon of an `attack` that has none, by the rules `BattleDeclaration.weapon_id` gives.
 
     An improvised weapon here is a mundane gear item whose stats come from its `combat` facet, like a
     torch. The round handler calls this once, when it accepts the round, so the rest of the round
-    reads the chosen weapon as if the player had named it.
+    reads the chosen weapon as if the player had named it. The member's distance to the group in
+    `placement` decides between a melee and a missile weapon, and a missile weapon's reach.
 
     Returns:
         The declaration with `weapon_id` set to a magic weapon's instance id or a mundane weapon's
@@ -1795,7 +1994,8 @@ def _with_default_weapon(session, declaration: BattleDeclaration, member) -> Bat
     group = _group_by_id(session, declaration.target_group_id)
     if group is None or group.fled:
         return declaration
-    missile = group.distance_feet > MELEE_RANGE_FEET
+    distance = placement.distance(member.id, group)
+    missile = distance > MELEE_RANGE_FEET
     wanted = WeaponQuality.MISSILE if missile else WeaponQuality.MELEE
     weapons, improvised = [], []
     for held in member.inventory.wielded:
@@ -1812,7 +2012,7 @@ def _with_default_weapon(session, declaration: BattleDeclaration, member) -> Bat
     if missile:
         for weapon_id, facet in suitable:
             ranges = getattr(facet, "missile_ranges", None)
-            if ranges is None or group.distance_feet <= ranges.long.max_feet:
+            if ranges is None or distance <= ranges.long.max_feet:
                 chosen = weapon_id
                 break
     return declaration.model_copy(update={"weapon_id": chosen})
@@ -1849,28 +2049,28 @@ def _group_by_id(session, group_id: str | None):
 _DEFENSIVE_MOVES = ("fighting_withdrawal", "retreat")
 """The SRD's two ways out of melee, which a member makes either with the formation or alone.
 
-When every declarer makes the same one, the whole formation makes it. Otherwise each one is a swap
-with a member from a back rank. `close` isn't here, because the first `close` advances the
-formation whatever the others declare.
-"""
-
-_RANK_DEPTH_FEET = 5
-"""How far apart the party's ranks stand, front to back, in feet.
-
-A member who withdraws alone and their replacement each cover this distance once for every rank
-between them, so a replacement two ranks back is 10' away.
+When every declarer makes the same one, the whole formation makes it. Otherwise each one moves its
+member back alone. `close` isn't here, because a `close` is always the declaring member's own.
 """
 
 
-class _Withdrawal(NamedTuple):
-    """A fighting withdrawal or a retreat that one member makes alone, planned for the movement step."""
+class _Trade(NamedTuple):
+    """A trade of marching-order places that a member falling back alone asked for, planned for the movement step."""
 
     member_id: str
-    """The front-rank member who steps back."""
+    """The member who falls back alone."""
     replacement_id: str
-    """The back-rank member who steps up into their place."""
+    """The member they named, who takes their place in the marching order."""
     move: str
     """`fighting_withdrawal` or `retreat`, which picks the event's code."""
+
+
+def _declared_move(declaration: BattleDeclaration) -> str | None:
+    """The move a declaration makes in the party's movement step, or None when it makes none.
+
+    A `move` action makes its `move`. No other action moves its member.
+    """
+    return declaration.move if declaration.action == "move" else None
 
 
 def _formation_move(declarations: Sequence[BattleDeclaration]) -> str | None:
@@ -1878,7 +2078,7 @@ def _formation_move(declarations: Sequence[BattleDeclaration]) -> str | None:
 
     The formation makes a `fighting_withdrawal` or a `retreat` when every declaration is that same
     move, including a round with one declarer. Dead and incapacitated members don't declare, so they
-    don't count. Any other defensive move is a member's move alone (see `_plan_withdrawals`).
+    don't count. Any other defensive move is a member's move alone.
     """
     moves = [declaration.move if declaration.action == "move" else None for declaration in declarations]
     first = moves[0] if moves else None
@@ -1887,38 +2087,28 @@ def _formation_move(declarations: Sequence[BattleDeclaration]) -> str | None:
     return None
 
 
-def _plan_withdrawals(
-    session, declarers, declarations: Sequence[BattleDeclaration]
-) -> tuple[list[Rejection], list[_Withdrawal]]:
-    """Judge each defensive move a member makes alone, and plan the swaps for the movement step.
+def _plan_trades(declarers, declarations: Sequence[BattleDeclaration]) -> tuple[list[Rejection], list[_Trade]]:
+    """Judge each `replacement_id`, and plan the trades of marching-order places for the movement step.
 
-    `BattleDeclaration.replacement_id` gives the rules, and the
-    [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/) describes them under
-    the battle round. Each withdrawing member gets only the first of these that applies, in this
-    order:
+    `BattleDeclaration.replacement_id` gives the rules. A member who falls back alone names nobody or
+    names one member. The named member has to be another declarer who isn't falling back too, and nobody
+    earlier in marching order may have named them already, or the withdrawing member gets
+    `battle.declaration.replacement_unavailable`. Their rank, their rate, their action, and whether they
+    can move don't matter, because the trade moves nobody.
 
-    1. `battle.declaration.not_in_front_rank` - the member stands behind the front rank.
-    2. `battle.declaration.no_replacement` - `replacement_id` is `None`.
-    3. `battle.declaration.replacement_unavailable` - another withdrawing member already named the
-       replacement, or `_can_step_up` refuses them.
-    4. `battle.declaration.replacement_too_far` - either member can't cover the distance between
-       their ranks: the withdrawing member at half their encounter rate for a fighting withdrawal or
-       their full rate for a retreat, and the replacement at their full rate, each doubled by *haste*.
-
-    In a formation move, every declarer withdraws and nobody is free to step up, so a declaration
-    that sets `replacement_id` gets `battle.declaration.replacement_unavailable`.
+    In a formation move, every declarer moves with the party, so a declaration that sets
+    `replacement_id` gets `battle.declaration.replacement_unavailable`. A `replacement_id` on any other
+    declaration is ignored.
 
     The checks read state and take no draw, so a refused round costs nothing.
 
     Args:
-        session (osrlib.crawl.session.GameSession): The battle's session.
         declarers: The living, able members who have to declare this round, in marching order.
         declarations: The round's declarations, one per declarer.
 
     Returns:
-        The rejections, in marching order, and the swaps of the members who withdraw alone, in
-            marching order of the withdrawing members. The swaps stand only when there are no
-            rejections.
+        The rejections, in marching order, and the trades, in marching order of the members who fall
+            back. The trades stand only when there are no rejections.
     """
     by_id = {declaration.character_id: declaration for declaration in declarations}
     rejections: list[Rejection] = []
@@ -1933,24 +2123,23 @@ def _plan_withdrawals(
                     )
                 )
         return rejections, []
-    rank_of = {member.id: index for index, rank in enumerate(_party_ranks(session)) for member in rank}
-    able = {member.id for member in declarers}
     named: set[str] = set()
-    plan: list[_Withdrawal] = []
+    trades: list[_Trade] = []
     for member in declarers:
         declaration = by_id[member.id]
-        if declaration.action != "move" or declaration.move not in _DEFENSIVE_MOVES:
-            continue
-        if rank_of[member.id] != 0:
-            rejections.append(Rejection(code="battle.declaration.not_in_front_rank", params={"character": member.id}))
+        move = _declared_move(declaration)
+        if move is None or move not in _DEFENSIVE_MOVES or declaration.replacement_id is None:
             continue
         replacement_id = declaration.replacement_id
-        if replacement_id is None:
-            rejections.append(Rejection(code="battle.declaration.no_replacement", params={"character": member.id}))
-            continue
         claimed = replacement_id in named
         named.add(replacement_id)
-        if claimed or not _can_step_up(session, replacement_id, rank_of, able, by_id):
+        named_declaration = by_id.get(replacement_id)
+        if (
+            claimed
+            or replacement_id == member.id
+            or named_declaration is None
+            or _declared_move(named_declaration) in _DEFENSIVE_MOVES
+        ):
             rejections.append(
                 Rejection(
                     code="battle.declaration.replacement_unavailable",
@@ -1958,75 +2147,8 @@ def _plan_withdrawals(
                 )
             )
             continue
-        distance = rank_of[replacement_id] * _RANK_DEPTH_FEET
-        own_rate = _encounter_rate(member, session)
-        if declaration.move == "fighting_withdrawal":
-            own_rate //= 2
-        own_reach = own_rate * _haste_multiplier(session, member.id, "movement_multiplier")
-        replacement = session.member(replacement_id)
-        their_reach = _encounter_rate(replacement, session) * _haste_multiplier(
-            session, replacement_id, "movement_multiplier"
-        )
-        if distance > min(own_reach, their_reach):
-            rejections.append(
-                Rejection(
-                    code="battle.declaration.replacement_too_far",
-                    params={"character": member.id, "replacement": replacement_id, "distance_feet": distance},
-                )
-            )
-            continue
-        plan.append(_Withdrawal(member_id=member.id, replacement_id=replacement_id, move=declaration.move))
-    return rejections, plan
-
-
-def _can_step_up(
-    session,
-    replacement_id: str,
-    rank_of: Mapping[str, int],
-    able: set[str],
-    by_id: Mapping[str, BattleDeclaration],
-) -> bool:
-    """Whether a named replacement can step up into the front rank this round.
-
-    The replacement has to be a living member behind the front rank. They have to be able to
-    declare, to move, and to act for the party (see `_acts_for_party`). Their declaration can't be
-    a `cast`, because "The spell caster cannot move and cast a spell in the same round". It can't
-    be a defensive move either, because that takes a member out of the front rank.
-    """
-    if rank_of.get(replacement_id, 0) == 0 or replacement_id not in able:
-        return False
-    replacement = session.member(replacement_id)
-    if cannot_move(replacement) or not _acts_for_party(replacement):
-        return False
-    declaration = by_id[replacement_id]
-    if declaration.action == "cast":
-        return False
-    return not (declaration.action == "move" and declaration.move in _DEFENSIVE_MOVES)
-
-
-def _acts_for_party(member) -> bool:
-    """Whether a member can still act for the party, as a replacement who steps up has to.
-
-    An incapacitated member can't act at all. A charmed member acts for the charmer, and a confused
-    member acts on a behavior roll. Both the validation pre-phase and the movement step call this.
-    """
-    return not (
-        incapacitated(member) or has_condition(member, Condition.CHARMED) or has_condition(member, Condition.CONFUSED)
-    )
-
-
-def _projected_front_rank(session, plan: Sequence[_Withdrawal]) -> set[str]:
-    """The ids of the front rank after the round's planned swaps, for judging melee declarations.
-
-    A replacement stands in the front rank from the movement step on, so they can declare a melee
-    attack in the round they step up.
-    """
-    order = [member.id for member in session.party.living_members()]
-    for swap in plan:
-        front, back = order.index(swap.member_id), order.index(swap.replacement_id)
-        order[front], order[back] = order[back], order[front]
-    width = _formation_width(session)
-    return set(order if width is None else order[:width])
+        trades.append(_Trade(member_id=member.id, replacement_id=replacement_id, move=move))
+    return rejections, trades
 
 
 def _back_stab_rejection(session, declaration: BattleDeclaration, member) -> Rejection | None:
@@ -2057,7 +2179,7 @@ def _back_stab_rejection(session, declaration: BattleDeclaration, member) -> Rej
 
 
 def _validate_declaration(
-    session, declaration: BattleDeclaration, member, *, front_rank: set[str] | None = None
+    session, declaration: BattleDeclaration, member, *, placement: _Placement | None = None
 ) -> list[Rejection]:
     """Judge one declaration against the state it refers to, and return every reason it cannot stand.
 
@@ -2069,11 +2191,12 @@ def _validate_declaration(
     `_handle_resolve_battle_round` fills in a missing `weapon_id` with `_with_default_weapon` before it
     calls this.
 
-    The pre-phase passes `front_rank`, the front rank after the round's planned swaps (see
-    `_projected_front_rank`), so a replacement who steps up can declare a melee attack. Without it,
-    the melee checks use the front rank as it stands. A staff of striking gets the same rank check as
-    a melee attack (see `_validate_magic_item_declaration`): a member outside the front rank gets
-    `battle.declaration.not_in_front_rank`, with the member's id as the `character` param.
+    The checks measure each member's distance to a group, and read the ranks toward it, from
+    `placement`. The pre-phase passes the battle as it stands with the round's planned trades made (see
+    `_placement`), so a member a trade brings to the front of a row can declare a melee attack. Without
+    it, the checks read the battle as it stands. A melee attack and a staff of striking take the checks
+    of `_melee_rejection`: `combat.attack.out_of_reach` for a member farther than 5' from the group, and
+    `battle.declaration.not_in_front_rank` for a member within 5' who isn't in its front rank.
 
     A `turn_undead` names no group. It reaches every living monster in every group that hasn't fled,
     undead or not, which `_party_magic` passes to [`turn_undead`][osrlib.core.spells.turn_undead].
@@ -2115,19 +2238,17 @@ def _validate_declaration(
         weapon = _find_wielded(member, declaration.weapon_id)
         if declaration.weapon_id is not None and weapon is None:
             return [Rejection(code="battle.declaration.weapon_not_wielded", params={"item": declaration.weapon_id})]
-        missile = _is_missile_declaration(weapon, group.distance_feet)
+        placement = placement or _placement(session)
+        distance = placement.distance(member.id, group)
+        missile = _is_missile_declaration(weapon, distance)
         if declaration.back_stab and missile:
             return [Rejection(code="battle.declaration.back_stab_not_melee", params={"character": member.id})]
         if not missile:
-            width = _formation_width(session)
-            if front_rank is None:
-                front_rank = {front.id for front in _party_front_rank(session)}
-            if width is not None and member.id not in front_rank:
-                return [Rejection(code="battle.declaration.not_in_front_rank", params={"character": member.id})]
-            if group.distance_feet > MELEE_RANGE_FEET:
-                return [Rejection(code="combat.attack.out_of_reach", params={"distance_feet": group.distance_feet})]
+            out_of_place = _melee_rejection(member.id, group, placement)
+            if out_of_place is not None:
+                return [out_of_place]
         context = AttackContext(
-            distance_feet=group.distance_feet if missile else MELEE_RANGE_FEET,
+            distance_feet=distance if missile else MELEE_RANGE_FEET,
             fired_last_round=member.id in state.fired_last_round,
         )
         combat_facet = getattr(weapon, "combat", None)
@@ -2138,7 +2259,7 @@ def _validate_declaration(
 
         magic = member.inventory.magic_item(declaration.item_id) if declaration.item_id else None
         if magic is not None:
-            return _validate_magic_item_declaration(session, declaration, member, magic, front_rank=front_rank)
+            return _validate_magic_item_declaration(session, declaration, member, magic, placement=placement)
         group = _group_by_id(session, declaration.target_group_id)
         if group is None or group.fled:
             return [Rejection(code="battle.declaration.unknown_group", params={"character": member.id})]
@@ -2148,7 +2269,7 @@ def _validate_declaration(
         pool = _monster_pool(session, group)
         if not pool:
             return [Rejection(code="battle.declaration.no_target", params={"group": group.id})]
-        context = AttackContext(distance_feet=group.distance_feet, lit=True)
+        context = AttackContext(distance_feet=_member_distance(session, member.id, group), lit=True)
         return validate_attack(member, pool[0], instance.template, context, ruleset=session.ruleset)
     if declaration.action == "turn_undead":
         rejections = validate_turn_undead(member, load_classes().get(member.class_id))
@@ -2282,7 +2403,7 @@ def _area_candidates(session, group, shape: str | None, dimensions: dict) -> lis
 
 
 def _validate_magic_item_declaration(
-    session, declaration: BattleDeclaration, member, instance, *, front_rank: set[str] | None = None
+    session, declaration: BattleDeclaration, member, instance, *, placement: _Placement | None = None
 ) -> list[Rejection]:
     """The `use_item` declaration widened: potions, scrolls, and devices (magic phase).
 
@@ -2296,12 +2417,12 @@ def _validate_magic_item_declaration(
     the magic phase just before the read or the use resolves. It takes no draw, so the second run
     costs nothing.
 
-    A staff of striking (an effect of kind `striking`) is "Used as a magical melee weapon", so only a
-    front-rank member can use it while `formation_width_limit` is on. The pre-phase passes the front
-    rank after the round's planned swaps, so a replacement who steps up can strike. The magic phase
-    uses the front rank as it stands, so a replacement whose swap didn't happen fizzles with
-    `battle.declaration.not_in_front_rank`. The rank check comes after the fled-group check and before
-    the reach check, in the order a melee attack takes them.
+    A staff of striking (an effect of kind `striking`) is "Used as a magical melee weapon", so it takes a
+    melee attack's checks of `_melee_rejection` against `placement`, after the fled-group check and before
+    the target check. The pre-phase passes the battle with the round's planned trades made, so a member a
+    trade brings to the front of a row can strike. Without `placement`, as in the magic phase, the checks
+    read the battle as it stands, so a member whose trade didn't happen fizzles with
+    `battle.declaration.not_in_front_rank`.
     """
     from osrlib.crawl import exploration
 
@@ -2366,13 +2487,9 @@ def _validate_magic_item_declaration(
             if group is None or group.fled:
                 return [Rejection(code="battle.declaration.unknown_group", params={"character": member.id})]
             if effect_spec.kind == "striking":
-                if _formation_width(session) is not None:
-                    if front_rank is None:
-                        front_rank = {front.id for front in _party_front_rank(session)}
-                    if member.id not in front_rank:
-                        return [Rejection(code="battle.declaration.not_in_front_rank", params={"character": member.id})]
-                if group.distance_feet > MELEE_RANGE_FEET:
-                    return [Rejection(code="combat.attack.out_of_reach", params={"distance_feet": group.distance_feet})]
+                out_of_place = _melee_rejection(member.id, group, placement or _placement(session))
+                if out_of_place is not None:
+                    return [out_of_place]
                 if not _monster_pool(session, group):
                     return [Rejection(code="battle.declaration.no_target", params={"group": group.id})]
         return []
@@ -2572,27 +2689,28 @@ def _handle_resolve_battle_round(session, command: ResolveBattleRound) -> tuple[
             )
         )
         return rejections, []
+    standing = _placement(session)
     by_member = {}
     for declaration in command.declarations:
         member = session.member(declaration.character_id)
         # Choose the default weapon once, here, so the round plays out as if the player had named it.
         # The command log still records the declaration as it was sent.
-        by_member[declaration.character_id] = (member, _with_default_weapon(session, declaration, member))
+        by_member[declaration.character_id] = (member, _with_default_weapon(session, declaration, member, standing))
     declarations = [declaration for _, declaration in by_member.values()]
-    withdrawal_rejections, swaps = _plan_withdrawals(session, declarers, declarations)
-    front_rank = _projected_front_rank(session, swaps)
+    trade_rejections, trades = _plan_trades(declarers, declarations)
+    placement = _placement(session, trades)
     for member, declaration in by_member.values():
-        rejections.extend(_validate_declaration(session, declaration, member, front_rank=front_rank))
+        rejections.extend(_validate_declaration(session, declaration, member, placement=placement))
         if declaration.gaze_defense == "mirror" and member.inventory.carried_item(_MIRROR_ITEM_ID) is None:
             rejections.append(Rejection(code="battle.declaration.no_mirror", params={"character": member.id}))
-    # A move that sets `back_stab` gets `back_stab_not_attack` in place of its own withdrawal checks.
+    # A move that sets `back_stab` gets `back_stab_not_attack` in place of its own trade checks.
     back_stabbers = {
         member.id
         for member, declaration in by_member.values()
         if declaration.back_stab and declaration.action != "attack"
     }
     rejections.extend(
-        rejection for rejection in withdrawal_rejections if rejection.params.get("character") not in back_stabbers
+        rejection for rejection in trade_rejections if rejection.params.get("character") not in back_stabbers
     )
     if rejections:
         # The session rejects the whole command and lists every rejection. Partial
@@ -2642,21 +2760,16 @@ def _handle_resolve_battle_round(session, command: ResolveBattleRound) -> tuple[
     fire_damaged_groups: set[str] = set()
     formation = _formation_move(declarations)
     retreating = _retreating_members(session, declarations, formation)
-    # The members who stepped back out of the front rank this round, and the replacements
-    # whose swap didn't happen. The movement step fills both.
+    engaged = _engaged_at_acceptance(session, by_member, standing)
+    # The members who fell back alone this round. The movement step fills it.
     withdrawn: set[str] = set()
-    stranded: set[str] = set()
     slow_attacks: list[tuple[Creature, BattleDeclaration]] = []
 
     def party_block() -> list[Event]:
         block: list[Event] = []
-        # The movement step: the swaps of members who withdraw alone, then the formation's move.
-        swapped = _swap_ranks(session, swaps)
-        block.extend(swapped)
-        block.extend(_party_movement(session, by_member))
-        withdrawn.update(event.character_id for event in swapped)
-        stranded.update(swap.replacement_id for swap in swaps)
-        stranded.difference_update(event.replacement_id for event in swapped)
+        moved, fell_back = _party_movement(session, by_member, trades, formation)
+        block.extend(moved)
+        withdrawn.update(fell_back)
         block.extend(
             _party_attacks(
                 session,
@@ -2665,7 +2778,7 @@ def _handle_resolve_battle_round(session, command: ResolveBattleRound) -> tuple[
                 slow_attacks=slow_attacks,
                 fired=fired_this_round,
                 fire_damaged=fire_damaged_groups,
-                stranded=stranded,
+                engaged=engaged,
             )
         )
         block.extend(_party_magic(session, by_member, pending_casters, disrupted, acted, state))
@@ -2677,7 +2790,7 @@ def _handle_resolve_battle_round(session, command: ResolveBattleRound) -> tuple[
                 slow_attacks=slow_attacks,
                 fired=fired_this_round,
                 fire_damaged=fire_damaged_groups,
-                stranded=stranded,
+                engaged=engaged,
             )
         )
         block.extend(_confused_party_overrides(session, by_member, fire_damaged_groups))
@@ -2759,23 +2872,49 @@ def _retreating_members(session, declarations: Sequence[BattleDeclaration], form
     )
 
 
-def _party_movement(session, by_member) -> list[Event]:
-    """Move the formation: its defensive move, or else the first `close`.
+def _engaged_at_acceptance(session, by_member, placement: _Placement) -> frozenset[str]:
+    """The members whose `attack` aims at a group within 5' of them when the round is accepted.
+
+    `placement` is the battle as it stands at acceptance, before any of the round's moves.
+
+    The melee step lets such a member strike a group that runs, wherever it has run since, because the
+    SRD gives the attack against a retreating combatant to the opponent it was fighting.
+    """
+    engaged = []
+    for member, declaration in by_member.values():
+        if declaration.action != "attack":
+            continue
+        group = _group_by_id(session, declaration.target_group_id)
+        if group is not None and placement.distance(member.id, group) <= MELEE_RANGE_FEET:
+            engaged.append(member.id)
+    return frozenset(engaged)
+
+
+def _party_movement(
+    session, by_member, trades: Sequence[_Trade], formation: str | None
+) -> tuple[list[Event], list[str]]:
+    """Run the party's movement step: the formation's move, or each member's own move.
 
     A defensive move that every declarer makes moves the whole formation (see the
     [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/), under the battle
-    round). A formation retreat moves the party off at the OSE SRD's "full encounter movement rate",
-    and the pursuit begins once the battle ends. A formation fighting withdrawal backs the party off at
-    half the encounter rate, and the withdrawing members attack nobody that round.
+    round). The party moves as one body at the slowest living member's encounter rate, halved for a
+    fighting withdrawal and doubled by *haste* only when every living member has it. Every group's
+    distance grows by that much, and no member's advance changes. A formation retreat moves the party
+    off at the OSE SRD's "full encounter movement rate", and the pursuit begins once the battle ends.
 
-    Otherwise the first `close` in the round's declarations moves the formation toward its group at
-    the encounter rate, and stops at 5'. `_swap_ranks` has already made this movement step's swaps.
+    Otherwise each member moves alone (see `_members_fall_back` and `_members_close`): first the
+    members who fall back, then the members who close. Either way, the step ends by moving the party
+    line back when every member the monsters can see stands behind it (see `_move_line_back`).
+
+    The step takes no draw.
+
+    Returns:
+        The step's events, and the ids of the members who fell back alone, in marching order.
     """
-    declarations = [declaration for _, declaration in by_member.values()]
     events: list[Event] = []
-    multiplier = _party_move_multiplier(session)
-    formation = _formation_move(declarations)
+    fell_back: list[str] = []
     if formation is not None:
+        multiplier = _party_move_multiplier(session)
         rates = [_encounter_rate(member, session) for member in session.party.living_members()]
         slowest = min(rates, default=0)
         rate = (slowest if formation == "retreat" else slowest // 2) * multiplier
@@ -2784,52 +2923,128 @@ def _party_movement(session, by_member) -> list[Event]:
                 continue
             group.distance_feet += rate
             events.append(GroupMovedEvent(group_id=group.id, distance_feet=group.distance_feet))
-        return events
-    for _member, declaration in by_member.values():
-        if declaration.action == "move" and declaration.move == "close":
-            group = _group_by_id(session, declaration.target_group_id)
-            if group is None or group.fled:
-                continue
-            rates = [_encounter_rate(living, session) for living in session.party.living_members()]
-            rate = min(rates, default=0) * multiplier
-            group.distance_feet = max(MELEE_RANGE_FEET, group.distance_feet - rate)
-            events.append(GroupMovedEvent(group_id=group.id, distance_feet=group.distance_feet))
-            break
-    return events
+    else:
+        declared = {member.id: declaration for member, declaration in by_member.values()}
+        fallen, fell_back = _members_fall_back(session, declared, trades)
+        events.extend(fallen)
+        events.extend(_members_close(session, declared))
+    _move_line_back(session)
+    return events, fell_back
 
 
-def _swap_ranks(session, swaps: Sequence[_Withdrawal]) -> list[MemberWithdrewEvent]:
-    """Trade each withdrawing member's place in the marching order with their replacement's.
+def _fall_back_feet(session, member, move: str) -> int:
+    """How far a member falls back alone, in feet.
 
-    The party block runs this at the start of its movement step, before `_party_movement`. The swaps
-    run in the marching order of the withdrawing members. A side that acted first can change things,
-    so each swap is checked again here. It happens only if the withdrawing member still stands in the
-    front rank, the replacement still stands behind it, both can still move, and the replacement
-    passes `_acts_for_party`. Otherwise the two stay where they are, with no event. The new order
-    stays after the round. A swap takes no draw.
+    It's half their encounter rate for a fighting withdrawal, or their full rate for a retreat, doubled by
+    *haste* on them. The SRD's rates are "The combatant moves backwards at up to half their encounter
+    movement rate" and "moving up to their full encounter movement rate".
+    """
+    rate = _encounter_rate(member, session)
+    return (rate if move == "retreat" else rate // 2) * _haste_multiplier(session, member.id, "movement_multiplier")
+
+
+def _close_advance(session, member, group, current: int) -> int:
+    """The advance a member's `close` on a group reaches from `current`, by the arithmetic alone.
+
+    The member moves their encounter rate, doubled by *haste* on them, and stops 5' from the group. They
+    also stop short of 5' from every other group that hasn't fled and has a living member, so nobody passes
+    a group. A close never takes a member back, so the result is never below `current`. It reads state
+    and takes no draw.
+    """
+    rate = _encounter_rate(member, session) * _haste_multiplier(session, member.id, "movement_multiplier")
+    advance = min(current + rate, group.distance_feet - MELEE_RANGE_FEET)
+    for other in session.encounter.groups:
+        if other is not group and not other.fled and _living_monsters(session, other):
+            advance = min(advance, other.distance_feet - MELEE_RANGE_FEET)
+    return max(advance, current)
+
+
+def _members_fall_back(
+    session, declared: Mapping[str, BattleDeclaration], trades: Sequence[_Trade]
+) -> tuple[list[Event], list[str]]:
+    """Move back each member who makes a `fighting_withdrawal` or a `retreat` alone, in marching order.
+
+    A member falls back as far as `_fall_back_feet` gives. Their advance goes down by that much, below
+    zero if need be, and they reach it this round. A `MemberMovedEvent` reports it, with the group nearest the member
+    after the move (see `_nearest_group`). A member who can't move when the step comes stays where they
+    are, and so does a member whose rate is zero.
+
+    When the member named someone in `replacement_id`, and the named member is still alive, the two then
+    trade places in the marching order, and a `MemberWithdrewEvent` follows the move. The trade moves
+    nobody. A member who doesn't move doesn't trade either.
 
     Returns:
-        A `MemberWithdrewEvent` for each swap that happened.
+        The events, and the ids of the members who fell back.
     """
-    events: list[MemberWithdrewEvent] = []
-    for swap in swaps:
-        ranks = _party_ranks(session)
-        front = {member.id for member in ranks[0]} if ranks else set()
-        behind = {member.id for rank in ranks[1:] for member in rank}
-        if swap.member_id not in front or swap.replacement_id not in behind:
+    state = session.battle
+    trade_of = {trade.member_id: trade for trade in trades}
+    events: list[Event] = []
+    fell_back: list[str] = []
+    for member in session.party.living_members():
+        declaration = declared.get(member.id)
+        move = _declared_move(declaration) if declaration is not None else None
+        if move is None or move not in _DEFENSIVE_MOVES or cannot_move(member):
             continue
-        replacement = session.member(swap.replacement_id)
-        if cannot_move(session.member(swap.member_id)) or cannot_move(replacement):
+        step = _fall_back_feet(session, member, move)
+        if step <= 0:
             continue
-        if not _acts_for_party(replacement):
+        advance = state.advance_feet.get(member.id, 0) - step
+        _place(state, member.id, advance)
+        nearest = _nearest_group(session, member.id)
+        events.append(
+            MemberMovedEvent(
+                character_id=member.id,
+                move=move,
+                advance_feet=advance,
+                group_id=nearest.id,
+                distance_feet=_member_distance(session, member.id, nearest),
+            )
+        )
+        fell_back.append(member.id)
+        trade = trade_of.get(member.id)
+        if trade is None or has_condition(session.member(trade.replacement_id), Condition.DEAD):
             continue
         members = list(session.party.members)
-        ids = [member.id for member in members]
-        here, there = ids.index(swap.member_id), ids.index(swap.replacement_id)
+        ids = [each.id for each in members]
+        here, there = ids.index(trade.member_id), ids.index(trade.replacement_id)
         members[here], members[there] = members[there], members[here]
         session.party.members = members
-        code = "battle.member.retreated" if swap.move == "retreat" else "battle.member.withdrew"
-        events.append(MemberWithdrewEvent(code=code, character_id=swap.member_id, replacement_id=swap.replacement_id))
+        code = "battle.member.retreated" if trade.move == "retreat" else "battle.member.withdrew"
+        events.append(MemberWithdrewEvent(code=code, character_id=trade.member_id, replacement_id=trade.replacement_id))
+    return events, fell_back
+
+
+def _members_close(session, declared: Mapping[str, BattleDeclaration]) -> list[Event]:
+    """Move each member who declares a `close` toward their group, in marching order.
+
+    Each one reaches the advance `_close_advance` gives. A member already as near as that doesn't move
+    and reports nothing. Otherwise they reach their new advance this round, and a
+    `MemberMovedEvent` reports it with the named group. A member who can't move when the step comes,
+    or whose group has fled, stays where they are.
+    """
+    state = session.battle
+    events: list[Event] = []
+    for member in session.party.living_members():
+        declaration = declared.get(member.id)
+        if declaration is None or _declared_move(declaration) != "close" or cannot_move(member):
+            continue
+        group = _group_by_id(session, declaration.target_group_id)
+        if group is None or group.fled:
+            continue
+        current = state.advance_feet.get(member.id, 0)
+        advance = _close_advance(session, member, group, current)
+        if advance == current:
+            continue
+        _place(state, member.id, advance)
+        events.append(
+            MemberMovedEvent(
+                character_id=member.id,
+                move="close",
+                advance_feet=advance,
+                group_id=group.id,
+                distance_feet=_member_distance(session, member.id, group),
+            )
+        )
     return events
 
 
@@ -2846,12 +3061,16 @@ def _party_move_multiplier(session) -> int:
 
 
 def _party_attacks(
-    session, by_member, *, missile: bool, slow_attacks, fired, fire_damaged, stranded: Collection[str] = ()
+    session, by_member, *, missile: bool, slow_attacks, fired, fire_damaged, engaged: Collection[str]
 ) -> list[Event]:
     """Resolve the party's missile or melee attacks, and queue the slow ones for the end of the round.
 
-    `stranded` contains the ids of the replacements whose swap didn't happen. They never reached the
-    front rank, so their melee attacks don't resolve.
+    The member's distance to the group when the step comes decides whether an attack is a missile or a
+    melee attack. A melee attack resolves only if the member then stands in the group's front rank
+    within 5' of it, as `_melee_rejection` judges it, or if the group runs and the member is in
+    `engaged`, within 5' of it when the round was accepted (see `_melee_stopped`).
+    Otherwise the member makes no attack. That happens to a member whose trade didn't happen, who stays
+    out of the front rank.
     """
     events: list[Event] = []
     for member, declaration in by_member.values():
@@ -2868,10 +3087,10 @@ def _party_attacks(
         if group is None:
             continue
         weapon = _find_wielded(member, declaration.weapon_id)
-        is_missile = _is_missile_declaration(weapon, group.distance_feet)
+        is_missile = _is_missile_declaration(weapon, _member_distance(session, member.id, group))
         if is_missile != missile:
             continue
-        if not is_missile and member.id in stranded:
+        if not is_missile and _melee_stopped(session, member.id, group, engaged) is not None:
             continue
         combat_facet = getattr(weapon, "combat", None)
         facet = combat_facet if combat_facet is not None else weapon
@@ -2880,6 +3099,21 @@ def _party_attacks(
             continue
         events.extend(_resolve_party_attack(session, member, declaration, fired, fire_damaged))
     return events
+
+
+def _melee_stopped(session, member_id: str, group, engaged: Collection[str]) -> str | None:
+    """Return why a declared melee attack can't resolve where the member stands now, or None when it can.
+
+    The reason is the rejection code `_melee_rejection` gives for the battle as it stands:
+    `combat.attack.out_of_reach` or `battle.declaration.not_in_front_rank`. A group that runs is the
+    exception, whether it failed morale or its living members are all turned or afraid. A member in
+    `engaged`, who stood within 5' of it when the round was accepted, still strikes it. The call reads
+    state and takes no draw.
+    """
+    if (group.fleeing or _group_all_shaken(session, group)) and member_id in engaged:
+        return None
+    stopped = _melee_rejection(member_id, group, _placement(session))
+    return stopped.code if stopped is not None else None
 
 
 def _resolve_party_attack(session, member, declaration, fired, fire_damaged) -> list[Event]:
@@ -2893,7 +3127,8 @@ def _resolve_party_attack(session, member, declaration, fired, fire_damaged) -> 
     weapon = _find_wielded(member, declaration.weapon_id)
     combat_facet = getattr(weapon, "combat", None)
     attack = combat_facet if combat_facet is not None else weapon
-    missile = _is_missile_declaration(weapon, group.distance_feet)
+    distance = _member_distance(session, member.id, group)
+    missile = _is_missile_declaration(weapon, distance)
     events: list[Event] = []
     swings = _haste_multiplier(session, member.id, "attacks_multiplier")
     for _ in range(swings):
@@ -2902,7 +3137,7 @@ def _resolve_party_attack(session, member, declaration, fired, fire_damaged) -> 
             break
         target = pool[0]  # the first living, visible monster in the reachable rank
         context = AttackContext(
-            distance_feet=group.distance_feet if missile else MELEE_RANGE_FEET,
+            distance_feet=distance if missile else MELEE_RANGE_FEET,
             situational_modifier=_gaze_stance_modifier(member, declaration),
             fired_last_round=member.id in state.fired_last_round,
             defender_retreating=group.fleeing,
@@ -3076,7 +3311,7 @@ def _resolve_use_item(session, member, declaration, fire_damaged) -> list[Event]
         return []
     template = instance.template
     context = AttackContext(
-        distance_feet=group.distance_feet,
+        distance_feet=_member_distance(session, member.id, group),
         situational_modifier=_gaze_stance_modifier(member, declaration),
         lit=True,
     )
@@ -3360,8 +3595,8 @@ def _confused_party_overrides(session, by_member, fire_damaged) -> list[Event]:
                 group for group in session.encounter.groups if not group.fled and _living_monsters(session, group)
             ]
             if groups:
-                nearest = min(groups, key=lambda group: group.distance_feet)
-                if nearest.distance_feet <= MELEE_RANGE_FEET:
+                nearest = min(groups, key=lambda group: _member_distance(session, member.id, group))
+                if _member_distance(session, member.id, nearest) <= MELEE_RANGE_FEET:
                     pool = _monster_pool(session, nearest)
                     if pool:
                         target = pool[session.streams.get(COMBAT_STREAM).randbelow(len(pool))]
@@ -3431,8 +3666,8 @@ def _monster_block(
 
     - `retreating`: the members a retreat exposes this round (see `_retreating_members`). Every
       attack on one of them gets the retreat's bonuses.
-    - `withdrawn`: the members who stepped back out of the front rank earlier in the round. The
-      block skips a melee attack on one of them, because melee no longer reaches them.
+    - `withdrawn`: the members who fell back alone earlier in the round. The block skips a melee
+      attack on one of them, because they've stepped out of the group's reach.
     - `mirrored`: the members who fight by a mirror this round. A petrifying gaze passes them by
       (see `_resolve_gazes`).
     """
