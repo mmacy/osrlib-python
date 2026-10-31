@@ -3096,9 +3096,8 @@ class ResolveBattleRound(Command):
     anyone else. The session refuses any other set of members
     with `battle.declaration.roster_mismatch`. If a single declaration is bad, the session
     refuses the whole command, not only that member's part of the round. The order of the declarations doesn't change
-    who acts first, because initiative and the order of the round's phases do. When members
-    declare `close` on different groups, though, the party closes on the group of the first
-    `close` in this tuple."""
+    who acts first, because initiative and the order of the round's phases do. It doesn't change
+    where anyone moves either, because each member's move is their own."""
 
 
 class GrantItem(Command):
