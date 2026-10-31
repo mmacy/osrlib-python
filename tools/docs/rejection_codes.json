@@ -132,6 +132,8 @@
   "party.add.carries_instances": "A referee tried to add a party member who carries a magic item or a valuable, equipped or not. Those have instance ids from the game that created them, which could match an id this session hands out. Add the character without them and give magic items afterwards with a grant.",
   "party.add.id_assigned": "A referee tried to add a party member whose id is already set: a character from another game, or one who is already a member. The session assigns the new member's id, so the character must arrive with no id.",
   "party.add.under_effects": "A referee tried to add a party member who has a condition, such as dead or asleep, or a stat modifier. Each of those belongs to an effect in the game that applied it, and this session can't end an effect it doesn't have.",
+  "party.remove.last_standing": "A referee tried to remove the last party member who is neither dead nor turned to stone, or the only member. A party with nobody standing has lost the game. Add the replacement first, and then remove the old member.",
+  "party.remove.same_member": "A referee tried to remove a party member and give their belongings to that same member. Name a different member to take them, or leave the recipient out so the belongings leave with the member.",
   "session.command.encounter_in_progress": "The referee tried to spawn an NPC party or place the party while an encounter or battle was already in progress.",
   "session.command.member_incapacitated": "The named party member is dead, paralyzed, petrified, or asleep and can't carry out the requested action.",
   "session.command.no_door": "The map edge at the given position and direction is not a door, so no door state can be set there.",

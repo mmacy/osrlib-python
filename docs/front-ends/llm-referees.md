@@ -64,6 +64,7 @@ Player commands let the model drive the party's turn. Referee commands let it *r
 - [`GrantItem`][osrlib.crawl.commands.GrantItem], [`GrantCoins`][osrlib.crawl.commands.GrantCoins], [`AwardXP`][osrlib.crawl.commands.AwardXP] - place rewards directly, magic items included
 - [`RemoveItem`][osrlib.crawl.commands.RemoveItem], [`RemoveCoins`][osrlib.crawl.commands.RemoveCoins] - take items or coins away: a price, a toll, armour a shop buys back
 - [`AddMember`][osrlib.crawl.commands.AddMember] - bring a new character into the party in town or while exploring, like a replacement for a fallen member. The new member joins at the back of the marching order, and the event gives their id
+- [`RemoveMember`][osrlib.crawl.commands.RemoveMember] - take a character out of the party for good in town or while exploring, like one who died too long ago for *raise dead*. Name another member in `give_to` to keep what the character carries in the party. The removed id is never used again
 - [`SetDoorState`][osrlib.crawl.commands.SetDoorState] - rewrite any door's state anywhere: lock it, wedge it, reveal it
 - [`PlaceParty`][osrlib.crawl.commands.PlaceParty] and [`AdvanceTime`][osrlib.crawl.commands.AdvanceTime] - teleport the party, advance the clock
 - [`AddJournalEntry`][osrlib.crawl.commands.AddJournalEntry] and [`RecordNote`][osrlib.crawl.commands.RecordNote] - what the agent records in the game world: a journal entry is written for the players and appears in their view, and a note is for the referee only and stays out of the player view

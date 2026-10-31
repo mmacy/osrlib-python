@@ -172,6 +172,15 @@ def command_strategy(*, include_pending: bool = False):
         if name == "AddMember":
             samples.append(st.builds(command_class, character=st.sampled_from(RECRUIT_SHAPES).map(recruit)))
             continue
+        if name == "RemoveMember":
+            samples.append(
+                st.builds(
+                    command_class,
+                    character_id=st.sampled_from(CHARACTER_IDS),
+                    give_to=st.sampled_from([None, None, *CHARACTER_IDS]),
+                )
+            )
+            continue
         if name in ("PlaceParty",):
             samples.append(
                 st.builds(

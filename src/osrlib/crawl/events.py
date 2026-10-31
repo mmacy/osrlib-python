@@ -123,6 +123,7 @@ __all__ = [
     "ListenedEvent",
     "LocationEnteredEvent",
     "MemberAddedEvent",
+    "MemberRemovedEvent",
     "MemberWithdrewEvent",
     "MonsterDefeatedEvent",
     "MonsterFledEvent",
@@ -2146,6 +2147,36 @@ class MemberAddedEvent(Event):
     """The new member's experience level when they joined."""
 
 
+class MemberRemovedEvent(Event):
+    """A member left the party during play.
+
+    Emitted by [`RemoveMember`][osrlib.crawl.commands.RemoveMember]. The member is already gone
+    from the party and from the views, so take them off the party on screen. When `given_to` is
+    set, the [`ItemsGivenEvent`][osrlib.crawl.events.ItemsGivenEvent] just before this event
+    lists what that member took. The event doesn't say why the member left. The command does:
+    read the `source` of the `RemoveMember`, either the one you executed or its entry in
+    [`GameSession.command_log`][osrlib.crawl.session.GameSession.command_log].
+    """
+
+    allowed_codes: ClassVar[frozenset[str]] = frozenset({"session.member.removed"})
+    """The only message code this event uses."""
+
+    event_type: Literal["member_removed"] = "member_removed"
+    """The event type, `member_removed`, which identifies this class in serialized form."""
+    code: str = "session.member.removed"
+    """The message code, always `session.member.removed`."""
+    visibility: Visibility = Visibility.PLAYER
+    """Player visibility: the players see who leaves them."""
+    character_id: str
+    """The id the member had, like `"character-0002"`. The session never gives it to another
+    member, so earlier events that name it still mean this character."""
+    name: str
+    """The member's name, so you can show the event without the member at hand."""
+    given_to: str | None = None
+    """The id of the member who took everything the leaving member carried, or `None` when it
+    all left the game with them."""
+
+
 CRAWL_EVENT_CLASSES: tuple[type[Event], ...] = (
     PartyMovedEvent,
     LocationEnteredEvent,
@@ -2206,6 +2237,7 @@ CRAWL_EVENT_CLASSES: tuple[type[Event], ...] = (
     AdventureCompletedEvent,
     ItemsRemovedEvent,
     MemberAddedEvent,
+    MemberRemovedEvent,
 )
 """The event classes defined in this module, in the order they're declared.
 

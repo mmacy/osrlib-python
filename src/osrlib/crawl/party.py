@@ -22,11 +22,12 @@ Three things change the list:
   the member named in
   [`BattleDeclaration.replacement_id`][osrlib.crawl.commands.BattleDeclaration.replacement_id].
   The new order lasts after the battle.
-- [`AddMember`][osrlib.crawl.commands.AddMember] adds a new member at the back. It's a referee
-  command, one your game logic issues rather than a player.
+- [`AddMember`][osrlib.crawl.commands.AddMember] adds a new member at the back, and
+  [`RemoveMember`][osrlib.crawl.commands.RemoveMember] takes a member out for good. Both are
+  referee commands, ones your game logic issues rather than a player.
 
-Dead members stay in the list, with their gear still on them. No command removes a member. The
-rules that count party members skip the dead: movement rate, combat ranks, traps, and food and
+Dead members stay in the list, with their gear still on them, until a `RemoveMember` takes them
+out. The rules that count party members skip the dead: movement rate, combat ranks, traps, and food and
 water all use [`living_members`][osrlib.crawl.party.Party.living_members].
 """
 
@@ -96,6 +97,8 @@ class Party(BaseModel):
 
     - To add a member during play, execute [`AddMember`][osrlib.crawl.commands.AddMember]. It
       assigns the new member's id and puts them at the back.
+    - To take a member out of play, execute
+      [`RemoveMember`][osrlib.crawl.commands.RemoveMember].
     - To change the order outside a fight, execute
       [`ReorderParty`][osrlib.crawl.commands.ReorderParty].
     - In a battle, a member who withdraws alone names the member to trade places with in
@@ -306,14 +309,17 @@ class Party(BaseModel):
         self.members = [by_id[character_id] for character_id in character_ids]
 
 
+def _stands(member: Character) -> bool:
+    """Whether a member stands, which means they are neither dead nor petrified."""
+    return not has_condition(member, Condition.DEAD) and not has_condition(member, Condition.PETRIFIED)
+
+
 def _anyone_standing(party: Party) -> bool:
     """Whether any member stands, which means they are neither dead nor petrified.
 
-    The session's `game_over` check and a battle's defeat check ask this. A statue still counts
-    among [`living_members`][osrlib.crawl.party.Party.living_members] for every other rule, so a
-    party turned wholly to stone has living members but nobody standing.
+    The session's `game_over` check and a battle's defeat check ask this, and
+    [`RemoveMember`][osrlib.crawl.commands.RemoveMember] refuses to take out the last member who
+    stands. A statue still counts among [`living_members`][osrlib.crawl.party.Party.living_members]
+    for every other rule, so a party turned wholly to stone has living members but nobody standing.
     """
-    return any(
-        not has_condition(member, Condition.DEAD) and not has_condition(member, Condition.PETRIFIED)
-        for member in party.members
-    )
+    return any(_stands(member) for member in party.members)

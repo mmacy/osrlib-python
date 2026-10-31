@@ -456,6 +456,10 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
     "session.member.added": lambda event: (
         f"{event.name}, a level {event.level} {event.class_id}, joins the party as {event.character_id}."
     ),
+    "session.member.removed": lambda event: (
+        f"{event.name} leaves the party"
+        + (f", and {event.given_to} takes their belongings." if event.given_to else ".")
+    ),
 }
 
 
