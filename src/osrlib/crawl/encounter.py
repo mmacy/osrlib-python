@@ -1254,6 +1254,8 @@ def end_encounter(session, outcome: str) -> list[Event]:
     from osrlib.crawl.session import DefeatedMonsterRecord
 
     state = session.encounter
+    if state is None:
+        raise ValueError("no encounter is open on the session")
     events: list[Event] = []
     all_defeated = True
     for group in state.groups:

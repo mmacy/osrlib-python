@@ -1814,6 +1814,11 @@ class DungeonState(BaseModel):
         lock_failures: Which thief failed each lock, and at what level.
     """
 
+    # `GameSession` stores here the function that `door` calls to start a new state from the door's
+    # `DoorSpec`. A slot sits outside the fields and the private attributes, so equality, copies,
+    # pickles, and saves all leave it out. A copy or a loaded save has none until a session takes it.
+    __slots__ = ("_new_door",)
+
     model_config = ConfigDict(validate_assignment=True)
 
     location: PartyLocation = PartyLocation(kind="town")
@@ -2020,9 +2025,14 @@ class DungeonState(BaseModel):
         state = self.doors.get(ref)
         if state is not None:
             return state
-        state = DoorState()
+        new_door: Callable[[str], DoorState] | None = getattr(self, "_new_door", None)
+        state = DoorState() if new_door is None else new_door(ref)
         state._write_through = lambda written, name, value: self._write_door(ref, written, name, value)
         return state
+
+    def _start_doors_from(self, new_door: Callable[[str], DoorState]) -> None:
+        """Make `door` start each new state with `new_door(ref)` instead of an all-`False` state."""
+        object.__setattr__(self, "_new_door", new_door)
 
     def _write_door(self, ref: str, state: DoorState, name: str, value: Any) -> None:
         """Store a state from `door` on its first field write, or copy the write to an entry stored since."""
