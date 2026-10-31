@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-10-31
+
 ### Added
 
 - Each party member now has a place on a battle's range track, so members can stand at different distances from the monsters (#209). [`BattleState.advance_feet`][osrlib.crawl.battle.BattleState.advance_feet] gives each member's place in feet forward of the party line, where the party stood when the encounter opened, and [`BattleState.arrived_round`][osrlib.crawl.battle.BattleState.arrived_round] gives the round they got there. A member's distance to a group is the group's `distance_feet` minus the member's advance. Every member starts a battle on the line, at zero. Both fields default to empty, so a 2.2.0 save loads with every member on the line, and [`SCHEMA_VERSION`][osrlib.versioning.SCHEMA_VERSION] stays 4. The [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/#the-battle-round) gives every rule.
@@ -459,7 +461,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The documentation site: quickstart, guides, front-end walk-throughs, and a full reference for every command, event, rejection code, message code, RNG stream, and content id.
 - The typed surface: complete type hints under `py.typed`, checked in CI.
 
-[Unreleased]: https://github.com/mmacy/osrlib-python/compare/v2.2.0...HEAD
+[Unreleased]: https://github.com/mmacy/osrlib-python/compare/v2.3.0...HEAD
+[2.3.0]: https://github.com/mmacy/osrlib-python/compare/v2.2.0...v2.3.0
 [2.2.0]: https://github.com/mmacy/osrlib-python/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/mmacy/osrlib-python/compare/v2.0.1...v2.1.0
 [2.0.1]: https://github.com/mmacy/osrlib-python/compare/v2.0.0...v2.0.1
