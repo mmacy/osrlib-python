@@ -481,6 +481,11 @@ class BattleState(BaseModel):
     at zero, and a group can close on them as usual, because a group's distance never goes below zero.
     When every living member is invisible, the line stays where it is.
 
+    The line also moves back when a group closes on a member who stands behind it and the group's
+    stopping point would be behind the line. That happens when a member the group can see still
+    stands forward of the line, so the movement step left the line where it was. The line moves back
+    by the shortfall in the same way, with no event, and the group then stands on the line.
+
     Every member starts a battle on the line, and the
     advances end with the battle, so the party stands on its cell as one body again once the fight is
     over. A save written mid-battle keeps them, and a save from before they existed loads with every
@@ -515,12 +520,16 @@ class MonsterAction(BaseModel):
     - `"close"` moves the whole group up to one encounter movement rate, the acting monster's,
       toward the nearest living member it can see. The group stops as soon as it's within
       [`MELEE_RANGE_FEET`][osrlib.crawl.battle.MELEE_RANGE_FEET] of that member, so it never
-      moves past a member it can see. An invisible member doesn't stop it, and a member turned to
-      stone does. The move is toward the party line, unless the group passed the member while
-      they were invisible. Toward the line, the group stops 5' short of it at the nearest, and
-      with no member it can see, it moves toward the line. A group already within 5' of a member
-      it can see doesn't move, and the session emits no event for it. Only the first `"close"`
-      in a group's actions for a round moves the group.
+      moves past a member it can see, and it reaches that member in as many rounds as its rate
+      needs. An invisible member doesn't stop it, and a member turned to stone does. The move is
+      toward the party line, unless the group passed the member while they were invisible. When
+      the member stands behind the line and the group would stop behind it, the line moves back
+      first, as
+      [`BattleState.advance_feet`][osrlib.crawl.battle.BattleState.advance_feet] describes, so a
+      group's distance never goes below zero. With no member it can see, the group moves toward
+      the line and stops 5' from it. A group already within 5' of a member it can see doesn't
+      move, and the session emits no event for it. Only the first `"close"` in a group's actions
+      for a round moves the group.
     - `"melee"` attacks `target_id`. The session resolves it only if the target stands in the
       group's front rank within 5' of it when the action comes up, as
       [`group_front_rank`][osrlib.crawl.battle.group_front_rank] reports. So a `"melee"` after the
@@ -1623,11 +1632,17 @@ def _closing_distance(session, group, rate: int) -> int:
     """Where a group's `close` takes it, as its new distance from the party line, by the arithmetic alone.
 
     The group moves up to `rate` feet toward the nearest living member it can see, and stops 5' from them, so it
-    never moves past a member it can see. That's toward the party line, unless the group passed the member while
-    they were invisible. Toward the line, the group never comes nearer it than 5'. A group already within 5' of a
+    never moves past a member it can see and always reaches them in as many rounds as its rate needs. That's toward
+    the party line, unless the group passed the member while they were invisible. A group already within 5' of a
     member it can see doesn't move. With no member it can see, the group moves toward the line and stops 5' from
     it. Members at the same distance on both sides draw the group toward the line. It reads state and takes no
     draw.
+
+    Returns:
+        The new distance. It's below zero when the group's stopping point is behind the line, which happens when
+            the member it closes on stands behind the line. The session then moves the line back by the shortfall
+            before it places the group (see `_place_closing_group`). The distances between the group and the
+            members are the same either way.
     """
     distance = group.distance_feet
     advance_feet = session.battle.advance_feet
@@ -1642,8 +1657,28 @@ def _closing_distance(session, group, rate: int) -> int:
     if abs(distance - nearest) <= MELEE_RANGE_FEET:
         return distance
     if nearest < distance:
-        return min(distance, max(distance - rate, nearest + MELEE_RANGE_FEET, MELEE_RANGE_FEET))
+        return max(distance - rate, nearest + MELEE_RANGE_FEET)
     return min(distance + rate, nearest - MELEE_RANGE_FEET)
+
+
+def _place_closing_group(session, group, arrival: int) -> list[Event]:
+    """Put a closing group at `arrival`, its new distance from the party line, and report the move.
+
+    A group's distance never goes below zero. When `arrival` is behind the line, the line first moves back by the
+    shortfall, as `_move_line_back` moves it: every member's advance and every group's distance grow by the same
+    number of feet, with no event, so no distance between a member and a group changes. The group then stands on
+    the line. A `GroupMovedEvent` reports the move when the group's distance changes. The call takes no draw.
+
+    Returns:
+        The `GroupMovedEvent`, or nothing when the group stays where it is.
+    """
+    if arrival < 0:
+        _shift_line_back(session, -arrival)
+        arrival = 0
+    if arrival == group.distance_feet:
+        return []
+    group.distance_feet = arrival
+    return [GroupMovedEvent(group_id=group.id, distance_feet=arrival)]
 
 
 def _seen_after_close(session, group, placement: _Placement, rate: int) -> list:
@@ -1762,15 +1797,22 @@ def _move_line_back(session) -> None:
     living member is invisible, or one of them stands on or forward of the line, nothing changes. The call
     takes no draw.
     """
+    shift = _line_shift(session, session.battle.advance_feet)
+    if shift:
+        _shift_line_back(session, shift)
+
+
+def _shift_line_back(session, feet: int) -> None:
+    """Move the party line back by `feet`: every member's advance and every group's distance grow by that much.
+
+    No distance between a member and a group changes, so the move emits no event. The call takes no draw.
+    """
     state = session.battle
     living = session.party.living_members()
-    shift = _line_shift(session, state.advance_feet)
-    if shift == 0:
-        return
     for member_id in [*state.advance_feet, *(member.id for member in living if member.id not in state.advance_feet)]:
-        state.advance_feet[member_id] = state.advance_feet.get(member_id, 0) + shift
+        state.advance_feet[member_id] = state.advance_feet.get(member_id, 0) + feet
     for group in session.encounter.groups:
-        group.distance_feet += shift
+        group.distance_feet += feet
 
 
 def member_distance_feet(session, member_id: str, group_id: str) -> int:
@@ -2658,13 +2700,14 @@ def _area_candidates(
 def _area_rows(group, placement: _Placement, shape: str | None, dimensions: Mapping[str, Any]) -> list[str]:
     """The members an area aimed at the party from a group covers, by the footprint rule, nearest row first.
 
-    The rows are the ranks toward the group (see `_ranks_toward`). The first row stands at its own distance, which
-    is the gap a cone crosses before it reaches the party. Each row at the same distance as the row before it counts
-    as 10' deeper, as a cell is deep, and a row at a greater distance starts at that distance. The area covers each
-    row that starts less than its span past the first row (see `_area_span_feet`), so a cone covers each row that
-    starts nearer the group than the cone's length. Before any member has moved, every row stands at the group's
-    distance, so the area covers `ceil(span / 10)` rows from the front, as it always has. The call reads state and
-    takes no draw.
+    The rows are the ranks toward the group (see `_ranks_toward`). The first row's depth is its own distance, which
+    is the gap a cone crosses before it reaches the party. Each later row is at least 10' deeper than the row in
+    front of it, as a cell is deep, and no shallower than its own distance, so depth never goes down. The area covers
+    the rows in order from the front while a row's depth is less than the span past the first row (see
+    `_area_span_feet`), and stops at the first row it doesn't reach. So a cone covers the rows that start nearer the
+    group than its length, and never a farther row past a nearer one. Before any member has moved, every row stands
+    at the group's distance, so the area covers `ceil(span / 10)` rows from the front, as it always has. The call
+    reads state and takes no draw.
 
     Returns:
         Member ids, row by row, each row in marching order.
@@ -2675,14 +2718,13 @@ def _area_rows(group, placement: _Placement, shape: str | None, dimensions: Mapp
     front = placement.distance(rows[0][0], group)
     span = _area_span_feet(shape, dimensions, front)
     covered: list[str] = []
-    # Seeded so that the first row, at the front's distance, starts at the front.
-    previous, depth = front, front - 10
+    # Seeded so that the first row's depth is the front's distance.
+    depth = front - 10
     for row in rows:
-        distance = placement.distance(row[0], group)
-        depth = depth + 10 if distance == previous else distance
-        previous = distance
-        if depth - front < span:
-            covered.extend(row)
+        depth = max(depth + 10, placement.distance(row[0], group))
+        if depth - front >= span:
+            break
+        covered.extend(row)
     return covered
 
 
@@ -4101,8 +4143,8 @@ def _monster_block(
     """Resolve the monster side's block: morale, flight, gazes, and the actions each group's policy chose.
 
     A group that runs moves its full rate away, and it's gone once it stands farther than `FLEE_EXIT_FEET`
-    from the nearest living member. A `close` moves the group as `_closing_distance` works it out, and a
-    `GroupMovedEvent` reports the move when the distance changes. A `melee` resolves only on a target in
+    from the nearest living member. A `close` moves the group as `_closing_distance` works it out, and
+    `_place_closing_group` places it and reports the move. A `melee` resolves only on a target in
     the group's front rank within 5' of it when the action comes up (see `_reachable_front_rank`), so a
     member who stepped out of reach earlier in the round, or whom the group's close fell short of, isn't
     struck. A formation retreat is the exception, through `retreat_reach`.
@@ -4163,9 +4205,7 @@ def _monster_block(
                     continue
                 moved = True
                 arrival = _closing_distance(session, group, _encounter_rate(monster, session))
-                if arrival != group.distance_feet:
-                    group.distance_feet = arrival
-                    events.append(GroupMovedEvent(group_id=group.id, distance_feet=arrival))
+                events.extend(_place_closing_group(session, group, arrival))
             elif action.kind == "breath":
                 events.extend(_resolve_breath(session, monster, group))
                 _watch_disruption(events, pending_casters, disrupted, acted)

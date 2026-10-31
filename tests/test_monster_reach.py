@@ -18,15 +18,21 @@ The contract these tests check:
 
 Each test sets members at their distances with the monsters held by a test policy, then gives the monsters their
 default policy back for the round under test. Each test asserts its own preconditions.
+
+`TestReviewRegressions` at the end holds regression tests for two defects a review found in the first build of the
+chunk. They carry no marker, so the chunk's marker goes on each acceptance class instead of on the module.
 """
 
 import pytest
 
 from osrlib.core.effects import ActiveCondition, Condition, EffectDefinition
 from osrlib.core.events import SpellCastEvent
+from osrlib.crawl import battle as battle_module
 from osrlib.crawl.battle import MonsterAction, ScriptedPolicy, group_front_rank, member_distance_feet
 from osrlib.crawl.session import MONSTER_ACTION_STREAM
 from positions_fixtures import (
+    HILD,
+    NIM,
     advance,
     attach,
     battle,
@@ -43,7 +49,7 @@ from positions_fixtures import (
     saves_by_members,
 )
 
-pytestmark = pytest.mark.xfail(reason="chunk: monster-reach", strict=True)
+CHUNK = pytest.mark.xfail(reason="chunk: monster-reach", strict=True)
 
 
 def _ids(game, *names: str) -> tuple[str, ...]:
@@ -86,6 +92,7 @@ class _StrikeAt:
 # ---------------------------------------------------------------------- closing
 
 
+@CHUNK
 class TestAGroupCloses:
     def test_a_group_stops_five_feet_from_the_nearest_member(self):
         game = _placed(("Nim", 1), distance=50)
@@ -135,6 +142,7 @@ class TestAGroupCloses:
 # ---------------------------------------------------------------------- who the group reaches
 
 
+@CHUNK
 class TestWhoTheGroupReaches:
     def test_a_group_within_reach_of_a_member_stays_and_strikes_only_that_member(self):
         game = _placed(("Nim", 1), distance=30)
@@ -212,6 +220,7 @@ class TestWhoTheGroupReaches:
 # ---------------------------------------------------------------------- gaze, breath, and friendly fire
 
 
+@CHUNK
 class TestAreasAndGazes:
     def test_a_gaze_reaches_only_the_front_rank_within_reach(self):
         game = _placed(("Nim", 1), template_id="basilisk", count=1, distance=30)
@@ -246,3 +255,69 @@ class TestAreasAndGazes:
         (cast,) = [event for event in events if isinstance(event, SpellCastEvent) and event.caster_id == wren]
         party = {member.id for member in game.party.members}
         assert set(cast.target_ids) & party == {nim}
+
+
+# ---------------------------------------------------------------------- review regressions
+
+
+class TestReviewRegressions:
+    def test_an_area_never_covers_a_farther_row_past_a_nearer_one(self):
+        """Width 2, and a cone that spans 10' past the first row. Four members stand 5' from the goblins and two 10'.
+
+        Nim and Wren got there first, so they're the first row, and Hild and Osric are the second row at 5'. Depth never
+        goes down, so the second row is 15' deep and Aelin and Tam's row, 10' from the goblins, is 25' deep. The cone
+        covers the first row and stops.
+        """
+        game = battle(distance=30)
+        hold_monsters(game)
+        play(game, *(close(game, member.id) for member in game.party.living_members()))
+        play(game, close(game, named(game, "Hild")), close(game, named(game, "Osric")))
+        gid = group_id(game)
+        names = ("Hild", "Osric", "Nim", "Aelin", "Wren", "Tam")
+        distances = {name: member_distance_feet(game, named(game, name), gid) for name in names}
+        assert distances == {"Hild": 5, "Osric": 5, "Nim": 5, "Aelin": 10, "Wren": 5, "Tam": 10}, "precondition"
+        cone = {"length_feet": 15}
+        assert battle_module._area_span_feet("cone", cone, 5) == 10, "precondition: the cone spans 10'"
+
+        covered = battle_module._area_rows(game.encounter.groups[0], battle_module._placement(game), "cone", cone)
+
+        assert covered == list(_ids(game, "Nim", "Wren"))
+
+    def test_a_group_reaches_a_member_behind_the_line_while_another_stands_forward_of_it(self):
+        """The goblins stand 10' from the line. Nim, whom they passed while Nim was invisible, stands 40' forward of the
+        line and can be seen again, so the line stays where it is. Hild stands 5' behind it, 15' from the goblins, and
+        is the nearest member they can see. The goblins reach Hild in one round."""
+        game = battle((HILD, NIM), distance=10)
+        hild, nim = _ids(game, "Hild", "Nim")
+        gid = group_id(game)
+        game.battle.advance_feet.update({nim: 40, hild: -5})
+        assert (member_distance_feet(game, hild, gid), member_distance_feet(game, nim, gid)) == (15, -30), (
+            "precondition"
+        )
+
+        events = play(game)
+
+        assert member_distance_feet(game, hild, gid) == 5
+        assert game.encounter.groups[0].distance_feet >= 0
+        assert {attack.defender_id for attack in monster_attacks(game, events)} <= {hild}
+
+    def test_a_group_closing_on_a_member_far_behind_the_line_moves_the_line_back(self):
+        """As above, with Nim 60' forward of the line and Hild 25' behind it, 35' from the goblins and still the nearest
+        member they can see. A stop 5' from Hild would be behind the line, so the line moves back by the shortfall and
+        the goblins stand on it. They reach Hild in the two rounds their 20' rate needs."""
+        game = battle((HILD, NIM), distance=10)
+        hild, nim = _ids(game, "Hild", "Nim")
+        gid = group_id(game)
+        game.battle.advance_feet.update({nim: 60, hild: -25})
+        assert (member_distance_feet(game, hild, gid), member_distance_feet(game, nim, gid)) == (35, -50), (
+            "precondition"
+        )
+
+        reached = []
+        for _ in range(2):
+            play(game)
+            assert game.encounter.groups[0].distance_feet == 0
+            reached.append(member_distance_feet(game, hild, gid))
+
+        assert reached == [15, 5]
+        assert advance(game, hild) == -5
