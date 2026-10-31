@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-10-30
+
 ### Added
 
 - [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] has a new `count_fixed` field for an exact band size, like a band of four adventurers (#167). Before, the size had to be a dice expression, and `"4"` isn't one. Set at most one of `count_fixed` and `count_dice`. With neither, the session rolls the B/X number for the band's kind, as before. A saved command without the field still parses.
@@ -407,7 +409,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The documentation site: quickstart, guides, front-end walk-throughs, and a full reference for every command, event, rejection code, message code, RNG stream, and content id.
 - The typed surface: complete type hints under `py.typed`, checked in CI.
 
-[Unreleased]: https://github.com/mmacy/osrlib-python/compare/v2.0.1...HEAD
+[Unreleased]: https://github.com/mmacy/osrlib-python/compare/v2.1.0...HEAD
+[2.1.0]: https://github.com/mmacy/osrlib-python/compare/v2.0.1...v2.1.0
 [2.0.1]: https://github.com/mmacy/osrlib-python/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/mmacy/osrlib-python/compare/v1.8.0...v2.0.0
 [1.8.0]: https://github.com/mmacy/osrlib-python/compare/v1.7.1...v1.8.0
