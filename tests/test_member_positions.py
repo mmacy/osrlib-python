@@ -1,4 +1,4 @@
-"""Acceptance tests for each party member's own place on the range track (issue #209, chunk: positions).
+"""Acceptance tests for each party member's own place on the range track (issue #209).
 
 The range track is how a battle measures distance. Each monster group keeps a distance from the party line, where the
 party stood when the encounter opened. Each member now has an advance, in feet forward of that line, in
@@ -20,8 +20,7 @@ The contract these tests check:
 - Positions end with the battle, are saved with the session, and replay from the command log.
 
 Most tests keep the monsters still with a hold policy, so they check the party's movement alone. Each test asserts its
-own preconditions. The classes marked `chunk: positions` fail until that chunk is built. The unmarked tests are guards
-that pass before and after it.
+own preconditions.
 """
 
 import sys
@@ -66,8 +65,6 @@ from positions_fixtures import (
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from tools.docs.rejection_scan import scan_rejection_codes  # noqa: E402
-
-POSITIONS = pytest.mark.xfail(reason="chunk: positions", strict=True)
 
 
 def _held(**battle_args):
@@ -139,7 +136,6 @@ class TestTheFields:
 # ---------------------------------------------------------------------- a close is the member's own
 
 
-@POSITIONS
 class TestACloseMovesOnlyTheMember:
     def test_a_close_moves_only_the_declarer_at_their_own_rate(self):
         game = _held(distance=40)
@@ -262,7 +258,6 @@ class TestACloseMovesOnlyTheMember:
 # ---------------------------------------------------------------------- falling back alone
 
 
-@POSITIONS
 class TestFallingBackAlone:
     def test_a_fighting_withdrawal_alone_moves_the_member_back_at_half_rate(self):
         game = _held(distance=40)
@@ -342,7 +337,6 @@ class TestFallingBackAlone:
 # ---------------------------------------------------------------------- the marching-order trade
 
 
-@POSITIONS
 class TestTheTrade:
     def test_the_named_member_trades_places_in_the_marching_order(self):
         game = _held(distance=5)
@@ -457,7 +451,6 @@ class TestTheTradeRefusals:
 # ---------------------------------------------------------------------- the ranks toward a group
 
 
-@POSITIONS
 class TestTheRanksTowardAGroup:
     def test_the_front_rank_is_the_members_within_five_feet(self):
         game = _held(distance=30)
@@ -518,12 +511,16 @@ class TestTheRanksTowardAGroup:
         assert rejections == [("combat.attack.out_of_reach", {"distance_feet": 10})]
 
     def test_the_member_alone_in_front_strikes_and_the_row_behind_waits(self):
-        """A row never mixes distances: Nim at 5' is the whole front row, and Hild at 30' is in the next one."""
+        """A row never mixes distances: Nim at 5' is the whole front row, and Hild at 30' is in the next one.
+
+        Hild is also out of reach, and reach is checked first, so the refusal names the distance.
+        """
         game = _held(distance=30)
         nim, hild = _ids(game, "Nim", "Hild")
         play(game, close(game, nim))
 
-        assert refused(game, strike(game, hild)) == [("battle.declaration.not_in_front_rank", {"character": hild})]
+        assert group_front_rank(game, group_id(game)) == (nim,)
+        assert refused(game, strike(game, hild)) == [("combat.attack.out_of_reach", {"distance_feet": 30})]
         events = play(game, strike(game, nim))
 
         assert any(getattr(event, "attacker_id", None) == nim for event in events)
@@ -532,7 +529,6 @@ class TestTheRanksTowardAGroup:
 # ---------------------------------------------------------------------- the party line moves back
 
 
-@POSITIONS
 class TestThePartyLineMovesBack:
     """At the end of the party's movement step, when every living member who isn't invisible stands behind the party
     line, the line moves back to the foremost of them. Every advance and every group's distance grow by the same
@@ -604,7 +600,6 @@ class TestThePartyLineMovesBack:
 # ---------------------------------------------------------------------- the formation, the pursuit, and the end
 
 
-@POSITIONS
 class TestTheFormationAndTheEnd:
     def test_a_formation_move_moves_the_groups_and_leaves_every_advance_alone(self):
         game = _held(distance=30)
@@ -677,7 +672,6 @@ class TestTheFormationAndTheEnd:
 # ---------------------------------------------------------------------- determinism
 
 
-@POSITIONS
 class TestDeterminism:
     def test_a_refused_round_with_a_close_in_it_costs_nothing(self):
         game = _held(distance=30)
@@ -723,7 +717,6 @@ class TestDeterminism:
         assert session_state(replayed) == session_state(game)
 
 
-@POSITIONS
 def test_the_old_swap_codes_are_no_longer_raised():
     """A withdrawal alone needs no replacement and covers no rank distance, so neither code can come back."""
     scanned = scan_rejection_codes()
