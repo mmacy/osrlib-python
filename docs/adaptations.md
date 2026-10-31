@@ -208,67 +208,123 @@ Locked by `test_drain.py`, `test_turning_and_staff.py`, `test_drain_and_regen.py
 
 ### The damage pipeline order
 
-The gate resolves first, then the damage roll (plus STR for melee), then the doublings (brace, charge, back-stab), then the minimum of 1, then the reductions (floored, never below 1). If the defender's `harmed_only_by` or energy defenses exclude the source, no damage is rolled and the event reports it. Save-for-half halving also floors. Back-stab adds +4 to hit and doubles damage, both halves from the thief tag's params, when the caller asserts an unaware target attacked from behind. Locked by `test_combat.py::TestDamagePipeline`.
+Damage resolves in a fixed order:
+
+1. The gate. If the defender's `harmed_only_by` or energy defenses exclude the source, the engine rolls no damage, and the event reports that.
+2. The damage roll, plus STR for melee.
+3. The doublings: brace, charge, and back-stab.
+4. The minimum of 1.
+5. The reductions, rounded down and never below 1.
+
+Halving for a successful save-for-half also rounds down. A back-stab adds +4 to hit and doubles damage, both from the thief tag's params, when the caller says the target is unaware and attacked from behind. Locked by `test_combat.py::TestDamagePipeline`.
 
 ### The WIS save modifier applies to magical non-breath saves only
 
-osrlib reads "does not normally include saves against breath attacks" this way. The caller supplies any further referee discretion as a modifier. Locked by `test_combat.py::TestSavingThrows`.
+The WIS modifier applies to saving throws against magic, except saves against breath attacks. That's how osrlib reads "does not normally include saves against breath attacks". Any further referee discretion is a modifier the caller supplies. Locked by `test_combat.py::TestSavingThrows`.
 
 ### `hd5_counts_as_magical` implements the whole invulnerabilities optional rule
 
-The flag's name covers only the 5+ HD half of the rule, but the flag governs both bullets of the SRD optional rule it cites. A monster of 5+ HD *and* another invulnerable monster therefore bypass the gate, because implementing half an optional rule would be an undocumented deviation. The boundary follows the rule's wording: the flag touches only weapon-material gates whose keys are a subset of {silver, magic}, and "another invulnerable monster" means a monster bearing such a gate. Element-keyed and mixed gates (the mummy's fire-or-magic, the black pudding's fire-only) are unaffected. Locked by `test_combat.py::TestDamagePipeline`.
+The `hd5_counts_as_magical` flag applies the whole SRD optional rule it cites, not only the half its name describes. With the flag on, two kinds of monster get through a gate that admits only silver or magic weapons:
+
+- A monster of 5 HD or more.
+- "another invulnerable monster", in the rule's words, which means a monster that has such a gate itself.
+
+Applying half an optional rule would be a departure from the SRD that nothing documents. The flag follows the rule's wording, so it affects only weapon gates whose keys are silver, magic, or both. Gates keyed to an element, and mixed gates, are unaffected, like the mummy's fire-or-magic gate and the black pudding's fire-only gate. Locked by `test_combat.py::TestDamagePipeline`.
 
 ### The `holy` damage key is admitted through any gate on undead targets, and only there
 
-"Holy water inflicts damage on undead monsters": the specific rule overrides the general immunity. Otherwise the wight's silver-or-magic gate would absorb the one weapon made for it. Against anything living, the throw resolves normally and the damage pipeline reports no effect. That is deliberately *not* a validator rejection: rejections are free (no roll, no time, no log entry), and a rejection would be a zero-cost undead detector. Locked by `test_combat.py::TestSplashWeapons`.
+Holy water damages an undead target through any gate. Against a living target, the throw resolves normally, and the damage pipeline reports no effect.
+
+- "Holy water inflicts damage on undead monsters": the specific rule overrides the general immunity. Otherwise the wight's silver-or-magic gate would stop the one weapon made for it.
+- Throwing holy water at a living target is deliberately *not* refused. A refusal is free (no roll, no time, no log entry), so it would be a way to test for undead at no cost.
+
+Locked by `test_combat.py::TestSplashWeapons`.
 
 ### Variable weapon damage off means 1d6 for weapons and gear facets
 
-RAW: "PC attacks inflict 1d6 damage", meaning weapons *and* gear combat facets. Unarmed attacks stay 1d2 (the specific unarmed rule, not a weapon) and monster damage is unaffected (monsters "deal the damage indicated in the description"). Locked by `test_combat.py::TestDamagePipeline::test_variable_damage_flag_off`.
+With variable weapon damage off, every PC attack with a weapon *or* a gear item's combat facet deals 1d6, as RAW says: "PC attacks inflict 1d6 damage".
+
+- Unarmed attacks stay 1d2, because the unarmed rule is a specific rule, not a weapon.
+- Monster damage doesn't change, because monsters "deal the damage indicated in the description".
+
+Locked by `test_combat.py::TestDamagePipeline::test_variable_damage_flag_off`.
 
 ### Splash damage is two applications
 
-osrlib reads "Inflicted for two rounds" as two applications: the hit's damage now, and the douse effect's expiry applies the listed damage once more at the next round boundary. Unlit oil deals no damage. The caller may compile it into a location-attached pool (3-foot pool, burns 1 turn once lit, 1d8 to creatures passing through), and the caller asserts who passes through. In a session, the crawl layer anchors the pool to a cell, as [Light, darkness, and location-bound effects](#light-darkness-and-location-bound-effects) describes. `uses_fire` monsters ignore burning oil outright. Locked by `test_combat.py::TestSplashWeapons`.
+A splash weapon deals its damage twice: once when it hits, and again at the next round boundary, when the douse effect expires. That's how osrlib reads "Inflicted for two rounds".
+
+- Unlit oil deals no damage.
+- A caller can turn spilled oil into a pool attached to a location: a 3-foot pool that burns for 1 turn once lit and deals 1d8 to creatures passing through. The caller says who passes through.
+- In a session, the session anchors the pool to a cell, as [Light, darkness, and location-bound effects](#light-darkness-and-location-bound-effects) describes.
+- Monsters with `uses_fire` ignore burning oil.
+
+Locked by `test_combat.py::TestSplashWeapons`.
 
 ### Torch and burning oil deal fire damage, and holy water has the holy key
 
-osrlib decides the damage sources of the three dual-listed gear items. A torch or oil hit is fire damage, so it goes into the troll's non-regenerable ledger. Locked by `test_combat.py::TestSplashWeapons::test_douse_applies_twice_then_expires`.
+A torch or burning oil deals fire damage, and holy water deals `holy` damage. The three items are listed both as gear and as weapons, and osrlib sets their damage sources. Because a torch or oil hit is fire damage, it counts toward a troll's fire and acid total. Locked by `test_combat.py::TestSplashWeapons::test_douse_applies_twice_then_expires`.
 
 ### Breath-weapon daily limits are per-monster data
 
-The three-per-day limit is per-monster data. The SRD prints it for the dragons, the dragon turtle, and the chimera. The hellhound has no daily limit: its 2-in-6 per-round chance is data that the default action policy reads, and the kernel resolves the breath whenever it's invoked. osrlib treats every breath weapon as a destructive death: the SRD's destruction-of-items examples ("a lightning bolt spell or a dragon's breath") illustrate energy deaths generally, so the hellhound's fire kill destroys the victim's mundane equipment too. A dragon's defense against its variant's breath element(s) is immunity to nonmagical sources plus an automatic save against magical ones. Locked by `test_combat.py::TestBreathAndGaze`.
+A breath weapon's limit of three uses a day is data on each monster, not a general rule.
+
+- The SRD prints the limit for the dragons, the dragon turtle, and the chimera.
+- The hellhound has no daily limit. Its 2-in-6 chance each round is data that the default policy reads, and the kernel resolves the breath whenever it's used.
+- osrlib treats every breath weapon as a destructive death. The SRD's examples of destroyed items ("a lightning bolt spell or a dragon's breath") illustrate energy deaths in general, so a hellhound's fire kill destroys the victim's mundane equipment too.
+- A dragon is immune to nonmagical sources of its breath's element, or elements, and saves automatically against magical ones.
+
+Locked by `test_combat.py::TestBreathAndGaze`.
 
 ### The HD-budget targeting mode consumes weakest-first
 
-Candidates sort weakest-first by effective HD, with sub-1 HD rounding up to 1, fixed hit-point bonuses dropped, and characters counting their level, ties broken by stable input order. The budget spends whole creatures, and a target whose HD exceed the remainder is skipped while selection continues. For the *sleep* spell's arithmetic, see [Sleep's mode arithmetic](#sleeps-mode-arithmetic). Locked by `test_combat.py::TestTargeting`.
+A spell with a Hit Dice budget affects the weakest creatures first.
+
+- Candidates sort by effective HD. Less than 1 HD counts as 1, fixed hit point bonuses are dropped, and a character counts their level. Ties keep stable order.
+- The budget spends whole creatures. A target whose HD exceed what's left is skipped, and selection goes on to the next.
+
+For the *sleep* spell's arithmetic, see [Sleep's mode arithmetic](#sleeps-mode-arithmetic). Locked by `test_combat.py::TestTargeting`.
 
 ### Monster XP validation: above-21-HD inflation and the negative-modifier band
 
-Printed XP is authoritative and cross-validated at compile time: base by HD row plus asterisks × the bonus column, where above 21 HD *both* amounts first gain 250 per HD above 21. The dragon turtle (HD 30*, XP 9,000) matches this reading. Negative hit-point modifiers map to the *lower* band: the goblin's 1-1 validates against "Less than 1" (XP 5) while still using the unmodified "Up to 1" attack-matrix row (THAC0 19 [0]). The attack-as-1-HD-higher rule is for bonus modifiers only. Table mismatches fail the build unless recorded as overrides. Locked by `test_monster_data.py::TestCombatTables`.
+The XP printed in a stat block is authoritative. When the compiler builds the data, it checks each printed value against the XP table:
+
+- The expected XP is the base for the HD row, plus the number of asterisks times the bonus column. Above 21 HD, *both* amounts first gain 250 for each HD above 21. The dragon turtle (HD 30*, XP 9,000) matches this reading.
+- A negative hit point modifier maps to the *lower* band. The goblin's 1-1 checks against "Less than 1" (XP 5), and still uses the unmodified "Up to 1" row of the attack matrix (THAC0 19 [0]). Attacking as 1 HD higher applies only to a positive modifier.
+- A mismatch with the table fails the build unless an override records it.
+
+Locked by `test_monster_data.py::TestCombatTables`.
 
 ### Poison failure is death, with optional onset; riders leave the damage unaffected
 
-Save versus death or poison, and failure is death, either immediate or an onset-delay effect for forms like the giant rattler's "death in 1d6 turns". Poison riders on damaging attacks leave the damage unaffected by the save, per RAW. Locked by `test_effects.py::TestLedger::test_delayed_death_poison`.
+A failed save against poison is death, either at once or after an onset delay.
+
+- The target saves versus death or poison.
+- A form with a delay, like the giant rattler's "death in 1d6 turns", becomes an effect that kills when the delay runs out.
+- When poison comes with a damaging attack, the save doesn't change the damage, per RAW.
+
+Locked by `test_effects.py::TestLedger::test_delayed_death_poison`.
 
 ### Petrification suspends the target's other effects
 
-While a target is petrified its other attached effects suspend, with no ticks and durations frozen, so an adventurer who was poisoned before turning to stone is still poisoned after *stone to flesh*. Petrification is permanent but recoverable, because a petrified creature isn't dead. Locked by `test_effects.py::TestLedger::test_petrification_suspends_other_effects`.
+While a target is petrified, its other effects pause: they don't tick, and their durations stop. So an adventurer who was poisoned before turning to stone is still poisoned after *stone to flesh*. Petrification is permanent but recoverable, because a petrified creature isn't dead. Locked by `test_effects.py::TestLedger::test_petrification_suspends_other_effects`.
 
 ### A party turned wholly to stone has fallen
 
-When every member of the party is dead or turned to stone, the session ends in `game_over`, as it does when the last member dies. The SRD doesn't say what happens when nobody is left but statues, so this is osrlib's judgement.
+When a command's events kill or petrify a member and nobody in the party is left standing, the session ends in `game_over`, as it does when the last member dies. The SRD doesn't say what happens when nobody is left but statues, so this is osrlib's judgement.
 
 - A member stands while they're neither dead nor petrified.
-- The session checks when a command's events kill or petrify a member. If no member is left standing, the session ends in `game_over`, exactly as it does when the last member dies. In a battle, `battle.ended.defeat` comes first.
+- In a battle, `battle.ended.defeat` comes before the end of the game.
 - A statue isn't dead, so it still counts among `Party.living_members()` and keeps its rank.
-- The check is tied to the killing or petrifying event, not to the party's state. So a stone party carried to town with `PlaceParty` stays in `town`.
+- The check runs only for a command whose events killed or petrified a member, not whenever the party has nobody standing. So a stone party carried to town with `PlaceParty` stays in `town`.
 - The temple's services are clerical, and *stone to flesh* is a magic-user's spell. So the way back is a magic-user who joins with `AddMember` and casts it.
 
 Locked by `test_petrified_party.py`.
 
 ### The canonical tick order
 
-At each round boundary, expirations resolve before ticks, and simultaneous effects resolve in attachment order, tie-broken by effect id. Only the effects engine (and the kernel's death routine, for `dead`) writes creature conditions. Locked by `test_effects.py::TestLedger`.
+At each round boundary, the ledger resolves expirations before ticks, the periodic steps of effects like a poison that deals damage each round. Effects due at the same moment resolve in the order they were attached, with ties broken by effect id.
+
+Only the effects engine writes creature conditions, except `dead`, which the kernel's death routine writes. Locked by `test_effects.py::TestLedger`.
 
 ### Troll damage splits into regenerable and non-regenerable ledgers
 
@@ -289,27 +345,44 @@ The field defaults to 0, so a save made before the field existed loads under the
 
 ### Mummy rot heals naturally once per ten full rest days and blocks magical healing
 
-"Magical healing is ineffective; natural healing is ten times slower" is read as one 1d3 recovery per ten consecutive full rest days, tracked on the effect. *Cure disease* removes it. `apply_healing` defaults its source to `magical` (osrlib treats instantaneous healing as magical healing), so a caller that forgets to name the source still respects the block. Locked by `test_effects.py::TestMummyRot`.
+Mummy rot blocks magical healing and slows natural healing: the victim recovers 1d3 hit points once per ten consecutive full days of rest, and the effect counts the days. That's how osrlib reads "Magical healing is ineffective; natural healing is ten times slower". *Cure disease* removes it.
+
+`apply_healing` treats healing as `magical` unless the caller names another source, because osrlib treats instantaneous healing as magical healing. So a caller that forgets to name the source still respects the block. Locked by `test_effects.py::TestMummyRot`.
 
 ### Asleep grants auto-hit and dies-to-a-blade; dozing is a caller modifier
 
-The asleep condition, which the *sleep* spell inflicts, has two combat hooks: a sleeping defender is hit automatically in melee, and "a single attack with a bladed weapon can kill", so the melee hit kills outright with no damage roll. osrlib's reading: "bladed" means a weapon (not a gear facet, a monster's natural attack, or an unarmed strike) with the melee quality and without the blunt quality, since the SRD's blunt list exists to separate crushing weapons from edged ones. The hook is melee-use only, and the immunity gate still applies first (a sword absorbed by the black pudding's fire-only gate kills nothing). The dragons' "may be attacked for one round with a +2 bonus" dozing is the caller-supplied situational modifier, not a condition. Locked by `test_combat.py::TestDamagePipeline::test_sleeping_defender_dies_to_a_blade` and its neighbors.
+The asleep condition, which the *sleep* spell causes, has two effects in combat:
+
+- A sleeping defender is hit automatically in melee.
+- "a single attack with a bladed weapon can kill", so a melee hit with a bladed weapon kills outright, with no damage roll.
+
+The decisions behind the second effect:
+
+- osrlib reads "bladed" as a weapon with the melee quality and without the blunt quality, because the SRD's blunt list exists to separate crushing weapons from edged ones. A gear item's combat facet, a monster's natural attack, and an unarmed strike don't count.
+- The kill works only in melee, and the immunity gate still applies first, so a sword that the black pudding's fire-only gate stops kills nothing.
+
+A dragon that's dozing "may be attacked for one round with a +2 bonus". That's a situational modifier the caller supplies, not a condition. Locked by `test_combat.py::TestDamagePipeline::test_sleeping_defender_dies_to_a_blade` and its neighbors.
 
 ### Falling damage floors per full 10 feet
 
-The engine rolls 1d6 per full 10 feet fallen, and nothing at all for a fall under 10 feet. Locked by `test_combat.py::TestHealingAndFalling`.
+The engine rolls 1d6 for each full 10 feet fallen, and nothing at all for a fall of less than 10 feet. Locked by `test_combat.py::TestHealingAndFalling`.
 
 ### Reload is enforced from caller context
 
-A reload-quality weapon may not fire two rounds running: under the `weapon_reload` flag the attack validator rejects the attack when the caller-supplied context shows that the weapon fired last round. In a session, the battle machine tracks which members fired last round and supplies that context. A direct caller of the kernel supplies it instead, and the kernel enforces the rule only as far as that context is accurate. Locked by `test_combat.py::TestValidateAttack`.
+Under the `weapon_reload` flag, a weapon with the reload quality can't fire in two rounds running. The attack validator refuses the attack when the context the caller supplies shows that the weapon fired last round.
+
+- In a session, the session tracks which members fired last round and supplies that context.
+- A game that calls the kernel directly supplies the context itself, and the kernel enforces the rule only as far as that context is accurate.
+
+Locked by `test_combat.py::TestValidateAttack`.
 
 ### Two-handed weapons and shields conflict at equip time
 
-`validate_equip` rejects wielding a two-handed weapon with a shield equipped, or equipping the second of the pair, with `items.equip.two_handed_with_shield`. osrlib refuses the conflict at equip time, rather than silently ignoring the shield at resolution. Locked by `test_items.py::TestTwoHandedShieldConflict`.
+`validate_equip` refuses a two-handed weapon and a shield together, with `items.equip.two_handed_with_shield`, whichever of the two the character equips second. osrlib refuses the conflict when the character equips, rather than ignoring the shield when an attack resolves. Locked by `test_items.py::TestTwoHandedShieldConflict`.
 
 ### Monster spawn HP is minimum 1, ½ HD is 1d4, fixed forms are exact
 
-Spawned HP is the sum of the HD count in d8s (d4 for ½ HD) plus the signed modifier, minimum 1. The engine rolls nothing for `1hp` and for the hydra's 8-hp-per-HD forms. Locked by `test_monster_data.py::TestSpawnHitPoints`.
+A spawned monster's hit points are its HD count in d8s, or 1d4 for ½ HD, plus its signed modifier, with a minimum of 1. The engine rolls nothing for a `1hp` monster or for the hydra's forms with 8 hit points per HD. Locked by `test_monster_data.py::TestSpawnHitPoints`.
 
 ### Compiled monster data conventions
 
