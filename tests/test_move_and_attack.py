@@ -1,8 +1,7 @@
 """Acceptance tests for closing and attacking in one round, and the dry run of a round (issue #209).
 
 The OSE SRD's combat page says "Movement and attacking may be combined in the same round", and under spell casting,
-"The spell caster cannot move and cast a spell in the same round." The contract these tests check (chunk:
-move-and-attack):
+"The spell caster cannot move and cast a spell in the same round." The contract these tests check:
 
 - An `attack` may set `move="close"`. The member closes in the party's movement step and attacks in the missile or
   melee step of the same round. The session judges the attack before the round starts, as if every declared move had
@@ -21,7 +20,7 @@ move-and-attack):
   nothing. A complete plan it finds no fault with is accepted, and leaves the members where it said.
 
 Most tests keep the monsters still with a hold policy. Each test asserts its own preconditions, and every refused
-round is checked to cost nothing. The unmarked tests are guards that pass before and after the chunk.
+round is checked to cost nothing.
 """
 
 import pytest
@@ -53,8 +52,6 @@ from positions_fixtures import (
     state_without_logs,
     strike,
 )
-
-MOVE_AND_ATTACK = pytest.mark.xfail(reason="chunk: move-and-attack", strict=True)
 
 NOT_IN_FRONT_RANK = "battle.declaration.not_in_front_rank"
 OUT_OF_REACH = "combat.attack.out_of_reach"
@@ -93,7 +90,6 @@ def _set_up_the_front(game):
 # ---------------------------------------------------------------------- close and attack
 
 
-@MOVE_AND_ATTACK
 class TestCloseAndAttack:
     def test_a_member_closes_and_strikes_in_one_round(self):
         game = _held(distance=30)
@@ -169,7 +165,6 @@ class TestTheDefaultWeaponWithoutAMove:
 # ---------------------------------------------------------------------- the front rank after the moves
 
 
-@MOVE_AND_ATTACK
 class TestTheFrontRankAfterTheMoves:
     def test_the_last_place_goes_to_the_first_in_marching_order(self):
         """Section 8, round 2: Nim got there first, so Hild takes the last place and Osric waits behind."""
@@ -207,7 +202,6 @@ class TestTheFrontRankAfterTheMoves:
 # ---------------------------------------------------------------------- what may combine with a move
 
 
-@MOVE_AND_ATTACK
 class TestWhatCombinesWithAMove:
     @pytest.mark.parametrize("move", ["close", "fighting_withdrawal", "retreat"])
     def test_a_caster_cannot_move(self, move):
@@ -271,7 +265,6 @@ def _melee_fizzles(events, actor_id: str) -> list[DeclarationFizzledEvent]:
     ]
 
 
-@MOVE_AND_ATTACK
 class TestTheMeleeStep:
     """A melee attack resolves only if the member stands in the group's front rank within 5' when it comes up.
 
@@ -366,7 +359,6 @@ def _flat(rejections) -> list[str]:
     return sorted(repr((rejection.code, sorted(rejection.params.items()))) for rejection in rejections)
 
 
-@MOVE_AND_ATTACK
 class TestTheDryRun:
     def test_a_preview_changes_nothing(self):
         game = _held(distance=30, spells=MISSILE_SPELLS)

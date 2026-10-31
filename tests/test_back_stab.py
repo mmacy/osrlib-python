@@ -549,7 +549,6 @@ def _index(events, event) -> int:
     return next(index for index, candidate in enumerate(events) if candidate is event)
 
 
-@pytest.mark.xfail(reason="chunk: move-and-attack", strict=True)
 class TestCloseAndBackStab:
     """In the free round, a thief can close on the group and back-stab it in the same round (issue #209).
 

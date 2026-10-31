@@ -82,10 +82,7 @@ def check_block(source: str, filename: str) -> list[str]:
 
 # Blocks the gate fails on today. The lead removes an entry when its chunk merges; a block's id
 # carries its line range, so editing the block retires the mark by itself.
-_EXPECTED_TO_FAIL: dict[str, str] = {
-    # The `ResolveBattleRound` example plans each round with `preview_battle_round`, which is a stub until its chunk.
-    "src/osrlib/crawl/commands.py:3024-3087": "chunk: move-and-attack",
-}
+_EXPECTED_TO_FAIL: dict[str, str] = {}
 
 
 def _cases() -> list:
