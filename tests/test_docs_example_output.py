@@ -84,7 +84,7 @@ def check_block(source: str, filename: str) -> list[str]:
 # carries its line range, so editing the block retires the mark by itself.
 _EXPECTED_TO_FAIL: dict[str, str] = {
     # The `ResolveBattleRound` example plans each round with `preview_battle_round`, which is a stub until its chunk.
-    "src/osrlib/crawl/commands.py:3015-3078": "chunk: move-and-attack",
+    "src/osrlib/crawl/commands.py:3017-3080": "chunk: move-and-attack",
 }
 
 

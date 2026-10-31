@@ -630,6 +630,27 @@ class TestTheFormationAndTheEnd:
         assert game.encounter.groups[0].distance_feet == 50
         assert game.encounter.pursuit.gap_feet == 25, "Nim stood 25' ahead of the line"
 
+    def test_a_spread_out_party_retreats_as_one_body_and_the_chase_starts_from_the_nearest_member(self):
+        """Nim stands 25' forward and Wren 40' back. The goblins sleep, so only the kobolds can follow."""
+        game = battle(distance=30)
+        assert game.execute(SpawnMonsters(template_id="kobold", count_fixed=2, distance_feet=60)).accepted
+        hold_monsters(game)
+        nim, wren = _ids(game, "Nim", "Wren")
+        play(game, close(game, nim), _withdraw(wren, "retreat"))
+        assert (advance(game, nim), advance(game, wren)) == (25, -40), "precondition: the party stands apart"
+        for monster_id in game.encounter.groups[0].monster_ids:
+            game.monsters[monster_id].conditions = (
+                ActiveCondition(condition=Condition.ASLEEP, effect_id="effect-9999"),
+            )
+
+        events = play(game, *(_withdraw(member.id, "retreat") for member in game.party.members))
+
+        assert "battle.ended.fled" in [event.code for event in events]
+        assert moved(events) == [], "a formation move moves the groups, not the members"
+        assert [group.distance_feet for group in game.encounter.groups] == [50, 80], "the slowest rate of 20'"
+        assert game.mode is SessionMode.ENCOUNTER, "precondition: the kobolds give chase"
+        assert game.encounter.pursuit.gap_feet == 55, "Nim, 25' forward, is 55' from the kobolds"
+
     def test_positions_end_with_the_battle(self):
         from osrlib.core.combat import DamageSource, deal_damage
 

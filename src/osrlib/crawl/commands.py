@@ -2664,13 +2664,15 @@ class BattleDeclaration(BaseModel):
     either a formation move or a move the member makes alone:
 
     - When every member in `declarers` declares the same one, it's a formation move: the whole
-      party moves as one body. That includes a round with only one declarer. The party backs away
-      from every group, at half the slowest member's encounter rate for a `fighting_withdrawal`, or
-      at the full rate for a `retreat`, and no member's advance changes. A formation `retreat` ends
-      the battle. If no monster can pursue the party, the party gets away and the encounter closes.
-      Otherwise the session goes back to `encounter` mode with a pursuit, which
-      [`PursuitState`][osrlib.crawl.encounter.PursuitState] describes. The pursuit starts at the
-      smallest distance between a living member and a group that can follow. Send
+      party moves as one body. That includes a round with only one declarer. The party moves at the
+      slowest living member's encounter rate, halved for a `fighting_withdrawal`. Every group's
+      distance grows by that much, and no member's advance changes, so members who stand apart
+      stay apart. A formation `retreat` ends the battle. If no monster can pursue the party, the
+      party gets away and the encounter closes. Otherwise the session goes back to `encounter` mode
+      with a pursuit, which [`PursuitState`][osrlib.crawl.encounter.PursuitState] describes. The
+      pursuit's starting gap is the smallest distance from any living member to any group that can
+      follow, after the move. So a member who stood forward of the others starts the chase nearest
+      the pursuers. Send
       [`Wait`][osrlib.crawl.commands.Wait] to run each round of it, or
       [`EngageBattle`][osrlib.crawl.commands.EngageBattle] to turn and fight.
     - Otherwise, the member moves back alone, and their advance goes down. It can go below zero,

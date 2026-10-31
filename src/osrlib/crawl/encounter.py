@@ -265,9 +265,11 @@ class PursuitState(BaseModel):
     reaches [`PURSUIT_ROUND_CAP`][osrlib.crawl.encounter.PURSUIT_ROUND_CAP]."""
     gap_feet: int = Field(ge=0)
     """The distance between the party and its pursuers, in feet. It starts at the distance of the
-    nearest pursuing group. Each round, it grows by the party's running rate and shrinks by the
-    running rate of the slowest pursuing group. At 5 feet or less, the pursuers catch the party, and a
-    battle starts."""
+    nearest pursuing group. When the pursuit follows a retreat from a battle, it starts at the smallest
+    distance from any living member to any group that can follow, after the retreat's move, because
+    members can stand at different places on the battle's range track. Each round, it grows by the
+    party's running rate and shrinks by the running rate of the slowest pursuing group. At 5 feet or
+    less, the pursuers catch the party, and a battle starts."""
 
 
 class EncounterState(BaseModel):
