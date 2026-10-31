@@ -380,13 +380,16 @@ class AttackContext(BaseModel):
     """Whether the attacker strikes from behind.
 
     The defender's shield doesn't count. With `target_unaware`, a thief attacker gets the
-    back-stab bonus to hit and to damage.
+    back-stab bonus to hit and to damage, and the attack's
+    [`AttackRolledEvent`][osrlib.core.events.AttackRolledEvent] has `back_stab` set.
     """
 
     target_unaware: bool = False
     """Whether the defender is unaware of the attack.
 
-    With `behind_target`, a thief attacker gets the back-stab bonus to hit and to damage.
+    With `behind_target`, a thief attacker gets the back-stab bonus to hit and to damage, and
+    the attack's [`AttackRolledEvent`][osrlib.core.events.AttackRolledEvent] has `back_stab`
+    set.
     """
 
     defender_retreating: bool = False
@@ -1399,7 +1402,8 @@ def attack_roll(
       modifier from the context's `distance_feet`, and, for a halfling attacker, the
       halfling's missile bonus.
     - A thief's back-stab bonus, when the context sets both `behind_target` and
-      `target_unaware`.
+      `target_unaware`. The event's `back_stab` field is then true, on an automatic hit
+      too.
     - +2 against a retreating defender.
     - A magic weapon's attack bonus, or its bonus against the kind of monster it's made
       against.

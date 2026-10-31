@@ -160,6 +160,7 @@
     {
       "attack_name": "weapon",
       "attacker_id": "monster-0001",
+      "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 8,
       "defender_id": "pc-mu",
@@ -174,6 +175,7 @@
     {
       "attack_name": "weapon",
       "attacker_id": "monster-0001",
+      "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 8,
       "defender_id": "pc-mu",
@@ -188,6 +190,7 @@
     {
       "attack_name": "weapon",
       "attacker_id": "monster-0001",
+      "back_stab": false,
       "code": "combat.attack.hit",
       "defender_ac": 8,
       "defender_id": "pc-mu",
@@ -603,6 +606,7 @@
     {
       "attack_name": "cure_light_wounds",
       "attacker_id": "pc-cleric",
+      "back_stab": false,
       "code": "combat.attack.auto_hit",
       "defender_ac": null,
       "defender_id": "monster-0002",
