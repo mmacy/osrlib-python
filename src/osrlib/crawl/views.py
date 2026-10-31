@@ -474,9 +474,12 @@ class EncounterView(BaseModel):
 
     The width is the side of the largest square of open cells that includes the party's cell, times
     10', divided by 5' for each combatant
-    ([`FIGHTER_FRONTAGE_FEET`][osrlib.crawl.battle.FIGHTER_FRONTAGE_FEET]). A one-cell corridor gives
-    2, and so does a crossroads of one-cell corridors. A room gives twice its shorter side in cells: a
-    4 by 4 room gives 8, and a 2 by 8 room gives 4. The ranks toward each group are rows this wide, so
+    ([`FIGHTER_FRONTAGE_FEET`][osrlib.crawl.battle.FIGHTER_FRONTAGE_FEET]). The square holds only
+    cells of the space the party stands in, so a door or the edge of a room bounds it. A one-cell
+    corridor gives 2, and so does a crossroads of one-cell corridors. A room gives twice its shorter
+    side in cells: a 4 by 4 room gives 8, and a 2 by 8 room gives 4. The width comes from the party's
+    cell, so it's set in an encounter before a battle starts, and it stays the same for the whole
+    fight. The ranks toward each group are rows this wide, so
     a group's [`front_rank`][osrlib.crawl.views.EncounterGroupView.front_rank] never holds more members
     than this. Compare the two to show how many places are left in a group's front rank."""
     party_free_round: bool = False
@@ -951,6 +954,7 @@ def build_player_view(session) -> PlayerView:
             conditions=tuple(active.condition.value for active in member.conditions),
             inventory=_masked_inventory(member),
             memorized_spells=tuple(copy.model_dump(mode="json") for copy in member.memorized_spells),
+            encounter_rate_feet=_encounter_rate_feet(session, member),
         )
         for member in session.party.members
     )
@@ -1119,13 +1123,32 @@ def _canonical_edge(cell: Position, direction: Direction) -> str:
     return edge_key(cell, direction)
 
 
+def _encounter_rate_feet(session, member) -> int:
+    """The member's encounter rate in feet per round, doubled by *haste*, as a battle moves them."""
+    from osrlib.crawl.battle import _encounter_rate, _haste_multiplier
+
+    return _encounter_rate(member, session) * _haste_multiplier(session, member.id, "movement_multiplier")
+
+
 def _encounter_view(session) -> EncounterView | None:
     from osrlib.core.combat import cannot_move
-    from osrlib.crawl.battle import _able_declarers, _party_front_rank
+    from osrlib.crawl.battle import (
+        _able_declarers,
+        _formation_width,
+        _front_rank_toward_nearest,
+        _group_lit,
+        _members_seeing,
+        _placement,
+        _reachable_front_rank,
+        _signed_distance,
+    )
 
     state = session.encounter
     if state is None:
         return None
+    battle = session.battle
+    placement = _placement(session)
+    living_ids = [member.id for member in session.party.living_members()]
     groups = []
     for group in state.groups:
         living = [
@@ -1134,6 +1157,17 @@ def _encounter_view(session) -> EncounterView | None:
             if not has_condition(session.combatant(monster_id), Condition.DEAD)
         ]
         conditions = sorted({active.condition.value for monster in living for active in monster.conditions})
+        # Positions, reach, and sight exist only in a battle. Each reads the party's own state and the group's
+        # distance, which the view already shows, so none of them tells the players anything new about the group.
+        distances: dict[str, int] = {}
+        front_rank: tuple[str, ...] = ()
+        lit: bool | None = None
+        seen_by: tuple[str, ...] = ()
+        if battle is not None:
+            distances = {member_id: _signed_distance(session, member_id, group) for member_id in living_ids}
+            front_rank = tuple(_reachable_front_rank(group, placement))
+            lit = _group_lit(session, group, placement)
+            seen_by = tuple(_members_seeing(session, group, placement, lit=lit))
         groups.append(
             EncounterGroupView(
                 id=group.id,
@@ -1142,10 +1176,13 @@ def _encounter_view(session) -> EncounterView | None:
                 distance_feet=group.distance_feet,
                 visible_conditions=tuple(conditions),
                 fled=group.fled,
+                member_distance_feet=distances,
+                front_rank=front_rank,
+                lit=lit,
+                seen_by=seen_by,
             )
         )
     declarers = _able_declarers(session)
-    battle = session.battle
     fired = battle.fired_last_round if battle is not None and session.ruleset.weapon_reload else ()
     return EncounterView(
         groups=tuple(groups),
@@ -1154,9 +1191,14 @@ def _encounter_view(session) -> EncounterView | None:
         battle_round=battle.round if battle is not None else None,
         pursuit_gap_feet=state.pursuit.gap_feet if state.pursuit is not None else None,
         declarers=tuple(member.id for member in declarers),
-        front_rank=tuple(member.id for member in _party_front_rank(session)),
+        front_rank=tuple(_front_rank_toward_nearest(session, placement)),
         immobile=tuple(member.id for member in declarers if cannot_move(member)),
         reloading=tuple(fired),
+        advance_feet=(
+            {member_id: battle.advance_feet.get(member_id, 0) for member_id in living_ids} if battle is not None else {}
+        ),
+        formation_width=_formation_width(session),
+        party_free_round=battle is not None and battle.monsters_hold_rounds > 0,
     )
 
 

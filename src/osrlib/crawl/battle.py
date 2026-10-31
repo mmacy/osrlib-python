@@ -96,11 +96,28 @@ You follow the battle through events from [`osrlib.crawl.events`][osrlib.crawl.e
 Between them come the events of the rule functions in [`osrlib.core`][osrlib.core]: attacks,
 damage, saving throws, initiative, and morale.
 
-A round follows the OSE SRD's combat sequence. The party declares, and initiative decides which side
-acts first. On the party's turn, the session resolves movement, then missile attacks, then magic,
-then melee. On the monsters' turn, it checks each group's morale, then resolves the actions each
-group's policy chose, in order. An attack with a weapon that has the `slow` quality comes last,
-after both sides have acted. Every rule is a function in
+A round follows the OSE SRD's combat sequence:
+
+1. The party declares. Before anything happens, the session works out where each member's declared
+   move would put them, and judges every declaration against those places. A member who closes and
+   attacks in the same declaration is judged at the distance the close leaves them. If any
+   declaration fails, the session refuses the whole round, and nothing changes.
+2. The spells being cast are announced, and NPC adventurers choose their actions.
+3. Initiative decides which side acts first.
+4. On the party's turn, the session resolves movement, then missile attacks, then magic, then
+   melee. In the movement step, the members who fall back alone move first and the members who
+   close move next, each in marching order. A fighting withdrawal or a retreat that every declarer
+   makes moves the whole formation instead, by moving the groups back. Each missile attack and each
+   spell is measured from where its member stands after the movement step. A melee attack resolves
+   only if the member is within 5' of the group and in its front rank when the attack comes up,
+   or if the group is running and the member was within 5' of it when the round was accepted.
+5. On the monsters' turn, the session checks each group's morale, then resolves the actions each
+   group's policy chose, in order. A group that closes stops within 5' of the nearest member it can
+   see, and its monsters can attack in the same round. A monster's melee attack resolves only
+   against a member in its group's front rank within 5' of the group.
+6. An attack with a weapon that has the `slow` quality comes last, after both sides have acted.
+
+Every rule is a function in
 [`osrlib.core.combat`][osrlib.core.combat] or [`osrlib.core.spells`][osrlib.core.spells], like
 [`roll_initiative`][osrlib.core.combat.roll_initiative],
 [`resolve_attack`][osrlib.core.combat.resolve_attack], and
@@ -114,7 +131,10 @@ and can fall back alone with a fighting withdrawal or a retreat, as
 [`BattleDeclaration.move`][osrlib.crawl.commands.BattleDeclaration.move] describes. A group closes
 until it's within reach of the nearest member it can see, so the members in front keep the
 monsters off the members behind them. To check a round's declarations before you send them, call
-[`preview_battle_round`][osrlib.crawl.battle.preview_battle_round].
+[`preview_battle_round`][osrlib.crawl.battle.preview_battle_round]. To draw the battle and offer
+each member their choices, read the player view's
+[`EncounterView`][osrlib.crawl.views.EncounterView]: each member's advance, each group's distance
+from each member, who can reach each group in melee, and which groups each member can see.
 
 During a round, the session also applies these rules without a command for them:
 
@@ -1326,10 +1346,12 @@ def _formation_width(session) -> int | None:
 
 
 def _party_ranks(session) -> list[list]:
-    """The living members cut into rows of the formation width in marching order, wherever each one stands.
+    """The living members cut into rows of the formation width in marching order, ignoring where each one stands.
 
-    The player view's `front_rank` and the rank-mates of a ring of protection read these rows. Every rule that
-    measures reach reads the ranks toward each group by distance instead (see `_ranks_toward`).
+    These are the ranks while every member stands on the party line, as they do outside a battle. They stand in
+    for the ranks toward a group only where there's no group to measure toward (see `_front_rank_toward_nearest`
+    and `_ally_protection_bonus`). Every rule that measures reach reads the ranks toward each group by distance
+    (see `_ranks_toward`).
     """
     width = _formation_width(session)
     living = session.party.living_members()
@@ -1343,29 +1365,42 @@ def _party_front_rank(session) -> list:
     return ranks[0] if ranks else []
 
 
-def _ally_protection_bonus(session, defender) -> int:
+def _ally_protection_bonus(session, defender, group=None) -> int:
     """The Ring of Protection 5' Radius: a rank-mate's ring shields the defender.
 
     The battle space has no adjacency finer than the rank, so "allies within 5'"
-    is the wearer's rank. The wearer's +1 is counted with the rest of its
-    equipped items, so this bonus comes only from allies' rings, and multiple
-    rings never stack.
+    is the defender's rank toward the attacking group: the members in the same
+    row of the ranks toward it (see `_ranks_toward`), who stand at the same
+    distance from it. A member who has closed on the group alone has no
+    rank-mate there, and a member who stays behind isn't shielded by a ring
+    worn in the front rank. With no group, every member counts as standing on
+    the party line, so the rows are the marching-order ranks. The wearer's +1
+    is counted with the rest of its equipped items, so this bonus comes only
+    from allies' rings, and multiple rings never stack.
 
     Args:
         session (osrlib.crawl.session.GameSession): The battle's session.
         defender: The combatant under attack. A combatant in no rank gets no
             bonus.
+        group: The group the attack comes from. For an attack with no
+            attacking group, like a confused member's on a fellow member, pass
+            the defender's nearest group. None reads the marching-order ranks.
 
     Returns:
         1 when a living rank-mate wears the radius ring, else 0.
     """
-    for rank in _party_ranks(session):
-        if defender not in rank:
+    if group is None:
+        rows = [[member.id for member in rank] for rank in _party_ranks(session)]
+    else:
+        rows = _ranks_toward(group, _placement(session))
+    defender_id = getattr(defender, "id", None)
+    for row in rows:
+        if defender_id not in row:
             continue
-        for ally in rank:
-            if ally is defender:
+        for ally_id in row:
+            if ally_id == defender_id:
                 continue
-            for ring in ally.inventory.rings:
+            for ring in session.member(ally_id).inventory.rings:
                 if magic_item_template(ring).params.get("radius_rank"):
                     return 1
         return 0
@@ -1754,6 +1789,97 @@ def _melee_rejection(member_id: str, group, placement: _Placement) -> Rejection 
     return None
 
 
+def _front_rank_toward_nearest(session, placement: _Placement) -> list[str]:
+    """The first row of the party's ranks toward the nearest group, at any distance, in marching order.
+
+    The nearest group is the one that stands closest to any living member, among the groups that haven't fled and
+    have a living member. When two are equally near, it's the one that comes first in the encounter's groups. If no
+    group has a living member, a group that hasn't fled stands in, and then the encounter's first group. With no
+    group at all, it's the first rank of the marching order. Outside a battle every member stands on the party line,
+    so the result is the first rank of the marching order there too. The player view's `EncounterView.front_rank`
+    reports it. The call reads state and takes no draw.
+    """
+    groups = session.encounter.groups
+    fighting = [group for group in groups if not group.fled and _living_monsters(session, group)]
+    candidates = fighting or [group for group in groups if not group.fled] or list(groups[:1])
+    if not candidates:
+        return [member.id for member in _party_front_rank(session)]
+    nearest = min(
+        candidates,
+        key=lambda group: min((placement.distance(member_id, group) for member_id in placement.order), default=0),
+    )
+    rows = _ranks_toward(nearest, placement)
+    return rows[0] if rows else []
+
+
+_DEFAULT_INFRAVISION_FEET = 60
+"""How far infravision sees when its data gives no range. The Hazards and Challenges page: "Infravision works within a
+limited range (60' for monsters, unless specified otherwise in a monster's description)." The dwarf and the elf have
+"infravision to 60'"."""
+
+
+def _infravision_feet(session, member) -> int:
+    """How far the member sees by infravision, in feet, or zero when they have none.
+
+    It's the longest `range_feet` among the member's class ability tagged `infravision` and the `infravision`
+    effects on them, like the spell's. A source with no range gives `_DEFAULT_INFRAVISION_FEET`. It doesn't ask
+    whether darkness or blindness stops it.
+    """
+    ranges = [
+        int(ability.params.get("range_feet", _DEFAULT_INFRAVISION_FEET))
+        for ability in member.definition.abilities
+        if ability.tag == "infravision"
+    ]
+    ranges.extend(
+        int(effect.definition.params.get("range_feet", _DEFAULT_INFRAVISION_FEET))
+        for effect in session.ledger.active_on(member.id, "infravision")
+    )
+    return max(ranges, default=0)
+
+
+def _group_lit(session, group, placement: _Placement) -> bool:
+    """Whether a light the party carries reaches the group, where `placement` puts the members.
+
+    The group is lit when a living member with a light effect on them, like a burning torch, stands within that
+    light's radius of the group, measured along the range track. A darkness effect that puts out the party's light,
+    as `GameSession.party_light` reports it, leaves the group unlit. The call reads state and takes no draw.
+    """
+    lit, _ = session.party_light()
+    if not lit:
+        return False
+    from osrlib.crawl.exploration import _light_radius_feet
+    from osrlib.crawl.session import LIGHT_EFFECT_KINDS
+
+    for member in session.party.living_members():
+        for effect in session.ledger.active_on(member.id):
+            if effect.definition.kind not in LIGHT_EFFECT_KINDS:
+                continue
+            if placement.distance(member.id, group) <= _light_radius_feet(effect.definition.params):
+                return True
+    return False
+
+
+def _members_seeing(session, group, placement: _Placement, *, lit: bool) -> list[str]:
+    """The living members who can see the group, in marching order, where `placement` puts them.
+
+    A member sees a lit group. A member also sees a group within their infravision's range (see
+    `_infravision_feet`) when no darkness effect stops infravision, as `GameSession.party_light` reports it. A blind
+    member sees nothing. The call reads state and takes no draw.
+    """
+    _, infravision_works = session.party_light()
+    seeing = []
+    for member in session.party.living_members():
+        if has_condition(member, Condition.BLIND):
+            continue
+        if lit:
+            seeing.append(member.id)
+            continue
+        reach = _infravision_feet(session, member) if infravision_works else 0
+        if reach > 0 and placement.distance(member.id, group) <= reach:
+            seeing.append(member.id)
+    return seeing
+
+
 def _nearest_group(session, member_id: str):
     """The group nearest the member among the groups that haven't fled and have a living member.
 
@@ -1963,9 +2089,13 @@ def preview_battle_round(session, declarations: Sequence[BattleDeclaration]) -> 
     entry in the result's `rejections` is empty, `ResolveBattleRound` accepts the same declarations.
 
     The projection applies each planned move as the party's movement step would: each member's
-    `close`, and each `fighting_withdrawal` or `retreat` a member makes alone. A defensive move counts
-    as a formation move only when `declarations` covers every declarer and all of them make it. The
-    order of `declarations` doesn't matter. The projection doesn't include anything the monsters do,
+    `close`, and each `fighting_withdrawal` or `retreat` a member makes alone. A partial plan, one that
+    leaves out some declarers, judges each `fighting_withdrawal` or `retreat` as that member's own move,
+    even when every member in the plan makes the same one. The complete plan can turn into a formation
+    move: when every declarer makes the same defensive move, the whole party moves back as one body,
+    the groups move back instead of the members, and the preview of the complete plan shows that. So a
+    member's projected advance can change when the last declaration is added. The order of
+    `declarations` doesn't matter. The projection doesn't include anything the monsters do,
     because the session decides that after it rolls initiative. So when the monsters act first, a
     member's `close` can fall short of where the preview put them.
 
@@ -4099,7 +4229,7 @@ def _confused_party_overrides(session, by_member, fire_damaged) -> list[Event]:
                 context = AttackContext(
                     distance_feet=MELEE_RANGE_FEET,
                     situational_modifier=stance_modifier,
-                    defender_ally_ac_bonus=_ally_protection_bonus(session, target),
+                    defender_ally_ac_bonus=_ally_protection_bonus(session, target, _nearest_group(session, target.id)),
                 )
                 result = resolve_attack(
                     member,
@@ -4223,7 +4353,9 @@ def _monster_block(
                     )
                 else:
                     events.extend(
-                        _resolve_monster_melee(session, monster, target, retreating=exposed, routine=action.routine)
+                        _resolve_monster_melee(
+                            session, monster, target, group, retreating=exposed, routine=action.routine
+                        )
                     )
                 _watch_disruption(events, pending_casters, disrupted, acted)
             elif action.kind == "npc_shoot":
@@ -4288,7 +4420,7 @@ def _resolve_npc_attack(session, npc, target, group, *, missile: bool, retreatin
     context = AttackContext(
         distance_feet=_member_distance(session, target.id, group) if missile else MELEE_RANGE_FEET,
         defender_retreating=retreating,
-        defender_ally_ac_bonus=_ally_protection_bonus(session, target),
+        defender_ally_ac_bonus=_ally_protection_bonus(session, target, group),
     )
     result = resolve_attack(
         npc,
@@ -4546,12 +4678,14 @@ def _confused_overrides(session, group, actions, *, retreating: Collection[str] 
             targets = _reachable_targets(session, monster, pool)
             if targets:
                 target = targets[session.streams.get(COMBAT_STREAM).randbelow(len(targets))]
-                events.extend(_resolve_monster_melee(session, monster, target, retreating=target.id in retreating))
+                events.extend(
+                    _resolve_monster_melee(session, monster, target, group, retreating=target.id in retreating)
+                )
         elif outcome == "attack_own_group":
             fellows = [other for other in _living_monsters(session, group) if other.id != monster.id]
             if fellows:
                 target = fellows[session.streams.get(COMBAT_STREAM).randbelow(len(fellows))]
-                events.extend(_resolve_monster_melee(session, monster, target, retreating=False))
+                events.extend(_resolve_monster_melee(session, monster, target, group, retreating=False))
         # no_action: the confused creature babbles.
     return events
 
@@ -4573,11 +4707,14 @@ weapon. The referee handles any other gaze or breath.
 """
 
 
-def _resolve_monster_melee(session, monster, target, *, retreating: bool, routine: int | None = None) -> list[Event]:
+def _resolve_monster_melee(
+    session, monster, target, group, *, retreating: bool, routine: int | None = None
+) -> list[Event]:
     """Resolve one of a monster's attack routines against one target, with what each hit does beyond damage.
 
-    `routine` is an index into the template's `attacks`. None resolves the first routine, as a
-    confused monster's attack does. An index out of range, negative included, resolves nothing, and
+    `group` is the monster's group, which decides the target's rank-mates for a ring of protection (see
+    `_ally_protection_bonus`). `routine` is an index into the template's `attacks`. None resolves the first
+    routine, as a confused monster's attack does. An index out of range, negative included, resolves nothing, and
     so does a `SPECIAL` routine. An attack in `_UNROLLED_ATTACK_NAMES` takes no attack roll.
     """
     events: list[Event] = []
@@ -4601,7 +4738,7 @@ def _resolve_monster_melee(session, monster, target, *, retreating: bool, routin
                 distance_feet=MELEE_RANGE_FEET,
                 situational_modifier=_gazer_bonus(monster, target),
                 defender_retreating=retreating,
-                defender_ally_ac_bonus=_ally_protection_bonus(session, target),
+                defender_ally_ac_bonus=_ally_protection_bonus(session, target, group),
             )
             result = resolve_attack(
                 monster,

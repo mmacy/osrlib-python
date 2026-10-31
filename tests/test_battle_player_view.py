@@ -612,8 +612,6 @@ class TestAFledGroup:
 
 # ---------------------------------------------------------------------- issue #209: positions in the player view
 
-VIEW = pytest.mark.xfail(reason="chunk: view-and-codes", strict=True)
-
 MISSILE_SPELLS = {"Wren": ("magic_missile", "magic_missile")}
 
 
@@ -641,7 +639,6 @@ def _missile(game: GameSession, caster_id: str) -> BattleDeclaration:
     )
 
 
-@VIEW
 class TestThePositionsInThePlayerView:
     """A battle screen draws the fight and offers each member's choices from the player view alone."""
 
@@ -766,7 +763,6 @@ class TestThePositionsInThePlayerView:
         assert rates[nim] == 60
 
 
-@VIEW
 class TestLightAndSightInThePlayerView:
     """Hild carries the torch, 30' of light. Aelin the elf sees 60' by infravision. Nobody else sees in the dark."""
 
@@ -842,7 +838,6 @@ class TestTheBattleFieldsOutsideABattle:
 # ---------------------------------------------------------------------- the walk-through
 
 
-@VIEW
 def test_the_walk_through_battle_from_the_player_view():
     """The design's section 8, played as a game's battle screen plays it, from the player view and the dry run.
 
