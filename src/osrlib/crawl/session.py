@@ -1049,9 +1049,10 @@ class GameSession:
         lists every code.
 
         After an accepted command applies, the session records each party member's death with what
-        killed them. If the command's events left no party member alive, the session ends in
-        `game_over`, and a [`GameOverEvent`][osrlib.crawl.events.GameOverEvent] closes the result.
-        A session that has already ended stays in its mode.
+        killed them. If the command's events killed or petrified a member and left no member
+        standing, which means neither dead nor turned to stone, the session ends in `game_over`,
+        and a [`GameOverEvent`][osrlib.crawl.events.GameOverEvent] closes the result. A session
+        that has already ended stays in its mode.
 
         The result contains the whole chain in log order: the handler's events, then, for each
         registered listener in turn, the events of the commands that listener executed, however
@@ -1977,22 +1978,28 @@ class GameSession:
         return died
 
     def _end_on_party_wipe(self) -> list[Event]:
-        """End the session when the death just recorded left nobody standing.
+        """End the session when the death or petrification just resolved left nobody standing.
 
-        This is the only path into `game_over`, whatever killed the party: a lost battle, a trap, a fall,
-        starvation, a poison that finished the last member while the referee moved the clock. Any
-        open encounter or battle clears, because a session that has ended has no live play state,
+        A member stands while they are neither dead nor petrified. A party turned wholly to stone
+        has fallen, as a dead party has, though a statue still counts among
+        [`Party.living_members`][osrlib.crawl.party.Party.living_members] for every other rule.
+        This is the only path into `game_over`, whatever felled the party: a lost battle, a trap, a fall,
+        starvation, a poison that finished the last member while the referee moved the clock, a
+        basilisk's gaze, a cockatrice's beak. Any open encounter or battle clears, because a session
+        that has ended has no live play state,
         and the session reports the ending as one
         [`GameOverEvent`][osrlib.crawl.events.GameOverEvent].
 
-        This runs because of a death, not because of the party's state: it runs only for a command whose
-        events killed a member, so carrying an already-fallen party to town, which is the first
-        step of a revival, never re-enters game over. A session already in a terminal mode is left
-        alone, so a party that dies after the adventure concluded stays in `victory`, and a
+        This runs because of an event, not because of the party's state: it runs only for a command whose
+        events killed or petrified a member, so carrying an already-fallen party to town, which is the first
+        step of a revival, never re-enters game over. That holds for statues as it does for the dead,
+        so a stone party placed in town stays in `town`, where *stone to flesh* from a magic-user who
+        joins with [`AddMember`][osrlib.crawl.commands.AddMember] can bring it back. A session already
+        in a terminal mode is left alone, so a party that dies after the adventure concluded stays in `victory`, and a
         later death in a session that has already ended changes nothing.
 
         Returns:
-            The ending event, or nothing when a member still lives.
+            The ending event, or nothing when a member still stands.
         """
         if self.mode.terminal or self.party.living_members():
             return []

@@ -291,10 +291,12 @@ class SessionMode(StrEnum):
     [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound] is the only play command
     the session accepts. Send one per round until the session leaves this mode."""
     GAME_OVER = "game_over"
-    """Every party member is dead and the session has ended. The session refuses play commands,
-    and referee commands still work. [`PlaceParty`][osrlib.crawl.commands.PlaceParty] is the only
-    way out: placing the dead party in town lets you buy *raise dead* at the temple with
-    [`PurchaseHealing`][osrlib.crawl.commands.PurchaseHealing]."""
+    """No party member is left standing, each one dead or turned to stone, and the session has
+    ended. The session refuses play commands, and referee commands still work.
+    [`PlaceParty`][osrlib.crawl.commands.PlaceParty] is the only way out: placing the fallen
+    party in town lets you buy *raise dead* at the temple with
+    [`PurchaseHealing`][osrlib.crawl.commands.PurchaseHealing], or bring in a magic-user with
+    [`AddMember`][osrlib.crawl.commands.AddMember] to cast *stone to flesh* on a statue."""
     VICTORY = "victory"
     """A quest that concludes the adventure has completed, and the session has ended. The
     session refuses play commands and never leaves this mode, so show the game's final

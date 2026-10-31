@@ -1754,17 +1754,20 @@ class TimeAdvancedEvent(Event):
 
 
 class GameOverEvent(Event):
-    """Every party member is dead and the session has ended.
+    """No party member is left standing, and the session has ended.
 
-    Emitted by the command during which the last member died, whatever killed them: a
-    lost battle, a trap, a fall down a chute, starvation, or a poison that took effect
-    while the referee moved the clock. It comes after that command's other events, and
-    the session mode becomes `game_over`.
+    A member stands while they are neither dead nor turned to stone. Emitted by the command
+    during which the last standing member died or was petrified, whatever felled them: a
+    lost battle, a trap, a fall down a chute, starvation, a poison that took effect
+    while the referee moved the clock, or a basilisk's gaze. It comes after that command's other
+    events, and the session mode becomes `game_over`.
 
     The session refuses play commands from then on. Referee commands still work, and
     [`PlaceParty`][osrlib.crawl.commands.PlaceParty] takes the session out of
     `game_over`. Placing the fallen party in town lets the temple raise the dead with
-    [`PurchaseHealing`][osrlib.crawl.commands.PurchaseHealing].
+    [`PurchaseHealing`][osrlib.crawl.commands.PurchaseHealing]. The temple has no cure for
+    stone, so a statue needs *stone to flesh* from a magic-user, who can join the party in town
+    with [`AddMember`][osrlib.crawl.commands.AddMember].
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"session.game_over"})
