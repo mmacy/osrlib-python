@@ -679,7 +679,7 @@ The pool spends its Hit Dice like this:
 - The pool stops at the first monster it can't afford, because RAW says excess Hit Dice "are wasted", not reallocated.
 - A success always affects at least one undead. osrlib picks the cheapest eligible monster.
 
-A monster whose cell is `D` is destroyed permanently. Every other affected monster gains the `turned` condition, which has no set duration and can't be dispelled, and the encounter releases it when it ends. Only monsters in the `undead` category are candidates, and any other monster is unaffected.
+A monster whose cell is `D` is destroyed permanently. Every other affected monster gains the `turned` condition, which has no set duration and can't be dispelled, and the encounter releases it when it ends. A turned monster attacks no one and runs from the battle if it can (see [The default action policy and morale](#the-default-action-policy-and-morale)). Only monsters in the `undead` category are candidates, and any other monster is unaffected.
 
 In a session, a turning's candidates are the living monsters of the encounter's groups that haven't fled. The candidate order is the encounter's group order, then each group's monster order, both in battle and before it. A monster killed earlier in the round or the encounter doesn't make its type a candidate, and nor does one whose group left the battle. The reason is the SRD's "At least one undead monster will always be affected on a successful turning". That can't hold for a type with no monster left to affect. Locked by `test_turning.py`, `test_spell_properties.py`, and `test_turning_and_staff.py`.
 
@@ -921,7 +921,7 @@ Surprise:
 - A failed attempt to force a door alerts the room.
 - When the party carries light in darkness, the monsters don't roll for surprise at all.
 - A successful listen at a door makes the party aware of the monsters.
-- Surprise gives the other side one free round, however the battle starts. Surprised monsters give the party a free battle round, in which the monsters hold while the party acts. A surprised party loses an encounter round, in which hostile or attacking monsters can open battle with a surprise round that the battle machine runs.
+- Surprise gives the other side one free round, however the battle starts. Surprised monsters give the party a free battle round, in which the monsters hold while the party acts. A surprised party loses an encounter round, in which hostile or attacking monsters can open battle with a surprise round that the session runs.
 
 Reaction: the SRD's reaction table assumes a referee who decides what each result means in play. osrlib sets the monsters' stance, their attitude toward the party, from the 2d6 roll:
 
@@ -959,27 +959,27 @@ Locked by `test_encounter.py::TestEvasionAndPursuit`.
 
 ### The battle round
 
-A battle runs in rounds. Each round, the party sends one command with one declaration for each living, able member, and each monster group acts through its policy.
+A battle runs in rounds. Each round, the party sends one command with one declaration for each living, able member, and each monster group acts through its policy. On this page, "the session" runs the battle, and the battle module is part of it.
 
 #### Declarations and ranks
 
 - The session rejects the whole round if any declaration is invalid, because accepting part of a round would complicate replay.
-- Under `formation_width_limit`, the formation width is the frontage the space around the party offers: the widest square of unbroken floor that includes the party's cell, with five feet of frontage for each member. The SRD says "2–3 characters in a 10' passage". osrlib takes the lower number, so each member needs 5', and applies that to whatever space the party stands in. Two members fit side by side in a 10'-wide passage, however long it runs, and in a room the rank is as wide as the room's shorter side.
+- Under `formation_width_limit`, the formation width is the frontage the space around the party offers: the widest square of unbroken floor that includes the party's cell, with five feet of frontage for each member. In a room 30' by 50', the widest square is 30' across, so six members fight side by side (see [`formation_width_limit`](#formation_width_limit-default-on) for more examples). The SRD says "2–3 characters in a 10' passage". osrlib takes the lower number, so each member needs 5', and applies that to whatever space the party stands in. Two members fit side by side in a 10'-wide passage, however long it runs, and in a room the rank is as wide as the room's shorter side.
 - At the start of each round, the session works out the ranks again from the living marching order. Melee reaches only the front rank, in both directions. There's no penalty for firing into melee, because the SRD has none.
 - A party melee attack hits the first living, visible monster of the group's reachable rank, with no draw. Monsters pick their targets with equal chance, on the monster-action stream (see [Monsters pass over statues](#monsters-pass-over-statues-and-ghouls-and-thouls-turn-from-the-members-they-paralyse)).
 - A staff of striking is "Used as a magical melee weapon", so under `formation_width_limit` only a front-rank member may use one. The session judges that against the ranks the round's swaps produce, as it does a melee attack, and refuses a back-rank member's use with `battle.declaration.not_in_front_rank`.
-- Under individual initiative, the machine still resolves each side as a block, and orders the blocks by each side's best individual total, because the SRD's phase sequence is per side.
+- Under individual initiative, the session still resolves each side as a block, all of one side's actions and then all of the other's. It orders the blocks by each side's best individual total, because the SRD's phase sequence is per side.
 
 #### Formation moves
 
-The party moves as a formation when every declarer agrees, which is the Bard's Tale convention:
+The party moves as a formation when every declarer agrees. That's the convention of The Bard's Tale, where the party moves as one:
 
 - When every declarer retreats, the formation moves off at the full encounter rate (Combat.md's "full encounter movement rate"). The running pursuit begins when the battle turns into a pursuit at the end of the round.
 - When every declarer makes a fighting withdrawal, the formation backs off at half the encounter rate.
 - The first `close` declaration advances the formation on the group it names, stopping at 5'. `close` needs no agreement, so a lone `close` advances the formation.
 - A round whose only declarer declares a defensive move is a formation move, because everyone agreed.
 
-The move set is the SRD's two defensive moves and `close`. Schema versions before 4 had a fourth move, `withdraw`. When osrlib loads an older command log, its lossless migration removes `withdraw` from the declaration and leaves the member holding, which is how that round played out.
+The move set is the SRD's two defensive moves and `close`. Schema versions before 4 had a fourth move, `withdraw`. When osrlib loads an older command log, its lossless migration, which converts the log to the current schema without losing information, removes `withdraw` from the declaration and leaves the member holding, which is how that round played out.
 
 #### A member who withdraws alone
 
@@ -1034,7 +1034,7 @@ A fighting withdrawal takes nothing away in RAW, and "Movement and attacking may
 #### Turn undead, disruption, and concentration
 
 - Turn undead resolves in the magic phase, needs no declaration posting, and can't be disrupted, because it's a class ability, not a spell. It names no group. It reaches every living monster in the groups that haven't fled when it resolves (see [the turning pool](#the-turning-pool-spends-lowest-first-stops-at-the-first-unaffordable-monster-and-always-affects-one)).
-- The machine detects disruption by the RAW trigger: a declared caster is successfully attacked, or fails a save, before acting.
+- The session detects disruption by the RAW trigger: a declared caster is successfully attacked, or fails a save, before acting.
 - A caster who declares anything other than `cast` or `hold` stops concentrating. A turning counts, so a cleric who declares one stops concentrating, even when confusion stops the turning before it resolves.
 - A caster maintains one concentration spell at a time: casting a second ends the first, and a spell that needs no concentration leaves it alone ([#167](https://github.com/mmacy/osrlib-python/issues/167)).
 
@@ -1092,7 +1092,8 @@ An area effect aimed at a monster group affects as many of the group as its shap
 
 - An area holds `ceil(span / 10) × width` creatures. The span is how far the shape reaches into the group, counted in 10' ranks.
 - A radius shape spans its diameter, because a circle reaches twice its radius across. Lines, cubes, and clouds span their length. A cone spans its length minus the group's distance, because a cone starts at the caster.
-- The width is the formation width. With `formation_width_limit` off, the width has no limit.
+- The width is the formation width, the same measure of the space that sets the party's rank width, because the monsters fight in the same space. With `formation_width_limit` off, the width has no limit.
+- For example, a *fire ball* has a 20' radius, so it spans 40'. In a 10' corridor, where the width is 2, it catches ceil(40 / 10) × 2 = 8 monsters. A cone 60' long, aimed at a group 30' away, spans 30', so in the same corridor it catches 6.
 - The area takes the group's creatures in spawn order, the fixed order in which the session created them, up to its capacity.
 - Under `aoe_friendly_fire`, an area that lands on a group in melee range also catches the members of the party's front rank who are fighting that group. They come after the monsters, in marching order, and use up whatever capacity is left.
 - A breath weapon aimed at the party covers `ceil(reach-limited span / 10)` ranks, counting from the front. A breath that hits one target, like the hellhound's, picks from the front rank with equal chance, on the monster-action stream.
@@ -1110,12 +1111,12 @@ When a declaration sets both `target_group_id` and `targets`, the session uses t
 
 ### The default action policy and morale
 
-The default policy, `ScriptedPolicy`, follows a monster's scripted pattern when its data has one, and otherwise closes and attacks. It draws only from the monster-action stream.
+The default policy, `ScriptedPolicy`, follows a monster's scripted pattern, a fixed way of fighting that its data records, when it has one. Otherwise the group closes, which means it moves toward the party on the range track, and attacks. It draws only from the monster-action stream.
 
 Scripted patterns and movement:
 
 - A breath weapon with `uses_per_day` opens with breath, then breath or melee with equal chance while daily uses remain, as the dragons do in RAW.
-- For a `per_round_chance_in_six` gate, like the hellhound's, the policy rolls the chance each round.
+- For a breath weapon that works on a chance in six each round (`per_round_chance_in_six`), like the hellhound's, the policy rolls the chance each round.
 - Otherwise, a group farther away than 5' closes, and at 5' it melees.
 - The monster data has no ranges for monster missile attacks, so they work like melee: the monster closes, then attacks. So the spitting cobra spits from 5', which is osrlib's reading.
 - Groups never cast, because casting tags are `manual` data.
@@ -1124,30 +1125,30 @@ Attack routines (see [Compiled monster data conventions](#compiled-monster-data-
 
 - A monster that melees picks its target, then one of its attack routines. It picks with equal chance among the routines whose `use` is `primary` or `alternative`: the thoul claws or swings a weapon, the mule kicks or bites, and the spitting cobra spits or bites. A monster with one such routine draws nothing for the pick.
 - The policy never picks a `situational` routine. The SRD ties such a routine to a situation osrlib doesn't model: a range, a charge or a trample chance, water, a ship, a form, or a loadout. So the default policy never rolls the 3-in-4 trample chance of the elephant and its kin, or the cave locust's 50% jump.
-- A policy that your game supplies can name a situational routine in `MonsterAction.routine` when the game decides the situation applies. Battle then rolls that routine's attacks as melee attacks, including a thrown missile in a later routine, like a giant's boulder.
+- A policy that your game supplies can name a situational routine in `MonsterAction.routine` when the game decides the situation applies. Battle then rolls that routine's attacks as melee attacks. A thrown missile in a later routine, like a giant's boulder, is a situational routine too, so it's rolled this way.
 - A `special` routine is a breath, a gaze, or a spell. Battle rolls no attack for one, even when a policy names it. It also never rolls an attack entry named `gaze` or `breath` as an attack, because a breath and a gaze resolve another way.
 - A confused monster that attacks uses its first routine, which is osrlib's reading.
 
 Morale:
 
-- Battle checks morale automatically at the start of each monster block, through a tracker for each battle. The triggers are the side's first death and half the side incapacitated.
-- A monster's alternate morale score applies when the round meets its condition, like fear of fire when the round's damage included fire. The spell morale modifier applies under the cumulative-effects rule.
-- A group with ML 2 routs when battle starts, or as it joins a battle already running.
-- A failed check means retreat exposure that round, then flight at full speed. The group leaves the battle as routed once it's past 120', the sight distance that pursuit uses, which applies the same way to both sides.
-- A group whose living members are all turned or afraid retreats as a whole, and turned members of a mixed group don't act. That's osrlib's reading.
+- At the start of the monsters' turn each round, battle checks each group's morale when a trigger applies, and records the checks for the rest of the battle. The triggers are the side's first death and half the side incapacitated.
+- A monster's alternate morale score applies when the round meets its condition, like fear of fire when the round's damage included fire. A spell's morale modifier applies under [the cumulative-effects rule](#the-cumulative-effects-rule-largest-bonus-plus-largest-penalty-per-statistic).
+- A group with a morale score of 2 routs when battle starts, or as it joins a battle already running.
+- A group that fails a check is exposed that round as a retreating combatant is (see [A member who withdraws alone](#a-member-who-withdraws-alone)), then flees at full speed. The group leaves the battle as routed once it's past 120', the sight distance that pursuit uses, which applies the same way to both sides.
+- Turned undead attack no one, as the cleric page says: "Flee from the cleric's presence if possible, and will not harm the cleric". A group whose living members are all turned or afraid retreats as a whole. When a turning affects only some of a group, the turned members break away as a new group, which runs, and the rest fight on. That's osrlib's reading.
 
 A fled group stays in the player view's `groups`, in order, with `fled` set. The session refuses every declaration aimed at it with `battle.declaration.unknown_group`: an attack, a `close` move, a thrown item, a device, or a spell. The party can still declare against a group that's running but still inside 120', because the party can chase the group or shoot at it. A cast aimed at a group that flees earlier in the same round fizzles at the magic phase's re-check (see [The battle round](#the-battle-round)).
 
 Chasing routed monsters is left to the game. osrlib would treat it as the evasion procedure with the party as the pursuer, and that isn't built yet.
 
-No group in the compiled data has ML 2, so tests force both the battle-start branch and the join branch. Locked by `test_battle.py::TestDefaultPolicy` and `TestMoraleAndEnds`, for the routine pick by `test_attack_routines.py`, for a group that joins by `test_spawn_into_encounter.py::TestAGroupThatWillNotFight`, and for a fled group by `test_battle_player_view.py::TestAFledGroup`.
+No group in the compiled data has a morale score of 2, so tests force both the battle-start branch and the join branch. Locked by `test_battle.py::TestDefaultPolicy` and `TestMoraleAndEnds`, for the routine pick by `test_attack_routines.py`, for a group that joins by `test_spawn_into_encounter.py::TestAGroupThatWillNotFight`, and for a fled group by `test_battle_player_view.py::TestAFledGroup`.
 
 ### Monsters pass over statues, and ghouls and thouls turn from the members they paralyse
 
 A monster that melees picks a target with equal chance among the members of the party's front rank it can reach. Two rules narrow that choice, and the policy applies them in this order:
 
 1. A member turned to stone is a statue and out of the fight. While a target that isn't stone is in reach, no monster picks a statue. The SRD doesn't say this, so it's osrlib's judgement.
-2. A ghoul or a thoul also passes over a paralysed member, while a target that is neither paralysed nor stone is in reach. The ghoul's entry says "After paralysing a target, ghouls will attack others", and the thoul's entry says the same of thouls.
+2. A ghoul or a thoul also passes over a paralysed member, while a target that is neither paralysed nor stone is in reach. When no one else is in reach, it attacks the paralysed member. The ghoul's entry says "After paralysing a target, ghouls will attack others", and the thoul's entry says the same of thouls.
 
 So a ghoul whose reach holds only a paralysed member and a statue attacks the paralysed member, because rule 1 removes the statue first.
 
@@ -1173,7 +1174,7 @@ When a monster's attack hits in battle, the session applies each effect the atta
 
 The effects apply once for each hit, so a target hit by two paralysing claws saves twice. A dead or petrified target takes none of these effects.
 
-The saves work like this:
+B/X has five saving throw categories: death, which covers poison, wands, paralysis, which covers petrification, breath, and spells. The saves work like this:
 
 - The target saves versus paralysis against paralysis and petrification.
 - The target saves versus death, with the ability's modifier, against poison. A failed save against poison kills at once, or when the poison's onset runs out.
@@ -1206,7 +1207,7 @@ The SRD says a basilisk or a medusa that sees its reflection saves or turns to s
 
 An effect in a later attack routine applies when battle resolves that routine. The spitting cobra's poison bite is an alternative routine, so under the default policy the cobra bites in about half the rounds it fights and spits in the rest. The vampire's charming gaze is a special routine, which battle never rolls, so the referee applies it.
 
-The session applies only the six kinds above and the petrifying gaze, so the referee applies the attack effects and gazes below from the monster's description:
+The session applies only the six kinds above and the petrifying gaze. It emits no event for an effect it doesn't apply, so the referee applies the attack effects and gazes below from the monster's description, when the attack hits:
 
 - `1d10_heat`: bronze golem.
 - `1d10_hull_damage`: lesser sea serpent, giant squid.
@@ -1242,10 +1243,10 @@ The session adds bookkeeping, visibility rules, and referee commands on top of t
 
 Characters and deaths:
 
-- The session allocator assigns character ids as `character-NNNN`, in party order.
+- The session allocator, the counter that hands out ids, assigns character ids as `character-NNNN`, in party order.
 - Dead members stay in the party but count for nothing.
 - The session records the clock round and the cause of each character's death. The cause is `poison` when the killing resolution was a poison save or the end of a poison's delay, and otherwise it's the kind of source.
-- *Raise dead* always uses that record for its day count, and *neutralize poison* uses it for its round window only after a death by poison. A game that calls the kernel's spell functions without a session has to supply those values itself, like `CastContext.rounds_since_death` (see [Neutralize poison's revival window](#neutralize-poisons-revival-window-is-caller-attested-and-only-characters-revive)).
+- *Raise dead* always uses that record for its day count, and *neutralize poison* uses it for its round window only after a death by poison. A game that calls the kernel's spell functions, like `cast_spell`, without a session has to supply those values itself, like `CastContext.rounds_since_death` (see [Neutralize poison's revival window](#neutralize-poisons-revival-window-is-caller-attested-and-only-characters-revive)).
 
 Visibility:
 
@@ -1256,9 +1257,9 @@ Visibility:
 
 Referee commands:
 
-- `PlaceParty` triggers no hooks, traps, or keyed encounters, because it's a referee tool.
+- `PlaceParty` triggers no hooks, which are the location effects that run when the party enters a cell, and no traps or keyed encounters, because it's a referee tool.
 - A referee's `AdvanceTime` runs full bookkeeping but no wandering-monster checks, since the referee controls encounters.
-- `SpawnMonsters` works only in a dungeon, because the combat space needs a party cell. It rolls its count dice on the encounter stream and opens a standard encounter, with both sides rolling surprise.
+- `SpawnMonsters` works only in a dungeon, because the combat space needs a party cell. It rolls its count dice on the encounter stream and opens a standard encounter, which rolls surprise for both sides, distance, and reaction, like a wandering encounter.
 - While an encounter or battle is already running, `SpawnMonsters` adds one group to that encounter instead. That's how a referee brings in the allies an SRD monster summons. The group rolls no surprise or reaction, and it shares the encounter's stance and surprise. The spawn costs no time, so the group first acts in the next round.
 - During a pursuit, the session refuses the spawn with `encounter.spawn.mid_pursuit`, because the chase runs at the pace of its slowest group.
 - `SpawnNpcParty` sets the size of the band in one of three ways. `count_fixed` gives an exact size and draws nothing. `count_dice` rolls the size on the encounter stream. With neither set, the session rolls the B/X number for the band's kind. Setting both `count_fixed` and `count_dice` fails validation, as it does on `SpawnMonsters` ([#167](https://github.com/mmacy/osrlib-python/issues/167)).
@@ -1314,7 +1315,7 @@ The engine rolls treasure when it's first needed, not when the adventure loads, 
 - An area's treasure specs are rolled the first time the party enters the area. Unguarded treasure uses the bands on the SRD's *Designing a Dungeon* page.
 - Generated hoards are untrapped, because a trap on treasure is authored content, not something generation produces.
 
-For one keyed group, the order of draws on the treasure stream is the carried treasure for each printed line, then the lair hoard. Locked by `test_exploration.py::TestTreasure`, `test_loot_and_traps.py::TestLairHoardOnce`, and the milestone golden.
+For one keyed group, the order of draws on the treasure stream is the carried treasure for each monster line of the keyed encounter, in the order the author listed them, then the lair hoard. Locked by `test_exploration.py::TestTreasure`, `test_loot_and_traps.py::TestLairHoardOnce`, and the milestone golden.
 
 ### Loot drops: slain sides drop, routed sides keep
 
@@ -1335,15 +1336,15 @@ For maintainers: there's no ledger of recovered treasure. Schema version 2 remov
 
 ### Treasure weight covers coins, valuables, and the five priced magic categories
 
-`treasure_weight_coins` counts the weight of a character's treasure, in coins: the purse, valuables, and some magic items.
+`treasure_weight_coins` counts the weight of a character's treasure, in coins: the purse, valuables, and the magic items that the heading calls priced, which are the kinds the SRD's encumbrance table gives a weight.
 
-- The magic items it counts are the kinds that the SRD's encumbrance table gives a weight: potion, scroll, rod, staff, and wand. Those rows are [`TreasureWeight`][osrlib.core.items.TreasureWeight].
+- Those kinds are potion, scroll, rod, staff, and wand, and the table's rows are [`TreasureWeight`][osrlib.core.items.TreasureWeight].
 - Rings and miscellaneous items weigh nothing unless their page gives a figure.
 - The Bag of Holding's printed loaded weight of 600 coins counts while the bag contains anything.
 - Enchanted weapons and armour count as equipment, alongside their mundane bases, not as treasure, so basic encumbrance's treasure tracking stays accurate. They weigh what the base weighs, except enchanted armour, which weighs half, as the SRD's armour page says. The base is the instance's `base_item_id`, or the template's when the instance has none.
 - A spent stack, which is a magic item at quantity 0, weighs nothing, because the character no longer carries it.
 
-Locked by `test_items.py` and the closed-form property in `test_crawl_properties.py`.
+A property test checks the weight against a direct formula. Locked by `test_items.py` and the closed-form property in `test_crawl_properties.py`.
 
 ### The magic item catalog: 164 templates, automated mechanics, and manual prose
 
@@ -1483,7 +1484,7 @@ Locked by `test_npc.py` and `test_battle.py`.
 
 ### Town services: full-value selling and the temple's six services
 
-`SellTreasure` pays a valuable's exact rolled value to its carrier, because appraisal is exact (see [the treasure compiler](#the-treasure-compiler-entry-grammar-magic-clauses-and-treasureref-semantics)). Magic items have no fixed sale value, so the session refuses to sell one with `town.sell.no_fixed_value`. Pricing one is left to the game.
+`SellTreasure` pays a valuable's exact rolled value to its carrier, because appraisal is exact: the engine knows each valuable's rolled value and doesn't estimate it (see [the treasure compiler](#the-treasure-compiler-entry-grammar-magic-clauses-and-treasureref-semantics)). Magic items have no fixed sale value, so the session refuses to sell one with `town.sell.no_fixed_value`. Pricing one is left to the game.
 
 `PurchaseHealing` offers six services at prices osrlib invented, recorded here:
 
@@ -1508,7 +1509,7 @@ The temple charges the party, not the patient:
 
 - The fee comes from the treated member's purse first, then from the other members' purses in marching order, dead members included.
 - Each purse pays in whole gold pieces. It pays the smaller of two amounts: what's still owed, or its total value rounded down to a whole gold piece. It keeps any value below a gold piece.
-- Once the fee is paid, the purses after that pay nothing.
+- Once the fee is paid, the purses after that pay nothing. The temple never takes value below a whole gold piece from any purse.
 
 So what the party can spend is the whole gold pieces in each purse, not the purses' total worth. A party whose whole gold pieces fall short is refused with `items.purchase.insufficient_funds` and keeps every coin. For example, at 10 sp to 1 gp, two members who each have 12 gp and 5 sp are worth 25 gp between them, the fee for cure light wounds. Each purse can pay only 12 whole gold pieces, though, so together they pay 24 gp, and the party can't buy the service.
 
@@ -1557,10 +1558,10 @@ With the flag off, there's no limit: every combatant may melee, and area footpri
 
 The SRD gives the referee an optional save for a dead character's magic items, and osrlib makes it the default. When a kill destroys equipment, as lightning and disintegration do, the engine rolls a save for each carried magic item:
 
-- The engine rolls 1d20 for the item. The item saves when the roll reaches the owner's saving throw target for the source's category: breath as breath, spells as spells, devices as wands, and anything else as death.
-- The item adds its best combat bonus to the roll, the highest of its attack, damage, and AC bonuses, so a better item is more likely to survive. A cursed item adds its penalty instead.
+- The engine rolls 1d20 for the item. The item saves when the roll reaches the owner's saving throw target in the category of what killed the owner: a breath weapon uses breath, a spell uses spells, a device uses wands, and anything else uses death.
+- The item adds its best combat bonus to the roll, the highest of its attack, damage, and AC bonuses, so a better item is more likely to survive. A cursed item's bonuses are penalties, so its roll goes down, by 2 for a −2 item.
 
-Items that survive go to the drop pile instead of vanishing, and `EquipmentDestroyedEvent.saved_items` lists them. When the victim is a party member, the session moves the items to the drop pile on the party's cell in the command that killed the member, because no command can take anything from a dead member's inventory. With the flag off, items share their owner's fate. Locked by `test_combat.py::TestDestroyEquipment` and `test_loot_and_traps.py::TestBreathSavedItems`.
+Items that survive go to the drop pile, a [`DropPile`][osrlib.crawl.dungeon.DropPile] of things lying on a cell that the party can pick up, instead of vanishing, and `EquipmentDestroyedEvent.saved_items` lists them. When the victim is a party member, the session moves the items to the drop pile on the party's cell in the command that killed the member, because no command can take anything from a dead member's inventory. With the flag off, items share their owner's fate. Locked by `test_combat.py::TestDestroyEquipment` and `test_loot_and_traps.py::TestBreathSavedItems`.
 
 ### `xp_award_timing` (default `on_return`)
 
