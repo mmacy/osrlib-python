@@ -2589,6 +2589,7 @@
     {
       "attack_name": "Sword",
       "attacker_id": "character-0001",
+      "back_stab": false,
       "code": "combat.attack.hit",
       "defender_ac": 6,
       "defender_id": "monster-0002",
@@ -2646,6 +2647,7 @@
     {
       "attack_name": "Sword",
       "attacker_id": "character-0002",
+      "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 6,
       "defender_id": "monster-0003",
@@ -3734,6 +3736,7 @@
     {
       "attack_name": "weapon",
       "attacker_id": "monster-0014",
+      "back_stab": false,
       "code": "combat.attack.hit",
       "defender_ac": 10,
       "defender_id": "character-0005",
@@ -3769,6 +3772,7 @@
     {
       "attack_name": "weapon",
       "attacker_id": "monster-0015",
+      "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 10,
       "defender_id": "character-0005",
@@ -3783,6 +3787,7 @@
     {
       "attack_name": "weapon",
       "attacker_id": "monster-0016",
+      "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 10,
       "defender_id": "character-0005",
@@ -3806,6 +3811,7 @@
     {
       "attack_name": "Sword",
       "attacker_id": "character-0001",
+      "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 6,
       "defender_id": "monster-0014",
@@ -3858,6 +3864,7 @@
     {
       "attack_name": "weapon",
       "attacker_id": "monster-0014",
+      "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 10,
       "defender_id": "character-0005",
@@ -3872,6 +3879,7 @@
     {
       "attack_name": "weapon",
       "attacker_id": "monster-0015",
+      "back_stab": false,
       "code": "combat.attack.hit",
       "defender_ac": 5,
       "defender_id": "character-0001",
@@ -3907,6 +3915,7 @@
     {
       "attack_name": "weapon",
       "attacker_id": "monster-0016",
+      "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 10,
       "defender_id": "character-0005",
@@ -3921,6 +3930,7 @@
     {
       "attack_name": "Dagger",
       "attacker_id": "character-0005",
+      "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 6,
       "defender_id": "monster-0014",
@@ -3935,6 +3945,7 @@
     {
       "attack_name": "Sword",
       "attacker_id": "character-0001",
+      "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 6,
       "defender_id": "monster-0014",
@@ -3987,6 +3998,7 @@
     {
       "attack_name": "Dagger",
       "attacker_id": "character-0005",
+      "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 6,
       "defender_id": "monster-0014",
@@ -4001,6 +4013,7 @@
     {
       "attack_name": "Sword",
       "attacker_id": "character-0001",
+      "back_stab": false,
       "code": "combat.attack.hit",
       "defender_ac": 6,
       "defender_id": "monster-0014",
@@ -4036,6 +4049,7 @@
     {
       "attack_name": "weapon",
       "attacker_id": "monster-0014",
+      "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 10,
       "defender_id": "character-0005",
@@ -4050,6 +4064,7 @@
     {
       "attack_name": "weapon",
       "attacker_id": "monster-0015",
+      "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 10,
       "defender_id": "character-0005",
@@ -4064,6 +4079,7 @@
     {
       "attack_name": "weapon",
       "attacker_id": "monster-0016",
+      "back_stab": false,
       "code": "combat.attack.hit",
       "defender_ac": 10,
       "defender_id": "character-0005",
@@ -4143,6 +4159,7 @@
     {
       "attack_name": "weapon",
       "attacker_id": "monster-0014",
+      "back_stab": false,
       "code": "combat.attack.hit",
       "defender_ac": 10,
       "defender_id": "character-0005",
@@ -4178,6 +4195,7 @@
     {
       "attack_name": "weapon",
       "attacker_id": "monster-0015",
+      "back_stab": false,
       "code": "combat.attack.hit",
       "defender_ac": 10,
       "defender_id": "character-0005",
@@ -4213,6 +4231,7 @@
     {
       "attack_name": "weapon",
       "attacker_id": "monster-0016",
+      "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 5,
       "defender_id": "character-0001",
@@ -4227,6 +4246,7 @@
     {
       "attack_name": "Dagger",
       "attacker_id": "character-0005",
+      "back_stab": false,
       "code": "combat.attack.hit",
       "defender_ac": 6,
       "defender_id": "monster-0014",
@@ -4262,6 +4282,7 @@
     {
       "attack_name": "Sword",
       "attacker_id": "character-0001",
+      "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 6,
       "defender_id": "monster-0014",
@@ -4314,6 +4335,7 @@
     {
       "attack_name": "weapon",
       "attacker_id": "monster-0014",
+      "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 10,
       "defender_id": "character-0005",
@@ -4328,6 +4350,7 @@
     {
       "attack_name": "weapon",
       "attacker_id": "monster-0015",
+      "back_stab": false,
       "code": "combat.attack.hit",
       "defender_ac": 10,
       "defender_id": "character-0005",
@@ -4363,6 +4386,7 @@
     {
       "attack_name": "weapon",
       "attacker_id": "monster-0016",
+      "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 5,
       "defender_id": "character-0001",
@@ -4377,6 +4401,7 @@
     {
       "attack_name": "Dagger",
       "attacker_id": "character-0005",
+      "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 6,
       "defender_id": "monster-0014",
@@ -4391,6 +4416,7 @@
     {
       "attack_name": "Sword",
       "attacker_id": "character-0001",
+      "back_stab": false,
       "code": "combat.attack.hit",
       "defender_ac": 6,
       "defender_id": "monster-0014",
@@ -4517,6 +4543,7 @@
     {
       "attack_name": "Dagger",
       "attacker_id": "character-0005",
+      "back_stab": false,
       "code": "combat.attack.hit",
       "defender_ac": 6,
       "defender_id": "monster-0015",
@@ -4603,6 +4630,7 @@
     {
       "attack_name": "Sword",
       "attacker_id": "character-0001",
+      "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 6,
       "defender_id": "monster-0016",

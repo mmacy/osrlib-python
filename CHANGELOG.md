@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- A thief can back-stab in battle. Set the new field [`BattleDeclaration.back_stab`][osrlib.crawl.commands.BattleDeclaration.back_stab] to `True` on an `attack` declaration. osrlib accepts it only for a member whose class has the `back_stab` ability, like the thief, and only for a melee attack. The monsters also have to be surprised: the session accepts a back-stab only in the free round the party gets when it surprises the monsters, while [`BattleState.monsters_hold_rounds`][osrlib.crawl.battle.BattleState.monsters_hold_rounds] is above zero. A back-stab after a hide in shadows or move silently roll isn't available yet (#208). An accepted back-stab gets +4 to hit, ignores the defender's shield, and doubles its damage. The new field [`AttackRolledEvent.back_stab`][osrlib.core.events.AttackRolledEvent.back_stab] is `True` on each of its attack rolls, so your game can say so. When the session refuses a back-stab, it uses one of four new codes: `battle.declaration.back_stab_not_attack`, `battle.declaration.back_stab_no_ability`, `battle.declaration.back_stab_target_aware`, and `battle.declaration.back_stab_not_melee`. Both fields default to `False`, so a saved command or event without them still parses, and a declaration without `back_stab` plays exactly as before.
+
 ## [2.1.0] - 2026-10-30
 
 ### Added

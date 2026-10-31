@@ -34,6 +34,7 @@
       "declarations": [
         {
           "action": "move",
+          "back_stab": false,
           "character_id": "character-0001",
           "gaze_defense": null,
           "item_id": null,
@@ -48,6 +49,7 @@
         },
         {
           "action": "move",
+          "back_stab": false,
           "character_id": "character-0002",
           "gaze_defense": null,
           "item_id": null,
@@ -62,6 +64,7 @@
         },
         {
           "action": "move",
+          "back_stab": false,
           "character_id": "character-0003",
           "gaze_defense": null,
           "item_id": null,
@@ -76,6 +79,7 @@
         },
         {
           "action": "move",
+          "back_stab": false,
           "character_id": "character-0004",
           "gaze_defense": null,
           "item_id": null,
@@ -96,6 +100,7 @@
       "declarations": [
         {
           "action": "attack",
+          "back_stab": false,
           "character_id": "character-0001",
           "gaze_defense": null,
           "item_id": null,
@@ -110,6 +115,7 @@
         },
         {
           "action": "attack",
+          "back_stab": false,
           "character_id": "character-0002",
           "gaze_defense": null,
           "item_id": null,
@@ -124,6 +130,7 @@
         },
         {
           "action": "hold",
+          "back_stab": false,
           "character_id": "character-0003",
           "gaze_defense": null,
           "item_id": null,
@@ -138,6 +145,7 @@
         },
         {
           "action": "hold",
+          "back_stab": false,
           "character_id": "character-0004",
           "gaze_defense": null,
           "item_id": null,
@@ -158,6 +166,7 @@
       "declarations": [
         {
           "action": "attack",
+          "back_stab": false,
           "character_id": "character-0001",
           "gaze_defense": null,
           "item_id": null,
@@ -172,6 +181,7 @@
         },
         {
           "action": "attack",
+          "back_stab": false,
           "character_id": "character-0002",
           "gaze_defense": null,
           "item_id": null,
@@ -186,6 +196,7 @@
         },
         {
           "action": "hold",
+          "back_stab": false,
           "character_id": "character-0003",
           "gaze_defense": null,
           "item_id": null,
@@ -200,6 +211,7 @@
         },
         {
           "action": "hold",
+          "back_stab": false,
           "character_id": "character-0004",
           "gaze_defense": null,
           "item_id": null,
@@ -220,6 +232,7 @@
       "declarations": [
         {
           "action": "attack",
+          "back_stab": false,
           "character_id": "character-0001",
           "gaze_defense": null,
           "item_id": null,
@@ -234,6 +247,7 @@
         },
         {
           "action": "attack",
+          "back_stab": false,
           "character_id": "character-0002",
           "gaze_defense": null,
           "item_id": null,
@@ -248,6 +262,7 @@
         },
         {
           "action": "hold",
+          "back_stab": false,
           "character_id": "character-0003",
           "gaze_defense": null,
           "item_id": null,
@@ -262,6 +277,7 @@
         },
         {
           "action": "hold",
+          "back_stab": false,
           "character_id": "character-0004",
           "gaze_defense": null,
           "item_id": null,
@@ -282,6 +298,7 @@
       "declarations": [
         {
           "action": "move",
+          "back_stab": false,
           "character_id": "character-0001",
           "gaze_defense": null,
           "item_id": null,
@@ -296,6 +313,7 @@
         },
         {
           "action": "move",
+          "back_stab": false,
           "character_id": "character-0002",
           "gaze_defense": null,
           "item_id": null,
@@ -310,6 +328,7 @@
         },
         {
           "action": "move",
+          "back_stab": false,
           "character_id": "character-0003",
           "gaze_defense": null,
           "item_id": null,
@@ -324,6 +343,7 @@
         },
         {
           "action": "move",
+          "back_stab": false,
           "character_id": "character-0004",
           "gaze_defense": null,
           "item_id": null,
@@ -344,6 +364,7 @@
       "declarations": [
         {
           "action": "move",
+          "back_stab": false,
           "character_id": "character-0001",
           "gaze_defense": null,
           "item_id": null,
@@ -358,6 +379,7 @@
         },
         {
           "action": "move",
+          "back_stab": false,
           "character_id": "character-0002",
           "gaze_defense": null,
           "item_id": null,
@@ -372,6 +394,7 @@
         },
         {
           "action": "move",
+          "back_stab": false,
           "character_id": "character-0003",
           "gaze_defense": null,
           "item_id": null,
@@ -386,6 +409,7 @@
         },
         {
           "action": "move",
+          "back_stab": false,
           "character_id": "character-0004",
           "gaze_defense": null,
           "item_id": null,
@@ -446,6 +470,7 @@
       "declarations": [
         {
           "action": "move",
+          "back_stab": false,
           "character_id": "character-0001",
           "gaze_defense": null,
           "item_id": null,
@@ -460,6 +485,7 @@
         },
         {
           "action": "move",
+          "back_stab": false,
           "character_id": "character-0002",
           "gaze_defense": null,
           "item_id": null,
@@ -474,6 +500,7 @@
         },
         {
           "action": "move",
+          "back_stab": false,
           "character_id": "character-0003",
           "gaze_defense": null,
           "item_id": null,
@@ -488,6 +515,7 @@
         },
         {
           "action": "move",
+          "back_stab": false,
           "character_id": "character-0004",
           "gaze_defense": null,
           "item_id": null,
@@ -508,6 +536,7 @@
       "declarations": [
         {
           "action": "attack",
+          "back_stab": false,
           "character_id": "character-0001",
           "gaze_defense": null,
           "item_id": null,
@@ -522,6 +551,7 @@
         },
         {
           "action": "attack",
+          "back_stab": false,
           "character_id": "character-0002",
           "gaze_defense": null,
           "item_id": null,
@@ -536,6 +566,7 @@
         },
         {
           "action": "hold",
+          "back_stab": false,
           "character_id": "character-0003",
           "gaze_defense": null,
           "item_id": null,
@@ -550,6 +581,7 @@
         },
         {
           "action": "hold",
+          "back_stab": false,
           "character_id": "character-0004",
           "gaze_defense": null,
           "item_id": null,
@@ -570,6 +602,7 @@
       "declarations": [
         {
           "action": "attack",
+          "back_stab": false,
           "character_id": "character-0001",
           "gaze_defense": null,
           "item_id": null,
@@ -584,6 +617,7 @@
         },
         {
           "action": "attack",
+          "back_stab": false,
           "character_id": "character-0002",
           "gaze_defense": null,
           "item_id": null,
@@ -598,6 +632,7 @@
         },
         {
           "action": "hold",
+          "back_stab": false,
           "character_id": "character-0003",
           "gaze_defense": null,
           "item_id": null,
@@ -612,6 +647,7 @@
         },
         {
           "action": "hold",
+          "back_stab": false,
           "character_id": "character-0004",
           "gaze_defense": null,
           "item_id": null,
@@ -632,6 +668,7 @@
       "declarations": [
         {
           "action": "attack",
+          "back_stab": false,
           "character_id": "character-0001",
           "gaze_defense": null,
           "item_id": null,
@@ -646,6 +683,7 @@
         },
         {
           "action": "attack",
+          "back_stab": false,
           "character_id": "character-0002",
           "gaze_defense": null,
           "item_id": null,
@@ -660,6 +698,7 @@
         },
         {
           "action": "hold",
+          "back_stab": false,
           "character_id": "character-0003",
           "gaze_defense": null,
           "item_id": null,
@@ -674,6 +713,7 @@
         },
         {
           "action": "hold",
+          "back_stab": false,
           "character_id": "character-0004",
           "gaze_defense": null,
           "item_id": null,
@@ -700,6 +740,7 @@
       "declarations": [
         {
           "action": "move",
+          "back_stab": false,
           "character_id": "character-0001",
           "gaze_defense": null,
           "item_id": null,
@@ -714,6 +755,7 @@
         },
         {
           "action": "move",
+          "back_stab": false,
           "character_id": "character-0002",
           "gaze_defense": null,
           "item_id": null,
@@ -728,6 +770,7 @@
         },
         {
           "action": "move",
+          "back_stab": false,
           "character_id": "character-0003",
           "gaze_defense": null,
           "item_id": null,
@@ -742,6 +785,7 @@
         },
         {
           "action": "move",
+          "back_stab": false,
           "character_id": "character-0004",
           "gaze_defense": null,
           "item_id": null,
@@ -762,6 +806,7 @@
       "declarations": [
         {
           "action": "attack",
+          "back_stab": false,
           "character_id": "character-0001",
           "gaze_defense": null,
           "item_id": null,
@@ -776,6 +821,7 @@
         },
         {
           "action": "attack",
+          "back_stab": false,
           "character_id": "character-0003",
           "gaze_defense": null,
           "item_id": null,
@@ -790,6 +836,7 @@
         },
         {
           "action": "hold",
+          "back_stab": false,
           "character_id": "character-0004",
           "gaze_defense": null,
           "item_id": null,
@@ -810,6 +857,7 @@
       "declarations": [
         {
           "action": "attack",
+          "back_stab": false,
           "character_id": "character-0001",
           "gaze_defense": null,
           "item_id": null,
@@ -824,6 +872,7 @@
         },
         {
           "action": "attack",
+          "back_stab": false,
           "character_id": "character-0003",
           "gaze_defense": null,
           "item_id": null,
@@ -838,6 +887,7 @@
         },
         {
           "action": "hold",
+          "back_stab": false,
           "character_id": "character-0004",
           "gaze_defense": null,
           "item_id": null,
@@ -858,6 +908,7 @@
       "declarations": [
         {
           "action": "attack",
+          "back_stab": false,
           "character_id": "character-0001",
           "gaze_defense": null,
           "item_id": null,
@@ -872,6 +923,7 @@
         },
         {
           "action": "attack",
+          "back_stab": false,
           "character_id": "character-0003",
           "gaze_defense": null,
           "item_id": null,
@@ -886,6 +938,7 @@
         },
         {
           "action": "hold",
+          "back_stab": false,
           "character_id": "character-0004",
           "gaze_defense": null,
           "item_id": null,
@@ -906,6 +959,7 @@
       "declarations": [
         {
           "action": "move",
+          "back_stab": false,
           "character_id": "character-0001",
           "gaze_defense": null,
           "item_id": null,
@@ -920,6 +974,7 @@
         },
         {
           "action": "move",
+          "back_stab": false,
           "character_id": "character-0003",
           "gaze_defense": null,
           "item_id": null,
@@ -934,6 +989,7 @@
         },
         {
           "action": "move",
+          "back_stab": false,
           "character_id": "character-0004",
           "gaze_defense": null,
           "item_id": null,
@@ -1307,6 +1363,7 @@
     {
       "attack_name": "weapon",
       "attacker_id": "monster-0001",
+      "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 4,
       "defender_id": "character-0002",
@@ -1321,6 +1378,7 @@
     {
       "attack_name": "weapon",
       "attacker_id": "monster-0002",
+      "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 4,
       "defender_id": "character-0001",
@@ -1372,6 +1430,7 @@
     {
       "attack_name": "weapon",
       "attacker_id": "monster-0001",
+      "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 4,
       "defender_id": "character-0001",
@@ -1386,6 +1445,7 @@
     {
       "attack_name": "weapon",
       "attacker_id": "monster-0002",
+      "back_stab": false,
       "code": "combat.attack.hit",
       "defender_ac": 4,
       "defender_id": "character-0002",
@@ -1421,6 +1481,7 @@
     {
       "attack_name": "Sword",
       "attacker_id": "character-0001",
+      "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 6,
       "defender_id": "monster-0001",
@@ -1435,6 +1496,7 @@
     {
       "attack_name": "Mace",
       "attacker_id": "character-0002",
+      "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 6,
       "defender_id": "monster-0001",
@@ -1486,6 +1548,7 @@
     {
       "attack_name": "weapon",
       "attacker_id": "monster-0001",
+      "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 4,
       "defender_id": "character-0002",
@@ -1500,6 +1563,7 @@
     {
       "attack_name": "weapon",
       "attacker_id": "monster-0002",
+      "back_stab": false,
       "code": "combat.attack.hit",
       "defender_ac": 4,
       "defender_id": "character-0001",
@@ -1535,6 +1599,7 @@
     {
       "attack_name": "Sword",
       "attacker_id": "character-0001",
+      "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 6,
       "defender_id": "monster-0001",
@@ -1549,6 +1614,7 @@
     {
       "attack_name": "Mace",
       "attacker_id": "character-0002",
+      "back_stab": false,
       "code": "combat.attack.hit",
       "defender_ac": 6,
       "defender_id": "monster-0001",
@@ -1643,6 +1709,7 @@
     {
       "attack_name": "Sword",
       "attacker_id": "character-0001",
+      "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 6,
       "defender_id": "monster-0002",
@@ -1657,6 +1724,7 @@
     {
       "attack_name": "Mace",
       "attacker_id": "character-0002",
+      "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 6,
       "defender_id": "monster-0002",
@@ -2085,6 +2153,7 @@
     {
       "attack_name": "Dagger",
       "attacker_id": "npc-0002",
+      "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 4,
       "defender_id": "character-0002",
@@ -2143,6 +2212,7 @@
     {
       "attack_name": "Battle axe",
       "attacker_id": "npc-0001",
+      "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 4,
       "defender_id": "character-0002",
@@ -2157,6 +2227,7 @@
     {
       "attack_name": "Dagger",
       "attacker_id": "npc-0002",
+      "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 4,
       "defender_id": "character-0002",
@@ -2171,6 +2242,7 @@
     {
       "attack_name": "Sword",
       "attacker_id": "character-0001",
+      "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 6,
       "defender_id": "npc-0001",
@@ -2185,6 +2257,7 @@
     {
       "attack_name": "Mace",
       "attacker_id": "character-0002",
+      "back_stab": false,
       "code": "combat.attack.hit",
       "defender_ac": 6,
       "defender_id": "npc-0001",
@@ -2279,6 +2352,7 @@
     {
       "attack_name": "Sword",
       "attacker_id": "character-0001",
+      "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 6,
       "defender_id": "npc-0002",
@@ -2293,6 +2367,7 @@
     {
       "attack_name": "Mace",
       "attacker_id": "character-0002",
+      "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 6,
       "defender_id": "npc-0002",
@@ -2327,6 +2402,7 @@
     {
       "attack_name": "Dagger",
       "attacker_id": "npc-0002",
+      "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 4,
       "defender_id": "character-0002",
@@ -2378,6 +2454,7 @@
     {
       "attack_name": "Sword",
       "attacker_id": "character-0001",
+      "back_stab": false,
       "code": "combat.attack.hit",
       "defender_ac": 6,
       "defender_id": "npc-0002",
@@ -2628,6 +2705,7 @@
     {
       "attack_name": "Sling",
       "attacker_id": "npc-0003",
+      "back_stab": false,
       "code": "combat.attack.hit",
       "defender_ac": 4,
       "defender_id": "character-0002",
@@ -2735,6 +2813,7 @@
     {
       "attack_name": "Sword",
       "attacker_id": "npc-0003",
+      "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 4,
       "defender_id": "character-0001",
@@ -2749,6 +2828,7 @@
     {
       "attack_name": "Sword",
       "attacker_id": "npc-0004",
+      "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 4,
       "defender_id": "character-0001",
@@ -2763,6 +2843,7 @@
     {
       "attack_name": "Sword",
       "attacker_id": "character-0001",
+      "back_stab": false,
       "code": "combat.attack.hit",
       "defender_ac": 6,
       "defender_id": "npc-0003",
@@ -2798,6 +2879,7 @@
     {
       "attack_name": "Sword",
       "attacker_id": "character-0003",
+      "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 6,
       "defender_id": "npc-0003",
@@ -2848,6 +2930,7 @@
     {
       "attack_name": "Sword",
       "attacker_id": "npc-0003",
+      "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 4,
       "defender_id": "character-0001",
@@ -2862,6 +2945,7 @@
     {
       "attack_name": "Sword",
       "attacker_id": "npc-0004",
+      "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 4,
       "defender_id": "character-0001",
@@ -2876,6 +2960,7 @@
     {
       "attack_name": "Sword",
       "attacker_id": "character-0001",
+      "back_stab": false,
       "code": "combat.attack.hit",
       "defender_ac": 6,
       "defender_id": "npc-0003",
@@ -2911,6 +2996,7 @@
     {
       "attack_name": "Sword",
       "attacker_id": "character-0003",
+      "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 6,
       "defender_id": "npc-0003",
@@ -2961,6 +3047,7 @@
     {
       "attack_name": "Sword",
       "attacker_id": "character-0001",
+      "back_stab": false,
       "code": "combat.attack.hit",
       "defender_ac": 6,
       "defender_id": "npc-0003",
@@ -3018,6 +3105,7 @@
     {
       "attack_name": "Sword",
       "attacker_id": "character-0003",
+      "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 5,
       "defender_id": "npc-0004",

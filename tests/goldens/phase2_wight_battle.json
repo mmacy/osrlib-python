@@ -3,6 +3,7 @@
     {
       "attack_name": "Sword",
       "attacker_id": "pc-fighter",
+      "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 5,
       "defender_id": "monster-0001",
@@ -17,6 +18,7 @@
     {
       "attack_name": "Sword",
       "attacker_id": "pc-fighter",
+      "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 5,
       "defender_id": "monster-0001",
@@ -31,6 +33,7 @@
     {
       "attack_name": "Sword",
       "attacker_id": "pc-fighter",
+      "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 5,
       "defender_id": "monster-0001",
@@ -45,6 +48,7 @@
     {
       "attack_name": "Sword",
       "attacker_id": "pc-fighter",
+      "back_stab": false,
       "code": "combat.attack.hit",
       "defender_ac": 5,
       "defender_id": "monster-0001",
@@ -67,6 +71,7 @@
     {
       "attack_name": "Silver dagger",
       "attacker_id": "pc-fighter",
+      "back_stab": false,
       "code": "combat.attack.hit",
       "defender_ac": 5,
       "defender_id": "monster-0001",
@@ -104,6 +109,7 @@
     {
       "attack_name": "touch",
       "attacker_id": "monster-0001",
+      "back_stab": false,
       "code": "combat.attack.hit",
       "defender_ac": 7,
       "defender_id": "pc-fighter",
@@ -137,6 +143,7 @@
     {
       "attack_name": "Silver dagger",
       "attacker_id": "pc-fighter",
+      "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 5,
       "defender_id": "monster-0001",
@@ -151,6 +158,7 @@
     {
       "attack_name": "Silver dagger",
       "attacker_id": "pc-fighter",
+      "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 5,
       "defender_id": "monster-0001",
@@ -165,6 +173,7 @@
     {
       "attack_name": "Silver dagger",
       "attacker_id": "pc-fighter",
+      "back_stab": false,
       "code": "combat.attack.hit",
       "defender_ac": 5,
       "defender_id": "monster-0001",
@@ -202,6 +211,7 @@
     {
       "attack_name": "Silver dagger",
       "attacker_id": "pc-fighter",
+      "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 5,
       "defender_id": "monster-0001",
@@ -216,6 +226,7 @@
     {
       "attack_name": "Silver dagger",
       "attacker_id": "pc-fighter",
+      "back_stab": false,
       "code": "combat.attack.hit",
       "defender_ac": 5,
       "defender_id": "monster-0001",
@@ -253,6 +264,7 @@
     {
       "attack_name": "Silver dagger",
       "attacker_id": "pc-fighter",
+      "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 5,
       "defender_id": "monster-0001",
@@ -267,6 +279,7 @@
     {
       "attack_name": "Silver dagger",
       "attacker_id": "pc-fighter",
+      "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 5,
       "defender_id": "monster-0001",
@@ -281,6 +294,7 @@
     {
       "attack_name": "Silver dagger",
       "attacker_id": "pc-fighter",
+      "back_stab": false,
       "code": "combat.attack.hit",
       "defender_ac": 5,
       "defender_id": "monster-0001",
@@ -318,6 +332,7 @@
     {
       "attack_name": "Silver dagger",
       "attacker_id": "pc-fighter",
+      "back_stab": false,
       "code": "combat.attack.hit",
       "defender_ac": 5,
       "defender_id": "monster-0001",
@@ -355,6 +370,7 @@
     {
       "attack_name": "Silver dagger",
       "attacker_id": "pc-fighter",
+      "back_stab": false,
       "code": "combat.attack.hit",
       "defender_ac": 5,
       "defender_id": "monster-0001",

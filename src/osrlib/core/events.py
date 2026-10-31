@@ -340,6 +340,16 @@ class AttackRolledEvent(Event):
     A natural 20 always hits and a natural 1 always misses. This field is set only when that rule changed the
     outcome: a 20 whose total was below `required`, or a 1 whose total reached it."""
 
+    back_stab: bool = False
+    """True when the attack was a thief's back-stab, so your game can say so.
+
+    [`attack_roll`][osrlib.core.combat.attack_roll] sets it when the attack's
+    [`AttackContext`][osrlib.core.combat.AttackContext] sets both `behind_target` and `target_unaware`, and the
+    attacker's class has the `back_stab` ability. The back-stab's bonus to hit is part of `modifier`, and the damage
+    that follows is doubled. It's true on an automatic hit too, because the damage still doubles. A
+    [`GameSession`][osrlib.crawl.session.GameSession] makes that attack for a member who declares
+    [`BattleDeclaration.back_stab`][osrlib.crawl.commands.BattleDeclaration.back_stab]."""
+
 
 class DamageDealtEvent(Event):
     """Damage dealt to a creature.

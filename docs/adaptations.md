@@ -1086,6 +1086,21 @@ A wand, staff, or rod use and a turning get the same re-check ([#145](https://gi
 
 Each battle round advances the clock one round through the ledger. Locked by `test_battle.py`, the formation moves by `test_battle.py::TestAFormationMoveNeedsEveryDeclarer`, a member's own withdrawal by `test_single_withdrawal.py`, and the re-check by `test_battle.py::TestTheMagicPhaseRechecksADeclaration` and, for devices and turnings, `test_weapon_default_and_device_recheck.py` and `test_turning_and_staff.py`.
 
+### A back-stab needs monsters the party surprised
+
+A thief back-stabs in battle only in the free round the party gets by surprising the monsters. The OSE SRD's thief entry says "When attacking an unaware opponent from behind, a thief receives a +4 bonus to hit and doubles any damage dealt." osrlib has no facing in battle: the range track gives each group a distance from the party and no position, so no attack comes from behind by geometry. osrlib reads "an unaware opponent from behind" as a monster the party surprised, in the round it can't act. A surprised monster hasn't noticed the party, so it isn't facing the attacker.
+
+- A member declares a back-stab by setting `BattleDeclaration.back_stab` on an `attack`. The session accepts it only when `BattleState.monsters_hold_rounds` is above zero as it accepts the round, which is the party's free round. Every attack roll the declaration makes that round is a back-stab, even when the monsters win initiative and their held turn passes first.
+- The attack has to be a melee attack, because a back-stab is a strike from behind. A missile weapon, or a dagger thrown at a group farther away than 5', doesn't qualify.
+- The member's class needs the `back_stab` ability. Its params give the +4 to hit and the ×2 damage multiplier. The attack ignores the defender's shield, as the kernel does for any attack from behind (see [the damage pipeline order](#the-damage-pipeline-order)).
+- The kernel marks the attack with `AttackRolledEvent.back_stab`, on an automatic hit too, so a game can say so.
+
+The session refuses a back-stab with the first of these that applies: `battle.declaration.back_stab_not_attack`, `battle.declaration.back_stab_no_ability`, `battle.declaration.back_stab_target_aware`, the attack's group and weapon checks, `battle.declaration.back_stab_not_melee`, and then the melee checks. A refused round costs nothing, like any refused round.
+
+osrlib doesn't record whether a thief is hidden, so a back-stab after a successful hide in shadows or move silently roll isn't available ([#208](https://github.com/mmacy/osrlib-python/issues/208)). A game that rules a monster unaware for another reason can call the kernel itself with `AttackContext(behind_target=True, target_unaware=True)`.
+
+Locked by `test_back_stab.py`.
+
 ### Spell effect consumption in battle
 
 Battle reads these spells and conditions on each combatant:

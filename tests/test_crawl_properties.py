@@ -235,6 +235,7 @@ def command_strategy(*, include_pending: bool = False):
                 spell_mode=st.sampled_from([None, "hd_budget", "damage"]),
                 move=st.sampled_from([None, "close", "fighting_withdrawal", "retreat"]),
                 item_id=st.sampled_from([None, "holy_water"]),
+                back_stab=st.booleans(),
             )
             samples.append(st.builds(command_class, declarations=st.tuples(declaration)))
             continue
