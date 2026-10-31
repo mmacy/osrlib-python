@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- [`RemoveMember`][osrlib.crawl.commands.RemoveMember] without `give_to` now refuses to remove a member who carries an item the adventure depends on, so the party can't lose a quest item by dropping the member who held it. The adventure depends on an item when a gate on a door or transition, a trigger that can still fire, or any clause of a quest that isn't completed names its catalog id. The session refuses with `party.remove.carries_quest_item`, and the rejection's `character` and `item` params give the member and the item. Name a member in `give_to` and the item moves to them, so the removal goes through.
+
 ## [2.2.0] - 2026-10-30
 
 ### Added
