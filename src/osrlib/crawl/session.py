@@ -184,8 +184,10 @@ from osrlib.crawl.events import (
     TriggerFiredEvent,
     XpAwardedEvent,
 )
+from osrlib.crawl.gates import ConditionSpec, HasItemCondition
 from osrlib.crawl.party import Party, _anyone_standing, _stands
 from osrlib.crawl.quests import ObjectiveSpec, QuestSpec
+from osrlib.crawl.triggers import ItemAcquiredPattern, TriggerPattern
 from osrlib.data import load_equipment, load_magic_items, load_monsters
 from osrlib.errors import ContentValidationError
 from osrlib.versioning import SCHEMA_VERSION, engine_version
@@ -2312,6 +2314,19 @@ def _handle_remove_member(session: GameSession, command: RemoveMember) -> tuple[
             return [Rejection(code="session.command.member_incapacitated", params={"character": command.give_to})], []
     if not any(_stands(other) for other in session.party.members if other is not member):
         return [Rejection(code="party.remove.last_standing", params={"character": command.character_id})], []
+    if recipient is None:
+        needed = _quest_item_ids(session)
+        for instance in member.inventory.all_instances():
+            if instance.quantity < 1:
+                continue
+            item_id = instance.template_id if isinstance(instance, MagicItemInstance) else instance.template.id
+            if item_id in needed:
+                return [
+                    Rejection(
+                        code="party.remove.carries_quest_item",
+                        params={"character": command.character_id, "item": item_id},
+                    )
+                ], []
     member_id = _member_id(member)
     events: list[Event] = []
     if recipient is not None:
@@ -2332,6 +2347,48 @@ def _handle_remove_member(session: GameSession, command: RemoveMember) -> tuple[
     _retire_member_id(session, member_id)
     events.append(MemberRemovedEvent(character_id=member_id, name=member.name, given_to=command.give_to))
     return [], events
+
+
+def _quest_item_ids(session: GameSession) -> set[str]:
+    """Return the catalog id of every item the adventure still depends on.
+
+    An item counts when a `HasItemCondition` or an `ItemAcquiredPattern` names it in a door or
+    transition gate, in a trigger that can still fire, or in any clause of a quest that isn't
+    completed. A trigger that has fired and isn't repeatable can't matter again, and neither can
+    a completed quest. A gate always counts, because the party can come back to it.
+    """
+    adventure = session.adventure
+    clauses: list[tuple[TriggerPattern, tuple[ConditionSpec, ...]]] = []
+    conditions: list[ConditionSpec] = []
+    for dungeon in adventure.dungeons:
+        for level in dungeon.levels:
+            conditions.extend(
+                edge.door.requires.condition
+                for edge in level.edges.values()
+                if edge.door is not None and edge.door.requires is not None
+            )
+            conditions.extend(
+                transition.requires.condition for transition in level.transitions if transition.requires is not None
+            )
+    for trigger in adventure.triggers:
+        if trigger.repeatable or trigger.id not in session.fired_triggers:
+            clauses.append((trigger.when, trigger.conditions))
+    for quest in adventure.quests:
+        if session.quests[quest.id].status == "completed":
+            continue
+        if quest.activation is not None:
+            clauses.append((quest.activation.pattern, quest.activation.conditions))
+        for objective in quest.objectives:
+            clauses.append((objective.when.pattern, objective.when.conditions))
+            if objective.reveal_when is not None:
+                clauses.append((objective.reveal_when.pattern, objective.reveal_when.conditions))
+    item_ids: set[str] = set()
+    for pattern, clause_conditions in clauses:
+        if isinstance(pattern, ItemAcquiredPattern):
+            item_ids.add(pattern.item_id)
+        conditions.extend(clause_conditions)
+    item_ids.update(condition.item_id for condition in conditions if isinstance(condition, HasItemCondition))
+    return item_ids
 
 
 def _hand_over_everything(session: GameSession, giver: Character, recipient: Character) -> list[Event]:
