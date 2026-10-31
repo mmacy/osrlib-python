@@ -34,6 +34,20 @@ Each entry also cites the source files and test names that lock it. Those citati
 - **`manual` ability** - A [`MonsterAbility`][osrlib.core.monsters.MonsterAbility] marked `manual` is text for the referee to read and act on. osrlib doesn't apply it.
 - **Gate** - A condition something has to pass. An immunity gate on a monster lets damage through only from the sources it lists, like silver or magic weapons.
 - **Destructive death** - A death from a source that also destroys what the victim carries, like a lightning bolt or a breath weapon.
+- **THAC0** - The attack roll a creature needs to hit AC 0. The roll it needs against another AC comes from THAC0 and that AC.
+- **Mode** - A named variant. A spell's mode is one of the ways it can be cast, like *sleep*'s two. The attack matrix mode is the printed table, as opposed to the `thac0_arithmetic` formula.
+- **Key** - A label on damage, like `fire`, `silver`, `magic`, or `holy`. A gate's keys are the labels it lets through.
+- **Quality tags** - Labels on a weapon in the equipment data, like melee, missile, blunt, brace, charge, reload, and slow, which rules read.
+- **Round boundary** - The moment one round ends and the next begins, when the ledger resolves expirations and ticks.
+- **Attach and release** - The ledger attaches an effect when it starts on a creature, item, or cell, and releases it when something cuts it short, like *dispel magic* or a light put out.
+- **Override** - A correction to the SRD data, in a file under `tools/srd_compile/overrides/`, that the compiler applies with a reason for each entry.
+- **Surprise and free round** - When an encounter opens, each side may be surprised. A surprised side loses its first round, which is the other side's free round.
+- **Onset** - For a poison, the delay before it kills.
+- **Footprint** - How many creatures an area effect catches. See [The area footprint](#the-area-footprint).
+- **Purse** - A character's coins, a [`CoinPurse`][osrlib.core.items.CoinPurse].
+- **Hoard** - A pile of treasure the engine generates, like the treasure in a monster's lair.
+- **Compiler** - The build step in `tools/srd_compile/` that turns the SRD's pages into osrlib's data files.
+- **Replay** - Running a saved command log again from the same seed, as [`replay_game`][osrlib.persistence.replay_game] does, which reaches the same state.
 - **Clamp** - To keep a value inside a range: a value below the range becomes the lowest value, and one above it becomes the highest.
 
 ## Interpretations
@@ -322,13 +336,13 @@ Locked by `test_petrified_party.py`.
 
 ### The canonical tick order
 
-At each round boundary, the ledger resolves expirations before ticks, the periodic steps of effects like a poison that deals damage each round. Effects due at the same moment resolve in the order they were attached, with ties broken by effect id.
+At each round boundary, the ledger resolves expirations before ticks, the periodic steps of effects like a troll's regeneration, which heals each round. Effects due at the same moment resolve in the order they were attached, with ties broken by effect id.
 
 Only the effects engine writes creature conditions, except `dead`, which the kernel's death routine writes. Locked by `test_effects.py::TestLedger`.
 
 ### Troll damage splits into regenerable and non-regenerable ledgers
 
-A troll keeps fire and acid damage apart from its other damage, in a separate total on the instance, `nonregen_damage`. Regeneration never heals that total. (These totals aren't the effects ledger.)
+The ledgers in this heading are two damage totals, not the effects ledger: a troll keeps fire and acid damage apart from its other damage, in a separate total on the instance, `nonregen_damage`. Regeneration never heals that total.
 
 - A troll is permanently dead only when its fire and acid total alone reaches its maximum hit points.
 - Otherwise, a troll that dies at 0 hp revives 2d6 rounds later, counted from the round of the killing damage, and rises with 1 hp. The 2d6 is rolled on the effects stream.
@@ -669,7 +683,7 @@ The column belongs to the kind of monster, because the SRD compares the roll "ag
 
 A turning takes two kinds of 2d6 roll:
 
-1. The turn roll. The engine rolls 2d6 for each candidate *type* of monster and compares it with that type's cell on the turning table. A number in the cell succeeds when the roll meets it. `T` always succeeds, and `D` succeeds and destroys the monsters.
+1. The turn roll. The engine rolls 2d6 for each candidate *type* of monster and compares it with that type's table entry on the turning table. A number in the entry succeeds when the roll meets it. `T` always succeeds, and `D` succeeds and destroys the monsters.
 2. The pool roll. On any success, the engine rolls 2d6 once, for the total Hit Dice the turning affects.
 
 The pool spends its Hit Dice like this:
@@ -679,7 +693,7 @@ The pool spends its Hit Dice like this:
 - The pool stops at the first monster it can't afford, because RAW says excess Hit Dice "are wasted", not reallocated.
 - A success always affects at least one undead. osrlib picks the cheapest eligible monster.
 
-A monster whose cell is `D` is destroyed permanently. Every other affected monster gains the `turned` condition, which has no set duration and can't be dispelled, and the encounter releases it when it ends. A turned monster attacks no one and runs from the battle if it can (see [The default action policy and morale](#the-default-action-policy-and-morale)). Only monsters in the `undead` category are candidates, and any other monster is unaffected.
+A monster whose table entry is `D` is destroyed permanently. Every other affected monster gains the `turned` condition, which has no set duration and can't be dispelled, and the encounter releases it when it ends. A turned monster attacks no one and runs from the battle if it can (see [The default action policy and morale](#the-default-action-policy-and-morale)). Only monsters in the `undead` category are candidates, and any other monster is unaffected.
 
 In a session, a turning's candidates are the living monsters of the encounter's groups that haven't fled. The candidate order is the encounter's group order, then each group's monster order, both in battle and before it. A monster killed earlier in the round or the encounter doesn't make its type a candidate, and nor does one whose group left the battle. The reason is the SRD's "At least one undead monster will always be affected on a successful turning". That can't hold for a type with no monster left to affect. Locked by `test_turning.py`, `test_spell_properties.py`, and `test_turning_and_staff.py`.
 
@@ -748,7 +762,7 @@ Every exploration command has a fixed cost in game time. A round is 10 seconds a
 | `PurchaseEquipment` | None, because time in town is abstract. |
 | Every referee command | None |
 | `CastSpell` and `TurnUndead` outside battle | One round |
-| `LightSource` | One round, and one round for each tinder attempt, RAW |
+| `LightSource` | One round, whether it lights or not. Each command makes at most one tinder attempt, RAW |
 | `Search`, `InspectTreasure`, `Rest(turn)` | One turn |
 | `RemoveTreasureTrap` | One turn, osrlib's choice of a symmetric cost, where RAW is silent |
 | `PickLock` | One turn, osrlib's choice, where RAW is silent and the skill is delicate work |
@@ -1090,7 +1104,7 @@ Locked by `test_battle.py::TestEffectConsumption`.
 
 An area effect aimed at a monster group affects as many of the group as its shape covers. osrlib works that out from the shape's size, because the combat space is an abstract range track, not a map. The SRD leaves this to the referee, so it's a documented adaptation.
 
-- An area holds `ceil(span / 10) × width` creatures. The span is how far the shape reaches into the group, counted in 10' ranks.
+- An area holds `ceil(span / 10) × width` creatures. The span is how far the shape reaches into the group, counted as one rank of creatures for every 10', a cell's depth. That's a different measure from the 5' between the party's ranks that a member who withdraws alone has to cover (see [A member who withdraws alone](#a-member-who-withdraws-alone)), and the code keeps the two separate.
 - A radius shape spans its diameter, because a circle reaches twice its radius across. Lines, cubes, and clouds span their length. A cone spans its length minus the group's distance, because a cone starts at the caster.
 - The width is the formation width, the same measure of the space that sets the party's rank width, because the monsters fight in the same space. With `formation_width_limit` off, the width has no limit.
 - For example, a *fire ball* has a 20' radius, so it spans 40'. In a 10' corridor, where the width is 2, it catches ceil(40 / 10) × 2 = 8 monsters. A cone 60' long, aimed at a group 30' away, spans 30', so in the same corridor it catches 6.
@@ -1174,7 +1188,15 @@ When a monster's attack hits in battle, the session applies each effect the atta
 
 The effects apply once for each hit, so a target hit by two paralysing claws saves twice. A dead or petrified target takes none of these effects.
 
-B/X has five saving throw categories: death, which covers poison, wands, paralysis, which covers petrification, breath, and spells. The saves work like this:
+B/X has five saving throw categories:
+
+- Death, which covers poison.
+- Wands.
+- Paralysis, which covers petrification.
+- Breath.
+- Spells.
+
+The saves work like this:
 
 - The target saves versus paralysis against paralysis and petrification.
 - The target saves versus death, with the ability's modifier, against poison. A failed save against poison kills at once, or when the poison's onset runs out.
@@ -1188,16 +1210,16 @@ The basilisk and the medusa have a petrifying gaze. The session runs it through 
 The SRD's basilisk says "Unless averting eyes or using a mirror, characters in melee are affected each round". So a member's `BattleDeclaration` can set `gaze_defense` to `avert_eyes` or `mirror` for one round, alongside any action:
 
 - **`avert_eyes`** - the member has the `averted_eyes` condition from the moment the round is accepted until it ends, and `resolve_gaze` spares them. The basilisk's and the medusa's entries give the cost: "-4 penalty to-hit; the basilisk gains a +2 bonus to attack". The −4 applies to every attack roll the member makes that round, whatever it's aimed at, because the SRD gives it without naming a target. The +2 applies only to a gazer's attacks on the member, because the SRD names the gazer for it.
-- **`mirror`** - the gaze spares the member too, and every attack roll they make that round takes the −1 that the basilisk's entry gives for "Fighting by looking in a mirror". No monster gains a bonus against them. The SRD's equipment list has the mirror, "Useful for looking around corners or for reflecting a gaze attack", so the member has to carry one. The session refuses a `mirror` stance from a member who doesn't carry a mirror with `battle.declaration.no_mirror`.
+- **`mirror`** - the gaze spares the member too, and every attack roll they make that round takes the −1 that the basilisk's entry gives for "Fighting by looking in a mirror". No monster gains a bonus against them. The SRD's equipment list has the mirror, "Useful for looking around corners or for reflecting a gaze attack", so the member has to carry one. The session refuses a `mirror` defense from a member who doesn't carry a mirror with `battle.declaration.no_mirror`.
 
-Neither stance draws anything or emits a separate event, so a round with no stance draws the same dice it would if stances didn't exist. A back-rank member is out of the gaze's reach and needs no stance. A member who can't act, and so doesn't declare, is already spared by `resolve_gaze`.
+Neither defense draws anything or emits a separate event, so a round with no defense draws the same dice it would if gaze defenses didn't exist. A back-rank member is out of the gaze's reach and needs no defense. A member who can't act, and so doesn't declare, is already spared by `resolve_gaze`.
 
 The basilisk's entry also says "Characters surprised by a basilisk meet its gaze". osrlib applies that once, as the encounter opens:
 
 - When a basilisk surprises the party, every living member, back rank included, meets its gaze, at whatever distance the encounter opened.
 - The gaze comes whatever the basilisk's stance, so it comes even in an encounter that never becomes a battle.
 - It also comes when the basilisk is surprised too, because the clause is about the characters and a gaze takes no action.
-- The party declares nothing before the encounter opens, so no gaze stance can spare a member from it.
+- The party declares nothing before the encounter opens, so no gaze defense can spare a member from it.
 - A battle that opens from that encounter brings no second surprise gaze. If the battle opens at once with the monsters' free round, the basilisk doesn't gaze again in that round, so a member at 5' meets its gaze once that round. A battle that opens later gazes at the front rank in each round the basilisk is in melee, as any battle does.
 - A basilisk that joins an encounter already open, like one a referee spawns into it, surprised no one. So it doesn't gaze at the party as it joins, even when the party was surprised as the encounter opened.
 
@@ -1332,7 +1354,7 @@ When the party returns to town, it gets XP for the treasure it brought back: the
 - The award clears the record of defeated monsters and the snapshot.
 - Selling in town after the award changes nothing.
 
-For maintainers: there's no ledger of recovered treasure. Schema version 2 removed it, and the migration drops the field from version-1 saves. Locked by `test_award.py` and `test_persistence.py`.
+For maintainers: there's no separate record of recovered treasure. Schema version 2 removed it, and the migration drops the field from version-1 saves. Locked by `test_award.py` and `test_persistence.py`.
 
 ### Treasure weight covers coins, valuables, and the five priced magic categories
 
@@ -1346,7 +1368,7 @@ For maintainers: there's no ledger of recovered treasure. Schema version 2 remov
 
 A property test checks the weight against a direct formula. Locked by `test_items.py` and the closed-form property in `test_crawl_properties.py`.
 
-### The magic item catalog: 164 templates, automated mechanics, and manual prose
+### The magic item catalog: automated mechanics and manual prose
 
 The compiler builds every item on the printed sub-tables, with both the B and X probability columns. The sparse basic column compiles as printed.
 
