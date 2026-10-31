@@ -507,8 +507,8 @@ class MoveParty(Command):
         on the level the party left, the `PartyMovedEvent` for the landing cell, and the
         landing cell's events.
 
-        When the step's movement completes a turn on the game clock, the turn's
-        bookkeeping follows:
+        When the step's movement completes a turn on the game clock, the events of that turn
+        follow:
         [`EffectExpiredEvent`][osrlib.core.events.EffectExpiredEvent] with a
         [`LightEvent`][osrlib.crawl.events.LightEvent] for a light burning out,
         [`FatigueEvent`][osrlib.crawl.events.FatigueEvent] when the fatigue penalty starts or ends,
@@ -531,7 +531,7 @@ class MoveParty(Command):
 
 
 class TurnParty(Command):
-    """Turn the party in place to a new facing (zero time).
+    """Turn the party in place to a new facing (takes no game time).
 
     The party must already be in a dungeon (see
     [`EnterDungeon`][osrlib.crawl.commands.EnterDungeon]). A turn never fails once the
@@ -600,7 +600,7 @@ class ReorderParty(Command):
 
 
 class OpenDoor(Command):
-    """Open an unstuck, unlocked door on one side of the party's cell (zero time).
+    """Open an unstuck, unlocked door on one side of the party's cell (takes no game time).
 
     The party must be exploring a dungeon (see
     [`EnterDungeon`][osrlib.crawl.commands.EnterDungeon]). A closed door blocks
@@ -696,7 +696,7 @@ class OpenDoor(Command):
 
 
 class CloseDoor(Command):
-    """Close an open door on one side of the party's cell (zero time).
+    """Close an open door on one side of the party's cell (takes no game time).
 
     The party must be exploring a dungeon (see
     [`EnterDungeon`][osrlib.crawl.commands.EnterDungeon]). You rarely need this command,
@@ -728,7 +728,7 @@ class CloseDoor(Command):
 
 
 class ForceDoor(Command):
-    """Force a stuck door open with one member's STR-based open-doors roll (zero time).
+    """Force a stuck door open with one member's STR-based open-doors roll (takes no game time).
 
     The party must be exploring a dungeon (see
     [`EnterDungeon`][osrlib.crawl.commands.EnterDungeon]). Every attempt makes noise, so
@@ -783,7 +783,7 @@ class ForceDoor(Command):
 
 
 class WedgeDoor(Command):
-    """Wedge a door with an iron spike so it can't swing shut or be closed (zero time).
+    """Wedge a door with an iron spike so it can't swing shut or be closed (takes no game time).
 
     The party must be exploring a dungeon (see
     [`EnterDungeon`][osrlib.crawl.commands.EnterDungeon]). The spike comes from the first
@@ -817,7 +817,7 @@ class WedgeDoor(Command):
 
 
 class ListenAtDoor(Command):
-    """Listen at a door for noise from the area beyond it (zero time).
+    """Listen at a door for noise from the area beyond it (takes no game time).
 
     The party must be exploring a dungeon (see
     [`EnterDungeon`][osrlib.crawl.commands.EnterDungeon]). The listener needs light, or
@@ -888,8 +888,8 @@ class PickLock(Command):
     Events:
         [`DetectionRolledEvent`][osrlib.crawl.events.DetectionRolledEvent] with the
         skill roll and, on success, a [`DoorEvent`][osrlib.crawl.events.DoorEvent]
-        with code `exploration.door.unlocked`. The attempt costs one turn, and the turn's
-        bookkeeping follows: light burning down, the fatigue rule, and the wandering-monster
+        with code `exploration.door.unlocked`. The attempt costs one turn, and the events of
+        that turn follow: light burning down, the fatigue rule, and the wandering-monster
         check, each with its usual events.
     """
 
@@ -1186,13 +1186,13 @@ class TakeTreasure(Command):
     [`PlayerView.piles`][osrlib.crawl.views.PlayerView.piles] lists by cell reference. The session
     refuses a cache that's already emptied with `exploration.feature.emptied`."""
     recipient_id: str | None = None
-    """One member to take the whole haul, by
+    """One member to take all the goods, by
     [`MemberView.id`][osrlib.crawl.views.MemberView.id], or `None` to spread it across the
     living members. The named member fills their pack up to their maximum load, and the rest
     stays on the cell. Name a recipient to keep a specific item with a specific member. The
-    named member is also the one who reaches in, so a trap that hasn't been removed springs
-    on them. If that trap leaves them unable to act, the haul spreads across the living
-    members instead."""
+    named member is also the one who reaches into the cache, so a trap that hasn't been
+    removed springs on them. If that trap leaves them unable to act, the goods spread across
+    the living members instead."""
 
 
 class DropItems(Command):
@@ -1204,10 +1204,10 @@ class DropItems(Command):
 
     During an encounter, the drop uses up the encounter round, and the monsters then act on
     their reaction to the party, as for a [`Wait`][osrlib.crawl.commands.Wait]. While
-    monsters chase the party after an
+    monsters pursue the party after an
     [`Evade`][osrlib.crawl.commands.Evade], dropped goods scatter behind the party instead of
     landing in a pile, and can't be picked back up. Dropped coins tempt intelligent pursuers
-    and dropped rations tempt unintelligent ones, which can end the chase.
+    and dropped rations tempt unintelligent ones, which can end the pursuit.
 
     Modes:
         `exploring`, `encounter`
@@ -1226,7 +1226,7 @@ class DropItems(Command):
 
     Events:
         [`ItemsDroppedEvent`][osrlib.crawl.events.ItemsDroppedEvent] with what
-        was dropped. In an encounter, the encounter round's events follow. During a chase,
+        was dropped. In an encounter, the encounter round's events follow. During a pursuit,
         a [`PursuitEvent`][osrlib.crawl.events.PursuitEvent] round follows instead, with
         the drop as bait.
     """
@@ -1251,7 +1251,7 @@ class DropItems(Command):
 
 
 class GiveItems(Command):
-    """Hand items and coins from one party member to another (zero time).
+    """Hand items and coins from one party member to another (takes no game time).
 
     Use it to spread the load across the party, or to put an item in the hands of the
     member who can use it. `character_id` is the giver, and `recipient_id` is the member
@@ -1300,8 +1300,8 @@ class GiveItems(Command):
     in the recipient's pack."""
     coins: Coins = Coins()
     """Coins to hand over, by denomination. The default hands over none. Coins move from the
-    giver's purse to the recipient's, which is how a party evens out the weight after a big
-    haul."""
+    giver's purse to the recipient's, which is how a party evens out the weight after it takes
+    a lot of treasure."""
 
 
 class LightSource(Command):
@@ -1353,7 +1353,7 @@ class LightSource(Command):
 
 
 class ExtinguishSource(Command):
-    """Put out every torch and lantern one member has burning (zero time).
+    """Put out every torch and lantern one member has burning (takes no game time).
 
     It's legal in town and while exploring. The remaining burn time is lost. A doused torch
     is gone, and a doused lantern's oil is gone too, so lighting it again with
@@ -1387,7 +1387,7 @@ class ExtinguishSource(Command):
 
 
 class EquipItem(Command):
-    """Equip an item from a member's pack: wear armour or a ring, or wield a weapon (zero time).
+    """Equip an item from a member's pack: wear armour or a ring, or wield a weapon (takes no game time).
 
     It's legal in town and while exploring. A weapon has to be equipped before a member can
     attack with it in battle. The session checks the member's class rules for armour and
@@ -1439,7 +1439,7 @@ class EquipItem(Command):
 
 
 class UnequipItem(Command):
-    """Take off or put away an equipped item, returning it to the member's pack (zero time).
+    """Take off or put away an equipped item, returning it to the member's pack (takes no game time).
 
     It's legal in town and while exploring. A cursed item whose curse has been revealed
     can't be taken off until a *remove curse* lifts the curse, from a caster or from the
@@ -1939,8 +1939,8 @@ class UseStairs(Command):
         [`ReactionRolledEvent`][osrlib.core.events.ReactionRolledEvent],
         [`StanceChangedEvent`][osrlib.crawl.events.StanceChangedEvent], and
         [`BattleStartedEvent`][osrlib.crawl.events.BattleStartedEvent] when the monsters
-        attack). When the movement completes a turn on the game clock, the turn's
-        bookkeeping follows, as it does for a step.
+        attack). When the movement completes a turn on the game clock, the events of that
+        turn follow, as they do for a step.
     """
 
     allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.EXPLORING})
@@ -1966,7 +1966,7 @@ class EnterDungeon(Command):
           the dungeon has no level with an entrance.
 
     Events:
-        First, the bookkeeping for the travel time:
+        First, the events of the travel time passing:
         [`EffectExpiredEvent`][osrlib.core.events.EffectExpiredEvent] with a
         [`LightEvent`][osrlib.crawl.events.LightEvent] for a light burning out, and
         [`ProvisionsEvent`][osrlib.crawl.events.ProvisionsEvent] on a day boundary.
@@ -2018,7 +2018,7 @@ class TravelToTown(Command):
 
     Events:
         [`DoorEvent`][osrlib.crawl.events.DoorEvent]s for the doors swinging shut, the
-        bookkeeping for the travel time, then
+        events of the travel time passing, then
         [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] for
         town. Under the on-return XP timing, an
         [`AdventureXpAwardEvent`][osrlib.crawl.events.AdventureXpAwardEvent] and an
@@ -2033,7 +2033,7 @@ class TravelToTown(Command):
 
 
 class PurchaseEquipment(Command):
-    """Buy equipment in town for one member, one purchase lot for each `item_ids` entry (zero time).
+    """Buy equipment in town for one member, one purchase lot for each `item_ids` entry (takes no game time).
 
     The party must be in town. The session adds up the price of every entry first, and if
     the member can't afford the total, nothing is bought. The shop stocks only the built-in
@@ -2111,7 +2111,7 @@ class PurchaseEquipment(Command):
 
 
 class SellTreasure(Command):
-    """Sell gems and jewellery in town at their full value (zero time).
+    """Sell gems and jewellery in town at their full value (takes no game time).
 
     The party must be in town. Each entry is a valuable's instance id, and the
     gold goes into the purse of the member who carries it. A valuable sells for its full
@@ -2163,7 +2163,7 @@ checker catches a wrong name."""
 
 
 class PurchaseHealing(Command):
-    """Buy a temple healing service in town (no game time passes).
+    """Buy a temple healing service in town (takes no game time).
 
     The party must be in town. Name the patient in `character_id` and the service in `service`.
     The OSE SRD describes the base town in prose and lists no temple prices, so osrlib sets
@@ -2238,8 +2238,8 @@ class Parley(Command):
         - `session.command.wrong_mode` - no encounter is open.
         - `encounter.none_active` - a second check behind the mode gate, which normal
           play never reaches.
-        - `encounter.parley.mid_pursuit` - the monsters are chasing the party, and
-          nobody can talk during a chase.
+        - `encounter.parley.mid_pursuit` - the monsters are pursuing the party, and
+          nobody can talk during a pursuit.
         - `session.command.unknown_member` - `character_id` matches no party member.
         - `session.command.member_incapacitated` - the speaker can't act.
 
@@ -2264,9 +2264,9 @@ class Parley(Command):
 class Evade(Command):
     """Run from the encounter before a battle starts.
 
-    An encounter must be open. Monsters whose stance is `attacks` or `hostile` chase the
-    party, if any of them can move. The party gets away at once when no monster chases it,
-    or when it runs faster than the slowest monster that chases it. Otherwise a chase
+    An encounter must be open. Monsters whose stance is `attacks` or `hostile` pursue the
+    party, if any of them can move. The party gets away at once when no monster pursues it,
+    or when it runs faster than the slowest monster that pursues it. Otherwise a pursuit
     starts, and each [`Wait`][osrlib.crawl.commands.Wait] or
     [`DropItems`][osrlib.crawl.commands.DropItems] runs one round of it. `drop` scatters
     bait as the party runs: coins tempt intelligent monsters, and food tempts unintelligent
@@ -2280,7 +2280,7 @@ class Evade(Command):
         - `session.command.wrong_mode` - no encounter is open.
         - `encounter.none_active` - a second check behind the mode gate, which normal
           play never reaches.
-        - `encounter.evade.already_evading` - a chase is already running.
+        - `encounter.evade.already_evading` - a pursuit is already running.
         - `encounter.evade.nothing_to_drop` - no living member has coins (for
           `treasure`) or rations (for `food`) to scatter.
 
@@ -2288,8 +2288,8 @@ class Evade(Command):
         [`ItemsDroppedEvent`][osrlib.crawl.events.ItemsDroppedEvent]s for the scattered
         bait, then an [`EvasionEvent`][osrlib.crawl.events.EvasionEvent] with code
         `encounter.evasion.succeeded`, which ends the encounter, or
-        `encounter.evasion.pursuit`, which starts a chase, and the chase's first
-        [`PursuitEvent`][osrlib.crawl.events.PursuitEvent] round. A chase ends when the
+        `encounter.evasion.pursuit`, which starts a pursuit, and the pursuit's first
+        [`PursuitEvent`][osrlib.crawl.events.PursuitEvent] round. A pursuit ends when the
         party escapes, when it exhausts the party at the round limit
         ([`ExhaustionEvent`][osrlib.crawl.events.ExhaustionEvent], with an
         [`EffectAttachedEvent`][osrlib.core.events.EffectAttachedEvent] and a
@@ -2300,14 +2300,14 @@ class Evade(Command):
         When the encounter ends, the session emits an
         [`EncounterEndedEvent`][osrlib.crawl.events.EncounterEndedEvent], a
         [`MonsterDefeatedEvent`][osrlib.crawl.events.MonsterDefeatedEvent] for each
-        monster killed or routed,
+        monster killed or driven off,
         [`EffectReleasedEvent`][osrlib.core.events.EffectReleasedEvent]s for the
         effects that end with it, and, under the immediate XP timing,
         [`XpAwardedEvent`][osrlib.crawl.events.XpAwardedEvent] and
         [`CharacterLeveledUpEvent`][osrlib.crawl.events.CharacterLeveledUpEvent].
         The clock then advances by the time the encounter took, with the usual
         [`LightEvent`][osrlib.crawl.events.LightEvent] and
-        [`ProvisionsEvent`][osrlib.crawl.events.ProvisionsEvent] bookkeeping.
+        [`ProvisionsEvent`][osrlib.crawl.events.ProvisionsEvent] events for that time.
     """
 
     allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.ENCOUNTER})
@@ -2318,7 +2318,7 @@ class Evade(Command):
     purse onto the trail, where the coins are lost, and tempts intelligent monsters to stop
     for them. `food` drops one ration from each living member who carries one, and tempts
     unintelligent monsters. `none`, the default, drops nothing. The bait is dropped even when
-    the party gets away at once, but it has an effect only during a chase. When nobody has anything
+    the party gets away at once, but it has an effect only during a pursuit. When nobody has anything
     of that kind to drop, the session refuses the command with
     `encounter.evade.nothing_to_drop`, and the party doesn't run."""
 
@@ -2331,7 +2331,7 @@ class EngageBattle(Command):
     [`TurnUndead`][osrlib.crawl.commands.TurnUndead] is the one aggressive act the
     party can take in an encounter without starting a battle first. When the monsters were
     surprised at the start of the encounter, the party gets a free first round. During a
-    chase, the party turns and fights at the current distance. Once the battle has
+    pursuit, the party turns and fights at the current distance. Once the battle has
     started, send one [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound] for
     each round.
 
@@ -2363,8 +2363,8 @@ class Wait(Command):
     An encounter must be open. The monsters' stance is their reaction to the party:
     `attacks`, `hostile`, `uncertain`, `indifferent`, or `friendly`. Waiting spends a round
     to see what the monsters do. Monsters whose stance is `uncertain` roll a new reaction,
-    and `hostile` monsters attack once their patience runs out. During a chase after an
-    [`Evade`][osrlib.crawl.commands.Evade], waiting runs one round of the chase instead.
+    and `hostile` monsters attack once their patience runs out. During a pursuit after an
+    [`Evade`][osrlib.crawl.commands.Evade], waiting runs one round of the pursuit instead.
 
     Modes:
         `encounter`
@@ -2380,7 +2380,7 @@ class Wait(Command):
         [`StanceChangedEvent`][osrlib.crawl.events.StanceChangedEvent] when it changes).
         Battle opens when the monsters attack, or when `hostile` monsters run out of
         patience ([`BattleStartedEvent`][osrlib.crawl.events.BattleStartedEvent]). During a
-        chase, a [`PursuitEvent`][osrlib.crawl.events.PursuitEvent] round runs
+        pursuit, a [`PursuitEvent`][osrlib.crawl.events.PursuitEvent] round runs
         instead, which can end in an
         [`ExhaustionEvent`][osrlib.crawl.events.ExhaustionEvent] at the round limit
         (with an [`EffectAttachedEvent`][osrlib.core.events.EffectAttachedEvent]
@@ -2390,7 +2390,7 @@ class Wait(Command):
         When the encounter ends, the session emits
         [`EncounterEndedEvent`][osrlib.crawl.events.EncounterEndedEvent], a
         [`MonsterDefeatedEvent`][osrlib.crawl.events.MonsterDefeatedEvent] for each
-        monster killed or routed,
+        monster killed or driven off,
         [`EffectReleasedEvent`][osrlib.core.events.EffectReleasedEvent]s, and, under
         the immediate XP timing,
         [`XpAwardedEvent`][osrlib.crawl.events.XpAwardedEvent] and
@@ -2398,7 +2398,8 @@ class Wait(Command):
         The round also brings the usual
         [`EffectExpiredEvent`][osrlib.core.events.EffectExpiredEvent],
         [`LightEvent`][osrlib.crawl.events.LightEvent], and
-        [`ProvisionsEvent`][osrlib.crawl.events.ProvisionsEvent] bookkeeping.
+        [`ProvisionsEvent`][osrlib.crawl.events.ProvisionsEvent] events for the time that
+        passes.
     """
 
     allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.ENCOUNTER})
@@ -3448,7 +3449,7 @@ class EndEncounter(Command):
     `EncounterEndedEvent` closes both. To know the fight is over, check the session's mode.
 
     The monsters keyed to an area of the adventure come back each time the party walks into
-    the area, until every one of them is slain or routed. To stop them coming back, set
+    the area, until every one of them is slain or driven off. To stop them coming back, set
     `resolve_area` to `True`, which marks the area resolved. The command is legal only while
     an encounter is open, so you can't use it to resolve an area after its encounter has
     closed.
@@ -3595,8 +3596,8 @@ class AdvanceTime(Command):
     Use it for time that passes outside the commands, like a week of travel or a
     referee's "an hour later". This command is legal in every mode, `game_over` and
     `victory` included, so the clock keeps running after the party dies. The time limits on spells
-    that bring the dead back are measured on this clock. The time passes with its
-    bookkeeping, like effects expiring and provisions eaten each day. The engine makes no
+    that bring the dead back are measured on this clock. Everything that happens with time
+    happens as usual, like effects expiring and provisions eaten each day. The engine makes no
     wandering-monster checks for it, because the referee decides on encounters, and the time
     doesn't count toward the party's rest.
 
@@ -3607,7 +3608,7 @@ class AdvanceTime(Command):
         None.
 
     Events:
-        The time's bookkeeping events: effects that expire, a
+        The events of the time passing: effects that expire, a
         [`LightEvent`][osrlib.crawl.events.LightEvent] for each light that burns out, and
         [`ProvisionsEvent`][osrlib.crawl.events.ProvisionsEvent]s. Then a
         [`TimeAdvancedEvent`][osrlib.crawl.events.TimeAdvancedEvent] with the clock's new
@@ -3636,7 +3637,7 @@ class RollDice(Command):
     never changes what any other stream draws. A malformed `expression` raises when the
     command is constructed, as a malformed `count_dice` on
     [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] does, so it never reaches the
-    session and draws nothing.
+    session and makes no random roll.
 
     Modes:
         `town`, `exploring`, `encounter`, `battle`, `game_over`, `victory`

@@ -44,7 +44,7 @@ The battle reference uses these terms:
 - A declaration **fizzles** when it fails and has no effect. That happens when the session checks
   it again just before it resolves, and it no longer passes. A fizzled cast still loses its spell,
   as a disrupted one does.
-- A **pursuit** is a chase after the party runs: the monsters follow it round by round. While one
+- A **pursuit** follows when the party runs: the monsters go after it round by round. While one
   is on, `session.encounter.pursuit` contains a
   [`PursuitState`][osrlib.crawl.encounter.PursuitState].
 - A **draw** is one random number taken from a **stream**, one of the session's named sequences
@@ -1046,8 +1046,8 @@ _PICKED_ROUTINE_USES = frozenset({RoutineUse.PRIMARY, RoutineUse.ALTERNATIVE})
 def _pick_routine(monster: MonsterInstance, stream) -> int | None:
     """Pick the routine a melee action uses, with equal chance among the monster's primary and alternative routines.
 
-    A monster with fewer than two such routines draws nothing and gets None, which resolves its first
-    routine. So the stream advances only for a monster that has a choice to make.
+    A monster with fewer than two such routines makes no random roll and gets None, which resolves its
+    first routine. So the stream advances only for a monster that has a choice to make.
     """
     candidates = [
         index for index, routine in enumerate(monster.template.attacks) if routine.use in _PICKED_ROUTINE_USES
@@ -1463,7 +1463,7 @@ def _check_ends(session, *, party_retreating: bool) -> list[Event] | None:
     """Return the end-of-battle events when a terminal state holds, else `None`.
 
     Defeat ends the battle and does nothing else. Defeat holds when no member stands,
-    which means every member is dead or petrified. The session's wipe check makes
+    which means every member is dead or petrified. The session's check for a lost party makes
     the transition to `game_over` and posts the ending event, so a party lost to a
     blade trap and a party lost to ogres end the same way.
     """
@@ -1482,7 +1482,7 @@ def _check_ends(session, *, party_retreating: bool) -> list[Event] | None:
         from osrlib.crawl.encounter import PursuitState
 
         session.battle = None
-        # Only a group still willing and able to run chases: not the broken and
+        # Only a group still willing and able to pursue: not one that failed morale and
         # not the shaken (they are fleeing themselves), and not a group whose
         # living members all lie helpless, because retreat from those succeeds.
         pursuers = [
@@ -2866,7 +2866,7 @@ def _party_magic(session, by_member, pending_casters, disrupted, acted, state) -
       instance id as `item_id`. The device spends no charge, isn't identified, emits no
       `items.device.activated`, and breaks no invisibility.
     - A fizzled turning reports a `DeclarationFizzledEvent` at `magic.turning.fizzled`, with no
-      `item_id`. It costs nothing and draws nothing.
+      `item_id`. It costs nothing and makes no random roll.
 
     Each fizzle event's `reason` is the first rejection code of the re-check. A fizzled device use or
     turning still releases the actor's concentration, as every declaration other than a cast or a hold
@@ -3353,12 +3353,12 @@ def _pursuer_full_rate(session, group) -> int:
 
 
 def _leave_helpless_behind(session, group) -> list[Event]:
-    """Split a routing group's immobile living members into a stay-behind group.
+    """Split a fleeing group's immobile living members into a stay-behind group.
 
     Fleeing is movement, and a member who cannot move cannot run. The runners keep
     the original group, its flags, and the shared group bundle they carry off
     ("routed ones flee with theirs"). The helpless become a fresh non-fleeing
-    group where the side broke, at the current distance, with their individual
+    group where the group fled from, at the current distance, with their individual
     treasure bundles still on them. Dead members also stay in the runners' group
     record, because the code that classifies the outcome and drops loot reads
     the `dead` condition before any group flag, so that code sees no change.
@@ -3391,7 +3391,7 @@ def _split_off_turned(session) -> list[Event]:
     this splits only a group that still has a living member who is neither turned nor afraid.
 
     The turned members become a new group at the same distance. Each one takes the treasure it
-    carries, because routed monsters flee with their treasure. The group's shared bundle stays with
+    carries, because monsters that flee take their treasure with them. The group's shared bundle stays with
     the members who fight on, so it drops only when they're all slain. The monster block moves the
     new group away like any wholly turned group, and leaves behind a member who can't move. The
     members who fight on stay in the original group, so its id and its registered policy don't
@@ -3834,7 +3834,7 @@ _MIRROR_ITEM_ID = "mirror"
 def _avert_eyes(by_member) -> list:
     """Give each member who declared `avert_eyes` the `averted_eyes` condition, and return those members.
 
-    The condition has no effect behind it, so the grant draws nothing, and this drops the grant's event.
+    The condition has no effect behind it, so the grant makes no random roll, and this drops its event.
     A member who already has `averted_eyes` with no effect id, which only the host game can give, isn't
     returned, so `_end_averting` leaves that condition alone.
     """
@@ -3921,8 +3921,8 @@ _HANDLERS = {
 the first time it dispatches a command, alongside the exploration, encounter, and referee maps. There
 is no registration point here: the only documented way to run a command is
 [`GameSession.execute`][osrlib.crawl.session.GameSession.execute], which picks the handler, runs the
-mode gate, and does the command log, listener, and validation-phase bookkeeping a handler alone would
-skip.
+mode gate, and records the command log, calls the listeners, and runs the validation-phase checks a
+handler alone would skip.
 
 The value takes `(session, command)` and returns a `(rejections, events)` pair. Battle has one command
 because a round is resolved as a whole: every party member declares, and the round handler runs both sides
