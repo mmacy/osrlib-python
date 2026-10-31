@@ -28,9 +28,24 @@ Locks and gates are separate layers: on a door with both, the party must open th
 
 `consumes=True` turns a `has_item` condition into a toll: each time the gated command succeeds, the engine removes one instance from the first member in marching order who has one, and reports it with [`ItemConsumedEvent`][osrlib.crawl.events.ItemConsumedEvent] just before the door or arrival event. Every success charges again, so when a door that consumes keys swings shut, opening it again takes another key. Coins are not items, so a gate can't charge them. To charge a fee, define a token as a bundled item and gate on that.
 
-A [`NarrativeBlock`][osrlib.crawl.narrative.NarrativeBlock] contains the authored text for the mechanical object it's attached to. Each text field in the block is a *beat*. The engine uses two of them for a gate: `refusal`, returned in the rejection, and `success`, which goes on the successful command's event, the [`DoorEvent`][osrlib.crawl.events.DoorEvent] for a door, the [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] for a transition that crosses into a new level or dungeon, and the [`PartyMovedEvent`][osrlib.crawl.events.PartyMovedEvent] for the landing cell of a transition whose destination is on the same level. [`format_message`][osrlib.messages.format_message] appends the beat verbatim after the event's default English line, so a front end that prints only those lines still shows it.
+A [`NarrativeBlock`][osrlib.crawl.narrative.NarrativeBlock] contains the authored text for the mechanical object it's attached to. Each text field in the block is a *beat*. The engine uses two of them for a gate. It returns `refusal` in the rejection, and it puts `success` on the successful command's event:
 
-To show the gate's `guidance` alongside its success text, a narrator maps the event back to the object the gate is attached to. A door event includes the cell and the side. A transition's arrival event includes, in `transition_ref`, the cell the transition stands on. The narrator doesn't have to work out either object from where the party is standing now. A transition within one level is the exception: its `PartyMovedEvent` has no `transition_ref`, so the narrator finds the transition from the cell the party stood on before the command. A passage stands on one side of its cell, so for a passage crossing the narrator also needs the direction of the [`MoveParty`][osrlib.crawl.commands.MoveParty], and [`LevelSpec.passage_at`][osrlib.crawl.dungeon.LevelSpec.passage_at] finds the passage from the cell and that direction. The block's other fields are `journal`, `guidance` for an LLM narrator, and `speaker`. osrlib never reads a gate's `journal` beat. To add a journal entry for a door, use [a trigger](#scripting-the-dungeon-with-triggers). The player view contains no part of a gate's narrative block and no gate setup.
+- The [`DoorEvent`][osrlib.crawl.events.DoorEvent] for a door.
+- The [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] for a transition that crosses into a new level or dungeon.
+- The [`PartyMovedEvent`][osrlib.crawl.events.PartyMovedEvent] for the landing cell of a transition whose destination is on the same level.
+
+[`format_message`][osrlib.messages.format_message] appends the beat verbatim after the event's default English line, so a front end that prints only those lines still shows it.
+
+To show the gate's `guidance` alongside its success text, a narrator maps the event back to the object the gate is attached to. What the narrator has to work with depends on the object:
+
+- A door event includes the cell and the side.
+- A transition's arrival event includes, in `transition_ref`, the cell the transition stands on.
+- A transition within one level is the exception. Its `PartyMovedEvent` has no `transition_ref`, so the narrator finds the transition from the cell the party stood on before the command.
+- A passage stands on one side of its cell, so for a passage crossing the narrator also needs the direction of the [`MoveParty`][osrlib.crawl.commands.MoveParty]. [`LevelSpec.passage_at`][osrlib.crawl.dungeon.LevelSpec.passage_at] finds the passage from the cell and that direction.
+
+For a door and an arrival, the narrator doesn't have to work out the object from where the party is standing now.
+
+The block's other fields are `journal`, `guidance` for an LLM narrator, and `speaker`. osrlib never reads a gate's `journal` beat. To add a journal entry for a door, use [a trigger](#scripting-the-dungeon-with-triggers). The player view contains no part of a gate's narrative block and no gate setup.
 
 ## Scripting the dungeon with triggers
 
@@ -82,13 +97,25 @@ The interpreter issues ordinary referee commands, and stamps every one `source="
 
 A consequence is one of the [`ConsequenceCommand`][osrlib.crawl.commands.ConsequenceCommand] types: `GrantItem`, `GrantCoins`, `RemoveItem`, `RemoveCoins`, `AwardXP`, `SetFlag`, `SpawnMonsters`, `SpawnNpcParty`, `SetDoorState`, `PlaceParty`, `AdvanceTime`, and `EndEncounter`. Anything else fails to parse. A `GrantItem` can name a magic item as well as mundane equipment, and the magic item arrives unidentified.
 
-A consequence that gives a character something or takes something away identifies the character with a selector instead of an id: [`PARTY_SELECTOR`][osrlib.crawl.triggers.PARTY_SELECTOR] (`"@party"`) becomes one command per living member in marching order, and [`FIRST_LIVING_SELECTOR`][osrlib.crawl.triggers.FIRST_LIVING_SELECTOR] (`"@first"`) becomes one command for the lead survivor. A `RemoveItem` can also use [`CARRIER_SELECTOR`][osrlib.crawl.triggers.CARRIER_SELECTOR] (`"@carrier"`), which becomes one command for the first living member in marching order who carries the item. Use it for an offering left on an altar, when you can't know who carries it. Character ids are allocated per session, so an id in a document would refer to a character that doesn't exist when the engine reads the document. Validation rejects it. A `SpawnMonsters` consequence issued while an encounter is open adds its monsters to that encounter, so a trigger on a keyed area can bring reinforcements to the monsters already there.
+A consequence that gives a character something or takes something away identifies the character with a selector, not an id. Character ids are allocated per session, so an id in a document would refer to a character that doesn't exist when the engine reads the document. Validation rejects it. The selectors are:
+
+- [`PARTY_SELECTOR`][osrlib.crawl.triggers.PARTY_SELECTOR] (`"@party"`), which becomes one command for each living member, in marching order.
+- [`FIRST_LIVING_SELECTOR`][osrlib.crawl.triggers.FIRST_LIVING_SELECTOR] (`"@first"`), which becomes one command for the lead survivor.
+- [`CARRIER_SELECTOR`][osrlib.crawl.triggers.CARRIER_SELECTOR] (`"@carrier"`), on a `RemoveItem` only, which becomes one command for the first living member in marching order who carries the item. Use it for an offering left on an altar, when you can't know who carries it.
+
+A `SpawnMonsters` consequence issued while an encounter is open adds its monsters to that encounter. So a trigger on a keyed area can bring reinforcements to the monsters already there.
 
 The two beats have two different audiences: **`fired` is the referee's line and `journal` is the players'.** The `fired` text goes on a referee-visibility event, because the players aren't meant to see these connections. The journal entry is player-visible and appears verbatim in the [`PlayerView`][osrlib.crawl.views.PlayerView]. If you want the table to read something when a trigger fires, write the journal form.
 
 ### When a consequence fails
 
-A trigger firing is not all-or-nothing. When the session rejects one consequence, like a `SpawnNpcParty` refused because an encounter is already open, a grant of an item the catalog no longer has, or a toll the lead survivor can't pay, that consequence alone is dropped and the consequences after it still run. A [`RecordNote`][osrlib.crawl.commands.RecordNote] records the trigger, the consequence's position and type, and the rejection code. A `"@carrier"` removal that finds no carrier is dropped the same way, and its note gives that reason. There is no retry and no queue, because a consequence that fired later, out of order, would be impossible to debug.
+A trigger firing is not all-or-nothing. When the session rejects one consequence, the interpreter drops that consequence alone, and the consequences after it still run. Here are some consequences the session rejects:
+
+- A `SpawnNpcParty` while an encounter is already open.
+- A grant of an item the catalog no longer has.
+- A toll the lead survivor can't pay.
+
+The interpreter also drops a `"@carrier"` removal that finds no carrier. For each dropped consequence, a [`RecordNote`][osrlib.crawl.commands.RecordNote] records the trigger, the consequence's position and type, and the rejection code, or for a removal with no carrier, that reason. There is no retry and no queue, because a consequence that fired later, out of order, would be impossible to debug.
 
 Cascades are bounded. The events a trigger causes are one level deeper than the event that fired it, and matching stops below depth five. When the depth limit stops a firing, the interpreter records a note rather than a mark, so a once-only trigger cut short there can still fire later. Chaining flags is a normal thing to author, and the depth limit makes sure a chain that loops still ends.
 
@@ -134,7 +161,7 @@ Drop the idol into a cache by id (`item_ids=("jade-idol",)`) and add its templat
 
 `rewards` use the same [`ConsequenceCommand`][osrlib.crawl.commands.ConsequenceCommand] types a trigger's consequences do. The interpreter issues them in authored order *after* the quest completes, each stamped `source="quest:{id}"`. They address characters through the same selectors, `@party`, `@first`, and `@carrier`, and validation rejects a literal character id for the same reason it does on a trigger.
 
-A quest that asks for an item, like an idol to bring home, can use it up when it completes. Make the first reward a `RemoveItem` of that item with `"@carrier"`, so the idol leaves the party as the reward arrives.
+A quest that asks for an item, like an idol to bring home, can take the item from the party when the quest completes. Make the first reward a `RemoveItem` of that item with `"@carrier"`, so the idol leaves the party as the reward arrives.
 
 That ordering has two effects to plan for. On a concluding quest the session is already in `victory` when the interpreter issues the rewards, so it refuses a reward that would resume play (`SpawnMonsters`, `SpawnNpcParty`, `PlaceParty`) and drops it with a note. Grants, awards, and flags work as usual. Coins granted as a reward don't count toward treasure XP, because the end-of-adventure award has already been paid by then. Give the reward as `AwardXP` instead of coins.
 
