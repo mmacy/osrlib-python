@@ -380,13 +380,16 @@ class AttackContext(BaseModel):
     """Whether the attacker strikes from behind.
 
     The defender's shield doesn't count. With `target_unaware`, a thief attacker gets the
-    back-stab bonus to hit and to damage.
+    back-stab bonus to hit and to damage, and the attack's
+    [`AttackRolledEvent`][osrlib.core.events.AttackRolledEvent] has `back_stab` set.
     """
 
     target_unaware: bool = False
     """Whether the defender is unaware of the attack.
 
-    With `behind_target`, a thief attacker gets the back-stab bonus to hit and to damage.
+    With `behind_target`, a thief attacker gets the back-stab bonus to hit and to damage, and
+    the attack's [`AttackRolledEvent`][osrlib.core.events.AttackRolledEvent] has `back_stab`
+    set.
     """
 
     defender_retreating: bool = False
@@ -1399,7 +1402,8 @@ def attack_roll(
       modifier from the context's `distance_feet`, and, for a halfling attacker, the
       halfling's missile bonus.
     - A thief's back-stab bonus, when the context sets both `behind_target` and
-      `target_unaware`.
+      `target_unaware`. The event's `back_stab` field is then true, on an automatic hit
+      too.
     - +2 against a retreating defender.
     - A magic weapon's attack bonus, or its bonus against the kind of monster it's made
       against.
@@ -1478,12 +1482,16 @@ def attack_roll(
     name = _attack_name(attack)
     missile = _is_missile_use(attack, context) or (isinstance(attack, MonsterAttack) and context.monster_missile)
     helpless = not missile and any(has_condition(defender, condition) for condition in _HELPLESS)
+    back_stab = (
+        _class_ability_params(attacker, "back_stab") if context.behind_target and context.target_unaware else None
+    )
     if helpless or getattr(defender, "armour_class", 0) is None:
         event = AttackRolledEvent(
             code="combat.attack.auto_hit",
             attacker_id=attacker_id,
             defender_id=defender_id,
             attack_name=name,
+            back_stab=back_stab is not None,
         )
         return AttackRollResult(hit=True, auto=True, events=(event,))
 
@@ -1497,10 +1505,8 @@ def attack_roll(
             modifier += int(halfling.get("bonus", 0))
     else:
         modifier += melee_modifier_for(attacker)
-    if context.behind_target and context.target_unaware:
-        back_stab = _class_ability_params(attacker, "back_stab")
-        if back_stab is not None:
-            modifier += int(back_stab.get("attack_bonus", 0))
+    if back_stab is not None:
+        modifier += int(back_stab.get("attack_bonus", 0))
     if context.defender_retreating:
         modifier += 2
     # An enchanted arm's bonus (versus-clauses swapping in their alternate).
@@ -1548,6 +1554,7 @@ def attack_roll(
         required=required,
         defender_ac=ac,
         natural=natural_override,
+        back_stab=back_stab is not None,
     )
     return AttackRollResult(
         hit=hit,

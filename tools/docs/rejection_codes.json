@@ -1,4 +1,8 @@
 {
+  "battle.declaration.back_stab_no_ability": "A character declares a back-stab, but their class has no back-stab ability. Only a class like the thief can back-stab.",
+  "battle.declaration.back_stab_not_attack": "A character declares a back-stab on an action other than an attack. A back-stab is a way to make an attack, so the engine refuses it before it checks the action itself.",
+  "battle.declaration.back_stab_not_melee": "A character declares a back-stab that would be a missile attack, with a missile weapon like a bow, or with a weapon like a dagger aimed at a group farther away than 5 feet. A back-stab is a strike from behind, so it has to be a melee attack.",
+  "battle.declaration.back_stab_target_aware": "A character declares a back-stab in a round when the monsters can act. A back-stab needs an unaware opponent, which the engine reads as a monster the party surprised, so it's only possible in the free round the party gets by surprising the monsters.",
   "battle.declaration.cannot_move": "A character declares a move while dead, paralyzed, petrified, asleep, or entangled (such as by a web spell), any of which makes movement impossible this round.",
   "battle.declaration.invisible_target": "A spell or item-use declaration names a specific target that is currently invisible, and the engine won't let the caster target something they can't see.",
   "battle.declaration.item_unusable": "The declared item has no usable combat effect: it isn't a weapon-capable item in the character's inventory, or it's a magic item category (other than a potion, scroll, rod, staff, or wand) that has no defined combat use.",

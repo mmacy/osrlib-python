@@ -2479,9 +2479,10 @@ class BattleDeclaration(BaseModel):
 
     `action` decides which other fields apply. Leave the others at their defaults.
 
-    - `attack` uses `target_group_id` and, optionally, `weapon_id`. With no `weapon_id`, the
-      member attacks with the wielded weapon that suits the attack, or with bare hands when
-      they wield none.
+    - `attack` uses `target_group_id` and, optionally, `weapon_id` and `back_stab`. With no
+      `weapon_id`, the member attacks with the wielded weapon that suits the attack, or with
+      bare hands when they wield none. Set `back_stab` for a thief's melee attack in the free
+      round the party gets when it surprises the monsters.
     - `cast` uses `spell_id`, `spell_mode`, `reversed`, and `targets`. `spell_id` is a spell
       id, like `"sleep"`. `spell_mode` is the key of one of the spell's modes, and `reversed`
       picks the spell's reversed form.
@@ -2711,6 +2712,51 @@ class BattleDeclaration(BaseModel):
     basilisk meet its gaze" says. No guard protects against that gaze.
     [The adaptations register](https://mmacy.github.io/osrlib-python/adaptations/) describes the
     gaze in full."""
+    back_stab: bool = False
+    """Make this `attack` a back-stab, or leave it `False` for an ordinary attack.
+
+    The OSE SRD's thief entry says "When attacking an unaware opponent from behind, a thief
+    receives a +4 bonus to hit and doubles any damage dealt." osrlib has no facing in battle, so
+    the session reads an unaware opponent from behind as a monster the party surprised, in the
+    round it can't act. Set this field only when all of these are true:
+
+    - The action is `attack`.
+    - The member's class has the `back_stab` ability, as a thief's does.
+    - The monsters can't act this round because the party surprised them. That's the party's
+      free round, while
+      [`BattleState.monsters_hold_rounds`][osrlib.crawl.battle.BattleState.monsters_hold_rounds]
+      is above zero. The session reads it when it accepts the round.
+    - The attack is a melee attack. The weapon and the group's distance decide that, as
+      [`weapon_id`][osrlib.crawl.commands.BattleDeclaration.weapon_id] describes.
+
+    An accepted back-stab hits the same monster an ordinary melee attack would. It gets +4 to
+    hit, the defender's shield doesn't count, and its damage is doubled. The bonus and the
+    doubling come from the class's `back_stab` ability. Every attack roll the declaration makes
+    in the round is a back-stab, even when the monsters win initiative, and the attack's
+    [`AttackRolledEvent`][osrlib.core.events.AttackRolledEvent] has `back_stab` set to true, so
+    your game can say so.
+
+    The session refuses a back-stab with the first of these that applies, in this order. Each
+    of the four back-stab codes has the member's id as its `character` param.
+
+    1. `battle.declaration.back_stab_not_attack`: the action isn't `attack`. The session checks
+       this before any other check on the declaration.
+    2. `battle.declaration.back_stab_no_ability`: the member's class has no `back_stab` ability.
+    3. `battle.declaration.back_stab_target_aware`: the monsters aren't surprised this round.
+       That's every round of a battle the party didn't open by surprising the monsters, and
+       every round after the free round.
+    4. The checks of an ordinary attack on its group and weapon:
+       `battle.declaration.unknown_group`, `battle.declaration.no_target`, and
+       `battle.declaration.weapon_not_wielded`.
+    5. `battle.declaration.back_stab_not_melee`: the attack the session would resolve is a
+       missile attack. That's a missile weapon like a bow, or a weapon that's both melee and
+       missile, like a dagger, aimed at a group farther away than 5'.
+    6. The rest of an ordinary melee attack's checks, like
+       `battle.declaration.not_in_front_rank` and `combat.attack.out_of_reach`.
+
+    A declaration that leaves this field `False` resolves exactly as it would without it.
+    [The adaptations register](https://mmacy.github.io/osrlib-python/adaptations/) describes the
+    back-stab in full."""
 
 
 class ResolveBattleRound(Command):
@@ -2771,6 +2817,15 @@ class ResolveBattleRound(Command):
           `combat.attack.out_of_reach`, `combat.attack.out_of_range`,
           `combat.attack.reload`, `combat.attack.attacker_incapacitated`, and
           `combat.attack.attacker_blind`.
+        - A declaration that sets `back_stab`: `battle.declaration.back_stab_not_attack` on
+          any action but `attack`, before any other check. On an attack,
+          `battle.declaration.back_stab_no_ability` and
+          `battle.declaration.back_stab_target_aware` before the attack checks, and
+          `battle.declaration.back_stab_not_melee` after the group and weapon checks and
+          before the melee checks. A back-stab gets only the first of these that applies,
+          and each has the member's id as its `character` param.
+          [`BattleDeclaration.back_stab`][osrlib.crawl.commands.BattleDeclaration.back_stab]
+          gives the order in full.
         - Cast declarations: `battle.declaration.missing_spell`,
           `battle.declaration.unknown_group`,
           `battle.declaration.invisible_target`, and the cast checks
