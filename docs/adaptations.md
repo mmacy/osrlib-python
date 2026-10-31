@@ -13,40 +13,71 @@ Each entry also cites the source files and test names that lock it. Those citati
 
 - **Template and instance** - A template is the frozen catalog entry for a monster or an item, like a [`MonsterTemplate`][osrlib.core.monsters.MonsterTemplate]. An instance is one copy of it in play, like a [`MonsterInstance`][osrlib.core.monsters.MonsterInstance], with its current hit points and conditions.
 - **Effects ledger** - The [`EffectsLedger`][osrlib.core.effects.EffectsLedger] contains every running effect, like a spell, a poison, or a lit torch, and resolves each one as the game clock moves. On this page, "the ledger" means the effects ledger.
+- **Round and turn** - A round is 10 seconds and a turn is 10 minutes, as in the SRD. Battles run in rounds, and exploration runs in turns.
+- **Cell** - One 10' × 10' square of a dungeon level. An entry in a printed table is called a table entry here, not a cell.
 - **Draw and stream** - A draw is one random number the engine takes. Every draw comes from a named stream, so one subsystem's rolls never shift another's. A step that "consumes no draw" leaves every later roll as it would have been. See [RNG streams](reference/rng-streams.md).
+- **Stable order** - When the engine sorts things that tie, it keeps them in the order it was given them, so the result never depends on chance.
 - **Kernel and session** - The kernel is `osrlib.core`, the rules functions you can call directly (see [Rules without a session](guides/rules-without-a-session.md)). The session is a [`GameSession`][osrlib.crawl.session.GameSession], which runs a whole adventure through commands and calls the kernel for you.
+- **Caller** - The code that calls a kernel function: your game, or the session. A value "the caller supplies" is an argument that code passes, because the kernel can't work it out.
+- **Ruleset flags** - Options on [`Ruleset`][osrlib.core.ruleset.Ruleset]. Some switch the SRD's optional rules on or off, and others switch the defaults that [Documented adaptations](#documented-adaptations) lists.
+- **Marching order** - The order of the party's members. It decides the battle ranks, and which member a rule means by "the first living member".
+- **Front rank and back rank** - In battle, the session cuts the living marching order into rows as wide as the formation width. The first row is the front rank, and every member behind it is in the back rank. Melee reaches only the front rank. See [The battle round](#the-battle-round).
+- **Range track** - In battle, each monster group has a separate distance from the party, in the style of The Bard's Tale, instead of a position on a map.
+- **Declaration** - What one party member will do in a battle round, like attack a group or cast a spell. The party sends every member's declaration in one `ResolveBattleRound` command.
+- **Movement step and magic phase** - Parts of a battle round. The side that wins initiative acts first. In the party's turn, the session resolves movement, then missile attacks, then magic, then melee.
 - **Policy** - An [`ActionPolicy`][osrlib.crawl.battle.ActionPolicy] chooses what a monster group does each round. The default is [`ScriptedPolicy`][osrlib.crawl.battle.ScriptedPolicy], and a game can register a different one.
 - **Group** - An [`EncounterGroup`][osrlib.crawl.encounter.EncounterGroup] is a group of monsters in an encounter. A group has one distance from the party, checks morale as a whole, and is what a party member's attack aims at.
-- **Front rank and back rank** - In battle, the session cuts the living marching order into rows as wide as the formation width. The first row is the front rank, and every member behind it is in the back rank. Melee reaches only the front rank. See [The battle round](#the-battle-round).
+- **Stance** - The monsters' attitude toward the party in an encounter, which the reaction roll sets. See [The encounter procedure](#the-encounter-procedure).
+- **Morale score** - A monster's ML in its stat block, from 2 to 12. A morale check rolls 2d6, and a roll over the score breaks the group.
 - **Player view and referee view** - What a session shows the players and the referee: a [`PlayerView`][osrlib.crawl.views.PlayerView] and a [`RefereeView`][osrlib.crawl.views.RefereeView]. See [Views and visibility](guides/views-and-visibility.md).
 - **Keyed encounter** - Monsters that an adventure places in an area in advance, as a [`KeyedEncounter`][osrlib.crawl.dungeon.KeyedEncounter]. They spawn when the party enters the area.
 - **`manual` ability** - A [`MonsterAbility`][osrlib.core.monsters.MonsterAbility] marked `manual` is text for the referee to read and act on. osrlib doesn't apply it.
+- **Gate** - A condition something has to pass. An immunity gate on a monster lets damage through only from the sources it lists, like silver or magic weapons.
+- **Destructive death** - A death from a source that also destroys what the victim carries, like a lightning bolt or a breath weapon.
+- **Clamp** - To keep a value inside a range: a value below the range becomes the lowest value, and one above it becomes the highest.
 
 ## Interpretations
 
 ### Multi-prime-requisite XP tiers have no penalties
 
-The SRD applies the standard XP-modifier table "to characters with a single prime requisite", and the elf's and halfling's class descriptions note only bonuses (+5%, +10%). osrlib's reading: elf and halfling get exactly their stated bonus tiers and no penalty tiers. An elf with INT 9 and STR 9 has a 0% modifier, never −10%. Locked by `test_classes.py::TestXpModifier::test_multi_prime_requisite_classes_have_no_penalties`.
+The elf and the halfling get their stated XP bonuses and never an XP penalty. An elf with INT 9 and STR 9 has a 0% modifier, never −10%.
+
+The SRD applies the standard XP-modifier table "to characters with a single prime requisite", and the elf's and halfling's class descriptions list only bonuses (+5%, +10%). So osrlib reads the two classes as having bonus tiers and no penalty tiers. Locked by `test_classes.py::TestXpModifier::test_multi_prime_requisite_classes_have_no_penalties`.
 
 ### XP tiers evaluate best-first, first-match-wins
 
-The XP-modifier tiers are one uniform representation for all classes: ordered tiers of `{modifier_pct, minimum scores}`, evaluated best-first, and the first tier whose minimums all hold wins. The standard table's penalty rows only work under first-match-wins (a prime requisite of 7 must fall past the +10/+5/none tiers and reach −10%), and the halfling's "at least 13 in one prime requisite" +5% tier is expressed as two single-minimum tiers under the same rule. Locked by `test_classes.py::TestXpModifier`.
+Every class's XP modifier uses one representation: a list of tiers, each a `{modifier_pct, minimum scores}` pair. The engine checks the tiers from best to worst, and the first tier whose minimums all hold wins.
+
+- The standard table's penalty rows work only this way. A prime requisite of 7 has to fall past the +10%, +5%, and no-modifier tiers to reach −10%.
+- The halfling's +5% tier for "at least 13 in one prime requisite" becomes two tiers, each with one minimum, under the same rule.
+
+Locked by `test_classes.py::TestXpModifier`.
 
 ### XP percentage results floor
 
-The SRD never says how to round a ±5/10/20% XP modifier. osrlib's reading: the modified award is floored (integer arithmetic, toward negative infinity). Locked by `test_classes.py::TestApplyXp::test_modifier_floors`.
+osrlib rounds a modified XP award down. The SRD never says how to round a ±5/10/20% XP modifier, so osrlib uses integer arithmetic that rounds toward negative infinity. Locked by `test_classes.py::TestApplyXp::test_modifier_floors`.
 
 ### First-level HP re-roll repeats until the die shows 3 or more
 
-The optional rule says a roll of "1 or 2" may be re-rolled but not whether a re-rolled 1-2 is re-rolled again. osrlib's reading: with `hp_reroll_at_first_level` on, the raw die (before the CON modifier) is re-rolled *while* it shows 1-2, each re-roll consuming a draw. Locked by `test_character.py::TestRollHitPoints`.
+With `hp_reroll_at_first_level` on, a first-level character re-rolls their class hit die while it shows 1 or 2. The engine checks the raw die, before the CON modifier, and each re-roll consumes a draw.
+
+The optional rule says a roll of "1 or 2" may be re-rolled, but not whether a re-rolled 1 or 2 is re-rolled again, so osrlib keeps re-rolling. The loop always ends, because the smallest class hit die is a d4, which can show 3 or 4. Locked by `test_character.py::TestRollHitPoints`.
 
 ### Adjustment reductions are even per lowered score
 
-The SRD says "For every two points by which an ability score is reduced, one point may be added", and doesn't say whether a single score may be lowered by an odd amount as long as the total is even. osrlib's reading: the two-for-one trade is per score, so each lowered score drops by an even amount and no point of a reduction goes unused. The total raise must equal exactly the sum of reductions divided by two. Locked by `test_abilities.py::TestAdjustment`.
+When a player lowers ability scores to raise another, each lowered score has to drop by an even amount, and the total raise must be exactly half the total reduction.
+
+The SRD says "For every two points by which an ability score is reduced, one point may be added". It doesn't say whether one score may drop by an odd amount as long as the total is even. osrlib applies the two-for-one trade to each score, so no point of a reduction goes unused. Locked by `test_abilities.py::TestAdjustment`.
 
 ### Gear combat facets are exempt from class weapon policies
 
-Torch, holy water, and burning oil appear on both the weapon table and the gear list. They compile as gear with an embedded combat facet (one entry per physical item, no item has two ids). Class weapon policies govern the weapons list only: a strict quality-tag reading would forbid a cleric holy water or a torch. One uniform rule applies instead: any class may buy, hold, and use all three. That grants more than a strict reading would, and on purpose: a magic-user (RAW: dagger only) may also throw oil or swing a torch. Locked by `test_items.py::TestEquipLegality`.
+Any class may buy, carry, and use a torch, holy water, and burning oil, whatever its weapon restrictions.
+
+- All three items appear on both the weapon table and the gear list. Each compiles as one gear item with an embedded combat facet, the weapon stats it uses in a fight, so no item has two ids.
+- Class weapon policies cover only the weapons list. A strict reading of the quality tags would forbid a cleric holy water or a torch, so osrlib applies one rule to all three items instead.
+- That allows more than a strict reading would, and on purpose: a magic-user, who may use only a dagger in RAW, may also throw oil or swing a torch.
+
+Locked by `test_items.py::TestEquipLegality`.
 
 ### Basic encumbrance tracks treasure weight against the general 1,600-coin cap
 
@@ -75,31 +106,48 @@ Basic encumbrance doesn't change. Its movement rates depend on armour, not weigh
 
 ### Miscellaneous gear is a flat 80 coins under detailed encumbrance
 
-The SRD gives adventuring gear no per-item weights and says gear "may be counted as 80 coins of weight". osrlib's reading: any miscellaneous gear carried adds a flat 80 coins, once, regardless of how much gear it is. Items with a listed weight of `-` (holy water, burning oil) have no separate tracked weight. They are gear, covered by the flat 80. Locked by `test_items.py::TestWeights`.
+Under detailed encumbrance, a character who carries any miscellaneous gear adds a flat 80 coins of weight, once, however much gear it is.
+
+- The SRD gives adventuring gear no weight for each item, and says gear "may be counted as 80 coins of weight". osrlib reads that as one flat amount.
+- Items whose listed weight is `-`, like holy water and burning oil, have no separate weight. They're gear, so the flat 80 covers them.
+
+Locked by `test_items.py::TestWeights`.
 
 ### Ammunition weighs 0
 
-The ammunition table has no weight column, and the SRD states "The listed weight of missile weapons already includes the weight of the ammunition and its container." osrlib's reading: ammunition compiles with weight 0. Locked by `test_srd_data.py::TestEquipmentData`.
+Ammunition compiles with a weight of 0. The ammunition table has no weight column, and the SRD says "The listed weight of missile weapons already includes the weight of the ammunition and its container." Locked by `test_srd_data.py::TestEquipmentData`.
 
 ### Sling stones cost 0, lot size 1
 
-The sling stones cost cell reads `Free`. osrlib's reading: cost 0, purchase lot 1. Locked by `test_srd_data.py::TestEquipmentData`.
+Sling stones cost 0 and are bought one at a time. The table entry for their cost reads `Free`, so osrlib sets the cost to 0 and the purchase lot to 1. Locked by `test_srd_data.py::TestEquipmentData`.
 
 ### INT-granted languages come from the Other Languages table and may not duplicate natives
 
-The SRD says high-INT characters "may also choose additional languages from the list of languages available in the setting" (at the referee's discretion). osrlib's reading: choices come from the twenty Other Languages, and a choice may not duplicate a class native, so a dwarf cannot spend an INT language on Dwarvish. Locked by `test_character.py::TestExtraLanguages`.
+A character with high INT picks extra languages from the twenty Other Languages, and can't pick a language their class already speaks. So a dwarf can't spend an INT language on Dwarvish.
+
+The SRD says such a character "may also choose additional languages from the list of languages available in the setting", at the referee's discretion. osrlib reads the setting's list as the Other Languages table. Locked by `test_character.py::TestExtraLanguages`.
 
 ### The attack matrix is clamp(THAC0 − AC, 2, 20) and extends beyond the printed columns
 
-Every printed matrix cell equals `clamp(THAC0 − AC, 2, 20)`, locked by a property test over the compiled table, and AC values outside the printed −3..9 columns extend by the same formula: the printed bounds are a limit of the page layout, not of the rules. The clamping is what distinguishes matrix mode from the `thac0_arithmetic` flag once modifiers push totals past the plateaus. Locked by `test_monster_data.py::TestCombatTables` and `test_combat.py::TestAttackRoll::test_matrix_versus_arithmetic_divergence_at_the_plateaus`.
+The roll an attacker needs is `clamp(THAC0 − AC, 2, 20)`: THAC0 minus the defender's AC, raised to 2 if it's lower and lowered to 20 if it's higher.
+
+- Every entry in the printed attack matrix equals that formula, and a property test over the compiled table checks it.
+- An AC outside the printed columns, −3 to 9, uses the same formula. The printed range is a limit of the page layout, not of the rules.
+- The limits of 2 and 20 are what make matrix mode differ from the `thac0_arithmetic` flag, which uses THAC0 − AC with no limits, once modifiers push a total past them.
+
+Locked by `test_monster_data.py::TestCombatTables` and `test_combat.py::TestAttackRoll::test_matrix_versus_arithmetic_divergence_at_the_plateaus`.
 
 ### Initiative ties re-roll
 
-RAW offers "re-roll or resolve simultaneously". Simultaneous resolution is a different combat model the engine doesn't attempt. osrlib's reading: tied sides, and tied individuals among themselves, re-roll in stable input order until distinct, each re-roll consuming draws. Locked by `test_combat.py::TestInitiative`.
+Tied sides re-roll initiative until they differ, and so do tied individuals among themselves. They re-roll in stable order, and each re-roll consumes draws.
+
+RAW offers "re-roll or resolve simultaneously". Resolving at the same time would need a different combat model, which the engine doesn't attempt, so osrlib always re-rolls. Locked by `test_combat.py::TestInitiative`.
 
 ### Slow actors act after all non-slow actors
 
-osrlib reads "always act last, as if they had lost initiative" this way for the general case: slow-weapon actors act after every non-slow actor, ordered among themselves by their side's initiative (each actor's result under individual initiative), then stable order. Locked by `test_combat.py::TestInitiative::test_slow_actors_act_last_by_side_initiative`.
+A combatant with a slow weapon acts after every combatant without one. Among themselves, slow actors go in their side's initiative order, or in each actor's own initiative under individual initiative, then in stable order.
+
+That's how osrlib reads "always act last, as if they had lost initiative" for the general case. Locked by `test_combat.py::TestInitiative::test_slow_actors_act_last_by_side_initiative`.
 
 ### Helpless defenders are hit automatically in melee, consuming no attack draw
 
@@ -113,7 +161,18 @@ A defender whose AC is `No hit roll required`, like green slime or yellow mould,
 
 ### Morale "incapacitated" means dead, paralysed, petrified, or asleep
 
-The RAW trigger text says "slain, paralysed, etc". osrlib uses this reading for the morale trigger that fires when half the side is incapacitated, and for the rule that a sleeping creature dies to a blade. Situational morale adjustments clamp to ±2 per RAW and never apply to ML 2 or less (never fights) or ML 12 or more (never checks). Two passed checks mean no further checks. Locked by `test_combat.py::TestMorale`.
+A creature counts as incapacitated when it's dead, paralysed, petrified, or asleep. The RAW trigger text says "slain, paralysed, etc", and osrlib uses this reading for two rules:
+
+- The morale check that a side makes when half of it is incapacitated.
+- The rule that a sleeping creature dies to a blade.
+
+Other morale rules follow RAW:
+
+- Situational adjustments to a morale check are clamped to ±2.
+- They never apply to a morale score of 2 or less, which means the monster never fights, or 12 or more, which means it never checks.
+- After two passed checks, a monster makes no more checks.
+
+Locked by `test_combat.py::TestMorale`.
 
 ### Energy drain reverses level_up
 
