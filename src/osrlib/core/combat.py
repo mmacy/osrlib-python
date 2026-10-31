@@ -172,6 +172,7 @@ from osrlib.core.items import (
     MissileRanges,
     WeaponQuality,
     WeaponTemplate,
+    _shield_ac_parts,
     equipped_item_modifiers,
     magic_item_template,
 )
@@ -379,8 +380,12 @@ class AttackContext(BaseModel):
     behind_target: bool = False
     """Whether the attacker strikes from behind.
 
-    The defender's shield doesn't count. With `target_unaware`, a thief attacker gets the
-    back-stab bonus to hit and to damage, and the attack's
+    The defender's shield doesn't count, as the OSE SRD's "AC bonuses from shields are
+    negated" says. The attack is made against the armour class the defender would have
+    without the shield, so a magic shield loses its enchantment along with the +1 that every
+    shield gives. A cursed shield that makes the defender's armour class worse still counts,
+    because the rule takes away a shield's bonus and not its penalty. With `target_unaware`,
+    a thief attacker gets the back-stab bonus to hit and to damage, and the attack's
     [`AttackRolledEvent`][osrlib.core.events.AttackRolledEvent] has `back_stab` set.
     """
 
@@ -395,7 +400,9 @@ class AttackContext(BaseModel):
     defender_retreating: bool = False
     """Whether the defender is retreating.
 
-    The attacker gets +2 to hit, and the defender's shield doesn't count. A
+    The attacker gets +2 to hit, and the defender's shield doesn't count, as it doesn't with
+    `behind_target`. The attack is made against the armour class the defender would have
+    without the shield, a magic shield's enchantment included, but never a better one. A
     [`GameSession`][osrlib.crawl.session.GameSession] sets it for you in two cases:
 
     - On an attack against a monster group that's fleeing.
@@ -1356,12 +1363,12 @@ def _defender_descending_ac(defender: Any, context: AttackContext, *, missile: b
     ac = getattr(defender, "armour_class", None)
     if ac is None:
         return None
-    # Shield AC is ignored against a retreating defender and attacks from behind.
+    # A retreating defender, or one attacked from behind, loses the shield's bonus, a magic
+    # shield's enchantment included. A cursed shield's penalty has no bonus to lose, so it stays.
     if context.defender_retreating or context.behind_target:
         inventory = getattr(defender, "inventory", None)
-        shield = getattr(inventory, "shield", None) if inventory is not None else None
-        if shield is not None and shield.template.ac_bonus is not None:
-            ac += shield.template.ac_bonus
+        _, shield_bonus = _shield_ac_parts(getattr(inventory, "shield", None), ascending=False)
+        ac += max(shield_bonus, 0)
     if context.attacker_large:
         params = _class_ability_params(defender, "defensive_bonus")
         if params is not None:
@@ -1412,7 +1419,8 @@ def attack_roll(
     - The context's `situational_modifier`.
 
     The function adjusts the defender's armour class too. The defender's shield doesn't
-    count against an attack from behind, or while the defender retreats. The context's
+    count against an attack from behind, or while the defender retreats, and a magic
+    shield's enchantment doesn't count either. The context's
     `defender_ally_ac_bonus`, an armour class bonus that an ally gives the defender, does
     count.
 

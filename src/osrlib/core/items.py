@@ -2254,6 +2254,28 @@ def magic_item_template(instance: MagicItemInstance) -> MagicItemTemplate:
     return load_magic_items().get(instance.template_id)
 
 
+def _shield_ac_parts(shield: AnyInstance | None, *, ascending: bool) -> tuple[int | None, int]:
+    """Return the armour class a shield sets, or None, and the bonus the shield adds to armour class.
+
+    A mundane shield adds its +1. A magic shield adds its enchantment on top of the +1 an ordinary
+    shield gives, so a cursed shield's negative enchantment can make the sum a penalty. The cursed
+    shield that prints AC 9 [10] sets the wearer's armour class outright and adds nothing.
+    `Character._armour_parts` and the attack roll both read a shield here, so they agree on what it
+    gives.
+    """
+    from osrlib.data import load_equipment
+
+    if isinstance(shield, MagicItemInstance):
+        template = magic_item_template(shield)
+        if template.ac_set is not None and template.ac_set_ascending is not None:
+            return (template.ac_set_ascending if ascending else template.ac_set), 0
+        mundane = load_equipment().get("shield")
+        return None, (getattr(mundane, "ac_bonus", None) or 0) + template.ac_bonus
+    if shield is not None and isinstance(shield.template, ArmourTemplate) and shield.template.ac_bonus is not None:
+        return None, shield.template.ac_bonus
+    return None, 0
+
+
 def equipped_item_modifiers(inventory: Inventory) -> list[ModifierSpec]:
     """Return the stat modifiers a character's equipped magic items grant.
 

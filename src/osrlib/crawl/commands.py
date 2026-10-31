@@ -2652,16 +2652,24 @@ class BattleDeclaration(BaseModel):
       gets close but finds no place left in the front rank gets
       `battle.declaration.not_in_front_rank`.
 
-    The monsters can act before the party. A melee attack resolves only if, at the party's melee
-    step, the member stands in the group's front rank within 5' of it. The one exception is a group
-    that has started to flee. A member who stood within 5' of it when the round was accepted still
-    gets the attack, with the bonus against a retreating combatant. Otherwise the member makes no
+    The monsters can act before the party, and the party's missiles and spells come before its
+    melee. A melee attack resolves only if, at the party's melee step, the group still has a living
+    monster the member can see, and the member stands in the group's front rank within 5' of it.
+    A group that has started to flee is the one exception to the position check. A member who stood
+    within 5' of it when the round was accepted still gets the attack, with the bonus against a
+    retreating combatant, unless the group runs out of the battle. Otherwise the member makes no
     attack, and the session reports a
     [`DeclarationFizzledEvent`][osrlib.core.events.DeclarationFizzledEvent] at
-    `battle.melee.fizzled`, with the group's id as `group_id`. Its `reason` is
-    `combat.attack.out_of_reach` when the member is farther than 5' from the group, and
-    `battle.declaration.not_in_front_rank` when the member is within 5' but not in its front
-    rank.
+    `battle.melee.fizzled`, with the group's id as `group_id`. Its `reason` is one of these:
+
+    - `battle.declaration.no_target` when the group has no such monster left, for example
+      because the party's archers or casters killed them earlier in the round. The session
+      checks this first, so the member gets it whether or not they closed, and wherever they
+      stand.
+    - `combat.attack.out_of_reach` when the member is farther than 5' from the group, or the
+      group ran out of the battle.
+    - `battle.declaration.not_in_front_rank` when the member is within 5' but not in its front
+      rank.
 
     `fighting_withdrawal` and `retreat` take a member away from the monsters, with a `move` action.
     A `fighting_withdrawal` backs away at half the member's encounter rate, facing the monsters, and
@@ -2973,8 +2981,8 @@ class ResolveBattleRound(Command):
         [`SpellDisruptedEvent`][osrlib.core.events.SpellDisruptedEvent],
         [`DeclarationFizzledEvent`][osrlib.core.events.DeclarationFizzledEvent] when a
         device use or a turning fails the check the session makes just before it resolves,
-        and at `battle.melee.fizzled` when a melee attack can't resolve because of where the
-        member stands when it comes up,
+        and at `battle.melee.fizzled` when a melee attack can't resolve when it comes up,
+        because its group has no monster left to strike or because of where the member stands,
         [`MagicDispelledEvent`][osrlib.core.events.MagicDispelledEvent],
         [`UndeadTurnedEvent`][osrlib.core.events.UndeadTurnedEvent], and the effects
         a spell leaves behind
