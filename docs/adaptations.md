@@ -410,43 +410,93 @@ The compiler applies the labels after the overrides, so routines that an overrid
 
 ### The event discriminator is `event_type`, with outcome-bearing codes
 
-Every kernel event class declares a single-valued `event_type` Literal (snake_case, schema-stable, additive-only) that the `KernelEvent` union discriminates on. The message `code` stays free to be outcome-bearing from a per-class closed set (`combat.attack.hit` and `combat.attack.missed`), so formatters select on codes while consumers discriminate on `event_type` and skip unknown values mechanically. The default English formatter is total: unknown codes format to the code string itself. Locked by `test_events_kernel.py`.
+Every kernel event class has an `event_type` field, typed as a `Literal` with one value, and the `KernelEvent` union tells events apart by it. The value is snake_case, it stays the same across schema versions, and new values are only ever added.
+
+- The message `code` can name the outcome, from a closed set for each class, like `combat.attack.hit` and `combat.attack.missed`. So formatters choose their text by code, while consumers tell events apart by `event_type` and skip values they don't know.
+- The default English formatter handles every code: an unknown code formats as the code string itself.
+
+Locked by `test_events_kernel.py`.
 
 ### The combat kernel streams
 
-The combat kernel's stream keys are `"combat"` (battle resolution: attacks, damage, saves, morale, initiative), `"effects"` (effect-internal randomness: durations, onsets, revival delays, natural-healing rolls), and `"monster_spawn"` (spawned hit points), scoped so a combat-rules change never shifts spawned HP or effect draws in a golden. Locked by the Phase 2 milestone goldens.
+The combat kernel uses three streams:
+
+- `"combat"` for battle resolution: attacks, damage, saves, morale, and initiative.
+- `"effects"` for randomness inside effects: durations, onsets, revival delays, and natural-healing rolls.
+- `"monster_spawn"` for spawned hit points.
+
+They're separate so that a change to the combat rules never shifts spawned hit points or effect draws. Locked by the Phase 2 milestone goldens.
 
 ### Spell ids are page-derived slugs, dual pages take `_c`/`_mu`, reversed forms are entry data
 
-A spell's id is the slugified primary name with the reversed parenthetical dropped (`cure_light_wounds`). The nine concepts printed as separate `(C)` and `(MU)` pages compile as two entries with `_c`/`_mu` suffixes because the pairs differ mechanically (*hold person* is 2nd-level cleric at 9 turns/180' but 3rd-level magic-user at 1 turn per level/120'), and a reversible spell's reverse is a `ReversedForm` on its entry, never a separate catalog entry. The *invisible stalker* page's `(MU)` marker distinguishes the monster page rather than a dual pair, so its id stays plain. Locked by `test_spell_data.py::TestCensus`.
+A spell's id is its primary name as a slug, without the reversed form in parentheses, like `cure_light_wounds`.
+
+- Some spells are printed as separate `(C)` and `(MU)` pages. Each pair compiles as two entries, with `_c`/`_mu` suffixes, because the two differ mechanically: *hold person* is a 2nd-level cleric spell at 9 turns and 180', but a 3rd-level magic-user spell at 1 turn per level and 120'.
+- A reversible spell's reverse is a `ReversedForm` on its entry, never a separate catalog entry.
+- The *invisible stalker* page's `(MU)` marker distinguishes the monster page, not a pair of spells, so its id stays plain.
+
+Locked by `test_spell_data.py::TestCensus`.
 
 ### `Spells.md` is the single magic-rules source, and spell pages are identified by the level line
 
-`Rules_of_Magic.md` has identical content, and the compiler never reads it. Spell pages are identified by the italic level line (`*3rd Level [Magic-User Spell](...)*`), never by the `**Duration:**` or `**Range:**` labels, which also appear on potion, hazard, and water-vessel pages. Locked by the compiler census (106 pages, 34 + 72 list entries).
+The compiler reads the rules of magic from `Spells.md` alone. `Rules_of_Magic.md` has identical content, and the compiler never reads it.
+
+The compiler identifies a spell page by its italic level line, like `*3rd Level [Magic-User Spell](...)*`. It never uses the `**Duration:**` or `**Range:**` labels, because those also appear on potion, hazard, and water-vessel pages. Locked by the compiler census (106 pages, 34 + 72 list entries).
 
 ### Memorization is a full-replacement preparation with the timing gates deferred
 
-`memorize_spells` models the daily preparation as a whole-list replacement. The once-a-day, after-uninterrupted-sleep, and one-hour gates are exploration procedure that the crawl layer (`osrlib.crawl`) enforces, and a caller outside the crawl layer can call `memorize_spells` freely. Duplicate selections are legal per RAW. Locked by `test_memorization.py::TestMemorizeSpells`.
+`memorize_spells` replaces a caster's whole list of memorized spells in one call, as the daily preparation.
+
+- The SRD's limits on when a caster can prepare, once a day, after uninterrupted sleep, and taking an hour, are exploration procedure. The session (`osrlib.crawl`) enforces them. A game that calls `memorize_spells` directly can call it at any time.
+- A caster may memorize the same spell more than once, per RAW.
+
+Locked by `test_memorization.py::TestMemorizeSpells`.
 
 ### Arcane casters fix normal/reversed at memorization; divine casters choose at cast
 
-Per `Spells.md`: the arcane form "must be selected when the spell is memorized", while divine casters reverse "when it is cast", so divine copies never have a reversed flag (`magic.memorize.divine_reverses_at_cast`) and a divine reversed cast consumes any copy of the spell. Locked by `test_memorization.py` and `test_casting.py::TestCastingPipeline`.
+An arcane caster chooses a spell's normal or reversed form when memorizing it, and a divine caster chooses when casting. Per `Spells.md`, the arcane form "must be selected when the spell is memorized", while divine casters reverse "when it is cast".
+
+- So a divine caster's memorized copies never have a reversed flag, and setting one is refused with `magic.memorize.divine_reverses_at_cast`.
+- A divine caster's reversed cast uses any memorized copy of the spell.
+
+Locked by `test_memorization.py` and `test_casting.py::TestCastingPipeline`.
 
 ### Casting consumes the first matching memorized copy, and touch attacks consume it hit or miss
 
-Consumption takes the lowest tuple index, and disruption removes a copy identically ("as if it had been cast"). *Cause wounds* touch attacks take a melee attack roll only in combat ("In combat, a melee attack roll is required", and osrlib reads the inverse: outside combat, the touch needs no roll), and the copy is spent whether or not the touch lands, because RAW has no rule for holding the charge. Locked by `test_casting.py::TestCuresAndRestoration`.
+Casting uses up the first matching memorized copy, the one with the lowest index. A disruption removes a copy the same way ("as if it had been cast").
+
+*Cause wounds* is cast by touch:
+
+- In combat, the touch needs a melee attack roll ("In combat, a melee attack roll is required"). osrlib reads the inverse too: outside combat, the touch needs no roll.
+- The copy is spent whether or not the touch lands, because RAW has no rule for holding the charge.
+
+Locked by `test_casting.py::TestCuresAndRestoration`.
 
 ### The holy symbol is not a mechanical gate on casting or turning
 
-`Cleric.md` states "A cleric must carry a holy symbol" as a class edict alongside deity faithfulness, not as a precondition on any procedure. The holy symbol is in the gear data, and games wanting the stricter reading check inventory themselves. As a result, a cleric without a holy symbol can still turn undead and cast spells. Locked by `test_turning.py::TestValidation::test_holy_symbol_is_not_a_gate`.
+A cleric doesn't need a holy symbol to turn undead or cast spells. `Cleric.md` states "A cleric must carry a holy symbol" as a class edict, beside faithfulness to a deity, not as a condition of any procedure. The holy symbol is in the gear data, so a game that wants the stricter reading can check the cleric's inventory itself. Locked by `test_turning.py::TestValidation::test_holy_symbol_is_not_a_gate`.
 
 ### Starting books are filled to capacity, book capacity is per level, and books never auto-shrink
 
-Arcane casters begin play with exactly as many spells as they can memorize, one first-level spell at level 1. Clerics start with nothing, because their level-1 row has no slots. `add_spell_to_book` caps the book, per spell level, at the current slot count for that level (the RAW "exactly the number of spells that the character is capable of memorizing", read per level). The book is a physical object and never auto-shrinks: a drained character may have a book over capacity and cannot add more. Drain forgets excess *memorized* copies newest-first per level (RAW is silent, and newest-first is deterministic without new state). Locked by `test_memorization.py`.
+A caster's spell book holds, at each spell level, as many spells as the caster can memorize at that level.
+
+- An arcane caster starts play with a full book: one first-level spell at level 1.
+- A cleric starts with no spells, because the cleric's level-1 row has no slots.
+- `add_spell_to_book` limits the book, for each spell level, to the current number of slots at that level. That's how osrlib reads RAW's "exactly the number of spells that the character is capable of memorizing".
+- The book is a physical object and never shrinks on its own. A drained character may have more spells in their book than the limit, and can't add more.
+- Drain makes a caster forget the memorized copies that no longer fit, newest first at each level. RAW is silent, and newest first is deterministic without new state.
+
+Locked by `test_memorization.py`.
 
 ### Category and immunity gates resolve as no-effect, never as rejections
 
-The holy-water reasoning applies here too: rejections are free and would leak hidden state, so casting *charm person* at a disguised doppelgänger or *sleep* at a wight must not be a zero-cost detector. Casting at an ineligible target consumes the copy and reports `magic.cast.no_effect`. Immune and excluded creatures consume no HD budget, because exclusion happens inside resolution rather than as a validator refusal. Locked by `test_casting.py::TestCastingPipeline::test_no_effect_still_consumes_the_copy` and `TestSleep`.
+A spell cast at a target that its category or an immunity excludes has no effect, and the cast isn't refused.
+
+- The reason is the same as for holy water: a refusal is free and would reveal hidden state. Casting *charm person* at a disguised doppelgänger, or *sleep* at a wight, mustn't be a way to detect them at no cost.
+- Casting at an ineligible target uses up the copy and reports `magic.cast.no_effect`.
+- Immune and excluded creatures use none of an HD budget, because the exclusion happens during resolution, not as a validator refusal.
+
+Locked by `test_casting.py::TestCastingPipeline::test_no_effect_still_consumes_the_copy` and `TestSleep`.
 
 ### Sleep's mode arithmetic
 
@@ -454,7 +504,7 @@ The holy-water reasoning applies here too: rejections are free and would leak hi
 
 Mode 1 affects "A single creature with 4+1 Hit Dice". osrlib reads that as a monster whose HD count is exactly 4 and whose fixed modifier is positive, like 4+1 or 4+3.
 
-Mode 2 affects "A total of 2d8 Hit Dice of creatures of 4 HD or lower each". That excludes mode 1's creatures, which have more than 4 HD. Mode 2:
+Mode 2 affects "A total of 2d8 Hit Dice of creatures of 4 HD or lower each". Mode 2 excludes mode 1's creatures. Mode 2:
 
 - Costs each creature its HD count, with fixed bonuses dropped, as the spell page says: "a 3+2 HD monster would be treated as having 3 HD". A creature with less than 1 HD counts as 1.
 - Spends the budget weakest first through the HD-budget targeting mode, with ties in stable order.
@@ -465,55 +515,113 @@ Both modes judge a drained monster by the Hit Dice it has left, plus its templat
 
 ### Magic missile is 1 + 2×⌊(level−1)/5⌋ missiles, resolved instantly
 
-osrlib derives the count from "three missiles at 6th–10th level, five missiles at 11th–15th level". Each missile takes one supplied target (repeats stack), hits unerringly with no attack roll and no save, and resolves at cast, so the printed 1-turn duration has no effect in the engine. Locked by `test_casting.py::TestMagicMissile`.
+*Magic missile* fires 1 + 2 × ⌊(level − 1) / 5⌋ missiles: one up to 5th level, three at 6th to 10th, and five at 11th to 15th. osrlib derives the count from "three missiles at 6th–10th level, five missiles at 11th–15th level".
+
+- Each missile takes one target that the caller supplies, and missiles at the same target stack.
+- Each missile hits with no attack roll and no save.
+- The spell resolves when it's cast, so the printed 1-turn duration does nothing in the engine.
+
+Locked by `test_casting.py::TestMagicMissile`.
 
 ### Lightning bolt kills destroy equipment; disintegrate kills permanently and destroys carried gear
 
-*Lightning bolt* is a destructive death source. *Disintegrate* destroys "the material form ... instantly and permanently", which osrlib reads as permanent death plus equipment destruction, because the material form includes what the creature carries. Locked by `test_casting.py::TestFireBallAndLightningBolt` and `TestSaveOrDie`.
+A creature that *lightning bolt* kills dies a destructive death, so what it carries is destroyed too. *Disintegrate* destroys "the material form ... instantly and permanently", which osrlib reads as permanent death that also destroys carried equipment, because the material form includes what the creature carries. Locked by `test_casting.py::TestFireBallAndLightningBolt` and `TestSaveOrDie`.
 
 ### Spell damage presents the `magic` key
 
-A damage-dealing spell passes weapon-material gates whose keys include `magic`: a wight's silver-or-magic gate admits *magic missile*, a gargoyle's magic-only gate admits *fire ball*. Without the key, those gates would block spell damage. Locked by the Phase 3 spell-battle golden (three missiles damaging the wight).
+Spell damage counts as magic at a weapon gate: it passes any gate whose keys include `magic`. So a wight's silver-or-magic gate lets *magic missile* through, and a gargoyle's magic-only gate lets *fire ball* through. Without the key, those gates would block spell damage. Locked by the Phase 3 spell-battle golden (three missiles damaging the wight).
 
 ### The hold/charm person gate admits any character and only `person`-category monsters
 
-Undead are never affected (their exclusion resolves as no effect). *Hold monster* and *charm monster* affect anything but undead. *Charm monster*'s single mode affects one creature of more than 3 HD, and its group mode affects 3d6 creatures of 3 HD or less. Locked by `test_casting.py::TestHoldAndCharm`.
+*Hold person* and *charm person* affect any character, and only monsters in the `person` category.
+
+- Undead are never affected. Excluding them resolves as no effect.
+- *Hold monster* and *charm monster* affect anything but undead.
+- *Charm monster* has two modes: one creature of more than 3 HD, or 3d6 creatures of 3 HD or less.
+
+Locked by `test_casting.py::TestHoldAndCharm`.
 
 ### Charm re-saves are monthly/weekly/daily by INT, with month = 30 days
 
-INT 3-8 saves monthly, 9-12 weekly, and 13-18 daily, with a month set to 30 days and a week to 7. Monsters have no INT score and default to the middle weekly band (override-correctable per monster). The re-save is a tick-time draw on the `effects` stream, and a passed save releases the charm. Locked by `test_casting.py::TestHoldAndCharm`.
+A charmed creature saves again at an interval that its INT sets:
+
+- INT 3-8: monthly.
+- INT 9-12: weekly.
+- INT 13-18: daily.
+
+A month is 30 days and a week is 7. Monsters have no INT score, so they use the middle, weekly band, and an override can correct that for a monster. The engine rolls the re-save on the `effects` stream when the effect ticks, and a passed save ends the charm. Locked by `test_casting.py::TestHoldAndCharm`.
 
 ### The cumulative-effects rule: largest bonus plus largest penalty per statistic
 
-`Spells.md`: "Multiple spells affecting the same game statistic do not combine." osrlib's reading: at consultation time only the single largest bonus and single largest penalty apply, so a *bless* and a *blight* offset and two *blesses* don't stack. Spell modifiers combine freely with non-spell sources (the RAW carve-out for magic items). Spell morale modifiers use `check_morale`'s existing modifier argument inside the morale rule's ±2 clamp and ML 2/12 exemptions: one uniform adjustment rule rather than a second channel. Locked by `test_casting.py::TestBuffsAndWards` and `test_spell_properties.py`.
+When several spells change the same statistic, only the largest bonus and the largest penalty apply. `Spells.md` says "Multiple spells affecting the same game statistic do not combine.", and osrlib applies that whenever the engine reads the statistic. So a *bless* and a *blight* offset each other, and two *blesses* don't stack.
+
+- Spell modifiers combine freely with modifiers from other sources, as RAW's exception for magic items allows.
+- A spell's morale modifier goes through `check_morale`'s existing modifier argument, inside the morale rule's ±2 clamp and its exemptions for morale scores of 2 and 12. That keeps one rule for adjustments instead of a second channel.
+
+Locked by `test_casting.py::TestBuffsAndWards` and `test_spell_properties.py`.
 
 ### Shield's AC values apply as better-of
 
-"AC 2 [17] against missiles, AC 4 [15] against other attacks": the target's effective AC is the better of the target's AC and the set value, never worse, so a target in plate armour keeps its plate AC. Locked by `test_casting.py::TestBuffsAndWards`.
+*Shield* never makes a target's AC worse. The target's AC is the better of its own AC and the value the spell gives, "AC 2 [17] against missiles, AC 4 [15] against other attacks", so a target in plate armour keeps its plate AC. Locked by `test_casting.py::TestBuffsAndWards`.
 
 ### Striking applies to weapon attacks of any kind, never unarmed, and attaches to the wielder
 
-RAW names no weapon type, so missile weapons qualify, and unarmed strikes gain nothing. The enchantment attaches to the *wielder* because item instances have no ids. In the corner case where the wielder hands the weapon away mid-duration, the enchantment stays with the wielder. The wielder counts as magical for weapon-material gates while the enchantment lasts. Locked by `test_casting.py::TestBuffsAndWards`.
+*Striking* works on any weapon attack, missile weapons included, and never on an unarmed strike, because RAW names no weapon type.
+
+- The enchantment attaches to the *wielder*, because item instances have no ids. If the wielder hands the weapon away while the spell lasts, the enchantment stays with the wielder.
+- While the enchantment lasts, the wielder counts as magical at weapon gates.
+
+Locked by `test_casting.py::TestBuffsAndWards`.
 
 ### Protection from evil: the melee ban is data, and monster alignment resolves at spawn
 
-The enchanted/constructed/summoned melee ban is structured params that the battle machine reads (the kernel can't see who initiates melee). The ward's ±1 applies against creatures of another alignment, which needs a resolved alignment where `MonsterTemplate.alignment` is multi-option: `MonsterInstance.alignment` resolves at spawn (caller's choice, else the template's `usual`, else its sole option), and an unresolved alignment counts as differing, so the ±1 applies to a creature whose alignment is unresolved too. Locked by `test_casting.py::TestBuffsAndWards`.
+*Protection from evil* has two parts:
+
+- Enchanted, constructed, and summoned creatures can't start a melee with the ward's bearer. That ban is structured params that the session reads in battle, because the kernel can't see who starts a melee.
+- The ward's ±1 applies against creatures of another alignment.
+
+The ±1 needs each monster's alignment to be settled, even when its template, `MonsterTemplate.alignment`, allows more than one. So `MonsterInstance.alignment` is resolved when the monster spawns: the caller's choice, else the template's `usual`, else its only option. An unresolved alignment counts as different, so the ±1 applies against it too. Locked by `test_casting.py::TestBuffsAndWards`.
 
 ### Small nonmagical missiles are character weapon missiles and thrown splash items
 
-osrlib draws *protection from normal missiles*' boundary from the spell page's examples ("no protection is granted against hurled boulders or enchanted missiles"): missile weapon uses and thrown splash items set the `DamageSource.missile` flag. The engine never sets the flag on a monster attack by itself. The caller sets `AttackContext.monster_missile` when the attack is a small missile in the fiction (a hobgoblin's arrow). Locked by `test_casting.py::TestBuffsAndWards::test_protection_from_normal_missiles_boundary`.
+The heading names what *protection from normal missiles* stops: a character's missile weapons and thrown splash items, and a monster's attack only when the caller says it's a small missile. osrlib draws that boundary from the spell page's examples ("no protection is granted against hurled boulders or enchanted missiles"):
+
+- A missile weapon use or a thrown splash item sets the `DamageSource.missile` flag.
+- The engine never sets the flag on a monster's attack by itself. The caller sets `AttackContext.monster_missile` when the attack is a small missile in the story, like a hobgoblin's arrow.
+
+Locked by `test_casting.py::TestBuffsAndWards::test_protection_from_normal_missiles_boundary`.
 
 ### All spell-attached effects are dispellable, monster effects are not, and survival is 5% per level of deficit
 
-RAW says *dispel magic* "ends spell effects" without qualification: `permanent=True` means "no duration expiry", not "undispellable" (*continual light* and *flesh to stone* can be dispelled). Effects attached by `cast_spell` record the caster's level, and per effect, when the recorded level exceeds the dispelling caster's, the effect survives on a d100 at or under 5% per level of difference. Monster-inflicted effects (poison, rot, regeneration) are non-dispellable by construction, and magic items are exempt. Locked by `test_casting.py::TestSilenceWebDispelFeeblemind`.
+*Dispel magic* can end any effect that a spell attached, but no effect that a monster caused, and magic items are exempt.
+
+- RAW says *dispel magic* "ends spell effects" without qualification. `permanent=True` means the effect has no duration that expires, not that it can't be dispelled, so *continual light* and *flesh to stone* can be dispelled.
+- `cast_spell` records the caster's level on each effect it attaches. When that level is higher than the dispelling caster's, the effect survives on a d100 roll at or under 5% for each level of difference. The engine rolls for each effect.
+- Effects that monsters cause, like poison, rot, and regeneration, can't be dispelled, by design.
+
+Locked by `test_casting.py::TestSilenceWebDispelFeeblemind`.
 
 ### Raise dead: 0 days at level 7, a 14-elapsed-day weakness, and permanent undead destruction
 
-The time limit is 4 days per caster level above 7th, which is 0 days at level 7, RAW-faithful. Revival sets 1 hp and attaches the weakness, set to 14 elapsed days as the simplification of "two full weeks of bed rest" (rest tracking belongs to the crawl layer, and games wanting strict bed-rest semantics extend or release via the ledger). While it runs, the subject cannot attack, cast, or turn undead (RAW bans "other class abilities" too), moves at half rate (a marker param the crawl layer reads), and healing from *every* source is blocked, because RAW says the subject "has 1 hit point" until the recovery completes and no magical healing shortens it. The hit point returns to normal recovery when the weakness ends. Only characters are raisable (all four Classic races are human or demihuman, and monsters are not). The destroy-undead usage kills permanently on a failed save, matching turning's `D`. Locked by `test_casting.py::TestCuresAndRestoration::test_raise_dead_level_seven_allows_zero_days`.
+*Raise dead* works within 4 days per caster level above 7th, which is 0 days at level 7, as RAW says. Only characters can be raised: all four races in the Classic rules are human or demihuman, and monsters aren't.
+
+The revived character:
+
+- Has 1 hp, and a weakness effect that lasts 14 days of elapsed time. That simplifies "two full weeks of bed rest", because tracking rest belongs to the session. A game that wants strict bed rest can extend or release the effect through the ledger.
+- Can't attack, cast, or turn undead while the weakness lasts, because RAW bans "other class abilities" too.
+- Moves at half rate, through a marker param that the session reads.
+- Can't be healed by *any* source, because RAW says the subject "has 1 hit point" until the recovery completes, and no magical healing shortens it. The hit point returns to normal recovery when the weakness ends.
+
+Used against undead, the spell destroys a creature that fails its save, permanently, like turning's `D`. Locked by `test_casting.py::TestCuresAndRestoration::test_raise_dead_level_seven_allows_zero_days`.
 
 ### Neutralize poison's revival window is caller-attested, and only characters revive
 
-"A **character** who has died from poisoning can be revived, if *neutralize poison* is cast within ten rounds": the kernel has no cause-of-death model, so supplying `CastContext.rounds_since_death` *is* the caller's attestation that the target died of poison within that many rounds. Omit it for any other death. Only a `Character` is revivable (the page's usage is titled "Characters"), and revival stands the subject up at 1 hp (osrlib's choice, since RAW names no hit point total). Locked by `test_casting.py::TestCuresAndRestoration`.
+*Neutralize poison* revives a character who died of poison within ten rounds, when the caller states that's how and when the character died. The page says "A **character** who has died from poisoning can be revived, if *neutralize poison* is cast within ten rounds". The kernel has no record of the cause of death, so passing `CastContext.rounds_since_death` *is* the caller's statement that the target died of poison that many rounds ago. Leave it out for any other death.
+
+- Only a `Character` can be revived, because the page's usage is titled "Characters".
+- Revival brings the character back at 1 hp, which is osrlib's choice, since RAW names no hit point total.
+
+In a session, the session supplies the value from its death record (see [The session's context](#the-sessions-context)). Locked by `test_casting.py::TestCuresAndRestoration`.
 
 ### Cure light wounds removes paralysis from any source
 
@@ -523,15 +631,25 @@ The other cures, like *cure disease* and *neutralize poison*, lift a condition o
 
 ### Silence automates both forms: moving on a failed save, stationary on a passed one
 
-A failed save attaches `silenced` (the casting validator consumes it) and the silence moves with the creature. On a passed save, RAW leaves a *stationary* area the creature can step out of. Location-bound effects anchor to cells, so the save-passed outcome attaches a stationary silence effect to the target's cell, which osrlib takes to be the party's current cell (the encounter's abstract location). Creatures in that cell cannot cast while there, battles included. Locked by `test_casting.py::TestSilenceWebDispelFeeblemind`, `test_exploration.py::TestStationarySilence`, and `test_battle.py::TestSilencedCellInBattle`.
+osrlib runs *silence 15' radius* for both outcomes of the target's save:
+
+- On a failed save, the target gains `silenced`, which the casting validator checks, and the silence moves with the creature.
+- On a passed save, RAW leaves a *stationary* area that the creature can step out of. Effects bound to a location anchor to cells, so the engine attaches a stationary silence effect to the target's cell, which osrlib takes to be the party's current cell, the encounter's abstract location. Creatures in that cell can't cast while they're there, in battle too.
+
+Locked by `test_casting.py::TestSilenceWebDispelFeeblemind`, `test_exploration.py::TestStationarySilence`, and `test_battle.py::TestSilencedCellInBattle`.
 
 ### Web escape tiers depend on STR, with the augmented and giant tiers caller-asserted
 
-Normal strength escapes in 2d4 turns, rolled at attach on the effects stream. Magically augmented STR above 18 escapes in 4 rounds and giant strength in 2 rounds, asserted via `CastContext.strength_tiers` until such effects exist. The blocking cube is a location effect (see [Light, darkness, and location-bound effects](#light-darkness-and-location-bound-effects)), and the flammability rule stays manual. Locked by `test_casting.py::TestSilenceWebDispelFeeblemind`.
+How long a creature takes to escape a *web* depends on its STR:
+
+- Normal strength escapes in 2d4 turns, rolled on the effects stream when the effect attaches.
+- STR raised by magic above 18 escapes in 4 rounds, and giant strength in 2 rounds. Until effects that grant those exist, the caller states them through `CastContext.strength_tiers`.
+
+The blocking cube is a location effect (see [Light, darkness, and location-bound effects](#light-darkness-and-location-bound-effects)). The web's flammability stays manual, for the referee. Locked by `test_casting.py::TestSilenceWebDispelFeeblemind`.
 
 ### Feeblemind targets only `arcane_magic` casters
 
-The spell page's target is "an arcane spell caster (e.g. a magic-user or elf)": the gate is the target bearing the `arcane_magic` class tag, and anything else resolves as no effect. Locked by `test_casting.py::TestSilenceWebDispelFeeblemind`.
+*Feeblemind* affects only a target with the `arcane_magic` class tag. The spell page's target is "an arcane spell caster (e.g. a magic-user or elf)", and any other target resolves as no effect. Locked by `test_casting.py::TestSilenceWebDispelFeeblemind`.
 
 ### The turning column is the HD count, `2*` only at count 2, counts above 9 unturnable
 
