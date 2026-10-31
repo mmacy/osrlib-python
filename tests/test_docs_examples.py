@@ -39,7 +39,7 @@ _NO_RUN_TAG = "no-run"
 # Blocks that fail today because their chunk isn't built. The lead removes an entry when its chunk merges.
 _EXPECTED_TO_FAIL: dict[str, str] = {
     # The `ResolveBattleRound` example plans each round with `preview_battle_round`, which is a stub until its chunk.
-    "src/osrlib/crawl/commands.py:3017-3080": "chunk: move-and-attack",
+    "src/osrlib/crawl/commands.py:3024-3087": "chunk: move-and-attack",
 }
 
 

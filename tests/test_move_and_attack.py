@@ -27,9 +27,12 @@ round is checked to cost nothing. The unmarked tests are guards that pass before
 import pytest
 
 from osrlib.core.effects import ActiveCondition, Condition
-from osrlib.core.events import SpellCastEvent
+from osrlib.core.events import DeclarationFizzledEvent, SpellCastEvent, Visibility
+from osrlib.crawl import battle as battle_module
 from osrlib.crawl.battle import BattleRoundPreview, group_front_rank, preview_battle_round
 from osrlib.crawl.commands import GrantItem, ResolveBattleRound
+from osrlib.crawl.events import parse_any_event
+from osrlib.messages import format_message
 from positions_fixtures import (
     advance,
     advances,
@@ -257,22 +260,66 @@ class TestWhatCombinesWithAMove:
 # ---------------------------------------------------------------------- the melee step
 
 
+MELEE_FIZZLED = "battle.melee.fizzled"
+
+
+def _melee_fizzles(events, actor_id: str) -> list[DeclarationFizzledEvent]:
+    return [
+        event
+        for event in events
+        if isinstance(event, DeclarationFizzledEvent) and event.code == MELEE_FIZZLED and event.actor_id == actor_id
+    ]
+
+
 @MOVE_AND_ATTACK
-def test_a_close_cut_short_by_a_group_that_runs_first_makes_no_attack():
-    """The goblins break and run 60' before the party acts, so Nim's close ends 60' short and Nim strikes nothing."""
-    for seed in seeds(distance=30):
-        game = battle(distance=30, first_seed=seed)
-        game.encounter.groups[0].fleeing = True
-        nim = named(game, "Nim")
+class TestTheMeleeStep:
+    """A melee attack resolves only if the member stands in the group's front rank within 5' when it comes up.
 
-        events = play(game, strike(game, nim, move="close"))
-        if not monsters_first(game, events):
-            continue
+    Otherwise it fizzles with a player-visible `DeclarationFizzledEvent` at `battle.melee.fizzled`, whose `reason` is
+    `combat.attack.out_of_reach` for a member farther than 5' and `battle.declaration.not_in_front_rank` for a member
+    within 5' but not in the front rank, and whose `group_id` is the group. A fleeing group is the exception.
+    """
 
-        (move,) = moved(events)
-        assert (move.advance_feet, move.distance_feet) == (30, 60)
+    def test_the_monsters_win_initiative_and_run_out_of_reach_so_the_attack_fizzles(self):
+        """The goblins break and run 60' before the party acts, so Nim's close ends 60' short."""
+        for seed in seeds(distance=30):
+            game = battle(distance=30, first_seed=seed)
+            game.encounter.groups[0].fleeing = True
+            nim = named(game, "Nim")
+
+            events = play(game, strike(game, nim, move="close"))
+            if not monsters_first(game, events):
+                continue
+
+            (move,) = moved(events)
+            assert (move.advance_feet, move.distance_feet) == (30, 60)
+            assert attacks_by(events, nim) == []
+            (fizzle,) = _melee_fizzles(events, nim)
+            assert (fizzle.reason, fizzle.group_id, fizzle.item_id) == (OUT_OF_REACH, group_id(game), None)
+            assert fizzle.visibility is Visibility.PLAYER
+            assert position(events, fizzle) > position(events, move)
+            return
+
+    def test_a_member_left_out_of_the_front_rank_fizzles(self, monkeypatch):
+        """Nim's attack was judged with Hild stepping back. Hild is paralysed as initiative is rolled, so Hild stays
+        in front with Osric, and Nim, 5' from the goblins, stands in the second row."""
+        game = _held(distance=5)
+        hild, nim = _ids(game, "Hild", "Nim")
+        original = battle_module.roll_initiative
+
+        def paralysis_then_initiative(*args, **kwargs):
+            member = game.member(hild)
+            member.conditions = (*member.conditions, ActiveCondition(condition=Condition.PARALYSED, effect_id=None))
+            return original(*args, **kwargs)
+
+        monkeypatch.setattr(battle_module, "roll_initiative", paralysis_then_initiative)
+
+        events = play(game, declare(hild, "move", move="fighting_withdrawal"), strike(game, nim))
+
+        assert moved(events) == [], "precondition: Hild couldn't move"
         assert attacks_by(events, nim) == []
-        return
+        (fizzle,) = _melee_fizzles(events, nim)
+        assert (fizzle.reason, fizzle.group_id) == (NOT_IN_FRONT_RANK, group_id(game))
 
 
 def test_a_member_within_reach_still_strikes_a_group_that_runs_first():
@@ -288,7 +335,28 @@ def test_a_member_within_reach_still_strikes_a_group_that_runs_first():
 
         assert game.encounter.groups[0].distance_feet > 5, "precondition: the goblins ran before Hild's turn"
         assert attacks_by(events, hild), "Hild still got the swing"
+        assert _melee_fizzles(events, hild) == []
         return
+
+
+class TestTheMeleeFizzleEvent:
+    """Guards on the event's shape, which the stub ships."""
+
+    def test_the_event_takes_the_melee_code_and_a_group(self):
+        event = DeclarationFizzledEvent(
+            code=MELEE_FIZZLED, actor_id="character-0001", reason=OUT_OF_REACH, group_id="group-0001"
+        )
+        assert event.visibility is Visibility.PLAYER
+        assert parse_any_event(event.model_dump(mode="json")) == event
+        assert DeclarationFizzledEvent(code="magic.turning.fizzled", actor_id="a", reason="r").group_id is None
+
+    @pytest.mark.parametrize(("reason", "words"), [(OUT_OF_REACH, "can't reach"), (NOT_IN_FRONT_RANK, "front rank")])
+    def test_the_message_says_why_the_member_didnt_swing(self, reason, words):
+        event = DeclarationFizzledEvent(
+            code=MELEE_FIZZLED, actor_id="character-0001", reason=reason, group_id="group-0001"
+        )
+        line = format_message(event)
+        assert "character-0001" in line and "group-0001" in line and words in line
 
 
 # ---------------------------------------------------------------------- the dry run

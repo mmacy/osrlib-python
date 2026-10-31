@@ -2656,7 +2656,12 @@ class BattleDeclaration(BaseModel):
     step, the member stands in the group's front rank within 5' of it. The one exception is a group
     that has started to flee. A member who stood within 5' of it when the round was accepted still
     gets the attack, with the bonus against a retreating combatant. Otherwise the member makes no
-    attack, and the round reports only their move.
+    attack, and the session reports a
+    [`DeclarationFizzledEvent`][osrlib.core.events.DeclarationFizzledEvent] at
+    `battle.melee.fizzled`, with the group's id as `group_id`. Its `reason` is
+    `combat.attack.out_of_reach` when the member is farther than 5' from the group, and
+    `battle.declaration.not_in_front_rank` when the member is within 5' but not in its front
+    rank.
 
     `fighting_withdrawal` and `retreat` take a member away from the monsters, with a `move` action.
     A `fighting_withdrawal` backs away at half the member's encounter rate, facing the monsters, and
@@ -2968,6 +2973,8 @@ class ResolveBattleRound(Command):
         [`SpellDisruptedEvent`][osrlib.core.events.SpellDisruptedEvent],
         [`DeclarationFizzledEvent`][osrlib.core.events.DeclarationFizzledEvent] when a
         device use or a turning fails the check the session makes just before it resolves,
+        and at `battle.melee.fizzled` when a melee attack can't resolve because of where the
+        member stands when it comes up,
         [`MagicDispelledEvent`][osrlib.core.events.MagicDispelledEvent],
         [`UndeadTurnedEvent`][osrlib.core.events.UndeadTurnedEvent], and the effects
         a spell leaves behind

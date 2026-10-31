@@ -1139,7 +1139,7 @@ class SpellDisruptedEvent(Event):
 
 
 class DeclarationFizzledEvent(Event):
-    """A declared wand, staff, or rod use, or a declared turning, failed before it took effect.
+    """A declared wand, staff, or rod use, a declared turning, or a declared melee attack failed before it took effect.
 
     A [`GameSession`][osrlib.crawl.session.GameSession] reports it during a battle round. At the start of each
     round, every party member declares an action in a
@@ -1150,36 +1150,51 @@ class DeclarationFizzledEvent(Event):
     caused the failure. For example, the group a staff of striking was aimed at moved out of melee reach, or the
     group a wand was aimed at left the battle.
 
-    The event's `actor_id` is the member who declared the action, `item_id` is the device, and `reason` is the
-    rejection code of the check that failed.
+    A melee attack fizzles because of where the member stands when the party's melee step comes. The session judges
+    a melee attack before the round starts, as if every move the round declares had happened. When the attack comes
+    up, it resolves only if the member stands in the group's front rank within 5' of it. Something earlier in the
+    round can change that. For example, the monsters win initiative and the group runs before the member's `close`,
+    or a member the session expected to step back can no longer move. Then the attack fizzles with the code
+    `battle.melee.fizzled`. The one exception is a group that has started to flee: a member who stood within 5' of
+    it when the round was accepted still gets the attack.
+
+    The event's `actor_id` is the member who declared the action, `item_id` is the device, `group_id` is the group a
+    melee attack was aimed at, and `reason` is the rejection code of the check that failed.
 
     A fizzled declaration spends nothing. The device wasn't used, so it keeps its charge and isn't identified. Tell
-    the player the action failed, and that the device still has its charge. When a cast or a scroll read fizzles,
+    the player the action failed, and that the device still has its charge. A fizzled melee attack makes no attack
+    roll, so tell the player why the member didn't swing. When a cast or a scroll read fizzles,
     the session reports a [`SpellDisruptedEvent`][osrlib.core.events.SpellDisruptedEvent] instead, because the
     spell is lost.
     """
 
-    allowed_codes: ClassVar[frozenset[str]] = frozenset({"magic.device.fizzled", "magic.turning.fizzled"})
-    """The two codes: `magic.device.fizzled` for a wand, staff, or rod use, and `magic.turning.fizzled` for a
-    turning."""
+    allowed_codes: ClassVar[frozenset[str]] = frozenset(
+        {"magic.device.fizzled", "magic.turning.fizzled", "battle.melee.fizzled"}
+    )
+    """The three codes: `magic.device.fizzled` for a wand, staff, or rod use, `magic.turning.fizzled` for a
+    turning, and `battle.melee.fizzled` for a melee attack."""
 
     event_type: Literal["declaration_fizzled"] = "declaration_fizzled"
     """The fixed string that identifies this event class in a serialized event."""
 
     code: str
-    """Which declaration fizzled: `magic.device.fizzled` or `magic.turning.fizzled`."""
+    """Which declaration fizzled: `magic.device.fizzled`, `magic.turning.fizzled`, or `battle.melee.fizzled`."""
 
     visibility: Visibility = Visibility.PLAYER
     """Player visibility: everyone sees the action fail."""
 
     actor_id: str
-    """The entity id of the member who declared the device use or the turning."""
+    """The entity id of the member who declared the device use, the turning, or the melee attack."""
 
     item_id: str | None = None
     """On a `magic.device.fizzled` event, the device's instance id, as the declaration's `item_id` gave it.
 
     The player already used this id, so it reveals nothing about a device that isn't identified. It's `None` on a
-    `magic.turning.fizzled` event."""
+    `magic.turning.fizzled` or a `battle.melee.fizzled` event."""
+
+    group_id: str | None = None
+    """On a `battle.melee.fizzled` event, the id of the group the melee attack was aimed at, as the declaration's
+    `target_group_id` gave it. It's `None` on the other codes."""
 
     reason: str
     """Why the declaration fizzled: the code of the first check that failed when the session checked it again.
@@ -1187,7 +1202,11 @@ class DeclarationFizzledEvent(Event):
     Any check the declaration passed at the start of the round can fail, so read the code and don't assume a
     cause. Some codes you may see:
 
-    - `combat.attack.out_of_reach`: the group a staff of striking was aimed at moved out of reach.
+    - `combat.attack.out_of_reach`: the group a staff of striking was aimed at moved out of reach, or the member
+      who declared a melee attack is farther than 5' from its group when the attack comes up.
+    - `battle.declaration.not_in_front_rank`: the member who declared a melee attack is within 5' of its group
+      but not in its front rank when the attack comes up. A melee attack gets this code only when the member is
+      within 5', and `combat.attack.out_of_reach` otherwise.
     - `battle.declaration.unknown_group`: the group a wand was aimed at left the battle.
     - `battle.declaration.no_target`: no living monster is left in the battle for a turning.
 

@@ -120,6 +120,10 @@ During a round, the session also applies these rules without a command for them:
 
 - A caster who declared a spell loses it if an attack hits them, or they fail a saving throw,
   between initiative and their turn to act.
+- A declared melee attack that can't resolve because of where the member stands when it comes up,
+  out of reach or out of the group's front rank, fizzles with a
+  [`DeclarationFizzledEvent`][osrlib.core.events.DeclarationFizzledEvent] at
+  `battle.melee.fizzled`.
 - Each monster group checks morale when the OSE SRD calls for it.
 - When a monster's attack hits, the session applies the effects the attack lists: paralysis,
   poison, mummy rot, energy drain, petrification, and the spitting cobra's blindness. Each effect
