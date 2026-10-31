@@ -59,6 +59,7 @@ from osrlib.crawl.commands import (
     SpawnNpcParty,
 )
 from osrlib.crawl.dungeon import DungeonSpec, Edge, EdgeKind, LevelSpec
+from osrlib.crawl.events import MemberMovedEvent
 from osrlib.crawl.party import Party
 from osrlib.crawl.session import GameSession
 from osrlib.data import load_classes, load_equipment, load_monsters
@@ -536,6 +537,91 @@ class TestTheRefusals:
         )
         rejections = _refused(three, _attack(three, back_stab=True))
         assert rejections == [("battle.declaration.not_in_front_rank", {"character": sable})]
+
+
+# ---------------------------------------------------------------------- closing and back-stabbing in one round
+
+
+HASTE = EffectDefinition(kind="haste", params={"attacks_multiplier": 2, "movement_multiplier": 2})
+
+
+def _index(events, event) -> int:
+    return next(index for index, candidate in enumerate(events) if candidate is event)
+
+
+@pytest.mark.xfail(reason="chunk: move-and-attack", strict=True)
+class TestCloseAndBackStab:
+    """In the free round, a thief can close on the group and back-stab it in the same round (issue #209).
+
+    The session judges the back-stab at the distance the thief's `close` will reach, so the thief reaches a group up to
+    their encounter rate plus 5' away: 35' in leather under basic encumbrance, 45' in no armour, and double the rate
+    under *haste*. Beyond that the thief can't get within reach in the free round.
+    """
+
+    @pytest.mark.parametrize(
+        ("armour", "distance_feet", "rate"),
+        [(("leather",), 30, 30), (("leather",), 35, 30), ((), 45, 40)],
+        ids=["leather-at-30", "leather-at-35", "no-armour-at-45"],
+    )
+    def test_a_thief_closes_and_back_stabs_in_the_free_round(self, armour, distance_feet, rate):
+        game = _battle(wield=("dagger", *armour), distance_feet=distance_feet)
+        sable = _sable(game)
+
+        events = _play(game, _attack(game, back_stab=True, move="close"))
+
+        (move,) = [event for event in events if isinstance(event, MemberMovedEvent)]
+        (stab,) = _rolls_by(events, sable)
+        assert (move.character_id, move.advance_feet, move.distance_feet) == (sable, distance_feet - 5, 5)
+        assert distance_feet - 5 <= rate, "precondition: within the thief's rate"
+        assert stab.back_stab is True
+        assert _index(events, move) < _index(events, stab)
+
+    @pytest.mark.parametrize(
+        ("armour", "distance_feet"), [(("leather",), 40), ((), 50)], ids=["leather-at-40", "no-armour-at-50"]
+    )
+    def test_a_group_beyond_the_thiefs_rate_plus_five_is_out_of_reach(self, armour, distance_feet):
+        """With a sword, the attack stays melee after the move, so the refusal reports the 10' still to cover."""
+        game = _battle(wield=("sword", *armour), distance_feet=distance_feet)
+
+        rejections = _refused(game, _attack(game, back_stab=True, move="close"))
+
+        assert rejections == [("combat.attack.out_of_reach", {"distance_feet": 10})]
+
+    def test_haste_doubles_the_thiefs_reach(self):
+        game = _battle(wield=("dagger", "leather"), distance_feet=65)
+        sable = _sable(game)
+        effect, _ = game.ledger.attach(
+            HASTE, sable, clock=game.clock, allocator=game.allocator, registry=game.registry()
+        )
+        assert effect is not None
+
+        events = _play(game, _attack(game, back_stab=True, move="close"))
+
+        stabs = _rolls_by(events, sable)
+        assert len(stabs) == 2, "haste gave two swings"
+        assert all(stab.back_stab for stab in stabs)
+
+
+class TestCloseAndBackStabRefusals:
+    """Guards: the back-stab checks keep their place before the move checks, before and after the chunk."""
+
+    def test_a_close_and_back_stab_outside_the_free_round_is_refused_as_aware(self):
+        game = _battle(surprised=False, distance_feet=30)
+
+        assert _refused(game, _attack(game, back_stab=True, move="close")) == [
+            (TARGET_AWARE, {"character": _sable(game)})
+        ]
+
+    @pytest.mark.parametrize("action", ["hold", "cast"])
+    def test_a_back_stab_on_another_action_with_a_move_is_refused_as_not_an_attack(self, action):
+        game = _battle(distance_feet=30)
+        sable = _sable(game)
+
+        rejections = _refused(
+            game, _declare(sable, action, back_stab=True, move="close", target_group_id=_group_id(game))
+        )
+
+        assert rejections == [(NOT_ATTACK, {"character": sable})]
 
 
 # ---------------------------------------------------------------------- no back-stab is unchanged

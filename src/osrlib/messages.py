@@ -229,6 +229,15 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
         f"{event.actor_id}'s use of {event.item_id} fizzles. The device keeps its charge."
     ),
     "magic.turning.fizzled": lambda event: f"{event.actor_id}'s attempt to turn undead fizzles.",
+    "battle.melee.fizzled": lambda event: (
+        f"{event.actor_id} "
+        + (
+            "can't get into the front rank against"
+            if event.reason == "battle.declaration.not_in_front_rank"
+            else "can't reach"
+        )
+        + f" {event.group_id or 'the group'}, and makes no attack."
+    ),
     "magic.memory.forgotten": lambda event: f"{event.caster_id} forgets {event.spell_id}.",
     "magic.book.added": lambda event: f"{event.caster_id} adds {event.spell_id} to their spell book.",
     "magic.turning.turned": lambda event: _turning(event, "the undead are turned"),
@@ -366,11 +375,16 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
         f"{event.caster_id} begins casting {event.spell_id}" + (" (reversed)" if event.reversed else "") + "."
     ),
     "battle.group.moved": lambda event: f"{event.group_id} is now {event.distance_feet}' away.",
+    "battle.member.moved": lambda event: (
+        f"{event.character_id} "
+        + {"close": "closes", "fighting_withdrawal": "falls back", "retreat": "retreats"}.get(event.move, "moves")
+        + f" to {event.distance_feet}' from {event.group_id}."
+    ),
     "battle.member.withdrew": lambda event: (
-        f"{event.character_id} falls back, and {event.replacement_id} steps up to the front rank."
+        f"{event.character_id} falls back and trades places in the marching order with {event.replacement_id}."
     ),
     "battle.member.retreated": lambda event: (
-        f"{event.character_id} turns and retreats, and {event.replacement_id} steps up to the front rank."
+        f"{event.character_id} turns and retreats, and trades places in the marching order with {event.replacement_id}."
     ),
     "battle.side.fled": lambda event: f"{event.group_id} flees the battle!",
     "battle.group.left_behind": lambda event: (

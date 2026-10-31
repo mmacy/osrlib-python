@@ -123,6 +123,7 @@ __all__ = [
     "ListenedEvent",
     "LocationEnteredEvent",
     "MemberAddedEvent",
+    "MemberMovedEvent",
     "MemberRemovedEvent",
     "MemberWithdrewEvent",
     "MonsterDefeatedEvent",
@@ -1165,14 +1166,27 @@ class SpellDeclaredEvent(Event):
 
 
 class GroupMovedEvent(Event):
-    """A monster group's distance from the party changed.
+    """A monster group's distance from the party line changed.
+
+    The party line is where the party stood when the encounter opened. Each group's distance is
+    measured from it, and each party member stands at their own place on the same track, which
+    [`MemberMovedEvent`][osrlib.crawl.events.MemberMovedEvent] reports. When every member the
+    monsters can see has fallen back behind the line, the line moves back to the foremost of them,
+    and every group's distance grows by the same amount with no event, because nobody moved toward
+    or away from anyone. [`BattleState.advance_feet`][osrlib.crawl.battle.BattleState.advance_feet]
+    describes it.
 
     Emitted by [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound]
-    whenever a group's distance changes: the party closing on a group or backing away
-    from every group, monsters closing to strike, and a broken group running away.
+    whenever a group's distance changes: monsters closing to strike, a broken group running
+    away, and the whole party backing away from every group in a formation move. A member who
+    closes on a group by themselves doesn't move the group, so that emits a `MemberMovedEvent`
+    and no `GroupMovedEvent`.
 
     Distance decides who can reach whom, so redraw a battle screen's ranks from this
-    event.
+    event. A member's distance to this group is the group's `distance_feet` minus the member's
+    entry in [`EncounterView.advance_feet`][osrlib.crawl.views.EncounterView.advance_feet], and
+    [`EncounterGroupView.member_distance_feet`][osrlib.crawl.views.EncounterGroupView.member_distance_feet]
+    lists it for you.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"battle.group.moved"})
@@ -1187,40 +1201,96 @@ class GroupMovedEvent(Event):
     group_id: str
     """Which group moved, as its encounter group id."""
     distance_feet: int
-    """How far that group now is from the party, in feet, after the move. A group that closes in
-    stops at [`MELEE_RANGE_FEET`][osrlib.crawl.battle.MELEE_RANGE_FEET], where the two sides fight
-    hand to hand."""
+    """How far that group now is from the party line, in feet, after the move. A group that closes
+    in stops within [`MELEE_RANGE_FEET`][osrlib.crawl.battle.MELEE_RANGE_FEET] of the nearest
+    member it can see, where the two fight hand to hand."""
+
+
+class MemberMovedEvent(Event):
+    """A party member moved by themselves on the range track, closing on a group or falling back.
+
+    The range track is how a battle measures distance. Each group stands at a distance from the
+    party line, the place where the party stood when the encounter opened. Each member stands at
+    an advance, in feet, forward of that line toward the monsters. Every member starts the battle
+    on the line, at an advance of zero.
+
+    Emitted by [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound] in the party's
+    movement step, once for each member whose advance changes:
+
+    - A member who declares `move="close"`, with a `move` action or with an `attack`, moves at
+      their own encounter movement rate toward the group they named. They stop 5' from that group,
+      and they never come closer than 5' to another group that's still in the fight.
+    - A member who makes a `fighting_withdrawal` or a `retreat` that not every declarer makes moves
+      back alone, at half their encounter rate or their full rate. Their advance goes down, and it
+      can go below zero, behind the line.
+
+    When the moves leave every member the monsters can see behind the line, the line moves back to
+    the foremost of them at the end of the movement step, as
+    [`BattleState.advance_feet`][osrlib.crawl.battle.BattleState.advance_feet] describes. The session
+    emits no event for that, and no distance between a member and a group changes.
+
+    The events come in two runs, each in marching order: the members who fall back first, then
+    the members who close. A member who closes while already within 5' of the group doesn't move,
+    and the session emits nothing for them. A formation move, a defensive move that every declarer
+    makes, moves the groups instead of the members, so it emits
+    [`GroupMovedEvent`][osrlib.crawl.events.GroupMovedEvent]s and none of these.
+
+    Redraw the member's place on a battle screen from this event, or read
+    [`EncounterView.advance_feet`][osrlib.crawl.views.EncounterView.advance_feet] and
+    [`EncounterGroupView.member_distance_feet`][osrlib.crawl.views.EncounterGroupView.member_distance_feet]
+    from the next player view.
+    """
+
+    allowed_codes: ClassVar[frozenset[str]] = frozenset({"battle.member.moved"})
+    """The only message code this event uses."""
+
+    event_type: Literal["member_moved"] = "member_moved"
+    """The event type, `member_moved`, which identifies this class in serialized form."""
+    code: str = "battle.member.moved"
+    """The message code, always `battle.member.moved`."""
+    visibility: Visibility = Visibility.PLAYER
+    """Player visibility: the party sees its own members move."""
+    character_id: str
+    """The member who moved, by party member id."""
+    move: str
+    """The move the member made: `"close"`, `"fighting_withdrawal"`, or `"retreat"`, as they
+    declared it in [`BattleDeclaration.move`][osrlib.crawl.commands.BattleDeclaration.move]."""
+    advance_feet: int
+    """The member's advance right after the move, in feet forward of the party line. Zero is the line,
+    and a negative value is behind it. When the party line moves back at the end of the movement step,
+    the member's advance grows by the same amount as everyone's, and the next player view shows it."""
+    group_id: str
+    """The group `distance_feet` is measured to. For a `close`, it's the group the member closed
+    on. For a `fighting_withdrawal` or a `retreat`, it's the group nearest the member after the
+    move, among the groups that haven't fled and still have a living member. When two are equally
+    near, it's the one that comes first in
+    [`EncounterView.groups`][osrlib.crawl.views.EncounterView.groups]."""
+    distance_feet: int
+    """The member's distance to the group in `group_id` after the move, in feet. It's that group's
+    distance from the party line minus `advance_feet`. At 5' or less, the member and the group can
+    reach each other in melee."""
 
 
 class MemberWithdrewEvent(Event):
-    """A party member stepped back out of the front rank, and a member from behind took their place.
+    """A member who fell back alone traded places in the marching order with the member they named.
 
     Emitted by [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound] in the party's
-    movement step.
+    movement step, right after the withdrawing member's
+    [`MemberMovedEvent`][osrlib.crawl.events.MemberMovedEvent].
 
-    A front-rank member can step back alone by declaring a fighting withdrawal or a retreat.
-    The member can also name a member from behind in
-    [`replacement_id`][osrlib.crawl.commands.BattleDeclaration.replacement_id]. Then the two
-    trade places in the marching order, and the session emits this event:
+    A member who makes a fighting withdrawal or a retreat alone can name another member in
+    [`replacement_id`][osrlib.crawl.commands.BattleDeclaration.replacement_id]. The two then
+    trade places in the marching order, and the session emits this event. The trade moves
+    nobody on the range track. It decides who stands in front among members at the same
+    distance from a group who got there in the same round, and it's the marching order the
+    party keeps after the battle.
 
-    - The withdrawing member now stands where the replacement stood.
-    - The replacement now stands in the front rank.
-    - The party hasn't moved, and no group's distance has changed.
+    The trade happens only when the withdrawing member's move happens, and only while both
+    members are alive. A member who can no longer move when the movement step comes doesn't
+    fall back, so they don't trade places either, and the session emits neither event.
 
-    The events come in the marching order of the withdrawing members, before the party's
-    `close`, if the round has one.
-
-    A swap that can't happen by the movement step reports nothing, and the two members stay
-    where they are. That happens in these cases:
-
-    - One of the two has died or can no longer move.
-    - The replacement is incapacitated, charmed, or confused, so they can no longer act on the
-      party's behalf.
-    - The ranks shifted, and one of the two no longer stands where they did.
-
-    Redraw a battle screen's ranks from this event, or read them again from
-    [`PlayerView.party`][osrlib.crawl.views.PlayerView.party] and
-    [`EncounterView.front_rank`][osrlib.crawl.views.EncounterView.front_rank].
+    Redraw a battle screen's marching order from this event, or read it again from
+    [`PlayerView.party`][osrlib.crawl.views.PlayerView.party].
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"battle.member.withdrew", "battle.member.retreated"})
@@ -1230,11 +1300,13 @@ class MemberWithdrewEvent(Event):
     event_type: Literal["member_withdrew"] = "member_withdrew"
     """The event type, `member_withdrew`, which identifies this class in serialized form."""
     visibility: Visibility = Visibility.PLAYER
-    """Player visibility: the party sees its own ranks change."""
+    """Player visibility: the party sees its own marching order change."""
     character_id: str
-    """The member who stepped back, by party member id."""
+    """The member who fell back, by party member id. They now have the replacement's place in the
+    marching order."""
     replacement_id: str
-    """The member who stepped up into the front rank in their place, by party member id."""
+    """The member they named, by party member id. They now have the withdrawing member's place in
+    the marching order."""
 
 
 class MonsterFledEvent(Event):
@@ -2207,6 +2279,7 @@ CRAWL_EVENT_CLASSES: tuple[type[Event], ...] = (
     BattleRoundEvent,
     SpellDeclaredEvent,
     GroupMovedEvent,
+    MemberMovedEvent,
     MemberWithdrewEvent,
     MonsterFledEvent,
     MonstersLeftBehindEvent,

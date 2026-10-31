@@ -118,6 +118,9 @@ def sample_event(event_class, code):
         "BattleRoundEvent": dict(round=2),
         "SpellDeclaredEvent": dict(caster_id="pc-1", spell_id="sleep"),
         "GroupMovedEvent": dict(group_id="group-1", distance_feet=30),
+        "MemberMovedEvent": dict(
+            character_id="pc-1", move="close", advance_feet=25, group_id="group-1", distance_feet=5
+        ),
         "MemberWithdrewEvent": dict(character_id="pc-1", replacement_id="pc-3"),
         "MonsterFledEvent": dict(group_id="group-1"),
         "MonstersLeftBehindEvent": dict(group_id="group-2", source_group_id="group-1", count=2),

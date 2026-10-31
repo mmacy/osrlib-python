@@ -93,11 +93,12 @@ def first_weapon_id(member_view: dict) -> str | None:
 
 
 def fight(client, session_id: str, *, capture: list | None = None) -> list[dict]:
-    """The TUI's auto-declared battle loop, driven purely from the wire.
+    """An auto-declared battle loop, driven purely from the wire.
 
-    Every input a declaration needs — member ids, the group id, the distance, the
-    wielded weapon — comes from the player view: the example's proof that the
-    projection carries a fighting client's whole vocabulary.
+    Every input a declaration needs comes from the player view: member ids, the group id, and the wielded weapon.
+    That's the example's proof that the projection carries a fighting client's whole vocabulary. Each round, the
+    first two members attack. When the server refuses that round, because they can't reach the group yet, everyone
+    closes instead. A refused round costs nothing, so the refusal is how the client learns who can reach.
     """
     results = [run(client, session_id, {"command_type": "engage_battle"}, capture=capture)]
     for _ in range(40):
@@ -109,19 +110,10 @@ def fight(client, session_id: str, *, capture: list | None = None) -> list[dict]
         if group is None:
             break
         living = [member for member in view["party"] if "dead" not in member["conditions"]]
-        declarations = []
+        attacks = []
         for index, member in enumerate(living):
-            if group["distance_feet"] > 5:
-                declarations.append(
-                    {
-                        "character_id": member["id"],
-                        "action": "move",
-                        "move": "close",
-                        "target_group_id": group["id"],
-                    }
-                )
-            elif index < 2:
-                declarations.append(
+            if index < 2:
+                attacks.append(
                     {
                         "character_id": member["id"],
                         "action": "attack",
@@ -130,15 +122,19 @@ def fight(client, session_id: str, *, capture: list | None = None) -> list[dict]
                     }
                 )
             else:
-                declarations.append({"character_id": member["id"], "action": "hold"})
-        results.append(
-            run(
-                client,
-                session_id,
-                {"command_type": "resolve_battle_round", "declarations": declarations},
-                capture=capture,
-            )
+                attacks.append({"character_id": member["id"], "action": "hold"})
+        result = run(
+            client, session_id, {"command_type": "resolve_battle_round", "declarations": attacks}, capture=capture
         )
+        if not result["accepted"]:
+            closes = [
+                {"character_id": member["id"], "action": "move", "move": "close", "target_group_id": group["id"]}
+                for member in living
+            ]
+            result = run(
+                client, session_id, {"command_type": "resolve_battle_round", "declarations": closes}, capture=capture
+            )
+        results.append(result)
     return results
 
 

@@ -158,6 +158,9 @@ class TestCommandContract:
                 wrong.append(f"{cls.__name__}: documents {sorted(documented)}, allows {sorted(actual)}")
         assert not wrong, "\n".join(wrong)
 
+    # `ResolveBattleRound` documents `battle.declaration.cast_cannot_move` and `battle.declaration.move_not_combinable`,
+    # which its handler will emit, and the stub emits neither yet.
+    @pytest.mark.xfail(reason="chunk: move-and-attack", strict=True)
     def test_documented_rejection_codes_exist_in_the_source(self, vocabulary):
         wrong = []
         for cls in self._commands():
