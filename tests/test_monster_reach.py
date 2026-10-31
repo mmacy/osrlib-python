@@ -1,4 +1,4 @@
-"""Acceptance tests for how far the monsters reach once party members stand apart (issue #209, chunk: monster-reach).
+"""Acceptance tests for how far the monsters reach once party members stand apart (issue #209).
 
 The contract these tests check:
 
@@ -19,8 +19,7 @@ The contract these tests check:
 Each test sets members at their distances with the monsters held by a test policy, then gives the monsters their
 default policy back for the round under test. Each test asserts its own preconditions.
 
-`TestReviewRegressions` at the end holds regression tests for two defects a review found in the first build of the
-chunk. They carry no marker, so the chunk's marker goes on each acceptance class instead of on the module.
+`TestReviewRegressions` at the end holds regression tests for two defects a review found in the first build.
 """
 
 import pytest
@@ -48,8 +47,6 @@ from positions_fixtures import (
     release_monsters,
     saves_by_members,
 )
-
-CHUNK = pytest.mark.xfail(reason="chunk: monster-reach", strict=True)
 
 
 def _ids(game, *names: str) -> tuple[str, ...]:
@@ -92,7 +89,6 @@ class _StrikeAt:
 # ---------------------------------------------------------------------- closing
 
 
-@CHUNK
 class TestAGroupCloses:
     def test_a_group_stops_five_feet_from_the_nearest_member(self):
         game = _placed(("Nim", 1), distance=50)
@@ -142,7 +138,6 @@ class TestAGroupCloses:
 # ---------------------------------------------------------------------- who the group reaches
 
 
-@CHUNK
 class TestWhoTheGroupReaches:
     def test_a_group_within_reach_of_a_member_stays_and_strikes_only_that_member(self):
         game = _placed(("Nim", 1), distance=30)
@@ -220,7 +215,6 @@ class TestWhoTheGroupReaches:
 # ---------------------------------------------------------------------- gaze, breath, and friendly fire
 
 
-@CHUNK
 class TestAreasAndGazes:
     def test_a_gaze_reaches_only_the_front_rank_within_reach(self):
         game = _placed(("Nim", 1), template_id="basilisk", count=1, distance=30)
