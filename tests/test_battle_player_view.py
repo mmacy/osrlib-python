@@ -12,15 +12,17 @@ The tests give the fighter and the elf a sword each and the thief a flask of oil
 
 import pytest
 
+import positions_fixtures as pf
 from crawl_fixtures import build_adventure, build_milestone_party
 from osrlib.core.combat import TargetingMode, effective_hd, select_targets
-from osrlib.core.effects import Condition, has_condition
+from osrlib.core.effects import ActiveCondition, Condition, has_condition
 from osrlib.core.events import Visibility
 from osrlib.core.items import MagicItemInstance
 from osrlib.core.rng import RngStreams
+from osrlib.core.ruleset import Ruleset
 from osrlib.core.tables import ReactionResult
 from osrlib.crawl import encounter as encounter_module
-from osrlib.crawl.battle import FLEE_EXIT_FEET, MELEE_RANGE_FEET
+from osrlib.crawl.battle import FLEE_EXIT_FEET, MELEE_RANGE_FEET, group_front_rank, preview_battle_round
 from osrlib.crawl.commands import (
     BattleDeclaration,
     CommandResult,
@@ -605,3 +607,310 @@ class TestAFledGroup:
         view = _goblins_breaking("fled").view(Visibility.PLAYER)
         assert PlayerView.model_validate_json(view.model_dump_json()) == view
         assert _fled_flag(view.encounter.groups[0]) is True
+
+
+# ---------------------------------------------------------------------- issue #209: positions in the player view
+
+VIEW = pytest.mark.xfail(reason="chunk: view-and-codes", strict=True)
+
+MISSILE_SPELLS = {"Wren": ("magic_missile", "magic_missile")}
+
+
+def _ids(game: GameSession, *names: str) -> tuple[str, ...]:
+    return tuple(pf.named(game, name) for name in names)
+
+
+def _held(**battle_args) -> GameSession:
+    game = pf.battle(**battle_args)
+    pf.hold_monsters(game)
+    return game
+
+
+def _living_goblin(game: GameSession) -> str:
+    return next(
+        monster_id
+        for monster_id in game.encounter.groups[0].monster_ids
+        if not has_condition(game.combatant(monster_id), Condition.DEAD)
+    )
+
+
+def _missile(game: GameSession, caster_id: str) -> BattleDeclaration:
+    return pf.declare(
+        caster_id, "cast", spell_id="magic_missile", spell_mode="missiles", targets=(_living_goblin(game),)
+    )
+
+
+@VIEW
+class TestThePositionsInThePlayerView:
+    """A battle screen draws the fight and offers each member's choices from the player view alone."""
+
+    def test_each_group_lists_every_living_members_distance(self):
+        game = _held(distance=30)
+        nim = pf.named(game, "Nim")
+        pf.play(game, pf.close(game, nim))
+
+        group = _encounter(game).groups[0]
+
+        assert group.member_distance_feet == {
+            member.id: 30 - pf.advance(game, member.id) for member in game.party.members
+        }
+        assert group.member_distance_feet[nim] == 5
+
+    def test_each_group_lists_who_can_fight_it_hand_to_hand(self):
+        game = _held(distance=30)
+        nim = pf.named(game, "Nim")
+        assert _encounter(game).groups[0].front_rank == (), "nobody within reach yet"
+
+        pf.play(game, pf.close(game, nim))
+
+        assert _encounter(game).groups[0].front_rank == (nim,) == group_front_rank(game, pf.group_id(game))
+
+    def test_the_encounter_front_rank_is_the_first_row_toward_the_nearest_group(self):
+        game = _held(distance=30)
+        hild, osric, nim = _ids(game, "Hild", "Osric", "Nim")
+        assert _encounter(game).front_rank == (hild, osric), "before anyone moves, the marching order's first rank"
+
+        pf.play(game, pf.close(game, nim))
+
+        assert _encounter(game).front_rank == (nim,)
+
+    def test_advance_feet_lists_every_living_member(self):
+        game = _held(distance=30)
+        nim = pf.named(game, "Nim")
+        assert _encounter(game).advance_feet == {member.id: 0 for member in game.party.members}
+
+        pf.play(game, pf.close(game, nim))
+
+        assert _encounter(game).advance_feet == {
+            member.id: (25 if member.id == nim else 0) for member in game.party.members
+        }
+
+    @pytest.mark.parametrize("name", ["Hild", "Osric", "Nim", "Wren", "Tam"])
+    def test_the_group_front_rank_is_exactly_who_may_strike_it(self, name):
+        """Nim got there first, then Hild and Osric together: the corridor's two places go to Nim and Hild."""
+        game = _held(distance=30)
+        hild, osric, nim = _ids(game, "Hild", "Osric", "Nim")
+        pf.play(game, pf.close(game, nim))
+        pf.play(game, pf.close(game, hild), pf.close(game, osric))
+        pf.play(game, pf.close(game, hild), pf.close(game, osric))
+        member_id = pf.named(game, name)
+        front_rank = _encounter(game).groups[0].front_rank
+        assert front_rank == (hild, nim), "precondition: the view shows the front rank"
+        offered = member_id in front_rank
+
+        result = pf.round_(game, pf.strike(game, member_id))
+
+        assert result.accepted is offered, [(rejection.code, dict(rejection.params)) for rejection in result.rejections]
+        assert offered is (name in ("Hild", "Nim"))
+
+    def test_formation_width_is_the_space_the_party_stands_in(self):
+        assert _encounter(pf.battle()).formation_width == 2
+        assert _encounter(pf.battle(engage=False)).formation_width == 2
+        assert _encounter(pf.battle(adventure=pf.hall())).formation_width == 4
+        assert _encounter(pf.battle(ruleset=Ruleset(formation_width_limit=False))).formation_width is None
+
+    def test_the_free_round_flag_marks_the_round_a_back_stab_is_legal(self):
+        surprised = pf.battle(surprised=True)
+        assert _encounter(surprised).party_free_round is True
+        pf.play(surprised)
+        assert _encounter(surprised).party_free_round is False
+        assert _encounter(pf.battle(surprised=False)).party_free_round is False
+
+    def test_each_member_reports_how_far_they_can_move_in_a_round(self):
+        game = pf.battle()
+        nim = pf.named(game, "Nim")
+        assert {member.name: member.encounter_rate_feet for member in game.view(Visibility.PLAYER).party} == pf.RATE
+
+        pf.attach(game, pf.HASTE, nim)
+
+        rates = {member.id: member.encounter_rate_feet for member in game.view(Visibility.PLAYER).party}
+        assert rates[nim] == 60
+
+
+@VIEW
+class TestLightAndSightInThePlayerView:
+    """Hild carries the torch, 30' of light. Aelin the elf sees 60' by infravision. Nobody else sees in the dark."""
+
+    def test_a_group_in_the_torchlight_is_lit_and_seen_by_everyone(self):
+        game = _held(distance=20, light=True)
+
+        group = _encounter(game).groups[0]
+
+        assert group.lit is True
+        assert group.seen_by == tuple(member.id for member in game.party.members)
+
+    def test_a_group_beyond_the_torch_is_seen_only_by_infravision(self):
+        game = _held(distance=50, light=True)
+
+        group = _encounter(game).groups[0]
+
+        assert group.lit is False
+        assert group.seen_by == (pf.named(game, "Aelin"),)
+
+    def test_the_torch_reaches_as_far_as_its_bearer_stands_forward(self):
+        game = _held(distance=50, light=True)
+        hild = pf.named(game, "Hild")
+        pf.play(game, pf.close(game, hild))
+
+        group = _encounter(game).groups[0]
+
+        assert group.member_distance_feet[hild] == 30
+        assert group.lit is True
+        assert group.seen_by == tuple(member.id for member in game.party.members)
+
+    def test_a_group_beyond_infravision_is_seen_by_nobody(self):
+        game = _held(distance=70, light=True)
+
+        group = _encounter(game).groups[0]
+
+        assert (group.lit, group.seen_by) == (False, ())
+
+    def test_a_blind_member_sees_nothing(self):
+        game = _held(distance=50, light=True)
+        aelin = pf.named(game, "Aelin")
+        game.member(aelin).conditions = (ActiveCondition(condition=Condition.BLIND, effect_id="effect-9999"),)
+
+        group = _encounter(game).groups[0]
+
+        assert (group.lit, group.seen_by) == (False, ())
+
+
+class TestTheBattleFieldsOutsideABattle:
+    """Guards: the new fields default to empty outside a battle, and an older client's view still parses."""
+
+    def test_an_encounter_before_the_battle_has_no_positions(self):
+        game = pf.battle(engage=False)
+        assert game.mode is SessionMode.ENCOUNTER, "precondition: no battle yet"
+
+        view = _encounter(game)
+        group = view.groups[0]
+
+        assert (view.advance_feet, view.party_free_round) == ({}, False)
+        assert (group.member_distance_feet, group.front_rank, group.lit, group.seen_by) == ({}, (), None, ())
+
+    def test_the_new_fields_are_additive(self):
+        older_group = EncounterGroupView.model_validate(
+            {"id": "group-0001", "label": "goblin", "count": 2, "distance_feet": 30, "visible_conditions": []}
+        )
+        assert (older_group.member_distance_feet, older_group.front_rank) == ({}, ())
+        assert (older_group.lit, older_group.seen_by) == (None, ())
+        older_view = EncounterView.model_validate({"groups": [], "stance": None, "in_battle": False})
+        assert (older_view.advance_feet, older_view.formation_width, older_view.party_free_round) == ({}, None, False)
+        view = pf.battle().view(Visibility.PLAYER)
+        assert PlayerView.model_validate_json(view.model_dump_json()) == view
+
+
+# ---------------------------------------------------------------------- the walk-through
+
+
+@VIEW
+def test_the_walk_through_battle_from_the_player_view():
+    """The design's section 8, played as a game's battle screen plays it, from the player view and the dry run.
+
+    Four goblins appear 30' down a 10' corridor, and the party surprises them. In the free round Nim the thief closes
+    and back-stabs, Aelin the elf shoots from where she stands, Wren the magic-user casts *magic missile* from the back,
+    and Hild and Osric, the fighters in plate, close in without reaching. In round 2 Hild closes and attacks beside Nim,
+    the dry run turns Osric's close and attack into a close, and Tam closes up. From then on the front rank fights,
+    Aelin keeps shooting, and no goblin ever reaches Aelin, Wren, Osric, or Tam. When the battle ends, the party is back
+    on its cell as one body.
+    """
+    battle_args = {"distance": 30, "count": 4, "surprised": True, "spells": MISSILE_SPELLS}
+    for seed in pf.seeds(**battle_args):
+        game = pf.battle(first_seed=seed, **battle_args)
+        hild, osric, nim, aelin, wren, tam = _ids(game, "Hild", "Osric", "Nim", "Aelin", "Wren", "Tam")
+        view = game.view(Visibility.PLAYER)
+        group = view.encounter.groups[0]
+        rates = {member.id: member.encounter_rate_feet for member in view.party}
+
+        # Round 1, the free round: the screen offers "close in and attack" to whoever can reach.
+        assert view.encounter.party_free_round is True
+        assert view.encounter.formation_width == 2
+        reach = {
+            member_id
+            for member_id in view.encounter.declarers
+            if group.member_distance_feet[member_id] <= rates[member_id] + 5
+        }
+        assert nim in reach and hild not in reach and osric not in reach
+        hild_swings = pf.strike(game, hild, move="close", weapon_id="sword")
+        assert [
+            (rejection.code, dict(rejection.params))
+            for rejection in preview_battle_round(game, [hild_swings]).rejections[hild]
+        ] == [("combat.attack.out_of_reach", {"distance_feet": 10})]
+        first = (
+            pf.strike(game, nim, move="close", back_stab=True),
+            pf.close(game, hild),
+            pf.close(game, osric),
+            pf.strike(game, aelin, weapon_id="short_bow"),
+            _missile(game, wren),
+            pf.declare(tam),
+        )
+        assert all(found == () for found in preview_battle_round(game, first).rejections.values())
+
+        events = pf.play(game, *first)
+
+        assert pf.advances(game) == {hild: 20, osric: 20, nim: 25, aelin: 0, wren: 0, tam: 0}
+        assert [(event.character_id, event.distance_feet) for event in pf.moved(events)] == [
+            (hild, 10),
+            (osric, 10),
+            (nim, 5),
+        ]
+        (shot,) = pf.attacks_by(events, aelin)
+        (stab,) = pf.attacks_by(events, nim)
+        cast = next(
+            event
+            for event in events
+            if getattr(event, "caster_id", None) == wren and event.code.startswith("magic.cast.")
+        )
+        assert stab.back_stab is True
+        assert pf.position(events, shot) < pf.position(events, cast) < pf.position(events, stab)
+        assert pf.monster_attacks(game, events) == []
+        assert _encounter(game).party_free_round is False
+
+        # Round 2: Hild takes the last place in the front rank, and the dry run turns Osric's swing into a close.
+        group = _encounter(game).groups[0]
+        assert group.front_rank == (nim,)
+        planned = [pf.strike(game, nim), pf.strike(game, hild, move="close", weapon_id="sword")]
+        osric_swings = pf.strike(game, osric, move="close", weapon_id="sword")
+        assert [
+            rejection.code for rejection in preview_battle_round(game, [*planned, osric_swings]).rejections[osric]
+        ] == ["battle.declaration.not_in_front_rank"]
+        planned += [
+            pf.close(game, osric),
+            pf.strike(game, aelin, weapon_id="short_bow"),
+            _missile(game, wren),
+            pf.close(game, tam),
+        ]
+
+        events = pf.play(game, *planned)
+        if game.battle is None or game.encounter.groups[0].fleeing:
+            continue  # The walk-through supposes the goblins stand and fight.
+
+        assert pf.advances(game) == {hild: 25, osric: 25, nim: 25, aelin: 0, wren: 0, tam: 20}
+        assert pf.group_moves(events) == [], "within reach of Nim, the goblins hold their ground"
+        struck = {attack.defender_id for attack in pf.monster_attacks(game, events)}
+        assert struck <= ({nim} if pf.monsters_first(game, events) else {nim, hild})
+        assert _encounter(game).groups[0].front_rank == (hild, nim)
+
+        # Round 3 on: the front rank fights, Aelin shoots while the goblins are in range, and the rest hold.
+        for _ in range(40):
+            if game.mode is not SessionMode.BATTLE:
+                break
+            group = _encounter(game).groups[0]
+            declared = [pf.strike(game, member_id) for member_id in group.front_rank]
+            if not group.fled and group.member_distance_feet[aelin] <= 150:
+                declared.append(pf.strike(game, aelin, weapon_id="short_bow"))
+            fleeing = game.encounter.groups[0].fleeing
+
+            events = pf.play(game, *declared)
+
+            assert {attack.defender_id for attack in pf.monster_attacks(game, events)} <= {nim, hild}
+            if game.battle is not None:
+                assert (pf.advance(game, aelin), pf.advance(game, wren)) == (0, 0)
+                if not fleeing and not game.encounter.groups[0].fleeing:
+                    assert game.encounter.groups[0].distance_feet == 30
+
+        # The end: the battle is over, and the positions went with it.
+        assert game.mode is SessionMode.EXPLORING
+        assert game.battle is None
+        assert game.view(Visibility.PLAYER).encounter is None
+        return
