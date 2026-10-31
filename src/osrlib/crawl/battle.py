@@ -2437,6 +2437,11 @@ def _cast_targets(session, declaration: BattleDeclaration, spell) -> tuple[list,
     has only the player view's group ids can still cast *sleep*. With an area, like *death spell*'s,
     it's the members the footprint takes. When both fields are set, the cast uses `targets`. A group
     that isn't in the encounter, or has fled, gets `battle.declaration.unknown_group`.
+
+    The distance it returns, which the spell's range is checked against, is the caster's own distance to
+    the group, or to the farthest group a targeted monster belongs to, in the battle as it stands. That's
+    also the distance the pre-phase's projection gives, because a caster can't move in the round they
+    cast, and neither a trade nor a move of the party line changes a member's distance to a group.
     """
     try:
         mode = spell.mode(declaration.spell_mode, reversed=declaration.reversed)
@@ -2459,7 +2464,7 @@ def _cast_targets(session, declaration: BattleDeclaration, spell) -> tuple[list,
             candidates = _area_candidates(session, group, targeting.shape, targeting.dimensions)
         else:
             candidates = _living_monsters(session, group)
-        return candidates, group.distance_feet, []
+        return candidates, _member_distance(session, declaration.character_id, group), []
     registry = session.registry()
     targets: list = []
     distance: int | None = None
@@ -2477,7 +2482,7 @@ def _cast_targets(session, declaration: BattleDeclaration, spell) -> tuple[list,
         if isinstance(entity, MonsterInstance):
             for group in session.encounter.groups:
                 if target_ref in group.monster_ids:
-                    distance = max(distance or 0, group.distance_feet)
+                    distance = max(distance or 0, _member_distance(session, declaration.character_id, group))
     return targets, distance, []
 
 
