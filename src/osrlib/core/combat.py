@@ -1482,12 +1482,16 @@ def attack_roll(
     name = _attack_name(attack)
     missile = _is_missile_use(attack, context) or (isinstance(attack, MonsterAttack) and context.monster_missile)
     helpless = not missile and any(has_condition(defender, condition) for condition in _HELPLESS)
+    back_stab = (
+        _class_ability_params(attacker, "back_stab") if context.behind_target and context.target_unaware else None
+    )
     if helpless or getattr(defender, "armour_class", 0) is None:
         event = AttackRolledEvent(
             code="combat.attack.auto_hit",
             attacker_id=attacker_id,
             defender_id=defender_id,
             attack_name=name,
+            back_stab=back_stab is not None,
         )
         return AttackRollResult(hit=True, auto=True, events=(event,))
 
@@ -1501,10 +1505,8 @@ def attack_roll(
             modifier += int(halfling.get("bonus", 0))
     else:
         modifier += melee_modifier_for(attacker)
-    if context.behind_target and context.target_unaware:
-        back_stab = _class_ability_params(attacker, "back_stab")
-        if back_stab is not None:
-            modifier += int(back_stab.get("attack_bonus", 0))
+    if back_stab is not None:
+        modifier += int(back_stab.get("attack_bonus", 0))
     if context.defender_retreating:
         modifier += 2
     # An enchanted arm's bonus (versus-clauses swapping in their alternate).
@@ -1552,6 +1554,7 @@ def attack_roll(
         required=required,
         defender_ac=ac,
         natural=natural_override,
+        back_stab=back_stab is not None,
     )
     return AttackRollResult(
         hit=hit,

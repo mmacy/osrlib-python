@@ -93,21 +93,27 @@ def _initiative(event: InitiativeRolledEvent) -> str:
 
 def _attack_hit(event: AttackRolledEvent) -> str:
     natural = " (natural 20)" if event.natural == 20 else ""
+    verb = "back-stabs" if event.back_stab else "hits"
     return (
-        f"{event.attacker_id} hits {event.defender_id} with {event.attack_name}: "
+        f"{event.attacker_id} {verb} {event.defender_id} with {event.attack_name}: "
         f"rolled {event.roll}{event.modifier:+d} = {event.total}, needing {event.required}{natural}."
     )
 
 
 def _attack_missed(event: AttackRolledEvent) -> str:
     natural = " (natural 1)" if event.natural == 1 else ""
+    attempt = f"a back-stab on {event.defender_id}" if event.back_stab else event.defender_id
     return (
-        f"{event.attacker_id} misses {event.defender_id} with {event.attack_name}: "
+        f"{event.attacker_id} misses {attempt} with {event.attack_name}: "
         f"rolled {event.roll}{event.modifier:+d} = {event.total}, needing {event.required}{natural}."
     )
 
 
 def _attack_auto(event: AttackRolledEvent) -> str:
+    if event.back_stab:
+        return (
+            f"{event.attacker_id} back-stabs the helpless {event.defender_id} with {event.attack_name}. No roll needed."
+        )
     return f"{event.attacker_id} strikes the helpless {event.defender_id} with {event.attack_name} — no roll needed."
 
 

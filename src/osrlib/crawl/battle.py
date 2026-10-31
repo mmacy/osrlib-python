@@ -1784,6 +1784,33 @@ def _projected_front_rank(session, plan: Sequence[_Withdrawal]) -> set[str]:
     return set(order if width is None else order[:width])
 
 
+def _back_stab_rejection(session, declaration: BattleDeclaration, member) -> Rejection | None:
+    """Return the first back-stab check a declaration fails before its action's own checks, or `None`.
+
+    A declaration without `back_stab` passes. Otherwise the checks run in this order, and each
+    rejection has the member's id as its `character` param:
+
+    1. `battle.declaration.back_stab_not_attack`: the action isn't `attack`.
+    2. `battle.declaration.back_stab_no_ability`: the member's class has no `back_stab` ability.
+    3. `battle.declaration.back_stab_target_aware`: the monsters aren't held by the party's surprise,
+       so [`BattleState.monsters_hold_rounds`][osrlib.crawl.battle.BattleState.monsters_hold_rounds]
+       is zero.
+
+    The pre-phase reads `monsters_hold_rounds` before the monster block of the round spends it, so a
+    back-stab accepted in the free round stays a back-stab for every attack roll of that round.
+    """
+    if not declaration.back_stab:
+        return None
+    params = {"character": member.id}
+    if declaration.action != "attack":
+        return Rejection(code="battle.declaration.back_stab_not_attack", params=params)
+    if not any(ability.tag == "back_stab" for ability in member.definition.abilities):
+        return Rejection(code="battle.declaration.back_stab_no_ability", params=params)
+    if session.battle.monsters_hold_rounds <= 0:
+        return Rejection(code="battle.declaration.back_stab_target_aware", params=params)
+    return None
+
+
 def _validate_declaration(
     session, declaration: BattleDeclaration, member, *, front_rank: set[str] | None = None
 ) -> list[Rejection]:
@@ -1809,8 +1836,16 @@ def _validate_declaration(
     with no such monster left gets `battle.declaration.no_target`, with the member's id as the
     `character` param. Only the magic phase's second run can meet that. The check doesn't ask
     whether any monster is undead, so a refusal never tells the player which monsters are undead.
+
+    A declaration that sets `back_stab` gets the back-stab checks of `_back_stab_rejection` before
+    any other check. On an attack, `battle.declaration.back_stab_not_melee` comes after the group and
+    weapon checks and before the melee checks, as
+    [`BattleDeclaration.back_stab`][osrlib.crawl.commands.BattleDeclaration.back_stab] gives the order.
     """
     state = session.battle
+    refused = _back_stab_rejection(session, declaration, member)
+    if refused is not None:
+        return [refused]
     if declaration.action == "hold":
         return []
     if declaration.action == "move":
@@ -1836,6 +1871,8 @@ def _validate_declaration(
         if declaration.weapon_id is not None and weapon is None:
             return [Rejection(code="battle.declaration.weapon_not_wielded", params={"item": declaration.weapon_id})]
         missile = _is_missile_declaration(weapon, group.distance_feet)
+        if declaration.back_stab and missile:
+            return [Rejection(code="battle.declaration.back_stab_not_melee", params={"character": member.id})]
         if not missile:
             width = _formation_width(session)
             if front_rank is None:
@@ -2303,7 +2340,11 @@ def _handle_resolve_battle_round(session, command: ResolveBattleRound) -> tuple[
         rejections.extend(_validate_declaration(session, declaration, member, front_rank=front_rank))
         if declaration.gaze_defense == "mirror" and member.inventory.carried_item(_MIRROR_ITEM_ID) is None:
             rejections.append(Rejection(code="battle.declaration.no_mirror", params={"character": member.id}))
-    rejections.extend(withdrawal_rejections)
+    # A move that sets `back_stab` gets `back_stab_not_attack` in place of its own withdrawal checks.
+    back_stabbers = {member.id for member, declaration in by_member.values() if declaration.back_stab}
+    rejections.extend(
+        rejection for rejection in withdrawal_rejections if rejection.params.get("character") not in back_stabbers
+    )
     if rejections:
         # The session rejects the whole command and lists every rejection. Partial
         # acceptance would complicate replay (see the adaptations register).
@@ -2616,6 +2657,9 @@ def _resolve_party_attack(session, member, declaration, fired, fire_damaged) -> 
             situational_modifier=_gaze_stance_modifier(member, declaration),
             fired_last_round=member.id in state.fired_last_round,
             defender_retreating=group.fleeing,
+            # An accepted back-stab stays one for every swing of the round, after the held turn too.
+            behind_target=declaration.back_stab,
+            target_unaware=declaration.back_stab,
         )
         result = resolve_attack(
             member,
