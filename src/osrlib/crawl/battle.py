@@ -1,22 +1,70 @@
 """Run a fight round by round on the range track, with a replaceable policy choosing what the monsters do.
 
 A battle follows an encounter from [`osrlib.crawl.encounter`][osrlib.crawl.encounter] when a fight
-starts. [`start_battle`][osrlib.crawl.battle.start_battle] opens the battle, and the session calls
-it for you: when the monsters attack, when a chase catches the party, and when the party executes
-[`EngageBattle`][osrlib.crawl.commands.EngageBattle]. The session is then in `battle` mode, and
-`session.battle` contains a [`BattleState`][osrlib.crawl.battle.BattleState]. Each round is one
-[`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound] command, with one
-[`BattleDeclaration`][osrlib.crawl.commands.BattleDeclaration] for each living party member who can
-act.
+starts. The session opens it for you: when the monsters attack, when pursuing monsters catch the
+party, and when the party executes [`EngageBattle`][osrlib.crawl.commands.EngageBattle]. Don't call
+[`start_battle`][osrlib.crawl.battle.start_battle] in normal play. To start a fight, execute
+`EngageBattle`. The session is then in `battle` mode
+([`SessionMode.BATTLE`][osrlib.crawl.commands.SessionMode.BATTLE]), and `session.battle` contains a
+[`BattleState`][osrlib.crawl.battle.BattleState].
+
+Each round is one [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound] command, with
+one [`BattleDeclaration`][osrlib.crawl.commands.BattleDeclaration] for each living party member who
+can act. A declaration's
+[`action`][osrlib.crawl.commands.BattleDeclaration.action] is `attack`, `cast`, `turn_undead`,
+`move`, `use_item`, or `hold`.
+
+The battle reference uses these terms:
+
+- **Marching order** is the order of the party's members, front first, as
+  [`Party.members`][osrlib.crawl.party.Party.members] lists them.
+  [`ReorderParty`][osrlib.crawl.commands.ReorderParty] changes it outside a fight.
+- **Ranks** are the rows the party fights in, filled in marching order. Only the **front rank**
+  can fight in melee. Under the [`Ruleset`][osrlib.core.ruleset.Ruleset] option
+  `formation_width_limit`, which is on by default, a rank is as wide as the space the party stands
+  in, divided by [`FIGHTER_FRONTAGE_FEET`][osrlib.crawl.battle.FIGHTER_FRONTAGE_FEET]. That's two
+  members side by side in a ten-foot corridor, and in a room, as many as the room's shorter side
+  allows. With the option off, the whole party is one rank.
+- The **formation** is the party moving as one body. A move that every declarer makes is a
+  formation move.
+- A **declarer** is a party member who has to declare an action this round. Every living member
+  who can act is one, and
+  [`EncounterView.declarers`][osrlib.crawl.views.EncounterView.declarers] lists them.
+- The **range track** is how a battle measures distance. Each monster group has a separate
+  distance from the party, in feet, in the style of The Bard's Tale. A group closes at its
+  encounter movement rate and fights in melee at
+  [`MELEE_RANGE_FEET`][osrlib.crawl.battle.MELEE_RANGE_FEET].
+- **Surprise** gives one side a free round, a round in which the other side doesn't act. The
+  session rolls for surprise when the encounter opens.
+- A group's **morale score** is a number from 2 to 12, the `morale` field of the monster's
+  template. When the OSE SRD calls for a morale check, the session rolls 2d6 against it. On a
+  roll over the score, the group fails its morale check and flees. A group with a score of 2
+  never fights.
+- A **concentration spell** lasts only while its caster keeps concentrating on it.
+- A declaration **fizzles** when it fails and has no effect. That happens when the session checks
+  it again just before it resolves, and it no longer passes. A fizzled cast still loses its spell,
+  as a disrupted one does.
+- A **pursuit** follows when the party runs: the monsters go after it round by round. While one
+  is on, `session.encounter.pursuit` contains a
+  [`PursuitState`][osrlib.crawl.encounter.PursuitState].
+- A **draw** is one random number taken from a **stream**, one of the session's named sequences
+  of random numbers ([`RngStreams`][osrlib.core.rng.RngStreams]). Because the streams are
+  separate, one part of the game never changes the dice another part gets.
+- The **effects ledger** ([`EffectsLedger`][osrlib.core.effects.EffectsLedger]) is the session's
+  record of timed effects, like a spell's, and the conditions they put on creatures.
+
+Several of these rules are adaptations, places where osrlib commits to one reading of a rule the
+OSE SRD leaves open. The range track is one. The
+[adaptations register](https://mmacy.github.io/osrlib-python/adaptations/) lists each one.
 
 There's no command to end a battle. A round ends it in one of three ways:
 
-- Every party member is dead. The battle and the encounter close, and the session moves to
-  `game_over`.
+- Every party member is dead or turned to stone. The battle and the encounter close, and the
+  session moves to `game_over`.
 - Every monster group is dead or has fled out of the fight. The battle ends in victory, and
   [`end_encounter`][osrlib.crawl.encounter.end_encounter] closes the encounter.
-- The whole party retreats. If no monster group can pursue, the encounter closes. Otherwise the
-  session goes back to `encounter` mode with a chase.
+- The whole party retreats. If no monster group can pursue the party, the encounter closes.
+  Otherwise the session goes back to `encounter` mode with a pursuit.
 
 You follow the battle through events from [`osrlib.crawl.events`][osrlib.crawl.events]:
 
@@ -27,97 +75,86 @@ You follow the battle through events from [`osrlib.crawl.events`][osrlib.crawl.e
 - [`GroupMovedEvent`][osrlib.crawl.events.GroupMovedEvent] when a group's distance changes.
 - [`MemberWithdrewEvent`][osrlib.crawl.events.MemberWithdrewEvent] when a member who withdraws
   alone trades places with a member from a back rank.
-- [`MonsterFledEvent`][osrlib.crawl.events.MonsterFledEvent] when a group breaks and runs, and
-  when the turned members of a group break away as a new group.
+- [`MonsterFledEvent`][osrlib.crawl.events.MonsterFledEvent] when a group fails its morale check
+  and flees, and when the turned members of a group split off as a new group and flee.
 - [`MonstersLeftBehindEvent`][osrlib.crawl.events.MonstersLeftBehindEvent] for helpless members a
-  running group leaves behind.
+  fleeing group leaves behind.
 - [`BattleEndedEvent`][osrlib.crawl.events.BattleEndedEvent] with victory, defeat, or flight.
 
 Between them come the events of the rule functions in [`osrlib.core`][osrlib.core]: attacks,
 damage, saving throws, initiative, and morale.
 
 A round follows the OSE SRD's combat sequence. The party declares, and initiative decides which side
-acts first. In the party's block, the session resolves movement, then missile attacks, then magic,
-then melee. In the monster side's block, it checks each group's morale, then resolves the actions
-each group's policy chose, in order. Attacks with slow weapons come last, after both blocks. Every
-rule is a function in [`osrlib.core.combat`][osrlib.core.combat] or
-[`osrlib.core.spells`][osrlib.core.spells], like
+acts first. On the party's turn, the session resolves movement, then missile attacks, then magic,
+then melee. On the monsters' turn, it checks each group's morale, then resolves the actions each
+group's policy chose, in order. An attack with a weapon that has the `slow` quality comes last,
+after both sides have acted. Every rule is a function in
+[`osrlib.core.combat`][osrlib.core.combat] or [`osrlib.core.spells`][osrlib.core.spells], like
 [`roll_initiative`][osrlib.core.combat.roll_initiative],
-[`resolve_attack`][osrlib.core.combat.resolve_attack],
-[`resolve_breath`][osrlib.core.combat.resolve_breath],
-[`morale_triggers`][osrlib.core.combat.morale_triggers], and
-[`cast_spell`][osrlib.core.spells.cast_spell]. This module adds the order of play, the session state
-it passes to each function (the random number streams, the effects ledger, the clock, and the
-registry of creatures), the range track, and the party's formation. To resolve one rule without a
-session, call those functions directly, as
+[`resolve_attack`][osrlib.core.combat.resolve_attack], and
+[`cast_spell`][osrlib.core.spells.cast_spell]. To resolve one rule without a session, call those
+functions directly, as
 [Using the rules without a session](https://mmacy.github.io/osrlib-python/guides/rules-without-a-session/)
 shows.
 
-Distance in a battle is a range track: each monster group has a separate distance from the party,
-in the style of The Bard's Tale. This is an adaptation, a place where osrlib commits to one
-reading of a rule the SRD leaves open. The
-[adaptations register](https://mmacy.github.io/osrlib-python/adaptations/) lists each one. A group
-closes at its encounter movement rate and fights at
-[`MELEE_RANGE_FEET`][osrlib.crawl.battle.MELEE_RANGE_FEET]. The party fights in ranks, in
-marching order. Under the ruleset's `formation_width_limit` flag, a rank is as wide as the space
-the party stands in, divided by
-[`FIGHTER_FRONTAGE_FEET`][osrlib.crawl.battle.FIGHTER_FRONTAGE_FEET]: two abreast in a ten-foot
-corridor, and in a room, as many as the room's shorter side allows. A front-rank member steps back
-out of melee by trading places with a member behind, whom the member names in
+A front-rank member can step back out of melee alone. They trade places with a member behind them,
+whom they name in
 [`BattleDeclaration.replacement_id`][osrlib.crawl.commands.BattleDeclaration.replacement_id].
 
 During a round, the session also applies these rules without a command for them:
 
 - A caster who declared a spell loses it if an attack hits them, or they fail a saving throw,
   between initiative and their turn to act.
-- Each monster group checks morale when the rules call for it.
-- When a monster hits, the session applies the effects its attack lists, each with the save the
-  SRD gives: paralysis, poison, mummy rot, energy drain, petrification, and the spitting cobra's
-  blindness. The
-  [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/) lists the effects
-  the session leaves to the referee.
+- Each monster group checks morale when the OSE SRD calls for it.
+- When a monster's attack hits, the session applies the effects the attack lists: paralysis,
+  poison, mummy rot, energy drain, petrification, and the spitting cobra's blindness. Each effect
+  gets the saving throw the OSE SRD gives for it, if any. The adaptations register lists the
+  effects the session leaves to the referee.
 - A petrifying gaze, like the basilisk's or the medusa's, reaches each member of the party's
-  front rank once a round while the gazer's group is in melee. It takes no attack roll, and
-  [`resolve_gaze`][osrlib.core.combat.resolve_gaze] skips a member who is averting their eyes
-  or is blind.
-  A member averts them, or watches a mirror instead, through
-  [`BattleDeclaration.gaze_defense`][osrlib.crawl.commands.BattleDeclaration.gaze_defense], and
-  the session applies that stance's penalties to the round's attack rolls. Every member of a
-  party a basilisk surprises meets its gaze once, at any distance, as the encounter opens, so
-  a battle that opens from that encounter doesn't repeat it.
-- Turned undead attack no one. When a cleric turns only some of a group, the turned members
-  break away as a new group, which runs, and the rest fight on.
+  front rank once a round while the gazer's group is in melee. The gaze takes no attack roll.
+  [`resolve_gaze`][osrlib.core.combat.resolve_gaze] skips a member who is averting their eyes,
+  is blind, or is incapacitated. A member can avert their eyes, or fight by watching a mirror,
+  through
+  [`BattleDeclaration.gaze_defense`][osrlib.crawl.commands.BattleDeclaration.gaze_defense]. The
+  session then applies that choice's penalties to the member's attack rolls that round.
+- When a basilisk surprises the party, every member meets its gaze once as the encounter opens,
+  at any distance. The basilisk doesn't gaze again in the monsters' free round that follows.
+- Turned undead attack no one. When a cleric turns only some of a group, the turned monsters
+  split off as a new group and flee. The rest fight on.
 - A member's invisibility ends when the member attacks, throws or uses an item other than a
   potion, or turns undead. [`cast_spell`][osrlib.core.spells.cast_spell] ends it when the member
   casts.
 - Each attack on a target protected by *mirror image* removes one image instead, and no attack
   roll is made.
-- A protection ward ends when a party member attacks in melee a monster that the ward keeps out.
-- The effects of a concentration spell end when the caster declares anything other than `cast`
-  or `hold`, when the caster's next spell is disrupted or fizzles, or when the caster casts
-  another concentration spell. Turning the undead ends them too, even when the turning never
-  resolves.
-- The session picks the targets of a party member's area spell without a roll.
-  `ceil(span / 10) × width` creatures fit in the area, where `span` is the area's size in feet and
-  `width` is the rank width, and the area fills with the target group's living members in the order they were spawned.
-  Without the width limit, the whole group fits. A cone's span is its length minus the group's
-  distance. Under the ruleset's `aoe_friendly_fire` flag, an area cast at a group in melee range
-  also catches the party's front rank, while the area has room. An area aimed at the party, like a
-  dragon's breath, covers the first `ceil(span / 10)` of the party's ranks.
+- A scroll of protection keeps some monsters from attacking the party in melee. Its protection
+  ends when a party member attacks in melee a monster that it keeps out.
+- A caster maintains one concentration spell at a time. Its effects end when the caster declares
+  anything other than `cast` or `hold`, when the caster's next spell is disrupted or fizzles, or
+  when the caster casts another concentration spell. A `turn_undead` declaration ends them even
+  when the turning doesn't resolve.
+- The session picks the targets of a party member's area spell without a roll. The area fills
+  with the target group's living members in the order they were spawned, as many as the area's
+  size and the rank width allow. Under the `Ruleset` option `aoe_friendly_fire`, which is on by
+  default, an area cast at a group in melee range also catches the party's front rank while the
+  area has room. An area aimed at the party, like a dragon's breath, covers the party's ranks
+  from the front, as many as its size reaches.
 
 An action policy chooses what each monster group does each round.
 [`ScriptedPolicy`][osrlib.crawl.battle.ScriptedPolicy] is the default for monsters, and
 [`NpcPartyPolicy`][osrlib.crawl.battle.NpcPartyPolicy] is the default for a party of NPC
-adventurers. You can write your own [`ActionPolicy`][osrlib.crawl.battle.ActionPolicy] and register
-it for a group. A policy draws only from the
+adventurers. To give a group tactics of your own, write an
+[`ActionPolicy`][osrlib.crawl.battle.ActionPolicy] and register it in
+[`GameSession.action_policies`][osrlib.crawl.session.GameSession.action_policies] under the group's
+id. A policy draws only from the
 [`MONSTER_ACTION_STREAM`][osrlib.crawl.session.MONSTER_ACTION_STREAM], so your policy never changes
 an attack or damage roll. When the ruleset is set to roll initiative for each combatant, each side
-still acts as a block, and the side with the best single roll acts first, because the SRD's combat
-sequence runs per side.
+still acts together, and the side with the best single roll acts first, because the OSE SRD's
+combat sequence runs per side.
 
 The members of this module, in the order you're likely to need them:
 
 - [`start_battle`][osrlib.crawl.battle.start_battle] opens a battle on the session's encounter.
+  The session calls it for you.
 - [`BattleState`][osrlib.crawl.battle.BattleState] is the battle's state in `session.battle`.
 - [`ActionPolicy`][osrlib.crawl.battle.ActionPolicy] is the interface for a policy that chooses a
   monster group's actions, and [`MonsterAction`][osrlib.crawl.battle.MonsterAction] is one chosen
@@ -305,7 +342,7 @@ MELEE_RANGE_FEET = 5
 
 A group closing on the party stops at this distance, not at zero. The session rejects a melee
 attack declared against a group farther away with `combat.attack.out_of_reach`, and every melee
-attack resolves at this distance. When pursuers catch the party in a chase, the battle starts with
+attack resolves at this distance. When pursuing monsters catch the party, the battle starts with
 every group at this distance.
 
 The range track has no distance between this and zero, so treat the value as fixed: the session uses
@@ -315,15 +352,18 @@ distance against that weapon's ranges.
 """
 
 FLEE_EXIT_FEET = 120
-"""How far, in feet, a routed group runs before it leaves the battle.
+"""How far, in feet, a group that failed its morale check runs before it leaves the battle.
 
 A group that fails a morale check turns and runs its full movement rate each round. Once its
-distance is greater than this, the session marks the group fled. A fled group takes no further
-action, the session rejects every declaration aimed at it with
-`battle.declaration.unknown_group`, and a battle in which every group has fled or died ends in
-victory. Until the group gets this far, the party can still chase it or shoot at it. A group whose
-living members are all afraid or turned, but which didn't fail a morale check, also counts as gone
-for ending the battle once it's farther away than this.
+distance is greater than this, the session marks the group fled. Until then, the party can still
+close on it or shoot at it.
+
+A fled group takes no further action. The session refuses every declaration aimed at it with
+`battle.declaration.unknown_group`. A battle in which every group has fled or died ends in
+victory.
+
+A group whose living members are all afraid or turned, but which didn't fail a morale check, also
+counts as gone for ending the battle once it's farther away than this.
 """
 
 
@@ -342,10 +382,11 @@ class BattleState(BaseModel):
     flag, or advance the clock during a fight. The command log records the command, so a replay
     reproduces the change. [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] adds a new
     monster group to the fight between rounds, and the group acts from the next round.
-    [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] and
-    [`PlaceParty`][osrlib.crawl.commands.PlaceParty] are the exceptions. The session rejects them
-    with `session.command.encounter_in_progress` while an encounter is open, so an NPC party can't
-    join a fight, and the party can't be moved out of one.
+
+    The session refuses [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] and
+    [`PlaceParty`][osrlib.crawl.commands.PlaceParty] with `session.command.encounter_in_progress`
+    while an encounter is open. So an NPC party can't join a fight, and you can't move the party
+    out of one.
     """
 
     model_config = ConfigDict(validate_assignment=True)
@@ -358,8 +399,9 @@ class BattleState(BaseModel):
     started_round: int
     """The session clock's round count when the battle opened."""
     monsters_hold_rounds: int = 0
-    """The rounds the monsters still have to sit out because the party surprised them. In each round
-    while this is above zero, the monsters do nothing, and the count goes down by one."""
+    """The rounds in which the monsters still can't act because the party surprised them.
+
+    In each round while this is above zero, the monsters do nothing, and the count goes down by one."""
     morale: MoraleTracker = MoraleTracker()
     """The [`MoraleTracker`][osrlib.core.combat.MoraleTracker] for this battle. It counts each group's
     passed morale checks, and a group that has passed two doesn't check again."""
@@ -377,9 +419,11 @@ class BattleState(BaseModel):
     it's on this list, as the spell's text in the SRD says."""
     concentration: dict[str, list[str]] = {}
     """For each caster id, the effect ids of the concentration spell that caster maintains. A caster
-    maintains one at a time. The effects end when that caster declares anything other than `cast` or
-    `hold`, `turn_undead` included, when the caster's next spell is disrupted or fizzles, or when the
-    caster casts another concentration spell."""
+    maintains one at a time. The effects end when any of these happens:
+
+    - The caster declares an action other than `cast` or `hold`. A `turn_undead` counts.
+    - The caster's next spell is disrupted or fizzles.
+    - The caster casts another concentration spell."""
 
 
 class MonsterAction(BaseModel):
@@ -421,11 +465,24 @@ class MonsterAction(BaseModel):
     """Which of the monster's attack routines a `"melee"` action uses, as an index into its template's
     [`attacks`][osrlib.core.monsters.MonsterTemplate.attacks]. None uses the first routine.
 
-    Any routine can be named, whatever its
-    [`use`][osrlib.core.monsters.AttackRoutine.use]. Battle rolls the attacks of a `PRIMARY`,
-    `ALTERNATIVE`, or `SITUATIONAL` routine, and rolls nothing for a `SPECIAL` one. An index the
-    template doesn't have, a negative one included, makes the action impossible, so the session
-    skips it. An NPC adventurer fights with its weapon and ignores this field."""
+    You can name any routine, whatever its [`use`][osrlib.core.monsters.AttackRoutine.use]. The
+    [`RoutineUse`][osrlib.core.monsters.RoutineUse] values mean this:
+
+    - `PRIMARY` is the first routine the monster's entry lists. The session rolls its attacks.
+    - `ALTERNATIVE` is a routine the monster can use in place of the first in any round, like a
+      mule's bite in place of its kick. The session rolls its attacks.
+    - `SITUATIONAL` is a routine for a situation osrlib doesn't model, like an elephant's trample.
+      The session rolls its attacks as melee attacks.
+    - `SPECIAL` is a breath, a gaze, or a spell. The session rolls nothing for it, so the monster
+      does nothing that round.
+
+    The session also does nothing when the template has no routine at the index, and it treats a
+    negative index the same way.
+
+    Some routines list an attack named `gaze` or `breath`. The session never rolls those as attacks.
+    It resolves a petrifying gaze once a round by itself, and a breath weapon through a `"breath"`
+    action. Your game or the referee handles any other gaze or breath. An NPC adventurer fights with
+    its weapon and ignores this field."""
 
 
 class ActionPolicy(Protocol):
@@ -519,12 +576,18 @@ class ActionPolicy(Protocol):
         The session calls this once per group per round. For a monster group, the call comes after
         the group's morale check and before the group moves or attacks. For a group of NPC
         adventurers, it comes at the start of the round, before initiative, because NPCs declare
-        their spells then, as the party does. The session doesn't call it for a group that has fled
-        or has no living members, for a monster group that is running because it failed morale or
-        because its living members are all turned or afraid, or for any group while
-        [`BattleState.monsters_hold_rounds`][osrlib.crawl.battle.BattleState.monsters_hold_rounds]
-        is above zero. The group you choose for has no living turned members, because the session
-        moves them into a separate group before it calls your policy.
+        their spells then, as the party does.
+
+        The session doesn't call it in these cases:
+
+        - The group has fled, or has no living members.
+        - A monster group is running, because it failed morale or because its living members are
+          all turned or afraid.
+        - [`BattleState.monsters_hold_rounds`][osrlib.crawl.battle.BattleState.monsters_hold_rounds]
+          is above zero. Then the session calls it for no group.
+
+        The group you choose for has no living turned members, because the session moves them into
+        a separate group before it calls your policy.
 
         Args:
             session (osrlib.crawl.session.GameSession): The running session. Read the party, the
@@ -550,43 +613,54 @@ class ScriptedPolicy:
     """The default [`ActionPolicy`][osrlib.crawl.battle.ActionPolicy] for monsters: breathe, or close and attack.
 
     The session uses this policy for every monster group unless you register another one for it in
-    `session.action_policies`. You construct one yourself only to wrap it in a policy of your own.
+    [`GameSession.action_policies`][osrlib.crawl.session.GameSession.action_policies]. You construct
+    one yourself only to wrap it in a policy of your own. Its `choose(session, group, stream)` method
+    is the [`ActionPolicy`][osrlib.crawl.battle.ActionPolicy] method. It takes the running session,
+    the monster group to choose for, and the stream of random numbers the session passes in, and it
+    returns a list of [`MonsterAction`][osrlib.crawl.battle.MonsterAction]s.
 
-    A monster with a breath weapon uses it while the party is within the breath's length. When the
-    breath weapon has a number of uses per day, the monster breathes if it hasn't breathed yet that
-    day. After that, it breathes or attacks with equal chance while uses remain, which is how the OSE
-    SRD's dragons fight. When the breath weapon works on a chance in six, as the hellhound's does, the policy rolls
-    that chance each round. Otherwise, a group farther away than
-    [`MELEE_RANGE_FEET`][osrlib.crawl.battle.MELEE_RANGE_FEET] closes. Once in range, each monster
-    picks a target at random from the party's front rank, leaving out invisible members and members
-    whose *protection from evil* bars that monster. When no target is left, the monster holds.
+    A monster with a breath weapon uses it while the party is within the breath's length:
 
-    Among the targets left, the monster passes over a member turned to stone while a target that
-    isn't stone is in reach, because a statue is out of the fight. A monster whose `paralysis`
-    ability has the param `attacks_others`, like the ghoul and the thoul, also passes over a
-    paralysed member while a target that is neither paralysed nor stone is in reach, as the OSE
-    SRD's "After paralysing a target, ghouls will attack others" says. A paralysed member comes
-    before a statue. When every target in reach is stone, the monster attacks a statue. The policy
-    picks a target once a round, so a paralysing hit doesn't move the rest of that round's attacks
-    to another target. A monster with no paralysed or petrified member among its targets draws
-    exactly as it would without these rules.
+    - When the breath weapon has a number of uses per day, the monster breathes if it hasn't
+      breathed yet that day. After that, it breathes or attacks with equal chance while uses remain,
+      which is how the OSE SRD's dragons fight.
+    - When the breath weapon works on a chance in six, as the hellhound's does, the policy rolls
+      that chance each round.
 
-    The monster then picks which of its attack routines to use, with equal chance among the routines
-    whose [`use`][osrlib.core.monsters.AttackRoutine.use] is `PRIMARY` or `ALTERNATIVE`, and names
-    it in [`MonsterAction.routine`][osrlib.crawl.battle.MonsterAction.routine]. A thoul claws or
-    swings a weapon, and a mule kicks or bites. The policy never picks a `SITUATIONAL` or `SPECIAL`
-    routine, such as an elephant's trample or a vampire's gaze. A monster with only one routine to
-    pick from draws nothing for it.
+    Otherwise, a group farther away than [`MELEE_RANGE_FEET`][osrlib.crawl.battle.MELEE_RANGE_FEET]
+    closes. Once in range, each monster picks a target at random from the party's front rank. It
+    leaves out invisible members, and members whose *protection from evil* bars that monster. When
+    no target is left, the monster takes a `hold` action and does nothing that round.
+
+    Among the targets left, the monster prefers members who can still fight:
+
+    - It passes over a member turned to stone while a target that isn't stone is in reach, because
+      a statue is out of the fight. When every target in reach is stone, it attacks a statue.
+    - A monster whose `paralysis` ability has the param `attacks_others`, like the ghoul and the
+      thoul, also passes over a paralysed member while a target that is neither paralysed nor
+      stone is in reach. That's the OSE SRD's "After paralysing a target, ghouls will attack
+      others". The monster still picks a paralysed member before a statue.
+
+    The policy picks a target once a round, so a paralysing hit doesn't move the rest of that
+    round's attacks to another target.
+
+    The monster then picks which of its attack routines to use. It chooses with equal chance among
+    the routines whose [`use`][osrlib.core.monsters.AttackRoutine.use] is `PRIMARY` or
+    `ALTERNATIVE`, and puts the choice in
+    [`MonsterAction.routine`][osrlib.crawl.battle.MonsterAction.routine]. For example, a thoul
+    claws or swings a weapon, and a mule kicks or bites. The policy never picks a `SITUATIONAL` or
+    `SPECIAL` routine, like an elephant's trample or a vampire's gaze. For a monster with only one
+    routine to pick from, the policy makes no random roll.
 
     The monster data has no ranges for monsters' missile attacks, so osrlib treats them like melee:
-    the monster closes first, then attacks. This is an adaptation, a place where osrlib commits to
-    one reading of a rule the SRD leaves open. The
-    [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/) lists each one.
-    Monsters under this policy never cast spells, because the monster data doesn't cover monster
+    the monster closes first, then attacks. This is one of the entries in the
+    [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/). Monsters under this
+    policy never cast spells, because the monster data doesn't cover monster
     spellcasting, which is the referee's call.
 
-    Write a policy of your own when you want a group to hold a chokepoint, focus its attacks, back
-    off, cast, or use a situational routine when your game decides its situation applies. To keep
+    Write a policy of your own when you want a group to stand in a doorway and block it, aim every
+    attack at one member, back off, cast, or use a situational routine when your game decides the
+    situation calls for it. To keep
     these tactics and change one thing, wrap this policy and change the actions its `choose`
     returns, as the example does.
     [`NpcPartyPolicy`][osrlib.crawl.battle.NpcPartyPolicy] is the built-in policy for NPC adventurers,
@@ -716,33 +790,33 @@ class NpcPartyPolicy:
 
     The session uses this policy for a group of NPC adventurers, rather than monsters, unless you
     register another one for it in `session.action_policies`. The OSE SRD gives no tactics for a
-    party of adventurers on the other side, so osrlib supplies these. This is an adaptation, a place
-    where osrlib commits to one reading of a rule the SRD leaves open. The
-    [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/) lists each one.
+    party of adventurers on the other side, so osrlib supplies these. They're one of the entries in
+    the [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/).
 
-    Each living member takes the first of these actions that applies:
+    In the list below, the NPC group is the group this policy chooses for, and the player party is
+    the party your players control. Each living NPC takes the first of these actions that applies:
 
-    1. A caster with a memorized healing spell heals the group's most wounded member who is below
-       half their hit points: the one with the lowest ratio of current to maximum hit points, with
-       ties broken by id.
-    2. A member below half their hit points, in a group with no healing spell left, drinks a
-       healing potion they carry. This is the only item these tactics use.
-    3. A caster with a memorized damage spell that osrlib resolves without a referee casts it at
-       the party. The caster picks the highest-level spell, with ties broken by spell id. An area
-       spell catches the party's ranks from the front, as many ranks as its size covers. For a
-       spell with one target, the caster picks a member at random from the party's front rank,
-       leaving out invisible members.
-    4. A member with a missile weapon shoots while the group is farther away than
+    1. A caster with a memorized healing spell heals the NPC group's most wounded member who is
+       below half their hit points: the one with the lowest ratio of current to maximum hit points,
+       with ties broken by id.
+    2. An NPC below half their hit points, in a group with no healing spell left, drinks a healing
+       potion they carry. This is the only item these tactics use.
+    3. A caster with a memorized spell that deals damage, like *magic missile*, casts it at the
+       player party. Spells the referee resolves by hand don't count. The caster picks the
+       highest-level spell, with ties broken by spell id. An area spell catches the player party's
+       ranks from the front, as many ranks as its size covers. For a spell with one target, the
+       caster picks a member at random from the player party's front rank, leaving out invisible
+       members.
+    4. An NPC with a missile weapon shoots while the NPC group is farther away than
        [`MELEE_RANGE_FEET`][osrlib.crawl.battle.MELEE_RANGE_FEET].
-    5. Otherwise, the member closes and attacks in melee. Once in range, it picks its target at
-       random from the party's front rank, leaving out invisible members, and passes over a member
-       turned to stone while a target that isn't stone is in reach, as a monster does. The ghoul's
-       and the thoul's rule about paralysed members belongs to their abilities, so an NPC still
-       picks a paralysed member.
+    5. Otherwise, the NPC closes and attacks in melee. Once in range, it picks its target at random
+       from the player party's front rank, leaving out invisible members. Like a monster, it passes
+       over a member turned to stone while a target that isn't stone is in reach. Unlike a ghoul or
+       a thoul, it doesn't pass over a paralysed member.
 
     NPCs declare their spells at the start of the round. An attack that hits or a failed saving
-    throw can disrupt an NPC's spell, as it can the party's, because the SRD's rule applies to both
-    sides. Every random choice comes from the
+    throw can disrupt an NPC's spell, as it can a player character's, because the OSE SRD's rule
+    applies to both sides. Every random choice comes from the
     [`MONSTER_ACTION_STREAM`][osrlib.crawl.session.MONSTER_ACTION_STREAM].
 
     Examples:
@@ -932,11 +1006,10 @@ def _npc_wielded(npc, *, missile: bool, distance_feet: int = MELEE_RANGE_FEET):
 def _preferred_targets(monster: MonsterInstance, targets: list) -> list:
     """Narrow the targets a monster can reach to the ones `ScriptedPolicy` lets it pick.
 
-    The monster passes over statues, as `_passing_over_statues` says. A monster whose `paralysis`
-    ability has the param `attacks_others`, like the ghoul and the thoul, also passes over a
-    paralysed member while a target that is neither paralysed nor stone is in reach. The targets
-    keep their order, and a list with no paralysed or petrified member comes back unchanged, so the
-    policy's draw over it is the draw it made before these rules.
+    First `_passing_over_statues` drops the statues. Then a ghoul or thoul, whose `paralysis` ability
+    has `attacks_others`, also drops paralysed members while a target that is neither paralysed nor
+    stone is in reach. The targets stay in order. A list with no paralysed or petrified member
+    comes back unchanged, so the policy's draw over it stays the same.
     """
     targets = _passing_over_statues(targets)
     if _attacks_others(monster):
@@ -953,10 +1026,8 @@ def _preferred_targets(monster: MonsterInstance, targets: list) -> list:
 def _passing_over_statues(targets: list) -> list:
     """Leave out the members turned to stone while a target that isn't stone is in reach.
 
-    A statue is out of the fight, so neither a monster under `ScriptedPolicy` nor an NPC adventurer
-    under `NpcPartyPolicy` picks one while it has another choice. When every target is stone, all of
-    them come back, so the attacker picks a statue rather than holding. The targets keep their
-    order, and a list with no statue comes back unchanged.
+    Both `ScriptedPolicy` and `NpcPartyPolicy` use this. When every target is stone, the whole list
+    comes back, so the attacker picks a statue instead of holding. The targets stay in order.
     """
     standing = [target for target in targets if not has_condition(target, Condition.PETRIFIED)]
     return standing or targets
@@ -969,14 +1040,14 @@ def _attacks_others(monster: MonsterInstance) -> bool:
 
 
 _PICKED_ROUTINE_USES = frozenset({RoutineUse.PRIMARY, RoutineUse.ALTERNATIVE})
-"""The routines `ScriptedPolicy` picks among. A situational or special routine is left to a game's own policy."""
+"""The routine uses `ScriptedPolicy` picks among. A game's own policy picks a situational or special routine."""
 
 
 def _pick_routine(monster: MonsterInstance, stream) -> int | None:
     """Pick the routine a melee action uses, with equal chance among the monster's primary and alternative routines.
 
-    A monster with one such routine draws nothing and gets None, which resolves its first routine, so
-    the stream advances only for a monster that has a choice to make.
+    A monster with fewer than two such routines makes no random roll and gets None, which resolves its
+    first routine. So the stream advances only for a monster that has a choice to make.
     """
     candidates = [
         index for index, routine in enumerate(monster.template.attacks) if routine.use in _PICKED_ROUTINE_USES
@@ -1010,9 +1081,8 @@ def _living_monsters(session, group) -> list:
 def _turning_candidates(session) -> list:
     """The monsters a turning reaches: the living members of every group that hasn't fled.
 
-    They come in the encounter's group order and each group's monster order, so a replay passes them to
-    [`turn_undead`][osrlib.core.spells.turn_undead] in the same order. A dead monster, or one whose group
-    left the battle, isn't present to be turned.
+    The order is the encounter's group order, then each group's monster order, so a replay passes them
+    to [`turn_undead`][osrlib.core.spells.turn_undead] in the same order.
     """
     return [
         monster for group in session.encounter.groups if not group.fled for monster in _living_monsters(session, group)
@@ -1236,7 +1306,7 @@ Monsters have a morale score in their stat block, but adventurers in the OSE SRD
 uses the score of the Veteran, the SRD's monster entry for a low-level fighter. This is an
 adaptation, a place where osrlib commits to one reading of a rule the SRD leaves open. The
 [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/) lists each one. With a
-score of 9, a group passes the check on a 2d6 total of 9 or less, after modifiers, and breaks on a
+score of 9, a group passes the check on a 2d6 total of 9 or less, after modifiers, and fails and flees on a
 higher total.
 
 The battle code reads this value directly, so every NPC adventurer group in the game checks against
@@ -1275,31 +1345,33 @@ def _haste_multiplier(session, entity_id: str, key: str) -> int:
 def start_battle(session, *, party_free_round: bool = False, monsters_free_round: bool = False) -> list[Event]:
     """Start a battle on the session's open encounter and put the session in `battle` mode.
 
-    You rarely call this yourself. The session calls it when the monsters attack and when a chase
-    catches the party, and [`EngageBattle`][osrlib.crawl.commands.EngageBattle] calls it when the
-    party chooses to fight. If you only execute commands, you never call it. Execute
-    `EngageBattle` instead whenever you can. The command log records the command, so
-    [`replay_game`][osrlib.persistence.replay_game] reproduces the fight, and the command works out
-    the surprise arguments and a fight in the middle of a chase for you. A direct call changes the
-    session outside any command. [`save_game`][osrlib.persistence.save_game] still saves the result,
-    but a replay of the command log doesn't reproduce it. Call this function only from code that
-    runs a procedure outside the session's commands, like a test of combat.
+    Don't call this in normal play. Execute [`EngageBattle`][osrlib.crawl.commands.EngageBattle]
+    instead, and the session calls this for you. It also calls this when the monsters attack and
+    when pursuing monsters catch the party. The command works out which side surprised the other,
+    and the command log records it, so a replay of the log reproduces the fight. A direct call
+    changes the session outside any command, so a replay doesn't reproduce it. Call this only from
+    code that runs outside the session's commands, like a test of combat.
 
     The session needs an open encounter, because the battle uses that encounter's groups and their
     distances. When this function returns, the session is in `battle` mode and `session.battle`
     contains a [`BattleState`][osrlib.crawl.battle.BattleState]. From there, each round is one
     [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound] command.
 
-    A group whose morale score is 2 runs away as soon as the battle starts, as the SRD's morale
-    rule says, and that can end the battle before any round. In a group that a cleric turned only
-    in part, the turned members break away as a new group, which runs from the first round. A
-    side that surprised the other gets one free round. The monsters' free round runs inside this
-    call, before the party can act. On the party's free round, the monsters do nothing during the
-    first `ResolveBattleRound`.
+    A group with a morale score of 2 never fights, so it flees as soon as the battle starts. That
+    can end the battle before any round. When a cleric turned only part of a group, the turned
+    monsters split off as a new group, which flees from the first round.
+
+    A side that surprised the other gets one free round, in which the other side doesn't act:
+
+    - The monsters' free round runs inside this call, before the party can act.
+    - On the party's free round, the monsters don't act in the first round, which you resolve
+      with the first `ResolveBattleRound`.
+      [`BattleState.monsters_hold_rounds`][osrlib.crawl.battle.BattleState.monsters_hold_rounds]
+      counts the rounds in which the monsters still don't act.
 
     Args:
         session (osrlib.crawl.session.GameSession): The running session, with `session.encounter` set.
-        party_free_round: True when the monsters were surprised. The monsters then sit out the
+        party_free_round: True when the monsters were surprised. The monsters then don't act in the
             first round.
         monsters_free_round: True when the party was surprised. The monsters then act once inside
             this call, before the party declares anything.
@@ -1347,7 +1419,7 @@ def start_battle(session, *, party_free_round: bool = False, monsters_free_round
         session.execute(EnterDungeon(dungeon_id="crypt"))
         session.execute(SpawnMonsters(template_id="goblin", count_fixed=2, distance_feet=30))
 
-        # The party caught the goblins flat-footed, so it gets the first round free.
+        # The goblins were surprised, so the party gets the first round free.
         events = start_battle(session, party_free_round=True)
         assert [event.code for event in events] == ["battle.started"]
         assert session.mode is SessionMode.BATTLE
@@ -1391,7 +1463,7 @@ def _check_ends(session, *, party_retreating: bool) -> list[Event] | None:
     """Return the end-of-battle events when a terminal state holds, else `None`.
 
     Defeat ends the battle and does nothing else. Defeat holds when no member stands,
-    which means every member is dead or petrified. The session's wipe check makes
+    which means every member is dead or petrified. The session's check for a lost party makes
     the transition to `game_over` and posts the ending event, so a party lost to a
     blade trap and a party lost to ogres end the same way.
     """
@@ -1410,7 +1482,7 @@ def _check_ends(session, *, party_retreating: bool) -> list[Event] | None:
         from osrlib.crawl.encounter import PursuitState
 
         session.battle = None
-        # Only a group still willing and able to run chases: not the broken and
+        # Only a group still willing and able to pursue: not one that failed morale and
         # not the shaken (they are fleeing themselves), and not a group whose
         # living members all lie helpless, because retreat from those succeeds.
         pursuers = [
@@ -1462,22 +1534,16 @@ def _find_wielded(member, weapon_id: str | None):
 
 
 def _with_default_weapon(session, declaration: BattleDeclaration, member) -> BattleDeclaration:
-    """Fill in the weapon of an `attack` that names none, as `BattleDeclaration.weapon_id` describes.
+    """Fill in the weapon of an `attack` that has none, by the rules `BattleDeclaration.weapon_id` gives.
 
-    The group's distance decides the attack: melee at 5' or less, missile beyond. The weapon is the first
-    wielded item, in equip order, with that quality, and a real weapon comes before an improvised one: a gear
-    item whose stats come from its `combat` facet, like a torch. So a member who lit a torch and then drew a
-    sword swings the sword, and the torch counts only when nothing else suits the attack. For a missile
-    attack it's the first of those whose long range reaches the group, and the first missile weapon only
-    when none reaches. A splash weapon never counts, because a `use_item` declaration throws it, and neither
-    does an item with no weapon stats, like a wand. The session calls this once, when it
-    accepts the round, so the rest of the round reads the chosen weapon as if the player had named it.
+    An improvised weapon here is a mundane gear item whose stats come from its `combat` facet, like a
+    torch. The round handler calls this once, when it accepts the round, so the rest of the round
+    reads the chosen weapon as if the player had named it.
 
     Returns:
-        The declaration with `weapon_id` set to the chosen weapon's id: a magic weapon's instance id or a
-        mundane weapon's catalog id. The declaration itself when it isn't an `attack`, already names a weapon,
-        targets no group the battle still has, or the member wields nothing that suits the attack, which
-        leaves the attack unarmed.
+        The declaration with `weapon_id` set to a magic weapon's instance id or a mundane weapon's
+        catalog id. The declaration unchanged when it isn't an `attack`, already has a weapon, aims at
+        a group that's gone or fled, or the member wields nothing that suits the attack.
     """
     if declaration.action != "attack" or declaration.weapon_id is not None:
         return declaration
@@ -1536,23 +1602,23 @@ def _group_by_id(session, group_id: str | None):
 
 
 _DEFENSIVE_MOVES = ("fighting_withdrawal", "retreat")
-"""The SRD's two ways out of melee, the `move` values a member makes either with the formation or alone.
+"""The SRD's two ways out of melee, which a member makes either with the formation or alone.
 
-When every declarer makes the same one, the whole formation makes it. Otherwise each is the
-declaring member's own: a swap with a member from a back rank. `close` is not one of them, because
-it needs no agreement: the first `close` advances the formation whenever the round is accepted.
+When every declarer makes the same one, the whole formation makes it. Otherwise each one is a swap
+with a member from a back rank. `close` isn't here, because the first `close` advances the
+formation whatever the others declare.
 """
 
 _RANK_DEPTH_FEET = 5
 """How far apart the party's ranks stand, front to back, in feet.
 
-A member who withdraws alone and the replacement who steps up into their place each cover this
-distance once for every rank between them, so a replacement two ranks back is ten feet away.
+A member who withdraws alone and their replacement each cover this distance once for every rank
+between them, so a replacement two ranks back is 10' away.
 """
 
 
 class _Withdrawal(NamedTuple):
-    """A fighting withdrawal or a retreat that one member makes alone, as the movement step makes it."""
+    """A fighting withdrawal or a retreat that one member makes alone, planned for the movement step."""
 
     member_id: str
     """The front-rank member who steps back."""
@@ -1566,9 +1632,8 @@ def _formation_move(declarations: Sequence[BattleDeclaration]) -> str | None:
     """Return the defensive move the whole formation makes this round, or `None` when it makes none.
 
     The formation makes a `fighting_withdrawal` or a `retreat` when every declaration is that same
-    move. A round whose only declarer declares one is a formation move too, because everyone agreed.
-    A member who can't declare at all, being dead or incapacitated, doesn't count. Any other
-    defensive move is the declaring member's own (see `_plan_withdrawals`).
+    move, including a round with one declarer. Dead and incapacitated members don't declare, so they
+    don't count. Any other defensive move is a member's move alone (see `_plan_withdrawals`).
     """
     moves = [declaration.move if declaration.action == "move" else None for declaration in declarations]
     first = moves[0] if moves else None
@@ -1580,20 +1645,23 @@ def _formation_move(declarations: Sequence[BattleDeclaration]) -> str | None:
 def _plan_withdrawals(
     session, declarers, declarations: Sequence[BattleDeclaration]
 ) -> tuple[list[Rejection], list[_Withdrawal]]:
-    """Judge each defensive move a member makes alone, and plan the swaps the movement step makes.
+    """Judge each defensive move a member makes alone, and plan the swaps for the movement step.
 
-    A `fighting_withdrawal` or a `retreat` that not every declarer makes is the declaring member's
-    own (see the [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/), under
-    the battle round). The member has to stand in the front rank and name a replacement who can step
-    up (see `_can_step_up`). Both members have to cover the distance between their ranks: the
-    withdrawing member at up to half their encounter rate for a fighting withdrawal or their full
-    rate for a retreat, and the replacement at up to their full rate, each doubled by their own
-    *haste*. Each withdrawing member gets the first of the four rejections that applies, in the
-    order this function checks them.
+    `BattleDeclaration.replacement_id` gives the rules, and the
+    [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/) describes them under
+    the battle round. Each withdrawing member gets only the first of these that applies, in this
+    order:
 
-    In a formation move every declarer is withdrawing, so nobody is free to step up, and a
-    declaration in it that names a replacement is refused with
-    `battle.declaration.replacement_unavailable`.
+    1. `battle.declaration.not_in_front_rank` - the member stands behind the front rank.
+    2. `battle.declaration.no_replacement` - `replacement_id` is `None`.
+    3. `battle.declaration.replacement_unavailable` - another withdrawing member already named the
+       replacement, or `_can_step_up` refuses them.
+    4. `battle.declaration.replacement_too_far` - either member can't cover the distance between
+       their ranks: the withdrawing member at half their encounter rate for a fighting withdrawal or
+       their full rate for a retreat, and the replacement at their full rate, each doubled by *haste*.
+
+    In a formation move, every declarer withdraws and nobody is free to step up, so a declaration
+    that sets `replacement_id` gets `battle.declaration.replacement_unavailable`.
 
     The checks read state and take no draw, so a refused round costs nothing.
 
@@ -1675,11 +1743,10 @@ def _can_step_up(
 ) -> bool:
     """Whether a named replacement can step up into the front rank this round.
 
-    The replacement has to be a living member behind the front rank, so an unknown id, a dead
-    member, and a member of the front rank are all out. They have to be able to declare, to move,
-    and to act on the party's behalf (see `_acts_for_party`). Their own declaration can't be a
-    `cast`, because "The spell caster cannot move and cast a spell in the same round", or a
-    defensive move, which takes a member out of the front rank, not into it.
+    The replacement has to be a living member behind the front rank. They have to be able to
+    declare, to move, and to act for the party (see `_acts_for_party`). Their declaration can't be
+    a `cast`, because "The spell caster cannot move and cast a spell in the same round". It can't
+    be a defensive move either, because that takes a member out of the front rank.
     """
     if rank_of.get(replacement_id, 0) == 0 or replacement_id not in able:
         return False
@@ -1693,13 +1760,10 @@ def _can_step_up(
 
 
 def _acts_for_party(member) -> bool:
-    """Whether a member can still act on the party's behalf, as a replacement who steps up has to.
+    """Whether a member can still act for the party, as a replacement who steps up has to.
 
     An incapacitated member can't act at all. A charmed member acts for the charmer, and a confused
-    member acts on a behavior roll, so neither steps up into the front rank for the party. Both the
-    validation pre-phase and the movement step ask this, so a replacement who is already charmed or
-    confused is refused when the round is declared, and one who becomes so before the movement step
-    stays where they are.
+    member acts on a behavior roll. Both the validation pre-phase and the movement step call this.
     """
     return not (
         incapacitated(member) or has_condition(member, Condition.CHARMED) or has_condition(member, Condition.CONFUSED)
@@ -1707,10 +1771,10 @@ def _acts_for_party(member) -> bool:
 
 
 def _projected_front_rank(session, plan: Sequence[_Withdrawal]) -> set[str]:
-    """The ids of the front rank as the round's planned swaps leave it, for judging melee declarations.
+    """The ids of the front rank after the round's planned swaps, for judging melee declarations.
 
-    A replacement stands in the front rank from the movement step on, so they may declare a melee
-    attack in the round they step up. The members the swaps leave in place keep their ranks.
+    A replacement stands in the front rank from the movement step on, so they can declare a melee
+    attack in the round they step up.
     """
     order = [member.id for member in session.party.living_members()]
     for swap in plan:
@@ -1725,34 +1789,26 @@ def _validate_declaration(
 ) -> list[Rejection]:
     """Judge one declaration against the state it refers to, and return every reason it cannot stand.
 
-    This runs twice on the declarations the round accepts. Once in the validation pre-phase, where a
-    rejection refuses the whole command, and again in the magic phase, immediately before a `cast`, a
-    `turn_undead`, or a device or scroll `use_item` resolves, because the phases between the two can change
-    what these checks read. It reads state and takes no draw, so running it a second time costs nothing and
-    changes nothing.
+    This runs in the validation pre-phase, where a rejection refuses the whole command. It runs again
+    in the magic phase, just before a `cast`, a `turn_undead`, or a device or scroll `use_item`
+    resolves, because the phases in between can change what these checks read. It reads state and
+    takes no draw, so the second run costs nothing and changes nothing.
 
-    An `attack` with no `weapon_id` is judged with the weapon that `BattleDeclaration.weapon_id` says the
-    session chooses, from the group's distance when the round is accepted. `_handle_resolve_battle_round`
-    fills that weapon in with `_with_default_weapon` before it calls this.
+    `_handle_resolve_battle_round` fills in a missing `weapon_id` with `_with_default_weapon` before it
+    calls this.
 
-    The pre-phase passes `front_rank`, the ids of the front rank as the round's swaps will leave it
-    (see `_projected_front_rank`), so a replacement who steps up may declare a melee attack. Without
-    it, a melee attack is judged against the front rank as it stands.
+    The pre-phase passes `front_rank`, the front rank after the round's planned swaps (see
+    `_projected_front_rank`), so a replacement who steps up can declare a melee attack. Without it,
+    the melee checks use the front rank as it stands. A staff of striking gets the same rank check as
+    a melee attack (see `_validate_magic_item_declaration`): a member outside the front rank gets
+    `battle.declaration.not_in_front_rank`, with the member's id as the `character` param.
 
-    A staff of striking `use_item` is a melee attack too, because the staff is "Used as a magical melee
-    weapon", so it gets the same rank check: a member outside `front_rank`, or outside the front rank as it
-    stands when `front_rank` isn't passed, is refused with `battle.declaration.not_in_front_rank` and the
-    member's id as the `character` param. The check applies only while `formation_width_limit` is on, as
-    for a melee attack. `_validate_magic_item_declaration` makes it after the fled-group check and before
-    the reach check, the order a melee attack's rank and reach checks take.
-
-    A `turn_undead` names no group. It reaches every living monster in every group that hasn't fled, undead
-    or not, as `_party_magic` passes them to [`turn_undead`][osrlib.core.spells.turn_undead]. After the
-    checks of [`validate_turn_undead`][osrlib.core.spells.validate_turn_undead], a turning with no such
-    monster left is refused with `battle.declaration.no_target` and the member's id as the `character`
-    param. A battle always has a living monster when a round is accepted, so only the magic phase's
-    re-check meets this refusal, when the phases before it killed or drove off every monster. The check
-    doesn't ask whether any monster is undead, so it never tells the player what is undead for free.
+    A `turn_undead` names no group. It reaches every living monster in every group that hasn't fled,
+    undead or not, which `_party_magic` passes to [`turn_undead`][osrlib.core.spells.turn_undead].
+    After the checks of [`validate_turn_undead`][osrlib.core.spells.validate_turn_undead], a turning
+    with no such monster left gets `battle.declaration.no_target`, with the member's id as the
+    `character` param. Only the magic phase's second run can meet that. The check doesn't ask
+    whether any monster is undead, so a refusal never tells the player which monsters are undead.
     """
     state = session.battle
     if declaration.action == "hold":
@@ -1857,16 +1913,13 @@ def _validate_declaration(
 def _cast_targets(session, declaration: BattleDeclaration, spell) -> tuple[list, int | None, list[Rejection]]:
     """Resolve a cast declaration's targets: explicit ids, the area footprint, or a group's living members.
 
-    A cast in an `area` mode aims at `target_group_id`, and its targets are the group's living members
-    that fit the area footprint, followed by the party's front rank when `aoe_friendly_fire` applies.
-    A cast in an `hd_budget` mode with a `target_group_id` and no `targets` takes the group's living
-    members in spawn order, and the kernel spends the budget on them weakest first. A mode with no
-    area, like *sleep*, takes every living member. That's the same cast as naming those members one by
-    one, so a front end with only the player view's group ids can cast *sleep*. A mode with an area,
-    like *death spell*'s 60' cube, takes only the candidates the area footprint takes, as an `area`
-    mode does. When both are set, the cast uses the named `targets`. For a
-    group that isn't in the encounter, or that has fled, this returns a
-    `battle.declaration.unknown_group` rejection.
+    An `area` mode takes the group's living members that fit the area footprint, then the party's
+    front rank when `aoe_friendly_fire` applies. An `hd_budget` mode with a `target_group_id` and no
+    `targets` takes the group's living members in spawn order, and the kernel spends the budget on
+    them weakest first. With no area, like *sleep*'s, that's every living member, so a front end that
+    has only the player view's group ids can still cast *sleep*. With an area, like *death spell*'s,
+    it's the members the footprint takes. When both fields are set, the cast uses `targets`. A group
+    that isn't in the encounter, or has fled, gets `battle.declaration.unknown_group`.
     """
     try:
         mode = spell.mode(declaration.spell_mode, reversed=declaration.reversed)
@@ -1957,17 +2010,16 @@ def _validate_magic_item_declaration(
     A scroll read resolves in the magic phase too, through the declaration's
     spell fields.
 
-    For a scroll or a device this runs twice, as `_validate_declaration`'s `cast` branch does: once in the
-    validation pre-phase, and again in the magic phase immediately before the read or the use resolves,
-    because the phases between the two can change what these checks read. It reads state and takes no draw,
-    so the second run costs nothing and changes nothing.
+    For a scroll or a device this runs twice, like a `cast`: in the validation pre-phase, and again in
+    the magic phase just before the read or the use resolves. It takes no draw, so the second run
+    costs nothing.
 
-    A staff of striking (an effect of kind `striking`) is "Used as a magical melee weapon", so only a member
-    in the front rank may use it, as for a melee attack (see `_validate_declaration`). In the pre-phase that is
-    the front rank as the round's swaps will leave it, so a replacement who steps up may strike. In the magic
-    phase it is the front rank as it stands, so a replacement whose swap didn't happen fizzles with
-    `battle.declaration.not_in_front_rank`. The rank check comes after `battle.declaration.unknown_group`, so a
-    staff aimed at a fled group is still refused for the group.
+    A staff of striking (an effect of kind `striking`) is "Used as a magical melee weapon", so only a
+    front-rank member can use it while `formation_width_limit` is on. The pre-phase passes the front
+    rank after the round's planned swaps, so a replacement who steps up can strike. The magic phase
+    uses the front rank as it stands, so a replacement whose swap didn't happen fizzles with
+    `battle.declaration.not_in_front_rank`. The rank check comes after the fled-group check and before
+    the reach check, in the order a melee attack takes them.
     """
     from osrlib.crawl import exploration
 
@@ -2241,8 +2293,8 @@ def _handle_resolve_battle_round(session, command: ResolveBattleRound) -> tuple[
     by_member = {}
     for declaration in command.declarations:
         member = session.member(declaration.character_id)
-        # The default weapon is chosen once, here, so the round plays out as if the player had named it.
-        # The command log keeps the declaration as it was sent.
+        # Choose the default weapon once, here, so the round plays out as if the player had named it.
+        # The command log still records the declaration as it was sent.
         by_member[declaration.character_id] = (member, _with_default_weapon(session, declaration, member))
     declarations = [declaration for _, declaration in by_member.values()]
     withdrawal_rejections, swaps = _plan_withdrawals(session, declarers, declarations)
@@ -2257,7 +2309,7 @@ def _handle_resolve_battle_round(session, command: ResolveBattleRound) -> tuple[
         # acceptance would complicate replay (see the adaptations register).
         return rejections, []
 
-    # The gaze stances hold from here to the end of the round, whichever side acts first.
+    # The gaze stances last from here to the end of the round, whichever side acts first.
     averting = _avert_eyes(by_member)
     mirrored = frozenset(
         member.id for member, declaration in by_member.values() if declaration.gaze_defense == "mirror"
@@ -2404,9 +2456,9 @@ def _retreating_members(session, declarations: Sequence[BattleDeclaration], form
 
     The OSE SRD's retreat lasts the round: "This round: ... the opponent gains a +2 bonus to all
     attacks against the retreating combatant and ignores any AC bonus due to the combatant's shield".
-    The exposure starts when the round is declared, so it holds against a side that acts before the
-    party moves. A formation retreat moves the whole party off, so it exposes every member. Otherwise
-    it exposes each member who retreats alone, and no one else.
+    The exposure starts when the round is declared, so it also applies to a side that acts before the
+    party moves. A formation retreat exposes every member. Otherwise only the members who retreat
+    alone are exposed.
     """
     if formation == "retreat":
         return frozenset(member.id for member in session.party.members if member.id is not None)
@@ -2422,14 +2474,12 @@ def _party_movement(session, by_member) -> list[Event]:
 
     A defensive move that every declarer makes moves the whole formation (see the
     [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/), under the battle
-    round). Every member retreating moves the party off at the full encounter rate, the OSE SRD's
-    "full encounter movement rate", and the running pursuit begins once the battle converts. Every
-    member declaring a fighting withdrawal backs the party off at half encounter rate, and that
-    declaration is a move on its own, so the withdrawing party attacks nobody that round.
+    round). A formation retreat moves the party off at the OSE SRD's "full encounter movement rate",
+    and the pursuit begins once the battle ends. A formation fighting withdrawal backs the party off at
+    half the encounter rate, and the withdrawing members attack nobody that round.
 
-    Otherwise the first `close` in the round's declarations advances the formation on its named
-    group at encounter rate, stopping at 5'. The members who withdraw alone have already traded places
-    with their replacements by then, earlier in the same movement step (see `_swap_ranks`).
+    Otherwise the first `close` in the round's declarations moves the formation toward its group at
+    the encounter rate, and stops at 5'. `_swap_ranks` has already made this movement step's swaps.
     """
     declarations = [declaration for _, declaration in by_member.values()]
     events: list[Event] = []
@@ -2461,14 +2511,12 @@ def _party_movement(session, by_member) -> list[Event]:
 def _swap_ranks(session, swaps: Sequence[_Withdrawal]) -> list[MemberWithdrewEvent]:
     """Trade each withdrawing member's place in the marching order with their replacement's.
 
-    The swaps run in the marching order of the withdrawing members, as `_plan_withdrawals` planned
-    them. A swap happens only if, when the movement step comes, the withdrawing member still stands
-    in the front rank, the replacement still stands behind it, both can still move, and the
-    replacement can still act on the party's behalf (see `_acts_for_party`), which a member who is
-    incapacitated, charmed, or confused can't. A side that acted first can change any of that.
-    Otherwise the two stay where they are and nothing reports the swap. The order stays changed
-    after the round. A swap takes no draw. The party block runs this at the start of its movement
-    step, before `_party_movement` moves the formation.
+    The party block runs this at the start of its movement step, before `_party_movement`. The swaps
+    run in the marching order of the withdrawing members. A side that acted first can change things,
+    so each swap is checked again here. It happens only if the withdrawing member still stands in the
+    front rank, the replacement still stands behind it, both can still move, and the replacement
+    passes `_acts_for_party`. Otherwise the two stay where they are, with no event. The new order
+    stays after the round. A swap takes no draw.
 
     Returns:
         A `MemberWithdrewEvent` for each swap that happened.
@@ -2512,8 +2560,8 @@ def _party_attacks(
 ) -> list[Event]:
     """Resolve the party's missile or melee attacks, and queue the slow ones for the end of the round.
 
-    `stranded` names the replacements whose swap didn't happen. They declared a melee attack from the
-    front rank they were to step into, so they never reach it and their melee attack doesn't resolve.
+    `stranded` contains the ids of the replacements whose swap didn't happen. They never reached the
+    front rank, so their melee attacks don't resolve.
     """
     events: list[Event] = []
     for member, declaration in by_member.values():
@@ -2803,31 +2851,30 @@ def _fizzle_cast(session, member, spell_id: str, *, reversed: bool, reason: str,
 def _party_magic(session, by_member, pending_casters, disrupted, acted, state) -> list[Event]:
     """Resolve the party's magic phase: item uses, turning, and casts, in the order the declarations arrived.
 
-    A caster the round already disrupted is reported as disrupted and takes no further part, and that
-    check runs before the re-check below, so a caster who was both hit and silenced reports
-    `magic.cast.disrupted` rather than `magic.cast.fizzled`. The disruption comes from the attack that
-    hit, so it's the outcome the players saw.
+    A caster the round already disrupted reports `magic.cast.disrupted` and takes no further part. That
+    check comes before the re-check below, so a caster who was both hit and silenced reports the
+    disruption the players saw.
 
-    A cast, a scroll read inside `_resolve_scroll_cast`, a device use (a wand, staff, or rod), and a turning
-    are each judged again immediately before they resolve, with the checks they passed at the top of the
-    round. One that now fails any of them fizzles instead of resolving, and the re-check takes no draw, so a
-    declaration that passes it resolves with the same draws in the same order as before. A potion has no
-    check to fail.
+    A cast, a scroll read in `_resolve_scroll_cast`, a device use (a wand, staff, or rod), and a turning
+    are each checked again just before they resolve, with the checks they passed at the top of the round.
+    One that now fails fizzles instead of resolving. The re-check takes no draw, so a declaration that
+    passes it resolves with the same draws as before. A potion has no check to fail.
 
-    A fizzled cast or scroll read reports a `SpellDisruptedEvent` at `magic.cast.fizzled`, and the caster loses
-    the memorized copy, or the scroll its spell, as a disruption loses them. A fizzled device use reports a
-    `DeclarationFizzledEvent` at `magic.device.fizzled` with the declared instance id as `item_id`, and a fizzled
-    turning reports one at `magic.turning.fizzled` with no `item_id`. Each event's `reason` is the first rejection
-    code of the re-check. A device was never used, so it keeps its charge, isn't identified, emits no
-    `items.device.activated`, and breaks no invisibility. A turning that fizzles costs nothing and draws
-    nothing. A fizzled device use or turning still releases the actor's concentration, as every declaration
-    other than a cast or a hold does.
+    - A fizzled cast or scroll read reports a `SpellDisruptedEvent` at `magic.cast.fizzled`. The caster
+      loses the memorized copy, or the scroll loses its spell, as with a disruption.
+    - A fizzled device use reports a `DeclarationFizzledEvent` at `magic.device.fizzled`, with the
+      instance id as `item_id`. The device spends no charge, isn't identified, emits no
+      `items.device.activated`, and breaks no invisibility.
+    - A fizzled turning reports a `DeclarationFizzledEvent` at `magic.turning.fizzled`, with no
+      `item_id`. It costs nothing and makes no random roll.
 
-    A turning reaches only the living monsters of the groups that haven't fled, in the encounter's group order
-    and each group's monster order. A dead monster, or one in a fled group, is never a candidate, so its kind is
-    never read on the turning table and never appears in the event's `types`. A turning with no such monster
-    left, because the missile phase or a declaration earlier in this magic phase killed them or drove them from
-    the battle, fizzles with `battle.declaration.no_target`.
+    Each fizzle event's `reason` is the first rejection code of the re-check. A fizzled device use or
+    turning still releases the actor's concentration, as every declaration other than a cast or a hold
+    does.
+
+    A turning reaches only `_turning_candidates`, so a dead monster, or one in a fled group, never
+    appears in the event's `types`. When the phases before it leave no candidate, the turning fizzles
+    with `battle.declaration.no_target`.
     """
     events: list[Event] = []
     for member, declaration in by_member.values():
@@ -2841,8 +2888,8 @@ def _party_magic(session, by_member, pending_casters, disrupted, acted, state) -
             instance = member.inventory.magic_item(declaration.item_id)
             category = magic_item_template(instance).category
             if category in (MagicItemCategory.ROD, MagicItemCategory.STAFF, MagicItemCategory.WAND):
-                # The device use is judged again, as a cast is below. A refused one was never used, so
-                # it spends no charge, identifies nothing, and breaks no invisibility.
+                # Check the device use again, as a cast is checked below. A refused use never happened,
+                # so it spends no charge, identifies nothing, and breaks no invisibility.
                 recheck = _validate_declaration(session, declaration, member)
                 if recheck:
                     events.append(
@@ -2863,9 +2910,9 @@ def _party_magic(session, by_member, pending_casters, disrupted, acted, state) -
             acted.add(member.id)
             continue
         if declaration.action == "turn_undead":
-            # Turning resolves in the magic phase but is never disruptable: it is
-            # a class ability, not a spell (see the adaptations register). It is judged
-            # again, though, and a refused one fizzles before it draws or costs anything.
+            # Turning resolves in the magic phase, but a hit can't disrupt it, because it's
+            # a class ability, not a spell (see the adaptations register). It's still checked
+            # again, and a refused turning fizzles before it draws or costs anything.
             recheck = _validate_declaration(session, declaration, member)
             if recheck:
                 events.append(
@@ -2943,9 +2990,8 @@ def _party_magic(session, by_member, pending_casters, disrupted, acted, state) -
         events.extend(exploration._stationary_silence(session, spell, result, targets))
         events.extend(_track_concentration(session, member.id, spell, result, state))
         acted.add(member.id)
-    # Any declaration other than these two releases the actor's concentration, a
-    # turning included, even one the round stopped before it resolved (see the
-    # adaptations register).
+    # Any declaration other than a cast or a hold releases the actor's concentration.
+    # That includes a turning, even one that didn't resolve (see the adaptations register).
     for member, declaration in by_member.values():
         if declaration.action not in ("cast", "hold"):
             events.extend(_release_concentration(session, member.id, state))
@@ -2955,8 +3001,8 @@ def _party_magic(session, by_member, pending_casters, disrupted, acted, state) -
 def _track_concentration(session, caster_id: str, spell, result, state) -> list[Event]:
     """Make a concentration spell the caster's only maintained one, and return the release events.
 
-    A caster maintains one concentration spell at a time, so casting one ends the spell the
-    caster already maintains, even when the new spell attaches no effect. A spell that needs no
+    A caster maintains one concentration spell at a time. Casting one ends the spell the caster
+    already maintains, even when the new spell attaches no effect. A spell that needs no
     concentration leaves the maintained one alone.
     """
     if spell.duration_spec.kind != "concentration":
@@ -3088,11 +3134,14 @@ def _monster_block(
 ) -> list[Event]:
     """Resolve the monster side's block: morale, flight, gazes, and the actions each group's policy chose.
 
-    `retreating` names the party members a retreat exposes this round (see `_retreating_members`),
-    and every attack against one of them gets the retreat's penalties. `withdrawn` names the members
-    who stepped back out of the front rank earlier in the round. A melee attack chosen against one of
-    them is skipped, because melee no longer reaches them. `mirrored` names the members who fight by
-    a mirror this round, whom a petrifying gaze passes by (see `_resolve_gazes`).
+    The keyword arguments contain party member ids:
+
+    - `retreating`: the members a retreat exposes this round (see `_retreating_members`). Every
+      attack on one of them gets the retreat's bonuses.
+    - `withdrawn`: the members who stepped back out of the front rank earlier in the round. The
+      block skips a melee attack on one of them, because melee no longer reaches them.
+    - `mirrored`: the members who fight by a mirror this round. A petrifying gaze passes them by
+      (see `_resolve_gazes`).
     """
     from osrlib.crawl.session import MONSTER_ACTION_STREAM
 
@@ -3304,12 +3353,12 @@ def _pursuer_full_rate(session, group) -> int:
 
 
 def _leave_helpless_behind(session, group) -> list[Event]:
-    """Split a routing group's immobile living members into a stay-behind group.
+    """Split a fleeing group's immobile living members into a stay-behind group.
 
     Fleeing is movement, and a member who cannot move cannot run. The runners keep
     the original group, its flags, and the shared group bundle they carry off
     ("routed ones flee with theirs"). The helpless become a fresh non-fleeing
-    group where the side broke, at the current distance, with their individual
+    group where the group fled from, at the current distance, with their individual
     treasure bundles still on them. Dead members also stay in the runners' group
     record, because the code that classifies the outcome and drops loot reads
     the `dead` condition before any group flag, so that code sees no change.
@@ -3338,19 +3387,19 @@ def _split_off_turned(session) -> list[Event]:
     """Move the turned members of each partly turned group into a new group.
 
     The OSE SRD's turned undead "flee from the cleric's presence if possible, and will not harm
-    the cleric". A group whose living members are all turned or afraid already runs as a whole.
-    In a group with a living member that is neither turned nor afraid, the turned members break
-    away. They become a new group at the same distance, and each one takes the treasure it
-    carries, because routed monsters flee with their treasure. The group's shared bundle stays with
-    the members who fight on, so it drops only when they're all slain. Every living member
-    of the new group is turned, so the monster block moves it away as it moves a wholly turned
-    group, and leaves behind any member who can't move. The members who fight on stay in the
-    original group, so the group's id and the policy registered for it don't change. Dead members
-    stay in the original group's record, as they do in `_leave_helpless_behind`.
+    the cleric". A group whose living members are all turned or afraid already runs as a whole, so
+    this splits only a group that still has a living member who is neither turned nor afraid.
 
-    The session calls this when a battle starts, after each turning in the magic phase, and at
-    the top of each monster block. The last call handles a group that becomes partly turned
-    later: a group of turned and afraid members becomes one when the fear on a member ends.
+    The turned members become a new group at the same distance. Each one takes the treasure it
+    carries, because monsters that flee take their treasure with them. The group's shared bundle stays with
+    the members who fight on, so it drops only when they're all slain. The monster block moves the
+    new group away like any wholly turned group, and leaves behind a member who can't move. The
+    members who fight on stay in the original group, so its id and its registered policy don't
+    change. Dead members stay in the original group's record, as in `_leave_helpless_behind`.
+
+    The session calls this when a battle starts, after each turning in the magic phase, and at the
+    top of each monster block. The last call catches a group that becomes partly turned later, like
+    a group of turned and afraid members after the fear on one of them ends.
     """
     from osrlib.crawl.encounter import EncounterGroup
 
@@ -3388,7 +3437,7 @@ def _group_morale(session, group, fire_damaged) -> list[Event]:
 
     A group that's already running makes no check, whether it failed morale or its
     living members are all turned or afraid. Its triggers stay pending. If the fear
-    on its members ends and it stops running, it judges them then.
+    on its members ends and it stops running, it checks them then.
     """
     state = session.battle
     score = _group_morale_score(session, group)
@@ -3428,11 +3477,11 @@ def _group_morale(session, group, fire_damaged) -> list[Event]:
 def _confused_overrides(session, group, actions, *, retreating: Collection[str] = frozenset()) -> list[Event]:
     """The confusion check the round handler runs each round: re-save, then the 2d6 behavior roll.
 
-    Whether a monster re-saves depends on the Hit Dice it has left, so a drained monster may lose the re-save.
-    The re-save runs on the magic stream, and the behavior roll and its pick of a
+    Whether a monster re-saves depends on the Hit Dice it has left, so a drained monster can lose the
+    re-save. The re-save runs on the magic stream, and the behavior roll and its pick of a
     target in its group run on the combat stream. The round handler makes these rolls,
-    distinct from the ledger's tick-time effects. A confused monster that attacks a party
-    member in `retreating` gets the retreat's penalties, as every attack on that member does.
+    distinct from the ledger's tick-time effects. A confused monster's attack on a party member in
+    `retreating` gets the retreat's +2 and ignores the shield, as every attack on that member does.
     """
     events: list[Event] = []
     for monster in _living_monsters(session, group):
@@ -3490,20 +3539,19 @@ def _behaviour_outcome(params, total: int) -> str:
 
 
 _UNROLLED_ATTACK_NAMES = frozenset({"gaze", "breath"})
-"""Attack entries battle never rolls as attacks, whichever routine holds them.
+"""Attack names that battle never rolls as attacks, in any routine.
 
-A petrifying gaze runs through `_resolve_gazes` once a round, a breath weapon through a `"breath"`
-action, and the rest are left to the referee.
+`_resolve_gazes` resolves a petrifying gaze once a round, and a `"breath"` action resolves a breath
+weapon. The referee handles any other gaze or breath.
 """
 
 
 def _resolve_monster_melee(session, monster, target, *, retreating: bool, routine: int | None = None) -> list[Event]:
     """Resolve one of a monster's attack routines against one target, with what each hit does beyond damage.
 
-    `routine` is an index into the template's `attacks`, and None resolves the first routine, as a
-    confused monster's attack does. An index the template doesn't have, a negative one included,
-    resolves nothing, so the session skips the action. A `SPECIAL` routine resolves nothing either,
-    and an attack named `gaze` or `breath` takes no attack roll in any routine.
+    `routine` is an index into the template's `attacks`. None resolves the first routine, as a
+    confused monster's attack does. An index out of range, negative included, resolves nothing, and
+    so does a `SPECIAL` routine. An attack in `_UNROLLED_ATTACK_NAMES` takes no attack roll.
     """
     events: list[Event] = []
     routines = monster.template.attacks
@@ -3545,7 +3593,7 @@ def _resolve_monster_melee(session, monster, target, *, retreating: bool, routin
 
 
 _HIT_EFFECT_KINDS = frozenset({"paralysis", "poison", "disease", "energy_drain", "petrification", "blindness"})
-"""The attack effects that battle applies when a monster hits. The adaptations register lists the rest."""
+"""The attack effects battle applies when a monster hits. The adaptations register lists the others."""
 
 
 def _apply_hit_effects(session, monster, target, attack: MonsterAttack) -> list[Event]:
@@ -3596,7 +3644,7 @@ def _apply_hit_effect(session, monster, target, kind: str, params: Mapping[str, 
       poison, or be blinded for good. The effect is permanent and isn't dispellable, and a target
       that's already blind saves again but gains nothing more.
 
-    A monster that's immune to the condition the effect brings rolls no save and takes nothing.
+    A target monster that's immune to the effect's condition rolls no save and takes nothing.
     Saves draw from the combat stream, rolled durations and onsets from the effects stream, and
     energy drain from the advancement stream.
     """
@@ -3718,13 +3766,13 @@ def _resolve_gazes(session, group, *, free_round: bool, mirrored: Collection[str
 
     A gaze takes no attack roll and no action. Every living gazer that isn't incapacitated uses it
     before its group acts, whatever the policy then chooses for it. While the gazer's group is in
-    melee, the gaze reaches the party's front rank, less the members in `mirrored`, who fight by a
-    mirror this round. `resolve_gaze` skips a character who is averting their eyes, is blind, or is
-    incapacitated, and rolls a save versus paralysis on the combat stream for each of the others.
+    melee, the gaze reaches the party's front rank, except the members in `mirrored`.
+    `resolve_gaze` skips a character who is averting their eyes, is blind, or is incapacitated. It
+    rolls a save versus paralysis on the combat stream for each of the others.
 
-    In the monsters' free round (`free_round`) of an encounter that opened with the party surprised,
-    a gazer whose `surprise` ability says so, the basilisk, already turned its gaze on every member
-    in `_surprise_gazes` as the encounter opened, so it doesn't gaze again in that round.
+    When the encounter opened with the party surprised, `_surprise_gazes` already turned the
+    basilisk's gaze on every member. So in the monsters' free round (`free_round`), a gazer whose
+    `surprise` ability has `meets_gaze` doesn't gaze again.
     """
     if group.distance_feet > MELEE_RANGE_FEET:
         return []
@@ -3745,10 +3793,10 @@ def _surprise_gazes(session, monsters: Iterable) -> list[Event]:
     `start_encounter` calls this as the encounter opens, when the party is surprised, as the OSE
     SRD's "Characters surprised by a basilisk meet its gaze" says. A monster gazes when its
     `surprise` ability has `meets_gaze`, it has a petrifying gaze, and it isn't incapacitated. The
-    gaze reaches every living member once, at any distance and in any rank, and no stance spares
-    it, because the party hasn't declared anything yet. `resolve_gaze` skips a member who is blind
-    or already incapacitated, and rolls a save versus paralysis on the combat stream for each of
-    the others.
+    gaze reaches every living member once, at any distance and in any rank. No guard protects
+    against it, because the party hasn't declared anything yet. `resolve_gaze` skips a member who
+    is blind or already incapacitated. It rolls a save versus paralysis on the combat stream for
+    each of the others.
     """
     events: list[Event] = []
     for monster in monsters:
@@ -3786,9 +3834,9 @@ _MIRROR_ITEM_ID = "mirror"
 def _avert_eyes(by_member) -> list:
     """Give each member who declared `avert_eyes` the `averted_eyes` condition, and return those members.
 
-    The condition has no effect behind it, so nothing draws and the grant's event is dropped: the stance
-    emits nothing of its own. A member who already has the same record, which only a host can give, isn't
-    returned, so `_end_averting` leaves that record alone.
+    The condition has no effect behind it, so the grant makes no random roll, and this drops its event.
+    A member who already has `averted_eyes` with no effect id, which only the host game can give, isn't
+    returned, so `_end_averting` leaves that condition alone.
     """
     return [
         member
@@ -3873,8 +3921,8 @@ _HANDLERS = {
 the first time it dispatches a command, alongside the exploration, encounter, and referee maps. There
 is no registration point here: the only documented way to run a command is
 [`GameSession.execute`][osrlib.crawl.session.GameSession.execute], which picks the handler, runs the
-mode gate, and does the command log, listener, and validation-phase bookkeeping a handler alone would
-skip.
+mode gate, and records the command log, calls the listeners, and runs the validation-phase checks a
+handler alone would skip.
 
 The value takes `(session, command)` and returns a `(rejections, events)` pair. Battle has one command
 because a round is resolved as a whole: every party member declares, and the round handler runs both sides
