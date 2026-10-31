@@ -492,7 +492,7 @@ class Character(BaseModel):
         the +1 an ordinary shield gives. A worn item with an armour class bonus that is always
         active, like a ring of protection, adds to the bonus too.
         """
-        from osrlib.core.items import ArmourTemplate, MagicItemInstance, magic_item_template
+        from osrlib.core.items import ArmourTemplate, MagicItemInstance, _shield_ac_parts, magic_item_template
         from osrlib.data import load_equipment
 
         base = 10 if ascending else 9
@@ -509,21 +509,10 @@ class Character(BaseModel):
         elif worn is not None and isinstance(worn.template, ArmourTemplate) and worn.template.ac is not None:
             printed_ascending = worn.template.ac_ascending
             base = printed_ascending if ascending and printed_ascending is not None else worn.template.ac
-        bonus = 0
-        shield = self.inventory.shield
-        if isinstance(shield, MagicItemInstance):
-            template = magic_item_template(shield)
-            if template.ac_set is not None and template.ac_set_ascending is not None:
-                # The cursed shield's AC 9 [10] sets the wearer's base outright.
-                base = template.ac_set_ascending if ascending else template.ac_set
-            else:
-                mundane_shield = load_equipment().get("shield")
-                mundane_bonus = (getattr(mundane_shield, "ac_bonus", None) or 0) if mundane_shield else 0
-                bonus += mundane_bonus + template.ac_bonus
-        elif (
-            shield is not None and isinstance(shield.template, ArmourTemplate) and shield.template.ac_bonus is not None
-        ):
-            bonus += shield.template.ac_bonus
+        # The cursed shield's AC 9 [10] sets the wearer's base outright.
+        shield_base, bonus = _shield_ac_parts(self.inventory.shield, ascending=ascending)
+        if shield_base is not None:
+            base = shield_base
         for ring in self.inventory.rings:
             template = magic_item_template(ring)
             if template.always_active:

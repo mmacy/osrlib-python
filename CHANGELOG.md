@@ -43,6 +43,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
     - The replay plays out differently when the log contains a `close`, an `attack` that set `move="close"`, which 2.2.0 ignored, a fighting withdrawal or a retreat that one member made alone, or a monster group that closed on the party. A battle plays as before when no member moves and no group closes.
 - [`RemoveMember`][osrlib.crawl.commands.RemoveMember] without `give_to` now refuses to remove a member who carries an item the adventure depends on, so the party can't lose a quest item by dropping the member who held it. The adventure depends on an item when a gate on a door or transition, a trigger that can still fire, or any clause of a quest that isn't completed names its catalog id. The session refuses with `party.remove.carries_quest_item`, and the rejection's `character` and `item` params give the member and the item. Name a member in `give_to` and the item moves to them, so the removal goes through.
 
+### Fixed
+
+- An attack that ignores the defender's shield no longer raises `AttributeError` when the shield is magic. The bug was present in 2.2.0. Before, an attack on a retreating member who carried a magic shield, or an attack from behind on such a member, crashed the round. Now the attack is made against the armour class the defender would have without the shield, so a magic shield loses its enchantment along with the +1 every shield gives. A cursed shield that makes armour class worse still counts, because the rule takes away a shield's bonus and not its penalty. [`AttackContext.behind_target`][osrlib.core.combat.AttackContext.behind_target] and [`AttackContext.defender_retreating`][osrlib.core.combat.AttackContext.defender_retreating] describe the rule.
+
 ## [2.2.0] - 2026-10-30
 
 ### Added

@@ -172,6 +172,7 @@ from osrlib.core.items import (
     MissileRanges,
     WeaponQuality,
     WeaponTemplate,
+    _shield_ac_parts,
     equipped_item_modifiers,
     magic_item_template,
 )
@@ -1362,12 +1363,12 @@ def _defender_descending_ac(defender: Any, context: AttackContext, *, missile: b
     ac = getattr(defender, "armour_class", None)
     if ac is None:
         return None
-    # Shield AC is ignored against a retreating defender and attacks from behind.
+    # A retreating defender, or one attacked from behind, loses the shield's bonus, a magic
+    # shield's enchantment included. A cursed shield's penalty has no bonus to lose, so it stays.
     if context.defender_retreating or context.behind_target:
         inventory = getattr(defender, "inventory", None)
-        shield = getattr(inventory, "shield", None) if inventory is not None else None
-        if shield is not None and shield.template.ac_bonus is not None:
-            ac += shield.template.ac_bonus
+        _, shield_bonus = _shield_ac_parts(getattr(inventory, "shield", None), ascending=False)
+        ac += max(shield_bonus, 0)
     if context.attacker_large:
         params = _class_ability_params(defender, "defensive_bonus")
         if params is not None:
