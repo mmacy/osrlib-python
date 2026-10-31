@@ -3284,6 +3284,24 @@ class RemoveMember(Command):
     new owner can drop it or give it away. If they put it on, the curse is revealed again.
     Without `give_to`, everything the member carries leaves the game with them.
 
+    Without `give_to`, the session refuses to remove a member who carries an item the adventure
+    depends on, because the party might then never open a door or finish a quest. The adventure
+    depends on an item when its catalog id appears in a
+    [`HasItemCondition`][osrlib.crawl.gates.HasItemCondition] or an
+    [`ItemAcquiredPattern`][osrlib.crawl.triggers.ItemAcquiredPattern] anywhere in the adventure.
+    That means the gate of a door, a stair, or a passage, a trigger, or any clause of a quest. The
+    session matches ids the way a `HasItemCondition` does. Mundane items, magic items, and the
+    adventure's own items all count, equipped or not. An item counts even when another member
+    carries the same item too. When the session refuses, send the command again and name a
+    member in `give_to` to take everything, the item included.
+
+    Some parts of an adventure can't matter again, and they stop protecting their items. A quest
+    that [`GameSession.quests`][osrlib.crawl.session.GameSession.quests] shows as `completed`
+    protects nothing. A trigger protects nothing once it has fired, which means its id is in
+    `GameSession.fired_triggers`, unless it's `repeatable`. A quest that is still open protects
+    the items in all its clauses, even an objective that is already complete. A gate always
+    protects its item, because the party can come back to it.
+
     The session also drops what it tracks about the member. The effects on them end without
     events, and their death record, their food and water counts, and the record of when they
     last prepared spells are deleted. An effect the member cast on another member lasts its full
@@ -3321,6 +3339,11 @@ class RemoveMember(Command):
           they're dead, asleep, paralysed, or turned to stone.
         - `party.remove.last_standing` - no member would be left standing. That includes
           removing the only member.
+        - `party.remove.carries_quest_item` - `give_to` is `None`, and the member carries an
+          item the adventure depends on. The rejection includes the member's id as `character`
+          and the item's catalog id as `item`. When the member carries more than one such item,
+          it names the first in the order that
+          [`Inventory.all_instances`][osrlib.core.items.Inventory.all_instances] lists them.
 
         The session checks in this order and reports the first that fails.
 
@@ -3341,7 +3364,8 @@ class RemoveMember(Command):
     give_to: str | None = None
     """The member who takes everything the leaving member carries, by
     [`MemberView.id`][osrlib.crawl.views.MemberView.id]. Leave it `None` to let it all leave the
-    game with the member. The member named here has to be able to act."""
+    game with the member. The session refuses `None` when the member carries an item the
+    adventure depends on. The member named here has to be able to act."""
 
 
 class AwardXP(Command):
