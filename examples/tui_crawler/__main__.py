@@ -13,6 +13,7 @@ from osrlib.core.character import CHARACTER_CREATION_STREAM
 from osrlib.core.events import Visibility
 from osrlib.core.items import Coins
 from osrlib.core.ruleset import Ruleset
+from osrlib.crawl.battle import MELEE_RANGE_FEET, preview_battle_round
 from osrlib.crawl.commands import (
     BattleDeclaration,
     EngageBattle,
@@ -80,36 +81,64 @@ def _first_weapon_id(member) -> str | None:
 
 
 def _battle_round(session) -> ResolveBattleRound:
-    """One auto-declared battle round: front rank attacks, the rest close or hold.
+    """One auto-declared battle round: every member closes on the nearest group and fights it.
 
-    Both the roster and the rank come from the player view rather than a guess.
-    The round must name exactly the members able to act — a slept member named
-    alongside the rest bounces the whole round (`roster_mismatch`) — and how many
-    can fight abreast depends on the space the party stands in — two in a ten-foot
-    passage, more in a room — so a front end that assumed the first two would both
-    waste a legal attack and, in a narrow place, declare an illegal one and lose
-    the round.
+    The plan comes from the player view and the round preview, as any front end would build it.
+    The round must name exactly the members able to act, so the roster is the view's `declarers`.
+    A slept member named alongside the rest bounces the whole round (`roster_mismatch`). Each
+    member then gets the first of these plans that the preview accepts.
+
+    1. A member in the group's front rank attacks where they stand.
+    2. A member who can reach the group this round attacks with `move="close"`, when the front rank
+       toward it still has a place. The front rank is as wide as the space the party stands in
+       allows: two in a ten-foot passage, more in a room.
+    3. A member farther than 5' away closes without attacking.
+    4. Anyone else holds.
     """
     view = session.view(Visibility.PLAYER)
-    group = next(entry for entry in session.encounter.groups if not entry.fled)
+    encounter = view.encounter
+    rates = {member.id: member.encounter_rate_feet for member in view.party}
     members = {member.id: member for member in session.party.members}
-    front = view.encounter.front_rank
-    declarations = []
-    for member in (members[member_id] for member_id in view.encounter.declarers):
-        weapon_id = _first_weapon_id(member)
-        if group.distance_feet > 5:
-            declarations.append(
-                BattleDeclaration(character_id=member.id, action="move", move="close", target_group_id=group.id)
+    groups = [group for group in encounter.groups if group.count and not group.fled]
+    if not groups:
+        return ResolveBattleRound(
+            declarations=tuple(
+                BattleDeclaration(character_id=member_id, action="hold") for member_id in encounter.declarers
             )
-        elif member.id in front:
-            declarations.append(
-                BattleDeclaration(
-                    character_id=member.id, action="attack", target_group_id=group.id, weapon_id=weapon_id
-                )
-            )
+        )
+    group = min(groups, key=lambda entry: min(entry.member_distance_feet.values()))
+    planned: list[BattleDeclaration] = []
+    for member_id in encounter.declarers:
+        distance = group.member_distance_feet[member_id]
+        attack = BattleDeclaration(
+            character_id=member_id,
+            action="attack",
+            target_group_id=group.id,
+            weapon_id=_first_weapon_id(members[member_id]),
+        )
+        candidates = []
+        if member_id in group.front_rank:
+            candidates.append(attack)
         else:
-            declarations.append(BattleDeclaration(character_id=member.id, action="hold"))
-    return ResolveBattleRound(declarations=tuple(declarations))
+            taken = preview_battle_round(session, planned).front_rank[group.id]
+            room = encounter.formation_width is None or len(taken) < encounter.formation_width
+            if room and distance <= rates[member_id] + MELEE_RANGE_FEET:
+                candidates.append(attack.model_copy(update={"move": "close"}))
+            if distance > MELEE_RANGE_FEET:
+                candidates.append(
+                    BattleDeclaration(character_id=member_id, action="move", move="close", target_group_id=group.id)
+                )
+        planned.append(
+            next(
+                (
+                    candidate
+                    for candidate in candidates
+                    if not preview_battle_round(session, [*planned, candidate]).rejections[member_id]
+                ),
+                BattleDeclaration(character_id=member_id, action="hold"),
+            )
+        )
+    return ResolveBattleRound(declarations=tuple(planned))
 
 
 def _fight(session) -> None:
