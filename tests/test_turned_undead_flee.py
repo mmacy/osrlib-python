@@ -40,13 +40,13 @@ SOLO = ("cleric",)
 TRIO = ("cleric", "fighter", "fighter")
 """A party that lasts long enough to watch the turned monsters leave. The cleric marches first, in the front rank."""
 
-PARTIAL_SEEDS = (4, 10, 11, 12, 13, 20)
+PARTIAL_SEEDS = (4, 10, 11, 12, 44, 50)
 """Seeds whose turning roll turns some, but not all, of six skeletons, on both the encounter and the battle path."""
 
 ALL_TURNED_ENCOUNTER_SEED = 14
 """A seed whose encounter-mode turning turns all six skeletons."""
 
-ALL_TURNED_BATTLE_SEED = 14
+ALL_TURNED_BATTLE_SEED = 6
 """A seed whose turning declared in battle turns all six skeletons."""
 
 MAX_ROUNDS = 6
