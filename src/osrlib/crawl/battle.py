@@ -22,7 +22,9 @@ The battle reference uses these terms:
 - The **range track** is how a battle measures distance, in the style of The Bard's Tale. Each
   monster group has a distance in feet from the **party line**, the place where the party stood
   when the encounter opened. Each member has an **advance**, their place in feet forward of that
-  line, in [`BattleState.advance_feet`][osrlib.crawl.battle.BattleState.advance_feet]. A member's
+  line, in [`BattleState.advance_feet`][osrlib.crawl.battle.BattleState.advance_feet]. When every
+  member the monsters can see has fallen back behind the line, the line moves back to the foremost
+  of them, as `advance_feet` describes. A member's
   distance to a group is the group's distance minus the member's advance, and
   [`member_distance_feet`][osrlib.crawl.battle.member_distance_feet] works it out. A member and a
   group can fight in melee at [`MELEE_RANGE_FEET`][osrlib.crawl.battle.MELEE_RANGE_FEET] or less.
@@ -461,7 +463,17 @@ class BattleState(BaseModel):
 
     The session changes it in the party's movement step. A member's `close` raises their advance, and a
     `fighting_withdrawal` or a `retreat` the member makes alone lowers it. A formation move leaves every
-    advance as it is and moves the groups instead. Every member starts a battle on the line, and the
+    advance as it is and moves the groups instead.
+
+    The party line moves back when the party has fallen back behind it. At the end of the party's
+    movement step, when every living member who isn't invisible stands behind the line, the session
+    moves the line back to the foremost of them. Every member's advance and every group's distance grow
+    by the same number of feet, so no distance between a member and a group changes, and the session
+    emits no event for it. The views show the moved values. The foremost members then stand on the line,
+    at zero, and a group can close on them as usual, because a group's distance never goes below zero.
+    When every living member is invisible, the line stays where it is.
+
+    Every member starts a battle on the line, and the
     advances end with the battle, so the party stands on its cell as one body again once the fight is
     over. A save written mid-battle keeps them, and a save from before they existed loads with every
     member on the line."""
@@ -1414,7 +1426,8 @@ def member_distance_feet(session, member_id: str, group_id: str) -> int:
     """Return how far one party member stands from one monster group, in feet, in the running battle.
 
     Each group's distance is measured from the party line, where the party stood when the encounter
-    opened, and each member stands at an advance forward of that line, in
+    opened or where the line has moved back to since, and each member stands at an advance forward of
+    that line, in
     [`BattleState.advance_feet`][osrlib.crawl.battle.BattleState.advance_feet]. This returns the
     group's distance minus the member's advance. Every rule that measures how far a member is from a
     group uses it: melee reach, a missile's range band, and a spell's range.
@@ -1506,7 +1519,8 @@ class BattleRoundPreview(BaseModel):
     forward of the party line, as in
     [`BattleState.advance_feet`][osrlib.crawl.battle.BattleState.advance_feet]. Every living member has
     an entry. A member with no planned move keeps their current advance, and a member on the line has
-    zero."""
+    zero. When the planned moves would leave every member the monsters can see behind the line, the
+    values are the ones after the line moves back, as the round would leave them."""
     front_rank: dict[str, tuple[str, ...]]
     """For each group that hasn't fled, keyed by group id, the members who would stand in its front rank
     within 5' of it once the planned moves are made, in marching order. It means what

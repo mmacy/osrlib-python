@@ -30,7 +30,7 @@ from pathlib import Path
 import pytest
 from pydantic import TypeAdapter
 
-from osrlib.core.effects import ActiveCondition, Condition
+from osrlib.core.effects import ActiveCondition, Condition, EffectDefinition
 from osrlib.core.events import Visibility
 from osrlib.core.ruleset import Ruleset
 from osrlib.crawl import battle as battle_module
@@ -57,6 +57,7 @@ from positions_fixtures import (
     named,
     play,
     refused,
+    release_monsters,
     round_,
     strike,
     trades,
@@ -526,6 +527,78 @@ class TestTheRanksTowardAGroup:
         events = play(game, strike(game, nim))
 
         assert any(getattr(event, "attacker_id", None) == nim for event in events)
+
+
+# ---------------------------------------------------------------------- the party line moves back
+
+
+@POSITIONS
+class TestThePartyLineMovesBack:
+    """At the end of the party's movement step, when every living member who isn't invisible stands behind the party
+    line, the line moves back to the foremost of them. Every advance and every group's distance grow by the same
+    number of feet, so no distance between a member and a group changes, and no event reports it. A group can then
+    close on the party as usual.
+    """
+
+    def test_a_lone_withdrawal_that_takes_the_whole_party_behind_the_line_moves_the_line_back(self):
+        game = _held(distance=40)
+        hild, osric, nim, aelin, wren, tam = _ids(game, "Hild", "Osric", "Nim", "Aelin", "Wren", "Tam")
+        play(game, *(_withdraw(member_id, "retreat") for member_id in (osric, nim, aelin, wren, tam)))
+        assert advances(game) == {hild: 0, osric: -20, nim: -30, aelin: -20, wren: -40, tam: -20}, (
+            "precondition: Hild alone holds the line"
+        )
+        assert game.encounter.groups[0].distance_feet == 40
+
+        events = play(game, _withdraw(hild))
+
+        (move,) = moved(events)
+        assert (move.character_id, move.advance_feet, move.distance_feet) == (hild, -10, 50)
+        assert group_moves(events) == [], "nobody moved toward or away from anyone"
+        assert advances(game) == {hild: 0, osric: -10, nim: -20, aelin: -10, wren: -30, tam: -10}
+        assert game.encounter.groups[0].distance_feet == 50
+        distances = {member_id: member_distance_feet(game, member_id, group_id(game)) for member_id in advances(game)}
+        assert distances == {hild: 50, osric: 60, nim: 70, aelin: 60, wren: 80, tam: 60}
+
+    def test_a_group_closes_and_reaches_a_party_that_fell_back_one_member_at_a_time(self):
+        game = _held(distance=40)
+        hild, osric = _ids(game, "Hild", "Osric")
+        for member in list(game.party.members):
+            play(game, _withdraw(member.id))
+        assert max(advances(game).values()) == 0, "the line moved back to the foremost members"
+        assert game.encounter.groups[0].distance_feet == 50
+        release_monsters(game)
+
+        for _ in range(3):
+            play(game)
+
+        assert game.encounter.groups[0].distance_feet == 5
+        assert group_front_rank(game, group_id(game)) == (hild, osric)
+
+    @pytest.mark.parametrize("holder", ["at the line", "forward of it"])
+    def test_a_member_at_or_forward_of_the_line_keeps_it_where_it_is(self, holder):
+        game = _held(distance=40)
+        nim, tam = _ids(game, "Nim", "Tam")
+        stays = tam if holder == "at the line" else nim
+        if holder == "forward of it":
+            play(game, close(game, nim))
+            assert advance(game, nim) == 30, "precondition: Nim stands forward"
+        others = [member.id for member in game.party.members if member.id != stays]
+
+        play(game, *(_withdraw(member_id, "retreat") for member_id in others))
+
+        assert advance(game, stays) == (0 if holder == "at the line" else 30)
+        assert all(advance(game, member_id) < 0 for member_id in others)
+        assert game.encounter.groups[0].distance_feet == 40
+
+    def test_an_invisible_member_on_the_line_does_not_hold_it(self):
+        game = _held(distance=40)
+        hild, osric, nim, aelin, wren, tam = _ids(game, "Hild", "Osric", "Nim", "Aelin", "Wren", "Tam")
+        attach(game, EffectDefinition(kind="invisibility", condition=Condition.INVISIBLE), tam)
+
+        play(game, *(_withdraw(member_id, "retreat") for member_id in (hild, osric, nim, aelin, wren)))
+
+        assert advances(game) == {hild: 0, osric: 0, nim: -10, aelin: 0, wren: -20, tam: 20}
+        assert game.encounter.groups[0].distance_feet == 60
 
 
 # ---------------------------------------------------------------------- the formation, the pursuit, and the end

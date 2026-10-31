@@ -703,6 +703,19 @@ class TestThePositionsInThePlayerView:
         assert result.accepted is offered, [(rejection.code, dict(rejection.params)) for rejection in result.rejections]
         assert offered is (name in ("Hild", "Nim"))
 
+    def test_the_view_shows_the_party_line_after_it_moves_back(self):
+        game = _held(distance=40)
+        hild = pf.named(game, "Hild")
+        pf.play(game, *(pf.declare(m.id, "move", move="retreat") for m in game.party.members if m.id != hild))
+        pf.play(game, pf.declare(hild, "move", move="fighting_withdrawal"))
+
+        encounter = _encounter(game)
+
+        assert encounter.advance_feet == pf.advances(game)
+        assert encounter.advance_feet[hild] == 0
+        assert encounter.groups[0].distance_feet == 50
+        assert encounter.groups[0].member_distance_feet[hild] == 50
+
     def test_formation_width_is_the_space_the_party_stands_in(self):
         assert _encounter(pf.battle()).formation_width == 2
         assert _encounter(pf.battle(engage=False)).formation_width == 2

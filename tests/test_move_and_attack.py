@@ -408,6 +408,19 @@ class TestTheDryRun:
         assert alone.advance_feet[hild] == -10
         assert set(together.advance_feet.values()) == {0}, "a formation move moves the groups, not the members"
 
+    def test_the_preview_moves_the_party_line_back_as_the_round_does(self):
+        game = _held(distance=40)
+        hild = named(game, "Hild")
+        others = [member.id for member in game.party.members if member.id != hild]
+        play(game, *(declare(member_id, "move", move="retreat") for member_id in others))
+        withdrawal = declare(hild, "move", move="fighting_withdrawal")
+
+        preview = preview_battle_round(game, [withdrawal])
+        play(game, withdrawal)
+
+        assert preview.advance_feet[hild] == 0, "Hild's 10' back became the new line"
+        assert preview.advance_feet == advances(game)
+
     def test_a_bad_call_raises_and_changes_nothing(self):
         game = _held(distance=30)
         hild = named(game, "Hild")

@@ -223,7 +223,9 @@ class EncounterGroup(BaseModel):
     line, in [`BattleState.advance_feet`][osrlib.crawl.battle.BattleState.advance_feet], and monsters
     close at their encounter movement rate until they're within
     [`MELEE_RANGE_FEET`][osrlib.crawl.battle.MELEE_RANGE_FEET] of the nearest member they can see. A
-    routed group moves away."""
+    routed group moves away. When every member the monsters can see has fallen back behind the line,
+    the line moves back to the foremost of them, and every group's distance grows by the same amount,
+    as `BattleState.advance_feet` describes."""
     fleeing: bool = False
     """True once the group has failed a morale check and turned to run. Until it gets away, the
     party can still attack it."""

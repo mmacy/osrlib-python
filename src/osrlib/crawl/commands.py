@@ -2674,9 +2674,14 @@ class BattleDeclaration(BaseModel):
       [`Wait`][osrlib.crawl.commands.Wait] to run each round of it, or
       [`EngageBattle`][osrlib.crawl.commands.EngageBattle] to turn and fight.
     - Otherwise, the member moves back alone, and their advance goes down. It can go below zero,
-      behind the line, because the way the party came is clear. Any member can do it, wherever they
-      stand, and nobody else moves. It doesn't end the battle, even when it's a `retreat`. Once the
-      member has moved, the members who are now nearest each group form its front rank.
+      behind the line, because the way the party came is clear. When that leaves every member the
+      monsters can see behind the line, the line moves back to the foremost of them at the end of
+      the movement step. Every advance and every group's distance grow by the same amount, so no
+      distance between a member and a group changes, as
+      [`BattleState.advance_feet`][osrlib.crawl.battle.BattleState.advance_feet] describes. Any
+      member can fall back alone, wherever they stand, and nobody else moves. It doesn't end the
+      battle, even when it's a `retreat`. Once the member has moved, the members who are now
+      nearest each group form its front rank.
 
     A member who retreats, alone or with the formation, is easier to hit for the whole round,
     whichever side acts first. Attackers get +2 against them and ignore the retreating member's

@@ -339,7 +339,8 @@ class EncounterGroupView(BaseModel):
     battle.
 
     A battle measures each group's `distance_feet` from the party line, where the party stood when
-    the encounter opened, and each member stands at their own advance from that line, in
+    the encounter opened or where the line has moved back to since, and each member stands at their
+    own advance from that line, in
     [`EncounterView.advance_feet`][osrlib.crawl.views.EncounterView.advance_feet]. This is the group's
     distance minus the member's advance. At 5' or less, the member and the group can reach each other
     in melee. Beyond that, a member attacks the group with a missile weapon, or declares
@@ -458,7 +459,9 @@ class EncounterView(BaseModel):
     The party line is where the party stood when the encounter opened. Each group's `distance_feet`
     is measured from it. Every member starts a battle on the line, at zero. A member who closes on a
     group moves forward, and a member who falls back alone moves back, below zero once they're behind
-    the line. Use it to draw where each member stands. Each group's
+    the line. When every member the monsters can see is behind the line, the line moves back to the
+    foremost of them. This field and each group's `distance_feet` then show the moved values, and no
+    distance between a member and a group changes. Use it to draw where each member stands. Each group's
     [`member_distance_feet`][osrlib.crawl.views.EncounterGroupView.member_distance_feet] gives the
     distance it leaves between the member and that group."""
     formation_width: int | None = None

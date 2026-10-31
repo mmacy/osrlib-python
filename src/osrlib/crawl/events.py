@@ -1170,7 +1170,11 @@ class GroupMovedEvent(Event):
 
     The party line is where the party stood when the encounter opened. Each group's distance is
     measured from it, and each party member stands at their own place on the same track, which
-    [`MemberMovedEvent`][osrlib.crawl.events.MemberMovedEvent] reports.
+    [`MemberMovedEvent`][osrlib.crawl.events.MemberMovedEvent] reports. When every member the
+    monsters can see has fallen back behind the line, the line moves back to the foremost of them,
+    and every group's distance grows by the same amount with no event, because nobody moved toward
+    or away from anyone. [`BattleState.advance_feet`][osrlib.crawl.battle.BattleState.advance_feet]
+    describes it.
 
     Emitted by [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound]
     whenever a group's distance changes: monsters closing to strike, a broken group running
@@ -1220,6 +1224,11 @@ class MemberMovedEvent(Event):
       back alone, at half their encounter rate or their full rate. Their advance goes down, and it
       can go below zero, behind the line.
 
+    When the moves leave every member the monsters can see behind the line, the line moves back to
+    the foremost of them at the end of the movement step, as
+    [`BattleState.advance_feet`][osrlib.crawl.battle.BattleState.advance_feet] describes. The session
+    emits no event for that, and no distance between a member and a group changes.
+
     The events come in two runs, each in marching order: the members who fall back first, then
     the members who close. A member who closes while already within 5' of the group doesn't move,
     and the session emits nothing for them. A formation move, a defensive move that every declarer
@@ -1247,8 +1256,9 @@ class MemberMovedEvent(Event):
     """The move the member made: `"close"`, `"fighting_withdrawal"`, or `"retreat"`, as they
     declared it in [`BattleDeclaration.move`][osrlib.crawl.commands.BattleDeclaration.move]."""
     advance_feet: int
-    """The member's advance after the move, in feet forward of the party line. Zero is the line,
-    and a negative value is behind it."""
+    """The member's advance right after the move, in feet forward of the party line. Zero is the line,
+    and a negative value is behind it. When the party line moves back at the end of the movement step,
+    the member's advance grows by the same amount as everyone's, and the next player view shows it."""
     group_id: str
     """The group `distance_feet` is measured to. For a `close`, it's the group the member closed
     on. For a `fighting_withdrawal` or a `retreat`, it's the group nearest the member after the
