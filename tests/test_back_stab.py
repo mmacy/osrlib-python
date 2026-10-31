@@ -31,9 +31,7 @@ existing battle, and a guard here checks it in the free round.
 
 The battles are built by command from seeded sessions. Each helper takes the first seed that gives the setup it
 needs, so two calls with the same arguments give the same session, and a test can play one with a back-stab and one
-without. Each test asserts its own preconditions, so a test that stops exercising its case fails loudly. The tests
-of the new behavior are marked `xfail(reason="chunk: back-stab", strict=True)`. The guards pass before and after the
-chunk, so they carry no marker.
+without. Each test asserts its own preconditions, so a test that stops exercising its case fails loudly.
 """
 
 import pytest
@@ -66,9 +64,6 @@ from osrlib.crawl.session import GameSession
 from osrlib.data import load_classes, load_equipment, load_monsters
 from osrlib.messages import format_message
 from osrlib.persistence import replay_game, session_state
-
-CHUNK = pytest.mark.xfail(reason="chunk: back-stab", strict=True)
-"""The marker on every test of the new behavior. The lead removes it when the chunk merges."""
 
 SEEDS = range(0, 160)
 """Seeds the helpers scan for a setup they need, like a battle in which the party surprised the monsters."""
@@ -297,7 +292,6 @@ BACK_STAB_CONTEXT = AttackContext(behind_target=True, target_unaware=True)
 class TestTheKernelMarksTheEvent:
     """`attack_roll` sets `AttackRolledEvent.back_stab` whenever it applies the back-stab."""
 
-    @CHUNK
     def test_a_thiefs_back_stab_is_marked_and_adds_four(self):
         plain = _kernel_roll("thief", AttackContext())
         stab = _kernel_roll("thief", BACK_STAB_CONTEXT)
@@ -307,7 +301,6 @@ class TestTheKernelMarksTheEvent:
         assert stab.back_stab is True
         assert plain.back_stab is False
 
-    @CHUNK
     def test_an_automatic_hit_is_marked_too(self):
         stab = _kernel_roll("thief", BACK_STAB_CONTEXT, template_id="green_slime")
 
@@ -342,7 +335,6 @@ def _paired(seed: int, **battle_args) -> tuple[GameSession, GameSession]:
 class TestAnAcceptedBackStab:
     """In the free round, a thief's back-stab gets +4 to hit, double damage, and the event's flag."""
 
-    @CHUNK
     def test_it_adds_four_to_hit_against_the_same_target_and_draws_the_same_dice(self):
         for seed in _seeds():
             plain, stabbed = _paired(seed)
@@ -367,7 +359,6 @@ class TestAnAcceptedBackStab:
             assert stab_damage.amount == 2 * ordinary_damage.amount
             return
 
-    @CHUNK
     def test_it_doubles_the_damage(self):
         for seed in _seeds():
             game = _battle(first_seed=seed)
@@ -381,7 +372,6 @@ class TestAnAcceptedBackStab:
             assert damage.amount == 2 * sum(damage.rolls), "a dagger with no STR modifier, doubled"
             return
 
-    @CHUNK
     def test_it_holds_when_the_monsters_win_initiative_in_the_free_round(self):
         for seed in _seeds():
             game = _battle(first_seed=seed)
@@ -393,7 +383,6 @@ class TestAnAcceptedBackStab:
             assert stab.back_stab is True, "the round was accepted while the monsters were held"
             return
 
-    @CHUNK
     def test_every_swing_under_haste_is_a_back_stab(self):
         game = _battle()
         sable = _sable(game)
@@ -408,7 +397,6 @@ class TestAnAcceptedBackStab:
         assert len(swings) == 2, "precondition: haste gave Sable two swings"
         assert all(swing.back_stab for swing in swings)
 
-    @CHUNK
     def test_the_defenders_shield_doesnt_count(self):
         """An NPC adventurer with a shield is one AC worse against a back-stab, as against any attack from behind."""
         for seed in SEEDS:
@@ -437,7 +425,6 @@ class TestAnAcceptedBackStab:
 class TestTheRefusals:
     """Each back-stab code, in its place in the order, refusing the round before it costs anything."""
 
-    @CHUNK
     @pytest.mark.parametrize("action", ["hold", "cast", "turn_undead", "use_item", "move"])
     def test_a_back_stab_on_any_other_action_is_refused_before_the_actions_own_checks(self, action):
         game = _battle()
@@ -454,7 +441,6 @@ class TestTheRefusals:
 
         assert rejections == [(NOT_ATTACK, {"character": sable})]
 
-    @CHUNK
     def test_a_fighters_back_stab_is_refused(self):
         game = _battle()
         brakk = _brakk(game)
@@ -463,7 +449,6 @@ class TestTheRefusals:
 
         assert rejections == [(NO_ABILITY, {"character": brakk})]
 
-    @CHUNK
     def test_a_back_stab_in_a_battle_without_surprise_is_refused(self):
         game = _battle(surprised=False)
         sable = _sable(game)
@@ -472,7 +457,6 @@ class TestTheRefusals:
 
         assert rejections == [(TARGET_AWARE, {"character": sable})]
 
-    @CHUNK
     def test_a_back_stab_after_the_free_round_is_refused(self):
         game = _battle()
         sable = _sable(game)
@@ -484,7 +468,6 @@ class TestTheRefusals:
 
         assert rejections == [(TARGET_AWARE, {"character": sable})]
 
-    @CHUNK
     def test_a_back_stab_with_a_bow_is_refused(self):
         game = _battle(wield=("short_bow",), distance_feet=30)
         sable = _sable(game)
@@ -493,7 +476,6 @@ class TestTheRefusals:
 
         assert rejections == [(NOT_MELEE, {"character": sable})]
 
-    @CHUNK
     def test_a_back_stab_that_would_throw_a_dagger_is_refused(self):
         """Beyond 5' the session throws the dagger, so the attack it would resolve is a missile attack."""
         game = _battle(distance_feet=10)
@@ -503,7 +485,6 @@ class TestTheRefusals:
 
         assert rejections == [(NOT_MELEE, {"character": sable})]
 
-    @CHUNK
     def test_not_attack_comes_first_and_no_ability_before_target_aware(self):
         """Without surprise, a fighter's back-stab on a hold isn't an attack, and on an attack has no ability."""
         game = _battle(surprised=False)
@@ -512,7 +493,6 @@ class TestTheRefusals:
         assert _refused(game, _declare(brakk, "hold", back_stab=True)) == [(NOT_ATTACK, {"character": brakk})]
         assert _refused(game, _attack(game, back_stab=True, member_id=brakk)) == [(NO_ABILITY, {"character": brakk})]
 
-    @CHUNK
     def test_an_aware_target_comes_before_the_group_checks(self):
         game = _battle(surprised=False)
         sable = _sable(game)
@@ -521,7 +501,6 @@ class TestTheRefusals:
 
         assert rejections == [(TARGET_AWARE, {"character": sable})]
 
-    @CHUNK
     def test_a_missile_back_stab_from_the_back_rank_is_refused_as_a_missile(self):
         """A missile attack takes no rank check, so a back-rank thief with a bow gets `back_stab_not_melee`."""
         game = _battle(roster=(FIGHTER, SECOND_FIGHTER, THIEF), wield=("short_bow",), distance_feet=30)
@@ -581,7 +560,6 @@ class TestNoBackStabIsUnchanged:
 class TestTheDefaultFormatter:
     """`format_message` names a back-stab, so the default transcript says what happened."""
 
-    @CHUNK
     @pytest.mark.parametrize("code", ["combat.attack.hit", "combat.attack.missed", "combat.attack.auto_hit"])
     def test_a_back_stab_line_says_so(self, code):
         numbers = {} if code == "combat.attack.auto_hit" else {"roll": 12, "modifier": 4, "total": 16, "required": 13}
@@ -608,7 +586,6 @@ class TestTheDefaultFormatter:
 class TestDeterminism:
     """A battle with a back-stab replays exactly from its command log."""
 
-    @CHUNK
     def test_a_battle_with_a_back_stab_replays_from_its_command_log(self):
         game = _battle()
         members = [_character(name, class_id) for name, class_id in DUO]

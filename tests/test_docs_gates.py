@@ -158,9 +158,6 @@ class TestCommandContract:
                 wrong.append(f"{cls.__name__}: documents {sorted(documented)}, allows {sorted(actual)}")
         assert not wrong, "\n".join(wrong)
 
-    # `ResolveBattleRound` documents the `battle.declaration.back_stab_*` codes its handler will emit, and the stub
-    # emits none yet.
-    @pytest.mark.xfail(reason="chunk: back-stab", strict=True)
     def test_documented_rejection_codes_exist_in_the_source(self, vocabulary):
         wrong = []
         for cls in self._commands():

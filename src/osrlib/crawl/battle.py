@@ -2341,7 +2341,11 @@ def _handle_resolve_battle_round(session, command: ResolveBattleRound) -> tuple[
         if declaration.gaze_defense == "mirror" and member.inventory.carried_item(_MIRROR_ITEM_ID) is None:
             rejections.append(Rejection(code="battle.declaration.no_mirror", params={"character": member.id}))
     # A move that sets `back_stab` gets `back_stab_not_attack` in place of its own withdrawal checks.
-    back_stabbers = {member.id for member, declaration in by_member.values() if declaration.back_stab}
+    back_stabbers = {
+        member.id
+        for member, declaration in by_member.values()
+        if declaration.back_stab and declaration.action != "attack"
+    }
     rejections.extend(
         rejection for rejection in withdrawal_rejections if rejection.params.get("character") not in back_stabbers
     )
