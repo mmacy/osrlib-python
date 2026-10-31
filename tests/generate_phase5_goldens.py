@@ -47,7 +47,7 @@ SCRIPT_PATH = REPO_ROOT / "examples" / "tui_crawler" / "scripts" / "milestone.tx
 
 HOARD_SEED = 20_260_705
 NPC_SEED = 20_260_706
-MILESTONE_SEED = 21  # pinned with test_example_crawler.py: one seed, one script, two drivers
+MILESTONE_SEED = 39  # shared with test_example_crawler.py: one seed, one script, two drivers
 
 TREASURE_TYPES = tuple(string.ascii_uppercase[:22])  # A through V
 
