@@ -1158,7 +1158,7 @@ class DeclarationFizzledEvent(Event):
     monsters win initiative and the group runs before the member's `close`, or a member the session expected to step
     back can no longer move. Then the attack fizzles with the code `battle.melee.fizzled`. A group that has started to
     flee is an exception to the position check: a member who stood within 5' of it when the round was accepted still
-    gets the attack, if the group has a monster left to strike.
+    gets the attack, if the group has a monster left to strike and hasn't run out of the battle.
 
     The event's `actor_id` is the member who declared the action, `item_id` is the device, `group_id` is the group a
     melee attack was aimed at, and `reason` is the rejection code of the check that failed.
@@ -1205,7 +1205,8 @@ class DeclarationFizzledEvent(Event):
     cause. Some codes you may see:
 
     - `combat.attack.out_of_reach`: the group a staff of striking was aimed at moved out of reach, or the member
-      who declared a melee attack is farther than 5' from its group when the attack comes up.
+      who declared a melee attack is farther than 5' from its group when the attack comes up. A melee attack gets
+      it too when its group ran out of the battle, wherever the member stood.
     - `battle.declaration.not_in_front_rank`: the member who declared a melee attack is within 5' of its group
       but not in its front rank when the attack comes up. A melee attack gets this code only when the member is
       within 5', and `combat.attack.out_of_reach` otherwise.

@@ -3664,8 +3664,8 @@ def _party_attacks(
 
     A melee attack resolves only if the group still has a living, visible monster in its reachable rank to
     strike, and the member then stands in the group's front rank within 5' of it, as `_melee_rejection`
-    judges it, or the group runs and the member is in `engaged`, within 5' of it when the round was
-    accepted (see `_melee_fizzle`). Otherwise the member makes no attack, and a player-visible
+    judges it, or the group runs without leaving the battle and the member is in `engaged`, within 5' of
+    it when the round was accepted (see `_melee_fizzle`). Otherwise the member makes no attack, and a player-visible
     `DeclarationFizzledEvent` at `battle.melee.fizzled` says why, with the group's id and the rejection
     code as its reason. That happens to a member whose group the party's missiles or spells killed earlier
     in the round, to a member whose close fell short because the group ran first, and to a member the
@@ -3719,17 +3719,23 @@ def _melee_fizzle(session, member_id: str, group, engaged: Collection[str]) -> D
       `combat.attack.out_of_reach` or `battle.declaration.not_in_front_rank`. A group that runs is the
       exception, whether it failed morale or its living members are all turned or afraid. A member in
       `engaged`, who stood within 5' of it when the round was accepted, still strikes it.
+    - `combat.attack.out_of_reach` for a group that ran out of the battle, even for a member in `engaged`.
+      Such a group has left the battle space, so nobody can strike it.
 
     The call reads state and takes no draw.
     """
-    if (group.fleeing or _group_all_shaken(session, group)) and member_id in engaged:
+    if not _monster_pool(session, group):
+        reason = "battle.declaration.no_target"
+    elif group.fled:
+        reason = "combat.attack.out_of_reach"
+    elif (group.fleeing or _group_all_shaken(session, group)) and member_id in engaged:
         return None
-    stopped = _melee_rejection(member_id, group, _placement(session))
-    if stopped is None:
-        return None
-    return DeclarationFizzledEvent(
-        code="battle.melee.fizzled", actor_id=member_id, reason=stopped.code, group_id=group.id
-    )
+    else:
+        stopped = _melee_rejection(member_id, group, _placement(session))
+        if stopped is None:
+            return None
+        reason = stopped.code
+    return DeclarationFizzledEvent(code="battle.melee.fizzled", actor_id=member_id, reason=reason, group_id=group.id)
 
 
 def _resolve_party_attack(session, member, declaration, fired, fire_damaged) -> list[Event]:

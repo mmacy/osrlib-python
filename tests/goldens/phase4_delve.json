@@ -2890,6 +2890,24 @@
       "visibility": "referee"
     },
     {
+      "actor_id": "character-0001",
+      "code": "battle.melee.fizzled",
+      "event_type": "declaration_fizzled",
+      "group_id": "group-0002",
+      "item_id": null,
+      "reason": "battle.declaration.no_target",
+      "visibility": "player"
+    },
+    {
+      "actor_id": "character-0002",
+      "code": "battle.melee.fizzled",
+      "event_type": "declaration_fizzled",
+      "group_id": "group-0002",
+      "item_id": null,
+      "reason": "battle.declaration.no_target",
+      "visibility": "player"
+    },
+    {
       "code": "battle.ended.victory",
       "event_type": "battle_ended",
       "visibility": "player"
@@ -5486,6 +5504,8 @@
     "monster-0014 is dead.",
     "monster-0014 is killed.",
     "monster-0014 is at 0/2 hit points.",
+    "character-0001 finds nothing left to strike in group-0002, and makes no attack.",
+    "character-0002 finds nothing left to strike in group-0002, and makes no attack.",
     "The battle is won.",
     "monster-0007 (trader) is slain.",
     "monster-0008 (trader) is slain.",

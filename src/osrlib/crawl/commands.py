@@ -2657,7 +2657,8 @@ class BattleDeclaration(BaseModel):
     monster the member can see, and the member stands in the group's front rank within 5' of it.
     A group that has started to flee is the one exception to the position check. A member who stood
     within 5' of it when the round was accepted still gets the attack, with the bonus against a
-    retreating combatant. Otherwise the member makes no attack, and the session reports a
+    retreating combatant, unless the group runs out of the battle. Otherwise the member makes no
+    attack, and the session reports a
     [`DeclarationFizzledEvent`][osrlib.core.events.DeclarationFizzledEvent] at
     `battle.melee.fizzled`, with the group's id as `group_id`. Its `reason` is one of these:
 
@@ -2665,7 +2666,8 @@ class BattleDeclaration(BaseModel):
       because the party's archers or casters killed them earlier in the round. The session
       checks this first, so the member gets it whether or not they closed, and wherever they
       stand.
-    - `combat.attack.out_of_reach` when the member is farther than 5' from the group.
+    - `combat.attack.out_of_reach` when the member is farther than 5' from the group, or the
+      group ran out of the battle.
     - `battle.declaration.not_in_front_rank` when the member is within 5' but not in its front
       rank.
 

@@ -231,11 +231,10 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
     "magic.turning.fizzled": lambda event: f"{event.actor_id}'s attempt to turn undead fizzles.",
     "battle.melee.fizzled": lambda event: (
         f"{event.actor_id} "
-        + (
-            "can't get into the front rank against"
-            if event.reason == "battle.declaration.not_in_front_rank"
-            else "can't reach"
-        )
+        + {
+            "battle.declaration.no_target": "finds nothing left to strike in",
+            "battle.declaration.not_in_front_rank": "can't get into the front rank against",
+        }.get(event.reason or "", "can't reach")
         + f" {event.group_id or 'the group'}, and makes no attack."
     ),
     "magic.memory.forgotten": lambda event: f"{event.caster_id} forgets {event.spell_id}.",

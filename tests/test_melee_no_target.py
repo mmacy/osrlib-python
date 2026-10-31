@@ -17,6 +17,8 @@ The contract these tests check:
 - A group with a living monster left still takes the attack as before.
 - A guard: a group that flees out of the battle before the melee step, from a member who wasn't within 5' of it when
   the round was accepted, fizzles that member's attack with `combat.attack.out_of_reach`, as it does today.
+- Such a group fizzles the attack of a member who was within 5' of it with `combat.attack.out_of_reach` too. A group
+  that only runs still takes that member's attack, but a group that left the battle can't.
 
 The battles are built by command from seeded sessions. Each test sets the hit points of the goblin it needs killed to
 1, so a magic missile kills it for certain, and asserts the kill as a precondition.
@@ -307,6 +309,30 @@ class TestGuards:
             assert attacks_by(events, nim) == []
             (fizzle,) = fizzles(events, nim)
             assert (fizzle.reason, fizzle.group_id) == (OUT_OF_REACH, near_group(game))
+            return
+        raise AssertionError("precondition: no seed had the monsters act first")
+
+    def test_a_group_that_flees_the_battle_is_out_of_reach_for_a_member_who_was_engaged(self):
+        """Dire wolves 5' from Hild break and run 150' before Hild's turn, out of the battle. Hild's attack is out of
+        reach.
+
+        Hild stood within 5' of the group when the round was accepted, so a group that only ran would still take her
+        attack. A group that left the battle can't, and the attack fizzles once instead of vanishing.
+        """
+        for game in battles(near=5, template_id="dire_wolf", hold=False):
+            game.encounter.groups[0].fleeing = True
+            hild = named(game, "Hild")
+
+            events = play(game, strike(game, hild))
+            if not monsters_first(game, events):
+                continue
+
+            assert game.encounter.groups[0].fled, "precondition: the wolves left the battle before Hild's turn"
+            assert not dead(game, weak_goblin(game)), "precondition: the wolves fled alive"
+            assert attacks_by(events, hild) == []
+            (fizzle,) = fizzles(events, hild)
+            assert (fizzle.reason, fizzle.group_id) == (OUT_OF_REACH, near_group(game))
+            assert fizzle.visibility is Visibility.PLAYER
             return
         raise AssertionError("precondition: no seed had the monsters act first")
 
