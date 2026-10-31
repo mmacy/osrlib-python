@@ -1472,6 +1472,15 @@ def group_front_rank(session, group_id: str) -> tuple[str, ...]:
     marching order settles a tie. The front rank is the first row. With the ruleset's
     `formation_width_limit` flag off, a row holds every member at its distance.
 
+    So two orders apply, one after the other. Arrival order, then marching order, decides who is in the
+    front row. The returned tuple then lists the members of that row in marching order. A member who got
+    there first can come after a member who arrived later, and a member who marches ahead of both can be
+    left out because the row was already full.
+
+    For the same group, the result is always the same value as
+    [`EncounterGroupView.front_rank`][osrlib.crawl.views.EncounterGroupView.front_rank] in the player
+    view.
+
     Call it from a policy of your own: the default policies pick each monster's melee target from these
     members, leaving out invisible members and members whose *protection from evil* bars that monster.
     A client that has only the player view reads the same ids from

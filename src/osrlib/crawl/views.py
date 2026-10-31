@@ -354,8 +354,12 @@ class EncounterGroupView(BaseModel):
     These are the members in the party's front rank toward this group who stand within 5' of it. The
     ranks toward a group are the living members sorted by their distance to it, nearest first, and cut
     into rows of [`EncounterView.formation_width`][osrlib.crawl.views.EncounterView.formation_width].
-    A row never mixes distances, and the member who got there in an earlier round stands in front of
-    one who arrives later. The session refuses a melee attack on this group by any other member with
+    A row never mixes distances. Arrival order, then marching order, decides who is in the front row,
+    so the member who got there in an earlier round stands in front of one who arrives later. This
+    tuple then lists that row's members in marching order. It's always the same value as
+    [`group_front_rank`][osrlib.crawl.battle.group_front_rank] for this group.
+
+    The session refuses a melee attack on this group by any other member with
     `battle.declaration.not_in_front_rank`, or with `combat.attack.out_of_reach` when the member is
     farther than 5' away, unless the same declaration's `move="close"` brings them into it. When this
     tuple has fewer members than `formation_width`, a member who can reach the group this round can

@@ -34,6 +34,7 @@ from osrlib.crawl.commands import (
     ReorderParty,
     ResolveBattleRound,
     SessionMode,
+    SpawnMonsters,
     SpawnNpcParty,
 )
 from osrlib.crawl.party import Party
@@ -702,6 +703,31 @@ class TestThePositionsInThePlayerView:
 
         assert result.accepted is offered, [(rejection.code, dict(rejection.params)) for rejection in result.rejections]
         assert offered is (name in ("Hild", "Nim"))
+
+    def test_the_group_front_rank_and_the_views_are_always_the_same_value(self):
+        """Two groups and members at many distances, compared after every round."""
+        game = pf.battle(distance=30)
+        assert game.execute(SpawnMonsters(template_id="kobold", count_fixed=2, distance_feet=60)).accepted
+        pf.hold_monsters(game)
+        hild, osric, nim, wren, tam = _ids(game, "Hild", "Osric", "Nim", "Wren", "Tam")
+        goblins, kobolds = pf.group_id(game, 0), pf.group_id(game, 1)
+        rounds = [
+            (pf.close(game, nim),),
+            (pf.close(game, hild), pf.close(game, osric)),
+            (pf.close(game, hild), pf.close(game, osric)),
+            (pf.close(game, wren, group=kobolds),),
+            (pf.declare(tam, "move", move="fighting_withdrawal"), pf.declare(nim, "move", move="retreat")),
+        ]
+        seen = []
+        for declared in rounds:
+            pf.play(game, *declared)
+            groups = {group.id: group.front_rank for group in _encounter(game).groups}
+            for group_id in (goblins, kobolds):
+                assert groups[group_id] == group_front_rank(game, group_id)
+            seen.append(groups[goblins])
+
+        assert seen[2] == (hild, nim), "Nim got there first and is listed second, in marching order"
+        assert seen[4] == (hild, osric), "with Nim gone, Osric steps into the row"
 
     def test_the_view_shows_the_party_line_after_it_moves_back(self):
         game = _held(distance=40)
