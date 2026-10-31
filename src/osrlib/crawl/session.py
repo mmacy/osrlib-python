@@ -110,8 +110,9 @@ from osrlib.core.alignment import Alignment
 from osrlib.core.character import ADVANCEMENT_STREAM, Character
 from osrlib.core.classes import XpAwardResult, apply_xp, level_title
 from osrlib.core.clock import ROUNDS_PER_DAY, ROUNDS_PER_TURN, GameClock, TimeUnit
-from osrlib.core.effects import EFFECTS_STREAM, EffectsLedger
+from osrlib.core.effects import EFFECTS_STREAM, Condition, EffectsLedger
 from osrlib.core.events import (
+    ConditionGainedEvent,
     DamageDealtEvent,
     DeathEvent,
     EffectExpiredEvent,
@@ -178,7 +179,7 @@ from osrlib.crawl.events import (
     TriggerFiredEvent,
     XpAwardedEvent,
 )
-from osrlib.crawl.party import Party
+from osrlib.crawl.party import Party, _anyone_standing
 from osrlib.crawl.quests import ObjectiveSpec, QuestSpec
 from osrlib.data import load_equipment, load_magic_items, load_monsters
 from osrlib.errors import ContentValidationError
@@ -1126,7 +1127,8 @@ class GameSession:
             return CommandResult(accepted=False, rejections=tuple(rejections))
         self.command_log.append(command)
         self._pile_saved_items(events)
-        if self._record_deaths(events):
+        self._record_deaths(events)
+        if self._felled_a_member(events):
             events.extend(self._end_on_party_wipe())
         self.event_log.extend(events)
         # The two lists do different things. `accumulated` is what the listeners are dispatched
@@ -1945,7 +1947,7 @@ class GameSession:
                     exploration._remove_instance(member, instance)
                     pile.magic_items.append(instance)
 
-    def _record_deaths(self, events: Sequence[Event]) -> bool:
+    def _record_deaths(self, events: Sequence[Event]) -> None:
         """Record party deaths with the clock round and the cause just resolved.
 
         The cause is `poison` when the killing resolution was a poison save (a failed
@@ -1954,16 +1956,11 @@ class GameSession:
         poison* uses the difference between poison and other causes.
 
         Args:
-            events: The just-executed command's events, in order.
-
-        Returns:
-            True when a party member died in them, which is when the session checks for a party
-                wipe. Monsters and NPC adventurers have ids that aren't
-                members' and never count.
+            events: The just-executed command's events, in order. Monsters and NPC adventurers have
+                ids that aren't members', so their deaths are never recorded.
         """
         member_ids = {member.id for member in self.party.members}
         cause = "unknown"
-        died = False
         for event in events:
             if isinstance(event, SavingThrowRolledEvent) and event.category == "death":
                 if event.code == "combat.save.failed":
@@ -1974,8 +1971,22 @@ class GameSession:
                 cause = "damage"
             if isinstance(event, DeathEvent) and event.target_id in member_ids:
                 self.death_records[event.target_id] = DeathRecord(round=self.clock.rounds, cause=cause)
-                died = True
-        return died
+
+    def _felled_a_member(self, events: Sequence[Event]) -> bool:
+        """Whether these events killed or petrified a party member, which is when the session checks for a wipe.
+
+        Monsters and NPC adventurers have ids that aren't members', so their deaths and statues never count.
+        """
+        member_ids = {member.id for member in self.party.members}
+        return any(
+            (isinstance(event, DeathEvent) and event.target_id in member_ids)
+            or (
+                isinstance(event, ConditionGainedEvent)
+                and event.condition == Condition.PETRIFIED.value
+                and event.target_id in member_ids
+            )
+            for event in events
+        )
 
     def _end_on_party_wipe(self) -> list[Event]:
         """End the session when the death or petrification just resolved left nobody standing.
@@ -2001,7 +2012,7 @@ class GameSession:
         Returns:
             The ending event, or nothing when a member still stands.
         """
-        if self.mode.terminal or self.party.living_members():
+        if self.mode.terminal or _anyone_standing(self.party):
             return []
         self.battle = None
         self.encounter = None

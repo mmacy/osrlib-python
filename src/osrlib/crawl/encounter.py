@@ -156,6 +156,7 @@ from osrlib.crawl.events import (
     StanceChangedEvent,
     SurpriseRolledEvent,
 )
+from osrlib.crawl.party import _anyone_standing
 from osrlib.data import load_classes
 
 __all__ = [
@@ -368,6 +369,11 @@ def start_encounter(
     basilisk's does, every living member meets that monster's petrifying gaze once, here, at any
     distance and whatever the stance. Each saves versus paralysis or turns to stone. That holds when
     the monsters are surprised too. A battle that opens from this encounter doesn't repeat the gaze.
+    When the gaze leaves no member standing, which means every member is dead or petrified, no
+    round runs against the statues. An attacking stance opens a battle that ends in defeat at once,
+    before the monsters' free round, and any other stance stops the encounter at the stance. A
+    command that opens the encounter, like [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters],
+    then ends the session in `game_over`.
 
     A monster whose template has the `regeneration` ability, like a troll or a thoul, starts to
     regenerate when this function opens its encounter. Before the function rolls anything, it
@@ -412,6 +418,7 @@ def start_encounter(
         `pinned_stance`, and the [`StanceChangedEvent`][osrlib.crawl.events.StanceChangedEvent].
         The saving throws of a basilisk's surprise gaze come among them. Then come the events of
         anything the stance or surprise starts, which can include a battle and its first round.
+        When the gaze left nobody standing, a battle ends as it opens and no round runs.
 
     Examples:
         ```python
@@ -574,6 +581,11 @@ def start_encounter(
                 session, party_free_round=party_free, monsters_free_round=party_surprised and not both
             )
         )
+        return events
+    if not _anyone_standing(session.party):
+        # The surprise gaze turned the last members standing to stone, so no round runs against
+        # statues, and the command that opened the encounter ends the session in `game_over`. An
+        # attacking stance's battle, above, ends in defeat as it opens, before the monsters' free round.
         return events
     if stance is ReactionResult.HOSTILE:
         state.hostile_deadline = 1 + state.monsters_skip_rounds
