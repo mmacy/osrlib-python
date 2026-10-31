@@ -1180,10 +1180,10 @@ class DrainResult(BaseModel):
     """
 
     hp_lost: int
-    """The hit points the drain takes, from both maximum and current hit points.
+    """The hit points the drain rolls to take, from both maximum and current hit points.
 
     Neither total drops below 1 while the character has a level left, so the totals can fall by less than this.
-    The `hp_lost` of the drain event in `events` is how far the maximum actually fell, so the two can differ.
+    The drain event in `events` has its own `hp_lost`, which is how far the maximum actually fell.
     """
 
     xp_after: int | None = None
@@ -1251,9 +1251,9 @@ def drain_levels(
             the stream that level gains draw from.
         spawn_consequence: A description of what a victim drained of all levels becomes, like the
             description of the monster's `energy_drain` ability. When the drain kills the character,
-            this function copies it onto the `combat.drain.slain` event for you to show, and osrlib
-            doesn't act on it. A drain the character survives leaves it off its event, because the
-            character hasn't become anything. `None` leaves it off.
+            this function copies it onto the `combat.drain.slain` event for you to show. osrlib
+            doesn't act on it. When the character survives, the function doesn't copy it, because
+            the character hasn't become anything. `None` leaves it off.
 
     Returns:
         What the character lost, and the events that describe it.
@@ -1293,6 +1293,9 @@ def drain_levels(
         result = drain_levels(character, fighter, levels=1, xp_policy="halfway", stream=advancement)
         print(result.levels_lost, result.new_level, result.hp_lost, result.slain)
         # 1 1 9 False
+
+        # The lost level's d8 came up 8, and Rurik's CON modifier adds 1, so the drain takes 9
+        # hit points: maximum hit points fall from 10 to 1.
         print(character.level, character.xp, character.max_hp)
         # 1 1000 1
         ```

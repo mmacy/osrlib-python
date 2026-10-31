@@ -33,10 +33,10 @@ with [`ConditionSpec`][osrlib.crawl.gates.ConditionSpec]s that have to hold when
 matches. A [`TriggerSpec`][osrlib.crawl.triggers.TriggerSpec] uses the same patterns and
 conditions. A quest's rewards are the same
 [`ConsequenceCommand`][osrlib.crawl.commands.ConsequenceCommand]s a trigger runs, with the same
-party selectors ([`PARTY_SELECTOR`][osrlib.crawl.triggers.PARTY_SELECTOR],
+party selectors: [`PARTY_SELECTOR`][osrlib.crawl.triggers.PARTY_SELECTOR],
 [`FIRST_LIVING_SELECTOR`][osrlib.crawl.triggers.FIRST_LIVING_SELECTOR], and, on a
-[`RemoveItem`][osrlib.crawl.commands.RemoveItem],
-[`CARRIER_SELECTOR`][osrlib.crawl.triggers.CARRIER_SELECTOR]).
+[`RemoveItem`][osrlib.crawl.commands.RemoveItem] only,
+[`CARRIER_SELECTOR`][osrlib.crawl.triggers.CARRIER_SELECTOR].
 
 A quest's clauses only match events. A clause condition with `consumes=True` fails validation for the
 same reason a trigger's does: the event the clause matches has already happened, so there's no
@@ -286,8 +286,8 @@ class QuestSpec(BaseModel):
     [`FIRST_LIVING_SELECTOR`][osrlib.crawl.triggers.FIRST_LIVING_SELECTOR], and
     [`CARRIER_SELECTOR`][osrlib.crawl.triggers.CARRIER_SELECTOR] with the members they select.
     When the session rejects one reward, the interpreter drops it, records a note, and runs the
-    rest. A reward with `source` set fails validation with a pydantic
-    `ValidationError`, because the interpreter sets `source` itself."""
+    rest. A reward with `source` set fails validation with a pydantic `ValidationError`, because
+    the interpreter sets `source` itself."""
     completion: Literal["all", "any"] = "all"
     """The rule for completing the quest. With `"all"`, the quest completes when every
     objective is complete. With `"any"`, it completes when the first objective completes.

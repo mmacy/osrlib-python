@@ -229,28 +229,32 @@ class Interpreter:
 
     For each accepted command, the interpreter goes through the command's events in the order
     they happened. For each event, it checks the adventure's triggers in the order the
-    adventure lists them, and then its quests in the same way. A trigger matches when its
-    pattern fits the event, it hasn't fired yet or is `repeatable`, and every one of its
-    conditions holds against the session's state at that moment. A trigger that matches fires
-    at once, before the next trigger is checked, so a later trigger's conditions are checked
-    against what an earlier firing has already changed.
+    adventure lists them, and then its quests in the same way.
+
+    A trigger matches an event when all of these are true:
+
+    - Its pattern fits the event.
+    - It hasn't fired yet, or it's `repeatable`.
+    - Every one of its conditions holds against the session's state at that moment.
+
+    A trigger that matches fires at once, before the next trigger is checked. So a later
+    trigger's conditions are checked against what an earlier firing has already changed.
 
     A firing executes these commands, each with `source="trigger:{id}"`:
 
     1. [`MarkTriggerFired`][osrlib.crawl.commands.MarkTriggerFired], with the narrative's
        `fired` text. It comes first, so a trigger that fires only once can't fire again on the
        events of its consequences.
-    2. The consequences, in the order the trigger lists them. The selectors `@party`,
-       `@first`, and `@carrier` are replaced by the ids of the living members they select, so
-       the log records real character ids and a replay matches.
+    2. The consequences, in the order the trigger lists them. The interpreter replaces the
+       selectors `@party`, `@first`, and `@carrier` with the ids of the living members they
+       select, so the log records real character ids and a replay matches.
     3. [`AddJournalEntry`][osrlib.crawl.commands.AddJournalEntry] with the narrative's
        `journal` text, when it has one. It comes last, so the entry records the clock time
        after the consequences.
 
-    For a quest, the interpreter executes these commands, each with `source="quest:{id}"`. A quest clause
-    ([`TriggerClause`][osrlib.crawl.quests.TriggerClause]) matches an event exactly the way a
-    trigger does, with the same patterns and the same conditions, and the quest is checked in
-    this order:
+    A quest clause ([`TriggerClause`][osrlib.crawl.quests.TriggerClause]) matches an event the
+    same way a trigger does, with the same patterns and conditions. For a quest, the interpreter
+    executes these commands, each with `source="quest:{id}"`, and checks the quest in this order:
 
     1. For an inactive quest whose activation clause matches, the interpreter executes
        [`ActivateQuest`][osrlib.crawl.commands.ActivateQuest], and the check goes on to the
@@ -275,12 +279,8 @@ class Interpreter:
     satisfy a later clause's condition for the same event, and a quest completed earlier in
     the check stays completed for everything after it.
 
-    Checking a quest against an event stops at the completion it issues. The rewards go
-    out, and the quest's remaining objectives aren't checked for this event, even if their
-    clauses match it. Such an objective stays incomplete for good, because the interpreter
-    doesn't check a completed quest again. Under the `any` rule that's the usual case, since
-    the first objective to complete finishes the quest. Under the `all` rule it can't happen:
-    the quest completes only after every objective has.
+    The interpreter doesn't check a completed quest again, so an objective that's still
+    incomplete when its quest completes stays incomplete.
 
     The interpreter doesn't follow up on quest commands you execute yourself. It checks
     the completion rule only after a completion it issued, and no pattern matches the quest
@@ -289,28 +289,27 @@ class Interpreter:
     execute grants no rewards. Only the interpreter issues rewards, and a replay executes the
     reward commands themselves.
 
-    When a command fails, the interpreter goes on, and the log records why. The interpreter
-    drops a rejected consequence or reward without affecting the others, like a
-    [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] while an encounter is already
-    open, a grant to a character who isn't in the party, or a toll the first member can't
-    pay. A
-    [`RecordNote`][osrlib.crawl.commands.RecordNote] then records the trigger or quest, the
-    dropped command's position and type, and the rejection code. When a selector selects
-    nobody, like `@carrier` when no living member carries the item, the interpreter drops the
-    command the same way, and the note gives that reason instead of a rejection code. If the party dies partway
-    through and the session ends, the remaining commands are accepted or dropped by the
-    ordinary rules of the `game_over` mode.
+    When a command fails, the interpreter drops it, goes on with the others, and records why
+    in a [`RecordNote`][osrlib.crawl.commands.RecordNote]. The note gives the trigger or
+    quest, the dropped command's position and type, and the rejection code. These are some
+    commands it drops:
 
-    A chain of reactions has a limit. Each event has a depth: the events of the command you
-    execute are at depth 0, and the events of a command the interpreter executes are one
-    level deeper than the event that caused it. For an event at depth five or deeper, the
-    interpreter issues nothing. It still checks every trigger, and every clause of a quest
-    that's already active, and records a note for each command it would have issued. The
-    exception is a quest the event would have activated. For that quest, the interpreter records
-    one note for the activation and checks none of that quest's objectives for this event. No
-    state changes in any of these cases, so a trigger that fires only once can still fire later,
-    and a quest step waits for its clause to match again. A trigger or a quest clause matches an
-    event, not a state, so the suppressed event doesn't match again.
+    - A [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] while an encounter is already
+      open.
+    - A grant to a character who isn't in the party.
+    - A [`RemoveCoins`][osrlib.crawl.commands.RemoveCoins] toll that the first living member
+      can't pay.
+    - A command whose selector selects nobody, like `@carrier` when no living member carries
+      the item. Its note gives that reason instead of a rejection code.
+
+    If the party dies partway through and the session ends, the remaining commands are
+    accepted or dropped by the ordinary rules of the `game_over` mode.
+
+    A chain of reactions has a limit. The events of the command you execute are at depth 0,
+    and the events of each command the interpreter executes are one level deeper than the
+    event that caused it. For an event at depth five or deeper, the interpreter issues
+    nothing. It records a note for each command it would have issued instead, and changes no
+    state, so a trigger that fires only once can still fire on a later event.
 
     It returns no events, because the commands it executed already logged everything it
     caused, and it stores nothing between commands. Read what a trigger or a quest did from
@@ -475,8 +474,16 @@ class Interpreter:
         """Walk one quest against one event: activation, reveals, completions, the rule.
 
         Everything the walk issues runs one level deeper than the event that caused it,
-        exactly as a firing does. Past the bound the walk still evaluates every clause
-        and records what it would have issued instead of issuing it.
+        exactly as a firing does. Past the bound, the walk still evaluates every clause of an
+        active quest and records what it would have issued instead of issuing it. For a quest
+        the event would have activated, it records one note for the activation and checks
+        none of the quest's objectives. A clause matches an event, not a state, so the event
+        the walk skipped doesn't match again later.
+
+        The walk stops at the completion it issues. The rewards go out, and the quest's
+        remaining objectives aren't checked for this event, even if their clauses match it.
+        Under the `any` rule that's the usual case. Under the `all` rule it can't happen,
+        because the quest completes only after every objective has.
         """
         owner = _Owner("quest", quest.id)
         state = self._session.quests.get(quest.id)
@@ -551,9 +558,9 @@ class Interpreter:
     def _expand(self, consequence: Command, owner: _Owner, site: str) -> list[Command]:
         """Resolve an authored command's party selector into the commands it stands for.
 
-        A literal character id is not a selector and is passed through untouched: an
-        id the document's author could not have known is rejected like any other command, dropped
-        and noted. So is the carrier selector on any command but a removal of an item.
+        A literal character id isn't a selector, so the method passes it through unchanged. The
+        session rejects it like any other bad id, and the interpreter drops the command and notes
+        it. The carrier selector on any command but a `RemoveItem` goes the same way.
         """
         if not isinstance(consequence, GrantItem | GrantCoins | AwardXP | RemoveItem | RemoveCoins):
             return [consequence]
@@ -566,8 +573,8 @@ class Interpreter:
                 return []
             return [consequence.model_copy(update={"character_id": living[0].id})]
         if consequence.character_id == CARRIER_SELECTOR and isinstance(consequence, RemoveItem):
-            # The carrier is the first member the removal would succeed against, found with the
-            # check the session runs, so the session never refuses the command it expands to.
+            # The carrier is the first living member the removal would succeed against. The check
+            # is the one the session runs, so the session never refuses the expanded command.
             carrier = next(
                 (
                     member

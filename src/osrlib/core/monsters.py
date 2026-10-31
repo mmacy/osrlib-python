@@ -50,23 +50,24 @@ pass the template's [`TreasureRef`][osrlib.core.monsters.TreasureRef] to
 template's `xp`.
 
 What a monster can do beyond its attacks is on the template as
-[`MonsterAbility`][osrlib.core.monsters.MonsterAbility] records. Each record has a tag, the SRD's
-text, and the numbers the SRD gives, in `params`. The combat functions read four tags:
+[`MonsterAbility`][osrlib.core.monsters.MonsterAbility] records. Each record has a tag, the OSE
+SRD's text, and the numbers the OSE SRD gives, in `params`. The combat functions read four tags:
 `regeneration` in [`deal_damage`][osrlib.core.combat.deal_damage], `energy_drain` in
 [`resolve_energy_drain`][osrlib.core.combat.resolve_energy_drain], `breath_weapon` in
 [`resolve_breath`][osrlib.core.combat.resolve_breath], and `uses_fire` in
-[`check_immunity`][osrlib.core.combat.check_immunity]. Battle also reads `paralysis`, `poison`,
-`disease`, and `petrification` when a monster's attack hits. An ability marked `manual` is text for a
-referee to read. What a monster resists is in [`Defenses`][osrlib.core.monsters.Defenses], which
+[`check_immunity`][osrlib.core.combat.check_immunity]. A battle in a
+[`GameSession`][osrlib.crawl.session.GameSession] also reads `paralysis`, `poison`, `disease`,
+`petrification`, and `blindness` when a monster's attack hits. An ability whose
+[`manual`][osrlib.core.monsters.MonsterAbility.manual] is True is text for a referee to read, and
+osrlib doesn't act on it. What a monster resists is in [`Defenses`][osrlib.core.monsters.Defenses], which
 the combat functions check every time an attack hits.
 
-Each monster page in the SRD becomes one template per creature it describes, so a page with
-several sizes of hydra becomes one template per size. A template that covered several creatures
-couldn't be spawned by itself.
+The catalog has a separate template for each creature the OSE SRD describes. Where one monster
+entry covers several sizes, like the hydras, each size has its own template.
 
-Hit points are rolled on the [`MONSTER_SPAWN_STREAM`][osrlib.core.monsters.MONSTER_SPAWN_STREAM]
-stream, which is separate from the combat stream. A change to the combat rules therefore never
-changes the creatures that spawn in a seeded scenario.
+[`spawn_monster`][osrlib.core.monsters.spawn_monster] rolls hit points from the stream named by
+[`MONSTER_SPAWN_STREAM`][osrlib.core.monsters.MONSTER_SPAWN_STREAM], not the combat stream. So in a
+game with a fixed seed, combat rolls never change the hit points of monsters that spawn later.
 
 Typical usage:
 
@@ -395,18 +396,27 @@ class MonsterAttack(BaseModel):
 
 
 class RoutineUse(StrEnum):
-    """When a monster uses one of its attack routines, as the OSE SRD's stat block and description put it.
+    """When a monster may use one of its attack routines, taken from the monster's OSE SRD entry.
 
-    Read it as [`AttackRoutine.use`][osrlib.core.monsters.AttackRoutine.use]. The first routine of
-    every template is `PRIMARY`. Each later routine has one of the other three values, which tell a
-    policy whether it may pick the routine in a round of melee. The default policy,
+    Each [`AttackRoutine`][osrlib.core.monsters.AttackRoutine] has one of these values in its
+    [`use`][osrlib.core.monsters.AttackRoutine.use] field. There are four values:
+
+    - `PRIMARY`: the first routine the stat block prints.
+    - `ALTERNATIVE`: a routine the monster may use instead of the first in any round.
+    - `SITUATIONAL`: a routine for a situation osrlib doesn't model, like a charge or a ship.
+    - `SPECIAL`: a breath, a gaze, or a spell, which battle never rolls as an attack.
+
+    The first routine of every built-in template is `PRIMARY`, and each later routine has one of
+    the other three values. In battle, an [`ActionPolicy`][osrlib.crawl.battle.ActionPolicy]
+    chooses what each monster does in a round. It reads this value to decide whether it may pick
+    the routine for a round of melee. The default policy,
     [`ScriptedPolicy`][osrlib.crawl.battle.ScriptedPolicy], picks with equal chance among a
-    monster's `PRIMARY` and `ALTERNATIVE` routines. Your own policy can name any routine by its
-    index in [`MonsterAction.routine`][osrlib.crawl.battle.MonsterAction.routine].
+    monster's `PRIMARY` and `ALTERNATIVE` routines. A policy of your own can pick any routine by
+    its index in [`MonsterAction.routine`][osrlib.crawl.battle.MonsterAction.routine].
     """
 
     PRIMARY = "primary"
-    """The first routine the stat block prints, which battle resolves when a policy names no routine."""
+    """The first routine the stat block prints. Battle uses it when a policy picks no routine."""
 
     ALTERNATIVE = "alternative"
     """A routine the monster may use in place of the first in any round, as the SRD's "or" offers.
@@ -416,20 +426,20 @@ class RoutineUse(StrEnum):
     """
 
     SITUATIONAL = "situational"
-    """A routine the SRD ties to a situation osrlib doesn't model, so the default policy never picks it.
+    """A routine the SRD ties to a situation osrlib doesn't model. The default policy never picks it.
 
-    The situation is a range, a charge, a chance to trample, water, a ship, a form, or a loadout:
-    an elephant's trample, a giant's thrown boulder, a sperm whale's ram against a ship. A policy of
-    your own can name the routine when your game decides the situation applies, and battle then
-    rolls its attacks as melee attacks.
+    The situation can be a range, a charge, a chance to trample, water, a ship, a form, or what the
+    monster carries. Examples are an elephant's trample, a giant's thrown boulder, and a sperm
+    whale's ram against a ship. A policy of your own can name the routine when your game decides the
+    situation applies. Battle then rolls its attacks as melee attacks.
     """
 
     SPECIAL = "special"
     """A routine battle never rolls as an attack: a breath, a gaze, or a spell.
 
-    A dragon breathes through a `"breath"` action, a petrifying gaze runs once a round before its
-    group acts, and the rest are left to the referee. Naming this routine in a `"melee"` action
-    makes the monster roll nothing that round.
+    A dragon breathes through a `"breath"` action. A petrifying gaze takes effect once a round,
+    before the gazer's group acts. The referee handles the rest. If a policy picks this routine in a
+    `"melee"` action, the monster rolls nothing that round.
     """
 
 
@@ -438,8 +448,10 @@ class AttackRoutine(BaseModel):
 
     Read them from [`MonsterTemplate.attacks`][osrlib.core.monsters.MonsterTemplate.attacks]. Most
     creatures have one. A creature with more than one uses one of them in a round, not all of them:
-    a dragon either claws and bites or breathes. The routine's `use` says when the SRD lets the
-    monster use it, and an action policy picks one each round. Frozen.
+    a dragon either claws and bites or breathes. Each attack in the routine is a
+    [`MonsterAttack`][osrlib.core.monsters.MonsterAttack]. The routine's `use` says when the OSE SRD
+    lets the monster use it. In battle, an [`ActionPolicy`][osrlib.crawl.battle.ActionPolicy] picks
+    one each round. The model is frozen (immutable).
     """
 
     model_config = ConfigDict(frozen=True)
@@ -450,9 +462,9 @@ class AttackRoutine(BaseModel):
     use: RoutineUse = RoutineUse.PRIMARY
     """When the monster uses this routine. See [`RoutineUse`][osrlib.core.monsters.RoutineUse].
 
-    The first routine of a template is `PRIMARY`. Every later routine in the built-in catalogs
-    carries one of the other labels, taken from the OSE SRD's text for that monster. In a template
-    of your own, label each later routine: one you leave unlabelled is `PRIMARY` too, so the default
+    The first routine of a template is `PRIMARY`. In the built-in catalog, every later routine has
+    one of the other values, taken from the OSE SRD's text for that monster. In a template of your
+    own, set `use` on each later routine. A routine you leave unset is `PRIMARY` too, so the default
     policy picks it as often as the first.
     """
 
@@ -693,12 +705,17 @@ class MonsterAbility(BaseModel):
     """The ability's identifier, a lowercase name like `"regeneration"`.
 
     The combat functions read four tags: `"regeneration"`, `"energy_drain"`, `"breath_weapon"`, and
-    `"uses_fire"`. Battle also reads `"paralysis"`, `"poison"`, `"disease"`, `"petrification"`, and
-    `"blindness"` when a monster's attack hits. It reads `"averting_eyes"` for the bonus a gazer gains
-    against a creature that averts its eyes, and a `"surprise"` ability whose `params` have
-    `meets_gaze` for a gaze, like the basilisk's, that reaches every character the monster surprises.
-    The default action policy reads `attacks_others` in a `"paralysis"` ability's `params`, which the
-    ghoul's and the thoul's have, and turns the monster from the members it has paralysed.
+    `"uses_fire"`. A battle in a [`GameSession`][osrlib.crawl.session.GameSession] also reads these:
+
+    - `"paralysis"`, `"poison"`, `"disease"`, `"petrification"`, and `"blindness"`, when a
+      monster's attack hits.
+    - `"averting_eyes"`, for the bonus a gazer gets against a creature that averts its eyes.
+    - `"surprise"`, when its `params` have `meets_gaze`. Every character the monster surprises
+      is then affected by its gaze, as with a basilisk.
+    - `attacks_others` in the `params` of a `"paralysis"` ability, as the ghoul's and the thoul's
+      have. The default action policy then has the monster pass over every paralysed member,
+      whoever paralysed them, while a target that's neither paralysed nor turned to stone is in
+      reach.
     """
 
     name: str = Field(min_length=1)

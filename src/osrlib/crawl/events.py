@@ -157,13 +157,17 @@ class PartyMovedEvent(Event):
 
     Emitted by [`MoveParty`][osrlib.crawl.commands.MoveParty] with the cell it
     stepped into, and by [`TurnParty`][osrlib.crawl.commands.TurnParty] with the
-    unchanged cell and the new facing. For a `MoveParty` through a passage, the event has
-    the cell the party arrives on, and it comes after the
-    [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] when the passage
-    leads to another level. A [`UseStairs`][osrlib.crawl.commands.UseStairs] that takes the
-    party to another cell of the same level emits one for the landing cell only when the
-    transition's gate has success text, which the event then contains in `narrative`.
-    Redraw a first-person view from this event.
+    unchanged cell and the new facing. Redraw a first-person view from this event.
+
+    Two moves that leave the party's cell work differently:
+
+    - A `MoveParty` through a passage, a [`TransitionSpec`][osrlib.crawl.dungeon.TransitionSpec]
+      that the party walks through, emits it with the cell the party arrives on. When the
+      passage leads to another level, this event comes after that level's
+      [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent].
+    - A [`UseStairs`][osrlib.crawl.commands.UseStairs] to another cell of the same level
+      emits it only when the gate on the stairs has success text. The event is for the
+      landing cell, and its `narrative` contains the text.
 
     A step that a wall, a closed door, or the edge of the map blocks emits no event. The
     session refuses the command with the rejection code `exploration.move.blocked`, and
@@ -190,7 +194,9 @@ class PartyMovedEvent(Event):
     far side."""
     narrative: str | None = None
     """The success text the adventure's author wrote on the gate of a transition that took the party to
-    another cell of the same level, or `None`. For a transition to another level, the text is on the
+    another cell of the same level, or `None`.
+
+    For a transition to another level, the text is on the
     [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] instead.
     [`format_message`][osrlib.messages.format_message] adds it after the line it builds from the
     code."""
@@ -248,9 +254,8 @@ class LocationEnteredEvent(Event):
     there was no gate or no text. A gate is a condition the author puts on a door or a transition,
     like a key the party must have. The author wrote this text, not the engine, and
     [`format_message`][osrlib.messages.format_message] adds it after the line it builds from the
-    code. The session reports no level entry for a transition to another cell of the same level, so
-    that transition's gate text is on the [`PartyMovedEvent`][osrlib.crawl.events.PartyMovedEvent]
-    for the landing cell."""
+    code. A transition to another cell of the same level enters no new level, so its gate's text is
+    on the [`PartyMovedEvent`][osrlib.crawl.events.PartyMovedEvent] for the landing cell instead."""
     via: str | None = None
     """How the party got there, on level and dungeon entries: the kind of the transition it took
     (`"stairs_down"`, `"stairs_up"`, `"trapdoor"`, or `"chute"`), `"passage"` for a passage it
@@ -706,11 +711,15 @@ class LightEvent(Event):
 class RestedEvent(Event):
     """A rest finished, or was interrupted before it could.
 
-    Emitted by [`Rest`][osrlib.crawl.commands.Rest]. A completed rest clears the
-    penalty for going without rest, counts toward recovering from exhaustion after a
-    chase, and, for a full day, heals the party. A wandering monster that arrives during
-    the rest interrupts it. An interrupted rest heals nobody, but each full turn rested
-    before the monsters came still clears that penalty and counts toward recovery.
+    Emitted by [`Rest`][osrlib.crawl.commands.Rest]. The `code` says how the rest went:
+    `exploration.rest.rested` for a rest that ran to its end, and
+    `exploration.rest.interrupted` for one a wandering monster cut short.
+
+    A completed rest clears the penalty for going without rest, and counts toward recovering
+    from exhaustion after a chase. A rest of a full day, 144 turns, also heals the party. An interrupted
+    rest heals nobody. If the party rested at least one full turn (10 minutes of game
+    time, or 60 rounds) before the monsters came, the rest still clears that penalty, and
+    each full turn counts toward recovery.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"exploration.rest.rested", "exploration.rest.interrupted"})
@@ -730,14 +739,19 @@ class FatigueEvent(Event):
     """The party gained the penalty for going without rest, or recovered from it.
 
     The B/X rules require a party to rest one turn in every six while it's in a dungeon. A
-    party that doesn't takes −1 to attack and damage rolls until it does, and these two
-    codes mark when the penalty starts and when it lifts.
+    turn is 10 minutes of game time, or 60 rounds. A party that goes six turns without a rest
+    takes −1 to attack and damage rolls until it rests. These two codes mark when the penalty
+    starts and when it lifts.
 
-    `exploration.fatigue.gained` comes from any command that passes a turn while the
-    session is in `exploring` mode, once the party has gone too long without resting
-    (see [`check_fatigue`][osrlib.crawl.exploration.check_fatigue]).
+    `exploration.fatigue.gained` comes from any command that passes a turn while the session
+    is in `exploring` mode, once the party has gone six turns without a rest. Under the
+    `deprivation_penalties` ruleset flag, three turns are enough when a living member has gone
+    a full day without food or water. See
+    [`check_fatigue`][osrlib.crawl.exploration.check_fatigue].
+
     `exploration.fatigue.recovered` comes from a [`Rest`][osrlib.crawl.commands.Rest] once the
-    party has rested one full turn, even if a wandering monster interrupts it later.
+    party has rested one full turn. One full turn of rest is enough, even if a wandering
+    monster interrupts the rest after that.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"exploration.fatigue.gained", "exploration.fatigue.recovered"})
@@ -809,8 +823,9 @@ class WanderingCheckEvent(Event):
     visibility: Visibility = Visibility.REFEREE
     """Referee visibility: the referee makes the check in secret, and the party sees only what it produces."""
     chance: int
-    """The chance in six that the check needed: the level's chance, adjusted for noise, bright
-    light, and a hidden rest, and limited to the range 0 to 6."""
+    """The chance in six that the check needed, limited to the range 0 to 6. It's the level's
+    chance, adjusted for noise, bright light, and a rest with
+    [`hidden`][osrlib.crawl.commands.Rest.hidden] set."""
     roll: int | None = None
     """The d6 that was rolled, or `None` when the chance came out at zero and no die was
     rolled."""
@@ -864,13 +879,13 @@ class EncounterStartedEvent(Event):
 
 
 class EncounterGroupJoinedEvent(Event):
-    """A new monster group joined the encounter or battle already open, with what the party can see of it.
+    """A new monster group joined the open encounter or battle, with what the party can see of it.
 
     Emitted by [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] when an encounter or a
     battle is open, after the [`MonstersSpawnedEvent`][osrlib.crawl.events.MonstersSpawnedEvent]
     for the same monsters. The players learn of the new group from this event, as they learn of
     the first groups from [`EncounterStartedEvent`][osrlib.crawl.events.EncounterStartedEvent].
-    The session rolls no surprise or reaction for the group, which acts from the next round.
+    The session rolls no surprise or reaction for the group. The group acts from the next round.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"encounter.group.joined"})
@@ -1059,11 +1074,16 @@ class EncounterEndedEvent(Event):
     visibility: Visibility = Visibility.PLAYER
     """Player visibility: the party knows the encounter is behind it."""
     outcome: str
-    """How it ended: `"victory"` when the monsters were beaten, `"evaded"` when the party got away
-    before or during a fight, `"escaped"` when the party got away at the end of a chase,
-    `"turned"` when undead were driven off, or the outcome of an
-    [`EndEncounter`][osrlib.crawl.commands.EndEncounter]: `"parley"` when the party talked or paid its
-    way past, or `"departed"` when it walked away from monsters that let it go."""
+    """How it ended:
+
+    - `"victory"`: the monsters were beaten.
+    - `"evaded"`: the party got away before or during a fight.
+    - `"escaped"`: the party got away at the end of a chase.
+    - `"turned"`: undead were driven off.
+    - `"parley"`: the party talked or paid its way past, through an
+      [`EndEncounter`][osrlib.crawl.commands.EndEncounter].
+    - `"departed"`: the party walked away from monsters that let it go, through an `EndEncounter`.
+    """
 
 
 class BattleStartedEvent(Event):
@@ -1175,18 +1195,27 @@ class MemberWithdrewEvent(Event):
     """A party member stepped back out of the front rank, and a member from behind took their place.
 
     Emitted by [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound] in the party's
-    movement step, once for each member who made a fighting withdrawal or a retreat alone and
-    named a [`replacement_id`][osrlib.crawl.commands.BattleDeclaration.replacement_id]. The two
-    members have traded places in the marching order, so the withdrawing member now stands
-    where the replacement stood, and the replacement stands in the front rank. The party
-    hasn't moved, and no group's distance has changed.
+    movement step.
+
+    A front-rank member can step back alone by declaring a fighting withdrawal or a retreat.
+    The member can also name a member from behind in
+    [`replacement_id`][osrlib.crawl.commands.BattleDeclaration.replacement_id]. Then the two
+    trade places in the marching order, and the session emits this event:
+
+    - The withdrawing member now stands where the replacement stood.
+    - The replacement now stands in the front rank.
+    - The party hasn't moved, and no group's distance has changed.
 
     The events come in the marching order of the withdrawing members, before the party's
-    `close`, if the round has one. A swap that can't happen when the movement step comes
-    reports nothing, and the two stay where they are. That happens when one of the two has
-    died or can no longer move, when the replacement can no longer act on the party's behalf
-    because they are incapacitated, charmed, or confused, or when the ranks shifted and one
-    of them no longer stands where they did.
+    `close`, if the round has one.
+
+    A swap that can't happen by the movement step reports nothing, and the two members stay
+    where they are. That happens in these cases:
+
+    - One of the two has died or can no longer move.
+    - The replacement is incapacitated, charmed, or confused, so they can no longer act on the
+      party's behalf.
+    - The ranks shifted, and one of the two no longer stands where they did.
 
     Redraw a battle screen's ranks from this event, or read them again from
     [`PlayerView.party`][osrlib.crawl.views.PlayerView.party] and
@@ -1208,17 +1237,16 @@ class MemberWithdrewEvent(Event):
 
 
 class MonsterFledEvent(Event):
-    """A monster group broke and ran.
+    """A monster group fled the battle.
 
     Emitted by [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound] when
-    a group fails a morale check. When a battle opens, it's also emitted for a group
-    whose morale is so low that it never fights at all. When a cleric turns only some of
-    a group, the turned members break away as a new group, and `group_id` is the new
-    group's id. The split happens as the battle opens after a
-    [`TurnUndead`][osrlib.crawl.commands.TurnUndead], or in the round a `turn_undead`
-    declaration resolves. If the rest of the group was afraid at the time, the split
-    happens in the round the fear ends instead. A running group moves away each
-    round and is gone once it's more than
+    a group fails its morale check and flees. When a battle opens, it's also emitted for a
+    group whose morale is so low that it never fights at all.
+
+    When a cleric turns only some of a group, the turned members leave the group and flee as
+    a new group, and `group_id` is the new group's id.
+
+    A fleeing group moves away each round. It has left the battle once it's more than
     [`FLEE_EXIT_FEET`][osrlib.crawl.battle.FLEE_EXIT_FEET] from the party. Its members
     still count as defeated for the experience award.
     """
@@ -1631,8 +1659,8 @@ class MonstersSpawnedEvent(Event):
     result. When no encounter is open, the events of the encounter's opening follow. When
     one is open, the monsters join it as a new group.
 
-    It's referee visibility and contains ids rather than a description. The party
-    learns what walked in from
+    It has referee visibility, and it contains ids rather than a description. The party
+    learns which monsters arrived from
     [`EncounterStartedEvent`][osrlib.crawl.events.EncounterStartedEvent] when the
     encounter opens, or from
     [`EncounterGroupJoinedEvent`][osrlib.crawl.events.EncounterGroupJoinedEvent] when the
@@ -2063,8 +2091,11 @@ class ItemsRemovedEvent(Event):
 
     Emitted by [`RemoveItem`][osrlib.crawl.commands.RemoveItem] and
     [`RemoveCoins`][osrlib.crawl.commands.RemoveCoins]. What was removed has left the
-    game, so update the member's inventory on screen. To find out why, read the `source` of
-    the command that emitted it.
+    game, so update the member's inventory on screen. The event doesn't say why. The
+    command does: read the `source` of the `RemoveItem` or `RemoveCoins`, either the one you
+    executed or its entry in
+    [`GameSession.command_log`][osrlib.crawl.session.GameSession.command_log]. When a
+    trigger or a quest issued the command, `source` is its id.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"session.items.removed"})
@@ -2079,8 +2110,8 @@ class ItemsRemovedEvent(Event):
     character_id: str
     """The member who lost the items or coins."""
     item_ids: tuple[str, ...] = ()
-    """What was removed, in the same id form the acquisition used: a mundane item's catalog id once
-    for each unit, and the instance id of a magic item or a valuable. Empty for a removal of coins."""
+    """The ids of what was removed: a mundane item's catalog id once for each unit, and the instance
+    id of a magic item or a valuable. Empty for a removal of coins."""
     coins_gp_value: int = 0
     """The coins removed, as their value in gold pieces. 0 for a removal of items."""
 
@@ -2090,8 +2121,9 @@ class MemberAddedEvent(Event):
 
     Emitted by [`AddMember`][osrlib.crawl.commands.AddMember]. The member is already in the
     party, at the back of the marching order, so add them to the party on screen. Their full
-    sheet is in the views, under `character_id`. To find out why they joined, read the
-    `source` of the command that emitted the event.
+    sheet is in the views, under `character_id`. The event doesn't say why they joined. The
+    command does: read the `source` of the `AddMember`, either the one you executed or its
+    entry in [`GameSession.command_log`][osrlib.crawl.session.GameSession.command_log].
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"session.member.added"})
@@ -2107,7 +2139,7 @@ class MemberAddedEvent(Event):
     """The id the session gave the new member, like `"character-0005"`. Later commands and
     events refer to the member by this id."""
     name: str
-    """The new member's name, so a log reads on its own without the party at hand."""
+    """The new member's name, so you can show the event without looking up the party."""
     class_id: str
     """The new member's class id, like `"fighter"`."""
     level: int

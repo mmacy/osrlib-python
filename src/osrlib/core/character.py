@@ -228,11 +228,10 @@ class Character(BaseModel):
     id: str | None = None
     """The character's id within a game, like `"character-0001"`, or `None` before a session assigns one.
 
-    [`GameSession.new`][osrlib.crawl.session.GameSession.new] assigns an id to each party member whose id is `None`,
-    from the session's [`IdAllocator`][osrlib.core.monsters.IdAllocator], and
-    [`AddMember`][osrlib.crawl.commands.AddMember] assigns one the same way to a character who joins during play.
-    Commands refer to a character by this id. An event about a character with no id uses the character's `name`
-    instead.
+    [`GameSession.new`][osrlib.crawl.session.GameSession.new] assigns an id from the session's
+    [`IdAllocator`][osrlib.core.monsters.IdAllocator] to each party member whose id is `None`.
+    [`AddMember`][osrlib.crawl.commands.AddMember] does the same for a character who joins during play. Commands refer
+    to a character by this id. An event about a character with no id uses the character's `name` instead.
     """
 
     name: str = Field(min_length=1)
@@ -290,11 +289,11 @@ class Character(BaseModel):
     """
 
     nonregen_damage: int = Field(default=0, ge=0)
-    """Fire and acid damage that a worn ring of regeneration can't heal, up to `max_hp`.
+    """The fire and acid damage that a worn ring of regeneration can't heal, up to `max_hp`.
 
-    [`deal_damage`][osrlib.core.combat.deal_damage] adds fire and acid damage here while the character wears the ring,
-    and the ring heals the character only up to `max_hp` less this amount. Other healing, like a potion, heals this
-    damage too. The next time the character takes damage while wearing the ring, `deal_damage` first cuts this value
+    While the character wears the ring, [`deal_damage`][osrlib.core.combat.deal_damage] adds fire and acid damage
+    here. The ring heals the character only up to `max_hp` less this amount. Other healing, like a potion, heals this
+    damage too. So each time the character takes damage while wearing the ring, `deal_damage` first lowers this value
     to the damage the character had before that hit. It's 0 for a character who has never worn the ring.
     """
 

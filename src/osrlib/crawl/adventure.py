@@ -637,8 +637,8 @@ def _validate_consequence(
     """
     if isinstance(consequence, GrantItem | GrantCoins | AwardXP | RemoveItem | RemoveCoins):
         # Character ids are allocated per session, so a document can never contain one:
-        # authored consequences address the party through the selectors. Only a removal of
-        # an item has a carrier to look for.
+        # authored consequences address the party through the selectors. Only a `RemoveItem`
+        # takes the carrier selector, because only a removal of an item has a carrier to look for.
         selectors = (PARTY_SELECTOR, FIRST_LIVING_SELECTOR)
         if isinstance(consequence, RemoveItem):
             selectors = (*selectors, CARRIER_SELECTOR)
@@ -735,11 +735,11 @@ def _validate_quest(
 def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment: EquipmentCatalog) -> None:
     """Check that every id in an adventure refers to something that exists.
 
-    Call it while you write an adventure, as soon as you have one to check. It follows the references
-    in the tree and raises once, with a list of everything wrong, so you can fix the whole document
-    in one pass. [`GameSession.new`][osrlib.crawl.session.GameSession.new] calls it too, so a session
-    doesn't start on content that fails these checks. It changes nothing, and it returns `None` when
-    the adventure passes.
+    Call it while you write an adventure. It follows the references in the tree and raises once,
+    with a list of everything wrong, so you can fix the whole document in one pass. It changes
+    nothing, and it returns `None` when the adventure passes.
+    [`GameSession.new`][osrlib.crawl.session.GameSession.new] calls it too, so a session never starts
+    on content that fails these checks.
 
     For the whole adventure, it checks that:
 
@@ -748,43 +748,64 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
     - Each dungeon id in the town's `travel_turns` is a dungeon of the adventure.
     - Each dungeon has at least one level whose `entrance` is set.
 
-    For each level, it checks that:
+    For each level, it checks the parts you lay out on the level's grid:
 
-    - Feature ids are unique across the level, and none is `"pile"`, which is reserved for drop
-      piles.
     - The entrance is on the grid.
-    - Area ids are unique, and no area has the same id as a feature. The session records found,
-      sprung, and removed traps by area id and feature id in the same way, so it would confuse the
-      two.
-    - Every area cell is on the grid.
+    - Area ids are unique, and every area cell is on the grid. An area is a keyed room or cave, an
+      [`AreaSpec`][osrlib.crawl.dungeon.AreaSpec].
+    - Feature ids are unique across the level, and none is `"pile"`, which is reserved for drop
+      piles. A feature is something in the dungeon that the party can find and act on, like a
+      treasure cache, a [`FeatureSpec`][osrlib.crawl.dungeon.FeatureSpec].
+    - No area has the same id as a feature. The session records found, sprung, and removed traps
+      by area id and feature id in the same way, so it would confuse the two.
+    - Every feature cell is on the grid, and every feature listed on the level itself, not on an
+      area, has a cell.
+
+    It checks the ways in and out, where a transition is stairs, a trapdoor, a chute, or a passage
+    (a [`TransitionSpec`][osrlib.crawl.dungeon.TransitionSpec]), and a gate is a condition on a door
+    or a transition (a [`GateSpec`][osrlib.crawl.gates.GateSpec]):
+
+    - Each transition stands on the grid and leads to a cell on the grid of a level that exists.
+    - Each passage stands on a wall. Its far cell is the cell one step across that wall. The far
+      cell is on the grid, outside every area, and walled on its other three sides.
+    - No passage leads to the cell it stands on, or to any passage's far cell.
+    - No two passages share a cell and side.
+    - The item id of each `has_item` gate on a door or a transition resolves.
+
+    It checks traps:
+
     - An area whose room trap has `trigger="open"` has a door on at least one edge of its cells. A
       door that starts open counts. A trap with `trigger="enter"` needs no door.
     - No area trap and no feature trap moves the party through a passage.
+
+    It checks what the party meets and finds:
+
     - Each monster id in a keyed encounter resolves, and an encounter's fixed `alignment` is one the
       monster's template allows.
-    - Every feature cell is on the grid, and the ids in each feature's `item_ids` and
-      `magic_item_ids` resolve.
-    - Every feature listed on the level itself, not on an area, has a cell.
     - The monster ids in the level's `wandering.table`, when it has one, resolve.
-    - The item id of each `has_item` gate on a door or a transition resolves.
-    - Each transition stands on the grid and leads to a cell on the grid of a level that exists.
-    - Each passage stands on a wall. Its far cell, the cell one step across that wall, is on the
-      grid, outside every area, and walled on its other three sides. The passage doesn't lead to
-      the cell it stands on or to any passage's far cell, and no two passages share a cell and side.
+    - The ids in each feature's `item_ids` and `magic_item_ids` resolve.
 
     For each trigger, it checks that the id is unique, and that the area, level, dungeon, item, or
-    monster its pattern refers to exists. For each of the trigger's consequences, it checks that a
-    granted or removed item resolves in the equipment catalog or the magic item catalog, that a spawned
-    monster resolves, that a door-state change refers to an edge where a door stands, and that a party
-    placement is on the grid. For each quest, it checks that the id is
-    unique, and runs the same checks over each of its clauses (its activation, each objective's
-    completion, and each hidden objective's reveal) and over each reward.
+    monster its pattern refers to exists. For each of the trigger's consequences, it checks that:
 
-    A consequence or reward that gives something to a character or takes something away has to
-    address the party with a selector, not a character id. Every such command accepts `"@party"` and
-    `"@first"`, and a [`RemoveItem`][osrlib.crawl.commands.RemoveItem] also accepts `"@carrier"`.
-    [`GameSession.new`][osrlib.crawl.session.GameSession.new] gives out character ids, so no
-    character id written in an adventure can refer to a character.
+    - A granted or removed item is in the equipment catalog or the magic item catalog.
+    - A spawned monster resolves.
+    - A door-state change refers to an edge where a door stands.
+    - A party placement is on the grid.
+
+    For each quest, it checks that the id is unique. It runs the same checks over each of the
+    quest's clauses (its activation, each objective's completion, and each hidden objective's
+    reveal) and over each reward.
+
+    A consequence or reward that gives a character something, or takes something away, has to
+    address the party with a selector, not a character id. A selector is a placeholder that the
+    interpreter replaces with real character ids during play.
+    [`GameSession.new`][osrlib.crawl.session.GameSession.new] gives out character ids, so a
+    character id written in an adventure can't refer to a character. Every such command accepts
+    [`"@party"`][osrlib.crawl.triggers.PARTY_SELECTOR] and
+    [`"@first"`][osrlib.crawl.triggers.FIRST_LIVING_SELECTOR]. A
+    [`RemoveItem`][osrlib.crawl.commands.RemoveItem] also accepts
+    [`"@carrier"`][osrlib.crawl.triggers.CARRIER_SELECTOR].
 
     It doesn't check flag keys. Any key can be set during play, so an unset key isn't an error in the
     document.
@@ -889,7 +910,7 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
                         alignment = area.encounter.alignment
                         if alignment is not None and alignment not in template.alignment.options:
                             errors.append(
-                                f"{owner}: area {area.id!r} pins alignment {alignment.value!r} "
+                                f"{owner}: area {area.id!r} sets alignment {alignment.value!r} "
                                 f"outside {keyed.template_id!r}'s options"
                             )
                 for feature in area.features:

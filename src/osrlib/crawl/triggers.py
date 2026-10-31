@@ -95,17 +95,17 @@ Write it as the `character_id` of a
 [`AwardXP`][osrlib.crawl.commands.AwardXP] in a trigger's consequences or a quest's
 rewards. An adventure document can't contain real character ids, because a session assigns
 them when it starts. [`validate_adventure`][osrlib.crawl.adventure.validate_adventure] rejects
-any other `character_id` in those commands, so every one of them in a document uses this
-selector, [`FIRST_LIVING_SELECTOR`][osrlib.crawl.triggers.FIRST_LIVING_SELECTOR], or, in a
-`RemoveItem`, [`CARRIER_SELECTOR`][osrlib.crawl.triggers.CARRIER_SELECTOR].
+any other `character_id` in those commands. So each of them in a document uses this selector,
+[`FIRST_LIVING_SELECTOR`][osrlib.crawl.triggers.FIRST_LIVING_SELECTOR], or, in a `RemoveItem`,
+[`CARRIER_SELECTOR`][osrlib.crawl.triggers.CARRIER_SELECTOR].
 
 Before the [`Interpreter`][osrlib.crawl.interpreter.Interpreter] runs the command, it replaces
 the command with one copy for each living member, in marching order, each with that member's
 id. The command log records those copies, so a replay doesn't depend on the selector. When no
-member is alive, the command expands to nothing, and the interpreter records no note. A copy
-the session refuses, like a removal from a member who doesn't have the item, is dropped with a
-note, and the other copies still run. Use `FIRST_LIVING_SELECTOR` when one member should
-receive the whole reward."""
+member is alive, the command expands to nothing, and the interpreter records no note. When the
+session refuses a copy, like a removal from a member who doesn't have the item, the interpreter
+drops that copy with a note and still runs the others. Use `FIRST_LIVING_SELECTOR` when one
+member should receive the whole reward."""
 
 FIRST_LIVING_SELECTOR = "@first"
 """The `character_id` to write in an authored grant, removal, or award that applies to one member.
@@ -113,9 +113,9 @@ FIRST_LIVING_SELECTOR = "@first"
 Before the [`Interpreter`][osrlib.crawl.interpreter.Interpreter] runs the command, it replaces
 the selector with the id of the first living member in marching order. That member receives
 the whole grant or award, and the party can share it out with
-[`GiveItems`][osrlib.crawl.commands.GiveItems]. A removal takes from that member alone, so a
-toll written with this selector is paid by the party's leader. When no member is alive, the
-interpreter drops the command and records why in a
+[`GiveItems`][osrlib.crawl.commands.GiveItems]. A removal takes from that member alone, so the
+first living member in marching order pays a toll written with this selector. When no member is
+alive, the interpreter drops the command and records why in a
 [`NoteRecordedEvent`][osrlib.crawl.events.NoteRecordedEvent]. Use
 [`PARTY_SELECTOR`][osrlib.crawl.triggers.PARTY_SELECTOR] when every living member should
 receive the reward."""
@@ -125,7 +125,7 @@ CARRIER_SELECTOR = "@carrier"
 from whoever carries it.
 
 Use it for a quest item that's used up when the quest completes, or an offering the party
-leaves on an altar, when the author can't know which member will be carrying it. Before the
+leaves on an altar, when you can't know which member will carry it. Before the
 [`Interpreter`][osrlib.crawl.interpreter.Interpreter] runs the command, it replaces the
 selector with the id of the first living member in marching order who carries the
 command's `quantity` of the item. When no living member does, the interpreter drops the
@@ -432,14 +432,13 @@ class TriggerSpec(BaseModel):
     it fires once per session."""
     consequences: tuple[ConsequenceCommand, ...] = ()
     """The referee commands the interpreter runs when the trigger fires, in the order you write
-    them. The interpreter
-    replaces [`PARTY_SELECTOR`][osrlib.crawl.triggers.PARTY_SELECTOR],
+    them. The interpreter replaces [`PARTY_SELECTOR`][osrlib.crawl.triggers.PARTY_SELECTOR],
     [`FIRST_LIVING_SELECTOR`][osrlib.crawl.triggers.FIRST_LIVING_SELECTOR], and
-    [`CARRIER_SELECTOR`][osrlib.crawl.triggers.CARRIER_SELECTOR] with the members
-    they select. When the session rejects one command, the interpreter drops it, records a
-    note, and runs the rest. The tuple can be empty, for a trigger that only adds a journal
-    entry. A command with `source` set fails validation with a pydantic `ValidationError`,
-    because the interpreter sets `source` itself."""
+    [`CARRIER_SELECTOR`][osrlib.crawl.triggers.CARRIER_SELECTOR] with the members they select.
+    When the session rejects one command, the interpreter drops it, records a note, and runs the
+    rest. The tuple can be empty, for a trigger that only adds a journal entry. A command with
+    `source` set fails validation with a pydantic `ValidationError`, because the interpreter sets
+    `source` itself."""
     narrative: NarrativeBlock | None = None
     """The trigger's authored text. osrlib reads two fields of the block. `fired` goes on the
     [`TriggerFiredEvent`][osrlib.crawl.events.TriggerFiredEvent], which only the referee
