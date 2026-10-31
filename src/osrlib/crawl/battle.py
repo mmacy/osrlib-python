@@ -96,11 +96,28 @@ You follow the battle through events from [`osrlib.crawl.events`][osrlib.crawl.e
 Between them come the events of the rule functions in [`osrlib.core`][osrlib.core]: attacks,
 damage, saving throws, initiative, and morale.
 
-A round follows the OSE SRD's combat sequence. The party declares, and initiative decides which side
-acts first. On the party's turn, the session resolves movement, then missile attacks, then magic,
-then melee. On the monsters' turn, it checks each group's morale, then resolves the actions each
-group's policy chose, in order. An attack with a weapon that has the `slow` quality comes last,
-after both sides have acted. Every rule is a function in
+A round follows the OSE SRD's combat sequence:
+
+1. The party declares. Before anything happens, the session works out where each member's declared
+   move would put them, and judges every declaration against those places. A member who closes and
+   attacks in the same declaration is judged at the distance the close leaves them. If any
+   declaration fails, the session refuses the whole round, and nothing changes.
+2. The spells being cast are announced, and NPC adventurers choose their actions.
+3. Initiative decides which side acts first.
+4. On the party's turn, the session resolves movement, then missile attacks, then magic, then
+   melee. In the movement step, the members who fall back alone move first and the members who
+   close move next, each in marching order. A fighting withdrawal or a retreat that every declarer
+   makes moves the whole formation instead, by moving the groups back. Each missile attack and each
+   spell is measured from where its member stands after the movement step. A melee attack resolves
+   only if the member is within 5' of the group and in its front rank when the attack comes up,
+   or if the group is running and the member was within 5' of it when the round was accepted.
+5. On the monsters' turn, the session checks each group's morale, then resolves the actions each
+   group's policy chose, in order. A group that closes stops within 5' of the nearest member it can
+   see, and its monsters can attack in the same round. A monster's melee attack resolves only
+   against a member in its group's front rank within 5' of the group.
+6. An attack with a weapon that has the `slow` quality comes last, after both sides have acted.
+
+Every rule is a function in
 [`osrlib.core.combat`][osrlib.core.combat] or [`osrlib.core.spells`][osrlib.core.spells], like
 [`roll_initiative`][osrlib.core.combat.roll_initiative],
 [`resolve_attack`][osrlib.core.combat.resolve_attack], and
@@ -114,7 +131,10 @@ and can fall back alone with a fighting withdrawal or a retreat, as
 [`BattleDeclaration.move`][osrlib.crawl.commands.BattleDeclaration.move] describes. A group closes
 until it's within reach of the nearest member it can see, so the members in front keep the
 monsters off the members behind them. To check a round's declarations before you send them, call
-[`preview_battle_round`][osrlib.crawl.battle.preview_battle_round].
+[`preview_battle_round`][osrlib.crawl.battle.preview_battle_round]. To draw the battle and offer
+each member their choices, read the player view's
+[`EncounterView`][osrlib.crawl.views.EncounterView]: each member's advance, each group's distance
+from each member, who can reach each group in melee, and which groups each member can see.
 
 During a round, the session also applies these rules without a command for them:
 
@@ -2069,9 +2089,13 @@ def preview_battle_round(session, declarations: Sequence[BattleDeclaration]) -> 
     entry in the result's `rejections` is empty, `ResolveBattleRound` accepts the same declarations.
 
     The projection applies each planned move as the party's movement step would: each member's
-    `close`, and each `fighting_withdrawal` or `retreat` a member makes alone. A defensive move counts
-    as a formation move only when `declarations` covers every declarer and all of them make it. The
-    order of `declarations` doesn't matter. The projection doesn't include anything the monsters do,
+    `close`, and each `fighting_withdrawal` or `retreat` a member makes alone. A partial plan, one that
+    leaves out some declarers, judges each `fighting_withdrawal` or `retreat` as that member's own move,
+    even when every member in the plan makes the same one. The complete plan can turn into a formation
+    move: when every declarer makes the same defensive move, the whole party moves back as one body,
+    the groups move back instead of the members, and the preview of the complete plan shows that. So a
+    member's projected advance can change when the last declaration is added. The order of
+    `declarations` doesn't matter. The projection doesn't include anything the monsters do,
     because the session decides that after it rolls initiative. So when the monsters act first, a
     member's `close` can fall short of where the preview put them.
 

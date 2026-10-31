@@ -1182,11 +1182,13 @@ class GroupMovedEvent(Event):
     closes on a group by themselves doesn't move the group, so that emits a `MemberMovedEvent`
     and no `GroupMovedEvent`.
 
-    Distance decides who can reach whom, so redraw a battle screen's ranks from this
-    event. A member's distance to this group is the group's `distance_feet` minus the member's
-    entry in [`EncounterView.advance_feet`][osrlib.crawl.views.EncounterView.advance_feet], and
+    The event reports the group's distance right after its move. When the party line moves back
+    later in the round, the distance grows with no event, so use this event to narrate or animate
+    the move, not to draw where the group stands. A member's distance to this group is the group's
+    `distance_feet` minus the member's entry in
+    [`EncounterView.advance_feet`][osrlib.crawl.views.EncounterView.advance_feet], and
     [`EncounterGroupView.member_distance_feet`][osrlib.crawl.views.EncounterGroupView.member_distance_feet]
-    lists it for you.
+    lists it for you in the player view after the round.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"battle.group.moved"})
@@ -1235,10 +1237,12 @@ class MemberMovedEvent(Event):
     makes, moves the groups instead of the members, so it emits
     [`GroupMovedEvent`][osrlib.crawl.events.GroupMovedEvent]s and none of these.
 
-    Redraw the member's place on a battle screen from this event, or read
+    The event reports the member's advance right after their move, before the party line moves back,
+    so it isn't always where the member stands once the round is over. Use it to narrate or animate
+    the move. To draw where each member stands, read
     [`EncounterView.advance_feet`][osrlib.crawl.views.EncounterView.advance_feet] and
     [`EncounterGroupView.member_distance_feet`][osrlib.crawl.views.EncounterGroupView.member_distance_feet]
-    from the next player view.
+    from the player view after the round.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"battle.member.moved"})
@@ -1258,7 +1262,9 @@ class MemberMovedEvent(Event):
     advance_feet: int
     """The member's advance right after the move, in feet forward of the party line. Zero is the line,
     and a negative value is behind it. When the party line moves back at the end of the movement step,
-    the member's advance grows by the same amount as everyone's, and the next player view shows it."""
+    every member's advance grows by the same amount, and this value isn't updated. Read
+    [`EncounterView.advance_feet`][osrlib.crawl.views.EncounterView.advance_feet] after the round for
+    where the member stands."""
     group_id: str
     """The group `distance_feet` is measured to. For a `close`, it's the group the member closed
     on. For a `fighting_withdrawal` or a `retreat`, it's the group nearest the member after the
