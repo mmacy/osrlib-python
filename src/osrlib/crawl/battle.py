@@ -1,14 +1,18 @@
 """Run a fight round by round on the range track, with a replaceable policy choosing what the monsters do.
 
 A battle follows an encounter from [`osrlib.crawl.encounter`][osrlib.crawl.encounter] when a fight
-starts. [`start_battle`][osrlib.crawl.battle.start_battle] opens the battle, and the session calls
-it for you: when the monsters attack, when a chase catches the party, and when the party executes
-[`EngageBattle`][osrlib.crawl.commands.EngageBattle]. The session is then in `battle` mode
+starts. The session opens it for you: when the monsters attack, when pursuing monsters catch the
+party, and when the party executes [`EngageBattle`][osrlib.crawl.commands.EngageBattle]. Don't call
+[`start_battle`][osrlib.crawl.battle.start_battle] in normal play. To start a fight, execute
+`EngageBattle`. The session is then in `battle` mode
 ([`SessionMode.BATTLE`][osrlib.crawl.commands.SessionMode.BATTLE]), and `session.battle` contains a
-[`BattleState`][osrlib.crawl.battle.BattleState]. Each round is one
-[`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound] command, with one
-[`BattleDeclaration`][osrlib.crawl.commands.BattleDeclaration] for each living party member who can
-act.
+[`BattleState`][osrlib.crawl.battle.BattleState].
+
+Each round is one [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound] command, with
+one [`BattleDeclaration`][osrlib.crawl.commands.BattleDeclaration] for each living party member who
+can act. A declaration's
+[`action`][osrlib.crawl.commands.BattleDeclaration.action] is `attack`, `cast`, `turn_undead`,
+`move`, `use_item`, or `hold`.
 
 The battle reference uses these terms:
 
@@ -19,25 +23,30 @@ The battle reference uses these terms:
   can fight in melee. Under the [`Ruleset`][osrlib.core.ruleset.Ruleset] option
   `formation_width_limit`, which is on by default, a rank is as wide as the space the party stands
   in, divided by [`FIGHTER_FRONTAGE_FEET`][osrlib.crawl.battle.FIGHTER_FRONTAGE_FEET]. That's two
-  abreast in a ten-foot corridor, and in a room, as many as the room's shorter side allows. With
-  the option off, the whole party is one rank.
+  members side by side in a ten-foot corridor, and in a room, as many as the room's shorter side
+  allows. With the option off, the whole party is one rank.
 - The **formation** is the party moving as one body. A move that every declarer makes is a
   formation move.
-- A **declarer** is a member who has to declare this round. Every living member who can act is
-  one, and [`EncounterView.declarers`][osrlib.crawl.views.EncounterView.declarers] lists them.
+- A **declarer** is a party member who has to declare an action this round. Every living member
+  who can act is one, and
+  [`EncounterView.declarers`][osrlib.crawl.views.EncounterView.declarers] lists them.
 - The **range track** is how a battle measures distance. Each monster group has a separate
   distance from the party, in feet, in the style of The Bard's Tale. A group closes at its
   encounter movement rate and fights in melee at
   [`MELEE_RANGE_FEET`][osrlib.crawl.battle.MELEE_RANGE_FEET].
-- **Surprise** gives one side a free round before the other side can act. The session rolls it
-  when the encounter opens.
-- A group's **morale score** is its number from 2 to 12 on the monster's stat block. When the OSE
-  SRD calls for a morale check, the session rolls 2d6 against it. A roll over the score breaks the
-  group, and it runs. A group with a score of 2 never fights.
+- **Surprise** gives one side a free round, a round in which the other side doesn't act. The
+  session rolls for surprise when the encounter opens.
+- A group's **morale score** is a number from 2 to 12, the `morale` field of the monster's
+  template. When the OSE SRD calls for a morale check, the session rolls 2d6 against it. On a
+  roll over the score, the group fails its morale check and flees. A group with a score of 2
+  never fights.
 - A **concentration spell** lasts only while its caster keeps concentrating on it.
-- A declaration **fizzles** when the session checks it again just before it resolves, and it no
-  longer passes. It then does nothing. A fizzled cast still loses its spell, as a disrupted one
-  does.
+- A declaration **fizzles** when it fails and has no effect. That happens when the session checks
+  it again just before it resolves, and it no longer passes. A fizzled cast still loses its spell,
+  as a disrupted one does.
+- A **pursuit** is a chase after the party runs: the monsters follow it round by round. While one
+  is on, `session.encounter.pursuit` contains a
+  [`PursuitState`][osrlib.crawl.encounter.PursuitState].
 - A **draw** is one random number taken from a **stream**, one of the session's named sequences
   of random numbers ([`RngStreams`][osrlib.core.rng.RngStreams]). Because the streams are
   separate, one part of the game never changes the dice another part gets.
@@ -50,12 +59,12 @@ OSE SRD leaves open. The range track is one. The
 
 There's no command to end a battle. A round ends it in one of three ways:
 
-- Every party member is dead. The battle and the encounter close, and the session moves to
-  `game_over`.
+- Every party member is dead or turned to stone. The battle and the encounter close, and the
+  session moves to `game_over`.
 - Every monster group is dead or has fled out of the fight. The battle ends in victory, and
   [`end_encounter`][osrlib.crawl.encounter.end_encounter] closes the encounter.
-- The whole party retreats. If no monster group can chase the party, the encounter closes.
-  Otherwise the session goes back to `encounter` mode with a chase.
+- The whole party retreats. If no monster group can pursue the party, the encounter closes.
+  Otherwise the session goes back to `encounter` mode with a pursuit.
 
 You follow the battle through events from [`osrlib.crawl.events`][osrlib.crawl.events]:
 
@@ -66,21 +75,21 @@ You follow the battle through events from [`osrlib.crawl.events`][osrlib.crawl.e
 - [`GroupMovedEvent`][osrlib.crawl.events.GroupMovedEvent] when a group's distance changes.
 - [`MemberWithdrewEvent`][osrlib.crawl.events.MemberWithdrewEvent] when a member who withdraws
   alone trades places with a member from a back rank.
-- [`MonsterFledEvent`][osrlib.crawl.events.MonsterFledEvent] when a group breaks and runs, and
-  when the turned members of a group break away as a new group.
+- [`MonsterFledEvent`][osrlib.crawl.events.MonsterFledEvent] when a group fails its morale check
+  and flees, and when the turned members of a group split off as a new group and flee.
 - [`MonstersLeftBehindEvent`][osrlib.crawl.events.MonstersLeftBehindEvent] for helpless members a
-  running group leaves behind.
+  fleeing group leaves behind.
 - [`BattleEndedEvent`][osrlib.crawl.events.BattleEndedEvent] with victory, defeat, or flight.
 
 Between them come the events of the rule functions in [`osrlib.core`][osrlib.core]: attacks,
 damage, saving throws, initiative, and morale.
 
 A round follows the OSE SRD's combat sequence. The party declares, and initiative decides which side
-acts first. In the party's block, the session resolves movement, then missile attacks, then magic,
-then melee. In the monster side's block, it checks each group's morale, then resolves the actions
-each group's policy chose, in order. Attacks with slow weapons come last, after both blocks. Every
-rule is a function in [`osrlib.core.combat`][osrlib.core.combat] or
-[`osrlib.core.spells`][osrlib.core.spells], like
+acts first. On the party's turn, the session resolves movement, then missile attacks, then magic,
+then melee. On the monsters' turn, it checks each group's morale, then resolves the actions each
+group's policy chose, in order. An attack with a weapon that has the `slow` quality comes last,
+after both sides have acted. Every rule is a function in
+[`osrlib.core.combat`][osrlib.core.combat] or [`osrlib.core.spells`][osrlib.core.spells], like
 [`roll_initiative`][osrlib.core.combat.roll_initiative],
 [`resolve_attack`][osrlib.core.combat.resolve_attack], and
 [`cast_spell`][osrlib.core.spells.cast_spell]. To resolve one rule without a session, call those
@@ -111,13 +120,14 @@ During a round, the session also applies these rules without a command for them:
 - When a basilisk surprises the party, every member meets its gaze once as the encounter opens,
   at any distance. The basilisk doesn't gaze again in the monsters' free round that follows.
 - Turned undead attack no one. When a cleric turns only some of a group, the turned monsters
-  break away as a new group and run. The rest fight on.
+  split off as a new group and flee. The rest fight on.
 - A member's invisibility ends when the member attacks, throws or uses an item other than a
   potion, or turns undead. [`cast_spell`][osrlib.core.spells.cast_spell] ends it when the member
   casts.
 - Each attack on a target protected by *mirror image* removes one image instead, and no attack
   roll is made.
-- A protection ward ends when a party member attacks in melee a monster that the ward keeps out.
+- A scroll of protection keeps some monsters from attacking the party in melee. Its protection
+  ends when a party member attacks in melee a monster that it keeps out.
 - A caster maintains one concentration spell at a time. Its effects end when the caster declares
   anything other than `cast` or `hold`, when the caster's next spell is disrupted or fizzles, or
   when the caster casts another concentration spell. A `turn_undead` declaration ends them even
@@ -138,12 +148,13 @@ adventurers. To give a group tactics of your own, write an
 id. A policy draws only from the
 [`MONSTER_ACTION_STREAM`][osrlib.crawl.session.MONSTER_ACTION_STREAM], so your policy never changes
 an attack or damage roll. When the ruleset is set to roll initiative for each combatant, each side
-still acts as a block, and the side with the best single roll acts first, because the OSE SRD's
+still acts together, and the side with the best single roll acts first, because the OSE SRD's
 combat sequence runs per side.
 
 The members of this module, in the order you're likely to need them:
 
 - [`start_battle`][osrlib.crawl.battle.start_battle] opens a battle on the session's encounter.
+  The session calls it for you.
 - [`BattleState`][osrlib.crawl.battle.BattleState] is the battle's state in `session.battle`.
 - [`ActionPolicy`][osrlib.crawl.battle.ActionPolicy] is the interface for a policy that chooses a
   monster group's actions, and [`MonsterAction`][osrlib.crawl.battle.MonsterAction] is one chosen
@@ -331,7 +342,7 @@ MELEE_RANGE_FEET = 5
 
 A group closing on the party stops at this distance, not at zero. The session rejects a melee
 attack declared against a group farther away with `combat.attack.out_of_reach`, and every melee
-attack resolves at this distance. When pursuers catch the party in a chase, the battle starts with
+attack resolves at this distance. When pursuing monsters catch the party, the battle starts with
 every group at this distance.
 
 The range track has no distance between this and zero, so treat the value as fixed: the session uses
@@ -341,11 +352,11 @@ distance against that weapon's ranges.
 """
 
 FLEE_EXIT_FEET = 120
-"""How far, in feet, a routed group runs before it leaves the battle.
+"""How far, in feet, a group that failed its morale check runs before it leaves the battle.
 
 A group that fails a morale check turns and runs its full movement rate each round. Once its
 distance is greater than this, the session marks the group fled. Until then, the party can still
-chase it or shoot at it.
+close on it or shoot at it.
 
 A fled group takes no further action. The session refuses every declaration aimed at it with
 `battle.declaration.unknown_group`. A battle in which every group has fled or died ends in
@@ -388,8 +399,9 @@ class BattleState(BaseModel):
     started_round: int
     """The session clock's round count when the battle opened."""
     monsters_hold_rounds: int = 0
-    """The rounds the monsters still have to sit out because the party surprised them. In each round
-    while this is above zero, the monsters do nothing, and the count goes down by one."""
+    """The rounds in which the monsters still can't act because the party surprised them.
+
+    In each round while this is above zero, the monsters do nothing, and the count goes down by one."""
     morale: MoraleTracker = MoraleTracker()
     """The [`MoraleTracker`][osrlib.core.combat.MoraleTracker] for this battle. It counts each group's
     passed morale checks, and a group that has passed two doesn't check again."""
@@ -454,10 +466,18 @@ class MonsterAction(BaseModel):
     [`attacks`][osrlib.core.monsters.MonsterTemplate.attacks]. None uses the first routine.
 
     You can name any routine, whatever its [`use`][osrlib.core.monsters.AttackRoutine.use]. The
-    session rolls the attacks of a `PRIMARY`, `ALTERNATIVE`, or `SITUATIONAL` routine. It rolls
-    nothing for a `SPECIAL` routine, so the monster does nothing that round. The session also does
-    nothing when the template has no routine at the index, and it treats a negative index the same
-    way.
+    [`RoutineUse`][osrlib.core.monsters.RoutineUse] values mean this:
+
+    - `PRIMARY` is the first routine the monster's entry lists. The session rolls its attacks.
+    - `ALTERNATIVE` is a routine the monster can use in place of the first in any round, like a
+      mule's bite in place of its kick. The session rolls its attacks.
+    - `SITUATIONAL` is a routine for a situation osrlib doesn't model, like an elephant's trample.
+      The session rolls its attacks as melee attacks.
+    - `SPECIAL` is a breath, a gaze, or a spell. The session rolls nothing for it, so the monster
+      does nothing that round.
+
+    The session also does nothing when the template has no routine at the index, and it treats a
+    negative index the same way.
 
     Some routines list an attack named `gaze` or `breath`. The session never rolls those as attacks.
     It resolves a petrifying gaze once a round by itself, and a breath weapon through a `"breath"`
@@ -610,7 +630,7 @@ class ScriptedPolicy:
     Otherwise, a group farther away than [`MELEE_RANGE_FEET`][osrlib.crawl.battle.MELEE_RANGE_FEET]
     closes. Once in range, each monster picks a target at random from the party's front rank. It
     leaves out invisible members, and members whose *protection from evil* bars that monster. When
-    no target is left, the monster holds.
+    no target is left, the monster takes a `hold` action and does nothing that round.
 
     Among the targets left, the monster prefers members who can still fight:
 
@@ -629,18 +649,18 @@ class ScriptedPolicy:
     `ALTERNATIVE`, and puts the choice in
     [`MonsterAction.routine`][osrlib.crawl.battle.MonsterAction.routine]. For example, a thoul
     claws or swings a weapon, and a mule kicks or bites. The policy never picks a `SITUATIONAL` or
-    `SPECIAL` routine, like an elephant's trample or a vampire's gaze. A monster with only one
-    routine to pick from draws nothing for it.
+    `SPECIAL` routine, like an elephant's trample or a vampire's gaze. For a monster with only one
+    routine to pick from, the policy makes no random roll.
 
     The monster data has no ranges for monsters' missile attacks, so osrlib treats them like melee:
-    the monster closes first, then attacks. This is an adaptation, a place where osrlib commits to
-    one reading of a rule the OSE SRD leaves open. The
-    [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/) lists each one.
-    Monsters under this policy never cast spells, because the monster data doesn't cover monster
+    the monster closes first, then attacks. This is one of the entries in the
+    [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/). Monsters under this
+    policy never cast spells, because the monster data doesn't cover monster
     spellcasting, which is the referee's call.
 
-    Write a policy of your own when you want a group to hold a chokepoint, focus its attacks, back
-    off, cast, or use a situational routine when your game decides the situation calls for it. To keep
+    Write a policy of your own when you want a group to stand in a doorway and block it, aim every
+    attack at one member, back off, cast, or use a situational routine when your game decides the
+    situation calls for it. To keep
     these tactics and change one thing, wrap this policy and change the actions its `choose`
     returns, as the example does.
     [`NpcPartyPolicy`][osrlib.crawl.battle.NpcPartyPolicy] is the built-in policy for NPC adventurers,
@@ -770,9 +790,8 @@ class NpcPartyPolicy:
 
     The session uses this policy for a group of NPC adventurers, rather than monsters, unless you
     register another one for it in `session.action_policies`. The OSE SRD gives no tactics for a
-    party of adventurers on the other side, so osrlib supplies these. This is an adaptation, a place
-    where osrlib commits to one reading of a rule the OSE SRD leaves open. The
-    [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/) lists each one.
+    party of adventurers on the other side, so osrlib supplies these. They're one of the entries in
+    the [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/).
 
     In the list below, the NPC group is the group this policy chooses for, and the player party is
     the party your players control. Each living NPC takes the first of these actions that applies:
@@ -1287,7 +1306,7 @@ Monsters have a morale score in their stat block, but adventurers in the OSE SRD
 uses the score of the Veteran, the SRD's monster entry for a low-level fighter. This is an
 adaptation, a place where osrlib commits to one reading of a rule the SRD leaves open. The
 [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/) lists each one. With a
-score of 9, a group passes the check on a 2d6 total of 9 or less, after modifiers, and breaks on a
+score of 9, a group passes the check on a 2d6 total of 9 or less, after modifiers, and fails and flees on a
 higher total.
 
 The battle code reads this value directly, so every NPC adventurer group in the game checks against
@@ -1326,44 +1345,33 @@ def _haste_multiplier(session, entity_id: str, key: str) -> int:
 def start_battle(session, *, party_free_round: bool = False, monsters_free_round: bool = False) -> list[Event]:
     """Start a battle on the session's open encounter and put the session in `battle` mode.
 
-    You rarely call this yourself. The session calls it when the monsters attack and when a chase
-    catches the party, and [`EngageBattle`][osrlib.crawl.commands.EngageBattle] calls it when the
-    party chooses to fight. If you only execute commands, you never call it. Execute
-    `EngageBattle` instead whenever you can:
-
-    - The command log records the command, so [`replay_game`][osrlib.persistence.replay_game]
-      reproduces the fight. A direct call changes the session outside any command.
-      [`save_game`][osrlib.persistence.save_game] still saves the result, but a replay of the
-      command log doesn't reproduce it.
-    - The command works out from the encounter which side surprised the other, and sets this
-      function's two free-round arguments for you. It also handles a fight that starts during a
-      chase.
-
-    Call this function only from code that runs a procedure outside the session's commands, like a
-    test of combat.
+    Don't call this in normal play. Execute [`EngageBattle`][osrlib.crawl.commands.EngageBattle]
+    instead, and the session calls this for you. It also calls this when the monsters attack and
+    when pursuing monsters catch the party. The command works out which side surprised the other,
+    and the command log records it, so a replay of the log reproduces the fight. A direct call
+    changes the session outside any command, so a replay doesn't reproduce it. Call this only from
+    code that runs outside the session's commands, like a test of combat.
 
     The session needs an open encounter, because the battle uses that encounter's groups and their
     distances. When this function returns, the session is in `battle` mode and `session.battle`
     contains a [`BattleState`][osrlib.crawl.battle.BattleState]. From there, each round is one
     [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound] command.
 
-    A group's morale score is the number from 2 to 12 on its stat block that its morale checks roll
-    against. A group whose morale score is 2 runs away as soon as the battle starts, because the OSE
-    SRD's morale rule says it never fights. That can end the battle before any round. When a cleric
-    turned only part of a group, the turned monsters break away as a new group, which runs from the
-    first round.
+    A group with a morale score of 2 never fights, so it flees as soon as the battle starts. That
+    can end the battle before any round. When a cleric turned only part of a group, the turned
+    monsters split off as a new group, which flees from the first round.
 
-    A side that surprised the other gets one free round:
+    A side that surprised the other gets one free round, in which the other side doesn't act:
 
     - The monsters' free round runs inside this call, before the party can act.
-    - On the party's free round, the monsters sit out the first round, which you resolve with the
-      first `ResolveBattleRound`.
+    - On the party's free round, the monsters don't act in the first round, which you resolve
+      with the first `ResolveBattleRound`.
       [`BattleState.monsters_hold_rounds`][osrlib.crawl.battle.BattleState.monsters_hold_rounds]
-      counts the rounds they still sit out.
+      counts the rounds in which the monsters still don't act.
 
     Args:
         session (osrlib.crawl.session.GameSession): The running session, with `session.encounter` set.
-        party_free_round: True when the monsters were surprised. The monsters then sit out the
+        party_free_round: True when the monsters were surprised. The monsters then don't act in the
             first round.
         monsters_free_round: True when the party was surprised. The monsters then act once inside
             this call, before the party declares anything.
@@ -1411,7 +1419,7 @@ def start_battle(session, *, party_free_round: bool = False, monsters_free_round
         session.execute(EnterDungeon(dungeon_id="crypt"))
         session.execute(SpawnMonsters(template_id="goblin", count_fixed=2, distance_feet=30))
 
-        # The party caught the goblins flat-footed, so it gets the first round free.
+        # The goblins were surprised, so the party gets the first round free.
         events = start_battle(session, party_free_round=True)
         assert [event.code for event in events] == ["battle.started"]
         assert session.mode is SessionMode.BATTLE
@@ -2467,7 +2475,7 @@ def _party_movement(session, by_member) -> list[Event]:
     A defensive move that every declarer makes moves the whole formation (see the
     [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/), under the battle
     round). A formation retreat moves the party off at the OSE SRD's "full encounter movement rate",
-    and the chase begins once the battle ends. A formation fighting withdrawal backs the party off at
+    and the pursuit begins once the battle ends. A formation fighting withdrawal backs the party off at
     half the encounter rate, and the withdrawing members attack nobody that round.
 
     Otherwise the first `close` in the round's declarations moves the formation toward its group at

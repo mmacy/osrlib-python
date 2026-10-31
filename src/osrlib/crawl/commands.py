@@ -16,9 +16,8 @@ Every command is a pydantic model. It's frozen, which means you can't change its
 you build it. A `command_type` field identifies its class, so a command serializes to a JSON
 object with a `command_type` key. [`AnyCommand`][osrlib.crawl.commands.AnyCommand] is the union
 of every command class, and pydantic uses the `command_type` key to pick the class when it parses
-one. [`parse_command`][osrlib.crawl.commands.parse_command] turns one
-serialized mapping back into a command. It returns `None` for a `command_type` it doesn't
-recognize, so an older engine can still read a log from a newer one.
+one. [`parse_command`][osrlib.crawl.commands.parse_command] turns one serialized mapping back
+into a command. It returns `None` for a `command_type` it doesn't recognize.
 
 Which commands the session accepts depends on where the party is. A
 [`SessionMode`][osrlib.crawl.commands.SessionMode] is one of these states: `town`, `exploring`,
@@ -94,7 +93,9 @@ The commands, grouped by what the party is doing:
   [`TurnUndead`][osrlib.crawl.commands.TurnUndead], and
   [`EngageBattle`][osrlib.crawl.commands.EngageBattle].
 - Fighting (`battle`): [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound],
-  with one [`BattleDeclaration`][osrlib.crawl.commands.BattleDeclaration] per member.
+  with one [`BattleDeclaration`][osrlib.crawl.commands.BattleDeclaration] per member. It's
+  the only play command in `battle`. Most referee commands, including
+  [`EndEncounter`][osrlib.crawl.commands.EndEncounter], work in `battle` too.
 - Referee commands: [`GrantItem`][osrlib.crawl.commands.GrantItem],
   [`GrantCoins`][osrlib.crawl.commands.GrantCoins],
   [`RemoveItem`][osrlib.crawl.commands.RemoveItem],
@@ -562,8 +563,9 @@ class ReorderParty(Command):
 
     Marching order is the order the members walk in, front first. It determines who a door trap
     springs on, who reaches into a treasure cache, and who stands in the front rank when a
-    fight starts. Send this command in town or while exploring. The session refuses it once
-    an encounter or a battle has begun.
+    fight starts. Pass the new order in `order`, a tuple of every member's id, front first.
+    Send this command in town or while exploring. The session refuses it once an encounter or
+    a battle has begun.
 
     During a battle, the order changes only when a member withdraws or retreats alone. That
     member trades places with the member named in
@@ -1084,7 +1086,7 @@ class TakeTreasure(Command):
     of an authored cache or a cache the engine generated, or the literal `"pile"` for goods
     dropped on the party's cell.
 
-    By default the haul spreads across the living members:
+    By default the goods spread across the living members:
 
     - Each item goes to a member whose class can use it, so the fighter takes the plate mail
       and the magic-user takes the arcane scroll.
@@ -1097,7 +1099,7 @@ class TakeTreasure(Command):
     ogre power can carry 2,600. The party moves at its slowest member's rate, so a heavy load on
     one member slows everyone.
 
-    Name `recipient_id` to have one member take the whole haul instead, up to their maximum
+    Name `recipient_id` to have one member take all the goods instead, up to their maximum
     load. Whatever the carriers can't carry stays in the pile on the cell. The party can
     lighten its load and come back for it. To change who carries what afterwards, use
     [`GiveItems`][osrlib.crawl.commands.GiveItems].
@@ -1106,8 +1108,8 @@ class TakeTreasure(Command):
     members, however the goods end up split, as the OSE SRD's rule for treasure XP says.
 
     The named recipient, or the first living member in marching order when nobody is named,
-    is the one who reaches in. A cache whose trap hasn't been removed gets its chance to
-    spring on that member first.
+    reaches into the cache. A cache whose trap hasn't been removed gets its chance to spring
+    on that member first.
 
     Modes:
         `exploring`
@@ -1476,11 +1478,11 @@ class UnequipItem(Command):
 class Rest(Command):
     """Rest the party for one turn, a night (48 turns), or a full day (144 turns).
 
-    Send it in town or while exploring, and choose the length in `kind`. A turn is ten minutes
-    of game time. A rest clears the party's fatigue, the −1 penalty a party in a dungeon gets
-    when it goes six turns without a turn of rest
+    Send it in town or while exploring. Set `kind` to `"turn"`, `"night"`, or `"day"` to choose
+    the length. A turn is ten minutes of game time. A rest clears the party's fatigue, the −1
+    penalty a party in a dungeon gets when it goes six turns without a turn of rest
     ([`FATIGUE_KIND`][osrlib.crawl.exploration.FATIGUE_KIND]). Three turns of rest also clear
-    exhaustion, the heavier penalty a party gets for running from a long chase
+    exhaustion, the heavier penalty a party gets for running from a long pursuit
     ([`EXHAUSTED_KIND`][osrlib.crawl.exploration.EXHAUSTED_KIND]).
 
     A night or a day of rest counts as sleep, which casters need before
@@ -1504,7 +1506,7 @@ class Rest(Command):
           session has ended.
 
     Events:
-        The elapsed turns' bookkeeping comes first: light burning down, provisions, and
+        The events of the time that passes come first: light burning down, provisions, and
         wandering-monster checks. Then comes a [`RestedEvent`][osrlib.crawl.events.RestedEvent]
         with code `exploration.rest.rested`. An interrupted rest ends with the encounter's
         opening events and a `RestedEvent` with code `exploration.rest.interrupted`
@@ -1523,21 +1525,20 @@ class Rest(Command):
     six turns to avoid fatigue. `night` is 48 turns and counts as sleep. `day` is 144 turns,
     counts as sleep, and applies natural healing to every living member. Sleep is what
     [`PrepareSpells`][osrlib.crawl.commands.PrepareSpells] needs, so a caster's day starts with
-    a `night` or a `day` rest. Exhaustion from a chase clears after three turns of rest in
+    a `night` or a `day` rest. Exhaustion from a pursuit clears after three turns of rest in
     total. In a dungeon, a wandering encounter can cut any of the three short."""
     hidden: bool = False
     """Whether the party rests quietly in an out-of-the-way place, which the OSE SRD calls hiding.
 
-    Your game or the referee decides whether the place qualifies. The session accepts the flag
-    as given. In a dungeon, `True` lowers the chance of each wandering-monster check during the
-    rest by 1, after noise and bright light have raised it. The chance is a number in six, so a
-    level with the usual chance has 1 in 6. When the chance comes to 0, the session rolls no
-    check die. So on a level with the usual chance, a hidden rest rolls no check die while the
-    party has made no noise and has no bright light. In town no checks run, so the flag changes
-    nothing there.
+    On a level with the usual 1-in-6 chance of wandering monsters, a hidden rest makes no
+    wandering-monster rolls at all, as long as the party has made no noise and has no bright
+    light. That's because `True` lowers the chance of each check during the rest by 1, after
+    noise and bright light have raised it, and the session makes no roll for a chance of 0 in 6.
+    In town no checks run, so the flag changes nothing there.
 
-    With `False`, the default, the checks run at the level's chance with noise and light added,
-    as they do while the party explores."""
+    Your game or the referee decides whether the place qualifies. The session accepts the flag
+    as given. With `False`, the default, the checks run at the level's chance with noise and
+    light added, as they do while the party explores."""
 
 
 class PrepareSpells(Command):
@@ -1758,7 +1759,7 @@ class UseItem(Command):
     It's legal while exploring and during an encounter. In battle, use an item with a
     `use_item` [`BattleDeclaration`][osrlib.crawl.commands.BattleDeclaration] instead. Name the
     member in `character_id` and the item in `item_id`. Using an item identifies it and reveals
-    any curse. A magic sword that sheds light on command turns its light on or off.
+    any curse. A magic sword that can light up when its wielder says so turns its light on or off.
 
     A device is a wand, a staff, or a rod. `target_id` is the id of whoever the item is used on:
     a party member for a staff of healing's touch, or an encounter group for a device that covers
@@ -1859,8 +1860,13 @@ class IdentifyItem(Command):
     Use it when you identify an item some other way, like a sage's fee or a
     *detect magic* that osrlib doesn't resolve. Using an item with
     [`UseItem`][osrlib.crawl.commands.UseItem] identifies it as well. This command is
-    legal in every mode, terminal modes included, and the session logs and replays it like
-    any other command.
+    legal in every mode, `game_over` and `victory` included, and the session logs and replays it
+    like any other command.
+
+    Identifying an item tells the party what it is. After it, player-visible events can show the
+    item's name, not only its instance id. A cursed item also has its curse revealed, and the
+    bearer can't take it off until *remove curse*. An item that's already identified, with any
+    curse already revealed, emits no event, and the command still succeeds.
 
     Modes:
         `town`, `exploring`, `encounter`, `battle`, `game_over`, `victory`
@@ -1871,9 +1877,9 @@ class IdentifyItem(Command):
           that instance id.
 
     Events:
-        [`ItemIdentifiedEvent`][osrlib.crawl.events.ItemIdentifiedEvent]. For a cursed
-        item, a
-        [`CurseRevealedEvent`][osrlib.crawl.events.CurseRevealedEvent] follows.
+        [`ItemIdentifiedEvent`][osrlib.crawl.events.ItemIdentifiedEvent] the first time. For a
+        cursed item, a [`CurseRevealedEvent`][osrlib.crawl.events.CurseRevealedEvent] follows.
+        None for an item that's already identified and revealed.
     """
 
     command_type: Literal["identify_item"] = "identify_item"
@@ -2157,13 +2163,13 @@ checker catches a wrong name."""
 
 
 class PurchaseHealing(Command):
-    """Buy a temple healing service in town (zero time).
+    """Buy a temple healing service in town (no game time passes).
 
     The party must be in town. Name the patient in `character_id` and the service in `service`.
     The OSE SRD describes the base town in prose and lists no temple prices, so osrlib sets
-    these: *cure light wounds* 25 gp, *cure serious wounds* 100 gp, *cure disease* 150 gp,
-    *neutralize poison* 150 gp, *remove curse* 200 gp, and *raise dead* 1,500 gp. You can read
-    the same list from [`HEALING_SERVICES`][osrlib.crawl.exploration.HEALING_SERVICES]. Each
+    these, by `service` value: `cure_light_wounds` 25 gp, `cure_serious_wounds` 100 gp,
+    `cure_disease` 150 gp, `neutralize_poison` 150 gp, `remove_curse` 200 gp, and `raise_dead`
+    1,500 gp. You can read the same list from [`HEALING_SERVICES`][osrlib.crawl.exploration.HEALING_SERVICES]. Each
     service works as the matching spell, cast on the member by a temple cleric of the lowest
     level that can cast it.
 
@@ -2171,8 +2177,8 @@ class PurchaseHealing(Command):
     purse first, then from the other members' purses in marching order, dead members included,
     until the fee is paid.
 
-    Each purse pays only in whole gold pieces. A purse's value is rounded down to whole gold
-    pieces, and the rest stays in the purse. For example, two members who each have 12 gp and
+    Each purse pays only in whole gold pieces, and any value below a gold piece stays in the
+    purse. For example, two members who each have 12 gp and
     5 sp are worth 25 gp together. Each purse can pay only 12 gp, so together they can pay 24
     gp, and the session refuses a 25 gp service.
 
@@ -2186,9 +2192,7 @@ class PurchaseHealing(Command):
         - `session.command.wrong_mode` - the party is not in town.
         - `session.command.unknown_member` - `character_id` matches no party member.
         - `items.purchase.insufficient_funds` - the whole gold pieces in the party's
-          purses add up to less than the fee. Value below a gold piece in a purse
-          doesn't count, so the session can refuse a party worth the price in mixed
-          coins.
+          purses add up to less than the fee.
         - `town.healing.no_effect` - the service would do nothing for the member. That's
           `raise_dead` for a living member, `cure_disease` for a member who isn't diseased,
           and `neutralize_poison` for a member who isn't poisoned and didn't die of poison
@@ -2198,7 +2202,7 @@ class PurchaseHealing(Command):
     Events:
         A [`HealingPurchasedEvent`][osrlib.crawl.events.HealingPurchasedEvent] listing
         which purses paid and how much each one paid, then the events of the service's
-        spell, like healing, effects released, or the result of a *raise dead*.
+        spell, like healing, the end of a poison or a disease, or the result of a *raise dead*.
     """
 
     allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.TOWN})
@@ -2412,17 +2416,22 @@ class TurnUndead(Command):
     The turning reaches every living monster in the encounter's groups that haven't fled. It
     skips a monster that died earlier in the encounter, from a wand for example.
 
+    A turned monster gains the `turned` condition. It flees from the cleric and attacks no one.
+    A destroyed monster dies. The
+    [`UndeadTurnedEvent`][osrlib.core.events.UndeadTurnedEvent] reports the outcome, and a
+    separate condition or death event follows for each monster it affects.
+
     Presenting the symbol is an aggressive act. If any monster is left neither turned nor
     destroyed, the monsters that weren't turned attack at once, and battle starts. In a group
-    that was only partly turned, the turned monsters break away as a new group and flee.
+    that was only partly turned, the turned monsters split off as a new group and flee.
 
     Modes:
         `encounter`
 
     Rejections:
         - `session.command.wrong_mode` or `encounter.none_active` - no encounter is open.
-        - `encounter.turning.mid_pursuit` - the monsters are chasing the party, and
-          nobody can turn undead during a chase.
+        - `encounter.turning.mid_pursuit` - the monsters are pursuing the party, and
+          nobody can turn undead during a pursuit.
         - `session.command.unknown_member` - `character_id` matches no party member.
         - `session.command.member_incapacitated` - the member can't act.
         - `magic.turning.not_a_turner` - the member's class can't turn undead.
@@ -2471,10 +2480,10 @@ class BattleDeclaration(BaseModel):
       picks the spell's reversed form.
     - `move` uses the `move` field, which is `close`, `fighting_withdrawal`, or `retreat`. A
       `close` moves the party toward the group in `target_group_id`. A `fighting_withdrawal`
-      backs away slowly, facing the monsters, and a `retreat` turns and runs. Either one is a
-      formation move when every declarer makes the same one, and it changes the distance to
-      the monsters. A member who makes one alone also sets `replacement_id`, and only the
-      party's ranks change.
+      backs away slowly, facing the monsters, and a `retreat` turns and runs. When every
+      member in `declarers` makes the same one, it's a formation move: the whole party moves
+      as one body, and the distance to the monsters changes. A member who makes one alone
+      also sets `replacement_id`, and only the party's ranks change.
     - `use_item` uses `item_id`. The member drinks a potion, reads a scroll, uses a wand,
       staff, or rod, or throws a flask of oil or a similar item at `target_group_id`. A
       staff of striking is a melee weapon, so only a member in `front_rank` can strike with
@@ -2507,16 +2516,20 @@ class BattleDeclaration(BaseModel):
     target_group_id: str | None = None
     """Which monster group the action is aimed at, by
     [`EncounterGroupView.id`][osrlib.crawl.views.EncounterGroupView.id] from
-    [`EncounterView.groups`][osrlib.crawl.views.EncounterView.groups]. An `attack` needs it, and
-    so do a `close` move, a `cast` of a spell that covers an area, a thrown item, and a wand,
-    staff, or rod that strikes or covers an area.
+    [`EncounterView.groups`][osrlib.crawl.views.EncounterView.groups].
+
+    These declarations need it: an `attack`, a `close` move, a thrown item, a wand, staff, or rod
+    that strikes or covers an area, and a `cast` of a spell whose area covers creatures. An area
+    spell aimed at a group isn't placed at a point, because the range track has no positions
+    inside a group. It covers the group's living members in the order they were spawned, as many
+    as its size and the party's rank width allow.
 
     Some spell modes affect a total number of Hit Dice, like *sleep*'s. Their targeting mode is
-    `hd_budget`. A `cast` in such a mode can name a group here in place of `targets`. The session
-    then spends the spell's Hit Dice budget on the group's living members, fewest Hit Dice first.
-    When
-    the mode also has an area, like *death spell*'s 60' cube, only the members inside the area
-    count, as for any spell that covers an area.
+    `hd_budget`. A `cast` in such a mode can set either this field or `targets`. With this field,
+    the session collects the group's living members in spawn order. When the mode also has an
+    area, like *death spell*'s 60' cube, it collects only the members inside the area, as for any
+    area spell. The spell then spends its Hit Dice budget on the members it collected, fewest Hit
+    Dice first.
 
     The session refuses a group that isn't in the encounter, or one whose
     [`EncounterGroupView.fled`][osrlib.crawl.views.EncounterGroupView.fled] is true, with
@@ -2538,20 +2551,19 @@ class BattleDeclaration(BaseModel):
       first one with the `melee` quality for a melee attack, or the `missile` quality for a
       missile attack.
     - A real weapon comes before an improvised one, whatever order they were equipped in. An
-      improvised weapon is a gear item, like a torch. So a member who lit a torch and then drew a
-      sword swings the sword. A torch still counts when nothing else suits the attack, because
-      the weapon table lists it as a melee weapon.
+      improvised weapon is a gear item, like a torch, that has the `melee` quality. So a member
+      who lit a torch and then drew a sword swings the sword. The torch counts only when nothing
+      else suits the attack.
     - For a missile attack, it takes the first weapon whose long range reaches the group. When
-      none reaches, it takes the first missile weapon, and the session refuses the attack with
-      `combat.attack.out_of_range`.
+      none reaches, it takes the first missile weapon, and the session refuses the round with
+      `combat.attack.out_of_range` before any of it resolves.
     - A splash weapon, like a flask of oil or a vial of holy water, never counts, because a
       `use_item` declaration throws it. A wand, or another magic item with no base weapon, has
       no weapon stats, so it never counts either.
     - A member with no weapon that suits the attack strikes unarmed.
 
     The session makes this choice once, when it accepts the round. The attack resolves with that
-    weapon even when the distance changes before the attack resolves. The command log records the
-    declaration as you sent it, with `None`. The attack's
+    weapon even when the distance changes before the attack resolves. The attack's
     [`AttackRolledEvent`][osrlib.core.events.AttackRolledEvent] reports the choice in
     `attack_name`: the weapon's name, `"improvised"` for a gear item like a torch, or
     `"unarmed"`."""
@@ -2576,14 +2588,12 @@ class BattleDeclaration(BaseModel):
     [`CastSpell.targets`][osrlib.crawl.commands.CastSpell.targets]. Each one is a member id, a
     monster id, or, for a spell that affects a place, a cell reference like
     `cell:crypt:1:3,4` that [`cell_ref`][osrlib.crawl.dungeon.cell_ref] builds. Leave it empty
-    for a spell that covers an area, which takes `target_group_id` instead.
-
-    When you set both this and `target_group_id`, the session uses this field.
+    for a spell whose area covers creatures, which takes `target_group_id` instead.
 
     For a mode that affects a total number of Hit Dice (`hd_budget`), you can leave this empty
-    and set `target_group_id` instead. When the mode has no area, like *sleep*'s, that's the same
-    cast as naming every living member of the group in spawn order. When the mode has an area,
-    like *death spell*'s, the cast takes the members inside the area.
+    and set `target_group_id` instead. The session then collects the targets from the group, as
+    [`target_group_id`][osrlib.crawl.commands.BattleDeclaration.target_group_id] describes. When
+    you set both fields, the session uses this one.
 
     The session refuses an invisible target with `battle.declaration.invisible_target`."""
     move: Literal["close", "fighting_withdrawal", "retreat"] | None = None
@@ -2594,14 +2604,19 @@ class BattleDeclaration(BaseModel):
     groups, the party closes on the group of the first `close` in
     [`ResolveBattleRound.declarations`][osrlib.crawl.commands.ResolveBattleRound.declarations].
 
-    `fighting_withdrawal` and `retreat` are the OSE SRD's two ways out of melee. The whole
-    formation makes the move, or one member makes it alone:
+    `fighting_withdrawal` and `retreat` take a member out of melee. A `fighting_withdrawal`
+    backs away slowly, facing the monsters, and a `retreat` turns and runs. Each one is either a
+    formation move or a move the member makes alone:
 
-    - When every member in `declarers` declares the same one, the whole formation makes it.
-      That includes a round with only one declarer. A `fighting_withdrawal` backs the party
-      away from every group at half the slowest member's encounter rate. A `retreat` backs
-      the party away at the full rate and ends the battle. The battle becomes a chase, or a
-      clean escape when no monster can chase.
+    - When every member in `declarers` declares the same one, it's a formation move: the whole
+      party moves as one body. That includes a round with only one declarer. A
+      `fighting_withdrawal` backs the party away from every group at half the slowest member's
+      encounter rate. A `retreat` backs the party away at the full rate and ends the battle. If
+      no monster can pursue the party, the party gets away and the encounter closes. Otherwise
+      the session goes back to `encounter` mode with a pursuit, which
+      [`PursuitState`][osrlib.crawl.encounter.PursuitState] describes. Send
+      [`Wait`][osrlib.crawl.commands.Wait] to run each round of it, or
+      [`EngageBattle`][osrlib.crawl.commands.EngageBattle] to turn and fight.
     - Otherwise, each `fighting_withdrawal` or `retreat` is a move the member makes alone. It
       doesn't move the party, and it doesn't end the battle, even when it's a `retreat`. The
       member has to stand in the front rank. They step back and trade places in the marching
@@ -2610,7 +2625,7 @@ class BattleDeclaration(BaseModel):
     A member who declares either move makes no attack that round, because a member declares
     one action per round. A member who retreats, alone or with the formation, is easier to hit
     for the whole round, whichever side acts first. Attackers get +2 against them and ignore
-    their shield.
+    the retreating member's shield.
     [The adaptations register](https://mmacy.github.io/osrlib-python/adaptations/)
     describes these rules in full."""
     replacement_id: str | None = None
@@ -2637,13 +2652,16 @@ class BattleDeclaration(BaseModel):
       their full encounter rate for a retreat. The replacement moves at up to their full
       encounter rate. *Haste* doubles the limit for the member who has it.
 
-    The replacement stands in the front rank from the movement step on, so they can declare a
-    melee attack against a group in reach this round.
+    The replacement can declare a melee attack in the same round, before the swap has happened.
+    The session checks every melee declaration against the front rank as the round's swaps will
+    leave it, so the replacement counts as a front-rank member.
 
-    If the monsters act first, they can stop the swap. When either member dies, ends up in
-    another rank, or can no longer move, or the replacement becomes incapacitated, charmed, or
-    confused, the two stay where they are. No event reports the swap, and the replacement's
-    melee attack doesn't resolve."""
+    A swap that happens emits a
+    [`MemberWithdrewEvent`][osrlib.crawl.events.MemberWithdrewEvent]. If the monsters act first,
+    they can stop the swap. When either member dies, ends up in another rank, or can no longer
+    move, or the replacement becomes incapacitated, charmed, or confused, the two stay where they
+    are. A swap that doesn't happen emits no event, and the replacement's melee attack doesn't
+    resolve."""
     item_id: str | None = None
     """Which item a `use_item` declaration uses: a magic item's per-instance id for a potion, a
     scroll, a wand, a staff, or a rod, or a mundane item's catalog id for an item thrown at a
@@ -2653,35 +2671,36 @@ class BattleDeclaration(BaseModel):
     """How this member guards against a petrifying gaze this round, or `None` for no guard.
 
     A petrifying gaze, like a basilisk's or a medusa's, reaches each member of the party's front
-    rank once a round while the gazer's group is in melee. Each member it reaches saves versus
-    paralysis or turns to stone. The OSE SRD's basilisk entry says "Unless averting eyes or using
+    rank once a round while the gazer's group is in melee. The session rolls a saving throw
+    versus paralysis for each member it reaches, with no declaration needed. A member who fails
+    turns to stone. The OSE SRD's basilisk entry says "Unless averting eyes or using
     a mirror, characters in melee are affected each round". This field picks one of those two
     guards:
 
     - `avert_eyes`: the gaze passes the member by, and the session gives them the
       `averted_eyes` condition for the round. The basilisk's and the medusa's entries set the
       cost: "-4 penalty to-hit; the basilisk gains a +2 bonus to attack". Every attack roll the
-      member makes this round takes −4, whatever it's aimed at, because the SRD doesn't name a
-      target for the penalty. Each attack a gazing monster makes on the member this round gains
-      +2. Other monsters' attacks gain nothing, because the SRD gives the bonus only to the
-      gazer.
+      member makes this round takes −4, whatever it's aimed at. Each attack a gazing monster
+      makes on the member this round gains +2. Other monsters' attacks gain nothing, because
+      the OSE SRD gives the bonus only to the gazer.
     - `mirror`: the member fights by watching a mirror, and the gaze passes them by. The
       basilisk's entry says "The reflection of a basilisk is harmless. Fighting by looking in a
       mirror incurs a -1 penalty to attack." Every attack roll the member makes this round takes
       −1, whatever it's aimed at, and no monster gains a bonus. The member has to carry a
       `mirror` from the equipment catalog, or the session refuses the declaration with
-      `battle.declaration.no_mirror`. The SRD also says that a gazer that sees its own
-      reflection saves or turns to stone. The session leaves that rule to the referee.
+      `battle.declaration.no_mirror`. The OSE SRD also says that a gazer that sees its own
+      reflection saves or turns to stone. osrlib doesn't apply that rule. If your game uses it,
+      your game or the referee decides when it applies and resolves the gazer's save.
 
     You can set a guard with any `action`. It lasts from when the session accepts the round
-    until the round ends. It draws nothing and emits no event. The command log records it with
-    the declaration.
+    until the round ends. It makes no random roll and emits no event. The command log records it
+    with the declaration.
 
     A member in the back rank doesn't need a guard, because the gaze doesn't reach them.
     Neither does a member who can't act and so doesn't declare, because the gaze passes them by.
 
     A basilisk that surprises the party turns its gaze on every member once as the encounter
-    opens, before the party can declare anything, as the SRD's "Characters surprised by a
+    opens, before the party can declare anything, as the OSE SRD's "Characters surprised by a
     basilisk meet its gaze" says. No guard protects against that gaze.
     [The adaptations register](https://mmacy.github.io/osrlib-python/adaptations/) describes the
     gaze in full."""
@@ -2698,7 +2717,7 @@ class ResolveBattleRound(Command):
     [`BattleDeclaration`][osrlib.crawl.commands.BattleDeclaration] for each of them, and
     send them all in one command. Repeat until the session leaves `battle`. It moves to
     `exploring` when the battle and its encounter end, to `encounter` when a retreat turns
-    into a chase, and to `game_over` when the whole party dies.
+    into a pursuit, and to `game_over` when every party member is dead or turned to stone.
 
     The session accepts or refuses a round as a whole. It checks every declaration before
     it resolves any of them. If a single declaration is bad, the session refuses the
@@ -2759,7 +2778,7 @@ class ResolveBattleRound(Command):
           `battle.declaration.no_target` when no living monster is left in any group that
           hasn't fled. That never refuses a round, because a battle always has a living
           monster when the round starts. The session checks the turning again just before it
-          resolves, and a turning that gets `no_target` then fizzles.
+          resolves, and a turning that gets `no_target` then fails and has no effect.
         - Item declarations: `battle.declaration.item_unusable`,
           `battle.declaration.unknown_group`, `battle.declaration.no_target`,
           `items.use.not_usable`, `items.device.inert`, `items.scroll.spent`,
@@ -2779,8 +2798,8 @@ class ResolveBattleRound(Command):
         [`BattleRoundEvent`][osrlib.crawl.events.BattleRoundEvent], a
         [`SpellDeclaredEvent`][osrlib.crawl.events.SpellDeclaredEvent] per declared
         cast, and
-        [`InitiativeRolledEvent`][osrlib.core.events.InitiativeRolledEvent] for the
-        side order.
+        [`InitiativeRolledEvent`][osrlib.core.events.InitiativeRolledEvent], which reports
+        which side acts first.
 
         Movement: a [`GroupMovedEvent`][osrlib.crawl.events.GroupMovedEvent] each time the
         distance to a group changes, and a
@@ -2821,11 +2840,12 @@ class ResolveBattleRound(Command):
 
         Morale: [`MoraleCheckedEvent`][osrlib.core.events.MoraleCheckedEvent],
         [`MonsterFledEvent`][osrlib.crawl.events.MonsterFledEvent] for a group that
-        breaks and flees, and
+        fails its morale check and flees, and
         [`MonstersLeftBehindEvent`][osrlib.crawl.events.MonstersLeftBehindEvent]
         when a fleeing group leaves behind members who can't move.
 
-        Closing the round, the clock's bookkeeping:
+        Closing the round: the clock advances one round, and these events report what
+        that changes:
         [`EffectExpiredEvent`][osrlib.core.events.EffectExpiredEvent],
         [`EffectTickedEvent`][osrlib.core.events.EffectTickedEvent],
         [`MonsterRevivedEvent`][osrlib.core.events.MonsterRevivedEvent],
@@ -2840,7 +2860,8 @@ class ResolveBattleRound(Command):
         under the immediate XP timing,
         [`XpAwardedEvent`][osrlib.crawl.events.XpAwardedEvent] and
         [`CharacterLeveledUpEvent`][osrlib.crawl.events.CharacterLeveledUpEvent]),
-        or [`GameOverEvent`][osrlib.crawl.events.GameOverEvent] on a party wipe.
+        or [`GameOverEvent`][osrlib.crawl.events.GameOverEvent] when every party member is
+        dead or turned to stone.
 
     Examples:
         A fighter and a cleric meet three goblins 30 feet away. Each round, every member
@@ -2912,6 +2933,7 @@ class ResolveBattleRound(Command):
                 break
             rounds += 1
 
+        # The fight took 9 rounds, and the session went back to exploring once it was over.
         print(rounds, session.mode)
         # 9 exploring
         ```
@@ -2937,7 +2959,7 @@ class GrantItem(Command):
     Use it to hand out a reward, a found item, a starting kit, or a potion the party buys
     from a shop your game runs. The command charges nothing. To charge a price, also send
     [`RemoveCoins`][osrlib.crawl.commands.RemoveCoins]. This command is legal in every mode,
-    terminal modes included.
+    `game_over` and `victory` included.
 
     The session creates a magic item the same way it creates treasure. The item arrives
     unidentified.
@@ -2988,8 +3010,8 @@ class GrantItem(Command):
 class GrantCoins(Command):
     """Referee: put coins straight into a member's purse.
 
-    Use it to pay out a reward. This command is legal in every mode, terminal modes
-    included.
+    Use it to pay out a reward. This command is legal in every mode, `game_over` and
+    `victory` included.
 
     Modes:
         `town`, `exploring`, `encounter`, `battle`, `game_over`, `victory`
@@ -3026,7 +3048,7 @@ class RemoveItem(Command):
     item used up when the quest completes, or an offering left on an altar. The item is
     destroyed, not dropped, so the party can't pick it back up. When your game pays for the
     item, also send [`GrantCoins`][osrlib.crawl.commands.GrantCoins]. This command is legal in
-    every mode, terminal modes included.
+    every mode, `game_over` and `victory` included.
 
     Name the item in `item_id`, by one of two kinds of id. A mundane item, like a torch, has a
     catalog id, and a member can carry several units of it. Set `quantity` to the number of units
@@ -3078,7 +3100,7 @@ class RemoveCoins(Command):
     Use it to charge a price or a toll. The session takes exactly the coins you name. It
     doesn't make change between denominations, so a member who has gold but no silver can't
     pay a toll in silver. Convert the price to coins the member has before you send the
-    command. This command is legal in every mode, terminal modes included. It makes no draws
+    command. This command is legal in every mode, `game_over` and `victory` included. It makes no draws
     and takes no time.
 
     Modes:
@@ -3141,8 +3163,8 @@ class AddMember(Command):
 
     The session refuses the command during an encounter or a battle, because the fight is
     already set up for the party it started with. It also refuses the command once the session
-    has ended, because a new member would restart play. To replace a party that was wiped out,
-    first send [`PlaceParty`][osrlib.crawl.commands.PlaceParty] to move it to town, which
+    has ended, because a new member would restart play. To replace a party whose members are
+    all dead or turned to stone, first send [`PlaceParty`][osrlib.crawl.commands.PlaceParty] to move it to town, which
     takes the session out of `game_over`. Then add the new character.
 
     Modes:
@@ -3186,7 +3208,7 @@ class AwardXP(Command):
     """Referee: give one character experience points, apart from the XP the session awards.
 
     Use it for a quest reward or for any other XP you grant. This command is legal in
-    every mode, terminal modes included, so you can grant an adventure's rewards after the
+    every mode, `game_over` and `victory` included, so you can grant an adventure's rewards after the
     session has ended. The class's prime-requisite bonus or penalty applies to the award,
     and the award can raise the character a level.
 
@@ -3222,7 +3244,7 @@ class SetFlag(Command):
     """Referee: set a session flag, like one that records a lever pulled to open a portcullis.
 
     A flag is a named value you store in the session. This command is legal in
-    every mode, terminal modes included. Flags are saved with the session. Your code and
+    every mode, `game_over` and `victory` included. Flags are saved with the session. Your code and
     listeners read them from the referee view. To test one in an adventure document, use a
     [`FlagEqualsCondition`][osrlib.crawl.gates.FlagEqualsCondition], like the condition on
     a door that opens once the lever has been pulled.
@@ -3264,10 +3286,10 @@ class SpawnMonsters(Command):
 
     - The group rolls no surprise and no reaction. It shares the encounter's surprise and its
       stance, which is the monsters' reaction to the party. So when the party surprised the
-      monsters already there, and they sit out a round, the new group sits it out too.
+      monsters already there, and they can't act for a round, the new group can't act either.
     - The command takes no time and runs no round. The group first acts in the next round,
       when the monster side acts.
-    - The session refuses the command during a chase, because a chase runs at the pace of
+    - The session refuses the command during a pursuit, because a pursuit runs at the pace of
       its slowest group, and a new group could change that pace.
 
     Modes:
@@ -3277,8 +3299,8 @@ class SpawnMonsters(Command):
         - `session.command.wrong_mode` - the session has ended.
         - `session.command.unknown_monster` - `template_id` matches no monster.
         - `session.command.not_in_dungeon` - the party is not on a dungeon cell.
-        - `encounter.spawn.mid_pursuit` - the monsters are chasing the party, and no
-          new group can join during a chase.
+        - `encounter.spawn.mid_pursuit` - the monsters are pursuing the party, and no
+          new group can join during a pursuit.
 
     Events:
         [`MonstersSpawnedEvent`][osrlib.crawl.events.MonstersSpawnedEvent] comes first.
@@ -3413,9 +3435,10 @@ class EndEncounter(Command):
     it go. The session closes the encounter the same way it does when the party wins or gets
     away, and then switches to `exploring`:
 
-    - Monsters slain or routed earlier in the encounter count as defeated and are worth
-      experience. A routed monster is one that fled, is still fleeing, or was turned.
-    - Slain monsters drop their treasure. Routed monsters take theirs with them.
+    - Monsters that were slain earlier in the encounter, or that fled, are still fleeing, or
+      were turned, count as defeated and are worth experience.
+    - Slain monsters drop their treasure. Monsters that fled or were turned take theirs with
+      them.
     - Monsters still standing aren't defeated and are worth no experience.
     - Effects on the encounter's monsters end.
     - The clock advances, so the encounter costs at least one turn.
@@ -3445,7 +3468,7 @@ class EndEncounter(Command):
 
     Events:
         A [`MonsterDefeatedEvent`][osrlib.crawl.events.MonsterDefeatedEvent] for each monster
-        that was slain or routed earlier in the encounter, the events of effects ending on the
+        that counts as defeated, the events of effects ending on the
         encounter's monsters, and the experience award when the ruleset awards it immediately.
         Then the [`EncounterEndedEvent`][osrlib.crawl.events.EncounterEndedEvent] with the
         command's `outcome`, and the events of the clock advance.
@@ -3459,7 +3482,7 @@ class EndEncounter(Command):
     [`EncounterEndedEvent`][osrlib.crawl.events.EncounterEndedEvent]. Use `"parley"` when the
     party and the monsters came to terms, like a toll paid or a bluff believed. Use
     `"departed"` when one side left the other, like a party that walks away from monsters
-    that let it go, or a chase that you call off."""
+    that let it go, or a pursuit that you call off."""
     resolve_area: bool = False
     """Whether to mark the area the encounter came from as resolved, so its keyed monsters don't
     appear when the party next walks in. With `False`, the default, the area stays unresolved,
@@ -3474,8 +3497,8 @@ class SetDoorState(Command):
     lever that opens a portcullis. The door in the adventure document never changes. What
     changes is its state in play: whether it stands open, is wedged, has been found, and has
     been unlocked. A field you leave `None` leaves the current value unchanged. The door doesn't have
-    to be next to the party. This command is legal in every mode, terminal modes
-    included.
+    to be next to the party. This command is legal in every mode, `game_over` and
+    `victory` included.
 
     Modes:
         `town`, `exploring`, `encounter`, `battle`, `game_over`, `victory`
@@ -3570,8 +3593,8 @@ class AdvanceTime(Command):
     """Referee: move the game clock forward.
 
     Use it for time that passes outside the commands, like a week of travel or a
-    referee's "an hour later". This command is legal in every mode, terminal modes
-    included, so the clock keeps running after the party dies. The time limits on spells
+    referee's "an hour later". This command is legal in every mode, `game_over` and
+    `victory` included, so the clock keeps running after the party dies. The time limits on spells
     that bring the dead back are measured on this clock. The time passes with its
     bookkeeping, like effects expiring and provisions eaten each day. The engine makes no
     wandering-monster checks for it, because the referee decides on encounters, and the time
@@ -3607,7 +3630,7 @@ class RollDice(Command):
     Use it when the referee decides a chance outcome that osrlib doesn't model, like a
     puzzle, a bluff, or whether a frayed rope holds. A roll made through the session is
     logged, replayed, and reported as an event, unlike a roll you make yourself.
-    This command is legal in every mode, terminal modes included. The session draws the roll
+    This command is legal in every mode, `game_over` and `victory` included. The session draws the roll
     from the separate
     [`ADJUDICATION_STREAM`][osrlib.crawl.session.ADJUDICATION_STREAM], so a referee's roll
     never changes what any other stream draws. A malformed `expression` raises when the
@@ -3650,7 +3673,7 @@ class MarkTriggerFired(Command):
     interpreter marks a trigger before it issues the trigger's consequences, so it reads the
     mark and doesn't fire a once-only trigger again. The mark survives save,
     load, and replay like the rest of the session's state. This command is legal in
-    every mode, terminal modes included.
+    every mode, `game_over` and `victory` included.
 
     Marking a trigger that's already marked is accepted and changes no state, but it's
     still logged. The session's state records whether a trigger has fired, and the command
@@ -3694,7 +3717,7 @@ class AddJournalEntry(Command):
     state, so an entry stays after whatever caused it is gone. Each entry is stamped with
     the game clock's time when it's added, and
     [`PlayerView.journal`][osrlib.crawl.views.PlayerView.journal] returns the entries as they
-    were written. This command is legal in every mode, terminal modes included, so you
+    were written. This command is legal in every mode, `game_over` and `victory` included, so you
     can add a closing line after the adventure has ended.
 
     Modes:
@@ -3722,7 +3745,7 @@ class RecordNote(Command):
     The note becomes an event at referee visibility and changes nothing else. Use it for a
     record from your code, like an authored consequence that was dropped, or for a
     referee's notes. The trigger and quest interpreter issues it to record what it dropped
-    and why. This command is legal in every mode, terminal modes included.
+    and why. This command is legal in every mode, `game_over` and `victory` included.
 
     Modes:
         `town`, `exploring`, `encounter`, `battle`, `game_over`, `victory`
@@ -3767,7 +3790,7 @@ class ActivateQuest(Command):
     adds that text to the journal, and the event includes it. No
     [`JournalEntryAddedEvent`][osrlib.crawl.events.JournalEntryAddedEvent] follows, because
     the quest's event already includes the text. Only an `inactive` quest can be activated.
-    This command is legal in every mode, terminal modes included.
+    This command is legal in every mode, `game_over` and `victory` included.
 
     Modes:
         `town`, `exploring`, `encounter`, `battle`, `game_over`, `victory`
@@ -3861,7 +3884,7 @@ class RevealObjective(Command):
     adds that text to the journal, and the event includes it. No
     [`JournalEntryAddedEvent`][osrlib.crawl.events.JournalEntryAddedEvent] follows,
     because the objective's event already includes the text. This command is legal in
-    every mode, terminal modes included.
+    every mode, `game_over` and `victory` included.
 
     Modes:
         `town`, `exploring`, `encounter`, `battle`, `game_over`, `victory`
@@ -3905,7 +3928,7 @@ class CompleteObjective(Command):
     text in its narrative, an accepted completion adds that text to the journal, and the
     event includes it. No
     [`JournalEntryAddedEvent`][osrlib.crawl.events.JournalEntryAddedEvent] follows.
-    This command is legal in every mode, terminal modes included.
+    This command is legal in every mode, `game_over` and `victory` included.
 
     Modes:
         `town`, `exploring`, `encounter`, `battle`, `game_over`, `victory`
@@ -3957,7 +3980,7 @@ class CompleteQuest(Command):
     `victory`. When the session has already ended, in `game_over` or `victory`, the quest
     still completes and its text still goes in the journal, but the mode doesn't change and
     the session emits no `AdventureCompletedEvent`. This command is legal in every mode,
-    terminal modes included.
+    `game_over` and `victory` included.
 
     Modes:
         `town`, `exploring`, `encounter`, `battle`, `game_over`, `victory`
