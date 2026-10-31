@@ -1973,30 +1973,34 @@ class DungeonState(BaseModel):
         changes `doors`.
 
         - When the door has an entry, the method returns that entry. Writing to it writes to `doors`.
-        - When the door has no entry, the method returns a new all-`False` state and doesn't store it.
-          The first time you set one of its fields, the state becomes the door's entry in `doors`. If
-          the door has gained an entry in the meantime, the write goes to that entry instead.
+        - When the door has no entry, the method returns a new state and doesn't store it. The first
+          time you set one of its fields, the state becomes the door's entry in `doors`. If the door
+          has gained an entry in the meantime, the write goes to that entry instead.
 
-        The method doesn't read the door's [`DoorSpec`][osrlib.crawl.dungeon.DoorSpec], so it
-        ignores `starts_open`:
+        A new state starts from the door as you wrote it in its
+        [`DoorSpec`][osrlib.crawl.dungeon.DoorSpec], the same way as the entry the session's own
+        commands store. For a door whose `starts_open` is set, `open` reads `True`, and every other
+        field reads `False`. So setting one field changes only that field. For example,
+        `door(ref).discovered = True` on a door that starts open stores an entry that is open and
+        discovered, and the party can still walk through.
 
-        - A door whose `starts_open` is set stands open in play. Until the door has an entry, the
-          state this method returns still reads `open` as `False`.
-        - The first time you set a field through this method, like `door(ref).discovered = True`,
-          the method stores the entry with `open` still `False`.
-        - When the session's commands change a door, they store an entry with `starts_open`
-          applied.
+        The method finds the `DoorSpec` in the adventure of the session that holds this state as its
+        [`GameSession.dungeon_state`][osrlib.crawl.session.GameSession.dungeon_state], whether you made
+        the session with [`GameSession.new`][osrlib.crawl.session.GameSession.new] or
+        [`load_game`][osrlib.persistence.load_game]. A `DungeonState` you make yourself has no adventure,
+        and neither has a reference that names no door in the adventure. For those, a new state reads
+        `False` in every field.
 
         To show doors the way the party sees them, read the player view from
-        [`GameSession.view`][osrlib.crawl.session.GameSession.view] instead.
+        [`GameSession.view`][osrlib.crawl.session.GameSession.view].
 
         Args:
             ref: The door's [`edge_ref`][osrlib.crawl.dungeon.edge_ref]. You get the same reference
                 from either side of a door, so either side reaches the same state.
 
         Returns:
-            The door's entry in `doors`, or a new all-`False` state that becomes the entry the first
-            time you set one of its fields.
+            The door's entry in `doors`, or a new state that starts from the door's `DoorSpec` and
+            becomes the entry the first time you set one of its fields.
 
         Examples:
             ```python

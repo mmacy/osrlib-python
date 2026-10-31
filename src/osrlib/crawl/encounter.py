@@ -1152,8 +1152,8 @@ def end_encounter(session, outcome: str) -> list[Event]:
     [`replay_game`][osrlib.persistence.replay_game] reproduces the close. The session doesn't
     record a direct call to this function, so a replay of the game stays in the encounter.
 
-    An encounter must be open when you call it. If `session.encounter` is None, it raises
-    `AttributeError`, because the function doesn't check for an open encounter first. When it
+    An encounter must be open when you call it. If `session.encounter` is None, the function raises
+    `ValueError` before it changes anything or draws from a random number stream. When it
     returns, `session.encounter` is None. If the session was in `encounter` or `battle` mode, it's
     now in `exploring` mode.
 
@@ -1202,7 +1202,8 @@ def end_encounter(session, outcome: str) -> list[Event]:
         clock advance after it.
 
     Raises:
-        AttributeError: If no encounter is open on the session.
+        ValueError: If no encounter is open on the session. The session is left as it was, with no
+            draws taken and no time passed.
 
     Examples:
         ```python
