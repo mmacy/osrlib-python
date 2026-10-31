@@ -197,7 +197,15 @@ While a target is petrified its other attached effects suspend, with no ticks an
 
 ### A party turned wholly to stone has fallen
 
-The SRD doesn't say what happens when no adventurer is left but statues, so this is a judgement (pinned). A member stands while they are neither dead nor petrified. When a command's events kill or petrify a member and no member is left standing, the session ends in `game_over` exactly as it does when the last member dies, with `battle.ended.defeat` first in a battle. A statue isn't dead, so it still counts among `Party.living_members()` and keeps its rank, and the check is tied to the killing or petrifying event, not to the party's state. So a stone party carried to town with `PlaceParty` stays in `town`. The temple's services are clerical and *stone to flesh* is a magic-user's spell, so the way back is a magic-user who joins with `AddMember` and casts it. Locked by `test_petrified_party.py`.
+When every member of the party is dead or turned to stone, the session ends in `game_over`, as it does when the last member dies. The SRD doesn't say what happens when nobody is left but statues, so this is osrlib's judgement.
+
+- A member stands while they're neither dead nor petrified.
+- The session checks when a command's events kill or petrify a member. If no member is left standing, the session ends in `game_over`, exactly as it does when the last member dies. In a battle, `battle.ended.defeat` comes first.
+- A statue isn't dead, so it still counts among `Party.living_members()` and keeps its rank.
+- The check is tied to the killing or petrifying event, not to the party's state. So a stone party carried to town with `PlaceParty` stays in `town`.
+- The temple's services are clerical, and *stone to flesh* is a magic-user's spell. So the way back is a magic-user who joins with `AddMember` and casts it.
+
+Locked by `test_petrified_party.py`.
 
 ### The canonical tick order
 
@@ -792,7 +800,12 @@ The second rule comes from data, not from the monster's id. The ghoul's and the 
 
 NPC adventurers use the built-in [`NpcPartyPolicy`][osrlib.crawl.battle.NpcPartyPolicy]. They pass over statues the same way. They still attack a paralysed member, because the second rule comes from the ghoul's and the thoul's monster entries, and an NPC adventurer isn't a ghoul. This is osrlib's reading.
 
-When every member in reach is stone, the monster attacks a statue. It doesn't hold instead, because a party that is all stone declares nothing and could never end the battle. It doesn't reach past the statues to the ranks behind, because melee reaches only the front rank, in both directions. A dead member leaves the ranks at once, so a front rank is never made of the dead.
+When every member in reach is stone, the monster attacks a statue. That happens when the front rank is all stone and members behind it still stand:
+
+- A statue keeps its place in the ranks, because it still counts among the party's living members. So the front rank can be all statues.
+- The battle goes on, because the session ends the game only when nobody is left standing (see [A party turned wholly to stone has fallen](#a-party-turned-wholly-to-stone-has-fallen)).
+- The monster can't reach past the statues to the ranks behind, because melee reaches only the front rank, in both directions.
+- Holding would leave the monsters idle in front of the statues and stall the battle, so the monster attacks a statue and the fight goes on. A dead member leaves the ranks at once, so a front rank is never made of the dead.
 
 A monster picks one target a round and makes all its attacks on that target. A ghoul has two claws and a bite, so a ghoul whose first claw paralyses its target still spends the rest of that round's attacks on the same target. When none of the members in reach is paralysed or stone, or when all of them are stone, these rules leave the choice as it is, so the monster's draw doesn't change. Locked by `test_monster_tactics.py`.
 
