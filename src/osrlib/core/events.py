@@ -1150,13 +1150,15 @@ class DeclarationFizzledEvent(Event):
     caused the failure. For example, the group a staff of striking was aimed at moved out of melee reach, or the
     group a wand was aimed at left the battle.
 
-    A melee attack fizzles because of where the member stands when the party's melee step comes. The session judges
-    a melee attack before the round starts, as if every move the round declares had happened. When the attack comes
-    up, it resolves only if the member stands in the group's front rank within 5' of it. Something earlier in the
-    round can change that. For example, the monsters win initiative and the group runs before the member's `close`,
-    or a member the session expected to step back can no longer move. Then the attack fizzles with the code
-    `battle.melee.fizzled`. The one exception is a group that has started to flee: a member who stood within 5' of
-    it when the round was accepted still gets the attack.
+    A melee attack fizzles when the party's melee step comes and the attack has nothing left to strike, or the
+    member stands in the wrong place. The session judges a melee attack before the round starts, as if every move the
+    round declares had happened. When the attack comes up, it resolves only if its group still has a living monster
+    the member can see to strike, and the member stands in the group's front rank within 5' of it. Something earlier
+    in the round can change either. For example, the party's missiles or spells kill every monster in the group, the
+    monsters win initiative and the group runs before the member's `close`, or a member the session expected to step
+    back can no longer move. Then the attack fizzles with the code `battle.melee.fizzled`. A group that has started to
+    flee is an exception to the position check: a member who stood within 5' of it when the round was accepted still
+    gets the attack, if the group has a monster left to strike.
 
     The event's `actor_id` is the member who declared the action, `item_id` is the device, `group_id` is the group a
     melee attack was aimed at, and `reason` is the rejection code of the check that failed.
@@ -1208,7 +1210,10 @@ class DeclarationFizzledEvent(Event):
       but not in its front rank when the attack comes up. A melee attack gets this code only when the member is
       within 5', and `combat.attack.out_of_reach` otherwise.
     - `battle.declaration.unknown_group`: the group a wand was aimed at left the battle.
-    - `battle.declaration.no_target`: no living monster is left in the battle for a turning.
+    - `battle.declaration.no_target`: no living monster is left in the battle for a turning, or no living monster
+      the member can see is left in the group a melee attack was aimed at, for example because the party's missiles
+      or spells killed them earlier in the round. A melee attack gets this code wherever the member stands, whether
+      or not the member closed, because the session checks for a target before it checks the member's position.
 
     Match on it as you match on the code of a [`Rejection`][osrlib.core.validation.Rejection].
     [The rejection code reference][rejection-codes] explains each code.

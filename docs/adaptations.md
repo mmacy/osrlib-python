@@ -232,6 +232,10 @@ Damage resolves in a fixed order:
 
 Halving for a successful save-for-half also rounds down. A back-stab adds +4 to hit and doubles damage, both from the thief tag's params, when the caller says the target is unaware and attacked from behind. Locked by `test_combat.py::TestDamagePipeline`.
 
+### An ignored shield loses its bonus and keeps its penalty
+
+The Other Combat Issues page says of attacking from behind, "AC bonuses from shields are negated", and the Combat page says a retreating combatant's opponent "ignores any AC bonus due to the combatant's shield". When `AttackContext` sets `behind_target` or `defender_retreating`, the attack is made against the armour class the defender would have without the shield. For a magic shield, that takes away the enchantment along with the +1 every shield gives. A cursed shield that makes armour class worse, like the cursed shield -2 or the cursed shield that sets AC 9 [10], gives no bonus to negate, so it still counts. That's osrlib's reading. Locked by `test_ignored_shield.py`.
+
 ### The WIS save modifier applies to magical non-breath saves only
 
 The WIS modifier applies to saving throws against magic, except saves against breath attacks. That's how osrlib reads "does not normally include saves against breath attacks". Any further referee discretion is a modifier the caller supplies. Locked by `test_combat.py::TestSavingThrows`.
@@ -1109,8 +1113,9 @@ The session judges a melee attack before the round starts, but the round can cha
 - An attack that closes from beyond 5' to within 5' stays a melee attack wherever the member ends up. When the close falls short, the attack fizzles instead of turning a dagger's stab into a throw the player never declared.
 - A slow melee attack faces the same check again when it resolves at the end of the round.
 - Against a group that runs, what decides it is where the member stood when the round was accepted: a member who already stood within 5' of the group still strikes it, wherever it has run since, and a member who was closing on it fizzles. The SRD gives the opponent its attack against a retreating combatant, and osrlib reads only a member already within 5' as that opponent.
+- An attack whose group has no living monster the member can see left to strike fizzles too, with the reason `battle.declaration.no_target`. That's the code the session refuses such an attack with at the start of the round. It happens when the party's missiles or spells, or an earlier member's melee, kill every monster in the group. The session checks for a target before it checks the member's position, as it does at the start of the round, so the member gets `no_target` whether or not they closed, and wherever they stand.
 
-Locked by `test_move_and_attack.py::TestTheMeleeStep` and `TestTheMeleeFizzleEvent`.
+Locked by `test_move_and_attack.py::TestTheMeleeStep` and `TestTheMeleeFizzleEvent`, and by `test_melee_no_target.py`.
 
 #### Light and sight are reported in the view only
 

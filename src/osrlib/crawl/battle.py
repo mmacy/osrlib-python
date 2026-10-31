@@ -140,10 +140,10 @@ During a round, the session also applies these rules without a command for them:
 
 - A caster who declared a spell loses it if an attack hits them, or they fail a saving throw,
   between initiative and their turn to act.
-- A declared melee attack that can't resolve because of where the member stands when it comes up,
-  out of reach or out of the group's front rank, fizzles with a
+- A declared melee attack that can't resolve when it comes up fizzles with a
   [`DeclarationFizzledEvent`][osrlib.core.events.DeclarationFizzledEvent] at
-  `battle.melee.fizzled`.
+  `battle.melee.fizzled`. That happens when its group has no living monster left to strike, or when
+  the member stands out of reach or out of the group's front rank.
 - Each monster group checks morale when the OSE SRD calls for it.
 - When a monster's attack hits, the session applies the effects the attack lists: paralysis,
   poison, mummy rot, energy drain, petrification, and the spitting cobra's blindness. Each effect
@@ -3662,13 +3662,14 @@ def _party_attacks(
     a melee attack after a close that takes them within 5' (see `_closing_melee`). Their attack stays a
     melee attack wherever they end up.
 
-    A melee attack resolves only if the member then stands in the group's front rank within 5' of it, as
-    `_melee_rejection` judges it, or if the group runs and the member is in `engaged`, within 5' of it
-    when the round was accepted (see `_melee_fizzle`). Otherwise the member makes no attack, and a
-    player-visible `DeclarationFizzledEvent` at `battle.melee.fizzled` says why, with the group's id and
-    the rejection code as its reason. That happens to a member whose close fell short because the group
-    ran first, and to a member the pre-phase expected to step into a front rank that someone who couldn't
-    move still holds.
+    A melee attack resolves only if the group still has a living, visible monster in its reachable rank to
+    strike, and the member then stands in the group's front rank within 5' of it, as `_melee_rejection`
+    judges it, or the group runs and the member is in `engaged`, within 5' of it when the round was
+    accepted (see `_melee_fizzle`). Otherwise the member makes no attack, and a player-visible
+    `DeclarationFizzledEvent` at `battle.melee.fizzled` says why, with the group's id and the rejection
+    code as its reason. That happens to a member whose group the party's missiles or spells killed earlier
+    in the round, to a member whose close fell short because the group ran first, and to a member the
+    pre-phase expected to step into a front rank that someone who couldn't move still holds.
 
     A slow attack passes these checks here and goes into `slow_attacks` with whether it's a missile attack.
     At the end of the round, a slow melee attack faces the same checks again where the member then stands.
@@ -3710,11 +3711,16 @@ def _melee_fizzle(session, member_id: str, group, engaged: Collection[str]) -> D
     """Return the fizzle of a declared melee attack that can't resolve where the member stands now, or None.
 
     The fizzle is a player-visible `DeclarationFizzledEvent` at `battle.melee.fizzled`, with the group's id
-    and, as its reason, the rejection code `_melee_rejection` gives for the battle as it stands:
-    `combat.attack.out_of_reach` or `battle.declaration.not_in_front_rank`. A group that runs is the
-    exception, whether it failed morale or its living members are all turned or afraid. A member in
-    `engaged`, who stood within 5' of it when the round was accepted, still strikes it. The call reads
-    state and takes no draw.
+    and a reason. The checks come in the order the pre-phase makes them:
+
+    - `battle.declaration.no_target` when the group has no living, visible monster left in its reachable
+      rank, the same test the pre-phase refuses an attack with. The member gets it wherever they stand.
+    - Otherwise the rejection code `_melee_rejection` gives for the battle as it stands:
+      `combat.attack.out_of_reach` or `battle.declaration.not_in_front_rank`. A group that runs is the
+      exception, whether it failed morale or its living members are all turned or afraid. A member in
+      `engaged`, who stood within 5' of it when the round was accepted, still strikes it.
+
+    The call reads state and takes no draw.
     """
     if (group.fleeing or _group_all_shaken(session, group)) and member_id in engaged:
         return None
