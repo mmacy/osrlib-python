@@ -343,7 +343,7 @@ from osrlib.crawl.events import (
     MonstersLeftBehindEvent,
     SpellDeclaredEvent,
 )
-from osrlib.crawl.party import _anyone_standing
+from osrlib.crawl.party import _anyone_standing, _stands
 from osrlib.data import load_classes, load_spells
 
 __all__ = [
@@ -387,16 +387,19 @@ distance against that weapon's ranges.
 FLEE_EXIT_FEET = 120
 """How far, in feet, a group that failed its morale check runs before it leaves the battle.
 
-A group that fails a morale check turns and runs its full movement rate each round. Once its
-distance is greater than this, the session marks the group fled. Until then, the party can still
-close on it or shoot at it.
+A group that fails a morale check turns and runs its full movement rate each round. Once it
+stands farther than this from every living party member, as
+[`member_distance_feet`][osrlib.crawl.battle.member_distance_feet] measures each one, the session
+marks the group fled. Until then, the party can still close on it or shoot at it. The distance is
+measured from the members, not from the party line, so a member who closed on the group keeps it
+in the battle longer, and a move of the party line never pushes a group out.
 
 A fled group takes no further action. The session refuses every declaration aimed at it with
 `battle.declaration.unknown_group`. A battle in which every group has fled or died ends in
 victory.
 
 A group whose living members are all afraid or turned, but which didn't fail a morale check, also
-counts as gone for ending the battle once it's farther away than this.
+counts as gone for ending the battle once it stands farther than this from every living member.
 """
 
 
@@ -478,6 +481,11 @@ class BattleState(BaseModel):
     at zero, and a group can close on them as usual, because a group's distance never goes below zero.
     When every living member is invisible, the line stays where it is.
 
+    The line also moves back when a group closes on a member who stands behind it and the group's
+    stopping point would be behind the line. That happens when a member the group can see still
+    stands forward of the line, so the movement step left the line where it was. The line moves back
+    by the shortfall in the same way, with no event, and the group then stands on the line.
+
     Every member starts a battle on the line, and the
     advances end with the battle, so the party stands on its cell as one body again once the fight is
     over. A save written mid-battle keeps them, and a save from before they existed loads with every
@@ -509,17 +517,27 @@ class MonsterAction(BaseModel):
     kind: str  # close | breath | melee | hold | npc_shoot | npc_cast | npc_drink
     """What the monster does:
 
-    - `"close"` moves the whole group toward the party line by one encounter movement rate. The
-      group stops as soon as it's within
-      [`MELEE_RANGE_FEET`][osrlib.crawl.battle.MELEE_RANGE_FEET] of the nearest living member it
-      can see, so it never moves past a member it can see. A group already within 5' of such a
-      member doesn't move. Only the first `"close"` in a group's actions for a round moves the
-      group.
+    - `"close"` moves the whole group up to one encounter movement rate, the acting monster's,
+      toward the nearest living member it can see. The group stops as soon as it's within
+      [`MELEE_RANGE_FEET`][osrlib.crawl.battle.MELEE_RANGE_FEET] of that member, so it never
+      moves past a member it can see, and it reaches that member in as many rounds as its rate
+      needs. An invisible member doesn't stop it, and a member turned to stone does. The move is
+      toward the party line, unless the group passed the member while they were invisible. When
+      the member stands behind the line and the group would stop behind it, the line moves back
+      first, as
+      [`BattleState.advance_feet`][osrlib.crawl.battle.BattleState.advance_feet] describes, so a
+      group's distance never goes below zero. With no member it can see, the group moves toward
+      the line and stops 5' from it. A group already within 5' of a member it can see doesn't
+      move, and the session emits no event for it. Only the first `"close"` in a group's actions
+      for a round moves the group.
     - `"melee"` attacks `target_id`. The session resolves it only if the target stands in the
       group's front rank within 5' of it when the action comes up, as
       [`group_front_rank`][osrlib.crawl.battle.group_front_rank] reports. So a `"melee"` after the
       group's `"close"` strikes when the move has brought the target within reach, and is skipped
-      otherwise.
+      otherwise. The one exception is a round in which the whole party retreats as a formation.
+      A member who stood in the group's front rank within 5' of it when the round was accepted
+      can then be struck all round, wherever the party has moved, because the OSE SRD gives the
+      opponent its attack against a retreating combatant.
     - `"breath"` uses the monster's breath weapon on the party.
     - `"hold"` does nothing.
     - `"npc_shoot"`, `"npc_cast"`, and `"npc_drink"` are for NPC adventurers only. They make a
@@ -694,7 +712,8 @@ class ScriptedPolicy:
     the monster group to choose for, and the stream of random numbers the session passes in, and it
     returns a list of [`MonsterAction`][osrlib.crawl.battle.MonsterAction]s.
 
-    A monster with a breath weapon uses it while the party is within the breath's length:
+    A monster with a breath weapon uses it while the nearest member the group can see is within the
+    breath's length:
 
     - When the breath weapon has a number of uses per day, the monster breathes if it hasn't
       breathed yet that day. After that, it breathes or attacks with equal chance while uses remain,
@@ -702,8 +721,8 @@ class ScriptedPolicy:
     - When the breath weapon works on a chance in six, as the hellhound's does, the policy rolls
       that chance each round.
 
-    Otherwise, while every member is farther than
-    [`MELEE_RANGE_FEET`][osrlib.crawl.battle.MELEE_RANGE_FEET] from the group, each monster takes a
+    Otherwise, while every member the group can see is farther than
+    [`MELEE_RANGE_FEET`][osrlib.crawl.battle.MELEE_RANGE_FEET] from it, each monster takes a
     `close` action. When the group's move will bring a member within reach, each monster also takes a
     `melee` action in the same round, aimed at a member of the front rank the move will produce. Once
     the group is within reach, each monster picks a target at random from the group's front rank, the
@@ -828,17 +847,21 @@ class ScriptedPolicy:
                 [`MONSTER_ACTION_STREAM`][osrlib.crawl.session.MONSTER_ACTION_STREAM] stream.
 
         Returns:
-            One [`MonsterAction`][osrlib.crawl.battle.MonsterAction] for each living monster that can
-            act, in the group's member order. Incapacitated and confused monsters get none, because
-            the session resolves confusion itself.
+            The [`MonsterAction`][osrlib.crawl.battle.MonsterAction]s for each living monster that
+            can act, in the group's member order: one action, or a `close` followed by a `melee`
+            when the group's move will bring a member within reach. Incapacitated and confused
+            monsters get none, because the session resolves confusion itself.
         """
         actions: list[MonsterAction] = []
-        pool = _party_target_pool(session)
+        placement = _placement(session)
+        nearest = _nearest_seen_distance(session, group, placement)
+        pool = _seen(session, _reachable_front_rank(group, placement))
+        arrival: list | None = None  # the targets once the group's close is made, worked out at its first close
         for monster in _living_monsters(session, group):
             if incapacitated(monster) or has_condition(monster, Condition.CONFUSED):
                 continue  # the round handler resolves confusion, not the policy
             breath = monster.template.ability("breath_weapon")
-            if breath is not None and _breath_usable(monster, group.distance_feet):
+            if breath is not None and _breath_usable(monster, nearest):
                 params = breath.params
                 if params.get("per_round_chance_in_six") is not None:
                     gate = stream.randbelow(6) + 1
@@ -852,16 +875,21 @@ class ScriptedPolicy:
                     if monster.breath_uses_today < int(params["uses_per_day"]) and stream.randbelow(2) == 0:
                         actions.append(MonsterAction(monster_id=monster.id, kind="breath"))
                         continue
-            if _nearest_member_distance(session, group) > MELEE_RANGE_FEET:
+            if nearest > MELEE_RANGE_FEET:
                 actions.append(MonsterAction(monster_id=monster.id, kind="close"))
-                continue
-            targets = _preferred_targets(monster, _reachable_targets(session, monster, pool))
-            if not targets:
-                actions.append(MonsterAction(monster_id=monster.id, kind="hold"))
-                continue
-            target = targets[stream.randbelow(len(targets))]
-            routine = _pick_routine(monster, stream)
-            actions.append(MonsterAction(monster_id=monster.id, kind="melee", target_id=target.id, routine=routine))
+                if arrival is None and not cannot_move(monster):
+                    # The session moves the group by the first close of a monster that can move.
+                    arrival = _seen_after_close(session, group, placement, _encounter_rate(monster, session))
+                targets = _preferred_targets(monster, _reachable_targets(session, monster, arrival or []))
+            else:
+                targets = _preferred_targets(monster, _reachable_targets(session, monster, pool))
+                if not targets:
+                    actions.append(MonsterAction(monster_id=monster.id, kind="hold"))
+                    continue
+            if targets:
+                target = targets[stream.randbelow(len(targets))]
+                routine = _pick_routine(monster, stream)
+                actions.append(MonsterAction(monster_id=monster.id, kind="melee", target_id=target.id, routine=routine))
         return actions
 
 
@@ -887,10 +915,11 @@ class NpcPartyPolicy:
        ranks toward the NPC group from the front, as many ranks as its size covers. For a spell with
        one target, the caster picks a member at random from the first row of the player party's
        ranks toward the NPC group, leaving out invisible members.
-    4. An NPC with a missile weapon shoots while every member of the player party is farther than
-       [`MELEE_RANGE_FEET`][osrlib.crawl.battle.MELEE_RANGE_FEET] from the NPC group. It picks its
-       target at random from the first row of the player party's ranks toward the NPC group,
-       leaving out invisible members. So the members in front screen the members behind them from
+    4. An NPC with a missile weapon shoots while every member of the player party it can see is
+       farther than [`MELEE_RANGE_FEET`][osrlib.crawl.battle.MELEE_RANGE_FEET] from the NPC group.
+       It picks its target at random from the first row of the player party's ranks toward the NPC
+       group, leaving out invisible members, and the shot's range band is that member's own
+       distance to the NPC group. So the members in front screen the members behind them from
        arrows as well as from blades.
     5. Otherwise, the NPC closes, and attacks in melee in the same round when the group's move
        brings a member within reach. It picks its target at random from the NPC group's front rank,
@@ -975,14 +1004,20 @@ class NpcPartyPolicy:
                 [`MONSTER_ACTION_STREAM`][osrlib.crawl.session.MONSTER_ACTION_STREAM] stream.
 
         Returns:
-            One [`MonsterAction`][osrlib.crawl.battle.MonsterAction] for each living member that can
-            act, in the group's member order. Incapacitated and confused members get none.
+            The [`MonsterAction`][osrlib.crawl.battle.MonsterAction]s for each living member that
+            can act, in the group's member order: one action, or a `close` followed by a `melee`
+            when the group's move will bring a member within reach. Incapacitated and confused
+            members get none.
         """
         from osrlib.data import load_spells
 
         actions: list[MonsterAction] = []
         living = _living_monsters(session, group)
-        pool = _party_target_pool(session)
+        placement = _placement(session)
+        nearest = _nearest_seen_distance(session, group, placement)
+        first_row = _first_row_seen(session, group, placement)
+        pool = _seen(session, _reachable_front_rank(group, placement))
+        arrival: list | None = None  # the targets once the group's close is made, worked out at its first close
         catalog = load_spells()
         cure_available = any(_npc_cure_spell(member, catalog) is not None for member in living)
         for npc in living:
@@ -1009,27 +1044,32 @@ class NpcPartyPolicy:
                 spell, mode = offense
                 target_id = None
                 targeting = spell.mode(mode).targeting
-                if targeting is not None and targeting.mode is not TargetingMode.AREA and pool:
-                    target_id = pool[stream.randbelow(len(pool))].id
+                if targeting is not None and targeting.mode is not TargetingMode.AREA and first_row:
+                    target_id = first_row[stream.randbelow(len(first_row))].id
                 actions.append(
                     MonsterAction(
                         monster_id=npc.id, kind="npc_cast", target_id=target_id, spell_id=spell.id, spell_mode=mode
                     )
                 )
                 continue
-            if _nearest_member_distance(session, group) > MELEE_RANGE_FEET:
-                if _npc_wielded(npc, missile=True, distance_feet=group.distance_feet) is not None and pool:
-                    target = pool[stream.randbelow(len(pool))]
+            if nearest > MELEE_RANGE_FEET:
+                if _npc_wielded(npc, missile=True) is not None and first_row:
+                    target = first_row[stream.randbelow(len(first_row))]
                     actions.append(MonsterAction(monster_id=npc.id, kind="npc_shoot", target_id=target.id))
-                else:
-                    actions.append(MonsterAction(monster_id=npc.id, kind="close"))
-                continue
-            targets = _passing_over_statues(_reachable_targets(session, npc, pool))
-            if not targets:
-                actions.append(MonsterAction(monster_id=npc.id, kind="hold"))
-                continue
-            target = targets[stream.randbelow(len(targets))]
-            actions.append(MonsterAction(monster_id=npc.id, kind="melee", target_id=target.id))
+                    continue
+                actions.append(MonsterAction(monster_id=npc.id, kind="close"))
+                if arrival is None and not cannot_move(npc):
+                    # The session moves the group by the first close of a member who can move.
+                    arrival = _seen_after_close(session, group, placement, _encounter_rate(npc, session))
+                targets = _passing_over_statues(_reachable_targets(session, npc, arrival or []))
+            else:
+                targets = _passing_over_statues(_reachable_targets(session, npc, pool))
+                if not targets:
+                    actions.append(MonsterAction(monster_id=npc.id, kind="hold"))
+                    continue
+            if targets:
+                target = targets[stream.randbelow(len(targets))]
+                actions.append(MonsterAction(monster_id=npc.id, kind="melee", target_id=target.id))
         return actions
 
 
@@ -1074,8 +1114,12 @@ def _npc_healing_potion(npc):
     return None
 
 
-def _npc_wielded(npc, *, missile: bool, distance_feet: int = MELEE_RANGE_FEET):
-    """The NPC's first wielded weapon that fits the range, either a template or a magic instance."""
+def _npc_wielded(npc, *, missile: bool):
+    """The NPC's first wielded weapon for a missile or a melee attack, either a template or a magic instance.
+
+    The choice doesn't depend on distance. The attack's distance, the target member's own distance to the NPC's
+    group, sets the missile's range band when the attack resolves (see `_resolve_npc_attack`).
+    """
     for instance in npc.inventory.wielded:
         attack = instance if isinstance(instance, MagicItemInstance) else instance.template
         facet = _declaration_facet(attack)
@@ -1284,8 +1328,8 @@ def _formation_width(session) -> int | None:
 def _party_ranks(session) -> list[list]:
     """The living members cut into rows of the formation width in marching order, wherever each one stands.
 
-    The monster side reads these rows: its melee pool, a breath, an area aimed at the party, and a gaze. The
-    party's own melee reads the ranks toward each group by distance instead (see `_ranks_toward`).
+    The player view's `front_rank` and the rank-mates of a ring of protection read these rows. Every rule that
+    measures reach reads the ranks toward each group by distance instead (see `_ranks_toward`).
     """
     width = _formation_width(session)
     living = session.party.living_members()
@@ -1297,11 +1341,6 @@ def _party_ranks(session) -> list[list]:
 def _party_front_rank(session) -> list:
     ranks = _party_ranks(session)
     return ranks[0] if ranks else []
-
-
-def _party_target_pool(session) -> list:
-    """The monsters' melee pool: the party front rank, invisible members excluded."""
-    return [member for member in _party_front_rank(session) if not has_condition(member, Condition.INVISIBLE)]
 
 
 def _ally_protection_bonus(session, defender) -> int:
@@ -1455,16 +1494,24 @@ class _Placement(NamedTuple):
     back, and the distance the line moves back at the end of the movement step."""
 
     def distance(self, member_id: str, group) -> int:
-        """The member's distance to the group: the group's distance from the line minus the member's advance."""
-        return group.distance_feet + self.group_offset_feet - self.advance_feet.get(member_id, 0)
+        """How far apart the member and the group stand, in feet, whichever side of the group the member is on.
+
+        It's the size of the group's distance from the line minus the member's advance. That difference is
+        negative only for a member the group has passed, which a group does only to a member it can't see. Reach,
+        ranks, and ranges all measure by this, so such a member 5' past the group is within its reach.
+        """
+        return abs(group.distance_feet + self.group_offset_feet - self.advance_feet.get(member_id, 0))
 
 
 def _placement(session) -> _Placement:
-    """Read where the party stands now. The call reads state and takes no draw."""
+    """Read where the party stands now. The call reads state and takes no draw.
+
+    Outside a battle, as when a member uses a wand in `encounter` mode, every member stands on the party line.
+    """
     state = session.battle
     return _Placement(
-        advance_feet=dict(state.advance_feet),
-        arrived_round=dict(state.arrived_round),
+        advance_feet=dict(state.advance_feet) if state is not None else {},
+        arrived_round=dict(state.arrived_round) if state is not None else {},
         order=tuple(member.id for member in session.party.living_members()),
         width=_formation_width(session),
     )
@@ -1523,16 +1570,26 @@ def _projected_placement(
     )
 
 
-def _member_distance(session, member_id: str, group) -> int:
-    """The member's distance to the group in the running battle."""
+def _signed_distance(session, member_id: str, group) -> int:
+    """The group's distance from the party line minus the member's advance, in the running battle.
+
+    [`member_distance_feet`][osrlib.crawl.battle.member_distance_feet] and `MemberMovedEvent` report this
+    value. It's negative for a member the group has passed. The rules measure by its size (see
+    `_member_distance`).
+    """
     return group.distance_feet - session.battle.advance_feet.get(member_id, 0)
 
 
+def _member_distance(session, member_id: str, group) -> int:
+    """How far apart the member and the group stand in the running battle, as `_Placement.distance` measures it."""
+    return abs(_signed_distance(session, member_id, group))
+
+
 def _nearest_member_distance(session, group) -> int:
-    """The smallest distance from any living member to the group, which decides whether the group closes.
+    """How far the group stands from the nearest living member, which decides when a group that runs is gone.
 
     Before any member has moved, every member stands on the party line, so this is the group's own
-    distance. A session with no living member gives the group's distance too.
+    distance. Outside a battle, and in a session with no living member, it's the group's distance too.
     """
     living = session.party.living_members()
     if session.battle is None or not living:
@@ -1540,13 +1597,109 @@ def _nearest_member_distance(session, group) -> int:
     return min(_member_distance(session, member.id, group) for member in living)
 
 
+def _seen(session, member_ids: Iterable[str]) -> list:
+    """The members among `member_ids` whom the monsters can see, which leaves out invisible members, in order."""
+    members = (session.member(member_id) for member_id in member_ids)
+    return [member for member in members if not has_condition(member, Condition.INVISIBLE)]
+
+
+def _nearest_seen_distance(session, group, placement: _Placement) -> int:
+    """How far the group stands from the nearest living member it can see, which decides whether it closes.
+
+    An invisible member doesn't count, unless every living member is invisible: then it's the nearest living
+    member. Before any member has moved, every member stands on the party line, so this is the group's own
+    distance. A session with no living member gives the group's distance too.
+    """
+    seen = [member.id for member in _seen(session, placement.order)] or list(placement.order)
+    return min(
+        (placement.distance(member_id, group) for member_id in seen),
+        default=group.distance_feet + placement.group_offset_feet,
+    )
+
+
+def _first_row_seen(session, group, placement: _Placement) -> list:
+    """The members of the first row toward the group whom it can see, in marching order, at any distance.
+
+    An NPC adventurer who shoots or casts a spell at one member picks from these, as does a breath that hits one
+    target, like the hellhound's. The members in front screen the members behind them. Before any member has
+    moved, this is the first rank of the marching order, less its invisible members.
+    """
+    rows = _ranks_toward(group, placement)
+    return _seen(session, rows[0]) if rows else []
+
+
+def _closing_distance(session, group, rate: int) -> int:
+    """Where a group's `close` takes it, as its new distance from the party line, by the arithmetic alone.
+
+    The group moves up to `rate` feet toward the nearest living member it can see, and stops 5' from them, so it
+    never moves past a member it can see and always reaches them in as many rounds as its rate needs. That's toward
+    the party line, unless the group passed the member while they were invisible. A group already within 5' of a
+    member it can see doesn't move. With no member it can see, the group moves toward the line and stops 5' from
+    it. Members at the same distance on both sides draw the group toward the line. It reads state and takes no
+    draw.
+
+    Returns:
+        The new distance. It's below zero when the group's stopping point is behind the line, which happens when
+            the member it closes on stands behind the line. The session then moves the line back by the shortfall
+            before it places the group (see `_place_closing_group`). The distances between the group and the
+            members are the same either way.
+    """
+    distance = group.distance_feet
+    advance_feet = session.battle.advance_feet
+    seen = [
+        advance_feet.get(member.id, 0)
+        for member in session.party.living_members()
+        if not has_condition(member, Condition.INVISIBLE)
+    ]
+    if not seen:
+        return min(distance, max(distance - rate, MELEE_RANGE_FEET))
+    nearest = min(seen, key=lambda advance: (abs(distance - advance), advance > distance))
+    if abs(distance - nearest) <= MELEE_RANGE_FEET:
+        return distance
+    if nearest < distance:
+        return max(distance - rate, nearest + MELEE_RANGE_FEET)
+    return min(distance + rate, nearest - MELEE_RANGE_FEET)
+
+
+def _place_closing_group(session, group, arrival: int) -> list[Event]:
+    """Put a closing group at `arrival`, its new distance from the party line, and report the move.
+
+    A group's distance never goes below zero. When `arrival` is behind the line, the line first moves back by the
+    shortfall, as `_move_line_back` moves it: every member's advance and every group's distance grow by the same
+    number of feet, with no event, so no distance between a member and a group changes. The group then stands on
+    the line. A `GroupMovedEvent` reports the move when the group's distance changes. The call takes no draw.
+
+    Returns:
+        The `GroupMovedEvent`, or nothing when the group stays where it is.
+    """
+    if arrival < 0:
+        _shift_line_back(session, -arrival)
+        arrival = 0
+    if arrival == group.distance_feet:
+        return []
+    group.distance_feet = arrival
+    return [GroupMovedEvent(group_id=group.id, distance_feet=arrival)]
+
+
+def _seen_after_close(session, group, placement: _Placement, rate: int) -> list:
+    """The members a group's melee would reach once its `close` at `rate` is made, less the invisible ones.
+
+    The default policies aim a melee attack that follows a `close` at one of these. It reads state and takes no
+    draw.
+    """
+    arrival = _closing_distance(session, group, rate)
+    moved = placement._replace(group_offset_feet=placement.group_offset_feet + arrival - group.distance_feet)
+    return _seen(session, _reachable_front_rank(group, moved))
+
+
 def _ranks_toward(group, placement: _Placement) -> list[list[str]]:
     """The party's ranks toward one group: the living members sorted by distance and cut into rows.
 
-    Members at the same distance stand in the order they got there, earliest first, and then in marching
-    order. A row holds at most `placement.width` members and never mixes distances. With no width limit, a
-    row holds every member at its distance. Each row lists its members in marching order. The sort key is
-    total, so the rows are the same for the same state.
+    The distance is how far apart a member and the group stand, as `_Placement.distance` measures it, so a member
+    the group has passed ranks by how far behind it they are. Members at the same distance stand in the order they
+    got there, earliest first, and then in marching order. A row holds at most `placement.width` members and never
+    mixes distances. With no width limit, a row holds every member at its distance. Each row lists its members in
+    marching order. The sort key is total, so the rows are the same for the same state.
 
     Returns:
         The rows, nearest first, as lists of member ids. Before any member has moved, these are the
@@ -1644,15 +1797,22 @@ def _move_line_back(session) -> None:
     living member is invisible, or one of them stands on or forward of the line, nothing changes. The call
     takes no draw.
     """
+    shift = _line_shift(session, session.battle.advance_feet)
+    if shift:
+        _shift_line_back(session, shift)
+
+
+def _shift_line_back(session, feet: int) -> None:
+    """Move the party line back by `feet`: every member's advance and every group's distance grow by that much.
+
+    No distance between a member and a group changes, so the move emits no event. The call takes no draw.
+    """
     state = session.battle
     living = session.party.living_members()
-    shift = _line_shift(session, state.advance_feet)
-    if shift == 0:
-        return
     for member_id in [*state.advance_feet, *(member.id for member in living if member.id not in state.advance_feet)]:
-        state.advance_feet[member_id] = state.advance_feet.get(member_id, 0) + shift
+        state.advance_feet[member_id] = state.advance_feet.get(member_id, 0) + feet
     for group in session.encounter.groups:
-        group.distance_feet += shift
+        group.distance_feet += feet
 
 
 def member_distance_feet(session, member_id: str, group_id: str) -> int:
@@ -1664,6 +1824,10 @@ def member_distance_feet(session, member_id: str, group_id: str) -> int:
     [`BattleState.advance_feet`][osrlib.crawl.battle.BattleState.advance_feet]. This returns the
     group's distance minus the member's advance. Every rule that measures how far a member is from a
     group uses it: melee reach, a missile's range band, and a spell's range.
+
+    The value is negative only for a member the group has passed, which a group does only to a member
+    it can't see. The rules measure such a member by the size of the value, so a member at -5 is
+    within reach of the group.
 
     Call it from a policy of your own (see [`ActionPolicy`][osrlib.crawl.battle.ActionPolicy]) or from
     server-side code that has the session. A client that has only the player view reads the same
@@ -1693,7 +1857,7 @@ def member_distance_feet(session, member_id: str, group_id: str) -> int:
     group = _group_by_id(session, group_id)
     if group is None:
         raise ValueError(f"no group in the encounter has the id {group_id!r}")
-    return _member_distance(session, member_id, group)
+    return _signed_distance(session, member_id, group)
 
 
 def group_front_rank(session, group_id: str) -> tuple[str, ...]:
@@ -1992,10 +2156,11 @@ def _check_ends(session, *, party_retreating: bool) -> list[Event] | None:
     if party_retreating:
         from osrlib.crawl.encounter import PursuitState
 
-        # The chase starts from the member nearest a pursuer, so read the positions before the battle ends.
-        living = session.party.living_members()
+        # The chase starts from the standing member nearest a pursuer, so read the positions before the battle
+        # ends. A statue doesn't run, so it doesn't count.
+        standing = [member for member in session.party.members if _stands(member)]
         distances = {
-            group.id: min(_member_distance(session, member.id, group) for member in living) for group in groups
+            group.id: min(_member_distance(session, member.id, group) for member in standing) for group in groups
         }
         session.battle = None
         # Only a group still willing and able to pursue: not one that failed morale and
@@ -2013,7 +2178,7 @@ def _check_ends(session, *, party_retreating: bool) -> list[Event] | None:
             return [BattleEndedEvent(code="battle.ended.fled"), *encounter_module.end_encounter(session, "evaded")]
         session.mode = SessionMode.ENCOUNTER
         session.encounter.evading = True
-        gap = max(0, min(distances[group.id] for group in pursuers))
+        gap = min(distances[group.id] for group in pursuers)
         session.encounter.pursuit = PursuitState(gap_feet=gap)
         return [BattleEndedEvent(code="battle.ended.fled")]
     return None
@@ -2026,7 +2191,7 @@ def _all_routed(session, group) -> bool:
         and all(
             has_condition(monster, Condition.TURNED) or has_condition(monster, Condition.AFRAID) for monster in living
         )
-        and group.distance_feet > FLEE_EXIT_FEET
+        and _nearest_member_distance(session, group) > FLEE_EXIT_FEET
     )
 
 
@@ -2430,8 +2595,9 @@ def _validate_declaration(
 def _cast_targets(session, declaration: BattleDeclaration, spell) -> tuple[list, int | None, list[Rejection]]:
     """Resolve a cast declaration's targets: explicit ids, the area footprint, or a group's living members.
 
-    An `area` mode takes the group's living members that fit the area footprint, then the party's
-    front rank when `aoe_friendly_fire` applies. An `hd_budget` mode with a `target_group_id` and no
+    An `area` mode takes the group's living members that fit the area footprint, measured from the
+    caster, then the members of the group's front rank within 5' of it when `aoe_friendly_fire`
+    applies (see `_area_candidates`). An `hd_budget` mode with a `target_group_id` and no
     `targets` takes the group's living members in spawn order, and the kernel spends the budget on
     them weakest first. With no area, like *sleep*'s, that's every living member, so a front end that
     has only the player view's group ids can still cast *sleep*. With an area, like *death spell*'s,
@@ -2461,7 +2627,9 @@ def _cast_targets(session, declaration: BattleDeclaration, spell) -> tuple[list,
             unknown = Rejection(code="battle.declaration.unknown_group", params={"character": declaration.character_id})
             return [], None, [unknown]
         if targeting.mode is TargetingMode.AREA or targeting.shape is not None:
-            candidates = _area_candidates(session, group, targeting.shape, targeting.dimensions)
+            candidates = _area_candidates(
+                session, group, targeting.shape, targeting.dimensions, caster_id=declaration.character_id
+            )
         else:
             candidates = _living_monsters(session, group)
         return candidates, _member_distance(session, declaration.character_id, group), []
@@ -2486,7 +2654,7 @@ def _cast_targets(session, declaration: BattleDeclaration, spell) -> tuple[list,
     return targets, distance, []
 
 
-def _area_span_feet(shape: str | None, dimensions: dict, gap_feet: int) -> int:
+def _area_span_feet(shape: str | None, dimensions: Mapping[str, Any], gap_feet: int) -> int:
     """The deterministic footprint span: diameter, length, or reach-limited length.
 
     A documented adaptation (see the
@@ -2504,21 +2672,60 @@ def _area_span_feet(shape: str | None, dimensions: dict, gap_feet: int) -> int:
     return int(dimensions.get("length_feet", dimensions.get("side_feet", 0)))
 
 
-def _area_candidates(session, group, shape: str | None, dimensions: dict) -> list:
-    """Fill an area's capacity in stable spawn order. Friendly fire appends the party's front rank."""
-    span = _area_span_feet(shape, dimensions, group.distance_feet)
-    width = _formation_width(session)
-    if width is None:
-        capacity = 10**9
-    else:
-        capacity = math.ceil(span / 10) * width
+def _area_candidates(
+    session, group, shape: str | None, dimensions: Mapping[str, Any], *, caster_id: str | None = None
+) -> list:
+    """Fill the capacity of a party member's area aimed at a group, in stable spawn order, then add friendly fire.
+
+    A cone's gap, the stretch it crosses before it reaches the group, is the distance from the member it comes
+    from, `caster_id`, to the group. Without `caster_id`, it's the group's distance from the party line. Under the
+    ruleset's `aoe_friendly_fire`, the area then catches the members of the group's front rank who stand within 5'
+    of it, in marching order, while it has room (see `_reachable_front_rank`). A caster who stands back is never
+    inside their own area. Outside a battle, every member stands on the line. The call reads state and takes no
+    draw.
+    """
+    placement = _placement(session)
+    gap = group.distance_feet if caster_id is None else placement.distance(caster_id, group)
+    span = _area_span_feet(shape, dimensions, gap)
+    capacity = 10**9 if placement.width is None else math.ceil(span / 10) * placement.width
     candidates: list = list(_living_monsters(session, group))[:capacity]
-    if session.ruleset.aoe_friendly_fire and group.distance_feet <= MELEE_RANGE_FEET and len(candidates) < capacity:
-        for member in _party_front_rank(session):
+    if session.ruleset.aoe_friendly_fire:
+        for member_id in _reachable_front_rank(group, placement):
             if len(candidates) >= capacity:
                 break
-            candidates.append(member)
+            candidates.append(session.member(member_id))
     return candidates
+
+
+def _area_rows(group, placement: _Placement, shape: str | None, dimensions: Mapping[str, Any]) -> list[str]:
+    """The members an area aimed at the party from a group covers, by the footprint rule, nearest row first.
+
+    The rows are the ranks toward the group (see `_ranks_toward`). The first row's depth is its own distance, which
+    is the gap a cone crosses before it reaches the party. Each later row is at least 10' deeper than the row in
+    front of it, as a cell is deep, and no shallower than its own distance, so depth never goes down. The area covers
+    the rows in order from the front while a row's depth is less than the span past the first row (see
+    `_area_span_feet`), and stops at the first row it doesn't reach. So a cone covers the rows that start nearer the
+    group than its length, and never a farther row past a nearer one. Before any member has moved, every row stands
+    at the group's distance, so the area covers `ceil(span / 10)` rows from the front, as it always has. The call
+    reads state and takes no draw.
+
+    Returns:
+        Member ids, row by row, each row in marching order.
+    """
+    rows = _ranks_toward(group, placement)
+    if not rows:
+        return []
+    front = placement.distance(rows[0][0], group)
+    span = _area_span_feet(shape, dimensions, front)
+    covered: list[str] = []
+    # Seeded so that the first row's depth is the front's distance.
+    depth = front - 10
+    for row in rows:
+        depth = max(depth + 10, placement.distance(row[0], group))
+        if depth - front >= span:
+            break
+        covered.extend(row)
+    return covered
 
 
 def _validate_magic_item_declaration(
@@ -2963,17 +3170,20 @@ def _handle_resolve_battle_round(session, command: ResolveBattleRound) -> tuple[
     fired_this_round: list[str] = []
     fire_damaged_groups: set[str] = set()
     retreating = _retreating_members(session, declarations, formation)
+    # A formation retreat stays within each group's reach all round, from where the party stood at acceptance.
+    retreat_reach = (
+        {group.id: frozenset(_reachable_front_rank(group, standing)) for group in session.encounter.groups}
+        if formation == "retreat"
+        else {}
+    )
     engaged = _engaged_at_acceptance(session, by_member, standing)
     closing = _closing_melee(session, by_member, standing, judgement.projected)
-    # The members who fell back alone this round. The movement step fills it.
-    withdrawn: set[str] = set()
-    slow_attacks: list[tuple[Creature, BattleDeclaration]] = []
+    # Each slow attack, with whether it's a missile attack. The party's attack steps fill it.
+    slow_attacks: list[tuple[Creature, BattleDeclaration, bool]] = []
 
     def party_block() -> list[Event]:
         block: list[Event] = []
-        moved, fell_back = _party_movement(session, by_member, trades, formation)
-        block.extend(moved)
-        withdrawn.update(fell_back)
+        block.extend(_party_movement(session, by_member, trades, formation))
         block.extend(
             _party_attacks(
                 session,
@@ -3017,7 +3227,7 @@ def _handle_resolve_battle_round(session, command: ResolveBattleRound) -> tuple[
             acted=acted,
             fire_damaged=fire_damaged_groups,
             retreating=retreating,
-            withdrawn=withdrawn,
+            retreat_reach=retreat_reach,
             npc_actions=npc_actions,
             mirrored=mirrored,
         )
@@ -3034,8 +3244,16 @@ def _handle_resolve_battle_round(session, command: ResolveBattleRound) -> tuple[
 
     # Slow-weapon actors act last, after both sides' blocks (see the adaptations register).
     if session.battle is not None:
-        for member, declaration in slow_attacks:
+        for member, declaration, missile in slow_attacks:
             if incapacitated(member):
+                continue
+            # A slow melee attack faces the melee step's check again, where the member stands now.
+            group = _group_by_id(session, declaration.target_group_id)
+            fizzled = (
+                None if missile or group is None else _melee_fizzle(session, declaration.character_id, group, engaged)
+            )
+            if fizzled is not None:
+                events.append(fizzled)
                 continue
             events.extend(_resolve_party_attack(session, member, declaration, fired_this_round, fire_damaged_groups))
         end = _check_ends(session, party_retreating=False)
@@ -3096,9 +3314,7 @@ def _engaged_at_acceptance(session, by_member, placement: _Placement) -> frozens
     return frozenset(engaged)
 
 
-def _party_movement(
-    session, by_member, trades: Sequence[_Trade], formation: str | None
-) -> tuple[list[Event], list[str]]:
+def _party_movement(session, by_member, trades: Sequence[_Trade], formation: str | None) -> list[Event]:
     """Run the party's movement step: the formation's move, or each member's own move.
 
     A defensive move that every declarer makes moves the whole formation (see the
@@ -3115,10 +3331,9 @@ def _party_movement(
     The step takes no draw.
 
     Returns:
-        The step's events, and the ids of the members who fell back alone, in marching order.
+        The step's events.
     """
     events: list[Event] = []
-    fell_back: list[str] = []
     if formation is not None:
         rate = _formation_feet(session, formation)
         for group in session.encounter.groups:
@@ -3128,9 +3343,9 @@ def _party_movement(
             events.append(GroupMovedEvent(group_id=group.id, distance_feet=group.distance_feet))
     else:
         declared = {member.id: declaration for member, declaration in by_member.values()}
-        events, fell_back = _members_move(session, _plan_member_moves(session, declared, trades))
+        events = _members_move(session, _plan_member_moves(session, declared, trades))
     _move_line_back(session)
-    return events, fell_back
+    return events
 
 
 def _formation_feet(session, formation: str) -> int:
@@ -3248,7 +3463,7 @@ def _plan_member_moves(
     return moves
 
 
-def _members_move(session, moves: Sequence[_MemberMove]) -> tuple[list[Event], list[str]]:
+def _members_move(session, moves: Sequence[_MemberMove]) -> list[Event]:
     """Carry out the members' own moves that `_plan_member_moves` planned, in order, and report each one.
 
     Each member reaches their planned advance this round. A `MemberMovedEvent` reports each move: a close
@@ -3257,11 +3472,10 @@ def _members_move(session, moves: Sequence[_MemberMove]) -> tuple[list[Event], l
     and a `MemberWithdrewEvent` reports it.
 
     Returns:
-        The events, and the ids of the members who fell back, in marching order.
+        The events, in the order of the moves.
     """
     state = session.battle
     events: list[Event] = []
-    fell_back: list[str] = []
     for step in moves:
         _place(state, step.member_id, step.advance_feet)
         group = _group_by_id(session, step.group_id) if step.group_id is not None else None
@@ -3272,12 +3486,9 @@ def _members_move(session, moves: Sequence[_MemberMove]) -> tuple[list[Event], l
                 move=step.move,
                 advance_feet=step.advance_feet,
                 group_id=group.id,
-                distance_feet=_member_distance(session, step.member_id, group),
+                distance_feet=_signed_distance(session, step.member_id, group),
             )
         )
-        if step.move == "close":
-            continue
-        fell_back.append(step.member_id)
         trade = step.trade
         if trade is None:
             continue
@@ -3288,7 +3499,7 @@ def _members_move(session, moves: Sequence[_MemberMove]) -> tuple[list[Event], l
         session.party.members = members
         code = "battle.member.retreated" if trade.move == "retreat" else "battle.member.withdrew"
         events.append(MemberWithdrewEvent(code=code, character_id=trade.member_id, replacement_id=trade.replacement_id))
-    return events, fell_back
+    return events
 
 
 def _party_move_multiplier(session) -> int:
@@ -3323,11 +3534,14 @@ def _party_attacks(
 
     A melee attack resolves only if the member then stands in the group's front rank within 5' of it, as
     `_melee_rejection` judges it, or if the group runs and the member is in `engaged`, within 5' of it
-    when the round was accepted (see `_melee_stopped`). Otherwise the member makes no attack, and a
+    when the round was accepted (see `_melee_fizzle`). Otherwise the member makes no attack, and a
     player-visible `DeclarationFizzledEvent` at `battle.melee.fizzled` says why, with the group's id and
     the rejection code as its reason. That happens to a member whose close fell short because the group
     ran first, and to a member the pre-phase expected to step into a front rank that someone who couldn't
     move still holds.
+
+    A slow attack passes these checks here and goes into `slow_attacks` with whether it's a missile attack.
+    At the end of the round, a slow melee attack faces the same checks again where the member then stands.
     """
     events: list[Event] = []
     for member, declaration in by_member.values():
@@ -3349,27 +3563,24 @@ def _party_attacks(
         )
         if is_missile != missile:
             continue
-        stopped = None if is_missile else _melee_stopped(session, member.id, group, engaged)
-        if stopped is not None:
-            events.append(
-                DeclarationFizzledEvent(
-                    code="battle.melee.fizzled", actor_id=member.id, reason=stopped, group_id=group.id
-                )
-            )
+        fizzled = None if is_missile else _melee_fizzle(session, member.id, group, engaged)
+        if fizzled is not None:
+            events.append(fizzled)
             continue
         combat_facet = getattr(weapon, "combat", None)
         facet = combat_facet if combat_facet is not None else weapon
         if facet is not None and WeaponQuality.SLOW in getattr(facet, "qualities", ()):
-            slow_attacks.append((member, declaration))
+            slow_attacks.append((member, declaration, is_missile))
             continue
         events.extend(_resolve_party_attack(session, member, declaration, fired, fire_damaged))
     return events
 
 
-def _melee_stopped(session, member_id: str, group, engaged: Collection[str]) -> str | None:
-    """Return why a declared melee attack can't resolve where the member stands now, or None when it can.
+def _melee_fizzle(session, member_id: str, group, engaged: Collection[str]) -> DeclarationFizzledEvent | None:
+    """Return the fizzle of a declared melee attack that can't resolve where the member stands now, or None.
 
-    The reason is the rejection code `_melee_rejection` gives for the battle as it stands:
+    The fizzle is a player-visible `DeclarationFizzledEvent` at `battle.melee.fizzled`, with the group's id
+    and, as its reason, the rejection code `_melee_rejection` gives for the battle as it stands:
     `combat.attack.out_of_reach` or `battle.declaration.not_in_front_rank`. A group that runs is the
     exception, whether it failed morale or its living members are all turned or afraid. A member in
     `engaged`, who stood within 5' of it when the round was accepted, still strikes it. The call reads
@@ -3378,7 +3589,11 @@ def _melee_stopped(session, member_id: str, group, engaged: Collection[str]) -> 
     if (group.fleeing or _group_all_shaken(session, group)) and member_id in engaged:
         return None
     stopped = _melee_rejection(member_id, group, _placement(session))
-    return stopped.code if stopped is not None else None
+    if stopped is None:
+        return None
+    return DeclarationFizzledEvent(
+        code="battle.melee.fizzled", actor_id=member_id, reason=stopped.code, group_id=group.id
+    )
 
 
 def _resolve_party_attack(session, member, declaration, fired, fire_damaged) -> list[Event]:
@@ -3921,18 +4136,28 @@ def _monster_block(
     acted: set | None = None,
     fire_damaged: set | None = None,
     retreating: Collection[str] = frozenset(),
-    withdrawn: Collection[str] = frozenset(),
+    retreat_reach: Mapping[str, Collection[str]] | None = None,
     npc_actions: dict[str, list[MonsterAction]] | None = None,
     mirrored: Collection[str] = frozenset(),
 ) -> list[Event]:
     """Resolve the monster side's block: morale, flight, gazes, and the actions each group's policy chose.
 
+    A group that runs moves its full rate away, and it's gone once it stands farther than `FLEE_EXIT_FEET`
+    from the nearest living member. A `close` moves the group as `_closing_distance` works it out, and
+    `_place_closing_group` places it and reports the move. A `melee` resolves only on a target in
+    the group's front rank within 5' of it when the action comes up (see `_reachable_front_rank`), so a
+    member who stepped out of reach earlier in the round, or whom the group's close fell short of, isn't
+    struck. A formation retreat is the exception, through `retreat_reach`.
+
     The keyword arguments contain party member ids:
 
     - `retreating`: the members a retreat exposes this round (see `_retreating_members`). Every
       attack on one of them gets the retreat's bonuses.
-    - `withdrawn`: the members who fell back alone earlier in the round. The block skips a melee
-      attack on one of them, because they've stepped out of the group's reach.
+    - `retreat_reach`: when the whole party retreats as a formation, each group's front rank within
+      5' of it when the round was accepted, keyed by group id. A `melee` on one of these members
+      resolves wherever the formation has moved since, because the SRD gives the opponent its attack
+      against a retreating combatant for the whole round. It's the monster side's counterpart of the
+      party's attack on a group that runs.
     - `mirrored`: the members who fight by a mirror this round. A petrifying gaze passes them by
       (see `_resolve_gazes`).
     """
@@ -3942,6 +4167,7 @@ def _monster_block(
     disrupted = disrupted if disrupted is not None else set()
     acted = acted if acted is not None else set()
     fire_damaged = fire_damaged if fire_damaged is not None else set()
+    retreat_reach = retreat_reach or {}
     events = _split_off_turned(session)
     for group in list(session.encounter.groups):
         if group.fled or not _living_monsters(session, group):
@@ -3957,7 +4183,7 @@ def _monster_block(
             rate = _pursuer_full_rate(session, group)
             group.distance_feet += rate
             events.append(GroupMovedEvent(group_id=group.id, distance_feet=group.distance_feet))
-            if group.distance_feet > FLEE_EXIT_FEET:
+            if _nearest_member_distance(session, group) > FLEE_EXIT_FEET:
                 group.fled = True
             continue
         events.extend(_resolve_gazes(session, group, free_round=free_round, mirrored=mirrored))
@@ -3977,17 +4203,19 @@ def _monster_block(
             if action.kind == "close" and not moved:
                 if cannot_move(monster):
                     continue
-                rate = _encounter_rate(monster, session)
-                group.distance_feet = max(MELEE_RANGE_FEET, group.distance_feet - rate)
-                events.append(GroupMovedEvent(group_id=group.id, distance_feet=group.distance_feet))
                 moved = True
+                arrival = _closing_distance(session, group, _encounter_rate(monster, session))
+                events.extend(_place_closing_group(session, group, arrival))
             elif action.kind == "breath":
                 events.extend(_resolve_breath(session, monster, group))
                 _watch_disruption(events, pending_casters, disrupted, acted)
             elif action.kind == "melee":
                 target = session.registry().get(action.target_id)
-                if target is None or has_condition(target, Condition.DEAD) or action.target_id in withdrawn:
+                if target is None or has_condition(target, Condition.DEAD):
                     continue
+                reach = _reachable_front_rank(group, _placement(session))
+                if action.target_id not in reach and action.target_id not in retreat_reach.get(group.id, ()):
+                    continue  # the target stands out of the group's reach
                 exposed = action.target_id in retreating
                 if getattr(monster, "definition", None) is not None:
                     events.extend(
@@ -4047,14 +4275,18 @@ def _declare_npc_actions(session, state, pending_casters: dict, events: list[Eve
 
 
 def _resolve_npc_attack(session, npc, target, group, *, missile: bool, retreating: bool) -> list[Event]:
-    """An NPC adventurer's weapon attack, resolved through the kernel path the party uses."""
-    weapon = _npc_wielded(npc, missile=missile, distance_feet=group.distance_feet)
+    """An NPC adventurer's weapon attack, resolved through the kernel path the party uses.
+
+    A missile attack resolves at the target member's own distance to the NPC's group, which sets its range band.
+    A melee attack resolves at 5'.
+    """
+    weapon = _npc_wielded(npc, missile=missile)
     events: list[Event] = []
     if session.ledger.active_on(getattr(target, "id", ""), "mirror_image"):
         events.extend(pop_mirror_image(session.ledger, target.id, registry=session.registry(), clock=session.clock))
         return events
     context = AttackContext(
-        distance_feet=group.distance_feet if missile else MELEE_RANGE_FEET,
+        distance_feet=_member_distance(session, target.id, group) if missile else MELEE_RANGE_FEET,
         defender_retreating=retreating,
         defender_ally_ac_bonus=_ally_protection_bonus(session, target),
     )
@@ -4074,16 +4306,13 @@ def _resolve_npc_attack(session, npc, target, group, *, missile: bool, retreatin
     return events
 
 
-def _party_area_candidates(session, shape: str | None, dimensions: dict, gap_feet: int) -> list:
-    """The footprint rule pointed at the party: front ranks covered by the span."""
-    span = _area_span_feet(shape, dimensions, gap_feet)
-    ranks = _party_ranks(session)
-    covered = math.ceil(span / 10) if span > 0 else 0
-    return [member for rank in ranks[:covered] for member in rank]
-
-
 def _resolve_npc_cast(session, npc, group, action: MonsterAction, disrupted: set) -> list[Event]:
-    """Resolve (or disrupt) an NPC's declared cast through the character kernel."""
+    """Resolve (or disrupt) an NPC's declared cast through the character kernel.
+
+    An area spell covers the ranks toward the NPC's group by the footprint rule (see `_area_rows`). The spell's
+    range is checked against the target member's own distance to the group, or against the nearest member's
+    distance for an area spell or a spell on one of the NPCs.
+    """
     from osrlib.core.spells import CastContext, cast_spell, caster_profile, validate_cast
 
     if action.spell_id is None or action.spell_mode is None:
@@ -4096,16 +4325,21 @@ def _resolve_npc_cast(session, npc, group, action: MonsterAction, disrupted: set
     spell = load_spells().get(action.spell_id)
     mode = spell.mode(action.spell_mode)
     targeting = mode.targeting
+    placement = _placement(session)
+    distance = _nearest_member_distance(session, group)
     if targeting is not None and targeting.mode is TargetingMode.AREA:
-        targets = _party_area_candidates(session, targeting.shape, dict(targeting.dimensions), group.distance_feet)
+        covered = _area_rows(group, placement, targeting.shape, targeting.dimensions)
+        targets: list = [session.member(member_id) for member_id in covered]
     elif action.target_id is not None:
         target = session.registry().get(action.target_id)
         if target is None or has_condition(target, Condition.DEAD):
             return []
         targets = [target]
+        if target.id in placement.order:
+            distance = placement.distance(target.id, group)
     else:
         targets = []
-    context = CastContext(in_combat=True, distance_feet=group.distance_feet)
+    context = CastContext(in_combat=True, distance_feet=distance)
     if validate_cast(
         npc, spell, action.spell_mode, profile=profile, targets=targets, context=context, ledger=session.ledger
     ):
@@ -4308,9 +4542,9 @@ def _confused_overrides(session, group, actions, *, retreating: Collection[str] 
         behaviour = roll(str(params.get("behaviour_dice", "2d6")), session.streams.get(COMBAT_STREAM)).total
         outcome = _behaviour_outcome(params, behaviour)
         if outcome == "attack_caster_group":
-            pool = _party_target_pool(session)
+            pool = _seen(session, _reachable_front_rank(group, _placement(session)))
             targets = _reachable_targets(session, monster, pool)
-            if targets and group.distance_feet <= MELEE_RANGE_FEET:
+            if targets:
                 target = targets[session.streams.get(COMBAT_STREAM).randbelow(len(targets))]
                 events.extend(_resolve_monster_melee(session, monster, target, retreating=target.id in retreating))
         elif outcome == "attack_own_group":
@@ -4563,11 +4797,14 @@ def _resolve_gazes(session, group, *, free_round: bool, mirrored: Collection[str
     `resolve_gaze` skips a character who is averting their eyes, is blind, or is incapacitated. It
     rolls a save versus paralysis on the combat stream for each of the others.
 
+    The party's front rank here is the group's front rank within 5' of it (see `_reachable_front_rank`).
+    While no member stands within 5' of the group, nobody meets the gaze.
+
     When the encounter opened with the party surprised, `_surprise_gazes` already turned the
     basilisk's gaze on every member. So in the monsters' free round (`free_round`), a gazer whose
     `surprise` ability has `meets_gaze` doesn't gaze again.
     """
-    if group.distance_feet > MELEE_RANGE_FEET:
+    if not _reachable_front_rank(group, _placement(session)):
         return []
     events: list[Event] = []
     for monster in _living_monsters(session, group):
@@ -4575,7 +4812,8 @@ def _resolve_gazes(session, group, *, free_round: bool, mirrored: Collection[str
             continue
         if free_round and session.encounter.party_surprised and _surprise_gaze(monster):
             continue
-        engaged = [member for member in _party_front_rank(session) if member.id not in mirrored]
+        front = _reachable_front_rank(group, _placement(session))
+        engaged = [session.member(member_id) for member_id in front if member_id not in mirrored]
         events.extend(_gaze(session, monster, engaged))
     return events
 
@@ -4670,22 +4908,26 @@ def _gazer_bonus(monster, target) -> int:
 
 
 def _resolve_breath(session, monster, group) -> list[Event]:
-    """A breath weapon against the party, resolved through the deterministic rank-coverage footprint."""
+    """A breath weapon against the party, resolved through the deterministic rank-coverage footprint.
+
+    A breath that hits one target, like the hellhound's, picks with equal chance from the first row toward the
+    group, at any distance, leaving out invisible members (see `_first_row_seen`). The pick is on the
+    monster-action stream. An area breath covers the ranks toward the group from the front, by distance (see
+    `_area_rows`).
+    """
     params = monster.template.ability("breath_weapon").params
+    placement = _placement(session)
     if str(params.get("targeting")) == "single":
         from osrlib.crawl.session import MONSTER_ACTION_STREAM
 
-        pool = _party_target_pool(session)
+        pool = _first_row_seen(session, group, placement)
         if not pool:
             return []
         target = pool[session.streams.get(MONSTER_ACTION_STREAM).randbelow(len(pool))]
         targets = [target]
     else:
         shape = str(params.get("shape", "cone"))
-        span = _area_span_feet(shape, params, group.distance_feet)
-        ranks = _party_ranks(session)
-        covered = math.ceil(span / 10) if span > 0 else 0
-        targets = [member for rank in ranks[:covered] for member in rank]
+        targets = [session.member(member_id) for member_id in _area_rows(group, placement, shape, params)]
         if not targets:
             return []
     return resolve_breath(

@@ -38,7 +38,7 @@ app, _saves, _sessions, scripted_party = _import_example()
 
 # 13+ digit seed: its decimal rendering can't collide with content numbers, so
 # "the seed never crosses the wire" is assertable on raw response text.
-MASTER_SEED = 20_260_704_000_001
+MASTER_SEED = 20_260_704_000002
 
 
 @pytest.fixture(autouse=True)
