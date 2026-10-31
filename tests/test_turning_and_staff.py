@@ -465,22 +465,23 @@ def strikes_by(events, member_id: str) -> list[AttackRolledEvent]:
     return [event for event in events if isinstance(event, AttackRolledEvent) and event.attacker_id == member_id]
 
 
-def paralyse_the_fighter_before_the_swap(monkeypatch) -> None:
-    """Paralyse the fighter at the start of the party's movement step, just before the swaps run.
+def paralyse_the_fighter_before_the_move(monkeypatch, playing: list[GameSession]) -> None:
+    """Paralyse the fighter as initiative is rolled, after the round was accepted and before either side acts.
 
-    A paralysed member can't move, so a withdrawal the fighter declared doesn't happen, and the replacement it
-    named stays in the back rank. A ghoul's touch does this when the monsters act first. The test forces it so the
-    round doesn't depend on the ghoul's dice.
+    A paralysed member can't move, so a withdrawal the fighter declared doesn't happen, and neither does the trade
+    with the member it named, who stays in the back rank. A ghoul's touch does this when the monsters act first. The
+    test forces it through a wrapper around the battle module's `roll_initiative`, which the round calls once, so the
+    round doesn't depend on the ghoul's dice. The wrapper paralyses the fighter of the last session in `playing`.
     """
-    original = battle_module._swap_ranks
+    original = battle_module.roll_initiative
 
-    def paralysis_then_swaps(session, swaps):
-        fighter = session.member(FIGHTER)
+    def paralysis_then_initiative(*args, **kwargs):
+        fighter = playing[-1].member(FIGHTER)
         if not has_condition(fighter, Condition.PARALYSED):
             fighter.conditions = (*fighter.conditions, ActiveCondition(condition=Condition.PARALYSED, effect_id=None))
-        return original(session, swaps)
+        return original(*args, **kwargs)
 
-    monkeypatch.setattr(battle_module, "_swap_ranks", paralysis_then_swaps)
+    monkeypatch.setattr(battle_module, "roll_initiative", paralysis_then_initiative)
 
 
 class TestTheStaffOfStrikingIsAMeleeWeapon:
@@ -510,11 +511,13 @@ class TestTheStaffOfStrikingIsAMeleeWeapon:
         assert stream_states(session) == streams
         assert session.battle.round == 0
 
-    def test_a_replacement_whose_swap_did_not_happen_fizzles_in_the_magic_phase(self, monkeypatch):
-        paralyse_the_fighter_before_the_swap(monkeypatch)
+    def test_a_named_member_whose_trade_did_not_happen_fizzles_in_the_magic_phase(self, monkeypatch):
+        playing: list[GameSession] = []
+        paralyse_the_fighter_before_the_move(monkeypatch, playing)
         checked = []
         for seed in SCAN_SEEDS:
             session, group, staff = staff_battle(seed)
+            playing.append(session)
             assert CLERIC not in front_rank(session), "precondition: the cleric starts in the back rank"
             withdraw = BattleDeclaration(
                 character_id=FIGHTER, action="move", move="fighting_withdrawal", replacement_id=CLERIC
@@ -523,7 +526,7 @@ class TestTheStaffOfStrikingIsAMeleeWeapon:
                 ResolveBattleRound(declarations=declarations(session, withdraw, strike(CLERIC, group, staff)))
             )
             assert result.accepted, [rejection.code for rejection in result.rejections]
-            assert not any(isinstance(event, MemberWithdrewEvent) for event in result.events), "the swap happened"
+            assert not any(isinstance(event, MemberWithdrewEvent) for event in result.events), "the trade happened"
             party_ids = {member.id for member in session.party.members}
             if any(isinstance(event, DeathEvent) and event.target_id in party_ids for event in result.events):
                 continue  # a member's death moves the ranks up, so this round can't show the rank the staff met

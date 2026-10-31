@@ -107,6 +107,25 @@ def _light_and_enter(session: GameSession) -> None:
     pytest.fail("the torch never lit")
 
 
+def armed_battle_or_none(
+    wielded: tuple[str, ...], *, distance: int, seed: int, carried: tuple[str, ...] = ()
+) -> GameSession | None:
+    """The battle `armed_battle` builds, or None when the seed gives the goblins a free round that moves them."""
+    session = GameSession.new(build_party(), build_adventure(wandering_chance=0), seed=seed)
+    for item_id in wielded:
+        assert session.execute(GrantItem(character_id=FIGHTER, item_id=item_id)).accepted
+        assert session.execute(EquipItem(character_id=FIGHTER, item_id=item_id)).accepted
+    for item_id in carried:
+        assert session.execute(GrantItem(character_id=FIGHTER, item_id=item_id)).accepted
+    _light_and_enter(session)
+    session.execute(SpawnMonsters(template_id="goblin", count_fixed=2, distance_feet=distance))
+    if session.mode is SessionMode.ENCOUNTER:
+        session.execute(EngageBattle())
+    if session.mode is not SessionMode.BATTLE or session.encounter.groups[0].distance_feet != distance:
+        return None
+    return session
+
+
 def armed_battle(
     wielded: tuple[str, ...], *, distance: int, seed: int = WEAPON_SEED, carried: tuple[str, ...] = ()
 ) -> GameSession:
@@ -251,33 +270,38 @@ class TestAnAttackWithNoWeaponUsesTheWieldedWeapon:
         assert outcome(default, default_result) == outcome(named, named_result)
 
     def test_the_weapon_is_chosen_when_the_round_is_accepted(self):
-        """At 20 feet the bow suits the attack. The thief's `close` brings the party to 5 feet before the missile
-        phase, where the sword would suit, but the bow chosen at acceptance is the one that fires."""
+        """At 20 feet the bow suits the attack. When the goblins win initiative, they close to 5 feet before the
+        party's missile phase, where the sword would suit, but the bow chosen at acceptance is the one that fires."""
 
-        def play(weapon_id):
-            session = armed_battle(("short_bow", "sword"), distance=20)
-            close = BattleDeclaration(
-                character_id=THIEF, action="move", move="close", target_group_id=session.encounter.groups[0].id
-            )
-            result = session.execute(
-                ResolveBattleRound(declarations=declarations(session, attack(session, weapon_id), close))
-            )
-            return session, result
+        def play(seed, weapon_id):
+            session = armed_battle_or_none(("short_bow", "sword"), distance=20, seed=seed)
+            if session is None:
+                return None, None, None
+            group_id = session.encounter.groups[0].id
+            result = session.execute(ResolveBattleRound(declarations=declarations(session, attack(session, weapon_id))))
+            return session, result, group_id
 
-        named, named_result = play("short_bow")
-        assert named_result.accepted, [rejection.code for rejection in named_result.rejections]
-        moves = [event for event in named_result.events if event.code == "battle.group.moved"]
-        first_shot = next(
-            index
-            for index, event in enumerate(named_result.events)
-            if isinstance(event, AttackRolledEvent) and event.attacker_id == FIGHTER
-        )
-        assert moves and named_result.events.index(moves[0]) < first_shot
-        assert moves[0].distance_feet == MELEE_RANGE_FEET, "the party closed to melee range before the shot"
-        assert set(attack_names(named_result.events)) == {"Short bow"}
+        for seed in SCAN_SEEDS:
+            named, named_result, group_id = play(seed, "short_bow")
+            if named is None:
+                continue
+            assert named_result.accepted, [rejection.code for rejection in named_result.rejections]
+            shots = [
+                index
+                for index, event in enumerate(named_result.events)
+                if isinstance(event, AttackRolledEvent) and event.attacker_id == FIGHTER
+            ]
+            if not monsters_first(named_result, group_id) or not shots:
+                continue
+            moves = [event for event in named_result.events if event.code == "battle.group.moved"]
+            assert moves and named_result.events.index(moves[0]) < shots[0]
+            assert moves[0].distance_feet == MELEE_RANGE_FEET, "the goblins closed to melee range before the shot"
+            assert set(attack_names(named_result.events)) == {"Short bow"}
 
-        default, default_result = play(None)
-        assert outcome(default, default_result) == outcome(named, named_result)
+            default, default_result, _ = play(seed, None)
+            assert outcome(default, default_result) == outcome(named, named_result)
+            return
+        pytest.fail("no seed let the goblins close before the fighter shot")
 
     def test_a_wand_held_before_the_sword_is_passed_over(self):
         def play(weapon_id):
@@ -619,23 +643,22 @@ class TestADeviceUseIsJudgedAgainInTheMagicPhase:
 
 
 def weaken_the_cleric_after_party_movement(monkeypatch) -> None:
-    """Weaken the cleric partway through the round, after the round was accepted and before the magic phase.
+    """Weaken the cleric partway through the round, after the round was accepted and before the turning resolves.
 
     Nothing in the rules weakens a cleric in the middle of a battle round today, so the test forces it. It wraps
-    the party block's movement step, which runs before the party's missile and magic phases. Weakened is one of
-    the conditions under which `validate_turn_undead` refuses a turning, and it isn't one of the conditions that
-    make the magic phase skip a member outright.
+    the party block's magic phase, which runs after the party's movement and missile steps and re-checks the turning
+    before it resolves. Weakened is one of the conditions under which `validate_turn_undead` refuses a turning, and
+    it isn't one of the conditions that make the magic phase skip a member outright.
     """
-    original = battle_module._party_movement
+    original = battle_module._party_magic
 
-    def movement_then_weakness(session, by_member):
-        events = original(session, by_member)
+    def weakness_then_magic(session, *args, **kwargs):
         cleric = session.member(CLERIC)
         if not has_condition(cleric, Condition.WEAKENED):
             cleric.conditions = (*cleric.conditions, ActiveCondition(condition=Condition.WEAKENED, effect_id=None))
-        return events
+        return original(session, *args, **kwargs)
 
-    monkeypatch.setattr(battle_module, "_party_movement", movement_then_weakness)
+    monkeypatch.setattr(battle_module, "_party_magic", weakness_then_magic)
 
 
 def skeleton_battle(seed: int) -> GameSession:

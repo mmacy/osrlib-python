@@ -146,25 +146,27 @@ class TestCrawlActivation:
             rounds = 0
             while session.battle is not None and rounds < 30:
                 group = session.encounter.groups[0]
-                declarations = []
                 living = session.party.living_members()
+                # The first two members attack. When the session refuses that round, because they can't reach the
+                # NPCs yet, everyone closes instead. A refused round costs nothing, so the fight is the same.
+                attacks = []
                 for index, member in enumerate(living):
-                    if group.distance_feet > 5:
-                        declarations.append(
-                            BattleDeclaration(
-                                character_id=member.id, action="move", move="close", target_group_id=group.id
-                            )
-                        )
-                    elif index < 2:
+                    if index < 2:
                         weapon = member.inventory.wielded[0].template.id if member.inventory.wielded else None
-                        declarations.append(
+                        attacks.append(
                             BattleDeclaration(
                                 character_id=member.id, action="attack", target_group_id=group.id, weapon_id=weapon
                             )
                         )
                     else:
-                        declarations.append(BattleDeclaration(character_id=member.id, action="hold"))
-                outcome = session.execute(ResolveBattleRound(declarations=tuple(declarations)))
+                        attacks.append(BattleDeclaration(character_id=member.id, action="hold"))
+                outcome = session.execute(ResolveBattleRound(declarations=tuple(attacks)))
+                if not outcome.accepted:
+                    closes = tuple(
+                        BattleDeclaration(character_id=member.id, action="move", move="close", target_group_id=group.id)
+                        for member in living
+                    )
+                    outcome = session.execute(ResolveBattleRound(declarations=closes))
                 if not outcome.accepted:
                     break
                 rounds += 1

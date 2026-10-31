@@ -1,4 +1,4 @@
-"""A fighting withdrawal or a retreat that one party member makes alone (issue #171).
+"""A fighting withdrawal or a retreat that one party member makes alone (issues #171 and #209).
 
 The OSE SRD describes both defensive moves per combatant: "The combatant moves backwards at up to
 half their encounter movement rate. There must be clear space behind the combatant." and "The
@@ -9,22 +9,26 @@ applicable)." osrlib keeps the formation move for a round every declarer agrees 
 every other defensive move the declaring member's own. The contract, which the adaptations
 register states under "The battle round":
 
-- A front-rank member who withdraws alone names a back-rank member in
-  `BattleDeclaration.replacement_id`. In the party's movement step the two trade places in the
-  marching order, and a `MemberWithdrewEvent` reports it. The party doesn't move, and the order
-  stays changed.
-- Each rank stands 5' behind the one in front of it. The withdrawing member covers the distance at
-  up to half their encounter rate for a fighting withdrawal or their full encounter rate for a
-  retreat, the replacement at up to their full encounter rate, each doubled by their own *haste*.
-- The refusals: `battle.declaration.not_in_front_rank` for a back-rank member,
-  `battle.declaration.no_replacement`, `battle.declaration.replacement_unavailable`, and
-  `battle.declaration.replacement_too_far`.
+- A member who withdraws alone moves back on the range track by themselves, at half their
+  encounter rate for a fighting withdrawal or their full rate for a retreat, doubled by their own
+  *haste*. Their advance goes down, below the party line if need be, and a `MemberMovedEvent`
+  reports it. Any member can do it, wherever they stand, and needs nobody to step up.
+- The member can name another member in `BattleDeclaration.replacement_id`. The two trade places
+  in the marching order right after the move, a `MemberWithdrewEvent` reports it, and the order
+  stays changed. The trade moves nobody. Marching order decides who stands in front among members
+  at the same distance who got there in the same round, so naming a member beside the others
+  brings that member to the front once the withdrawing member steps out.
+- The named member has to be another declarer who isn't withdrawing too and isn't named twice,
+  or the round is refused with `battle.declaration.replacement_unavailable`. Their rank, their
+  rate, their cast, and whether they can move don't matter, because the trade isn't a move.
 - A retreat's penalties fall on each member who retreats, alone or with the formation, and last the
   whole round, whichever side acts first.
-- The replacement may strike in melee the round they step up. A withdrawing member makes no attack.
-- A swap that can't happen when the movement step comes doesn't happen and reports nothing.
+- A member who can no longer move when the movement step comes doesn't fall back and doesn't trade.
+- A withdrawing member makes no attack.
 
-The classes at the end check that the formation moves stay as they were.
+The classes marked `chunk: positions` fail until that chunk is built. The unmarked classes are
+guards that pass before and after it, among them the classes at the end, which check that the
+formation moves stay as they were.
 """
 
 import pytest
@@ -52,7 +56,7 @@ from osrlib.crawl.commands import (
     SessionMode,
     SpawnMonsters,
 )
-from osrlib.crawl.events import MemberWithdrewEvent
+from osrlib.crawl.events import MemberMovedEvent, MemberWithdrewEvent
 from osrlib.crawl.session import GameSession
 from osrlib.data import load_classes, load_equipment, load_spells
 from osrlib.persistence import load_game, replay_game, save_game, session_state
@@ -256,22 +260,41 @@ class _StrikeAt:
         ]
 
 
-# ---------------------------------------------------------------------- the swap
+# ---------------------------------------------------------------------- the move and the trade
+
+POSITIONS = pytest.mark.xfail(reason="chunk: positions", strict=True)
 
 
+def _advance(session, member_id: str) -> int:
+    return session.battle.advance_feet.get(member_id, 0)
+
+
+def _front(session) -> tuple[str, ...]:
+    """The members who can fight the first group hand to hand, as the session reports them."""
+    return battle_module.group_front_rank(session, _group(session))
+
+
+def _moves(result) -> list[MemberMovedEvent]:
+    return [event for event in result.events if isinstance(event, MemberMovedEvent)]
+
+
+@POSITIONS
 class TestAFightingWithdrawalAlone:
-    """One front-rank member falls back, a named back-rank member steps up, and the party stays put."""
+    """One member falls back at half rate, the named member takes their marching place, and the party stays put."""
 
-    def test_the_member_trades_places_with_the_named_replacement(self):
+    def test_the_member_falls_back_and_trades_places_with_the_named_member(self):
         session = _battle(distance=5)
-        assert _view(session).front_rank == (BRAKK, SABLE)
-        assert _ranks(session) == [[BRAKK, SABLE], [WYNN, ELARA]]
+        assert _front(session) == (BRAKK, SABLE)
         result = _round(session, _withdraw(BRAKK, WYNN))
         assert result.accepted, _rejections(result)
+        assert _advance(session, BRAKK) == -20
         assert _order(session) == [WYNN, SABLE, BRAKK, ELARA]
-        assert _view(session).front_rank == (WYNN, SABLE)
+        assert _front(session) == (WYNN, SABLE)
+        [move] = _moves(result)
         [swap] = _swaps(result)
+        assert (move.character_id, move.move, move.distance_feet) == (BRAKK, "fighting_withdrawal", 25)
         assert (swap.code, swap.character_id, swap.replacement_id) == ("battle.member.withdrew", BRAKK, WYNN)
+        assert _position(result, swap) == _position(result, move) + 1
         assert swap.visibility is Visibility.PLAYER
         assert session.encounter.groups[0].distance_feet == 5
         assert "battle.group.moved" not in [event.code for event in result.events]
@@ -283,47 +306,48 @@ class TestAFightingWithdrawalAlone:
         result = _round(session, _withdraw(BRAKK, WYNN))
         assert result.accepted, _rejections(result)
         assert _order(session) == [WYNN, SABLE, BRAKK, ELARA]
-        # The party never backs away: every distance the round reports is the goblins closing.
-        assert all(event.distance_feet < 40 for event in result.events if event.code == "battle.group.moved")
+        assert _advance(session, BRAKK) == -20
 
-    def test_a_replacement_two_ranks_back_takes_the_front_place(self):
+    def test_a_member_two_ranks_back_takes_the_marching_place(self):
         session = _battle(roster=SIX, distance=5)
-        assert _ranks(session) == [[BRAKK, SABLE], [WYNN, ELARA], [GARR, HALE]]
         result = _round(session, _withdraw(BRAKK, GARR))
         assert result.accepted, _rejections(result)
         assert _order(session) == [GARR, SABLE, WYNN, ELARA, BRAKK, HALE]
-        assert _view(session).front_rank == (GARR, SABLE)
+        assert _front(session) == (GARR, SABLE)
+        assert _advance(session, GARR) == 0, "the trade moves nobody"
 
-    def test_the_whole_front_rank_can_step_back_behind_the_second(self):
+    def test_the_whole_front_rank_can_fall_back_together(self):
         session = _battle(distance=5)
         result = _round(session, _withdraw(SABLE, ELARA), _withdraw(BRAKK, WYNN))
         assert result.accepted, _rejections(result)
         assert _order(session) == [WYNN, ELARA, BRAKK, SABLE]
-        # One event per swap, in the marching order of the members who withdrew.
+        # One trade per withdrawal, in the marching order of the members who withdrew.
         assert [(swap.character_id, swap.replacement_id) for swap in _swaps(result)] == [(BRAKK, WYNN), (SABLE, ELARA)]
+        assert _front(session) == (WYNN, ELARA)
 
-    def test_a_withdrawal_shares_a_round_with_a_close_and_resolves_first(self):
+    def test_a_withdrawal_shares_a_round_with_a_close_and_comes_first(self):
         session = _battle(distance=40)
         close = BattleDeclaration(character_id=SABLE, action="move", move="close", target_group_id=_group(session))
         result = _round(session, _withdraw(BRAKK, WYNN), close)
         assert result.accepted, _rejections(result)
         assert _order(session) == [WYNN, SABLE, BRAKK, ELARA]
+        assert [(move.character_id, move.move) for move in _moves(result)] == [
+            (BRAKK, "fighting_withdrawal"),
+            (SABLE, "close"),
+        ]
         [swap] = _swaps(result)
-        at = _position(result, swap)
-        closing = result.events[at + 1]
-        assert closing.code == "battle.group.moved"
-        before = [event.distance_feet for event in result.events[:at] if event.code == "battle.group.moved"]
-        assert closing.distance_feet < (before[-1] if before else 40)
+        assert _position(result, swap) < _position(result, _moves(result)[1])
+        assert (_advance(session, BRAKK), _advance(session, SABLE)) == (-20, 35)
 
 
+@POSITIONS
 class TestARetreatAlone:
-    """A retreat alone trades places as a withdrawal does, and its penalties are the retreater's alone."""
-
-    def test_the_member_trades_places_and_the_battle_goes_on(self):
+    def test_the_member_retreats_alone_and_the_battle_goes_on(self):
         session = _battle(distance=5)
         result = _round(session, _withdraw(BRAKK, WYNN, move="retreat"))
         assert result.accepted, _rejections(result)
         assert _order(session) == [WYNN, SABLE, BRAKK, ELARA]
+        assert _advance(session, BRAKK) == -40
         [swap] = _swaps(result)
         assert (swap.code, swap.character_id, swap.replacement_id) == ("battle.member.retreated", BRAKK, WYNN)
         codes = [event.code for event in result.events]
@@ -331,6 +355,10 @@ class TestARetreatAlone:
         assert session.mode is SessionMode.BATTLE
         assert session.encounter.pursuit is None
         assert session.encounter.groups[0].distance_feet == 5
+
+
+class TestARetreatAloneIsExposed:
+    """Guards: the retreat's penalties and the melee it escapes, before and after the chunk."""
 
     def test_attackers_get_the_bonus_against_the_retreater_alone_when_they_strike_first(self):
         retreating = _battle(distance=5, count=4, seed=MONSTERS_FIRST_SEED, shield=True)
@@ -378,83 +406,112 @@ class TestARetreatAlone:
         assert {attack.modifier for attack in attacks} == held_modifiers
 
 
-class TestTheMovementLimit:
-    """Each rank stands 5' behind the one in front, and both members have to cover the distance."""
+@POSITIONS
+class TestHowFarAMemberFallsBack:
+    """A member falls back at half their encounter rate, or their full rate for a retreat, and names anyone."""
 
-    def test_a_laden_member_withdraws_one_rank(self):
-        session = _battle(roster=SIX, distance=5, laden=(BRAKK,))
-        result = _round(session, _withdraw(BRAKK, WYNN))
+    @pytest.mark.parametrize(
+        ("move", "laden", "feet"),
+        [
+            ("fighting_withdrawal", False, 20),
+            ("retreat", False, 40),
+            ("fighting_withdrawal", True, 5),
+            ("retreat", True, 10),
+        ],
+    )
+    def test_the_member_falls_back_at_half_or_full_rate(self, move, laden, feet):
+        session = _battle(roster=SIX, distance=5, laden=(BRAKK,) if laden else ())
+        result = _round(session, _withdraw(BRAKK, move=move))
         assert result.accepted, _rejections(result)
-        assert _order(session)[:3] == [WYNN, SABLE, BRAKK]
+        assert _advance(session, BRAKK) == -feet
 
-    def test_a_laden_member_cannot_withdraw_two_ranks(self):
-        session = _battle(roster=SIX, distance=5, laden=(BRAKK,))
-        before = _snapshot(session)
-        result = _round(session, _withdraw(BRAKK, GARR))
-        assert _rejections(result) == [
-            (
-                "battle.declaration.replacement_too_far",
-                {"character": BRAKK, "replacement": GARR, "distance_feet": 10},
-            )
-        ]
-        _assert_refused_cleanly(session, result, before)
-
-    def test_a_laden_member_retreats_two_ranks_at_the_full_rate(self):
-        session = _battle(roster=SIX, distance=5, laden=(BRAKK,))
-        result = _round(session, _withdraw(BRAKK, GARR, move="retreat"))
-        assert result.accepted, _rejections(result)
-        assert _order(session)[0] == GARR
-        assert _order(session)[4] == BRAKK
-
-    def test_haste_doubles_the_withdrawal_limit(self):
+    def test_haste_doubles_the_withdrawal(self):
         session = _battle(roster=SIX, distance=5, laden=(BRAKK,))
         _attach(
             session, EffectDefinition(kind="haste", params={"attacks_multiplier": 2, "movement_multiplier": 2}), BRAKK
         )
-        result = _round(session, _withdraw(BRAKK, GARR))
+        result = _round(session, _withdraw(BRAKK))
         assert result.accepted, _rejections(result)
-        assert _order(session)[0] == GARR
+        assert _advance(session, BRAKK) == -10
 
-    def test_an_unladen_member_withdraws_three_ranks(self):
-        session = _battle(roster=EIGHT, distance=5)
-        assert _ranks(session)[3] == [IVER, JORY]
+    def test_a_laden_member_names_a_member_three_ranks_back(self):
+        session = _battle(roster=EIGHT, distance=5, laden=(BRAKK, IVER))
         result = _round(session, _withdraw(BRAKK, IVER))
         assert result.accepted, _rejections(result)
         assert _order(session)[0] == IVER
         assert _order(session)[6] == BRAKK
 
-    def test_a_laden_replacement_cannot_step_up_three_ranks(self):
-        session = _battle(roster=EIGHT, distance=5, laden=(IVER,))
+
+# ---------------------------------------------------------------------- the named member
+
+
+@POSITIONS
+class TestWhoCanBeNamed:
+    """Any other declarer who isn't falling back too, because the trade isn't a move."""
+
+    @pytest.mark.parametrize("move", ["fighting_withdrawal", "retreat"])
+    def test_a_member_who_names_nobody_falls_back_alone(self, move):
+        session = _battle(distance=5)
+        result = _round(session, _withdraw(BRAKK, move=move))
+        assert result.accepted, _rejections(result)
+        assert _swaps(result) == []
+        assert _order(session) == [BRAKK, SABLE, WYNN, ELARA]
+        assert _front(session) == (SABLE, WYNN)
+
+    def test_a_member_behind_the_front_rank_can_fall_back_alone(self):
+        session = _battle(distance=5)
+        result = _round(session, _withdraw(WYNN, ELARA))
+        assert result.accepted, _rejections(result)
+        assert _order(session) == [BRAKK, SABLE, ELARA, WYNN]
+
+    def test_a_member_in_the_front_rank_can_be_named(self):
+        session = _battle(distance=5)
+        result = _round(session, _withdraw(BRAKK, SABLE))
+        assert result.accepted, _rejections(result)
+        assert _order(session)[:2] == [SABLE, BRAKK]
+
+    def test_a_member_who_cannot_move_can_be_named(self):
+        session = _battle(distance=5)
+        session.member(WYNN).conditions = (ActiveCondition(condition=Condition.ENTANGLED, effect_id="effect-9999"),)
+        assert WYNN in _view(session).immobile
+        result = _round(session, _withdraw(BRAKK, WYNN))
+        assert result.accepted, _rejections(result)
+        assert _order(session)[0] == WYNN
+
+    def test_a_member_who_casts_can_be_named(self):
+        session = _battle(distance=5)
+        elara = session.member(ELARA)
+        memorize_spells(elara, load_classes().get("magic_user"), load_spells(), [MemorizedSpell(spell_id="sleep")])
+        cast = BattleDeclaration(
+            character_id=ELARA, action="cast", spell_id="sleep", spell_mode="hd_budget", target_group_id=_group(session)
+        )
+        result = _round(session, _withdraw(BRAKK, ELARA), cast)
+        assert result.accepted, _rejections(result)
+        assert _order(session)[0] == ELARA
+
+    def test_a_member_who_withdraws_too_cannot_be_named(self):
+        session = _battle(distance=5)
         before = _snapshot(session)
-        result = _round(session, _withdraw(BRAKK, IVER))
+        result = _round(session, _withdraw(BRAKK, WYNN), _withdraw(WYNN, ELARA))
         assert _rejections(result) == [
-            (
-                "battle.declaration.replacement_too_far",
-                {"character": BRAKK, "replacement": IVER, "distance_feet": 15},
-            )
+            ("battle.declaration.replacement_unavailable", {"character": BRAKK, "replacement": WYNN}),
         ]
         _assert_refused_cleanly(session, result, before)
 
+    def test_without_the_width_limit_a_member_falls_back_and_trades_the_same(self):
+        session = _battle(distance=5, ruleset=Ruleset(formation_width_limit=False))
+        named = _round(session, _withdraw(BRAKK, WYNN))
+        assert named.accepted, _rejections(named)
+        assert _order(session)[0] == WYNN
+        unnamed = _round(session, _withdraw(SABLE))
+        assert unnamed.accepted, _rejections(unnamed)
 
-class TestWhenNoOneCanStepUp:
-    """A member who withdraws alone needs a replacement who can take the front place this round."""
 
-    @pytest.mark.parametrize("move", ["fighting_withdrawal", "retreat"])
-    def test_a_member_who_names_no_replacement_is_refused(self, move):
-        session = _battle(distance=5)
-        before = _snapshot(session)
-        result = _round(session, _withdraw(BRAKK, move=move))
-        assert _rejections(result) == [("battle.declaration.no_replacement", {"character": BRAKK})]
-        _assert_refused_cleanly(session, result, before)
+class TestWhoCannotBeNamed:
+    """Guards: refusals that stand before and after the chunk, each costing nothing."""
 
-    def test_a_back_rank_member_cannot_withdraw_alone(self):
-        session = _battle(distance=5)
-        assert WYNN not in _view(session).front_rank
-        result = _round(session, _withdraw(WYNN, ELARA))
-        assert _rejections(result) == [("battle.declaration.not_in_front_rank", {"character": WYNN})]
-
-    @pytest.mark.parametrize("named", [SABLE, BRAKK, "character-9999"])
-    def test_the_replacement_has_to_be_a_member_behind_the_front_rank(self, named):
+    @pytest.mark.parametrize("named", [BRAKK, "character-9999"])
+    def test_the_named_member_has_to_be_another_member(self, named):
         session = _battle(distance=5)
         before = _snapshot(session)
         result = _round(session, _withdraw(BRAKK, named))
@@ -463,7 +520,7 @@ class TestWhenNoOneCanStepUp:
         ]
         _assert_refused_cleanly(session, result, before)
 
-    def test_a_dead_replacement_cannot_step_up(self):
+    def test_a_dead_member_cannot_be_named(self):
         session = _battle(distance=5)
         deal_damage(session.member(WYNN), 999, source=DamageSource())
         assert has_condition(session.member(WYNN), Condition.DEAD)
@@ -472,60 +529,24 @@ class TestWhenNoOneCanStepUp:
             ("battle.declaration.replacement_unavailable", {"character": BRAKK, "replacement": WYNN})
         ]
 
-    @pytest.mark.parametrize("condition", [Condition.ASLEEP, Condition.ENTANGLED])
-    def test_a_replacement_who_cannot_act_or_move_cannot_step_up(self, condition):
+    def test_a_sleeping_member_cannot_be_named(self):
         session = _battle(distance=5)
-        session.member(WYNN).conditions = (ActiveCondition(condition=condition, effect_id="effect-9999"),)
-        view = _view(session)
-        assert (WYNN in view.declarers) is (condition is Condition.ENTANGLED)
-        assert (WYNN in view.immobile) is (condition is Condition.ENTANGLED)
+        session.member(WYNN).conditions = (ActiveCondition(condition=Condition.ASLEEP, effect_id="effect-9999"),)
+        assert WYNN not in _view(session).declarers
         result = _round(session, _withdraw(BRAKK, WYNN))
         assert _rejections(result) == [
             ("battle.declaration.replacement_unavailable", {"character": BRAKK, "replacement": WYNN})
         ]
 
-    def test_a_replacement_who_casts_cannot_step_up(self):
-        session = _battle(distance=5)
-        elara = session.member(ELARA)
-        memorize_spells(elara, load_classes().get("magic_user"), load_spells(), [MemorizedSpell(spell_id="sleep")])
-        cast = BattleDeclaration(
-            character_id=ELARA, action="cast", spell_id="sleep", spell_mode="hd_budget", target_group_id=_group(session)
-        )
-        result = _round(session, _withdraw(BRAKK, ELARA), cast)
-        assert _rejections(result) == [
-            ("battle.declaration.replacement_unavailable", {"character": BRAKK, "replacement": ELARA})
-        ]
-        # The same cast with nobody naming Elara is a legal round, so the refusal is the step up's.
-        legal = _round(session, cast)
-        assert legal.accepted, _rejections(legal)
-
-    def test_a_replacement_who_withdraws_too_cannot_step_up(self):
-        session = _battle(distance=5)
-        result = _round(session, _withdraw(BRAKK, WYNN), _withdraw(WYNN, ELARA))
-        assert _rejections(result) == [
-            ("battle.declaration.not_in_front_rank", {"character": WYNN}),
-            ("battle.declaration.replacement_unavailable", {"character": BRAKK, "replacement": WYNN}),
-        ]
-
-    def test_two_members_cannot_name_one_replacement(self):
+    def test_two_members_cannot_name_one_member(self):
         session = _battle(distance=5)
         result = _round(session, _withdraw(BRAKK, WYNN), _withdraw(SABLE, WYNN))
-        # The member earlier in marching order keeps the replacement.
+        # The member earlier in marching order keeps the named member.
         assert _rejections(result) == [
             ("battle.declaration.replacement_unavailable", {"character": SABLE, "replacement": WYNN})
         ]
 
-    def test_without_the_width_limit_nobody_stands_behind(self):
-        session = _battle(distance=5, ruleset=Ruleset(formation_width_limit=False))
-        assert _view(session).front_rank == (BRAKK, SABLE, WYNN, ELARA)
-        named = _round(session, _withdraw(BRAKK, WYNN))
-        assert _rejections(named) == [
-            ("battle.declaration.replacement_unavailable", {"character": BRAKK, "replacement": WYNN})
-        ]
-        unnamed = _round(session, _withdraw(BRAKK))
-        assert _rejections(unnamed) == [("battle.declaration.no_replacement", {"character": BRAKK})]
-
-    def test_a_formation_move_has_no_replacement_to_name(self):
+    def test_a_formation_move_has_nobody_to_name(self):
         session = _battle(distance=5)
         declarations = [_withdraw(member_id) for member_id in (SABLE, WYNN, ELARA)]
         result = _round(session, _withdraw(BRAKK, WYNN), *declarations)
@@ -535,13 +556,13 @@ class TestWhenNoOneCanStepUp:
         ]
 
 
-# ---------------------------------------------------------------------- melee around the swap
+# ---------------------------------------------------------------------- melee around the trade
 
 
 class TestSteppingUpIntoMelee:
-    """From the movement step on the replacement stands in the front rank, and the withdrawn member doesn't."""
+    """Guards: from the movement step on, the named member stands in front, and the withdrawn member doesn't."""
 
-    def test_the_replacement_may_strike_the_round_they_step_up(self):
+    def test_the_named_member_may_strike_the_round_they_step_up(self):
         session = _battle(distance=5)
         assert WYNN not in _view(session).front_rank
         strike = BattleDeclaration(character_id=WYNN, action="attack", target_group_id=_group(session))
@@ -552,7 +573,7 @@ class TestSteppingUpIntoMelee:
         assert wynn_attacks
         assert all(_position(result, attack) > _position(result, swap) for attack in wynn_attacks)
 
-    def test_a_back_rank_member_who_does_not_step_up_still_cannot_strike(self):
+    def test_a_member_left_behind_the_front_rank_still_cannot_strike(self):
         session = _battle(distance=5)
         strike = BattleDeclaration(character_id=ELARA, action="attack", target_group_id=_group(session))
         result = _round(session, _withdraw(BRAKK, WYNN), strike)
@@ -567,9 +588,10 @@ class TestSteppingUpIntoMelee:
         assert _monsters_acted_first(session, result)
         assert has_condition(session.member(BRAKK), Condition.PARALYSED)
         assert not has_condition(session.member(WYNN), Condition.PARALYSED)
+        # Brakk can't fall back, so there's no trade either, and Wynn stays behind the front rank.
         assert _swaps(result) == []
         assert _order(session) == [BRAKK, SABLE, WYNN, ELARA]
-        # Wynn never stepped up, so the melee attack Wynn declared doesn't resolve.
+        # Wynn never reached the front rank, so the melee attack Wynn declared doesn't resolve.
         assert WYNN not in {attack.attacker_id for attack in _attacks(result)}
 
     def test_a_strike_chosen_against_a_withdrawn_member_is_skipped(self):
@@ -586,60 +608,28 @@ class TestSteppingUpIntoMelee:
         assert BRAKK not in {attack.defender_id for attack in _attacks(result)}
 
 
-class TestAReplacementWhoCannotActWhenTheMomentComes:
-    """The swap is judged again in the movement step. A replacement who can no longer act on the party's
-    behalf by then doesn't step up: one who is incapacitated, charmed, or confused. The two stay where
-    they are, nothing reports the swap, and the replacement's melee attack doesn't resolve, because the
-    replacement never reached the front rank.
-
-    The condition lands between acceptance and the movement step through a wrapper around the battle
-    module's `_swap_ranks`, which the party block calls to start its movement step. The confusion is a
-    bare condition with no ledger effect behind it, so the behavior roll that would override a confused
-    member's declaration never runs, and the outcome takes no draw.
+@POSITIONS
+class TestTheTradeIsNotAMove:
+    """A named member who becomes paralysed after the round was accepted still trades places, because the trade
+    moves nobody. The paralysis lands as initiative is rolled, through a wrapper around the battle module's
+    `roll_initiative`, which the round calls once, after it accepts the declarations and before either side acts.
     """
 
-    @staticmethod
-    def _afflict_before_the_move(monkeypatch, member_id: str, condition: Condition) -> list[bool]:
-        original = battle_module._swap_ranks
-        ran: list[bool] = []
+    def test_a_named_member_paralysed_after_the_round_was_accepted_still_trades(self, monkeypatch):
+        original = battle_module.roll_initiative
 
-        def afflicted(session, swaps):
-            member = session.member(member_id)
-            member.conditions = (*member.conditions, ActiveCondition(condition=condition, effect_id="effect-9999"))
-            ran.append(True)
-            return original(session, swaps)
+        def paralysis_then_initiative(*args, **kwargs):
+            wynn = session.member(WYNN)
+            wynn.conditions = (*wynn.conditions, ActiveCondition(condition=Condition.PARALYSED, effect_id=None))
+            return original(*args, **kwargs)
 
-        monkeypatch.setattr(battle_module, "_swap_ranks", afflicted)
-        return ran
-
-    def _round_with_a_late_condition(self, monkeypatch, condition: Condition):
-        session = _battle(distance=5)
-        # Preconditions: Wynn stands behind the front rank, free to act, when the round is declared.
-        assert WYNN in _view(session).declarers
-        assert WYNN not in _view(session).front_rank
-        assert not has_condition(session.member(WYNN), condition)
-        ran = self._afflict_before_the_move(monkeypatch, WYNN, condition)
-        strike = BattleDeclaration(character_id=WYNN, action="attack", target_group_id=_group(session))
-        result = _round(session, _withdraw(BRAKK, WYNN), strike)
+        session = _battle(distance=40)
+        monkeypatch.setattr(battle_module, "roll_initiative", paralysis_then_initiative)
+        result = _round(session, _withdraw(BRAKK, WYNN))
         assert result.accepted, _rejections(result)
-        # Preconditions: the condition landed in the movement step, and Wynn still bears it.
-        assert ran == [True]
-        assert has_condition(session.member(WYNN), condition)
-        return session, result
-
-    @pytest.mark.parametrize("condition", [Condition.CHARMED, Condition.CONFUSED])
-    def test_a_charmed_or_confused_replacement_does_not_step_up(self, monkeypatch, condition):
-        session, result = self._round_with_a_late_condition(monkeypatch, condition)
-        assert _swaps(result) == []
-        assert _order(session) == [BRAKK, SABLE, WYNN, ELARA]
-        assert WYNN not in {attack.attacker_id for attack in _attacks(result)}
-
-    def test_a_paralysed_replacement_does_not_step_up(self, monkeypatch):
-        """The re-check also holds for a replacement who can't move."""
-        session, result = self._round_with_a_late_condition(monkeypatch, Condition.PARALYSED)
-        assert _swaps(result) == []
-        assert _order(session) == [BRAKK, SABLE, WYNN, ELARA]
-        assert WYNN not in {attack.attacker_id for attack in _attacks(result)}
+        assert has_condition(session.member(WYNN), Condition.PARALYSED), "precondition: Wynn was paralysed mid-round"
+        assert [(swap.character_id, swap.replacement_id) for swap in _swaps(result)] == [(BRAKK, WYNN)]
+        assert _order(session) == [WYNN, SABLE, BRAKK, ELARA]
 
 
 class TestNoAttackWhileWithdrawing:
@@ -667,7 +657,7 @@ class TestNoAttackWhileWithdrawing:
 # ---------------------------------------------------------------------- views
 
 
-class TestTheViewsAfterTheSwap:
+class TestTheViewsAfterTheTrade:
     def test_the_player_view_shows_the_new_ranks(self):
         session = _battle(distance=5)
         result = _round(session, _withdraw(BRAKK, WYNN))
@@ -720,9 +710,9 @@ class TestDeterminism:
         session = _battle(distance=5)
         before = _snapshot(session)
         distance = session.encounter.groups[0].distance_feet
-        result = _round(session, _withdraw(BRAKK, SABLE))
+        result = _round(session, _withdraw(BRAKK, BRAKK))
         assert _rejections(result) == [
-            ("battle.declaration.replacement_unavailable", {"character": BRAKK, "replacement": SABLE})
+            ("battle.declaration.replacement_unavailable", {"character": BRAKK, "replacement": BRAKK})
         ]
         _assert_refused_cleanly(session, result, before)
         assert session.encounter.groups[0].distance_feet == distance

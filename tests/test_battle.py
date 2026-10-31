@@ -210,7 +210,8 @@ class TestUseItemAction:
 
 
 class TestRangeTrack:
-    def test_party_close_stops_at_five_feet(self):
+    @pytest.mark.xfail(reason="chunk: positions", strict=True)
+    def test_a_close_stops_the_member_five_feet_from_the_group(self):
         session = battle_session(distance=40)
         gid = group_id(session)
         declarations = hold_all(
@@ -219,8 +220,11 @@ class TestRangeTrack:
         )
         result = session.execute(ResolveBattleRound(declarations=declarations))
         assert result.accepted
-        # Party closes 40 (120÷3); the goblins close 20 more: floor at 5.
-        assert session.encounter.groups[0].distance_feet == 5
+        # The fighter closes 40' (120 ÷ 3) and stops 5' from the goblins. Nobody else moves, and the goblins,
+        # within reach of the fighter, hold their ground.
+        assert session.battle.advance_feet == {"character-0001": 35}
+        assert battle_module.member_distance_feet(session, "character-0001", gid) == 5
+        assert session.encounter.groups[0].distance_feet == 40
 
     def test_monsters_close_at_encounter_rate(self):
         session = battle_session(distance=60)
@@ -451,10 +455,9 @@ class TestEffectConsumption:
         )
         session.execute(ResolveBattleRound(declarations=hold_all(session, extra=(attack,))))
         assert "character-0001" in session.battle.melee_engagements
+        front = [session.member("character-0001"), session.member("character-0002")]
         pool = battle_module._reachable_targets(
-            session,
-            session.monsters[session.encounter.groups[0].monster_ids[0]],
-            battle_module._party_target_pool(session),
+            session, session.monsters[session.encounter.groups[0].monster_ids[0]], front
         )
         assert any(member.id == "character-0001" for member in pool)
 
@@ -1158,34 +1161,28 @@ class TestAScrollDeclarationIsJudgedAtTheScrollsLevel:
 class TestAFormationMoveNeedsEveryDeclarer:
     """A `fighting_withdrawal` or a `retreat` that every declarer makes moves the whole formation (the
     adaptations register, battle section). One that not every declarer makes is the declaring member's
-    own: a front-rank member trades places with the back-rank member named in `replacement_id`, and
-    `test_single_withdrawal.py` locks that. A round in which some members make a defensive move with no
-    replacement named is refused whole, with `battle.declaration.no_replacement` for each front-rank
-    member and `battle.declaration.not_in_front_rank` for each member behind the front rank. The
-    refusal costs no draw, no round, no distance, and no event, as every other illegal declaration costs
-    nothing. `close` needs no agreement: the first `close` in marching order advances the formation for
-    everyone, so a lone `close` stays legal.
+    own: that member alone moves back on the range track, at half or full encounter rate, and needs no
+    replacement. `test_member_positions.py` and `test_single_withdrawal.py` lock that. A `close` is
+    always the declaring member's own, so a lone `close` moves that member and nobody else.
     """
 
-    @pytest.mark.parametrize("move", ["fighting_withdrawal", "retreat"])
-    def test_a_lone_defensive_move_with_no_replacement_is_refused_whole(self, move):
-        from osrlib.core.combat import COMBAT_STREAM
-
+    @pytest.mark.xfail(reason="chunk: positions", strict=True)
+    @pytest.mark.parametrize(("move", "feet"), [("fighting_withdrawal", 20), ("retreat", 40)])
+    def test_a_lone_defensive_move_moves_the_member_alone(self, move, feet):
         session = battle_session(distance=40)
-        combat_before = session.streams.get(COMBAT_STREAM).export_state()
-        round_before = session.battle.round
         distance_before = session.encounter.groups[0].distance_feet
         lone = BattleDeclaration(character_id="character-0001", action="move", move=move)
         result = session.execute(ResolveBattleRound(declarations=hold_all(session, extra=(lone,))))
-        assert not result.accepted
-        assert result.events == ()
-        assert [(rejection.code, dict(rejection.params)) for rejection in result.rejections] == [
-            ("battle.declaration.no_replacement", {"character": "character-0001"})
-        ]
-        assert session.streams.get(COMBAT_STREAM).export_state() == combat_before
-        assert session.battle.round == round_before
-        assert session.encounter.groups[0].distance_feet == distance_before
+        assert result.accepted, [rejection.code for rejection in result.rejections]
+        assert session.battle.advance_feet == {"character-0001": -feet}
+        moved = [event for event in result.events if event.code == "battle.member.moved"]
+        assert [(event.character_id, event.move) for event in moved] == [("character-0001", move)]
+        assert all(
+            event.distance_feet < distance_before for event in result.events if event.code == "battle.group.moved"
+        )
+        assert session.mode.value == "battle"
 
+    @pytest.mark.xfail(reason="chunk: positions", strict=True)
     def test_a_majority_does_not_carry_the_minority(self):
         session = battle_session(distance=40)
         retreating = tuple(
@@ -1193,25 +1190,18 @@ class TestAFormationMoveNeedsEveryDeclarer:
             for member_id in ("character-0001", "character-0002", "character-0003")
         )
         result = session.execute(ResolveBattleRound(declarations=hold_all(session, extra=retreating)))
-        assert not result.accepted
-        assert sorted((rejection.code, rejection.params.get("character")) for rejection in result.rejections) == [
-            ("battle.declaration.no_replacement", "character-0001"),
-            ("battle.declaration.no_replacement", "character-0002"),
-            ("battle.declaration.not_in_front_rank", "character-0003"),
-        ]
-        assert session.battle is not None and session.battle.round == 0
+        assert result.accepted, [rejection.code for rejection in result.rejections]
+        assert session.battle.advance_feet == {"character-0001": -40, "character-0002": -40, "character-0003": -40}
+        assert "battle.ended.fled" not in [event.code for event in result.events]
 
-    def test_two_members_withdrawing_alone_each_need_a_replacement(self):
+    @pytest.mark.xfail(reason="chunk: positions", strict=True)
+    def test_two_members_withdrawing_alone_each_move_alone(self):
         session = battle_session(distance=40)
         first = BattleDeclaration(character_id="character-0001", action="move", move="retreat")
         second = BattleDeclaration(character_id="character-0002", action="move", move="fighting_withdrawal")
         result = session.execute(ResolveBattleRound(declarations=hold_all(session, extra=(first, second))))
-        assert not result.accepted
-        refused = sorted(((rejection.code, dict(rejection.params)) for rejection in result.rejections), key=repr)
-        assert refused == [
-            ("battle.declaration.no_replacement", {"character": "character-0001"}),
-            ("battle.declaration.no_replacement", {"character": "character-0002"}),
-        ]
+        assert result.accepted, [rejection.code for rejection in result.rejections]
+        assert session.battle.advance_feet == {"character-0001": -40, "character-0002": -20}
 
     def test_every_declarer_withdrawing_moves_the_formation(self):
         session = battle_session(distance=40)
@@ -1225,14 +1215,16 @@ class TestAFormationMoveNeedsEveryDeclarer:
         distances = [event.distance_feet for event in result.events if event.code == "battle.group.moved"]
         assert any(after > before for before, after in zip([40, *distances], distances, strict=False))
 
-    def test_a_lone_close_stays_legal(self):
+    @pytest.mark.xfail(reason="chunk: positions", strict=True)
+    def test_a_lone_close_moves_only_that_member(self):
         session = battle_session(distance=40)
         close = BattleDeclaration(
             character_id="character-0001", action="move", move="close", target_group_id=group_id(session)
         )
         result = session.execute(ResolveBattleRound(declarations=hold_all(session, extra=(close,))))
         assert result.accepted, [rejection.code for rejection in result.rejections]
-        assert session.encounter.groups[0].distance_feet < 40
+        assert session.battle.advance_feet == {"character-0001": 35}
+        assert session.encounter.groups[0].distance_feet == 40
 
     def test_the_only_declarer_may_retreat_alone(self):
         from osrlib.core.combat import DamageSource, deal_damage
