@@ -229,11 +229,16 @@ class Interpreter:
 
     For each accepted command, the interpreter goes through the command's events in the order
     they happened. For each event, it checks the adventure's triggers in the order the
-    adventure lists them, and then its quests in the same way. A trigger matches when its
-    pattern fits the event, it hasn't fired yet or is `repeatable`, and every one of its
-    conditions holds against the session's state at that moment. A trigger that matches fires
-    at once, before the next trigger is checked, so a later trigger's conditions are checked
-    against what an earlier firing has already changed.
+    adventure lists them, and then its quests in the same way.
+
+    A trigger matches an event when all of these are true:
+
+    - Its pattern fits the event.
+    - It hasn't fired yet, or it's `repeatable`.
+    - Every one of its conditions holds against the session's state at that moment.
+
+    A trigger that matches fires at once, before the next trigger is checked. So a later
+    trigger's conditions are checked against what an earlier firing has already changed.
 
     A firing executes these commands, each with `source="trigger:{id}"`:
 
@@ -247,10 +252,9 @@ class Interpreter:
        `journal` text, when it has one. It comes last, so the entry records the clock time
        after the consequences.
 
-    For a quest, the interpreter executes these commands, each with `source="quest:{id}"`. A quest clause
-    ([`TriggerClause`][osrlib.crawl.quests.TriggerClause]) matches an event exactly the way a
-    trigger does, with the same patterns and the same conditions, and the quest is checked in
-    this order:
+    A quest clause ([`TriggerClause`][osrlib.crawl.quests.TriggerClause]) matches an event the
+    same way a trigger does, with the same patterns and conditions. For a quest, the interpreter
+    executes these commands, each with `source="quest:{id}"`, and checks the quest in this order:
 
     1. For an inactive quest whose activation clause matches, the interpreter executes
        [`ActivateQuest`][osrlib.crawl.commands.ActivateQuest], and the check goes on to the
@@ -285,16 +289,20 @@ class Interpreter:
     execute grants no rewards. Only the interpreter issues rewards, and a replay executes the
     reward commands themselves.
 
-    When a command fails, the interpreter goes on, and the log records why. The interpreter
-    drops a rejected consequence or reward without affecting the others. Examples are a
-    [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] while an encounter is already
-    open, a grant to a character who isn't in the party, and a
-    [`RemoveCoins`][osrlib.crawl.commands.RemoveCoins] toll that the first living member
-    can't pay. A [`RecordNote`][osrlib.crawl.commands.RecordNote] then records the trigger or
-    quest, the dropped command's position and type, and the rejection code. When a selector
-    selects nobody, like `@carrier` when no living member carries the item, the interpreter
-    drops the command the same way. The note then gives that reason instead of a rejection
-    code. If the party dies partway through and the session ends, the remaining commands are
+    When a command fails, the interpreter drops it, goes on with the others, and records why
+    in a [`RecordNote`][osrlib.crawl.commands.RecordNote]. The note gives the trigger or
+    quest, the dropped command's position and type, and the rejection code. These are some
+    commands it drops:
+
+    - A [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] while an encounter is already
+      open.
+    - A grant to a character who isn't in the party.
+    - A [`RemoveCoins`][osrlib.crawl.commands.RemoveCoins] toll that the first living member
+      can't pay.
+    - A command whose selector selects nobody, like `@carrier` when no living member carries
+      the item. Its note gives that reason instead of a rejection code.
+
+    If the party dies partway through and the session ends, the remaining commands are
     accepted or dropped by the ordinary rules of the `game_over` mode.
 
     A chain of reactions has a limit. The events of the command you execute are at depth 0,

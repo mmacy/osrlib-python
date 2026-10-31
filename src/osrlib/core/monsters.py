@@ -396,9 +396,10 @@ class MonsterAttack(BaseModel):
 
 
 class RoutineUse(StrEnum):
-    """When a monster uses one of its attack routines, as the OSE SRD's stat block and description put it.
+    """When a monster may use one of its attack routines, taken from the monster's OSE SRD entry.
 
-    Read it as [`AttackRoutine.use`][osrlib.core.monsters.AttackRoutine.use]. There are four values:
+    Each [`AttackRoutine`][osrlib.core.monsters.AttackRoutine] has one of these values in its
+    [`use`][osrlib.core.monsters.AttackRoutine.use] field. There are four values:
 
     - `PRIMARY`: the first routine the stat block prints.
     - `ALTERNATIVE`: a routine the monster may use instead of the first in any round.
@@ -710,7 +711,7 @@ class MonsterAbility(BaseModel):
       monster's attack hits.
     - `"averting_eyes"`, for the bonus a gazer gets against a creature that averts its eyes.
     - `"surprise"`, when its `params` have `meets_gaze`. Every character the monster surprises
-      then meets its gaze, as with a basilisk.
+      is then affected by its gaze, as with a basilisk.
     - `attacks_others` in the `params` of a `"paralysis"` ability, as the ghoul's and the thoul's
       have. The default action policy then has the monster pass over every paralysed member,
       whoever paralysed them, while a target that's neither paralysed nor turned to stone is in

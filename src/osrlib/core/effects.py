@@ -198,7 +198,7 @@ class Condition(StrEnum):
     BLIND = "blind"
     """Unable to see. [`validate_attack`][osrlib.core.combat.validate_attack] rejects the creature's attacks with
     `combat.attack.attacker_blind`. [`resolve_gaze`][osrlib.core.combat.resolve_gaze] skips the creature, because it
-    can't meet a gaze. In a battle in a [`GameSession`][osrlib.crawl.session.GameSession], a creature that a spitting
+    can't see a gaze. In a battle in a [`GameSession`][osrlib.crawl.session.GameSession], a creature that a spitting
     cobra's spit hits saves versus death, and on a failed save it's blind permanently."""
 
     CHARMED = "charmed"

@@ -50,8 +50,8 @@ wield: armour and weapon policies, the two-ring cap, and the rule that a two-han
 and a shield can't be used together.
 
 Torch, holy water, and burning oil appear on both the OSE SRD's weapon table and its gear
-list. In osrlib, each is one gear item with one id. Its `combat` field, a
-[`CombatFacet`][osrlib.core.items.CombatFacet], has its combat stats. The weapon catalog
+list. In osrlib, each is one gear item with one id. Its `combat` field contains its combat
+stats, as a [`CombatFacet`][osrlib.core.items.CombatFacet]. The weapon catalog
 lists only the other weapons. Class weapon policies apply only to that catalog, so a cleric
 may use holy water and a magic-user may throw oil or swing a torch. This is an adaptation, a
 reading osrlib chooses where the rules are unclear (see the
@@ -2407,12 +2407,13 @@ def treasure_weight_coins(inventory: Inventory) -> int:
     the encumbrance table weighs as treasure, which are potions, scrolls, rods, staves, and
     wands. Every coin weighs 1, whatever its metal.
 
-    A stack of those magic items weighs its template's `weight_coins` times its quantity,
-    so a spent stack, at quantity 0, weighs nothing. Rings and miscellaneous magic items weigh
-    nothing, because the OSE SRD gives them no weight. A bag of holding weighs its printed loaded
-    weight while it contains anything. Enchanted weapons and armour count as equipment, like
-    the mundane kind, rather than as treasure. That way basic encumbrance measures what the
-    rules mean by it: how much loot is being hauled out.
+    A stack of those magic items weighs its template's `weight_coins` times its quantity, so
+    a spent stack, at quantity 0, weighs nothing. Rings and miscellaneous magic items weigh
+    nothing, because the OSE SRD gives them no weight. A bag of holding weighs 600 coins,
+    the weight its template gives for a full bag, while it contains anything. Enchanted
+    weapons and armour count as equipment, like the mundane kind, rather than as treasure.
+    That way basic encumbrance measures what the rules mean by it: how much loot is being
+    hauled out.
 
     Call [`tracked_weight_coins`][osrlib.core.items.tracked_weight_coins] instead when you
     want whatever the ruleset in play tracks.
@@ -2465,10 +2466,10 @@ def equipment_weight_coins(inventory: Inventory) -> int:
     that weight. Gear has no per-item weights, so carrying any gear at all adds a flat
     [`MISC_GEAR_WEIGHT_COINS`][osrlib.core.items.MISC_GEAR_WEIGHT_COINS] and no more.
 
-    An enchanted weapon or suit of armour weighs what its mundane base item weighs. The base
-    item is the one in the instance's `base_item_id`, or in the template's when the instance
-    has none. Enchanted armour and shields weigh half, rounded down, because the rules make
-    enchanted armour lighter than the mundane kind.
+    An enchanted weapon weighs what its mundane base item weighs. Enchanted armour or an
+    enchanted shield weighs half of what its base item weighs, rounded down, because the
+    rules make enchanted armour lighter than the mundane kind. The base item is the one in
+    the instance's `base_item_id`, or in the template's when the instance has none.
 
     Args:
         inventory: The inventory to weigh.

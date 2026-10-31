@@ -735,11 +735,11 @@ def _validate_quest(
 def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment: EquipmentCatalog) -> None:
     """Check that every id in an adventure refers to something that exists.
 
-    Call it while you write an adventure, as soon as you have one to check. It follows the references
-    in the tree and raises once, with a list of everything wrong, so you can fix the whole document
-    in one pass. [`GameSession.new`][osrlib.crawl.session.GameSession.new] calls it too, so a session
-    doesn't start on content that fails these checks. It changes nothing, and it returns `None` when
-    the adventure passes.
+    Call it while you write an adventure. It follows the references in the tree and raises once,
+    with a list of everything wrong, so you can fix the whole document in one pass. It changes
+    nothing, and it returns `None` when the adventure passes.
+    [`GameSession.new`][osrlib.crawl.session.GameSession.new] calls it too, so a session never starts
+    on content that fails these checks.
 
     For the whole adventure, it checks that:
 
@@ -766,9 +766,10 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
     or a transition (a [`GateSpec`][osrlib.crawl.gates.GateSpec]):
 
     - Each transition stands on the grid and leads to a cell on the grid of a level that exists.
-    - Each passage stands on a wall. Its far cell, the cell one step across that wall, is on the
-      grid, outside every area, and walled on its other three sides. The passage doesn't lead to
-      the cell it stands on or to any passage's far cell, and no two passages share a cell and side.
+    - Each passage stands on a wall. Its far cell is the cell one step across that wall. The far
+      cell is on the grid, outside every area, and walled on its other three sides.
+    - No passage leads to the cell it stands on, or to any passage's far cell.
+    - No two passages share a cell and side.
     - The item id of each `has_item` gate on a door or a transition resolves.
 
     It checks traps:

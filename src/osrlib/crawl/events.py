@@ -715,8 +715,8 @@ class RestedEvent(Event):
     `exploration.rest.rested` for a rest that ran to its end, and
     `exploration.rest.interrupted` for one a wandering monster cut short.
 
-    A completed rest clears the penalty for going without rest, counts toward recovering
-    from exhaustion after a chase, and, for a full day, heals the party. An interrupted
+    A completed rest clears the penalty for going without rest, and counts toward recovering
+    from exhaustion after a chase. A rest of a full day, 144 turns, also heals the party. An interrupted
     rest heals nobody. If the party rested at least one full turn (10 minutes of game
     time, or 60 rounds) before the monsters came, the rest still clears that penalty, and
     each full turn counts toward recovery.
@@ -739,15 +739,19 @@ class FatigueEvent(Event):
     """The party gained the penalty for going without rest, or recovered from it.
 
     The B/X rules require a party to rest one turn in every six while it's in a dungeon. A
-    turn is 10 minutes of game time, or 60 rounds. A
-    party that doesn't takes −1 to attack and damage rolls until it does, and these two
-    codes mark when the penalty starts and when it lifts.
+    turn is 10 minutes of game time, or 60 rounds. A party that goes six turns without a rest
+    takes −1 to attack and damage rolls until it rests. These two codes mark when the penalty
+    starts and when it lifts.
 
-    `exploration.fatigue.gained` comes from any command that passes a turn while the
-    session is in `exploring` mode, once the party has gone too long without resting
-    (see [`check_fatigue`][osrlib.crawl.exploration.check_fatigue]).
+    `exploration.fatigue.gained` comes from any command that passes a turn while the session
+    is in `exploring` mode, once the party has gone six turns without a rest. Under the
+    `deprivation_penalties` ruleset flag, three turns are enough when a living member has gone
+    a full day without food or water. See
+    [`check_fatigue`][osrlib.crawl.exploration.check_fatigue].
+
     `exploration.fatigue.recovered` comes from a [`Rest`][osrlib.crawl.commands.Rest] once the
-    party has rested one full turn, even if a wandering monster interrupts the rest after that.
+    party has rested one full turn. One full turn of rest is enough, even if a wandering
+    monster interrupts the rest after that.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"exploration.fatigue.gained", "exploration.fatigue.recovered"})
@@ -1191,16 +1195,22 @@ class MemberWithdrewEvent(Event):
     """A party member stepped back out of the front rank, and a member from behind took their place.
 
     Emitted by [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound] in the party's
-    movement step. A member can step back alone, without the rest of the party, by declaring a
-    fighting withdrawal or a retreat. When that member also names a
-    [`replacement_id`][osrlib.crawl.commands.BattleDeclaration.replacement_id], the session emits
-    one of these events. The two members have traded places in the marching order. The withdrawing
-    member now stands where the replacement stood, and the replacement stands in the front rank.
-    The party hasn't moved, and no group's distance has changed.
+    movement step.
+
+    A front-rank member can step back alone by declaring a fighting withdrawal or a retreat.
+    The member can also name a member from behind in
+    [`replacement_id`][osrlib.crawl.commands.BattleDeclaration.replacement_id]. Then the two
+    trade places in the marching order, and the session emits this event:
+
+    - The withdrawing member now stands where the replacement stood.
+    - The replacement now stands in the front rank.
+    - The party hasn't moved, and no group's distance has changed.
 
     The events come in the marching order of the withdrawing members, before the party's
-    `close`, if the round has one. A swap that can't happen by the movement step reports
-    nothing, and the two members stay where they are. That happens in these cases:
+    `close`, if the round has one.
+
+    A swap that can't happen by the movement step reports nothing, and the two members stay
+    where they are. That happens in these cases:
 
     - One of the two has died or can no longer move.
     - The replacement is incapacitated, charmed, or confused, so they can no longer act on the
@@ -1227,16 +1237,16 @@ class MemberWithdrewEvent(Event):
 
 
 class MonsterFledEvent(Event):
-    """A monster group broke and ran.
+    """A monster group fled the battle.
 
     Emitted by [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound] when
-    a group fails a morale check. When a battle opens, it's also emitted for a group
-    whose morale is so low that it never fights at all.
+    a group fails its morale check and flees. When a battle opens, it's also emitted for a
+    group whose morale is so low that it never fights at all.
 
-    When a cleric turns only some of a group, the turned members break away as a new
-    group, and `group_id` is the new group's id.
+    When a cleric turns only some of a group, the turned members leave the group and flee as
+    a new group, and `group_id` is the new group's id.
 
-    A running group moves away each round, and it's gone once it's more than
+    A fleeing group moves away each round. It has left the battle once it's more than
     [`FLEE_EXIT_FEET`][osrlib.crawl.battle.FLEE_EXIT_FEET] from the party. Its members
     still count as defeated for the experience award.
     """
@@ -1650,7 +1660,7 @@ class MonstersSpawnedEvent(Event):
     one is open, the monsters join it as a new group.
 
     It has referee visibility, and it contains ids rather than a description. The party
-    learns what walked in from
+    learns which monsters arrived from
     [`EncounterStartedEvent`][osrlib.crawl.events.EncounterStartedEvent] when the
     encounter opens, or from
     [`EncounterGroupJoinedEvent`][osrlib.crawl.events.EncounterGroupJoinedEvent] when the

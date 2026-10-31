@@ -1125,7 +1125,7 @@ def wandering_interval(session) -> int:
 
 
 def wandering_check(session, *, resting: bool = False) -> tuple[list[Event], bool]:
-    """Roll one wandering-monster check, and on a hit spawn the monsters and open the encounter.
+    """Roll one wandering-monster check, and when monsters come, spawn them and open the encounter.
 
     [`GameSession.advance_turns`][osrlib.crawl.session.GameSession.advance_turns] calls this every
     [`wandering_interval`][osrlib.crawl.exploration.wandering_interval] turns while the session is in
@@ -1133,23 +1133,29 @@ def wandering_check(session, *, resting: bool = False) -> tuple[list[Event], boo
     yourself to run the checks from a clock of your own, or to make an extra check the rules don't
     schedule.
 
-    The check changes the session whether or not it hits. It clears the session's noise flag,
-    because the noise has now counted for a check. On a hit it also spawns the monsters into the
-    session, opens an encounter, and puts the session in `encounter` mode, or `battle` mode when
-    the monsters attack at once. From then on the session refuses the exploring commands and
-    accepts the encounter commands. When `advance_turns` made the call, it passes no more time.
+    Every check clears the session's noise flag, because the noise has now counted for a check.
 
-    The chance starts from the level's chance in six. It goes up 1 for noise since the last check,
-    and 1 for light as bright as daylight. It goes down 1 while the party hides. It's limited to the
-    range 0 to 6. When the chance is 0, there's no roll: the check reports a miss and draws nothing.
-    Resting alone doesn't change the chance. The OSE SRD lowers it only for a party that rests
-    quietly in an out-of-the-way place, which it calls hiding. To have the party hide, send a
-    [`Rest`][osrlib.crawl.commands.Rest] with `hidden` set.
+    When monsters come, the check also changes these:
 
-    The check, the roll on the encounter table, and the number of monsters draw from
+    - It spawns the monsters into the session and opens an encounter.
+    - It puts the session in `encounter` mode, or in `battle` mode when the monsters attack at
+      once. The session then refuses the exploring commands and accepts the encounter commands.
+    - When `advance_turns` made the call, it passes no more time.
+
+    The chance in six starts from the level's chance and changes like this:
+
+    - +1 for noise since the last check.
+    - +1 for light as bright as daylight.
+    - −1 while the party hides. Resting alone doesn't count. The OSE SRD lowers the chance only
+      for a party that rests quietly in an out-of-the-way place, which it calls hiding. To have
+      the party hide, send a [`Rest`][osrlib.crawl.commands.Rest] with `hidden` set.
+
+    The chance is limited to the range 0 to 6. When it's 0, the check makes no random roll and
+    reports that no monsters came.
+
+    The check, the roll on the encounter table, and the number of monsters use
     [`WANDERING_STREAM`][osrlib.crawl.session.WANDERING_STREAM], one of the session's named
-    random number streams. The monsters and the encounter that follows draw from their own
-    streams.
+    random number streams. The monsters and the encounter that follows use their own streams.
 
     Args:
         session (osrlib.crawl.session.GameSession): The running session.
@@ -1159,7 +1165,7 @@ def wandering_check(session, *, resting: bool = False) -> tuple[list[Event], boo
     Returns:
         The check's events, and True when an encounter opened. The events start with one
         [`WanderingCheckEvent`][osrlib.crawl.events.WanderingCheckEvent] that contains the chance and
-        the roll, with `roll` set to None when the chance was 0. On a hit, the encounter's opening
+        the roll, with `roll` set to None when the chance was 0. When monsters come, the encounter's opening
         events follow it, after an
         [`NpcPartySpawnedEvent`][osrlib.crawl.events.NpcPartySpawnedEvent] when the monsters are an
         NPC party.
@@ -4434,7 +4440,7 @@ def _healing_would_work(service: str, member: Character, spell, context) -> bool
     *Raise dead* needs a dead member, and *cure disease* a diseased one. *Neutralize poison*
     needs a poisoned member, or one that poison killed within the spell's revival window.
     `_cast_context` works out the time since death from the session's death records. The other
-    services always count as working. The check only reads state, so a refusal draws nothing and
+    services always count as working. The check only reads state, so a refusal makes no random roll and
     changes nothing.
     """
     if service == "raise_dead":

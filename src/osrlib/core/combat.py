@@ -54,8 +54,9 @@ of function. A function that needs what only a monster has, like the daily breat
 Attack functions also take an [`AttackContext`][osrlib.core.combat.AttackContext], which
 states the situation of the attack, like the distance, cover, or a back-stab position.
 Most functions take the [`Ruleset`][osrlib.core.ruleset.Ruleset] in play, and every
-function that rolls dice takes an [`RngStream`][osrlib.core.rng.RngStream]. There's no
-default stream. Build an [`RngStreams`][osrlib.core.rng.RngStreams] from a master seed
+function that rolls dice takes an [`RngStream`][osrlib.core.rng.RngStream], a named source
+of random numbers. [The RNG streams reference](https://mmacy.github.io/osrlib-python/reference/rng-streams/)
+lists the streams. There's no default stream. Build an [`RngStreams`][osrlib.core.rng.RngStreams] from a master seed
 and pass each function the stream it draws from. Battle draws come from
 [`COMBAT_STREAM`][osrlib.core.combat.COMBAT_STREAM]. `roll_reaction` draws from the
 encounter stream, `natural_healing` from the effects stream, and
@@ -70,8 +71,8 @@ dice, and return a [`RollResult`][osrlib.core.dice.RollResult] with no events.
 
 Damage from an attack goes through these steps in this order:
 
-1. The immunity gate. This is osrlib's name for the check of whether the defender's
-   defenses let the attack harm it at all. If they don't, osrlib rolls no damage, and a
+1. The immunity check: whether the defender's defenses let the attack harm it at all.
+   If they don't, osrlib rolls no damage, and a
    [`DamageAbsorbedEvent`][osrlib.core.events.DamageAbsorbedEvent] reports the hit.
 2. The damage roll: the dice, the attacker's STR modifier in melee, magic and spell
    bonuses, then the doublings for a brace, a charge, or a back-stab. The total is at
@@ -82,11 +83,11 @@ Damage from an attack goes through these steps in this order:
    regeneration. A defender at 0 hit points dies.
 
 A monster attack that deals no hit point damage, like a wight's touch, stops after the
-immunity gate.
+immunity check.
 
 [`validate_attack`][osrlib.core.combat.validate_attack] and
 [`validate_breath`][osrlib.core.combat.validate_breath] check an action before you
-resolve it. They take no draws, change nothing, and return a list of
+resolve it. They make no random roll, change nothing, and return a list of
 [`Rejection`][osrlib.core.validation.Rejection] values, which is empty when the action
 may go ahead. A session refuses a rejected command without spending a roll or any game
 time. That's why holy water thrown at a living creature isn't rejected: it hits and does
@@ -543,7 +544,7 @@ class AttackRollResult(BaseModel):
     That happens in melee against a defender that's paralysed, asleep, or petrified. It
     also happens against a monster whose template has no armour class, like green slime and
     yellow mould, because attacks against it need no roll. When this is true, `roll`,
-    `total`, and `required` are `None`, and no draw was taken.
+    `total`, and `required` are `None`, and the function made no random roll.
     """
 
     roll: int | None = None
@@ -1412,12 +1413,14 @@ def attack_roll(
     count.
 
     A melee attack hits a paralysed, asleep, or petrified defender automatically, with no
-    roll and no draw. So does any attack on a monster whose template has no armour class,
+    roll. So does any attack on a monster whose template has no armour class,
     like green slime and yellow mould.
 
-    A natural 20 always hits and a natural 1 always misses. The total needed comes from
-    the B/X attack table, or from `THAC0 − AC` with no limits under the
-    `thac0_arithmetic` ruleset flag.
+    The attack hits when the d20 plus the modifiers reaches the total needed. The total
+    needed comes from the B/X attack table, or from `THAC0 − AC` with no limits under the
+    `thac0_arithmetic` ruleset flag. Armour class counts down in B/X, so a lower armour
+    class is better and needs a higher roll. A natural 20 always hits and a natural 1
+    always misses.
 
     Args:
         attacker: The attacking [`Combatant`][osrlib.core.creature.Combatant], which a
@@ -1433,14 +1436,15 @@ def attack_roll(
             none for an automatic hit.
 
     Returns:
-        The roll's outcome. Read `hit` to decide what happens next. `roll` is `None` on an
-        automatic hit. `events` contains the
+        The roll's outcome. Read `hit` to decide what happens next. `roll` is the d20 as it
+        landed, `total` is `roll` plus the modifiers, and `required` is the total needed.
+        `roll` is `None` on an automatic hit. `events` contains the
         [`AttackRolledEvent`][osrlib.core.events.AttackRolledEvent], with the code
         `combat.attack.hit`, `combat.attack.missed`, or `combat.attack.auto_hit`.
 
     Raises:
         ValueError: If the defender has no `armour_class` attribute, which means it isn't
-            a combatant. The function draws nothing first.
+            a combatant. The function makes no random roll first.
 
     Examples:
         ```python
@@ -1561,7 +1565,7 @@ def check_immunity(
 ) -> bool:
     """Return True when the defender is immune to the damage source, so no damage is rolled.
 
-    osrlib calls this check the immunity gate.
+    osrlib calls this the immunity check.
     [`resolve_attack`][osrlib.core.combat.resolve_attack] runs it on every hit, and
     [`resolve_breath`][osrlib.core.combat.resolve_breath] runs it for every target. Call it
     yourself to ask whether a weapon can hurt a monster before the party spends rounds
@@ -1585,11 +1589,14 @@ def check_immunity(
       missile. An arrow or a thrown flask is blocked, and a hurled boulder or a magic
       arrow isn't.
 
-    The `hd5_counts_as_magical` ruleset flag lets some monsters harm a monster that only
-    silver or magic can harm. With the flag on, pass the attacking monster as `attacker`.
-    It gets past the defense when it has 5 or more Hit Dice, or when only silver or magic
-    can harm the attacker too. A monster that energy drain has taken Hit Dice from counts
-    only the Hit Dice it has left.
+    The `hd5_counts_as_magical` ruleset flag is off by default. With it on, two kinds of
+    monster can harm a monster that only silver or magic can harm:
+
+    - A monster with 5 or more Hit Dice. A monster that energy drain has taken Hit Dice
+      from counts only the Hit Dice it has left.
+    - A monster that only silver or magic can harm itself.
+
+    The rule applies only when you pass the attacking monster as `attacker`.
 
     Args:
         defender: The defending [`Creature`][osrlib.core.creature.Creature], which a
@@ -1672,7 +1679,7 @@ def damage_roll(
     stream: RngStream,
     defender: Creature | None = None,
 ) -> RollResult:
-    """Roll an attack's damage: the dice, the bonuses, and the doublings, at least 1.
+    """Roll an attack's damage: the dice, the bonuses, and the multipliers, at least 1.
 
     [`resolve_attack`][osrlib.core.combat.resolve_attack] calls this after a hit gets past
     the defender's immunities, and passes the total to
@@ -1687,10 +1694,14 @@ def damage_roll(
     3. A magic weapon's damage bonus. Some magic weapons have a separate bonus against
        certain monsters. When `defender` is one of those monsters, the function adds that
        bonus instead of the weapon's usual damage bonus.
-    4. Spell bonuses, like *bless*, and the extra die of *striking* on a weapon attack.
-    5. The multipliers: a braced weapon against a charge, a charging attack with a lance
-       or other charge weapon, magic like a potion of giant strength or of growth, and a
-       thief's back-stab. Each multiplies the total so far.
+    4. Spell bonuses, like *bless*. On a weapon attack, *striking* adds an extra die.
+    5. The multipliers. Each one multiplies the total so far:
+        - ×2 for a weapon with the brace quality, like a spear, set against a charge. The
+          context's `braced` says so.
+        - ×2 for a charge with a weapon that has the charge quality, like a lance. The
+          context's `charging` says so.
+        - Magic like a potion of giant strength or of growth.
+        - A thief's back-stab, when the context sets `behind_target` and `target_unaware`.
 
     The total is at least 1, except for a monster attack that deals no hit point damage,
     like a wight's touch, which totals 0.
@@ -1705,9 +1716,9 @@ def damage_roll(
             [`Character`][osrlib.core.character.Character] and a
             [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy.
         attack: The [`Attack`][osrlib.core.combat.Attack], or `None` for unarmed.
-        context: The attack's context. The multipliers depend on its `braced`, `charging`,
-            `behind_target`, and `target_unaware` fields, and a monster attack's fixed amount
-            on its `fixed_damage_option`.
+        context: The attack's context. Step 5 reads its `braced`, `charging`,
+            `behind_target`, and `target_unaware` fields. For a monster attack with more
+            than one fixed amount, its `fixed_damage_option` picks the amount.
         ruleset: The ruleset in play.
         stream: The stream to draw the damage dice from, usually
             [`COMBAT_STREAM`][osrlib.core.combat.COMBAT_STREAM].
@@ -1875,20 +1886,23 @@ def deal_damage(
        the round in a [`MonsterInstance`][osrlib.core.monsters.MonsterInstance]'s
        `last_damaged_round`. A troll's regeneration waits after that round, and a dead
        troll gets back up 2d6 rounds after it.
-    4. Fire and acid stop a troll's regeneration, and the regeneration of a character who
-       wears a ring of regeneration. Damage of an element that stops the target's
-       regeneration also adds to its `nonregen_damage`, up to its maximum hit points.
-       Regeneration never heals that damage, but other healing, like a potion, does. So
-       before it applies any damage to a target that regenerates, the function caps
-       `nonregen_damage` at the damage the target has now: its maximum hit points less its
-       current hit points. For example, a troll with 30 maximum hit points takes 10 fire
-       damage, so its `nonregen_damage` is 10. A potion then heals it to 26 hit points. On
-       the next hit, the function first lowers `nonregen_damage` to 4.
+    4. Damage that stops the target's regeneration adds to its `nonregen_damage`. The
+       paragraph after this list explains it.
     5. At 0 hit points the target dies, through [`kill`][osrlib.core.effects.kill]. A
        monster that regenerates after death dies for good only when its
        `nonregen_damage` reaches its maximum hit points. Then a destructive source
        destroys what the target carried, through
        [`destroy_equipment`][osrlib.core.combat.destroy_equipment].
+
+    Fire and acid stop a troll's regeneration, and the regeneration of a character who
+    wears a ring of regeneration. The function adds such damage to the target's
+    `nonregen_damage`, up to its maximum hit points. Regeneration never heals that damage.
+
+    Other healing, like a potion, does heal it. So before each hit on a target that
+    regenerates, the function lowers `nonregen_damage` to no more than the damage the target
+    has now, its maximum hit points less its current hit points. For example, a troll with
+    30 maximum hit points takes 10 fire damage, so its `nonregen_damage` is 10. A potion
+    heals it to 26 hit points. On the next hit, `nonregen_damage` first drops to 4.
 
     A target that's already dead doesn't die again. When the damage makes a dead troll's
     death permanent, a [`DeathEvent`][osrlib.core.events.DeathEvent] with the code
@@ -3314,13 +3328,14 @@ def drain_monster_hd(monster: MonsterInstance, *, levels: int = 1, stream: RngSt
     [`resolve_energy_drain`][osrlib.core.combat.resolve_energy_drain] calls the right one
     of the two for you after an undead creature's hit. This function changes the monster.
 
-    For each Hit Die drained, the monster loses a rolled d8 from both its maximum and its
-    current hit points. Its THAC0 and saving throws become those of its new Hit Dice.
-    Neither hit point total falls below 1, so losing hit points never kills a monster.
+    A drain that would take a monster's last Hit Die kills it. The function rolls no d8 for
+    that Hit Die, but counts it as lost. So a 1 HD monster drained of one level reports 1
+    level lost and a new level of 0.
 
-    A drain that would take a monster's last Hit Die kills it instead. The function rolls
-    no d8 for that Hit Die, but counts it as lost. So a 1 HD monster drained of one level
-    reports 1 level lost and a new level of 0.
+    Every other Hit Die drained takes a rolled d8 from both the monster's maximum and its
+    current hit points. Its THAC0 and saving throws become those of its new Hit Dice.
+    Neither hit point total falls below 1, so the lost hit points alone never kill a
+    monster.
 
     The function reports the drain as a
     [`LevelDrainedEvent`][osrlib.core.events.LevelDrainedEvent]. Its `hp_lost` is how far
@@ -3359,7 +3374,8 @@ def drain_monster_hd(monster: MonsterInstance, *, levels: int = 1, stream: RngSt
 
         events = drain_monster_hd(ogre, stream=streams.get(ADVANCEMENT_STREAM))
         assert events[0].code == "combat.drain.drained"
-        assert (ogre.hit_dice_count, ogre.max_hp, ogre.thac0) == (3, 21, 16)  # worse at everything
+        # Fewer Hit Dice and hit points, and a worse THAC0.
+        assert (ogre.hit_dice_count, ogre.max_hp, ogre.thac0) == (3, 21, 16)
         ```
     """
     from osrlib.core.events import LevelDrainedEvent
@@ -3649,7 +3665,7 @@ def resolve_gaze(
 
     Each creature in `engaged` saves versus paralysis. The function skips three kinds of
     creature: one that's averting its eyes, one with the `blind` condition, because it can't
-    meet a gaze, and one that's already
+    see the gaze, and one that's already
     [`incapacitated`][osrlib.core.combat.incapacitated]. A creature averts its eyes while it
     has [`Condition.AVERTED_EYES`][osrlib.core.effects.Condition.AVERTED_EYES], which you
     give it with [`grant_condition`][osrlib.core.effects.grant_condition]. On a failed
@@ -3657,8 +3673,9 @@ def resolve_gaze(
     `petrified` condition. A petrified creature isn't dead, and the effect can be ended.
 
     The function doesn't change attack rolls. A creature that fights with its eyes averted
-    takes a penalty to hit, and the gazer may get a bonus against it. Apply both through the
-    `situational_modifier` of each [`AttackContext`][osrlib.core.combat.AttackContext]. The
+    takes −4 to hit. A gazer whose entry gives the bonus, like the basilisk, gets +2 to
+    attack it. Apply both through the `situational_modifier` of each
+    [`AttackContext`][osrlib.core.combat.AttackContext]. The
     function doesn't model a mirror either, so leave a creature that watches the gazer in a
     mirror out of `engaged`.
 

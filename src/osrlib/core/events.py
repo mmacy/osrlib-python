@@ -803,7 +803,7 @@ class DeathEvent(Event):
 
 
 class EquipmentDestroyedEvent(Event):
-    """Everything a victim carried was destroyed with it.
+    """What a victim carried was destroyed with it, except any magic items that saved.
 
     [`destroy_equipment`][osrlib.core.combat.destroy_equipment] reports this when a death destroys the victim and
     what it carries, as a dragon's breath or *disintegrate* does. It reports no event for a victim that carried

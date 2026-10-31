@@ -1016,7 +1016,7 @@ class GameSession:
     def _handler_table(self) -> Mapping[type[Command], Any]:
         """Return this session's command-to-handler table, built once and cached on the instance.
 
-        Assembled lazily, on this session's first dispatch, by merging the private handler tables of
+        Built the first time this session dispatches a command, by merging the private handler tables of
         the exploration, encounter, and battle modules with the referee handlers this module defines. The
         import happens inside the call rather than at the top of this module because those three
         modules import [`GameSession`][osrlib.crawl.session.GameSession] from here at their top
@@ -1568,15 +1568,22 @@ class GameSession:
         the turn the party had already spent walking.
 
         For each turn, the clock and the active effects advance, and a new day uses up food and
-        water. In the field, the turn also counts toward the party's next required rest, unless the
-        party is resting, and toward the next wandering-monster check, which runs when it's due. A
-        check that produces an encounter stops the advance at that turn, because the party now has
-        something else to deal with, and the second return value is True.
+        water.
 
-        In the field, the advance also stops as soon as no party member is alive, because the rest
-        and wandering rules apply only while someone is. Out of the field it keeps going, because
-        the time limit on bringing a dead character back has to keep running while the party lies
-        dead.
+        The `field` argument says whether the dungeon rules for rest and wandering monsters
+        apply. By default they apply while the session is in `exploring` mode, that is, while
+        the party explores a dungeon. When they apply:
+
+        - Each turn counts toward the party's next required rest, unless the party is resting.
+        - Each turn counts toward the next wandering-monster check, which runs when it's due.
+        - A check that produces an encounter stops the advance at that turn, because the party
+          now has something else to deal with. The second return value is then True.
+        - The advance stops as soon as no party member is alive, because these rules apply only
+          while someone is.
+
+        When they don't apply, as in town or on the road, the advance keeps going even with every
+        member dead. The time limit on bringing a dead character back has to keep running while
+        the party lies dead.
 
         To move the clock during play, execute
         [`AdvanceTime`][osrlib.crawl.commands.AdvanceTime] or [`Rest`][osrlib.crawl.commands.Rest]
@@ -1590,9 +1597,9 @@ class GameSession:
                 lowers the chance of each wandering check in the span by 1 in 6. A
                 [`Rest`][osrlib.crawl.commands.Rest] with `hidden` set passes both `resting`
                 and `hidden`.
-            field: Whether the rest and wandering rules apply. Defaults to whether the session is
-                in `exploring` mode, because the engine rolls for wandering monsters only in a
-                dungeon. Time in town and on the road doesn't count.
+            field: Whether the dungeon rules for rest and wandering monsters apply. Defaults to
+                whether the session is in `exploring` mode, because the engine rolls for wandering
+                monsters only in a dungeon. Time in town and on the road doesn't count.
 
         Returns:
             The events, and True when a wandering encounter interrupted the span before it ran

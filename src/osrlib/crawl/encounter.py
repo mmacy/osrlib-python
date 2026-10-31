@@ -63,8 +63,9 @@ rules:
 - 2 or less: the monsters attack at once.
 - 3 to 5, hostile: the monsters attack at the end of the next encounter round, unless the party
   has started to evade or a parley has improved the stance.
-- 6 to 8, uncertain: the monsters wait, and osrlib rolls the reaction again next round with
-  no modifier.
+- 6 to 8, uncertain: the monsters wait. At the end of each encounter round, osrlib rolls the
+  reaction again with no modifier. A [`Parley`][osrlib.crawl.commands.Parley] also rolls it,
+  once, with the speaker's CHA modifier, before its round ends.
 - 9 to 11, indifferent: the party can pass, parley, or leave.
 - 12 or more: the monsters are friendly.
 
@@ -194,9 +195,9 @@ class EncounterGroup(BaseModel):
     You get these from `session.encounter.groups`. The session creates them when an encounter
     opens, or when a [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] adds a group to it. It
     updates them during the battle, and loading a save restores them, so you don't construct one
-    yourself. Much of a fight works by group instead of by monster. A failed morale check breaks a
-    whole group at once, and a party member's attack identifies a group in the `target_group_id` of
-    a [`BattleDeclaration`][osrlib.crawl.commands.BattleDeclaration].
+    yourself. Much of a fight works by group instead of by monster. When a group fails its morale
+    check, the whole group flees at once. A party member's attack names its target group in the
+    `target_group_id` of a [`BattleDeclaration`][osrlib.crawl.commands.BattleDeclaration].
     """
 
     model_config = ConfigDict(validate_assignment=True)
@@ -357,26 +358,33 @@ def start_encounter(
     call them during play, the game still saves and loads, but
     [`replay_game`][osrlib.persistence.replay_game] won't reproduce the encounter.
 
-    The monsters don't roll for surprise when `monsters_roll_surprise` is False or
-    `monsters_aware` is True, or when the party carries a light. The session passes
-    `monsters_roll_surprise=False` for wandering monsters other than an NPC party, because the SRD
-    has them arrive "moving in the direction of the party". It passes `monsters_aware=True` for a
-    keyed area marked aware and for an area the party alerted by failing to force a door, and
-    `party_aware=True` after a successful listen. The party is surprised on a d6 roll of 1 or 2.
-    When the party carries no light and some living member lacks infravision, it's surprised on 1
-    to 3. That's an adaptation, a place where osrlib chooses one interpretation of a rule the SRD
-    leaves open. The [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/) lists it as
-    the blind-party adaptation.
+    Each side rolls a d6 for surprise, unless something rules the roll out.
 
-    A basilisk's gaze reaches a party it surprises. When the party is surprised, and a monster's
-    `surprise` ability has `meets_gaze`, as the basilisk's does, every living party member meets
-    that monster's petrifying gaze once, as the encounter opens. Each member saves versus
-    paralysis or turns to stone. This happens at any distance and whatever the stance. It happens
-    even when the monsters are surprised too. A battle that opens from this encounter doesn't
-    repeat the gaze.
+    The monsters are surprised on a 1 or 2. They don't roll in these cases:
 
-    When the gaze leaves no member standing, so that every member is dead or petrified, no round
-    runs. With an attacking stance, the battle that opens ends in defeat at once, before the
+    - `monsters_roll_surprise` is False. The session passes this for wandering monsters other
+      than an NPC party, because the SRD has them arrive "moving in the direction of the party".
+    - `monsters_aware` is True. The session passes this for a keyed area marked aware, and for an
+      area the party alerted by failing to force a door.
+    - The party carries a light.
+
+    The party is surprised on a 1 or 2. When the party carries no light and some living member
+    lacks infravision, it's surprised on 1 to 3. That's an adaptation, a place where osrlib
+    chooses one interpretation of a rule the SRD leaves open. The
+    [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/) lists it as the
+    blind-party adaptation. The party doesn't roll when `party_aware` is True, which the session
+    passes after a successful listen.
+
+    A surprised party faces a basilisk's petrifying gaze as the encounter opens:
+
+    - It applies to a monster whose `surprise` ability has `meets_gaze`, as the basilisk's does.
+    - Every living party member is affected once. Each saves versus paralysis or turns to stone.
+    - It happens at any distance and whatever the stance, even when the monsters are surprised
+      too.
+    - A battle that opens from this encounter doesn't repeat it.
+
+    The gaze can leave no member standing, so that every member is dead or petrified. Then no
+    round runs. With an attacking stance, the battle that opens ends in defeat at once, before the
     monsters' free round. With any other stance, the encounter stops at the stance. A command that
     opens the encounter, like [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters], then ends the
     session in `game_over`.
@@ -417,7 +425,7 @@ def start_encounter(
         - A [`SurpriseRolledEvent`][osrlib.crawl.events.SurpriseRolledEvent] for the monsters, and
           one for the party.
         - The [`EncounterStartedEvent`][osrlib.crawl.events.EncounterStartedEvent].
-        - When a surprised party meets a gaze, like a basilisk's, each member's saving throw, and
+        - When a surprised party faces a gaze, like a basilisk's, each member's saving throw, and
           the petrification of each member who fails it.
         - The [`ReactionRolledEvent`][osrlib.core.events.ReactionRolledEvent], unless you passed
           `pinned_stance`.
@@ -1151,9 +1159,9 @@ def end_encounter(session, outcome: str) -> list[Event]:
 
     Every monster that ended slain or routed gets a
     [`MonsterDefeatedEvent`][osrlib.crawl.events.MonsterDefeatedEvent] and a record in
-    `session.defeated_monsters` with its experience value. A routed monster is one that fled, is
-    still fleeing, or was turned. The function records a defeated NPC adventurer with the
-    template id `npc:<class_id>`.
+    `session.defeated_monsters` with its experience value. Routed covers three cases: a monster
+    that fled, one that's still fleeing, and one a cleric turned. The function records a defeated
+    NPC adventurer with the template id `npc:<class_id>`.
 
     The treasure slain monsters carried drops in a pile on the party's cell, which
     [`PlayerView.piles`][osrlib.crawl.views.PlayerView.piles] shows and
@@ -1167,12 +1175,17 @@ def end_encounter(session, outcome: str) -> list[Event]:
     the function clears `session.defeated_monsters`. Otherwise, the records stay until the party
     returns to town.
 
-    The clock then advances to whichever comes later: the next turn boundary, or one full turn (60
-    rounds) after the encounter opened. So an encounter always costs at least one turn. When the
-    encounter ends in the same turn it opened in, the clock stops one full turn after the opening
-    round, which can be partway through the next turn. Wandering-monster checks don't run during
-    the encounter. The turn the encounter costs also covers any part of a turn the party had spent
-    walking, so `session.odometer_thirds` resets to 0.
+    An encounter costs at least one turn (60 rounds). When it closes, the clock advances in two
+    steps:
+
+    1. The clock moves to the start of a turn: the current round if it starts a turn, or else
+       the start of the next turn.
+    2. If that's less than 60 rounds after the encounter opened, the clock moves on to 60
+       rounds after the opening round instead. That can be partway through a turn.
+
+    Wandering-monster checks don't run during the encounter. The turn the encounter costs also
+    covers any part of a turn the party had spent walking, so `session.odometer_thirds`
+    resets to 0.
 
     Args:
         session (osrlib.crawl.session.GameSession): The running session, with `session.encounter` set.

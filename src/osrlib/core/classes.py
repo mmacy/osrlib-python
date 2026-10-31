@@ -1293,6 +1293,9 @@ def drain_levels(
         result = drain_levels(character, fighter, levels=1, xp_policy="halfway", stream=advancement)
         print(result.levels_lost, result.new_level, result.hp_lost, result.slain)
         # 1 1 9 False
+
+        # The lost level's d8 came up 8, and Rurik's CON modifier adds 1, so the drain takes 9
+        # hit points: maximum hit points fall from 10 to 1.
         print(character.level, character.xp, character.max_hp)
         # 1 1000 1
         ```

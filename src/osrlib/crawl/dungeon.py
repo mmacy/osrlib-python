@@ -1966,7 +1966,7 @@ class DungeonState(BaseModel):
             self.seen.setdefault(key, []).extend(fresh)
 
     def door(self, ref: str) -> DoorState:
-        """Return one door's live state, which you can read or write.
+        """Return one door's current state, which you can read or change.
 
         The session adds a door's entry to `doors` only when something in play changes the door. Use
         this method to get a door's state whether or not that has happened yet. Reading the state never
@@ -1982,8 +1982,8 @@ class DungeonState(BaseModel):
 
         - A door whose `starts_open` is set stands open in play. Until the door has an entry, the
           state this method returns still reads `open` as `False`.
-        - A first write through this method, like `door(ref).discovered = True`, stores the entry
-          with `open` still `False`.
+        - The first time you set a field through this method, like `door(ref).discovered = True`,
+          the method stores the entry with `open` still `False`.
         - When the session's commands change a door, they store an entry with `starts_open`
           applied.
 
@@ -2003,7 +2003,9 @@ class DungeonState(BaseModel):
             from osrlib.crawl.dungeon import Direction, DungeonState, edge_ref
 
             state = DungeonState()
-            # Both sides of one door give the same reference, and so the same state.
+            # Both sides of one door give the same reference, and so the same state. The east
+            # side of cell (0, 0) is the west side of cell (1, 0). edge_ref always names an edge
+            # by its north or west side, so both calls return "crypt:1:1,0:west".
             east_side = edge_ref("crypt", 1, (0, 0), Direction.EAST)
             west_side = edge_ref("crypt", 1, (1, 0), Direction.WEST)
             state.door(east_side).open = True
