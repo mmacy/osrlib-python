@@ -66,8 +66,6 @@ from test_monster_tactics import (
     _session,
 )
 
-CHUNK = pytest.mark.xfail(reason="chunk: petrified-party", strict=True)
-
 QUIET_STANCES = ("indifferent", "friendly")
 """Stances that open no battle and run no later procedure in the opening command."""
 
@@ -181,7 +179,6 @@ def _magic_user() -> Character:
 class TestASurpriseGazeThatPetrifiesEveryone:
     """The playtest's case: a basilisk surprises the party, everyone meets its gaze, and everyone fails."""
 
-    @CHUNK
     @pytest.mark.parametrize("names", [("Hild",), ("Hild", "Brakk", "Sable")], ids=["alone", "three"])
     def test_the_session_ends_with_no_battle(self, names):
         game, events = _surprised_by_basilisk(names)
@@ -190,7 +187,6 @@ class TestASurpriseGazeThatPetrifiesEveryone:
         assert "battle.started" not in [event.code for event in events], "precondition: no battle opened"
         _assert_ended(game, events)
 
-    @CHUNK
     def test_the_session_ends_when_the_basilisk_attacks_at_once(self):
         """The gaze comes as the encounter opens, and the stance carries the encounter into a battle."""
         game, events = _surprised_by_basilisk(stances=("attacks",))
@@ -198,7 +194,6 @@ class TestASurpriseGazeThatPetrifiesEveryone:
         _all_stone(game, events)
         _assert_ended(game, events)
 
-    @CHUNK
     def test_a_member_already_dead_doesnt_keep_the_session_open(self):
         """A mix of the dead and the stone: Hild fell earlier, and Brakk and Sable turn to stone."""
         game, events = _surprised_by_basilisk(("Hild", "Brakk", "Sable"), dead=(0,))
@@ -209,7 +204,6 @@ class TestASurpriseGazeThatPetrifiesEveryone:
         _all_stone(game, events)
         _assert_ended(game, events)
 
-    @CHUNK
     def test_the_ending_makes_no_draws(self):
         """The streams match those of the same opening with a third member who stood apart, blind, and played on."""
         ended, ended_events = _surprised_by_basilisk(("Hild", "Brakk"))
@@ -292,7 +286,6 @@ class TestAMemberStillStandingPlaysOn:
 class TestABattleThatPetrifiesTheLastStandingMember:
     """In a battle, the round that leaves nobody standing ends in defeat, then the session ends."""
 
-    @CHUNK
     def test_a_gaze_that_takes_the_whole_party_ends_the_session(self):
         game = _battle("basilisk")
         hild, brakk = game.party.members
@@ -306,7 +299,6 @@ class TestABattleThatPetrifiesTheLastStandingMember:
         _assert_ended(game, events)
         assert [event.code for event in events][-2:] == ["battle.ended.defeat", "session.game_over"]
 
-    @CHUNK
     def test_a_petrifying_beak_that_takes_the_last_member_ends_the_session(self):
         game = _battle("cockatrice", ("Hild",))
         (hild,) = game.party.members
@@ -331,7 +323,6 @@ class TestABattleThatPetrifiesTheLastStandingMember:
         _assert_ended(game, events)
         assert [event.code for event in events][-2:] == ["battle.ended.defeat", "session.game_over"]
 
-    @CHUNK
     def test_a_gaze_that_takes_the_last_member_beside_a_fallen_one_ends_the_session(self):
         """A mix of the dead and the stone: Hild fell earlier, and the gaze takes Brakk."""
         game = _battle("basilisk")
@@ -345,7 +336,6 @@ class TestABattleThatPetrifiesTheLastStandingMember:
         assert _petrified_ids(events) == [brakk.id], "precondition: the gaze took Brakk"
         _assert_ended(game, events)
 
-    @CHUNK
     def test_a_death_that_leaves_only_statues_ends_the_session(self):
         """A mix of the dead and the stone: Hild is stone, and the goblin kills Brakk, the last member standing."""
         game = _battle("goblin")
@@ -373,7 +363,6 @@ class TestABattleThatPetrifiesTheLastStandingMember:
 class TestSavesAndReplays:
     """A stone party's ending is ordinary state: it saves, loads, replays, and refuses play like any other."""
 
-    @CHUNK
     def test_a_stone_ending_round_trips_through_a_save(self):
         game, _ = _stone_party_in_game_over()
 
@@ -384,7 +373,6 @@ class TestSavesAndReplays:
         assert all(has_condition(member, Condition.PETRIFIED) for member in restored.party.members)
         assert session_state(restored) == session_state(game)
 
-    @CHUNK
     def test_a_stone_ending_replays(self):
         """Natural failed saves, because a forced save comes from a ward no command can attach."""
         for seed in SEEDS:
@@ -412,7 +400,6 @@ class TestSavesAndReplays:
             return
         raise AssertionError("precondition: no seed let a basilisk surprise Hild and turn her to stone")
 
-    @CHUNK
     def test_a_play_command_after_the_ending_is_refused_and_consumes_nothing(self):
         game, _ = _stone_party_in_game_over()
         before = session_state(game)
@@ -430,7 +417,6 @@ class TestSavesAndReplays:
 class TestTheWayBackFromStone:
     """Carrying the statues to town doesn't end the session again, and *stone to flesh* brings one back there."""
 
-    @CHUNK
     def test_placing_the_statues_in_town_doesnt_end_the_session_again(self):
         game, _ = _stone_party_in_game_over()
 
@@ -446,7 +432,6 @@ class TestTheWayBackFromStone:
             assert result.accepted
             _assert_plays_on(game, result.events, SessionMode.TOWN)
 
-    @CHUNK
     def test_stone_to_flesh_from_a_magic_user_who_joins_in_town_brings_a_statue_back(self):
         game, _ = _stone_party_in_game_over()
         hild, brakk = game.party.members
