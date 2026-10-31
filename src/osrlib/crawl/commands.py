@@ -1858,8 +1858,8 @@ class IdentifyItem(Command):
 
     Use it when you identify an item some other way, like a sage's fee or a
     *detect magic* that osrlib doesn't resolve. Using an item with
-    [`UseItem`][osrlib.crawl.commands.UseItem] identifies it as well. Referee commands are
-    legal in every mode, terminal modes included, and the session logs and replays them like
+    [`UseItem`][osrlib.crawl.commands.UseItem] identifies it as well. This command is
+    legal in every mode, terminal modes included, and the session logs and replays it like
     any other command.
 
     Modes:
@@ -2988,7 +2988,7 @@ class GrantItem(Command):
 class GrantCoins(Command):
     """Referee: put coins straight into a member's purse.
 
-    Use it to pay out a reward. Referee commands are legal in every mode, terminal modes
+    Use it to pay out a reward. This command is legal in every mode, terminal modes
     included.
 
     Modes:
@@ -3185,7 +3185,7 @@ class AddMember(Command):
 class AwardXP(Command):
     """Referee: give one character experience points, apart from the XP the session awards.
 
-    Use it for a quest reward or for any other XP you grant. Referee commands are legal in
+    Use it for a quest reward or for any other XP you grant. This command is legal in
     every mode, terminal modes included, so you can grant an adventure's rewards after the
     session has ended. The class's prime-requisite bonus or penalty applies to the award,
     and the award can raise the character a level.
@@ -3221,7 +3221,7 @@ class AwardXP(Command):
 class SetFlag(Command):
     """Referee: set a session flag, like one that records a lever pulled to open a portcullis.
 
-    A flag is a named value you store in the session. Referee commands are legal in
+    A flag is a named value you store in the session. This command is legal in
     every mode, terminal modes included. Flags are saved with the session. Your code and
     listeners read them from the referee view. To test one in an adventure document, use a
     [`FlagEqualsCondition`][osrlib.crawl.gates.FlagEqualsCondition], like the condition on
@@ -3474,7 +3474,7 @@ class SetDoorState(Command):
     lever that opens a portcullis. The door in the adventure document never changes. What
     changes is its state in play: whether it stands open, is wedged, has been found, and has
     been unlocked. A field you leave `None` leaves the current value unchanged. The door doesn't have
-    to be next to the party. Referee commands are legal in every mode, terminal modes
+    to be next to the party. This command is legal in every mode, terminal modes
     included.
 
     Modes:
@@ -3570,7 +3570,7 @@ class AdvanceTime(Command):
     """Referee: move the game clock forward.
 
     Use it for time that passes outside the commands, like a week of travel or a
-    referee's "an hour later". Referee commands are legal in every mode, terminal modes
+    referee's "an hour later". This command is legal in every mode, terminal modes
     included, so the clock keeps running after the party dies. The time limits on spells
     that bring the dead back are measured on this clock. The time passes with its
     bookkeeping, like effects expiring and provisions eaten each day. The engine makes no
@@ -3607,7 +3607,7 @@ class RollDice(Command):
     Use it when the referee decides a chance outcome that osrlib doesn't model, like a
     puzzle, a bluff, or whether a frayed rope holds. A roll made through the session is
     logged, replayed, and reported as an event, unlike a roll you make yourself.
-    Referee commands are legal in every mode, terminal modes included. The session draws the roll
+    This command is legal in every mode, terminal modes included. The session draws the roll
     from the separate
     [`ADJUDICATION_STREAM`][osrlib.crawl.session.ADJUDICATION_STREAM], so a referee's roll
     never changes what any other stream draws. A malformed `expression` raises when the
@@ -3649,7 +3649,7 @@ class MarkTriggerFired(Command):
     trigger it fires, and a listener you write or an LLM referee can issue it too. The
     interpreter marks a trigger before it issues the trigger's consequences, so it reads the
     mark and doesn't fire a once-only trigger again. The mark survives save,
-    load, and replay like the rest of the session's state. Referee commands are legal in
+    load, and replay like the rest of the session's state. This command is legal in
     every mode, terminal modes included.
 
     Marking a trigger that's already marked is accepted and changes no state, but it's
@@ -3694,7 +3694,7 @@ class AddJournalEntry(Command):
     state, so an entry stays after whatever caused it is gone. Each entry is stamped with
     the game clock's time when it's added, and
     [`PlayerView.journal`][osrlib.crawl.views.PlayerView.journal] returns the entries as they
-    were written. Referee commands are legal in every mode, terminal modes included, so you
+    were written. This command is legal in every mode, terminal modes included, so you
     can add a closing line after the adventure has ended.
 
     Modes:
@@ -3722,7 +3722,7 @@ class RecordNote(Command):
     The note becomes an event at referee visibility and changes nothing else. Use it for a
     record from your code, like an authored consequence that was dropped, or for a
     referee's notes. The trigger and quest interpreter issues it to record what it dropped
-    and why. Referee commands are legal in every mode, terminal modes included.
+    and why. This command is legal in every mode, terminal modes included.
 
     Modes:
         `town`, `exploring`, `encounter`, `battle`, `game_over`, `victory`
@@ -3767,7 +3767,7 @@ class ActivateQuest(Command):
     adds that text to the journal, and the event includes it. No
     [`JournalEntryAddedEvent`][osrlib.crawl.events.JournalEntryAddedEvent] follows, because
     the quest's event already includes the text. Only an `inactive` quest can be activated.
-    Referee commands are legal in every mode, terminal modes included.
+    This command is legal in every mode, terminal modes included.
 
     Modes:
         `town`, `exploring`, `encounter`, `battle`, `game_over`, `victory`
@@ -3860,7 +3860,7 @@ class RevealObjective(Command):
     When the objective's author wrote an `offer` text in its narrative, an accepted reveal
     adds that text to the journal, and the event includes it. No
     [`JournalEntryAddedEvent`][osrlib.crawl.events.JournalEntryAddedEvent] follows,
-    because the objective's event already includes the text. Referee commands are legal in
+    because the objective's event already includes the text. This command is legal in
     every mode, terminal modes included.
 
     Modes:
@@ -3905,7 +3905,7 @@ class CompleteObjective(Command):
     text in its narrative, an accepted completion adds that text to the journal, and the
     event includes it. No
     [`JournalEntryAddedEvent`][osrlib.crawl.events.JournalEntryAddedEvent] follows.
-    Referee commands are legal in every mode, terminal modes included.
+    This command is legal in every mode, terminal modes included.
 
     Modes:
         `town`, `exploring`, `encounter`, `battle`, `game_over`, `victory`
@@ -3956,7 +3956,7 @@ class CompleteQuest(Command):
     closes any open encounter and battle, and switches to `victory`. No other command enters
     `victory`. When the session has already ended, in `game_over` or `victory`, the quest
     still completes and its text still goes in the journal, but the mode doesn't change and
-    the session emits no `AdventureCompletedEvent`. Referee commands are legal in every mode,
+    the session emits no `AdventureCompletedEvent`. This command is legal in every mode,
     terminal modes included.
 
     Modes:
