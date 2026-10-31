@@ -29,12 +29,14 @@ town
 # Town, while there is still an adventure to come back from: sell the haul, buy
 # the healing, bank the first award.
 sell all
-heal character-0001 cure_light_wounds
+# The cleric took the worst of the rivals' blows, so the temple's healing goes
+# to the cleric.
+heal character-0002 cure_light_wounds
 # Coin weighs a coin apiece, and the party moves at its slowest member's rate, so
-# the seller's purse is spread before anybody walks anywhere. The cleric fell in
-# the vault and coin does a corpse no good, so the load goes to the two who walk.
-give character-0001 character-0003 550
-give character-0001 character-0004 550
+# the sellers' purses are spread before anybody walks anywhere. The fighter and the
+# cleric sold the richest pieces, so they hand coin to the two who carry least.
+give character-0001 character-0004 400
+give character-0002 character-0003 250
 status
 # Trip two: the idol, and the walk home that ends it.
 enter

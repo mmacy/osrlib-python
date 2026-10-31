@@ -18,7 +18,7 @@ The crawler's loop is a `dispatch` function that turns one line of typed text in
 --8<-- "examples/tui_crawler/__main__.py:render-events"
 ```
 
-Every event has a [`Visibility`][osrlib.core.events.Visibility]. The crawler filters on `Visibility.PLAYER` here to keep referee-only bookkeeping out of the player's terminal. When you run the milestone script (`--seed 21 --script examples/tui_crawler/scripts/milestone.txt`), the game opens like this:
+Every event has a [`Visibility`][osrlib.core.events.Visibility]. The crawler filters on `Visibility.PLAYER` here to keep referee-only bookkeeping out of the player's terminal. When you run the milestone script (`--seed 39 --script examples/tui_crawler/scripts/milestone.txt`), the game opens like this:
 
 ```text
 > enter
@@ -29,8 +29,8 @@ Every event has a [`Visibility`][osrlib.core.events.Visibility]. The crawler fil
 > move e
   The party moves to (2, 0), facing east.
   The party enters area guard_room (level 1).
-  Encounter: 2 × Goblin at 20' — the party is surprised.
-  The monsters' bearing: uncertain.
+  Encounter: 2 × Goblin at 20' — the monsters are surprised.
+  The monsters' bearing: hostile.
 ```
 
 The second line shows why the result envelope exists. When the party crossed the threshold, the interpreter activated the adventure's quest with a command it issued *inside* the player's `enter`, and the session added that command's events to the result of the `enter`.
@@ -99,9 +99,10 @@ The interpreter is an ordinary [`Listener`][osrlib.crawl.session.Listener]: it r
 
 ```text
 > take idol_shrine
-  character-0001 acquires jade-idol and 17 gp in coin.
-  character-0003 acquires 17 gp in coin.
-  character-0004 acquires 16 gp in coin.
+  character-0001 acquires 13 gp in coin.
+  character-0002 acquires jade-idol and 13 gp in coin.
+  character-0003 acquires 12 gp in coin.
+  character-0004 acquires 12 gp in coin.
   Quest The Jade Idol: objective Recover the idol is done. The idol comes up out of the hollow, cold as well-water.
 ```
 
@@ -110,28 +111,32 @@ Then, four `move w` steps later, the homecoming:
 ```text
 > town
   The party enters town town.
-  The adventure ends: 0 XP from monsters and 50 XP from treasure — 16 XP to each of 3 survivor(s).
-  character-0001 gains 16 XP (base 16), now level 1.
-  character-0003 gains 17 XP (base 16), now level 1.
-  character-0004 gains 17 XP (base 16), now level 1.
+  The adventure ends: 0 XP from monsters and 50 XP from treasure — 12 XP to each of 4 survivor(s).
+  character-0001 gains 12 XP (base 12), now level 1.
+  character-0002 gains 12 XP (base 12), now level 1.
+  character-0003 gains 12 XP (base 12), now level 1.
+  character-0004 gains 10 XP (base 12), now level 1.
   Quest The Jade Idol: objective Bring it home is done. Threshold's gate shuts behind you with the idol inside it.
   Quest complete: The Jade Idol. The almoner counts out the reward without looking up. The idol is home.
   The adventure is over: The Jade Idol is finished. The almoner counts out the reward without looking up. The idol is home.
   character-0001 acquires 200 gp in coin.
-  character-0001 gains 1260 XP (base 1200), now level 1.
-  character-0003 gains 1320 XP (base 1200), now level 2.
-  character-0003 advances to level 2 (Footpad): +4 hp (rolled 4).
-  character-0004 gains 1320 XP (base 1200), now level 1.
+  character-0001 gains 1260 XP (base 1200), now level 2.
+  character-0001 advances to level 2 (Warrior): +9 hp (rolled 8).
+  character-0002 gains 1200 XP (base 1200), now level 2.
+  character-0002 advances to level 2 (Adept): +4 hp (rolled 3).
+  character-0003 gains 1200 XP (base 1200), now level 2.
+  character-0003 advances to level 2 (Footpad): +4 hp (rolled 2).
+  character-0004 gains 1080 XP (base 1200), now level 1.
 ```
 
-Two details of that output need explaining. The engine spreads the cache across the party by the ordinary loot rules, so which character walks home with the idol is whatever the split produced. Here it's the fighter. The cleric isn't in the list because the cleric died in the vault. The objective's `has_item` condition tests whether *the party* has the idol, not which member does. The completion beat then appears twice, on the quest's event and again on the adventure's, because each event includes the authored line and the formatter appends the beat on whatever event it's given.
+Two details of that output need explaining. The engine spreads the cache across the party by the ordinary loot rules, so which character walks home with the idol is whatever the split produced. Here it's the cleric. All four members are in the list, because nobody died on the delve. The objective's `has_item` condition tests whether *the party* has the idol, not which member does. The completion beat then appears twice, on the quest's event and again on the adventure's, because each event includes the authored line and the formatter appends the beat on whatever event it's given.
 
 ### Why the milestone makes two trips
 
 The homecoming objective is a `town_entered` pattern narrowed by a `has_item` condition, so when the party walks back empty-handed, the objective doesn't fire. That condition is why `scripts/milestone.txt` makes four legs:
 
 1. **Down**, for the goblins, their lair hoard, and the rival party prowling level 2.
-2. **Home without the idol.** Returning to town resolves the end-of-adventure award, and the party sells its haul and buys a temple healing. Those town commands are legal here and nowhere later, because the adventure has not ended yet. Each coin counts as one coin of weight toward encumbrance, so the character who sold the haul uses `give` to spread the coins across the party before anyone moves again.
+2. **Home without the idol.** Returning to town resolves the end-of-adventure award, and the party sells its haul and buys a temple healing. Those town commands are legal here and nowhere later, because the adventure has not ended yet. Each coin counts as one coin of weight toward encumbrance, so the characters who sold the richest pieces use `give` to spread the coins across the party before anyone moves again.
 3. **Down again**, for the idol alone.
 4. **Home with it**, which completes the second objective, completes the quest, and, because the quest has `concludes_adventure=True`, ends the session in `victory`. The rewards arrive *after* that transition: the 200 gp, the party's XP, and the `quest.idol` flag the crawler prints on its way out.
 

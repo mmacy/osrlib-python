@@ -37,10 +37,6 @@ from osrlib.versioning import engine_version
 
 GOLDEN_DIR = Path(__file__).parent / "goldens"
 
-# The rules for member positions on the range track (issue #209) change every battle in the milestone golden that
-# closes on a group, so the golden is regenerated once those chunks are built. Until then a mismatch is expected.
-GOLDENS = pytest.mark.xfail(reason="chunk: goldens", strict=False)
-
 REGENERATE_HINT = (
     "golden mismatch; if the change is intentional, regenerate with "
     "`uv run python tests/generate_phase5_goldens.py` and explain why in the commit message"
@@ -99,7 +95,6 @@ def replayed(golden):
     return replay_milestone(golden["master_seed"], golden["command_log"])
 
 
-@GOLDENS
 class TestMilestoneScriptedRun:
     def test_party_document_matches(self, golden, scripted):
         _, party_document, _ = scripted
@@ -151,7 +146,6 @@ class TestMilestoneScriptedRun:
         assert session_state(restored) == session_state(session)
 
 
-@GOLDENS
 class TestMilestoneReplay:
     def test_event_stream_matches_byte_for_byte(self, golden, replayed):
         events = [entry if isinstance(entry, dict) else entry.model_dump(mode="json") for entry in replayed.event_log]
@@ -244,7 +238,6 @@ class TestMilestoneReplay:
             assert parse_command(entry) is not None
 
 
-@GOLDENS
 class TestCheckpoints:
     @pytest.mark.parametrize("name", ("mid_delve", "first_return", "post_award"))
     def test_load_equals_replay_and_continues_identically(self, golden, replayed, name):

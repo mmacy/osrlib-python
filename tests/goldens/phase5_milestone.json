@@ -1,8 +1,8 @@
 {
   "checkpoints": {
-    "first_return": 37,
-    "mid_delve": 12,
-    "post_award": 60
+    "first_return": 32,
+    "mid_delve": 9,
+    "post_award": 56
   },
   "command_log": [
     {
@@ -33,7 +33,7 @@
       "command_type": "resolve_battle_round",
       "declarations": [
         {
-          "action": "move",
+          "action": "attack",
           "back_stab": false,
           "character_id": "character-0001",
           "gaze_defense": null,
@@ -45,10 +45,10 @@
           "spell_mode": null,
           "target_group_id": "group-0001",
           "targets": [],
-          "weapon_id": null
+          "weapon_id": "sword"
         },
         {
-          "action": "move",
+          "action": "attack",
           "back_stab": false,
           "character_id": "character-0002",
           "gaze_defense": null,
@@ -60,7 +60,7 @@
           "spell_mode": null,
           "target_group_id": "group-0001",
           "targets": [],
-          "weapon_id": null
+          "weapon_id": "mace"
         },
         {
           "action": "move",
@@ -155,204 +155,6 @@
           "spell_id": null,
           "spell_mode": null,
           "target_group_id": null,
-          "targets": [],
-          "weapon_id": null
-        }
-      ],
-      "source": null
-    },
-    {
-      "command_type": "resolve_battle_round",
-      "declarations": [
-        {
-          "action": "attack",
-          "back_stab": false,
-          "character_id": "character-0001",
-          "gaze_defense": null,
-          "item_id": null,
-          "move": null,
-          "replacement_id": null,
-          "reversed": false,
-          "spell_id": null,
-          "spell_mode": null,
-          "target_group_id": "group-0001",
-          "targets": [],
-          "weapon_id": "sword"
-        },
-        {
-          "action": "attack",
-          "back_stab": false,
-          "character_id": "character-0002",
-          "gaze_defense": null,
-          "item_id": null,
-          "move": null,
-          "replacement_id": null,
-          "reversed": false,
-          "spell_id": null,
-          "spell_mode": null,
-          "target_group_id": "group-0001",
-          "targets": [],
-          "weapon_id": "mace"
-        },
-        {
-          "action": "hold",
-          "back_stab": false,
-          "character_id": "character-0003",
-          "gaze_defense": null,
-          "item_id": null,
-          "move": null,
-          "replacement_id": null,
-          "reversed": false,
-          "spell_id": null,
-          "spell_mode": null,
-          "target_group_id": null,
-          "targets": [],
-          "weapon_id": null
-        },
-        {
-          "action": "hold",
-          "back_stab": false,
-          "character_id": "character-0004",
-          "gaze_defense": null,
-          "item_id": null,
-          "move": null,
-          "replacement_id": null,
-          "reversed": false,
-          "spell_id": null,
-          "spell_mode": null,
-          "target_group_id": null,
-          "targets": [],
-          "weapon_id": null
-        }
-      ],
-      "source": null
-    },
-    {
-      "command_type": "resolve_battle_round",
-      "declarations": [
-        {
-          "action": "attack",
-          "back_stab": false,
-          "character_id": "character-0001",
-          "gaze_defense": null,
-          "item_id": null,
-          "move": null,
-          "replacement_id": null,
-          "reversed": false,
-          "spell_id": null,
-          "spell_mode": null,
-          "target_group_id": "group-0001",
-          "targets": [],
-          "weapon_id": "sword"
-        },
-        {
-          "action": "attack",
-          "back_stab": false,
-          "character_id": "character-0002",
-          "gaze_defense": null,
-          "item_id": null,
-          "move": null,
-          "replacement_id": null,
-          "reversed": false,
-          "spell_id": null,
-          "spell_mode": null,
-          "target_group_id": "group-0001",
-          "targets": [],
-          "weapon_id": "mace"
-        },
-        {
-          "action": "hold",
-          "back_stab": false,
-          "character_id": "character-0003",
-          "gaze_defense": null,
-          "item_id": null,
-          "move": null,
-          "replacement_id": null,
-          "reversed": false,
-          "spell_id": null,
-          "spell_mode": null,
-          "target_group_id": null,
-          "targets": [],
-          "weapon_id": null
-        },
-        {
-          "action": "hold",
-          "back_stab": false,
-          "character_id": "character-0004",
-          "gaze_defense": null,
-          "item_id": null,
-          "move": null,
-          "replacement_id": null,
-          "reversed": false,
-          "spell_id": null,
-          "spell_mode": null,
-          "target_group_id": null,
-          "targets": [],
-          "weapon_id": null
-        }
-      ],
-      "source": null
-    },
-    {
-      "command_type": "resolve_battle_round",
-      "declarations": [
-        {
-          "action": "move",
-          "back_stab": false,
-          "character_id": "character-0001",
-          "gaze_defense": null,
-          "item_id": null,
-          "move": "close",
-          "replacement_id": null,
-          "reversed": false,
-          "spell_id": null,
-          "spell_mode": null,
-          "target_group_id": "group-0001",
-          "targets": [],
-          "weapon_id": null
-        },
-        {
-          "action": "move",
-          "back_stab": false,
-          "character_id": "character-0002",
-          "gaze_defense": null,
-          "item_id": null,
-          "move": "close",
-          "replacement_id": null,
-          "reversed": false,
-          "spell_id": null,
-          "spell_mode": null,
-          "target_group_id": "group-0001",
-          "targets": [],
-          "weapon_id": null
-        },
-        {
-          "action": "move",
-          "back_stab": false,
-          "character_id": "character-0003",
-          "gaze_defense": null,
-          "item_id": null,
-          "move": "close",
-          "replacement_id": null,
-          "reversed": false,
-          "spell_id": null,
-          "spell_mode": null,
-          "target_group_id": "group-0001",
-          "targets": [],
-          "weapon_id": null
-        },
-        {
-          "action": "move",
-          "back_stab": false,
-          "character_id": "character-0004",
-          "gaze_defense": null,
-          "item_id": null,
-          "move": "close",
-          "replacement_id": null,
-          "reversed": false,
-          "spell_id": null,
-          "spell_mode": null,
-          "target_group_id": "group-0001",
           "targets": [],
           "weapon_id": null
         }
@@ -469,78 +271,12 @@
       "command_type": "resolve_battle_round",
       "declarations": [
         {
-          "action": "move",
-          "back_stab": false,
-          "character_id": "character-0001",
-          "gaze_defense": null,
-          "item_id": null,
-          "move": "close",
-          "replacement_id": null,
-          "reversed": false,
-          "spell_id": null,
-          "spell_mode": null,
-          "target_group_id": "group-0002",
-          "targets": [],
-          "weapon_id": null
-        },
-        {
-          "action": "move",
-          "back_stab": false,
-          "character_id": "character-0002",
-          "gaze_defense": null,
-          "item_id": null,
-          "move": "close",
-          "replacement_id": null,
-          "reversed": false,
-          "spell_id": null,
-          "spell_mode": null,
-          "target_group_id": "group-0002",
-          "targets": [],
-          "weapon_id": null
-        },
-        {
-          "action": "move",
-          "back_stab": false,
-          "character_id": "character-0003",
-          "gaze_defense": null,
-          "item_id": null,
-          "move": "close",
-          "replacement_id": null,
-          "reversed": false,
-          "spell_id": null,
-          "spell_mode": null,
-          "target_group_id": "group-0002",
-          "targets": [],
-          "weapon_id": null
-        },
-        {
-          "action": "move",
-          "back_stab": false,
-          "character_id": "character-0004",
-          "gaze_defense": null,
-          "item_id": null,
-          "move": "close",
-          "replacement_id": null,
-          "reversed": false,
-          "spell_id": null,
-          "spell_mode": null,
-          "target_group_id": "group-0002",
-          "targets": [],
-          "weapon_id": null
-        }
-      ],
-      "source": null
-    },
-    {
-      "command_type": "resolve_battle_round",
-      "declarations": [
-        {
           "action": "attack",
           "back_stab": false,
           "character_id": "character-0001",
           "gaze_defense": null,
           "item_id": null,
-          "move": null,
+          "move": "close",
           "replacement_id": null,
           "reversed": false,
           "spell_id": null,
@@ -555,7 +291,7 @@
           "character_id": "character-0002",
           "gaze_defense": null,
           "item_id": null,
-          "move": null,
+          "move": "close",
           "replacement_id": null,
           "reversed": false,
           "spell_id": null,
@@ -565,32 +301,32 @@
           "weapon_id": "mace"
         },
         {
-          "action": "hold",
+          "action": "move",
           "back_stab": false,
           "character_id": "character-0003",
           "gaze_defense": null,
           "item_id": null,
-          "move": null,
+          "move": "close",
           "replacement_id": null,
           "reversed": false,
           "spell_id": null,
           "spell_mode": null,
-          "target_group_id": null,
+          "target_group_id": "group-0002",
           "targets": [],
           "weapon_id": null
         },
         {
-          "action": "hold",
+          "action": "move",
           "back_stab": false,
           "character_id": "character-0004",
           "gaze_defense": null,
           "item_id": null,
-          "move": null,
+          "move": "close",
           "replacement_id": null,
           "reversed": false,
           "spell_id": null,
           "spell_mode": null,
-          "target_group_id": null,
+          "target_group_id": "group-0002",
           "targets": [],
           "weapon_id": null
         }
@@ -736,10 +472,14 @@
       "source": null
     },
     {
+      "command_type": "engage_battle",
+      "source": null
+    },
+    {
       "command_type": "resolve_battle_round",
       "declarations": [
         {
-          "action": "move",
+          "action": "attack",
           "back_stab": false,
           "character_id": "character-0001",
           "gaze_defense": null,
@@ -751,10 +491,10 @@
           "spell_mode": null,
           "target_group_id": "group-0003",
           "targets": [],
-          "weapon_id": null
+          "weapon_id": "sword"
         },
         {
-          "action": "move",
+          "action": "attack",
           "back_stab": false,
           "character_id": "character-0002",
           "gaze_defense": null,
@@ -766,7 +506,7 @@
           "spell_mode": null,
           "target_group_id": "group-0003",
           "targets": [],
-          "weapon_id": null
+          "weapon_id": "mace"
         },
         {
           "action": "move",
@@ -822,7 +562,7 @@
         {
           "action": "attack",
           "back_stab": false,
-          "character_id": "character-0003",
+          "character_id": "character-0002",
           "gaze_defense": null,
           "item_id": null,
           "move": null,
@@ -832,7 +572,22 @@
           "spell_mode": null,
           "target_group_id": "group-0003",
           "targets": [],
-          "weapon_id": "sword"
+          "weapon_id": "mace"
+        },
+        {
+          "action": "hold",
+          "back_stab": false,
+          "character_id": "character-0003",
+          "gaze_defense": null,
+          "item_id": null,
+          "move": null,
+          "replacement_id": null,
+          "reversed": false,
+          "spell_id": null,
+          "spell_mode": null,
+          "target_group_id": null,
+          "targets": [],
+          "weapon_id": null
         },
         {
           "action": "hold",
@@ -873,7 +628,7 @@
         {
           "action": "attack",
           "back_stab": false,
-          "character_id": "character-0003",
+          "character_id": "character-0002",
           "gaze_defense": null,
           "item_id": null,
           "move": null,
@@ -883,7 +638,22 @@
           "spell_mode": null,
           "target_group_id": "group-0003",
           "targets": [],
-          "weapon_id": "sword"
+          "weapon_id": "mace"
+        },
+        {
+          "action": "hold",
+          "back_stab": false,
+          "character_id": "character-0003",
+          "gaze_defense": null,
+          "item_id": null,
+          "move": null,
+          "replacement_id": null,
+          "reversed": false,
+          "spell_id": null,
+          "spell_mode": null,
+          "target_group_id": null,
+          "targets": [],
+          "weapon_id": null
         },
         {
           "action": "hold",
@@ -897,108 +667,6 @@
           "spell_id": null,
           "spell_mode": null,
           "target_group_id": null,
-          "targets": [],
-          "weapon_id": null
-        }
-      ],
-      "source": null
-    },
-    {
-      "command_type": "resolve_battle_round",
-      "declarations": [
-        {
-          "action": "attack",
-          "back_stab": false,
-          "character_id": "character-0001",
-          "gaze_defense": null,
-          "item_id": null,
-          "move": null,
-          "replacement_id": null,
-          "reversed": false,
-          "spell_id": null,
-          "spell_mode": null,
-          "target_group_id": "group-0003",
-          "targets": [],
-          "weapon_id": "sword"
-        },
-        {
-          "action": "attack",
-          "back_stab": false,
-          "character_id": "character-0003",
-          "gaze_defense": null,
-          "item_id": null,
-          "move": null,
-          "replacement_id": null,
-          "reversed": false,
-          "spell_id": null,
-          "spell_mode": null,
-          "target_group_id": "group-0003",
-          "targets": [],
-          "weapon_id": "sword"
-        },
-        {
-          "action": "hold",
-          "back_stab": false,
-          "character_id": "character-0004",
-          "gaze_defense": null,
-          "item_id": null,
-          "move": null,
-          "replacement_id": null,
-          "reversed": false,
-          "spell_id": null,
-          "spell_mode": null,
-          "target_group_id": null,
-          "targets": [],
-          "weapon_id": null
-        }
-      ],
-      "source": null
-    },
-    {
-      "command_type": "resolve_battle_round",
-      "declarations": [
-        {
-          "action": "move",
-          "back_stab": false,
-          "character_id": "character-0001",
-          "gaze_defense": null,
-          "item_id": null,
-          "move": "close",
-          "replacement_id": null,
-          "reversed": false,
-          "spell_id": null,
-          "spell_mode": null,
-          "target_group_id": "group-0003",
-          "targets": [],
-          "weapon_id": null
-        },
-        {
-          "action": "move",
-          "back_stab": false,
-          "character_id": "character-0003",
-          "gaze_defense": null,
-          "item_id": null,
-          "move": "close",
-          "replacement_id": null,
-          "reversed": false,
-          "spell_id": null,
-          "spell_mode": null,
-          "target_group_id": "group-0003",
-          "targets": [],
-          "weapon_id": null
-        },
-        {
-          "action": "move",
-          "back_stab": false,
-          "character_id": "character-0004",
-          "gaze_defense": null,
-          "item_id": null,
-          "move": "close",
-          "replacement_id": null,
-          "reversed": false,
-          "spell_id": null,
-          "spell_mode": null,
-          "target_group_id": "group-0003",
           "targets": [],
           "weapon_id": null
         }
@@ -1046,12 +714,20 @@
     {
       "command_type": "sell_treasure",
       "item_ids": [
-        "valuable-0001"
+        "valuable-0005",
+        "valuable-0006",
+        "valuable-0003",
+        "valuable-0002",
+        "valuable-0009",
+        "valuable-0004",
+        "valuable-0001",
+        "valuable-0007",
+        "valuable-0008"
       ],
       "source": null
     },
     {
-      "character_id": "character-0001",
+      "character_id": "character-0002",
       "command_type": "purchase_healing",
       "service": "cure_light_wounds",
       "source": null
@@ -1061,27 +737,27 @@
       "coins": {
         "cp": 0,
         "ep": 0,
-        "gp": 550,
-        "pp": 0,
-        "sp": 0
-      },
-      "command_type": "give_items",
-      "item_ids": [],
-      "recipient_id": "character-0003",
-      "source": null
-    },
-    {
-      "character_id": "character-0001",
-      "coins": {
-        "cp": 0,
-        "ep": 0,
-        "gp": 550,
+        "gp": 400,
         "pp": 0,
         "sp": 0
       },
       "command_type": "give_items",
       "item_ids": [],
       "recipient_id": "character-0004",
+      "source": null
+    },
+    {
+      "character_id": "character-0002",
+      "coins": {
+        "cp": 0,
+        "ep": 0,
+        "gp": 250,
+        "pp": 0,
+        "sp": 0
+      },
+      "command_type": "give_items",
+      "item_ids": [],
+      "recipient_id": "character-0003",
       "source": null
     },
     {
@@ -1176,6 +852,12 @@
     },
     {
       "amount": 1200,
+      "character_id": "character-0002",
+      "command_type": "award_xp",
+      "source": "quest:the-idol"
+    },
+    {
+      "amount": 1200,
       "character_id": "character-0003",
       "command_type": "award_xp",
       "source": "quest:the-idol"
@@ -1255,25 +937,30 @@
         "C"
       ],
       "valuable_ids": [
-        "valuable-0001"
+        "valuable-0001",
+        "valuable-0002",
+        "valuable-0003",
+        "valuable-0004",
+        "valuable-0005",
+        "valuable-0006"
       ],
       "visibility": "referee"
     },
     {
       "code": "encounter.surprise.rolled",
       "event_type": "surprise_rolled",
-      "roll": 3,
+      "roll": 2,
       "side": "monsters",
-      "surprised": false,
+      "surprised": true,
       "threshold": 2,
       "visibility": "referee"
     },
     {
       "code": "encounter.surprise.rolled",
       "event_type": "surprise_rolled",
-      "roll": 1,
+      "roll": 4,
       "side": "party",
-      "surprised": true,
+      "surprised": false,
       "threshold": 3,
       "visibility": "referee"
     },
@@ -1283,33 +970,24 @@
       "distance_feet": 20,
       "event_type": "encounter_started",
       "monster_name": "Goblin",
-      "monsters_surprised": false,
-      "party_surprised": true,
+      "monsters_surprised": true,
+      "party_surprised": false,
       "visibility": "player"
     },
     {
       "code": "encounter.reaction.rolled",
       "event_type": "reaction_rolled",
       "modifier": 0,
-      "result": "uncertain",
-      "roll": 6,
-      "total": 6,
+      "result": "hostile",
+      "roll": 4,
+      "total": 4,
       "visibility": "referee"
     },
     {
       "code": "encounter.stance.changed",
       "event_type": "stance_changed",
-      "stance": "uncertain",
+      "stance": "hostile",
       "visibility": "player"
-    },
-    {
-      "code": "encounter.reaction.rolled",
-      "event_type": "reaction_rolled",
-      "modifier": 0,
-      "result": "uncertain",
-      "roll": 7,
-      "total": 7,
-      "visibility": "referee"
     },
     {
       "code": "battle.started",
@@ -1329,91 +1007,19 @@
           "key": "party",
           "modifier": 0,
           "rolls": [
-            4
+            3,
+            1
           ],
-          "total": 4
+          "total": 1
         },
         {
           "key": "monsters",
           "modifier": 0,
           "rolls": [
+            3,
             2
           ],
           "total": 2
-        }
-      ],
-      "event_type": "initiative_rolled",
-      "mode": "side",
-      "order": [
-        "character-0001",
-        "character-0002",
-        "character-0003",
-        "character-0004",
-        "group-0001"
-      ],
-      "visibility": "player"
-    },
-    {
-      "code": "battle.group.moved",
-      "distance_feet": 5,
-      "event_type": "group_moved",
-      "group_id": "group-0001",
-      "visibility": "player"
-    },
-    {
-      "attack_name": "weapon",
-      "attacker_id": "monster-0001",
-      "back_stab": false,
-      "code": "combat.attack.missed",
-      "defender_ac": 4,
-      "defender_id": "character-0002",
-      "event_type": "attack_rolled",
-      "modifier": 0,
-      "natural": null,
-      "required": 15,
-      "roll": 1,
-      "total": 1,
-      "visibility": "player"
-    },
-    {
-      "attack_name": "weapon",
-      "attacker_id": "monster-0002",
-      "back_stab": false,
-      "code": "combat.attack.missed",
-      "defender_ac": 4,
-      "defender_id": "character-0001",
-      "event_type": "attack_rolled",
-      "modifier": 0,
-      "natural": null,
-      "required": 15,
-      "roll": 9,
-      "total": 9,
-      "visibility": "player"
-    },
-    {
-      "code": "battle.round.started",
-      "event_type": "battle_round",
-      "round": 2,
-      "visibility": "player"
-    },
-    {
-      "code": "combat.initiative.rolled",
-      "entries": [
-        {
-          "key": "party",
-          "modifier": 0,
-          "rolls": [
-            2
-          ],
-          "total": 2
-        },
-        {
-          "key": "monsters",
-          "modifier": 0,
-          "rolls": [
-            4
-          ],
-          "total": 4
         }
       ],
       "event_type": "initiative_rolled",
@@ -1428,156 +1034,63 @@
       "visibility": "player"
     },
     {
-      "attack_name": "weapon",
-      "attacker_id": "monster-0001",
-      "back_stab": false,
-      "code": "combat.attack.missed",
-      "defender_ac": 4,
-      "defender_id": "character-0001",
-      "event_type": "attack_rolled",
-      "modifier": 0,
-      "natural": null,
-      "required": 15,
-      "roll": 5,
-      "total": 5,
+      "advance_feet": 15,
+      "character_id": "character-0001",
+      "code": "battle.member.moved",
+      "distance_feet": 5,
+      "event_type": "member_moved",
+      "group_id": "group-0001",
+      "move": "close",
       "visibility": "player"
     },
     {
-      "attack_name": "weapon",
-      "attacker_id": "monster-0002",
-      "back_stab": false,
-      "code": "combat.attack.hit",
-      "defender_ac": 4,
-      "defender_id": "character-0002",
-      "event_type": "attack_rolled",
-      "modifier": 0,
-      "natural": null,
-      "required": 15,
-      "roll": 17,
-      "total": 17,
+      "advance_feet": 15,
+      "character_id": "character-0002",
+      "code": "battle.member.moved",
+      "distance_feet": 5,
+      "event_type": "member_moved",
+      "group_id": "group-0001",
+      "move": "close",
       "visibility": "player"
     },
     {
-      "amount": 1,
-      "attacker_id": "monster-0002",
-      "code": "combat.damage.dealt",
-      "event_type": "damage_dealt",
-      "keys": [],
-      "non_regenerable": false,
-      "rolls": [
-        1
-      ],
-      "target_id": "character-0002",
+      "advance_feet": 15,
+      "character_id": "character-0003",
+      "code": "battle.member.moved",
+      "distance_feet": 5,
+      "event_type": "member_moved",
+      "group_id": "group-0001",
+      "move": "close",
       "visibility": "player"
     },
     {
-      "code": "combat.state.hit_points",
-      "current_hp": 2,
-      "event_type": "hit_points_reported",
-      "max_hp": 3,
-      "target_id": "character-0002",
-      "visibility": "referee"
+      "advance_feet": 15,
+      "character_id": "character-0004",
+      "code": "battle.member.moved",
+      "distance_feet": 5,
+      "event_type": "member_moved",
+      "group_id": "group-0001",
+      "move": "close",
+      "visibility": "player"
     },
     {
       "attack_name": "Sword",
       "attacker_id": "character-0001",
       "back_stab": false,
-      "code": "combat.attack.missed",
+      "code": "combat.attack.hit",
       "defender_ac": 6,
       "defender_id": "monster-0001",
       "event_type": "attack_rolled",
       "modifier": 1,
       "natural": null,
       "required": 13,
-      "roll": 1,
-      "total": 2,
+      "roll": 19,
+      "total": 20,
       "visibility": "player"
     },
     {
-      "attack_name": "Mace",
-      "attacker_id": "character-0002",
-      "back_stab": false,
-      "code": "combat.attack.missed",
-      "defender_ac": 6,
-      "defender_id": "monster-0001",
-      "event_type": "attack_rolled",
-      "modifier": 0,
-      "natural": null,
-      "required": 13,
-      "roll": 9,
-      "total": 9,
-      "visibility": "player"
-    },
-    {
-      "code": "battle.round.started",
-      "event_type": "battle_round",
-      "round": 3,
-      "visibility": "player"
-    },
-    {
-      "code": "combat.initiative.rolled",
-      "entries": [
-        {
-          "key": "party",
-          "modifier": 0,
-          "rolls": [
-            2
-          ],
-          "total": 2
-        },
-        {
-          "key": "monsters",
-          "modifier": 0,
-          "rolls": [
-            6
-          ],
-          "total": 6
-        }
-      ],
-      "event_type": "initiative_rolled",
-      "mode": "side",
-      "order": [
-        "group-0001",
-        "character-0001",
-        "character-0002",
-        "character-0003",
-        "character-0004"
-      ],
-      "visibility": "player"
-    },
-    {
-      "attack_name": "weapon",
-      "attacker_id": "monster-0001",
-      "back_stab": false,
-      "code": "combat.attack.missed",
-      "defender_ac": 4,
-      "defender_id": "character-0002",
-      "event_type": "attack_rolled",
-      "modifier": 0,
-      "natural": null,
-      "required": 15,
-      "roll": 3,
-      "total": 3,
-      "visibility": "player"
-    },
-    {
-      "attack_name": "weapon",
-      "attacker_id": "monster-0002",
-      "back_stab": false,
-      "code": "combat.attack.hit",
-      "defender_ac": 4,
-      "defender_id": "character-0001",
-      "event_type": "attack_rolled",
-      "modifier": 0,
-      "natural": null,
-      "required": 15,
-      "roll": 17,
-      "total": 17,
-      "visibility": "player"
-    },
-    {
-      "amount": 1,
-      "attacker_id": "monster-0002",
+      "amount": 2,
+      "attacker_id": "character-0001",
       "code": "combat.damage.dealt",
       "event_type": "damage_dealt",
       "keys": [],
@@ -1585,31 +1098,16 @@
       "rolls": [
         1
       ],
-      "target_id": "character-0001",
+      "target_id": "monster-0001",
       "visibility": "player"
     },
     {
       "code": "combat.state.hit_points",
-      "current_hp": 5,
+      "current_hp": 4,
       "event_type": "hit_points_reported",
       "max_hp": 6,
-      "target_id": "character-0001",
+      "target_id": "monster-0001",
       "visibility": "referee"
-    },
-    {
-      "attack_name": "Sword",
-      "attacker_id": "character-0001",
-      "back_stab": false,
-      "code": "combat.attack.missed",
-      "defender_ac": 6,
-      "defender_id": "monster-0001",
-      "event_type": "attack_rolled",
-      "modifier": 1,
-      "natural": null,
-      "required": 13,
-      "roll": 4,
-      "total": 5,
-      "visibility": "player"
     },
     {
       "attack_name": "Mace",
@@ -1627,14 +1125,14 @@
       "visibility": "player"
     },
     {
-      "amount": 3,
+      "amount": 6,
       "attacker_id": "character-0002",
       "code": "combat.damage.dealt",
       "event_type": "damage_dealt",
       "keys": [],
       "non_regenerable": false,
       "rolls": [
-        3
+        6
       ],
       "target_id": "monster-0001",
       "visibility": "player"
@@ -1643,7 +1141,7 @@
       "code": "combat.state.hit_points",
       "current_hp": 0,
       "event_type": "hit_points_reported",
-      "max_hp": 1,
+      "max_hp": 6,
       "target_id": "monster-0001",
       "visibility": "referee"
     },
@@ -1665,14 +1163,14 @@
       "code": "combat.state.hit_points",
       "current_hp": 0,
       "event_type": "hit_points_reported",
-      "max_hp": 1,
+      "max_hp": 6,
       "target_id": "monster-0001",
       "visibility": "referee"
     },
     {
       "code": "battle.round.started",
       "event_type": "battle_round",
-      "round": 4,
+      "round": 2,
       "visibility": "player"
     },
     {
@@ -1690,68 +1188,28 @@
           "key": "monsters",
           "modifier": 0,
           "rolls": [
-            2
+            5
           ],
-          "total": 2
+          "total": 5
         }
       ],
       "event_type": "initiative_rolled",
       "mode": "side",
       "order": [
+        "group-0001",
         "character-0001",
         "character-0002",
         "character-0003",
-        "character-0004",
-        "group-0001"
+        "character-0004"
       ],
       "visibility": "player"
-    },
-    {
-      "attack_name": "Sword",
-      "attacker_id": "character-0001",
-      "back_stab": false,
-      "code": "combat.attack.missed",
-      "defender_ac": 6,
-      "defender_id": "monster-0002",
-      "event_type": "attack_rolled",
-      "modifier": 1,
-      "natural": null,
-      "required": 13,
-      "roll": 2,
-      "total": 3,
-      "visibility": "player"
-    },
-    {
-      "attack_name": "Mace",
-      "attacker_id": "character-0002",
-      "back_stab": false,
-      "code": "combat.attack.missed",
-      "defender_ac": 6,
-      "defender_id": "monster-0002",
-      "event_type": "attack_rolled",
-      "modifier": 0,
-      "natural": null,
-      "required": 13,
-      "roll": 2,
-      "total": 2,
-      "visibility": "player"
-    },
-    {
-      "code": "combat.morale.held",
-      "event_type": "morale_checked",
-      "held": true,
-      "modifier": 0,
-      "roll": 7,
-      "score": 7,
-      "subject": "group-0001",
-      "visibility": "referee"
     },
     {
       "code": "combat.morale.broke",
       "event_type": "morale_checked",
       "held": false,
       "modifier": 0,
-      "roll": 9,
+      "roll": 10,
       "score": 7,
       "subject": "group-0001",
       "visibility": "referee"
@@ -1764,66 +1222,45 @@
     },
     {
       "code": "battle.group.moved",
-      "distance_feet": 65,
+      "distance_feet": 80,
       "event_type": "group_moved",
       "group_id": "group-0001",
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Sword",
+      "attacker_id": "character-0001",
+      "back_stab": false,
+      "code": "combat.attack.missed",
+      "defender_ac": 6,
+      "defender_id": "monster-0002",
+      "event_type": "attack_rolled",
+      "modifier": 3,
+      "natural": null,
+      "required": 13,
+      "roll": 7,
+      "total": 10,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Mace",
+      "attacker_id": "character-0002",
+      "back_stab": false,
+      "code": "combat.attack.missed",
+      "defender_ac": 6,
+      "defender_id": "monster-0002",
+      "event_type": "attack_rolled",
+      "modifier": 2,
+      "natural": null,
+      "required": 13,
+      "roll": 7,
+      "total": 9,
       "visibility": "player"
     },
     {
       "code": "battle.round.started",
       "event_type": "battle_round",
-      "round": 5,
-      "visibility": "player"
-    },
-    {
-      "code": "combat.initiative.rolled",
-      "entries": [
-        {
-          "key": "party",
-          "modifier": 0,
-          "rolls": [
-            5
-          ],
-          "total": 5
-        },
-        {
-          "key": "monsters",
-          "modifier": 0,
-          "rolls": [
-            3
-          ],
-          "total": 3
-        }
-      ],
-      "event_type": "initiative_rolled",
-      "mode": "side",
-      "order": [
-        "character-0001",
-        "character-0002",
-        "character-0003",
-        "character-0004",
-        "group-0001"
-      ],
-      "visibility": "player"
-    },
-    {
-      "code": "battle.group.moved",
-      "distance_feet": 45,
-      "event_type": "group_moved",
-      "group_id": "group-0001",
-      "visibility": "player"
-    },
-    {
-      "code": "battle.group.moved",
-      "distance_feet": 105,
-      "event_type": "group_moved",
-      "group_id": "group-0001",
-      "visibility": "player"
-    },
-    {
-      "code": "battle.round.started",
-      "event_type": "battle_round",
-      "round": 6,
+      "round": 3,
       "visibility": "player"
     },
     {
@@ -1841,32 +1278,25 @@
           "key": "monsters",
           "modifier": 0,
           "rolls": [
-            1
+            4
           ],
-          "total": 1
+          "total": 4
         }
       ],
       "event_type": "initiative_rolled",
       "mode": "side",
       "order": [
+        "group-0001",
         "character-0001",
         "character-0002",
         "character-0003",
-        "character-0004",
-        "group-0001"
+        "character-0004"
       ],
       "visibility": "player"
     },
     {
       "code": "battle.group.moved",
-      "distance_feet": 85,
-      "event_type": "group_moved",
-      "group_id": "group-0001",
-      "visibility": "player"
-    },
-    {
-      "code": "battle.group.moved",
-      "distance_feet": 145,
+      "distance_feet": 140,
       "event_type": "group_moved",
       "group_id": "group-0001",
       "visibility": "player"
@@ -1906,6 +1336,41 @@
       "coins_gp_value": 0,
       "event_type": "item_acquired",
       "item_ids": [
+        "valuable-0005"
+      ],
+      "origin": "treasure",
+      "visibility": "player"
+    },
+    {
+      "character_id": "character-0002",
+      "code": "exploration.item.acquired",
+      "coins_gp_value": 0,
+      "event_type": "item_acquired",
+      "item_ids": [
+        "valuable-0006"
+      ],
+      "origin": "treasure",
+      "visibility": "player"
+    },
+    {
+      "character_id": "character-0003",
+      "code": "exploration.item.acquired",
+      "coins_gp_value": 0,
+      "event_type": "item_acquired",
+      "item_ids": [
+        "valuable-0003",
+        "valuable-0002"
+      ],
+      "origin": "treasure",
+      "visibility": "player"
+    },
+    {
+      "character_id": "character-0004",
+      "code": "exploration.item.acquired",
+      "coins_gp_value": 0,
+      "event_type": "item_acquired",
+      "item_ids": [
+        "valuable-0004",
         "valuable-0001"
       ],
       "origin": "treasure",
@@ -1986,7 +1451,7 @@
     {
       "cache_ref": "cache-0002",
       "code": "treasure.hoard.generated",
-      "coins_gp_value": 210,
+      "coins_gp_value": 110,
       "event_type": "hoard_generated",
       "magic_item_ids": [],
       "treasure_types": [
@@ -1998,7 +1463,7 @@
     {
       "character_id": "character-0001",
       "code": "exploration.item.acquired",
-      "coins_gp_value": 52,
+      "coins_gp_value": 27,
       "event_type": "item_acquired",
       "item_ids": [],
       "origin": "treasure",
@@ -2007,7 +1472,7 @@
     {
       "character_id": "character-0002",
       "code": "exploration.item.acquired",
-      "coins_gp_value": 52,
+      "coins_gp_value": 27,
       "event_type": "item_acquired",
       "item_ids": [],
       "origin": "treasure",
@@ -2016,7 +1481,7 @@
     {
       "character_id": "character-0003",
       "code": "exploration.item.acquired",
-      "coins_gp_value": 52,
+      "coins_gp_value": 27,
       "event_type": "item_acquired",
       "item_ids": [],
       "origin": "treasure",
@@ -2025,7 +1490,7 @@
     {
       "character_id": "character-0004",
       "code": "exploration.item.acquired",
-      "coins_gp_value": 52,
+      "coins_gp_value": 27,
       "event_type": "item_acquired",
       "item_ids": [],
       "origin": "treasure",
@@ -2040,15 +1505,15 @@
       "visibility": "referee"
     },
     {
-      "alignment": "neutral",
+      "alignment": "chaotic",
       "class_ids": [
-        "dwarf",
-        "magic_user"
+        "magic_user",
+        "elf"
       ],
       "code": "encounter.npc_party.spawned",
       "event_type": "npc_party_spawned",
       "levels": [
-        1,
+        3,
         2
       ],
       "npc_ids": [
@@ -2061,7 +1526,7 @@
     {
       "code": "encounter.surprise.rolled",
       "event_type": "surprise_rolled",
-      "roll": 6,
+      "roll": 3,
       "side": "monsters",
       "surprised": false,
       "threshold": 2,
@@ -2084,6 +1549,640 @@
       "monster_name": "Basic Adventurers",
       "monsters_surprised": false,
       "party_surprised": false,
+      "visibility": "player"
+    },
+    {
+      "code": "encounter.reaction.rolled",
+      "event_type": "reaction_rolled",
+      "modifier": 0,
+      "result": "uncertain",
+      "roll": 7,
+      "total": 7,
+      "visibility": "referee"
+    },
+    {
+      "code": "encounter.stance.changed",
+      "event_type": "stance_changed",
+      "stance": "uncertain",
+      "visibility": "player"
+    },
+    {
+      "code": "battle.started",
+      "event_type": "battle_started",
+      "visibility": "player"
+    },
+    {
+      "code": "battle.round.started",
+      "event_type": "battle_round",
+      "round": 1,
+      "visibility": "player"
+    },
+    {
+      "code": "combat.initiative.rolled",
+      "entries": [
+        {
+          "key": "party",
+          "modifier": 0,
+          "rolls": [
+            2,
+            2
+          ],
+          "total": 2
+        },
+        {
+          "key": "monsters",
+          "modifier": 0,
+          "rolls": [
+            2,
+            1
+          ],
+          "total": 1
+        }
+      ],
+      "event_type": "initiative_rolled",
+      "mode": "side",
+      "order": [
+        "character-0001",
+        "character-0002",
+        "character-0003",
+        "character-0004",
+        "group-0002"
+      ],
+      "visibility": "player"
+    },
+    {
+      "advance_feet": 15,
+      "character_id": "character-0001",
+      "code": "battle.member.moved",
+      "distance_feet": 5,
+      "event_type": "member_moved",
+      "group_id": "group-0002",
+      "move": "close",
+      "visibility": "player"
+    },
+    {
+      "advance_feet": 15,
+      "character_id": "character-0002",
+      "code": "battle.member.moved",
+      "distance_feet": 5,
+      "event_type": "member_moved",
+      "group_id": "group-0002",
+      "move": "close",
+      "visibility": "player"
+    },
+    {
+      "advance_feet": 15,
+      "character_id": "character-0003",
+      "code": "battle.member.moved",
+      "distance_feet": 5,
+      "event_type": "member_moved",
+      "group_id": "group-0002",
+      "move": "close",
+      "visibility": "player"
+    },
+    {
+      "advance_feet": 15,
+      "character_id": "character-0004",
+      "code": "battle.member.moved",
+      "distance_feet": 5,
+      "event_type": "member_moved",
+      "group_id": "group-0002",
+      "move": "close",
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Sword",
+      "attacker_id": "character-0001",
+      "back_stab": false,
+      "code": "combat.attack.hit",
+      "defender_ac": 9,
+      "defender_id": "npc-0001",
+      "event_type": "attack_rolled",
+      "modifier": 1,
+      "natural": null,
+      "required": 10,
+      "roll": 16,
+      "total": 17,
+      "visibility": "player"
+    },
+    {
+      "amount": 7,
+      "attacker_id": "character-0001",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [],
+      "non_regenerable": false,
+      "rolls": [
+        6
+      ],
+      "target_id": "npc-0001",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 0,
+      "event_type": "hit_points_reported",
+      "max_hp": 5,
+      "target_id": "npc-0001",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.condition.gained",
+      "condition": "dead",
+      "effect_id": null,
+      "event_type": "condition_gained",
+      "target_id": "npc-0001",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.death.died",
+      "event_type": "death",
+      "target_id": "npc-0001",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 0,
+      "event_type": "hit_points_reported",
+      "max_hp": 5,
+      "target_id": "npc-0001",
+      "visibility": "referee"
+    },
+    {
+      "attack_name": "Mace",
+      "attacker_id": "character-0002",
+      "back_stab": false,
+      "code": "combat.attack.hit",
+      "defender_ac": 6,
+      "defender_id": "npc-0002",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 13,
+      "roll": 20,
+      "total": 20,
+      "visibility": "player"
+    },
+    {
+      "amount": 6,
+      "attacker_id": "character-0002",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [],
+      "non_regenerable": false,
+      "rolls": [
+        6
+      ],
+      "target_id": "npc-0002",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 1,
+      "event_type": "hit_points_reported",
+      "max_hp": 7,
+      "target_id": "npc-0002",
+      "visibility": "referee"
+    },
+    {
+      "code": "combat.morale.held",
+      "event_type": "morale_checked",
+      "held": true,
+      "modifier": 0,
+      "roll": 4,
+      "score": 9,
+      "subject": "group-0002",
+      "visibility": "referee"
+    },
+    {
+      "code": "combat.morale.held",
+      "event_type": "morale_checked",
+      "held": true,
+      "modifier": 0,
+      "roll": 8,
+      "score": 9,
+      "subject": "group-0002",
+      "visibility": "referee"
+    },
+    {
+      "attack_name": "Long bow",
+      "attacker_id": "npc-0002",
+      "back_stab": false,
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "character-0002",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 13,
+      "total": 13,
+      "visibility": "player"
+    },
+    {
+      "code": "battle.round.started",
+      "event_type": "battle_round",
+      "round": 2,
+      "visibility": "player"
+    },
+    {
+      "code": "combat.initiative.rolled",
+      "entries": [
+        {
+          "key": "party",
+          "modifier": 0,
+          "rolls": [
+            3
+          ],
+          "total": 3
+        },
+        {
+          "key": "monsters",
+          "modifier": 0,
+          "rolls": [
+            2
+          ],
+          "total": 2
+        }
+      ],
+      "event_type": "initiative_rolled",
+      "mode": "side",
+      "order": [
+        "character-0001",
+        "character-0002",
+        "character-0003",
+        "character-0004",
+        "group-0002"
+      ],
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Sword",
+      "attacker_id": "character-0001",
+      "back_stab": false,
+      "code": "combat.attack.missed",
+      "defender_ac": 6,
+      "defender_id": "npc-0002",
+      "event_type": "attack_rolled",
+      "modifier": 1,
+      "natural": null,
+      "required": 13,
+      "roll": 8,
+      "total": 9,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Mace",
+      "attacker_id": "character-0002",
+      "back_stab": false,
+      "code": "combat.attack.missed",
+      "defender_ac": 6,
+      "defender_id": "npc-0002",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 13,
+      "roll": 5,
+      "total": 5,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Sword",
+      "attacker_id": "npc-0002",
+      "back_stab": false,
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "character-0002",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 12,
+      "total": 12,
+      "visibility": "player"
+    },
+    {
+      "code": "battle.round.started",
+      "event_type": "battle_round",
+      "round": 3,
+      "visibility": "player"
+    },
+    {
+      "code": "combat.initiative.rolled",
+      "entries": [
+        {
+          "key": "party",
+          "modifier": 0,
+          "rolls": [
+            1
+          ],
+          "total": 1
+        },
+        {
+          "key": "monsters",
+          "modifier": 0,
+          "rolls": [
+            6
+          ],
+          "total": 6
+        }
+      ],
+      "event_type": "initiative_rolled",
+      "mode": "side",
+      "order": [
+        "group-0002",
+        "character-0001",
+        "character-0002",
+        "character-0003",
+        "character-0004"
+      ],
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Sword",
+      "attacker_id": "npc-0002",
+      "back_stab": false,
+      "code": "combat.attack.hit",
+      "defender_ac": 4,
+      "defender_id": "character-0002",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 20,
+      "total": 20,
+      "visibility": "player"
+    },
+    {
+      "amount": 4,
+      "attacker_id": "npc-0002",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [],
+      "non_regenerable": false,
+      "rolls": [
+        4
+      ],
+      "target_id": "character-0002",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 2,
+      "event_type": "hit_points_reported",
+      "max_hp": 6,
+      "target_id": "character-0002",
+      "visibility": "referee"
+    },
+    {
+      "attack_name": "Sword",
+      "attacker_id": "character-0001",
+      "back_stab": false,
+      "code": "combat.attack.missed",
+      "defender_ac": 6,
+      "defender_id": "npc-0002",
+      "event_type": "attack_rolled",
+      "modifier": 1,
+      "natural": null,
+      "required": 13,
+      "roll": 4,
+      "total": 5,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Mace",
+      "attacker_id": "character-0002",
+      "back_stab": false,
+      "code": "combat.attack.hit",
+      "defender_ac": 6,
+      "defender_id": "npc-0002",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 13,
+      "roll": 18,
+      "total": 18,
+      "visibility": "player"
+    },
+    {
+      "amount": 3,
+      "attacker_id": "character-0002",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [],
+      "non_regenerable": false,
+      "rolls": [
+        3
+      ],
+      "target_id": "npc-0002",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 0,
+      "event_type": "hit_points_reported",
+      "max_hp": 7,
+      "target_id": "npc-0002",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.condition.gained",
+      "condition": "dead",
+      "effect_id": null,
+      "event_type": "condition_gained",
+      "target_id": "npc-0002",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.death.died",
+      "event_type": "death",
+      "target_id": "npc-0002",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 0,
+      "event_type": "hit_points_reported",
+      "max_hp": 7,
+      "target_id": "npc-0002",
+      "visibility": "referee"
+    },
+    {
+      "code": "battle.ended.victory",
+      "event_type": "battle_ended",
+      "visibility": "player"
+    },
+    {
+      "code": "battle.monster.defeated",
+      "event_type": "monster_defeated",
+      "monster_id": "npc-0001",
+      "outcome": "slain",
+      "template_id": "npc:magic_user",
+      "visibility": "player",
+      "xp": 35
+    },
+    {
+      "code": "battle.monster.defeated",
+      "event_type": "monster_defeated",
+      "monster_id": "npc-0002",
+      "outcome": "slain",
+      "template_id": "npc:elf",
+      "visibility": "player",
+      "xp": 20
+    },
+    {
+      "code": "encounter.ended",
+      "event_type": "encounter_ended",
+      "outcome": "victory",
+      "visibility": "player"
+    },
+    {
+      "character_id": "character-0001",
+      "code": "exploration.item.acquired",
+      "coins_gp_value": 90,
+      "event_type": "item_acquired",
+      "item_ids": [
+        "rations_standard",
+        "rations_standard",
+        "rations_standard",
+        "rations_standard",
+        "rations_standard",
+        "rations_standard",
+        "rations_standard",
+        "rations_standard",
+        "rations_standard",
+        "rations_standard",
+        "rations_standard",
+        "rations_standard",
+        "rations_standard",
+        "rations_standard",
+        "waterskin",
+        "waterskin",
+        "torch",
+        "torch",
+        "torch",
+        "torch",
+        "torch",
+        "torch",
+        "torch",
+        "torch",
+        "torch",
+        "torch",
+        "torch",
+        "torch",
+        "dagger",
+        "arrows",
+        "arrows",
+        "arrows",
+        "arrows",
+        "arrows",
+        "arrows",
+        "arrows",
+        "arrows",
+        "arrows",
+        "arrows",
+        "arrows",
+        "arrows",
+        "arrows",
+        "arrows",
+        "arrows",
+        "arrows",
+        "arrows",
+        "arrows",
+        "arrows",
+        "arrows",
+        "chainmail",
+        "sword",
+        "long_bow"
+      ],
+      "origin": "treasure",
+      "visibility": "player"
+    },
+    {
+      "character_id": "character-0002",
+      "code": "exploration.item.acquired",
+      "coins_gp_value": 90,
+      "event_type": "item_acquired",
+      "item_ids": [],
+      "origin": "treasure",
+      "visibility": "player"
+    },
+    {
+      "character_id": "character-0003",
+      "code": "exploration.item.acquired",
+      "coins_gp_value": 90,
+      "event_type": "item_acquired",
+      "item_ids": [
+        "valuable-0009"
+      ],
+      "origin": "treasure",
+      "visibility": "player"
+    },
+    {
+      "character_id": "character-0004",
+      "code": "exploration.item.acquired",
+      "coins_gp_value": 90,
+      "event_type": "item_acquired",
+      "item_ids": [
+        "valuable-0007",
+        "valuable-0008"
+      ],
+      "origin": "treasure",
+      "visibility": "player"
+    },
+    {
+      "chance": 6,
+      "code": "exploration.wandering.checked",
+      "encounter": true,
+      "event_type": "wandering_check",
+      "roll": 6,
+      "visibility": "referee"
+    },
+    {
+      "alignment": "chaotic",
+      "class_ids": [
+        "dwarf",
+        "elf"
+      ],
+      "code": "encounter.npc_party.spawned",
+      "event_type": "npc_party_spawned",
+      "levels": [
+        2,
+        1
+      ],
+      "npc_ids": [
+        "npc-0003",
+        "npc-0004"
+      ],
+      "party_kind": "basic",
+      "visibility": "referee"
+    },
+    {
+      "code": "encounter.surprise.rolled",
+      "event_type": "surprise_rolled",
+      "roll": 2,
+      "side": "monsters",
+      "surprised": true,
+      "threshold": 2,
+      "visibility": "referee"
+    },
+    {
+      "code": "encounter.surprise.rolled",
+      "event_type": "surprise_rolled",
+      "roll": 2,
+      "side": "party",
+      "surprised": true,
+      "threshold": 3,
+      "visibility": "referee"
+    },
+    {
+      "code": "encounter.started",
+      "count": 2,
+      "distance_feet": 20,
+      "event_type": "encounter_started",
+      "monster_name": "Basic Adventurers",
+      "monsters_surprised": true,
+      "party_surprised": true,
       "visibility": "player"
     },
     {
@@ -2119,325 +2218,17 @@
           "key": "party",
           "modifier": 0,
           "rolls": [
-            4
-          ],
-          "total": 4
-        },
-        {
-          "key": "monsters",
-          "modifier": 0,
-          "rolls": [
-            5
-          ],
-          "total": 5
-        }
-      ],
-      "event_type": "initiative_rolled",
-      "mode": "side",
-      "order": [
-        "group-0002",
-        "character-0001",
-        "character-0002",
-        "character-0003",
-        "character-0004"
-      ],
-      "visibility": "player"
-    },
-    {
-      "code": "battle.group.moved",
-      "distance_feet": 5,
-      "event_type": "group_moved",
-      "group_id": "group-0002",
-      "visibility": "player"
-    },
-    {
-      "attack_name": "Dagger",
-      "attacker_id": "npc-0002",
-      "back_stab": false,
-      "code": "combat.attack.missed",
-      "defender_ac": 4,
-      "defender_id": "character-0002",
-      "event_type": "attack_rolled",
-      "modifier": 0,
-      "natural": null,
-      "required": 15,
-      "roll": 9,
-      "total": 9,
-      "visibility": "player"
-    },
-    {
-      "code": "battle.group.moved",
-      "distance_feet": 5,
-      "event_type": "group_moved",
-      "group_id": "group-0002",
-      "visibility": "player"
-    },
-    {
-      "code": "battle.round.started",
-      "event_type": "battle_round",
-      "round": 2,
-      "visibility": "player"
-    },
-    {
-      "code": "combat.initiative.rolled",
-      "entries": [
-        {
-          "key": "party",
-          "modifier": 0,
-          "rolls": [
-            4
-          ],
-          "total": 4
-        },
-        {
-          "key": "monsters",
-          "modifier": 0,
-          "rolls": [
-            5
-          ],
-          "total": 5
-        }
-      ],
-      "event_type": "initiative_rolled",
-      "mode": "side",
-      "order": [
-        "group-0002",
-        "character-0001",
-        "character-0002",
-        "character-0003",
-        "character-0004"
-      ],
-      "visibility": "player"
-    },
-    {
-      "attack_name": "Battle axe",
-      "attacker_id": "npc-0001",
-      "back_stab": false,
-      "code": "combat.attack.missed",
-      "defender_ac": 4,
-      "defender_id": "character-0002",
-      "event_type": "attack_rolled",
-      "modifier": 0,
-      "natural": null,
-      "required": 15,
-      "roll": 13,
-      "total": 13,
-      "visibility": "player"
-    },
-    {
-      "attack_name": "Dagger",
-      "attacker_id": "npc-0002",
-      "back_stab": false,
-      "code": "combat.attack.missed",
-      "defender_ac": 4,
-      "defender_id": "character-0002",
-      "event_type": "attack_rolled",
-      "modifier": 0,
-      "natural": null,
-      "required": 15,
-      "roll": 12,
-      "total": 12,
-      "visibility": "player"
-    },
-    {
-      "attack_name": "Sword",
-      "attacker_id": "character-0001",
-      "back_stab": false,
-      "code": "combat.attack.missed",
-      "defender_ac": 6,
-      "defender_id": "npc-0001",
-      "event_type": "attack_rolled",
-      "modifier": 1,
-      "natural": null,
-      "required": 13,
-      "roll": 10,
-      "total": 11,
-      "visibility": "player"
-    },
-    {
-      "attack_name": "Mace",
-      "attacker_id": "character-0002",
-      "back_stab": false,
-      "code": "combat.attack.hit",
-      "defender_ac": 6,
-      "defender_id": "npc-0001",
-      "event_type": "attack_rolled",
-      "modifier": 0,
-      "natural": null,
-      "required": 13,
-      "roll": 19,
-      "total": 19,
-      "visibility": "player"
-    },
-    {
-      "amount": 6,
-      "attacker_id": "character-0002",
-      "code": "combat.damage.dealt",
-      "event_type": "damage_dealt",
-      "keys": [],
-      "non_regenerable": false,
-      "rolls": [
-        6
-      ],
-      "target_id": "npc-0001",
-      "visibility": "player"
-    },
-    {
-      "code": "combat.state.hit_points",
-      "current_hp": 0,
-      "event_type": "hit_points_reported",
-      "max_hp": 6,
-      "target_id": "npc-0001",
-      "visibility": "referee"
-    },
-    {
-      "code": "effects.condition.gained",
-      "condition": "dead",
-      "effect_id": null,
-      "event_type": "condition_gained",
-      "target_id": "npc-0001",
-      "visibility": "player"
-    },
-    {
-      "code": "combat.death.died",
-      "event_type": "death",
-      "target_id": "npc-0001",
-      "visibility": "player"
-    },
-    {
-      "code": "combat.state.hit_points",
-      "current_hp": 0,
-      "event_type": "hit_points_reported",
-      "max_hp": 6,
-      "target_id": "npc-0001",
-      "visibility": "referee"
-    },
-    {
-      "code": "battle.round.started",
-      "event_type": "battle_round",
-      "round": 3,
-      "visibility": "player"
-    },
-    {
-      "code": "combat.initiative.rolled",
-      "entries": [
-        {
-          "key": "party",
-          "modifier": 0,
-          "rolls": [
             5
           ],
           "total": 5
         },
         {
           "key": "monsters",
-          "modifier": 0,
-          "rolls": [
-            3
-          ],
-          "total": 3
-        }
-      ],
-      "event_type": "initiative_rolled",
-      "mode": "side",
-      "order": [
-        "character-0001",
-        "character-0002",
-        "character-0003",
-        "character-0004",
-        "group-0002"
-      ],
-      "visibility": "player"
-    },
-    {
-      "attack_name": "Sword",
-      "attacker_id": "character-0001",
-      "back_stab": false,
-      "code": "combat.attack.missed",
-      "defender_ac": 6,
-      "defender_id": "npc-0002",
-      "event_type": "attack_rolled",
-      "modifier": 1,
-      "natural": null,
-      "required": 13,
-      "roll": 3,
-      "total": 4,
-      "visibility": "player"
-    },
-    {
-      "attack_name": "Mace",
-      "attacker_id": "character-0002",
-      "back_stab": false,
-      "code": "combat.attack.missed",
-      "defender_ac": 6,
-      "defender_id": "npc-0002",
-      "event_type": "attack_rolled",
-      "modifier": 0,
-      "natural": null,
-      "required": 13,
-      "roll": 9,
-      "total": 9,
-      "visibility": "player"
-    },
-    {
-      "code": "combat.morale.held",
-      "event_type": "morale_checked",
-      "held": true,
-      "modifier": 0,
-      "roll": 6,
-      "score": 9,
-      "subject": "group-0002",
-      "visibility": "referee"
-    },
-    {
-      "code": "combat.morale.held",
-      "event_type": "morale_checked",
-      "held": true,
-      "modifier": 0,
-      "roll": 7,
-      "score": 9,
-      "subject": "group-0002",
-      "visibility": "referee"
-    },
-    {
-      "attack_name": "Dagger",
-      "attacker_id": "npc-0002",
-      "back_stab": false,
-      "code": "combat.attack.missed",
-      "defender_ac": 4,
-      "defender_id": "character-0002",
-      "event_type": "attack_rolled",
-      "modifier": 0,
-      "natural": null,
-      "required": 15,
-      "roll": 14,
-      "total": 14,
-      "visibility": "player"
-    },
-    {
-      "code": "battle.round.started",
-      "event_type": "battle_round",
-      "round": 4,
-      "visibility": "player"
-    },
-    {
-      "code": "combat.initiative.rolled",
-      "entries": [
-        {
-          "key": "party",
           "modifier": 0,
           "rolls": [
             2
           ],
           "total": 2
-        },
-        {
-          "key": "monsters",
-          "modifier": 0,
-          "rolls": [
-            1
-          ],
-          "total": 1
         }
       ],
       "event_type": "initiative_rolled",
@@ -2447,397 +2238,48 @@
         "character-0002",
         "character-0003",
         "character-0004",
-        "group-0002"
+        "group-0003"
       ],
       "visibility": "player"
     },
     {
-      "attack_name": "Sword",
-      "attacker_id": "character-0001",
-      "back_stab": false,
-      "code": "combat.attack.hit",
-      "defender_ac": 6,
-      "defender_id": "npc-0002",
-      "event_type": "attack_rolled",
-      "modifier": 1,
-      "natural": null,
-      "required": 13,
-      "roll": 19,
-      "total": 20,
-      "visibility": "player"
-    },
-    {
-      "amount": 3,
-      "attacker_id": "character-0001",
-      "code": "combat.damage.dealt",
-      "event_type": "damage_dealt",
-      "keys": [],
-      "non_regenerable": false,
-      "rolls": [
-        2
-      ],
-      "target_id": "npc-0002",
-      "visibility": "player"
-    },
-    {
-      "code": "combat.state.hit_points",
-      "current_hp": 0,
-      "event_type": "hit_points_reported",
-      "max_hp": 3,
-      "target_id": "npc-0002",
-      "visibility": "referee"
-    },
-    {
-      "code": "effects.condition.gained",
-      "condition": "dead",
-      "effect_id": null,
-      "event_type": "condition_gained",
-      "target_id": "npc-0002",
-      "visibility": "player"
-    },
-    {
-      "code": "combat.death.died",
-      "event_type": "death",
-      "target_id": "npc-0002",
-      "visibility": "player"
-    },
-    {
-      "code": "combat.state.hit_points",
-      "current_hp": 0,
-      "event_type": "hit_points_reported",
-      "max_hp": 3,
-      "target_id": "npc-0002",
-      "visibility": "referee"
-    },
-    {
-      "code": "battle.ended.victory",
-      "event_type": "battle_ended",
-      "visibility": "player"
-    },
-    {
-      "code": "battle.monster.defeated",
-      "event_type": "monster_defeated",
-      "monster_id": "npc-0001",
-      "outcome": "slain",
-      "template_id": "npc:dwarf",
-      "visibility": "player",
-      "xp": 10
-    },
-    {
-      "code": "battle.monster.defeated",
-      "event_type": "monster_defeated",
-      "monster_id": "npc-0002",
-      "outcome": "slain",
-      "template_id": "npc:magic_user",
-      "visibility": "player",
-      "xp": 20
-    },
-    {
-      "code": "encounter.ended",
-      "event_type": "encounter_ended",
-      "outcome": "victory",
-      "visibility": "player"
-    },
-    {
+      "advance_feet": 15,
       "character_id": "character-0001",
-      "code": "exploration.item.acquired",
-      "coins_gp_value": 0,
-      "event_type": "item_acquired",
-      "item_ids": [
-        "battle_axe",
-        "dagger"
-      ],
-      "origin": "treasure",
+      "code": "battle.member.moved",
+      "distance_feet": 5,
+      "event_type": "member_moved",
+      "group_id": "group-0003",
+      "move": "close",
       "visibility": "player"
     },
     {
+      "advance_feet": 15,
       "character_id": "character-0002",
-      "code": "exploration.item.acquired",
-      "coins_gp_value": 0,
-      "event_type": "item_acquired",
-      "item_ids": [
-        "shield",
-        "rations_standard",
-        "rations_standard",
-        "rations_standard",
-        "rations_standard",
-        "rations_standard",
-        "rations_standard",
-        "rations_standard",
-        "rations_standard",
-        "rations_standard",
-        "rations_standard",
-        "rations_standard",
-        "rations_standard",
-        "rations_standard",
-        "rations_standard",
-        "waterskin",
-        "waterskin",
-        "torch",
-        "torch",
-        "torch",
-        "torch",
-        "torch",
-        "torch",
-        "torch",
-        "torch",
-        "torch",
-        "torch",
-        "torch",
-        "torch",
-        "chainmail"
-      ],
-      "origin": "treasure",
-      "visibility": "player"
-    },
-    {
-      "chance": 6,
-      "code": "exploration.wandering.checked",
-      "encounter": true,
-      "event_type": "wandering_check",
-      "roll": 2,
-      "visibility": "referee"
-    },
-    {
-      "alignment": "lawful",
-      "class_ids": [
-        "halfling",
-        "fighter"
-      ],
-      "code": "encounter.npc_party.spawned",
-      "event_type": "npc_party_spawned",
-      "levels": [
-        3,
-        3
-      ],
-      "npc_ids": [
-        "npc-0003",
-        "npc-0004"
-      ],
-      "party_kind": "basic",
-      "visibility": "referee"
-    },
-    {
-      "code": "encounter.surprise.rolled",
-      "event_type": "surprise_rolled",
-      "roll": 6,
-      "side": "monsters",
-      "surprised": false,
-      "threshold": 2,
-      "visibility": "referee"
-    },
-    {
-      "code": "encounter.surprise.rolled",
-      "event_type": "surprise_rolled",
-      "roll": 5,
-      "side": "party",
-      "surprised": false,
-      "threshold": 3,
-      "visibility": "referee"
-    },
-    {
-      "code": "encounter.started",
-      "count": 2,
-      "distance_feet": 20,
-      "event_type": "encounter_started",
-      "monster_name": "Basic Adventurers",
-      "monsters_surprised": false,
-      "party_surprised": false,
-      "visibility": "player"
-    },
-    {
-      "code": "encounter.reaction.rolled",
-      "event_type": "reaction_rolled",
-      "modifier": 0,
-      "result": "attacks",
-      "roll": 2,
-      "total": 2,
-      "visibility": "referee"
-    },
-    {
-      "code": "encounter.stance.changed",
-      "event_type": "stance_changed",
-      "stance": "attacks",
-      "visibility": "player"
-    },
-    {
-      "code": "battle.started",
-      "event_type": "battle_started",
-      "visibility": "player"
-    },
-    {
-      "code": "battle.round.started",
-      "event_type": "battle_round",
-      "round": 1,
-      "visibility": "player"
-    },
-    {
-      "code": "combat.initiative.rolled",
-      "entries": [
-        {
-          "key": "party",
-          "modifier": 0,
-          "rolls": [
-            1
-          ],
-          "total": 1
-        },
-        {
-          "key": "monsters",
-          "modifier": 0,
-          "rolls": [
-            6
-          ],
-          "total": 6
-        }
-      ],
-      "event_type": "initiative_rolled",
-      "mode": "side",
-      "order": [
-        "group-0003",
-        "character-0001",
-        "character-0002",
-        "character-0003",
-        "character-0004"
-      ],
-      "visibility": "player"
-    },
-    {
-      "attack_name": "Sling",
-      "attacker_id": "npc-0003",
-      "back_stab": false,
-      "code": "combat.attack.hit",
-      "defender_ac": 4,
-      "defender_id": "character-0002",
-      "event_type": "attack_rolled",
-      "modifier": 2,
-      "natural": null,
-      "required": 15,
-      "roll": 17,
-      "total": 19,
-      "visibility": "player"
-    },
-    {
-      "amount": 2,
-      "attacker_id": "npc-0003",
-      "code": "combat.damage.dealt",
-      "event_type": "damage_dealt",
-      "keys": [],
-      "non_regenerable": false,
-      "rolls": [
-        2
-      ],
-      "target_id": "character-0002",
-      "visibility": "player"
-    },
-    {
-      "code": "combat.state.hit_points",
-      "current_hp": 0,
-      "event_type": "hit_points_reported",
-      "max_hp": 3,
-      "target_id": "character-0002",
-      "visibility": "referee"
-    },
-    {
-      "code": "effects.condition.gained",
-      "condition": "dead",
-      "effect_id": null,
-      "event_type": "condition_gained",
-      "target_id": "character-0002",
-      "visibility": "player"
-    },
-    {
-      "code": "combat.death.died",
-      "event_type": "death",
-      "target_id": "character-0002",
-      "visibility": "player"
-    },
-    {
-      "code": "combat.state.hit_points",
-      "current_hp": 0,
-      "event_type": "hit_points_reported",
-      "max_hp": 3,
-      "target_id": "character-0002",
-      "visibility": "referee"
-    },
-    {
-      "code": "battle.group.moved",
+      "code": "battle.member.moved",
       "distance_feet": 5,
-      "event_type": "group_moved",
+      "event_type": "member_moved",
       "group_id": "group-0003",
+      "move": "close",
       "visibility": "player"
     },
     {
-      "code": "battle.group.moved",
+      "advance_feet": 15,
+      "character_id": "character-0003",
+      "code": "battle.member.moved",
       "distance_feet": 5,
-      "event_type": "group_moved",
+      "event_type": "member_moved",
       "group_id": "group-0003",
+      "move": "close",
       "visibility": "player"
     },
     {
-      "code": "battle.round.started",
-      "event_type": "battle_round",
-      "round": 2,
-      "visibility": "player"
-    },
-    {
-      "code": "combat.initiative.rolled",
-      "entries": [
-        {
-          "key": "party",
-          "modifier": 0,
-          "rolls": [
-            1
-          ],
-          "total": 1
-        },
-        {
-          "key": "monsters",
-          "modifier": 0,
-          "rolls": [
-            2
-          ],
-          "total": 2
-        }
-      ],
-      "event_type": "initiative_rolled",
-      "mode": "side",
-      "order": [
-        "group-0003",
-        "character-0001",
-        "character-0003",
-        "character-0004"
-      ],
-      "visibility": "player"
-    },
-    {
-      "attack_name": "Sword",
-      "attacker_id": "npc-0003",
-      "back_stab": false,
-      "code": "combat.attack.missed",
-      "defender_ac": 4,
-      "defender_id": "character-0001",
-      "event_type": "attack_rolled",
-      "modifier": 1,
-      "natural": null,
-      "required": 15,
-      "roll": 9,
-      "total": 10,
-      "visibility": "player"
-    },
-    {
-      "attack_name": "Sword",
-      "attacker_id": "npc-0004",
-      "back_stab": false,
-      "code": "combat.attack.missed",
-      "defender_ac": 4,
-      "defender_id": "character-0001",
-      "event_type": "attack_rolled",
-      "modifier": 1,
-      "natural": null,
-      "required": 15,
-      "roll": 8,
-      "total": 9,
+      "advance_feet": 15,
+      "character_id": "character-0004",
+      "code": "battle.member.moved",
+      "distance_feet": 5,
+      "event_type": "member_moved",
+      "group_id": "group-0003",
+      "move": "close",
       "visibility": "player"
     },
     {
@@ -2851,13 +2293,218 @@
       "modifier": 1,
       "natural": null,
       "required": 13,
-      "roll": 18,
-      "total": 19,
+      "roll": 20,
+      "total": 21,
       "visibility": "player"
     },
     {
-      "amount": 2,
+      "amount": 3,
       "attacker_id": "character-0001",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [],
+      "non_regenerable": false,
+      "rolls": [
+        2
+      ],
+      "target_id": "npc-0003",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 9,
+      "event_type": "hit_points_reported",
+      "max_hp": 12,
+      "target_id": "npc-0003",
+      "visibility": "referee"
+    },
+    {
+      "attack_name": "Mace",
+      "attacker_id": "character-0002",
+      "back_stab": false,
+      "code": "combat.attack.missed",
+      "defender_ac": 6,
+      "defender_id": "npc-0003",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 13,
+      "roll": 5,
+      "total": 5,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Battle axe",
+      "attacker_id": "npc-0003",
+      "back_stab": false,
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "character-0002",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 3,
+      "total": 3,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Long bow",
+      "attacker_id": "npc-0004",
+      "back_stab": false,
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "character-0001",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 12,
+      "total": 12,
+      "visibility": "player"
+    },
+    {
+      "code": "battle.round.started",
+      "event_type": "battle_round",
+      "round": 2,
+      "visibility": "player"
+    },
+    {
+      "code": "combat.initiative.rolled",
+      "entries": [
+        {
+          "key": "party",
+          "modifier": 0,
+          "rolls": [
+            1
+          ],
+          "total": 1
+        },
+        {
+          "key": "monsters",
+          "modifier": 0,
+          "rolls": [
+            3
+          ],
+          "total": 3
+        }
+      ],
+      "event_type": "initiative_rolled",
+      "mode": "side",
+      "order": [
+        "group-0003",
+        "character-0001",
+        "character-0002",
+        "character-0003",
+        "character-0004"
+      ],
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Battle axe",
+      "attacker_id": "npc-0003",
+      "back_stab": false,
+      "code": "combat.attack.hit",
+      "defender_ac": 4,
+      "defender_id": "character-0001",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 20,
+      "total": 20,
+      "visibility": "player"
+    },
+    {
+      "amount": 1,
+      "attacker_id": "npc-0003",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [],
+      "non_regenerable": false,
+      "rolls": [
+        1
+      ],
+      "target_id": "character-0001",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 8,
+      "event_type": "hit_points_reported",
+      "max_hp": 9,
+      "target_id": "character-0001",
+      "visibility": "referee"
+    },
+    {
+      "attack_name": "Sword",
+      "attacker_id": "npc-0004",
+      "back_stab": false,
+      "code": "combat.attack.missed",
+      "defender_ac": 4,
+      "defender_id": "character-0001",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 15,
+      "roll": 8,
+      "total": 8,
+      "visibility": "player"
+    },
+    {
+      "attack_name": "Sword",
+      "attacker_id": "character-0001",
+      "back_stab": false,
+      "code": "combat.attack.hit",
+      "defender_ac": 6,
+      "defender_id": "npc-0003",
+      "event_type": "attack_rolled",
+      "modifier": 1,
+      "natural": null,
+      "required": 13,
+      "roll": 15,
+      "total": 16,
+      "visibility": "player"
+    },
+    {
+      "amount": 8,
+      "attacker_id": "character-0001",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [],
+      "non_regenerable": false,
+      "rolls": [
+        7
+      ],
+      "target_id": "npc-0003",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 1,
+      "event_type": "hit_points_reported",
+      "max_hp": 12,
+      "target_id": "npc-0003",
+      "visibility": "referee"
+    },
+    {
+      "attack_name": "Mace",
+      "attacker_id": "character-0002",
+      "back_stab": false,
+      "code": "combat.attack.hit",
+      "defender_ac": 6,
+      "defender_id": "npc-0003",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 13,
+      "roll": 13,
+      "total": 13,
+      "visibility": "player"
+    },
+    {
+      "amount": 1,
+      "attacker_id": "character-0002",
       "code": "combat.damage.dealt",
       "event_type": "damage_dealt",
       "keys": [],
@@ -2870,213 +2517,9 @@
     },
     {
       "code": "combat.state.hit_points",
-      "current_hp": 11,
-      "event_type": "hit_points_reported",
-      "max_hp": 13,
-      "target_id": "npc-0003",
-      "visibility": "referee"
-    },
-    {
-      "attack_name": "Sword",
-      "attacker_id": "character-0003",
-      "back_stab": false,
-      "code": "combat.attack.missed",
-      "defender_ac": 6,
-      "defender_id": "npc-0003",
-      "event_type": "attack_rolled",
-      "modifier": 0,
-      "natural": null,
-      "required": 13,
-      "roll": 6,
-      "total": 6,
-      "visibility": "player"
-    },
-    {
-      "code": "battle.round.started",
-      "event_type": "battle_round",
-      "round": 3,
-      "visibility": "player"
-    },
-    {
-      "code": "combat.initiative.rolled",
-      "entries": [
-        {
-          "key": "party",
-          "modifier": 0,
-          "rolls": [
-            1
-          ],
-          "total": 1
-        },
-        {
-          "key": "monsters",
-          "modifier": 0,
-          "rolls": [
-            3
-          ],
-          "total": 3
-        }
-      ],
-      "event_type": "initiative_rolled",
-      "mode": "side",
-      "order": [
-        "group-0003",
-        "character-0001",
-        "character-0003",
-        "character-0004"
-      ],
-      "visibility": "player"
-    },
-    {
-      "attack_name": "Sword",
-      "attacker_id": "npc-0003",
-      "back_stab": false,
-      "code": "combat.attack.missed",
-      "defender_ac": 4,
-      "defender_id": "character-0001",
-      "event_type": "attack_rolled",
-      "modifier": 1,
-      "natural": null,
-      "required": 15,
-      "roll": 1,
-      "total": 2,
-      "visibility": "player"
-    },
-    {
-      "attack_name": "Sword",
-      "attacker_id": "npc-0004",
-      "back_stab": false,
-      "code": "combat.attack.missed",
-      "defender_ac": 4,
-      "defender_id": "character-0001",
-      "event_type": "attack_rolled",
-      "modifier": 1,
-      "natural": null,
-      "required": 15,
-      "roll": 1,
-      "total": 2,
-      "visibility": "player"
-    },
-    {
-      "attack_name": "Sword",
-      "attacker_id": "character-0001",
-      "back_stab": false,
-      "code": "combat.attack.hit",
-      "defender_ac": 6,
-      "defender_id": "npc-0003",
-      "event_type": "attack_rolled",
-      "modifier": 1,
-      "natural": null,
-      "required": 13,
-      "roll": 13,
-      "total": 14,
-      "visibility": "player"
-    },
-    {
-      "amount": 9,
-      "attacker_id": "character-0001",
-      "code": "combat.damage.dealt",
-      "event_type": "damage_dealt",
-      "keys": [],
-      "non_regenerable": false,
-      "rolls": [
-        8
-      ],
-      "target_id": "npc-0003",
-      "visibility": "player"
-    },
-    {
-      "code": "combat.state.hit_points",
-      "current_hp": 2,
-      "event_type": "hit_points_reported",
-      "max_hp": 13,
-      "target_id": "npc-0003",
-      "visibility": "referee"
-    },
-    {
-      "attack_name": "Sword",
-      "attacker_id": "character-0003",
-      "back_stab": false,
-      "code": "combat.attack.missed",
-      "defender_ac": 6,
-      "defender_id": "npc-0003",
-      "event_type": "attack_rolled",
-      "modifier": 0,
-      "natural": null,
-      "required": 13,
-      "roll": 12,
-      "total": 12,
-      "visibility": "player"
-    },
-    {
-      "code": "battle.round.started",
-      "event_type": "battle_round",
-      "round": 4,
-      "visibility": "player"
-    },
-    {
-      "code": "combat.initiative.rolled",
-      "entries": [
-        {
-          "key": "party",
-          "modifier": 0,
-          "rolls": [
-            6
-          ],
-          "total": 6
-        },
-        {
-          "key": "monsters",
-          "modifier": 0,
-          "rolls": [
-            5
-          ],
-          "total": 5
-        }
-      ],
-      "event_type": "initiative_rolled",
-      "mode": "side",
-      "order": [
-        "character-0001",
-        "character-0003",
-        "character-0004",
-        "group-0003"
-      ],
-      "visibility": "player"
-    },
-    {
-      "attack_name": "Sword",
-      "attacker_id": "character-0001",
-      "back_stab": false,
-      "code": "combat.attack.hit",
-      "defender_ac": 6,
-      "defender_id": "npc-0003",
-      "event_type": "attack_rolled",
-      "modifier": 1,
-      "natural": null,
-      "required": 13,
-      "roll": 16,
-      "total": 17,
-      "visibility": "player"
-    },
-    {
-      "amount": 3,
-      "attacker_id": "character-0001",
-      "code": "combat.damage.dealt",
-      "event_type": "damage_dealt",
-      "keys": [],
-      "non_regenerable": false,
-      "rolls": [
-        2
-      ],
-      "target_id": "npc-0003",
-      "visibility": "player"
-    },
-    {
-      "code": "combat.state.hit_points",
       "current_hp": 0,
       "event_type": "hit_points_reported",
-      "max_hp": 13,
+      "max_hp": 12,
       "target_id": "npc-0003",
       "visibility": "referee"
     },
@@ -3098,24 +2541,56 @@
       "code": "combat.state.hit_points",
       "current_hp": 0,
       "event_type": "hit_points_reported",
-      "max_hp": 13,
+      "max_hp": 12,
       "target_id": "npc-0003",
       "visibility": "referee"
     },
     {
-      "attack_name": "Sword",
-      "attacker_id": "character-0003",
-      "back_stab": false,
-      "code": "combat.attack.missed",
-      "defender_ac": 5,
-      "defender_id": "npc-0004",
-      "event_type": "attack_rolled",
-      "modifier": 0,
-      "natural": null,
-      "required": 14,
-      "roll": 7,
-      "total": 7,
+      "code": "battle.round.started",
+      "event_type": "battle_round",
+      "round": 3,
       "visibility": "player"
+    },
+    {
+      "code": "combat.initiative.rolled",
+      "entries": [
+        {
+          "key": "party",
+          "modifier": 0,
+          "rolls": [
+            2
+          ],
+          "total": 2
+        },
+        {
+          "key": "monsters",
+          "modifier": 0,
+          "rolls": [
+            6
+          ],
+          "total": 6
+        }
+      ],
+      "event_type": "initiative_rolled",
+      "mode": "side",
+      "order": [
+        "group-0003",
+        "character-0001",
+        "character-0002",
+        "character-0003",
+        "character-0004"
+      ],
+      "visibility": "player"
+    },
+    {
+      "code": "combat.morale.held",
+      "event_type": "morale_checked",
+      "held": true,
+      "modifier": 0,
+      "roll": 4,
+      "score": 9,
+      "subject": "group-0003",
+      "visibility": "referee"
     },
     {
       "code": "combat.morale.held",
@@ -3128,72 +2603,113 @@
       "visibility": "referee"
     },
     {
-      "code": "combat.morale.broke",
-      "event_type": "morale_checked",
-      "held": false,
+      "attack_name": "Sword",
+      "attacker_id": "npc-0004",
+      "back_stab": false,
+      "code": "combat.attack.hit",
+      "defender_ac": 4,
+      "defender_id": "character-0001",
+      "event_type": "attack_rolled",
       "modifier": 0,
-      "roll": 12,
-      "score": 9,
-      "subject": "group-0003",
+      "natural": null,
+      "required": 15,
+      "roll": 16,
+      "total": 16,
+      "visibility": "player"
+    },
+    {
+      "amount": 1,
+      "attacker_id": "npc-0004",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [],
+      "non_regenerable": false,
+      "rolls": [
+        1
+      ],
+      "target_id": "character-0001",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 7,
+      "event_type": "hit_points_reported",
+      "max_hp": 9,
+      "target_id": "character-0001",
       "visibility": "referee"
     },
     {
-      "code": "battle.side.fled",
-      "event_type": "monster_fled",
-      "group_id": "group-0003",
+      "attack_name": "Sword",
+      "attacker_id": "character-0001",
+      "back_stab": false,
+      "code": "combat.attack.missed",
+      "defender_ac": 6,
+      "defender_id": "npc-0004",
+      "event_type": "attack_rolled",
+      "modifier": 1,
+      "natural": null,
+      "required": 13,
+      "roll": 9,
+      "total": 10,
       "visibility": "player"
     },
     {
-      "code": "battle.group.moved",
-      "distance_feet": 65,
-      "event_type": "group_moved",
-      "group_id": "group-0003",
+      "attack_name": "Mace",
+      "attacker_id": "character-0002",
+      "back_stab": false,
+      "code": "combat.attack.hit",
+      "defender_ac": 6,
+      "defender_id": "npc-0004",
+      "event_type": "attack_rolled",
+      "modifier": 0,
+      "natural": null,
+      "required": 13,
+      "roll": 18,
+      "total": 18,
       "visibility": "player"
     },
     {
-      "code": "battle.round.started",
-      "event_type": "battle_round",
-      "round": 5,
-      "visibility": "player"
-    },
-    {
-      "code": "combat.initiative.rolled",
-      "entries": [
-        {
-          "key": "party",
-          "modifier": 0,
-          "rolls": [
-            6,
-            2
-          ],
-          "total": 2
-        },
-        {
-          "key": "monsters",
-          "modifier": 0,
-          "rolls": [
-            6,
-            6
-          ],
-          "total": 6
-        }
+      "amount": 5,
+      "attacker_id": "character-0002",
+      "code": "combat.damage.dealt",
+      "event_type": "damage_dealt",
+      "keys": [],
+      "non_regenerable": false,
+      "rolls": [
+        5
       ],
-      "event_type": "initiative_rolled",
-      "mode": "side",
-      "order": [
-        "group-0003",
-        "character-0001",
-        "character-0003",
-        "character-0004"
-      ],
+      "target_id": "npc-0004",
       "visibility": "player"
     },
     {
-      "code": "battle.group.moved",
-      "distance_feet": 125,
-      "event_type": "group_moved",
-      "group_id": "group-0003",
+      "code": "combat.state.hit_points",
+      "current_hp": 0,
+      "event_type": "hit_points_reported",
+      "max_hp": 5,
+      "target_id": "npc-0004",
+      "visibility": "referee"
+    },
+    {
+      "code": "effects.condition.gained",
+      "condition": "dead",
+      "effect_id": null,
+      "event_type": "condition_gained",
+      "target_id": "npc-0004",
       "visibility": "player"
+    },
+    {
+      "code": "combat.death.died",
+      "event_type": "death",
+      "target_id": "npc-0004",
+      "visibility": "player"
+    },
+    {
+      "code": "combat.state.hit_points",
+      "current_hp": 0,
+      "event_type": "hit_points_reported",
+      "max_hp": 5,
+      "target_id": "npc-0004",
+      "visibility": "referee"
     },
     {
       "code": "battle.ended.victory",
@@ -3205,18 +2721,18 @@
       "event_type": "monster_defeated",
       "monster_id": "npc-0003",
       "outcome": "slain",
-      "template_id": "npc:halfling",
+      "template_id": "npc:dwarf",
       "visibility": "player",
-      "xp": 35
+      "xp": 20
     },
     {
       "code": "battle.monster.defeated",
       "event_type": "monster_defeated",
       "monster_id": "npc-0004",
-      "outcome": "routed",
-      "template_id": "npc:fighter",
+      "outcome": "slain",
+      "template_id": "npc:elf",
       "visibility": "player",
-      "xp": 35
+      "xp": 10
     },
     {
       "code": "encounter.ended",
@@ -3329,60 +2845,105 @@
     {
       "code": "session.xp.adventure_award",
       "event_type": "adventure_xp_award",
-      "monster_xp": 110,
-      "share": 640,
+      "monster_xp": 95,
+      "share": 708,
       "survivors": [
         "character-0001",
+        "character-0002",
         "character-0003",
         "character-0004"
       ],
-      "treasure_xp": 1810,
+      "treasure_xp": 2740,
       "visibility": "player"
     },
     {
-      "award": 640,
+      "award": 708,
       "character_id": "character-0001",
       "code": "session.xp.awarded",
       "event_type": "xp_awarded",
       "level_after": 1,
-      "modified_award": 672,
+      "modified_award": 743,
       "visibility": "player"
     },
     {
-      "award": 640,
+      "award": 708,
+      "character_id": "character-0002",
+      "code": "session.xp.awarded",
+      "event_type": "xp_awarded",
+      "level_after": 1,
+      "modified_award": 708,
+      "visibility": "player"
+    },
+    {
+      "award": 708,
       "character_id": "character-0003",
       "code": "session.xp.awarded",
       "event_type": "xp_awarded",
       "level_after": 1,
-      "modified_award": 704,
+      "modified_award": 708,
       "visibility": "player"
     },
     {
-      "award": 640,
+      "award": 708,
       "character_id": "character-0004",
       "code": "session.xp.awarded",
       "event_type": "xp_awarded",
       "level_after": 1,
-      "modified_award": 704,
+      "modified_award": 637,
       "visibility": "player"
     },
     {
       "character_id": "character-0001",
       "code": "town.treasure.sold",
       "event_type": "treasure_sold",
-      "gp_value": 1600,
+      "gp_value": 1000,
       "instance_ids": [
-        "valuable-0001"
+        "valuable-0005"
       ],
       "visibility": "player"
     },
     {
-      "character_id": "character-0001",
+      "character_id": "character-0002",
+      "code": "town.treasure.sold",
+      "event_type": "treasure_sold",
+      "gp_value": 800,
+      "instance_ids": [
+        "valuable-0006"
+      ],
+      "visibility": "player"
+    },
+    {
+      "character_id": "character-0003",
+      "code": "town.treasure.sold",
+      "event_type": "treasure_sold",
+      "gp_value": 250,
+      "instance_ids": [
+        "valuable-0003",
+        "valuable-0002",
+        "valuable-0009"
+      ],
+      "visibility": "player"
+    },
+    {
+      "character_id": "character-0004",
+      "code": "town.treasure.sold",
+      "event_type": "treasure_sold",
+      "gp_value": 220,
+      "instance_ids": [
+        "valuable-0004",
+        "valuable-0001",
+        "valuable-0007",
+        "valuable-0008"
+      ],
+      "visibility": "player"
+    },
+    {
+      "character_id": "character-0002",
       "code": "town.healing.purchased",
       "cost_gp": 25,
       "event_type": "healing_purchased",
       "payers": [
-        "character-0001"
+        "character-0002"
       ],
       "payments_gp": [
         25
@@ -3399,16 +2960,16 @@
       "reversed": false,
       "spell_id": "cure_light_wounds",
       "target_ids": [
-        "character-0001"
+        "character-0002"
       ],
       "visibility": "player"
     },
     {
-      "amount": 1,
+      "amount": 4,
       "code": "combat.healing.applied",
       "event_type": "healing_applied",
       "source": "magical",
-      "target_id": "character-0001",
+      "target_id": "character-0002",
       "visibility": "player"
     },
     {
@@ -3416,25 +2977,25 @@
       "current_hp": 6,
       "event_type": "hit_points_reported",
       "max_hp": 6,
-      "target_id": "character-0001",
+      "target_id": "character-0002",
       "visibility": "referee"
     },
     {
       "character_id": "character-0001",
       "code": "exploration.item.given",
-      "coins_gp_value": 550,
-      "event_type": "items_given",
-      "item_ids": [],
-      "recipient_id": "character-0003",
-      "visibility": "player"
-    },
-    {
-      "character_id": "character-0001",
-      "code": "exploration.item.given",
-      "coins_gp_value": 550,
+      "coins_gp_value": 400,
       "event_type": "items_given",
       "item_ids": [],
       "recipient_id": "character-0004",
+      "visibility": "player"
+    },
+    {
+      "character_id": "character-0002",
+      "code": "exploration.item.given",
+      "coins_gp_value": 250,
+      "event_type": "items_given",
+      "item_ids": [],
+      "recipient_id": "character-0003",
       "visibility": "player"
     },
     {
@@ -3512,7 +3073,16 @@
     {
       "character_id": "character-0001",
       "code": "exploration.item.acquired",
-      "coins_gp_value": 17,
+      "coins_gp_value": 13,
+      "event_type": "item_acquired",
+      "item_ids": [],
+      "origin": "treasure",
+      "visibility": "player"
+    },
+    {
+      "character_id": "character-0002",
+      "code": "exploration.item.acquired",
+      "coins_gp_value": 13,
       "event_type": "item_acquired",
       "item_ids": [
         "jade-idol"
@@ -3523,7 +3093,7 @@
     {
       "character_id": "character-0003",
       "code": "exploration.item.acquired",
-      "coins_gp_value": 17,
+      "coins_gp_value": 12,
       "event_type": "item_acquired",
       "item_ids": [],
       "origin": "treasure",
@@ -3532,7 +3102,7 @@
     {
       "character_id": "character-0004",
       "code": "exploration.item.acquired",
-      "coins_gp_value": 16,
+      "coins_gp_value": 12,
       "event_type": "item_acquired",
       "item_ids": [],
       "origin": "treasure",
@@ -3612,9 +3182,10 @@
       "code": "session.xp.adventure_award",
       "event_type": "adventure_xp_award",
       "monster_xp": 0,
-      "share": 16,
+      "share": 12,
       "survivors": [
         "character-0001",
+        "character-0002",
         "character-0003",
         "character-0004"
       ],
@@ -3622,30 +3193,39 @@
       "visibility": "player"
     },
     {
-      "award": 16,
+      "award": 12,
       "character_id": "character-0001",
       "code": "session.xp.awarded",
       "event_type": "xp_awarded",
       "level_after": 1,
-      "modified_award": 16,
+      "modified_award": 12,
       "visibility": "player"
     },
     {
-      "award": 16,
+      "award": 12,
+      "character_id": "character-0002",
+      "code": "session.xp.awarded",
+      "event_type": "xp_awarded",
+      "level_after": 1,
+      "modified_award": 12,
+      "visibility": "player"
+    },
+    {
+      "award": 12,
       "character_id": "character-0003",
       "code": "session.xp.awarded",
       "event_type": "xp_awarded",
       "level_after": 1,
-      "modified_award": 17,
+      "modified_award": 12,
       "visibility": "player"
     },
     {
-      "award": 16,
+      "award": 12,
       "character_id": "character-0004",
       "code": "session.xp.awarded",
       "event_type": "xp_awarded",
       "level_after": 1,
-      "modified_award": 17,
+      "modified_award": 10,
       "visibility": "player"
     },
     {
@@ -3688,8 +3268,41 @@
       "character_id": "character-0001",
       "code": "session.xp.awarded",
       "event_type": "xp_awarded",
-      "level_after": 1,
+      "level_after": 2,
       "modified_award": 1260,
+      "visibility": "player"
+    },
+    {
+      "character_id": "character-0001",
+      "code": "session.level.gained",
+      "con_applied": true,
+      "event_type": "leveled_up",
+      "hp_gained": 9,
+      "hp_roll": 8,
+      "level_after": 2,
+      "level_before": 1,
+      "title": "Warrior",
+      "visibility": "player"
+    },
+    {
+      "award": 1200,
+      "character_id": "character-0002",
+      "code": "session.xp.awarded",
+      "event_type": "xp_awarded",
+      "level_after": 2,
+      "modified_award": 1200,
+      "visibility": "player"
+    },
+    {
+      "character_id": "character-0002",
+      "code": "session.level.gained",
+      "con_applied": true,
+      "event_type": "leveled_up",
+      "hp_gained": 4,
+      "hp_roll": 3,
+      "level_after": 2,
+      "level_before": 1,
+      "title": "Adept",
       "visibility": "player"
     },
     {
@@ -3698,7 +3311,7 @@
       "code": "session.xp.awarded",
       "event_type": "xp_awarded",
       "level_after": 2,
-      "modified_award": 1320,
+      "modified_award": 1200,
       "visibility": "player"
     },
     {
@@ -3707,7 +3320,7 @@
       "con_applied": true,
       "event_type": "leveled_up",
       "hp_gained": 4,
-      "hp_roll": 4,
+      "hp_roll": 2,
       "level_after": 2,
       "level_before": 1,
       "title": "Footpad",
@@ -3719,7 +3332,7 @@
       "code": "session.xp.awarded",
       "event_type": "xp_awarded",
       "level_after": 1,
-      "modified_award": 1320,
+      "modified_award": 1080,
       "visibility": "player"
     },
     {
@@ -3733,48 +3346,48 @@
   "final_clock_rounds": 900,
   "final_stream_states": {
     "advancement": {
-      "inc": 43677341557666270100197892308947072293,
-      "state": 285515126583297193856346502382424624579
+      "inc": 317354655078482491687660465832188465407,
+      "state": 46859123160200841055637109368684682207
     },
     "character_creation": {
-      "inc": 17946088532174565015500210655121870187,
-      "state": 185814011503179506883659008717516732608
+      "inc": 288207965654386774277701128378023405837,
+      "state": 69307510295842233379511630583976225725
     },
     "combat": {
-      "inc": 88285706471182240999796996985449864699,
-      "state": 250947283381509579396439480784507074708
+      "inc": 223847039291761722415136689525526848773,
+      "state": 120813027853640671304153976454737854151
     },
     "effects": {
-      "inc": 315281498630863548472442499383581199711,
-      "state": 212305229760147444865682963842332160668
+      "inc": 209623227512445472299308518288371276429,
+      "state": 281308689499080569457827214447120371542
     },
     "encounter": {
-      "inc": 171819386744888340974805007273236693017,
-      "state": 275192088164284261660820693828679692415
+      "inc": 330493302475760936389488351279102125643,
+      "state": 91190407467613683073215970989540508089
     },
     "magic": {
-      "inc": 235258215081449899357873969667663115735,
-      "state": 329614968649946639003684095794010180216
+      "inc": 311542566478789150027771201513464184629,
+      "state": 5585198400819104866512205537277274776
     },
     "monster_action": {
-      "inc": 46342144612551853195774728794526618795,
-      "state": 149075435766120041798982209233745057685
+      "inc": 301547393136339943645828462278486982837,
+      "state": 207414043901580423193166814868194713157
     },
     "monster_spawn": {
-      "inc": 90076630143872539436531717779739965705,
-      "state": 230843584225483508681358559969826006728
+      "inc": 42699648013958244202175272452953316449,
+      "state": 11624667195297096667887646147662057217
     },
     "npc_party": {
-      "inc": 288339856986629267962509867455118458403,
-      "state": 128021695504321842526871152362638138911
+      "inc": 291488567755035664618408732400432513535,
+      "state": 280655075740120148393590400225792948872
     },
     "treasure": {
-      "inc": 71902289779642106543069209520632252559,
-      "state": 171781426282240890362948698447536326448
+      "inc": 239849886940896449135096637307929497653,
+      "state": 296617264269641792582791540770375850824
     },
     "wandering": {
-      "inc": 307241066519008890573396945446872461937,
-      "state": 255571344490792913375602188943715079090
+      "inc": 268228752819095870323217671948983250349,
+      "state": 144229597880983293124740293767823401759
     }
   },
   "flags": {
@@ -3801,10 +3414,10 @@
   "listener_state": {
     "osrlib.interpreter": {}
   },
-  "master_seed": 21,
+  "master_seed": 39,
   "mode": "victory",
   "party_document": {
-    "engine_version": "2.0.1",
+    "engine_version": "2.2.0",
     "kind": "party",
     "payload": {
       "characters": [
@@ -3813,7 +3426,7 @@
           "carrying_treasure": false,
           "class_id": "fighter",
           "conditions": [],
-          "current_hp": 6,
+          "current_hp": 9,
           "extra_languages": [],
           "id": null,
           "inventory": {
@@ -3821,7 +3434,7 @@
             "purse": {
               "cp": 0,
               "ep": 0,
-              "gp": 60,
+              "gp": 20,
               "pp": 0,
               "sp": 0
             },
@@ -3881,18 +3494,18 @@
             }
           },
           "level": 1,
-          "max_hp": 6,
+          "max_hp": 9,
           "memorized_spells": [],
           "name": "Brakka",
           "nonregen_damage": 0,
           "race": "human",
           "scores": {
-            "cha": 13,
-            "con": 10,
-            "dex": 9,
-            "int": 11,
-            "str": 15,
-            "wis": 13
+            "cha": 7,
+            "con": 14,
+            "dex": 11,
+            "int": 7,
+            "str": 13,
+            "wis": 9
           },
           "spell_book": [],
           "stat_modifiers": [],
@@ -3903,7 +3516,7 @@
           "carrying_treasure": false,
           "class_id": "cleric",
           "conditions": [],
-          "current_hp": 3,
+          "current_hp": 6,
           "extra_languages": [],
           "id": null,
           "inventory": {
@@ -3911,7 +3524,7 @@
             "purse": {
               "cp": 0,
               "ep": 0,
-              "gp": 25,
+              "gp": 45,
               "pp": 0,
               "sp": 0
             },
@@ -3957,18 +3570,18 @@
             }
           },
           "level": 1,
-          "max_hp": 3,
+          "max_hp": 6,
           "memorized_spells": [],
           "name": "Wynn",
           "nonregen_damage": 0,
           "race": "human",
           "scores": {
-            "cha": 11,
-            "con": 9,
+            "cha": 5,
+            "con": 15,
             "dex": 13,
-            "int": 9,
-            "str": 10,
-            "wis": 5
+            "int": 17,
+            "str": 12,
+            "wis": 11
           },
           "spell_book": [],
           "stat_modifiers": [],
@@ -3979,7 +3592,7 @@
           "carrying_treasure": false,
           "class_id": "thief",
           "conditions": [],
-          "current_hp": 3,
+          "current_hp": 4,
           "extra_languages": [],
           "id": null,
           "inventory": {
@@ -3987,7 +3600,7 @@
             "purse": {
               "cp": 0,
               "ep": 0,
-              "gp": 80,
+              "gp": 100,
               "pp": 0,
               "sp": 0
             },
@@ -4032,17 +3645,17 @@
             }
           },
           "level": 1,
-          "max_hp": 3,
+          "max_hp": 4,
           "memorized_spells": [],
           "name": "Sable",
           "nonregen_damage": 0,
           "race": "human",
           "scores": {
-            "cha": 16,
-            "con": 11,
-            "dex": 17,
-            "int": 10,
-            "str": 10,
+            "cha": 14,
+            "con": 17,
+            "dex": 9,
+            "int": 14,
+            "str": 13,
             "wis": 12
           },
           "spell_book": [],
@@ -4054,7 +3667,7 @@
           "carrying_treasure": false,
           "class_id": "magic_user",
           "conditions": [],
-          "current_hp": 1,
+          "current_hp": 4,
           "extra_languages": [],
           "id": null,
           "inventory": {
@@ -4062,7 +3675,7 @@
             "purse": {
               "cp": 0,
               "ep": 0,
-              "gp": 97,
+              "gp": 57,
               "pp": 0,
               "sp": 0
             },
@@ -4106,18 +3719,18 @@
             "worn_armour": null
           },
           "level": 1,
-          "max_hp": 1,
+          "max_hp": 4,
           "memorized_spells": [],
           "name": "Elandril",
           "nonregen_damage": 0,
           "race": "human",
           "scores": {
-            "cha": 11,
-            "con": 9,
-            "dex": 15,
-            "int": 16,
-            "str": 10,
-            "wis": 8
+            "cha": 12,
+            "con": 10,
+            "dex": 16,
+            "int": 7,
+            "str": 13,
+            "wis": 10
           },
           "spell_book": [
             "sleep"
@@ -4133,30 +3746,30 @@
     {
       "class_id": "fighter",
       "id": "character-0001",
-      "level": 1,
+      "level": 2,
       "name": "Brakka",
-      "xp": 1948
+      "xp": 2015
     },
     {
       "class_id": "cleric",
       "id": "character-0002",
-      "level": 1,
+      "level": 2,
       "name": "Wynn",
-      "xp": 0
+      "xp": 1920
     },
     {
       "class_id": "thief",
       "id": "character-0003",
       "level": 2,
       "name": "Sable",
-      "xp": 2041
+      "xp": 1920
     },
     {
       "class_id": "magic_user",
       "id": "character-0004",
       "level": 1,
       "name": "Elandril",
-      "xp": 2041
+      "xp": 1727
     }
   ],
   "quests": {
@@ -4180,61 +3793,46 @@
     "The party moves to (1, 0), facing east.",
     "The party moves to (2, 0), facing east.",
     "The party enters area guard_room (level 1).",
-    "Treasure generated at cache-0001 (C): 0 gp in coin, 1 valuable(s), 0 magic item(s).",
-    "Surprise (monsters): rolled 3, surprised on 1-2 — not surprised.",
-    "Surprise (party): rolled 1, surprised on 1-3 — surprised.",
-    "Encounter: 2 × Goblin at 20' — the party is surprised.",
-    "Reaction roll: 6+0 = 6 — uncertain.",
-    "The monsters' bearing: uncertain.",
-    "Reaction roll: 7+0 = 7 — uncertain.",
+    "Treasure generated at cache-0001 (C): 0 gp in coin, 6 valuable(s), 0 magic item(s).",
+    "Surprise (monsters): rolled 2, surprised on 1-2 — surprised.",
+    "Surprise (party): rolled 4, surprised on 1-3 — not surprised.",
+    "Encounter: 2 × Goblin at 20' — the monsters are surprised.",
+    "Reaction roll: 4+0 = 4 — hostile.",
+    "The monsters' bearing: hostile.",
     "Battle is joined!",
     "Battle round 1 begins.",
-    "Initiative (side): party 4, monsters 2. Order: character-0001, character-0002, character-0003, character-0004, group-0001.",
-    "group-0001 is now 5' away.",
-    "monster-0001 misses character-0002 with weapon: rolled 1+0 = 1, needing 15.",
-    "monster-0002 misses character-0001 with weapon: rolled 9+0 = 9, needing 15.",
-    "Battle round 2 begins.",
-    "Initiative (side): party 2, monsters 4. Order: group-0001, character-0001, character-0002, character-0003, character-0004.",
-    "monster-0001 misses character-0001 with weapon: rolled 5+0 = 5, needing 15.",
-    "monster-0002 hits character-0002 with weapon: rolled 17+0 = 17, needing 15.",
-    "character-0002 takes 1 damage from monster-0002.",
-    "character-0002 is at 2/3 hit points.",
-    "character-0001 misses monster-0001 with Sword: rolled 1+1 = 2, needing 13.",
-    "character-0002 misses monster-0001 with Mace: rolled 9+0 = 9, needing 13.",
-    "Battle round 3 begins.",
-    "Initiative (side): party 2, monsters 6. Order: group-0001, character-0001, character-0002, character-0003, character-0004.",
-    "monster-0001 misses character-0002 with weapon: rolled 3+0 = 3, needing 15.",
-    "monster-0002 hits character-0001 with weapon: rolled 17+0 = 17, needing 15.",
-    "character-0001 takes 1 damage from monster-0002.",
-    "character-0001 is at 5/6 hit points.",
-    "character-0001 misses monster-0001 with Sword: rolled 4+1 = 5, needing 13.",
+    "Initiative (side): party 1, monsters 2. Order: group-0001, character-0001, character-0002, character-0003, character-0004.",
+    "character-0001 closes to 5' from group-0001.",
+    "character-0002 closes to 5' from group-0001.",
+    "character-0003 closes to 5' from group-0001.",
+    "character-0004 closes to 5' from group-0001.",
+    "character-0001 hits monster-0001 with Sword: rolled 19+1 = 20, needing 13.",
+    "monster-0001 takes 2 damage from character-0001.",
+    "monster-0001 is at 4/6 hit points.",
     "character-0002 hits monster-0001 with Mace: rolled 19+0 = 19, needing 13.",
-    "monster-0001 takes 3 damage from character-0002.",
-    "monster-0001 is at 0/1 hit points.",
+    "monster-0001 takes 6 damage from character-0002.",
+    "monster-0001 is at 0/6 hit points.",
     "monster-0001 is dead.",
     "monster-0001 is killed.",
-    "monster-0001 is at 0/1 hit points.",
-    "Battle round 4 begins.",
-    "Initiative (side): party 4, monsters 2. Order: character-0001, character-0002, character-0003, character-0004, group-0001.",
-    "character-0001 misses monster-0002 with Sword: rolled 2+1 = 3, needing 13.",
-    "character-0002 misses monster-0002 with Mace: rolled 2+0 = 2, needing 13.",
-    "Morale check for group-0001 (ML 7): rolled 7+0 — they fight on.",
-    "Morale check for group-0001 (ML 7): rolled 9+0 — they flee or surrender.",
+    "monster-0001 is at 0/6 hit points.",
+    "Battle round 2 begins.",
+    "Initiative (side): party 4, monsters 5. Order: group-0001, character-0001, character-0002, character-0003, character-0004.",
+    "Morale check for group-0001 (ML 7): rolled 10+0 — they flee or surrender.",
     "group-0001 flees the battle!",
-    "group-0001 is now 65' away.",
-    "Battle round 5 begins.",
-    "Initiative (side): party 5, monsters 3. Order: character-0001, character-0002, character-0003, character-0004, group-0001.",
-    "group-0001 is now 45' away.",
-    "group-0001 is now 105' away.",
-    "Battle round 6 begins.",
-    "Initiative (side): party 3, monsters 1. Order: character-0001, character-0002, character-0003, character-0004, group-0001.",
-    "group-0001 is now 85' away.",
-    "group-0001 is now 145' away.",
+    "group-0001 is now 80' away.",
+    "character-0001 misses monster-0002 with Sword: rolled 7+3 = 10, needing 13.",
+    "character-0002 misses monster-0002 with Mace: rolled 7+2 = 9, needing 13.",
+    "Battle round 3 begins.",
+    "Initiative (side): party 3, monsters 4. Order: group-0001, character-0001, character-0002, character-0003, character-0004.",
+    "group-0001 is now 140' away.",
     "The battle is won.",
     "monster-0001 (goblin) is slain.",
     "monster-0002 (goblin) is routed.",
     "The encounter ends (victory).",
-    "character-0001 acquires valuable-0001.",
+    "character-0001 acquires valuable-0005.",
+    "character-0002 acquires valuable-0006.",
+    "character-0003 acquires valuable-0003, valuable-0002.",
+    "character-0004 acquires valuable-0004, valuable-0001.",
     "The party moves to (3, 0), facing east.",
     "The party moves to (4, 0), facing east.",
     "The party enters area shrine (level 1).",
@@ -4242,109 +3840,114 @@
     "The party moves to (1, 0), facing east.",
     "The party moves to (2, 0), facing east.",
     "The party enters area vault (level 2).",
-    "Treasure generated at cache-0002 (unguarded): 210 gp in coin, 0 valuable(s), 0 magic item(s).",
-    "character-0001 acquires 52 gp in coin.",
-    "character-0002 acquires 52 gp in coin.",
-    "character-0003 acquires 52 gp in coin.",
-    "character-0004 acquires 52 gp in coin.",
+    "Treasure generated at cache-0002 (unguarded): 110 gp in coin, 0 valuable(s), 0 magic item(s).",
+    "character-0001 acquires 27 gp in coin.",
+    "character-0002 acquires 27 gp in coin.",
+    "character-0003 acquires 27 gp in coin.",
+    "character-0004 acquires 27 gp in coin.",
     "Wandering check: 2 vs 6-in-6 — an encounter!",
-    "An NPC party (basic, neutral) takes the field: npc-0001 (dwarf 1), npc-0002 (magic_user 2).",
-    "Surprise (monsters): rolled 6, surprised on 1-2 — not surprised.",
+    "An NPC party (basic, chaotic) takes the field: npc-0001 (magic_user 3), npc-0002 (elf 2).",
+    "Surprise (monsters): rolled 3, surprised on 1-2 — not surprised.",
     "Surprise (party): rolled 6, surprised on 1-3 — not surprised.",
     "Encounter: 2 × Basic Adventurers at 20'.",
+    "Reaction roll: 7+0 = 7 — uncertain.",
+    "The monsters' bearing: uncertain.",
+    "Battle is joined!",
+    "Battle round 1 begins.",
+    "Initiative (side): party 2, monsters 1. Order: character-0001, character-0002, character-0003, character-0004, group-0002.",
+    "character-0001 closes to 5' from group-0002.",
+    "character-0002 closes to 5' from group-0002.",
+    "character-0003 closes to 5' from group-0002.",
+    "character-0004 closes to 5' from group-0002.",
+    "character-0001 hits npc-0001 with Sword: rolled 16+1 = 17, needing 10.",
+    "npc-0001 takes 7 damage from character-0001.",
+    "npc-0001 is at 0/5 hit points.",
+    "npc-0001 is dead.",
+    "npc-0001 is killed.",
+    "npc-0001 is at 0/5 hit points.",
+    "character-0002 hits npc-0002 with Mace: rolled 20+0 = 20, needing 13.",
+    "npc-0002 takes 6 damage from character-0002.",
+    "npc-0002 is at 1/7 hit points.",
+    "Morale check for group-0002 (ML 9): rolled 4+0 — they fight on.",
+    "Morale check for group-0002 (ML 9): rolled 8+0 — they fight on.",
+    "npc-0002 misses character-0002 with Long bow: rolled 13+0 = 13, needing 15.",
+    "Battle round 2 begins.",
+    "Initiative (side): party 3, monsters 2. Order: character-0001, character-0002, character-0003, character-0004, group-0002.",
+    "character-0001 misses npc-0002 with Sword: rolled 8+1 = 9, needing 13.",
+    "character-0002 misses npc-0002 with Mace: rolled 5+0 = 5, needing 13.",
+    "npc-0002 misses character-0002 with Sword: rolled 12+0 = 12, needing 15.",
+    "Battle round 3 begins.",
+    "Initiative (side): party 1, monsters 6. Order: group-0002, character-0001, character-0002, character-0003, character-0004.",
+    "npc-0002 hits character-0002 with Sword: rolled 20+0 = 20, needing 15.",
+    "character-0002 takes 4 damage from npc-0002.",
+    "character-0002 is at 2/6 hit points.",
+    "character-0001 misses npc-0002 with Sword: rolled 4+1 = 5, needing 13.",
+    "character-0002 hits npc-0002 with Mace: rolled 18+0 = 18, needing 13.",
+    "npc-0002 takes 3 damage from character-0002.",
+    "npc-0002 is at 0/7 hit points.",
+    "npc-0002 is dead.",
+    "npc-0002 is killed.",
+    "npc-0002 is at 0/7 hit points.",
+    "The battle is won.",
+    "npc-0001 (npc:magic_user) is slain.",
+    "npc-0002 (npc:elf) is slain.",
+    "The encounter ends (victory).",
+    "character-0001 acquires rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, waterskin, waterskin, torch, torch, torch, torch, torch, torch, torch, torch, torch, torch, torch, torch, dagger, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, chainmail, sword, long_bow and 90 gp in coin.",
+    "character-0002 acquires 90 gp in coin.",
+    "character-0003 acquires valuable-0009 and 90 gp in coin.",
+    "character-0004 acquires valuable-0007, valuable-0008 and 90 gp in coin.",
+    "Wandering check: 6 vs 6-in-6 — an encounter!",
+    "An NPC party (basic, chaotic) takes the field: npc-0003 (dwarf 2), npc-0004 (elf 1).",
+    "Surprise (monsters): rolled 2, surprised on 1-2 — surprised.",
+    "Surprise (party): rolled 2, surprised on 1-3 — surprised.",
+    "Encounter: 2 × Basic Adventurers at 20' — the party is surprised — the monsters are surprised.",
     "Reaction roll: 6+0 = 6 — uncertain.",
     "The monsters' bearing: uncertain.",
     "Battle is joined!",
     "Battle round 1 begins.",
-    "Initiative (side): party 4, monsters 5. Order: group-0002, character-0001, character-0002, character-0003, character-0004.",
-    "group-0002 is now 5' away.",
-    "npc-0002 misses character-0002 with Dagger: rolled 9+0 = 9, needing 15.",
-    "group-0002 is now 5' away.",
-    "Battle round 2 begins.",
-    "Initiative (side): party 4, monsters 5. Order: group-0002, character-0001, character-0002, character-0003, character-0004.",
-    "npc-0001 misses character-0002 with Battle axe: rolled 13+0 = 13, needing 15.",
-    "npc-0002 misses character-0002 with Dagger: rolled 12+0 = 12, needing 15.",
-    "character-0001 misses npc-0001 with Sword: rolled 10+1 = 11, needing 13.",
-    "character-0002 hits npc-0001 with Mace: rolled 19+0 = 19, needing 13.",
-    "npc-0001 takes 6 damage from character-0002.",
-    "npc-0001 is at 0/6 hit points.",
-    "npc-0001 is dead.",
-    "npc-0001 is killed.",
-    "npc-0001 is at 0/6 hit points.",
-    "Battle round 3 begins.",
-    "Initiative (side): party 5, monsters 3. Order: character-0001, character-0002, character-0003, character-0004, group-0002.",
-    "character-0001 misses npc-0002 with Sword: rolled 3+1 = 4, needing 13.",
-    "character-0002 misses npc-0002 with Mace: rolled 9+0 = 9, needing 13.",
-    "Morale check for group-0002 (ML 9): rolled 6+0 — they fight on.",
-    "Morale check for group-0002 (ML 9): rolled 7+0 — they fight on.",
-    "npc-0002 misses character-0002 with Dagger: rolled 14+0 = 14, needing 15.",
-    "Battle round 4 begins.",
-    "Initiative (side): party 2, monsters 1. Order: character-0001, character-0002, character-0003, character-0004, group-0002.",
-    "character-0001 hits npc-0002 with Sword: rolled 19+1 = 20, needing 13.",
-    "npc-0002 takes 3 damage from character-0001.",
-    "npc-0002 is at 0/3 hit points.",
-    "npc-0002 is dead.",
-    "npc-0002 is killed.",
-    "npc-0002 is at 0/3 hit points.",
-    "The battle is won.",
-    "npc-0001 (npc:dwarf) is slain.",
-    "npc-0002 (npc:magic_user) is slain.",
-    "The encounter ends (victory).",
-    "character-0001 acquires battle_axe, dagger.",
-    "character-0002 acquires shield, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, waterskin, waterskin, torch, torch, torch, torch, torch, torch, torch, torch, torch, torch, torch, torch, chainmail.",
-    "Wandering check: 2 vs 6-in-6 — an encounter!",
-    "An NPC party (basic, lawful) takes the field: npc-0003 (halfling 3), npc-0004 (fighter 3).",
-    "Surprise (monsters): rolled 6, surprised on 1-2 — not surprised.",
-    "Surprise (party): rolled 5, surprised on 1-3 — not surprised.",
-    "Encounter: 2 × Basic Adventurers at 20'.",
-    "Reaction roll: 2+0 = 2 — attacks.",
-    "The monsters' bearing: attacks.",
-    "Battle is joined!",
-    "Battle round 1 begins.",
-    "Initiative (side): party 1, monsters 6. Order: group-0003, character-0001, character-0002, character-0003, character-0004.",
-    "npc-0003 hits character-0002 with Sling: rolled 17+2 = 19, needing 15.",
-    "character-0002 takes 2 damage from npc-0003.",
-    "character-0002 is at 0/3 hit points.",
-    "character-0002 is dead.",
-    "character-0002 is killed.",
-    "character-0002 is at 0/3 hit points.",
-    "group-0003 is now 5' away.",
-    "group-0003 is now 5' away.",
-    "Battle round 2 begins.",
-    "Initiative (side): party 1, monsters 2. Order: group-0003, character-0001, character-0003, character-0004.",
-    "npc-0003 misses character-0001 with Sword: rolled 9+1 = 10, needing 15.",
-    "npc-0004 misses character-0001 with Sword: rolled 8+1 = 9, needing 15.",
-    "character-0001 hits npc-0003 with Sword: rolled 18+1 = 19, needing 13.",
-    "npc-0003 takes 2 damage from character-0001.",
-    "npc-0003 is at 11/13 hit points.",
-    "character-0003 misses npc-0003 with Sword: rolled 6+0 = 6, needing 13.",
-    "Battle round 3 begins.",
-    "Initiative (side): party 1, monsters 3. Order: group-0003, character-0001, character-0003, character-0004.",
-    "npc-0003 misses character-0001 with Sword: rolled 1+1 = 2, needing 15.",
-    "npc-0004 misses character-0001 with Sword: rolled 1+1 = 2, needing 15.",
-    "character-0001 hits npc-0003 with Sword: rolled 13+1 = 14, needing 13.",
-    "npc-0003 takes 9 damage from character-0001.",
-    "npc-0003 is at 2/13 hit points.",
-    "character-0003 misses npc-0003 with Sword: rolled 12+0 = 12, needing 13.",
-    "Battle round 4 begins.",
-    "Initiative (side): party 6, monsters 5. Order: character-0001, character-0003, character-0004, group-0003.",
-    "character-0001 hits npc-0003 with Sword: rolled 16+1 = 17, needing 13.",
+    "Initiative (side): party 5, monsters 2. Order: character-0001, character-0002, character-0003, character-0004, group-0003.",
+    "character-0001 closes to 5' from group-0003.",
+    "character-0002 closes to 5' from group-0003.",
+    "character-0003 closes to 5' from group-0003.",
+    "character-0004 closes to 5' from group-0003.",
+    "character-0001 hits npc-0003 with Sword: rolled 20+1 = 21, needing 13.",
     "npc-0003 takes 3 damage from character-0001.",
-    "npc-0003 is at 0/13 hit points.",
+    "npc-0003 is at 9/12 hit points.",
+    "character-0002 misses npc-0003 with Mace: rolled 5+0 = 5, needing 13.",
+    "npc-0003 misses character-0002 with Battle axe: rolled 3+0 = 3, needing 15.",
+    "npc-0004 misses character-0001 with Long bow: rolled 12+0 = 12, needing 15.",
+    "Battle round 2 begins.",
+    "Initiative (side): party 1, monsters 3. Order: group-0003, character-0001, character-0002, character-0003, character-0004.",
+    "npc-0003 hits character-0001 with Battle axe: rolled 20+0 = 20, needing 15.",
+    "character-0001 takes 1 damage from npc-0003.",
+    "character-0001 is at 8/9 hit points.",
+    "npc-0004 misses character-0001 with Sword: rolled 8+0 = 8, needing 15.",
+    "character-0001 hits npc-0003 with Sword: rolled 15+1 = 16, needing 13.",
+    "npc-0003 takes 8 damage from character-0001.",
+    "npc-0003 is at 1/12 hit points.",
+    "character-0002 hits npc-0003 with Mace: rolled 13+0 = 13, needing 13.",
+    "npc-0003 takes 1 damage from character-0002.",
+    "npc-0003 is at 0/12 hit points.",
     "npc-0003 is dead.",
     "npc-0003 is killed.",
-    "npc-0003 is at 0/13 hit points.",
-    "character-0003 misses npc-0004 with Sword: rolled 7+0 = 7, needing 14.",
+    "npc-0003 is at 0/12 hit points.",
+    "Battle round 3 begins.",
+    "Initiative (side): party 2, monsters 6. Order: group-0003, character-0001, character-0002, character-0003, character-0004.",
+    "Morale check for group-0003 (ML 9): rolled 4+0 — they fight on.",
     "Morale check for group-0003 (ML 9): rolled 9+0 — they fight on.",
-    "Morale check for group-0003 (ML 9): rolled 12+0 — they flee or surrender.",
-    "group-0003 flees the battle!",
-    "group-0003 is now 65' away.",
-    "Battle round 5 begins.",
-    "Initiative (side): party 2, monsters 6. Order: group-0003, character-0001, character-0003, character-0004.",
-    "group-0003 is now 125' away.",
+    "npc-0004 hits character-0001 with Sword: rolled 16+0 = 16, needing 15.",
+    "character-0001 takes 1 damage from npc-0004.",
+    "character-0001 is at 7/9 hit points.",
+    "character-0001 misses npc-0004 with Sword: rolled 9+1 = 10, needing 13.",
+    "character-0002 hits npc-0004 with Mace: rolled 18+0 = 18, needing 13.",
+    "npc-0004 takes 5 damage from character-0002.",
+    "npc-0004 is at 0/5 hit points.",
+    "npc-0004 is dead.",
+    "npc-0004 is killed.",
+    "npc-0004 is at 0/5 hit points.",
     "The battle is won.",
-    "npc-0003 (npc:halfling) is slain.",
-    "npc-0004 (npc:fighter) is routed.",
+    "npc-0003 (npc:dwarf) is slain.",
+    "npc-0004 (npc:elf) is slain.",
     "The encounter ends (victory).",
     "The party moves to (1, 0), facing west.",
     "The party moves to (0, 0), facing west.",
@@ -4356,17 +3959,21 @@
     "The party moves to (1, 0), facing west.",
     "The party moves to (0, 0), facing west.",
     "The party enters town town.",
-    "The adventure ends: 110 XP from monsters and 1810 XP from treasure — 640 XP to each of 3 survivor(s).",
-    "character-0001 gains 672 XP (base 640), now level 1.",
-    "character-0003 gains 704 XP (base 640), now level 1.",
-    "character-0004 gains 704 XP (base 640), now level 1.",
-    "character-0001 sells 1 valuable(s) for 1600 gp.",
-    "character-0001 purchases cure_light_wounds at the temple for 25 gp.",
-    "town-cleric casts cure_light_wounds [heal] at character-0001.",
-    "character-0001 regains 1 hit points (magical).",
-    "character-0001 is at 6/6 hit points.",
-    "character-0001 gives 550 gp in coin to character-0003.",
-    "character-0001 gives 550 gp in coin to character-0004.",
+    "The adventure ends: 95 XP from monsters and 2740 XP from treasure — 708 XP to each of 4 survivor(s).",
+    "character-0001 gains 743 XP (base 708), now level 1.",
+    "character-0002 gains 708 XP (base 708), now level 1.",
+    "character-0003 gains 708 XP (base 708), now level 1.",
+    "character-0004 gains 637 XP (base 708), now level 1.",
+    "character-0001 sells 1 valuable(s) for 1000 gp.",
+    "character-0002 sells 1 valuable(s) for 800 gp.",
+    "character-0003 sells 3 valuable(s) for 250 gp.",
+    "character-0004 sells 4 valuable(s) for 220 gp.",
+    "character-0002 purchases cure_light_wounds at the temple for 25 gp.",
+    "town-cleric casts cure_light_wounds [heal] at character-0002.",
+    "character-0002 regains 4 hit points (magical).",
+    "character-0002 is at 6/6 hit points.",
+    "character-0001 gives 400 gp in coin to character-0004.",
+    "character-0002 gives 250 gp in coin to character-0003.",
     "The party enters dungeon barrow (level 1).",
     "The party moves to (1, 0), facing east.",
     "The party moves to (2, 0), facing east.",
@@ -4374,9 +3981,10 @@
     "The party moves to (3, 0), facing east.",
     "The party moves to (4, 0), facing east.",
     "The party enters area shrine (level 1).",
-    "character-0001 acquires jade-idol and 17 gp in coin.",
-    "character-0003 acquires 17 gp in coin.",
-    "character-0004 acquires 16 gp in coin.",
+    "character-0001 acquires 13 gp in coin.",
+    "character-0002 acquires jade-idol and 13 gp in coin.",
+    "character-0003 acquires 12 gp in coin.",
+    "character-0004 acquires 12 gp in coin.",
     "Quest The Jade Idol: objective Recover the idol is done. The idol comes up out of the hollow, cold as well-water.",
     "The party moves to (3, 0), facing west.",
     "The party enters area guard_room (level 1).",
@@ -4384,18 +3992,22 @@
     "The party moves to (1, 0), facing west.",
     "The party moves to (0, 0), facing west.",
     "The party enters town town.",
-    "The adventure ends: 0 XP from monsters and 50 XP from treasure — 16 XP to each of 3 survivor(s).",
-    "character-0001 gains 16 XP (base 16), now level 1.",
-    "character-0003 gains 17 XP (base 16), now level 1.",
-    "character-0004 gains 17 XP (base 16), now level 1.",
+    "The adventure ends: 0 XP from monsters and 50 XP from treasure — 12 XP to each of 4 survivor(s).",
+    "character-0001 gains 12 XP (base 12), now level 1.",
+    "character-0002 gains 12 XP (base 12), now level 1.",
+    "character-0003 gains 12 XP (base 12), now level 1.",
+    "character-0004 gains 10 XP (base 12), now level 1.",
     "Quest The Jade Idol: objective Bring it home is done. Threshold's gate shuts behind you with the idol inside it.",
     "Quest complete: The Jade Idol. The almoner counts out the reward without looking up. The idol is home.",
     "The adventure is over: The Jade Idol is finished. The almoner counts out the reward without looking up. The idol is home.",
     "character-0001 acquires 200 gp in coin.",
-    "character-0001 gains 1260 XP (base 1200), now level 1.",
-    "character-0003 gains 1320 XP (base 1200), now level 2.",
-    "character-0003 advances to level 2 (Footpad): +4 hp (rolled 4).",
-    "character-0004 gains 1320 XP (base 1200), now level 1.",
+    "character-0001 gains 1260 XP (base 1200), now level 2.",
+    "character-0001 advances to level 2 (Warrior): +9 hp (rolled 8).",
+    "character-0002 gains 1200 XP (base 1200), now level 2.",
+    "character-0002 advances to level 2 (Adept): +4 hp (rolled 3).",
+    "character-0003 gains 1200 XP (base 1200), now level 2.",
+    "character-0003 advances to level 2 (Footpad): +4 hp (rolled 2).",
+    "character-0004 gains 1080 XP (base 1200), now level 1.",
     "Flag quest.idol = 'recovered'."
   ]
 }
