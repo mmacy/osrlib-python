@@ -1268,15 +1268,40 @@ Locked by `test_session.py`, `test_crawl_properties.py`, `test_spawn_into_encoun
 
 ### Persistence and replay
 
-Saves are self-contained (adventure content embedded) with the accepted-command log always and the event log optional, and the event log preserves unknown event types losslessly (the log is a record and is never re-derived). Replay under a different engine version raises `ReplayVersionError`, while loading a save across engine versions remains legal. A synthetic in-test migration at schema version 1 exercises the migration framework. The standing test: `load(save)` equals `replay(seed, commands)` for the delve golden at every checkpoint. Locked by `test_persistence.py` and `test_phase4_goldens.py`.
+A save contains everything needed to resume play, including the adventure itself.
+
+- A save always contains the log of accepted commands. The event log is optional.
+- The event log keeps event types it doesn't know, without loss, because the log is a record and is never re-derived.
+- Replaying under a different engine version raises `ReplayVersionError`. Loading a save from another engine version is still allowed.
+
+For maintainers: a synthetic migration at schema version 1, inside the tests, exercises the migration framework. A standing test checks that `load(save)` equals `replay(seed, commands)` at every checkpoint of a recorded test game. Locked by `test_persistence.py` and `test_phase4_goldens.py`.
 
 ### The treasure compiler: entry grammar, magic clauses, and TreasureRef semantics
 
-Treasure-type entries parse on a fixed grammar: an optional `NN%:` presence gate, quantity dice with multipliers and glued coin suffixes, gem and jewellery counts, and structured magic clauses. A clause's parts are `any`, a named category, or a pool, a count or count dice, exclusions, and `+ 1 potion`-style extras. Pools pick uniformly among their categories before the sub-table roll, and an exclusion re-rolls exactly the named master-table category with draws consumed (the wandering-re-roll precedent). `TreasureRef` letters resolve by SRD section, and parenthetical letters are lair treasure. `extra_gp` joins the hoard, `multiplier` repeats the whole roll, `special` and `see_below` generate nothing, and the small-lair reduction stays prose for the referee. The engine rolls the d20 value table per gem and 3d6 × 100 gp per piece of jewellery, and both values fix at generation, with appraisal instantaneous and exact (B/X prices treasure for the XP economy, and a haggling or appraisal minigame is left to the game). Locked by `test_treasure_data.py` and `test_treasure_kernel.py`.
+The compiler parses each treasure-type entry with a fixed grammar. An entry has an optional `NN%:` chance that the treasure is present at all, quantity dice with multipliers and coin suffixes attached, counts of gems and jewellery, and structured magic clauses. A magic clause has `any`, a named category, or a pool of categories. It also has a count or count dice, any exclusions, and extras like `+ 1 potion`.
+
+- A pool picks one of its categories with equal chance before the sub-table roll.
+- An exclusion re-rolls exactly the named master-table category, and the re-rolls consume draws, as the wandering-monster re-roll does.
+- `TreasureRef` letters resolve by SRD section, and letters in parentheses are lair treasure.
+- `extra_gp` joins the hoard, `multiplier` repeats the whole roll, and `special` and `see_below` generate nothing. The reduction for a small lair stays prose, for the referee.
+- Each gem's value comes from the d20 value table, and each piece of jewellery is worth 3d6 × 100 gp. Both values are fixed when the treasure is generated.
+- Appraisal is instant and exact, because B/X prices treasure for the XP economy. A haggling or appraisal minigame is left to the game.
+
+Locked by `test_treasure_data.py` and `test_treasure_kernel.py`.
 
 ### Treasure generation order, tiers, and the treasure stream
 
-Generation follows printed-entry order, depth-first per item: each gem's value, each jewellery's value, and each magic item fully resolved (sub-table, armour-type d8 for generic armour, charges at creation, ammunition quantities, scroll contents, and sword sentience last, with the special-purpose 1-in-20 first and then the printed procedure) before the next entry, all on the `"treasure"` stream, so draws are reproducible from the stream alone. Tier selects the printed B/X sub-table columns from the party's highest living level, with 4+ as expert. À la carte callers choose explicitly and pass a stream and an allocator. Locked by `test_treasure_kernel.py`, `test_magic_items.py`, and the phase 5 hoard golden.
+The engine generates treasure in the order the entry is printed, and finishes each item before it starts the next:
+
+- Each gem's value, and each piece of jewellery's value.
+- Each magic item in full: its sub-table, the d8 armour type for generic armour, charges at creation, ammunition quantities, scroll contents, and sword sentience last. For sentience, the 1-in-20 special purpose comes first, then the printed procedure.
+
+All of it is on the `"treasure"` stream, so the stream alone reproduces the draws.
+
+- The tier picks the printed B/X sub-table column from the party's highest living level, with 4 or more counting as expert.
+- A caller that generates treasure directly, outside a session, chooses the tier, and passes a stream and an allocator.
+
+Locked by `test_treasure_kernel.py`, `test_magic_items.py`, and the phase 5 hoard golden.
 
 ### Hoards generate lazily, appear as engine-created caches, and are untrapped
 
@@ -1293,11 +1318,20 @@ For one keyed group, the order of draws on the treasure stream is the carried tr
 
 ### Loot drops: slain sides drop, routed sides keep
 
-At battle's end, slain groups drop their carried treasure and group bundles into a pile on the party's cell, while a routed (fled) group keeps everything and leaves with it. Defeated NPC adventurers dump their kit and share of the group's U + V bundle the same way. Locked by `test_encounter.py` and the milestone golden.
+At the end of a battle, slain groups drop their carried treasure and group bundles into a pile on the party's cell. A routed group, one that fled, keeps everything and leaves with it. Defeated NPC adventurers drop their equipment and their share of the group's U + V treasure bundle the same way: one bundle of treasure types U and V for the whole group. Locked by `test_encounter.py` and the milestone golden.
 
 ### The end-of-adventure award is the departure-snapshot valuation delta
 
-`EnterDungeon` snapshots the party's valuation (coins plus carried valuables at exact value, magic and mundane gear at zero) and `TravelToTown` awards the delta: floored once from copper, clamped at zero, added to the defeated-monster ledger's XP, divided evenly among living members with floor division and the remainder dropped, applied through `apply_xp` (class modifiers and the one-level clamp apply per member). Dead members' carried treasure counts toward the delta but draws no share, and a party with no survivors gets no award. The award clears the defeated-monsters ledger and the snapshot. There's no recovered-treasure ledger: schema version 2 removed it, and the migration drops the field from version-1 saves. Selling in town after the award changes nothing. Locked by `test_award.py` and `test_persistence.py`.
+When the party returns to town, it gets XP for the treasure it brought back: the change in its valuation since it entered the dungeon.
+
+- `EnterDungeon` records a snapshot of the party's valuation: coins plus carried valuables at their exact value, with magic and mundane gear at zero.
+- `TravelToTown` awards the difference, rounded down once from copper and never below zero, plus the XP in the record of defeated monsters.
+- The total divides evenly among the living members, rounded down, and the remainder is dropped. Each share goes through `apply_xp`, so class modifiers and the limit of one level at a time apply to each member.
+- Dead members' carried treasure counts toward the difference, but they get no share. A party with no survivors gets no award.
+- The award clears the record of defeated monsters and the snapshot.
+- Selling in town after the award changes nothing.
+
+For maintainers: there's no ledger of recovered treasure. Schema version 2 removed it, and the migration drops the field from version-1 saves. Locked by `test_award.py` and `test_persistence.py`.
 
 ### Treasure weight covers coins, valuables, and the five priced magic categories
 
@@ -1313,43 +1347,139 @@ Locked by `test_items.py` and the closed-form property in `test_crawl_properties
 
 ### The magic item catalog: 164 templates, automated mechanics, and manual prose
 
-The compiler builds every item on the eight printed sub-tables (both B and X probability columns, with the sparse basic column compiled as printed), with hand-curated mechanics in `_MAGIC_ITEM_MECHANICS` (as spells have in `_SPELL_MECHANICS`), and every other item compiles as prose tagged `manual`. Versus clauses compile as structured category and tag references (lycanthropes and undead as category tags, spell users and regenerating creatures as ability-derived template sets), never string-matched prose. The girdle of giant strength is the one automated item whose mechanics branch on a `Ruleset` flag (`variable_weapon_damage`), named as such in the tests. The regeneration ring gates `while_alive`, the displacer cloak penalizes melee attackers only, and the energy-drain sword drains automatically on every hit at the `level_minimum` XP policy (osrlib's default for a computer game, over RAW's "may command"). Truncated SRD text completes via `overrides/magic_items.json` with provenance (`helm_of_telepathy`). Locked by `test_srd_data.py` and the `test_magic_items.py` census.
+The compiler builds every item on the printed sub-tables, with both the B and X probability columns. The sparse basic column compiles as printed.
+
+- Items with automated mechanics get them from the hand-curated `_MAGIC_ITEM_MECHANICS`, as spells do from `_SPELL_MECHANICS`. Every other item compiles as prose tagged `manual`, for the referee.
+- A "versus" clause compiles to structured references to categories and tags, never to matched prose. Lycanthropes and undead are category tags. Spell users and regenerating creatures are sets of templates worked out from their abilities.
+- The girdle of giant strength is the one automated item whose mechanics depend on a `Ruleset` flag, `variable_weapon_damage`, and the tests name it as such.
+- The ring of regeneration works only `while_alive`, and the displacer cloak penalizes only melee attackers.
+- The energy-drain sword drains automatically on every hit, at the `level_minimum` XP policy. That's osrlib's default for a computer game, over RAW's "may command".
+- Where the SRD's text is cut off, `overrides/magic_items.json` completes it, with a note of the source (`helm_of_telepathy`).
+
+Locked by `test_srd_data.py` and the `test_magic_items.py` census.
 
 ### Magic items enter play unidentified, identify on first meaningful use, and curses stick
 
-Instances mask behind category display names (an enchanted arm is "a {base} with a faint aura", a miscellaneous item "a curious device") until identified: first meaningful use, the referee's `IdentifyItem`, a worn item's effect attaching, or being attacked while wearing enchanted defenses (the bonus shows itself in battle). A cursed item reveals at the same trigger and sticks: the engine rejects `UnequipItem` for a cursed sword, weapon, armour, shield, or ring alike (`items.curse.stuck`) until *remove curse*. A cursed ring reveals the moment it is equipped, because its onset is automatic. Charges are rolled at creation and referee-only forever after (RAW "undiscoverable"): the player view never shows a charge count, a potion's remaining duration, per-item state, sentience, or a hoard not yet found. Locked by `test_magic_items.py`, `test_exploration.py`, and the leak property test.
+A magic item shows a generic name until it's identified: an enchanted weapon or armour is "a {base} with a faint aura", and a miscellaneous item is "a curious device". An item is identified by any of these:
+
+- Its first meaningful use.
+- The referee's `IdentifyItem`.
+- A worn item's effect attaching.
+- An attack on a character who wears enchanted defenses, because the bonus shows itself in battle.
+
+A cursed item reveals itself at the same moment and sticks. The engine refuses `UnequipItem` for a cursed sword, weapon, armour, shield, or ring alike, with `items.curse.stuck`, until *remove curse*. A cursed ring reveals itself the moment it's equipped, because its onset is automatic.
+
+Charges are rolled when the item is created, and only the referee ever sees them (RAW "undiscoverable"). The player view never shows a charge count, a potion's remaining duration, an item's internal state, sentience, or a hoard the party hasn't found. Locked by `test_magic_items.py`, `test_exploration.py`, and the leak property test.
 
 ### Item bonuses use a separate channel, outside the cumulative caps
 
-Equipped-item bonuses (enchanted arms, rings of protection, the displacer cloak) compute from equipped inventory at query time, never as ledger effects, so unequipping is instant and nothing needs dispelling. Item-sourced ledger effects (potion durations, wards, the weakness onset) attach with `from_item=True`, are undispellable, and sit outside the cumulative largest-bonus-plus-largest-penalty cap, which applies among spell-kind effects only: `modifier_total` is the capped spell contribution plus the summed item contribution. `strength_set`, `ac_bonus`, and the damage-multiplier kinds join `MODIFIER_KINDS`. Locked by `test_effects.py`, `test_combat.py`, and `test_magic_items.py`.
+Bonuses from equipped items, like enchanted weapons and armour, rings of protection, and the displacer cloak, come from what the character has equipped at the moment the engine reads them. They're never effects in the ledger, so unequipping takes effect at once, and nothing needs dispelling.
+
+- Ledger effects that come from items, like potion durations, wards, and the onset of weakness, attach with `from_item=True`, and can't be dispelled.
+- Those item effects sit outside the cumulative-effects cap, which applies only among spell effects. So `modifier_total` is the capped total of spell modifiers plus the sum of item modifiers.
+
+For maintainers: `strength_set`, `ac_bonus`, and the damage-multiplier kinds are in `MODIFIER_KINDS`. Locked by `test_effects.py`, `test_combat.py`, and `test_magic_items.py`.
 
 ### Potions: hidden 1d6+6-turn durations, mixing, and the weekly inversion
 
-A drunk potion runs 1d6 + 6 turns, rolled on the effects stream and hidden from the player. Drinking while another potion runs cancels both and disables potions for 3 turns, except for instantaneous or permanent forms. Invulnerability inverts on the clock's day: used more than once in a week, it applies −2 instead of +2, tracked per character. Locked by `test_exploration.py::TestUseItem`.
+- A potion lasts 1d6 + 6 turns, rolled on the effects stream and hidden from the player.
+- Drinking a potion while another one runs cancels both, and stops potions from working for 3 turns. Instantaneous and permanent forms are exceptions.
+- A character who uses a potion of invulnerability more than once in a week gets −2 instead of +2. The engine counts the week by the game clock's days, for each character.
+
+Locked by `test_exploration.py::TestUseItem`.
 
 ### Scrolls: per-spell burn, minimum caster level, the thief fizzle, wards, and curses
 
-Spell scrolls burn per spell cast. They are validated and resolved alike at the minimum class level able to cast the spell per the compiled progression (a `_ScrollReader` proxy, since the character is never mutated), so the scroll's caster level settles how many targets a mode demands and how far it reaches. They also waive the arcane magical-script reading gate (osrlib's reading: the scroll itself is the medium). A 10th-level thief reads arcane scrolls with the printed 10% error chance, resolved as a fizzle: the spell burns and nothing resolves. A cursed scroll triggers on reading and rolls uniformly among the six compiled curses (energy drain and slow healing automated, the rest manual): energy drain resolves through `drain_levels` at the `halfway` XP policy (the curse's wording), and slow healing doubles the natural rest-day cadence while halving healing spells, floored. The curse halves healing where *cause disease* blocks it, so the curse is no disease and attaches no condition. Protection scrolls attach one party-wide ward effect to the reader with per-HD-band counts as structured params (`affected_1_3`, `affected_4_5`, and `affected_6_plus`), and the ward bars the listed creatures from melee (the *protection from evil* machinery) and breaks for the whole party when any member melees a barred monster. Locked by `test_casting.py`, `test_exploration.py`, and `test_battle.py`.
+Spell scrolls:
+
+- A scroll loses each spell as it's cast from it. The page calls this burning.
+- osrlib checks and resolves a scroll's spell as if the lowest class level able to cast it were casting, from the compiled progression. So the scroll's caster level decides how many targets a mode needs and how far it reaches. The engine reads the scroll through a stand-in for the character, `_ScrollReader`, so the character never changes.
+- Reading a scroll doesn't require the arcane ability to read magical script, because the scroll itself is the medium (osrlib's reading).
+- A 10th-level thief reads arcane scrolls with the printed 10% chance of error, resolved as a fizzle: the spell burns, and nothing resolves.
+
+Cursed scrolls:
+
+- A cursed scroll triggers when it's read, and picks one of the six compiled curses with equal chance. Energy drain and slow healing are automated, and the rest are manual.
+- The energy drain curse resolves through `drain_levels` at the `halfway` XP policy, as the curse's wording says.
+- Slow healing doubles the rest days that natural healing takes, and halves healing spells, rounded down. The curse halves healing, where *cause disease* blocks it, so the curse isn't a disease and attaches no condition.
+
+Protection scrolls:
+
+- A protection scroll attaches one ward to the reader that covers the whole party, with a count for each HD band in structured params (`affected_1_3`, `affected_4_5`, and `affected_6_plus`).
+- The ward bars the listed creatures from melee, through the same rules as *protection from evil*. It breaks for the whole party when any member attacks a barred monster in melee.
+
+Locked by `test_casting.py`, `test_exploration.py`, and `test_battle.py`.
 
 ### Devices spend a charge and a round, exhaust to inert, and never recharge
 
-Wand, staff, and rod activations spend one charge and the user's action, resolve in the magic phase through the kernel damage/save path with the item's printed area shape under [the area footprint](#the-area-footprint) rule, and an exhausted device goes inert, so further activation is a rejection (`items.device.inert`), never a silent no-op. Devices never recharge and never show charges. Device areas are destructive, like *lightning bolt*: a kill destroys the victim's equipment. Locked by `test_battle.py` and `test_exploration.py`.
+Using a wand, staff, or rod spends one charge and the user's action for the round.
+
+- The use resolves in the magic phase, through the kernel's damage and save rules, with the item's printed area shape under [the area footprint](#the-area-footprint) rule.
+- Device areas are destructive, like *lightning bolt*: a kill destroys the victim's equipment.
+- An exhausted device goes inert, and the session refuses any further use with `items.device.inert`, rather than silently doing nothing.
+- Devices never recharge and never show their charges.
+
+Locked by `test_battle.py` and `test_exploration.py`.
 
 ### Rings cap at two, worn on hands
 
-`MAX_RINGS_WORN = 2` (RAW: one on each hand), the third rejected at equip validation (`items.ring.hands_full`). The ring of protection's 5'-radius variant extends its AC bonus to the wearer's rank-mates against attacks in battle, because the battle space has no finer adjacency than the rank and the printed example ("two characters fighting beside the wearer") is exactly melee defense. The aura arrives as caller-asserted context (`AttackContext.defender_ally_ac_bonus`), never stacks across rings, and the wearer's +1 goes through the equipped-item channel as usual. Saving throws and out-of-battle resolution honor the wearer alone, because saves resolve inside the character-scoped kernel, and outside battle the party has no spatial model. Locked by `test_items.py` and `test_magic_items.py`.
+A character can wear at most two rings, `MAX_RINGS_WORN = 2`, one on each hand (RAW). The equip check refuses a third with `items.ring.hands_full`.
+
+The ring of protection's 5'-radius variant also protects the members beside the wearer:
+
+- In battle, it extends its AC bonus to the other members of the wearer's rank, against attacks. The battle space has nothing finer than the rank, and the printed example, "two characters fighting beside the wearer", is exactly melee defense.
+- The bonus reaches allies as context the caller supplies (`AttackContext.defender_ally_ac_bonus`), and it never stacks across rings. The wearer's +1 comes from equipped items, as [Item bonuses](#item-bonuses-use-a-separate-channel-outside-the-cumulative-caps) describes.
+- Saving throws, and anything outside battle, count the wearer alone, because a save resolves in the kernel for one character, and outside battle the party has no positions.
+
+Locked by `test_items.py` and `test_magic_items.py`.
 
 ### The item streams
 
-The item and treasure stream keys are `"treasure"` (every generation draw: presence gates, quantity dice, values, sub-table rolls, charges, sentience) and `"npc_party"` (NPC composition: alignment, class rows, level dice, scores, hit dice, spell picks). Use-time item resolution (device damage and saves, scroll-cast targeting, the potion-effect dice) draws from the `"magic"` stream beside spells. Attach-time rolled durations and the cursed-scroll curse pick stay on `"effects"` per [The combat kernel streams](#the-combat-kernel-streams), and energy-drain sword drains and the drain curse resolve on `"advancement"` beside `drain_levels`. Locked by the phase 5 goldens and `test_treasure_kernel.py`.
+Items and treasure use these streams:
+
+- `"treasure"`: every generation draw, which covers presence, quantity dice, values, sub-table rolls, charges, and sentience.
+- `"npc_party"`: NPC composition, which covers alignment, class rows, level dice, scores, hit dice, and spell picks.
+- `"magic"`: item use, beside spells. That covers device damage and saves, targeting for spells cast from scrolls, and the dice of potion effects.
+- `"effects"`: durations rolled when an effect attaches, and the cursed scroll's pick of a curse, as [The combat kernel streams](#the-combat-kernel-streams) describes.
+- `"advancement"`: the energy-drain sword's drains and the drain curse, beside `drain_levels`.
+
+Locked by the phase 5 goldens and `test_treasure_kernel.py`.
 
 ### NPC adventuring parties: generation
 
-One d6 alignment roll for the whole party, then per member on the npc-party stream: the d8 class-and-level row, the level dice by kind (basic 1d3, expert per row, demi-human caps asserted at compile), 3d6-in-order scores with class ability requirements skipped (the printed d8 row is authoritative, and a requirement re-roll would contradict it), the first-level hit die and one `level_up` roll per level above first, and uniform spell-slot picks (books match memorization for arcane casters). Members wear fixed class kits, the SRD's "Basic equipment appropriate to their class" made concrete, with plate upgrades for expert clerics, dwarves, and fighters. The dwarf's battle axe is two-handed, so the kit shield is carried rather than wielded. The kit's generic Axe and Bow resolve to `battle_axe` and `long_bow`. Expert members roll Expert magic items at 5% per level per suitable sub-table (basic parties take none, per RAW's Expert-only note), unusable rolls ignored and better arms equipped, and the group shares one U + V treasure bundle on the treasure stream. Locked by `test_npc.py` and the NPC-party golden.
+The engine generates an NPC party with the SRD's procedure, on the `npc_party` stream:
+
+1. One d6 alignment roll for the whole party.
+2. For each member, the d8 row for class and level, then the level dice for the party's kind: 1d3 for a basic party, and the row's dice for an expert one. The compiler checks the demihuman level limits.
+3. Ability scores of 3d6 in order. Class requirements are skipped, because the printed d8 row is authoritative, and re-rolling for a requirement would contradict it.
+4. Hit points: the first-level hit die, then one `level_up` roll for each level above first.
+5. Spells: picks with equal chance for each slot. An arcane caster's book holds exactly the spells it memorizes.
+
+Equipment:
+
+- Members wear a fixed set of equipment for their class, the SRD's "Basic equipment appropriate to their class" made concrete, with plate armour for expert clerics, dwarves, and fighters.
+- The dwarf's battle axe is two-handed, so the dwarf carries the set's shield instead of using it.
+- The set's generic Axe and Bow resolve to `battle_axe` and `long_bow`.
+
+Treasure:
+
+- Expert members roll Expert magic items at 5% per level for each suitable sub-table. Basic parties get none, per RAW's note that this is for Expert parties only. Rolls the member can't use are ignored, and better weapons and armour are equipped.
+- The group shares one bundle of treasure types U and V, rolled on the treasure stream.
+
+Locked by `test_npc.py` and the NPC-party golden.
 
 ### NPC parties in play: encounter sides like any other
 
-`SpawnNpcParty` and wandering `npc_party` rows field a real generated party as an encounter side (count dice stay on the wandering stream), and `EncounterGroup.monster_ids` contains combatant ids spanning monsters and NPCs. The roster event is referee-visibility, so players learn compositions by fighting. NPC groups check morale at the Veteran's ML 9, are always intelligent for distraction, and are worth level-as-HD XP recorded under `npc:<class_id>`. The default `NpcPartyPolicy` heals a below-half ally with the highest cure available, drinks a healing potion when no cure remains, casts automated attack spells highest-level-first, shoots beyond 5', and melees otherwise. NPC casts declare at the round's top and disrupt exactly like the party's. Locked by `test_npc.py` and `test_battle.py`.
+An NPC party fights as an encounter side, like any monster group.
+
+- `SpawnNpcParty` and wandering `npc_party` rows field a real generated party. Their count dice stay on the wandering stream.
+- `EncounterGroup.monster_ids` contains the ids of combatants, monsters and NPCs alike.
+- The roster event is visible only to the referee, so players learn what a party is made of by fighting it.
+- An NPC group checks morale at the Veteran's morale score of 9, always counts as intelligent for distraction, and is worth XP as if each level were a Hit Die, recorded under `npc:<class_id>`.
+- The default `NpcPartyPolicy` heals an ally below half hit points with the best cure it has, drinks a healing potion when no cure is left, casts automated attack spells highest level first, shoots at more than 5', and otherwise melees.
+- NPC casters declare at the start of the round, and can be disrupted exactly like the party's casters.
+
+Locked by `test_npc.py` and `test_battle.py`.
 
 ### Town services: full-value selling and the temple's six services
 
@@ -1386,7 +1516,13 @@ Raise dead is the reason the party pays. The patient is a corpse, no rule gives 
 
 ### Listener-returned events are authored events
 
-The session listener contract's returned-events channel is for events a listener authors directly. A listener that reacts by executing referee commands (the fetch-quest pattern) must return none of those commands' events, because the nested `execute` already logged them and returning them would double-log. Command-log replays therefore run listener-free and converge with the original event-for-event, and the listener's state store belongs to the game: saves restore it, the game re-registers the listener, and replay never re-derives it. Locked by `test_session.py` and the phase 5 milestone golden.
+A listener returns only the events it creates itself.
+
+- A listener that reacts by running referee commands, like the fetch-quest pattern, must not return those commands' events. The nested `execute` already logged them, and returning them would log them twice.
+- So a replay of the command log runs without listeners, and matches the original event for event.
+- The listener's stored state belongs to the game. Saves restore it, the game registers the listener again, and replay never re-derives it.
+
+Locked by `test_session.py` and the phase 5 milestone golden.
 
 ## Documented adaptations
 
@@ -1394,15 +1530,28 @@ The session listener contract's returned-events channel is for events a listener
 
 ### `deprivation_penalties` (default off)
 
-Consumption is tracked regardless. With the flag on, the SRD's "at the referee's discretion, for example" starvation list gets defaults drawn from the SRD's examples: after one full day without food or water, −1 to attack rolls (an engine-written modifier effect) and the rest cadence doubles (fatigue after three unrested turns instead of six). After two days, movement also halves, and from the third day on a daily 1d4 hit-point loss ticks on the effects stream. Water and food deprivation don't stack, and the worse track applies. The schedule's numbers are invented over the SRD's open list. Locked by `test_exploration.py::TestProvisions`.
+With the flag on, going without food or water has penalties, which the SRD leaves "at the referee's discretion, for example". The engine tracks consumption whether the flag is on or off. The defaults come from the SRD's examples:
+
+- After one full day without food or water, −1 to attack rolls, through a modifier effect the engine writes. Fatigue also comes after three turns without rest instead of six.
+- After two days, movement also halves.
+- From the third day on, the character loses 1d4 hit points each day, rolled on the effects stream.
+
+Water and food deprivation don't stack, and the worse of the two applies. The numbers in the schedule are invented, since the SRD gives only an open list. Locked by `test_exploration.py::TestProvisions`.
 
 ### `aoe_friendly_fire` (default on)
 
-Areas overlapping a melee catch friends: an area landing on a group at melee range (≤ 5') appends the engaged party front rank after the monsters, in marching order, consuming remaining footprint capacity. Off means areas never include party members among a monster group's candidates. Locked by `test_battle.py::TestAreaFootprint`.
+With the flag on, an area that overlaps a melee catches the party too. An area that lands on a group at melee range (5' or less) adds the party's engaged front rank after the monsters, in marching order, and they use up whatever footprint capacity is left. With the flag off, an area aimed at a monster group never includes party members. Locked by `test_battle.py::TestAreaFootprint`.
 
 ### `formation_width_limit` (default on)
 
-Available space caps combatants fighting abreast. RAW prints one number and leaves the rest to judgement. The SRD says: "The referee should judge the number of opponents that can attack a single combatant, bearing in mind the combatant's size and the available space around them. **10' passage:** Enough space for at most 2–3 characters to fight side-by-side". osrlib uses the conservative end, two in ten feet, and measures the space instead of naming a number per kind of cell. The rank width is the widest square of unbroken floor including the party's cell, five feet of frontage to a combatant: two in a one-cell passage however far it runs and at a junction of two such passages, four in a room two cells square, eight in one four cells across. The measured space stops at walls, at doors (a doorway is a threshold, not room to fight abreast), and where the space changes, so a room's open mouth never counts the corridor beyond it. The same cap bounds how much of an area effect's footprint a formation absorbs. Off lifts the cap, so every combatant may melee and area footprints are unbounded. Locked by `test_battle.py::TestFormationWidth`.
+With the flag on, the space around the party limits how many combatants fight side by side. RAW prints one number and leaves the rest to judgement. The SRD says: "The referee should judge the number of opponents that can attack a single combatant, bearing in mind the combatant's size and the available space around them. **10' passage:** Enough space for at most 2–3 characters to fight side-by-side".
+
+- osrlib uses the low end, two in ten feet, and measures the space instead of naming a number for each kind of cell.
+- The rank width is the widest square of unbroken floor that includes the party's cell, with five feet of frontage for each combatant. That's two in a one-cell passage, however far it runs, and at a junction of two such passages. It's four in a room two cells square, and eight in a room four cells across.
+- The measured space stops at walls, at doors, and where the space changes. A doorway is a threshold, not room to fight side by side, and a room's open mouth never counts the corridor beyond it.
+- The same limit bounds how much of an area effect's footprint a formation takes.
+
+With the flag off, there's no limit: every combatant may melee, and area footprints have no bound. Locked by `test_battle.py::TestFormationWidth`.
 
 ### `magic_item_death_save` (default on)
 
@@ -1415,4 +1564,12 @@ Items that survive go to the drop pile instead of vanishing, and `EquipmentDestr
 
 ### `xp_award_timing` (default `on_return`)
 
-`on_return` is RAW: monsters and treasure pay out at the adventure's end, the departure-snapshot valuation delta divided among the survivors. `immediate` is the CRPG convention offered as an adaptation: monster XP at encounter end and treasure XP at acquisition (take, quest grant), each divided among the living at that moment, and drops never refund, so the return then awards nothing. Neither timing double-pays. Locked by `test_award.py::TestImmediateTiming`.
+`on_return` is RAW: monsters and treasure pay out when the adventure ends, as the change in the party's valuation since it left town, divided among the survivors.
+
+`immediate` is the convention of computer role-playing games, offered as an adaptation:
+
+- Monster XP is paid when the encounter ends, and treasure XP when the party gets the treasure, by taking it or as a quest grant.
+- Each award divides among the members living at that moment.
+- Dropping treasure never refunds its XP, so the return to town then awards nothing.
+
+Neither timing pays twice. Locked by `test_award.py::TestImmediateTiming`.
