@@ -24,7 +24,6 @@ The battles are built by command from seeded sessions. Each test sets the hit po
 1, so a magic missile kills it for certain, and asserts the kill as a precondition.
 """
 
-import pytest
 
 from osrlib.core.effects import Condition, has_condition
 from osrlib.core.events import DeclarationFizzledEvent, SpellCastEvent, Visibility
@@ -52,8 +51,6 @@ from positions_fixtures import (
     session,
     strike,
 )
-
-XFAIL = pytest.mark.xfail(reason="chunk: playtest-fixes", strict=True)
 
 MELEE_FIZZLED = "battle.melee.fizzled"
 NO_TARGET = "battle.declaration.no_target"
@@ -149,7 +146,6 @@ def assert_no_target(game, events, member_id: str) -> DeclarationFizzledEvent:
 
 
 class TestMembersWhoClosedOnAGroupKilledEarlierInTheRound:
-    @XFAIL
     def test_a_caster_kills_the_group_in_the_magic_step(self):
         """Hild, Osric, and Nim close 15' and attack the goblin at 20'. Wren's magic missile kills it first."""
         game = two_groups(near=20)
@@ -167,7 +163,6 @@ class TestMembersWhoClosedOnAGroupKilledEarlierInTheRound:
             fizzle = assert_no_target(game, events, member_id)
             assert position(events, fizzle) > position(events, cast)
 
-    @XFAIL
     def test_an_archer_kills_the_group_in_the_missile_step(self):
         """Hild and Osric close and attack the goblin at 20'. Aelin's arrow kills it first."""
         for game in battles(near=20):
@@ -186,7 +181,6 @@ class TestMembersWhoClosedOnAGroupKilledEarlierInTheRound:
             return
         raise AssertionError("precondition: no seed had Aelin's arrow kill the goblin")
 
-    @XFAIL
     def test_a_close_that_fell_short_still_reports_no_target(self):
         """The goblin runs before Nim's close, so Nim ends out of reach. Wren's missile then kills it.
 
@@ -212,7 +206,6 @@ class TestMembersWhoClosedOnAGroupKilledEarlierInTheRound:
 
 
 class TestAMemberAlreadyInReach:
-    @XFAIL
     def test_the_group_dies_in_the_magic_step(self):
         """Hild stands within 5' of the goblin and attacks without moving. Wren's magic missile kills it first."""
         game = two_groups(near=5)
@@ -225,7 +218,6 @@ class TestAMemberAlreadyInReach:
         fizzle = assert_no_target(game, events, hild)
         assert position(events, fizzle) > position(events, cast_by(events, wren))
 
-    @XFAIL
     def test_the_group_dies_to_an_earlier_member_in_the_melee_step(self):
         """Hild and Osric both attack the goblin at 5'. Hild acts first in marching order and kills it."""
         for game in battles(near=5):
@@ -241,7 +233,6 @@ class TestAMemberAlreadyInReach:
             return
         raise AssertionError("precondition: no seed had Hild's sword kill the goblin")
 
-    @XFAIL
     def test_a_slow_attack_at_the_end_of_the_round_fizzles_once(self):
         """Bors's two-handed sword is slow, so it comes up at the end of the round. Hild kills the goblin first."""
         roster = (HILD, BORS, OSRIC, NIM, AELIN, WREN, TAM)
@@ -258,7 +249,6 @@ class TestAMemberAlreadyInReach:
             return
         raise AssertionError("precondition: no seed had Hild's sword kill the goblin")
 
-    @XFAIL
     def test_a_slow_attack_whose_group_died_before_the_melee_step_fizzles_once(self):
         """Wren's magic missile kills the goblin in the magic step, before Bors's slow attack is even queued."""
         roster = (HILD, BORS, OSRIC, NIM, AELIN, WREN, TAM)
@@ -338,7 +328,6 @@ class TestGuards:
 
 
 class TestTheNoTargetMessage:
-    @XFAIL
     def test_the_message_says_there_was_nothing_left_to_strike(self):
         event = DeclarationFizzledEvent(
             code=MELEE_FIZZLED, actor_id="character-0001", reason=NO_TARGET, group_id="group-0001"

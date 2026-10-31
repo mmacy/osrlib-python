@@ -31,8 +31,6 @@ from osrlib.crawl.events import ItemAcquiredEvent
 from osrlib.data import load_classes, load_equipment, load_monsters
 from positions_fixtures import HILD, SEEDS, _opened, named, session
 
-XFAIL = pytest.mark.xfail(reason="chunk: playtest-fixes", strict=True)
-
 RETREATING = AttackContext(defender_retreating=True)
 BEHIND = AttackContext(behind_target=True)
 IGNORING = [pytest.param(RETREATING, id="retreating"), pytest.param(BEHIND, id="behind")]
@@ -107,8 +105,8 @@ class TestAnIgnoredShieldCountsForNothing:
         "shield",
         [
             pytest.param("shield", id="mundane"),
-            pytest.param("shield_plus_1", id="plus_1", marks=XFAIL),
-            pytest.param("shield_plus_2", id="plus_2", marks=XFAIL),
+            pytest.param("shield_plus_1", id="plus_1"),
+            pytest.param("shield_plus_2", id="plus_2"),
         ],
     )
     def test_the_defender_loses_the_shields_whole_part_of_armour_class(self, shield, context):
@@ -132,7 +130,6 @@ class TestACursedShieldKeepsItsPenalty:
         ("shield", "cursed_ac"),
         [pytest.param("cursed_shield_minus_2", 6, id="minus_2"), pytest.param("cursed_shield_ac_9", 9, id="ac_9")],
     )
-    @XFAIL
     def test_an_ignored_cursed_shield_still_worsens_armour_class(self, shield, cursed_ac, context):
         target = defender(shield)
         assert target.armour_class == cursed_ac, "precondition: the curse makes armour class worse than chain mail"
@@ -195,7 +192,6 @@ def _shielded_battle(first_seed: int):
     raise AssertionError("precondition: no seed opened the battle")
 
 
-@XFAIL
 def test_a_monster_attacks_a_retreating_member_with_a_magic_shield():
     """The playtest's crash, end to end: Hild retreats, a goblin strikes, and the round completes."""
     seed = SEEDS.start
