@@ -24,7 +24,6 @@ The battles are built by command from seeded sessions. Each test sets the hit po
 1, so a magic missile kills it for certain, and asserts the kill as a precondition.
 """
 
-
 from osrlib.core.effects import Condition, has_condition
 from osrlib.core.events import DeclarationFizzledEvent, SpellCastEvent, Visibility
 from osrlib.crawl.commands import EquipItem, GrantItem, SpawnMonsters
