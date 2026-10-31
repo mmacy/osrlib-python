@@ -373,6 +373,29 @@ def _seed(edge, state: DoorState) -> DoorState:
     return state
 
 
+def _new_door_state(adventure, ref: str) -> DoorState:
+    """A new state for the door at `ref`, seeded from its authored spec and never stored.
+
+    [`DungeonState.door`][osrlib.crawl.dungeon.DungeonState.door] calls this for a door with no
+    entry, so the state it returns reads the same as the entry `_store_door_state` would store. A
+    reference that names no door in the adventure gets an all-`False` state.
+
+    Args:
+        adventure (osrlib.crawl.adventure.Adventure): The session's adventure.
+        ref: The door's [`edge_ref`][osrlib.crawl.dungeon.edge_ref].
+
+    Returns:
+        A new state, with `open` set when the door starts open.
+    """
+    try:
+        dungeon_id, level_number, cell, side = ref.rsplit(":", 3)
+        level = adventure.dungeon(dungeon_id).level(int(level_number))
+    except ValueError:
+        return DoorState()
+    edge = level.edges.get(f"{cell}:{side}")
+    return DoorState() if edge is None else _seed(edge, DoorState())
+
+
 def _read_door_state(session, edge, ref: str) -> DoorState:
     """The overlay entry for one door, for reading, never stored.
 

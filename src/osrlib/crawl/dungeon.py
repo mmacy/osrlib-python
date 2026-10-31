@@ -1814,6 +1814,11 @@ class DungeonState(BaseModel):
         lock_failures: Which thief failed each lock, and at what level.
     """
 
+    # `GameSession` stores here the function that `door` calls to start a new state from the door's
+    # `DoorSpec`. A slot sits outside the fields and the private attributes, so equality, copies,
+    # pickles, and saves all leave it out. A copy or a loaded save has none until a session takes it.
+    __slots__ = ("_new_door",)
+
     model_config = ConfigDict(validate_assignment=True)
 
     location: PartyLocation = PartyLocation(kind="town")
@@ -1973,30 +1978,34 @@ class DungeonState(BaseModel):
         changes `doors`.
 
         - When the door has an entry, the method returns that entry. Writing to it writes to `doors`.
-        - When the door has no entry, the method returns a new all-`False` state and doesn't store it.
-          The first time you set one of its fields, the state becomes the door's entry in `doors`. If
-          the door has gained an entry in the meantime, the write goes to that entry instead.
+        - When the door has no entry, the method returns a new state and doesn't store it. The first
+          time you set one of its fields, the state becomes the door's entry in `doors`. If the door
+          has gained an entry in the meantime, the write goes to that entry instead.
 
-        The method doesn't read the door's [`DoorSpec`][osrlib.crawl.dungeon.DoorSpec], so it
-        ignores `starts_open`:
+        A new state starts from the door as you wrote it in its
+        [`DoorSpec`][osrlib.crawl.dungeon.DoorSpec], the same way as the entry the session's own
+        commands store. For a door whose `starts_open` is set, `open` reads `True`, and every other
+        field reads `False`. So setting one field changes only that field. For example,
+        `door(ref).discovered = True` on a door that starts open stores an entry that is open and
+        discovered, and the party can still walk through.
 
-        - A door whose `starts_open` is set stands open in play. Until the door has an entry, the
-          state this method returns still reads `open` as `False`.
-        - The first time you set a field through this method, like `door(ref).discovered = True`,
-          the method stores the entry with `open` still `False`.
-        - When the session's commands change a door, they store an entry with `starts_open`
-          applied.
+        The method finds the `DoorSpec` in the adventure of the session that holds this state as its
+        [`GameSession.dungeon_state`][osrlib.crawl.session.GameSession.dungeon_state], whether you made
+        the session with [`GameSession.new`][osrlib.crawl.session.GameSession.new] or
+        [`load_game`][osrlib.persistence.load_game]. A `DungeonState` you make yourself has no adventure,
+        and neither has a reference that names no door in the adventure. For those, a new state reads
+        `False` in every field.
 
         To show doors the way the party sees them, read the player view from
-        [`GameSession.view`][osrlib.crawl.session.GameSession.view] instead.
+        [`GameSession.view`][osrlib.crawl.session.GameSession.view].
 
         Args:
             ref: The door's [`edge_ref`][osrlib.crawl.dungeon.edge_ref]. You get the same reference
                 from either side of a door, so either side reaches the same state.
 
         Returns:
-            The door's entry in `doors`, or a new all-`False` state that becomes the entry the first
-            time you set one of its fields.
+            The door's entry in `doors`, or a new state that starts from the door's `DoorSpec` and
+            becomes the entry the first time you set one of its fields.
 
         Examples:
             ```python
@@ -2016,9 +2025,14 @@ class DungeonState(BaseModel):
         state = self.doors.get(ref)
         if state is not None:
             return state
-        state = DoorState()
+        new_door: Callable[[str], DoorState] | None = getattr(self, "_new_door", None)
+        state = DoorState() if new_door is None else new_door(ref)
         state._write_through = lambda written, name, value: self._write_door(ref, written, name, value)
         return state
+
+    def _start_doors_from(self, new_door: Callable[[str], DoorState]) -> None:
+        """Make `door` start each new state with `new_door(ref)` instead of an all-`False` state."""
+        object.__setattr__(self, "_new_door", new_door)
 
     def _write_door(self, ref: str, state: DoorState, name: str, value: Any) -> None:
         """Store a state from `door` on its first field write, or copy the write to an entry stored since."""

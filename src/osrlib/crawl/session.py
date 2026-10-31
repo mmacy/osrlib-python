@@ -667,9 +667,6 @@ class GameSession:
         """Which [`SessionMode`][osrlib.crawl.commands.SessionMode] the session is in, and so which
         commands it will accept. A new session starts in `town`."""
         self.dungeon_state = DungeonState()
-        """Everything play has changed on top of the adventure's map: where the party is, which
-        cells it has walked and seen, door state, found and sprung traps, drop piles, and generated
-        caches. The dungeons in the adventure never change."""
         self.monsters: dict[str, MonsterInstance] = {}
         """The live monsters, keyed by session id. Spawning adds to it, and a defeated monster is
         never removed, so a later event can still refer to it."""
@@ -865,6 +862,26 @@ class GameSession:
             if member.id is None:
                 member.id = session.allocator.allocate("character")
         return session
+
+    @property
+    def dungeon_state(self) -> DungeonState:
+        """Everything play has changed on top of the adventure's map.
+
+        It holds where the party is, which cells it has walked and seen, door state, found and sprung
+        traps, drop piles, and generated caches. The dungeons in the adventure never change.
+
+        When you set it, the session links the new state to this session's adventure. Then
+        [`DungeonState.door`][osrlib.crawl.dungeon.DungeonState.door] starts a door with no entry from
+        the door's [`DoorSpec`][osrlib.crawl.dungeon.DoorSpec].
+        """
+        return self._dungeon_state
+
+    @dungeon_state.setter
+    def dungeon_state(self, state: DungeonState) -> None:
+        from osrlib.crawl import exploration
+
+        state._start_doors_from(lambda ref: exploration._new_door_state(self.adventure, ref))
+        self._dungeon_state = state
 
     @property
     def metadata(self) -> dict[str, object]:
