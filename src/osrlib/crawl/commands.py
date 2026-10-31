@@ -3225,7 +3225,9 @@ class RemoveMember(Command):
     jewellery. Equipped items arrive unequipped in their pack, and an equipped magic item's
     effects end, as with [`GiveItems`][osrlib.crawl.commands.GiveItems]. A cursed item moves
     too, even when its curse is revealed, because the curse holds only its wearer, and the wearer
-    has left. Without `give_to`, everything the member carries leaves the game with them.
+    has left. It arrives with its curse hidden again, as *remove curse* leaves an item, so the
+    new owner can drop it or give it away. If they put it on, the curse is revealed again.
+    Without `give_to`, everything the member carries leaves the game with them.
 
     The session also drops what it tracks about the member. The effects on them end without
     events, and their death record, their food and water counts, and the record of when they

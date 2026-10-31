@@ -32,8 +32,7 @@ The contract these tests state:
   fresh id.
 
 The tests in `TestTheContract` check the command and event models, and the mode tests in
-`TestRefusals` check the session's mode gate. All of these exist before the handler does, so
-they pass on the stubs and carry no marker. Every other test is marked for the chunk.
+`TestRefusals` check the session's mode gate.
 """
 
 import json
@@ -102,8 +101,6 @@ from test_add_member import (
 )
 from test_crawl_properties import command_strategy
 from test_terminal_modes import POISON_ONSET
-
-CHUNK = pytest.mark.xfail(reason="chunk: remove-member", strict=True)
 
 LEAD, THIEF, CLERIC, MAGE = STOCK_IDS
 """The stock party's ids in marching order: Brakk the fighter, Sable the thief, Wynn the
@@ -293,7 +290,7 @@ def snapshot(session: GameSession) -> dict:
 
 
 class TestTheContract:
-    """The command and event models. These exist before the handler, so they carry no marker."""
+    """The command and event models."""
 
     def test_it_is_appended_after_add_member(self):
         assert ALL_COMMAND_CLASSES.index(RemoveMember) == ALL_COMMAND_CLASSES.index(AddMember) + 1
@@ -350,7 +347,6 @@ class TestTheContract:
 
 
 class TestAccepted:
-    @CHUNK
     @pytest.mark.parametrize("mode", FIELD_MODES)
     def test_the_member_leaves_and_the_rest_keep_their_order(self, mode):
         session = session_in(mode)
@@ -361,7 +357,6 @@ class TestAccepted:
         assert session.mode.value == mode, "removing a member changes no mode"
         assert session.dungeon_state.location.model_dump(mode="json") == location, "and moves nobody"
 
-    @CHUNK
     @pytest.mark.parametrize("mode", FIELD_MODES)
     def test_it_draws_nothing_takes_no_time_and_is_logged(self, mode):
         session = session_in(mode)
@@ -373,7 +368,6 @@ class TestAccepted:
         assert session.clock.rounds == rounds
         assert session.command_log[-1] is command
 
-    @CHUNK
     def test_the_event_is_player_visible_and_logged(self):
         session = new_session()
         (event,) = remove(session, CLERIC)
@@ -381,14 +375,12 @@ class TestAccepted:
         assert session.event_log[-1] == event
         assert format_message(event) == "Wynn leaves the party."
 
-    @CHUNK
     def test_the_front_member_can_leave(self):
         session = new_session()
         remove(session, LEAD)
         assert member_ids(session) == (THIEF, CLERIC, MAGE)
         assert [member.id for member in session.party.ranks(2)[0]] == [THIEF, CLERIC]
 
-    @CHUNK
     @pytest.mark.parametrize("state", ["alive", "dead", "petrified", "asleep"])
     def test_a_member_in_any_state_can_leave(self, state):
         session = new_session()
@@ -398,7 +390,6 @@ class TestAccepted:
         assert events == [MemberRemovedEvent(character_id=MAGE, name="Elara", given_to=None)]
         assert member_ids(session) == (LEAD, THIEF, CLERIC)
 
-    @CHUNK
     def test_the_old_id_is_refused_afterwards(self):
         session = new_session()
         remove(session, THIEF)
@@ -408,7 +399,6 @@ class TestAccepted:
         assert_refused(session, RemoveMember(character_id=THIEF), "session.command.unknown_member")
         assert_refused(session, RemoveMember(character_id=CLERIC, give_to=THIEF), "session.command.unknown_member")
 
-    @CHUNK
     def test_reorder_party_takes_the_new_roster(self):
         session = new_session()
         remove(session, THIEF)
@@ -420,7 +410,6 @@ class TestAccepted:
 
 
 class TestGiveTo:
-    @CHUNK
     def test_everything_the_member_carries_moves_to_give_to(self):
         session = new_session()
         session.execute(GrantItem(character_id=LEAD, item_id="torch", quantity=2))
@@ -442,7 +431,6 @@ class TestGiveTo:
             ), denomination
         assert session.party_valuation_cp() == valuation, "nothing leaves the party"
 
-    @CHUNK
     def test_equipped_items_arrive_unequipped(self):
         session = new_session()
         magic = load_the_thief(session)
@@ -452,7 +440,6 @@ class TestGiveTo:
         assert session.member(LEAD).inventory.rings == []
         assert magic["ring"] in pack_ids(session, LEAD)
 
-    @CHUNK
     def test_the_events_are_the_releases_then_the_handover_then_the_removal(self):
         session = new_session()
         magic = load_the_thief(session)
@@ -473,7 +460,6 @@ class TestGiveTo:
         assert given.coins_gp_value == THIEF_PURSE.value_gp
         assert removed == MemberRemovedEvent(character_id=THIEF, name="Sable", given_to=LEAD)
 
-    @CHUNK
     def test_the_released_ring_no_longer_works_for_anyone(self):
         session = new_session()
         load_the_thief(session)
@@ -481,7 +467,6 @@ class TestGiveTo:
         assert not session.ledger.active_on(LEAD, "regeneration"), "a ring in the pack does nothing"
         assert not [effect for effect in session.ledger.effects if effect.definition.kind == "regeneration"]
 
-    @CHUNK
     def test_a_revealed_cursed_ring_moves_too(self):
         session = new_session()
         ring_id = granted_magic(session, THIEF, "ring_of_weakness")
@@ -497,7 +482,6 @@ class TestGiveTo:
         assert session.member(LEAD).inventory.rings == []
         assert not session.ledger.active_on(LEAD), "the curse doesn't pass to Brakk"
 
-    @CHUNK
     def test_coins_alone_make_a_handover_with_no_items(self):
         session = new_session()
         assert session.execute(GrantCoins(character_id=THIEF, coins=Coins(gp=30))).accepted
@@ -505,13 +489,11 @@ class TestGiveTo:
         assert events[:-1] == [ItemsGivenEvent(character_id=THIEF, recipient_id=LEAD, item_ids=(), coins_gp_value=30)]
         assert session.member(LEAD).inventory.purse.gp == 30
 
-    @CHUNK
     def test_an_empty_handed_member_makes_no_handover(self):
         session = new_session()
         events = remove(session, THIEF, give_to=LEAD)
         assert events == [MemberRemovedEvent(character_id=THIEF, name="Sable", given_to=LEAD)]
 
-    @CHUNK
     def test_a_dead_member_s_goods_go_to_give_to(self):
         session = new_session()
         enter(session)
@@ -523,7 +505,6 @@ class TestGiveTo:
 
 
 class TestWithoutGiveTo:
-    @CHUNK
     def test_everything_the_member_carries_leaves_the_game(self):
         session = new_session()
         magic = load_the_thief(session)
@@ -545,7 +526,6 @@ class TestWithoutGiveTo:
 
 
 class TestTheSessionForgetsTheMember:
-    @CHUNK
     @pytest.mark.parametrize("give_to", [None, LEAD])
     def test_effects_on_the_member_end_with_no_event(self, give_to):
         session = mage_session()
@@ -558,7 +538,6 @@ class TestTheSessionForgetsTheMember:
         assert not session.ledger.active_on(MAGE)
         assert not [effect for effect in session.view(Visibility.PLAYER).effects if effect.character_id == MAGE]
 
-    @CHUNK
     def test_an_effect_the_member_cast_on_another_lasts_its_full_duration(self):
         session = mage_session()
         cast = CastSpell(character_id=MAGE, spell_id="light_mu", mode="illuminate", targets=(LEAD,))
@@ -579,7 +558,6 @@ class TestTheSessionForgetsTheMember:
         )
         assert not session.ledger.active_on(LEAD, "light")
 
-    @CHUNK
     def test_the_death_record_is_dropped(self):
         session = new_session()
         enter(session)
@@ -588,7 +566,6 @@ class TestTheSessionForgetsTheMember:
         assert MAGE not in session.death_records
         assert MAGE not in session.view(Visibility.REFEREE).death_records
 
-    @CHUNK
     def test_the_deprivation_state_is_dropped(self):
         session = new_session()
         enter(session)
@@ -600,7 +577,6 @@ class TestTheSessionForgetsTheMember:
         assert MAGE not in session.view(Visibility.REFEREE).deprivation
         assert set(session.deprivation) == {LEAD, THIEF, CLERIC}, "the others keep theirs"
 
-    @CHUNK
     def test_the_prepared_sleep_record_is_dropped(self):
         session = mage_session()
         assert MAGE in session.last_prepared_sleep
@@ -610,7 +586,6 @@ class TestTheSessionForgetsTheMember:
 
 
 class TestLight:
-    @CHUNK
     def test_a_burning_torch_leaves_with_its_bearer(self):
         session = new_session()
         enter(session)
@@ -621,7 +596,6 @@ class TestLight:
         assert not session.party_light()[0]
         assert not [effect for effect in session.view(Visibility.PLAYER).effects if effect.kind == "light"]
 
-    @CHUNK
     def test_a_lantern_given_away_arrives_unlit(self):
         session = new_session()
         enter(session)
@@ -633,7 +607,6 @@ class TestLight:
         assert not session.party_light()[0]
         assert not [effect for effect in session.view(Visibility.PLAYER).effects if effect.kind == "light"]
 
-    @CHUNK
     def test_another_member_s_light_keeps_burning(self):
         session = new_session()
         enter(session)
@@ -650,9 +623,6 @@ class TestLight:
 
 
 class TestRefusals:
-    # The session's mode gate runs before any handler, so the mode tests hold on the stub and
-    # carry no marker.
-
     @pytest.mark.parametrize("mode", REFUSED_MODES)
     def test_every_other_mode_refuses_it(self, mode):
         session = session_in(mode)
@@ -664,24 +634,20 @@ class TestRefusals:
             session, RemoveMember(character_id="character-0099", give_to=THIEF), "session.command.wrong_mode"
         )
 
-    @CHUNK
     def test_an_unknown_member_is_refused(self):
         session = new_session()
         assert_refused(session, RemoveMember(character_id="character-0099"), "session.command.unknown_member")
 
-    @CHUNK
     def test_an_unknown_give_to_is_refused(self):
         session = new_session()
         assert_refused(
             session, RemoveMember(character_id=THIEF, give_to="character-0099"), "session.command.unknown_member"
         )
 
-    @CHUNK
     def test_giving_to_the_leaving_member_is_refused(self):
         session = new_session()
         assert_refused(session, RemoveMember(character_id=THIEF, give_to=THIEF), "party.remove.same_member")
 
-    @CHUNK
     @pytest.mark.parametrize("state", ["dead", "petrified", "asleep"])
     def test_a_give_to_who_cannot_act_is_refused(self, state):
         session = new_session()
@@ -691,12 +657,10 @@ class TestRefusals:
             session, RemoveMember(character_id=THIEF, give_to=CLERIC), "session.command.member_incapacitated"
         )
 
-    @CHUNK
     def test_the_only_member_is_refused(self):
         session = solo_session()
         assert_refused(session, RemoveMember(character_id=LEAD), "party.remove.last_standing")
 
-    @CHUNK
     @pytest.mark.parametrize("fallen", ["dead", "petrified"])
     def test_the_last_member_standing_is_refused(self, fallen):
         session = new_session()
@@ -705,7 +669,6 @@ class TestRefusals:
             put_in_state(session, character_id, fallen)
         assert_refused(session, RemoveMember(character_id=LEAD), "party.remove.last_standing")
 
-    @CHUNK
     def test_the_last_standing_member_is_refused_between_the_dead_and_the_stone(self):
         session = new_session()
         enter(session)
@@ -714,7 +677,6 @@ class TestRefusals:
         petrify(session, MAGE)
         assert_refused(session, RemoveMember(character_id=LEAD), "party.remove.last_standing")
 
-    @CHUNK
     def test_a_fallen_member_can_leave_while_another_stands(self):
         session = new_session()
         enter(session)
@@ -725,7 +687,6 @@ class TestRefusals:
         remove(session, THIEF)
         assert member_ids(session) == (LEAD, CLERIC)
 
-    @CHUNK
     def test_an_asleep_member_counts_as_standing(self):
         session = new_session()
         enter(session)
@@ -735,7 +696,6 @@ class TestRefusals:
         remove(session, LEAD)
         assert member_ids(session) == (THIEF, CLERIC, MAGE)
 
-    @CHUNK
     def test_an_unknown_member_is_reported_before_the_same_member(self):
         session = new_session()
         assert_refused(
@@ -744,14 +704,12 @@ class TestRefusals:
             "session.command.unknown_member",
         )
 
-    @CHUNK
     def test_the_same_member_is_reported_before_an_incapacitated_give_to(self):
         session = new_session()
         enter(session)
         die(session, THIEF)
         assert_refused(session, RemoveMember(character_id=THIEF, give_to=THIEF), "party.remove.same_member")
 
-    @CHUNK
     def test_an_incapacitated_give_to_is_reported_before_the_last_standing(self):
         session = new_session()
         enter(session)
@@ -759,7 +717,6 @@ class TestRefusals:
             die(session, character_id)
         assert_refused(session, RemoveMember(character_id=LEAD, give_to=THIEF), "session.command.member_incapacitated")
 
-    @CHUNK
     def test_an_unknown_give_to_is_reported_before_the_last_standing(self):
         session = solo_session()
         assert_refused(
@@ -804,26 +761,22 @@ class TestTreasure:
         award, _, _ = delve_award(None)
         assert award.treasure_xp == 400
 
-    @CHUNK
     def test_a_removal_without_give_to_leaves_the_treasure_experience_as_it_was(self):
         award, before, after = delve_award(RemoveMember(character_id=THIEF))
         assert after == before - (500 + 300 + 50) * 100
         assert award.treasure_xp == 400
         assert THIEF not in award.survivors
 
-    @CHUNK
     def test_a_removal_with_give_to_leaves_the_snapshot_alone(self):
         award, before, after = delve_award(RemoveMember(character_id=THIEF, give_to=CLERIC))
         assert after == before
         assert award.treasure_xp == 400
 
-    @CHUNK
     @pytest.mark.parametrize("give_to", [None, CLERIC])
     def test_a_dead_member_s_removal_leaves_the_treasure_experience_as_it_was(self, give_to):
         award, _, _ = delve_award(RemoveMember(character_id=THIEF, give_to=give_to), sable_dies=True)
         assert award.treasure_xp == 400
 
-    @CHUNK
     def test_a_removal_in_town_leaves_no_snapshot(self):
         session = new_session()
         assert session.execute(GrantCoins(character_id=THIEF, coins=Coins(gp=500))).accepted
@@ -837,7 +790,6 @@ class TestTreasure:
 
 
 class TestIds:
-    @CHUNK
     def test_a_member_added_afterwards_gets_a_fresh_id(self):
         session = new_session()
         remove(session, MAGE)
@@ -846,7 +798,6 @@ class TestIds:
         assert result.events[0].character_id == NEW
         assert member_ids(session) == (LEAD, THIEF, CLERIC, NEW)
 
-    @CHUNK
     def test_a_retired_id_is_passed_over_even_when_the_allocator_never_issued_it(self):
         # `GameSession.new` keeps ids members already have and allocates nothing for them, so
         # the allocator's next ids can be ones a member had. A removed member's id stays retired.
@@ -860,7 +811,6 @@ class TestIds:
         assert result.accepted
         assert result.events[0].character_id == "character-0004"
 
-    @CHUNK
     def test_a_retired_id_stays_retired_through_a_save_and_a_replay(self):
         members = build_party().members[:3]
         for number, member in enumerate(members, start=1):
@@ -881,7 +831,6 @@ class TestIds:
             assert result.accepted
             assert result.events[0].character_id == "character-0004"
 
-    @CHUNK
     def test_a_wiped_party_is_replaced_and_the_fallen_retired(self):
         session = session_in("game_over")
         assert session.execute(PlaceParty(location={"kind": "town"})).accepted
@@ -899,7 +848,6 @@ class TestIds:
 
 
 class TestViewsSavesAndReplay:
-    @CHUNK
     def test_both_views_leave_the_member_out(self):
         session = new_session()
         remove(session, THIEF, give_to=LEAD)
@@ -908,7 +856,6 @@ class TestViewsSavesAndReplay:
         referee = session.view(Visibility.REFEREE)
         assert tuple(member.id for member in referee.party.members) == (LEAD, CLERIC, MAGE)
 
-    @CHUNK
     @pytest.mark.parametrize("mode", FIELD_MODES)
     def test_a_save_round_trips_the_removal(self, mode):
         session = session_in(mode)
@@ -921,7 +868,6 @@ class TestViewsSavesAndReplay:
         assert result.accepted
         assert result.events[0].character_id == NEW
 
-    @CHUNK
     def test_a_replay_reaches_the_same_party(self):
         # Every step is a command, so the replay has all of it.
         session = new_session()
@@ -939,11 +885,10 @@ class TestViewsSavesAndReplay:
 # ---------------------------------------------------------------------- the fuzz contract
 
 
-@CHUNK
 @settings(max_examples=40, deadline=None, suppress_health_check=[HealthCheck.too_slow])
 @given(
     seed=st.integers(min_value=0, max_value=2**32),
-    commands=st.lists(command_strategy(include_pending=True), min_size=1, max_size=25),
+    commands=st.lists(command_strategy(), min_size=1, max_size=25),
 )
 def test_fuzzed_sequences_with_removals_never_raise_and_round_trip(seed, commands):
     """Schema-valid commands, `RemoveMember` among them, reject and never throw.
