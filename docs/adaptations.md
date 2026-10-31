@@ -145,7 +145,7 @@ RAW offers "re-roll or resolve simultaneously". Resolving at the same time would
 
 ### Slow actors act after all non-slow actors
 
-A combatant with a slow weapon acts after every combatant without one. Among themselves, slow actors go in their side's initiative order, or in each actor's own initiative under individual initiative, then in stable order.
+A combatant with a slow weapon acts after every combatant without one. Among themselves, slow actors go in their side's initiative order, or in each actor's initiative under individual initiative, then in stable order.
 
 That's how osrlib reads "always act last, as if they had lost initiative" for the general case. Locked by `test_combat.py::TestInitiative::test_slow_actors_act_last_by_side_initiative`.
 
@@ -229,7 +229,7 @@ The `hd5_counts_as_magical` flag applies the whole SRD optional rule it cites, n
 - A monster of 5 HD or more.
 - "another invulnerable monster", in the rule's words, which means a monster that has such a gate itself.
 
-Applying half an optional rule would be a departure from the SRD that nothing documents. The flag follows the rule's wording, so it affects only weapon gates whose keys are silver, magic, or both. Gates keyed to an element, and mixed gates, are unaffected, like the mummy's fire-or-magic gate and the black pudding's fire-only gate. Locked by `test_combat.py::TestDamagePipeline`.
+Applying half an optional rule would be an undocumented departure from the SRD. The flag follows the rule's wording, so it affects only weapon gates whose keys are silver, magic, or both. Gates keyed to an element, and mixed gates, are unaffected, like the mummy's fire-or-magic gate and the black pudding's fire-only gate. Locked by `test_combat.py::TestDamagePipeline`.
 
 ### The `holy` damage key is admitted through any gate on undead targets, and only there
 
@@ -562,7 +562,7 @@ Locked by `test_casting.py::TestBuffsAndWards` and `test_spell_properties.py`.
 
 ### Shield's AC values apply as better-of
 
-*Shield* never makes a target's AC worse. The target's AC is the better of its own AC and the value the spell gives, "AC 2 [17] against missiles, AC 4 [15] against other attacks", so a target in plate armour keeps its plate AC. Locked by `test_casting.py::TestBuffsAndWards`.
+*Shield* never makes a target's AC worse. The target's AC is the better of its current AC and the value the spell gives, "AC 2 [17] against missiles, AC 4 [15] against other attacks", so a target in plate armour keeps its plate AC. Locked by `test_casting.py::TestBuffsAndWards`.
 
 ### Striking applies to weapon attacks of any kind, never unarmed, and attaches to the wielder
 
@@ -584,7 +584,7 @@ The ±1 needs each monster's alignment to be settled, even when its template, `M
 
 ### Small nonmagical missiles are character weapon missiles and thrown splash items
 
-The heading names what *protection from normal missiles* stops: a character's missile weapons and thrown splash items, and a monster's attack only when the caller says it's a small missile. osrlib draws that boundary from the spell page's examples ("no protection is granted against hurled boulders or enchanted missiles"):
+The heading describes what *protection from normal missiles* stops: a character's missile weapons and thrown splash items, and a monster's attack only when the caller says it's a small missile. osrlib draws that boundary from the spell page's examples ("no protection is granted against hurled boulders or enchanted missiles"):
 
 - A missile weapon use or a thrown splash item sets the `DamageSource.missile` flag.
 - The engine never sets the flag on a monster's attack by itself. The caller sets `AttackContext.monster_missile` when the attack is a small missile in the story, like a hobgoblin's arrow.
