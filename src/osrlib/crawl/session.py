@@ -101,6 +101,7 @@ print(restored.view(Visibility.PLAYER) == view)
 # changes nothing, and spends no time until the last rejection check has passed. The referee and quest
 # command handlers are at the bottom of this module.
 
+import re
 from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any, Literal, Protocol
 
@@ -110,6 +111,7 @@ from osrlib.core.alignment import Alignment
 from osrlib.core.character import ADVANCEMENT_STREAM, Character
 from osrlib.core.classes import XpAwardResult, apply_xp, level_title
 from osrlib.core.clock import ROUNDS_PER_DAY, ROUNDS_PER_TURN, GameClock, TimeUnit
+from osrlib.core.combat import incapacitated
 from osrlib.core.effects import EFFECTS_STREAM, Condition, EffectsLedger
 from osrlib.core.events import (
     ConditionGainedEvent,
@@ -121,7 +123,7 @@ from osrlib.core.events import (
     SavingThrowRolledEvent,
     Visibility,
 )
-from osrlib.core.items import EquipmentCatalog, ItemInstance, MagicItemInstance
+from osrlib.core.items import EquipmentCatalog, Inventory, ItemInstance, MagicItemInstance
 from osrlib.core.monsters import MONSTER_SPAWN_STREAM, IdAllocator, MonsterCatalog, MonsterInstance, spawn_monster
 from osrlib.core.rng import RngStreams, StreamName
 from osrlib.core.ruleset import Ruleset
@@ -165,11 +167,13 @@ from osrlib.crawl.events import (
     FlagSetEvent,
     GameOverEvent,
     ItemAcquiredEvent,
+    ItemsGivenEvent,
     ItemsRemovedEvent,
     JournalEntryAddedEvent,
     LightEvent,
     LocationEnteredEvent,
     MemberAddedEvent,
+    MemberRemovedEvent,
     MonstersSpawnedEvent,
     NoteRecordedEvent,
     ObjectiveCompletedEvent,
@@ -180,7 +184,7 @@ from osrlib.crawl.events import (
     TriggerFiredEvent,
     XpAwardedEvent,
 )
-from osrlib.crawl.party import Party, _anyone_standing
+from osrlib.crawl.party import Party, _anyone_standing, _stands
 from osrlib.crawl.quests import ObjectiveSpec, QuestSpec
 from osrlib.data import load_equipment, load_magic_items, load_monsters
 from osrlib.errors import ContentValidationError
@@ -2292,7 +2296,110 @@ def _handle_add_member(session: GameSession, command: AddMember) -> tuple[list[R
 
 
 def _handle_remove_member(session: GameSession, command: RemoveMember) -> tuple[list[Rejection], list[Event]]:
-    raise NotImplementedError("chunk: remove-member")
+    try:
+        member = session.member(command.character_id)
+    except ValueError:
+        return [Rejection(code="session.command.unknown_member", params={"character": command.character_id})], []
+    recipient: Character | None = None
+    if command.give_to is not None:
+        try:
+            recipient = session.member(command.give_to)
+        except ValueError:
+            return [Rejection(code="session.command.unknown_member", params={"character": command.give_to})], []
+        if recipient is member:
+            return [Rejection(code="party.remove.same_member", params={"character": command.give_to})], []
+        if incapacitated(recipient):
+            return [Rejection(code="session.command.member_incapacitated", params={"character": command.give_to})], []
+    if not any(_stands(other) for other in session.party.members if other is not member):
+        return [Rejection(code="party.remove.last_standing", params={"character": command.character_id})], []
+    member_id = _member_id(member)
+    events: list[Event] = []
+    if recipient is not None:
+        events.extend(_hand_over_everything(session, member, recipient))
+    elif session.treasure_snapshot_cp is not None:
+        # The coins and valuables leave the party's total, so the baseline the return award
+        # measures against drops by the same amount, and the award doesn't change.
+        session.treasure_snapshot_cp -= member.inventory.purse.value_cp + sum(
+            valuable.value_gp * 100 for valuable in member.inventory.valuables
+        )
+    # Whatever the member still carries leaves with them, and so does every effect on them. An
+    # effect the member cast on another member targets that other member, so it stays.
+    session.ledger.effects = [effect for effect in session.ledger.effects if effect.target_ref != member_id]
+    session.death_records.pop(member_id, None)
+    session.deprivation.pop(member_id, None)
+    session.last_prepared_sleep.pop(member_id, None)
+    session.party.members = [other for other in session.party.members if other is not member]
+    _retire_member_id(session, member_id)
+    events.append(MemberRemovedEvent(character_id=member_id, name=member.name, given_to=command.give_to))
+    return [], events
+
+
+def _hand_over_everything(session: GameSession, giver: Character, recipient: Character) -> list[Event]:
+    """Move everything a leaving member carries to `recipient`, as a `GiveItems` of all of it would.
+
+    An equipped magic item releases its effects first, with events, and every item arrives
+    unequipped in the recipient's pack. Mundane gear joins the recipient's stacks. A revealed
+    curse held only its wearer, so a cursed item arrives no longer stuck, as *remove curse* would
+    leave it. Returns the releases and one `ItemsGivenEvent`, or no events when the member
+    carried nothing.
+    """
+    from osrlib.crawl import exploration
+
+    inventory = giver.inventory
+    events: list[Event] = []
+    item_ids: list[str] = []
+    for instance in inventory.all_instances():
+        if isinstance(instance, MagicItemInstance):
+            events.extend(exploration._release_instance_effects(session, instance))
+            instance.cursed_revealed = False
+            recipient.inventory.items.append(instance)
+            item_ids.append(instance.instance_id)
+        else:
+            exploration._grant_mundane(recipient, instance.template, instance.quantity)
+            item_ids.extend([instance.template.id] * instance.quantity)
+    for valuable in inventory.valuables:
+        recipient.inventory.valuables.append(valuable)
+        item_ids.append(valuable.instance_id)
+    purse = inventory.purse
+    moved_cp = purse.value_cp
+    moved_coins = purse.total_coins
+    recipient_purse = recipient.inventory.purse
+    for denomination in ("pp", "gp", "ep", "sp", "cp"):
+        setattr(recipient_purse, denomination, getattr(recipient_purse, denomination) + getattr(purse, denomination))
+    giver.inventory = Inventory()
+    if item_ids or moved_coins:
+        events.append(
+            ItemsGivenEvent(
+                character_id=_member_id(giver),
+                recipient_id=_member_id(recipient),
+                item_ids=tuple(item_ids),
+                coins_gp_value=moved_cp // 100,
+            )
+        )
+    return events
+
+
+def _retire_member_id(session: GameSession, member_id: str) -> None:
+    """Make sure the allocator never hands out a removed member's id.
+
+    The allocator counts up and never goes back, so moving its `character` count up to the
+    removed id's number retires that id and every one below it. That holds for an id the
+    allocator never issued, like one a member brought from an earlier session. The count lives
+    in the allocator, which a save contains, and a replay executes the removal again. An id
+    that isn't in the allocator's `character-NNNN` form is one the allocator can't produce, so
+    it needs nothing.
+    """
+    match = _ALLOCATED_CHARACTER_ID.fullmatch(member_id)
+    if match is None:
+        return
+    number = int(match.group(1))
+    if member_id != f"character-{number:04d}":
+        return
+    if number > session.allocator.counters.get("character", 0):
+        session.allocator.counters["character"] = number
+
+
+_ALLOCATED_CHARACTER_ID = re.compile(r"character-([0-9]+)")
 
 
 def _handle_award_xp(session: GameSession, command: AwardXP) -> tuple[list[Rejection], list[Event]]:

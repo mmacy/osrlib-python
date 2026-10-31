@@ -309,14 +309,17 @@ class Party(BaseModel):
         self.members = [by_id[character_id] for character_id in character_ids]
 
 
+def _stands(member: Character) -> bool:
+    """Whether a member stands, which means they are neither dead nor petrified."""
+    return not has_condition(member, Condition.DEAD) and not has_condition(member, Condition.PETRIFIED)
+
+
 def _anyone_standing(party: Party) -> bool:
     """Whether any member stands, which means they are neither dead nor petrified.
 
-    The session's `game_over` check and a battle's defeat check ask this. A statue still counts
-    among [`living_members`][osrlib.crawl.party.Party.living_members] for every other rule, so a
-    party turned wholly to stone has living members but nobody standing.
+    The session's `game_over` check and a battle's defeat check ask this, and
+    [`RemoveMember`][osrlib.crawl.commands.RemoveMember] refuses to take out the last member who
+    stands. A statue still counts among [`living_members`][osrlib.crawl.party.Party.living_members]
+    for every other rule, so a party turned wholly to stone has living members but nobody standing.
     """
-    return any(
-        not has_condition(member, Condition.DEAD) and not has_condition(member, Condition.PETRIFIED)
-        for member in party.members
-    )
+    return any(_stands(member) for member in party.members)
