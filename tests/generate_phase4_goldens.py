@@ -24,8 +24,9 @@ from crawl_fixtures import build_milestone_adventure, build_milestone_party
 from osrlib.core.character import party_to_document
 from osrlib.core.combat import incapacitated
 from osrlib.core.effects import Condition, has_condition
-from osrlib.core.events import Event
+from osrlib.core.events import Event, Visibility
 from osrlib.core.items import Coins
+from osrlib.crawl.battle import MELEE_RANGE_FEET, preview_battle_round
 from osrlib.crawl.commands import (
     BattleDeclaration,
     Command,
@@ -200,28 +201,26 @@ class Driver:
             self.beats.wandering_battle_won = True
 
     def build_declarations(self, round_number: int, *, allow_area: bool = False):
-        session = self.session
-        groups = [
-            group
-            for group in session.encounter.groups
-            if not group.fled
-            and any(not has_condition(session.monsters[mid], Condition.DEAD) for mid in group.monster_ids)
-        ]
-        target = min(groups, key=lambda group: group.distance_feet) if groups else None
-        declarations = []
-        undead = target is not None and "undead" in session.monsters[target.monster_ids[0]].template.categories
-        from osrlib.crawl.battle import _monster_pool, _party_front_rank
+        """Plan one round from the player view, the way a game would.
 
-        front = _party_front_rank(session)
-        for member in session.party.living_members():
-            if incapacitated(member):
-                continue
+        The target is the living group nearest any member. Clerics turn undead in the first round
+        and heal the wounded after that, and the magic-user casts when the moment suits a spell.
+        Every other declarer closes on the target and fights it, as `melee_declaration` plans.
+        """
+        session = self.session
+        view = session.view(Visibility.PLAYER)
+        encounter = view.encounter
+        rates = {member.id: member.encounter_rate_feet for member in view.party}
+        groups = [group for group in encounter.groups if group.count and not group.fled]
+        if not groups:
+            return tuple(BattleDeclaration(character_id=member_id, action="hold") for member_id in encounter.declarers)
+        target = min(groups, key=lambda group: min(group.member_distance_feet.values()))
+        monsters = self.target_monsters(target.id)
+        undead = "undead" in getattr(getattr(monsters[0], "template", None), "categories", ())
+        planned: list[BattleDeclaration] = []
+        for member_id in encounter.declarers:
+            member = session.member(member_id)
             declaration = None
-            if target is None:
-                declaration = BattleDeclaration(character_id=member.id, action="hold")
-                declarations.append(declaration)
-                continue
-            pool = _monster_pool(session, target)
             if member.class_id == "cleric" and undead and round_number == 1:
                 declaration = BattleDeclaration(character_id=member.id, action="turn_undead")
             elif member.class_id == "cleric":
@@ -244,33 +243,56 @@ class Driver:
                         targets=(wounded.id,),
                     )
             elif member.class_id == "magic_user":
-                declaration = self.magic_user_declaration(member, target, pool, allow_area)
+                declaration = self.magic_user_declaration(member, target, monsters, allow_area)
             if declaration is None:
                 weapon = next(
                     (item.template.id for item in member.inventory.wielded if item.template.item_type == "weapon"),
                     None,
                 )
-                if member in front and target.distance_feet <= 5 and pool:
-                    declaration = BattleDeclaration(
-                        character_id=member.id, action="attack", target_group_id=target.id, weapon_id=weapon
-                    )
-                elif member is front[0] and target.distance_feet > 5:
-                    declaration = BattleDeclaration(
-                        character_id=member.id, action="move", move="close", target_group_id=target.id
-                    )
-                else:
-                    declaration = BattleDeclaration(character_id=member.id, action="hold")
-            declarations.append(declaration)
-        return tuple(declarations)
+                declaration = self.melee_declaration(member.id, rates[member.id], target, weapon, planned, encounter)
+            planned.append(declaration)
+        return tuple(planned)
 
-    def magic_user_declaration(self, member, target, pool, allow_area: bool):
-        session = self.session
+    def target_monsters(self, group_id: str) -> list:
+        """The target group's living monsters the party can see, for a spell's targets."""
+        group = next(group for group in self.session.encounter.groups if group.id == group_id)
+        living = [self.session.combatant(monster_id) for monster_id in group.monster_ids]
+        living = [monster for monster in living if not has_condition(monster, Condition.DEAD)]
+        visible = [monster for monster in living if not has_condition(monster, Condition.INVISIBLE)]
+        return visible or living
+
+    def melee_declaration(self, member_id, rate, target, weapon, planned, encounter) -> BattleDeclaration:
+        """Close on the target and fight it, choosing the first plan the round preview accepts.
+
+        A member in the target's front rank attacks where they stand. A member who can reach the
+        target this round, while its front rank has a place left, attacks with `move="close"`. A
+        member who can't reach it, or finds the front rank full, closes without attacking. A
+        member who can do none of these holds.
+        """
+        attack = BattleDeclaration(character_id=member_id, action="attack", target_group_id=target.id, weapon_id=weapon)
+        close = BattleDeclaration(character_id=member_id, action="move", move="close", target_group_id=target.id)
+        distance = target.member_distance_feet[member_id]
+        candidates = []
+        if member_id in target.front_rank:
+            candidates.append(attack)
+        else:
+            projected = preview_battle_round(self.session, planned).front_rank[target.id]
+            room = encounter.formation_width is None or len(projected) < encounter.formation_width
+            if room and distance <= rate + MELEE_RANGE_FEET:
+                candidates.append(attack.model_copy(update={"move": "close"}))
+            if distance > MELEE_RANGE_FEET:
+                candidates.append(close)
+        for candidate in candidates:
+            if not preview_battle_round(self.session, [*planned, candidate]).rejections[member_id]:
+                return candidate
+        return BattleDeclaration(character_id=member_id, action="hold")
+
+    def magic_user_declaration(self, member, target, monsters, allow_area: bool):
         memorized = [copy.spell_id for copy in member.memorized_spells]
-        living = [mid for mid in target.monster_ids if not has_condition(session.monsters[mid], Condition.DEAD)]
-        # The area beat lands in the wandering fight — the keyed goblins must be
-        # fought by hand so their morale gets a chance to break. Fire ball only
-        # beyond melee (friendly fire would catch the front rank at 5').
-        if allow_area and "fire_ball" in memorized and len(living) >= 2 and target.distance_feet > 5:
+        # The area beat lands in the wandering fight. The keyed goblins must be fought by hand so
+        # their morale gets a chance to break. Fire ball goes only while nobody stands within 5' of
+        # the group, because friendly fire would catch a member in melee.
+        if allow_area and "fire_ball" in memorized and len(monsters) >= 2 and not target.front_rank:
             return BattleDeclaration(
                 character_id=member.id,
                 action="cast",
@@ -278,15 +300,15 @@ class Driver:
                 spell_mode="damage",
                 target_group_id=target.id,
             )
-        # Missiles wait for melee range: a cast declared while blows are landing
-        # is the disruption window the milestone needs.
-        if "magic_missile" in memorized and pool and target.distance_feet <= 5:
+        # Missiles wait until blows are landing on the group. When the magic-user stands in its
+        # front rank herself, a cast declared then is the disruption window the milestone needs.
+        if "magic_missile" in memorized and target.front_rank:
             return BattleDeclaration(
                 character_id=member.id,
                 action="cast",
                 spell_id="magic_missile",
                 spell_mode="missiles",
-                targets=(pool[0].id,),
+                targets=(monsters[0].id,),
             )
         return None
 
