@@ -15,8 +15,8 @@ target once a round, so the attacks left in the round's routine after a paralysi
 **Statues.** A member turned to stone is out of the fight. This is a judgement, not SRD text, and the adaptations
 register records it. Under `ScriptedPolicy`, no monster picks a petrified member while another target is in reach. A
 paralysed member comes before a statue, even for a ghoul. When every member in reach is stone, the monster attacks a
-statue, exactly as it did before. It doesn't hold, because a party that is all stone declares nothing and could never
-end the battle. It doesn't reach past the statues, because melee reaches only the front rank, in both directions.
+statue. It doesn't hold, because members behind a front rank of statues may still stand, and holding would stall the
+battle. It doesn't reach past the statues, because melee reaches only the front rank, in both directions.
 
 **The surprise gaze.** The basilisk's entry says "Characters surprised by a basilisk meet its gaze." #196 ran that
 gaze only in the monsters' free round, which comes only when the encounter goes straight to battle. Now every living
