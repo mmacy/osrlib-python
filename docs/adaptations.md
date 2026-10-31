@@ -685,27 +685,83 @@ In a session, a turning's candidates are the living monsters of the encounter's 
 
 ### The `magic` RNG stream, and the attach-time/tick-time split
 
-Every draw inside spell resolution (targeting dice, damage dice, touch-attack rolls, cast-time forced saves, dispel survival rolls, and both turning rolls) comes from the `"magic"` stream, so a combat-rules change never shifts spell goldens and vice versa. Effect-internal draws (rolled durations at attach, *web* escape dice, tick-time saves like the charm re-save) stay on the `"effects"` stream per [The combat kernel streams](#the-combat-kernel-streams), which is why `cast_spell` takes both streams. Spell resolution has no `Ruleset` flags: every choice is rules-as-written or an interpretation, never a referee-optional variant. Locked by the Phase 3 milestone goldens.
+Every draw inside spell resolution comes from the `"magic"` stream: targeting dice, damage dice, touch-attack rolls, forced saves when the spell is cast, dispel survival rolls, and both turning rolls. So a change to the combat rules never shifts spell results, and a change to spells never shifts combat.
+
+Draws inside an effect stay on the `"effects"` stream, as [The combat kernel streams](#the-combat-kernel-streams) describes. Those are durations rolled when the effect attaches, *web* escape dice, and saves made when the effect ticks, like the charm re-save. That's why `cast_spell` takes both streams.
+
+Spell resolution has no `Ruleset` flags: every choice is rules-as-written or an interpretation, never a variant the referee picks. Locked by the Phase 3 milestone goldens.
 
 ### Encounter tables: hand-mapped ids, table counts override, variant pools
 
-The encounter-table cell names hand-map to compiled monster ids with compile-time resolution (the printed links are unresolvable), and the printed count dice override the monster description's number appearing, per the SRD's note. Packed-variant cells (`Veteran`, `Vampire`, `Hellhound`) compile with the full id tuple and each spawned individual picks uniformly on the wandering stream. The two hydra cells have `variant_dice`, so the engine rolls the printed HD dice once on the wandering stream and selects the template. NPC-adventurer rows compile faithfully as structured `npc_party` entries, and the session fields a generated party for them (see [NPC parties in play](#npc-parties-in-play-encounter-sides-like-any-other)). The "Basic Adventures" typo and the singular "Expert Adventurer" labels normalize via `overrides/encounter_tables.json` with provenance. Locked by `test_encounter_data.py` and `test_exploration.py::TestWandering`.
+The compiler turns the SRD's encounter tables into data:
+
+- Each table entry's monster name is mapped by hand to a compiled monster id, and the compiler checks the mapping, because the printed links don't resolve.
+- The count dice printed in the table override the monster description's number appearing, as the SRD's note says.
+- An entry that packs variants, like `Veteran`, `Vampire`, or `Hellhound`, compiles with every variant's id. Each spawned monster picks one with equal chance, on the wandering stream.
+- The two hydra entries have `variant_dice`, so the engine rolls the printed HD dice once, on the wandering stream, and picks the template from the result.
+- Rows for NPC adventurers compile as structured `npc_party` entries, and the session fields a generated party for them (see [NPC parties in play](#npc-parties-in-play-encounter-sides-like-any-other)).
+- The "Basic Adventures" typo and the singular "Expert Adventurer" labels are normalized in `overrides/encounter_tables.json`, with a note of where each correction comes from.
+
+Locked by `test_encounter_data.py` and `test_exploration.py::TestWandering`.
 
 ### Encounter-table and reaction models live in core/tables.py
 
-This placement follows from layering: `osrlib/data/` loaders import the modules that define their models, and `core` modules import the loaders, so defining these models under `crawl/` would give `load_encounter_tables()` a transitive import from core through data into crawl. The reaction table clamps totals into its outer bands ("2 or less" / "12 or more") and reaction rolls are referee-visible (players learn reactions from behavior, as they learn morale results). A dungeon level's encounter table is its number clamped into the printed bands (1, 2, 3, 4-5, 6-7, 8+). Locked by `test_encounter_data.py` and `test_kernel_checks.py::TestRollReaction`.
+Encounter tables and reaction rolls follow these rules:
+
+- The reaction table clamps a total into its outer bands, "2 or less" and "12 or more".
+- Reaction rolls are visible only to the referee. Players learn reactions from how the monsters behave, as they learn morale results.
+- A dungeon level's encounter table is the level number clamped into the printed bands: 1, 2, 3, 4-5, 6-7, and 8+.
+
+The models for both are in `core/tables.py` because of layering. `osrlib/data/` loaders import the modules that define their models, and `core` modules import the loaders. Defining these models under `crawl/` would make `load_encounter_tables()` import from core, through data, into crawl. Locked by `test_encounter_data.py` and `test_kernel_checks.py::TestRollReaction`.
 
 ### The crawl streams
 
-The crawl layer's stream keys are `"wandering"` (the check die, the d20, count dice, variant picks, NPC re-rolls), `"encounter"` (surprise, distance, reaction, distraction), `"exploration"` (forcing, listening, searching, trap springs and trap resolution, tinder, thief skills), and `"monster_action"` (every policy draw, so a substituted policy never shifts attack or damage draws). Trap resolution draws (saves, damage, volley counts) run on the exploration stream, because they are part of the trap procedure, while attach-time condition durations stay on the effects stream per [The combat kernel streams](#the-combat-kernel-streams). Locked by the Phase 4 delve golden and `test_battle.py::TestDefaultPolicy`.
+The session uses four streams of its own:
+
+- `"wandering"`: the check die, the d20, count dice, variant picks, and NPC re-rolls.
+- `"encounter"`: surprise, distance, reaction, and distraction.
+- `"exploration"`: forcing doors, listening, searching, trap springs and trap resolution, tinder, and thief skills.
+- `"monster_action"`: every policy draw, so a different policy never shifts attack or damage draws.
+
+Trap resolution draws, like saves, damage, and the number of darts in a volley, are on the exploration stream, because they're part of the trap procedure. Durations of conditions rolled when an effect attaches stay on the effects stream, as [The combat kernel streams](#the-combat-kernel-streams) describes. Locked by the Phase 4 delve golden and `test_battle.py::TestDefaultPolicy`.
 
 ### Detection checks: precedence, zero-chance, and pick-pockets arithmetic
 
-The detection-chance precedence is thief row, then class tag, then the universal 1-in-6 baseline. Construction tricks are the exception, dwarf-only with a **zero** baseline, because the SRD grants that perception to dwarves alone. A zero chance consumes no draw. Pick pockets caps at 99 ("always at least a 1% chance of failure"), takes the victim's over-5th-level penalty as a caller modifier, and a roll of more than twice the effective chance is noticed. Locked by `test_kernel_checks.py`.
+A detection check uses the first chance that applies, in this order: the thief's skill row, then a class tag, then the 1-in-6 that everyone has.
+
+- Spotting construction tricks is the exception. Only dwarves can, and the baseline is **zero**, because the SRD gives that perception to dwarves alone.
+- A zero chance consumes no draw.
+- Pick pockets is capped at 99 ("always at least a 1% chance of failure"). The penalty for a victim above 5th level is a modifier the caller supplies. A roll of more than twice the effective chance is noticed.
+
+Locked by `test_kernel_checks.py`.
 
 ### The time-cost census and the thirds odometer
 
-Zero time: `TurnParty`, `ReorderParty`, `OpenDoor`, `CloseDoor`, `WedgeDoor`, `ForceDoor` (forcing takes a moment, and its cost is the noise), `ListenAtDoor` (the once-per-door cap is the limiter), equip/unequip, `DropItems`, `ExtinguishSource`, `PurchaseEquipment` (town time is abstract), and all referee commands. One round: `CastSpell` and `TurnUndead` outside battle, `LightSource` (per tinder attempt too, RAW). One turn: `Search`, `InspectTreasure`, `RemoveTreasureTrap` (osrlib's choice of a symmetric cost, where RAW is silent), `PickLock` (osrlib's choice, where RAW is silent and the skill is delicate work), `TakeTreasure` (RAW's packing-bags turn), `Rest(turn)`. On the odometer: `MoveParty` per cell, a passage at the cost of a step onto its landing cell, and `UseStairs` at one unexplored-cell cost (osrlib's choice). Stated durations: `Rest(night)` 48 turns, `Rest(day)` 144, `PrepareSpells` 6, and travel the turns that the town's `travel_turns` lists for the dungeon. Movement accrues in thirds-of-feet, an unexplored cell 30 units and an explored cell 10, implementing the SRD's three-times-through-familiar-areas rule exactly, and turn-costing actions snap the clock to the next boundary, absorbing the partial move. Locked by `test_exploration.py::TestTimeCostCensus` and `TestOdometer`.
+Every exploration command has a fixed cost in game time. A round is 10 seconds and a turn is 10 minutes.
+
+| Command | Time cost |
+| --- | --- |
+| `TurnParty`, `ReorderParty`, `OpenDoor`, `CloseDoor`, `WedgeDoor` | None |
+| `ForceDoor` | None. Forcing takes a moment, and its cost is the noise. |
+| `ListenAtDoor` | None. The limit of once per door is what holds it back. |
+| Equipping and unequipping, `DropItems`, `ExtinguishSource` | None |
+| `PurchaseEquipment` | None, because time in town is abstract. |
+| Every referee command | None |
+| `CastSpell` and `TurnUndead` outside battle | One round |
+| `LightSource` | One round, and one round for each tinder attempt, RAW |
+| `Search`, `InspectTreasure`, `Rest(turn)` | One turn |
+| `RemoveTreasureTrap` | One turn, osrlib's choice of a symmetric cost, where RAW is silent |
+| `PickLock` | One turn, osrlib's choice, where RAW is silent and the skill is delicate work |
+| `TakeTreasure` | One turn, RAW's turn for packing bags |
+| `MoveParty` | The odometer, for each cell |
+| A passage | The odometer, the cost of a step onto its landing cell |
+| `UseStairs` | The odometer, the cost of one unexplored cell (osrlib's choice) |
+| `Rest(night)` | 48 turns |
+| `Rest(day)` | 144 turns |
+| `PrepareSpells` | 6 turns |
+| Travel | The turns that the town's `travel_turns` lists for the dungeon |
+
+The odometer counts movement in thirds of a foot. An unexplored cell costs 30 units and an explored cell 10, which is exactly the SRD's rule that a party moves three times as fast through familiar areas. An action that costs a turn moves the clock on to the next turn boundary, which takes in any partial move. Locked by `test_exploration.py::TestTimeCostCensus` and `TestOdometer`.
 
 ### Rest, fatigue, sleep, and provisions
 
@@ -732,11 +788,20 @@ Food and water:
 - A carried waterskin covers the day, because the engine doesn't track water by the pint.
 - In town, members still eat their carried rations, but nobody goes short.
 
-A living entangled member also blocks the party's movement. The party doesn't leave a member behind on its own, and leaving someone is a decision for a referee command. Locked by `test_exploration.py::TestRestAndFatigue` and `TestProvisions`, and by `test_rest_credit.py`.
+Locked by `test_exploration.py::TestRestAndFatigue` and `TestProvisions`, and by `test_rest_credit.py`.
 
 ### Doors: forcing, noise, swing-shut, locks
 
-Any door-forcing attempt sets the noise flag for the next wandering check (the banging is identical either way) while only a *failed* attempt denies the party surprise against the room beyond (RAW, exactly as written). Doors the party opened swing shut when the party is no longer in either adjoining cell unless wedged: RAW's "likely to swing shut" becomes always, so a party that wants a door to stay open behind it has to wedge it. A forced stuck door is stuck again once shut. A failed pick-lock locks that thief out of that lock until the next level. Listening is once per character per door, free, and rolled regardless of occupants. Undead make no noise, so silence is ambiguous (the rule that a result never reveals hidden state, applied to exploration). Locked by `test_exploration.py::TestDoors` and `TestListening`.
+Doors follow these rules:
+
+- Any attempt to force a door makes noise for the next wandering-monster check, because the banging is the same either way. Only a *failed* attempt denies the party surprise against the room beyond, exactly as RAW is written.
+- A door the party opened swings shut once the party is in neither cell beside it, unless it's wedged. RAW's "likely to swing shut" becomes always, so a party that wants a door to stay open behind it has to wedge it.
+- A stuck door that was forced is stuck again once it shuts.
+- A failed attempt to pick a lock locks that thief out of that lock until the thief's next level.
+- Each character may listen at a door once. Listening costs no time, and the engine rolls it whatever is behind the door.
+- Undead make no noise, so silence at a door doesn't say whether the room is empty. That's the rule that a result never reveals hidden state, applied to exploration.
+
+Locked by `test_exploration.py::TestDoors` and `TestListening`.
 
 ### Searching and traps
 
@@ -795,7 +860,28 @@ The whole pass is deterministic and spends no draw: ties break on marching order
 
 ### Light, darkness, and location-bound effects
 
-Lighting consumes the consumable (one torch, one oil flask) and extinguishing forfeits the remainder, with no partial-burn bookkeeping, and relighting starts a fresh consumable. When a light-kind effect expires the session appends `exploration.light.expired` for players (the ledger's expiry event is referee visibility). The tinder box gates lighting when the party has no open flame (an active `brightness="flame"` effect), 2-in-6 per round, RAW. A darkness-family effect on any member suppresses the whole party's light while it runs (the printed radii cover a marching party) and `blocks_infravision` disables infravision too. Following RAW, `Search`, `InspectTreasure`, `PickLock`, and reading require light, while searching and listening alone also work on the actor's infravision. `MoveParty` in darkness is legal, but the party is surprised on 1-3 instead of 1-2 when unlit and not every living member has infravision (the blind-party adaptation). A cell is visible when it's explored or is the party's current cell, a simplification of the spec's visible flag. Location effects anchor to `cell:{dungeon}:{level}:{x},{y}` references with enter hooks in attachment order: the burning-oil pool (when the party drops oil with `DropItems` and then lights it with `LightSource`, the engine compiles the pool from [Splash damage is two applications](#splash-damage-is-two-applications) onto the cell, and every living member entering while it burns takes its 1d8), stationary *silence* (see [Silence automates both forms](#silence-automates-both-forms-moving-on-a-failed-save-stationary-on-a-passed-one)), and *web*'s blocking cube (entering attaches the entangled escape countdown, a web cast on a location lasts the spell's duration on the cell, and the escape params are on the effect). Web flammability, *cloudkill*, and the walls stay manual. Locked by `test_exploration.py::TestLight` and `TestLocationEffects`.
+Light sources:
+
+- Lighting a torch or a flask of oil uses up one, and putting it out forfeits what's left. osrlib doesn't track part-burned items, so relighting starts a fresh one.
+- When a light effect expires, the session adds `exploration.light.expired` for the players, because the ledger's expiry event is visible only to the referee.
+- When the party has no open flame, which is an active `brightness="flame"` effect, lighting needs the tinder box, which works on 2-in-6 each round, RAW.
+
+Darkness:
+
+- A darkness effect on any member puts out the whole party's light while it lasts, because the printed radii cover a marching party. `blocks_infravision` turns off infravision too.
+- Following RAW, `Search`, `InspectTreasure`, `PickLock`, and reading need light. Searching and listening also work by the actor's infravision.
+- The party can move in darkness with `MoveParty`. When the party is unlit and not every living member has infravision, it's surprised on 1-3 instead of 1-2. This is the blind-party adaptation.
+- A cell is visible when it's explored or the party stands in it.
+
+Location effects anchor to a cell reference, `cell:{dungeon}:{level}:{x},{y}`, and run their enter hooks in the order they were attached:
+
+- The burning-oil pool. When the party drops oil with `DropItems` and lights it with `LightSource`, the engine puts the pool from [Splash damage is two applications](#splash-damage-is-two-applications) on the cell. Every living member who enters while it burns takes its 1d8.
+- Stationary *silence* (see [Silence automates both forms](#silence-automates-both-forms-moving-on-a-failed-save-stationary-on-a-passed-one)).
+- *Web*'s blocking cube. Entering it attaches the entangled escape countdown. A web cast on a location lasts the spell's duration on the cell, and the escape params are on the effect.
+
+While a living member is entangled, the party can't move. The party doesn't leave a member behind on its own, and leaving someone is a decision for a referee command.
+
+The web's flammability, *cloudkill*, and the walls stay manual, for the referee. The visible-cell rule is a simplification of the visible flag in the spec. Locked by `test_exploration.py::TestLight` and `TestLocationEffects`.
 
 ### Wandering monsters
 
@@ -860,7 +946,16 @@ Locked by `test_encounter.py`, the free rounds by `test_encounter.py::TestSurpri
 
 ### Evasion and pursuit
 
-Pursuit compares the party's slowest running rate (full feet per round) against the pursuers' slowest base ground mode (the mode with no descriptor, else the first printed, so a flying mode doesn't count). Slowest-of-pursuers mirrors slowest-of-party, and the engine doesn't model a pack that strings out. `Evade(drop="treasure")` scatters every living member's coins and `"food"` one ration per member (osrlib's reading), and mid-pursuit `DropItems` re-baits round by round. The distraction is 3-in-6 when the bait matches: treasure for monsters whose treasure ref has letters (the intelligence proxy, override-correctable per encounter) and food for everything else. One roll stops the whole side (pack behavior). Pursuit ends on distraction success, at melee contact (gap ≤ 5', battle at 5'), or at 30 rounds, when both sides are spent and the monsters give up (the limit that ends every pursuit: with the party no faster the gap never grows, so no sight-loss distance is needed). Running exhaustion (−2 attack, damage, and AC, the AC penalty applied through `attack_penalty_of_attackers` +2) lasts until three rested turns. Locked by `test_encounter.py::TestEvasionAndPursuit`.
+When the party evades, the engine compares the two sides' speeds, and a pursuit runs round by round until it ends.
+
+- The party's speed is its slowest member's running rate, in full feet per round. The pursuers' speed is their slowest base ground movement: the mode with no descriptor, or else the first one printed, so a flying mode doesn't count. Taking the slowest pursuer mirrors taking the slowest member, and the engine doesn't model a pack that strings out.
+- The party can drop bait. `Evade(drop="treasure")` scatters every living member's coins, and `"food"` drops one ration per member (osrlib's reading). During the pursuit, `DropItems` drops new bait each round.
+- Bait distracts the pursuers on 3-in-6 when it matches what they want. Monsters whose treasure type has letters want treasure, because osrlib uses the treasure type as a stand-in for intelligence, and an override can correct that for an encounter. Every other monster wants food.
+- One distraction roll stops the whole side, because the pursuers act as a pack.
+- The pursuit ends when bait distracts the pursuers, when they reach melee (a gap of 5' or less, which starts a battle at 5'), or after 30 rounds, when both sides are spent and the monsters give up. In a pursuit the party is no faster than the pursuers, so the gap never grows, and osrlib needs no distance at which the monsters lose sight of the party. So the 30-round limit is what ends every other pursuit.
+- Running exhaustion gives −2 to attacks, damage, and AC until the party rests for three turns. The engine applies the AC penalty as +2 to attackers' rolls, through `attack_penalty_of_attackers`.
+
+Locked by `test_encounter.py::TestEvasionAndPursuit`.
 
 ### The battle round
 
@@ -979,7 +1074,17 @@ Each battle round advances the clock one round through the ledger. Locked by `te
 
 ### Spell effect consumption in battle
 
-*Haste* resolves the bearer's attack declaration twice and doubles track moves (the party's consolidated move doubles when every living member bears the multiplier, which is osrlib's reading). Invisible combatants are untargetable, and a rejection here leaks nothing, since the player already knows the target is invisible, and the machine releases the effect when the bearer attacks or turns undead. Mirror images pop one per incoming attack with no attack roll. Confusion overrides declarations with its 2d6 behavior roll on the combat stream (a forced rules roll, not a policy choice) and re-saves on the magic stream per its params, both machine-run round rolls rather than ledger ticks, so the tick-time convention in [The `magic` RNG stream](#the-magic-rng-stream-and-the-attach-timetick-time-split) is unchanged. `entangled` blocks declared and policy moves while an entangled front-ranker still fights, and a `weakened` creature cannot attack or cast (the kernel validators reject those actions, and the machine reports the rejections). The *protection from evil* melee ban: a monster whose template bears a warded category may not initiate melee against a warded target of differing alignment, so the default policy's target pick skips them while missiles and breath land, and the ban breaks for a target who has engaged the barred creature in melee, the ±1 modifiers persisting (RAW's clause). Locked by `test_battle.py::TestEffectConsumption`.
+Battle reads these spells and conditions on each combatant:
+
+- *Haste* makes the bearer's attack declaration resolve twice, and doubles the bearer's moves on the range track. The party's combined move doubles when every living member has the speed multiplier, which is osrlib's reading.
+- An invisible combatant can't be targeted. Refusing that attack reveals nothing, since the player already knows the target is invisible. The session ends the invisibility when the bearer attacks or turns undead.
+- *Mirror image* loses one image for each attack on the bearer, with no attack roll.
+- Confusion replaces the bearer's declaration with the result of its 2d6 behaviour roll, on the combat stream, because it's a roll the rules require, not a choice a policy makes. Its re-saves draw on the magic stream, per its params. The session makes both rolls itself each round, not as ticks of the effect, so effects still draw at the times that [The `magic` RNG stream](#the-magic-rng-stream-and-the-attach-timetick-time-split) describes.
+- `entangled` stops a member's declared moves and a monster's moves from its policy, while an entangled member in the front rank still fights.
+- A `weakened` creature can't attack or cast. The kernel's validators refuse those actions, and the session reports the refusals.
+- *Protection from evil*'s melee ban: a monster whose template has a warded category can't start a melee with a warded target of a different alignment. So the default policy's target pick skips that target, while missiles and breath still land. The ban breaks for a target who has engaged the barred creature in melee, and the ±1 modifiers stay, as RAW's clause says.
+
+Locked by `test_battle.py::TestEffectConsumption`.
 
 ### The area footprint
 
