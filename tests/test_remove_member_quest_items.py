@@ -25,9 +25,7 @@ The contract these tests state:
   order as `item`.
 - A refusal costs nothing: no draws, no time, no log entry, and no change.
 
-The tests in `TestRefused` fail until the session emits the code, so they carry the chunk's
-marker. The tests in `TestAllowed` pass already and have to keep passing, because they state
-the removals the check must not refuse.
+The tests in `TestAllowed` state the removals the check must not refuse.
 """
 
 from typing import Any
@@ -54,8 +52,6 @@ from osrlib.crawl.session import GameSession
 from osrlib.crawl.triggers import ItemAcquiredPattern, TownEnteredPattern, TriggerSpec
 from test_add_member import SEED, frozen_state, member_ids, quiet_adventure, stream_states
 from test_remove_member import LEAD, THIEF, granted_magic, put_in_state, remove
-
-CHUNK = pytest.mark.xfail(reason="chunk: quest-item-guard", strict=True)
 
 CODE = "party.remove.carries_quest_item"
 
@@ -214,7 +210,6 @@ class TestTheContract:
 # ---------------------------------------------------------------------- refused
 
 
-@CHUNK
 class TestRefused:
     @pytest.mark.parametrize("site", SITES)
     def test_an_item_named_at_any_site_is_protected(self, site):
