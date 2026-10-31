@@ -637,8 +637,8 @@ def _validate_consequence(
     """
     if isinstance(consequence, GrantItem | GrantCoins | AwardXP | RemoveItem | RemoveCoins):
         # Character ids are allocated per session, so a document can never contain one:
-        # authored consequences address the party through the selectors. Only a removal of
-        # an item has a carrier to look for.
+        # authored consequences address the party through the selectors. Only a `RemoveItem`
+        # takes the carrier selector, because only a removal has a carrier to look for.
         selectors = (PARTY_SELECTOR, FIRST_LIVING_SELECTOR)
         if isinstance(consequence, RemoveItem):
             selectors = (*selectors, CARRIER_SELECTOR)
@@ -773,18 +773,25 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
       the cell it stands on or to any passage's far cell, and no two passages share a cell and side.
 
     For each trigger, it checks that the id is unique, and that the area, level, dungeon, item, or
-    monster its pattern refers to exists. For each of the trigger's consequences, it checks that a
-    granted or removed item resolves in the equipment catalog or the magic item catalog, that a spawned
-    monster resolves, that a door-state change refers to an edge where a door stands, and that a party
-    placement is on the grid. For each quest, it checks that the id is
-    unique, and runs the same checks over each of its clauses (its activation, each objective's
-    completion, and each hidden objective's reveal) and over each reward.
+    monster its pattern refers to exists. For each of the trigger's consequences, it checks that:
 
-    A consequence or reward that gives something to a character or takes something away has to
-    address the party with a selector, not a character id. Every such command accepts `"@party"` and
-    `"@first"`, and a [`RemoveItem`][osrlib.crawl.commands.RemoveItem] also accepts `"@carrier"`.
-    [`GameSession.new`][osrlib.crawl.session.GameSession.new] gives out character ids, so no
-    character id written in an adventure can refer to a character.
+    - A granted or removed item is in the equipment catalog or the magic item catalog.
+    - A spawned monster resolves.
+    - A door-state change refers to an edge where a door stands.
+    - A party placement is on the grid.
+
+    For each quest, it checks that the id is unique. It runs the same checks over each of the
+    quest's clauses (its activation, each objective's completion, and each hidden objective's
+    reveal) and over each reward.
+
+    A consequence or reward that gives a character something, or takes something away, has to
+    address the party with a selector, not a character id.
+    [`GameSession.new`][osrlib.crawl.session.GameSession.new] gives out character ids, so a
+    character id written in an adventure can't refer to a character. Every such command accepts
+    [`"@party"`][osrlib.crawl.triggers.PARTY_SELECTOR] and
+    [`"@first"`][osrlib.crawl.triggers.FIRST_LIVING_SELECTOR]. A
+    [`RemoveItem`][osrlib.crawl.commands.RemoveItem] also accepts
+    [`"@carrier"`][osrlib.crawl.triggers.CARRIER_SELECTOR].
 
     It doesn't check flag keys. Any key can be set during play, so an unset key isn't an error in the
     document.

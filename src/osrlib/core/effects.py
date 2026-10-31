@@ -197,9 +197,9 @@ class Condition(StrEnum):
 
     BLIND = "blind"
     """Unable to see. [`validate_attack`][osrlib.core.combat.validate_attack] rejects the creature's attacks with
-    `combat.attack.attacker_blind`, and [`resolve_gaze`][osrlib.core.combat.resolve_gaze] skips the creature, because
-    it can't meet a gaze. A battle in a [`GameSession`][osrlib.crawl.session.GameSession] gives it for good to a
-    creature a spitting cobra's spit hits, when the creature fails its save versus death."""
+    `combat.attack.attacker_blind`. [`resolve_gaze`][osrlib.core.combat.resolve_gaze] skips the creature, because it
+    can't meet a gaze. In a battle in a [`GameSession`][osrlib.crawl.session.GameSession], a creature that a spitting
+    cobra's spit hits saves versus death, and on a failed save it's blind permanently."""
 
     CHARMED = "charmed"
     """Under a charm. The monsters that can't be charmed, the undead and the golems among them, have it in
@@ -207,10 +207,9 @@ class Condition(StrEnum):
     creature obeys. The recurring save that can end the charm is the effect's `charm_resave` tick."""
 
     PETRIFIED = "petrified"
-    """Turned to stone. The creature can't attack, cast, or move, melee against it hits automatically, and it counts
-    as incapacitated for morale. The ledger suspends its other effects: they neither tick nor age until the stone is
-    undone. Stone is not death. *Stone
-    to flesh* cures it, and the creature continues from where it was."""
+    """Turned to stone. The creature can't attack, cast, or move. A melee attack on it hits automatically, and it
+    counts as incapacitated for morale. The ledger suspends its other effects, so they neither tick nor age until the
+    stone is undone. Stone is not death. *Stone to flesh* cures it, and the creature continues from where it was."""
 
     DISEASED = "diseased"
     """Sick with a disease. Magical healing has no effect on it.
@@ -230,9 +229,9 @@ class Condition(StrEnum):
     AVERTED_EYES = "averted_eyes"
     """Fighting with eyes turned away from a gaze attack. [`resolve_gaze`][osrlib.core.combat.resolve_gaze] skips
     the creature. Pass the attack penalty for fighting blind yourself, in the attack context. A battle in a
-    [`GameSession`][osrlib.crawl.session.GameSession] grants it for one round to a member who declares the
-    [`gaze_defense`][osrlib.crawl.commands.BattleDeclaration.gaze_defense] `avert_eyes`, and applies the
-    penalty and the gazer's bonus itself."""
+    [`GameSession`][osrlib.crawl.session.GameSession] does this for you. It grants the condition for one round to a
+    member whose [`gaze_defense`][osrlib.crawl.commands.BattleDeclaration.gaze_defense] is `avert_eyes`, and applies
+    the penalty and the gazer's bonus."""
 
     POISONED = "poisoned"
     """Poisoned. The monsters that can't be poisoned, the undead and the cave locust among them, have it in

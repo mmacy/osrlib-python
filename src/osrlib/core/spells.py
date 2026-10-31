@@ -624,10 +624,11 @@ class SpellEffect(BaseModel):
     cures_conditions: tuple[Condition, ...] = ()
     """The conditions a `cure` effect lifts. *Cure light wounds*' `cure_paralysis` mode lifts `paralysed`.
 
-    Casting releases each ledger effect on the target that puts one of these conditions on it.
-    Paralysis comes off however it was put on: casting also removes a `paralysed` condition with no
-    ledger effect behind it, like one granted with [`grant_condition`][osrlib.core.effects.grant_condition].
-    The other conditions come off only with the ledger effect that granted them.
+    Casting releases each effect in the target's [`EffectsLedger`][osrlib.core.effects.EffectsLedger] that puts one
+    of these conditions on it. Paralysis comes off however it was put on. Casting also removes a `paralysed`
+    condition that has no ledger effect behind it, like one granted with
+    [`grant_condition`][osrlib.core.effects.grant_condition]. The other conditions come off only with the ledger
+    effect that granted them.
     """
 
     cures_effect_kinds: tuple[str, ...] = ()
@@ -2805,10 +2806,9 @@ def _is_arcane_caster(target: Any) -> bool:
 
 
 def _monster_hit_dice(target: Any) -> Any | None:
-    """A monster's Hit Dice as it has them now: the template's, with the count less any drained Hit Dice.
+    """Return a monster's current Hit Dice: the template's, less any Hit Dice energy drain has taken.
 
-    Energy drain takes Hit Dice away, so a 4+1 ogre drained of one is a 3+1 creature to *sleep*. Returns `None` for a
-    target that isn't a monster.
+    A 4+1 ogre drained of one Hit Die is a 3+1 creature to *sleep*. Returns `None` for a target that isn't a monster.
     """
     template = getattr(target, "template", None)
     if template is None:
@@ -3297,8 +3297,8 @@ def _resolve_cure(
             state.events.extend(ledger.release(active.effect_id, registry))
             state.affect(target)
         if Condition.PARALYSED in effect.cures_conditions and not isinstance(target, str):
-            # *Cure light wounds* negates paralysing effects, so paralysis comes off
-            # however it was put on, including a record with no ledger effect behind it.
+            # *Cure light wounds* negates paralysis however it was put on, so this also
+            # removes a `paralysed` record with no ledger effect behind it.
             for record in [record for record in target.conditions if record.condition is Condition.PARALYSED]:
                 state.events.extend(remove_condition(target, Condition.PARALYSED, record.effect_id))
                 state.affect(target)

@@ -17,7 +17,7 @@ session in `encounter` mode. From there, you drive it with the encounter command
 - [`TurnUndead`][osrlib.crawl.commands.TurnUndead] ends the encounter when every monster is
   turned or destroyed, and otherwise starts a battle.
 - [`EngageBattle`][osrlib.crawl.commands.EngageBattle] starts a battle.
-- The referee command [`EndEncounter`][osrlib.crawl.commands.EndEncounter] ends the encounter
+- [`EndEncounter`][osrlib.crawl.commands.EndEncounter], a referee command, ends the encounter
   when the party talks its way past or walks away.
 
 [`end_encounter`][osrlib.crawl.encounter.end_encounter] closes the encounter and puts the session
@@ -27,9 +27,9 @@ You rarely call `start_encounter` yourself. The session calls it for the
 [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] and
 [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] commands, for the wandering-monster
 check, and when the party enters a keyed area that has monsters. Call it directly when your own
-code decides that a group has just come into view. The session doesn't call it for a
-`SpawnMonsters` executed while an encounter is open. The new group joins that encounter and rolls
-no surprise or reaction.
+code decides that a group has just come into view. When you send a `SpawnMonsters` while an
+encounter is open, the session doesn't call it. The new group joins the open encounter instead,
+and rolls no surprise or reaction.
 
 You follow the encounter through events from
 [`osrlib.crawl.events`][osrlib.crawl.events]:
@@ -49,9 +49,9 @@ You follow the encounter through events from
 - An [`EncounterEndedEvent`][osrlib.crawl.events.EncounterEndedEvent] with the outcome.
 
 The reaction roll is reported as a
-[`ReactionRolledEvent`][osrlib.core.events.ReactionRolledEvent] that only the referee sees. For
-each monster that regenerates, like a troll, `start_encounter` also reports an
-[`EffectAttachedEvent`][osrlib.core.events.EffectAttachedEvent], which only the referee sees.
+[`ReactionRolledEvent`][osrlib.core.events.ReactionRolledEvent] that only the referee sees.
+`start_encounter` also reports an [`EffectAttachedEvent`][osrlib.core.events.EffectAttachedEvent]
+for each monster that regenerates, like a troll. Only the referee sees those too.
 
 The stance is the monsters' current attitude toward the party, set by the reaction roll on 2d6.
 The OSE SRD leaves what each result means in play to a human referee, so osrlib applies these
@@ -189,9 +189,9 @@ class EncounterGroup(BaseModel):
     """One monster group in an encounter: its members, its distance, and the treasure it carries.
 
     You get these from `session.encounter.groups`. The session creates them when an encounter
-    opens or a [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] adds a group to it, and
-    updates them during the battle. Loading a save restores them, so you don't construct one
-    yourself. Much of a fight works by group instead of by monster: a failed morale check breaks a
+    opens, or when a [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] adds a group to it. It
+    updates them during the battle, and loading a save restores them, so you don't construct one
+    yourself. Much of a fight works by group instead of by monster. A failed morale check breaks a
     whole group at once, and a party member's attack identifies a group in the `target_group_id` of
     a [`BattleDeclaration`][osrlib.crawl.commands.BattleDeclaration].
     """
@@ -223,8 +223,8 @@ class EncounterGroup(BaseModel):
     fled: bool = False
     """True once the group has run past [`FLEE_EXIT_FEET`][osrlib.crawl.battle.FLEE_EXIT_FEET] and left
     the fight, or when its morale score is 2 and it ran as it entered the battle. The session refuses
-    every battle declaration that names it, an attack, a move to close, an item, or a spell, with
-    `battle.declaration.unknown_group`."""
+    every battle declaration aimed at the group, whether an attack, a move to close, an item, or a
+    spell, with `battle.declaration.unknown_group`."""
     member_treasure: dict[str, TreasureBundle] = {}
     """The treasure each member carries, keyed by monster id. The session rolls it when it spawns the
     monster, from the treasure types for individuals (P through T). When the encounter closes, a slain
@@ -232,8 +232,8 @@ class EncounterGroup(BaseModel):
     group_treasure: TreasureBundle | None = None
     """The treasure the group shares, rolled at spawn from the treasure types for groups (U and V), or
     None when the group has none. It drops on the party's cell only when every member is slain. If
-    any member routed, the group's treasure goes with the runners. When the turned members of a
-    partly turned group break away, the group's treasure stays with the members who fight on."""
+    any member routed, the group's treasure goes with the runners. When a turning turns only some
+    members of a group, the group's treasure stays with the members who fight on."""
 
 
 class PursuitState(BaseModel):
@@ -278,9 +278,9 @@ class EncounterState(BaseModel):
     area_ref: str | None = None
     """The keyed area's reference, when `kind` is `"keyed"`. When every monster in the encounter is
     slain or routed, [`end_encounter`][osrlib.crawl.encounter.end_encounter] marks the area's
-    encounter resolved, so entering the area again doesn't start another fight.
-    [`EndEncounter`][osrlib.crawl.commands.EndEncounter] with `resolve_area=True` marks it resolved
-    when the party gets past the monsters some other way."""
+    encounter resolved, so entering the area again doesn't start another fight. When the party gets
+    past the monsters some other way, [`EndEncounter`][osrlib.crawl.commands.EndEncounter] with
+    `resolve_area=True` marks it resolved too."""
     groups: list[EncounterGroup] = Field(min_length=1)
     """The monster groups, each an [`EncounterGroup`][osrlib.crawl.encounter.EncounterGroup], in the
     order they were spawned. There's always at least one."""
@@ -365,25 +365,28 @@ def start_encounter(
     leaves open. The [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/) lists it as
     the blind-party adaptation.
 
-    When the party is surprised and a monster's `surprise` ability has `meets_gaze`, as the
-    basilisk's does, every living member meets that monster's petrifying gaze once, here, at any
-    distance and whatever the stance. Each saves versus paralysis or turns to stone. That holds when
-    the monsters are surprised too. A battle that opens from this encounter doesn't repeat the gaze.
-    When the gaze leaves no member standing, which means every member is dead or petrified, no
-    round runs against the statues. An attacking stance opens a battle that ends in defeat at once,
-    before the monsters' free round, and any other stance stops the encounter at the stance. A
-    command that opens the encounter, like [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters],
-    then ends the session in `game_over`.
+    When the party is surprised, and a monster's `surprise` ability has `meets_gaze`, as the
+    basilisk's does, every living member meets that monster's petrifying gaze once, as the
+    encounter opens. Each member saves versus paralysis or turns to stone. The gaze reaches the
+    party at any distance and whatever the stance, even when the monsters are surprised too. A
+    battle that opens from this encounter doesn't repeat the gaze.
+
+    When the gaze leaves no member standing, so that every member is dead or petrified, no round
+    runs. With an attacking stance, the battle that opens ends in defeat at once, before the
+    monsters' free round. With any other stance, the encounter stops at the stance. A command that
+    opens the encounter, like [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters], then ends the
+    session in `game_over`.
 
     A monster whose template has the `regeneration` ability, like a troll or a thoul, starts to
     regenerate when this function opens its encounter. Before the function rolls anything, it
     attaches the effect that [`regeneration_definition`][osrlib.core.effects.regeneration_definition]
     builds from the ability's params. Attaching the effect uses no random draws. From then on, the
-    effects ledger heals the monster in each round the clock advances, at the rate the params set.
-    A troll never gets back the damage it took from fire or acid. A slain troll gets back up 2d6
-    rounds after the round it was killed in, unless fire and acid alone did as much damage as its
-    maximum hit points. [`end_encounter`][osrlib.crawl.encounter.end_encounter] releases the
-    effect, so a troll that is still dead when the encounter closes stays dead.
+    session's [`EffectsLedger`][osrlib.core.effects.EffectsLedger] heals the monster in each round
+    the clock advances, at the rate the params set. A troll never gets back the damage it took from
+    fire or acid. A slain troll gets back up 2d6 rounds after the round it was killed in, unless its
+    fire and acid damage reached its maximum hit points.
+    [`end_encounter`][osrlib.crawl.encounter.end_encounter] releases the effect, so a troll that's
+    still dead when the encounter closes stays dead.
 
     Args:
         session (osrlib.crawl.session.GameSession): The running session. Its party must be in a
@@ -409,16 +412,21 @@ def start_encounter(
             reaction or spend a random draw on one. Pass `ReactionResult.ATTACKS` to start a battle at once.
 
     Returns:
-        The opening events, in the order they happened: an
-        [`EffectAttachedEvent`][osrlib.core.events.EffectAttachedEvent] for each monster that
-        regenerates, a [`SurpriseRolledEvent`][osrlib.crawl.events.SurpriseRolledEvent] for the
-        monsters and one for the party, the
-        [`EncounterStartedEvent`][osrlib.crawl.events.EncounterStartedEvent],
-        the [`ReactionRolledEvent`][osrlib.core.events.ReactionRolledEvent] unless you passed
-        `pinned_stance`, and the [`StanceChangedEvent`][osrlib.crawl.events.StanceChangedEvent].
-        The saving throws of a basilisk's surprise gaze come among them. Then come the events of
-        anything the stance or surprise starts, which can include a battle and its first round.
-        When the gaze left nobody standing, a battle ends as it opens and no round runs.
+        The opening events, in the order they happened:
+
+        - An [`EffectAttachedEvent`][osrlib.core.events.EffectAttachedEvent] for each monster that
+          regenerates.
+        - A [`SurpriseRolledEvent`][osrlib.crawl.events.SurpriseRolledEvent] for the monsters, and
+          one for the party.
+        - The [`EncounterStartedEvent`][osrlib.crawl.events.EncounterStartedEvent].
+        - When a surprised party meets a gaze, like a basilisk's, each member's saving throw, and
+          the petrification of each member who fails it.
+        - The [`ReactionRolledEvent`][osrlib.core.events.ReactionRolledEvent], unless you passed
+          `pinned_stance`.
+        - The [`StanceChangedEvent`][osrlib.crawl.events.StanceChangedEvent].
+        - The events of anything the stance or surprise starts, which can include a battle and its
+          first round. When the gaze left nobody standing, a battle ends as it opens, and no round
+          runs.
 
     Examples:
         ```python
@@ -600,11 +608,11 @@ def start_encounter(
 def _join_encounter(session, *, label: str, instances: list, distance_feet: int) -> list[Event]:
     """Add one group to the open encounter between rounds, without opening the encounter again.
 
-    The group rolls no surprise and no reaction. It shares the encounter's stance and surprise and,
+    The group rolls no surprise and no reaction. It shares the encounter's stance and surprise, and
     in a battle, the battle's round. The function resolves nothing and doesn't advance the clock, so
     the group first acts in the next encounter or battle round. A monster that regenerates starts to
-    regenerate as it joins, as it would when its encounter opens. In a battle, a group whose morale
-    score is 2 runs at once, as it would have if it had been there when the battle started.
+    regenerate as it joins. In a battle, a group whose morale score is 2 runs at once, as it would
+    have at the start of the battle.
 
     Returns:
         An [`EffectAttachedEvent`][osrlib.core.events.EffectAttachedEvent] for each monster that
@@ -1133,13 +1141,15 @@ def end_encounter(session, outcome: str) -> list[Event]:
 
     You seldom call this yourself. The session calls it when the party wins a battle, evades,
     escapes a chase, or turns every monster. When the party talks its way past or walks away, send
-    [`EndEncounter`][osrlib.crawl.commands.EndEncounter] instead. The command calls this function,
+    [`EndEncounter`][osrlib.crawl.commands.EndEncounter] instead. That command calls this function,
     and the session records the command in the command log, so
     [`replay_game`][osrlib.persistence.replay_game] reproduces the close. The session doesn't
-    record a direct call, so a replay of the game stays in the encounter. There must be an encounter open when you call
-    it. If `session.encounter` is None, it raises `AttributeError`, because the function
-    doesn't check for an open encounter first. When it returns, `session.encounter` is None. If the
-    session was in `encounter` or `battle` mode, it's now in `exploring` mode.
+    record a direct call to this function, so a replay of the game stays in the encounter.
+
+    An encounter must be open when you call it. If `session.encounter` is None, it raises
+    `AttributeError`, because the function doesn't check for an open encounter first. When it
+    returns, `session.encounter` is None. If the session was in `encounter` or `battle` mode, it's
+    now in `exploring` mode.
 
     Every monster that ended slain or routed gets a
     [`MonsterDefeatedEvent`][osrlib.crawl.events.MonsterDefeatedEvent] and a record in

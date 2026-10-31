@@ -60,10 +60,10 @@ swing a torch. This is an adaptation, a reading osrlib chooses where the rules a
 All weights are in coins, the SRD's unit of encumbrance at ten coins to the pound.
 Coins themselves weigh 1 each. The `encumbrance` setting of
 [`Ruleset`][osrlib.core.ruleset.Ruleset] picks what is weighed: nothing, treasure alone
-(basic), or treasure and equipment (detailed). Under basic and detailed encumbrance,
-tracked weight above the maximum load means the character can't move. The maximum load is
-[`MAX_LOAD_COINS`][osrlib.core.items.MAX_LOAD_COINS], which worn gauntlets of ogre power
-raise under detailed encumbrance. osrlib doesn't cap how much an inventory contains.
+(basic), or treasure and equipment (detailed). Under basic and detailed encumbrance, a
+character whose tracked weight is above the maximum load can't move. The maximum load is
+[`MAX_LOAD_COINS`][osrlib.core.items.MAX_LOAD_COINS]. Under detailed encumbrance, worn
+gauntlets of ogre power raise it. osrlib doesn't cap how much an inventory contains.
 
 Typical usage:
 
@@ -187,8 +187,8 @@ return is in coins. Under basic and detailed encumbrance,
 [`movement_rate_feet`][osrlib.core.items.movement_rate_feet] returns 0 above this figure,
 and the slowest band of detailed encumbrance ends here. osrlib doesn't stop you from
 putting more in an [`Inventory`][osrlib.core.items.Inventory], but the movement rate is
-then 0. Under detailed encumbrance, worn gauntlets of ogre power raise this limit and every
-band before it by 1,000 coins.
+then 0. Under detailed encumbrance, worn gauntlets of ogre power raise this limit, and every
+band below it, by 1,000 coins.
 """
 
 BASE_MOVEMENT_FEET = 120
@@ -2053,10 +2053,10 @@ class Inventory(BaseModel):
     you want everything a character has. The item list is in the order items were added,
     and an unequipped item goes back on the end.
 
-    osrlib doesn't cap what a character can carry. Weight affects the movement rate instead:
-    past the maximum load the character can't move. The maximum load is
-    [`MAX_LOAD_COINS`][osrlib.core.items.MAX_LOAD_COINS], which worn gauntlets of ogre power
-    raise under detailed encumbrance.
+    osrlib doesn't cap what a character can carry. Weight affects the movement rate instead.
+    Past the maximum load, the character can't move. The maximum load is
+    [`MAX_LOAD_COINS`][osrlib.core.items.MAX_LOAD_COINS]. Under detailed encumbrance, worn
+    gauntlets of ogre power raise it.
     """
 
     model_config = ConfigDict(validate_assignment=True)
@@ -2408,11 +2408,11 @@ def treasure_weight_coins(inventory: Inventory) -> int:
     wands. Every coin weighs 1, whatever its metal.
 
     A stack of those magic items weighs its template's `weight_coins` times its quantity,
-    so a spent stack, at quantity 0, weighs nothing. Rings and
-    miscellaneous items weigh nothing, because their pages give no weight. A bag of holding
-    weighs its printed loaded weight while it contains anything. Enchanted weapons and
-    armour count as equipment, like the mundane kind, rather than as treasure. That way
-    basic encumbrance measures what the rules mean by it: how much loot is being hauled out.
+    so a spent stack, at quantity 0, weighs nothing. Rings and miscellaneous items weigh
+    nothing, because their pages give no weight. A bag of holding weighs its printed loaded
+    weight while it contains anything. Enchanted weapons and armour count as equipment, like
+    the mundane kind, rather than as treasure. That way basic encumbrance measures what the
+    rules mean by it: how much loot is being hauled out.
 
     Call [`tracked_weight_coins`][osrlib.core.items.tracked_weight_coins] instead when you
     want whatever the ruleset in play tracks.
@@ -2466,9 +2466,9 @@ def equipment_weight_coins(inventory: Inventory) -> int:
     [`MISC_GEAR_WEIGHT_COINS`][osrlib.core.items.MISC_GEAR_WEIGHT_COINS] and no more.
 
     An enchanted weapon or suit of armour weighs what its mundane base item weighs. The base
-    is the instance's `base_item_id`, or the template's when the instance has none. Enchanted
-    armour and shields weigh half, rounded down, because the rules make enchanted armour
-    lighter than the mundane kind.
+    item is the one in the instance's `base_item_id`, or in the template's when the instance
+    has none. Enchanted armour and shields weigh half, rounded down, because the rules make
+    enchanted armour lighter than the mundane kind.
 
     Args:
         inventory: The inventory to weigh.
@@ -2573,8 +2573,8 @@ def _magic_base_item_id(instance: MagicItemInstance) -> str | None:
 
     The instance's `base_item_id` comes first, because
     [`instantiate_magic_item`][osrlib.core.treasure.instantiate_magic_item] records a rolled
-    item's base there. The template's `base_item_id` is the fallback, for an item whose template
-    sets its base, like a shield +1 built without the instance field.
+    item's base there. Otherwise the template's `base_item_id` applies. That covers an item whose
+    template sets its base, like a shield +1 whose instance has no `base_item_id`.
     """
     return instance.base_item_id or magic_item_template(instance).base_item_id
 
@@ -2583,8 +2583,8 @@ def _load_bonus_coins(inventory: Inventory, mode: EncumbranceMode) -> int:
     """Return how far worn items raise the detailed encumbrance bands and the maximum load, in coins.
 
     Gauntlets of ogre power add their template's `max_load_bonus_coins` while they're worn.
-    Their page gives the extra weight under detailed encumbrance, so the bonus is 0 under the
-    other modes. Two items with the bonus don't stack: the largest applies.
+    Their page gives the extra weight in terms of detailed encumbrance, so the bonus is 0 under
+    the other modes. Two items with the bonus don't stack. The largest applies.
 
     Args:
         inventory: The inventory whose equipped items to read.
@@ -2666,10 +2666,10 @@ def movement_rate_feet(inventory: Inventory, ruleset: Ruleset, carrying_treasure
       30'.
     - `detailed`: the weight carried, against the printed thresholds, which are inclusive:
       120' up to 400 coins, 90' up to 600, 60' up to 800, 30' up to the maximum load. Worn
-      gauntlets of ogre power add their 1,000 coins to every threshold and to the maximum
-      load, so the wearer moves at 120' up to 1,400 coins.
+      gauntlets of ogre power add 1,000 coins to every threshold and to the maximum load, so
+      the wearer moves at 120' up to 1,400 coins.
 
-    Under `basic` and `detailed`, weight past the maximum load means the character can't move
+    Under `basic` and `detailed`, a character carrying more than the maximum load can't move
     at all. The maximum load is [`MAX_LOAD_COINS`][osrlib.core.items.MAX_LOAD_COINS], plus
     the gauntlets' bonus under `detailed`.
 

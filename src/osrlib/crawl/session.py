@@ -619,11 +619,11 @@ class GameSession:
         """
         self.party = party
         """The party, in marching order. The order determines who is in the front rank in a fight.
-        [`ReorderParty`][osrlib.crawl.commands.ReorderParty] sets it outside a fight. In a battle, a
-        member who withdraws alone trades places with the member named in
+        Outside a fight, [`ReorderParty`][osrlib.crawl.commands.ReorderParty] sets the order. In a
+        battle, a member who withdraws alone trades places with the member named in
         [`BattleDeclaration.replacement_id`][osrlib.crawl.commands.BattleDeclaration.replacement_id].
-        [`AddMember`][osrlib.crawl.commands.AddMember] is the only command that adds a member, at
-        the back."""
+        [`AddMember`][osrlib.crawl.commands.AddMember] is the only command that adds a member. It adds
+        the member at the back."""
         self.adventure = adventure
         """The adventure being played: its town, dungeons, quests, and any content it bundles. It's
         frozen, and a save contains a copy of it, so a saved game needs no other file to
@@ -793,9 +793,9 @@ class GameSession:
 
         The session keeps the party you pass, not a copy, so from then on your character objects
         are the session's live party members. To add a member once play has begun, execute
-        [`AddMember`][osrlib.crawl.commands.AddMember], which gives the new member the next
+        [`AddMember`][osrlib.crawl.commands.AddMember]. It gives the new member the next
         `character-NNNN` id from the same allocator. Don't append to `party.members` yourself,
-        because the command log wouldn't record the change and a replay wouldn't have the member.
+        because the command log wouldn't record the change, and a replay wouldn't have the member.
 
         This method checks the whole adventure before it builds anything, so an unknown monster id
         or a stair to a level that doesn't exist fails here, not partway through a delve.
@@ -1421,8 +1421,8 @@ class GameSession:
         like a troll, starts to regenerate when its encounter opens, not when it spawns.
 
         To put monsters in front of the party as the referee, execute
-        [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] instead, which spawns them and opens
-        an encounter with them, or adds them to the open one, in one command. This method isn't a
+        [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] instead. In one command, it spawns
+        them and opens an encounter with them, or adds them to the open one. This method isn't a
         command, so the command log doesn't record it, and
         [`replay_game`][osrlib.persistence.replay_game] won't reproduce a game if you call it
         during play.
@@ -1585,7 +1585,7 @@ class GameSession:
             turns: How many turns to advance.
             resting: True while the party is resting. Resting turns don't count toward the next
                 required rest. Resting alone doesn't change the wandering chance.
-            hidden: True while the party hides, resting quietly in an out-of-the-way place, which
+            hidden: True while the party hides, resting quietly in an out-of-the-way place. It
                 lowers the chance of each wandering check in the span by 1 in 6. A
                 [`Rest`][osrlib.crawl.commands.Rest] with `hidden` set passes both `resting`
                 and `hidden`.
@@ -1919,11 +1919,11 @@ class GameSession:
         """Move a dead member's magic items that made their save to a drop pile on the party's cell.
 
         [`destroy_equipment`][osrlib.core.combat.destroy_equipment] leaves those items in the dead member's
-        inventory, where no command can reach them, because a dead member can't give or drop anything. The
+        inventory. No command can reach them there, because a dead member can't give or drop anything. The
         session moves them to the pile in the same command that killed the member, so the party picks them up
-        with [`TakeTreasure`][osrlib.crawl.commands.TakeTreasure] and the feature id `"pile"`. A monster's
-        saved items stay where they are, because a slain NPC adventurer's whole inventory goes to the pile
-        when the encounter ends.
+        with [`TakeTreasure`][osrlib.crawl.commands.TakeTreasure] and the feature id `"pile"`. This happens
+        only in a dungeon. A monster's saved items stay where they are, because a slain NPC adventurer's whole
+        inventory goes to the pile when the encounter ends.
 
         Args:
             events: The just-executed command's events, in order.
@@ -2149,9 +2149,10 @@ def _removal_rejection(member: Character, item_id: str, quantity: int) -> Reject
     """Return why a removal of `quantity` of `item_id` from the member would be refused, or `None`.
 
     The session's removal handler and the interpreter's carrier selector both call this, so the
-    session never refuses a removal the selector expanded. An instance id identifies one magic
-    item or valuable and takes a quantity of 1. Any other id counts the member's mundane
-    units of that catalog id, carried and equipped, so a magic item's catalog id counts none.
+    session never refuses a removal the selector expanded. An instance id belongs to one magic item
+    or valuable, so its removal passes only with a quantity of 1. Any other id is a catalog id. The
+    function counts the member's mundane units with that id, carried and equipped. It counts no
+    magic items, so a removal by a magic item's catalog id is refused.
     """
     inventory = member.inventory
     named = inventory.magic_item(item_id) is not None or any(
@@ -2186,8 +2187,8 @@ def _handle_remove_item(session: GameSession, command: RemoveItem) -> tuple[list
     magic = inventory.magic_item(command.item_id)
     valuable = next((piece for piece in inventory.valuables if piece.instance_id == command.item_id), None)
     if magic is not None:
-        # Removal ends what the item attached, as taking it off would, and skips the curse
-        # check: the referee is taking the item, not its bearer letting go of it.
+        # Removal releases the item's effects, as taking it off would. It skips the curse
+        # check, because the referee takes the item and the bearer doesn't let go of it.
         events.extend(exploration._release_instance_effects(session, magic))
         exploration._remove_instance(member, magic)
         item_ids: tuple[str, ...] = (command.item_id,)
@@ -2656,8 +2657,8 @@ def _handle_end_encounter(session: GameSession, command: EndEncounter) -> tuple[
     if state is None:  # unreachable: the mode gate admits only encounter and battle, which have one open
         raise ValueError("EndEncounter reached the handler with no open encounter")
     area_ref = state.area_ref
-    # A battle closes first, as it does before the session ends a won battle's
-    # encounter, and the encounter's closing event stands for both.
+    # The battle closes first, as it does when the session ends the encounter of a won
+    # battle. The encounter's closing event reports the end of both.
     session.battle = None
     events = encounter_module.end_encounter(session, command.outcome)
     if command.resolve_area and area_ref is not None and area_ref not in session.dungeon_state.resolved_encounters:

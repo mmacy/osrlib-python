@@ -537,12 +537,14 @@ class TransitionSpec(BaseModel):
     """The direction the party faces on arrival. Draw the party's view facing this way."""
     requires: GateSpec | None = None
     """A gate on taking the transition, or `None` for one with no gate.
+
     [`UseStairs`][osrlib.crawl.commands.UseStairs], or [`MoveParty`][osrlib.crawl.commands.MoveParty]
-    for a passage, checks it after the command's other checks and before the party moves. A gate
-    that takes an item takes it then, as the party crosses. The gate's `success` text goes on the
-    arrival's [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] when the party
-    changes level or dungeon. For a transition to another cell of the same level, it goes on the
-    [`PartyMovedEvent`][osrlib.crawl.events.PartyMovedEvent] for the landing cell.
+    for a passage, checks the gate after the command's other checks and before the party moves. A
+    gate that takes an item takes it then, as the party crosses. When the party changes level or
+    dungeon, the gate's `success` text goes on the arrival's
+    [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent]. For a transition to another
+    cell of the same level, it goes on the [`PartyMovedEvent`][osrlib.crawl.events.PartyMovedEvent]
+    for the landing cell.
 
     A transition in a [`TrapEffect`][osrlib.crawl.dungeon.TrapEffect] can't have a gate, because a
     trap moves the party by force and the party attempts nothing. `TrapEffect` raises `ValueError`
@@ -647,10 +649,9 @@ class TrapEffect(BaseModel):
     that slides the party to another cell or level. The party has one location, so the trap moves
     the whole party or no one. With a `save`, it moves the party when at least one victim fails
     the save, and leaves the party on the trapped cell when every victim passes. With no `save`,
-    it always moves the party. The transition can't
-    have a `requires` gate, because the party doesn't choose to take it, and
-    [`validate_adventure`][osrlib.crawl.adventure.validate_adventure] reports one whose `kind` is
-    `"passage"`."""
+    it always moves the party. The transition can't have a `requires` gate, because the party
+    doesn't choose to take it. [`validate_adventure`][osrlib.crawl.adventure.validate_adventure]
+    reports a transition whose `kind` is `"passage"`."""
     manual: str | None = None
     """A description of a trap your own code resolves, or `None`. osrlib never reads it. Use it for a
     trap whose effect is the referee's call rather than a die roll."""
@@ -1153,12 +1154,12 @@ class KeyedEncounter(BaseModel):
     as usual."""
     hoard: bool = True
     """Whether the monsters have their lair treasure. With the default, `True`, the session rolls the
-    treasure types in each monster's `treasure` the first time the monsters spawn, and puts the
-    result on the first cell of the area as a [`GeneratedCache`][osrlib.crawl.dungeon.GeneratedCache].
-    If the party leaves and comes back before the area is clear, the monsters spawn again and the
-    session doesn't roll the hoard again. Set it `False` for a monster room with no treasure.
-    Stocking a dungeon by the B/X rules often produces one, because only some monster rooms get
-    treasure on the stocking roll."""
+    treasure types in each monster's `treasure` the first time the monsters spawn. It puts the result
+    on the first cell of the area as a [`GeneratedCache`][osrlib.crawl.dungeon.GeneratedCache]. If the
+    party leaves and comes back before the area is clear, the monsters spawn again, but the session
+    doesn't roll the hoard again. Set it `False` for a monster room with no treasure. Stocking a
+    dungeon by the B/X rules often produces such a room, because only some monster rooms get treasure
+    on the stocking roll."""
 
 
 class AreaSpec(BaseModel):
@@ -1263,9 +1264,10 @@ class WanderingSpec(BaseModel):
 
     chance_in_six: int = Field(default=1, ge=0, le=6)
     """The base chance, in six, that each check brings monsters. The default, 1, is the B/X rule. The
-    session adjusts it for each check: noise since the last check adds 1, light as bright as
-    daylight adds 1, and a hidden rest subtracts 1, within 0 to 6. With 0, a level has wandering monsters
-    only after noise or under bright light. Set it higher for a busier level."""
+    session adjusts it for each check, within 0 to 6. Noise since the last check adds 1, and light as
+    bright as daylight adds 1. A rest with [`hidden`][osrlib.crawl.commands.Rest.hidden] set, where
+    the party hides while it rests, subtracts 1. With 0, a level has wandering monsters only after
+    noise or under bright light. Set it higher for a busier level."""
     interval_turns: int = Field(default=2, ge=1)
     """How many exploration turns pass between checks. The default, 2, is the B/X rule."""
     table: EncounterTable | None = None
@@ -1678,32 +1680,32 @@ class DoorState(BaseModel):
     [`ForceDoor`][osrlib.crawl.commands.ForceDoor]. Only a door the party opened swings shut behind
     it, so a door that starts open, or that a referee opened, stays open."""
 
-    # `DungeonState.door` sets this on the state it returns for a door with no entry. Setting a field
-    # calls it, which stores the state in the overlay, so reading the state alone never adds an entry.
+    # `DungeonState.door` sets this hook on a state it returns for a door with no entry. Setting a field
+    # calls the hook, which stores the state in `DungeonState.doors`. Reading the state never adds an entry.
     _write_through: Callable[[DoorState, str, Any], None] | None = PrivateAttr(default=None)
 
     def __setattr__(self, name: str, value: Any) -> None:
-        """Set an attribute, and pass a field write on to the overlay when the state isn't in it yet."""
+        """Set an attribute. For a field, also call the hook that stores a state from `DungeonState.door`."""
         super().__setattr__(name, value)
         if name in type(self).model_fields and self._write_through is not None:
             self._write_through(self, name, value)
 
-    # A copy or a pickle is the caller's own snapshot, so it drops the hook and writes nothing back to the overlay.
+    # A copy or a pickle is a separate snapshot, so it drops the hook and never writes to `DungeonState.doors`.
 
     def __copy__(self) -> Self:
-        """Return a shallow copy that doesn't write to the overlay."""
+        """Return a shallow copy that doesn't write to `DungeonState.doors`."""
         copied = super().__copy__()
         copied._write_through = None
         return copied
 
     def __deepcopy__(self, memo: dict[int, Any] | None = None) -> Self:
-        """Return a deep copy that doesn't write to the overlay."""
+        """Return a deep copy that doesn't write to `DungeonState.doors`."""
         copied = super().__deepcopy__(memo)
         copied._write_through = None
         return copied
 
     def __getstate__(self) -> dict[Any, Any]:
-        """Return the state to pickle, without the hook to the overlay."""
+        """Return the state to pickle, without the hook that writes to `DungeonState.doors`."""
         state = super().__getstate__()
         state["__pydantic_private__"] = {**(state["__pydantic_private__"] or {}), "_write_through": None}
         return state
@@ -1864,10 +1866,11 @@ class DungeonState(BaseModel):
     party enters it a second time."""
     generated_lair_hoards: list[str] = []
     """The areas whose [`KeyedEncounter`][osrlib.crawl.dungeon.KeyedEncounter] hoard the session has
-    already rolled, as area references. The session rolls a lair's hoard the first time the party
-    meets its monsters. When the party leaves and comes back, the monsters spawn again, but the hoard
-    isn't rolled again: the party finds the cache from the first visit, or nothing if it took that
-    cache."""
+    already rolled, as area references.
+
+    The session rolls a lair's hoard the first time the party meets its monsters. If the party leaves
+    and comes back, the monsters spawn again, but the session doesn't roll the hoard again. The party
+    finds the cache from the first visit, or nothing if it took that cache."""
     resolved_encounters: list[str] = []
     """The areas whose keyed encounter ended with every monster slain or routed, as area references.
     When the party enters one of these areas again, no monsters spawn."""
@@ -1965,28 +1968,30 @@ class DungeonState(BaseModel):
     def door(self, ref: str) -> DoorState:
         """Return one door's live state, which you can read or write.
 
-        The session doesn't create door entries up front, so this is how you get one without worrying about
-        whether the party has reached that door yet. Reading the state never changes the overlay. When
-        the door has an entry, the method returns that entry, so writing to it writes to the overlay.
-        When the door has none, the method returns a new all-`False` state and doesn't store it.
-        Setting one of that state's fields stores the state in `doors` as the door's entry, or, when
-        the door has gained an entry since, sets the field on that entry.
+        The session adds a door's entry to `doors` only when something in play changes the door. Use
+        this method to get a door's state whether or not that has happened yet. Reading the state never
+        changes `doors`.
 
-        A door with no entry is one that nothing in play has changed. For such a door, the method
-        doesn't apply the door's [`DoorSpec`][osrlib.crawl.dungeon.DoorSpec]: a door whose
-        `starts_open` is set stands open in play, but the state the method returns reads `open` as
-        `False`. To show doors the way the party sees them, read the player view from
-        [`GameSession.view`][osrlib.crawl.session.GameSession.view] instead. A first write through
-        this method, like `door(ref).discovered = True`, stores the entry with `open` set to `False`.
-        When the session's commands change a door, they store a new entry with `starts_open` applied.
+        - When the door has an entry, the method returns that entry. Writing to it writes to `doors`.
+        - When the door has no entry, the method returns a new all-`False` state and doesn't store it.
+          The first time you set one of its fields, the state becomes the door's entry in `doors`. If
+          the door has gained an entry in the meantime, the write goes to that entry instead.
+
+        The method doesn't read the door's [`DoorSpec`][osrlib.crawl.dungeon.DoorSpec]. A door whose
+        `starts_open` is set stands open in play, but until the door has an entry, the state this
+        method returns reads `open` as `False`. A first write through this method, like
+        `door(ref).discovered = True`, stores the entry with `open` still `False`. When the session's
+        commands change a door, they store an entry with `starts_open` applied. To show doors the way
+        the party sees them, read the player view from
+        [`GameSession.view`][osrlib.crawl.session.GameSession.view] instead.
 
         Args:
             ref: The door's [`edge_ref`][osrlib.crawl.dungeon.edge_ref]. You get the same reference
                 from either side of a door, so either side reaches the same state.
 
         Returns:
-            The door's overlay entry, or a new all-`False` state that becomes the entry when you
-                first set one of its fields.
+            The door's entry in `doors`, or a new all-`False` state that becomes the entry the first
+            time you set one of its fields.
 
         Examples:
             ```python
@@ -2009,7 +2014,7 @@ class DungeonState(BaseModel):
         return state
 
     def _write_door(self, ref: str, state: DoorState, name: str, value: Any) -> None:
-        """Store a state from `door` on its first field write, or copy the write to the entry stored since."""
+        """Store a state from `door` on its first field write, or copy the write to an entry stored since."""
         stored = self.doors.get(ref)
         if stored is None:
             state._write_through = None

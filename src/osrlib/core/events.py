@@ -289,8 +289,9 @@ class AttackRolledEvent(Event):
     [`resolve_attack`][osrlib.core.combat.resolve_attack] reports it before the damage that follows. Read `code`
     for the outcome, and the number fields to show the arithmetic.
 
-    An automatic hit has no roll. It happens against a paralysed, sleeping, or petrified defender in melee, or a
-    monster with no armour class, like green slime. Then `roll`, `total`, `required`, and `defender_ac` are `None`.
+    An automatic hit has no roll. A melee attack hits a paralysed, sleeping, or petrified defender automatically, and
+    any attack hits a monster with no armour class, like green slime. On an automatic hit, `roll`, `total`,
+    `required`, and `defender_ac` are `None`.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset(
@@ -381,9 +382,10 @@ class DamageDealtEvent(Event):
     damage's element, like `fire`, when it had one."""
 
     non_regenerable: bool = False
-    """True when the target regenerates and this damage's element stops its regeneration, as fire and acid do for
-    a troll or for a character who wears a ring of regeneration. Such damage can't be regenerated, and once enough of
-    it adds up, a troll stays dead."""
+    """True when the target regenerates and this damage's element stops its regeneration.
+
+    Fire and acid do that to a troll, and to a character who wears a ring of regeneration. The target's regeneration
+    can't heal this damage. Once enough of it adds up, a troll stays dead."""
 
 
 class DamageAbsorbedEvent(Event):
@@ -808,9 +810,10 @@ class EquipmentDestroyedEvent(Event):
     nothing.
 
     When the ruleset's `magic_item_death_save` flag is on, `destroy_equipment` rolls a save for each magic item, and
-    `saved_items` lists the ones that survive. `destroy_equipment` leaves them in the victim's inventory. When the
-    victim is a party member, a [`GameSession`][osrlib.crawl.session.GameSession] moves them to a drop pile on the
-    party's cell in the same command, and the party picks them up with
+    `saved_items` lists the ones that survive. `destroy_equipment` leaves them in the victim's inventory.
+
+    When the victim is a party member in a dungeon, a [`GameSession`][osrlib.crawl.session.GameSession] moves the
+    saved items to a drop pile on the party's cell, in the same command. The party picks them up with
     [`TakeTreasure`][osrlib.crawl.commands.TakeTreasure] and the feature id `"pile"`.
     """
 
@@ -873,10 +876,10 @@ class LevelDrainedEvent(Event):
     """How far the drain lowered the victim's maximum hit points: the maximum before the drain less the maximum
     after it.
 
-    While the victim has a level or a Hit Die left, maximum hit points don't drop below 1, so this can be less than
-    the hit points rolled for the lost levels. A level-2 character with 3 maximum hit points who rolls a 7 for the
-    lost level is left with 1, so `hp_lost` is 2. A drain that kills doesn't lower the maximum for the killing
-    level, so it counts only the levels lost before that one."""
+    While the victim has a level or a Hit Die left, maximum hit points don't drop below 1. So this can be less than
+    the hit points rolled for the lost levels. For example, a level-2 character with 3 maximum hit points who rolls a
+    7 for the lost level is left with 1, so `hp_lost` is 2. A drain that kills doesn't lower the maximum for the
+    level that kills, so `hp_lost` counts only the levels lost before that one."""
 
     xp_after: int | None = None
     """The character's experience points after the drain. Depending on the draining monster, they're either
@@ -888,8 +891,8 @@ class LevelDrainedEvent(Event):
     days under the control of its killer. osrlib kills the victim, and playing out what it becomes is up to you.
 
     It's set only on a `combat.drain.slain` event for a character, because it describes a victim the drain killed.
-    `None` on every `combat.drain.drained` event, for a monster victim, and when the undead creature's rules say
-    nothing about it."""
+    It's `None` on every `combat.drain.drained` event, for a monster victim, and when the undead creature's rules
+    say nothing about it."""
 
 
 class MonsterRevivedEvent(Event):
@@ -1126,18 +1129,18 @@ class SpellDisruptedEvent(Event):
 
 
 class DeclarationFizzledEvent(Event):
-    """A declared wand, staff, or rod use, or a declared turning, came to nothing, and cost nothing.
+    """A declared wand, staff, or rod use, or a declared turning, failed before it took effect.
 
-    A session reports it during a battle round. In the round's magic phase, the session checks each declared
-    device use and turning again, just before it would resolve. If a check it passed at the start of the round now
-    fails, because something earlier in the round changed, the declaration fizzles. One example is a staff of
-    striking aimed at a group that runs out of melee reach before the magic phase. Another is a wand aimed at a
-    group that leaves the battle first. `reason` has the rejection code of the check that failed.
+    A [`GameSession`][osrlib.crawl.session.GameSession] reports it during a battle round. In the round's magic
+    phase, the session checks each declared device use and turning again, just before it resolves. If a check the
+    declaration passed at the start of the round now fails, the declaration fizzles. Something earlier in the round
+    caused the failure. For example, the group a staff of striking was aimed at moved out of melee reach, or the
+    group a wand was aimed at left the battle. `reason` has the rejection code of the check that failed.
 
-    Nothing happened, and nothing was spent. The device was never used, so it keeps its charge and isn't
-    identified, and a turning has nothing to spend. Tell the player the action failed, and that the device still
-    has its charge. A cast or a scroll read that fizzles is reported by
-    [`SpellDisruptedEvent`][osrlib.core.events.SpellDisruptedEvent] instead, because a spell is lost.
+    A fizzled declaration spends nothing. The device wasn't used, so it keeps its charge and isn't identified. Tell
+    the player the action failed, and that the device still has its charge. When a cast or a scroll read fizzles,
+    the session reports a [`SpellDisruptedEvent`][osrlib.core.events.SpellDisruptedEvent] instead, because the
+    spell is lost.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"magic.device.fizzled", "magic.turning.fizzled"})
@@ -1157,19 +1160,23 @@ class DeclarationFizzledEvent(Event):
     """The entity id of the member who declared the device use or the turning."""
 
     item_id: str | None = None
-    """The device's per-instance id, the `item_id` the declaration named, on a `magic.device.fizzled` event. It's
-    the id the player already used, so it reveals nothing about a device that isn't identified. `None` on a
+    """On a `magic.device.fizzled` event, the device's instance id, as the declaration's `item_id` gave it.
+
+    The player already used this id, so it reveals nothing about a device that isn't identified. It's `None` on a
     `magic.turning.fizzled` event."""
 
     reason: str
     """Why the declaration fizzled: the code of the first check that failed when the session checked it again.
 
     Any check the declaration passed at the start of the round can fail, so read the code and don't assume a
-    cause. A staff of striking whose group ran out of reach gives `combat.attack.out_of_reach`, a wand aimed at
-    a group that left the battle gives `battle.declaration.unknown_group`, and a turning with no living monster
-    left in the battle gives `battle.declaration.no_target`. Match on it as you match on the code of a
-    [`Rejection`][osrlib.core.validation.Rejection]. [The rejection code reference][rejection-codes] explains each
-    code.
+    cause. Some codes you may see:
+
+    - `combat.attack.out_of_reach`: the group a staff of striking was aimed at moved out of reach.
+    - `battle.declaration.unknown_group`: the group a wand was aimed at left the battle.
+    - `battle.declaration.no_target`: no living monster is left in the battle for a turning.
+
+    Match on it as you match on the code of a [`Rejection`][osrlib.core.validation.Rejection].
+    [The rejection code reference][rejection-codes] explains each code.
     """
 
 

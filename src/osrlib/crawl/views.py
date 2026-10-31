@@ -313,12 +313,13 @@ class EncounterGroupView(BaseModel):
     [`Condition`][osrlib.core.effects.Condition] serialized values, sorted and deduplicated so
     the same condition on six goblins appears once."""
     fled: bool = False
-    """True once the group has run away and left the battle. It's the same value as
-    [`EncounterGroup.fled`][osrlib.crawl.encounter.EncounterGroup]. A fled group stays in
-    [`EncounterView.groups`][osrlib.crawl.views.EncounterView.groups], and the session refuses every
-    declaration aimed at it with `battle.declaration.unknown_group`, so don't offer it as a target. A
-    group that is running but hasn't got away yet isn't fled, and you can still close on it, shoot at it,
-    or cast at it."""
+    """True once the group has run away and left the battle, as in
+    [`EncounterGroup.fled`][osrlib.crawl.encounter.EncounterGroup.fled].
+
+    A fled group stays in [`EncounterView.groups`][osrlib.crawl.views.EncounterView.groups], but the
+    session refuses every declaration aimed at it with `battle.declaration.unknown_group`. So don't
+    offer it as a target. A group that's running but hasn't got away yet isn't fled. You can still
+    close on it, shoot at it, or cast at it."""
 
 
 class EncounterView(BaseModel):
@@ -359,14 +360,16 @@ class EncounterView(BaseModel):
     front_rank: tuple[str, ...] = ()
     """The living members close enough to attack in melee, in marching order. That is the
     party's first rank at the current formation width, or every living member when the
-    ruleset's `formation_width_limit` flag is off. Only these members can make a
-    `fighting_withdrawal` or a `retreat` alone. A melee attack declared for anyone else is
-    rejected with `battle.declaration.not_in_front_rank`, and inside melee reach a weapon
-    that is both melee and missile counts as a melee weapon. A staff of striking is a melee
-    weapon, so a `use_item` of one is refused the same way. The one exception is a member
-    whom a front-rank member names in
+    ruleset's `formation_width_limit` flag is off.
+
+    Only these members can make a `fighting_withdrawal` or a `retreat` alone. The session
+    rejects a melee attack declared for anyone else with
+    `battle.declaration.not_in_front_rank`. Inside melee reach, a weapon that's both melee and
+    missile counts as a melee weapon. A staff of striking is a melee weapon, so the session
+    refuses a `use_item` of one the same way. The one exception is a member that a front-rank
+    member names in
     [`BattleDeclaration.replacement_id`][osrlib.crawl.commands.BattleDeclaration.replacement_id]
-    to step up this round, who may declare a melee attack or strike with the staff."""
+    to step up this round. That member may declare a melee attack or strike with the staff."""
     immobile: tuple[str, ...] = ()
     """The declarers who can't move this round. In practice they're the entangled members,
     because the other conditions that stop a move stop every declaration as well. A `move`

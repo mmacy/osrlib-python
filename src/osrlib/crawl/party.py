@@ -7,13 +7,13 @@ You build a [`Party`][osrlib.crawl.party.Party] from
 session moves the party as one group. `session.party` is the same object you passed.
 
 The order of the member list is the marching order, and it isn't recorded anywhere else, so the
-first member is the one in front. [`ReorderParty`][osrlib.crawl.commands.ReorderParty] sets that
-order outside a fight, and the session calls [`reorder`][osrlib.crawl.party.Party.reorder] when it
-accepts one. In a battle, a member who makes a fighting withdrawal or a retreat alone trades places
-with the member named in
-[`BattleDeclaration.replacement_id`][osrlib.crawl.commands.BattleDeclaration.replacement_id], and
-the order stays that way after the battle. The referee command
-[`AddMember`][osrlib.crawl.commands.AddMember] adds a new member at the back.
+first member is the one in front. Outside a fight, [`ReorderParty`][osrlib.crawl.commands.ReorderParty]
+sets the order, and the session calls [`reorder`][osrlib.crawl.party.Party.reorder] when it accepts
+one. In a battle, a member who makes a fighting withdrawal or a retreat alone trades places with the
+member named in
+[`BattleDeclaration.replacement_id`][osrlib.crawl.commands.BattleDeclaration.replacement_id]. The new
+order lasts after the battle. [`AddMember`][osrlib.crawl.commands.AddMember], a referee command, adds a
+new member at the back.
 
 Dead members stay in the list, with their gear still on them. No command removes a member. The
 rules that count party members skip the dead: movement rate, combat ranks, traps, and food and
@@ -39,8 +39,8 @@ class Party(BaseModel):
     Construct one with at least one member and pass it to
     [`GameSession.new`][osrlib.crawl.session.GameSession.new], which assigns each member an id and
     keeps the party for the life of the session. To add a member during play, execute
-    [`AddMember`][osrlib.crawl.commands.AddMember]. The methods return facts about the group as a whole:
-    who is still alive, how fast the group walks, and who stands where in a fight.
+    [`AddMember`][osrlib.crawl.commands.AddMember]. The methods return facts about the group as a
+    whole: who is still alive, how fast the group walks, and who stands where in a fight.
 
     A party is mutable. The session heals, wounds, and re-equips its members in place, and assigning
     a new list to `members` validates it. The list is never empty: when the last member dies, the
@@ -79,13 +79,18 @@ class Party(BaseModel):
     """The party's characters, in marching order: index 0 walks in front and meets whatever the party
     walks into first. At least one member is required.
     [`GameSession.new`][osrlib.crawl.session.GameSession.new] assigns ids when the party joins a
-    session, so a member you just built has `None` as its `id` until then. To add a member during
-    play, execute [`AddMember`][osrlib.crawl.commands.AddMember], which assigns the new member's
-    id and puts them at the back, rather than appending to this list. Change the order with a
-    command, not by assigning to this field, so the change is logged and a replay reproduces it.
-    Outside a fight, execute [`ReorderParty`][osrlib.crawl.commands.ReorderParty]. In a battle, a
-    member who withdraws alone names the member to trade places with in
-    [`BattleDeclaration.replacement_id`][osrlib.crawl.commands.BattleDeclaration.replacement_id]."""
+    session, so a member you just built has `None` as its `id` until then.
+
+    Don't change this list directly. Use a command, so the change is logged and a replay
+    reproduces it:
+
+    - To add a member during play, execute [`AddMember`][osrlib.crawl.commands.AddMember]. It
+      assigns the new member's id and puts them at the back.
+    - To change the order outside a fight, execute
+      [`ReorderParty`][osrlib.crawl.commands.ReorderParty].
+    - In a battle, a member who withdraws alone names the member to trade places with in
+      [`BattleDeclaration.replacement_id`][osrlib.crawl.commands.BattleDeclaration.replacement_id].
+    """
 
     def living_members(self) -> list[Character]:
         """Return the living members, in marching order.
@@ -110,8 +115,8 @@ class Party(BaseModel):
         Use this to turn an id from a command or an event into the character it refers to. Events
         identify characters by id, not by name. The ids come from
         [`GameSession.new`][osrlib.crawl.session.GameSession.new], which gives each member an id like
-        `character-0001`, in party order, and from [`AddMember`][osrlib.crawl.commands.AddMember],
-        which gives a member who joins during play the next one. Inside a session,
+        `character-0001`, in party order. [`AddMember`][osrlib.crawl.commands.AddMember] gives a
+        member who joins during play the next id. Inside a session,
         [`GameSession.member`][osrlib.crawl.session.GameSession.member] does the same lookup.
 
         Args:

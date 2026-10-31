@@ -1139,12 +1139,12 @@ def wandering_check(session, *, resting: bool = False) -> tuple[list[Event], boo
     the monsters attack at once. From then on the session refuses the exploring commands and
     accepts the encounter commands. When `advance_turns` made the call, it passes no more time.
 
-    The chance starts from the level's chance in six. It goes up 1 for noise since the last check
-    and 1 for light as bright as daylight, and down 1 while the party hides, and it's limited to the
-    range 0 to 6. When the chance is 0 there is no roll: the check reports a miss and draws nothing.
+    The chance starts from the level's chance in six. It goes up 1 for noise since the last check,
+    and 1 for light as bright as daylight. It goes down 1 while the party hides. It's limited to the
+    range 0 to 6. When the chance is 0, there's no roll: the check reports a miss and draws nothing.
     Resting alone doesn't change the chance. The OSE SRD lowers it only for a party that rests
-    quietly in an out-of-the-way place, which it calls hiding. To say the party hides, a game sets
-    `hidden` on a [`Rest`][osrlib.crawl.commands.Rest].
+    quietly in an out-of-the-way place, which it calls hiding. To have the party hide, send a
+    [`Rest`][osrlib.crawl.commands.Rest] with `hidden` set.
 
     The check die draws from [`WANDERING_STREAM`][osrlib.crawl.session.WANDERING_STREAM], and so
     do the d20 roll on the encounter table, the count dice, and the choice among a row's monsters.
@@ -1561,18 +1561,18 @@ def _relocate(
 ) -> list[Event]:
     """Move the party to a cell (transitions, slides): explore, events, hooks.
 
-    `narrative` is the authored success beat of the gate the party satisfied to get
-    here. It goes out on the level- or dungeon-crossing event. A relocation within one
-    level emits no such event, so the beat goes out on a `PartyMovedEvent` for the
-    landing cell instead, which a relocation that isn't `walked` emits only to report
-    the beat.
+    `narrative` is the success text the author wrote on the gate the party passed to
+    get here. It goes on the `LocationEnteredEvent` for crossing into a new level or
+    dungeon. A relocation within one level has no such event, so the text goes on a
+    `PartyMovedEvent` for the landing cell instead. A relocation that isn't `walked`
+    emits that event only when there's text to report.
 
-    `via` and `transition_ref` are the caller's account of the crossing: the kind of
-    the transition taken and the cell it stands on for `UseStairs` and for a passage,
-    `"trap"` for a slide, `"entrance"` for the way in. Every caller has both to hand
-    and passes them, so a consumer never has to work backwards from where the party
-    ended up. Both go out on the same crossing event the beat does, so a relocation
-    within one level, which emits no crossing event, drops them too.
+    `via` and `transition_ref` describe the crossing. For `UseStairs` and for a passage,
+    they're the kind of the transition taken and the cell it stands on. For a slide,
+    `via` is `"trap"`, and for the way in, `"entrance"`. Every caller passes both, so a
+    consumer never has to work out the crossing from where the party ended up. Both go
+    on the same `LocationEnteredEvent` as `narrative`, so a relocation within one level
+    drops them.
 
     `walked` is for a passage, which the party crosses on foot with `MoveParty`. The
     relocation then reports the step as well: a `PartyMovedEvent` for the landing cell
@@ -1680,9 +1680,9 @@ def _keyed_encounter_check(session) -> list[Event]:
         # the author listed them, and the lair hoard after that. Keep this order: it
         # fixes the draws on the treasure stream.
         carried.append(_generate_carried_treasure(session, instances))
-    # The lair hoard is gated: a keyed encounter the author marked hoardless (a
-    # stocking roll that gave the monster room no treasure) gets no cache. A lair's
-    # hoard is rolled once, so a party that evades and comes back finds the same cache.
+    # A keyed encounter whose `hoard` is False gets no cache, as for a monster room the
+    # stocking roll gave no treasure. The session rolls a lair's hoard once, so a party
+    # that evades and comes back finds the same cache.
     events: list[Event] = []
     if area.encounter.hoard and area_ref not in session.dungeon_state.generated_lair_hoards:
         session.dungeon_state.generated_lair_hoards.append(area_ref)
@@ -3294,9 +3294,9 @@ def _handle_rest(session, command: Rest) -> tuple[list[Rejection], list[Event]]:
     if turns > 1:
         session.odometer_thirds = 0
     if interrupted:
-        # The wandering check is the first step of a turn, so every whole turn of elapsed time
+        # The wandering check is the first step of a turn, so every whole turn that passed
         # before it is a full turn rested. Those turns still clear fatigue and count toward
-        # exhaustion, but an interrupted rest isn't sleep and heals nobody.
+        # recovery from exhaustion, but an interrupted rest isn't sleep and heals nobody.
         rested_turns = (session.clock.rounds - start) // ROUNDS_PER_TURN
         if rested_turns:
             events.extend(_clear_fatigue(session))
@@ -4438,8 +4438,9 @@ def _healing_would_work(service: str, member: Character, spell, context) -> bool
 
     *Raise dead* needs a dead member, and *cure disease* a diseased one. *Neutralize poison*
     needs a poisoned member, or one that poison killed within the spell's revival window.
-    `_cast_context` works out how long ago from the session's death records. The other services always count
-    as working. The check reads state only, so a refusal draws nothing and changes nothing.
+    `_cast_context` works out the time since death from the session's death records. The other
+    services always count as working. The check only reads state, so a refusal draws nothing and
+    changes nothing.
     """
     if service == "raise_dead":
         return has_condition(member, Condition.DEAD)
