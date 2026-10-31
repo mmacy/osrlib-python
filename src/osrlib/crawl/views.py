@@ -193,6 +193,20 @@ class MemberView(BaseModel):
     """The prepared spells, one dumped
     [`MemorizedSpell`][osrlib.core.spells.MemorizedSpell] per copy, in memorization
     order. Empty for a class that casts nothing."""
+    encounter_rate_feet: int = 0
+    """How far the member can move in one round of a battle or an encounter, in feet.
+
+    It's a third of the member's movement rate after encumbrance, doubled while *haste* is on them.
+    In a battle, a member who declares `move="close"` moves up to this far toward the group, and
+    stops 5' from it. So a member can close on a group and attack it in the same round when their
+    distance to it, in
+    [`EncounterGroupView.member_distance_feet`][osrlib.crawl.views.EncounterGroupView.member_distance_feet],
+    is at most this rate plus 5'. Use it to offer "close in and attack" only to the members who can
+    reach.
+
+    It doesn't account for conditions. A member who can't move this round, like one held by a web,
+    still has a rate here, and
+    [`EncounterView.immobile`][osrlib.crawl.views.EncounterView.immobile] lists them."""
 
 
 class MemberEffectView(BaseModel):
@@ -320,6 +334,54 @@ class EncounterGroupView(BaseModel):
     session refuses every declaration aimed at it with `battle.declaration.unknown_group`. So don't
     offer it as a target. A group that's running but hasn't got away yet isn't fled. You can still
     close on it, shoot at it, or cast at it."""
+    member_distance_feet: dict[str, int] = {}
+    """Each living party member's distance to this group, in feet, keyed by member id. Empty outside a
+    battle.
+
+    A battle measures each group's `distance_feet` from the party line, where the party stood when
+    the encounter opened, and each member stands at their own advance from that line, in
+    [`EncounterView.advance_feet`][osrlib.crawl.views.EncounterView.advance_feet]. This is the group's
+    distance minus the member's advance. At 5' or less, the member and the group can reach each other
+    in melee. Beyond that, a member attacks the group with a missile weapon, or declares
+    `move="close"` to move toward it first. A missile's range band and a spell's range are measured
+    from this distance."""
+    front_rank: tuple[str, ...] = ()
+    """The members who can make a melee attack on this group this round without moving, and whom this
+    group's melee reaches, in marching order. Empty outside a battle, and empty while nobody stands
+    within 5' of the group.
+
+    These are the members in the party's front rank toward this group who stand within 5' of it. The
+    ranks toward a group are the living members sorted by their distance to it, nearest first, and cut
+    into rows of [`EncounterView.formation_width`][osrlib.crawl.views.EncounterView.formation_width].
+    A row never mixes distances, and the member who got there in an earlier round stands in front of
+    one who arrives later. The session refuses a melee attack on this group by any other member with
+    `battle.declaration.not_in_front_rank`, or with `combat.attack.out_of_reach` when the member is
+    farther than 5' away, unless the same declaration's `move="close"` brings them into it. When this
+    tuple has fewer members than `formation_width`, a member who can reach the group this round can
+    still take a place in it. [`preview_battle_round`][osrlib.crawl.battle.preview_battle_round]
+    answers that for a plan you're building.
+
+    Each of this group's monsters picks its melee target from these members, leaving out invisible
+    members and members whose *protection from evil* bars it. A monster with a missile attack closes
+    and uses it at 5' too, so the members behind this rank are out of a monster group's reach. NPC
+    adventurers with missile weapons shoot from farther away, at the members in the first row of the
+    party's ranks toward their group."""
+    lit: bool | None = None
+    """Whether a light the party carries reaches this group, or `None` outside a battle.
+
+    The group is lit when a living member with a burning light, like a torch or a lantern, stands
+    within that light's radius of it, 30' for a torch or a lantern. A darkness effect that puts out
+    the party's light, as [`GameSession.party_light`][osrlib.crawl.session.GameSession.party_light]
+    reports, leaves every group unlit. The session refuses no declaration because a group is unlit, so
+    use this field and `seen_by` to decide what your game offers or how it describes the fight."""
+    seen_by: tuple[str, ...] = ()
+    """The living members who can see this group, in marching order. Empty outside a battle.
+
+    A member sees the group when it's `lit`, or when the member has working infravision and the group
+    is within its range. A dwarf's and an elf's infravision reaches 60', and so does infravision an
+    effect grants. A darkness effect that stops infravision, as
+    [`GameSession.party_light`][osrlib.crawl.session.GameSession.party_light] reports, leaves it
+    working for nobody. A blind member sees nothing."""
 
 
 class EncounterView(BaseModel):
@@ -328,12 +390,18 @@ class EncounterView(BaseModel):
     You get one from [`PlayerView.encounter`][osrlib.crawl.views.PlayerView.encounter], which
     is `None` when the party isn't in an encounter.
 
-    The id tuples `declarers`, `front_rank`, `immobile`, and `reloading` describe the battle
-    round as the players see it at the table: who is able to act, who stands close enough to
-    attack in melee, who is held fast, and who is still reloading a crossbow. Each one matches
-    a rejection that would refuse the whole round, so if you read them, you offer only the
-    declarations the session accepts. Without them, you have to guess how many members stand in
-    the front rank, and a wrong guess costs the party its turn.
+    In a battle, each party member stands at their own place on the range track, the
+    one-dimensional measure of distance a battle uses. `advance_feet` gives each member's place, and
+    each group in `groups` gives every member's distance to it and the members who can reach it in
+    melee. Read those to draw the fight and to offer each member the moves and attacks they can make.
+
+    The id tuples `declarers`, `immobile`, and `reloading` describe the battle round as the players
+    see it at the table: who is able to act, who is held fast, and who is still reloading a crossbow.
+    Each group's [`front_rank`][osrlib.crawl.views.EncounterGroupView.front_rank] says who can attack
+    that group in melee this round. Each of these matches a rejection that would refuse the whole
+    round, so if you read them, you offer only the declarations the session accepts. To check a
+    choice against the choices already made for the round, call
+    [`preview_battle_round`][osrlib.crawl.battle.preview_battle_round].
     """
 
     model_config = ConfigDict(frozen=True)
@@ -358,27 +426,60 @@ class EncounterView(BaseModel):
     other roster, a slept or paralysed member included, is rejected whole with
     `battle.declaration.roster_mismatch`."""
     front_rank: tuple[str, ...] = ()
-    """The living members close enough to attack in melee, in marching order. That is the
-    party's first rank at the current formation width, or every living member when the
-    ruleset's `formation_width_limit` flag is off.
+    """The first row of the party's ranks toward the nearest group, in marching order.
 
-    Only these members can make a `fighting_withdrawal` or a `retreat` alone. The session
-    rejects a melee attack declared for anyone else with
-    `battle.declaration.not_in_front_rank`. Inside melee reach, a weapon that's both melee and
-    missile counts as a melee weapon. A staff of striking is a melee weapon, so the session
-    refuses a `use_item` of one the same way. The one exception is a member that a front-rank
-    member names in
-    [`BattleDeclaration.replacement_id`][osrlib.crawl.commands.BattleDeclaration.replacement_id]
-    to step up this round. That member may declare a melee attack or strike with the staff."""
+    The nearest group is the group that hasn't fled and has a living member, and that stands closest
+    to any living member. When two are equally near, it's the one that comes first in `groups`. The
+    ranks toward a group are the living members sorted by their distance to it and cut into rows of
+    `formation_width`, and this is the first row, however far away it stands. With the ruleset's
+    `formation_width_limit` flag off, the row holds every living member at the nearest distance.
+    Outside a battle, every member stands on the party line, so it's the party's first rank in
+    marching order.
+
+    In a fight with one group, before any member has moved, it's the members who can attack that
+    group in melee once it's within 5'. As soon as members stand at different distances, or the party
+    fights more than one group, read each group's
+    [`front_rank`][osrlib.crawl.views.EncounterGroupView.front_rank] instead, which says exactly who
+    can attack that group in melee this round."""
     immobile: tuple[str, ...] = ()
     """The declarers who can't move this round. In practice they're the entangled members,
     because the other conditions that stop a move stop every declaration as well. A `move`
     declaration of any kind from one of them is rejected with
-    `battle.declaration.cannot_move`, and none of them can step up as a replacement."""
+    `battle.declaration.cannot_move`, and so is an `attack` from one of them that sets
+    `move="close"`."""
     reloading: tuple[str, ...] = ()
     """The members who may not fire a `reload` weapon this round, because they fired one
     last round (`combat.attack.reload`). Empty when the ruleset's `weapon_reload` flag is
     off, so you can combine this list with the weapon's qualities and never read the flag."""
+    advance_feet: dict[str, int] = {}
+    """Each living member's place on the range track, keyed by member id, in feet forward of the party
+    line. Empty outside a battle.
+
+    The party line is where the party stood when the encounter opened. Each group's `distance_feet`
+    is measured from it. Every member starts a battle on the line, at zero. A member who closes on a
+    group moves forward, and a member who falls back alone moves back, below zero once they're behind
+    the line. Use it to draw where each member stands. Each group's
+    [`member_distance_feet`][osrlib.crawl.views.EncounterGroupView.member_distance_feet] gives the
+    distance it leaves between the member and that group."""
+    formation_width: int | None = None
+    """How many members can fight side by side where the party stands, or `None` when the ruleset's
+    `formation_width_limit` flag is off and a rank has no width limit.
+
+    The width is the side of the largest square of open cells that includes the party's cell, times
+    10', divided by 5' for each combatant
+    ([`FIGHTER_FRONTAGE_FEET`][osrlib.crawl.battle.FIGHTER_FRONTAGE_FEET]). A one-cell corridor gives
+    2, and so does a crossroads of one-cell corridors. A room gives twice its shorter side in cells: a
+    4 by 4 room gives 8, and a 2 by 8 room gives 4. The ranks toward each group are rows this wide, so
+    a group's [`front_rank`][osrlib.crawl.views.EncounterGroupView.front_rank] never holds more members
+    than this. Compare the two to show how many places are left in a group's front rank."""
+    party_free_round: bool = False
+    """True in the round the party gets free after it surprised the monsters, while the monsters can't
+    act. False in every other round, and outside a battle.
+
+    It's the round in which a thief's back-stab is legal: an `attack` that sets
+    [`BattleDeclaration.back_stab`][osrlib.crawl.commands.BattleDeclaration.back_stab]. It's true while
+    [`BattleState.monsters_hold_rounds`][osrlib.crawl.battle.BattleState.monsters_hold_rounds] is above
+    zero."""
 
 
 class ObjectiveView(BaseModel):

@@ -2472,35 +2472,54 @@ class BattleDeclaration(BaseModel):
     You construct these yourself, one for each member who has to declare, and pass them all
     in one [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound].
     [`EncounterView.declarers`][osrlib.crawl.views.EncounterView.declarers] lists the
-    members who have to declare this round. Three more lists on the same view, `front_rank`,
-    `immobile`, and `reloading`, show who can attack in melee, who can't move, and who
-    can't fire a reloading weapon this round. Read all four to offer only choices the
-    session accepts.
+    members who have to declare this round. To offer only choices the session accepts, read
+    these from the same player view:
+
+    - Each group's
+      [`front_rank`][osrlib.crawl.views.EncounterGroupView.front_rank], the members who can
+      attack it in melee this round without moving, and its
+      [`member_distance_feet`][osrlib.crawl.views.EncounterGroupView.member_distance_feet],
+      each member's distance to it.
+    - Each member's
+      [`encounter_rate_feet`][osrlib.crawl.views.MemberView.encounter_rate_feet], how far
+      they can move this round. A member can close on a group and attack it in the same round
+      when their distance to it is at most that rate plus 5'.
+    - `immobile` and `reloading` on the encounter view: who can't move, and who can't fire a
+      reloading weapon this round.
+
+    To check one member's choice against the choices already made for the round, call
+    [`preview_battle_round`][osrlib.crawl.battle.preview_battle_round] with them.
 
     `action` decides which other fields apply. Leave the others at their defaults.
 
-    - `attack` uses `target_group_id` and, optionally, `weapon_id` and `back_stab`. With no
-      `weapon_id`, the member attacks with the wielded weapon that suits the attack, or with
-      bare hands when they wield none. Set `back_stab` for a thief's melee attack in the free
+    - `attack` uses `target_group_id` and, optionally, `weapon_id`, `move`, and `back_stab`.
+      With no `weapon_id`, the member attacks with the wielded weapon that suits the attack,
+      or with bare hands when they wield none. Set `move="close"` to close on the group first
+      and attack it in the same round. Set `back_stab` for a thief's melee attack in the free
       round the party gets when it surprises the monsters.
     - `cast` uses `spell_id`, `spell_mode`, `reversed`, and `targets`. `spell_id` is a spell
       id, like `"sleep"`. `spell_mode` is the key of one of the spell's modes, and `reversed`
-      picks the spell's reversed form.
+      picks the spell's reversed form. A caster can't move in the round they cast, so leave
+      `move` at `None`.
     - `move` uses the `move` field, which is `close`, `fighting_withdrawal`, or `retreat`. A
-      `close` moves the party toward the group in `target_group_id`. A `fighting_withdrawal`
-      backs away slowly, facing the monsters, and a `retreat` turns and runs. When every
-      member in `declarers` makes the same one, it's a formation move: the whole party moves
-      as one body, and the distance to the monsters changes. A member who makes one alone
-      also sets `replacement_id`, and only the party's ranks change.
+      `close` moves this member toward the group in `target_group_id`, and nobody else. A
+      `fighting_withdrawal` backs this member away slowly, facing the monsters, and a
+      `retreat` turns and runs. When every member in `declarers` makes the same
+      `fighting_withdrawal` or `retreat`, it's a formation move instead: the whole party moves
+      as one body, and every group's distance changes.
     - `use_item` uses `item_id`. The member drinks a potion, reads a scroll, uses a wand,
       staff, or rod, or throws a flask of oil or a similar item at `target_group_id`. A
-      staff of striking is a melee weapon, so only a member in `front_rank` can strike with
-      it.
+      staff of striking is a melee weapon, so only a member in the group's `front_rank` can
+      strike with it.
     - `turn_undead` uses nothing else. It reaches every living monster in the groups that
       haven't fled when it resolves. Turning resolves with the spells in the round. A hit
       can't disrupt it, because it's a class ability, not a spell.
     - `hold` does nothing. A member with no legal action declares it, because every member
       in `declarers` needs a declaration.
+
+    Only `attack` and `move` take a `move`. The session refuses a `cast` that sets one with
+    `battle.declaration.cast_cannot_move`, and a `turn_undead`, `use_item`, or `hold` that sets
+    one with `battle.declaration.move_not_combinable`.
 
     `gaze_defense` goes with any action. It guards the member against a petrifying gaze, like
     a basilisk's or a medusa's, for this round only. Its values are `avert_eyes` and `mirror`.
@@ -2517,16 +2536,17 @@ class BattleDeclaration(BaseModel):
     [`EncounterView.declarers`][osrlib.crawl.views.EncounterView.declarers], and each of those
     members needs a separate declaration in the same round."""
     action: Literal["attack", "cast", "turn_undead", "move", "use_item", "hold"]
-    """What this member does. `attack` strikes or shoots at a group, `cast` casts a spell,
-    `turn_undead` presents a holy symbol, `move` changes the distance to the monsters,
-    `use_item` uses a magic item or throws an item, and `hold` does nothing. This field determines
-    which other fields apply, and `hold` needs none of them."""
+    """What this member does. `attack` strikes or shoots at a group, after a `close` when the
+    declaration sets one, `cast` casts a spell, `turn_undead` presents a holy symbol, `move` moves
+    the member toward the monsters or away from them, `use_item` uses a magic item or throws an
+    item, and `hold` does nothing. This field determines which other fields apply, and `hold`
+    needs none of them."""
     target_group_id: str | None = None
     """Which monster group the action is aimed at, by
     [`EncounterGroupView.id`][osrlib.crawl.views.EncounterGroupView.id] from
     [`EncounterView.groups`][osrlib.crawl.views.EncounterView.groups].
 
-    These declarations need it: an `attack`, a `close` move, a thrown item, a wand, staff, or rod
+    These declarations need it: an `attack`, a `close`, a thrown item, a wand, staff, or rod
     that strikes or covers an area, and a `cast` of a spell whose area covers creatures. An area
     spell aimed at a group isn't placed at a point, because the range track has no positions
     inside a group. It covers the group's living members in the order they were spawned, as many
@@ -2551,9 +2571,11 @@ class BattleDeclaration(BaseModel):
     `battle.declaration.weapon_not_wielded`. Whether the attack is melee or missile depends on the
     weapon's qualities and the group's distance.
 
-    With `None`, the member attacks with the wielded weapon that suits the attack. The group's
-    distance when the session accepts the round decides the attack: melee at 5' or less, and
-    missile beyond 5'. The session chooses the weapon this way:
+    With `None`, the member attacks with the wielded weapon that suits the attack. The member's
+    distance to the group decides the attack: melee at 5' or less, and missile beyond 5'. It's the
+    distance when the session accepts the round, after the member's own `close` when the
+    declaration sets one. So a member who closes into reach with a dagger strikes with it, and a
+    member who stays 20' away throws it. The session chooses the weapon this way:
 
     - It looks through the member's wielded items in the order they were equipped. It takes the
       first one with the `melee` quality for a melee attack, or the `missile` quality for a
@@ -2605,71 +2627,102 @@ class BattleDeclaration(BaseModel):
 
     The session refuses an invisible target with `battle.declaration.invisible_target`."""
     move: Literal["close", "fighting_withdrawal", "retreat"] | None = None
-    """Which movement a `move` declaration makes.
+    """Which movement this member makes this round, with a `move` action or, for `close` only, with an
+    `attack`.
 
-    `close` moves the party toward `target_group_id` at the encounter rate of its slowest
-    living member, and stops at melee range. When members declare `close` on different
-    groups, the party closes on the group of the first `close` in
-    [`ResolveBattleRound.declarations`][osrlib.crawl.commands.ResolveBattleRound.declarations].
+    A battle measures distance on the range track. Each group stands at a distance from the party
+    line, where the party stood when the encounter opened. Each member stands at an advance forward
+    of that line, in [`EncounterView.advance_feet`][osrlib.crawl.views.EncounterView.advance_feet],
+    and starts the battle on it. A member's distance to a group is the group's distance minus their
+    advance. A member moves at their own encounter movement rate,
+    [`MemberView.encounter_rate_feet`][osrlib.crawl.views.MemberView.encounter_rate_feet]: a third of
+    their movement rate after encumbrance, doubled by *haste* on that member.
 
-    `fighting_withdrawal` and `retreat` take a member out of melee. A `fighting_withdrawal`
-    backs away slowly, facing the monsters, and a `retreat` turns and runs. Each one is either a
-    formation move or a move the member makes alone:
+    `close` moves this member toward `target_group_id` at their rate, and nobody else. The member
+    stops 5' from that group, and stops sooner rather than come within 5' of another group that's
+    still in the fight. A member already within 5' of the group doesn't move.
+
+    - With a `move` action, the member only moves.
+    - With an `attack`, the member moves in the party's movement step and attacks in the missile
+      or the melee step of the same round. The session judges the attack as if the move had
+      already happened. The member's distance after the move decides whether it's a melee or a
+      missile attack, and a melee attack needs the member to be within 5' of the group and in its
+      front rank after every move the round declares. A member who can't get that close this round
+      gets `combat.attack.out_of_reach`, with that distance as `distance_feet`, and a member who
+      gets close but finds no place left in the front rank gets
+      `battle.declaration.not_in_front_rank`.
+
+    The monsters can act before the party. A melee attack resolves only if, at the party's melee
+    step, the member stands in the group's front rank within 5' of it. The one exception is a group
+    that has started to flee. A member who stood within 5' of it when the round was accepted still
+    gets the attack, with the bonus against a retreating combatant. Otherwise the member makes no
+    attack, and the round reports only their move.
+
+    `fighting_withdrawal` and `retreat` take a member away from the monsters, with a `move` action.
+    A `fighting_withdrawal` backs away at half the member's encounter rate, facing the monsters, and
+    a `retreat` turns and runs at the full rate. The member makes no attack that round. Each one is
+    either a formation move or a move the member makes alone:
 
     - When every member in `declarers` declares the same one, it's a formation move: the whole
-      party moves as one body. That includes a round with only one declarer. A
-      `fighting_withdrawal` backs the party away from every group at half the slowest member's
-      encounter rate. A `retreat` backs the party away at the full rate and ends the battle. If
-      no monster can pursue the party, the party gets away and the encounter closes. Otherwise
-      the session goes back to `encounter` mode with a pursuit, which
-      [`PursuitState`][osrlib.crawl.encounter.PursuitState] describes. Send
+      party moves as one body. That includes a round with only one declarer. The party backs away
+      from every group, at half the slowest member's encounter rate for a `fighting_withdrawal`, or
+      at the full rate for a `retreat`, and no member's advance changes. A formation `retreat` ends
+      the battle. If no monster can pursue the party, the party gets away and the encounter closes.
+      Otherwise the session goes back to `encounter` mode with a pursuit, which
+      [`PursuitState`][osrlib.crawl.encounter.PursuitState] describes. The pursuit starts at the
+      smallest distance between a living member and a group that can follow. Send
       [`Wait`][osrlib.crawl.commands.Wait] to run each round of it, or
       [`EngageBattle`][osrlib.crawl.commands.EngageBattle] to turn and fight.
-    - Otherwise, each `fighting_withdrawal` or `retreat` is a move the member makes alone. It
-      doesn't move the party, and it doesn't end the battle, even when it's a `retreat`. The
-      member has to stand in the front rank. They step back and trade places in the marching
-      order with the back-rank member named in `replacement_id`.
+    - Otherwise, the member moves back alone, and their advance goes down. It can go below zero,
+      behind the line, because the way the party came is clear. Any member can do it, wherever they
+      stand, and nobody else moves. It doesn't end the battle, even when it's a `retreat`. Once the
+      member has moved, the members who are now nearest each group form its front rank.
 
-    A member who declares either move makes no attack that round, because a member declares
-    one action per round. A member who retreats, alone or with the formation, is easier to hit
-    for the whole round, whichever side acts first. Attackers get +2 against them and ignore
-    the retreating member's shield.
+    A member who retreats, alone or with the formation, is easier to hit for the whole round,
+    whichever side acts first. Attackers get +2 against them and ignore the retreating member's
+    shield.
+
+    The session refuses a `move` action with no `move` with `battle.declaration.missing_move`, a
+    `close` at a group that isn't in the encounter or has fled with
+    `battle.declaration.unknown_group`, and any move by a member in
+    [`EncounterView.immobile`][osrlib.crawl.views.EncounterView.immobile] with
+    `battle.declaration.cannot_move`. An `attack` takes only `close`, and gets
+    `battle.declaration.move_not_combinable` with a `fighting_withdrawal` or a `retreat`. A `cast`
+    that sets any move gets `battle.declaration.cast_cannot_move`, because the OSE SRD says "The
+    spell caster cannot move and cast a spell in the same round". A `turn_undead`, a `use_item`, or
+    a `hold` that sets any move gets `battle.declaration.move_not_combinable`. Each of these two
+    codes has the member's id as its `character` param. The session checks for them after the
+    back-stab checks and before the action's own checks.
     [The adaptations register](https://mmacy.github.io/osrlib-python/adaptations/)
     describes these rules in full."""
     replacement_id: str | None = None
-    """The back-rank member who steps up into this member's place, by
-    [`MemberView.id`][osrlib.crawl.views.MemberView.id].
+    """A member to trade places with in the marching order, for a `fighting_withdrawal` or a
+    `retreat` this member makes alone, by [`MemberView.id`][osrlib.crawl.views.MemberView.id].
 
-    Set it only for a `fighting_withdrawal` or a `retreat` that this member makes alone. Leave
-    it `None` for every other declaration, a formation move included. The two members trade
-    places in the marching order during the party's movement step, and the new order stays
-    after the battle.
+    Leave it `None` for every other declaration, a formation move included. A member who falls
+    back alone doesn't need to name anyone. Nobody else moves, and the members who are then nearest
+    each group form its front rank.
 
-    The replacement has to meet all of these conditions:
+    The trade changes only the marching order. It happens in the party's movement step, right
+    after the withdrawing member's move, and a
+    [`MemberWithdrewEvent`][osrlib.crawl.events.MemberWithdrewEvent] reports it. Marching order
+    decides who stands in front among members at the same distance from a group who got there in
+    the same round. So when the withdrawing member steps out of a front rank, naming a member who
+    stands at the same distance brings that member to the front. The trade doesn't move the named
+    member. A member who stands farther back reaches the front rank only with a `close` of their
+    own. The new marching order stays after the battle.
 
-    - They're a living member behind the front rank, and they're in
-      [`EncounterView.declarers`][osrlib.crawl.views.EncounterView.declarers].
-    - They aren't in `immobile`, and they aren't charmed or confused. A charmed member acts
-      for the charmer, and a confused one acts at random.
-    - They haven't declared a `cast`, because a spell caster can't move and cast in the same
-      round. They haven't declared a `fighting_withdrawal` or a `retreat` either.
-    - No other withdrawing member has named them.
-    - Both members can cover the distance between their ranks this round. Each rank stands 5'
-      behind the one in front of it, so a replacement two ranks back is 10' away. The
-      withdrawing member moves at up to half their encounter rate for a fighting withdrawal, or
-      their full encounter rate for a retreat. The replacement moves at up to their full
-      encounter rate. *Haste* doubles the limit for the member who has it.
+    The named member has to be in
+    [`EncounterView.declarers`][osrlib.crawl.views.EncounterView.declarers], can't be the
+    withdrawing member, can't be making a `fighting_withdrawal` or a `retreat` of their own, and
+    can't already be named by a withdrawing member earlier in marching order. Otherwise the session
+    refuses the declaration with `battle.declaration.replacement_unavailable`, with the withdrawing
+    member's id as the `character` param and the named id as `replacement`. A declaration in a
+    formation move that sets this field gets the same code, because every member is moving.
 
-    The replacement can declare a melee attack in the same round, before the swap has happened.
-    The session checks every melee declaration against the front rank as the round's swaps will
-    leave it, so the replacement counts as a front-rank member.
-
-    A swap that happens emits a
-    [`MemberWithdrewEvent`][osrlib.crawl.events.MemberWithdrewEvent]. If the monsters act first,
-    they can stop the swap. When either member dies, ends up in another rank, or can no longer
-    move, or the replacement becomes incapacitated, charmed, or confused, the two stay where they
-    are. A swap that doesn't happen emits no event, and the replacement's melee attack doesn't
-    resolve."""
+    The trade happens only when the withdrawing member's move happens, and only while both members
+    are alive. A withdrawing member who can no longer move when the movement step comes stays where
+    they are, and the two keep their places in the marching order."""
     item_id: str | None = None
     """Which item a `use_item` declaration uses: a magic item's per-instance id for a potion, a
     scroll, a wand, a staff, or a rod, or a mundane item's catalog id for an item thrown at a
@@ -2678,8 +2731,9 @@ class BattleDeclaration(BaseModel):
     gaze_defense: Literal["avert_eyes", "mirror"] | None = None
     """How this member guards against a petrifying gaze this round, or `None` for no guard.
 
-    A petrifying gaze, like a basilisk's or a medusa's, reaches each member of the party's front
-    rank once a round while the gazer's group is in melee. The session rolls a saving throw
+    A petrifying gaze, like a basilisk's or a medusa's, reaches each member who stands in the
+    gazer's group's [`front_rank`][osrlib.crawl.views.EncounterGroupView.front_rank], within 5' of
+    it, once a round. The session rolls a saving throw
     versus paralysis for each member it reaches, with no declaration needed. A member who fails
     turns to stone. The OSE SRD's basilisk entry says "Unless averting eyes or using
     a mirror, characters in melee are affected each round". This field picks one of those two
@@ -2704,7 +2758,8 @@ class BattleDeclaration(BaseModel):
     until the round ends. It makes no random roll and emits no event. The command log records it
     with the declaration.
 
-    A member in the back rank doesn't need a guard, because the gaze doesn't reach them.
+    A member outside the gazer's group's front rank doesn't need a guard, because the gaze
+    doesn't reach them.
     Neither does a member who can't act and so doesn't declare, because the gaze passes them by.
 
     A basilisk that surprises the party turns its gaze on every member once as the encounter
@@ -2726,8 +2781,16 @@ class BattleDeclaration(BaseModel):
       free round, while
       [`BattleState.monsters_hold_rounds`][osrlib.crawl.battle.BattleState.monsters_hold_rounds]
       is above zero. The session reads it when it accepts the round.
-    - The attack is a melee attack. The weapon and the group's distance decide that, as
+    - The attack is a melee attack. The weapon and the member's distance to the group after their
+      `close`, if the declaration sets one, decide that, as
       [`weapon_id`][osrlib.crawl.commands.BattleDeclaration.weapon_id] describes.
+
+    A thief can close on a group and back-stab in the same round: declare `attack` with
+    `move="close"` and `back_stab=True`. The session judges the back-stab at the distance the move
+    will reach. So a thief reaches a group up to their encounter rate plus 5' away. That's 35' for a
+    thief in leather armour under the ruleset's default `basic` encumbrance, and 45' for one in no
+    armour. *Haste* doubles the rate. A group farther away can't be back-stabbed in the free round,
+    because the free round is the only round the monsters are unaware.
 
     An accepted back-stab hits the same monster an ordinary melee attack would. It gets +4 to
     hit, the defender's shield doesn't count, and its damage is doubled. The bonus and the
@@ -2750,9 +2813,11 @@ class BattleDeclaration(BaseModel):
        `battle.declaration.weapon_not_wielded`.
     5. `battle.declaration.back_stab_not_melee`: the attack the session would resolve is a
        missile attack. That's a missile weapon like a bow, or a weapon that's both melee and
-       missile, like a dagger, aimed at a group farther away than 5'.
+       missile, like a dagger, aimed at a group more than 5' from the member after their
+       `close`.
     6. The rest of an ordinary melee attack's checks, like
-       `battle.declaration.not_in_front_rank` and `combat.attack.out_of_reach`.
+       `battle.declaration.not_in_front_rank` and `combat.attack.out_of_reach`, judged after the
+       round's declared moves.
 
     A declaration that leaves this field `False` resolves exactly as it would without it.
     [The adaptations register](https://mmacy.github.io/osrlib-python/adaptations/) describes the
@@ -2773,9 +2838,13 @@ class ResolveBattleRound(Command):
     into a pursuit, and to `game_over` when every party member is dead or turned to stone.
 
     The session accepts or refuses a round as a whole. It checks every declaration before
-    it resolves any of them. If a single declaration is bad, the session refuses the
-    command, and the result lists every rejection found. Fix the declarations and send the
-    round again.
+    it resolves any of them, against where the members will stand once the moves the round
+    declares are made. If a single declaration is bad, the session refuses the command, and
+    the result lists every rejection found. A refused round costs nothing: no random number,
+    no game time, and no change to the session. Fix the declarations and send the round
+    again. To check declarations before you send them, call
+    [`preview_battle_round`][osrlib.crawl.battle.preview_battle_round], which runs the same
+    checks without playing the round.
 
     Modes:
         `battle`
@@ -2797,26 +2866,29 @@ class ResolveBattleRound(Command):
           id as its `character` param.
         - Move declarations: `battle.declaration.missing_move`,
           `battle.declaration.unknown_group`, and `battle.declaration.cannot_move`.
-        - A `fighting_withdrawal` or a `retreat` that a member makes alone gets only the
-          first of these that applies: `battle.declaration.not_in_front_rank` when the
-          member stands behind the front rank, `battle.declaration.no_replacement` when
-          `replacement_id` is `None`, `battle.declaration.replacement_unavailable` when the
-          named member can't step up, and `battle.declaration.replacement_too_far` when
-          either member can't cover the distance between their ranks. Each rejection has the
-          withdrawing member's id as its `character` param. The last two also have the
-          replacement's id as `replacement`, and `replacement_too_far` has the distance as
-          `distance_feet`.
-        - `battle.declaration.replacement_unavailable` also comes back for a declaration in
-          a formation move that sets `replacement_id`, because every declarer moves with the
-          formation.
+        - A `move` set on an action that can't take it: `battle.declaration.cast_cannot_move`
+          on a `cast`, and `battle.declaration.move_not_combinable` on a `turn_undead`, a
+          `use_item`, or a `hold`, and on an `attack` with a `fighting_withdrawal` or a
+          `retreat`. Each has the member's id as its `character` param. The session checks
+          for them after the back-stab checks and before the action's own checks.
+        - `battle.declaration.replacement_unavailable` when a member who makes a
+          `fighting_withdrawal` or a `retreat` alone names a member in `replacement_id` who
+          isn't a declarer, is the withdrawing member, is withdrawing too, or was named by a
+          withdrawing member earlier in marching order. It also comes back for a declaration
+          in a formation move that sets `replacement_id`, because every declarer moves with
+          the formation. It has the withdrawing member's id as its `character` param and the
+          named id as `replacement`.
         - Attack declarations: `battle.declaration.unknown_group`,
           `battle.declaration.no_target`, `battle.declaration.weapon_not_wielded`,
-          `battle.declaration.not_in_front_rank` for a melee attack by a member who won't
-          be in the front rank after the round's swaps, and the checks of
-          [`validate_attack`][osrlib.core.combat.validate_attack]:
+          `battle.declaration.cannot_move` for an attack that sets `move="close"` by a member
+          who can't move, `battle.declaration.not_in_front_rank` for a melee attack by a
+          member who won't stand in the group's front rank once the round's moves are made,
+          and the checks of [`validate_attack`][osrlib.core.combat.validate_attack]:
           `combat.attack.out_of_reach`, `combat.attack.out_of_range`,
           `combat.attack.reload`, `combat.attack.attacker_incapacitated`, and
-          `combat.attack.attacker_blind`.
+          `combat.attack.attacker_blind`. The session judges an attack at the member's own
+          distance to the group, after the member's `close` if the declaration sets one, and
+          `combat.attack.out_of_reach` has that distance as its `distance_feet` param.
         - A declaration that sets `back_stab`: `battle.declaration.back_stab_not_attack` on
           any action but `attack`, before any other check. On an attack,
           `battle.declaration.back_stab_no_ability` and
@@ -2847,9 +2919,9 @@ class ResolveBattleRound(Command):
           `items.scroll.no_such_spell`, `items.scroll.wrong_caster`,
           `exploration.action.requires_light`, and `combat.attack.out_of_reach`. A staff of
           striking is a melee weapon, so its use also gets
-          `battle.declaration.not_in_front_rank` when the member won't be in the front rank
-          after the round's swaps. A scroll read can also get the cast checks on its spell and targets
-          (`magic.cast.unknown_mode`, `magic.cast.unknown_target`,
+          `battle.declaration.not_in_front_rank` when the member won't stand in the group's
+          front rank once the round's moves are made. A scroll read can also get the cast
+          checks on its spell and targets (`magic.cast.unknown_mode`, `magic.cast.unknown_target`,
           `battle.declaration.invisible_target`, `magic.cast.target_count`,
           `magic.cast.out_of_range`, `magic.cast.caster_incapacitated`,
           `magic.cast.caster_restrained`, `magic.cast.anti_magic_shell`). A thrown item
@@ -2863,10 +2935,13 @@ class ResolveBattleRound(Command):
         [`InitiativeRolledEvent`][osrlib.core.events.InitiativeRolledEvent], which reports
         which side acts first.
 
-        Movement: a [`GroupMovedEvent`][osrlib.crawl.events.GroupMovedEvent] each time the
-        distance to a group changes, and a
+        Movement: a [`MemberMovedEvent`][osrlib.crawl.events.MemberMovedEvent] each time a
+        member moves by themselves, a
         [`MemberWithdrewEvent`][osrlib.crawl.events.MemberWithdrewEvent] each time a member
-        who withdraws alone trades places with a member from a back rank.
+        who falls back alone trades places in the marching order with the member they named,
+        and a [`GroupMovedEvent`][osrlib.crawl.events.GroupMovedEvent] each time a group's
+        distance from the party line changes, when monsters close or run, and when the whole
+        party moves in a formation move.
 
         Missiles and melee:
         [`AttackRolledEvent`][osrlib.core.events.AttackRolledEvent],
@@ -2926,9 +3001,11 @@ class ResolveBattleRound(Command):
         dead or turned to stone.
 
     Examples:
-        A fighter and a cleric meet three goblins 30 feet away. Each round, every member
-        in `declarers` closes the distance until the nearest group is in melee reach.
-        Then the front rank attacks with the weapon it wields and the rest hold:
+        A fighter and a cleric meet three goblins 30 feet away. Each round, each member in
+        `declarers` plans an attack with a `close`. A member out of reach closes first, and a
+        member already in reach doesn't move and attacks where they stand. When the preview
+        refuses that plan, because the member can't reach the goblins this round or the front
+        rank toward them is full, the member closes without attacking:
 
         ```python
         from osrlib.core.alignment import Alignment
@@ -2937,7 +3014,7 @@ class ResolveBattleRound(Command):
         from osrlib.core.rng import RngStreams
         from osrlib.core.ruleset import Ruleset
         from osrlib.crawl.adventure import Adventure, TownSpec
-        from osrlib.crawl.battle import MELEE_RANGE_FEET
+        from osrlib.crawl.battle import preview_battle_round
         from osrlib.crawl.commands import (
             BattleDeclaration,
             EngageBattle,
@@ -2972,32 +3049,27 @@ class ResolveBattleRound(Command):
         if session.mode is SessionMode.ENCOUNTER:  # the goblins didn't attack first
             session.execute(EngageBattle())
 
-        rounds = 0
         while session.mode is SessionMode.BATTLE:
             encounter = session.view(Visibility.PLAYER).encounter
-            target = min((group for group in encounter.groups if group.count), key=lambda group: group.distance_feet)
-            declarations = []
+            target = next(group for group in encounter.groups if group.count and not group.fled)
+            planned = []
             for member_id in encounter.declarers:
-                if target.distance_feet > MELEE_RANGE_FEET:
+                # With no weapon_id, the member attacks with the wielded weapon that suits the attack.
+                declaration = BattleDeclaration(
+                    character_id=member_id, action="attack", move="close", target_group_id=target.id
+                )
+                if preview_battle_round(session, [*planned, declaration]).rejections[member_id]:
                     declaration = BattleDeclaration(
                         character_id=member_id, action="move", move="close", target_group_id=target.id
                     )
-                elif member_id in encounter.front_rank:
-                    # With no weapon_id, the member attacks with the wielded weapon that suits the attack.
-                    declaration = BattleDeclaration(character_id=member_id, action="attack", target_group_id=target.id)
-                else:
-                    declaration = BattleDeclaration(character_id=member_id, action="hold")
-                declarations.append(declaration)
-            result = session.execute(ResolveBattleRound(declarations=tuple(declarations)))
+                planned.append(declaration)
+            result = session.execute(ResolveBattleRound(declarations=tuple(planned)))
             if not result.accepted:
                 # Nothing happened. A front end shows the reasons and asks for new declarations.
                 print([rejection.code for rejection in result.rejections])
                 break
-            rounds += 1
 
-        # The fight took 9 rounds, and the session went back to exploring once it was over.
-        print(rounds, session.mode)
-        # 9 exploring
+        assert session.battle is None  # the fight is over, won or lost
         ```
     """
 

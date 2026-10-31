@@ -19,21 +19,28 @@ The battle reference uses these terms:
 - **Marching order** is the order of the party's members, front first, as
   [`Party.members`][osrlib.crawl.party.Party.members] lists them.
   [`ReorderParty`][osrlib.crawl.commands.ReorderParty] changes it outside a fight.
-- **Ranks** are the rows the party fights in, filled in marching order. Only the **front rank**
-  can fight in melee. Under the [`Ruleset`][osrlib.core.ruleset.Ruleset] option
-  `formation_width_limit`, which is on by default, a rank is as wide as the space the party stands
-  in, divided by [`FIGHTER_FRONTAGE_FEET`][osrlib.crawl.battle.FIGHTER_FRONTAGE_FEET]. That's two
-  members side by side in a ten-foot corridor, and in a room, as many as the room's shorter side
-  allows. With the option off, the whole party is one rank.
-- The **formation** is the party moving as one body. A move that every declarer makes is a
-  formation move.
+- The **range track** is how a battle measures distance, in the style of The Bard's Tale. Each
+  monster group has a distance in feet from the **party line**, the place where the party stood
+  when the encounter opened. Each member has an **advance**, their place in feet forward of that
+  line, in [`BattleState.advance_feet`][osrlib.crawl.battle.BattleState.advance_feet]. A member's
+  distance to a group is the group's distance minus the member's advance, and
+  [`member_distance_feet`][osrlib.crawl.battle.member_distance_feet] works it out. A member and a
+  group can fight in melee at [`MELEE_RANGE_FEET`][osrlib.crawl.battle.MELEE_RANGE_FEET] or less.
+- **Ranks** are the rows the party fights in. The ranks toward a group are the living members
+  sorted by their distance to it, nearest first. Members at the same distance stand in the order
+  they got there, then in marching order. Only the members of the **front rank** toward a group
+  who stand within 5' of it can fight it in melee, and
+  [`group_front_rank`][osrlib.crawl.battle.group_front_rank] lists them. Under the
+  [`Ruleset`][osrlib.core.ruleset.Ruleset] option `formation_width_limit`, which is on by
+  default, a rank is as wide as the space the party stands in, divided by
+  [`FIGHTER_FRONTAGE_FEET`][osrlib.crawl.battle.FIGHTER_FRONTAGE_FEET]. That's two members side by
+  side in a ten-foot corridor, and in a room, as many as the room's shorter side allows. With the
+  option off, every member at the same distance stands in one rank.
+- The **formation** is the party moving as one body. A `fighting_withdrawal` or a `retreat` that
+  every declarer makes is a formation move. Every other move is the declaring member's alone.
 - A **declarer** is a party member who has to declare an action this round. Every living member
   who can act is one, and
   [`EncounterView.declarers`][osrlib.crawl.views.EncounterView.declarers] lists them.
-- The **range track** is how a battle measures distance. Each monster group has a separate
-  distance from the party, in feet, in the style of The Bard's Tale. A group closes at its
-  encounter movement rate and fights in melee at
-  [`MELEE_RANGE_FEET`][osrlib.crawl.battle.MELEE_RANGE_FEET].
 - **Surprise** gives one side a free round, a round in which the other side doesn't act. The
   session rolls for surprise when the encounter opens.
 - A group's **morale score** is a number from 2 to 12, the `morale` field of the monster's
@@ -72,9 +79,12 @@ You follow the battle through events from [`osrlib.crawl.events`][osrlib.crawl.e
 - [`BattleRoundEvent`][osrlib.crawl.events.BattleRoundEvent] at the start of each round.
 - [`SpellDeclaredEvent`][osrlib.crawl.events.SpellDeclaredEvent] for each spell declared that
   round.
-- [`GroupMovedEvent`][osrlib.crawl.events.GroupMovedEvent] when a group's distance changes.
-- [`MemberWithdrewEvent`][osrlib.crawl.events.MemberWithdrewEvent] when a member who withdraws
-  alone trades places with a member from a back rank.
+- [`MemberMovedEvent`][osrlib.crawl.events.MemberMovedEvent] when a member closes on a group or
+  falls back by themselves.
+- [`MemberWithdrewEvent`][osrlib.crawl.events.MemberWithdrewEvent] when a member who falls back
+  alone trades places in the marching order with the member they named.
+- [`GroupMovedEvent`][osrlib.crawl.events.GroupMovedEvent] when a group's distance from the party
+  line changes.
 - [`MonsterFledEvent`][osrlib.crawl.events.MonsterFledEvent] when a group fails its morale check
   and flees, and when the turned members of a group split off as a new group and flee.
 - [`MonstersLeftBehindEvent`][osrlib.crawl.events.MonstersLeftBehindEvent] for helpless members a
@@ -97,9 +107,12 @@ functions directly, as
 [Using the rules without a session](https://mmacy.github.io/osrlib-python/guides/rules-without-a-session/)
 shows.
 
-A front-rank member can step back out of melee alone. They trade places with a member behind them,
-whom they name in
-[`BattleDeclaration.replacement_id`][osrlib.crawl.commands.BattleDeclaration.replacement_id].
+Each member moves by themselves. A member can close on a group and attack it in the same round,
+and can fall back alone with a fighting withdrawal or a retreat, as
+[`BattleDeclaration.move`][osrlib.crawl.commands.BattleDeclaration.move] describes. A group closes
+until it's within reach of the nearest member it can see, so the members in front keep the
+monsters off the members behind them. To check a round's declarations before you send them, call
+[`preview_battle_round`][osrlib.crawl.battle.preview_battle_round].
 
 During a round, the session also applies these rules without a command for them:
 
@@ -110,8 +123,8 @@ During a round, the session also applies these rules without a command for them:
   poison, mummy rot, energy drain, petrification, and the spitting cobra's blindness. Each effect
   gets the saving throw the OSE SRD gives for it, if any. The adaptations register lists the
   effects the session leaves to the referee.
-- A petrifying gaze, like the basilisk's or the medusa's, reaches each member of the party's
-  front rank once a round while the gazer's group is in melee. The gaze takes no attack roll.
+- A petrifying gaze, like the basilisk's or the medusa's, reaches each member in the gazer's
+  group's front rank who stands within 5' of it, once a round. The gaze takes no attack roll.
   [`resolve_gaze`][osrlib.core.combat.resolve_gaze] skips a member who is averting their eyes,
   is blind, or is incapacitated. A member can avert their eyes, or fight by watching a mirror,
   through
@@ -135,9 +148,11 @@ During a round, the session also applies these rules without a command for them:
 - The session picks the targets of a party member's area spell without a roll. The area fills
   with the target group's living members in the order they were spawned, as many as the area's
   size and the rank width allow. Under the `Ruleset` option `aoe_friendly_fire`, which is on by
-  default, an area cast at a group in melee range also catches the party's front rank while the
-  area has room. An area aimed at the party, like a dragon's breath, covers the party's ranks
-  from the front, as many as its size reaches.
+  default, an area cast at a group also catches the members in that group's front rank who stand
+  within 5' of it, while the area has room. An area aimed at the party, like a dragon's breath,
+  covers the ranks toward the breathing group from the front. A rank at the same distance as the
+  rank in front of it counts as 10' deeper, and a rank farther away starts at its own distance,
+  so the area reaches as many ranks as its size covers.
 
 An action policy chooses what each monster group does each round.
 [`ScriptedPolicy`][osrlib.crawl.battle.ScriptedPolicy] is the default for monsters, and
@@ -161,6 +176,12 @@ The members of this module, in the order you're likely to need them:
   action.
 - [`ScriptedPolicy`][osrlib.crawl.battle.ScriptedPolicy] and
   [`NpcPartyPolicy`][osrlib.crawl.battle.NpcPartyPolicy] are the default policies.
+- [`member_distance_feet`][osrlib.crawl.battle.member_distance_feet] and
+  [`group_front_rank`][osrlib.crawl.battle.group_front_rank] report how far a member stands from a
+  group and who can fight it in melee, for a policy of your own.
+- [`preview_battle_round`][osrlib.crawl.battle.preview_battle_round] judges a round's planned
+  declarations without playing the round, and returns a
+  [`BattleRoundPreview`][osrlib.crawl.battle.BattleRoundPreview].
 - [`MELEE_RANGE_FEET`][osrlib.crawl.battle.MELEE_RANGE_FEET],
   [`FLEE_EXIT_FEET`][osrlib.crawl.battle.FLEE_EXIT_FEET],
   [`FIGHTER_FRONTAGE_FEET`][osrlib.crawl.battle.FIGHTER_FRONTAGE_FEET], and
@@ -320,6 +341,7 @@ from osrlib.data import load_classes, load_spells
 
 __all__ = [
     "ActionPolicy",
+    "BattleRoundPreview",
     "BattleState",
     "FIGHTER_FRONTAGE_FEET",
     "FLEE_EXIT_FEET",
@@ -328,6 +350,9 @@ __all__ = [
     "NPC_PARTY_MORALE",
     "NpcPartyPolicy",
     "ScriptedPolicy",
+    "group_front_rank",
+    "member_distance_feet",
+    "preview_battle_round",
     "start_battle",
 ]
 
@@ -338,12 +363,13 @@ def _int_param(params: Mapping[str, Any], key: str, default: int = 0) -> int:
 
 
 MELEE_RANGE_FEET = 5
-"""The distance, in feet, at which a monster group is close enough to fight in melee.
+"""The distance, in feet, at which a party member and a monster group are close enough to fight in melee.
 
-A group closing on the party stops at this distance, not at zero. The session rejects a melee
-attack declared against a group farther away with `combat.attack.out_of_reach`, and every melee
-attack resolves at this distance. When pursuing monsters catch the party, the battle starts with
-every group at this distance.
+A member who closes on a group stops at this distance from it, not at zero. A group that closes
+stops at this distance from the nearest member it can see. The session rejects a melee attack
+declared by a member who would be farther from the group with `combat.attack.out_of_reach`, and
+every melee attack resolves at this distance. When pursuing monsters catch the party, the battle
+starts with every group at this distance and every member on the party line.
 
 The range track has no distance between this and zero, so treat the value as fixed: the session uses
 it for every reach and range check in a battle. A party member attacks a group farther away only
@@ -424,6 +450,28 @@ class BattleState(BaseModel):
     - The caster declares an action other than `cast` or `hold`. A `turn_undead` counts.
     - The caster's next spell is disrupted or fizzles.
     - The caster casts another concentration spell."""
+    advance_feet: dict[str, int] = {}
+    """Each party member's place on the range track, in feet forward of the party line, keyed by member id.
+
+    The party line is where the party stood when the encounter opened. Each group's
+    [`distance_feet`][osrlib.crawl.encounter.EncounterGroup.distance_feet] is measured from it. A member
+    with no entry stands on the line, at zero. A positive advance is toward the monsters, and a negative
+    one is behind the line. A member's distance to a group is the group's distance minus the member's
+    advance, and [`member_distance_feet`][osrlib.crawl.battle.member_distance_feet] works it out for you.
+
+    The session changes it in the party's movement step. A member's `close` raises their advance, and a
+    `fighting_withdrawal` or a `retreat` the member makes alone lowers it. A formation move leaves every
+    advance as it is and moves the groups instead. Every member starts a battle on the line, and the
+    advances end with the battle, so the party stands on its cell as one body again once the fight is
+    over. A save written mid-battle keeps them, and a save from before they existed loads with every
+    member on the line."""
+    arrived_round: dict[str, int] = {}
+    """The battle round in which each member reached their current advance, keyed by member id.
+
+    A member with no entry has stood where they are since the battle opened, which counts as round
+    zero. The session uses it to order members who stand at the same distance from a group: the member
+    who got there in an earlier round stands in front, and marching order settles a tie. So a member
+    already fighting keeps their place in the front rank when others arrive beside them."""
 
 
 class MonsterAction(BaseModel):
@@ -444,10 +492,17 @@ class MonsterAction(BaseModel):
     kind: str  # close | breath | melee | hold | npc_shoot | npc_cast | npc_drink
     """What the monster does:
 
-    - `"close"` moves the whole group toward the party by one encounter movement rate, stopping at
-      [`MELEE_RANGE_FEET`][osrlib.crawl.battle.MELEE_RANGE_FEET]. Only the first `"close"` in a
-      group's actions for a round moves the group.
-    - `"melee"` attacks `target_id`.
+    - `"close"` moves the whole group toward the party line by one encounter movement rate. The
+      group stops as soon as it's within
+      [`MELEE_RANGE_FEET`][osrlib.crawl.battle.MELEE_RANGE_FEET] of the nearest living member it
+      can see, so it never moves past a member it can see. A group already within 5' of such a
+      member doesn't move. Only the first `"close"` in a group's actions for a round moves the
+      group.
+    - `"melee"` attacks `target_id`. The session resolves it only if the target stands in the
+      group's front rank within 5' of it when the action comes up, as
+      [`group_front_rank`][osrlib.crawl.battle.group_front_rank] reports. So a `"melee"` after the
+      group's `"close"` strikes when the move has brought the target within reach, and is skipped
+      otherwise.
     - `"breath"` uses the monster's breath weapon on the party.
     - `"hold"` does nothing.
     - `"npc_shoot"`, `"npc_cast"`, and `"npc_drink"` are for NPC adventurers only. They make a
@@ -593,8 +648,11 @@ class ActionPolicy(Protocol):
             session (osrlib.crawl.session.GameSession): The running session. Read the party, the
                 registry, and the effects ledger from it, and don't change it.
             group (osrlib.crawl.encounter.EncounterGroup): The group to choose for. Its
-                `distance_feet` is its current distance from the party, and its `monster_ids` are its
-                members, dead ones included.
+                `distance_feet` is its current distance from the party line, and its `monster_ids`
+                are its members, dead ones included. Call
+                [`member_distance_feet`][osrlib.crawl.battle.member_distance_feet] and
+                [`group_front_rank`][osrlib.crawl.battle.group_front_rank] to learn which members it
+                can reach.
             stream (osrlib.core.rng.RngStream): The
                 [`MONSTER_ACTION_STREAM`][osrlib.crawl.session.MONSTER_ACTION_STREAM] stream. Take
                 every random choice from it. A choice from anywhere else makes the fight differ from a
@@ -627,10 +685,15 @@ class ScriptedPolicy:
     - When the breath weapon works on a chance in six, as the hellhound's does, the policy rolls
       that chance each round.
 
-    Otherwise, a group farther away than [`MELEE_RANGE_FEET`][osrlib.crawl.battle.MELEE_RANGE_FEET]
-    closes. Once in range, each monster picks a target at random from the party's front rank. It
-    leaves out invisible members, and members whose *protection from evil* bars that monster. When
-    no target is left, the monster takes a `hold` action and does nothing that round.
+    Otherwise, while every member is farther than
+    [`MELEE_RANGE_FEET`][osrlib.crawl.battle.MELEE_RANGE_FEET] from the group, each monster takes a
+    `close` action. When the group's move will bring a member within reach, each monster also takes a
+    `melee` action in the same round, aimed at a member of the front rank the move will produce. Once
+    the group is within reach, each monster picks a target at random from the group's front rank, the
+    members [`group_front_rank`][osrlib.crawl.battle.group_front_rank] lists. It leaves out invisible
+    members, and members whose *protection from evil* bars that monster. When no target is left, the
+    monster takes a `hold` action and does nothing that round. The members behind the front rank are
+    out of the group's reach.
 
     Among the targets left, the monster prefers members who can still fight:
 
@@ -804,15 +867,20 @@ class NpcPartyPolicy:
     3. A caster with a memorized spell that deals damage, like *magic missile*, casts it at the
        player party. Spells the referee resolves by hand don't count. The caster picks the
        highest-level spell, with ties broken by spell id. An area spell catches the player party's
-       ranks from the front, as many ranks as its size covers. For a spell with one target, the
-       caster picks a member at random from the player party's front rank, leaving out invisible
-       members.
-    4. An NPC with a missile weapon shoots while the NPC group is farther away than
-       [`MELEE_RANGE_FEET`][osrlib.crawl.battle.MELEE_RANGE_FEET].
-    5. Otherwise, the NPC closes and attacks in melee. Once in range, it picks its target at random
-       from the player party's front rank, leaving out invisible members. Like a monster, it passes
-       over a member turned to stone while a target that isn't stone is in reach. Unlike a ghoul or
-       a thoul, it doesn't pass over a paralysed member.
+       ranks toward the NPC group from the front, as many ranks as its size covers. For a spell with
+       one target, the caster picks a member at random from the first row of the player party's
+       ranks toward the NPC group, leaving out invisible members.
+    4. An NPC with a missile weapon shoots while every member of the player party is farther than
+       [`MELEE_RANGE_FEET`][osrlib.crawl.battle.MELEE_RANGE_FEET] from the NPC group. It picks its
+       target at random from the first row of the player party's ranks toward the NPC group,
+       leaving out invisible members. So the members in front screen the members behind them from
+       arrows as well as from blades.
+    5. Otherwise, the NPC closes, and attacks in melee in the same round when the group's move
+       brings a member within reach. It picks its target at random from the NPC group's front rank,
+       the members [`group_front_rank`][osrlib.crawl.battle.group_front_rank] lists, leaving out
+       invisible members. Like a monster, it passes over a member turned to stone while a target
+       that isn't stone is in reach. Unlike a ghoul or a thoul, it doesn't pass over a paralysed
+       member.
 
     NPCs declare their spells at the start of the round. An attack that hits or a failed saving
     throw can disrupt an NPC's spell, as it can a player character's, because the OSE SRD's rule
@@ -1337,6 +1405,156 @@ def _haste_multiplier(session, entity_id: str, key: str) -> int:
         if value is not None:
             multiplier = max(multiplier, int(value))
     return multiplier
+
+
+# ---------------------------------------------------------------------- positions on the range track
+
+
+def member_distance_feet(session, member_id: str, group_id: str) -> int:
+    """Return how far one party member stands from one monster group, in feet, in the running battle.
+
+    Each group's distance is measured from the party line, where the party stood when the encounter
+    opened, and each member stands at an advance forward of that line, in
+    [`BattleState.advance_feet`][osrlib.crawl.battle.BattleState.advance_feet]. This returns the
+    group's distance minus the member's advance. Every rule that measures how far a member is from a
+    group uses it: melee reach, a missile's range band, and a spell's range.
+
+    Call it from a policy of your own (see [`ActionPolicy`][osrlib.crawl.battle.ActionPolicy]) or from
+    server-side code that has the session. A client that has only the player view reads the same
+    numbers from
+    [`EncounterGroupView.member_distance_feet`][osrlib.crawl.views.EncounterGroupView.member_distance_feet].
+
+    The call reads the session and changes nothing.
+
+    Args:
+        session (osrlib.crawl.session.GameSession): A session in `battle` mode.
+        member_id: The member's id, as in [`MemberView.id`][osrlib.crawl.views.MemberView.id].
+        group_id: The group's id, as in
+            [`EncounterGroupView.id`][osrlib.crawl.views.EncounterGroupView.id].
+
+    Returns:
+        The distance in feet. At [`MELEE_RANGE_FEET`][osrlib.crawl.battle.MELEE_RANGE_FEET] or less,
+            the member and the group are within reach of each other.
+
+    Raises:
+        ValueError: If no battle is running, `member_id` names no party member, or `group_id` names no
+            group in the encounter. Nothing in the session changes.
+    """
+    raise NotImplementedError("chunk: positions")
+
+
+def group_front_rank(session, group_id: str) -> tuple[str, ...]:
+    """Return the members who can fight one monster group hand to hand this round without moving.
+
+    These are the members in the party's front rank toward the group who stand within
+    [`MELEE_RANGE_FEET`][osrlib.crawl.battle.MELEE_RANGE_FEET] of it. Only they can declare a melee
+    attack on the group, or strike it with a staff of striking, without a `close` first. Only they can
+    be struck by the group's melee, and the group's petrifying gaze reaches only them.
+
+    The ranks toward a group are the party's living members sorted by their distance to it, nearest
+    first, and cut into rows as wide as the formation allows
+    ([`EncounterView.formation_width`][osrlib.crawl.views.EncounterView.formation_width]). A row never
+    mixes distances. Among members at the same distance, the one who got there in an earlier round
+    ([`BattleState.arrived_round`][osrlib.crawl.battle.BattleState.arrived_round]) stands in front, and
+    marching order settles a tie. The front rank is the first row. With the ruleset's
+    `formation_width_limit` flag off, a row holds every member at its distance.
+
+    Call it from a policy of your own: the default policies pick each monster's melee target from these
+    members, leaving out invisible members and members whose *protection from evil* bars that monster.
+    A client that has only the player view reads the same ids from
+    [`EncounterGroupView.front_rank`][osrlib.crawl.views.EncounterGroupView.front_rank].
+
+    The call reads the session and changes nothing.
+
+    Args:
+        session (osrlib.crawl.session.GameSession): A session in `battle` mode.
+        group_id: The group's id, as in
+            [`EncounterGroupView.id`][osrlib.crawl.views.EncounterGroupView.id].
+
+    Returns:
+        Member ids, in marching order. It's empty when no living member stands within 5' of the group,
+            for example while the nearest row is still farther away.
+
+    Raises:
+        ValueError: If no battle is running, or `group_id` names no group in the encounter. Nothing in
+            the session changes.
+    """
+    raise NotImplementedError("chunk: positions")
+
+
+class BattleRoundPreview(BaseModel):
+    """What a battle round would do with the declarations planned so far, worked out without playing it.
+
+    [`preview_battle_round`][osrlib.crawl.battle.preview_battle_round] returns one. Read `rejections`
+    to grey out a choice the session would refuse, and read `advance_feet` and `front_rank` to show
+    where the members would stand once their declared moves are made. The model is frozen.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    rejections: dict[str, tuple[Rejection, ...]]
+    """Every reason the session would refuse each planned declaration, keyed by the declaring member's
+    id. There's one entry for each declaration you passed. An empty tuple means the session would
+    accept that declaration.
+
+    The codes and params are the ones
+    [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound] returns for the same declarations.
+    `battle.declaration.roster_mismatch` never appears, because a plan with members still missing
+    would always get it."""
+    advance_feet: dict[str, int]
+    """Where each living member would stand once the planned moves are made, keyed by member id, in feet
+    forward of the party line, as in
+    [`BattleState.advance_feet`][osrlib.crawl.battle.BattleState.advance_feet]. Every living member has
+    an entry. A member with no planned move keeps their current advance, and a member on the line has
+    zero."""
+    front_rank: dict[str, tuple[str, ...]]
+    """For each group that hasn't fled, keyed by group id, the members who would stand in its front rank
+    within 5' of it once the planned moves are made, in marching order. It means what
+    [`EncounterGroupView.front_rank`][osrlib.crawl.views.EncounterGroupView.front_rank] means, after the
+    moves."""
+
+
+def preview_battle_round(session, declarations: Sequence[BattleDeclaration]) -> BattleRoundPreview:
+    """Judge the declarations planned so far for this battle round, and show where they'd leave the party.
+
+    A battle screen builds a round one member at a time. Call this after each choice, with every
+    declaration made so far, to learn whether the session would accept each one and where each member
+    would stand. For example, once Hild has planned to close and attack, and her place fills the front
+    rank toward the goblins, the preview refuses Osric's close and attack with
+    `battle.declaration.not_in_front_rank`. Your screen can then offer Osric a `close` without the
+    attack. When the plan is complete, send it in a
+    [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound].
+
+    The preview runs the checks `ResolveBattleRound` runs before it plays a round, over the same
+    projection of the round's declared moves, so the two agree. When `declarations` has one declaration
+    for each member in [`EncounterView.declarers`][osrlib.crawl.views.EncounterView.declarers] and every
+    entry in the result's `rejections` is empty, `ResolveBattleRound` accepts the same declarations.
+
+    The projection applies each planned move as the party's movement step would: each member's
+    `close`, and each `fighting_withdrawal` or `retreat` a member makes alone. A defensive move counts
+    as a formation move only when `declarations` covers every declarer and all of them make it. The
+    order of `declarations` doesn't matter. The projection doesn't include anything the monsters do,
+    because the session decides that after it rolls initiative. So when the monsters act first, a
+    member's `close` can fall short of where the preview put them.
+
+    The call reads the session and changes nothing. It takes no random number and no game time, so
+    calling it after every choice costs the game nothing.
+
+    Args:
+        session (osrlib.crawl.session.GameSession): A session in `battle` mode.
+        declarations: The declarations planned so far, at most one for each member. Each one names a
+            member in `EncounterView.declarers`. Any subset of the declarers works, including none.
+
+    Returns:
+        A [`BattleRoundPreview`][osrlib.crawl.battle.BattleRoundPreview] with each declaration's
+            rejections, each living member's projected advance, and each group's projected front rank.
+
+    Raises:
+        ValueError: If no battle is running, a declaration names a member who isn't in
+            `EncounterView.declarers`, or two declarations name the same member. Fix the call. Nothing in
+            the session changes.
+    """
+    raise NotImplementedError("chunk: move-and-attack")
 
 
 # ---------------------------------------------------------------------- start and end

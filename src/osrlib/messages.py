@@ -366,11 +366,16 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
         f"{event.caster_id} begins casting {event.spell_id}" + (" (reversed)" if event.reversed else "") + "."
     ),
     "battle.group.moved": lambda event: f"{event.group_id} is now {event.distance_feet}' away.",
+    "battle.member.moved": lambda event: (
+        f"{event.character_id} "
+        + {"close": "closes", "fighting_withdrawal": "falls back", "retreat": "retreats"}.get(event.move, "moves")
+        + f" to {event.distance_feet}' from {event.group_id}."
+    ),
     "battle.member.withdrew": lambda event: (
-        f"{event.character_id} falls back, and {event.replacement_id} steps up to the front rank."
+        f"{event.character_id} falls back and trades places in the marching order with {event.replacement_id}."
     ),
     "battle.member.retreated": lambda event: (
-        f"{event.character_id} turns and retreats, and {event.replacement_id} steps up to the front rank."
+        f"{event.character_id} turns and retreats, and trades places in the marching order with {event.replacement_id}."
     ),
     "battle.side.fled": lambda event: f"{event.group_id} flees the battle!",
     "battle.group.left_behind": lambda event: (

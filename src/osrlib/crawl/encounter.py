@@ -218,9 +218,12 @@ class EncounterGroup(BaseModel):
     members stay in the list, so check each monster for the dead condition to find the living
     ones."""
     distance_feet: int = Field(ge=0)
-    """The distance between the party and this group, in feet. In a battle, monsters close at their
-    encounter movement rate and stop at
-    [`MELEE_RANGE_FEET`][osrlib.crawl.battle.MELEE_RANGE_FEET]. A routed group moves away."""
+    """The distance between the party line and this group, in feet. The party line is where the party
+    stood when the encounter opened. In a battle, each member stands at their own advance from that
+    line, in [`BattleState.advance_feet`][osrlib.crawl.battle.BattleState.advance_feet], and monsters
+    close at their encounter movement rate until they're within
+    [`MELEE_RANGE_FEET`][osrlib.crawl.battle.MELEE_RANGE_FEET] of the nearest member they can see. A
+    routed group moves away."""
     fleeing: bool = False
     """True once the group has failed a morale check and turned to run. Until it gets away, the
     party can still attack it."""
