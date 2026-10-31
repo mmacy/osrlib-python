@@ -94,9 +94,13 @@ class Party(BaseModel):
         uses this list, so a member who dies stops counting toward movement, ranks, and checks at
         once, without leaving the party.
 
+        A member turned to stone isn't dead, so they stay in this list and keep their rank. The
+        session's `game_over` check asks a narrower question: whether any member is neither dead
+        nor petrified.
+
         Returns:
-            The members without the `dead` condition, in marching order. Empty when the whole party
-                has fallen, which is the session's `game_over` condition.
+            The members without the `dead` condition, in marching order. Empty when every member
+                is dead.
         """
         return [member for member in self.members if not has_condition(member, Condition.DEAD)]
 
@@ -285,3 +289,16 @@ class Party(BaseModel):
         if len(by_id) != len(self.members) or sorted(character_ids) != sorted(by_id):
             raise ValueError("reorder must name every current member exactly once")
         self.members = [by_id[character_id] for character_id in character_ids]
+
+
+def _anyone_standing(party: Party) -> bool:
+    """Whether any member stands, which means they are neither dead nor petrified.
+
+    The session's `game_over` check and a battle's defeat check ask this. A statue still counts
+    among [`living_members`][osrlib.crawl.party.Party.living_members] for every other rule, so a
+    party turned wholly to stone has living members but nobody standing.
+    """
+    return any(
+        not has_condition(member, Condition.DEAD) and not has_condition(member, Condition.PETRIFIED)
+        for member in party.members
+    )

@@ -126,6 +126,10 @@ Save versus death or poison, and failure is death, either immediate or an onset-
 
 While a target is petrified its other attached effects suspend, with no ticks and durations frozen, so an adventurer who was poisoned before turning to stone is still poisoned after *stone to flesh*. Petrification is permanent but recoverable, because a petrified creature isn't dead. Locked by `test_effects.py::TestLedger::test_petrification_suspends_other_effects`.
 
+### A party turned wholly to stone has fallen
+
+The SRD doesn't say what happens when no adventurer is left but statues, so this is a judgement (pinned). A member stands while they are neither dead nor petrified. When a command's events kill or petrify a member and no member is left standing, the session ends in `game_over` exactly as it does when the last member dies, with `battle.ended.defeat` first in a battle. A statue isn't dead, so it still counts among `Party.living_members()` and keeps its rank, and the check is tied to the killing or petrifying event, not to the party's state. So a stone party carried to town with `PlaceParty` stays in `town`. The temple's services are clerical and *stone to flesh* is a magic-user's spell, so the way back is a magic-user who joins with `AddMember` and casts it. Locked by `test_petrified_party.py`.
+
 ### The canonical tick order
 
 At each round boundary, expirations resolve before ticks, and simultaneous effects resolve in attachment order, tie-broken by effect id. Only the effects engine (and the kernel's death routine, for `dead`) writes creature conditions. Locked by `test_effects.py::TestLedger`.

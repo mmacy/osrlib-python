@@ -278,6 +278,7 @@ from osrlib.crawl.events import (
     MonstersLeftBehindEvent,
     SpellDeclaredEvent,
 )
+from osrlib.crawl.party import _anyone_standing
 from osrlib.data import load_classes, load_spells
 
 __all__ = [
@@ -1389,13 +1390,14 @@ def _flee_if_unwilling(session, group) -> list[Event]:
 def _check_ends(session, *, party_retreating: bool) -> list[Event] | None:
     """Return the end-of-battle events when a terminal state holds, else `None`.
 
-    Defeat ends the battle and does nothing else. The session's wipe check makes
+    Defeat ends the battle and does nothing else. Defeat holds when no member stands,
+    which means every member is dead or petrified. The session's wipe check makes
     the transition to `game_over` and posts the ending event, so a party lost to a
     blade trap and a party lost to ogres end the same way.
     """
     from osrlib.crawl import encounter as encounter_module
 
-    if not session.party.living_members():
+    if not _anyone_standing(session.party):
         session.battle = None
         session.encounter = None
         return [BattleEndedEvent(code="battle.ended.defeat")]
