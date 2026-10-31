@@ -4090,7 +4090,9 @@ def _device_area_events(session, member, instance: MagicItemInstance, template, 
     effect_spec = template.effect
     stream = session.streams.get(MAGIC_STREAM)
     events: list[Event] = []
-    candidates = battle_module._area_candidates(session, group, effect_spec.shape, dict(effect_spec.dimensions))
+    candidates = battle_module._area_candidates(
+        session, group, effect_spec.shape, dict(effect_spec.dimensions), caster_id=member.id
+    )
     for target in candidates:
         save = saving_throw(
             target,
