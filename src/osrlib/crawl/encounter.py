@@ -10,15 +10,17 @@ is in a dungeon, with monster instances the session has already spawned. When a 
 session in `encounter` mode. From there, you drive it with the encounter commands:
 
 - [`Parley`][osrlib.crawl.commands.Parley] and [`Wait`][osrlib.crawl.commands.Wait] each take
-  one encounter round, and then the monsters act according to their stance. During a chase,
+  one encounter round (10 seconds of game time), and then the monsters act according to their
+  stance, their attitude toward the party, described below. During a chase,
   `Wait` runs one round of the chase instead.
 - [`Evade`][osrlib.crawl.commands.Evade] ends the encounter, or starts a chase when the monsters
   pursue.
 - [`TurnUndead`][osrlib.crawl.commands.TurnUndead] ends the encounter when every monster is
   turned or destroyed, and otherwise starts a battle.
 - [`EngageBattle`][osrlib.crawl.commands.EngageBattle] starts a battle.
-- [`EndEncounter`][osrlib.crawl.commands.EndEncounter], a referee command, ends the encounter
-  when the party talks its way past or walks away.
+- [`EndEncounter`][osrlib.crawl.commands.EndEncounter] ends the encounter when the party talks
+  its way past or walks away. It's a referee command, one your game logic issues rather than a
+  player.
 
 [`end_encounter`][osrlib.crawl.encounter.end_encounter] closes the encounter and puts the session
 back in `exploring` mode.
@@ -26,7 +28,8 @@ back in `exploring` mode.
 You rarely call `start_encounter` yourself. The session calls it for the
 [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] and
 [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] commands, for the wandering-monster
-check, and when the party enters a keyed area that has monsters. Call it directly when your own
+check, and when the party enters a keyed area, an [`AreaSpec`][osrlib.crawl.dungeon.AreaSpec]
+the adventure describes, that has monsters. Call it directly when your own
 code decides that a group has just come into view. When you send a `SpawnMonsters` while an
 encounter is open, the session doesn't call it. The new group joins the open encounter instead,
 and rolls no surprise or reaction.
@@ -65,7 +68,7 @@ rules:
 - 9 to 11, indifferent: the party can pass, parley, or leave.
 - 12 or more: the monsters are friendly.
 
-Only attacking and hostile monsters pursue a party that evades. The SRD leaves pursuit to the
+Only attacking and hostile monsters pursue a party that evades. The OSE SRD leaves pursuit to the
 referee, so basing it on the reaction is an adaptation: a place where osrlib chooses one
 interpretation of a rule the SRD leaves open. The
 [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/) lists each one.
@@ -365,11 +368,12 @@ def start_encounter(
     leaves open. The [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/) lists it as
     the blind-party adaptation.
 
-    When the party is surprised, and a monster's `surprise` ability has `meets_gaze`, as the
-    basilisk's does, every living member meets that monster's petrifying gaze once, as the
-    encounter opens. Each member saves versus paralysis or turns to stone. The gaze reaches the
-    party at any distance and whatever the stance, even when the monsters are surprised too. A
-    battle that opens from this encounter doesn't repeat the gaze.
+    A basilisk's gaze reaches a party it surprises. When the party is surprised, and a monster's
+    `surprise` ability has `meets_gaze`, as the basilisk's does, every living party member meets
+    that monster's petrifying gaze once, as the encounter opens. Each member saves versus
+    paralysis or turns to stone. This happens at any distance and whatever the stance. It happens
+    even when the monsters are surprised too. A battle that opens from this encounter doesn't
+    repeat the gaze.
 
     When the gaze leaves no member standing, so that every member is dead or petrified, no round
     runs. With an attacking stance, the battle that opens ends in defeat at once, before the
@@ -378,15 +382,9 @@ def start_encounter(
     session in `game_over`.
 
     A monster whose template has the `regeneration` ability, like a troll or a thoul, starts to
-    regenerate when this function opens its encounter. Before the function rolls anything, it
-    attaches the effect that [`regeneration_definition`][osrlib.core.effects.regeneration_definition]
-    builds from the ability's params. Attaching the effect uses no random draws. From then on, the
-    session's [`EffectsLedger`][osrlib.core.effects.EffectsLedger] heals the monster in each round
-    the clock advances, at the rate the params set. A troll never gets back the damage it took from
-    fire or acid. A slain troll gets back up 2d6 rounds after the round it was killed in, unless its
-    fire and acid damage reached its maximum hit points.
-    [`end_encounter`][osrlib.crawl.encounter.end_encounter] releases the effect, so a troll that's
-    still dead when the encounter closes stays dead.
+    regenerate when this function opens its encounter, and heals in each round that passes.
+    [`end_encounter`][osrlib.crawl.encounter.end_encounter] stops the regeneration, so a troll
+    that's still dead when the encounter closes stays dead.
 
     Args:
         session (osrlib.crawl.session.GameSession): The running session. Its party must be in a
@@ -400,7 +398,7 @@ def start_encounter(
             routs every monster, the session marks that area's encounter resolved.
         distance_feet: The starting distance for every group, in feet. With None, the function rolls
             2d6 × 10 on the encounter stream and caps the result at the longest line of sight from
-            the party's cell. The function uses a value you pass as it is.
+            the party's cell. The function doesn't cap a distance you pass.
         monsters_roll_surprise: False when these monsters can't be surprised, like wandering
             monsters.
         monsters_aware: True when the monsters already expect intruders. They then don't roll for
@@ -1169,11 +1167,12 @@ def end_encounter(session, outcome: str) -> list[Event]:
     the function clears `session.defeated_monsters`. Otherwise, the records stay until the party
     returns to town.
 
-    The clock then advances to the later of two points: the next turn boundary, or one full turn
-    after the encounter opened. An encounter always costs at least one turn, and one that opened
-    partway through a turn can close partway through a turn. Wandering-monster checks don't run
-    during the encounter. The turn the encounter costs also covers any part of a turn the party had
-    spent walking, so `session.odometer_thirds` resets to 0.
+    The clock then advances to whichever comes later: the next turn boundary, or one full turn (60
+    rounds) after the encounter opened. So an encounter always costs at least one turn. When the
+    encounter ends in the same turn it opened in, the clock stops one full turn after the opening
+    round, which can be partway through the next turn. Wandering-monster checks don't run during
+    the encounter. The turn the encounter costs also covers any part of a turn the party had spent
+    walking, so `session.odometer_thirds` resets to 0.
 
     Args:
         session (osrlib.crawl.session.GameSession): The running session, with `session.encounter` set.

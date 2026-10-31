@@ -46,8 +46,9 @@ with a protocol from [`osrlib.core.creature`][osrlib.core.creature]. A
 [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy each protocol. A
 function that reads THAC0, armour class, or saving throws takes a
 [`Combatant`][osrlib.core.creature.Combatant]. A function that reads only hit points,
-conditions, and stat modifiers takes a [`Creature`][osrlib.core.creature.Creature]. A
-function that needs what only a monster has, like the daily breath count, takes a
+conditions, and stat modifiers takes a [`Creature`][osrlib.core.creature.Creature]. Every
+`Combatant` is also a `Creature`, so you can pass the same character or monster to both kinds
+of function. A function that needs what only a monster has, like the daily breath count, takes a
 `MonsterInstance`. An NPC adventurer is a `Character`.
 
 Attack functions also take an [`AttackContext`][osrlib.core.combat.AttackContext], which
@@ -396,7 +397,7 @@ class AttackContext(BaseModel):
     - On an attack against a monster group that's fleeing.
     - On every attack from the monster side against a party member who declared a retreat
       that round. When the whole party retreats, that's every member. The retreat counts
-      from the start of the round, so it applies to monsters that act before the party moves.
+      from the start of the round, so it applies to monsters that act before the member moves.
     """
 
     braced: bool = False
@@ -1394,7 +1395,8 @@ def attack_roll(
     The roll adds every modifier that applies:
 
     - In melee, the attacker's STR modifier. With a missile, its DEX modifier, the range
-      modifier from the context's `distance_feet`, and the halfling's missile bonus.
+      modifier from the context's `distance_feet`, and, for a halfling attacker, the
+      halfling's missile bonus.
     - A thief's back-stab bonus, when the context sets both `behind_target` and
       `target_unaware`.
     - +2 against a retreating defender.
@@ -1404,8 +1406,10 @@ def attack_roll(
       defender, like *protection from evil*.
     - The context's `situational_modifier`.
 
-    The function adjusts the defender's armour class too. Its shield doesn't count against
-    an attack from behind or while it retreats, and an ally's bonus from the context does.
+    The function adjusts the defender's armour class too. The defender's shield doesn't
+    count against an attack from behind, or while the defender retreats. The context's
+    `defender_ally_ac_bonus`, an armour class bonus that an ally gives the defender, does
+    count.
 
     A melee attack hits a paralysed, asleep, or petrified defender automatically, with no
     roll and no draw. So does any attack on a monster whose template has no armour class,
@@ -1569,20 +1573,23 @@ def check_immunity(
 
     - It's a monster that only some materials can harm, and the source has none of
       them. A steel sword can't harm a werewolf, and a silver dagger can.
-    - The source has the `holy` key and the defender isn't undead. Holy water harms only the
-      undead, and gets through any material defense an undead monster has.
+    - The source's `keys` include `holy`, and the defender isn't undead. Holy water has
+      that key. It harms only the undead, and it gets past any material defense an undead
+      monster has.
     - It's a monster that uses fire, and the source is burning oil.
-    - It's a monster immune to the source's element. A monster immune to every form of
-      the element takes no damage from it. A monster immune only to the ordinary form
-      takes damage from a magical source of the element.
+    - It's a monster with an energy defense against the source's `element`. When the
+      defense covers every source of the element, the monster takes no damage from it.
+      When the defense covers only nonmagical sources, as a red dragon's does against fire,
+      a source whose `magical` is True still harms the monster.
     - It's under *protection from normal missiles*, and the source is a small nonmagical
       missile. An arrow or a thrown flask is blocked, and a hurled boulder or a magic
       arrow isn't.
 
-    Under the `hd5_counts_as_magical` ruleset flag, a monster attacker can harm a monster
-    that only silver or magic can harm in two cases: when the attacker has 5 or more Hit
-    Dice, and when only silver or magic can harm the attacker too. A monster that energy
-    drain has taken Hit Dice from counts only the Hit Dice it has left.
+    The `hd5_counts_as_magical` ruleset flag lets some monsters harm a monster that only
+    silver or magic can harm. With the flag on, pass the attacking monster as `attacker`.
+    It gets past the defense when it has 5 or more Hit Dice, or when only silver or magic
+    can harm the attacker too. A monster that energy drain has taken Hit Dice from counts
+    only the Hit Dice it has left.
 
     Args:
         defender: The defending [`Creature`][osrlib.core.creature.Creature], which a
@@ -1677,12 +1684,13 @@ def damage_roll(
 
     1. The attack's dice. A monster attack with a fixed amount rolls no dice.
     2. The attacker's STR modifier, on a melee attack that isn't a monster attack.
-    3. A magic weapon's damage bonus. When `defender` is one of the monsters the weapon
-       is made against, the weapon's bonus against those monsters replaces it.
+    3. A magic weapon's damage bonus. Some magic weapons have a separate bonus against
+       certain monsters. When `defender` is one of those monsters, the function adds that
+       bonus instead of the weapon's usual damage bonus.
     4. Spell bonuses, like *bless*, and the extra die of *striking* on a weapon attack.
-    5. The doublings: a braced weapon against a charge, a charging attack with a lance or
-       other charge weapon, the multipliers of magic like a potion of giant strength or of
-       growth, and a thief's back-stab.
+    5. The multipliers: a braced weapon against a charge, a charging attack with a lance
+       or other charge weapon, magic like a potion of giant strength or of growth, and a
+       thief's back-stab. Each multiplies the total so far.
 
     The total is at least 1, except for a monster attack that deals no hit point damage,
     like a wight's touch, which totals 0.
@@ -1697,7 +1705,7 @@ def damage_roll(
             [`Character`][osrlib.core.character.Character] and a
             [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy.
         attack: The [`Attack`][osrlib.core.combat.Attack], or `None` for unarmed.
-        context: The attack's context. The doublings depend on its `braced`, `charging`,
+        context: The attack's context. The multipliers depend on its `braced`, `charging`,
             `behind_target`, and `target_unaware` fields, and a monster attack's fixed amount
             on its `fixed_damage_option`.
         ruleset: The ruleset in play.
@@ -1710,9 +1718,9 @@ def damage_roll(
         The damage roll. `total` is the damage to pass to `deal_damage`. `rolls` contains
         each die, including the extra die of *striking*. `modifier` is the sum of every flat
         amount: the bonuses in steps 2 to 4, any modifier in the dice expression, and a
-        monster attack's fixed amount. `multiplier` is the product of the doublings in step 5.
-        So `total` is `(sum(rolls) + modifier) * multiplier`, raised to 1 when it's lower. An
-        attack that deals no hit point damage totals 0.
+        monster attack's fixed amount. `multiplier` is the product of the multipliers in step
+        5. So `total` is `(sum(rolls) + modifier) * multiplier`, with the floor described
+        above.
 
     Raises:
         ValueError: If the attack has no combat stats to roll damage from: a gear item like
@@ -1870,9 +1878,12 @@ def deal_damage(
     4. Fire and acid stop a troll's regeneration, and the regeneration of a character who
        wears a ring of regeneration. Damage of an element that stops the target's
        regeneration also adds to its `nonregen_damage`, up to its maximum hit points.
-       Healing from another source, like a potion, heals that damage too. So for any damage
-       to a target that regenerates, the function first lowers `nonregen_damage` to the
-       damage the target had before this hit.
+       Regeneration never heals that damage, but other healing, like a potion, does. So
+       before it applies any damage to a target that regenerates, the function caps
+       `nonregen_damage` at the damage the target has now: its maximum hit points less its
+       current hit points. For example, a troll with 30 maximum hit points takes 10 fire
+       damage, so its `nonregen_damage` is 10. A potion then heals it to 26 hit points. On
+       the next hit, the function first lowers `nonregen_damage` to 4.
     5. At 0 hit points the target dies, through [`kill`][osrlib.core.effects.kill]. A
        monster that regenerates after death dies for good only when its
        `nonregen_damage` reaches its maximum hit points. Then a destructive source
@@ -2024,12 +2035,12 @@ def destroy_equipment(
     breath for a breath weapon, versus spells for a spell, versus wands for a device, and
     versus death for anything else. The roll adds the item's best bonus, the highest of its
     attack, damage, and armour class bonuses, so a cursed item saves at its penalty. The
-    items that save stay in the inventory's `items` list, no longer equipped. The rolls have
-    no events, and the one event reports the outcome.
-
-    When a party member dies this way in a dungeon, a
-    [`GameSession`][osrlib.crawl.session.GameSession] moves the member's saved items to a
-    drop pile on the party's cell, in the same command. The party can pick them up there.
+    items that save stay in the inventory's `items` list, no longer equipped. The saving
+    throws report no events of their own. The function returns one
+    [`EquipmentDestroyedEvent`][osrlib.core.events.EquipmentDestroyedEvent], which lists
+    the items destroyed and the items saved. In a
+    [`GameSession`][osrlib.crawl.session.GameSession], that event's page says where a dead
+    party member's saved items go.
 
     Args:
         target: The victim, a [`Combatant`][osrlib.core.creature.Combatant], which a
@@ -3304,23 +3315,25 @@ def drain_monster_hd(monster: MonsterInstance, *, levels: int = 1, stream: RngSt
     of the two for you after an undead creature's hit. This function changes the monster.
 
     For each Hit Die drained, the monster loses a rolled d8 from both its maximum and its
-    current hit points, and its THAC0 and saving throws become those of its new Hit Dice.
-    Neither hit point total falls below 1, so losing hit points never kills a monster. The
-    event's `hp_lost` is how far the maximum fell. When the floor of 1 stops the loss,
-    `hp_lost` is less than the total of the d8s rolled.
+    current hit points. Its THAC0 and saving throws become those of its new Hit Dice.
+    Neither hit point total falls below 1, so losing hit points never kills a monster.
 
-    The function kills a monster already at 1 Hit Die instead. It rolls no die for that step
-    and takes no Hit Die off, and the event counts the last one as lost.
+    A drain that would take a monster's last Hit Die kills it instead. The function rolls
+    no d8 for that Hit Die, but counts it as lost. So a 1 HD monster drained of one level
+    reports 1 level lost and a new level of 0.
+
+    The function reports the drain as a
+    [`LevelDrainedEvent`][osrlib.core.events.LevelDrainedEvent]. Its `hp_lost` is how far
+    the monster's maximum hit points fell. When the floor of 1 stops the loss, `hp_lost` is
+    less than the total of the d8s rolled.
 
     Args:
         monster: The drained [`MonsterInstance`][osrlib.core.monsters.MonsterInstance].
             The function changes it in place.
         levels: How many Hit Dice the drain takes.
-        stream: The stream the d8s for lost hit points come from. Drain undoes
-            advancement, so it draws from
-            [`ADVANCEMENT_STREAM`][osrlib.core.character.ADVANCEMENT_STREAM], not the
-            combat stream. One draw for each Hit Die taken, and none for the step that
-            kills.
+        stream: The stream the d8s for lost hit points come from, usually
+            [`ADVANCEMENT_STREAM`][osrlib.core.character.ADVANCEMENT_STREAM]. One draw for
+            each Hit Die taken, and none for the Hit Die that kills.
 
     Returns:
         For a monster that survives, a
@@ -3409,10 +3422,8 @@ def resolve_energy_drain(attacker: MonsterInstance, target: Creature, *, stream:
         target: The drained [`Creature`][osrlib.core.creature.Creature], a
             [`Character`][osrlib.core.character.Character] or a `MonsterInstance`. Its type
             decides whether levels or Hit Dice come off. The function changes it in place.
-        stream: The stream the dice for lost hit points come from. Drain undoes
-            advancement, so it draws from
-            [`ADVANCEMENT_STREAM`][osrlib.core.character.ADVANCEMENT_STREAM], not the
-            combat stream.
+        stream: The stream the dice for lost hit points come from, usually
+            [`ADVANCEMENT_STREAM`][osrlib.core.character.ADVANCEMENT_STREAM].
 
     Returns:
         The events in order. The first is a
@@ -3639,9 +3650,11 @@ def resolve_gaze(
     Each creature in `engaged` saves versus paralysis. The function skips three kinds of
     creature: one that's averting its eyes, one with the `blind` condition, because it can't
     meet a gaze, and one that's already
-    [`incapacitated`][osrlib.core.combat.incapacitated]. On a failed save, the function
-    attaches a permanent petrification effect, which gives the `petrified` condition. A
-    petrified creature isn't dead, and the effect can be ended.
+    [`incapacitated`][osrlib.core.combat.incapacitated]. A creature averts its eyes while it
+    has [`Condition.AVERTED_EYES`][osrlib.core.effects.Condition.AVERTED_EYES], which you
+    give it with [`grant_condition`][osrlib.core.effects.grant_condition]. On a failed
+    save, the function attaches a permanent petrification effect, which gives the
+    `petrified` condition. A petrified creature isn't dead, and the effect can be ended.
 
     The function doesn't change attack rolls. A creature that fights with its eyes averted
     takes a penalty to hit, and the gazer may get a bonus against it. Apply both through the

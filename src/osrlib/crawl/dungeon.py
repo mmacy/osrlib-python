@@ -1977,12 +1977,17 @@ class DungeonState(BaseModel):
           The first time you set one of its fields, the state becomes the door's entry in `doors`. If
           the door has gained an entry in the meantime, the write goes to that entry instead.
 
-        The method doesn't read the door's [`DoorSpec`][osrlib.crawl.dungeon.DoorSpec]. A door whose
-        `starts_open` is set stands open in play, but until the door has an entry, the state this
-        method returns reads `open` as `False`. A first write through this method, like
-        `door(ref).discovered = True`, stores the entry with `open` still `False`. When the session's
-        commands change a door, they store an entry with `starts_open` applied. To show doors the way
-        the party sees them, read the player view from
+        The method doesn't read the door's [`DoorSpec`][osrlib.crawl.dungeon.DoorSpec], so it
+        ignores `starts_open`:
+
+        - A door whose `starts_open` is set stands open in play. Until the door has an entry, the
+          state this method returns still reads `open` as `False`.
+        - A first write through this method, like `door(ref).discovered = True`, stores the entry
+          with `open` still `False`.
+        - When the session's commands change a door, they store an entry with `starts_open`
+          applied.
+
+        To show doors the way the party sees them, read the player view from
         [`GameSession.view`][osrlib.crawl.session.GameSession.view] instead.
 
         Args:

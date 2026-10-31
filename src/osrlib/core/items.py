@@ -49,15 +49,15 @@ the first time a character uses the item. From then on the bearer can't take the
 wield: armour and weapon policies, the two-ring cap, and the rule that a two-handed weapon
 and a shield can't be used together.
 
-Torch, holy water, and burning oil appear on both the SRD's weapon table and its gear
-list. osrlib treats each as one physical item, not two: they compile as gear with an
-embedded combat facet ([`CombatFacet`][osrlib.core.items.CombatFacet]), the weapons
-list contains the pure weapons, and no item has two ids. Class weapon policies govern the
-weapons list only, so a cleric may use holy water and a magic-user may throw oil or
-swing a torch. This is an adaptation, a reading osrlib chooses where the rules are unclear
-(see the [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/)).
+Torch, holy water, and burning oil appear on both the OSE SRD's weapon table and its gear
+list. In osrlib, each is one gear item with one id. Its `combat` field, a
+[`CombatFacet`][osrlib.core.items.CombatFacet], has its combat stats. The weapon catalog
+lists only the other weapons. Class weapon policies apply only to that catalog, so a cleric
+may use holy water and a magic-user may throw oil or swing a torch. This is an adaptation, a
+reading osrlib chooses where the rules are unclear (see the
+[adaptations register](https://mmacy.github.io/osrlib-python/adaptations/)).
 
-All weights are in coins, the SRD's unit of encumbrance at ten coins to the pound.
+All weights are in coins, the OSE SRD's unit of encumbrance at ten coins to the pound.
 Coins themselves weigh 1 each. The `encumbrance` setting of
 [`Ruleset`][osrlib.core.ruleset.Ruleset] picks what is weighed: nothing, treasure alone
 (basic), or treasure and equipment (detailed). Under basic and detailed encumbrance, a
@@ -2408,8 +2408,8 @@ def treasure_weight_coins(inventory: Inventory) -> int:
     wands. Every coin weighs 1, whatever its metal.
 
     A stack of those magic items weighs its template's `weight_coins` times its quantity,
-    so a spent stack, at quantity 0, weighs nothing. Rings and miscellaneous items weigh
-    nothing, because their pages give no weight. A bag of holding weighs its printed loaded
+    so a spent stack, at quantity 0, weighs nothing. Rings and miscellaneous magic items weigh
+    nothing, because the OSE SRD gives them no weight. A bag of holding weighs its printed loaded
     weight while it contains anything. Enchanted weapons and armour count as equipment, like
     the mundane kind, rather than as treasure. That way basic encumbrance measures what the
     rules mean by it: how much loot is being hauled out.
@@ -2459,10 +2459,10 @@ def equipment_weight_coins(inventory: Inventory) -> int:
 
     Detailed encumbrance adds this to
     [`treasure_weight_coins`][osrlib.core.items.treasure_weight_coins]. Weapons, armour, and
-    ammunition weigh their listed weights, times the number carried. Every compiled
-    ammunition template weighs 0, because the SRD includes ammunition in the missile
-    weapon's weight. Ammunition an adventure bundles with a nonzero weight counts like any
-    other template. Gear has no per-item weights, so carrying any gear at all adds a flat
+    ammunition weigh their listed weights, times the number carried. Ammunition in the
+    built-in catalog weighs 0, because the OSE SRD includes ammunition in the missile
+    weapon's weight. Ammunition that an adventure bundles with a weight of its own counts
+    that weight. Gear has no per-item weights, so carrying any gear at all adds a flat
     [`MISC_GEAR_WEIGHT_COINS`][osrlib.core.items.MISC_GEAR_WEIGHT_COINS] and no more.
 
     An enchanted weapon or suit of armour weighs what its mundane base item weighs. The base
@@ -2661,13 +2661,13 @@ def movement_rate_feet(inventory: Inventory, ruleset: Ruleset, carrying_treasure
     - `none`: always
       [`BASE_MOVEMENT_FEET`][osrlib.core.items.BASE_MOVEMENT_FEET]. Nothing is weighed and
       no load limit applies.
-    - `basic`: the armour being worn, and whether the character is hauling treasure.
-      Unarmoured is 120' and 90' hauling. Light armour 90' and 60'. Heavy armour 60' and
-      30'.
-    - `detailed`: the weight carried, against the printed thresholds, which are inclusive:
-      120' up to 400 coins, 90' up to 600, 60' up to 800, 30' up to the maximum load. Worn
-      gauntlets of ogre power add 1,000 coins to every threshold and to the maximum load, so
-      the wearer moves at 120' up to 1,400 coins.
+    - `basic`: the armour being worn, and `carrying_treasure`. Unarmoured, the rate is
+      120', or 90' when carrying treasure. Light armour gives 90' or 60', and heavy armour
+      60' or 30'.
+    - `detailed`: the weight carried. The rate is 120' up to 400 coins, 90' up to 600, 60'
+      up to 800, and 30' up to the maximum load. Each limit includes its own value. Worn
+      gauntlets of ogre power add 1,000 coins to every limit and to the maximum load. So the
+      wearer moves at 120' up to 1,400 coins.
 
     Under `basic` and `detailed`, a character carrying more than the maximum load can't move
     at all. The maximum load is [`MAX_LOAD_COINS`][osrlib.core.items.MAX_LOAD_COINS], plus
@@ -2676,7 +2676,7 @@ def movement_rate_feet(inventory: Inventory, ruleset: Ruleset, carrying_treasure
     Args:
         inventory: The inventory to weigh.
         ruleset: The ruleset whose `encumbrance` setting selects the rule.
-        carrying_treasure: Whether the character is hauling a significant amount of
+        carrying_treasure: Whether the character is carrying a significant amount of
             treasure, under basic encumbrance. The tabletop rules leave "significant" to
             the referee, and so does osrlib: you set this, and osrlib has no threshold
             for it. Ignored under the other two modes.

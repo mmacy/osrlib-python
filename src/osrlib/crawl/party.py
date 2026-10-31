@@ -7,13 +7,16 @@ You build a [`Party`][osrlib.crawl.party.Party] from
 session moves the party as one group. `session.party` is the same object you passed.
 
 The order of the member list is the marching order, and it isn't recorded anywhere else, so the
-first member is the one in front. Outside a fight, [`ReorderParty`][osrlib.crawl.commands.ReorderParty]
-sets the order, and the session calls [`reorder`][osrlib.crawl.party.Party.reorder] when it accepts
-one. In a battle, a member who makes a fighting withdrawal or a retreat alone trades places with the
-member named in
-[`BattleDeclaration.replacement_id`][osrlib.crawl.commands.BattleDeclaration.replacement_id]. The new
-order lasts after the battle. [`AddMember`][osrlib.crawl.commands.AddMember], a referee command, adds a
-new member at the back.
+first member is the one in front. In a fight, the front rank is the living members at the front of
+the marching order, as many as fit side by side, and only they can attack in melee. With the
+`formation_width_limit` ruleset flag off, every living member is in the front rank.
+[`ranks`][osrlib.crawl.party.Party.ranks] splits the party into ranks. Outside a fight,
+[`ReorderParty`][osrlib.crawl.commands.ReorderParty] sets the order, and the session calls
+[`reorder`][osrlib.crawl.party.Party.reorder] when it accepts one. In a battle, a member who makes a
+fighting withdrawal or a retreat alone trades places with the member named in
+[`BattleDeclaration.replacement_id`][osrlib.crawl.commands.BattleDeclaration.replacement_id]. The
+new order lasts after the battle. [`AddMember`][osrlib.crawl.commands.AddMember] adds a new member
+at the back. It's a referee command, one your game logic issues rather than a player.
 
 Dead members stay in the list, with their gear still on them. No command removes a member. The
 rules that count party members skip the dead: movement rate, combat ranks, traps, and food and

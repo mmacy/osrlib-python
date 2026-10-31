@@ -1131,11 +1131,17 @@ class SpellDisruptedEvent(Event):
 class DeclarationFizzledEvent(Event):
     """A declared wand, staff, or rod use, or a declared turning, failed before it took effect.
 
-    A [`GameSession`][osrlib.crawl.session.GameSession] reports it during a battle round. In the round's magic
-    phase, the session checks each declared device use and turning again, just before it resolves. If a check the
+    A [`GameSession`][osrlib.crawl.session.GameSession] reports it during a battle round. At the start of each
+    round, every party member declares an action in a
+    [`BattleDeclaration`][osrlib.crawl.commands.BattleDeclaration]. A turning is a cleric's attempt to turn undead.
+    Device uses and turnings resolve in the round's magic phase, the step in which the party's spells, item uses,
+    and turnings take effect. Just before each one resolves, the session checks it again. If a check the
     declaration passed at the start of the round now fails, the declaration fizzles. Something earlier in the round
     caused the failure. For example, the group a staff of striking was aimed at moved out of melee reach, or the
-    group a wand was aimed at left the battle. `reason` has the rejection code of the check that failed.
+    group a wand was aimed at left the battle.
+
+    The event's `actor_id` is the member who declared the action, `item_id` is the device, and `reason` is the
+    rejection code of the check that failed.
 
     A fizzled declaration spends nothing. The device wasn't used, so it keeps its charge and isn't identified. Tell
     the player the action failed, and that the device still has its charge. When a cast or a scroll read fizzles,

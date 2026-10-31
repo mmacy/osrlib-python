@@ -1253,7 +1253,7 @@ def drain_levels(
             description of the monster's `energy_drain` ability. When the drain kills the character,
             this function copies it onto the `combat.drain.slain` event for you to show. osrlib
             doesn't act on it. When the character survives, the function doesn't copy it, because
-            the character hasn't become anything.
+            the character hasn't become anything. `None` leaves it off.
 
     Returns:
         What the character lost, and the events that describe it.

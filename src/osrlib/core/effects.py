@@ -208,8 +208,9 @@ class Condition(StrEnum):
 
     PETRIFIED = "petrified"
     """Turned to stone. The creature can't attack, cast, or move. A melee attack on it hits automatically, and it
-    counts as incapacitated for morale. The ledger suspends its other effects, so they neither tick nor age until the
-    stone is undone. Stone is not death. *Stone to flesh* cures it, and the creature continues from where it was."""
+    counts as incapacitated for morale. The [`EffectsLedger`][osrlib.core.effects.EffectsLedger] suspends its other
+    effects, so they neither tick nor age until the stone is undone. Stone is not death. *Stone to flesh* cures it,
+    and the creature continues from where it was."""
 
     DISEASED = "diseased"
     """Sick with a disease. Magical healing has no effect on it.

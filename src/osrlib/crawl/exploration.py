@@ -1146,15 +1146,10 @@ def wandering_check(session, *, resting: bool = False) -> tuple[list[Event], boo
     quietly in an out-of-the-way place, which it calls hiding. To have the party hide, send a
     [`Rest`][osrlib.crawl.commands.Rest] with `hidden` set.
 
-    The check die draws from [`WANDERING_STREAM`][osrlib.crawl.session.WANDERING_STREAM], and so
-    do the d20 roll on the encounter table, the count dice, and the choice among a row's monsters.
-    For a row that lists an NPC adventuring party, the engine generates the party, drawing who is in
-    it from [`NPC_PARTY_STREAM`][osrlib.core.npc.NPC_PARTY_STREAM]. Spawned monsters' hit points
-    draw from [`MONSTER_SPAWN_STREAM`][osrlib.core.monsters.MONSTER_SPAWN_STREAM], the treasure they
-    carry from [`TREASURE_STREAM`][osrlib.core.treasure.TREASURE_STREAM], and the encounter's
-    surprise, distance, and reaction rolls from
-    [`ENCOUNTER_STREAM`][osrlib.crawl.session.ENCOUNTER_STREAM]. Because the streams are separate,
-    a change in one part of a game doesn't change the dice another part gets.
+    The check, the roll on the encounter table, and the number of monsters draw from
+    [`WANDERING_STREAM`][osrlib.crawl.session.WANDERING_STREAM], one of the session's named
+    random number streams. The monsters and the encounter that follows draw from their own
+    streams.
 
     Args:
         session (osrlib.crawl.session.GameSession): The running session.

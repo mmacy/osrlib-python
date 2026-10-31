@@ -275,12 +275,8 @@ class Interpreter:
     satisfy a later clause's condition for the same event, and a quest completed earlier in
     the check stays completed for everything after it.
 
-    Checking a quest against an event stops at the completion it issues. The rewards go
-    out, and the quest's remaining objectives aren't checked for this event, even if their
-    clauses match it. Such an objective stays incomplete for good, because the interpreter
-    doesn't check a completed quest again. Under the `any` rule that's the usual case, since
-    the first objective to complete finishes the quest. Under the `all` rule it can't happen:
-    the quest completes only after every objective has.
+    The interpreter doesn't check a completed quest again, so an objective that's still
+    incomplete when its quest completes stays incomplete.
 
     The interpreter doesn't follow up on quest commands you execute yourself. It checks
     the completion rule only after a completion it issued, and no pattern matches the quest
@@ -301,16 +297,11 @@ class Interpreter:
     code. If the party dies partway through and the session ends, the remaining commands are
     accepted or dropped by the ordinary rules of the `game_over` mode.
 
-    A chain of reactions has a limit. Each event has a depth: the events of the command you
-    execute are at depth 0, and the events of a command the interpreter executes are one
-    level deeper than the event that caused it. For an event at depth five or deeper, the
-    interpreter issues nothing. It still checks every trigger, and every clause of a quest
-    that's already active, and records a note for each command it would have issued. The
-    exception is a quest the event would have activated. For that quest, the interpreter records
-    one note for the activation and checks none of that quest's objectives for this event. No
-    state changes in any of these cases, so a trigger that fires only once can still fire later,
-    and a quest step waits for its clause to match again. A trigger or a quest clause matches an
-    event, not a state, so the suppressed event doesn't match again.
+    A chain of reactions has a limit. The events of the command you execute are at depth 0,
+    and the events of each command the interpreter executes are one level deeper than the
+    event that caused it. For an event at depth five or deeper, the interpreter issues
+    nothing. It records a note for each command it would have issued instead, and changes no
+    state, so a trigger that fires only once can still fire on a later event.
 
     It returns no events, because the commands it executed already logged everything it
     caused, and it stores nothing between commands. Read what a trigger or a quest did from
@@ -475,8 +466,16 @@ class Interpreter:
         """Walk one quest against one event: activation, reveals, completions, the rule.
 
         Everything the walk issues runs one level deeper than the event that caused it,
-        exactly as a firing does. Past the bound the walk still evaluates every clause
-        and records what it would have issued instead of issuing it.
+        exactly as a firing does. Past the bound, the walk still evaluates every clause of an
+        active quest and records what it would have issued instead of issuing it. For a quest
+        the event would have activated, it records one note for the activation and checks
+        none of the quest's objectives. A clause matches an event, not a state, so the event
+        the walk skipped doesn't match again later.
+
+        The walk stops at the completion it issues. The rewards go out, and the quest's
+        remaining objectives aren't checked for this event, even if their clauses match it.
+        Under the `any` rule that's the usual case. Under the `all` rule it can't happen,
+        because the quest completes only after every objective has.
         """
         owner = _Owner("quest", quest.id)
         state = self._session.quests.get(quest.id)

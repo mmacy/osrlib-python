@@ -205,7 +205,7 @@ class TestValidation:
         )
         validate_adventure(bundled_adventure(monsters=(wretch(),), keyed=keyed), load_monsters(), load_equipment())
         pinned_outside = keyed.model_copy(update={"alignment": Alignment.LAWFUL})
-        with pytest.raises(ContentValidationError, match="pins alignment"):
+        with pytest.raises(ContentValidationError, match="sets alignment"):
             validate_adventure(
                 bundled_adventure(monsters=(wretch(),), keyed=pinned_outside), load_monsters(), load_equipment()
             )

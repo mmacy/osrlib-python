@@ -794,8 +794,9 @@ class GameSession:
         The session keeps the party you pass, not a copy, so from then on your character objects
         are the session's live party members. To add a member once play has begun, execute
         [`AddMember`][osrlib.crawl.commands.AddMember]. It gives the new member the next
-        `character-NNNN` id from the same allocator. Don't append to `party.members` yourself,
-        because the command log wouldn't record the change, and a replay wouldn't have the member.
+        `character-NNNN` id from the session's [`IdAllocator`][osrlib.core.monsters.IdAllocator].
+        Don't append to `party.members` yourself, because the command log wouldn't record the
+        change, and a replay wouldn't have the member.
 
         This method checks the whole adventure before it builds anything, so an unknown monster id
         or a stair to a level that doesn't exist fails here, not partway through a delve.

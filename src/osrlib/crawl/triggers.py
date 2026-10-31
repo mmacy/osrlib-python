@@ -114,8 +114,8 @@ Before the [`Interpreter`][osrlib.crawl.interpreter.Interpreter] runs the comman
 the selector with the id of the first living member in marching order. That member receives
 the whole grant or award, and the party can share it out with
 [`GiveItems`][osrlib.crawl.commands.GiveItems]. A removal takes from that member alone, so the
-member at the front of the marching order pays a toll written with this selector. When no member
-is alive, the interpreter drops the command and records why in a
+first living member in marching order pays a toll written with this selector. When no member is
+alive, the interpreter drops the command and records why in a
 [`NoteRecordedEvent`][osrlib.crawl.events.NoteRecordedEvent]. Use
 [`PARTY_SELECTOR`][osrlib.crawl.triggers.PARTY_SELECTOR] when every living member should
 receive the reward."""
