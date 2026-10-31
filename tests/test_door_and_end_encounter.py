@@ -20,8 +20,6 @@ The contract these tests check:
 - `end_encounter` with no open encounter raises `ValueError` before it changes anything
   or takes a draw, as the kernel-argument rule in `AGENTS.md` requires.
 
-Tests marked `xfail` fail until the chunk lands. Unmarked tests pass today and guard
-behavior the fix must keep.
 """
 
 import pytest
@@ -45,8 +43,6 @@ from osrlib.crawl.dungeon import (
 from osrlib.crawl.encounter import end_encounter
 from osrlib.crawl.session import GameSession
 from osrlib.persistence import load_game, save_game
-
-CHUNK = pytest.mark.xfail(reason="chunk: door-and-end", strict=True)
 
 DOOR_REF = "vestibule:1:1,0:west"
 """The only door in both fixtures, east of the entrance cell (0, 0)."""
@@ -123,7 +119,6 @@ def walk_east(session: GameSession) -> list[str]:
 class TestReadingADoorThatStartsOpen:
     """A new state from `DungeonState.door` reads the door as the adventure wrote it."""
 
-    @CHUNK
     def test_a_read_reads_it_open(self):
         session = open_door_session()
         assert session.dungeon_state.door(DOOR_REF).model_dump() == expected_state(open=True)
@@ -137,7 +132,6 @@ class TestReadingADoorThatStartsOpen:
 class TestWritingAnotherFieldKeepsItOpen:
     """Writing one field of a door that starts open stores an entry that is still open."""
 
-    @CHUNK
     @pytest.mark.parametrize("field", OTHER_FIELDS)
     def test_the_write_changes_only_that_field(self, field):
         session = open_door_session()
@@ -145,7 +139,6 @@ class TestWritingAnotherFieldKeepsItOpen:
         assert DOOR_REF in session.dungeon_state.doors
         assert session.dungeon_state.doors[DOOR_REF].model_dump() == expected_state(open=True, **{field: True})
 
-    @CHUNK
     @pytest.mark.parametrize("field", OTHER_FIELDS)
     def test_the_party_walks_through(self, field):
         session = open_door_session()
@@ -153,7 +146,6 @@ class TestWritingAnotherFieldKeepsItOpen:
         assert walk_east(session) == []
         assert session.dungeon_state.location.position == (1, 0)
 
-    @CHUNK
     @pytest.mark.parametrize("field", OTHER_FIELDS)
     def test_the_player_view_shows_it_open(self, field):
         session = open_door_session()
@@ -161,7 +153,6 @@ class TestWritingAnotherFieldKeepsItOpen:
         setattr(session.dungeon_state.door(DOOR_REF), field, True)
         assert door_view_open(session) is True
 
-    @CHUNK
     def test_a_write_from_another_read_goes_to_the_same_entry(self):
         session = open_door_session()
         first = session.dungeon_state.door(DOOR_REF)
@@ -185,7 +176,6 @@ class TestClosingADoorThatStartsOpen:
         assert door_view_open(session) is False
         assert walk_east(session) == ["exploration.move.blocked"]
 
-    @CHUNK
     def test_set_door_state_closes_it_after_a_write_of_another_field(self):
         session = open_door_session()
         session.dungeon_state.door(DOOR_REF).discovered = True
@@ -207,7 +197,6 @@ class TestClosingADoorThatStartsOpen:
 class TestSavingADoorThatStartsOpen:
     """A save and a load keep the door open, and a loaded session seeds new states the same way."""
 
-    @CHUNK
     def test_a_written_door_is_open_after_a_load(self):
         session = open_door_session()
         session.dungeon_state.door(DOOR_REF).discovered = True
@@ -217,7 +206,6 @@ class TestSavingADoorThatStartsOpen:
         assert walk_east(restored) == []
         assert restored.dungeon_state.location.position == (1, 0)
 
-    @CHUNK
     def test_a_loaded_session_seeds_a_new_state_from_the_door(self):
         session = open_door_session()
         restored = load_game(save_game(session))
@@ -271,7 +259,6 @@ class TestADungeonStateWithNoSession:
 class TestEndEncounterWithNothingOpen:
     """`end_encounter` refuses a session with no open encounter before it changes or draws anything."""
 
-    @CHUNK
     def test_it_raises_value_error_and_changes_nothing(self):
         session = open_door_session()
         assert session.encounter is None
@@ -285,7 +272,6 @@ class TestEndEncounterWithNothingOpen:
         assert session.encounter is None
         assert session.mode is SessionMode.EXPLORING
 
-    @CHUNK
     def test_it_raises_value_error_in_town(self):
         session = GameSession.new(build_party(), build_open_door_adventure(), seed=5)
         assert session.encounter is None
