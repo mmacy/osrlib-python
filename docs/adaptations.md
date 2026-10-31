@@ -20,13 +20,13 @@ Each entry also cites the source files and test names that lock it. Those citati
 - **Kernel and session** - The kernel is `osrlib.core`, the rules functions you can call directly (see [Rules without a session](guides/rules-without-a-session.md)). The session is a [`GameSession`][osrlib.crawl.session.GameSession], which runs a whole adventure through commands and calls the kernel for you.
 - **Caller** - The code that calls a kernel function: your game, or the session. A value "the caller supplies" is an argument that code passes, because the kernel can't work it out.
 - **Ruleset flags** - Options on [`Ruleset`][osrlib.core.ruleset.Ruleset]. Some switch the SRD's optional rules on or off, and others switch the defaults that [Documented adaptations](#documented-adaptations) lists.
-- **Marching order** - The order of the party's members. It decides the battle ranks, and which member a rule means by "the first living member".
-- **Front rank and back rank** - In battle, the session cuts the living marching order into rows as wide as the formation width. The first row is the front rank, and every member behind it is in the back rank. Melee reaches only the front rank. See [The battle round](#the-battle-round).
-- **Range track** - In battle, each monster group has a separate distance from the party, in the style of The Bard's Tale, instead of a position on a map.
+- **Marching order** - The order of the party's members. In battle, it decides who stands in front among members at the same distance from a group who got there in the same round. It also decides which member a rule means by "the first living member".
+- **Front rank and back rank** - In battle, the ranks toward a monster group are the living members sorted by their distance to it and cut into rows as wide as the formation width. The first row is the front rank toward that group, and every member behind it is in the back rank. Melee reaches only the members of the front rank who stand within 5' of the group. See [The battle round](#the-battle-round).
+- **Range track** - In battle, each monster group has a separate distance from the party line, where the party stood when the encounter opened, in the style of The Bard's Tale, instead of a position on a map. Each party member has a place on the same track, in feet forward of the line.
 - **Declaration** - What one party member will do in a battle round, like attack a group or cast a spell. The party sends every member's declaration in one `ResolveBattleRound` command.
 - **Movement step and magic phase** - Parts of a battle round. The side that wins initiative acts first. In the party's turn, the session resolves movement, then missile attacks, then magic, then melee.
 - **Policy** - An [`ActionPolicy`][osrlib.crawl.battle.ActionPolicy] chooses what a monster group does each round. The default is [`ScriptedPolicy`][osrlib.crawl.battle.ScriptedPolicy], and a game can register a different one.
-- **Group** - An [`EncounterGroup`][osrlib.crawl.encounter.EncounterGroup] is a group of monsters in an encounter. A group has one distance from the party, checks morale as a whole, and is what a party member's attack aims at.
+- **Group** - An [`EncounterGroup`][osrlib.crawl.encounter.EncounterGroup] is a group of monsters in an encounter. A group has one distance from the party line, checks morale as a whole, and is what a party member's attack aims at.
 - **Stance** - The monsters' attitude toward the party in an encounter, which the reaction roll sets. See [The encounter procedure](#the-encounter-procedure).
 - **Morale score** - A monster's ML in its stat block, from 2 to 12. A morale check rolls 2d6, and a roll over the score breaks the group.
 - **Player view and referee view** - What a session shows the players and the referee: a [`PlayerView`][osrlib.crawl.views.PlayerView] and a [`RefereeView`][osrlib.crawl.views.RefereeView]. See [Views and visibility](guides/views-and-visibility.md).
@@ -975,75 +975,155 @@ Locked by `test_encounter.py::TestEvasionAndPursuit`.
 
 A battle runs in rounds. Each round, the party sends one command with one declaration for each living, able member, and each monster group acts through its policy. On this page, "the session" runs the battle, and the battle module is part of it.
 
+A declaration is a `BattleDeclaration`. Its `action` field says what the member does: `attack`, `cast`, `turn_undead`, `move`, `use_item`, or `hold`. Its `move` field says how the member moves, and takes `close`, `fighting_withdrawal`, or `retreat`. The combinations that move a member are these:
+
+- `action="move"` with `move="close"` closes on the group in `target_group_id`, and does nothing else.
+- `action="attack"` with `move="close"` closes on the group in `target_group_id` and attacks it in the same round.
+- `action="move"` with `move="fighting_withdrawal"` or `move="retreat"` falls back.
+
+A round runs in this order:
+
+1. The party declares. The session works out where every declared move would put each member, and judges every declaration there. If any declaration fails, the session refuses the whole round, and nothing changes.
+2. The spells being cast are announced, and NPC adventurers choose their actions.
+3. Initiative decides which side acts first.
+4. The side that won initiative takes its block, and then the other side takes its block. The party's block is movement, then missile attacks, then magic, then melee. The monsters' block is each group's morale check, then flight, then gazes, then the actions each group's policy chose, in order. In the party's free round after a surprise, the monsters' block does nothing.
+5. Attacks with a `slow` weapon come last, after both blocks.
+6. The clock advances one round, and the session checks whether the battle has ended.
+
+So when the monsters win initiative, they strike at the members where they stood when the round was declared, before any member moves.
+
+A declaration *fizzles* when it fails a check just before it resolves, because something earlier in the round changed what the check reads. A fizzled declaration has no effect. `DeclarationFizzledEvent` reports a fizzled melee attack with the code `battle.melee.fizzled`, a fizzled wand, staff, or rod use with `magic.device.fizzled`, and a fizzled turning with `magic.turning.fizzled`. `SpellDisruptedEvent` reports a fizzled cast or scroll read with `magic.cast.fizzled`.
+
+#### The range track and each member's place on it
+
+The SRD gives combat no map. Its Combat page measures two things: melee attacks "Are possible when opponents are 5' or less from each other", and missile attacks "Are possible when opponents are more than 5' from one another". Its Encounters page rolls one distance for an encounter: "Dungeon: 2d6 × 10 feet". osrlib keeps that one measure of distance, the range track, and gives each party member a place on it.
+
+- A group's distance is measured from the party line, where the party stood when the encounter opened.
+- Each member has an advance, their place in feet forward of the party line, in `BattleState.advance_feet`. Every member starts a battle on the line, at zero. A member behind the line has a negative advance.
+- A member's distance to a group is the group's distance minus the member's advance. `member_distance_feet` works it out, and the player view reports it in `EncounterGroupView.member_distance_feet`.
+- Every group lies along the same line, so a member 20' forward of the line is 20' nearer every group. The SRD doesn't say where a second group stands, and a corridor runs one way, so osrlib reads every group as lying ahead of the party when the battle opens. A member ends up on the far side of a group only when the group passes them, that is, closes beyond them, which it does only while it can't see them (see [A monster group closes on the nearest member it can see, and strikes only what it reaches](#a-monster-group-closes-on-the-nearest-member-it-can-see-and-strikes-only-what-it-reaches)).
+- The track has no facing and no flanking, and osrlib adds none. A member behind the line is farther from every group.
+
+A group's distance never goes below zero, so the party line moves back when the party falls back behind it. At the end of the party's movement step, when every living member the monsters can see stands behind the line, the line moves back to the foremost of them. It also moves back when a closing group would stop behind it. Every advance and every group's distance grow by the same number of feet, so no distance between a member and a group changes. The session emits no event for the shift, so a battle screen should read `EncounterView.advance_feet` and each group's `distance_feet` from the player view after every round to draw where everyone stands. When every living member is invisible, the line stays where it is.
+
+Positions end with the battle. The next battle starts with every member on the line again, and the party stands on its cell as one body. That's what the Encounters page assumes when an encounter's turn includes "time to rest, regroup, clean weapons, bind wounds, and so on, afterwards". A save written in the middle of a battle keeps the positions.
+
+Locked by `test_member_positions.py`, the line's move by `test_member_positions.py::TestThePartyLineMovesBack` and `test_monster_reach.py::TestReviewRegressions`, and the player view by `test_battle_player_view.py::TestThePositionsInThePlayerView`.
+
 #### Declarations and ranks
 
-- The session rejects the whole round if any declaration is invalid, because accepting part of a round would complicate replay.
+- The session rejects the whole round if any declaration is invalid, because accepting part of a round would complicate replay. It judges each declaration as if every move the round declares had already happened (see [Moving and attacking](#moving-and-attacking)).
 - Under `formation_width_limit`, the formation width is the frontage the space around the party offers: the widest square of unbroken floor that includes the party's cell, with five feet of frontage for each member. In a room 30' by 50', the widest square is 30' across, so six members fight side by side (see [`formation_width_limit`](#formation_width_limit-default-on) for more examples). The SRD says "2–3 characters in a 10' passage". osrlib takes the lower number, so each member needs 5', and applies that to whatever space the party stands in. Two members fit side by side in a 10'-wide passage, however long it runs, and in a room the rank is as wide as the room's shorter side.
-- At the start of each round, the session works out the ranks again from the living marching order. Melee reaches only the front rank, in both directions. There's no penalty for firing into melee, because the SRD has none.
+- The ranks toward a group are the living members sorted by their distance to it, nearest first, and cut into rows of the formation width. A row never mixes distances, so two members at 5' and one at 25' make two rows. Among members at the same distance, the member who got there in an earlier round stands in front, and marching order settles a tie. A member who hasn't moved has stood on the line since round zero, so before anyone moves, the ranks are the marching-order ranks. The SRD leaves who stands in front to "The referee should judge the number of opponents that can attack a single combatant, bearing in mind the combatant's size and the available space around them". This order is osrlib's reading: a member already fighting keeps their place, and newcomers fill the places left.
+- The distance that ranks, reach, and ranges measure is how far apart a member and a group stand, whichever side of the group the member is on, so a member the group passed by 5' is within its reach. `member_distance_feet` and `MemberMovedEvent` report the signed value, which is negative for such a member.
+- Melee reaches only the members of the front rank toward a group who stand within 5' of it, in both directions. `group_front_rank` and the player view's `EncounterGroupView.front_rank` list them. The session refuses a melee attack by a member farther than 5' from the group with `combat.attack.out_of_reach`, and by a member within 5' outside the front rank with `battle.declaration.not_in_front_rank`, in that order. With `formation_width_limit` off, a row holds every member at its distance, so every member within 5' of a group can fight it. There's no penalty for firing into melee, because the SRD has none.
 - A party melee attack hits the first living, visible monster of the group's reachable rank, with no draw. Monsters pick their targets with equal chance, on the monster-action stream (see [Monsters pass over statues](#monsters-pass-over-statues-and-ghouls-and-thouls-turn-from-the-members-they-paralyse)).
-- A staff of striking is "Used as a magical melee weapon", so under `formation_width_limit` only a front-rank member may use one. The session judges that against the ranks the round's swaps produce, as it does a melee attack, and refuses a back-rank member's use with `battle.declaration.not_in_front_rank`.
+- A staff of striking is "Used as a magical melee weapon", so only a member who stands in a group's front rank within 5' of it may use one on that group. The session judges that against the ranks the round's declared moves produce, as it does a melee attack, and refuses any other member's use with the same two codes.
 - Under individual initiative, the session still resolves each side as a block, all of one side's actions and then all of the other's. It orders the blocks by each side's best individual total, because the SRD's phase sequence is per side.
+
+Locked by `test_member_positions.py::TestTheRanksTowardAGroup`, `test_move_and_attack.py::TestTheFrontRankAfterTheMoves`, and `test_battle_player_view.py::TestThePositionsInThePlayerView`.
+
+#### Each combatant moves at its encounter rate, not the party's
+
+The Combat page says "Movement rate: Combatants can move up to their encounter movement rate each round." The Encounters page sets that rate: "During encounters, a character can move up to one third of their base movement rate per round in feet". The rate belongs to the combatant, so each member moves at their rate, not the party's.
+
+- A member's encounter rate is a third of their movement rate after encumbrance, doubled while *haste* is on them. The player view reports it in `MemberView.encounter_rate_feet`.
+- A declaration with `move="close"`, with `action="move"` or `action="attack"`, moves only the member who declares it, toward the group in `target_group_id`. The member stops 5' from that group. They stop sooner rather than come within 5' of another group that hasn't fled and has a living member, so no member passes a group. A close never takes a member back. A member already within 5' of the group doesn't move, and the session reports no event for them.
+- A fighting withdrawal or a retreat that not every declarer makes moves its member back alone (see [A member who withdraws alone](#a-member-who-withdraws-alone)).
+- In the party's movement step, the members who fall back alone move first and the members who close move next, each in marching order. A `MemberMovedEvent` (`battle.member.moved`) reports each member whose advance changes. A member who can't move stays where they are.
+- A monster group moves as one body, because its monsters share one stat block. The first `MonsterAction` with `kind="close"` in the group's actions, by a monster that can move, moves the group, at that monster's encounter rate.
+
+Locked by `test_member_positions.py::TestACloseMovesOnlyTheMember` and `TestFallingBackAlone`, and `test_battle.py::TestAFormationMoveNeedsEveryDeclarer`.
 
 #### Formation moves
 
-The party moves as a formation when every declarer agrees. That's the convention of The Bard's Tale, where the party moves as one:
+The party moves as a formation when every declarer makes the same defensive move. That's the convention of The Bard's Tale, where the party moves as one:
 
-- When every declarer retreats, the formation moves off at the full encounter rate (Combat.md's "full encounter movement rate"). The running pursuit begins when the battle turns into a pursuit at the end of the round.
-- When every declarer makes a fighting withdrawal, the formation backs off at half the encounter rate.
-- The first `close` declaration advances the formation on the group it names, stopping at 5'. `close` needs no agreement, so a lone `close` advances the formation.
+- When every declarer retreats, the formation moves off at the slowest living member's full encounter rate (the OSE SRD's Combat page says "full encounter movement rate"). The running pursuit begins when the battle turns into a pursuit at the end of the round.
+- When every declarer makes a fighting withdrawal, the formation backs off at half that rate.
+- A formation move moves the groups, not the members. Every group's distance grows by the formation's move, and no member's advance changes, so members who stand apart stay apart. *Haste* doubles the move only when every living member has it.
+- A battle screen sees each group's `distance_feet` grow by the move, and every `member_distance_feet` grow by the same amount, while `EncounterView.advance_feet` doesn't change. So the screen redraws the gap between the party and each group, not the members' places.
+- `move="close"` never moves the formation. It moves only the member who declares it, and it needs no agreement.
 - A round whose only declarer declares a defensive move is a formation move, because everyone agreed.
+- When a formation retreat turns the battle into a pursuit, the pursuit's starting gap is the smallest distance from a standing member to a group that can follow, measured after the move. A standing member is one who is neither dead nor turned to stone, because a statue doesn't run. So a member who stood forward of the others starts the chase nearest the pursuers.
 
-The move set is the SRD's two defensive moves and `close`. Schema versions before 4 had a fourth move, `withdraw`. When osrlib loads an older command log, its lossless migration, which converts the log to the current schema without losing information, removes `withdraw` from the declaration and leaves the member holding, which is how that round played out.
+The `move` field takes the SRD's two defensive moves and `close`. Schema versions before 4 had a fourth move, `withdraw`. When osrlib loads an older command log, its lossless migration, which converts the log to the current schema without losing information, removes `withdraw` from the declaration and leaves the member holding, which is how that round played out.
+
+Locked by `test_battle.py::TestAFormationMoveNeedsEveryDeclarer` and `test_member_positions.py::TestTheFormationAndTheEnd`.
 
 #### A member who withdraws alone
 
-A `fighting_withdrawal` or a `retreat` that not every declarer makes belongs to the declaring member alone, as Combat.md describes both moves: "The combatant moves backwards at up to half their encounter movement rate" and "The combatant turns and flees from melee". It changes the ranks and leaves the range track alone. The member steps back out of the front rank and trades places in the marching order with the back-rank member named in the declaration's `replacement_id`.
+A `fighting_withdrawal` or a `retreat` that not every declarer makes belongs to the declaring member alone, as the OSE SRD's Combat page describes both moves: "The combatant moves backwards at up to half their encounter movement rate" and "The combatant turns and flees from melee, moving up to their full encounter movement rate". The member moves back on the range track, and nobody else moves.
 
-Both moves need that replacement, because a rank has no empty places. The ranks are the living marching order cut into rows of the formation width, so a member leaves the front rank only by trading places with someone behind it. For a fighting withdrawal, this is how osrlib applies the SRD's "There must be clear space behind the combatant".
+- The member moves back half their encounter rate for a fighting withdrawal, or their full rate for a retreat. *Haste* on the member doubles it.
+- Their advance goes down, and it can go below zero, behind the party line. The track behind the line is the way the party came, so osrlib reads the SRD's "There must be clear space behind the combatant" as always met.
+- Any member may fall back alone, wherever they stand, and needs no replacement. Once they've moved, the members then nearest each group form its front rank.
+- A withdrawal alone needs no group in melee, and it can share a round with another member's `move="close"`. A retreat alone doesn't end the battle.
+
+The declaration's `replacement_id` is optional. A member who falls back alone can leave it unset, or name a member to trade places with in the marching order. The trade moves nobody. Marching order decides who stands in front among members at the same distance from a group who got there in the same round. So when the withdrawing member steps out of a front rank, naming a member at the same distance brings that member into it. A member who stands farther back reaches the front rank only with `move="close"`.
+
+The named member has to meet all of these conditions, or the session refuses the round with `battle.declaration.replacement_unavailable`:
+
+- They're another declarer, not the withdrawing member.
+- They aren't also making a fighting withdrawal or a retreat.
+- No withdrawing member earlier in marching order has named them, even in a declaration the session refuses.
+
+Apart from those conditions, nothing about the named member matters: not their rank, their rate, or which action they declared, and not whether they can move. In a formation move, a declaration that sets `replacement_id` gets the same code, because every member moves with the party.
 
 A withdrawal alone is the only way the marching order changes in battle, and the session refuses `ReorderParty` in battle. The changed order lasts after the battle, until a `ReorderParty` outside an encounter sets it again.
 
-Only a front-rank member may withdraw alone. The replacement must be a living, able member behind the front rank, and must meet all of these conditions:
+In the party's movement step, a `MemberMovedEvent` reports each member's move back, and the trade follows right after it. A `MemberWithdrewEvent` (`battle.member.withdrew` or `battle.member.retreated`) reports the trade. The trade happens only when the move happens and both members are alive. A member who can no longer move when the step comes stays where they are, and the two keep their places in the marching order.
 
-- They can move.
-- They haven't declared a `cast` (Combat.md: "The spell caster cannot move and cast a spell in the same round") or a defensive move.
-- No withdrawing member earlier in marching order has named them. When an earlier member names a replacement, the replacement is reserved even if the session refuses that earlier member's withdrawal.
+A retreat's penalties fall only on the members who retreat, and they last the whole round, whichever side acts first: "This round: ... the opponent gains a +2 bonus to all attacks against the retreating combatant and ignores any AC bonus due to the combatant's shield". A formation retreat is every declarer retreating, so it exposes every member to those penalties, including against monsters that win initiative and strike before the party moves off.
 
-Each rank stands 5' behind the one in front of it, so a replacement k ranks back is k × 5' away. Both members must cover that distance:
+During a formation retreat, the session remembers which members stood in each group's front rank within 5' of it when the round was accepted. It resolves that group's `melee` on any of those members, even after the formation move has added to the group's distance and taken it out of reach. The SRD gives the opponent its attacks against a retreating combatant for the whole round, and this is how osrlib reads that for a party that wins initiative and moves off first. The default policies close first and aim at the members their close will reach, so the rule matters most for a `melee` aimed at a member the group can no longer reach, like one from a policy that your game supplies. The player view never shows this reach, because a formation retreat ends the battle when the round ends. A member who retreats alone has no such rule: once they've moved out of reach, the group's melee doesn't reach them.
 
-- The withdrawing member covers it at up to half their encounter rate for a fighting withdrawal, or their full encounter rate for a retreat.
-- The replacement covers it at up to their full encounter rate, because outside melee "Combatants can move up to their encounter movement rate each round".
-- *Haste* on a member doubles that member's limit.
-
-The session refuses a withdrawal alone with the first of these codes that applies, so each withdrawing member gets at most one of them:
-
-1. `battle.declaration.not_in_front_rank`, when the member stands in the back rank.
-2. `battle.declaration.no_replacement`, when the member names no replacement.
-3. `battle.declaration.replacement_unavailable`, when the named replacement can't step up.
-4. `battle.declaration.replacement_too_far`, when either member can't cover the distance.
-
-With `formation_width_limit` off, every living member stands in the one rank, so no member can withdraw alone. A withdrawal alone needs no group in melee, and it can share a round with a `close`.
-
-The swaps resolve in the party's movement step, in the marching order of the withdrawing members and before the formation's `close`. Each swap reports a `MemberWithdrewEvent` (`battle.member.withdrew` or `battle.member.retreated`). A side that wins initiative over the party therefore strikes at the ranks as they stood when the round was declared.
-
-When the movement step comes, a swap happens only if all of these are still true:
-
-- The withdrawing member stands in the front rank.
-- The replacement stands behind it.
-- Both members can move.
-- The replacement can act on the party's behalf. A member who is incapacitated, charmed, or confused can't.
-
-Otherwise the two stay where they are, and no event reports a swap.
-
-From the movement step on, the replacement stands in the front rank, where monsters acting later can strike them. The replacement may declare a melee attack in the round they step up, because "Movement and attacking may be combined in the same round". The session judges that declaration against the ranks the round's swaps produce, and the attack resolves only if the swap happened. A melee attack that the monster side chose against a member who has since withdrawn is skipped, because it's no longer possible.
-
-A retreat's penalties fall only on the members who retreat, and they last the whole round, whichever side acts first: "This round: ... the opponent gains a +2 bonus to all attacks against the retreating combatant and ignores any AC bonus due to the combatant's shield". A formation retreat is every declarer retreating, so it exposes every member to those penalties, including against monsters that win initiative and strike before the party moves off. A retreat alone doesn't end the battle.
+Locked by `test_member_positions.py::TestFallingBackAlone`, `TestTheTrade`, and `TestTheTradeRefusals`, by `test_single_withdrawal.py`, and the formation retreat's exposure by `test_single_withdrawal.py::TestAFormationRetreatIsExposedAllRound`.
 
 #### Moving and attacking
 
-A member who makes a fighting withdrawal or a retreat makes no attack that round, alone or with the formation, because a member declares one thing per round and the move is that thing. For a retreat, that's RAW: "the retreating combatant may not attack".
+The Combat page says "Movement and attacking may be combined in the same round." So a member may close on a group and attack it in one round.
 
-A fighting withdrawal takes nothing away in RAW, and "Movement and attacking may be combined in the same round". However, the round sequence resolves movement before missile attacks and melee. By the melee step, a member who withdrew alone stands behind the front rank, where melee doesn't reach, and a formation that withdrew stands out of melee range. RAW would still allow a missile attack after the move. osrlib doesn't represent that: a withdrawing member's declaration that also names a weapon or a group makes no attack. Locked by `test_single_withdrawal.py`.
+- With `action="attack"` and `move="close"`, the member closes in the party's movement step and attacks in the missile step or the melee step of the same round. A member reaches a group in melee this round when their distance to it is at most their encounter rate plus 5'.
+- Before the round starts, the session works out where every declared move would put each member, with the same arithmetic the movement step uses, and judges every declaration there. The member's distance after their close decides whether the attack is a melee or a missile attack, and which weapon the session chooses when the declaration sets no `weapon_id`. A melee attack is judged against the front rank that every declared move and trade would produce, so a member who steps into the place another member leaves can strike in the same round. `combat.attack.out_of_reach` reports the distance the close would leave.
+- That projection leaves out what the monsters do, because the session decides that after it rolls initiative. When the monsters act first, a member's close can fall short, and their melee attack then fizzles (see [A melee attack that position stops fizzles](#a-melee-attack-that-position-stops-fizzles)).
+- To judge a plan before you send it, call `preview_battle_round` with the declarations planned so far. It runs the same checks over the same projection, takes no draw, and changes nothing.
+
+Some actions can't combine with a move:
+
+- A caster can't move. The Combat page says "No movement: The spell caster cannot move and cast a spell in the same round." The session refuses `action="cast"` with any `move` with `battle.declaration.cast_cannot_move`.
+- `action="attack"` takes only `move="close"`. The session refuses `action="attack"` with `move="fighting_withdrawal"` or `move="retreat"` with `battle.declaration.move_not_combinable`. For a retreat, that's the SRD as written: "the retreating combatant may not attack". The SRD forbids attacking only for a retreat. It takes nothing away from a fighting withdrawal, and the SRD as written would allow a missile attack after the move. osrlib doesn't represent that, because a member declares one thing per round and the fighting withdrawal is that thing. This is osrlib's reading. An `action="move"` declaration with `move="fighting_withdrawal"` or `move="retreat"` makes no attack, even when it also sets a `weapon_id` or a `target_group_id`.
+- `action="turn_undead"`, `action="use_item"`, or `action="hold"` with any `move` gets `battle.declaration.move_not_combinable`. Turning and using an item are each a member's whole action for the round, which is osrlib's reading.
+- `action="attack"` with `move="close"`, from a member who can't move, gets `battle.declaration.cannot_move`.
+
+The session checks for `battle.declaration.cast_cannot_move` and `battle.declaration.move_not_combinable` after the back-stab checks and before the checks for the action, and each has the member's id as its `character` param. It checks for `battle.declaration.cannot_move` on an attack after the attack's group and weapon checks.
+
+Locked by `test_move_and_attack.py` and `test_single_withdrawal.py::TestNoAttackWhileWithdrawing`.
+
+#### A melee attack that position stops fizzles
+
+The session judges a melee attack before the round starts, but the round can change where members stand before the melee step. The Combat page allows melee only when "opponents are 5' or less from each other". So a declared melee attack resolves only if, when the party's melee step comes, the member stands in the group's front rank within 5' of it.
+
+- Otherwise the attack fizzles. The member makes no attack roll, and the session reports a player-visible `DeclarationFizzledEvent` with the code `battle.melee.fizzled`. Its `group_id` is the group. Its `reason` is `combat.attack.out_of_reach` when the member is farther than 5' from the group, or `battle.declaration.not_in_front_rank` when the member is within 5' but not in its front rank.
+- That happens when a member the round expected to step back can no longer move and still stands in the place. It also happens when the monsters win initiative and the group runs before the member's close.
+- An attack that closes from beyond 5' to within 5' stays a melee attack wherever the member ends up. When the close falls short, the attack fizzles instead of turning a dagger's stab into a throw the player never declared.
+- A slow melee attack faces the same check again when it resolves at the end of the round.
+- Against a group that runs, what decides it is where the member stood when the round was accepted: a member who already stood within 5' of the group still strikes it, wherever it has run since, and a member who was closing on it fizzles. The SRD gives the opponent its attack against a retreating combatant, and osrlib reads only a member already within 5' as that opponent.
+
+Locked by `test_move_and_attack.py::TestTheMeleeStep` and `TestTheMeleeFizzleEvent`.
+
+#### Light and sight are reported in the view only
+
+The Hazards and Challenges page says "Typical light sources enable normal vision within a 30' radius." and "Infravision works within a limited range (60' for monsters, unless specified otherwise in a monster's description)." The Adventuring Gear page says a torch "casts light in a 30' radius", and the Dwarf and Elf pages each give "infravision to 60'". The Combat page's only rule about sight is for spells: "Unless noted in a spell's description, the intended target ... must be visible to the caster."
+
+With members spread along the track, a group can stand beyond every member's light. osrlib reports what each member can see, and the session refuses nothing because of it:
+
+- `EncounterGroupView.lit` is true when a living member with a burning light, like a torch or a lantern, stands within that light's radius of the group, measured along the track. A darkness effect that puts out the party's light leaves every group unlit.
+- `EncounterGroupView.seen_by` lists the living members who see the group: every member who isn't blind when the group is lit, and otherwise each member whose infravision reaches it. A blind member is never in it, even when the group is lit. A darkness effect that stops infravision leaves it working for nobody.
+- The SRD says "Visible light (normal or magical) and large heat sources prevent infravision from functioning." osrlib doesn't apply that in battle, so an elf beside a torchbearer still sees a group past the torchlight by infravision.
+- The session accepts a missile attack, a thrown item, or a spell aimed at a group nobody can see. Your game decides whether to offer one, and how to describe it.
+
+Locked by `test_battle_player_view.py::TestLightAndSightInThePlayerView`.
 
 #### Turn undead, disruption, and concentration
 
@@ -1056,7 +1136,7 @@ Locked by `test_rules_calls.py::TestTurningEndsConcentration` and `test_rules_ca
 
 #### An attack that names no weapon
 
-An `attack` declaration that names no weapon uses the wielded weapon that suits the attack ([#162](https://github.com/mmacy/osrlib-python/issues/162)). The SRD decides melee or missile by distance alone: "Melee: Close quarters weapon (5' or less)" and "Missile: Thrown or fired weapon (greater than 5' distance)". So the group's distance when the round is accepted decides it: a melee attack at 5' or less, and a missile attack beyond.
+An `attack` declaration that names no weapon uses the wielded weapon that suits the attack ([#162](https://github.com/mmacy/osrlib-python/issues/162)). The SRD decides melee or missile by distance alone: "Melee: Close quarters weapon (5' or less)" and "Missile: Thrown or fired weapon (greater than 5' distance)". So the member's distance to the group decides it: a melee attack at 5' or less, and a missile attack beyond. The session measures it when it accepts the round, after the close the same declaration makes, if any. So a member who closes into reach with a dagger strikes with it, and a member who stays back throws it.
 
 - The session takes the first wielded item with the `melee` or `missile` quality, in the order the member equipped them.
 - For a missile attack, it prefers the first whose long range reaches the group. When none reaches, it takes the first missile weapon, and then refuses the attack with `combat.attack.out_of_range`.
@@ -1079,23 +1159,24 @@ A wand, staff, or rod use and a turning get the same re-check ([#145](https://gi
 
 - A staff of striking aimed at a group that ran out of melee reach fizzles with `combat.attack.out_of_reach`.
 - A wand aimed at a group that fled the battle fizzles with `battle.declaration.unknown_group`.
-- A staff of striking in the hands of a replacement whose swap didn't happen fizzles with `battle.declaration.not_in_front_rank`, because the re-check reads the ranks as they stand.
+- A staff of striking in the hands of a member named in a `replacement_id`, whose trade didn't happen, fizzles with `battle.declaration.not_in_front_rank`, because the re-check reads the ranks as they stand.
 - A turning fizzles with `battle.declaration.no_target` when no living monster is left in any group that hasn't fled, because the missile phase or an earlier declaration in the magic phase killed the monsters or drove them off. That check asks whether any monster is left, not whether any undead is, so it tells the player nothing about which monsters are undead.
 
 `DeclarationFizzledEvent` reports a device use or a turning that fizzles, with the code `magic.device.fizzled` or `magic.turning.fizzled` and the same `reason` field. `SpellDisruptedEvent` stays for spells and scrolls, so its `spell_id` always identifies a spell. A fizzled device use costs what a `hold` costs: the device was never used, so it keeps its charge, isn't identified, and breaks no invisibility. A fizzled turning draws nothing and costs nothing.
 
-Each battle round advances the clock one round through the ledger. Locked by `test_battle.py`, the formation moves by `test_battle.py::TestAFormationMoveNeedsEveryDeclarer`, a member's own withdrawal by `test_single_withdrawal.py`, and the re-check by `test_battle.py::TestTheMagicPhaseRechecksADeclaration` and, for devices and turnings, `test_weapon_default_and_device_recheck.py` and `test_turning_and_staff.py`.
+Each battle round advances the clock one round through the ledger. Locked by `test_battle.py`, the formation moves by `test_battle.py::TestAFormationMoveNeedsEveryDeclarer`, a member's withdrawal alone by `test_member_positions.py` and `test_single_withdrawal.py`, and the re-check by `test_battle.py::TestTheMagicPhaseRechecksADeclaration` and, for devices and turnings, `test_weapon_default_and_device_recheck.py` and `test_turning_and_staff.py`.
 
 ### A back-stab needs monsters the party surprised
 
 A thief back-stabs in battle only in the free round the party gets by surprising the monsters. The OSE SRD's thief entry says "When attacking an unaware opponent from behind, a thief receives a +4 bonus to hit and doubles any damage dealt." osrlib has no facing in battle: the range track gives each group a distance from the party and no position, so no attack comes from behind by geometry. osrlib reads "an unaware opponent from behind" as a monster the party surprised, in the round it can't act. A surprised monster hasn't noticed the party, so it isn't facing the attacker.
 
 - A member declares a back-stab by setting `BattleDeclaration.back_stab` on an `attack`. The session accepts it only when `BattleState.monsters_hold_rounds` is above zero as it accepts the round, which is the party's free round. Every attack roll the declaration makes that round is a back-stab, even when the monsters win initiative and their held turn passes first.
-- The attack has to be a melee attack, because a back-stab is a strike from behind. A missile weapon, or a dagger thrown at a group farther away than 5', doesn't qualify.
+- A thief can close on a group and back-stab it in the same round, with `move="close"` on the attack. The session judges the back-stab at the distance the close will reach, so a thief reaches a group up to their encounter rate plus 5' away. That's 35' for a thief in leather armour under the default `basic` encumbrance, and 45' for one in no armour. *Haste* doubles the rate. A group farther away can't be back-stabbed, because the Encounters page gives the surprising side one round: "The side that is not surprised gains a one round advantage."
+- The attack has to be a melee attack, because a back-stab is a strike from behind. A missile weapon, or a dagger aimed at a group more than 5' from the thief after their close, doesn't qualify.
 - The member's class needs the `back_stab` ability. Its params give the +4 to hit and the ×2 damage multiplier. The attack ignores the defender's shield, as the kernel does for any attack from behind (see [the damage pipeline order](#the-damage-pipeline-order)).
 - The kernel marks the attack with `AttackRolledEvent.back_stab`, on an automatic hit too, so a game can say so.
 
-The session refuses a back-stab with the first of these that applies: `battle.declaration.back_stab_not_attack`, `battle.declaration.back_stab_no_ability`, `battle.declaration.back_stab_target_aware`, the attack's group and weapon checks, `battle.declaration.back_stab_not_melee`, and then the melee checks. A refused round costs nothing, like any refused round.
+The session refuses a back-stab with the first of these that applies: `battle.declaration.back_stab_not_attack`, `battle.declaration.back_stab_no_ability`, `battle.declaration.back_stab_target_aware`, the attack's group and weapon checks, `battle.declaration.back_stab_not_melee`, and then the melee checks, judged after the round's declared moves. A refused round costs nothing, like any refused round.
 
 osrlib doesn't record whether a thief is hidden, so a back-stab after a successful hide in shadows or move silently roll isn't available ([#208](https://github.com/mmacy/osrlib-python/issues/208)). A game that rules a monster unaware for another reason can call the kernel itself with `AttackContext(behind_target=True, target_unaware=True)`.
 
@@ -1119,15 +1200,16 @@ Locked by `test_battle.py::TestEffectConsumption`.
 
 An area effect aimed at a monster group affects as many of the group as its shape covers. osrlib works that out from the shape's size, because the combat space is an abstract range track, not a map. The SRD leaves this to the referee, so it's a documented adaptation.
 
-- An area holds `ceil(span / 10) × width` creatures. The span is how far the shape reaches into the group, counted as one rank of creatures for every 10', a cell's depth. That's a different measure from the 5' between the party's ranks that a member who withdraws alone has to cover (see [A member who withdraws alone](#a-member-who-withdraws-alone)), and the code keeps the two separate.
-- A radius shape spans its diameter, because a circle reaches twice its radius across. Lines, cubes, and clouds span their length. A cone spans its length minus the group's distance, because a cone starts at the caster.
+- An area holds `ceil(span / 10) × width` creatures. The span is how far the shape reaches into the group, counted as one rank of creatures for every 10', a cell's depth.
+- A radius shape spans its diameter, because a circle reaches twice its radius across. Lines, cubes, and clouds span their length. A cone spans its length minus the caster's distance to the group, because a cone starts at the caster.
 - The width is the formation width, the same measure of the space that sets the party's rank width, because the monsters fight in the same space. With `formation_width_limit` off, the width has no limit.
 - For example, a *fire ball* has a 20' radius, so it spans 40'. In a 10' corridor, where the width is 2, it catches ceil(40 / 10) × 2 = 8 monsters. A cone 60' long, aimed at a group 30' away, spans 30', so in the same corridor it catches 6.
 - The area takes the group's creatures in spawn order, the fixed order in which the session created them, up to its capacity.
-- Under `aoe_friendly_fire`, an area that lands on a group in melee range also catches the members of the party's front rank who are fighting that group. They come after the monsters, in marching order, and use up whatever capacity is left.
-- A breath weapon aimed at the party covers `ceil(reach-limited span / 10)` ranks, counting from the front. A breath that hits one target, like the hellhound's, picks from the front rank with equal chance, on the monster-action stream.
+- Under `aoe_friendly_fire`, an area aimed at a group also catches the members of the group's front rank who stand within 5' of it. They come after the monsters, in marching order, and use up whatever capacity is left. A caster who stands farther than 5' from the group isn't caught by their area.
+- A breath weapon, or an NPC adventurer's area spell, aimed at the party covers the ranks toward the breathing or casting group from the front, by distance. The first row's depth is that row's distance, which is also the gap a cone crosses before it reaches the party. Each later row is at least 10' deeper than the row in front of it, as a cell is deep, and never shallower than the row's distance, so depth never goes down. The area covers the rows in order while a row's depth is less than the span past the first row, and stops at the first row it doesn't reach. So a cone covers the rows that start nearer the group than its length, and never covers a farther row past a nearer one. Before any member has moved, every row stands at the group's distance, so the area covers `ceil(span / 10)` ranks from the front.
+- A breath that hits one target, like the hellhound's, picks with equal chance from the first row toward the group, at any distance, leaving out invisible members. The pick is on the monster-action stream.
 
-Locked by `test_battle.py::TestAreaFootprint`.
+Locked by `test_battle.py::TestAreaFootprint`, and the rows by distance by `test_monster_reach.py::TestAreasAndGazes` and `TestReviewRegressions`.
 
 A spell in an HD-budget mode can also aim at a group. A `cast` in an `hd_budget` mode with a `target_group_id` and no `targets` takes its candidates from that group, and the targeting mode spends the budget on them weakest first. The player view shows group ids but no monster ids, so a front end built on the player view casts *sleep* in battle this way.
 
@@ -1138,6 +1220,30 @@ Which members of the group are candidates depends on whether the spell has an ar
 
 When a declaration sets both `target_group_id` and `targets`, the session uses the named `targets`, with no footprint, so a recorded command log replays as it did. The session refuses a declaration that sets neither with `magic.cast.target_count`. Locked by `test_battle_player_view.py::TestAnHdBudgetSpellAimedAtAGroup` and `test_drain_and_area.py::TestAnHdBudgetSpellWithAnAreaAimedAtAGroup`.
 
+### A monster group closes on the nearest member it can see, and strikes only what it reaches
+
+The Combat page gives monsters the same movement and melee rules as characters, and the Encounters page leaves their tactics to the referee: "The referee determines monsters' reaction to the party." osrlib reads them this way:
+
+- A group's `close` action, a `MonsterAction` with `kind="close"`, moves it up to one encounter rate toward the nearest living member it can see, and it stops as soon as it's within 5' of that member. So it never passes a member it can see, and the members in front keep the monsters off the members behind them. A group already within 5' of a member it can see doesn't move, and the session reports no event for it.
+- A member who is invisible doesn't stop a group, because the group can't see them. So a group can pass an invisible thief and close on the members behind. A member turned to stone does stop a group, so a statue in a corridor still stops it.
+- When the group can see no member, it moves toward the party line and stops 5' from it.
+- When the group's stopping point would be behind the party line, the line moves back first (see [The range track and each member's place on it](#the-range-track-and-each-members-place-on-it)). So a group reaches the member it closes on in as many rounds as its rate needs.
+- A monster's melee attack resolves only on a member who stands in the group's front rank within 5' of it when the attack comes up, and the session skips a melee on anyone else. A formation retreat is the exception (see [A member who withdraws alone](#a-member-who-withdraws-alone)).
+
+The Combat page's "Movement and attacking may be combined in the same round" doesn't limit the rule to one side, so osrlib applies it to monsters as it does to party members. When a group's move will bring a member within reach, the default policies follow each monster's `close` action with a `melee` action in the same round, aimed at a member of the front rank the move will produce. A policy that your game supplies can do the same, or close and attack in separate rounds.
+
+Locked by `test_monster_reach.py`, and the statue by `test_monster_tactics.py::TestStatues`.
+
+### Monster missile attacks resolve at 5', and NPC archers shoot at the first row
+
+A reader of the SRD will expect a monster's bow, or an NPC archer's, to reach the members at the back of the party. In osrlib it doesn't. The members in front screen the members behind them from arrows as well as from blades.
+
+- The monster data gives no ranges for monsters' missile attacks, so the default policy treats them as melee: the monster closes, then attacks at 5', a member of the group's front rank within 5' of it.
+- An NPC adventurer with a missile weapon shoots while every member it can see is farther than 5' from its group. It picks its target with equal chance from the first row of the party's ranks toward its group, at any distance, leaving out invisible members. The shot's range band is that member's distance to the group.
+- An NPC adventurer's spell with one target picks its target from the same first row.
+
+The SRD has no rule for firing past the members in front, so osrlib reads the first row as the line of sight. That's osrlib's reading. Locked by `test_monster_reach.py::TestWhoTheGroupReaches` and `test_monster_tactics.py::TestTheSpittingCobrasSpit`.
+
 ### The default action policy and morale
 
 The default policy, `ScriptedPolicy`, follows a monster's scripted pattern, a fixed way of fighting that its data records, when it has one. Otherwise the group closes, which means it moves toward the party on the range track, and attacks. It draws only from the monster-action stream.
@@ -1146,8 +1252,8 @@ Scripted patterns and movement:
 
 - A breath weapon with `uses_per_day` opens with breath, then breath or melee with equal chance while daily uses remain, as the dragons do in RAW.
 - For a breath weapon that works on a chance in six each round (`per_round_chance_in_six`), like the hellhound's, the policy rolls the chance each round.
-- Otherwise, a group farther away than 5' closes, and at 5' it melees.
-- The monster data has no ranges for monster missile attacks, so they work like melee: the monster closes, then attacks. So the spitting cobra spits from 5', which is osrlib's reading.
+- Otherwise, a group closes while every member it can see is farther than 5' from it, and melees once one is within reach. When its move will bring a member within reach, it closes and melees in the same round (see [A monster group closes on the nearest member it can see](#a-monster-group-closes-on-the-nearest-member-it-can-see-and-strikes-only-what-it-reaches)).
+- The monster data has no ranges for monster missile attacks, so they work like melee: the monster closes, then attacks. So the spitting cobra spits from 5', which is osrlib's reading (see [Monster missile attacks resolve at 5'](#monster-missile-attacks-resolve-at-5-and-npc-archers-shoot-at-the-first-row)).
 - Groups never cast, because casting tags are `manual` data.
 
 Attack routines (see [Compiled monster data conventions](#compiled-monster-data-conventions) for the `use` labels):
@@ -1163,10 +1269,10 @@ Morale:
 - At the start of the monsters' turn each round, battle checks each group's morale when a trigger applies, and records the checks for the rest of the battle. The triggers are the side's first death and half the side incapacitated.
 - A monster's alternate morale score applies when the round meets its condition, like fear of fire when the round's damage included fire. A spell's morale modifier applies under [the cumulative-effects rule](#the-cumulative-effects-rule-largest-bonus-plus-largest-penalty-per-statistic).
 - A group with a morale score of 2 routs when battle starts, or as it joins a battle already running.
-- A group that fails a check is exposed that round as a retreating combatant is (see [A member who withdraws alone](#a-member-who-withdraws-alone)), then flees at full speed. The group leaves the battle as routed once it's past 120', the sight distance that pursuit uses, which applies the same way to both sides.
+- A group that fails a check is exposed that round as a retreating combatant is (see [A member who withdraws alone](#a-member-who-withdraws-alone)), then flees at full speed. The group leaves the battle as routed once it stands farther than 120' from every living member, the sight distance that pursuit uses, which applies the same way to both sides. The session measures from the members, not from the party line, so a member who closed on the group keeps it in the battle longer, and a move of the party line never pushes a group out. A group whose living members are all turned or afraid counts as gone, for ending the battle, by the same measure.
 - Turned undead attack no one, as the cleric page says: "Flee from the cleric's presence if possible, and will not harm the cleric". A group whose living members are all turned or afraid retreats as a whole. When a turning affects only some of a group, the turned members break away as a new group, which runs, and the rest fight on. That's osrlib's reading.
 
-A fled group stays in the player view's `groups`, in order, with `fled` set. The session refuses every declaration aimed at it with `battle.declaration.unknown_group`: an attack, a `close` move, a thrown item, a device, or a spell. The party can still declare against a group that's running but still inside 120', because the party can chase the group or shoot at it. A cast aimed at a group that flees earlier in the same round fizzles at the magic phase's re-check (see [The battle round](#the-battle-round)).
+A fled group stays in the player view's `groups`, in order, with `fled` set. The session refuses every declaration aimed at it with `battle.declaration.unknown_group`: an attack, a `close` move, a thrown item, a device, or a spell. The party can still declare against a group that's running but still within 120' of a member, because the party can chase the group or shoot at it. A cast aimed at a group that flees earlier in the same round fizzles at the magic phase's re-check (see [The battle round](#the-battle-round)).
 
 Chasing routed monsters is left to the game. osrlib would treat it as the evasion procedure with the party as the pursuer, and that isn't built yet.
 
@@ -1220,7 +1326,7 @@ The saves work like this:
 
 Blindness comes from the spitting cobra, whose entry says "Blinding spit: Range: 6'. A hit causes permanent blindness (save vs poison)." A spit hit makes the target save versus death, the category for poison, or be blinded for good. The blindness is permanent and can't be dispelled, and no spell that osrlib runs ends it, so a cure is the referee's call. The SRD's combat rules say "A blind character is unable to attack", so the session refuses an attack from a blind member with `combat.attack.attacker_blind`.
 
-The basilisk and the medusa have a petrifying gaze. The session runs it through `resolve_gaze`, once a round while the gazer's group is at 5', before the group acts. The gaze reaches the party's front rank and takes no attack roll. The session never rolls the basilisk's `gaze` attack entry as an attack. A gaze works through sight, so it never reaches a blind member, including the surprise gaze described below. That's osrlib's reading.
+The basilisk and the medusa have a petrifying gaze. The session runs it through `resolve_gaze`, once a round while a member stands within 5' of the gazer's group, before the group acts. The gaze reaches the members of the group's front rank who stand within 5' of it, and takes no attack roll. The session never rolls the basilisk's `gaze` attack entry as an attack. A gaze works through sight, so it never reaches a blind member, including the surprise gaze described below. That's osrlib's reading.
 
 The SRD's basilisk says "Unless averting eyes or using a mirror, characters in melee are affected each round". So a member's `BattleDeclaration` can set `gaze_defense` to `avert_eyes` or `mirror` for one round, alongside any action:
 
@@ -1465,7 +1571,7 @@ A character can wear at most two rings, `MAX_RINGS_WORN = 2`, one on each hand (
 
 The ring of protection's 5'-radius variant also protects the members beside the wearer:
 
-- In battle, it extends its AC bonus to the other members of the wearer's rank, against attacks. The battle space has nothing finer than the rank, and the printed example, "two characters fighting beside the wearer", is exactly melee defense.
+- In battle, it extends its AC bonus to the other members of the wearer's row in the ranks toward the attacking group, the members at the same distance from that group, against attacks. A member who stands alone at their distance from the group has nobody beside them. The battle space has nothing finer than the rank, and the printed example, "two characters fighting beside the wearer", is exactly melee defense.
 - The bonus reaches allies as context the caller supplies (`AttackContext.defender_ally_ac_bonus`), and it never stacks across rings. The wearer's +1 comes from equipped items, as [Item bonuses](#item-bonuses-use-a-separate-channel-outside-the-cumulative-caps) describes.
 - Saving throws, and anything outside battle, count the wearer alone, because a save resolves in the kernel for one character, and outside battle the party has no positions.
 
@@ -1585,11 +1691,13 @@ With the flag on, an area that overlaps a melee catches the party too. An area t
 With the flag on, the space around the party limits how many combatants fight side by side. RAW prints one number and leaves the rest to judgement. The SRD says: "The referee should judge the number of opponents that can attack a single combatant, bearing in mind the combatant's size and the available space around them. **10' passage:** Enough space for at most 2–3 characters to fight side-by-side".
 
 - osrlib uses the low end, two in ten feet, and measures the space instead of naming a number for each kind of cell.
-- The rank width is the widest square of unbroken floor that includes the party's cell, with five feet of frontage for each combatant. That's two in a one-cell passage, however far it runs, and at a junction of two such passages. It's four in a room two cells square, and eight in a room four cells across.
+- The rank width is the side of the largest square of open cells that includes the party's cell, times 10', divided by 5' for each combatant. That's two in a one-cell passage, however far it runs, and at a crossroads of one-cell passages. A room gives twice its shorter side in cells: four in a room two cells square, eight in a room four cells square, and four in a room 2 by 8 cells.
 - The measured space stops at walls, at doors, and where the space changes. A doorway is a threshold, not room to fight side by side, and a room's open mouth never counts the corridor beyond it.
+- The width comes from the party's cell, which doesn't change during a battle, so it stays the same for the whole fight. The player view reports it in `EncounterView.formation_width`.
+- The ranks toward each group are rows this wide, so the width caps how many members can fight one group hand to hand.
 - The same limit bounds how much of an area effect's footprint a formation takes.
 
-With the flag off, there's no limit: every combatant may melee, and area footprints have no bound. Locked by `test_battle.py::TestFormationWidth`.
+With the flag off, there's no limit. Every member at the same distance from a group stands in one row, so every member within 5' of a group can fight it, and area footprints have no bound. Locked by `test_battle.py::TestFormationWidth` and `test_battle_player_view.py::TestThePositionsInThePlayerView`.
 
 ### `magic_item_death_save` (default on)
 
