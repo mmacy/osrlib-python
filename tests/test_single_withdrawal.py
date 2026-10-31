@@ -26,9 +26,7 @@ register states under "The battle round":
 - A member who can no longer move when the movement step comes doesn't fall back and doesn't trade.
 - A withdrawing member makes no attack.
 
-The classes marked `chunk: positions` fail until that chunk is built. The unmarked classes are
-guards that pass before and after it, among them the classes at the end, which check that the
-formation moves stay as they were.
+The classes at the end check that the formation moves stay as they were.
 """
 
 import pytest
@@ -262,8 +260,6 @@ class _StrikeAt:
 
 # ---------------------------------------------------------------------- the move and the trade
 
-POSITIONS = pytest.mark.xfail(reason="chunk: positions", strict=True)
-
 
 def _advance(session, member_id: str) -> int:
     return session.battle.advance_feet.get(member_id, 0)
@@ -278,7 +274,6 @@ def _moves(result) -> list[MemberMovedEvent]:
     return [event for event in result.events if isinstance(event, MemberMovedEvent)]
 
 
-@POSITIONS
 class TestAFightingWithdrawalAlone:
     """One member falls back at half rate, the named member takes their marching place, and the party stays put."""
 
@@ -340,7 +335,6 @@ class TestAFightingWithdrawalAlone:
         assert (_advance(session, BRAKK), _advance(session, SABLE)) == (-20, 35)
 
 
-@POSITIONS
 class TestARetreatAlone:
     def test_the_member_retreats_alone_and_the_battle_goes_on(self):
         session = _battle(distance=5)
@@ -406,7 +400,6 @@ class TestARetreatAloneIsExposed:
         assert {attack.modifier for attack in attacks} == held_modifiers
 
 
-@POSITIONS
 class TestHowFarAMemberFallsBack:
     """A member falls back at half their encounter rate, or their full rate for a retreat, and names anyone."""
 
@@ -445,7 +438,6 @@ class TestHowFarAMemberFallsBack:
 # ---------------------------------------------------------------------- the named member
 
 
-@POSITIONS
 class TestWhoCanBeNamed:
     """Any other declarer who isn't falling back too, because the trade isn't a move."""
 
@@ -608,7 +600,6 @@ class TestSteppingUpIntoMelee:
         assert BRAKK not in {attack.defender_id for attack in _attacks(result)}
 
 
-@POSITIONS
 class TestTheTradeIsNotAMove:
     """A named member who becomes paralysed after the round was accepted still trades places, because the trade
     moves nobody. The paralysis lands as initiative is rolled, through a wrapper around the battle module's

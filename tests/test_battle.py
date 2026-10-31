@@ -210,7 +210,6 @@ class TestUseItemAction:
 
 
 class TestRangeTrack:
-    @pytest.mark.xfail(reason="chunk: positions", strict=True)
     def test_a_close_stops_the_member_five_feet_from_the_group(self):
         session = battle_session(distance=40)
         gid = group_id(session)
@@ -1166,7 +1165,6 @@ class TestAFormationMoveNeedsEveryDeclarer:
     always the declaring member's own, so a lone `close` moves that member and nobody else.
     """
 
-    @pytest.mark.xfail(reason="chunk: positions", strict=True)
     @pytest.mark.parametrize(("move", "feet"), [("fighting_withdrawal", 20), ("retreat", 40)])
     def test_a_lone_defensive_move_moves_the_member_alone(self, move, feet):
         session = battle_session(distance=40)
@@ -1182,7 +1180,6 @@ class TestAFormationMoveNeedsEveryDeclarer:
         )
         assert session.mode.value == "battle"
 
-    @pytest.mark.xfail(reason="chunk: positions", strict=True)
     def test_a_majority_does_not_carry_the_minority(self):
         session = battle_session(distance=40)
         retreating = tuple(
@@ -1194,7 +1191,6 @@ class TestAFormationMoveNeedsEveryDeclarer:
         assert session.battle.advance_feet == {"character-0001": -40, "character-0002": -40, "character-0003": -40}
         assert "battle.ended.fled" not in [event.code for event in result.events]
 
-    @pytest.mark.xfail(reason="chunk: positions", strict=True)
     def test_two_members_withdrawing_alone_each_move_alone(self):
         session = battle_session(distance=40)
         first = BattleDeclaration(character_id="character-0001", action="move", move="retreat")
@@ -1215,7 +1211,6 @@ class TestAFormationMoveNeedsEveryDeclarer:
         distances = [event.distance_feet for event in result.events if event.code == "battle.group.moved"]
         assert any(after > before for before, after in zip([40, *distances], distances, strict=False))
 
-    @pytest.mark.xfail(reason="chunk: positions", strict=True)
     def test_a_lone_close_moves_only_that_member(self):
         session = battle_session(distance=40)
         close = BattleDeclaration(
