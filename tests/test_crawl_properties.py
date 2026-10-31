@@ -116,7 +116,7 @@ def plant_magic_items(session) -> None:
     )
 
 
-PENDING_COMMANDS: frozenset[str] = frozenset()
+PENDING_COMMANDS: frozenset[str] = frozenset({"RemoveMember"})
 """Command classes whose handler belongs to a chunk still in flight.
 
 The fuzz leaves them out until the chunk merges, because a stub handler raises. The
@@ -171,6 +171,15 @@ def command_strategy(*, include_pending: bool = False):
             continue
         if name == "AddMember":
             samples.append(st.builds(command_class, character=st.sampled_from(RECRUIT_SHAPES).map(recruit)))
+            continue
+        if name == "RemoveMember":
+            samples.append(
+                st.builds(
+                    command_class,
+                    character_id=st.sampled_from(CHARACTER_IDS),
+                    give_to=st.sampled_from([None, None, *CHARACTER_IDS]),
+                )
+            )
             continue
         if name in ("PlaceParty",):
             samples.append(

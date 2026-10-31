@@ -45,6 +45,7 @@ REFEREE_COMMANDS = {
     "remove_item",
     "remove_coins",
     "add_member",
+    "remove_member",
 }
 
 # The referee commands a terminal session withholds, each because it would resume
@@ -69,6 +70,7 @@ ENCOUNTER_BOUND_CARVE_OUTS = {
 # settled surprise, the chase pace, and who declares, and an ended session would restart.
 ROSTER_CARVE_OUTS = {
     "add_member": frozenset(SessionMode) - frozenset({SessionMode.TOWN, SessionMode.EXPLORING}),
+    "remove_member": frozenset(SessionMode) - frozenset({SessionMode.TOWN, SessionMode.EXPLORING}),
 }
 
 # Every referee command's withheld modes, keyed by command type. A referee command
@@ -153,6 +155,7 @@ def sample_command(command_class):
         "RemoveItem": dict(character_id="pc-1", item_id="torch", quantity=2),
         "RemoveCoins": dict(character_id="pc-1", coins={"gp": 5}),
         "AddMember": dict(character=_recruit()),
+        "RemoveMember": dict(character_id="character-0002", give_to="character-0001"),
     }
     return command_class(**samples[command_class.__name__])
 
@@ -238,6 +241,8 @@ class TestConsequenceCensus:
             "roll_dice",
             # A whole character, which no adventure document carries.
             "add_member",
+            # A player's character leaving play is the game's decision, not the adventure's.
+            "remove_member",
         }
 
     def test_the_consequence_classes_are_a_subset_of_the_command_census(self):

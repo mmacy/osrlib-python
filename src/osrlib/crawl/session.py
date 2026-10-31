@@ -147,6 +147,7 @@ from osrlib.crawl.commands import (
     RecordNote,
     RemoveCoins,
     RemoveItem,
+    RemoveMember,
     RevealObjective,
     RollDice,
     SessionMode,
@@ -2290,6 +2291,10 @@ def _handle_add_member(session: GameSession, command: AddMember) -> tuple[list[R
     ]
 
 
+def _handle_remove_member(session: GameSession, command: RemoveMember) -> tuple[list[Rejection], list[Event]]:
+    raise NotImplementedError("chunk: remove-member")
+
+
 def _handle_award_xp(session: GameSession, command: AwardXP) -> tuple[list[Rejection], list[Event]]:
     try:
         member = session.member(command.character_id)
@@ -2714,4 +2719,5 @@ _REFEREE_HANDLERS = {
     RemoveItem: _handle_remove_item,
     RemoveCoins: _handle_remove_coins,
     AddMember: _handle_add_member,
+    RemoveMember: _handle_remove_member,
 }

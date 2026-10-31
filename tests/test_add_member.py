@@ -655,7 +655,7 @@ class TestTheNewMemberPlays:
 @settings(max_examples=40, deadline=None, suppress_health_check=[HealthCheck.too_slow])
 @given(
     seed=st.integers(min_value=0, max_value=2**32),
-    commands=st.lists(command_strategy(include_pending=True), min_size=1, max_size=25),
+    commands=st.lists(command_strategy(), min_size=1, max_size=25),
 )
 def test_fuzzed_sequences_with_added_members_never_raise_and_round_trip(seed, commands):
     """Schema-valid commands, `AddMember` among them, reject and never throw. Ids stay unique.

@@ -33,7 +33,7 @@ an item or spawning monsters.
 Game logic issues referee commands, not the players. The issuer can be a
 [`Listener`][osrlib.crawl.session.Listener] you write, the interpreter that runs an
 adventure's triggers, or an LLM referee. Referee commands grant and take away items and coins, award
-XP, add party members, set flags, spawn monsters, end encounters, move the clock, and record
+XP, add and remove party members, set flags, spawn monsters, end encounters, move the clock, and record
 quest progress. Each one's summary starts with "Referee:". The session logs and replays them
 like any other command. Most referee commands are legal in every mode. These are the
 exceptions:
@@ -45,7 +45,8 @@ exceptions:
   `victory`, for the same reason.
 - [`EndEncounter`][osrlib.crawl.commands.EndEncounter] is legal only in `encounter` and
   `battle`, because it closes the open encounter.
-- [`AddMember`][osrlib.crawl.commands.AddMember] is legal only in `town` and `exploring`.
+- [`AddMember`][osrlib.crawl.commands.AddMember] and
+  [`RemoveMember`][osrlib.crawl.commands.RemoveMember] are legal only in `town` and `exploring`.
 
 Each command class's docstring states its contract in three sections. `Modes:` lists the session
 modes that accept it, `Rejections:` lists the codes it can be refused with, and `Events:`
@@ -101,6 +102,7 @@ The commands, grouped by what the party is doing:
   [`RemoveItem`][osrlib.crawl.commands.RemoveItem],
   [`RemoveCoins`][osrlib.crawl.commands.RemoveCoins],
   [`AddMember`][osrlib.crawl.commands.AddMember],
+  [`RemoveMember`][osrlib.crawl.commands.RemoveMember],
   [`AwardXP`][osrlib.crawl.commands.AwardXP],
   [`IdentifyItem`][osrlib.crawl.commands.IdentifyItem],
   [`SetFlag`][osrlib.crawl.commands.SetFlag],
@@ -233,6 +235,7 @@ __all__ = [
     "RecordNote",
     "RemoveCoins",
     "RemoveItem",
+    "RemoveMember",
     "RemoveTreasureTrap",
     "ReorderParty",
     "ResolveBattleRound",
@@ -288,6 +291,8 @@ class SessionMode(StrEnum):
       restart play.
     - [`EndEncounter`][osrlib.crawl.commands.EndEncounter] is illegal in both, because it
       needs an open encounter.
+    - [`RemoveMember`][osrlib.crawl.commands.RemoveMember] is illegal in both, because the
+      party changes only between encounters in a game that is still going.
 
     No play command leaves a terminal mode. A referee's `PlaceParty` is the only way out of
     `game_over`, and no command leaves `victory`.
@@ -389,8 +394,9 @@ class Command(BaseModel):
     [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters],
     [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty],
     [`PlaceParty`][osrlib.crawl.commands.PlaceParty],
-    [`EndEncounter`][osrlib.crawl.commands.EndEncounter], and
-    [`AddMember`][osrlib.crawl.commands.AddMember]. Each command's `Modes:` section lists
+    [`EndEncounter`][osrlib.crawl.commands.EndEncounter],
+    [`AddMember`][osrlib.crawl.commands.AddMember], and
+    [`RemoveMember`][osrlib.crawl.commands.RemoveMember]. Each command's `Modes:` section lists
     its modes."""
 
     @classmethod
@@ -3143,7 +3149,8 @@ class AddMember(Command):
     [`ReorderParty`][osrlib.crawl.commands.ReorderParty], which is legal in the same modes. The
     session logs the command, so a saved game and a replay both have the new member.
 
-    The new id has the form `character-NNNN` and is unique in the party. Read it from the
+    The new id has the form `character-NNNN` and is unique in the party. It's never the id of a
+    member who left with [`RemoveMember`][osrlib.crawl.commands.RemoveMember]. Read it from the
     event, and pass it as the `character_id` of later commands. The session adds a copy of
     `character`, not the object you pass. Your object stays as it was, with no id. Read the new
     member with [`GameSession.member`][osrlib.crawl.session.GameSession.member].
@@ -3203,6 +3210,81 @@ class AddMember(Command):
     @classmethod
     def _own_the_character(cls, value: Character) -> Character:
         return value.model_copy(deep=True)
+
+
+class RemoveMember(Command):
+    """Referee: take a member out of the party for good.
+
+    Use it when a character leaves play: one who died too long ago for *raise dead*, a hireling
+    who quits, or a character the player retires. To bring in a replacement, send
+    [`AddMember`][osrlib.crawl.commands.AddMember] as well. The member can be in any state:
+    alive, dead, turned to stone, or asleep. The other members keep their marching order.
+
+    Name another member in `give_to` to keep what the leaving member carries in the party.
+    Every item and all the coins go to that member: mundane gear, magic items, gems, and
+    jewellery. Equipped items arrive unequipped in their pack, and an equipped magic item's
+    effects end, as with [`GiveItems`][osrlib.crawl.commands.GiveItems]. A cursed item moves
+    too, even when its curse is revealed, because the curse holds only its wearer, and the wearer
+    has left. Without `give_to`, everything the member carries leaves the game with them.
+
+    The session also drops what it tracks about the member. The effects on them end without
+    events, and their death record, their food and water counts, and the record of when they
+    last prepared spells are deleted. An effect the member cast on another member lasts its full
+    duration. A light the member carried goes out with them. A burning torch leaves with its
+    bearer, and a lantern given to `give_to` arrives unlit. Read
+    [`GameSession.party_light`][osrlib.crawl.session.GameSession.party_light] afterwards to find
+    out whether the party still has light.
+
+    The member's id is retired. The session never gives it to another member, so an old event
+    that names it can't be mistaken for a new member. A replacement that joins with `AddMember`
+    gets a new id. The session refuses the old id in later commands with
+    `session.command.unknown_member`.
+
+    In a dungeon, the coins and valuables that leave with the member come off
+    [`treasure_snapshot_cp`][osrlib.crawl.session.GameSession.treasure_snapshot_cp], so the
+    departure doesn't change the experience the party earns for treasure when it comes back to
+    town. With `give_to`, nothing leaves the party, and the snapshot stays as it was.
+
+    Removing a member makes no draws and takes no time. The command is legal only in `town` and
+    `exploring`, like `AddMember`. The session never removes the last member who stands, which
+    means one who is neither dead nor turned to stone, because a party with nobody standing has
+    lost the game. To replace a player's last standing character, add the new character with
+    `AddMember` first, and then remove the old one.
+
+    Modes:
+        `town`, `exploring`
+
+    Rejections:
+        - `session.command.wrong_mode` - an encounter or a battle is open, or the session
+          has ended.
+        - `session.command.unknown_member` - `character_id` or `give_to` matches no party
+          member.
+        - `party.remove.same_member` - `give_to` names the member who leaves.
+        - `session.command.member_incapacitated` - the `give_to` member can't act, because
+          they're dead, asleep, paralysed, or turned to stone.
+        - `party.remove.last_standing` - no member would be left standing. That includes
+          removing the only member.
+
+        The session checks in this order and reports the first that fails.
+
+    Events:
+        With `give_to`, an [`EffectReleasedEvent`][osrlib.core.events.EffectReleasedEvent]
+        for each effect of an equipped magic item, then an
+        [`ItemsGivenEvent`][osrlib.crawl.events.ItemsGivenEvent] with what moved, when
+        anything did. Then a [`MemberRemovedEvent`][osrlib.crawl.events.MemberRemovedEvent]
+        with the member's id and name.
+    """
+
+    allowed_modes: ClassVar[frozenset[SessionMode]] = _FIELD_MODES
+
+    command_type: Literal["remove_member"] = "remove_member"
+    character_id: str
+    """The member who leaves, by [`MemberView.id`][osrlib.crawl.views.MemberView.id]. They can
+    be alive, dead, asleep, or turned to stone."""
+    give_to: str | None = None
+    """The member who takes everything the leaving member carries, by
+    [`MemberView.id`][osrlib.crawl.views.MemberView.id]. Leave it `None` to let it all leave the
+    game with the member. The member named here has to be able to act."""
 
 
 class AwardXP(Command):
@@ -4066,6 +4148,7 @@ ALL_COMMAND_CLASSES: tuple[type[Command], ...] = (
     RemoveItem,
     RemoveCoins,
     AddMember,
+    RemoveMember,
 )
 """Every command class, in a fixed order. These are the members of the
 [`AnyCommand`][osrlib.crawl.commands.AnyCommand] union.
@@ -4140,6 +4223,9 @@ The other referee commands are left out for these reasons:
   so an authored roll would only use up draws from the adjudication stream.
 - [`AddMember`][osrlib.crawl.commands.AddMember] takes a whole character, and an adventure
   document doesn't contain characters.
+- [`RemoveMember`][osrlib.crawl.commands.RemoveMember] takes a player's character out of the
+  game, which is a decision for your game, not for an adventure. It can also name a member to
+  take the leaving member's goods, and no selector can name that member.
 
 In an authored consequence, the `character_id` of a grant, a removal, or an award is a
 selector, never a member id, because the session assigns member ids when it starts. The

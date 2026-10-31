@@ -125,11 +125,12 @@ def assert_session_ended(session: GameSession, events) -> None:
 
 
 class TestTheLegalityCensus:
-    """Terminal-mode membership follows referee-ness, with five exceptions.
+    """Terminal-mode membership follows referee-ness, with exceptions.
 
     Three referee commands are withheld because they would resume play, `EndEncounter`
-    because an ended session has no encounter to close, and `AddMember` because a new
-    member would restart play.
+    because an ended session has no encounter to close, `AddMember` because a new
+    member would restart play, and `RemoveMember` because the party changes only
+    between encounters in a game that is still going.
     """
 
     def test_terminal_names_exactly_game_over_and_victory(self):

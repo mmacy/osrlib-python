@@ -22,11 +22,12 @@ Three things change the list:
   the member named in
   [`BattleDeclaration.replacement_id`][osrlib.crawl.commands.BattleDeclaration.replacement_id].
   The new order lasts after the battle.
-- [`AddMember`][osrlib.crawl.commands.AddMember] adds a new member at the back. It's a referee
-  command, one your game logic issues rather than a player.
+- [`AddMember`][osrlib.crawl.commands.AddMember] adds a new member at the back, and
+  [`RemoveMember`][osrlib.crawl.commands.RemoveMember] takes a member out for good. Both are
+  referee commands, ones your game logic issues rather than a player.
 
-Dead members stay in the list, with their gear still on them. No command removes a member. The
-rules that count party members skip the dead: movement rate, combat ranks, traps, and food and
+Dead members stay in the list, with their gear still on them, until a `RemoveMember` takes them
+out. The rules that count party members skip the dead: movement rate, combat ranks, traps, and food and
 water all use [`living_members`][osrlib.crawl.party.Party.living_members].
 """
 
@@ -96,6 +97,8 @@ class Party(BaseModel):
 
     - To add a member during play, execute [`AddMember`][osrlib.crawl.commands.AddMember]. It
       assigns the new member's id and puts them at the back.
+    - To take a member out of play, execute
+      [`RemoveMember`][osrlib.crawl.commands.RemoveMember].
     - To change the order outside a fight, execute
       [`ReorderParty`][osrlib.crawl.commands.ReorderParty].
     - In a battle, a member who withdraws alone names the member to trade places with in

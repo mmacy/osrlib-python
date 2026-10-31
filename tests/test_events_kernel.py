@@ -101,6 +101,7 @@ def sample_event(event_class, code):
         "ItemsLeftBehindEvent": dict(item_ids=("valuable-0001",), coins_gp_value=40),
         "ItemsRemovedEvent": dict(character_id="pc-1", item_ids=("torch", "magic-item-0001"), coins_gp_value=10),
         "MemberAddedEvent": dict(character_id="character-0005", name="Ylva", class_id="fighter", level=1),
+        "MemberRemovedEvent": dict(character_id="character-0002", name="Sable", given_to="character-0001"),
         "LightEvent": dict(character_id="pc-1", source="torch"),
         "RestedEvent": dict(kind="night"),
         "FatigueEvent": dict(),
