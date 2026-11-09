@@ -10,7 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
-- The new ruleset flag [`Ruleset.failed_trap_removal_springs`][osrlib.core.ruleset.Ruleset.failed_trap_removal_springs] decides what happens when a thief fails a [`RemoveTreasureTrap`][osrlib.crawl.commands.RemoveTreasureTrap]. It's on by default, and the trap springs on the thief, as before. Turn it off and the trap stays armed and found. The thief who failed can't try again, and the trap still gets its 2-in-6 chance to spring when someone takes the treasure. With the flag off, a failure reports the new [`TrapEvent`][osrlib.crawl.events.TrapEvent] code `exploration.trap.removal_failed`, which players see. A 2.3.0 save loads with the flag on, no draw sequence changes, and [`SCHEMA_VERSION`][osrlib.versioning.SCHEMA_VERSION] stays 4.
+- The new ruleset flag [`Ruleset.failed_trap_removal_springs`][osrlib.core.ruleset.Ruleset.failed_trap_removal_springs] sets what happens when a thief fails a [`RemoveTreasureTrap`][osrlib.crawl.commands.RemoveTreasureTrap]. It's on by default, and the trap springs on the thief, as before. Turn it off and the trap stays armed and found. The thief who failed can't try again, and the trap still gets its 2-in-6 chance to spring when someone takes the treasure. With the flag off, a failure reports the new [`TrapEvent`][osrlib.crawl.events.TrapEvent] code `exploration.trap.removal_failed`, which players see. A 2.3.0 save loads with the flag on, no draw sequence changes, and [`SCHEMA_VERSION`][osrlib.versioning.SCHEMA_VERSION] stays 4.
 
 ## [2.3.0] - 2026-10-31
 
