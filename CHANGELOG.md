@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-11-09
+
 ### Added
 
 - The new ruleset flag [`Ruleset.failed_trap_removal_springs`][osrlib.core.ruleset.Ruleset.failed_trap_removal_springs] decides what happens when a thief fails a [`RemoveTreasureTrap`][osrlib.crawl.commands.RemoveTreasureTrap]. It's on by default, and the trap springs on the thief, as before. Turn it off and the trap stays armed and found. The thief who failed can't try again, and the trap still gets its 2-in-6 chance to spring when someone takes the treasure. With the flag off, a failure reports the new [`TrapEvent`][osrlib.crawl.events.TrapEvent] code `exploration.trap.removal_failed`, which players see. A 2.3.0 save loads with the flag on, no draw sequence changes, and [`SCHEMA_VERSION`][osrlib.versioning.SCHEMA_VERSION] stays 4.
@@ -465,7 +467,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The documentation site: quickstart, guides, front-end walk-throughs, and a full reference for every command, event, rejection code, message code, RNG stream, and content id.
 - The typed surface: complete type hints under `py.typed`, checked in CI.
 
-[Unreleased]: https://github.com/mmacy/osrlib-python/compare/v2.3.0...HEAD
+[Unreleased]: https://github.com/mmacy/osrlib-python/compare/v2.4.0...HEAD
+[2.4.0]: https://github.com/mmacy/osrlib-python/compare/v2.3.0...v2.4.0
 [2.3.0]: https://github.com/mmacy/osrlib-python/compare/v2.2.0...v2.3.0
 [2.2.0]: https://github.com/mmacy/osrlib-python/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/mmacy/osrlib-python/compare/v2.0.1...v2.1.0
