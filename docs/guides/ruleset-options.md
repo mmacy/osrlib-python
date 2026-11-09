@@ -20,6 +20,7 @@ Every flag belongs to one of two families. Some are OSE's optional rules: printe
 | `deprivation_penalties` | `bool`, `False` | Attach mechanical penalties to hunger and thirst. |
 | `aoe_friendly_fire` | `bool`, `True` | An area effect at melee range can catch the party's front rank. |
 | `formation_width_limit` | `bool`, `True` | Cap the front rank at how many fit side by side in the space where the party fights. |
+| `failed_trap_removal_springs` | `bool`, `True` | A thief's failed attempt to remove a treasure trap springs it. |
 
 ## SRD optional rules
 
@@ -52,6 +53,8 @@ These flags exist because OSE leaves each of these rules to the referee's judgme
 **`aoe_friendly_fire`** (default on): an area effect (a fireball, a dragon's breath) that lands on a monster group already fighting the party at melee range can catch the party's engaged front rank in the blast, alongside the monsters. Off, area effects never include party members among their targets.
 
 **`formation_width_limit`** (default on): caps how many combatants can fight in the same rank at once, at what actually fits in the space the party stands in. OSE gives one number and leaves the rest to the referee: at most 2-3 fit side by side in a 10-foot passage. osrlib takes the conservative end of that, five feet of frontage each, and measures the widest square of unbroken floor around the party. Two fit in a one-cell passage however far it runs, four in a room two cells square, and eight in a room four cells across. The same cap bounds how much of an area effect's footprint a formation absorbs. Off removes the cap: every member at the same distance from a group stands in one rank, so every member within 5 feet of a group can fight it, and formation width no longer bounds an area effect's footprint.
+
+**`failed_trap_removal_springs`** (default on): a thief who fails to remove a treasure trap with [`RemoveTreasureTrap`][osrlib.crawl.commands.RemoveTreasureTrap] springs it, and it resolves against the thief at once. OSE allows one try per trap and doesn't say what a failure does. Off, a failure leaves the trap armed and found, and the session reports it with the `exploration.trap.removal_failed` code of [`TrapEvent`][osrlib.crawl.events.TrapEvent]. The thief who failed can't try again, and the trap still gets its 2-in-6 chance to spring when someone takes the treasure.
 
 ## Constructing a `Ruleset`
 

@@ -324,6 +324,7 @@ Out of scope for 1.0 (tracked for later): wilderness and sea adventuring, strong
 - `xp_award_timing` (default `on_return`) — `on_return` per RAW, or `immediate` for continuous CRPG play
 - `aoe_friendly_fire` (default on) — adaptation knob: areas overlapping a melee catch friends
 - `formation_width_limit` (default on) — adaptation knob: the width of the space the party stands in caps combatants fighting abreast
+- `failed_trap_removal_springs` (default on), an adaptation knob: a thief's failed treasure-trap removal springs the trap on the thief. Off, the trap stays armed for `TakeTreasure`'s 2-in-6
 
 Flags are read at resolution time, so a `Ruleset` is fixed for the life of a session (it participates in saves and replays).
 
