@@ -838,7 +838,8 @@ Finding a trap depends on the trap's kind, because in B/X anyone can find and av
 
 - A found room trap never springs, at its area's edge or at one of its doors. The party walks around the known pit.
 - A found treasure trap still rolls its 2-in-6 on every `TakeTreasure`, until a thief removes it.
-- Each character may try once to find a treasure trap and once to remove it. A failed removal springs the trap, which is the classic reading, since RAW says only "attempted once per trap".
+- Each character may try once to find a treasure trap and once to remove it. The SRD says removal "may be attempted only once per trap", and it doesn't say what a failure does. By default, a failed removal springs the trap on the thief, which is the classic reading.
+- With the ruleset's `failed_trap_removal_springs` off, a failed removal leaves the trap armed, and the party still knows where it is. The SRD springs a trap "when a character performs the action that triggers a trap", and the action that triggers a treasure trap is opening the cache. So the trap gets its 2-in-6 roll at the next `TakeTreasure`, as any found treasure trap does. The thief who failed can't try again, and another thief can.
 - The engine reports the player-visible `exploration.trap.safe` only for a known treasure trap whose trigger resolved without springing. Past a found room trap, the engine rolls no die, so there's nothing to report. An unknown trap's spring die is visible only to the referee.
 
 How a room trap springs:
@@ -858,7 +859,7 @@ What a trap does:
 - The darts volley resolves as one damage application whose rolls are every dart's die.
 - A treasure trap that `TakeTreasure` springs hits the character who reaches in: the command's `recipient_id` when it names one, and otherwise the first living member in marching order. This is osrlib's reading.
 
-A treasure trap springs only when its cache is opened, so the model rejects `trigger="enter"` on `kind="treasure"`. Schema version 3 added that rejection, and its lossless migration rewrites the unused value to `"open"` on load. Locked by `test_exploration.py::TestSearching`, `TestTreasureTraps`, `TestDoorTraps`, `TestTwoTrappedAreas`, `TestTrapResolutionCensus`, `TestDiscoveringASecretDoorRefundsTheCellsTrapSearch`, and `TestDiscoveringASecretDoorRefundsBothCells`.
+A treasure trap springs only when its cache is opened, so the model rejects `trigger="enter"` on `kind="treasure"`. Schema version 3 added that rejection, and its lossless migration rewrites the unused value to `"open"` on load. Locked by `test_exploration.py::TestSearching`, `TestTreasureTraps`, `TestFailedTrapRemoval`, `TestDoorTraps`, `TestTwoTrappedAreas`, `TestTrapResolutionCensus`, `TestDiscoveringASecretDoorRefundsTheCellsTrapSearch`, and `TestDiscoveringASecretDoorRefundsBothCells`.
 
 ### A recovered haul spreads across the party: usable items, even wealth, everyone mobile
 

@@ -433,6 +433,76 @@ class TestTreasureTraps:
         assert not again.accepted
 
 
+CHEST_TRAP = "delve:1:chest"
+
+
+class TestFailedTrapRemoval:
+    """What a failed `RemoveTreasureTrap` does under each setting of `failed_trap_removal_springs`."""
+
+    def fail_removal(self, springs: bool):
+        # On seed 5 the thief's skill roll is 87 against a 10% chance, so the removal fails.
+        session = quiet_session(seed=5, ruleset=Ruleset(failed_trap_removal_springs=springs))
+        entered(session)
+        place(session, (3, 2))
+        session.dungeon_state.found_traps.append(CHEST_TRAP)
+        thief = session.party.member("character-0002")
+        hp_before = thief.current_hp
+        turns_before = session.clock.turns
+        result = session.execute(RemoveTreasureTrap(character_id="character-0002", feature_id="chest"))
+        assert result.accepted
+        assert result.events[0].code == "exploration.detection.rolled"
+        assert result.events[0].passed is False
+        return session, result, hp_before, turns_before
+
+    def test_the_default_springs_the_trap(self):
+        assert Ruleset().failed_trap_removal_springs is True
+        session, result, _, _ = self.fail_removal(springs=True)
+        codes = [event.code for event in result.events]
+        assert codes[1] == "exploration.trap.sprung"
+        assert "exploration.trap.removal_failed" not in codes
+        assert CHEST_TRAP in session.dungeon_state.sprung_traps
+
+    def test_turned_off_a_failure_leaves_the_trap_armed_and_found(self):
+        session, result, hp_before, turns_before = self.fail_removal(springs=False)
+        codes = [event.code for event in result.events]
+        assert codes[1] == "exploration.trap.removal_failed"
+        assert "exploration.trap.sprung" not in codes
+        assert not any(code.startswith("combat.") for code in codes)  # no save, no damage
+        failed = result.events[1]
+        assert failed.trap_ref == CHEST_TRAP
+        assert failed.character_id == "character-0002"
+        assert failed.visibility is Visibility.PLAYER
+        state = session.dungeon_state
+        assert CHEST_TRAP in state.found_traps
+        assert CHEST_TRAP not in state.sprung_traps
+        assert CHEST_TRAP not in state.removed_traps
+        assert session.party.member("character-0002").current_hp == hp_before
+        assert session.clock.turns == turns_before + 1
+
+    def test_turned_off_the_same_thief_cannot_try_again(self):
+        session, _, _, _ = self.fail_removal(springs=False)
+        again = session.execute(RemoveTreasureTrap(character_id="character-0002", feature_id="chest"))
+        assert not again.accepted
+        assert again.rejections[0].code == "exploration.search.already_tried"
+
+    def test_turned_off_taking_the_treasure_still_rolls_for_the_trap(self):
+        session, _, _, _ = self.fail_removal(springs=False)
+        result = session.execute(TakeTreasure(feature_id="chest", recipient_id="character-0001"))
+        assert result.accepted
+        codes = [event.code for event in result.events]
+        assert codes[0] == "exploration.detection.rolled"  # the 2-in-6 spring check
+        outcome = next(
+            event for event in result.events if event.code in {"exploration.trap.sprung", "exploration.trap.safe"}
+        )
+        assert outcome.character_id == "character-0001"
+
+    def test_turned_off_the_failure_has_a_player_message(self):
+        from osrlib.messages import format_message
+
+        _, result, _, _ = self.fail_removal(springs=False)
+        assert format_message(result.events[1]) == "character-0002 fails to remove the trap (delve:1:chest)."
+
+
 class TestTreasureDistribution:
     """`TakeTreasure`'s haul spread: usable items, even wealth, everybody still moving."""
 

@@ -263,3 +263,14 @@ class Ruleset(BaseModel):
     in a ten-foot passage, and osrlib uses the lower number. Turn the flag off and there's
     no cap, so every combatant may melee.
     """
+
+    failed_trap_removal_springs: bool = True
+    """Spring a treasure trap on the thief who fails to remove it. An adaptation, on by default.
+
+    The SRD says a thief may try only once to remove a treasure trap, and it doesn't say what
+    a failure does. Turn the flag off and a failed
+    [`RemoveTreasureTrap`][osrlib.crawl.commands.RemoveTreasureTrap] leaves the trap armed.
+    The party still knows where it is. That thief can't try again, another thief in the
+    party can, and the trap still gets its 2-in-6 chance to spring when someone takes the
+    treasure.
+    """

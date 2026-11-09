@@ -448,7 +448,7 @@ class SearchCompletedEvent(Event):
 
 
 class TrapEvent(Event):
-    """A trap sprang, was found, was removed, or was known and didn't spring.
+    """A trap sprang, was found, was removed, resisted removal, or was known and didn't spring.
 
     Emitted by the commands that can set a trap off or look for one:
     [`MoveParty`][osrlib.crawl.commands.MoveParty],
@@ -478,14 +478,29 @@ class TrapEvent(Event):
     [`RemoveTreasureTrap`][osrlib.crawl.commands.RemoveTreasureTrap], because finding a
     treasure trap doesn't disarm it. That is why `exploration.trap.safe`, a known trap
     getting its chance and not springing, appears only for a treasure cache.
+
+    A thief who fails to remove a treasure trap springs it, unless
+    [`Ruleset.failed_trap_removal_springs`][osrlib.core.ruleset.Ruleset.failed_trap_removal_springs]
+    is off. With the flag off, the failure emits `exploration.trap.removal_failed` and the trap
+    stays armed and found.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset(
-        {"exploration.trap.sprung", "exploration.trap.safe", "exploration.trap.found", "exploration.trap.removed"}
+        {
+            "exploration.trap.sprung",
+            "exploration.trap.safe",
+            "exploration.trap.found",
+            "exploration.trap.removed",
+            "exploration.trap.removal_failed",
+        }
     )
     """`exploration.trap.sprung` when a trap goes off, `.found` when a search or inspection
-    reveals one, `.removed` when a thief disarms one, and `.safe` when a trap the party already
-    knows about got its chance and didn't fire, which only a treasure trap does."""
+    reveals one, `.removed` when a thief disarms one, `.removal_failed` when a thief fails to
+    disarm one and it doesn't spring, and `.safe` when a trap the party already knows about got
+    its chance and didn't fire, which only a treasure trap does. A failed removal gives
+    `.removal_failed` only when
+    [`Ruleset.failed_trap_removal_springs`][osrlib.core.ruleset.Ruleset.failed_trap_removal_springs]
+    is off. Otherwise the trap springs."""
 
     event_type: Literal["trap"] = "trap"
     """The event type, `trap`, which identifies this class in serialized form."""
@@ -501,8 +516,9 @@ class TrapEvent(Event):
     tried to remove the trap. For a trap that springs when the party enters its area or opens its
     door with [`OpenDoor`][osrlib.crawl.commands.OpenDoor], it's the first living member in
     marching order. It's set even when the trap hits the whole party. For
-    `exploration.trap.removed`, and for a treasure trap found with
-    [`InspectTreasure`][osrlib.crawl.commands.InspectTreasure], it's the thief."""
+    `exploration.trap.removed` and `exploration.trap.removal_failed`, and for a treasure trap
+    found with [`InspectTreasure`][osrlib.crawl.commands.InspectTreasure], it's the thief who
+    tried."""
     direction: str | None = None
     """The direction of the door a room trap was found through, from the searched cell, as a
     [`Direction`][osrlib.crawl.dungeon.Direction] value. Set for that find alone: it is `None` on a
