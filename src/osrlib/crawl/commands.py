@@ -1030,7 +1030,10 @@ class RemoveTreasureTrap(Command):
     isn't enough. A member must already have found the trap with
     [`InspectTreasure`][osrlib.crawl.commands.InspectTreasure]. Only a member with thief
     skills can try, and each member gets one attempt at each trap. A failed attempt springs
-    the trap on the thief who tried. Once the trap is removed,
+    the trap on the thief who tried, unless
+    [`Ruleset.failed_trap_removal_springs`][osrlib.core.ruleset.Ruleset.failed_trap_removal_springs]
+    is off. With the flag off, the trap stays armed and found, and another thief in the party
+    can try. Once the trap is removed,
     [`TakeTreasure`][osrlib.crawl.commands.TakeTreasure] empties the cache safely.
 
     Modes:
@@ -1054,7 +1057,8 @@ class RemoveTreasureTrap(Command):
     Events:
         [`DetectionRolledEvent`][osrlib.crawl.events.DetectionRolledEvent] with the
         skill roll, then a [`TrapEvent`][osrlib.crawl.events.TrapEvent]:
-        `exploration.trap.removed` on success, `exploration.trap.sprung` on failure.
+        `exploration.trap.removed` on success. A failure gives `exploration.trap.sprung`, or
+        `exploration.trap.removal_failed` when `failed_trap_removal_springs` is off.
         The sprung trap resolves at once against the thief, or against every living
         member when the trap catches the whole party. Each step is a separate event:
         a [`SavingThrowRolledEvent`][osrlib.core.events.SavingThrowRolledEvent] when

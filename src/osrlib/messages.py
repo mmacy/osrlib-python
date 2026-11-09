@@ -296,6 +296,9 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
     "exploration.trap.removed": lambda event: (
         (event.character_id or "The party") + f" removes the trap ({event.trap_ref})."
     ),
+    "exploration.trap.removal_failed": lambda event: (
+        (event.character_id or "The party") + f" fails to remove the trap ({event.trap_ref})."
+    ),
     "exploration.item.acquired": lambda event: (
         f"{event.character_id} acquires "
         + (", ".join(event.item_ids) if event.item_ids else "")

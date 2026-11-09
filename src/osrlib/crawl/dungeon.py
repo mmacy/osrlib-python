@@ -1040,7 +1040,8 @@ class FeatureSpec(BaseModel):
     party opens the cache. A thief finds it with
     [`InspectTreasure`][osrlib.crawl.commands.InspectTreasure] and takes it out with
     [`RemoveTreasureTrap`][osrlib.crawl.commands.RemoveTreasureTrap]. Each character gets one try at
-    each, and a failed removal springs the trap."""
+    each. A failed removal springs the trap, unless
+    [`Ruleset.failed_trap_removal_springs`][osrlib.core.ruleset.Ruleset.failed_trap_removal_springs] is off."""
 
     @model_validator(mode="after")
     def _trap_kind_matches(self) -> FeatureSpec:
@@ -1893,7 +1894,8 @@ class DungeonState(BaseModel):
     feature reference. Each character gets one try at each cache."""
     removal_attempts: dict[str, list[str]] = {}
     """Which characters have tried to remove each treasure trap, as lists of character ids keyed by
-    feature reference. Each character gets one try at each trap, and a failed try springs it."""
+    feature reference. Each character gets one try at each trap. A failed try springs the trap, unless
+    [`Ruleset.failed_trap_removal_springs`][osrlib.core.ruleset.Ruleset.failed_trap_removal_springs] is off."""
     lock_failures: dict[str, dict[str, int]] = {}
     """Which thieves failed to pick each lock, keyed by [`edge_ref`][osrlib.crawl.dungeon.edge_ref].
     Each value maps a character id to the thief's level at the time. A thief who failed a lock can

@@ -462,7 +462,6 @@ class TestFailedTrapRemoval:
         assert "exploration.trap.removal_failed" not in codes
         assert CHEST_TRAP in session.dungeon_state.sprung_traps
 
-    @pytest.mark.xfail(reason="chunk: gentle-trap-removal")
     def test_turned_off_a_failure_leaves_the_trap_armed_and_found(self):
         session, result, hp_before, turns_before = self.fail_removal(springs=False)
         codes = [event.code for event in result.events]
@@ -480,14 +479,12 @@ class TestFailedTrapRemoval:
         assert session.party.member("character-0002").current_hp == hp_before
         assert session.clock.turns == turns_before + 1
 
-    @pytest.mark.xfail(reason="chunk: gentle-trap-removal")
     def test_turned_off_the_same_thief_cannot_try_again(self):
         session, _, _, _ = self.fail_removal(springs=False)
         again = session.execute(RemoveTreasureTrap(character_id="character-0002", feature_id="chest"))
         assert not again.accepted
         assert again.rejections[0].code == "exploration.search.already_tried"
 
-    @pytest.mark.xfail(reason="chunk: gentle-trap-removal")
     def test_turned_off_taking_the_treasure_still_rolls_for_the_trap(self):
         session, _, _, _ = self.fail_removal(springs=False)
         result = session.execute(TakeTreasure(feature_id="chest", recipient_id="character-0001"))
@@ -499,7 +496,6 @@ class TestFailedTrapRemoval:
         )
         assert outcome.character_id == "character-0001"
 
-    @pytest.mark.xfail(reason="chunk: gentle-trap-removal")
     def test_turned_off_the_failure_has_a_player_message(self):
         from osrlib.messages import format_message
 

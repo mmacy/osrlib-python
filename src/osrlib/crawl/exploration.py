@@ -2452,9 +2452,13 @@ def _handle_remove_treasure_trap(session, command: RemoveTreasureTrap) -> tuple[
     if result.passed:
         state.removed_traps.append(ref)
         events.append(TrapEvent(code="exploration.trap.removed", trap_ref=ref, character_id=member.id))
+    elif not session.ruleset.failed_trap_removal_springs:
+        # RAW says only "attempted once per trap". With failed_trap_removal_springs off, a
+        # failure leaves the trap armed and found, and only this thief is barred from retrying.
+        events.append(TrapEvent(code="exploration.trap.removal_failed", trap_ref=ref, character_id=member.id))
     else:
-        # A failed removal springs the trap on the thief, the classic reading.
-        # RAW says only "attempted once per trap".
+        # With failed_trap_removal_springs on (the default), a failed removal springs the trap
+        # on the thief, the classic reading. RAW says only "attempted once per trap".
         state.sprung_traps.append(ref)
         events.append(TrapEvent(code="exploration.trap.sprung", trap_ref=ref, character_id=member.id))
         events.extend(_resolve_trap(session, feature.trap, triggerer=member))
