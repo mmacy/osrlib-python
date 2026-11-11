@@ -114,12 +114,13 @@ from osrlib.core.events import Event
 from osrlib.core.items import MagicItemCategory, MagicItemInstance, magic_item_template
 from osrlib.core.monsters import IdAllocator, MonsterInstance, _regular_plural
 from osrlib.core.ruleset import Ruleset
+from osrlib.crawl._light import _light_reveal
 from osrlib.crawl.adventure import Adventure
 from osrlib.crawl.battle import BattleState
 from osrlib.crawl.commands import Command, SessionMode
 from osrlib.crawl.dungeon import Direction, DungeonState, EdgeKind, PartyLocation, Position, cell_ref, edge_ref
 from osrlib.crawl.encounter import EncounterState, _member_kind
-from osrlib.crawl.exploration import EXHAUSTED_KIND, FATIGUE_KIND, HEALING_SERVICES, _light_reveal
+from osrlib.crawl.exploration import EXHAUSTED_KIND, FATIGUE_KIND, HEALING_SERVICES
 from osrlib.crawl.party import Party
 from osrlib.crawl.session import (
     DeathRecord,

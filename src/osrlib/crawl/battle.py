@@ -1392,10 +1392,10 @@ def _formation_width(session) -> int | None:
     """
     if not session.ruleset.formation_width_limit:
         return None
-    from osrlib.crawl import _party_location, exploration
+    from osrlib.crawl import _light, _party_location
 
     level = _party_location._level(session)
-    frontage_feet = _frontage_cells(level, _party_location._position(session)) * exploration._CELL_FEET
+    frontage_feet = _frontage_cells(level, _party_location._position(session)) * _light._CELL_FEET
     return max(1, frontage_feet // FIGHTER_FRONTAGE_FEET)
 
 
@@ -1936,7 +1936,7 @@ def _group_lit(session, group, placement: _Placement) -> bool:
     lit, _ = session.party_light()
     if not lit:
         return False
-    from osrlib.crawl.exploration import _light_radius_feet
+    from osrlib.crawl._light import _light_radius_feet
     from osrlib.crawl.session import LIGHT_EFFECT_KINDS
 
     for member in session.party.living_members():
@@ -3019,7 +3019,7 @@ def _validate_magic_item_declaration(
     the checks read the battle as it stands, so a member whose place in the front rank didn't open fizzles
     with `battle.declaration.not_in_front_rank`.
     """
-    from osrlib.crawl import exploration
+    from osrlib.crawl import _light, exploration
 
     template = magic_item_template(instance)
     category = template.category
@@ -3027,7 +3027,7 @@ def _validate_magic_item_declaration(
     if category is MagicItemCategory.POTION:
         return _drinker(session, declaration, member, instance, placement)[1]
     if category is MagicItemCategory.SCROLL:
-        light_rejections = exploration._requires_light(session, member, infravision_suffices=False)
+        light_rejections = _light._requires_light(session, member, infravision_suffices=False)
         if light_rejections:
             return light_rejections
         if template.cursed or "spell_count" not in template.params:

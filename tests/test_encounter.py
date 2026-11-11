@@ -5,8 +5,8 @@ from osrlib.core.clock import ROUNDS_PER_TURN
 from osrlib.core.effects import Condition, has_condition
 from osrlib.core.items import Coins
 from osrlib.core.tables import ReactionResult
+from osrlib.crawl import _light, exploration
 from osrlib.crawl import encounter as encounter_module
-from osrlib.crawl import exploration
 from osrlib.crawl.commands import (
     BattleDeclaration,
     EngageBattle,
@@ -394,7 +394,7 @@ class TestEncounterDistance:
         # corridor is still exactly as far away as it is.
         dark = self.sighting_session(seed=3, cell=CORRIDOR_CELL)
         assert dark.party_light()[0] is False
-        assert exploration._sight_line_feet(dark) == 130
+        assert _light._sight_line_feet(dark) == 130
         assert max(self.rolled(seed, CORRIDOR_CELL) for seed in range(60)) > 30  # past a torch's radius
 
     def test_an_explicit_distance_is_never_bounded(self):

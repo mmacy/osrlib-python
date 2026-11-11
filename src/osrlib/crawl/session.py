@@ -1219,7 +1219,7 @@ class GameSession:
         afterwards would read the light from the destination and lose the cells seen where the move
         ended, while a replay, running the same commands with no listeners, marks both in order.
         """
-        from osrlib.crawl.exploration import _light_reveal
+        from osrlib.crawl._light import _light_reveal
 
         key, cells = _light_reveal(self)
         if key is None or not cells:

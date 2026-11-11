@@ -603,8 +603,8 @@ def _open_encounter(
     The session opens every encounter it starts through this function, with the labels that
     `_group_labels` gives the groups it makes.
     """
+    from osrlib.crawl import _light
     from osrlib.crawl import battle as battle_module
-    from osrlib.crawl import exploration
     from osrlib.crawl.session import ENCOUNTER_STREAM
 
     if session.encounter is not None:
@@ -648,7 +648,7 @@ def _open_encounter(
         # twenty-foot room can't start at eighty. The cap applies to the result
         # and draws nothing from the stream, so the draw sequence is the same
         # with or without the cap.
-        ceiling = exploration._sight_line_feet(session)
+        ceiling = _light._sight_line_feet(session)
         if ceiling is not None:
             distance_feet = min(distance_feet, ceiling)
 
