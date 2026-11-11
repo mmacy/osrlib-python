@@ -893,9 +893,9 @@ class GameSession:
 
     @dungeon_state.setter
     def dungeon_state(self, state: DungeonState) -> None:
-        from osrlib.crawl import exploration
+        from osrlib.crawl import _doors
 
-        state._start_doors_from(lambda ref: exploration._new_door_state(self.adventure, ref))
+        state._start_doors_from(lambda ref: _doors._new_door_state(self.adventure, ref))
         self._dungeon_state = state
 
     @property
@@ -2789,7 +2789,7 @@ def _handle_set_door_state(session: GameSession, command: SetDoorState) -> tuple
         level = dungeon.level(command.level_number)
     except ValueError:
         return [Rejection(code="session.command.unknown_location", params={"dungeon": command.dungeon_id})], []
-    from osrlib.crawl import exploration
+    from osrlib.crawl import _doors, exploration
     from osrlib.crawl.dungeon import EdgeKind
 
     edge = level.edge((command.x, command.y), command.direction)
@@ -2802,7 +2802,7 @@ def _handle_set_door_state(session: GameSession, command: SetDoorState) -> tuple
     ref = edge_ref(command.dungeon_id, command.level_number, (command.x, command.y), command.direction)
     # The referee writes through the same seeded materializer the play handlers
     # use, so a first write to an authored-open door does not store it shut.
-    state = exploration._store_door_state(session, edge, ref)
+    state = _doors._store_door_state(session, edge, ref)
     events: list[Event] = []
     if command.open is not None and command.open != state.open:
         state.open = command.open
