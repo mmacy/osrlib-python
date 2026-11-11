@@ -163,6 +163,7 @@ from osrlib.core.spells import (
 from osrlib.core.tables import select_encounter_individuals
 from osrlib.core.validation import Rejection
 from osrlib.crawl import gates
+from osrlib.crawl._odometer import _accrue_movement, _spend_turn
 from osrlib.crawl._party_location import (
     _area_ref,
     _cell_ref,
@@ -709,22 +710,6 @@ def exploration_rate(session) -> int:
                 rate //= 2
         rates.append(rate)
     return min(rates, default=0)
-
-
-def _accrue_movement(session, units: int) -> list[Event]:
-    """Accrue odometer units, and advance the clock one turn once a full turn's worth has built up."""
-    session.odometer_thirds += units
-    if session.odometer_thirds >= 3 * max(1, exploration_rate(session)):
-        session.odometer_thirds = 0
-        events, _ = session.advance_turns(1)
-        return events
-    return []
-
-
-def _spend_turn(session, *, resting: bool = False, hidden: bool = False) -> tuple[list[Event], bool]:
-    """Advance one whole turn, absorbing the partial move (odometer reset)."""
-    session.odometer_thirds = 0
-    return session.advance_turns(1, resting=resting, hidden=hidden)
 
 
 def _fatigue_threshold(session) -> int:
