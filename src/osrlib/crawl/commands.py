@@ -1700,6 +1700,8 @@ class CastSpell(Command):
           form.
         - `magic.cast.unknown_mode` - `mode` matches no mode of the spell.
         - `magic.cast.target_count` - the number of targets is wrong for the mode.
+        - `magic.cast.target_must_be_creature` - a target is a cell reference, and the
+          mode works only on creatures, like *fire ball*'s or *sleep*'s.
         - `magic.cast.out_of_range` - a target is beyond the spell's range.
 
     Events:
@@ -1781,7 +1783,8 @@ class CastSpell(Command):
     affects a place rather than a creature, a cell reference in the
     `cell:{dungeon}:{level}:{x},{y}` form that [`cell_ref`][osrlib.crawl.dungeon.cell_ref]
     builds. The mode's targeting sets how many targets it takes, and the session refuses the
-    wrong number with `magic.cast.target_count`."""
+    wrong number with `magic.cast.target_count`. The session refuses a cell reference for a
+    mode that works only on creatures with `magic.cast.target_must_be_creature`."""
 
 
 class UseItem(Command):
@@ -1826,9 +1829,9 @@ class UseItem(Command):
           infravision isn't enough), `items.scroll.spent`, `items.scroll.no_such_spell`,
           and `items.scroll.wrong_caster`. A read also gets the checks of a cast, at the
           scroll's level: `magic.cast.unknown_target`, `magic.cast.unknown_mode`,
-          `magic.cast.target_count`, `magic.cast.out_of_range`,
-          `magic.cast.caster_incapacitated`, `magic.cast.caster_restrained`, and
-          `magic.cast.anti_magic_shell`.
+          `magic.cast.target_count`, `magic.cast.target_must_be_creature`,
+          `magic.cast.out_of_range`, `magic.cast.caster_incapacitated`,
+          `magic.cast.caster_restrained`, and `magic.cast.anti_magic_shell`.
         - Devices: `items.device.inert` (no charges left),
           `items.use.target_required` (an area device used in an encounter needs a
           `target_id`), `items.use.unknown_target`, and `items.use.battle_only` (a device
@@ -2981,7 +2984,7 @@ class ResolveBattleRound(Command):
           `magic.cast.not_memorized`, `magic.cast.caster_incapacitated`,
           `magic.cast.caster_restrained`, `magic.cast.anti_magic_shell`,
           `magic.cast.not_reversible`, `magic.cast.target_count`,
-          `magic.cast.out_of_range`.
+          `magic.cast.target_must_be_creature`, `magic.cast.out_of_range`.
         - Turn-undead declarations: `magic.turning.not_a_turner` and
           `magic.turning.caster_incapacitated`. A turning also gets
           `battle.declaration.no_target` when no living monster is left in any group that
@@ -2998,8 +3001,9 @@ class ResolveBattleRound(Command):
           front rank once the round's moves are made. A scroll read can also get the cast
           checks on its spell and targets (`magic.cast.unknown_mode`, `magic.cast.unknown_target`,
           `battle.declaration.invisible_target`, `magic.cast.target_count`,
-          `magic.cast.out_of_range`, `magic.cast.caster_incapacitated`,
-          `magic.cast.caster_restrained`, `magic.cast.anti_magic_shell`). A thrown item
+          `magic.cast.target_must_be_creature`, `magic.cast.out_of_range`,
+          `magic.cast.caster_incapacitated`, `magic.cast.caster_restrained`,
+          `magic.cast.anti_magic_shell`). A thrown item
           can also get the `validate_attack` checks listed for attack declarations.
 
     Events:
