@@ -930,9 +930,8 @@ def _attack_name(attack: Attack) -> str:
 def _magic_base(attack: MagicItemInstance) -> WeaponTemplate | None:
     """Return an enchanted arm's mundane base weapon template, when it has one.
 
-    The staff of striking has no listed base damage for ordinary use. Its 2d6-per-charge
-    form resolves through the crawl layer's device path, and wielded plainly it swings as
-    the mundane staff.
+    Every magic staff swings as the mundane staff. The 2d6-per-charge strike of the staves
+    of power, striking, and wizardry resolves through the crawl layer's device path instead.
     """
     from osrlib.data import load_equipment
 

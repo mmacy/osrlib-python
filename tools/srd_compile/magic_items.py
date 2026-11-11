@@ -33,7 +33,10 @@ prose at play time.
 
 Base-item pins for enchanted arms (registered): `Axe` overlays `battle_axe` and
 `Bow` overlays `long_bow` — the SRD prints the bare nouns and the mundane list has
-two of each; the heavier form is the pinned reading. Structured mechanics are
+two of each; the heavier form is the pinned reading. Every magic staff overlays the
+mundane `staff`, and the compiler reads a staff's bonus, its charged strike, whether it
+has other powers, and the classes the *Staves in Melee* rule lets wield it from the page
+text. A device page's "No charges" line overrides the category's charges. Structured mechanics are
 hand-curated in `_MAGIC_ITEM_MECHANICS` (the `_SPELL_MECHANICS` precedent) for
 exactly the Phase 5 wired census; everything else ships `manual`-tagged prose.
 `Helm_of_Telepathy.md` is truncated mid-sentence in the SRD dump — its description
@@ -76,6 +79,15 @@ _STAFF_CASTERS = {
     "staff_of_withering": "divine",
     "staff_of_wizardry": "arcane",
 }
+
+# The category page gives every staff the same "Dimensions: 2” thick, 6’ long", so every
+# magic staff is the mundane staff underneath (see the adaptations register).
+_STAFF_BASE = "staff"
+_STAFF_BONUS = re.compile(r"Treated as a staff with a \+(\d+) magic bonus to attacks? and damage")
+_STAFF_STRIKE = re.compile(r"Expending one charge[,:] inflicts (\d*d\d+) damage on a successful hit", re.IGNORECASE)
+_STAFF_POWERS = re.compile(r"\bmay evoke\b.*\bmagical effects\b")
+_NO_CHARGES = re.compile(r"^No charges: Does not use charges\b")
+_LINKED_PAGE = re.compile(r"\]\(/srd/index\.php/([^ )]+)")
 
 # Ring table cell names → (id, source page or None for a section of Ring_of_Protection).
 _RING_ENTRIES: dict[str, tuple[str, str]] = {
@@ -338,12 +350,7 @@ _MAGIC_ITEM_MECHANICS: dict[str, dict[str, object]] = {
         },
     },
     "staff_of_healing": {
-        "charges_dice": None,
         "effect": {"kind": "healing", "heal_dice": "1d6+1", "params": {"once_per_target_per_day": True}},
-    },
-    "staff_of_striking": {
-        "base_item_id": "staff",
-        "effect": {"kind": "striking", "damage_dice": "2d6"},
     },
     "sword_plus_1_wishes": {
         "params": {"wish_count_dice": "1d4"},
@@ -688,6 +695,65 @@ def _compile_rings(srd_dir: Path, weights: dict[str, int]) -> tuple[list[dict], 
     return rows, list(templates.values())
 
 
+def _staves_in_melee(page: str) -> dict[str, list[str]]:
+    """Read the *Staves in Melee* rule: which classes may wield which staves whatever their weapon policy.
+
+    The section's one sentence links the class page first and then each staff page: "Although magic-users are
+    generally only allowed to use daggers in combat, they are able to use the *staff of power*, *staff of
+    striking*, and *staff of wizardry* in melee." A class id is the slug of its page's name (`Magic-User` is
+    `magic_user`), and so is a staff id.
+
+    Returns:
+        The class ids for each staff the sentence lists, keyed by staff id.
+
+    Raises:
+        ValueError: If the section doesn't link one class page and at least one staff page.
+    """
+    section = page.split("### Staves in Melee", 1)[1].split("\n## ", 1)[0]
+    linked = _LINKED_PAGE.findall(section)
+    staves = [slugify(name) for name in linked if name.startswith("Staff_of_")]
+    classes = [slugify(name) for name in linked if not name.startswith("Staff_of_")]
+    if len(classes) != 1 or not staves:
+        raise ValueError(f"unexpected Staves in Melee links {linked!r}")
+    return {staff_id: classes for staff_id in staves}
+
+
+def _staff_fields(manual: list[str], melee_class_ids: list[str]) -> dict[str, object]:
+    """Return a magic staff's weapon fields: its base, bonus, charged strike, other powers, and wielders.
+
+    The bonus comes from the page's "Treated as a staff with a +1 magic bonus" line, and the strike from its
+    "Expending one charge, inflicts 2d6 damage on a successful hit" line. The Staff of Striking page puts a
+    colon where the other two pages put a comma. A page that says the staff "may evoke" a number of "magical
+    effects", as the pages of the staves of power and wizardry do, gives the staff powers beyond its strike,
+    which the session leaves to the referee. The `manual_powers` param records that.
+
+    Args:
+        manual: The staff page's cleaned prose lines.
+        melee_class_ids: The classes the *Staves in Melee* rule lets wield this staff, from
+            `_staves_in_melee`. Empty for a staff the rule doesn't list.
+
+    Raises:
+        ValueError: If the page prints more than one bonus or more than one strike.
+    """
+    fields: dict[str, object] = {"base_item_id": _STAFF_BASE}
+    bonuses = [int(match[1]) for line in manual if (match := _STAFF_BONUS.search(line))]
+    strikes = [match[1] for line in manual if (match := _STAFF_STRIKE.search(line))]
+    if len(bonuses) > 1 or len(strikes) > 1:
+        raise ValueError(f"a staff page prints bonuses {bonuses!r} and strikes {strikes!r}")
+    if bonuses:
+        fields["attack_bonus"] = fields["damage_bonus"] = bonuses[0]
+    if strikes:
+        fields["effect"] = {"kind": "striking", "damage_dice": strikes[0]}
+    params: dict[str, object] = {}
+    if melee_class_ids:
+        params["melee_class_ids"] = tuple(melee_class_ids)
+    if any(_STAFF_POWERS.search(line) for line in manual):
+        params["manual_powers"] = True
+    if params:
+        fields["params"] = params
+    return fields
+
+
 def _compile_devices(srd_dir: Path, weights: dict[str, int]) -> tuple[list[dict], list[dict]]:
     page = _read(srd_dir, "Rods%2C_Staves%2C_Wands.md")
     rows = []
@@ -698,6 +764,7 @@ def _compile_devices(srd_dir: Path, weights: dict[str, int]) -> tuple[list[dict]
         "wand": _page_prose(page, heading="Wands"),
     }
     charge_notes = _page_prose(page, heading="Charges")
+    melee = _staves_in_melee(page)
     for basic_value, expert_min, expert_max, name in _category_table(page):
         item_id = slugify(name)
         category = item_id.split("_")[0]
@@ -706,10 +773,12 @@ def _compile_devices(srd_dir: Path, weights: dict[str, int]) -> tuple[list[dict]
         if item_id not in templates:
             manual = _page_prose(_read(srd_dir, f"{name.replace(' ', '_')}.md"))
             usable_by: dict[str, object]
+            fields: dict[str, object] = {}
             if category == "wand":
                 usable_by = {"kind": "caster", "caster": "arcane"}
             elif category == "staff":
                 usable_by = {"kind": "caster", "caster": _STAFF_CASTERS.get(item_id, "any")}
+                fields = _staff_fields(manual, melee.pop(item_id, []))
             else:
                 usable_by = {"kind": "all"}
             templates[item_id] = _template(
@@ -718,12 +787,17 @@ def _compile_devices(srd_dir: Path, weights: dict[str, int]) -> tuple[list[dict]
                 category,
                 manual=[*manual, *category_notes[category], *charge_notes],
                 weight_coins=weights[category],
-                charges_dice=_DEFAULT_CHARGES[category],
+                # "Unless noted", the category page's charges apply. The staves of healing and snakes note
+                # "No charges: Does not use charges".
+                charges_dice=None if any(_NO_CHARGES.search(line) for line in manual) else _DEFAULT_CHARGES[category],
                 usable_by=usable_by,
+                **fields,
             )
         rows.append(
             {"item_ids": [item_id], "basic_value": basic_value, "expert_min": expert_min, "expert_max": expert_max}
         )
+    if melee:
+        raise ValueError(f"Staves in Melee lists staves the table doesn't: {sorted(melee)}")
     return rows, list(templates.values())
 
 

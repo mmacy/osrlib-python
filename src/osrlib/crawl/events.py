@@ -1612,8 +1612,10 @@ class ItemUsedEvent(Event):
     party hasn't identified doesn't reveal what the item is."""
     manual: tuple[str, ...] = ()
     """The item's printed text, for an item whose effect the engine doesn't resolve, like a treasure
-    map, or the curse's text for a cursed scroll whose curse the engine doesn't apply. Empty when
-    the engine resolved the effect itself. Show these lines to the players and rule on them
+    map, or the curse's text for a cursed scroll whose curse the engine doesn't apply. A use of the
+    staff of power or wizardry that strikes no group has the staff's text too, because the use is
+    one of the staff's other powers, like the cone of cold. Empty when the engine resolved the
+    effect itself, as it does a staff's strike. Show these lines to the players and rule on them
     yourself."""
     target_id: str | None = None
     """The member who drank the potion, on `items.potion.drunk` and `items.potion.mixed`, when the

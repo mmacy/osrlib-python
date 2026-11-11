@@ -215,7 +215,7 @@ class TestMagicItemCatalogCensus:
             elif item.category is MagicItemCategory.ROD:
                 assert item.charges_dice == "1d10"
             elif item.category is MagicItemCategory.STAFF:
-                expected = None if item.id == "staff_of_healing" else "3d10"
+                expected = None if item.id in ("staff_of_healing", "staff_of_snakes") else "3d10"
                 assert item.charges_dice == expected
 
     def test_armour_type_d8(self):

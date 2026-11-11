@@ -1885,8 +1885,8 @@ def _melee_rejection(member_id: str, group, placement: _Placement) -> Rejection 
 
     A member farther than 5' from the group gets `combat.attack.out_of_reach`, with that distance as
     `distance_feet`. A member within 5' who isn't in the group's front rank gets
-    `battle.declaration.not_in_front_rank`, with the member's id as `character`. A melee attack and a staff
-    of striking take these checks, in this order, and the melee step asks the same question when the attack
+    `battle.declaration.not_in_front_rank`, with the member's id as `character`. A melee attack and a staff's
+    charged strike take these checks, in this order, and the melee step asks the same question when the attack
     comes up. The call reads state and takes no draw.
     """
     distance = placement.distance(member_id, group)
@@ -2099,10 +2099,10 @@ def group_front_rank(session, group_id: str) -> tuple[str, ...]:
 
     These are the members in the party's front rank toward the group who stand within
     [`MELEE_RANGE_FEET`][osrlib.crawl.battle.MELEE_RANGE_FEET] of it. Only they can declare a melee
-    attack on the group, or strike it with a staff of striking, without a `close` first. Only they can
-    be struck by the group's melee, and the group's petrifying gaze reaches only them. Only the
-    monsters' front rank strikes them: the group's first living monsters, as many as the formation
-    width allows.
+    attack on the group, or strike it for a charge with a staff of power, striking, or wizardry,
+    without a `close` first. Only they can be struck by the group's melee, and the group's
+    petrifying gaze reaches only them. Only the monsters' front rank strikes them: the group's first
+    living monsters, as many as the formation width allows.
 
     The ranks toward a group are the party's living members sorted by their distance to it, nearest
     first, and cut into rows as wide as the formation allows
@@ -2734,7 +2734,7 @@ def _validate_declaration(
     `_projected_placement`). So an attack that closes is judged where the close will leave the member,
     and a melee attack against the ranks that every declared move, trade, and move of the party line
     will produce. Without `placement`, as in the magic phase, the checks read the battle as it stands. A
-    melee attack and a staff of striking take the checks of `_melee_rejection`:
+    melee attack and a staff's charged strike take the checks of `_melee_rejection`:
     `combat.attack.out_of_reach` for a member farther than 5' from the group, and
     `battle.declaration.not_in_front_rank` for a member within 5' who isn't in its front rank. A touch
     on a monster, with a touch spell or a staff of healing, takes the checks of `_touch_rejection`.
@@ -2788,7 +2788,8 @@ def _validate_declaration(
             if weapon is None:
                 return [Rejection(code="battle.declaration.weapon_not_wielded", params={"item": declaration.weapon_id})]
             if _declaration_facet(weapon) is None:
-                # A wielded wand, or another magic item with no base weapon, has no damage to roll.
+                # A wielded wand, or another magic item with no base weapon, has no damage to roll. Every
+                # magic staff has a base, so a player can't tell one unidentified staff from another by it.
                 return [Rejection(code="battle.declaration.item_unusable", params={"item": declaration.weapon_id})]
         if declaration.move == "close" and cannot_move(member):
             return [Rejection(code="battle.declaration.cannot_move", params={"character": member.id})]
@@ -3038,9 +3039,16 @@ def _validate_magic_item_declaration(
     before the drink, the read, or the use resolves. A potion's second run is `_drinker`'s. The checks take
     no draw, so the second run costs nothing.
 
-    A staff of striking (an effect of kind `striking`) is "Used as a magical melee weapon", so it takes a
-    melee attack's checks of `_melee_rejection` against `placement`, after the fled-group check and before
-    the target check. The pre-phase passes the projection of the round's declared moves, so a member who
+    A staff whose effect is of kind `striking`, the staff of power, striking, or wizardry, strikes the group in
+    `target_group_id` for a charge. A staff with other powers has the `manual_powers` param, as the staves of
+    power and wizardry do, and a use of it with no `target_group_id` is one of those powers
+    (`_magic_items._left_to_referee` decides). That use takes only the usability and charge checks, because the
+    referee rules on the power from the staff's `manual` text. The staff of striking has no other power, so a
+    use of it with no `target_group_id` gets `battle.declaration.unknown_group`.
+
+    The staff of striking is "Used as a magical melee weapon", so the strike takes a melee attack's checks of
+    `_melee_rejection` against `placement`, after the fled-group check and before the target check. The
+    pre-phase passes the projection of the round's declared moves, so a member who
     steps into a front rank another member leaves can strike. Without `placement`, as in the magic phase,
     the checks read the battle as it stands, so a member whose place in the front rank didn't open fizzles
     with `battle.declaration.not_in_front_rank`.
@@ -3104,6 +3112,8 @@ def _validate_magic_item_declaration(
         if template.charges_dice is not None and (instance.charges_remaining or 0) <= 0:
             return [Rejection(code="items.device.inert", params={"item": instance.instance_id})]
         effect_spec = template.effect
+        if _magic_items._left_to_referee(template, strikes_a_group=declaration.target_group_id is not None):
+            return []
         if effect_spec is not None and effect_spec.kind in ("damage_area", "condition_area", "striking"):
             group = _group_by_id(session, declaration.target_group_id)
             if group is None or group.fled:
@@ -3250,6 +3260,10 @@ def _resolve_magic_item_use(session, member, declaration: BattleDeclaration, sta
     A potion is judged again first, where the members stand now (see `_drinker`). When the drinker is dead or
     turned to stone, or now stands out of the carrier's reach, the potion isn't used. It stays with the carrier,
     and nothing is reported, as with any other action a member can't take when its step comes.
+
+    A device use spends a charge and emits `items.device.activated`. A use the session leaves to the referee
+    (see `_magic_items._left_to_referee`) has the device's `manual` text on that event and resolves nothing else.
+    That's a device with no effect the session resolves, and a staff of power or wizardry used with no group.
     """
     from osrlib.crawl import _magic_items
 
@@ -3274,6 +3288,7 @@ def _resolve_magic_item_use(session, member, declaration: BattleDeclaration, sta
         return _resolve_scroll_cast(session, member, instance, template, declaration)
     if category in (MagicItemCategory.ROD, MagicItemCategory.STAFF, MagicItemCategory.WAND):
         effect_spec = template.effect
+        referee = _magic_items._left_to_referee(template, strikes_a_group=declaration.target_group_id is not None)
         events.extend(_magic_items._identify_item_events(session, member, instance))
         from osrlib.crawl.events import ItemUsedEvent
 
@@ -3282,10 +3297,12 @@ def _resolve_magic_item_use(session, member, declaration: BattleDeclaration, sta
                 code="items.device.activated",
                 character_id=member.id,
                 instance_id=instance.instance_id,
-                manual=template.manual if effect_spec is None else (),
+                manual=template.manual if referee else (),
             )
         )
-        if effect_spec is not None and effect_spec.kind == "striking":
+        if referee:
+            pass  # The session resolves nothing more. The referee runs the power from the manual text.
+        elif effect_spec is not None and effect_spec.kind == "striking":
             events.extend(_resolve_striking(session, member, instance, declaration))
         elif effect_spec is not None and effect_spec.kind == "healing":
             events.extend(_resolve_device_healing(session, member, instance, template, declaration))
@@ -3375,7 +3392,11 @@ def _resolve_scroll_cast(session, member, instance, template, declaration: Battl
 
 
 def _resolve_striking(session, member, instance, declaration: BattleDeclaration) -> list[Event]:
-    """The staff of striking: a melee attack spending one charge for 2d6 (RAW)."""
+    """A staff's charged strike: a melee attack spending one charge for the effect's damage, 2d6 (RAW).
+
+    The staves of power, striking, and wizardry strike this way. The attack roll takes the staff's attack bonus, so
+    the staff of wizardry's +1 applies. The damage is the printed 2d6 alone, with no damage bonus and no Strength.
+    """
     from osrlib.core.combat import DamageSource, attack_roll, deal_damage
 
     group = _group_by_id(session, declaration.target_group_id)
@@ -3976,6 +3997,8 @@ def _party_attacks(
 
     A slow attack passes these checks here and goes into `slow_attacks` with whether it's a missile attack.
     At the end of the round, a slow melee attack faces the same checks again where the member then stands.
+    An attack is slow when the weapon underneath it is, so a magic staff or an enchanted battle axe is as slow as
+    the mundane one, as it is for initiative.
     """
     events: list[Event] = []
     for member, declaration in by_member.values():
@@ -4001,9 +4024,7 @@ def _party_attacks(
         if fizzled is not None:
             events.append(fizzled)
             continue
-        combat_facet = getattr(weapon, "combat", None)
-        facet = combat_facet if combat_facet is not None else weapon
-        if facet is not None and WeaponQuality.SLOW in getattr(facet, "qualities", ()):
+        if WeaponQuality.SLOW in getattr(_declaration_facet(weapon), "qualities", ()):
             slow_attacks.append((member, declaration, is_missile))
             continue
         events.extend(_resolve_party_attack(session, member, declaration, fired, fire_damaged))

@@ -1085,20 +1085,31 @@ class TestUnidentifiedArmCombatFacts:
         assert "missile_ranges" not in shield
 
 
-class TestCategoryMaskedItemsShowNoWeaponFacts:
-    """A staff of striking resolves to a weapon, but its display is the category's ("a staff"), the same
-    as six other staves. Showing the staff's qualities on that one alone would name it. The weapon
-    facts attach only when the display string itself was built from the base weapon."""
+class TestEveryUnidentifiedStaffShowsTheStaffsQualities:
+    """Every magic staff displays as "a staff", and every one is a mundane staff underneath (issue #254). The
+    display is the weapon's name, so each one shows the staff's qualities, and no staff is singled out."""
 
-    def test_an_unidentified_staff_of_striking_stays_a_staff(self):
+    @pytest.mark.parametrize(
+        "staff_id",
+        [
+            "staff_of_commanding",
+            "staff_of_healing",
+            "staff_of_power",
+            "staff_of_snakes",
+            "staff_of_striking",
+            "staff_of_withering",
+            "staff_of_wizardry",
+        ],
+    )
+    def test_an_unidentified_staff_stays_a_staff(self, staff_id):
         from osrlib.core.items import MagicItemInstance
 
         session = battle_session(distance=40)
         member = session.party.members[0]
-        member.inventory.items.append(MagicItemInstance(instance_id="magic-item-0001", template_id="staff_of_striking"))
+        member.inventory.items.append(MagicItemInstance(instance_id="magic-item-0001", template_id=staff_id))
         staff = session.view(Visibility.PLAYER).party[0].inventory["items"][-1]
         assert staff["display"] == "a staff"
-        assert "qualities" not in staff
+        assert staff["qualities"] == [quality.value for quality in load_equipment().get("staff").qualities]
         assert "missile_ranges" not in staff
 
 

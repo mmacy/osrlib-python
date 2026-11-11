@@ -1817,6 +1817,12 @@ class UseItem(Command):
     spells on it, choose the spell and its targets with `spell_id`, `mode`, and `targets`. They
     work like the same fields of [`CastSpell`][osrlib.crawl.commands.CastSpell].
 
+    A device whose powers the session doesn't resolve, like a staff of commanding, spends a charge,
+    and its [`ItemUsedEvent`][osrlib.crawl.events.ItemUsedEvent] has the device's text in `manual`
+    for the referee to rule on. The staves of power and wizardry strike only in a battle, so here
+    a use of either one is one of their other powers, like the cone of cold, the same way. The
+    staff of striking has no other power, so the session refuses it with `items.use.battle_only`.
+
     A member can give a potion they carry to another member to drink. The use is the carrier's,
     and so is the round it takes. The potion's effect lands on the drinker. Outside a battle the
     party stands together, so any member can reach any other.
@@ -1857,7 +1863,8 @@ class UseItem(Command):
           `items.use.target_required` (an area device used in an encounter needs a
           `target_id`), `items.use.unknown_target`, `items.use.target_cannot_be_healed` (a
           staff of healing used on a creature that's dead or turned to stone), and
-          `items.use.battle_only` (a device that strikes works only as a battle declaration).
+          `items.use.battle_only` (a staff whose only power is its strike, like the staff of
+          striking, works only as a battle declaration).
 
     Events:
         [`ItemIdentifiedEvent`][osrlib.crawl.events.ItemIdentifiedEvent], and
@@ -2594,12 +2601,19 @@ class BattleDeclaration(_Model):
       `fighting_withdrawal` or `retreat`, it's a formation move instead: the whole party moves
       as one body, and every group's distance changes.
     - `use_item` uses `item_id`. The member drinks a potion, reads a scroll, uses a wand,
-      staff, or rod, or throws a splash weapon, like a flask of oil, at `target_group_id`. A
-      staff of striking is a melee weapon, so only a member in the group's `front_rank` can
-      strike with it. To give a potion to another member to drink, or to touch another member
-      with a staff of healing, name that member as the one id in `targets`. The two members have
-      to reach each other once the round's moves are made. It's the action of the member who
-      carries the item, and the potion's effect lands on the drinker.
+      staff, or rod, or throws a splash weapon, like a flask of oil, at `target_group_id`. The
+      staves of power, striking, and wizardry strike the group in `target_group_id` for a
+      charge, and a strike is a melee attack, so only a member in the group's `front_rank` can
+      strike with one. A use of the staff of power or wizardry with no `target_group_id` is one
+      of their other powers instead, like the cone of cold: it spends a charge, and its
+      `ItemUsedEvent` has the staff's text in `manual` for the referee to rule on. The staff of
+      striking has no other power, so the session refuses a use of it with no `target_group_id`,
+      and the code is `battle.declaration.unknown_group`. To swing a staff without spending a
+      charge, declare an `attack` with it. To give a potion to another member to drink, or to
+      touch another member with a staff of healing, name that member as the one id in
+      `targets`. The two members have to reach each other once the round's moves are made. It's
+      the action of the member who carries the item, and the potion's effect lands on the
+      drinker.
     - `give_item` uses `item_id` and `targets`. The member hands one item, or one unit of a
       stack, to the member named as the one id in `targets`. It's the giver's action for the
       round, and it resolves in the party's magic phase with the round's other item uses. The
@@ -2642,7 +2656,8 @@ class BattleDeclaration(_Model):
     [`EncounterView.groups`][osrlib.crawl.views.EncounterView.groups].
 
     These declarations need it: an `attack`, a `close`, a thrown item, a wand, staff, or rod
-    that strikes or covers an area, and a `cast` of a spell whose area covers creatures. An area
+    that strikes or covers an area, and a `cast` of a spell whose area covers creatures. A use of
+    the staff of power or wizardry without it is one of the staff's other powers, not a strike. An area
     spell aimed at a group isn't placed at a point, because the range track has no positions
     inside a group. It covers the group's living members in the order they were spawned, as many
     as its size and the party's rank width allow.
@@ -2664,7 +2679,8 @@ class BattleDeclaration(_Model):
     has to be equipped already, so equip it with [`EquipItem`][osrlib.crawl.commands.EquipItem]
     before the fight. The session refuses a weapon that's only carried with
     `battle.declaration.weapon_not_wielded`, and a wielded magic item with no weapon stats, like a
-    wand, with `battle.declaration.item_unusable`. Whether the attack is melee or missile depends on the
+    wand, with `battle.declaration.item_unusable`. Every magic staff is a staff, so a member who
+    wields one can attack with it. Whether the attack is melee or missile depends on the
     weapon's qualities and the group's distance.
 
     With `None`, the member attacks with the wielded weapon that suits the attack. The member's
@@ -3083,8 +3099,8 @@ class ResolveBattleRound(Command):
           `battle.declaration.unknown_group`, `battle.declaration.no_target`,
           `items.use.not_usable`, `items.device.inert`, `items.scroll.spent`,
           `items.scroll.no_such_spell`, `items.scroll.wrong_caster`,
-          `exploration.action.requires_light`, and `combat.attack.out_of_reach`. A staff of
-          striking is a melee weapon, so its use also gets
+          `exploration.action.requires_light`, and `combat.attack.out_of_reach`. A staff's
+          strike for a charge is a melee attack, so it also gets
           `battle.declaration.not_in_front_rank` when the member won't stand in the group's
           front rank once the round's moves are made. A scroll read can also get the cast
           checks on its spell and targets (`magic.cast.unknown_mode`, `magic.cast.unknown_target`,
