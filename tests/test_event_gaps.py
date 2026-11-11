@@ -43,8 +43,6 @@ from osrlib.crawl.session import GameSession
 from osrlib.data import load_equipment
 from osrlib.messages import format_message
 
-pytestmark = pytest.mark.xfail(reason="chunk: event-gaps")
-
 QUIET = WanderingSpec(chance_in_six=0)
 
 
