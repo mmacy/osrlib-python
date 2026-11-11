@@ -307,3 +307,70 @@ def test_a_touch_attack_reaches_only_the_monsters_in_front():
     assert [code for code, _ in pf.refused(game, harm(game, tam, monsters[-1]))] == ["combat.attack.out_of_reach"]
     events = pf.play(game, harm(game, tam, monsters[0]))
     assert [event.defender_id for event in pf.attacks_by(events, tam)] == [monsters[0]]
+
+
+# ---------------------------------------------------------------------- the same faults, found beside the fixes
+
+
+def test_every_model_validates_its_copies():
+    """A model added later has to share the base that validates a copy, so this walks every model class."""
+    import importlib
+    import inspect
+    import pkgutil
+
+    import osrlib
+    from osrlib.core.frozen import _Model
+
+    unguarded = []
+    for module in pkgutil.walk_packages(osrlib.__path__, prefix="osrlib."):
+        for name, value in vars(importlib.import_module(module.name)).items():
+            if not (inspect.isclass(value) and issubclass(value, BaseModel) and value.__module__ == module.name):
+                continue
+            if value is not _Model and not issubclass(value, _Model):
+                unguarded.append(f"{module.name}.{name}")
+    assert unguarded == []
+
+
+@pytest.mark.parametrize("fate", ["dead", "stone"])
+def test_a_staff_of_healing_cant_be_used_on_a_member_it_cant_heal_while_exploring(fate):
+    import positions_fixtures as pf
+    from osrlib.core.effects import Condition, grant_condition, kill
+    from osrlib.core.items import MagicItemInstance
+    from osrlib.crawl.commands import GrantItem, UseItem
+
+    game = pf.session(1)
+    tam, hild = pf.named(game, "Tam"), pf.named(game, "Hild")
+    assert game.execute(GrantItem(character_id=tam, item_id="staff_of_healing")).accepted
+    staff = next(item for item in game.member(tam).inventory.items if isinstance(item, MagicItemInstance))
+    if fate == "dead":
+        kill(game.member(hild))
+    else:
+        grant_condition(game.member(hild), Condition.PETRIFIED, None)
+    clock = game.clock.rounds
+    result = game.execute(UseItem(character_id=tam, item_id=staff.instance_id, target_id=hild))
+    assert [rejection.code for rejection in result.rejections] == ["items.use.target_cannot_be_healed"]
+    assert not staff.identified
+    assert game.clock.rounds == clock
+
+
+def test_effects_expire_in_the_order_they_were_attached_past_ten_thousand_ids():
+    """An effect id is text, so `effect-10000` sorts before `effect-9999`. The ledger must not order by it."""
+    from osrlib.core.clock import GameClock, TimeUnit
+    from osrlib.core.effects import EFFECTS_STREAM, Condition, EffectDefinition, EffectsLedger
+    from osrlib.core.monsters import MONSTER_SPAWN_STREAM, IdAllocator, spawn_monster
+    from osrlib.core.rng import RngStreams
+
+    streams = RngStreams(master_seed=3)
+    goblin = load_monsters().get("goblin")
+    first = spawn_monster(goblin, id="monster-0001", stream=streams.get(MONSTER_SPAWN_STREAM))
+    second = spawn_monster(goblin, id="monster-0002", stream=streams.get(MONSTER_SPAWN_STREAM))
+    registry = {first.id: first, second.id: second}
+    ledger, clock, allocator = EffectsLedger(), GameClock(), IdAllocator(counters={"effect": 9998})
+    web = EffectDefinition(kind="web", duration_unit=TimeUnit.ROUND, duration_amount=2, condition=Condition.ENTANGLED)
+    one, _ = ledger.attach(web, first.id, clock=clock, allocator=allocator, registry=registry)
+    two, _ = ledger.attach(web, second.id, clock=clock, allocator=allocator, registry=registry)
+    assert (one.effect_id, two.effect_id) == ("effect-9999", "effect-10000")
+
+    events = ledger.advance(clock, 2, TimeUnit.ROUND, registry, stream=streams.get(EFFECTS_STREAM))
+    expired = [event.effect_id for event in events if event.code == "effects.effect.expired"]
+    assert expired == ["effect-9999", "effect-10000"]
