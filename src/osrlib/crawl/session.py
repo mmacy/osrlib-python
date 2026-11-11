@@ -2009,7 +2009,7 @@ class GameSession:
         Args:
             events: The just-executed command's events, in order.
         """
-        from osrlib.crawl import exploration
+        from osrlib.crawl import _party_location, exploration
         from osrlib.crawl.dungeon import DropPile
 
         if self.dungeon_state.location.kind != "dungeon":
@@ -2021,7 +2021,7 @@ class GameSession:
             member = members.get(event.target_id)
             if member is None:
                 continue
-            pile = self.dungeon_state.piles.setdefault(exploration._cell_ref(self), DropPile())
+            pile = self.dungeon_state.piles.setdefault(_party_location._cell_ref(self), DropPile())
             for instance_id in event.saved_items:
                 instance = member.inventory.magic_item(instance_id)
                 if instance is not None:

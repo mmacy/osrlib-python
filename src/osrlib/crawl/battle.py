@@ -1392,10 +1392,10 @@ def _formation_width(session) -> int | None:
     """
     if not session.ruleset.formation_width_limit:
         return None
-    from osrlib.crawl import exploration
+    from osrlib.crawl import _party_location, exploration
 
-    level = exploration._level(session)
-    frontage_feet = _frontage_cells(level, exploration._position(session)) * exploration._CELL_FEET
+    level = _party_location._level(session)
+    frontage_feet = _frontage_cells(level, _party_location._position(session)) * exploration._CELL_FEET
     return max(1, frontage_feet // FIGHTER_FRONTAGE_FEET)
 
 
@@ -2823,9 +2823,9 @@ def _validate_declaration(
             spell = load_spells().get(declaration.spell_id)
         except ValueError:
             return [Rejection(code="magic.cast.unknown_spell", params={"spell": declaration.spell_id})]
-        from osrlib.crawl import exploration
+        from osrlib.crawl import _party_location, exploration
 
-        if session.ledger.active_on(exploration._cell_ref(session), "silence"):
+        if session.ledger.active_on(_party_location._cell_ref(session), "silence"):
             return [Rejection(code="magic.cast.silenced_area", params={"caster": member.id})]
         targets, distance, rejections = _cast_targets(session, declaration, spell, placement or _placement(session))
         if rejections:

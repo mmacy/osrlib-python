@@ -1286,7 +1286,7 @@ class TestTheMagicPhaseRechecksADeclaration:
 
     def test_a_cast_silenced_by_an_earlier_ally_fizzles_instead_of_resolving(self):
         from osrlib.core.events import SpellDisruptedEvent
-        from osrlib.crawl import exploration
+        from osrlib.crawl import _party_location
 
         fizzled_seeds: list[int] = []
         resolved_seeds: list[int] = []
@@ -1295,7 +1295,7 @@ class TestTheMagicPhaseRechecksADeclaration:
             if session is None or not result.accepted:
                 continue
             caster_events = [event for event in result.events if getattr(event, "caster_id", None) == "character-0004"]
-            silenced = bool(session.ledger.active_on(exploration._cell_ref(session), "silence"))
+            silenced = bool(session.ledger.active_on(_party_location._cell_ref(session), "silence"))
             if silenced:
                 fizzles = [event for event in caster_events if event.code == "magic.cast.fizzled"]
                 assert len(fizzles) == 1, [event.code for event in caster_events]
