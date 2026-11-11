@@ -102,9 +102,9 @@ assert ledger.effects == []
 
 from collections.abc import Mapping
 from enum import StrEnum
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from osrlib.core.clock import ROUNDS_PER_DAY, ROUNDS_PER_TURN, GameClock, TimeUnit
 from osrlib.core.creature import Creature
@@ -992,8 +992,20 @@ class EffectDefinition(BaseModel):
     [`cast_spell`][osrlib.core.spells.cast_spell] builds and attaches those for you. Write your own when you
     author something new, or run the rules without a session.
 
-    Give the effect a duration with `duration_unit` and either `duration_amount` or `duration_dice`. Leave the
-    unit out and the effect runs until you release it. Set `permanent` for an effect that only magic undoes.
+    Give the effect a duration with `duration_unit` and either `duration_amount` or `duration_dice`. Leave all three
+    out and the effect runs until you release it. Set `permanent`, with no duration, for an effect that only magic
+    undoes.
+
+    Constructing one raises `pydantic.ValidationError` when the definition can't run:
+
+    - The duration isn't a unit with exactly one of `duration_amount` and `duration_dice`.
+    - `permanent` is set and the definition has a duration.
+    - `tick` or `expiry` isn't a name osrlib defines.
+    - The `"splash_damage"` expiry has no `dice` param.
+
+    A malformed dice expression in `duration_dice`, in the `"splash_damage"` expiry's `dice` param, or in the
+    `"regeneration"` tick's `revive` param raises [`ContentValidationError`][osrlib.errors.ContentValidationError].
+    So a mistake in a definition shows up when you construct it, not when the effect attaches, ticks, or expires.
 
     Examples:
         A four-turn sleep that grants a condition, and an indefinite +1 to attacks that grants a modifier:
@@ -1026,10 +1038,10 @@ class EffectDefinition(BaseModel):
 
     duration_unit: TimeUnit | None = None
     """The unit the duration is counted in: rounds, turns, or days. `None` means the effect has no duration and
-    runs until you release it."""
+    runs until you release it. A unit needs either `duration_amount` or `duration_dice`."""
 
     duration_amount: int | None = None
-    """A fixed duration, counted in `duration_unit`. Use this or `duration_dice`, not both."""
+    """A fixed duration, counted in `duration_unit`. Use this or `duration_dice`, not both, and only with a unit."""
 
     duration_dice: str | None = None
     """A dice expression rolled once at attach time to set the duration, like `"2d6"`. The roll comes from the
@@ -1038,15 +1050,14 @@ class EffectDefinition(BaseModel):
     [`ContentValidationError`][osrlib.errors.ContentValidationError]."""
 
     permanent: bool = False
-    """True means the effect never expires on its own, and the ledger ignores any duration. That's how
+    """True means the effect never expires on its own, so a permanent definition has no duration. That's how
     petrification lasts until someone casts *stone to flesh*. Set `dispellable` to choose whether *dispel magic*
     can end the effect."""
 
-    tick: str | None = None
+    tick: Literal["regeneration", "charm_resave"] | None = None
     """The name of a periodic behavior the ledger runs while the effect lasts, or `None` for none.
     `"regeneration"` heals the bearer and can bring a troll back from death. `"charm_resave"` rolls the bearer's
-    saving throw versus spells and releases the effect when it passes. Any other name raises `ValueError` at the
-    first tick."""
+    saving throw versus spells and releases the effect when it passes."""
 
     tick_interval_rounds: int = Field(default=1, ge=1)
     """How many rounds pass between ticks. The default of 1 ticks every round. For a charm,
@@ -1059,7 +1070,7 @@ class EffectDefinition(BaseModel):
     `"stack"` adds a second effect. `"refresh"` restarts the existing effect's duration and adds nothing.
     `"ignore"` changes nothing, and the attach returns no effect."""
 
-    expiry: str | None = None
+    expiry: Literal["death", "splash_damage", "weakness_strength_set"] | None = None
     """The name of an outcome the ledger resolves when the duration runs out, or `None` for none.
 
     The outcome adds to the ordinary ending and doesn't replace it. The ledger removes the effect, emits the
@@ -1067,12 +1078,12 @@ class EffectDefinition(BaseModel):
     Then it runs the outcome on the bearer:
 
     - `"death"` kills the bearer, which is how a delayed poison works.
-    - `"splash_damage"` deals the second round of damage from burning oil or holy water.
+    - `"splash_damage"` deals the second round of damage from burning oil or holy water. It rolls the `dice`
+      param, which the definition needs.
     - `"weakness_strength_set"` attaches the Ring of Weakness curse when its onset ends. Pass an `allocator` to
       the ledger's `advance` for it.
 
-    Any other name raises `ValueError` at expiry. An effect on a location has no bearer, so its outcome never
-    runs."""
+    An effect on a location has no bearer, so its outcome never runs."""
 
     condition: Condition | None = None
     """A [`Condition`][osrlib.core.effects.Condition] granted when the effect attaches and taken back when it
@@ -1107,6 +1118,24 @@ class EffectDefinition(BaseModel):
         if value is not None:
             parse(value)
         return value
+
+    @model_validator(mode="after")
+    def _definition_must_run(self) -> EffectDefinition:
+        if self.duration_amount is not None and self.duration_dice is not None:
+            raise ValueError("a duration is a fixed amount or dice, not both")
+        has_length = self.duration_amount is not None or self.duration_dice is not None
+        if has_length != (self.duration_unit is not None):
+            raise ValueError("a duration needs a unit and either a fixed amount or dice")
+        if self.permanent and self.duration_unit is not None:
+            raise ValueError("a permanent effect has no duration")
+        # The ledger rolls these params as it advances, so a bad one would fail after the clock had moved.
+        if self.expiry == "splash_damage":
+            if "dice" not in self.params:
+                raise ValueError("the splash_damage expiry needs a dice param")
+            parse(str(self.params["dice"]))
+        if self.tick == "regeneration" and "revive" in self.params:
+            parse(str(self.params["revive"]))
+        return self
 
 
 class ActiveEffect(BaseModel):
@@ -1318,8 +1347,8 @@ class EffectsLedger(BaseModel):
             nothing was attached, and on a refresh it's the existing effect with an empty event list.
 
         Raises:
-            ValueError: If the definition has `duration_dice` and you passed no `stream`, or if it has a
-                `duration_unit` with neither an amount nor dice.
+            ValueError: If the definition has `duration_dice` and you passed no `stream`. The call raises before it
+                allocates an effect id or changes anything.
 
         Examples:
             A *sleep* takes hold on a goblin, and a skeleton, which is immune to sleep, gets `None`:
@@ -1352,6 +1381,8 @@ class EffectsLedger(BaseModel):
             # (None, [])
             ```
         """
+        if definition.duration_dice is not None and stream is None:
+            raise ValueError(f"effect kind {definition.kind!r} rolls its duration; pass the effects stream")
         existing = self.active_on(target_ref, definition.kind)
         if existing and definition.stacking == "ignore":
             return None, []
@@ -1364,12 +1395,13 @@ class EffectsLedger(BaseModel):
             defenses = getattr(getattr(target, "template", None), "defenses", None)
             if defenses is not None and definition.condition in defenses.condition_immunities:
                 return None, []
+        expires_round = self._expiry_round(definition, clock, stream)
         effect = ActiveEffect(
             effect_id=allocator.allocate("effect"),
             definition=definition,
             target_ref=target_ref,
             attached_round=clock.rounds,
-            expires_round=self._expiry_round(definition, clock, stream),
+            expires_round=expires_round,
             caster_level=caster_level,
         )
         self.effects.append(effect)
@@ -1403,7 +1435,7 @@ class EffectsLedger(BaseModel):
         Args:
             effect_id: The `effect_id` of the [`ActiveEffect`][osrlib.core.effects.ActiveEffect] to end.
             registry: The creatures in play by entity id, so the ledger can take back the condition and modifiers.
-                Leave it out and the ledger drops the effect, but the condition and modifiers stay on the creature.
+                You can leave it out only for an effect whose definition grants neither.
 
         Returns:
             The [`EffectReleasedEvent`][osrlib.core.events.EffectReleasedEvent] and, when the effect granted a
@@ -1412,7 +1444,8 @@ class EffectsLedger(BaseModel):
 
         Raises:
             ValueError: If the ledger has no effect with that id, usually because it already expired or was
-                released. Nothing changes.
+                released, or if the effect's definition grants a condition or modifiers and you passed no
+                `registry`. Nothing changes.
 
         Examples:
             A *dispel* that ends every effect on a goblin:
@@ -1447,6 +1480,10 @@ class EffectsLedger(BaseModel):
         effect = next((candidate for candidate in self.effects if candidate.effect_id == effect_id), None)
         if effect is None:
             raise ValueError(f"unknown effect id {effect_id!r}")
+        if registry is None and (effect.definition.condition is not None or effect.definition.modifiers):
+            raise ValueError(
+                f"effect {effect_id!r} grants a condition or modifiers; pass the registry so release takes them back"
+            )
         self.effects.remove(effect)
         events: list[Event] = [
             EffectReleasedEvent(effect_id=effect.effect_id, kind=effect.definition.kind, target_ref=effect.target_ref)
@@ -1499,8 +1536,9 @@ class EffectsLedger(BaseModel):
             Every event the span produced, in the order it was produced. Add them to your event log.
 
         Raises:
-            ValueError: If `n` is negative, if a tick or expiry name isn't one osrlib defines, or if the
-                `"weakness_strength_set"` outcome runs and you passed no `allocator`.
+            ValueError: If `n` is negative, or if you passed no `allocator` and an effect with the
+                `"weakness_strength_set"` expiry is due to end within the span. The call raises before it moves
+                the clock, makes a draw, or changes an effect or a creature.
 
         Examples:
             A troll that took ten points of damage regenerates three of them a round:
@@ -1535,25 +1573,35 @@ class EffectsLedger(BaseModel):
             assert troll.current_hp == troll.max_hp - 4  # six of the ten points back
             ```
         """
+        if n < 0:
+            raise ValueError(f"cannot advance the clock backwards, got n={n}")
         start = clock.rounds
+        end = start + n * _ROUNDS_PER_UNIT[TimeUnit(unit)]
+        if allocator is None:
+            # Suspension only pushes an expiry later, and nothing the span attaches has this expiry, so every
+            # effect that could need the allocator is due by `end` now.
+            for effect in self.effects:
+                due = effect.expires_round is not None and effect.expires_round <= end
+                if due and effect.definition.expiry == "weakness_strength_set":
+                    raise ValueError(
+                        f"effect {effect.effect_id!r} attaches a follow-on effect when it expires; "
+                        "advance with an allocator"
+                    )
         clock.advance(n, unit)
         events: list[Event] = []
-        for current_round in range(start + 1, clock.rounds + 1):
+        for current_round in range(start + 1, end + 1):
             events.extend(self._resolve_round(current_round, registry, stream, allocator))
         return events
 
     def _expiry_round(self, definition: EffectDefinition, clock: GameClock, stream: RngStream | None) -> int | None:
-        if definition.permanent or definition.duration_unit is None:
+        if definition.duration_unit is None:
             return None
-        if definition.duration_dice is not None:
-            if stream is None:
-                raise ValueError(f"effect kind {definition.kind!r} rolls its duration; pass the effects stream")
-            amount = roll(definition.duration_dice, stream).total
-        else:
-            if definition.duration_amount is None:
-                raise ValueError(f"effect kind {definition.kind!r} has a duration unit but no amount or dice")
-            amount = definition.duration_amount
-        return clock.rounds + amount * _ROUNDS_PER_UNIT[definition.duration_unit]
+        rounds_per_unit = _ROUNDS_PER_UNIT[definition.duration_unit]
+        # The model's validator gives a unit exactly one of an amount or dice, and `attach` refuses dice with no
+        # stream before it calls this.
+        if definition.duration_dice is None:
+            return clock.rounds + cast(int, definition.duration_amount) * rounds_per_unit
+        return clock.rounds + roll(definition.duration_dice, cast(RngStream, stream)).total * rounds_per_unit
 
     def _ordered(self) -> list[ActiveEffect]:
         return sorted(self.effects, key=lambda effect: (effect.attached_round, effect.effect_id))
@@ -1622,8 +1670,7 @@ class EffectsLedger(BaseModel):
         elif definition.expiry == "weakness_strength_set":
             # The Ring of Weakness's onset ran out: the curse takes hold as an
             # indefinite item-kind effect setting STR to the printed value.
-            if allocator is None:
-                raise ValueError("the weakness onset attaches a follow-on effect; advance with an allocator")
+            # `advance` checked for the allocator before the clock moved.
             follow_on = EffectDefinition(
                 kind="ring_of_weakness",
                 stacking="ignore",
@@ -1653,8 +1700,6 @@ class EffectsLedger(BaseModel):
                 kind="splash",
             )
             events.extend(deal_damage(target, result.total, rolls=result.rolls, source=source))
-        else:
-            raise ValueError(f"unknown expiry outcome {definition.expiry!r} on effect kind {definition.kind!r}")
         return events
 
     def _tick(
@@ -1668,7 +1713,7 @@ class EffectsLedger(BaseModel):
             return self._tick_regeneration(effect, current_round, target, stream)
         if definition.tick == "charm_resave":
             return self._tick_charm_resave(effect, current_round, target, registry, stream)
-        raise ValueError(f"unknown tick behavior {definition.tick!r} on effect kind {definition.kind!r}")
+        return []
 
     def _tick_charm_resave(
         self,
@@ -1774,6 +1819,9 @@ def regeneration_definition(params: Mapping[str, Any]) -> EffectDefinition:
     Returns:
         An [`EffectDefinition`][osrlib.core.effects.EffectDefinition] of kind `"regeneration"` with the
         `"regeneration"` tick.
+
+    Raises:
+        ContentValidationError: If `revive` isn't a valid dice expression.
 
     Examples:
         ```python

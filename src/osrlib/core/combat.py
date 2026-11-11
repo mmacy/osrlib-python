@@ -1960,8 +1960,8 @@ def deal_damage(
         ruleset: The ruleset in play. Whether magic items save when a destructive source
             kills the target depends on it.
         stream: The stream the magic items' saves draw from, which is the stream of
-            whatever is resolving the damage. It's needed only when a destructive source can
-            kill a target that carries magic items.
+            whatever is resolving the damage. It's needed only when a destructive source
+            kills a target that carries magic items and the ruleset has the saves on.
 
     Returns:
         The events in order, ready to append to your log: a
@@ -1972,7 +1972,9 @@ def deal_damage(
         when a destructive source killed a target that carried something.
 
     Raises:
-        ValueError: If `amount` is negative. The target doesn't change.
+        ValueError: If `amount` is negative, or if a destructive source kills a target that
+            carries a magic item, the ruleset's `magic_item_death_save` is on, and you passed
+            no `stream`. The target doesn't change.
 
     Examples:
         ```python
@@ -2015,6 +2017,9 @@ def deal_damage(
     events: list[Event] = []
     target_id = _entity_id(target)
     already_dead = has_condition(target, Condition.DEAD)
+    if source.destructive and not already_dead and amount >= target.current_hp:
+        # A kill destroys what the target carries, so check for the saves' stream before it loses any hit points.
+        _death_save_stream(target, ruleset, stream)
     damage_before = target.max_hp - target.current_hp
     target.current_hp = max(0, target.current_hp - amount)
     if clock is not None and hasattr(target, "last_damaged_round"):
@@ -2068,6 +2073,22 @@ def deal_damage(
 
 
 _DEATH_SAVE_CATEGORIES = {"breath": SaveCategory.BREATH, "spell": SaveCategory.SPELLS, "device": SaveCategory.WANDS}
+
+
+def _death_save_stream(target: Any, ruleset: Ruleset | None, stream: RngStream | None) -> RngStream | None:
+    """Return the stream a victim's magic items save from, or `None` when the ruleset has the saves off.
+
+    Raises `ValueError` when the saves are on, the victim carries a magic item, and `stream` is `None`.
+    """
+    if ruleset is None or not ruleset.magic_item_death_save:
+        return None
+    inventory = getattr(target, "inventory", None)
+    carries_magic = inventory is not None and any(
+        isinstance(instance, MagicItemInstance) for instance in inventory.all_instances()
+    )
+    if stream is None and carries_magic:
+        raise ValueError("the magic-item death save needs a stream; pass the resolving subsystem's")
+    return stream
 
 
 def destroy_equipment(
@@ -2152,16 +2173,14 @@ def destroy_equipment(
     instances = inventory.all_instances()
     if not instances:
         return []
-    save_enabled = ruleset is not None and ruleset.magic_item_death_save
+    save_stream = _death_save_stream(target, ruleset, stream)
     category = _DEATH_SAVE_CATEGORIES.get(source.kind if source is not None else "", SaveCategory.DEATH)
     destroyed: list[str] = []
     saved: list[MagicItemInstance] = []
     for instance in instances:
         if isinstance(instance, MagicItemInstance):
             template = magic_item_template(instance)
-            if save_enabled:
-                if stream is None:
-                    raise ValueError("the magic-item death save needs a stream; pass the resolving subsystem's")
+            if save_stream is not None:
                 required = getattr(target.saves, category.value)
                 # The best of the item's actual bonuses: unset bonuses are 0 and
                 # must not mask a cursed item's penalty (−2/−2/unset saves at −2).
@@ -2169,7 +2188,7 @@ def destroy_equipment(
                     bonus for bonus in (template.attack_bonus, template.damage_bonus, template.ac_bonus) if bonus
                 ]
                 best_bonus = max(bonuses) if bonuses else 0
-                if stream.randbelow(20) + 1 + best_bonus >= required:
+                if save_stream.randbelow(20) + 1 + best_bonus >= required:
                     saved.append(instance)
                     continue
             destroyed.append(template.name)

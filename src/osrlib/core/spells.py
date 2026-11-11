@@ -1838,6 +1838,23 @@ def _max_range_feet(spell: SpellTemplate, caster_level: int) -> int | None:
     return None
 
 
+def _needs_creatures(mode: SpellMode) -> bool:
+    """Return whether every target of an automated mode has to be a creature, not a location string.
+
+    A location can't roll a saving throw, take damage or healing, die, come back to life, or count against a pool
+    of Hit Dice. An effect on a location grants no condition or modifiers either. *Web* is the one condition mode
+    that works on a location, because cast there it drops the condition and entangles whoever enters the cell.
+    """
+    effect, targeting = mode.effect, mode.targeting
+    if effect is None or targeting is None:
+        return False
+    if mode.save is not None or targeting.mode is TargetingMode.HD_BUDGET:
+        return True
+    if effect.kind in ("damage", "heal", "kill", "restore_life") or effect.modifiers:
+        return True
+    return effect.condition is not None and "escape_dice" not in effect.params
+
+
 def _memorized_index(caster: Any, spell: SpellTemplate, reversed: bool, profile: CasterProfile) -> int | None:
     """Return the index of the first matching memorized copy (lowest index).
 
@@ -1885,6 +1902,11 @@ def validate_cast(
     - The spell has the form and the mode asked for.
     - The number of targets suits the mode. For *magic missile*, that's exactly one target per
       missile the caster's level gives.
+    - Each target is a creature when the mode works only on creatures. A location string can't
+      make a saving throw, take damage or healing, die, come back to life, or count against a
+      pool of Hit Dice, and an effect on a location grants no condition or modifiers. *Web*,
+      *dispel magic*, the modes that cure, and the modes that attach an effect with no condition
+      or modifiers, like *light*'s, still take a location.
     - The target is in range, but only when the context gives a distance.
 
     It doesn't check for a cleric's holy symbol. In the SRD, a cleric carries one as part of their
@@ -1907,7 +1929,8 @@ def validate_cast(
         targets: The candidate targets: [`Creature`][osrlib.core.creature.Creature] values, which a
             `Character` and a [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both
             satisfy, or location strings for spells you attach to a place rather than a
-            creature. Only the number of targets is checked here.
+            creature. The checks count them and look for a location where the mode needs a
+            creature. They don't check what kind of creature each one is.
         context: The [`CastContext`][osrlib.core.spells.CastContext] with the facts you state about
             the situation. `None` states nothing.
         ledger: The [`EffectsLedger`][osrlib.core.effects.EffectsLedger], checked for an effect on
@@ -1918,10 +1941,12 @@ def validate_cast(
         The reasons the cast is illegal, as [`Rejection`][osrlib.core.validation.Rejection] models
         with a `code` and `params`. Empty when the cast may go ahead. A caster who can't cast, or a
         form or mode the spell doesn't have, returns that one rejection alone. The other checks
-        each add a rejection. The codes are `magic.cast.caster_incapacitated`,
-        `magic.cast.caster_restrained`, `magic.cast.anti_magic_shell`,
-        `magic.cast.not_reversible`, `magic.cast.unknown_mode`, `magic.cast.not_memorized`,
-        `magic.cast.target_count`, and `magic.cast.out_of_range`.
+        each add a rejection, and each location where the mode needs a creature adds one. The codes
+        are `magic.cast.caster_incapacitated`, `magic.cast.caster_restrained`,
+        `magic.cast.anti_magic_shell`, `magic.cast.not_reversible`, `magic.cast.unknown_mode`,
+        `magic.cast.not_memorized`, `magic.cast.target_count`,
+        `magic.cast.target_must_be_creature`, and `magic.cast.out_of_range`. The params of
+        `magic.cast.target_must_be_creature` are `spell`, `mode`, and the location in `target`.
 
     Examples:
         ```python
@@ -2024,6 +2049,15 @@ def validate_cast(
             rejections.append(
                 Rejection(code="magic.cast.target_count", params={"mode": mode, "expected": 1, "supplied": 0})
             )
+    if _needs_creatures(spell_mode):
+        rejections.extend(
+            Rejection(
+                code="magic.cast.target_must_be_creature",
+                params={"spell": spell.id, "mode": mode, "target": target},
+            )
+            for target in targets
+            if isinstance(target, str)
+        )
     if context.distance_feet is not None:
         maximum = _max_range_feet(spell, caster.level)
         if maximum is not None and context.distance_feet > maximum:
@@ -2492,7 +2526,8 @@ def validate_scroll_cast(
         reversed: True to ask about the spell's reversed form.
         targets: The candidate targets, [`Creature`][osrlib.core.creature.Creature] values or
             location strings, as [`cast_from_scroll`][osrlib.core.spells.cast_from_scroll] takes
-            them. Only the number of targets is checked. Leave it out for a spell with no targets.
+            them. The checks count them and look for a location where the mode needs a creature,
+            as `validate_cast` does. Leave it out for a spell with no targets.
         context: The [`CastContext`][osrlib.core.spells.CastContext] with the facts you state about
             the situation. `None` states nothing.
         ledger: The [`EffectsLedger`][osrlib.core.effects.EffectsLedger], checked for an effect on
