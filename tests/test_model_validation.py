@@ -111,7 +111,6 @@ def test_an_assignment_that_passes_still_applies():
 @pytest.mark.parametrize(
     "fields",
     [
-        {"mode": TargetingMode.UP_TO_N},
         {"mode": TargetingMode.UP_TO_N, "count": 0},
         {"mode": TargetingMode.UP_TO_N, "count": -2},
         {"mode": TargetingMode.UP_TO_N, "count_dice": "1d4-4"},
@@ -119,7 +118,6 @@ def test_an_assignment_that_passes_still_applies():
         {"mode": TargetingMode.HD_BUDGET, "hd_budget_dice": "1d4-4"},
     ],
     ids=[
-        "up to N with no count",
         "a count of zero",
         "a negative count",
         "count dice that can roll below one",
@@ -137,6 +135,22 @@ def test_targeting_specs_that_work_are_accepted():
     assert TargetingSpec(mode=TargetingMode.UP_TO_N, count_dice="2d4").count_dice == "2d4"
     assert TargetingSpec(mode=TargetingMode.HD_BUDGET, hd_budget_dice="2d8").hd_budget_dice == "2d8"
     assert TargetingSpec(mode=TargetingMode.SINGLE).count is None
+
+
+def test_a_spell_mode_for_up_to_n_targets_says_how_many():
+    """*Magic missile* takes its count from the caster's level, so the targeting alone can leave it out."""
+    from osrlib.core.spells import SpellMode
+    from osrlib.data import load_spells
+
+    missiles = load_spells().get("magic_missile").modes[0]
+    assert missiles.targeting.mode is TargetingMode.UP_TO_N
+    assert missiles.targeting.count is None
+    document = missiles.model_dump()
+    document["effect"]["params"] = {
+        key: value for key, value in document["effect"]["params"].items() if key != "missiles_base"
+    }
+    with pytest.raises(ValidationError):
+        SpellMode.model_validate(document)
 
 
 def test_a_magic_allotment_cant_exclude_every_kind():
@@ -201,3 +215,24 @@ def test_a_template_you_copy_is_still_yours_to_change():
     custom = type(troll).model_validate({**document, "id": "bog_troll", "name": "Bog Troll"})
     assert custom.ability("regeneration").params["per_round"] == 5
     assert troll.ability("regeneration").params["per_round"] == 3
+
+
+# ---------------------------------------------------------------------- adventures nobody can change
+
+
+@pytest.mark.parametrize("build", ["build_milestone_adventure", "build_gated_adventure", "build_barrow_adventure"])
+def test_an_adventure_has_nothing_that_can_be_changed(build):
+    """A game can start many sessions from one `Adventure`, so its content is shared the way a catalog is."""
+    import crawl_fixtures
+
+    found: list[str] = []
+    mutable_containers(getattr(crawl_fixtures, build)(), "adventure", found)
+    assert found[:5] == [], f"{len(found)} mutable containers"
+
+
+def test_an_adventure_still_dumps_and_loads():
+    import crawl_fixtures
+
+    adventure = crawl_fixtures.build_milestone_adventure()
+    assert type(adventure).model_validate(adventure.model_dump(mode="json")) == adventure
+    assert type(adventure).model_validate(adventure.model_dump()) == adventure
