@@ -16,7 +16,7 @@ The members, in the order you use them:
   triggers, and quests the adventure adds.
 - [`validate_adventure`][osrlib.crawl.adventure.validate_adventure]: takes an adventure and the
   built-in catalogs, and raises [`ContentValidationError`][osrlib.errors.ContentValidationError]
-  with a list of every reference it can't resolve.
+  with a list of every problem it finds.
 
 An adventure is frozen. The session reads it and never changes it. Everything that changes in play
 goes into the session's [`DungeonState`][osrlib.crawl.dungeon.DungeonState] instead, so what you
@@ -39,6 +39,8 @@ The guide
 [Building an adventure](https://mmacy.github.io/osrlib-python/getting-started/building-an-adventure/)
 walks through a complete program you can run.
 """
+
+from typing import Annotated, NamedTuple
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -73,6 +75,7 @@ from osrlib.crawl.dungeon import (
     Position,
     TransitionSpec,
     TrapSpec,
+    edge_key,
     step,
 )
 from osrlib.crawl.gates import ConditionSpec, GateSpec, HasItemCondition
@@ -89,7 +92,7 @@ from osrlib.crawl.triggers import (
     TriggerPattern,
     TriggerSpec,
 )
-from osrlib.data import load_magic_items
+from osrlib.data import load_magic_items, load_treasure_tables
 from osrlib.errors import ContentValidationError
 
 __all__ = [
@@ -114,6 +117,9 @@ class TownSpec(BaseModel):
         services: The services the town offers, to list for the player.
         travel_turns: The travel time from town to each dungeon.
 
+    Raises:
+        ValueError: If a travel time in `travel_turns` is negative.
+
     Examples:
         ```python
         from osrlib.crawl.adventure import TownSpec
@@ -135,13 +141,14 @@ class TownSpec(BaseModel):
     read them: the shop and temple commands work in any town. The session passes them to the player view as
     [`PlayerView.town_services`][osrlib.crawl.views.PlayerView.town_services], so you can list them on
     a town screen."""
-    travel_turns: dict[str, int] = {}
+    travel_turns: dict[str, Annotated[int, Field(ge=0)]] = {}
     """How long the trip from town to each dungeon's entrance takes, in exploration turns, keyed by
     dungeon id. [`EnterDungeon`][osrlib.crawl.commands.EnterDungeon] and
     [`TravelToTown`][osrlib.crawl.commands.TravelToTown] each advance the clock by this many turns,
     so on the way to a distant dungeon and back, light sources burn down and the session uses up the
-    party's rations at each day boundary. A trip to a dungeon with no entry here takes no time.
-    Every key has to be the id of a dungeon in this adventure, and
+    party's rations at each day boundary. A trip to a dungeon with no entry here, or with 0, takes no
+    time. Each value is 0 or more, and the model raises `ValueError` when you construct it with a
+    negative one. Every key has to be the id of a dungeon in this adventure, and
     [`validate_adventure`][osrlib.crawl.adventure.validate_adventure] reports one that isn't."""
 
 
@@ -274,7 +281,9 @@ class Adventure(BaseModel):
     A bundled id can't be the same as a built-in id or another bundled id.
     [`validate_adventure`][osrlib.crawl.adventure.validate_adventure] reports a repeated id instead
     of letting one template replace the other, because the template id in a
-    session's events has to refer to one monster. The guide
+    session's events has to refer to one monster. Each treasure type letter in a bundled template's
+    `treasure` has to be a B/X treasure type, `A` to `V`, and `validate_adventure` reports one that
+    isn't. The guide
     [Authoring custom classes, spells, monsters, and items](https://mmacy.github.io/osrlib-python/guides/authoring-custom-content/)
     covers writing a monster template."""
     items: tuple[ItemTemplate, ...] = ()
@@ -354,53 +363,81 @@ class Adventure(BaseModel):
         raise ValueError(f"unknown quest id {quest_id!r}")
 
 
-def _effective_monsters(adventure: Adventure, base: MonsterCatalog) -> tuple[MonsterCatalog, tuple[str, ...]]:
+class _BundleConflicts(NamedTuple):
+    """The bundled ids that composing a catalog skipped, sorted by why."""
+
+    built_in: tuple[str, ...] = ()
+    """Each bundled id that is already a built-in id, once."""
+    repeated: tuple[str, ...] = ()
+    """Each bundled id that an earlier entry of the same bundle already has, once."""
+
+    def lines(self, kind: str) -> list[str]:
+        """Return one error line per skipped id, where `kind` is `"monster"` or `"item"`."""
+        return [f"bundled {kind} id {bundled_id!r} collides with the catalog" for bundled_id in self.built_in] + [
+            f"bundled {kind} id {bundled_id!r} appears more than once in the bundle" for bundled_id in self.repeated
+        ]
+
+
+def _sort_bundle[Template: MonsterTemplate | ItemTemplate](
+    bundle: tuple[Template, ...], built_in: set[str]
+) -> tuple[list[Template], _BundleConflicts]:
+    """Split a bundle into the templates a session uses and the ids it skips.
+
+    A template whose id is built in is skipped, and so is each later template with the id of an
+    earlier one. The first template with an id is the one a session uses.
+    """
+    accepted: list[Template] = []
+    bundled: set[str] = set()
+    clashes: list[str] = []
+    repeats: list[str] = []
+    for template in bundle:
+        if template.id in built_in:
+            if template.id not in clashes:
+                clashes.append(template.id)
+        elif template.id in bundled:
+            if template.id not in repeats:
+                repeats.append(template.id)
+        else:
+            bundled.add(template.id)
+            accepted.append(template)
+    return accepted, _BundleConflicts(built_in=tuple(clashes), repeated=tuple(repeats))
+
+
+def _effective_monsters(adventure: Adventure, base: MonsterCatalog) -> tuple[MonsterCatalog, _BundleConflicts]:
     """Compose the base monster catalog with the adventure's bundled templates, first occurrence winning.
 
     Always returns a usable catalog plus the ids it skipped, so both callers, `validate_adventure` and
-    `GameSession`, get a whole answer, and each turns a non-empty collision list into the failure type
-    it needs. An empty bundle returns the base catalog object itself, so an adventure that bundles
-    nothing copies nothing.
+    `GameSession`, get a whole answer, and each turns the skipped ids into the failure type it needs.
+    An empty bundle returns the base catalog object itself, so an adventure that bundles nothing
+    copies nothing.
     """
     if not adventure.monsters:
-        return base, ()
-    seen = {template.id for template in base.monsters}
-    accepted: list[MonsterTemplate] = []
-    colliding: list[str] = []
-    for template in adventure.monsters:
-        if template.id in seen:
-            colliding.append(template.id)
-            continue
-        seen.add(template.id)
-        accepted.append(template)
-    return MonsterCatalog(monsters=(*base.monsters, *accepted)), tuple(colliding)
+        return base, _BundleConflicts()
+    accepted, conflicts = _sort_bundle(adventure.monsters, {template.id for template in base.monsters})
+    return MonsterCatalog(monsters=(*base.monsters, *accepted)), conflicts
 
 
-def _effective_equipment(adventure: Adventure, base: EquipmentCatalog) -> tuple[EquipmentCatalog, tuple[str, ...]]:
+def _effective_equipment(adventure: Adventure, base: EquipmentCatalog) -> tuple[EquipmentCatalog, _BundleConflicts]:
     """Compose the base equipment catalog with the adventure's bundled templates, first occurrence winning.
 
     Works like `_effective_monsters`, with one wider rule: an item id refers to one thing per session, so a
-    bundled id collides with the built-in magic-item ids as well as with the four equipment lists and
-    the rest of the bundle. The function skips collisions before it builds the catalog rather than
-    after, because `EquipmentCatalog`'s uniqueness validator raises a bare `ValueError` and a content
-    problem needs a typed one. `treasure_weights` is an encumbrance table rather than item identity,
-    so it passes through untouched and its ids fall outside the rule. An empty bundle returns the base
-    catalog object itself, so an adventure that bundles nothing copies nothing.
+    bundled id collides with the built-in magic-item ids as well as with the four equipment lists. The
+    function skips conflicting ids before it builds the catalog rather than after, because
+    `EquipmentCatalog`'s uniqueness validator raises a bare `ValueError` and a content problem needs a
+    typed one. `treasure_weights` is an encumbrance table rather than item identity, so it passes
+    through untouched and its ids fall outside the rule. An empty bundle returns the base catalog
+    object itself, so an adventure that bundles nothing copies nothing.
     """
     if not adventure.items:
-        return base, ()
-    seen = {template.id for template in (*base.weapons, *base.armour, *base.gear, *base.ammunition)}
-    seen.update(template.id for template in load_magic_items().items)
+        return base, _BundleConflicts()
+    built_in = {template.id for template in (*base.weapons, *base.armour, *base.gear, *base.ammunition)}
+    built_in.update(template.id for template in load_magic_items().items)
+    accepted, conflicts = _sort_bundle(adventure.items, built_in)
     weapons: list[WeaponTemplate] = []
     armour: list[ArmourTemplate] = []
     gear: list[GearTemplate] = []
     ammunition: list[AmmunitionTemplate] = []
-    colliding: list[str] = []
-    for template in adventure.items:
-        if template.id in seen:
-            colliding.append(template.id)
-            continue
-        seen.add(template.id)
+    for template in accepted:
         if isinstance(template, WeaponTemplate):
             weapons.append(template)
         elif isinstance(template, ArmourTemplate):
@@ -416,7 +453,18 @@ def _effective_equipment(adventure: Adventure, base: EquipmentCatalog) -> tuple[
         ammunition=(*base.ammunition, *ammunition),
         treasure_weights=base.treasure_weights,
     )
-    return effective, tuple(colliding)
+    return effective, conflicts
+
+
+def _unknown_treasure_types(letters: tuple[str, ...]) -> list[str]:
+    """Return each of `letters` that isn't the letter of a treasure type, in order.
+
+    Every place an author writes treasure type letters is checked with this function, in an
+    adventure and in a content pack. The letters are the `letter` of each table in
+    [`load_treasure_tables`][osrlib.data.load_treasure_tables]`().treasure_types`.
+    """
+    known = {table.letter for table in load_treasure_tables().treasure_types}
+    return [letter for letter in letters if letter not in known]
 
 
 def _area_has_boundary_door(area: AreaSpec, level: LevelSpec) -> bool:
@@ -432,13 +480,56 @@ def _area_has_boundary_door(area: AreaSpec, level: LevelSpec) -> bool:
     return any(level.edge(cell, direction).kind is EdgeKind.DOOR for cell in area.cells for direction in Direction)
 
 
-def _trap_crosses_a_passage(trap: TrapSpec | None) -> bool:
-    """Return whether a trap's effect moves its victim through a passage.
+def _edge_key_on_grid(key: str, level: LevelSpec) -> bool:
+    """Return whether `key` is the [`edge_key`][osrlib.crawl.dungeon.edge_key] of a side of a cell on the grid.
+
+    [`LevelSpec.edge`][osrlib.crawl.dungeon.LevelSpec.edge] looks up only keys in that form, so the
+    session never reads an entry under any other key.
+    """
+    cell, _, side = key.partition(":")
+    x, _, y = cell.partition(",")
+    try:
+        position = (int(x), int(y))
+        direction = Direction(side)
+    except ValueError:
+        return False
+    if edge_key(position, direction) != key:
+        return False
+    return level.in_bounds(position) or level.in_bounds(step(position, direction))
+
+
+def _validate_transition(
+    transition: TransitionSpec, level: LevelSpec, site: str, adventure: Adventure, errors: list[str]
+) -> None:
+    """Check that a transition stands on `level`'s grid and leads to a cell on the grid of a level that exists.
+
+    A level's transitions and the transitions in its traps all go through this function. `site` is
+    the subject of the error lines, like `crypt level 1: transition at (0, 0)`.
+    """
+    if not level.in_bounds(transition.position):
+        errors.append(f"{site} is out of bounds")
+    target = _resolve_level(adventure, transition.to_dungeon_id, transition.to_level_number)
+    if target is None:
+        errors.append(f"{site} targets unknown {transition.to_dungeon_id!r} level {transition.to_level_number}")
+    elif not target.in_bounds(transition.to_position):
+        errors.append(f"{site} has its target cell {transition.to_position} out of bounds")
+
+
+def _validate_trap(
+    trap: TrapSpec | None, level: LevelSpec, subject: str, adventure: Adventure, errors: list[str]
+) -> None:
+    """Check the transition in a trap's effect, for a trap on an area or on a feature.
 
     A trap's transition is a forced relocation, and a passage is something the party walks through
-    by choice, so validation refuses the two together.
+    by choice, so the transition can't be a passage. It gets the same checks as a level's
+    transitions. `subject` names the area or feature, like `crypt level 1: area 'pit'`.
     """
-    return trap is not None and trap.effect.transition is not None and trap.effect.transition.kind == "passage"
+    if trap is None or trap.effect.transition is None:
+        return
+    transition = trap.effect.transition
+    if transition.kind == "passage":
+        errors.append(f"{subject} has a trap whose transition is a passage")
+    _validate_transition(transition, level, f"{subject} trap transition at {transition.position}", adventure, errors)
 
 
 def _passage_far_cells(adventure: Adventure) -> set[tuple[str, int, Position]]:
@@ -502,16 +593,29 @@ def _validate_passage(
 
 def _validate_feature(
     feature: FeatureSpec,
+    area: AreaSpec | None,
     level: LevelSpec,
     owner: str,
+    adventure: Adventure,
     equipment: EquipmentCatalog,
     magic: MagicItemCatalog,
     errors: list[str],
 ) -> None:
-    if feature.cell is not None and not level.in_bounds(feature.cell):
-        errors.append(f"{owner}: feature {feature.id!r} cell {feature.cell} is out of bounds")
-    if _trap_crosses_a_passage(feature.trap):
-        errors.append(f"{owner}: feature {feature.id!r} has a trap whose transition is a passage")
+    """Check one feature, listed on `area`, or on the level itself when `area` is `None`."""
+    subject = f"{owner}: feature {feature.id!r}"
+    if feature.cell is None:
+        if area is None:
+            errors.append(f"{owner}: level-scope feature {feature.id!r} needs a cell")
+    elif not level.in_bounds(feature.cell):
+        errors.append(f"{subject} cell {feature.cell} is out of bounds")
+    elif area is not None and feature.cell not in area.cells:
+        errors.append(f"{subject} cell {feature.cell} is not a cell of area {area.id!r}")
+    elif area is not None and (holder := level.area_at(feature.cell)) is not None and holder is not area:
+        errors.append(
+            f"{subject} cell {feature.cell} belongs to area {holder.id!r}, "
+            f"which is listed before area {area.id!r}, so the party can't reach the feature"
+        )
+    _validate_trap(feature.trap, level, subject, adventure, errors)
     for item_id in feature.item_ids:
         try:
             equipment.get(item_id)
@@ -733,7 +837,7 @@ def _validate_quest(
 
 
 def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment: EquipmentCatalog) -> None:
-    """Check that every id in an adventure refers to something that exists.
+    """Check that every id in an adventure refers to something that exists, and that the session can play it.
 
     Call it while you write an adventure. It follows the references in the tree and raises once,
     with a list of everything wrong, so you can fix the whole document in one pass. It changes
@@ -745,14 +849,23 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
 
     - Bundled monster ids are unique and aren't in `monsters`.
     - Bundled item ids are unique and aren't in `equipment` or the built-in magic-item catalog.
+      For a bundled monster or item, the message says whether its id repeats within the bundle or
+      is already a built-in id.
+    - Each treasure type letter in a bundled monster's `treasure` is the letter of a treasure type
+      in [`load_treasure_tables`][osrlib.data.load_treasure_tables]`()`.
     - Each dungeon id in the town's `travel_turns` is a dungeon of the adventure.
     - Each dungeon has at least one level whose `entrance` is set.
 
     For each level, it checks the parts you lay out on the level's grid:
 
     - The entrance is on the grid.
+    - Each key in `edges` is the [`edge_key`][osrlib.crawl.dungeon.edge_key] of a side of a cell on
+      the grid. The session reads an edge only under that key.
     - Area ids are unique, and every area cell is on the grid. An area is a keyed room or cave, an
       [`AreaSpec`][osrlib.crawl.dungeon.AreaSpec].
+    - Each area has at least one cell of its own. A cell that two areas list belongs to the one
+      listed first, so an area whose cells all belong to earlier areas can never be entered.
+    - Each treasure type letter in an area's `treasure` is the letter of a treasure type.
     - Feature ids are unique across the level, and none is `"pile"`, which is reserved for drop
       piles. A feature is something in the dungeon that the party can find and act on, like a
       treasure cache, a [`FeatureSpec`][osrlib.crawl.dungeon.FeatureSpec].
@@ -760,6 +873,8 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
       by area id and feature id in the same way, so it would confuse the two.
     - Every feature cell is on the grid, and every feature listed on the level itself, not on an
       area, has a cell.
+    - The cell of a feature listed on an area, when it has one, is one of the area's cells, and
+      belongs to that area rather than to an area listed before it.
 
     It checks the ways in and out, where a transition is stairs, a trapdoor, a chute, or a passage
     (a [`TransitionSpec`][osrlib.crawl.dungeon.TransitionSpec]), and a gate is a condition on a door
@@ -777,6 +892,8 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
     - An area whose room trap has `trigger="open"` has a door on at least one edge of its cells. A
       door that starts open counts. A trap with `trigger="enter"` needs no door.
     - No area trap and no feature trap moves the party through a passage.
+    - The transition in an area trap or a feature trap gets the same checks as a level's
+      transitions: it stands on the grid and leads to a cell on the grid of a level that exists.
 
     It checks what the party meets and finds:
 
@@ -859,12 +976,13 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
     """
     errors: list[str] = []
     magic = load_magic_items()
-    effective, colliding = _effective_monsters(adventure, monsters)
-    for monster_id in colliding:
-        errors.append(f"bundled monster id {monster_id!r} collides with the catalog")
-    effective_items, colliding_items = _effective_equipment(adventure, equipment)
-    for item_id in colliding_items:
-        errors.append(f"bundled item id {item_id!r} collides with the catalog")
+    effective, conflicts = _effective_monsters(adventure, monsters)
+    errors.extend(conflicts.lines("monster"))
+    effective_items, item_conflicts = _effective_equipment(adventure, equipment)
+    errors.extend(item_conflicts.lines("item"))
+    for template in adventure.monsters:
+        for letter in _unknown_treasure_types((*template.treasure.letters, *template.treasure.parenthetical)):
+            errors.append(f"bundled monster {template.id!r} has unknown treasure type {letter!r}")
     for dungeon_id in adventure.town.travel_turns:
         if not any(dungeon.id == dungeon_id for dungeon in adventure.dungeons):
             errors.append(f"town travel names unknown dungeon {dungeon_id!r}")
@@ -892,14 +1010,26 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
             for area_id in area_ids:
                 if area_id in feature_id_set:
                     errors.append(f"{owner}: id {area_id!r} names both an area and a feature")
+            claimed: dict[Position, AreaSpec] = {}
             for area in level.areas:
                 for cell in area.cells:
                     if not level.in_bounds(cell):
                         errors.append(f"{owner}: area {area.id!r} cell {cell} is out of bounds")
+                earlier = [claimed[cell] for cell in area.cells if cell in claimed and claimed[cell] is not area]
+                if len(earlier) == len(area.cells):
+                    names = ", ".join(dict.fromkeys(repr(other.id) for other in earlier))
+                    errors.append(
+                        f"{owner}: area {area.id!r} has no cell of its own, "
+                        f"because each of its cells belongs to an area listed before it: {names}"
+                    )
+                for cell in area.cells:
+                    claimed.setdefault(cell, area)
                 if area.trap is not None and area.trap.trigger == "open" and not _area_has_boundary_door(area, level):
                     errors.append(f"{owner}: area {area.id!r} has an open-trigger trap and no door on its boundary")
-                if _trap_crosses_a_passage(area.trap):
-                    errors.append(f"{owner}: area {area.id!r} has a trap whose transition is a passage")
+                _validate_trap(area.trap, level, f"{owner}: area {area.id!r}", adventure, errors)
+                if area.treasure is not None:
+                    for letter in _unknown_treasure_types(area.treasure.letters):
+                        errors.append(f"{owner}: area {area.id!r} has unknown treasure type {letter!r}")
                 if area.encounter is not None:
                     for keyed in area.encounter.monsters:
                         try:
@@ -914,11 +1044,9 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
                                 f"outside {keyed.template_id!r}'s options"
                             )
                 for feature in area.features:
-                    _validate_feature(feature, level, owner, effective_items, magic, errors)
+                    _validate_feature(feature, area, level, owner, adventure, effective_items, magic, errors)
             for feature in level.features:
-                if feature.cell is None:
-                    errors.append(f"{owner}: level-scope feature {feature.id!r} needs a cell")
-                _validate_feature(feature, level, owner, effective_items, magic, errors)
+                _validate_feature(feature, None, level, owner, adventure, effective_items, magic, errors)
             if level.wandering.table is not None:
                 for row in level.wandering.table.rows:
                     if row.entry.kind != "monster":
@@ -930,25 +1058,17 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
                             errors.append(
                                 f"{owner}: wandering row {row.name!r} references unknown monster {monster_id!r}"
                             )
-            for edge_key_, edge in level.edges.items():
+            for key, edge in level.edges.items():
+                if not _edge_key_on_grid(key, level):
+                    errors.append(f"{owner}: edge key {key!r} is not the edge_key of a side of a cell on the grid")
                 if edge.door is not None:
-                    _validate_gate(edge.door.requires, owner, f"door {edge_key_}", effective_items, magic, errors)
+                    _validate_gate(edge.door.requires, owner, f"door {key}", effective_items, magic, errors)
             passage_sides: set[tuple[Position, Direction]] = set()
             doubled_sides: set[tuple[Position, Direction]] = set()
             for transition in level.transitions:
-                _validate_gate(
-                    transition.requires, owner, f"transition at {transition.position}", effective_items, magic, errors
-                )
-                if not level.in_bounds(transition.position):
-                    errors.append(f"{owner}: transition at {transition.position} is out of bounds")
-                target = _resolve_level(adventure, transition.to_dungeon_id, transition.to_level_number)
-                if target is None:
-                    errors.append(
-                        f"{owner}: transition targets unknown "
-                        f"{transition.to_dungeon_id!r} level {transition.to_level_number}"
-                    )
-                elif not target.in_bounds(transition.to_position):
-                    errors.append(f"{owner}: transition target cell {transition.to_position} is out of bounds")
+                site = f"transition at {transition.position}"
+                _validate_gate(transition.requires, owner, site, effective_items, magic, errors)
+                _validate_transition(transition, level, f"{owner}: {site}", adventure, errors)
                 if transition.kind != "passage" or transition.side is None:
                     continue
                 _validate_passage(transition, transition.side, dungeon.id, level, owner, far_cells, errors)

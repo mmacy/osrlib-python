@@ -635,17 +635,13 @@ class GameSession:
         """The adventure being played: its town, dungeons, quests, and any content it bundles. It's
         frozen, and a save contains a copy of it, so a saved game needs no other file to
         load."""
-        catalog, colliding = _effective_monsters(adventure, load_monsters())
-        if colliding:
-            raise ContentValidationError(
-                "adventure bundles colliding monster ids: " + ", ".join(repr(monster_id) for monster_id in colliding)
-            )
+        catalog, conflicts = _effective_monsters(adventure, load_monsters())
+        if lines := conflicts.lines("monster"):
+            raise ContentValidationError("adventure bundles colliding monster ids:\n" + "\n".join(lines))
         self._monster_catalog = catalog
-        equipment, colliding_items = _effective_equipment(adventure, load_equipment())
-        if colliding_items:
-            raise ContentValidationError(
-                "adventure bundles colliding item ids: " + ", ".join(repr(item_id) for item_id in colliding_items)
-            )
+        equipment, item_conflicts = _effective_equipment(adventure, load_equipment())
+        if lines := item_conflicts.lines("item"):
+            raise ContentValidationError("adventure bundles colliding item ids:\n" + "\n".join(lines))
         self._equipment_catalog = equipment
         self.ruleset = ruleset
         """The ruleset in play. Its options settle the rules that B/X leaves open, like when

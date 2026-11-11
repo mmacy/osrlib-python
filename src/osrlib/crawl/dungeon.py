@@ -589,8 +589,10 @@ class TrapEffect(BaseModel):
     Raises:
         ContentValidationError: If `damage_dice`, `volley_dice`, or `condition_duration_dice` is not
             a valid dice expression.
-        ValueError: If a duration field is set without a `condition`, if `volley_dice` is set without
-            `damage_dice`, or if `transition` has a gate.
+        ValueError: If a duration field is set without a `condition`, if the duration isn't whole,
+            if `volley_dice` is set without `damage_dice`, or if `transition` has a gate. A whole
+            duration is `condition_duration_unit` with exactly one of `condition_duration_dice` and
+            `condition_duration_amount`.
 
     Examples:
         ```python
@@ -637,8 +639,10 @@ class TrapEffect(BaseModel):
     `condition_duration_dice`, not both, together with `condition_duration_unit` and a
     `condition`."""
     condition_duration_unit: TimeUnit | None = None
-    """The unit the duration counts in: rounds, turns, or days. Leave the three duration fields unset
-    for a condition that lasts until something removes it."""
+    """The unit the duration counts in: rounds, turns, or days. Set it together with
+    `condition_duration_dice` or `condition_duration_amount`. Leave the three duration fields unset
+    for a condition that lasts until something removes it. The model raises `ValueError` when you
+    construct it with a unit and no length, or a length and no unit."""
     fall_feet: int | None = None
     """How far the victim falls, in feet, or `None` for a trap with no fall, like a pit's depth. The
     fall deals 1d6 damage for each full 10 feet, the OSE SRD's falling rule, as
@@ -651,7 +655,9 @@ class TrapEffect(BaseModel):
     the save, and leaves the party on the trapped cell when every victim passes. With no `save`,
     it always moves the party. The transition can't have a `requires` gate, because the party
     doesn't choose to take it. [`validate_adventure`][osrlib.crawl.adventure.validate_adventure]
-    reports a transition whose `kind` is `"passage"`."""
+    checks it as it checks a level's transitions: it has to stand on the grid of the trap's level and
+    lead to a cell on the grid of a level that exists. It also reports a transition whose `kind` is
+    `"passage"`."""
     manual: str | None = None
     """A description of a trap your own code resolves, or `None`. osrlib never reads it. Use it for a
     trap whose effect is the referee's call rather than a die roll."""
@@ -664,14 +670,15 @@ class TrapEffect(BaseModel):
         return value
 
     @model_validator(mode="after")
-    def _condition_duration_needs_a_condition(self) -> TrapEffect:
-        has_duration = (
-            self.condition_duration_dice is not None
-            or self.condition_duration_amount is not None
-            or self.condition_duration_unit is not None
-        )
+    def _condition_duration_is_whole(self) -> TrapEffect:
+        has_length = self.condition_duration_dice is not None or self.condition_duration_amount is not None
+        has_duration = has_length or self.condition_duration_unit is not None
         if has_duration and self.condition is None:
             raise ValueError("a condition duration needs a condition")
+        if self.condition_duration_dice is not None and self.condition_duration_amount is not None:
+            raise ValueError("a condition duration is dice or a fixed amount, not both")
+        if has_length != (self.condition_duration_unit is not None):
+            raise ValueError("a condition duration needs a unit and either dice or a fixed amount")
         if self.volley_dice is not None and self.damage_dice is None:
             raise ValueError("a volley needs per-projectile damage dice")
         if self.transition is not None and self.transition.requires is not None:
@@ -853,8 +860,9 @@ class AreaTreasureSpec(BaseModel):
     and puts the results in one cache. The letters are `A` to `V`. See
     [the treasure type index](https://mmacy.github.io/osrlib-python/reference/content-ids/treasure-types/),
     or read the `letter` of each entry in the `treasure_types` of
-    [`load_treasure_tables`][osrlib.data.load_treasure_tables]`()`. Set this or `unguarded`, not
-    both."""
+    [`load_treasure_tables`][osrlib.data.load_treasure_tables]`()`.
+    [`validate_adventure`][osrlib.crawl.adventure.validate_adventure] reports any other letter. Set
+    this or `unguarded`, not both."""
     unguarded: bool = False
     """Whether to roll on the OSE SRD's table for unguarded treasure instead of listing letters. The
     table has a row for each band of dungeon levels, and the session uses the row for the number of
@@ -1019,7 +1027,8 @@ class FeatureSpec(BaseModel):
     cell: Position | None = None
     """The cell the feature is on. A feature listed on a level needs one. A feature listed on an area
     can leave it `None`, and then the party can reach it from any cell of the area. When you set it
-    on an area's feature, use one of the area's cells."""
+    on an area's feature, it has to be one of the area's cells, and
+    [`validate_adventure`][osrlib.crawl.adventure.validate_adventure] reports one that isn't."""
     item_ids: tuple[str, ...] = ()
     """Ordinary items in the cache, by template id, one item for each id. Use an id from
     [`load_equipment`][osrlib.data.load_equipment]`()`, listed in
@@ -1214,8 +1223,10 @@ class AreaSpec(BaseModel):
     cells: tuple[Position, ...] = Field(min_length=1)
     """The cells the area covers, at least one. They don't have to touch each other, though a room's
     cells usually do. Every cell has to be on the level's grid. The first cell is where the session
-    puts the encounter's lair hoard. Don't list a cell in two areas: a cell belongs to the first area
-    that lists it."""
+    puts the encounter's lair hoard. A cell that two areas list belongs to the one listed first in
+    the level's `areas`. Each area needs at least one cell that no earlier area lists, or the party
+    can never enter it, and [`validate_adventure`][osrlib.crawl.adventure.validate_adventure] reports
+    an area without one."""
     encounter: KeyedEncounter | None = None
     """The monsters waiting in the room, or `None` for a room without any. See
     [`KeyedEncounter`][osrlib.crawl.dungeon.KeyedEncounter]."""
@@ -1336,8 +1347,10 @@ class LevelSpec(BaseModel):
     edges: dict[str, Edge] = {}
     """Every edge on the grid that isn't a wall, as an [`Edge`][osrlib.crawl.dungeon.Edge]. Write
     each key with [`edge_key`][osrlib.crawl.dungeon.edge_key], like `"1,0:west"`, and only for an
-    edge between two cells on the grid. An edge with no entry is a wall, and so is the level's
-    boundary, so an empty map is a level of solid rock. Read an edge with
+    edge between two cells on the grid. [`validate_adventure`][osrlib.crawl.adventure.validate_adventure]
+    reports a key that isn't the `edge_key` of a side of a cell on the grid, like `"0,0:east"` in place
+    of `"1,0:west"`. An edge with no entry is a wall, and so is the level's boundary, so an empty
+    map is a level of solid rock. Read an edge with
     [`edge`][osrlib.crawl.dungeon.LevelSpec.edge] instead of indexing the map, because it works out
     the key and returns a wall for an edge with no entry."""
     areas: tuple[AreaSpec, ...] = ()
@@ -1425,9 +1438,8 @@ class LevelSpec(BaseModel):
             position: The cell.
 
         Returns:
-            The first area in `areas` whose `cells` include the position, or `None` when the cell is
-            corridor. Two areas can list the same cell, and then the one earlier in `areas` is
-            returned.
+            The area the cell belongs to, or `None` when the cell is corridor. A cell that two
+            areas list belongs to the one listed first in `areas`.
 
         Examples:
             ```python

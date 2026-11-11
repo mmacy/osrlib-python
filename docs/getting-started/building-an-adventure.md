@@ -13,7 +13,7 @@ The models form a tree:
 
 A level is a `width × height` grid. Cells are addressed `(x, y)` with `x` increasing east and `y` increasing south from `(0, 0)` at the northwest corner.
 
-Walls are the default. You declare the exceptions (open edges and doors) in the `edges` map. Everything absent from the map is solid wall, including the level boundary. The key `"1,0:west"` is the west side of cell `(1, 0)`. The [`edge_key`][osrlib.crawl.dungeon.edge_key] helper computes the canonical key for any cell and direction:
+Walls are the default. You declare the exceptions (open edges and doors) in the `edges` map. Everything absent from the map is solid wall, including the level boundary. The key `"1,0:west"` is the west side of cell `(1, 0)`. The [`edge_key`][osrlib.crawl.dungeon.edge_key] helper computes the canonical key for any cell and direction. Write every key in that form. The engine never reads an entry under any other key, like `"0,0:east"` in place of `"1,0:west"`, so validation reports one:
 
 ```{.python .no-run}
 # The level: a 4x1 corridor, entered at the west end, with a door at the far end.
@@ -33,7 +33,7 @@ An [`Edge`][osrlib.crawl.dungeon.Edge] is `open`, `wall`, or `door`. A door edge
 
 ## Keyed areas
 
-Cells not covered by any area are corridor. An [`AreaSpec`][osrlib.crawl.dungeon.AreaSpec] defines a region (a room, a cave, a shrine) and attaches content to it: descriptive prose for your front end, an encounter, a trap, treasure. The party triggers an area's content by stepping into any of its cells:
+Cells not covered by any area are corridor. An [`AreaSpec`][osrlib.crawl.dungeon.AreaSpec] defines a region (a room, a cave, a shrine) and attaches content to it: descriptive prose for your front end, an encounter, a trap, treasure. The party triggers an area's content by stepping into any of its cells. A cell that two areas list belongs to the one listed first, so give each area at least one cell of its own. A feature you list on an area with a `cell` goes on a cell that belongs to that area:
 
 ```{.python .no-run}
     areas=(
@@ -76,7 +76,7 @@ The root also contains the adventure's *behavior* on the `items`, `triggers`, an
 
 ## Validate before play
 
-[`validate_adventure`][osrlib.crawl.adventure.validate_adventure] checks the whole tree against the compiled catalogs and raises a [`ContentValidationError`][osrlib.errors.ContentValidationError] that lists every problem at once: unknown monster or item ids, out-of-bounds cells, transitions to nowhere, missing entrances. [`GameSession.new`][osrlib.crawl.session.GameSession.new] runs the same validation, so a session can never start on broken content. Call `validate_adventure` yourself to find the problems sooner, while you're still authoring:
+[`validate_adventure`][osrlib.crawl.adventure.validate_adventure] checks the whole tree against the compiled catalogs and raises a [`ContentValidationError`][osrlib.errors.ContentValidationError] that lists every problem at once: unknown monster or item ids, unknown treasure type letters, out-of-bounds cells, edge keys the engine never reads, areas with no cell of their own, features outside their area, transitions to nowhere (including the ones in traps), missing entrances. [`GameSession.new`][osrlib.crawl.session.GameSession.new] runs the same validation, so a session can never start on broken content. Call `validate_adventure` yourself to find the problems sooner, while you're still authoring:
 
 ```{.python .no-run}
 # Validation catches unknown ids and broken geometry before play ever starts.

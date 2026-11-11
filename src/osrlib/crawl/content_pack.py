@@ -84,6 +84,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from osrlib.core.items import EquipmentCatalog
 from osrlib.core.monsters import MonsterCatalog, MonsterTemplate
+from osrlib.crawl.adventure import _unknown_treasure_types
 from osrlib.crawl.dungeon import AreaTreasureSpec, FeatureSpec, KeyedEncounter, TrapSpec, WanderingSpec
 from osrlib.data import load_magic_items
 from osrlib.errors import ContentValidationError
@@ -367,7 +368,8 @@ class PackFinding(BaseModel):
     Attributes:
         code: What kind of gap this is.
         message: The details, in English.
-        entry_id: The entry the gap is on, or `None` for a gap in a section's wandering table.
+        entry_id: The entry the gap is on, or `None` for a gap in a section's wandering table or a
+            bundled monster.
 
     Raises:
         ValueError: If `code` is not two or more dot-separated snake_case segments.
@@ -386,13 +388,17 @@ class PackFinding(BaseModel):
       don't have.
     - `pack.feature.unknown_item`: a feature's `item_ids` has an id the equipment catalog doesn't have.
     - `pack.feature.unknown_magic_item`: a feature's `magic_item_ids` has an id the magic-item catalog
-      doesn't have."""
+      doesn't have.
+    - `pack.treasure.unknown_type`: an entry's `treasure` has a letter that isn't a treasure type.
+    - `pack.monster.unknown_treasure_type`: a bundled monster's `treasure` has a letter that isn't a
+      treasure type. The finding's `entry_id` is `None`."""
     message: str
     """The details in English: which entry or section, which feature, and which id. It's written for
     a person reading a list of findings."""
     entry_id: str | None = None
-    """The id of the entry the gap is on, or `None` when the gap is in a section's wandering table
-    rather than in an entry. For a wandering-table gap, `message` includes the section's id."""
+    """The id of the entry the gap is on, or `None` when the gap is in a section's wandering table or
+    a bundled monster rather than in an entry. For a wandering-table gap, `message` includes the
+    section's id, and for a bundled monster, the monster's id."""
 
     @field_validator("code")
     @classmethod
@@ -419,7 +425,8 @@ def validate_content_pack(
     `monsters` combined with the pack's `monsters`. It checks each feature's `item_ids` against
     `equipment`, and each feature's `magic_item_ids` against the built-in magic-item catalog, which it
     loads itself with [`load_magic_items`][osrlib.data.load_magic_items] because packs bundle no magic
-    items.
+    items. It checks each treasure type letter in an entry's `treasure` and in a bundled monster's
+    `treasure` against the treasure types, `A` to `V`.
 
     It never raises for a gap. A dangling reference is as allowed in a pack as in an adventure you're
     still writing, so the gaps come back as data.
@@ -436,9 +443,10 @@ def validate_content_pack(
             has as a gap, because a pack has to work in other adventures.
 
     Returns:
-        One finding for each gap, in pack order: section by section, and within a section, the
-        entries in order, then the wandering table. An id that appears in several places gives a
-        finding for each place. An empty tuple means the pack is self-contained.
+        One finding for each gap, in pack order: the bundled monsters first, then section by
+        section, and within a section, the entries in order, then the wandering table. An id that
+        appears in several places gives a finding for each place. An empty tuple means the pack is
+        self-contained.
 
     Examples:
         ```python
@@ -460,6 +468,14 @@ def validate_content_pack(
     known_monsters.update(template.id for template in pack.monsters)
     magic = load_magic_items()
     findings: list[PackFinding] = []
+    for template in pack.monsters:
+        for letter in _unknown_treasure_types((*template.treasure.letters, *template.treasure.parenthetical)):
+            findings.append(
+                PackFinding(
+                    code="pack.monster.unknown_treasure_type",
+                    message=f"bundled monster {template.id!r} has unknown treasure type {letter!r}",
+                )
+            )
 
     def check_items(features: tuple[FeatureSpec, ...], entry_id: str) -> None:
         for feature in features:
@@ -500,6 +516,15 @@ def validate_content_pack(
                                 entry_id=entry.id,
                             )
                         )
+            if entry.treasure is not None:
+                for letter in _unknown_treasure_types(entry.treasure.letters):
+                    findings.append(
+                        PackFinding(
+                            code="pack.treasure.unknown_type",
+                            message=f"entry {entry.id!r} has unknown treasure type {letter!r}",
+                            entry_id=entry.id,
+                        )
+                    )
             check_items(entry.features, entry.id)
         if section.wandering is not None and section.wandering.table is not None:
             for row in section.wandering.table.rows:
