@@ -2188,9 +2188,10 @@ HealingService = Literal[
 [`PurchaseHealing.service`][osrlib.crawl.commands.PurchaseHealing] accepts.
 
 The set is closed: constructing a `PurchaseHealing` with any other name fails validation.
-[`HEALING_SERVICES`][osrlib.crawl.exploration.HEALING_SERVICES] uses this same type for the
-keys of its price list, so the services you offer from that list are always the names the
-command accepts. Annotate a service parameter in your code with this type, and your type
+[`HEALING_SERVICES`][osrlib.crawl.exploration.HEALING_SERVICES] and
+[`TownSpec.healing_prices`][osrlib.crawl.adventure.TownSpec.healing_prices] use this same type
+for the keys of their price lists, so the services you offer from either list are always the
+names the command accepts. Annotate a service parameter in your code with this type, and your type
 checker catches a wrong name."""
 
 
@@ -2198,16 +2199,21 @@ class PurchaseHealing(Command):
     """Buy a temple healing service in town (takes no game time).
 
     The party must be in town. Name the patient in `character_id` and the service in `service`.
-    The OSE SRD describes the base town in prose and lists no temple prices, so osrlib sets
-    these, by `service` value: `cure_light_wounds` 25 gp, `cure_serious_wounds` 100 gp,
-    `cure_disease` 150 gp, `neutralize_poison` 150 gp, `remove_curse` 200 gp, and `raise_dead`
-    1,500 gp. You can read the same list from [`HEALING_SERVICES`][osrlib.crawl.exploration.HEALING_SERVICES]. Each
-    service works as the matching spell, cast on the member by a temple cleric of the lowest
-    level that can cast it.
+    Each service works as the matching spell, cast on the member by a temple cleric. The cleric is
+    of the lowest level that can cast the service unless you choose a level in `caster_level`.
+
+    The town's [`TownSpec.healing_prices`][osrlib.crawl.adventure.TownSpec.healing_prices] sets
+    what each service costs, and a service the town doesn't list costs the standard price from
+    [`HEALING_SERVICES`][osrlib.crawl.exploration.HEALING_SERVICES]. The OSE SRD describes the base
+    town in prose and lists no temple prices, so osrlib sets the standard prices, by `service`
+    value: `cure_light_wounds` 25 gp, `cure_serious_wounds` 100 gp, `cure_disease` 150 gp,
+    `neutralize_poison` 150 gp, `remove_curse` 200 gp, and `raise_dead` 1,500 gp. The price is the
+    same at every cleric level. To show what the party's town charges, read
+    [`PlayerView.town_healing_prices`][osrlib.crawl.views.PlayerView.town_healing_prices].
 
     The whole party pays the fee, not only the patient. The temple takes it from the patient's
     purse first, then from the other members' purses in marching order, dead members included,
-    until the fee is paid.
+    until the fee is paid. A service the town sets at 0 gp takes nothing from any purse.
 
     Each purse pays only in whole gold pieces, and any value below a gold piece stays in the
     purse. For example, two members who each have 12 gp and
@@ -2223,13 +2229,18 @@ class PurchaseHealing(Command):
     Rejections:
         - `session.command.wrong_mode` - the party is not in town.
         - `session.command.unknown_member` - `character_id` matches no party member.
+        - `town.healing.caster_level_out_of_range` - `caster_level` is below the lowest level
+          that can cast the service, or above the highest level a cleric can reach. The
+          rejection's `minimum` and `maximum` params give the lowest and highest levels the
+          temple accepts for the service.
         - `items.purchase.insufficient_funds` - the whole gold pieces in the party's
-          purses add up to less than the fee.
+          purses add up to less than the town's price for the service.
         - `town.healing.no_effect` - the service would do nothing for the member. That's
-          `raise_dead` for a living member, `cure_disease` for a member who isn't diseased,
-          and `neutralize_poison` for a member who isn't poisoned and didn't die of poison
-          in the last 10 rounds. The session checks the party's funds first, so a party
-          that can't pay gets `items.purchase.insufficient_funds` instead.
+          `raise_dead` for a living member or for one dead longer than the spell reaches at
+          the cleric's level, `cure_disease` for a member who isn't diseased, and
+          `neutralize_poison` for a member who isn't poisoned and didn't die of poison in the
+          last 10 rounds. The session checks the party's funds first, so a party that can't
+          pay gets `items.purchase.insufficient_funds` instead.
 
     Events:
         A [`HealingPurchasedEvent`][osrlib.crawl.events.HealingPurchasedEvent] listing
@@ -2246,11 +2257,18 @@ class PurchaseHealing(Command):
     `raise_dead` is the service for a dead member, and the session refuses it for a living
     one."""
     service: HealingService
-    """Which service to buy. The prices are fixed: `cure_light_wounds` 25 gp,
-    `cure_serious_wounds` 100 gp, `cure_disease` 150 gp, `neutralize_poison` 150 gp,
-    `remove_curse` 200 gp, and `raise_dead` 1,500 gp. Each works as the matching spell, cast by
-    a temple cleric of the lowest level that can cast it. `remove_curse` also frees the member
-    from cursed items whose curse has been revealed, so they can take them off."""
+    """Which service to buy. Each works as the matching spell, cast by the temple cleric.
+    `remove_curse` also frees the member from cursed items whose curse has been revealed, so they
+    can take them off."""
+    caster_level: int | None = None
+    """The level of the temple cleric who casts the service, or `None` for the lowest level that
+    can cast it, like level 2 for `cure_light_wounds` and level 7 for `raise_dead`.
+
+    The level decides how long dead a member `raise_dead` can bring back: 4 days for each level
+    above 7th. A level 7 cleric raises only a member who died less than a day ago, and a level 9
+    cleric raises a member dead up to 8 days. The session refuses a level below the lowest that can
+    cast the service, or above 14, the highest level a cleric can reach. The price is the same at
+    every level."""
 
 
 class Parley(Command):

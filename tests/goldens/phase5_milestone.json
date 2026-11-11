@@ -727,6 +727,7 @@
       "source": null
     },
     {
+      "caster_level": null,
       "character_id": "character-0002",
       "command_type": "purchase_healing",
       "service": "cure_light_wounds",

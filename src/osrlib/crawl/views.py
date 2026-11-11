@@ -119,7 +119,7 @@ from osrlib.crawl.battle import BattleState
 from osrlib.crawl.commands import Command, SessionMode
 from osrlib.crawl.dungeon import Direction, DungeonState, EdgeKind, PartyLocation, Position, cell_ref, edge_ref
 from osrlib.crawl.encounter import EncounterState, _member_kind
-from osrlib.crawl.exploration import EXHAUSTED_KIND, FATIGUE_KIND, _light_reveal
+from osrlib.crawl.exploration import EXHAUSTED_KIND, FATIGUE_KIND, HEALING_SERVICES, _light_reveal
 from osrlib.crawl.party import Party
 from osrlib.crawl.session import (
     DeathRecord,
@@ -696,6 +696,15 @@ class PlayerView(BaseModel):
     """The base town's description."""
     town_services: tuple[str, ...]
     """The services the town offers, as text from the adventure for you to list."""
+    town_healing_prices: dict[str, int] = {}
+    """What the town's temple charges for each of its services, in gold pieces, keyed by the
+    [`HealingService`][osrlib.crawl.commands.HealingService] name, like `"raise_dead"`. Every
+    service is listed. A price comes from
+    [`TownSpec.healing_prices`][osrlib.crawl.adventure.TownSpec.healing_prices] where the adventure
+    sets one, and from the standard prices in
+    [`HEALING_SERVICES`][osrlib.crawl.exploration.HEALING_SERVICES] otherwise. Read it to show the
+    temple's price list, and to check the party's gold against a price before you send a
+    [`PurchaseHealing`][osrlib.crawl.commands.PurchaseHealing]."""
     party: tuple[MemberView, ...]
     """The party's character sheets, in marching order, the dead included."""
     location: PartyLocation
@@ -1119,6 +1128,10 @@ def build_player_view(session) -> PlayerView:
         town_name=session.adventure.town.name,
         town_description=session.adventure.town.description,
         town_services=session.adventure.town.services,
+        town_healing_prices={
+            service: session.adventure.town.healing_prices.get(service, standard_gp)
+            for service, (_, standard_gp) in HEALING_SERVICES.items()
+        },
         party=members,
         location=session.dungeon_state.location,
         clock_rounds=session.clock.rounds,

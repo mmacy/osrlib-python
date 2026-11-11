@@ -43,8 +43,8 @@ The constants cover what those checks attach and what the temple sells.
 [`DEPRIVATION_KIND`][osrlib.crawl.exploration.DEPRIVATION_KIND] are the effect kinds of the
 penalties for going without rest, running from a long chase, and going without food or water.
 [`EXHAUSTED_DEFINITION`][osrlib.crawl.exploration.EXHAUSTED_DEFINITION] is the exhaustion effect
-itself, and [`HEALING_SERVICES`][osrlib.crawl.exploration.HEALING_SERVICES] is the temple's price
-list.
+itself, and [`HEALING_SERVICES`][osrlib.crawl.exploration.HEALING_SERVICES] is the temple's
+standard price list.
 
 The session counts movement on its odometer,
 [`GameSession.odometer_thirds`][osrlib.crawl.session.GameSession.odometer_thirds], in thirds of a
@@ -107,6 +107,7 @@ print(exploration_rate(session))
 """
 
 from collections.abc import Mapping
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Literal
 
 from osrlib.core.classes import detection_chance, detection_check, thief_skill_check
@@ -146,11 +147,15 @@ from osrlib.core.ruleset import EncumbranceMode
 from osrlib.core.spells import (
     MAGIC_STREAM,
     CastContext,
+    SpellTemplate,
+    _restores_life,
+    _revives_poison_dead,
     add_spell_to_book,
     cast_from_scroll,
     cast_spell,
     caster_profile,
     memorize_spells,
+    minimum_caster_level,
     validate_cast,
     validate_scroll_cast,
 )
@@ -4275,29 +4280,35 @@ def _handle_use_item(session, command: UseItem) -> tuple[list[Rejection], list[E
 
 # ---------------------------------------------------------------------- town services
 
-HEALING_SERVICES: dict[HealingService, tuple[str, int]] = {
-    "cure_light_wounds": ("cure_light_wounds", 25),
-    "cure_serious_wounds": ("cure_serious_wounds", 100),
-    "cure_disease": ("cure_disease", 150),
-    "neutralize_poison": ("neutralize_poison", 150),
-    "remove_curse": ("remove_curse_c", 200),
-    "raise_dead": ("raise_dead", 1500),
-}
-"""The temple's healing services: each service name mapped to its spell id and its price in gold pieces.
+HEALING_SERVICES: Mapping[HealingService, tuple[str, int]] = MappingProxyType(
+    {
+        "cure_light_wounds": ("cure_light_wounds", 25),
+        "cure_serious_wounds": ("cure_serious_wounds", 100),
+        "cure_disease": ("cure_disease", 150),
+        "neutralize_poison": ("neutralize_poison", 150),
+        "remove_curse": ("remove_curse_c", 200),
+        "raise_dead": ("raise_dead", 1500),
+    }
+)
+"""The temple's healing services: each service name mapped to its spell id and its standard price in gold pieces.
 
 The keys are the [`HealingService`][osrlib.crawl.commands.HealingService] values that
-[`PurchaseHealing`][osrlib.crawl.commands.PurchaseHealing] accepts in its `service` field. Read
-this to build a price list for a town screen, and to check the party's gold against a price before
-you send the command. The spell id is the spell the temple casts, which is why *remove curse*
-maps to `remove_curse_c`, the cleric's version of that spell rather than the magic-user's.
+[`PurchaseHealing`][osrlib.crawl.commands.PurchaseHealing] accepts in its `service` field. The
+spell id is the spell the temple casts, which is why *remove curse* maps to `remove_curse_c`, the
+cleric's version of that spell rather than the magic-user's.
+
+A town charges the standard price for a service unless the adventure sets a different price for
+that service in [`TownSpec.healing_prices`][osrlib.crawl.adventure.TownSpec.healing_prices]. To show a
+town's price list, or to check the party's gold against a price before you send the command, read
+[`PlayerView.town_healing_prices`][osrlib.crawl.views.PlayerView.town_healing_prices], which gives
+what the party's town charges for every service.
 
 The SRD's town rules don't list temple services, so osrlib chose these names and prices and records
 the choice in [the adaptations register](https://mmacy.github.io/osrlib-python/adaptations/). Every
 service is always available. Whether a town is big enough to have a temple, or a cleric is in
 today, is up to you.
 
-Don't change the prices in this dict. The purchase handler reads it at the moment of sale, every
-session in the process shares it, and a replayed purchase would charge the changed price.
+The mapping is read-only, so assigning or deleting an entry raises `TypeError`.
 
 ```python
 from osrlib.crawl.exploration import HEALING_SERVICES
@@ -4404,19 +4415,28 @@ def _handle_purchase_healing(session, command: PurchaseHealing) -> tuple[list[Re
         member = session.member(command.character_id)
     except ValueError:
         return [Rejection(code="session.command.unknown_member", params={"character": command.character_id})], []
-    spell_id, cost_gp = HEALING_SERVICES[command.service]
+    spell_id, standard_gp = HEALING_SERVICES[command.service]
     spell = load_spells().get(spell_id)
+    lowest = minimum_caster_level(spell)
+    highest = load_classes().get("cleric").max_level
+    caster_level = lowest if command.caster_level is None else command.caster_level
+    if not lowest <= caster_level <= highest:
+        return [
+            Rejection(
+                code="town.healing.caster_level_out_of_range",
+                params={"item": command.service, "caster_level": caster_level, "minimum": lowest, "maximum": highest},
+            )
+        ], []
+    cost_gp = session.adventure.town.healing_prices.get(command.service, standard_gp)
     payers = _healing_payers(session, member, cost_gp)
     if payers is None:
         return [
             Rejection(code="items.purchase.insufficient_funds", params={"item": command.service, "cost_gp": cost_gp})
         ], []
     context = _cast_context(session, [member], in_combat=False)
-    if not _healing_would_work(command.service, member, spell, context):
+    if not _healing_would_work(command.service, member, spell, caster_level, context):
         return [Rejection(code="town.healing.no_effect", params={"item": command.service, "character": member.id})], []
-    from osrlib.core.spells import validate_cast
-
-    temple_cleric = _temple_cleric(spell)
+    temple_cleric = _temple_cleric(spell, caster_level)
     temple_profile = caster_profile(temple_cleric.definition)
     if temple_profile is None:  # unreachable: the temple cleric is a cleric
         raise ValueError("the temple cleric has no casting profile")
@@ -4463,34 +4483,33 @@ def _handle_purchase_healing(session, command: PurchaseHealing) -> tuple[list[Re
     return [], events
 
 
-def _healing_would_work(service: str, member: Character, spell, context) -> bool:
-    """Return whether a temple service would do anything for the member.
+def _healing_would_work(
+    service: str, member: Character, spell: SpellTemplate, caster_level: int, context: CastContext
+) -> bool:
+    """Return whether a temple service cast at `caster_level` would do anything for the member.
 
-    *Raise dead* needs a dead member, and *cure disease* a diseased one. *Neutralize poison*
-    needs a poisoned member, or one that poison killed within the spell's revival window.
+    *Raise dead* needs a dead member, dead no longer than the spell reaches at the cleric's level.
+    *Cure disease* needs a diseased member. *Neutralize poison* needs a poisoned member, or one
+    that poison killed within the spell's revival window. The two revivals are judged by the same
+    functions the spells resolve with, so the temple and a cast agree about who comes back.
     `_cast_context` works out the time since death from the session's death records. The other
-    services always count as working. The check only reads state, so a refusal makes no random roll and
-    changes nothing.
+    services always count as working. The check only reads state, so a refusal makes no random
+    roll and changes nothing.
     """
+    effect = spell.modes[0].effect
     if service == "raise_dead":
-        return has_condition(member, Condition.DEAD)
+        return effect is not None and _restores_life(effect, caster_level, member, context)
     if service == "cure_disease":
         return has_condition(member, Condition.DISEASED)
     if service == "neutralize_poison":
-        if has_condition(member, Condition.POISONED):
-            return True
-        effect = spell.modes[0].effect
-        window = int(effect.params.get("revive_window_rounds", 0)) if effect is not None else 0
-        return (
-            has_condition(member, Condition.DEAD)
-            and context.rounds_since_death is not None
-            and context.rounds_since_death <= window
+        return has_condition(member, Condition.POISONED) or (
+            effect is not None and _revives_poison_dead(effect, member, context)
         )
     return True
 
 
-def _temple_cleric(spell) -> Character:
-    """An abstract temple cleric at the minimum level able to cast the service.
+def _temple_cleric(spell: SpellTemplate, level: int) -> Character:
+    """An abstract temple cleric of the given level, with the service's spell memorized.
 
     Built fresh per purchase, with no draws and no registry entry. The rolls come
     from the magic and effects streams the spell already uses.
@@ -4498,9 +4517,8 @@ def _temple_cleric(spell) -> Character:
     from osrlib.core.abilities import AbilityScore
     from osrlib.core.alignment import Alignment
     from osrlib.core.character import Character
-    from osrlib.core.spells import MemorizedSpell, minimum_caster_level
+    from osrlib.core.spells import MemorizedSpell
 
-    level = minimum_caster_level(spell)
     return Character(
         id="town-cleric",
         name="Temple cleric",

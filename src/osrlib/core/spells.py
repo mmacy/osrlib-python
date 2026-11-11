@@ -3302,27 +3302,46 @@ def _resolve_cure(
             for record in [record for record in target.conditions if record.condition is Condition.PARALYSED]:
                 state.events.extend(remove_condition(target, Condition.PARALYSED, record.effect_id))
                 state.affect(target)
-        if params.get("revives_poison_dead") and not isinstance(target, str):
-            window = _int_param(params, "revive_window_rounds", 10)
-            # The page titles its revival usage "Characters", so only a Character is
-            # revivable here. osrlib records no cause of death, so supplying
-            # `rounds_since_death` is itself the caller's assertion that the target
-            # died of poison that many rounds ago. The session gets it from its
-            # death records, and omits it for a death by any other means.
-            if (
-                getattr(target, "definition", None) is not None
-                and has_condition(target, Condition.DEAD)
-                and context.rounds_since_death is not None
-                and context.rounds_since_death <= window
-            ):
-                # Revival undoes the poison death and stands the subject up at 1 hp.
-                # The rules as written give no hit point total, so osrlib sets the lowest one.
-                state.events.extend(remove_condition(target, Condition.DEAD, None))
-                target.current_hp = 1
-                state.events.append(
-                    HitPointsReportedEvent(target_id=ref, current_hp=1, max_hp=getattr(target, "max_hp", 1))
-                )
-                state.affect(target)
+        if not isinstance(target, str) and _revives_poison_dead(effect, target, context):
+            # Revival undoes the poison death and stands the subject up at 1 hp.
+            # The rules as written give no hit point total, so osrlib sets the lowest one.
+            state.events.extend(remove_condition(target, Condition.DEAD, None))
+            target.current_hp = 1
+            state.events.append(
+                HitPointsReportedEvent(target_id=ref, current_hp=1, max_hp=getattr(target, "max_hp", 1))
+            )
+            state.affect(target)
+
+
+def _revives_poison_dead(effect: SpellEffect, target: Creature, context: CastContext) -> bool:
+    """Return whether a cure effect, like *neutralize poison*'s, revives a target that poison killed.
+
+    The page titles its revival usage "Characters", so only a `Character` revives. osrlib records
+    no cause of death, so setting `context.rounds_since_death` is the caller's assertion that the
+    target died of poison that many rounds ago. The session gets it from its death records, and
+    leaves it unset for a death by any other means. The check only reads its arguments.
+    """
+    params = effect.params
+    return (
+        bool(params.get("revives_poison_dead"))
+        and getattr(target, "definition", None) is not None
+        and has_condition(target, Condition.DEAD)
+        and context.rounds_since_death is not None
+        and context.rounds_since_death <= _int_param(params, "revive_window_rounds", 10)
+    )
+
+
+def _restores_life(effect: SpellEffect, caster_level: int, target: Creature, context: CastContext) -> bool:
+    """Return whether a restore-life effect, like *raise dead*'s, brings the target back at a caster level.
+
+    The target has to be a dead `Character`, dead no longer than 4 days for each caster level above
+    7th, which is 0 days at level 7. `context.days_since_death` gives how long ago the target died,
+    and when it's unset, nobody is raised. The check only reads its arguments.
+    """
+    if getattr(target, "definition", None) is None or not has_condition(target, Condition.DEAD):
+        return False
+    reach_days = 4 * max(0, caster_level - _int_param(effect.params, "days_per_level_above", 7))
+    return context.days_since_death is not None and context.days_since_death <= reach_days
 
 
 def _resolve_attachment(
@@ -3463,16 +3482,10 @@ def _resolve_restore_life(
     require the full bed rest, extend or release the effect through the ledger.
     Magical healing doesn't shorten it, per the page.
     """
-    params = _mode_effect(mode).params
+    effect = _mode_effect(mode)
+    params = effect.params
     target = selected[0] if selected else None
-    if target is None or isinstance(target, str):
-        return
-    if getattr(target, "definition", None) is None:
-        return
-    if not has_condition(target, Condition.DEAD):
-        return
-    limit = 4 * max(0, caster.level - _int_param(params, "days_per_level_above", 7))
-    if context.days_since_death is None or context.days_since_death > limit:
+    if target is None or isinstance(target, str) or not _restores_life(effect, caster.level, target, context):
         return
     state.events.extend(remove_condition(target, Condition.DEAD, None))
     target.current_hp = 1
