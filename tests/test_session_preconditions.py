@@ -39,8 +39,6 @@ from osrlib.crawl.encounter import start_encounter
 from osrlib.crawl.session import ENCOUNTER_STREAM, GameSession
 from osrlib.errors import ContentValidationError
 
-pytestmark = pytest.mark.xfail(reason="chunk: session-preconditions")
-
 NOT_CARRIED = "exploration.item.not_carried"
 FAR = 120
 
