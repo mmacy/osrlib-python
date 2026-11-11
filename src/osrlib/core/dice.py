@@ -43,8 +43,9 @@ stream on every call, and that's what makes a game replayable.
 
 import re
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import ConfigDict, Field, field_validator
 
+from osrlib.core.frozen import _Model
 from osrlib.core.rng import RngStream
 from osrlib.errors import ContentValidationError
 
@@ -85,7 +86,7 @@ _EXPRESSION_PATTERN = re.compile(
 )
 
 
-class DiceExpression(BaseModel):
+class DiceExpression(_Model):
     """A dice expression taken apart: how many dice, of what size, plus what, times what.
 
     [`parse`][osrlib.core.dice.parse] returns one. Read its fields to show a roll before
@@ -94,10 +95,10 @@ class DiceExpression(BaseModel):
     Passing `roll` the same expression object each time saves parsing the string again.
 
     You can also construct one from its parts instead of formatting a string, and the
-    constructor validates them. The model is frozen. To change a part, make a new one
-    with `DiceExpression.model_validate(expression.model_dump() | {"count": 4})`, which
-    validates the result. pydantic's `model_copy(update=...)` skips validation, so it can
-    produce a die size outside [`ALLOWED_SIDES`][osrlib.core.dice.ALLOWED_SIDES].
+    constructor validates them. The model is frozen. To change a part, copy it with
+    `expression.model_copy(update={"count": 4})`. The copy is validated, so a die size
+    outside [`ALLOWED_SIDES`][osrlib.core.dice.ALLOWED_SIDES] raises a pydantic
+    `ValidationError`.
 
     Examples:
         ```python
@@ -143,7 +144,7 @@ class DiceExpression(BaseModel):
         return value
 
 
-class RollResult(BaseModel):
+class RollResult(_Model):
     """What a dice roll produced: each die, and the total they add up to.
 
     [`roll`][osrlib.core.dice.roll] returns one. Use `total` as the result of the

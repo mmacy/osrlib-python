@@ -105,7 +105,7 @@ import re
 from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any, Literal, Protocol
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ConfigDict, Field
 
 from osrlib.core.alignment import Alignment
 from osrlib.core.character import ADVANCEMENT_STREAM, Character
@@ -123,6 +123,7 @@ from osrlib.core.events import (
     SavingThrowRolledEvent,
     Visibility,
 )
+from osrlib.core.frozen import _Model
 from osrlib.core.items import EquipmentCatalog, Inventory, ItemInstance, MagicItemInstance
 from osrlib.core.monsters import MONSTER_SPAWN_STREAM, IdAllocator, MonsterCatalog, MonsterInstance, spawn_monster
 from osrlib.core.rng import RngStreams, StreamName
@@ -280,7 +281,7 @@ radius covers a whole marching party. An effect whose params set `blocks_infravi
 """
 
 
-class DeathRecord(BaseModel):
+class DeathRecord(_Model):
     """When and how one party member died, recorded for the spells that bring the dead back.
 
     The session writes one into
@@ -305,7 +306,7 @@ class DeathRecord(BaseModel):
     *neutralize poison* treats `"poison"` differently from the other causes."""
 
 
-class JournalEntry(BaseModel):
+class JournalEntry(_Model):
     """One entry in the party's journal: a line of the adventure's story, with the time it was written.
 
     [`AddJournalEntry`][osrlib.crawl.commands.AddJournalEntry] writes entries. So do the quest
@@ -328,7 +329,7 @@ class JournalEntry(BaseModel):
     """Where the clock stood when the entry was appended, in rounds since the session began."""
 
 
-class ObjectiveState(BaseModel):
+class ObjectiveState(_Model):
     """One objective's state in play: whether the party may see it, and whether it's done.
 
     The session creates one for each objective in the adventure and stores them in
@@ -351,7 +352,7 @@ class ObjectiveState(BaseModel):
     turns it on, and turns `revealed` on with it."""
 
 
-class QuestState(BaseModel):
+class QuestState(_Model):
     """One quest's state in play: where it stands, and where each of its objectives stands.
 
     The session creates one for each quest in the adventure and stores them in
@@ -378,7 +379,7 @@ class QuestState(BaseModel):
     in [`QuestSpec.objectives`][osrlib.crawl.quests.QuestSpec.objectives]."""
 
 
-class DefeatedMonsterRecord(BaseModel):
+class DefeatedMonsterRecord(_Model):
     """One defeated creature, kept until the session awards its experience.
 
     When an encounter ends, the session appends one for each defeated creature to
@@ -404,7 +405,7 @@ class DefeatedMonsterRecord(BaseModel):
     """What it's worth in experience points."""
 
 
-class DeprivationState(BaseModel):
+class DeprivationState(_Model):
     """How long one member has gone without food and without water.
 
     The session stores these in
@@ -502,10 +503,12 @@ class Listener(Protocol):
 
     A listener that executes a command is called again, for that command's events, before the
     first call returns. Both calls get the same dict. Update it in place and return it, and the session
-    saves every update. If the inner call returns a new dict instead, the session saves that one,
-    and the outer call has to return it too. An outer call that returns any other dict would
-    overwrite what the inner call saved, so the session raises `RuntimeError` instead. A listener
-    that executes no commands may return a new dict, as the example below does.
+    saves every update. If the inner call returns a new dict instead, the session saves that one.
+    Once the listener has been called again, the outer call has to return the dict the session has
+    saved under its key. Any other dict, like a copy the outer call made before it executed the
+    command, would overwrite what the inner call saved, so the session raises `RuntimeError` instead.
+    A listener that isn't called again inside its own call, because it executed no command that the
+    session accepted, may return a new dict, as the example below does.
 
     Examples:
         ```python
@@ -725,6 +728,9 @@ class GameSession:
         self.listeners: list[Listener] = []
         """The registered listeners, in the order they run. Listeners are code, so they aren't
         saved: register them again after a load."""
+        # How many times the session has called each listener's handle, by key. `execute` reads it to
+        # tell whether a call ran again inside itself. A save doesn't include it.
+        self._listener_calls: dict[str, int] = {}
         self.command_log: list[Command] = []
         """Every accepted command, in order. Refused commands are absent, because they changed
         nothing. [`replay_game`][osrlib.persistence.replay_game] re-executes this list from the
@@ -1106,10 +1112,10 @@ class GameSession:
             ValueError: If the command class has no handler, which means it was defined outside
                 osrlib rather than built from
                 [`osrlib.crawl.commands`][osrlib.crawl.commands].
-            RuntimeError: If a listener that executed a command returns a state dict other than the
-                one the session saved for it during that call, which would lose an update. See
-                [`Listener`][osrlib.crawl.session.Listener]. By then the command has applied and is in
-                the command log.
+            RuntimeError: If a listener's `handle` was called again inside its own call, and the outer
+                call then returns a state dict other than the one the session has saved under the
+                listener's key, which would lose an update. See [`Listener`][osrlib.crawl.session.Listener].
+                By then the command has applied and is in the command log.
             Exception: Whatever a registered listener's `handle` raises, unchanged. By then the
                 command has applied and is in the command log.
 
@@ -1185,13 +1191,15 @@ class GameSession:
             # The dict goes under the key before the call, so a call made inside a command
             # this listener executes gets the same dict, and an update in place reaches both.
             given = self.listener_state.setdefault(listener.key, {})
+            calls = self._listener_calls.get(listener.key, 0) + 1
+            self._listener_calls[listener.key] = calls
             emitted, state = listener.handle(tuple(accumulated), given)
-            saved = self.listener_state.get(listener.key)
-            if saved is not given and state is not saved:
+            ran_again = self._listener_calls[listener.key] != calls
+            if ran_again and state is not self.listener_state.get(listener.key):
                 raise RuntimeError(
-                    f"listener {listener.key!r} returned a state dict other than the one the session saved for it "
-                    "while it ran, so an update would be lost. Update the state dict that handle receives in place "
-                    "and return it."
+                    f"listener {listener.key!r} was called again while it ran, and then returned a state dict other "
+                    "than the one the session saved for it, so an update would be lost. Update the state dict that "
+                    "handle receives in place and return it."
                 )
             self.listener_state[listener.key] = state
             # Every event logged by the commands this listener executed while it ran,
@@ -1244,8 +1252,8 @@ class GameSession:
 
         Every call to the listener's `handle` gets the state dict the session has saved under its
         key. A listener that executes commands is called again inside each of them, with the same
-        dict, so it updates that dict in place and returns it. If it returns a different dict after
-        an inner call saved a new one, an update would be lost, and
+        dict, so it updates that dict in place and returns it. If the outer call then returns any
+        dict other than the one the session has saved, an update would be lost, and
         [`execute`][osrlib.crawl.session.GameSession.execute] raises `RuntimeError`. A listener
         that executes no commands may return a new dict, as the example below does.
 

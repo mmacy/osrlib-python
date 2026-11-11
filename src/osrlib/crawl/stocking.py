@@ -66,9 +66,10 @@ print([(line.template_id, line.count_fixed) for line in areas[0].encounter.monst
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ConfigDict, Field
 
 from osrlib.core.dice import roll
+from osrlib.core.frozen import _Model
 from osrlib.core.monsters import MonsterCatalog
 from osrlib.core.rng import RngStream
 from osrlib.core.tables import EncounterTable, select_encounter_individuals
@@ -83,7 +84,7 @@ __all__ = [
 ]
 
 
-class StockedNpcParty(BaseModel):
+class StockedNpcParty(_Model):
     """The kind and size of NPC party that a monster room's encounter roll produced.
 
     An NPC party is a band of adventurers the referee runs. No content model describes one, because
@@ -110,7 +111,7 @@ class StockedNpcParty(BaseModel):
     """How many adventurers are in the party, from the row's count. A count below 1 counts as 1."""
 
 
-class StockedArea(BaseModel):
+class StockedArea(_Model):
     """The content the stocking rolls produced for one keyed room, for you to place on an area.
 
     [`stock_area`][osrlib.crawl.stocking.stock_area] returns one. Read `contents` to find out what

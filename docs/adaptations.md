@@ -358,7 +358,7 @@ Locked by `test_petrified_party.py`.
 
 ### The canonical tick order
 
-At each round boundary, the ledger resolves expirations before ticks, the periodic steps of effects like a troll's regeneration, which heals each round. Effects due at the same moment resolve in the order they were attached, with ties broken by effect id.
+At each round boundary, the ledger resolves expirations before ticks, the periodic steps of effects like a troll's regeneration, which heals each round. Effects due at the same moment resolve in the order they were attached. The ledger's `effects` list is in that order, and a save writes the list as it is, so a loaded game resolves them in the same order.
 
 Only the effects engine writes creature conditions, except `dead`, which the kernel's death routine writes. Locked by `test_effects.py::TestLedger`.
 
@@ -1224,9 +1224,11 @@ Handing an item over:
 Touch:
 
 - Most touch spells give their range as "The caster or a creature touched". osrlib reads touch as melee reach, 5', so `validate_cast` refuses a touch spell at a `CastContext.distance_feet` beyond 5' with `magic.cast.out_of_range` ([#166](https://github.com/mmacy/osrlib-python/issues/166)).
-- In a battle, the session passes the distance from the caster to each target. For a member target, that's the distance between the two members after the round's declared moves, as for reach. For a monster target, it's the caster's distance to the monster's group, as for a ranged spell. So a cleric's *cure light wounds* reaches a member who stands beside them, and not one who has closed 20' ahead.
+- In a battle, the session passes the distance from the caster to each target. For a member target, that's the distance between the two members after the round's declared moves, as for reach. For a monster target, it's the caster's distance to the monster's group. So a cleric's *cure light wounds* reaches a member who stands beside them, and not one who has closed 20' ahead.
+- A touch on a monster follows the rule for melee. The *cause light wounds* page says "In combat, a melee attack roll is required", and osrlib gives every touch on a monster the reach of a melee attack. A caster within 5' of the monster's group has to stand in the party's front rank toward it, or the session refuses the cast with `battle.declaration.not_in_front_rank`. The monster has to be in its group's front rank, the group's first living monsters, as many as the formation width, or the session refuses the cast with `combat.attack.out_of_reach`, whose `target` param is the monster's id. So a cleric in the second rank can't reach past the fighters to touch a goblin, and a cleric in the front rank can't reach past the goblins in front to touch one behind them. A touch spell at a group farther than 5' gets `magic.cast.out_of_range`, from the spell's range.
 - The NPC adventurers of a group stand together, so an NPC cleric's cure spell reaches any member of its group.
-- The Staff of Healing page says the staff "Has the power to heal those touched", so a staff of healing takes the same reach in a battle. Another member has to stand within 5' of its user, or the use gets `battle.declaration.member_out_of_reach`. A monster's group has to stand within 5' of the user, or the use gets `combat.attack.out_of_reach`. A target id that matches no creature gets `items.use.unknown_target`.
+- The Staff of Healing page says the staff "Has the power to heal those touched", so a staff of healing takes the same reach in a battle. Another member has to stand within 5' of its user, or the use gets `battle.declaration.member_out_of_reach`. A monster's group has to stand within 5' of the user, or the use gets `combat.attack.out_of_reach`, and then the touch follows the rule for melee, as a touch spell's does. A target id that matches no creature gets `items.use.unknown_target`.
+- A creature that's dead or turned to stone can't be healed, so the session refuses a staff of healing used on one with `items.use.target_cannot_be_healed`, in a battle and outside one, as it refuses a potion given to such a member. The refused round costs nothing, so the staff stays unidentified.
 
 When the step comes:
 
@@ -1234,7 +1236,7 @@ When the step comes:
 - A potion or a hand-over that fails the check doesn't happen, and the item stays with the member who carries it. That happens when the drinker died or turned to stone, the recipient can no longer act, or the two members no longer reach each other. Nothing reports it, as nothing reports an attack by a member who can no longer act.
 - A staff of healing that fails the check fizzles with `magic.device.fizzled`, like any other device use.
 
-Locked by `test_member_reach.py` and `test_potion_target.py`.
+Locked by `test_member_reach.py`, `test_potion_target.py`, and `test_review_fixes.py`.
 
 ### A back-stab needs monsters the party surprised
 
@@ -1665,6 +1667,7 @@ Protection scrolls:
 
 - A protection scroll attaches one ward to the reader that covers the whole party, with a count for each HD band in structured params (`affected_1_3`, `affected_4_5`, and `affected_6_plus`).
 - The ward bars the listed creatures from melee, through the same rules as *protection from evil*. It breaks for the whole party when any member attacks a barred monster in melee.
+- The Scrolls and Maps page gives a number of creatures for each band, like "1–3 HD: 2d12 undead affected", and doesn't say which creatures the ward bars when more of them are present. The ward bars the first ones in the encounter's order: its groups in the order they joined the encounter, and each group's monsters in the order the group lists them.
 
 Locked by `test_casting.py`, `test_exploration.py`, and `test_battle.py`.
 

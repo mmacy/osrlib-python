@@ -33,10 +33,11 @@ water all use [`living_members`][osrlib.crawl.party.Party.living_members].
 
 from collections.abc import Sequence
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ConfigDict, Field
 
 from osrlib.core.character import Character
 from osrlib.core.effects import Condition, has_condition
+from osrlib.core.frozen import _Model
 from osrlib.core.ruleset import Ruleset
 
 __all__ = [
@@ -44,7 +45,7 @@ __all__ = [
 ]
 
 
-class Party(BaseModel):
+class Party(_Model):
     """The adventuring party, in marching order.
 
     Construct one with at least one member and pass it to

@@ -143,7 +143,8 @@ each member their choices, read the player view's
 from each member, who can reach each group in melee, and which groups each member can see. Two
 members reach each other when their advances differ by 5' or less. A member has to reach another to
 hand them an item, to give them a potion to drink, or to touch them with a staff of healing or a
-touch spell.
+touch spell. A touch on a monster follows the rule for melee: the member has to stand in the party's
+front rank toward the monster's group, and the monster in its group's front rank.
 
 During a round, the session also applies these rules without a command for them:
 
@@ -305,9 +306,9 @@ assert "combat.initiative.rolled" in [event.code for event in result.events]
 
 import math
 from collections.abc import Collection, Iterable, Mapping, Sequence
-from typing import Any, NamedTuple, Protocol
+from typing import Any, NamedTuple, Protocol, cast
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import ConfigDict
 
 from osrlib.core.character import ADVANCEMENT_STREAM
 from osrlib.core.clock import TimeUnit
@@ -351,6 +352,7 @@ from osrlib.core.events import (
     SavingThrowRolledEvent,
     SpellDisruptedEvent,
 )
+from osrlib.core.frozen import _Model
 from osrlib.core.items import (
     Coins,
     GearTemplate,
@@ -360,7 +362,7 @@ from osrlib.core.items import (
     WeaponQuality,
     magic_item_template,
 )
-from osrlib.core.monsters import MonsterAbility, MonsterAttack, MonsterInstance, RoutineUse
+from osrlib.core.monsters import AttackRoutine, MonsterAbility, MonsterAttack, MonsterInstance, RoutineUse
 from osrlib.core.spells import (
     MAGIC_STREAM,
     cast_spell,
@@ -445,7 +447,7 @@ counts as gone for ending the battle once it stands farther than this from every
 """
 
 
-class BattleState(BaseModel):
+class BattleState(_Model):
     """A battle in progress: the round count and what the session tracks from one round to the next.
 
     You get this from `session.battle`, which is None whenever no battle is running. A battle
@@ -541,21 +543,24 @@ class BattleState(BaseModel):
     already fighting keeps their place in the front rank when others arrive beside them."""
 
 
-class MonsterAction(BaseModel):
+class MonsterAction(_Model):
     """One monster's or NPC adventurer's action for a round, as an action policy chooses it.
 
     An [`ActionPolicy`][osrlib.crawl.battle.ActionPolicy] returns a list of these, and the session
     resolves them in that order. The model is frozen, so to change an action, build a new one with
-    `model_copy(update=...)`. The session doesn't check a policy's actions in advance. When it reaches
-    an action that's no longer possible, like a melee attack on a target that died earlier in
-    the round, it skips the action.
+    `model_copy(update=...)`. The session doesn't check a policy's actions in advance. When an action
+    comes up, the session skips it if it can't carry it out, and doesn't raise. That covers an action
+    that's no longer possible, like a melee attack on a target that died earlier in the round, and one
+    that never was, like a `"breath"` by a monster with no breath weapon. The entry for each field below
+    gives the cases where the session skips an action for that field.
     """
 
     model_config = ConfigDict(frozen=True)
 
     monster_id: str
     """The id of the monster or NPC that acts. It has to be one of the `monster_ids` of the group the
-    policy is choosing for."""
+    policy is choosing for. The session skips an action with any other id, a party member's included,
+    and an action by a monster or NPC that's dead, can't act, is confused, or is turned."""
     kind: str  # close | breath | melee | hold | npc_shoot | npc_cast | npc_drink
     """What the monster does:
 
@@ -590,19 +595,32 @@ class MonsterAction(BaseModel):
       With the ruleset's `formation_width_limit` flag off, every living monster is in the front
       rank. The session also skips a `"melee"` on a member whom a scroll of protection's ward or
       *protection from evil* keeps the monster from.
-    - `"breath"` uses the monster's breath weapon on the party.
+    - `"breath"` uses the monster's breath weapon on the party. The session skips it for a monster
+      with no breath weapon, for one that has used its breath weapon as many times today as its
+      daily limit allows, and for an NPC adventurer.
     - `"hold"` does nothing.
-    - `"npc_shoot"`, `"npc_cast"`, and `"npc_drink"` are for NPC adventurers only. They make a
-      missile attack on `target_id`, cast `spell_id`, and drink the potion `item_id`."""
+    - `"npc_shoot"`, `"npc_cast"`, and `"npc_drink"` are for NPC adventurers only, and the session
+      skips them for a monster. They make a missile attack on `target_id`, cast `spell_id`, and
+      drink the potion `item_id`. The session skips a shot by an NPC who wields no missile weapon.
+
+    The session skips an action of any other kind."""
     target_id: str | None = None
     """The id of the target, for `"melee"`, `"npc_shoot"`, and an `"npc_cast"` of a spell with one
-    target. None for an area spell, whose targets depend on the area's size and the party's ranks."""
+    target. None for an area spell, whose targets depend on the area's size and the party's ranks.
+
+    The session skips a `"melee"` or an `"npc_shoot"` whose target isn't a living party member, and an
+    `"npc_cast"` of a spell with one target whose target isn't a living creature. For an area spell,
+    the session ignores the field."""
     spell_id: str | None = None
-    """The spell to cast, for `"npc_cast"`."""
+    """The spell to cast, for `"npc_cast"`. The session skips the cast when the NPC has no memorized
+    copy of the spell, in its normal form, or when the NPC's class casts no spells."""
     spell_mode: str | None = None
-    """Which mode of that spell to use, for `"npc_cast"`."""
+    """Which mode of that spell to use, for `"npc_cast"`. The session skips the cast when the spell's
+    normal form has no mode with this key. The session checks whether the rules allow the cast, like
+    its range, when the cast resolves, and a cast they don't allow does nothing."""
     item_id: str | None = None
-    """The instance id of the potion to drink, for `"npc_drink"`."""
+    """The instance id of the potion to drink, for `"npc_drink"`. The session skips the drink unless the
+    NPC carries a potion with this id."""
     routine: int | None = None
     """Which of the monster's attack routines a `"melee"` action uses, as an index into its template's
     [`attacks`][osrlib.core.monsters.MonsterTemplate.attacks]. None uses the first routine.
@@ -618,7 +636,7 @@ class MonsterAction(BaseModel):
     - `SPECIAL` is a breath, a gaze, or a spell. The session rolls nothing for it, so the monster
       does nothing that round.
 
-    The session also does nothing when the template has no routine at the index, and it treats a
+    The session also skips the `"melee"` when the template has no routine at the index, and it treats a
     negative index the same way.
 
     Some routines list an attack named `gaze` or `breath`. The session never rolls those as attacks.
@@ -643,7 +661,8 @@ class ActionPolicy(Protocol):
     [`MONSTER_ACTION_STREAM`][osrlib.crawl.session.MONSTER_ACTION_STREAM]. Take every random choice
     from that stream. The attack and damage rolls come from other streams, so your policy doesn't
     change them, and the fight stays reproducible from the same seed. Return whatever actions your
-    tactics call for. The session skips an action that's no longer possible, and doesn't raise.
+    tactics call for. The session skips an action it can't carry out, and doesn't raise. The
+    [`MonsterAction`][osrlib.crawl.battle.MonsterAction] reference lists the cases, field by field.
 
     Whatever your policy returns, only the monsters' front rank makes melee attacks: the group's
     first living monsters in the group's order, as many as the formation width allows (see
@@ -728,7 +747,8 @@ class ActionPolicy(Protocol):
         The session calls this once per group per round. For a monster group, the call comes after
         the group's morale check and before the group moves or attacks. For a group of NPC
         adventurers, it comes at the start of the round, before initiative, because NPCs declare
-        their spells then, as the party does.
+        their spells then, as the party does. The session declares only the casts it can carry out
+        then, and drops the others from the round.
 
         The session doesn't call it in these cases:
 
@@ -880,7 +900,7 @@ class ScriptedPolicy:
                 actions = self.default.choose(session, group, stream)
                 targets = [session.member(action.target_id) for action in actions if action.kind == "melee"]
                 if targets:
-                    weakest = min(targets, key=lambda member: (member.current_hp, member.id))
+                    weakest = min(targets, key=lambda member: member.current_hp)
                     actions = [
                         action.model_copy(update={"target_id": weakest.id}) if action.kind == "melee" else action
                         for action in actions
@@ -971,8 +991,8 @@ class NpcPartyPolicy:
     the party your players control. Each living NPC takes the first of these actions that applies:
 
     1. A caster with a memorized healing spell heals the NPC group's most wounded member who is
-       below half their hit points: the one with the lowest ratio of current to maximum hit points,
-       with ties broken by id.
+       below half their hit points: the one with the lowest ratio of current to maximum hit points.
+       Of two with the same ratio, it heals the one that comes first in the group's order.
     2. An NPC below half their hit points, in a group with no healing spell left, drinks a healing
        potion they carry. This is the only item these tactics use.
     3. A caster with a memorized spell that deals damage, like *magic missile*, casts it at the
@@ -1099,7 +1119,8 @@ class NpcPartyPolicy:
             cure = _npc_cure_spell(npc, catalog)
             wounded = [member for member in living if member.current_hp * 2 < member.max_hp]
             if cure is not None and wounded:
-                target = min(wounded, key=lambda member: (member.current_hp / member.max_hp, member.id))
+                # `min` keeps the first of equal members, so a tie goes to the one first in the group's order.
+                target = min(wounded, key=lambda member: member.current_hp / member.max_hp)
                 spell, mode = cure
                 actions.append(
                     MonsterAction(
@@ -2131,7 +2152,7 @@ def group_front_rank(session, group_id: str) -> tuple[str, ...]:
     return tuple(_reachable_front_rank(group, _placement(session)))
 
 
-class BattleRoundPreview(BaseModel):
+class BattleRoundPreview(_Model):
     """What a battle round would do with the declarations planned so far, worked out without playing it.
 
     [`preview_battle_round`][osrlib.crawl.battle.preview_battle_round] returns one. Read `rejections`
@@ -2718,7 +2739,8 @@ def _validate_declaration(
     will produce. Without `placement`, as in the magic phase, the checks read the battle as it stands. A
     melee attack and a staff of striking take the checks of `_melee_rejection`:
     `combat.attack.out_of_reach` for a member farther than 5' from the group, and
-    `battle.declaration.not_in_front_rank` for a member within 5' who isn't in its front rank.
+    `battle.declaration.not_in_front_rank` for a member within 5' who isn't in its front rank. A touch
+    on a monster, with a touch spell or a staff of healing, takes the checks of `_touch_rejection`.
 
     A potion given to another member, a staff of healing used on another member, and a `give_item` need
     the two members within reach of each other where `placement` puts them (see `_reach_rejection`).
@@ -2869,6 +2891,9 @@ def _cast_targets(
     of the round's declared moves, and the magic phase the battle as it stands. A caster can't move in the
     round they cast, and neither a trade nor a move of the party line changes a distance, so the caster's
     distance to a group is the same in both. A declaration with only cell references gives no distance.
+
+    A touch spell on a monster within 5' of the caster takes the checks of `_touch_rejection`. A touch spell on a
+    monster farther away is left to the spell's range check, which refuses it with `magic.cast.out_of_range`.
     """
     try:
         mode = spell.mode(declaration.spell_mode, reversed=declaration.reversed)
@@ -2896,6 +2921,7 @@ def _cast_targets(
         return candidates, placement.distance(declaration.character_id, group), []
     registry = session.registry()
     party_ids = {member.id for member in session.party.members}
+    touch = spell.range_spec.kind == "touch"
     targets: list = []
     distance: int | None = None
     for target_ref in declaration.targets:
@@ -2914,7 +2940,13 @@ def _cast_targets(
             continue
         for group in session.encounter.groups:
             if target_ref in group.monster_ids:
-                distance = max(distance or 0, placement.distance(declaration.character_id, group))
+                reach = placement.distance(declaration.character_id, group)
+                distance = max(distance or 0, reach)
+                # A touch beyond 5' fails the spell's range check in `validate_cast`, with `magic.cast.out_of_range`.
+                if touch and reach <= MELEE_RANGE_FEET:
+                    refused = _touch_rejection(session, declaration.character_id, entity, group, placement)
+                    if refused is not None:
+                        return [], None, [refused]
     return targets, distance, []
 
 
@@ -3114,28 +3146,52 @@ def _healing_touch(session, declaration: BattleDeclaration, member, placement: _
     """Return whom a declared staff of healing touches, with every reason it can't, as a `(target, rejections)` pair.
 
     The OSE SRD's staff "Has the power to heal those touched". The target is the creature whose id is the one
-    id in `targets`, or the member using the staff when `targets` is empty. An id that matches no creature,
-    or a monster outside the encounter's groups that haven't fled, gets `items.use.unknown_target`. Another
-    member has to stand within 5' of the user in `placement` (see `_reach_rejection`). A monster's group has
-    to stand within 5' of the user too, or the use gets `combat.attack.out_of_reach` with that distance as
-    `distance_feet`. The target is None when there are rejections. The call reads state and takes no draw.
+    id in `targets`, or the member using the staff when `targets` is empty. The checks come in this order:
+
+    1. The checks [`UseItem`][osrlib.crawl.commands.UseItem] makes (see `_magic_items._healing_target`):
+       `items.use.unknown_target` for an id that matches no creature, and `items.use.target_cannot_be_healed` for a
+       creature that's dead or turned to stone.
+    2. `items.use.unknown_target` for a monster outside the encounter's groups that haven't fled.
+    3. Reach. Another member has to stand within 5' of the user in `placement` (see `_reach_rejection`). A touch on
+       a monster takes the checks of `_touch_rejection`.
+
+    The target is None when there are rejections. The call reads state and takes no draw.
     """
-    target_ref = _sole_target(declaration)
-    if target_ref is None or target_ref == member.id:
-        return member, []
-    target = session.registry().get(target_ref)
-    if target is None:
-        return None, [Rejection(code="items.use.unknown_target", params={"target": target_ref})]
-    if any(other.id == target_ref for other in session.party.members):
-        out_of_reach = _reach_rejection(placement, member.id, target_ref)
-        return (None, [out_of_reach]) if out_of_reach is not None else (target, [])
-    group = next((group for group in session.encounter.groups if target_ref in group.monster_ids), None)
-    if group is None or group.fled:
-        return None, [Rejection(code="items.use.unknown_target", params={"target": target_ref})]
-    distance = placement.distance(member.id, group)
-    if distance > MELEE_RANGE_FEET:
-        return None, [Rejection(code="combat.attack.out_of_reach", params={"distance_feet": distance})]
-    return target, []
+    from osrlib.crawl import _magic_items
+
+    target, rejections = _magic_items._healing_target(
+        session, member, declaration.item_id or "", _sole_target(declaration)
+    )
+    if target is None or target is member:
+        return target, rejections
+    if any(other.id == target.id for other in session.party.members):
+        refused = _reach_rejection(placement, member.id, target.id)
+    else:
+        group = next((group for group in session.encounter.groups if target.id in group.monster_ids), None)
+        if group is None or group.fled:
+            return None, [Rejection(code="items.use.unknown_target", params={"target": target.id})]
+        refused = _touch_rejection(session, member.id, target, group, placement)
+    return (None, [refused]) if refused is not None else (target, [])
+
+
+def _touch_rejection(session, member_id: str, monster, group, placement: _Placement) -> Rejection | None:
+    """Return why a member can't touch one of a group's monsters where `placement` puts them, or None when they can.
+
+    A touch on a monster follows the rule for melee, because the OSE SRD's touch spells say "In combat, a melee
+    attack roll is required". A touch spell and a staff of healing on a monster take this check. The member takes
+    the checks of `_melee_rejection` first: `combat.attack.out_of_reach` for a member farther than 5' from the group,
+    and `battle.declaration.not_in_front_rank` for a member within 5' who isn't in the party's front rank toward it.
+    Then a monster that isn't in its group's front rank (see `_in_front_rank`) gets `combat.attack.out_of_reach`,
+    with the member's distance to the group as `distance_feet` and the monster's id as `target`. The monster can be
+    an NPC adventurer. The call reads state and takes no draw.
+    """
+    refused = _melee_rejection(member_id, group, placement)
+    if refused is not None:
+        return refused
+    if not _in_front_rank(session, monster, group):
+        distance = placement.distance(member_id, group)
+        return Rejection(code="combat.attack.out_of_reach", params={"distance_feet": distance, "target": monster.id})
+    return None
 
 
 def _hand_over(session, declaration: BattleDeclaration, giver, placement: _Placement):
@@ -3185,9 +3241,10 @@ def _resolve_hand_over(session, giver, declaration: BattleDeclaration) -> list[E
     from osrlib.crawl import _items
 
     recipient, _ = _hand_over(session, declaration, giver, _placement(session))
-    if recipient is None or declaration.item_id is None:
+    if recipient is None:
         return []
-    return _items._apply_give(session, giver, recipient, (declaration.item_id,), Coins())
+    # A declaration with no `item_id` has no recipient, because `_hand_over` finds no such item carried.
+    return _items._apply_give(session, giver, recipient, (cast(str, declaration.item_id),), Coins())
 
 
 def _resolve_magic_item_use(session, member, declaration: BattleDeclaration, state) -> list[Event]:
@@ -4100,9 +4157,10 @@ def _ward_bars_monster(session, monster) -> bool:
     """Whether a protection-scroll ward bars a monster from initiating melee.
 
     A ward bars matching monsters up to its rolled per-HD-band count (the 1-3,
-    4-5, and 6+ HD bands), counted in spawn order among the encounter's matching
-    monsters. A monster's band follows the Hit Dice it has left, so a drained monster counts in a lower band.
-    The scroll of protection from elementals bars every elemental it matches, with no count.
+    4-5, and 6+ HD bands), counted among the encounter's matching monsters in the encounter's order: its groups
+    in order, and each group's monsters in order (see `_encounter_monsters`). A monster's band follows the Hit Dice
+    it has left, so a drained monster counts in a lower band. The scroll of protection from elementals bars every
+    elemental it matches, with no count.
     """
     wards = _party_wards(session)
     if not wards:
@@ -4117,11 +4175,11 @@ def _ward_bars_monster(session, monster) -> bool:
         count = int(params.get(band_key, 0))
         if count <= 0:
             continue
-        matching_ids = sorted(
+        matching_ids = [
             candidate.id
             for candidate in _encounter_monsters(session)
             if _ward_matches(candidate, params) and _hd_band(candidate) == band_key
-        )
+        ]
         if monster.id in matching_ids[:count]:
             return True
     return False
@@ -4153,6 +4211,7 @@ def _hd_band(creature) -> str:
 
 
 def _encounter_monsters(session) -> list[MonsterInstance]:
+    """The encounter's monsters, not its NPC adventurers, in the encounter's order: groups in order, then monsters."""
     if session.encounter is None:
         return []
     return [
@@ -4547,6 +4606,138 @@ def _resolve_melee(session, attacker, target, group, *, retreating: bool, routin
     return _resolve_monster_melee(session, attacker, target, group, retreating=retreating, routine=routine)
 
 
+class _Ready(NamedTuple):
+    """What `_ready` looked up when it decided that the session can carry out a policy's action."""
+
+    actor: Any
+    """The monster or NPC adventurer that acts."""
+    target: Any = None
+    """The member a `melee` or an `npc_shoot` attacks, the potion an `npc_drink` drinks, or the creature in an
+    `npc_cast`'s `target_id`. None for the other kinds, and for an `npc_cast` of an area spell or with no
+    `target_id`."""
+    spell: Any = None
+    """The spell template an `npc_cast` casts."""
+    mode: Any = None
+    """The mode of that spell, from the `npc_cast`'s `spell_mode`."""
+    profile: Any = None
+    """The NPC's `CasterProfile`, for an `npc_cast`."""
+
+
+def _ready(
+    session,
+    group,
+    action: MonsterAction,
+    *,
+    moved: bool = False,
+    retreat_reach: Mapping[str, Collection[str]] | None = None,
+) -> _Ready | None:
+    """Return what the session needs to carry out a policy's action as it comes up, or None when it can't.
+
+    This is where the session decides, for every kind of action and every field, whether it carries out an action
+    or skips it. `_monster_block` calls it for each action as the action comes up, and `_declare_npc_actions` calls it
+    for each `npc_cast` when the NPCs declare their spells. The call reads state and takes no draw, so a skipped
+    action changes no draw.
+
+    The session carries out an action when all of these hold:
+
+    - `monster_id` is one of the group's `monster_ids`, and that monster or NPC can act. It isn't incapacitated,
+      confused, or turned. A confused one acts by its behaviour roll instead (see `_confused_overrides`).
+    - The `kind` is one of the kinds that `MonsterAction.kind` lists. A `hold` needs nothing more.
+    - A `close` is the first `close` of the round that moves the group (`moved` is False), by one that can move.
+    - A `breath` is by a monster with a breath weapon it hasn't used up today (see `validate_breath`).
+    - A `melee` has a `target_id` that's a living party member in the group's reach (see `_reachable_front_rank`)
+      or in `retreat_reach` for the group. The attacker stands in the monsters' front rank (see `_in_front_rank`), no
+      ward or *protection from evil* bars it from the target (see `_reachable_targets`), and a monster's `routine` is
+      one it can make (see `_routine`). An NPC adventurer ignores `routine`.
+    - An `npc_shoot`, an `npc_cast`, or an `npc_drink` is by an NPC adventurer, not a monster.
+    - An `npc_shoot` has a `target_id` that's a living party member, and the NPC wields a missile weapon.
+    - An `npc_drink` has an `item_id` that's a potion the NPC carries.
+    - An `npc_cast` meets the conditions in `_npc_cast_ready`.
+
+    Args:
+        session: The running session.
+        group: The group whose policy chose the action.
+        action: The action.
+        moved: Whether a `close` has already moved the group this round.
+        retreat_reach: The members each group can strike while the party retreats as a formation, keyed by group id
+            (see `_monster_block`).
+    """
+    if action.monster_id not in group.monster_ids:
+        return None
+    actor = session.combatant(action.monster_id)
+    if actor is None or incapacitated(actor) or has_condition(actor, Condition.CONFUSED):
+        return None
+    if has_condition(actor, Condition.TURNED):
+        return None
+    monster = isinstance(actor, MonsterInstance)
+    if action.kind == "hold":
+        return _Ready(actor)
+    if action.kind == "close":
+        return None if moved or cannot_move(actor) else _Ready(actor)
+    if action.kind == "breath":
+        return _Ready(actor) if monster and not validate_breath(actor) else None
+    if action.kind == "melee":
+        target = _living_member(session, action.target_id)
+        if target is None or not _in_front_rank(session, actor, group):
+            return None
+        reach = {*_reachable_front_rank(group, _placement(session)), *(retreat_reach or {}).get(group.id, ())}
+        if target.id not in reach or not _reachable_targets(session, actor, [target]):
+            return None
+        if monster and _routine(actor, action.routine) is None:
+            return None
+        return _Ready(actor, target)
+    if monster:
+        return None
+    if action.kind == "npc_shoot":
+        target = _living_member(session, action.target_id)
+        if target is None or _npc_wielded(actor, missile=True) is None:
+            return None
+        return _Ready(actor, target)
+    if action.kind == "npc_drink":
+        potion = actor.inventory.magic_item(action.item_id) if action.item_id is not None else None
+        if potion is None or magic_item_template(potion).category is not MagicItemCategory.POTION:
+            return None
+        return _Ready(actor, potion)
+    if action.kind == "npc_cast":
+        return _npc_cast_ready(session, actor, action)
+    return None
+
+
+def _npc_cast_ready(session, npc, action: MonsterAction) -> _Ready | None:
+    """Return what the session needs to carry out an NPC adventurer's `npc_cast`, or None when it can't.
+
+    The NPC has a memorized copy of the action's `spell_id` in its normal form, because a disrupted cast spends a
+    memorized copy (see `disrupt_casting`). The `spell_mode` is a mode of that form, and the NPC's class casts
+    spells. When the mode isn't an area mode, the `target_id`, if the action has one, is a living creature.
+    `_resolve_npc_cast` checks whether the rules allow the cast, with `validate_cast`.
+    """
+    from osrlib.core.spells import caster_profile
+
+    profile = caster_profile(npc.definition)
+    if action.spell_id is None or action.spell_mode is None or profile is None:
+        return None
+    if not any(copy.spell_id == action.spell_id and not copy.reversed for copy in npc.memorized_spells):
+        return None
+    spell = load_spells().get(action.spell_id)
+    mode = next((mode for mode in spell.modes if mode.key == action.spell_mode), None)
+    if mode is None:
+        return None
+    if action.target_id is None or (mode.targeting is not None and mode.targeting.mode is TargetingMode.AREA):
+        return _Ready(npc, None, spell, mode, profile)
+    target = session.registry().get(action.target_id)
+    if target is None or has_condition(target, Condition.DEAD):
+        return None
+    return _Ready(npc, target, spell, mode, profile)
+
+
+def _living_member(session, member_id: str | None):
+    """Return the party member with this id, or None when no member has it or the member is dead."""
+    for member in session.party.members:
+        if member.id == member_id:
+            return None if has_condition(member, Condition.DEAD) else member
+    return None
+
+
 def _monster_block(
     session,
     *,
@@ -4618,64 +4809,38 @@ def _monster_block(
         events.extend(_confused_overrides(session, group, retreating=retreating))
         moved = False
         for action in actions:
-            monster = session.combatant(action.monster_id)
-            if incapacitated(monster) or has_condition(monster, Condition.CONFUSED):
-                continue  # a monster that can't act doesn't, and a confused one acts by its behaviour roll instead
-            if has_condition(monster, Condition.TURNED):
-                continue  # a turned monster harms no one, whatever its policy chose
-            if action.kind == "close" and not moved:
-                if cannot_move(monster):
-                    continue
+            ready = _ready(session, group, action, moved=moved, retreat_reach=retreat_reach)
+            if ready is None:
+                continue
+            actor = ready.actor
+            if action.kind == "close":
                 moved = True
-                arrival = _closing_distance(session, group, _encounter_rate(monster, session))
+                arrival = _closing_distance(session, group, _encounter_rate(actor, session))
                 events.extend(_place_closing_group(session, group, arrival))
             elif action.kind == "breath":
-                events.extend(_resolve_breath(session, monster, group))
+                events.extend(_resolve_breath(session, actor, group))
                 _watch_disruption(events, pending_casters, disrupted, acted)
             elif action.kind == "melee":
-                target = session.registry().get(action.target_id)
-                if target is None or has_condition(target, Condition.DEAD):
-                    continue
-                if not _in_front_rank(session, monster, group):
-                    continue  # only the monsters' front rank fights hand to hand
-                reach = _reachable_front_rank(group, _placement(session))
-                if action.target_id not in reach and action.target_id not in retreat_reach.get(group.id, ()):
-                    continue  # the target stands out of the group's reach
-                if not _reachable_targets(session, monster, [target]):
-                    continue  # a ward or *protection from evil* keeps the monster from this target
+                exposed = ready.target.id in retreating
                 events.extend(
-                    _resolve_melee(
-                        session,
-                        monster,
-                        target,
-                        group,
-                        retreating=action.target_id in retreating,
-                        routine=action.routine,
-                    )
+                    _resolve_melee(session, actor, ready.target, group, retreating=exposed, routine=action.routine)
                 )
                 _watch_disruption(events, pending_casters, disrupted, acted)
             elif action.kind == "npc_shoot":
-                target = session.registry().get(action.target_id)
-                if target is None or has_condition(target, Condition.DEAD):
-                    continue
+                exposed = ready.target.id in retreating
                 events.extend(
-                    _resolve_npc_attack(
-                        session, monster, target, group, missile=True, retreating=action.target_id in retreating
-                    )
+                    _resolve_npc_attack(session, actor, ready.target, group, missile=True, retreating=exposed)
                 )
                 _watch_disruption(events, pending_casters, disrupted, acted)
             elif action.kind == "npc_cast":
-                events.extend(_resolve_npc_cast(session, monster, group, action, disrupted))
-                acted.add(monster.id)
+                events.extend(_resolve_npc_cast(session, actor, group, ready, disrupted))
+                acted.add(actor.id)
                 _watch_disruption(events, pending_casters, disrupted, acted)
             elif action.kind == "npc_drink":
                 from osrlib.crawl import _magic_items
 
-                instance = monster.inventory.magic_item(action.item_id) if action.item_id else None
-                if instance is not None:
-                    events.extend(
-                        _magic_items._use_potion(session, monster, monster, instance, magic_item_template(instance))
-                    )
+                potion = ready.target
+                events.extend(_magic_items._use_potion(session, actor, actor, potion, magic_item_template(potion)))
     return events
 
 
@@ -4695,8 +4860,12 @@ def _declare_npc_actions(session, state, pending_casters: dict, events: list[Eve
         if not _living_monsters(session, group):
             continue
         actions = _policy_for(session, group).choose(session, group, session.streams.get(MONSTER_ACTION_STREAM))
-        chosen[group.id] = actions
-        for action in actions:
+        # An NPC declares only a cast the session can carry out now, so a cast it couldn't never posts. The
+        # monster block checks each declared cast again when it comes up.
+        chosen[group.id] = [
+            action for action in actions if action.kind != "npc_cast" or _ready(session, group, action) is not None
+        ]
+        for action in chosen[group.id]:
             if action.kind == "npc_cast" and action.spell_id is not None:
                 pending_casters[action.monster_id] = action
                 events.append(SpellDeclaredEvent(caster_id=action.monster_id, spell_id=action.spell_id))
@@ -4735,35 +4904,28 @@ def _resolve_npc_attack(session, npc, target, group, *, missile: bool, retreatin
     return events
 
 
-def _resolve_npc_cast(session, npc, group, action: MonsterAction, disrupted: set) -> list[Event]:
+def _resolve_npc_cast(session, npc, group, ready: _Ready, disrupted: set) -> list[Event]:
     """Resolve (or disrupt) an NPC's declared cast through the character kernel.
 
-    An area spell covers the ranks toward the NPC's group by the footprint rule (see `_area_rows`). The spell's
-    range is checked against the target member's own distance to the group, or against the nearest member's
-    distance for an area spell. A spell on one of the group's NPCs is checked at 0', because the NPCs of a group
-    stand together on the range track, so a cure spell, which works by touch, reaches any of them.
+    `ready` is what `_npc_cast_ready` found for the cast: the spell, its mode, the creature in its `target_id`, and
+    the NPC's caster profile. An area
+    spell covers the ranks toward the NPC's group by the footprint rule (see `_area_rows`). The spell's range is
+    checked against the target member's own distance to the group, or against the nearest member's distance for an
+    area spell. A spell on one of the group's NPCs is checked at 0', because the NPCs of a group stand together on
+    the range track, so a cure spell, which works by touch, reaches any of them.
     """
-    from osrlib.core.spells import CastContext, cast_spell, caster_profile, validate_cast
+    from osrlib.core.spells import CastContext, cast_spell, validate_cast
 
-    if action.spell_id is None or action.spell_mode is None:
-        return []
-    profile = caster_profile(npc.definition)
-    if profile is None:
-        return []
+    spell, mode, target, profile = ready.spell, ready.mode, ready.target, ready.profile
     if npc.id in disrupted:
-        return disrupt_casting(npc, action.spell_id, reversed=False)
-    spell = load_spells().get(action.spell_id)
-    mode = spell.mode(action.spell_mode)
+        return disrupt_casting(npc, spell.id, reversed=False)
     targeting = mode.targeting
     placement = _placement(session)
     distance = _nearest_member_distance(session, group)
     if targeting is not None and targeting.mode is TargetingMode.AREA:
         covered = _area_rows(group, placement, targeting.shape, targeting.dimensions)
         targets: list = [session.member(member_id) for member_id in covered]
-    elif action.target_id is not None:
-        target = session.registry().get(action.target_id)
-        if target is None or has_condition(target, Condition.DEAD):
-            return []
+    elif target is not None:
         targets = [target]
         if target.id in placement.order:
             distance = placement.distance(target.id, group)
@@ -4772,14 +4934,12 @@ def _resolve_npc_cast(session, npc, group, action: MonsterAction, disrupted: set
     else:
         targets = []
     context = CastContext(in_combat=True, distance_feet=distance)
-    if validate_cast(
-        npc, spell, action.spell_mode, profile=profile, targets=targets, context=context, ledger=session.ledger
-    ):
+    if validate_cast(npc, spell, mode.key, profile=profile, targets=targets, context=context, ledger=session.ledger):
         return []
     result = cast_spell(
         npc,
         spell,
-        action.spell_mode,
+        mode.key,
         profile=profile,
         targets=targets,
         context=context,
@@ -5037,11 +5197,10 @@ def _resolve_monster_melee(
     so does a `SPECIAL` routine. An attack in `_UNROLLED_ATTACK_NAMES` takes no attack roll.
     """
     events: list[Event] = []
-    routines = monster.template.attacks
-    index = 0 if routine is None else routine
-    if not 0 <= index < len(routines) or routines[index].use is RoutineUse.SPECIAL:
-        return []
-    for attack in routines[index].attacks:
+    chosen = _routine(monster, routine)
+    if chosen is None:
+        return events
+    for attack in chosen.attacks:
         if attack.name in _UNROLLED_ATTACK_NAMES:
             continue
         for _ in range(attack.count):
@@ -5073,6 +5232,19 @@ def _resolve_monster_melee(
                 events.extend(_apply_hit_effects(session, monster, target, attack))
             events.extend(_identify_worn_items(session, target))
     return events
+
+
+def _routine(monster: MonsterInstance, routine: int | None) -> AttackRoutine | None:
+    """Return the attack routine a monster's melee makes, or None when the session rolls nothing for it.
+
+    `routine` is an index into the template's `attacks`, and None means the first routine. The session rolls nothing
+    for an index out of range, negative included, or for a `SPECIAL` routine.
+    """
+    routines = monster.template.attacks
+    index = 0 if routine is None else routine
+    if not 0 <= index < len(routines) or routines[index].use is RoutineUse.SPECIAL:
+        return None
+    return routines[index]
 
 
 _HIT_EFFECT_KINDS = frozenset({"paralysis", "poison", "disease", "energy_drain", "petrification", "blindness"})

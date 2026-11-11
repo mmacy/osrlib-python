@@ -56,11 +56,11 @@ from collections.abc import Mapping
 from enum import StrEnum
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import ConfigDict, Field, field_validator, model_validator
 
 from osrlib.core.classes import SavingThrows
 from osrlib.core.dice import _lowest_total, parse, roll
-from osrlib.core.frozen import FrozenMap
+from osrlib.core.frozen import FrozenMap, _Model
 from osrlib.core.monsters import MonsterHitDice
 from osrlib.core.rng import RngStream
 
@@ -130,7 +130,7 @@ _MATRIX_HD_ROWS = (
 _XP_INFLATION_PER_HD_ABOVE_21 = 250
 
 
-class AttackMatrixRow(BaseModel):
+class AttackMatrixRow(_Model):
     """One row of the attack matrix: the roll one kind of attacker needs against each armour class.
 
     Read the rows to display the matrix. To find the roll an attacker needs, call
@@ -164,7 +164,7 @@ class AttackMatrixRow(BaseModel):
         return self
 
 
-class AttackMatrix(BaseModel):
+class AttackMatrix(_Model):
     """The SRD's attack matrix: the roll each kind of attacker needs against each armour class.
 
     Read it from [`CombatTables.attack_matrix`][osrlib.core.tables.CombatTables.attack_matrix]
@@ -185,7 +185,7 @@ class AttackMatrix(BaseModel):
         return self
 
 
-class MonsterSaveBand(BaseModel):
+class MonsterSaveBand(_Model):
     """One band of the monster saving throw table: the saving throws for a range of Hit Dice.
 
     Find the band for a monster with
@@ -213,7 +213,7 @@ class MonsterSaveBand(BaseModel):
     """The saving throw targets for a monster in this band."""
 
 
-class TurningResult(BaseModel):
+class TurningResult(_Model):
     """What happens when a cleric of a given level tries to turn undead of a given Hit Dice.
 
     [`TurningTable.result`][osrlib.core.tables.TurningTable.result] returns one. Act on
@@ -243,7 +243,7 @@ class TurningResult(BaseModel):
         return self
 
 
-class TurningRow(BaseModel):
+class TurningRow(_Model):
     """One cleric level's row of the table for turning undead, as printed.
 
     Read the rows to display the table. To look up an attempt, call
@@ -274,7 +274,7 @@ class TurningRow(BaseModel):
         return self
 
 
-class TurningTable(BaseModel):
+class TurningTable(_Model):
     """The table for turning undead: what a cleric of each level can do to undead of each Hit Dice.
 
     Turning undead is a cleric's power to drive undead away or destroy them. Get the table from
@@ -349,7 +349,7 @@ class TurningTable(BaseModel):
         return TurningResult(outcome="number", threshold=int(cell))
 
 
-class XpAwardRow(BaseModel):
+class XpAwardRow(_Model):
     """One row of the table of experience awards for monsters: what a monster of some Hit Dice is worth.
 
     [`monster_xp`][osrlib.core.tables.monster_xp] does the whole calculation, including the
@@ -398,7 +398,7 @@ class ReactionResult(StrEnum):
     """On a total of 12 or more, the monsters are eager and friendly."""
 
 
-class ReactionBand(BaseModel):
+class ReactionBand(_Model):
     """One band of the monster reaction table: a range of 2d6 totals and the reaction it gives.
 
     Read the bands to display the table. To look up a total, call
@@ -438,7 +438,7 @@ class ReactionBand(BaseModel):
         return self
 
 
-class ReactionTable(BaseModel):
+class ReactionTable(_Model):
     """The monster reaction table, which turns a 2d6 total into how monsters respond to the party.
 
     Get it from [`CombatTables.reaction`][osrlib.core.tables.CombatTables.reaction] and pass
@@ -501,7 +501,7 @@ def reaction_result(table: ReactionTable, total: int) -> ReactionResult:
     raise ValueError(f"no reaction band covers total {total}")  # unreachable on a valid table
 
 
-class MonsterEncounterEntry(BaseModel):
+class MonsterEncounterEntry(_Model):
     """The entry of an encounter table row for monsters: which monsters can appear.
 
     Pass it with the number that appear to
@@ -551,7 +551,7 @@ class MonsterEncounterEntry(BaseModel):
         return self
 
 
-class NpcPartyEncounterEntry(BaseModel):
+class NpcPartyEncounterEntry(_Model):
     """The entry of an encounter table row for a party of NPC adventurers instead of monsters.
 
     Roll the party's size from the row's `count_dice`, which are the same dice as the
@@ -594,7 +594,7 @@ assert isinstance(entry, MonsterEncounterEntry)
 """
 
 
-class EncounterTableRow(BaseModel):
+class EncounterTableRow(_Model):
     """One d20 result on a wandering monster table: what appears, and how many.
 
     Roll a d20 and take `rows[roll - 1]`. Roll `count_dice`, or take `count_fixed`, for how
@@ -643,7 +643,7 @@ class EncounterTableRow(BaseModel):
         return self
 
 
-class EncounterTable(BaseModel):
+class EncounterTable(_Model):
     """The wandering monster table for one dungeon level, or for a range of levels.
 
     Get the table for a level with
@@ -741,7 +741,7 @@ def select_encounter_individuals(entry: MonsterEncounterEntry, count: int, strea
     return [ids[0]] * count
 
 
-class NpcClassLevelRow(BaseModel):
+class NpcClassLevelRow(_Model):
     """One d8 result on the table that gives an NPC adventurer a class and a level.
 
     [`generate_npc_party`][osrlib.core.npc.generate_npc_party] rolls on this table for each
@@ -774,7 +774,7 @@ class NpcClassLevelRow(BaseModel):
         return value
 
 
-class NpcAlignmentBand(BaseModel):
+class NpcAlignmentBand(_Model):
     """One band of the d6 table that gives an NPC adventuring party its alignment.
 
     The bands are in
@@ -799,7 +799,7 @@ class NpcAlignmentBand(BaseModel):
     the enum member: `Alignment("lawful")`."""
 
 
-class NpcPartyComposition(BaseModel):
+class NpcPartyComposition(_Model):
     """The dice that give the number of adventurers in an NPC party of one kind.
 
     Use it when you place an NPC party yourself, rather than from an encounter table row. Find
@@ -835,7 +835,7 @@ class NpcPartyComposition(BaseModel):
         return value
 
 
-class EncounterTables(BaseModel):
+class EncounterTables(_Model):
     """Every wandering monster table, and the tables for generating an NPC adventuring party.
 
     Get it from [`load_encounter_tables`][osrlib.data.load_encounter_tables]. Start with
@@ -911,7 +911,7 @@ class EncounterTables(BaseModel):
         raise ValueError(f"no encounter table covers level {level}")  # unreachable on a valid catalog
 
 
-class CombatTables(BaseModel):
+class CombatTables(_Model):
     """The tables the combat rules read, loaded together.
 
     Get it from [`load_combat_tables`][osrlib.data.load_combat_tables]. Read the table you

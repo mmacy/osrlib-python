@@ -63,8 +63,9 @@ adventure document that uses all three, see
 
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import ConfigDict, Field, model_validator
 
+from osrlib.core.frozen import _Model
 from osrlib.crawl.commands import ConsequenceCommand
 from osrlib.crawl.gates import ConditionSpec
 from osrlib.crawl.narrative import NarrativeBlock
@@ -138,7 +139,7 @@ only on a `RemoveItem`. A grant or an award doesn't depend on what a member carr
 [`PARTY_SELECTOR`][osrlib.crawl.triggers.PARTY_SELECTOR]."""
 
 
-class AreaEnteredPattern(BaseModel):
+class AreaEnteredPattern(_Model):
     """A pattern that matches the party entering a keyed area.
 
     It matches a [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] for
@@ -171,7 +172,7 @@ class AreaEnteredPattern(BaseModel):
     level."""
 
 
-class LevelEnteredPattern(BaseModel):
+class LevelEnteredPattern(_Model):
     """A pattern that matches the party arriving on a dungeon level.
 
     It matches however the party got there, by a stair from another level or by entering
@@ -199,7 +200,7 @@ class LevelEnteredPattern(BaseModel):
     """The 1-based level number."""
 
 
-class DungeonEnteredPattern(BaseModel):
+class DungeonEnteredPattern(_Model):
     """A pattern that matches the party crossing into a dungeon, from town or another dungeon.
 
     It matches a [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] for a
@@ -226,7 +227,7 @@ class DungeonEnteredPattern(BaseModel):
     """The id of the dungeon the party crossed into."""
 
 
-class TownEnteredPattern(BaseModel):
+class TownEnteredPattern(_Model):
     """A pattern that matches the party arriving in the adventure's town, however it got there.
 
     An adventure has one town, so the pattern has no fields. It matches when the party
@@ -251,7 +252,7 @@ class TownEnteredPattern(BaseModel):
     never set it yourself."""
 
 
-class ItemAcquiredPattern(BaseModel):
+class ItemAcquiredPattern(_Model):
     """A pattern that matches a party member acquiring an item with `item_id`.
 
     It matches an [`ItemAcquiredEvent`][osrlib.crawl.events.ItemAcquiredEvent], so it
@@ -287,7 +288,7 @@ class ItemAcquiredPattern(BaseModel):
     magic-item catalog. For a magic item, write its catalog id, not an instance id."""
 
 
-class MonsterDefeatedPattern(BaseModel):
+class MonsterDefeatedPattern(_Model):
     """A pattern that matches a monster of `template_id` being slain or routed.
 
     Slain and routed both count as defeated, and the pattern matches either one. The engine
@@ -318,7 +319,7 @@ class MonsterDefeatedPattern(BaseModel):
     so every monster of that kind matches."""
 
 
-class FlagSetPattern(BaseModel):
+class FlagSetPattern(_Model):
     """A pattern that matches a write to a session flag.
 
     It matches the write, not the flag's state. When you execute
@@ -374,7 +375,7 @@ match the same events a trigger can. The `pattern_type` values are part of the d
 later release can add a member but doesn't rename one within a schema version."""
 
 
-class TriggerSpec(BaseModel):
+class TriggerSpec(_Model):
     """One authored trigger: what it reacts to, what has to hold, and what happens.
 
     Put your triggers in the `triggers` tuple of an

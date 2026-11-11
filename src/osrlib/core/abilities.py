@@ -65,8 +65,9 @@ assert (check.roll, check.success) == (18, False)
 
 from enum import StrEnum
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import ConfigDict, Field, model_validator
 
+from osrlib.core.frozen import _Model
 from osrlib.core.rng import RngStream
 from osrlib.core.validation import Rejection
 
@@ -170,7 +171,7 @@ class Literacy(StrEnum):
     """Can read and write the character's native languages, at intelligence 9 or above."""
 
 
-class ScoreBand(BaseModel):
+class ScoreBand(_Model):
     """The run of scores one table row covers, like 4 to 5.
 
     The SRD prints its modifier tables in bands instead of one row per score, and osrlib
@@ -335,7 +336,7 @@ def _validate_coverage(rows: tuple[ScoreBand, ...], table: str) -> None:
         raise ValueError(f"{table} table bands must end at {MAX_SCORE}")
 
 
-class AbilityTables(BaseModel):
+class AbilityTables(_Model):
     """The SRD's ability tables, and the accessors that read a score out of them.
 
     Get one from [`load_ability_tables`][osrlib.data.load_ability_tables], which loads the
@@ -763,7 +764,7 @@ class AbilityTables(BaseModel):
         return self._row(self.prime_requisite, score).xp_modifier_pct
 
 
-class AbilityCheckResult(BaseModel):
+class AbilityCheckResult(_Model):
     """How an ability check turned out, including the die roll so you can show it.
 
     [`ability_check`][osrlib.core.abilities.ability_check] returns one.
@@ -788,7 +789,7 @@ class AbilityCheckResult(BaseModel):
     """
 
 
-class OpenDoorsResult(BaseModel):
+class OpenDoorsResult(_Model):
     """How an attempt to force a door turned out, including the die roll so you can show it.
 
     [`open_doors_check`][osrlib.core.abilities.open_doors_check] returns one.
@@ -908,7 +909,7 @@ def open_doors_check(chance: int, stream: RngStream) -> OpenDoorsResult:
 _LOWERABLE = (AbilityScore.STR, AbilityScore.INT, AbilityScore.WIS)
 
 
-class AbilityAdjustment(BaseModel):
+class AbilityAdjustment(_Model):
     """A proposed trade of ability points, made once while a character is being created.
 
     Build one from what the player chose, check it with

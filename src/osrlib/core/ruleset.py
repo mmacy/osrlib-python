@@ -46,7 +46,9 @@ assert house_rules.variable_weapon_damage is True
 
 from enum import StrEnum
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import ConfigDict
+
+from osrlib.core.frozen import _Model
 
 __all__ = [
     "EncumbranceMode",
@@ -112,7 +114,7 @@ class EncumbranceMode(StrEnum):
     """
 
 
-class Ruleset(BaseModel):
+class Ruleset(_Model):
     """The rules for a game: one flag per decision osrlib lets you make.
 
     Build one at the start of a game and pass it to

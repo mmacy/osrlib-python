@@ -104,13 +104,14 @@ print([monster.current_hp for monster in referee.monsters])
 
 from copy import deepcopy
 
-from pydantic import BaseModel, ConfigDict, Field, SerializeAsAny, ValidationInfo, field_validator
+from pydantic import ConfigDict, Field, SerializeAsAny, ValidationInfo, field_validator
 
 from osrlib.core.abilities import AbilityScore
 from osrlib.core.character import Character
 from osrlib.core.classes import level_title
 from osrlib.core.effects import Condition, EffectsLedger, has_condition
 from osrlib.core.events import Event
+from osrlib.core.frozen import _Model
 from osrlib.core.items import MagicItemCategory, MagicItemInstance, magic_item_template
 from osrlib.core.monsters import IdAllocator, MonsterInstance, _regular_plural
 from osrlib.core.ruleset import Ruleset
@@ -148,7 +149,7 @@ __all__ = [
 ]
 
 
-class MemberView(BaseModel):
+class MemberView(_Model):
     """One party member's character sheet, as the players see it.
 
     You get these from [`PlayerView.party`][osrlib.crawl.views.PlayerView.party], in marching
@@ -327,7 +328,7 @@ class MemberView(BaseModel):
     thief skills."""
 
 
-class MemberEffectView(BaseModel):
+class MemberEffectView(_Model):
     """One active effect on a party member, like a burning torch or a running spell.
 
     You get these from [`PlayerView.effects`][osrlib.crawl.views.PlayerView.effects]. Only
@@ -349,7 +350,7 @@ class MemberEffectView(BaseModel):
     duration and never tells the players."""
 
 
-class EdgeView(BaseModel):
+class EdgeView(_Model):
     """One visible edge: what occupies it, and a door's state.
 
     You get these from [`ExploredLevelView.edges`][osrlib.crawl.views.ExploredLevelView.edges].
@@ -373,7 +374,7 @@ class EdgeView(BaseModel):
     a door."""
 
 
-class PileView(BaseModel):
+class PileView(_Model):
     """A known dropped pile in explored space.
 
     You get these from [`PlayerView.piles`][osrlib.crawl.views.PlayerView.piles], keyed by
@@ -392,7 +393,7 @@ class PileView(BaseModel):
     """The pile's coins, as their value in whole gold pieces, rounded down."""
 
 
-class ExploredLevelView(BaseModel):
+class ExploredLevelView(_Model):
     """One level's explored map: the cells the party knows, and the edges around them.
 
     You get these from [`PlayerView.explored`][osrlib.crawl.views.PlayerView.explored], one
@@ -418,7 +419,7 @@ class ExploredLevelView(BaseModel):
     is one entry, not two."""
 
 
-class EncounterGroupView(BaseModel):
+class EncounterGroupView(_Model):
     """A monster group as the players see it: what it is, how many, how far, how it looks.
 
     You get these from [`EncounterView.groups`][osrlib.crawl.views.EncounterView.groups]. Hit
@@ -559,7 +560,7 @@ class EncounterGroupView(BaseModel):
         return value or _regular_plural(info.data.get("label", ""))
 
 
-class EncounterView(BaseModel):
+class EncounterView(_Model):
     """The current encounter or battle's public state.
 
     You get one from [`PlayerView.encounter`][osrlib.crawl.views.PlayerView.encounter], which
@@ -665,7 +666,7 @@ class EncounterView(BaseModel):
     zero."""
 
 
-class ObjectiveView(BaseModel):
+class ObjectiveView(_Model):
     """One revealed objective as the players know it: what it's called, and whether it's done.
 
     You get these from [`QuestView.objectives`][osrlib.crawl.views.QuestView.objectives]. An
@@ -687,7 +688,7 @@ class ObjectiveView(BaseModel):
     """`"incomplete"` or `"complete"`."""
 
 
-class QuestView(BaseModel):
+class QuestView(_Model):
     """One active quest as the players know it: the task, who gave it, and where it stands.
 
     You get these from [`PlayerView.quests`][osrlib.crawl.views.PlayerView.quests]. The rules
@@ -714,7 +715,7 @@ class QuestView(BaseModel):
     """The revealed objectives, in the order the quest lists them."""
 
 
-class PlayerView(BaseModel):
+class PlayerView(_Model):
     """What a player may see of a session: a fixed list of fields, every one safe to show.
 
     Get one from [`GameSession.view`][osrlib.crawl.session.GameSession.view] with
@@ -788,7 +789,7 @@ class PlayerView(BaseModel):
     one."""
 
 
-class ExplorationCounters(BaseModel):
+class ExplorationCounters(_Model):
     """The exploration counters a session keeps between commands: distance, rest, wandering, noise, sleep, food.
 
     You get one from [`RefereeView.exploration`][osrlib.crawl.views.RefereeView.exploration]. These
@@ -831,7 +832,7 @@ class ExplorationCounters(BaseModel):
     party for the day and adds one to this."""
 
 
-class RefereeView(BaseModel):
+class RefereeView(_Model):
     """The full state of a session except the random streams, one typed field for each group of data in a save.
 
     Get one from [`GameSession.view`][osrlib.crawl.session.GameSession.view] with

@@ -181,12 +181,13 @@ from enum import StrEnum
 from functools import cache
 from typing import Annotated, ClassVar, Literal, Union
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError, field_validator, model_validator
+from pydantic import ConfigDict, Field, TypeAdapter, ValidationError, field_validator, model_validator
 
 from osrlib.core.character import Character
 from osrlib.core.clock import TimeUnit
 from osrlib.core.dice import parse
 from osrlib.core.events import Event
+from osrlib.core.frozen import _Model
 from osrlib.core.items import Coins
 from osrlib.core.spells import MemorizedSpell
 from osrlib.core.validation import Rejection
@@ -355,7 +356,7 @@ def _dice_that_parse(expression: str) -> str:
     return expression
 
 
-class Command(BaseModel):
+class Command(_Model):
     """The base class of every command.
 
     You don't construct this class. Construct one of the command classes, which all inherit
@@ -424,7 +425,7 @@ class Command(BaseModel):
             raise TypeError(f"{cls.__name__} must stay frozen: accepted commands are logged verbatim")
 
 
-class CommandResult(BaseModel):
+class CommandResult(_Model):
     """The outcome of one command: accepted with its events, or refused with its rejections.
 
     [`GameSession.execute`][osrlib.crawl.session.GameSession.execute] returns one for each
@@ -1848,8 +1849,9 @@ class UseItem(Command):
           `magic.cast.caster_restrained`, and `magic.cast.anti_magic_shell`.
         - Devices: `items.device.inert` (no charges left),
           `items.use.target_required` (an area device used in an encounter needs a
-          `target_id`), `items.use.unknown_target`, and `items.use.battle_only` (a device
-          that strikes works only as a battle declaration).
+          `target_id`), `items.use.unknown_target`, `items.use.target_cannot_be_healed` (a
+          staff of healing used on a creature that's dead or turned to stone), and
+          `items.use.battle_only` (a device that strikes works only as a battle declaration).
 
     Events:
         [`ItemIdentifiedEvent`][osrlib.crawl.events.ItemIdentifiedEvent], and
@@ -1888,7 +1890,9 @@ class UseItem(Command):
 
     For a device, pass a party member's id for a device that heals by touch, or an encounter
     group's [`EncounterGroupView.id`][osrlib.crawl.views.EncounterGroupView.id] for a device that
-    covers an area. A healing device with `None` heals the member using it."""
+    covers an area. A healing device with `None` heals the member using it. The session refuses a
+    healing device on a creature that's dead or turned to stone with
+    `items.use.target_cannot_be_healed`."""
     spell_id: str | None = None
     """Which spell to read off a scroll that has more than one, from
     [`load_spells`][osrlib.data.load_spells] (see the
@@ -2538,7 +2542,7 @@ class TurnUndead(Command):
     class can't turn undead with `magic.turning.not_a_turner`."""
 
 
-class BattleDeclaration(BaseModel):
+class BattleDeclaration(_Model):
     """One party member's declared action for a battle round.
 
     You construct these yourself, one for each member who has to declare, and pass them all
@@ -2716,7 +2720,14 @@ class BattleDeclaration(BaseModel):
     a spell's range against the distance from the caster to each target: to the group of a
     targeted monster, or to a targeted member, where that member stands once the round's moves
     are made. A touch spell, like *cure light wounds*, reaches 5', so the session refuses it at a
-    member who moves away from the caster this round with `magic.cast.out_of_range`.
+    member who moves away from the caster this round with `magic.cast.out_of_range`. A touch
+    spell on a monster follows the rule for melee, because the OSE SRD's touch needs a melee
+    attack roll. The caster has to stand in the party's front rank toward the monster's group, or
+    the session refuses the cast with `battle.declaration.not_in_front_rank`. The monster has to
+    be one of its group's first living monsters, as many as
+    [`EncounterView.formation_width`][osrlib.crawl.views.EncounterView.formation_width], or the
+    session refuses the cast with `combat.attack.out_of_reach`, whose `target` param is the
+    monster's id.
 
     Three other declarations read one id from this field:
 
@@ -2728,9 +2739,11 @@ class BattleDeclaration(BaseModel):
       a potion to drink.
     - For a `use_item` of a staff of healing, it's the id of the creature the staff touches.
       Leave it empty, and the member using it is healed. The session refuses an id that matches no
-      creature, or more than one id, with `items.use.unknown_target`, and another member out of reach with
+      creature, or more than one id, with `items.use.unknown_target`, a creature that's dead or
+      turned to stone with `items.use.target_cannot_be_healed`, and another member out of reach with
       `battle.declaration.member_out_of_reach`. A monster's group has to stand within 5' of the
-      member, or the use gets `combat.attack.out_of_reach`.
+      member, or the use gets `combat.attack.out_of_reach`. A touch on a monster then follows the
+      rule for melee, as a touch spell's does.
     - For a `give_item`, it's the id of the member who takes the item. The session refuses the giver with
       `exploration.give.same_member`, an id that isn't a party member's, an empty field, or more
       than one id with `session.command.unknown_member`, a member who can't act with
@@ -3050,7 +3063,10 @@ class ResolveBattleRound(Command):
           `magic.cast.not_reversible`, `magic.cast.target_count`,
           `magic.cast.target_must_be_creature`, `magic.cast.out_of_range`. The range is measured
           from the caster to each target's group, or to each target member where they'll stand
-          once the round's moves are made, and a touch spell reaches 5'.
+          once the round's moves are made, and a touch spell reaches 5'. A touch spell on a
+          monster also gets `battle.declaration.not_in_front_rank` when the caster isn't in the
+          party's front rank toward the monster's group, and `combat.attack.out_of_reach` when the
+          monster isn't in its group's front rank.
         - Turn-undead declarations: `magic.turning.not_a_turner` and
           `magic.turning.caster_incapacitated`. A turning also gets
           `battle.declaration.no_target` when no living monster is left in any group that
@@ -3073,8 +3089,9 @@ class ResolveBattleRound(Command):
           listed for attack declarations. A potion given to another member to drink gets
           `items.use.target_not_allowed`, `items.use.target_cannot_drink`, and
           `battle.declaration.member_out_of_reach`. A staff of healing's touch gets
-          `items.use.unknown_target`, and `battle.declaration.member_out_of_reach` on another
-          member.
+          `items.use.unknown_target`, `items.use.target_cannot_be_healed` on a creature that's dead
+          or turned to stone, and `battle.declaration.member_out_of_reach` on another member. On a
+          monster, it gets the checks of a touch spell on a monster.
         - Hand-over declarations, `give_item`: `exploration.give.same_member`,
           `session.command.unknown_member`, `session.command.member_incapacitated`,
           `items.curse.stuck`, `exploration.item.not_carried`, and

@@ -43,9 +43,9 @@ walks through a complete program you can run.
 from collections.abc import Mapping
 from typing import Annotated, NamedTuple
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import ConfigDict, Field, model_validator
 
-from osrlib.core.frozen import FrozenMap
+from osrlib.core.frozen import FrozenMap, _Model
 from osrlib.core.items import (
     AmmunitionTemplate,
     ArmourTemplate,
@@ -106,7 +106,7 @@ __all__ = [
 ]
 
 
-class TownSpec(BaseModel):
+class TownSpec(_Model):
     """The base town: where the party is safe, buys gear, and comes back to.
 
     Every adventure has exactly one town, and a session starts there. The town is not a map: it has
@@ -178,7 +178,7 @@ class TownSpec(BaseModel):
     [`PlayerView.town_healing_prices`][osrlib.crawl.views.PlayerView.town_healing_prices]."""
 
 
-class PartySpec(BaseModel):
+class PartySpec(_Model):
     """The party an adventure is written for: the character levels, and how many characters.
 
     A published adventure states this on its cover or in its introduction, like "for 6 to 8
@@ -226,7 +226,7 @@ class PartySpec(BaseModel):
         return self
 
 
-class Adventure(BaseModel):
+class Adventure(_Model):
     """An adventure: one or more dungeons, the base town, and everything they need.
 
     This is the root of the content tree and the document a session plays. Build the levels first,

@@ -88,7 +88,7 @@ print(party.members[0].name, party.members[0].max_hp, party.members[0].armour_cl
 from collections.abc import Mapping, Sequence
 from typing import Final
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import ConfigDict, Field, field_validator, model_validator
 
 from osrlib.core.abilities import (
     AbilityAdjustment,
@@ -103,6 +103,7 @@ from osrlib.core.classes import ClassDefinition, SavingThrows, _check_definition
 from osrlib.core.creature import _assign_or_restore
 from osrlib.core.dice import RollResult, roll
 from osrlib.core.effects import ActiveCondition, ActiveModifier
+from osrlib.core.frozen import _Model
 from osrlib.core.items import (
     CoinPurse,
     Inventory,
@@ -206,7 +207,7 @@ def _class_definition(class_id: str, custom_class: ClassDefinition | None) -> Cl
     return custom_class
 
 
-class Character(BaseModel):
+class Character(_Model):
     """A player character: the stored state of one character, and the values derived from it.
 
     Get one from [`create_character`][osrlib.core.character.create_character], or from
@@ -930,7 +931,7 @@ def party_from_document(document: Mapping[str, object]) -> list[Character]:
     return loaded
 
 
-class AbilityScoreRolls(BaseModel):
+class AbilityScoreRolls(_Model):
     """The six rolled ability scores, with the dice behind each, so you can show them.
 
     [`roll_ability_scores`][osrlib.core.character.roll_ability_scores] returns one, and
@@ -949,7 +950,7 @@ class AbilityScoreRolls(BaseModel):
     """The three d6 results behind each score, keyed the same way, in the order they were rolled."""
 
 
-class HitPointRoll(BaseModel):
+class HitPointRoll(_Model):
     """A first-level hit point roll: every die thrown, and the hit points the character starts with.
 
     [`roll_hit_points`][osrlib.core.character.roll_hit_points] returns one, and
@@ -970,7 +971,7 @@ class HitPointRoll(BaseModel):
     """The hit points the character starts with: the last die plus the CON modifier, and at least 1."""
 
 
-class CharacterCreationResult(BaseModel):
+class CharacterCreationResult(_Model):
     """What [`create_character`][osrlib.core.character.create_character] returns: the character, and the dice behind it.
 
     Use `character`, and show the rolls if you want a player to see how the character came out.

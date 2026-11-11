@@ -155,6 +155,28 @@ def _potion_drinker(session, carrier, instance: MagicItemInstance, target_id: st
     return drinker, []
 
 
+def _healing_target(session, user, item_id: str, target_id: str | None):
+    """Return whom a staff of healing heals, with every reason it can't, as a `(target, rejections)` pair.
+
+    With no `target_id`, or the user's own id, the staff heals its user. Any other id has to be a creature's, or
+    the use gets `items.use.unknown_target` with the id as `target`. A creature that's dead or turned to stone can't
+    be healed, and the use gets `items.use.target_cannot_be_healed`, with the staff's instance id as `item` and the
+    id as `target`. [`UseItem`][osrlib.crawl.commands.UseItem] takes these checks, and a battle adds checks of reach
+    (see `battle._healing_touch`). The target is None when there are rejections. The call reads state and takes no
+    draw.
+    """
+    if target_id is None or target_id == user.id:
+        return user, []
+    target = session.registry().get(target_id)
+    if target is None:
+        return None, [Rejection(code="items.use.unknown_target", params={"target": target_id})]
+    if not _stands(target):
+        return None, [
+            Rejection(code="items.use.target_cannot_be_healed", params={"item": item_id, "target": target_id})
+        ]
+    return target, []
+
+
 def _use_potion(session, carrier, drinker, instance: MagicItemInstance, template) -> list[Event]:
     """Use up a potion the carrier carries, and apply its effect to the drinker, who can be the carrier.
 
@@ -535,9 +557,9 @@ def _use_device(session, member, instance: MagicItemInstance, template, command)
     if effect_spec is not None and effect_spec.kind == "healing":
         # Resolve the touch target before anything mutates: a rejected command
         # mutates nothing, and identification below is a mutation.
-        target = member if command.target_id is None else session.registry().get(command.target_id)
-        if target is None:
-            return [Rejection(code="items.use.unknown_target", params={"target": command.target_id or ""})], []
+        target, rejections = _healing_target(session, member, instance.instance_id, command.target_id)
+        if rejections:
+            return rejections, []
     events: list[Event] = []
     events.extend(_identify_item_events(session, member, instance))
     events.append(

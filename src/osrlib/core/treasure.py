@@ -66,9 +66,10 @@ from collections.abc import Mapping, Sequence
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import ConfigDict, Field, field_validator, model_validator
 
 from osrlib.core.dice import parse, roll
+from osrlib.core.frozen import _Model
 from osrlib.core.monsters import TreasureRef
 from osrlib.core.rng import RngStream, StreamName
 
@@ -197,7 +198,7 @@ class MagicItemType(StrEnum):
     """Every other enchanted weapon."""
 
 
-class CoinQuantity(BaseModel):
+class CoinQuantity(_Model):
     """How many coins of one denomination a treasure entry yields.
 
     The printed multiplier is part of the dice expression, so an entry that reads
@@ -220,7 +221,7 @@ class CoinQuantity(BaseModel):
         return value
 
 
-class MagicAllotment(BaseModel):
+class MagicAllotment(_Model):
     """One magic item clause of a treasure entry, giving how many items and which kinds.
 
     Read `kind` to know what the clause means:
@@ -276,7 +277,7 @@ class MagicAllotment(BaseModel):
         return self
 
 
-class TreasureEntry(BaseModel):
+class TreasureEntry(_Model):
     """One printed line of a treasure type, which is one thing that might be in the hoard.
 
     A treasure type is a list of these, and generation goes through them in order. Each has exactly
@@ -323,7 +324,7 @@ class TreasureEntry(BaseModel):
         return self
 
 
-class TreasureTypeTable(BaseModel):
+class TreasureTypeTable(_Model):
     """One treasure type, A through V, with everything a hoard of that letter can contain.
 
     Get one with
@@ -351,7 +352,7 @@ class TreasureTypeTable(BaseModel):
     """The printed lines, in order. See [`TreasureEntry`][osrlib.core.treasure.TreasureEntry]."""
 
 
-class GemValueBand(BaseModel):
+class GemValueBand(_Model):
     """One band of the gem value table, which gives what a gem is worth for a range of d20 rolls.
 
     The bands are in [`GemValueTable.bands`][osrlib.core.treasure.GemValueTable]. Generation
@@ -376,7 +377,7 @@ class GemValueBand(BaseModel):
         return self
 
 
-class GemValueTable(BaseModel):
+class GemValueTable(_Model):
     """The tables that give what a gem and a piece of jewellery are worth.
 
     Generation rolls each gem's value on the d20 bands and each piece of jewellery's value on
@@ -442,7 +443,7 @@ class GemValueTable(BaseModel):
         raise ValueError(f"gem value roll must be 1-20, got {roll}")
 
 
-class MagicItemTypeRow(BaseModel):
+class MagicItemTypeRow(_Model):
     """One row of the master *Magic Item Type* table, with the d% rolls that select its type in each column.
 
     The rules print two columns, B for Basic play and X for Expert play, and some types have
@@ -464,7 +465,7 @@ class MagicItemTypeRow(BaseModel):
     """The highest d% roll that selects it in the X column."""
 
 
-class MagicItemTypeTable(BaseModel):
+class MagicItemTypeTable(_Model):
     """The master *Magic Item Type* table, which gives the kind of magic item a d% roll produces.
 
     It's the first of the two rolls that generate a magic item. Roll it with
@@ -524,7 +525,7 @@ class MagicItemTypeTable(BaseModel):
         raise ValueError(f"magic item type roll must be 1-100, got {roll}")
 
 
-class StockingRow(BaseModel):
+class StockingRow(_Model):
     """One row of the room stocking table, giving what is in a room and how likely treasure is with it.
 
     [`roll_room_contents`][osrlib.core.treasure.roll_room_contents] rolls the d6, selects the
@@ -547,7 +548,7 @@ class StockingRow(BaseModel):
     """
 
 
-class StockingTable(BaseModel):
+class StockingTable(_Model):
     """The *Random Dungeon Room Contents* table, which lists what to put in a room when you stock a dungeon.
 
     Rolling it takes two steps, so call
@@ -601,7 +602,7 @@ class StockingTable(BaseModel):
         raise ValueError(f"stocking roll must be 1-6, got {roll}")
 
 
-class UnguardedTreasureBand(BaseModel):
+class UnguardedTreasureBand(_Model):
     """One dungeon-level band of the unguarded treasure table.
 
     Deeper levels have more treasure, so the table is divided into bands of levels. Each band's
@@ -627,7 +628,7 @@ class UnguardedTreasureBand(BaseModel):
         return self
 
 
-class UnguardedTreasureTable(BaseModel):
+class UnguardedTreasureTable(_Model):
     """The unguarded treasure table, which lists what an unguarded cache contains at each dungeon level.
 
     Use it through
@@ -684,7 +685,7 @@ class UnguardedTreasureTable(BaseModel):
         return self.bands[-1]
 
 
-class TreasureTables(BaseModel):
+class TreasureTables(_Model):
     """Every treasure table, loaded and ready to generate from.
 
     Call [`load_treasure_tables`][osrlib.data.load_treasure_tables] to get the built-in set.
@@ -747,7 +748,7 @@ class TreasureTables(BaseModel):
         raise ValueError(f"unknown treasure type {letter!r}")
 
 
-class RoomContentsResult(BaseModel):
+class RoomContentsResult(_Model):
     """What one roll on the room stocking table produced.
 
     Returned by [`roll_room_contents`][osrlib.core.treasure.roll_room_contents]. It contains
@@ -770,7 +771,7 @@ class RoomContentsResult(BaseModel):
     """
 
 
-class TreasureRefPlan(BaseModel):
+class TreasureRefPlan(_Model):
     """A monster's treasure entry, sorted into what to generate and when.
 
     [`plan_treasure_ref`][osrlib.core.treasure.plan_treasure_ref] produces one of these from

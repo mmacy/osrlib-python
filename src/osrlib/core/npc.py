@@ -70,13 +70,14 @@ for member in party.members:
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import ConfigDict
 
 from osrlib.core.abilities import AbilityScore
 from osrlib.core.alignment import Alignment
 from osrlib.core.character import Character, roll_ability_scores
 from osrlib.core.classes import ClassDefinition, level_up
 from osrlib.core.dice import roll
+from osrlib.core.frozen import _Model
 from osrlib.core.items import (
     GeneratedTreasure,
     ItemInstance,
@@ -152,7 +153,7 @@ _SUB_TABLE_ORDER = (
 )
 
 
-class NpcParty(BaseModel):
+class NpcParty(_Model):
     """A party of NPC adventurers, with the alignment they share and the treasure they carry.
 
     [`generate_npc_party`][osrlib.core.npc.generate_npc_party] returns one. Run the members as an

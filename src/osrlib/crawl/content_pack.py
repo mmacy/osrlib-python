@@ -80,8 +80,9 @@ assert validate_content_pack(pack, load_monsters(), load_equipment()) == ()
 import re
 from collections.abc import Mapping
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import ConfigDict, Field, field_validator, model_validator
 
+from osrlib.core.frozen import _Model
 from osrlib.core.items import EquipmentCatalog
 from osrlib.core.monsters import MonsterCatalog, MonsterTemplate
 from osrlib.crawl.adventure import _unknown_treasure_types
@@ -129,7 +130,7 @@ def _rewrite_dead_treasure_triggers(payload: dict) -> None:
                     trap["trigger"] = "open"
 
 
-class ContentPackEntry(BaseModel):
+class ContentPackEntry(_Model):
     """One portable room: the content of an [`AreaSpec`][osrlib.crawl.dungeon.AreaSpec] without its cells.
 
     An entry has the content fields an area has: its name, description, encounter, trap, treasure,
@@ -184,7 +185,7 @@ class ContentPackEntry(BaseModel):
         return self
 
 
-class PackSection(BaseModel):
+class PackSection(_Model):
     """The entries for one dungeon level, and that level's wandering-monster table.
 
     A section groups entries the way a tool shows a pack, level by level. It also has a
@@ -212,7 +213,7 @@ class PackSection(BaseModel):
     built-in catalog doesn't have, as you do for the entries' encounters."""
 
 
-class ContentPack(BaseModel):
+class ContentPack(_Model):
     """A content pack: sections of rooms without geometry, plus the monsters they need.
 
     Construct one yourself, or have an authoring tool build one from an adventure you have already
@@ -358,7 +359,7 @@ class ContentPack(BaseModel):
             raise ContentValidationError(f"content pack document payload failed validation: {error}") from error
 
 
-class PackFinding(BaseModel):
+class PackFinding(_Model):
     """One reference that a content pack doesn't cover: what is missing, and where.
 
     [`validate_content_pack`][osrlib.crawl.content_pack.validate_content_pack] returns these. A finding

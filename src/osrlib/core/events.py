@@ -66,7 +66,9 @@ from enum import StrEnum
 from functools import cache
 from typing import Annotated, ClassVar, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
+from pydantic import ConfigDict, Field, ValidationError, field_validator, model_validator
+
+from osrlib.core.frozen import _Model
 
 __all__ = [
     "AttackRolledEvent",
@@ -144,7 +146,7 @@ class Visibility(StrEnum):
     its effects are referee events too."""
 
 
-class Event(BaseModel):
+class Event(_Model):
     """The base class of every osrlib event: a frozen record of one thing the rules did.
 
     Use it as the type you annotate with, as in `list[Event]`. The two fields declared here are the two you can
@@ -224,7 +226,7 @@ class Event(BaseModel):
         return self
 
 
-class InitiativeRoll(BaseModel):
+class InitiativeRoll(_Model):
     """One initiative roll on an [`InitiativeRolledEvent`][osrlib.core.events.InitiativeRolledEvent].
 
     Read these from the event's `entries` to show what each side or combatant rolled. Check the event's
@@ -1000,7 +1002,7 @@ class TargetsSelectedEvent(Event):
     """The entity ids of the selected creatures, in the order they were chosen."""
 
 
-class PreparedSpell(BaseModel):
+class PreparedSpell(_Model):
     """One spell a caster has in memory, as a memorization event lists it.
 
     Read these from the `prepared` field of a [`SpellsMemorizedEvent`][osrlib.core.events.SpellsMemorizedEvent].
@@ -1282,7 +1284,7 @@ class SpellBookUpdatedEvent(Event):
     """The spell's content id."""
 
 
-class TurningTypeOutcome(BaseModel):
+class TurningTypeOutcome(_Model):
     """How one kind of monster fared against a cleric's attempt to turn undead.
 
     `turn_undead` reads the turning table once for each kind of monster present, not once for each monster, and

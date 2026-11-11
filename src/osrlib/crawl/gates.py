@@ -62,10 +62,11 @@ shows how to build all three in an adventure you can run.
 from collections.abc import Mapping, Sequence
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ConfigDict, Field
 
 from osrlib.core.character import Character
 from osrlib.core.effects import EffectsLedger
+from osrlib.core.frozen import _Model
 from osrlib.crawl.narrative import NarrativeBlock
 
 __all__ = [
@@ -80,7 +81,7 @@ __all__ = [
 ]
 
 
-class HasItemCondition(BaseModel):
+class HasItemCondition(_Model):
     """A condition that holds when the party carries an item with `item_id`, mundane or magic.
 
     Put it in the `condition` of a [`GateSpec`][osrlib.crawl.gates.GateSpec] for a door
@@ -126,7 +127,7 @@ class HasItemCondition(BaseModel):
     something that has already happened, and there's no attempt to charge."""
 
 
-class FlagEqualsCondition(BaseModel):
+class FlagEqualsCondition(_Model):
     """A condition that holds when a session flag equals `value`.
 
     You write flags with [`SetFlag`][osrlib.crawl.commands.SetFlag], and a trigger's
@@ -158,7 +159,7 @@ class FlagEqualsCondition(BaseModel):
     the same type that the [`SetFlag`][osrlib.crawl.commands.SetFlag] for this flag writes."""
 
 
-class EffectActiveCondition(BaseModel):
+class EffectActiveCondition(_Model):
     """A condition that holds when an active effect of `kind` is attached to a party member.
 
     Use it when the party has to invoke an item, not only carry it: the item grants an
@@ -210,7 +211,7 @@ of a quest's [`TriggerClause`][osrlib.crawl.quests.TriggerClause]. The engine ev
 of them with [`condition_holds`][osrlib.crawl.gates.condition_holds]."""
 
 
-class GateSpec(BaseModel):
+class GateSpec(_Model):
     """A condition the party has to meet to get through, with the authored text for both outcomes.
 
     Put one in the `requires` field of a

@@ -70,13 +70,13 @@ from collections.abc import Mapping
 from enum import StrEnum
 from typing import TYPE_CHECKING, Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import ConfigDict, Field, model_validator
 
 from osrlib.core.abilities import MAX_SCORE, MIN_SCORE, AbilityScore
 from osrlib.core.dice import ALLOWED_SIDES
 from osrlib.core.effects import kill
 from osrlib.core.events import Event, HitPointsReportedEvent, LevelDrainedEvent
-from osrlib.core.frozen import FrozenMap
+from osrlib.core.frozen import FrozenMap, _Model
 from osrlib.core.rng import RngStream
 
 if TYPE_CHECKING:
@@ -137,7 +137,7 @@ thief's percentile skills, iterate this tuple and read each chance off the row w
 """
 
 
-class HitDice(BaseModel):
+class HitDice(_Model):
     """A class's hit dice at one level: how many, of what size, and any flat bonus.
 
     Read it off [`ProgressionRow.hit_dice`][osrlib.core.classes.ProgressionRow.hit_dice].
@@ -179,7 +179,7 @@ class HitDice(BaseModel):
         return self
 
 
-class SavingThrows(BaseModel):
+class SavingThrows(_Model):
     """The five saving throw targets, one for each kind of danger.
 
     A save succeeds on a 1d20 roll equal to or higher than the target for the danger, so a lower
@@ -207,7 +207,7 @@ class SavingThrows(BaseModel):
     """The target against spells, rods, and staves."""
 
 
-class ProgressionRow(BaseModel):
+class ProgressionRow(_Model):
     """A class's values at one level: the experience a character needs to reach the level, and what the level grants.
 
     Get one from [`ClassDefinition.row`][osrlib.core.classes.ClassDefinition.row]. A character's
@@ -244,7 +244,7 @@ class ProgressionRow(BaseModel):
     """
 
 
-class XpTier(BaseModel):
+class XpTier(_Model):
     """One tier of a class's experience modifier: a percentage, and the minimum scores that earn it.
 
     A class adjusts every experience award up for a character whose prime requisites are high, and
@@ -292,7 +292,7 @@ class ArmourPolicyKind(StrEnum):
     """No armour, which is the magic-user's rule. A class with this rule may not use a shield either."""
 
 
-class ArmourPolicy(BaseModel):
+class ArmourPolicy(_Model):
     """Which armour and shields a class may use.
 
     Read it from [`ClassDefinition.armour`][osrlib.core.classes.ClassDefinition.armour].
@@ -334,7 +334,7 @@ class WeaponPolicyKind(StrEnum):
     """Any weapon except the listed ones. The dwarf's and halfling's lists contain the long bow and two-handed sword."""
 
 
-class WeaponPolicy(BaseModel):
+class WeaponPolicy(_Model):
     """Which weapons a class may wield.
 
     Read it from [`ClassDefinition.weapons`][osrlib.core.classes.ClassDefinition.weapons].
@@ -373,7 +373,7 @@ class WeaponPolicy(BaseModel):
         return self
 
 
-class ThiefSkillRow(BaseModel):
+class ThiefSkillRow(_Model):
     """A thief's skill chances at one level.
 
     Read the row for a thief's level from
@@ -419,7 +419,7 @@ class ThiefSkillRow(BaseModel):
     """The percent chance to steal something a person is carrying."""
 
 
-class ClassAbility(BaseModel):
+class ClassAbility(_Model):
     """One thing a class can do, like a dwarf's infravision: a tag the rules functions match, its numbers, and its text.
 
     Read a class's abilities from
@@ -454,7 +454,7 @@ class ClassAbility(BaseModel):
     """
 
 
-class ClassDefinition(BaseModel):
+class ClassDefinition(_Model):
     """A character class, like the fighter or the elf: its rules, and its values at every level.
 
     Get one from [`load_classes`][osrlib.data.load_classes]`().get(class_id)`. For the ids, iterate
@@ -625,7 +625,7 @@ class ClassDefinition(BaseModel):
         return self.progression[level - 1]
 
 
-class ClassCatalog(BaseModel):
+class ClassCatalog(_Model):
     """A set of class definitions, like the built-in classes that [`load_classes`][osrlib.data.load_classes] returns.
 
     Look a class up by id with [`get`][osrlib.core.classes.ClassCatalog.get], or iterate `classes`
@@ -676,7 +676,7 @@ class ClassCatalog(BaseModel):
         raise ValueError(f"unknown class id {class_id!r}")
 
 
-class LevelUpResult(BaseModel):
+class LevelUpResult(_Model):
     """What a character gained with a new level.
 
     [`level_up`][osrlib.core.classes.level_up] returns one, and
@@ -709,7 +709,7 @@ class LevelUpResult(BaseModel):
     """
 
 
-class XpAwardResult(BaseModel):
+class XpAwardResult(_Model):
     """What an experience award did to a character.
 
     [`apply_xp`][osrlib.core.classes.apply_xp] returns one. It contains what you need to show a player
@@ -931,7 +931,7 @@ def level_up(character: Character, definition: ClassDefinition, stream: RngStrea
     return result
 
 
-class SkillCheckResult(BaseModel):
+class SkillCheckResult(_Model):
     """The result of a thief skill check.
 
     [`thief_skill_check`][osrlib.core.classes.thief_skill_check] returns one. Frozen.
@@ -960,7 +960,7 @@ class SkillCheckResult(BaseModel):
     """
 
 
-class DetectionResult(BaseModel):
+class DetectionResult(_Model):
     """The result of a chance-in-6 check, like listening at a door or searching for a secret door.
 
     [`detection_check`][osrlib.core.classes.detection_check] returns one. Frozen.
@@ -1190,7 +1190,7 @@ def detection_chance(character: Character, definition: ClassDefinition, kind: st
     raise ValueError(f"unknown detection kind {kind!r}")
 
 
-class DrainResult(BaseModel):
+class DrainResult(_Model):
     """What an energy drain took from a character.
 
     [`drain_levels`][osrlib.core.classes.drain_levels] returns one. Its `events` describe the

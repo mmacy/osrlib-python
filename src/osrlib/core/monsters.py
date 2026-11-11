@@ -94,14 +94,14 @@ from collections.abc import Mapping
 from enum import StrEnum
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
+from pydantic import ConfigDict, Field, ValidationInfo, field_validator, model_validator
 
 from osrlib.core.alignment import Alignment
 from osrlib.core.classes import SavingThrows
 from osrlib.core.creature import _assign_or_restore
 from osrlib.core.dice import parse
 from osrlib.core.effects import ActiveCondition, ActiveModifier, Condition
-from osrlib.core.frozen import FrozenMap
+from osrlib.core.frozen import FrozenMap, _Model
 from osrlib.core.rng import RngStream, StreamName
 
 __all__ = [
@@ -221,7 +221,7 @@ class Element(StrEnum):
     """Scalding steam, as a dragon turtle breathes."""
 
 
-class EnergyDefense(BaseModel):
+class EnergyDefense(_Model):
     """How a monster resists one kind of energy.
 
     Read them from [`Defenses.energy`][osrlib.core.monsters.Defenses.energy], keyed by
@@ -249,7 +249,7 @@ class EnergyDefense(BaseModel):
     """
 
 
-class DamageReduction(BaseModel):
+class DamageReduction(_Model):
     """A reduction of the damage a monster takes, applied after the dice are rolled.
 
     Read them from [`Defenses.reductions`][osrlib.core.monsters.Defenses.reductions].
@@ -271,7 +271,7 @@ class DamageReduction(BaseModel):
     """What the damage is divided by, 2 or more. The SRD prints only halving, which is 2."""
 
 
-class Defenses(BaseModel):
+class Defenses(_Model):
     """What a monster resists, in the form the damage rules check.
 
     Read it as [`MonsterTemplate.defenses`][osrlib.core.monsters.MonsterTemplate.defenses]. Every
@@ -306,7 +306,7 @@ class Defenses(BaseModel):
     """
 
 
-class MonsterHitDice(BaseModel):
+class MonsterHitDice(_Model):
     """A monster's Hit Dice, as the stat block prints them.
 
     Read it as [`MonsterTemplate.hit_dice`][osrlib.core.monsters.MonsterTemplate.hit_dice].
@@ -356,7 +356,7 @@ class MonsterHitDice(BaseModel):
         return self
 
 
-class MonsterAttack(BaseModel):
+class MonsterAttack(_Model):
     """One attack a monster makes: its name, how often it's made, how much it hurts, and what else it does.
 
     Read them from [`AttackRoutine.attacks`][osrlib.core.monsters.AttackRoutine.attacks], and pass
@@ -463,7 +463,7 @@ class RoutineUse(StrEnum):
     """
 
 
-class AttackRoutine(BaseModel):
+class AttackRoutine(_Model):
     """One set of attacks a monster can make in a round, chosen as a whole.
 
     Read them from [`MonsterTemplate.attacks`][osrlib.core.monsters.MonsterTemplate.attacks]. Most
@@ -489,7 +489,7 @@ class AttackRoutine(BaseModel):
     """
 
 
-class MovementMode(BaseModel):
+class MovementMode(_Model):
     """One way a monster moves, and how fast.
 
     Read them from [`MonsterTemplate.movement`][osrlib.core.monsters.MonsterTemplate.movement]. The
@@ -509,7 +509,7 @@ class MovementMode(BaseModel):
     """How the creature is moving, in the SRD's word: `"flying"`, `"swimming"`, `"in webs"`. `None` for walking."""
 
 
-class MonsterSaves(BaseModel):
+class MonsterSaves(_Model):
     """A monster's saving throws, and the stat block's entry for which class and level it saves as.
 
     Read it as [`MonsterTemplate.saves`][osrlib.core.monsters.MonsterTemplate.saves]. To get the
@@ -529,7 +529,7 @@ class MonsterSaves(BaseModel):
     """
 
 
-class MoraleAlternate(BaseModel):
+class MoraleAlternate(_Model):
     """A morale score that applies only in a particular situation.
 
     Read them from [`MonsterTemplate.morale_alternates`][osrlib.core.monsters.MonsterTemplate.morale_alternates]. A
@@ -552,7 +552,7 @@ class MoraleAlternate(BaseModel):
     """When it applies, in the SRD's words, like `"in melee"` or `"fear of fire"`."""
 
 
-class AlignmentSpec(BaseModel):
+class AlignmentSpec(_Model):
     """Which alignments a monster may have, and which it usually has.
 
     Read it as [`MonsterTemplate.alignment`][osrlib.core.monsters.MonsterTemplate.alignment].
@@ -576,7 +576,7 @@ class AlignmentSpec(BaseModel):
     """
 
 
-class XpNote(BaseModel):
+class XpNote(_Model):
     """What a leader or other special member of a group of these creatures is worth in experience.
 
     Read them from [`MonsterTemplate.xp_notes`][osrlib.core.monsters.MonsterTemplate.xp_notes]. A band of
@@ -594,7 +594,7 @@ class XpNote(BaseModel):
     """The experience for defeating one."""
 
 
-class NumberAppearingValue(BaseModel):
+class NumberAppearingValue(_Model):
     """How many of a creature appear, as either dice to roll or a flat number.
 
     Read it from [`NumberAppearing.dungeon`][osrlib.core.monsters.NumberAppearing.dungeon] or
@@ -636,7 +636,7 @@ class NumberAppearingValue(BaseModel):
         return self
 
 
-class NumberAppearing(BaseModel):
+class NumberAppearing(_Model):
     """How many of a creature appear, which depends on where they are met.
 
     Read it as
@@ -653,7 +653,7 @@ class NumberAppearing(BaseModel):
     """How many appear in their lair or in the wilderness, where they are usually found in larger numbers."""
 
 
-class TreasureRef(BaseModel):
+class TreasureRef(_Model):
     """What treasure a monster has, as the stat block prints it.
 
     Read it as [`MonsterTemplate.treasure`][osrlib.core.monsters.MonsterTemplate.treasure], then
@@ -708,7 +708,7 @@ class TreasureRef(BaseModel):
     """True when the creature's description, not its treasure line, gives what it has."""
 
 
-class MonsterAbility(BaseModel):
+class MonsterAbility(_Model):
     """One thing a monster can do, as a tag plus the SRD text it came from.
 
     Read them from [`MonsterTemplate.abilities`][osrlib.core.monsters.MonsterTemplate.abilities], or
@@ -755,7 +755,7 @@ class MonsterAbility(BaseModel):
     """
 
 
-class AcAlternate(BaseModel):
+class AcAlternate(_Model):
     """An armour class a monster has only in particular circumstances.
 
     Read them from
@@ -781,7 +781,7 @@ class AcAlternate(BaseModel):
     """
 
 
-class MonsterTemplate(BaseModel):
+class MonsterTemplate(_Model):
     """A monster's stat block: everything true of every creature of that kind.
 
     Get one from [`load_monsters`][osrlib.data.load_monsters]`().get(monster_id)`.
@@ -1006,7 +1006,7 @@ class MonsterTemplate(BaseModel):
         return None
 
 
-class MonsterCatalog(BaseModel):
+class MonsterCatalog(_Model):
     """A set of monster templates with lookup by id.
 
     [`load_monsters`][osrlib.data.load_monsters] returns the built-in catalog. It validates the data
@@ -1101,7 +1101,7 @@ class MonsterCatalog(BaseModel):
         return forms
 
 
-class MonsterInstance(BaseModel):
+class MonsterInstance(_Model):
     """One creature in play, spawned from a frozen [`MonsterTemplate`][osrlib.core.monsters.MonsterTemplate].
 
     Get one from [`spawn_monster`][osrlib.core.monsters.spawn_monster]. An instance is what takes
@@ -1367,7 +1367,7 @@ def spawn_monster(
     return MonsterInstance(id=id, template=template, max_hp=hp, current_hp=hp, alignment=resolved)
 
 
-class IdAllocator(BaseModel):
+class IdAllocator(_Model):
     """Hands out entity ids, each one unique within a game.
 
     Every creature, effect, and valuable in a game needs an id, and an allocator gives it one.

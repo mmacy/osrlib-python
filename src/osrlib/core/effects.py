@@ -104,7 +104,7 @@ from collections.abc import Mapping
 from enum import StrEnum
 from typing import Annotated, Any, Literal, cast
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import ConfigDict, Field, field_validator, model_validator
 
 from osrlib.core.clock import ROUNDS_PER_DAY, ROUNDS_PER_TURN, GameClock, TimeUnit
 from osrlib.core.creature import Creature
@@ -122,7 +122,7 @@ from osrlib.core.events import (
     HitPointsReportedEvent,
     MonsterRevivedEvent,
 )
-from osrlib.core.frozen import FrozenMap
+from osrlib.core.frozen import FrozenMap, _Model
 from osrlib.core.rng import RngStream, StreamName
 
 __all__ = [
@@ -286,7 +286,7 @@ class Condition(StrEnum):
     dead* leaves the raised character weakened for two weeks."""
 
 
-class ActiveCondition(BaseModel):
+class ActiveCondition(_Model):
     """One condition a creature currently has, paired with the effect that granted it.
 
     You read these from a creature's `conditions` tuple rather than building them.
@@ -610,7 +610,7 @@ In the list below, the bearer is the creature the modifier is on. What each kind
 """
 
 
-class ModifierSpec(BaseModel):
+class ModifierSpec(_Model):
     """One adjustment to a combat statistic, granted by an effect or by an equipped magic item.
 
     You write these when you author a spell, a magic item, or an effect of your own. Put them in an
@@ -984,7 +984,7 @@ def has_modifier(target: Creature, kind: str) -> bool:
     return any(modifier.kind == kind for modifier in getattr(target, "stat_modifiers", ()))
 
 
-class EffectDefinition(BaseModel):
+class EffectDefinition(_Model):
     """The blueprint for an effect: how long it lasts, what it does while it lasts, and what happens when it ends.
 
     Write one of these for each spell, ability, or hazard you want to put on a creature or a place. Then pass it
@@ -1141,7 +1141,7 @@ class EffectDefinition(BaseModel):
         return self
 
 
-class ActiveEffect(BaseModel):
+class ActiveEffect(_Model):
     """One effect currently running on a creature or a location.
 
     [`EffectsLedger.attach`][osrlib.core.effects.EffectsLedger.attach] creates one, adds it to the ledger's
@@ -1171,7 +1171,8 @@ class ActiveEffect(BaseModel):
     attached_round: int = Field(ge=0)
     """The round the effect was attached on, counted from the start of the game clock. The effect ticks every
     `tick_interval_rounds` from this round. When several effects resolve in one round, they go in order of this
-    value first, then of `effect_id`."""
+    value first, then in the order they were attached, which is their order in
+    [`EffectsLedger.effects`][osrlib.core.effects.EffectsLedger.effects]."""
 
     expires_round: int | None = None
     """The round the effect expires on, counted from the start of the game clock, or `None` when it has no
@@ -1191,7 +1192,7 @@ class ActiveEffect(BaseModel):
 # An invariant test asserts that ledger effects and the conditions and stat modifiers
 # they grant never fall out of step: every mutation must flow through this class's
 # helpers, or through kill() for `dead`. Keep it that way when extending the engine.
-class EffectsLedger(BaseModel):
+class EffectsLedger(_Model):
     """The object that contains every running effect and resolves each one as the game clock moves.
 
     One ledger covers a whole game. A [`GameSession`][osrlib.crawl.session.GameSession] creates one and keeps it
@@ -1607,7 +1608,9 @@ class EffectsLedger(BaseModel):
         return clock.rounds + roll(definition.duration_dice, cast(RngStream, stream)).total * rounds_per_unit
 
     def _ordered(self) -> list[ActiveEffect]:
-        return sorted(self.effects, key=lambda effect: (effect.attached_round, effect.effect_id))
+        # `effects` is in the order the effects were attached, and the sort is stable, so effects attached in the
+        # same round keep that order. An effect id is text, and "effect-10000" sorts before "effect-9999".
+        return sorted(self.effects, key=lambda effect: effect.attached_round)
 
     def _suspended(self, effect: ActiveEffect, registry: Mapping[str, Any]) -> bool:
         target = registry.get(effect.target_ref)
@@ -1623,7 +1626,7 @@ class EffectsLedger(BaseModel):
     ) -> list[Event]:
         events: list[Event] = []
         # An invariant test asserts the round-resolution order: suspension, then
-        # expiry, then ticks, tie-broken by effect id within each phase. Changing it
+        # expiry, then ticks, in the order of `_ordered` within each phase. Changing it
         # is a rules decision, not a refactor.
         # Suspension first: a suspended effect neither expires nor ticks this round,
         # and pushing its expiry forward preserves the duration it has left.

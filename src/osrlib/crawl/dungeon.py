@@ -76,13 +76,13 @@ from collections.abc import Callable, Iterable, Mapping
 from enum import StrEnum
 from typing import Annotated, Any, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator, model_validator
+from pydantic import ConfigDict, Field, PrivateAttr, field_validator, model_validator
 
 from osrlib.core.alignment import Alignment
 from osrlib.core.clock import TimeUnit
 from osrlib.core.dice import parse
 from osrlib.core.effects import Condition
-from osrlib.core.frozen import FrozenMap
+from osrlib.core.frozen import FrozenMap, _Model
 from osrlib.core.items import Coins, MagicItemInstance, ValuableInstance
 from osrlib.core.spells import SaveSpec
 from osrlib.core.tables import EncounterTable, ReactionResult
@@ -331,7 +331,7 @@ class EdgeKind(StrEnum):
     kind must have a `door`, and an edge of any other kind must not."""
 
 
-class DoorSpec(BaseModel):
+class DoorSpec(_Model):
     """A door on an edge, as you wrote it.
 
     Put one in the `door` field of an [`Edge`][osrlib.crawl.dungeon.Edge] whose `kind` is `door`.
@@ -390,7 +390,7 @@ class DoorSpec(BaseModel):
     to the next opening."""
 
 
-class Edge(BaseModel):
+class Edge(_Model):
     """One entry in a level's `edges` map: what stands on the edge between two cells.
 
     Put these in [`LevelSpec.edges`][osrlib.crawl.dungeon.LevelSpec.edges], keyed by
@@ -435,7 +435,7 @@ class Edge(BaseModel):
         return self
 
 
-class TransitionSpec(BaseModel):
+class TransitionSpec(_Model):
     """A way from one cell to another: stairs, a trapdoor, a chute, or a passage.
 
     Transitions belong to a level, in
@@ -558,7 +558,7 @@ class TransitionSpec(BaseModel):
         return self
 
 
-class TrapEffect(BaseModel):
+class TrapEffect(_Model):
     """What a trap does when it springs.
 
     Put one in the `effect` of a [`TrapSpec`][osrlib.crawl.dungeon.TrapSpec], which sets when the
@@ -689,7 +689,7 @@ class TrapEffect(BaseModel):
         return self
 
 
-class TrapSpec(BaseModel):
+class TrapSpec(_Model):
     """A trap: when it springs, what it does, and whom it hits.
 
     A trap can be in two places, and its `kind` sets which. A room trap goes on an
@@ -779,7 +779,7 @@ class TrapSpec(BaseModel):
         return self
 
 
-class ValuableSpec(BaseModel):
+class ValuableSpec(_Model):
     """A gem or piece of jewellery that you place in a cache by hand.
 
     Use it when the treasure is a particular thing with a name, not one of the gems the session
@@ -823,7 +823,7 @@ class ValuableSpec(BaseModel):
     a gem usually is."""
 
 
-class AreaTreasureSpec(BaseModel):
+class AreaTreasureSpec(_Model):
     """Treasure the session rolls for an area, with no monster guarding it.
 
     Put one on an [`AreaSpec`][osrlib.crawl.dungeon.AreaSpec] when you want the room to contain treasure
@@ -877,7 +877,7 @@ class AreaTreasureSpec(BaseModel):
         return self
 
 
-class TreasureBundle(BaseModel):
+class TreasureBundle(_Model):
     """Rolled treasure grouped as one lot: coins, valuables, and magic items.
 
     When the session spawns monsters, it rolls the treasure they carry into bundles. You find them
@@ -916,7 +916,7 @@ class TreasureBundle(BaseModel):
         return self.coins.total_coins == 0 and not self.valuables and not self.magic_items
 
 
-class GeneratedCache(BaseModel):
+class GeneratedCache(_Model):
     """Treasure the session rolled and put down in the dungeon, recorded in the overlay.
 
     A cache you write is a [`FeatureSpec`][osrlib.crawl.dungeon.FeatureSpec], and it never changes.
@@ -961,7 +961,7 @@ class GeneratedCache(BaseModel):
     """The magic items in the cache, each an instance with its charges or quantity already rolled."""
 
 
-class FeatureSpec(BaseModel):
+class FeatureSpec(_Model):
     """A keyed thing in a room: a treasure cache, a construction trick, or custom content.
 
     Put features on an [`AreaSpec`][osrlib.crawl.dungeon.AreaSpec], or on a
@@ -1060,7 +1060,7 @@ class FeatureSpec(BaseModel):
         return self
 
 
-class KeyedMonster(BaseModel):
+class KeyedMonster(_Model):
     """One line of a keyed encounter: which monster, and how many.
 
     A [`KeyedEncounter`][osrlib.crawl.dungeon.KeyedEncounter] has a tuple of these, so a room with
@@ -1116,7 +1116,7 @@ class KeyedMonster(BaseModel):
         return self
 
 
-class KeyedEncounter(BaseModel):
+class KeyedEncounter(_Model):
     """The monsters waiting in a keyed area, and what you decide about them in advance.
 
     Put one on an [`AreaSpec`][osrlib.crawl.dungeon.AreaSpec]. The monsters spawn when the party
@@ -1173,7 +1173,7 @@ class KeyedEncounter(BaseModel):
     on the stocking roll."""
 
 
-class AreaSpec(BaseModel):
+class AreaSpec(_Model):
     """A keyed room or cave: a named group of cells with content bound to it.
 
     Areas are how you key a dungeon, the way a printed adventure numbers its rooms. Each area covers
@@ -1251,7 +1251,7 @@ class AreaSpec(BaseModel):
         return self
 
 
-class WanderingSpec(BaseModel):
+class WanderingSpec(_Model):
     """A level's wandering-monster check: how often the session rolls it, and on what table.
 
     Every [`LevelSpec`][osrlib.crawl.dungeon.LevelSpec] has one. The default is the B/X rule, so you
@@ -1291,7 +1291,7 @@ class WanderingSpec(BaseModel):
     [`stock_area`][osrlib.crawl.stocking.stock_area] can roll on it too."""
 
 
-class LevelSpec(BaseModel):
+class LevelSpec(_Model):
     """One dungeon level: a grid of 10-foot cells with its edges, rooms, and stairs.
 
     You give a level a size, declare the edges that aren't walls, key some of its cells as areas, and add features and
@@ -1530,7 +1530,7 @@ class LevelSpec(BaseModel):
         return None
 
 
-class DungeonSpec(BaseModel):
+class DungeonSpec(_Model):
     """A dungeon: one or more levels joined by transitions.
 
     An [`Adventure`][osrlib.crawl.adventure.Adventure] contains its dungeons, and
@@ -1604,7 +1604,7 @@ class DungeonSpec(BaseModel):
         raise ValueError(f"dungeon {self.id!r} has no level {number}")
 
 
-class PartyLocation(BaseModel):
+class PartyLocation(_Model):
     """Where the party is: in the base town, or on a dungeon cell facing a direction.
 
     The session keeps one in [`DungeonState.location`][osrlib.crawl.dungeon.DungeonState.location]
@@ -1662,7 +1662,7 @@ class PartyLocation(BaseModel):
         return self
 
 
-class DoorState(BaseModel):
+class DoorState(_Model):
     """What has happened to one door in play: open, wedged, discovered, unlocked.
 
     This is the part of a door that changes. The [`DoorSpec`][osrlib.crawl.dungeon.DoorSpec] is how
@@ -1731,7 +1731,7 @@ class DoorState(BaseModel):
         return state
 
 
-class DroppedItem(BaseModel):
+class DroppedItem(_Model):
     """One stack of an ordinary item lying on the floor.
 
     A [`DropPile`][osrlib.crawl.dungeon.DropPile] contains these. Identical items stack, so five iron
@@ -1751,7 +1751,7 @@ class DroppedItem(BaseModel):
     out."""
 
 
-class DropPile(BaseModel):
+class DropPile(_Model):
     """What lies on one cell's floor, waiting to be picked up.
 
     Loose goods end up in piles: gear the party drops with
@@ -1784,7 +1784,7 @@ class DropPile(BaseModel):
     """The magic items lying here, each with the charges or quantity it had before it was dropped."""
 
 
-class DungeonState(BaseModel):
+class DungeonState(_Model):
     """Everything that play has changed in the dungeons: the overlay the session keeps beside the content.
 
     The adventure you wrote never changes. The running session records what happens to it here, and
