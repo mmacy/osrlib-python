@@ -1499,7 +1499,7 @@ def _identify_worn_items(session, target) -> list[Event]:
     """
     if target.id not in {member.id for member in session.party.members}:
         return []
-    from osrlib.crawl import exploration
+    from osrlib.crawl import _magic_items
 
     events: list[Event] = []
     inventory = target.inventory
@@ -1509,7 +1509,7 @@ def _identify_worn_items(session, target) -> list[Event]:
         if isinstance(instance, MagicItemInstance) and (not instance.identified or not instance.cursed_revealed):
             template = magic_item_template(instance)
             if not instance.identified or (template.cursed and not instance.cursed_revealed):
-                events.extend(exploration._identify_item_events(session, target, instance))
+                events.extend(_magic_items._identify_item_events(session, target, instance))
     return events
 
 
@@ -3019,7 +3019,7 @@ def _validate_magic_item_declaration(
     the checks read the battle as it stands, so a member whose place in the front rank didn't open fizzles
     with `battle.declaration.not_in_front_rank`.
     """
-    from osrlib.crawl import _light, exploration
+    from osrlib.crawl import _light, _magic_items
 
     template = magic_item_template(instance)
     category = template.category
@@ -3047,7 +3047,7 @@ def _validate_magic_item_declaration(
             if profile is None or profile.kind != "divine":
                 return [Rejection(code="items.scroll.wrong_caster", params={"item": instance.instance_id})]
         elif profile is None or profile.kind != "arcane":
-            thief_params = exploration._thief_scroll_use(definition)
+            thief_params = _magic_items._thief_scroll_use(definition)
             if thief_params is None or member.level < int(thief_params.get("min_level", 10)):
                 return [Rejection(code="items.scroll.wrong_caster", params={"item": instance.instance_id})]
         spell = load_spells().get(spell_id)
@@ -3098,13 +3098,13 @@ def _drinker(session, declaration: BattleDeclaration, carrier, instance, placeme
     """Return who drinks a declared potion, with every reason they can't, as a `(drinker, rejections)` pair.
 
     The drinker is the member whose id is the one id in `targets`, or the carrier when `targets` is empty. The
-    checks are those of [`UseItem`][osrlib.crawl.commands.UseItem] (see `exploration._potion_drinker`), then
+    checks are those of [`UseItem`][osrlib.crawl.commands.UseItem] (see `_magic_items._potion_drinker`), then
     reach: another member has to stand within 5' of the carrier in `placement` (see `_reach_rejection`). The
     drinker is None when there are rejections. The call reads state and takes no draw.
     """
-    from osrlib.crawl import exploration
+    from osrlib.crawl import _magic_items
 
-    drinker, rejections = exploration._potion_drinker(session, carrier, instance, _sole_target(declaration))
+    drinker, rejections = _magic_items._potion_drinker(session, carrier, instance, _sole_target(declaration))
     if drinker is None:
         return None, rejections
     out_of_reach = _reach_rejection(placement, carrier.id, drinker.id)
@@ -3200,7 +3200,7 @@ def _resolve_magic_item_use(session, member, declaration: BattleDeclaration, sta
     turned to stone, or now stands out of the carrier's reach, the potion isn't used. It stays with the carrier,
     and nothing is reported, as with any other action a member can't take when its step comes.
     """
-    from osrlib.crawl import exploration
+    from osrlib.crawl import _magic_items
 
     instance = member.inventory.magic_item(declaration.item_id)
     if instance is None:
@@ -3212,18 +3212,18 @@ def _resolve_magic_item_use(session, member, declaration: BattleDeclaration, sta
         drinker, _ = _drinker(session, declaration, member, instance, _placement(session))
         if drinker is None:
             return []
-        return exploration._use_potion(session, member, drinker, instance, template)
+        return _magic_items._use_potion(session, member, drinker, instance, template)
     if category is MagicItemCategory.SCROLL:
         if template.cursed or template.effect is not None or "spell_count" not in template.params:
             command_like = _ScrollFields(
                 spell_id=declaration.spell_id, mode=declaration.spell_mode, targets=declaration.targets, target_id=None
             )
-            _, events = exploration._use_scroll(session, member, instance, template, command_like)
+            _, events = _magic_items._use_scroll(session, member, instance, template, command_like)
             return events
         return _resolve_scroll_cast(session, member, instance, template, declaration)
     if category in (MagicItemCategory.ROD, MagicItemCategory.STAFF, MagicItemCategory.WAND):
         effect_spec = template.effect
-        events.extend(exploration._identify_item_events(session, member, instance))
+        events.extend(_magic_items._identify_item_events(session, member, instance))
         from osrlib.crawl.events import ItemUsedEvent
 
         events.append(
@@ -3241,8 +3241,8 @@ def _resolve_magic_item_use(session, member, declaration: BattleDeclaration, sta
         elif effect_spec is not None and effect_spec.kind in ("damage_area", "condition_area"):
             group = _group_by_id(session, declaration.target_group_id)
             if group is not None and not group.fled:
-                events.extend(exploration._device_area_events(session, member, instance, template, group))
-        exploration._spend_device_charge(instance, template)
+                events.extend(_magic_items._device_area_events(session, member, instance, template, group))
+        _magic_items._spend_device_charge(instance, template)
         return events
     return events
 
@@ -3267,7 +3267,7 @@ def _resolve_scroll_cast(session, member, instance, template, declaration: Battl
     miscast is a failure of the scroll, not a refused declaration, so it emits no `magic.cast.fizzled` event.
     """
     from osrlib.core.spells import CastContext, cast_from_scroll
-    from osrlib.crawl import _party_members, exploration
+    from osrlib.crawl import _magic_items, _party_members
     from osrlib.crawl.events import ItemUsedEvent
 
     remaining = tuple(str(spell) for spell in instance.state.get("spells", ()))
@@ -3288,7 +3288,7 @@ def _resolve_scroll_cast(session, member, instance, template, declaration: Battl
     else:
         _party_members._remove_instance(member, instance)
     events: list[Event] = []
-    events.extend(exploration._identify_item_events(session, member, instance))
+    events.extend(_magic_items._identify_item_events(session, member, instance))
     events.append(ItemUsedEvent(code="items.scroll.read", character_id=member.id, instance_id=instance.instance_id))
     if rejections:
         events.append(_fizzle_event(member.id, spell_id, reversed=declaration.reversed, reason=rejections[0].code))
@@ -3301,7 +3301,7 @@ def _resolve_scroll_cast(session, member, instance, template, declaration: Battl
 
     profile = caster_profile(definition)
     if (profile is None or profile.kind != "arcane") and instance.state.get("spell_list") != "cleric":
-        thief_params = exploration._thief_scroll_use(definition)
+        thief_params = _magic_items._thief_scroll_use(definition)
         error_pct = int(thief_params.get("error_pct", 10)) if thief_params else 10
         if session.streams.get(MAGIC_STREAM).randbelow(100) + 1 <= error_pct:
             return events
@@ -4041,11 +4041,11 @@ def _resolve_party_attack(session, member, declaration, fired, fire_damaged) -> 
             # Attacking a warded monster in melee breaks the whole circle (RAW).
             events.extend(_break_party_wards(session, target))
     if isinstance(weapon, MagicItemInstance):
-        from osrlib.crawl import exploration
+        from osrlib.crawl import _magic_items
 
         # The first attack roll with an enchanted arm identifies it, and reveals
         # a curse, which sticks (see the adaptations register).
-        events.extend(exploration._identify_item_events(session, member, weapon))
+        events.extend(_magic_items._identify_item_events(session, member, weapon))
     if missile and weapon is not None:
         facet = _declaration_facet(weapon)
         if WeaponQuality.RELOAD in getattr(facet, "qualities", ()):
@@ -4676,12 +4676,12 @@ def _monster_block(
                 acted.add(monster.id)
                 _watch_disruption(events, pending_casters, disrupted, acted)
             elif action.kind == "npc_drink":
-                from osrlib.crawl import exploration
+                from osrlib.crawl import _magic_items
 
                 instance = monster.inventory.magic_item(action.item_id) if action.item_id else None
                 if instance is not None:
                     events.extend(
-                        exploration._use_potion(session, monster, monster, instance, magic_item_template(instance))
+                        _magic_items._use_potion(session, monster, monster, instance, magic_item_template(instance))
                     )
     return events
 

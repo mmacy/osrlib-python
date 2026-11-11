@@ -2254,7 +2254,7 @@ def _removal_rejection(member: Character, item_id: str, quantity: int) -> Reject
 
 
 def _handle_remove_item(session: GameSession, command: RemoveItem) -> tuple[list[Rejection], list[Event]]:
-    from osrlib.crawl import _party_members, exploration
+    from osrlib.crawl import _magic_items, _party_members
 
     try:
         member = session.member(command.character_id)
@@ -2270,7 +2270,7 @@ def _handle_remove_item(session: GameSession, command: RemoveItem) -> tuple[list
     if magic is not None:
         # Removal releases the item's effects, as taking it off would. It skips the curse
         # check, because the referee takes the item and the bearer doesn't let go of it.
-        events.extend(exploration._release_instance_effects(session, magic))
+        events.extend(_magic_items._release_instance_effects(session, magic))
         _party_members._remove_instance(member, magic)
         item_ids: tuple[str, ...] = (command.item_id,)
     elif valuable is not None:
@@ -2449,14 +2449,14 @@ def _hand_over_everything(session: GameSession, giver: Character, recipient: Cha
     leave it. Returns the releases and one `ItemsGivenEvent`, or no events when the member
     carried nothing.
     """
-    from osrlib.crawl import _party_members, exploration
+    from osrlib.crawl import _magic_items, _party_members
 
     inventory = giver.inventory
     events: list[Event] = []
     item_ids: list[str] = []
     for instance in inventory.all_instances():
         if isinstance(instance, MagicItemInstance):
-            events.extend(exploration._release_instance_effects(session, instance))
+            events.extend(_magic_items._release_instance_effects(session, instance))
             instance.cursed_revealed = False
             recipient.inventory.items.append(instance)
             item_ids.append(instance.instance_id)
@@ -2771,7 +2771,7 @@ def _handle_spawn_npc_party(session: GameSession, command: SpawnNpcParty) -> tup
 
 
 def _handle_identify_item(session: GameSession, command: IdentifyItem) -> tuple[list[Rejection], list[Event]]:
-    from osrlib.crawl import exploration
+    from osrlib.crawl import _magic_items
 
     try:
         member = session.member(command.character_id)
@@ -2780,7 +2780,7 @@ def _handle_identify_item(session: GameSession, command: IdentifyItem) -> tuple[
     instance = member.inventory.magic_item(command.item_id)
     if instance is None:
         return [Rejection(code="session.command.unknown_item", params={"item": command.item_id})], []
-    return [], exploration._identify_item_events(session, member, instance)
+    return [], _magic_items._identify_item_events(session, member, instance)
 
 
 def _handle_set_door_state(session: GameSession, command: SetDoorState) -> tuple[list[Rejection], list[Event]]:
