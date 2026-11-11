@@ -6,7 +6,7 @@ temple healing.
 [`DropItems`][osrlib.crawl.commands.DropItems] and [`UseItem`][osrlib.crawl.commands.UseItem] also
 work in `encounter` mode, so the party can drop or use gear while monsters stand in front of it.
 
-You don't call a command handler here yourself. Build one of the command models in
+The command handlers are private, so you don't call one yourself. Build one of the command models in
 [`osrlib.crawl.commands`][osrlib.crawl.commands], like [`MoveParty`][osrlib.crawl.commands.MoveParty],
 [`Search`][osrlib.crawl.commands.Search], or [`Rest`][osrlib.crawl.commands.Rest], and pass it to
 [`GameSession.execute`][osrlib.crawl.session.GameSession.execute]. The session returns a
@@ -835,7 +835,7 @@ def wandering_check(session, *, resting: bool = False) -> tuple[list[Event], boo
     return events, True
 
 
-# ---------------------------------------------------------------------- rest and magic
+# ---------------------------------------------------------------------- rest
 
 
 def _handle_rest(session, command: Rest) -> tuple[list[Rejection], list[Event]]:
@@ -944,6 +944,10 @@ _HANDLERS = {
     PurchaseHealing: _handle_purchase_healing,
 }
 """The command classes this module handles, each mapped to the function that handles it.
+
+`_handle_rest` is in this module, because a rest clears the fatigue that `check_fatigue` attaches. The other handlers
+are in the private modules beside this one, one module for each kind of command, like `_movement` for `MoveParty`
+and `_doors` for `OpenDoor`.
 
 [`GameSession`][osrlib.crawl.session.GameSession] merges this mapping into its private handler
 table the first time it dispatches a command, alongside the encounter, battle, and referee mappings.
