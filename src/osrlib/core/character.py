@@ -106,6 +106,7 @@ from osrlib.core.items import (
     ItemInstance,
     ItemTemplate,
     equip,
+    equipped_item_modifiers,
     movement_rate_feet,
     purchase,
     validate_purchase,
@@ -275,6 +276,10 @@ class Character(BaseModel):
     scores: dict[AbilityScore, int]
     """The six ability scores, each 3 through 18, keyed by [`AbilityScore`][osrlib.core.abilities.AbilityScore]. All six
     must be present.
+
+    They're the scores the character rolled, after any adjustment at creation. A STR that an item sets, like the 18 of
+    gauntlets of ogre power, doesn't change them. Read
+    [`effective_strength`][osrlib.core.character.Character.effective_strength] for the STR the rules use during play.
     """
 
     alignment: Alignment
@@ -409,20 +414,84 @@ class Character(BaseModel):
         return load_ability_tables()
 
     @property
+    def effective_strength(self) -> int:
+        """The STR score the rules use during play.
+
+        It's the rolled STR in [`scores`][osrlib.core.character.Character.scores], unless something sets the
+        character's STR to a fixed score:
+
+        - A character who wears gauntlets of ogre power has STR 18.
+        - A character under the curse of a ring of weakness has STR 3. The curse takes hold six rounds after the
+          character puts the ring on. When the character also wears the gauntlets, the curse's 3 applies.
+
+        These come from `strength_set` modifiers. If you write content of your own with one, the engine looks for a
+        set score first on the effects attached to the character, in the order they were attached, and then on the
+        equipped magic items, in equipped order.
+
+        [`melee_modifier`][osrlib.core.character.Character.melee_modifier],
+        [`open_doors_chance`][osrlib.core.character.Character.open_doors_chance], and the wielder's will in
+        [`sword_control_check`][osrlib.core.items.sword_control_check] come from this score. The rules for creating
+        and advancing a character read the rolled score instead: a class's minimum scores, the trade of ability points
+        at creation, and the experience modifier for a prime requisite. A set score never changes `scores`, so to
+        show a player what an item did, show both numbers. The player view has both, as
+        [`MemberView.effective_strength`][osrlib.crawl.views.MemberView.effective_strength] and
+        [`MemberView.scores`][osrlib.crawl.views.MemberView.scores].
+
+        Examples:
+            ```python
+            from osrlib.core.abilities import AbilityScore
+            from osrlib.core.alignment import Alignment
+            from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character
+            from osrlib.core.items import MagicItemInstance, equip
+            from osrlib.core.rng import RngStreams
+            from osrlib.core.ruleset import Ruleset
+
+            stream = RngStreams(master_seed=2).get(CHARACTER_CREATION_STREAM)
+            rurik = create_character(
+                name="Rurik",
+                class_id="fighter",
+                alignment=Alignment.LAWFUL,
+                ruleset=Ruleset(),
+                stream=stream,
+            ).character
+            gauntlets = MagicItemInstance(instance_id="magic-item-0001", template_id="gauntlets_of_ogre_power")
+            rurik.inventory.items.append(gauntlets)
+            equip(rurik.inventory, rurik.definition, gauntlets)
+            print(rurik.scores[AbilityScore.STR], rurik.effective_strength, rurik.melee_modifier)
+            # 10 18 3
+            ```
+        """
+        for modifier in self.stat_modifiers:
+            if modifier.kind == "strength_set":
+                return modifier.value
+        for spec in equipped_item_modifiers(self.inventory):
+            if spec.kind == "strength_set":
+                return spec.value
+        return self.scores[AbilityScore.STR]
+
+    @property
     def melee_modifier(self) -> int:
-        """The STR modifier added to melee attack rolls and to melee damage, from −3 to +3."""
-        return self._tables().melee_modifier(self.scores[AbilityScore.STR])
+        """The STR modifier added to melee attack rolls and to melee damage, unarmed attacks included, from −3 to +3.
+
+        It comes from [`effective_strength`][osrlib.core.character.Character.effective_strength]. So a character who
+        wears gauntlets of ogre power has the modifier for STR 18, which is +3, and a character under the curse of a
+        ring of weakness has the modifier for STR 3, which is −3. The combat functions add this modifier for you.
+        """
+        return self._tables().melee_modifier(self.effective_strength)
 
     @property
     def open_doors_chance(self) -> int:
         """The chance in 6 of forcing a stuck door open, from STR.
+
+        It comes from [`effective_strength`][osrlib.core.character.Character.effective_strength]. So it's 5 for a
+        character who wears gauntlets of ogre power, and 1 for a character under the curse of a ring of weakness.
 
         Roll 1d6, and the door opens on a roll equal to or less than this number. To roll it, pass
         it to [`detection_check`][osrlib.core.classes.detection_check]. In a session, the engine
         reads it for you when it resolves a [`ForceDoor`][osrlib.crawl.commands.ForceDoor]
         command.
         """
-        return self._tables().open_doors_chance(self.scores[AbilityScore.STR])
+        return self._tables().open_doors_chance(self.effective_strength)
 
     @property
     def missile_modifier(self) -> int:
