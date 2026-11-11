@@ -22,7 +22,8 @@ commands in [`osrlib.crawl.commands`][osrlib.crawl.commands] take.
 
 The player view has a fixed list of fields, each one safe to show a player. It includes:
 
-- each party member's public sheet, and the party's location and facing
+- each party member's character sheet, with every number on a B/X character sheet, and the
+  party's location and facing
 - the mapped cells and their edges: the cells the party walked, the cells its light has
   shown it, and what its light shows right now, with an undiscovered secret door shown
   as wall
@@ -105,7 +106,9 @@ from copy import deepcopy
 
 from pydantic import BaseModel, ConfigDict, SerializeAsAny
 
+from osrlib.core.abilities import AbilityScore
 from osrlib.core.character import Character
+from osrlib.core.classes import level_title
 from osrlib.core.effects import Condition, EffectsLedger, has_condition
 from osrlib.core.events import Event
 from osrlib.core.items import MagicItemCategory, MagicItemInstance, magic_item_template
@@ -149,8 +152,15 @@ class MemberView(BaseModel):
 
     You get these from [`PlayerView.party`][osrlib.crawl.views.PlayerView.party], in marching
     order, and every party member has one, living or dead. The players know everything about
-    their characters, so the sheet is complete. The only thing missing is the identity of an
-    unidentified magic item in the pack.
+    their characters, so the view has every number on a B/X character sheet, and a client can draw
+    the sheet from it alone. The only thing missing is the identity of an unidentified magic item
+    in the pack.
+
+    The numbers are the member's current ones, read from the live
+    [`Character`][osrlib.core.character.Character]. They count what the member wears right now, like
+    armour, a shield, or a ring of protection. They don't count a timed effect from a spell or a
+    potion, like the *shield* spell. [`PlayerView.effects`][osrlib.crawl.views.PlayerView.effects]
+    lists the timed effects on each member.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -207,6 +217,86 @@ class MemberView(BaseModel):
     It doesn't account for conditions. A member who can't move this round, like one held by a web,
     still has a rate here, and
     [`EncounterView.immobile`][osrlib.crawl.views.EncounterView.immobile] lists them."""
+    race: str = ""
+    """The character's race id, like `"human"` or `"dwarf"`, as in
+    [`Character.race`][osrlib.core.character.Character.race]."""
+    alignment: str = ""
+    """The character's alignment, as an [`Alignment`][osrlib.core.alignment.Alignment] serialized
+    value: `"lawful"`, `"neutral"`, or `"chaotic"`."""
+    title: str | None = None
+    """The level title, like `"Veteran"` for a 1st-level fighter, as
+    [`level_title`][osrlib.core.classes.level_title] returns it. `None` past the last title the
+    class has, so show the class name instead."""
+    xp: int = 0
+    """The experience points the character has."""
+    xp_next_level: int | None = None
+    """The experience points the next level needs, or `None` when the character has reached the
+    highest level of the class."""
+    scores: dict[str, int] = {}
+    """The six ability scores, keyed by [`AbilityScore`][osrlib.core.abilities.AbilityScore]
+    serialized value: `"str"`, `"int"`, `"wis"`, `"dex"`, `"con"`, and `"cha"`."""
+    melee_modifier: int = 0
+    """The Strength modifier to melee attack rolls and melee damage, as
+    [`Character.melee_modifier`][osrlib.core.character.Character.melee_modifier]."""
+    missile_modifier: int = 0
+    """The Dexterity modifier to missile attack rolls, as
+    [`Character.missile_modifier`][osrlib.core.character.Character.missile_modifier]."""
+    initiative_modifier: int = 0
+    """The Dexterity modifier to the member's initiative roll, as
+    [`Character.initiative_modifier`][osrlib.core.character.Character.initiative_modifier]. The
+    session uses it only under individual initiative."""
+    hit_point_modifier: int = 0
+    """The Constitution modifier to each Hit Die rolled, as
+    [`Character.hit_point_modifier`][osrlib.core.character.Character.hit_point_modifier]."""
+    magic_save_modifier: int = 0
+    """The Wisdom modifier to saving throws against magic, as
+    [`Character.magic_save_modifier`][osrlib.core.character.Character.magic_save_modifier]."""
+    npc_reaction_modifier: int = 0
+    """The Charisma modifier to reaction rolls, as
+    [`Character.npc_reaction_modifier`][osrlib.core.character.Character.npc_reaction_modifier]."""
+    open_doors_chance: int = 0
+    """The chance in 6 of forcing a stuck door open, as
+    [`Character.open_doors_chance`][osrlib.core.character.Character.open_doors_chance]."""
+    thac0: int = 0
+    """The d20 roll the member needs to hit armour class 0, as
+    [`Character.thac0`][osrlib.core.character.Character.thac0]. Show it when your game uses
+    descending armour class."""
+    attack_bonus: int = 0
+    """The bonus the member adds to an attack roll against ascending armour class, as
+    [`Character.attack_bonus`][osrlib.core.character.Character.attack_bonus]."""
+    armour_class: int = 0
+    """The member's descending armour class, where lower is better, as
+    [`Character.armour_class`][osrlib.core.character.Character.armour_class].
+
+    It counts everything the member wears, unidentified magic items included, because it's the armour
+    class the monsters roll against. So the armour class can show that a shield is better than a plain
+    one while `inventory` still calls it `"a shield with a faint aura"`."""
+    armour_class_ascending: int = 0
+    """The member's ascending armour class, where higher is better, as
+    [`Character.armour_class_ascending`][osrlib.core.character.Character.armour_class_ascending]. It
+    counts the same items as `armour_class`."""
+    saves: dict[str, int] = {}
+    """The five saving throws, keyed by the field names of
+    [`SavingThrows`][osrlib.core.classes.SavingThrows]: `"death"`, `"wands"`, `"paralysis"`, `"breath"`,
+    and `"spells"`. Each value is the d20 roll the member needs, as
+    [`Character.saves`][osrlib.core.character.Character.saves] gives it."""
+    movement_rate_feet: int = 0
+    """How far the member moves in one exploration turn, in feet, as
+    [`Character.movement_rate`][osrlib.core.character.Character.movement_rate] returns it under the
+    session's ruleset. The party moves at the rate of its slowest living member."""
+    languages: tuple[str, ...] = ()
+    """The ids of the languages the member speaks, as
+    [`Character.languages`][osrlib.core.character.Character.languages] lists them."""
+    spell_book: tuple[str, ...] = ()
+    """The ids of the spells in the member's spell book, as in
+    [`Character.spell_book`][osrlib.core.character.Character.spell_book]. They're the spells the member
+    can choose from in a [`PrepareSpells`][osrlib.crawl.commands.PrepareSpells]. Empty for a class that
+    has no spell book."""
+    thief_skills: dict[str, int] = {}
+    """The member's chance at each thief skill at their level, keyed by the skill field names of
+    [`ThiefSkillRow`][osrlib.core.classes.ThiefSkillRow], like `"open_locks"` and `"move_silently"`.
+    `"hear_noise"` is a chance in 6, and every other skill is a percentage. Empty for a class that has no
+    thief skills."""
 
 
 class MemberEffectView(BaseModel):
@@ -564,7 +654,7 @@ class PlayerView(BaseModel):
     town_services: tuple[str, ...]
     """The services the town offers, as text from the adventure for you to list."""
     party: tuple[MemberView, ...]
-    """The party's public sheets, in marching order, the dead included."""
+    """The party's character sheets, in marching order, the dead included."""
     location: PartyLocation
     """Where the party is: the town, or a dungeon cell with its facing."""
     clock_rounds: int
@@ -943,21 +1033,7 @@ def build_player_view(session) -> PlayerView:
         assert "flags" not in player.model_dump()  # a player view never includes the session flags
         ```
     """
-    members = tuple(
-        MemberView(
-            id=member.id,
-            name=member.name,
-            class_id=member.class_id,
-            level=member.level,
-            current_hp=member.current_hp,
-            max_hp=member.max_hp,
-            conditions=tuple(active.condition.value for active in member.conditions),
-            inventory=_masked_inventory(member),
-            memorized_spells=tuple(copy.model_dump(mode="json") for copy in member.memorized_spells),
-            encounter_rate_feet=_encounter_rate_feet(session, member),
-        )
-        for member in session.party.members
-    )
+    members = tuple(_member_view(session, member) for member in session.party.members)
     member_ids = {member.id for member in session.party.members}
     effects = tuple(
         MemberEffectView(
@@ -1121,6 +1197,48 @@ def _canonical_edge(cell: Position, direction: Direction) -> str:
     from osrlib.crawl.dungeon import edge_key
 
     return edge_key(cell, direction)
+
+
+def _member_view(session, member) -> MemberView:
+    """One member's sheet, read from the live character."""
+    definition = member.definition
+    thief_skills = {}
+    if definition.thief_skills:
+        thief_skills = definition.thief_skills[member.level - 1].model_dump(exclude={"level"})
+    return MemberView(
+        id=member.id,
+        name=member.name,
+        class_id=member.class_id,
+        level=member.level,
+        current_hp=member.current_hp,
+        max_hp=member.max_hp,
+        conditions=tuple(active.condition.value for active in member.conditions),
+        inventory=_masked_inventory(member),
+        memorized_spells=tuple(copy.model_dump(mode="json") for copy in member.memorized_spells),
+        encounter_rate_feet=_encounter_rate_feet(session, member),
+        race=member.race,
+        alignment=member.alignment.value,
+        title=level_title(definition, member.level),
+        xp=member.xp,
+        xp_next_level=definition.row(member.level + 1).xp if member.level < definition.max_level else None,
+        scores={ability.value: member.scores[ability] for ability in AbilityScore},
+        melee_modifier=member.melee_modifier,
+        missile_modifier=member.missile_modifier,
+        initiative_modifier=member.initiative_modifier,
+        hit_point_modifier=member.hit_point_modifier,
+        magic_save_modifier=member.magic_save_modifier,
+        npc_reaction_modifier=member.npc_reaction_modifier,
+        open_doors_chance=member.open_doors_chance,
+        thac0=member.thac0,
+        attack_bonus=member.attack_bonus,
+        armour_class=member.armour_class,
+        armour_class_ascending=member.armour_class_ascending,
+        saves=member.saves.model_dump(),
+        movement_rate_feet=member.movement_rate(session.ruleset),
+        languages=member.languages,
+        spell_book=member.spell_book,
+        thief_skills=thief_skills,
+    )
 
 
 def _encounter_rate_feet(session, member) -> int:

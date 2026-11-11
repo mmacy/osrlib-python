@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- Each party member's [`MemberView`][osrlib.crawl.views.MemberView] in the player view now has every number on a B/X character sheet, so a client that has only the player view can draw the sheet (#227, #231). The new fields are `race`, `alignment`, `title`, `xp`, `xp_next_level`, `scores`, `melee_modifier`, `missile_modifier`, `initiative_modifier`, `hit_point_modifier`, `magic_save_modifier`, `npc_reaction_modifier`, `open_doors_chance`, `thac0`, `attack_bonus`, `armour_class`, `armour_class_ascending`, `saves`, `movement_rate_feet`, `languages`, `spell_book`, and `thief_skills`. The session fills them from the live character for every member, living or dead. Each new field has a default, so a client that ignores it keeps working.
+- `armour_class` and `armour_class_ascending` count everything the member wears, an unidentified magic item included, because that's the armour class the monsters roll against. The inventory still masks the item. So an unarmoured fighter who takes up an unidentified shield +1 shows armour class 7, one better than a plain shield gives, and the inventory still calls the shield "a shield with a faint aura".
+
 ## [2.4.0] - 2026-11-09
 
 ### Added
