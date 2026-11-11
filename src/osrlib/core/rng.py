@@ -247,10 +247,10 @@ class RngStreamState(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    state: int = Field(ge=0, lt=_SEED_BOUND)
+    state: int = Field(ge=0, lt=2**128)
     """The generator's 128-bit state, from 0 up to but not including 2**128. It changes with every draw."""
 
-    inc: int = Field(ge=0, lt=_SEED_BOUND)
+    inc: int = Field(ge=0, lt=2**128)
     """The generator's 128-bit increment, which selects the stream's sequence. It never changes.
 
     PCG always makes it odd, so an even value raises a pydantic `ValidationError`.
