@@ -269,6 +269,7 @@ class TestGuards:
         game = two_groups(near=20, near_count=2)
         nim, wren = named(game, "Nim"), named(game, "Wren")
         survivor = game.encounter.groups[0].monster_ids[1]
+        game.combatant(survivor).max_hp = 100
         game.combatant(survivor).current_hp = 100
 
         events = play(game, strike(game, nim, move="close"), magic_missile(game, wren))

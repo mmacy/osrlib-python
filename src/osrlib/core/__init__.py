@@ -32,6 +32,9 @@ The kernel has these modules, in the order you usually need them:
   [`Rejection`][osrlib.core.validation.Rejection] a rules check returns instead of raising, with
   a code for the reason. A check returns a list of them, and an empty list means the action is
   legal.
+- [`osrlib.core.frozen`][osrlib.core.frozen]: the [`FrozenMap`][osrlib.core.frozen.FrozenMap] that
+  the frozen rules content uses for each field that maps names to values, like a monster ability's
+  `params`. You read one like a dict, and nothing can change it.
 - [`osrlib.core.abilities`][osrlib.core.abilities]: look up the modifiers an ability score from 3
   to 18 gives, make ability checks, and adjust a set of scores.
 - [`osrlib.core.classes`][osrlib.core.classes]: read a class's titles and level table, award

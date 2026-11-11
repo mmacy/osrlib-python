@@ -97,6 +97,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from osrlib.core.classes import ArmourPolicyKind, ClassDefinition, WeaponPolicyKind
 from osrlib.core.dice import parse
 from osrlib.core.effects import ModifierSpec
+from osrlib.core.frozen import FrozenMap
 from osrlib.core.rng import RngStream
 from osrlib.core.ruleset import EncumbranceMode, Ruleset
 from osrlib.core.treasure import MagicItemType, TreasureEntry
@@ -333,11 +334,11 @@ class MissileRanges(BaseModel):
     Attack resolution measures the distance to the target, finds the band it falls in, and
     applies that band's modifier: +1 at short range, nothing at medium, −1 at long. Beyond
     the long band the shot is out of range. A
-    [`WeaponTemplate`][osrlib.core.items.WeaponTemplate] has one of these exactly when it has
-    the `MISSILE` quality of [`WeaponQuality`][osrlib.core.items.WeaponQuality]. Building a
-    weapon template with one and not the other raises a pydantic `ValidationError`. The
-    compiled [`CombatFacet`][osrlib.core.items.CombatFacet]s of holy water and burning oil
-    have ranges and the missile quality. The torch's has neither.
+    [`WeaponTemplate`][osrlib.core.items.WeaponTemplate] or a
+    [`CombatFacet`][osrlib.core.items.CombatFacet] has one of these exactly when it has the
+    `MISSILE` quality of [`WeaponQuality`][osrlib.core.items.WeaponQuality]. Building either
+    with one and not the other raises a pydantic `ValidationError`. The compiled combat facets
+    of holy water and burning oil have ranges and the missile quality. The torch's has neither.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -348,6 +349,12 @@ class MissileRanges(BaseModel):
     """The middle band, with no attack modifier."""
     long: RangeBand
     """The farthest band, worth −1 to hit, and the limit of the weapon's range."""
+
+
+def _check_missile_ranges(qualities: tuple[WeaponQuality, ...], missile_ranges: MissileRanges | None) -> None:
+    """Raise `ValueError` unless the ranges are present exactly when the qualities include the missile quality."""
+    if (WeaponQuality.MISSILE in qualities) != (missile_ranges is not None):
+        raise ValueError("missile ranges are present exactly when the missile quality is")
 
 
 class WeaponTemplate(BaseModel):
@@ -401,9 +408,7 @@ class WeaponTemplate(BaseModel):
 
     @model_validator(mode="after")
     def _missile_quality_needs_ranges(self) -> WeaponTemplate:
-        has_quality = WeaponQuality.MISSILE in self.qualities
-        if has_quality != (self.missile_ranges is not None):
-            raise ValueError("missile ranges are present exactly when the missile quality is")
+        _check_missile_ranges(self.qualities, self.missile_ranges)
         return self
 
 
@@ -511,6 +516,11 @@ class CombatFacet(BaseModel):
         parse(value)
         return value
 
+    @model_validator(mode="after")
+    def _missile_quality_needs_ranges(self) -> CombatFacet:
+        _check_missile_ranges(self.qualities, self.missile_ranges)
+        return self
+
 
 class GearTemplate(BaseModel):
     """A piece of adventuring gear: a torch, a rope, a backpack, a flask of oil.
@@ -552,7 +562,7 @@ class GearTemplate(BaseModel):
     """The combat statistics for the three items that are also weapons. See
     [`CombatFacet`][osrlib.core.items.CombatFacet]. `None` for everything else.
     """
-    params: dict[str, int | str | bool] = {}
+    params: Annotated[Mapping[str, int | str | bool], FrozenMap] = FrozenMap()
     """The exploration mechanics the SRD's gear table prints, keyed by name: a torch's `burn_turns` and
     `light_radius_feet`, the tinder box's `light_chance_in_six`, and so on. The dungeon-crawl procedures in
     [`osrlib.crawl.exploration`][osrlib.crawl.exploration] read these.
@@ -870,7 +880,7 @@ class MagicItemEffect(BaseModel):
     """What a successful save does: `"negates"` the effect entirely, or `"half"` the damage."""
     shape: str | None = None
     """What kind of area an area effect covers, like `"cone"` or `"sphere"`."""
-    dimensions: dict[str, int] = {}
+    dimensions: Annotated[Mapping[str, int], FrozenMap] = FrozenMap()
     """The area's measurements in feet, keyed by name."""
     range_feet: int | None = None
     """How far the effect reaches."""
@@ -880,7 +890,7 @@ class MagicItemEffect(BaseModel):
     """A fixed duration, in `duration_unit`s."""
     duration_dice: str | None = None
     """A rolled duration, as a dice expression, in `duration_unit`s."""
-    params: dict[str, int | str | bool | tuple[int | str, ...]] = {}
+    params: Annotated[Mapping[str, int | str | bool | tuple[int | str, ...]], FrozenMap] = FrozenMap()
     """Per-item scalars the behavior reads, keyed by name."""
 
     @field_validator("damage_dice", "heal_dice", "duration_dice")
@@ -981,7 +991,7 @@ class MagicItemTemplate(BaseModel):
     """What the engine resolves for the item. See [`MagicItemEffect`][osrlib.core.items.MagicItemEffect]. `None` for an
     item whose behavior is left to you, which has `manual` prose instead.
     """
-    params: dict[str, int | str | bool | tuple[int | str, ...]] = {}
+    params: Annotated[Mapping[str, int | str | bool | tuple[int | str, ...]], FrozenMap] = FrozenMap()
     """Per-item scalars, keyed by name, for behaviors that read them."""
     manual: tuple[str, ...] = ()
     """The item's page text, for the parts you adjudicate yourself. Show these lines to the referee."""
@@ -1044,7 +1054,7 @@ class MagicSubTableRow(BaseModel):
     """The lowest d% roll that selects this row in the X column."""
     expert_max: int = Field(ge=1, le=100)
     """The highest, with a printed `00` read as 100. The X bands are contiguous and cover the whole d%."""
-    params: dict[str, int | str | bool | tuple[int | str, ...]] = {}
+    params: Annotated[Mapping[str, int | str | bool | tuple[int | str, ...]], FrozenMap] = FrozenMap()
     """Generation values that replace the template's for this row, keyed by name: the quantity dice a printed band gives
     for arrows and bolts (`quantity_dice`), a fixed quantity for the B column (`basic_quantity_fixed`), and the wish
     count for a ring of wishes (`wish_count_dice`).

@@ -41,9 +41,13 @@ before play starts.
 
 Each loader caches its result. The first call reads the data and validates it, and every
 later call in the process returns the same catalog object. That object is a frozen model,
-shared with every other caller. During play, osrlib creates mutable instances from these templates, the way
+shared with every other caller, and nothing in it can be changed. Its mapping fields, like a
+monster ability's `params`, are read-only [`FrozenMap`][osrlib.core.frozen.FrozenMap]s. During
+play, osrlib creates mutable instances from these templates, the way
 [`spawn_monster`][osrlib.core.monsters.spawn_monster] creates a
-[`MonsterInstance`][osrlib.core.monsters.MonsterInstance] from a template.
+[`MonsterInstance`][osrlib.core.monsters.MonsterInstance] from a template. To make a template
+that differs from a built-in one, dump the built-in template with `model_dump`, change the dump,
+and validate it with `model_validate` under a new id.
 
 The data files are part of this package, and a loader reads only what the installed package
 includes. The project generates them from the Old-School Essentials SRD, so a change you make
