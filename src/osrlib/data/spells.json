@@ -5802,6 +5802,9 @@
             "harmed_only_by": [],
             "reductions": []
           },
+          "display_name": "conjured snake",
+          "display_name_plural": "conjured snakes",
+          "family_id": "conjured_snake",
           "hit_dice": {
             "asterisks": 0,
             "average_hp": 4,

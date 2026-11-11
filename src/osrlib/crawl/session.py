@@ -2682,15 +2682,13 @@ def _handle_spawn_monsters(session: GameSession, command: SpawnMonsters) -> tupl
         # Monsters that arrive mid-fight, like a lycanthrope's summoned animals, join the
         # encounter or battle already open instead of opening a new one.
         events.extend(
-            encounter_module._join_encounter(
-                session, label=command.template_id, instances=instances, distance_feet=command.distance_feet
-            )
+            encounter_module._join_encounter(session, instances=instances, distance_feet=command.distance_feet)
         )
         return [], events
     events.extend(
-        encounter_module.start_encounter(
+        encounter_module._open_encounter(
             session,
-            groups=[(command.template_id, instances)],
+            groups=[(*encounter_module._group_labels(instances), instances)],
             kind="spawned",
             distance_feet=command.distance_feet,
         )
@@ -2719,11 +2717,10 @@ def _handle_spawn_npc_party(session: GameSession, command: SpawnNpcParty) -> tup
         count = max(1, roll(count_dice, session.streams.get(ENCOUNTER_STREAM)).total)
     party, bundle, npc_events = exploration._field_npc_party(session, command.party_kind, count)
     events: list[Event] = list(npc_events)
-    label = "Basic Adventurers" if command.party_kind == "basic" else "Expert Adventurers"
     events.extend(
-        encounter_module.start_encounter(
+        encounter_module._open_encounter(
             session,
-            groups=[(label, party.members)],
+            groups=[(*encounter_module._group_labels(party.members), party.members)],
             kind="spawned",
             distance_feet=command.distance_feet,
         )

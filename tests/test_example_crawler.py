@@ -37,10 +37,10 @@ class TestMilestonePlaythrough:
         out = result.stdout
         # The delve: the keyed goblins fall and their lair hoard was generated
         # (the party takes the engine-created cache).
-        assert "Encounter: 2 × Goblin" in out
+        assert "Encounter: 2 goblins" in out
         assert "acquires valuable-" in out  # the generated lair hoard, looted
         # The rival party: a wandering NPC encounter fought and looted.
-        assert "Adventurers" in out
+        assert "Encounter: 2 adventurers" in out
         assert "The battle is won." in out
         # Two trips, two returns, two awards — the town business happens on the
         # first, while there is still an adventure to come back from.

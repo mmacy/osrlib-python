@@ -182,7 +182,7 @@ class TestSpawnInEncounter:
         first, added = session.encounter.groups
         assert first.model_dump() == original_before
         assert added.id != first.id
-        assert added.label == "normal_wolf"
+        assert (added.label, added.label_plural) == ("wolf", "wolves")
         assert len(added.monster_ids) == 3
         assert added.distance_feet == 30
         assert not added.fleeing and not added.fled

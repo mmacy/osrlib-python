@@ -67,9 +67,14 @@ with _page(
     "monsters.md",
     "Monster ids",
     "[`load_monsters`][osrlib.data.load_monsters]",
-    "Every monster template id, with its display name.",
+    "Every monster template id, with its name as the SRD prints it, its display name, and its family id, which "
+    "it shares with the other forms of the same creature.",
 ) as page:
-    _table(page, ("Id", "Name"), [(f"`{m.id}`", m.name) for m in data.load_monsters().monsters])
+    _table(
+        page,
+        ("Id", "Name", "Display name", "Family id"),
+        [(f"`{m.id}`", m.name, m.display_name, f"`{m.family_id}`") for m in data.load_monsters().monsters],
+    )
 
 with _page(
     "equipment.md",

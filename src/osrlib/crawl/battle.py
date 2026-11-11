@@ -4542,6 +4542,7 @@ def _leave_helpless_behind(session, group) -> list[Event]:
     stay_behind = EncounterGroup(
         id=session.allocator.allocate("group"),
         label=group.label,
+        label_plural=group.label_plural,
         monster_ids=left_ids,
         distance_feet=group.distance_feet,
     )
@@ -4586,6 +4587,7 @@ def _split_off_turned(session) -> list[Event]:
         runners = EncounterGroup(
             id=session.allocator.allocate("group"),
             label=group.label,
+            label_plural=group.label_plural,
             monster_ids=turned_ids,
             distance_feet=group.distance_feet,
         )
@@ -4970,7 +4972,7 @@ def _resolve_gazes(session, group, *, free_round: bool, mirrored: Collection[str
 def _surprise_gazes(session, monsters: Iterable) -> list[Event]:
     """Turn each surprise gazer's petrifying gaze on every living member of the party it surprised.
 
-    `start_encounter` calls this as the encounter opens, when the party is surprised, as the OSE
+    `encounter._open_encounter` calls this as an encounter opens, when the party is surprised, as the OSE
     SRD's "Characters surprised by a basilisk meet its gaze" says. A monster gazes when its
     `surprise` ability has `meets_gaze`, it has a petrifying gaze, and it isn't incapacitated. The
     gaze reaches every living member once, at any distance and in any rank. No guard protects
