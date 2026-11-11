@@ -104,7 +104,7 @@ print([monster.current_hp for monster in referee.monsters])
 
 from copy import deepcopy
 
-from pydantic import BaseModel, ConfigDict, SerializeAsAny
+from pydantic import BaseModel, ConfigDict, Field, SerializeAsAny, ValidationInfo, field_validator
 
 from osrlib.core.abilities import AbilityScore
 from osrlib.core.character import Character
@@ -112,13 +112,13 @@ from osrlib.core.classes import level_title
 from osrlib.core.effects import Condition, EffectsLedger, has_condition
 from osrlib.core.events import Event
 from osrlib.core.items import MagicItemCategory, MagicItemInstance, magic_item_template
-from osrlib.core.monsters import IdAllocator, MonsterInstance
+from osrlib.core.monsters import IdAllocator, MonsterInstance, _regular_plural
 from osrlib.core.ruleset import Ruleset
 from osrlib.crawl.adventure import Adventure
 from osrlib.crawl.battle import BattleState
 from osrlib.crawl.commands import Command, SessionMode
 from osrlib.crawl.dungeon import Direction, DungeonState, EdgeKind, PartyLocation, Position, cell_ref, edge_ref
-from osrlib.crawl.encounter import EncounterState
+from osrlib.crawl.encounter import EncounterState, _member_kind
 from osrlib.crawl.exploration import EXHAUSTED_KIND, FATIGUE_KIND, _light_reveal
 from osrlib.crawl.party import Party
 from osrlib.crawl.session import (
@@ -409,7 +409,7 @@ class EncounterGroupView(BaseModel):
     [`EncounterGroup.label`][osrlib.crawl.encounter.EncounterGroup.label], which lists where each kind
     of group gets its label. It's display text, so don't match on its words. To tell what kind of
     creature the group is, read `family_id` and `categories`."""
-    label_plural: str = ""
+    label_plural: str = Field(default="", validate_default=True)
     """What to call two or more members of the group, like `"goblins"` or `"wolves"`. It's the same as
     [`EncounterGroup.label_plural`][osrlib.crawl.encounter.EncounterGroup.label_plural]."""
     family_id: str | None = None
@@ -515,6 +515,11 @@ class EncounterGroupView(BaseModel):
     effect grants. A darkness effect that stops infravision, as
     [`GameSession.party_light`][osrlib.crawl.session.GameSession.party_light] reports, leaves it
     working for nobody. A blind member sees nothing."""
+
+    @field_validator("label_plural")
+    @classmethod
+    def _plural_defaults_to_regular_ending(cls, value: str, info: ValidationInfo) -> str:
+        return value or _regular_plural(info.data.get("label", ""))
 
 
 class EncounterView(BaseModel):
@@ -1307,12 +1312,15 @@ def _encounter_view(session) -> EncounterView | None:
     living_ids = [member.id for member in session.party.living_members()]
     groups = []
     for group in state.groups:
-        living = [
-            session.combatant(monster_id)
-            for monster_id in group.monster_ids
-            if not has_condition(session.combatant(monster_id), Condition.DEAD)
-        ]
-        conditions = sorted({active.condition.value for monster in living for active in monster.conditions})
+        members = [session.combatant(monster_id) for monster_id in group.monster_ids]
+        living = [monster for monster in members if not has_condition(monster, Condition.DEAD)]
+        held = [{active.condition.value for active in monster.conditions} for monster in living]
+        conditions = sorted(set().union(*held))
+        # The family and the categories describe every member the players saw, so the dead count too.
+        kinds = [_member_kind(member) for member in members]
+        first_family, first_categories = kinds[0]
+        family_id = first_family if all(family == first_family for family, _ in kinds) else None
+        categories = tuple(category for category in first_categories if all(category in other for _, other in kinds))
         # Positions, reach, and sight exist only in a battle. Each reads the party's own state and the group's
         # distance, which the view already shows, so none of them tells the players anything new about the group.
         distances: dict[str, int] = {}
@@ -1328,9 +1336,13 @@ def _encounter_view(session) -> EncounterView | None:
             EncounterGroupView(
                 id=group.id,
                 label=group.label,
+                label_plural=group.label_plural,
+                family_id=family_id,
+                categories=categories,
                 count=len(living),
                 distance_feet=group.distance_feet,
                 visible_conditions=tuple(conditions),
+                condition_counts={condition: sum(condition in values for values in held) for condition in conditions},
                 fled=group.fled,
                 member_distance_feet=distances,
                 front_rank=front_rank,

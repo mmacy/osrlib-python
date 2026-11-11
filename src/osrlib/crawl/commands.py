@@ -3657,8 +3657,8 @@ class SpawnNpcParty(Command):
     command_type: Literal["spawn_npc_party"] = "spawn_npc_party"
     party_kind: Literal["basic", "expert"]
     """Which table to build the party from: `basic` for low-level adventurers, or `expert` for
-    higher-level ones. It also sets the group's name in the encounter, "Basic Adventurers" or
-    "Expert Adventurers"."""
+    higher-level ones. Either kind of party's group in the encounter has the label `"adventurer"`
+    and the plural `"adventurers"`."""
     count_dice: str | None = None
     """How many adventurers, as a dice expression rolled on the session's
     [`ENCOUNTER_STREAM`][osrlib.crawl.session.ENCOUNTER_STREAM]. A malformed expression raises

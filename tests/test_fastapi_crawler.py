@@ -182,7 +182,7 @@ class TestScriptedPlaythrough:
         run(client, session_id, {"command_type": "move_party", "direction": "east"})
         view = get_view(client, session_id)
         assert view["encounter"] is not None
-        assert view["encounter"]["groups"][0]["label"] == "Goblin"
+        assert view["encounter"]["groups"][0]["label"] == "goblin"
         fight(client, session_id)
         view = get_view(client, session_id)
         assert view["encounter"] is None and view["mode"] == "exploring"

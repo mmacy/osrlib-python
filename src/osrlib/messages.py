@@ -345,13 +345,15 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
         + ("an encounter!" if event.encounter else "nothing comes.")
     ),
     "encounter.started": lambda event: (
-        f"Encounter: {event.count} × {event.monster_name} at {event.distance_feet}'"
+        f"Encounter: {event.count} {event.monster_name if event.count == 1 else event.monster_name_plural}"
+        f" at {event.distance_feet}'"
         + (" — the party is surprised" if event.party_surprised else "")
         + (" — the monsters are surprised" if event.monsters_surprised else "")
         + "."
     ),
     "encounter.group.joined": lambda event: (
-        f"More monsters join the encounter: {event.count} × {event.label} at {event.distance_feet}'."
+        f"More monsters join the encounter: {event.count} {event.label if event.count == 1 else event.label_plural}"
+        f" at {event.distance_feet}'."
     ),
     "encounter.surprise.rolled": lambda event: (
         f"Surprise ({event.side}): "

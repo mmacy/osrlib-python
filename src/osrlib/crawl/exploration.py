@@ -1271,9 +1271,9 @@ def wandering_check(session, *, resting: bool = False) -> tuple[list[Event], boo
         party, bundle, npc_events = _field_npc_party(session, entry.party_kind, count)
         events.extend(npc_events)
         events.extend(
-            encounter_module.start_encounter(
+            encounter_module._open_encounter(
                 session,
-                groups=[(row.name, party.members)],
+                groups=[(*encounter_module._group_labels(party.members), party.members)],
                 kind="wandering",
                 monsters_roll_surprise=True,
             )
@@ -1286,9 +1286,9 @@ def wandering_check(session, *, resting: bool = False) -> tuple[list[Event], boo
         instances.extend(session.spawn(template_id, 1))
     carried = [_generate_carried_treasure(session, instances)]
     events.extend(
-        encounter_module.start_encounter(
+        encounter_module._open_encounter(
             session,
-            groups=[(row.name, instances)],
+            groups=[(*encounter_module._group_labels(instances, row_name=row.name), instances)],
             kind="wandering",
             monsters_roll_surprise=False,  # wandering monsters know the dungeon
         )
@@ -1699,7 +1699,7 @@ def _keyed_encounter_check(session) -> list[Event]:
         template = session.effective_monsters.get(keyed.template_id)
         templates.append(template)
         instances = session.spawn(keyed.template_id, count, alignment=area.encounter.alignment)
-        groups.append((template.name, instances))
+        groups.append((*encounter_module._group_labels(instances), instances))
         # Carried treasure is generated at spawn, one keyed line at a time in the order
         # the author listed them, and the lair hoard after that. Keep this order: it
         # fixes the draws on the treasure stream.
@@ -1712,7 +1712,7 @@ def _keyed_encounter_check(session) -> list[Event]:
         session.dungeon_state.generated_lair_hoards.append(area_ref)
         events = _generate_lair_hoard(session, area, templates)
     events.extend(
-        encounter_module.start_encounter(
+        encounter_module._open_encounter(
             session,
             groups=groups,
             kind="keyed",

@@ -35,7 +35,11 @@ For the map, you get the mapped cells with their edges ([`ExploredLevelView`][os
 
 Active effects on party members come with their remaining duration, except a potion's: by the rules as written, the referee tracks a potion's duration secretly, so the view reports it as unknown. The view also reports fatigue, exhaustion, and deprivation status, and the session journal as written ([`JournalEntry`][osrlib.crawl.session.JournalEntry]): the entries in order of discovery, each with the clock position when it was added. The view doesn't include the records of which triggers fired to add those entries.
 
-The quests in play appear as [`QuestView`][osrlib.crawl.views.QuestView] values with an id, a name, the offer text and its speaker, and the revealed objectives with their ids, display names, and states. When an encounter or battle is running, the view also contains its public state ([`EncounterView`][osrlib.crawl.views.EncounterView] and [`EncounterGroupView`][osrlib.crawl.views.EncounterGroupView]): a monster group's id, label, living count, distance, visible conditions, and whether it has fled, but never its hit points. The view also reports what the table knows about the current round, in three fields of `EncounterView`: who must declare (`declarers`), who is held fast (`immobile`), and who is still reloading (`reloading`).
+The quests in play appear as [`QuestView`][osrlib.crawl.views.QuestView] values with an id, a name, the offer text and its speaker, and the revealed objectives with their ids, display names, and states. When an encounter or battle is running, the view also contains its public state ([`EncounterView`][osrlib.crawl.views.EncounterView] and [`EncounterGroupView`][osrlib.crawl.views.EncounterGroupView]). For each monster group, that's its id, its living count, its distance, its visible conditions and how many members have each, and whether it has fled, but never its hit points.
+
+A group also has what to call its members and what kind of creature they are. Show [`label`][osrlib.crawl.views.EncounterGroupView.label] for one member, like "goblin", and [`label_plural`][osrlib.crawl.views.EncounterGroupView.label_plural] for more, like "goblins". The label is text for the players, and a group your code opens can have any label, so to decide what a group is, read [`family_id`][osrlib.crawl.views.EncounterGroupView.family_id] and [`categories`][osrlib.crawl.views.EncounterGroupView.categories] instead. A group of hellhounds has the family id `"hellhound"` whatever their Hit Dice, and a group of skeletons has the category `"undead"`.
+
+The view also reports what the table knows about the current round, in three fields of `EncounterView`: who must declare (`declarers`), who is held fast (`immobile`), and who is still reloading (`reloading`).
 
 In a battle, each member stands at a separate place on the range track, the measure of distance a battle uses, so the view reports where everyone stands:
 
@@ -53,7 +57,7 @@ To check a member's choice against the choices already made for the round, call 
 
 ## The split in practice
 
-A spawned monster shows the split. The referee view contains the monster's live hit points. The player-facing encounter group contains only what the party could plausibly perceive: how many are still standing, how far away they are, and what conditions show.
+A spawned monster shows the split. The referee view contains the monster's live hit points. The player-facing encounter group contains only what the party could plausibly perceive: what the monster is, how many are still standing, how far away they are, and what conditions show.
 
 ```{.python .no-run}
 # The referee sees the goblin's hit points; the player view never contains them.
@@ -61,6 +65,7 @@ referee_monster = referee_view.monsters[0]
 assert referee_monster.current_hp > 0
 
 player_group = player_view.encounter.groups[0]
+assert (player_group.label, player_group.family_id, player_group.categories) == ("goblin", "goblin", ("person",))
 assert player_group.count == 1
 assert "current_hp" not in player_group.model_dump()
 ```
@@ -172,6 +177,7 @@ referee_monster = referee_view.monsters[0]
 assert referee_monster.current_hp > 0
 
 player_group = player_view.encounter.groups[0]
+assert (player_group.label, player_group.family_id, player_group.categories) == ("goblin", "goblin", ("person",))
 assert player_group.count == 1
 assert "current_hp" not in player_group.model_dump()
 

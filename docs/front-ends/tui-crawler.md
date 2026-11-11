@@ -29,7 +29,7 @@ Every event has a [`Visibility`][osrlib.core.events.Visibility]. The crawler fil
 > move e
   The party moves to (2, 0), facing east.
   The party enters area guard_room (level 1).
-  Encounter: 2 × Goblin at 20' — the monsters are surprised.
+  Encounter: 2 goblins at 20' — the monsters are surprised.
   The monsters' bearing: hostile.
 ```
 

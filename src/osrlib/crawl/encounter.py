@@ -25,14 +25,19 @@ session in `encounter` mode. From there, you drive it with the encounter command
 [`end_encounter`][osrlib.crawl.encounter.end_encounter] closes the encounter and puts the session
 back in `exploring` mode.
 
-You rarely call `start_encounter` yourself. The session calls it for the
+You rarely call `start_encounter` yourself. The session opens an encounter the same way for the
 [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] and
 [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] commands, for the wandering-monster
 check, and when the party enters a keyed area, an [`AreaSpec`][osrlib.crawl.dungeon.AreaSpec]
 the adventure describes, that has monsters. Call it directly when your own
 code decides that a group has just come into view. When you send a `SpawnMonsters` while an
-encounter is open, the session doesn't call it. The new group joins the open encounter instead,
-and rolls no surprise or reaction.
+encounter is open, the session doesn't open another encounter. The new group joins the open
+encounter instead, and rolls no surprise or reaction.
+
+Each group has a [`label`][osrlib.crawl.encounter.EncounterGroup.label] and a
+[`label_plural`][osrlib.crawl.encounter.EncounterGroup.label_plural] to show the players, like
+"goblin" and "goblins". The label is display text. To tell what kind of creature a group is, read
+[`EncounterGroupView.family_id`][osrlib.crawl.views.EncounterGroupView.family_id] in the player view.
 
 You follow the encounter through events from
 [`osrlib.crawl.events`][osrlib.crawl.events]:
@@ -138,12 +143,13 @@ assert session.encounter.round == 1
 ```
 """
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
 from osrlib.core.combat import cannot_move, roll_reaction
 from osrlib.core.effects import Condition, has_condition, regeneration_definition
 from osrlib.core.events import Event
 from osrlib.core.items import Coins
+from osrlib.core.monsters import MonsterInstance, _regular_plural
 from osrlib.core.spells import MAGIC_STREAM, turn_undead, validate_turn_undead
 from osrlib.core.tables import ReactionResult
 from osrlib.core.validation import Rejection
@@ -213,17 +219,21 @@ class EncounterGroup(BaseModel):
     [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters], and a wandering group. A wandering group
     whose members come from more than one family gets the encounter table row's name instead. A party of
     NPC adventurers is `"adventurer"`. A group you open with
-    [`start_encounter`][osrlib.crawl.encounter.start_encounter] gets the label you pass."""
-    label_plural: str = ""
+    [`start_encounter`][osrlib.crawl.encounter.start_encounter] gets the label you pass.
+
+    It's display text, so don't match on its words. To tell what kind of creature a group is, read
+    [`EncounterGroupView.family_id`][osrlib.crawl.views.EncounterGroupView.family_id]."""
+    label_plural: str = Field(default="", validate_default=True)
     """What to call two or more members of the group, like `"goblins"` or `"wolves"`.
 
     It comes from where `label` comes from: the templates'
     [`display_name_plural`][osrlib.core.monsters.MonsterTemplate.display_name_plural], or
-    `"adventurers"`. A label you pass to
+    `"adventurers"`. A wandering group whose label is the encounter table row's name gets the row's name
+    here too, because the author of a row with several kinds of creature writes its name for the whole
+    band, like `"Tomb guardians"`. A label you pass to
     [`start_encounter`][osrlib.crawl.encounter.start_encounter] gets the templates' plural when it's
-    their display name. Any other label, an encounter table row's name included, gets the regular English
-    ending that `display_name_plural` describes, and so does a group loaded from a save that has no
-    plural."""
+    their display name. Any other label you pass gets the regular English ending that
+    `display_name_plural` describes, and so does a group loaded from a save that has no plural."""
     monster_ids: list[str] = Field(min_length=1)
     """The members' ids in the order they were spawned. Pass an id to
     [`GameSession.combatant`][osrlib.crawl.session.GameSession.combatant] to get the monster. Dead
@@ -255,6 +265,11 @@ class EncounterGroup(BaseModel):
     None when the group has none. It drops on the party's cell only when every member is slain. If
     any member routed, the group's treasure goes with the runners. When a turning turns only some
     members of a group, the group's treasure stays with the members who fight on."""
+
+    @field_validator("label_plural")
+    @classmethod
+    def _plural_defaults_to_regular_ending(cls, value: str, info: ValidationInfo) -> str:
+        return value or _regular_plural(info.data.get("label", ""))
 
 
 class PursuitState(BaseModel):
@@ -344,6 +359,41 @@ def _monsters(session, state: EncounterState | None = None) -> list:
     return [session.combatant(monster_id) for group in state.groups for monster_id in group.monster_ids]
 
 
+_ADVENTURER_LABELS = ("adventurer", "adventurers")
+"""The label and plural of a party of NPC adventurers."""
+
+
+def _group_labels(instances: list, row_name: str = "") -> tuple[str, str]:
+    """Return the label and plural the session gives a group it makes, as `EncounterGroup.label` describes.
+
+    A party of NPC adventurers gets `_ADVENTURER_LABELS`. A group of monsters from one family gets the
+    first member's display names, which every form of a family shares. A group from more than one
+    family gets `row_name` for both, because only a wandering monster row makes one.
+    """
+    templates = [instance.template for instance in instances if isinstance(instance, MonsterInstance)]
+    if not templates:
+        return _ADVENTURER_LABELS
+    first = templates[0]
+    if all(template.family_id == first.family_id for template in templates):
+        return first.display_name, first.display_name_plural
+    return row_name, row_name
+
+
+def _member_kind(combatant) -> tuple[str | None, tuple[str, ...]]:
+    """Return a group member's family id and categories. An NPC adventurer has no family and is a person."""
+    if isinstance(combatant, MonsterInstance):
+        return combatant.template.family_id, combatant.template.categories
+    return None, ("person",)
+
+
+def _plural_of(label: str, instances: list) -> str:
+    """Return the plural for a label passed to `start_encounter`, as `EncounterGroup.label_plural` describes."""
+    for instance in instances:
+        if isinstance(instance, MonsterInstance) and instance.template.display_name == label:
+            return instance.template.display_name_plural
+    return _regular_plural(label)
+
+
 def start_encounter(
     session,
     *,
@@ -370,7 +420,7 @@ def start_encounter(
 
     When a referee wants a fight on the party's cell, execute
     [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] instead. That command rolls the number of
-    monsters, spawns them, and calls this function for you, and the session records it in the
+    monsters, spawns them, and opens the encounter for you, and the session records it in the
     command log. Call this function when you need an argument the command doesn't have, like a
     stance you choose in advance or monsters that can't be surprised. Neither this function nor
     `GameSession.spawn` is a command, so the session doesn't record them in the command log. If you
@@ -416,9 +466,14 @@ def start_encounter(
     Args:
         session (osrlib.crawl.session.GameSession): The running session. Its party must be in a
             dungeon, and no encounter may already be open.
-        groups: One `(label, instances)` pair per monster group. `label` is the group's display name.
-            `instances` are monster or NPC instances the session has already spawned, as
-            [`GameSession.spawn`][osrlib.crawl.session.GameSession.spawn] returns them.
+        groups: One `(label, instances)` pair per monster group. `label` is the group's
+            [`label`][osrlib.crawl.encounter.EncounterGroup.label], what to call one member in a
+            sentence, like `"goblin"`. Pass the template's
+            [`display_name`][osrlib.core.monsters.MonsterTemplate.display_name] to name the monsters as
+            the session would, and the group gets the template's plural too. Any other label gets the
+            regular English plural ending. `instances` are monster or NPC instances the session has
+            already spawned, as [`GameSession.spawn`][osrlib.crawl.session.GameSession.spawn] returns
+            them.
         kind: How the encounter started: `"wandering"`, `"keyed"`, or `"spawned"`. The function stores
             it in [`EncounterState.kind`][osrlib.crawl.encounter.EncounterState.kind].
         area_ref: The keyed area's reference, when `kind` is `"keyed"`. When the party slays or
@@ -507,14 +562,45 @@ def start_encounter(
         assert session.mode is SessionMode.ENCOUNTER
         assert session.encounter.stance == "indifferent"
         assert session.encounter.groups[0].monster_ids == ["monster-0001", "monster-0002"]
+        assert session.encounter.groups[0].label_plural == "goblins"
         ```
+    """
+    return _open_encounter(
+        session,
+        groups=[(label, _plural_of(label, instances), instances) for label, instances in groups],
+        kind=kind,
+        area_ref=area_ref,
+        distance_feet=distance_feet,
+        monsters_roll_surprise=monsters_roll_surprise,
+        monsters_aware=monsters_aware,
+        party_aware=party_aware,
+        pinned_stance=pinned_stance,
+    )
+
+
+def _open_encounter(
+    session,
+    *,
+    groups: list[tuple[str, str, list]],
+    kind: str,
+    area_ref: str | None = None,
+    distance_feet: int | None = None,
+    monsters_roll_surprise: bool = True,
+    monsters_aware: bool = False,
+    party_aware: bool = False,
+    pinned_stance: ReactionResult | None = None,
+) -> list[Event]:
+    """Open an encounter as `start_encounter` describes, with each group given as `(label, plural, instances)`.
+
+    The session opens every encounter it starts through this function, with the labels that
+    `_group_labels` gives the groups it makes.
     """
     from osrlib.crawl import battle as battle_module
     from osrlib.crawl import exploration
     from osrlib.crawl.session import ENCOUNTER_STREAM
 
     stream = session.streams.get(ENCOUNTER_STREAM)
-    opened = [instance for _, instances in groups for instance in instances]
+    opened = [instance for _, _, instances in groups for instance in instances]
     events: list[Event] = _attach_regeneration(session, opened)
     lit, _ = session.party_light()
 
@@ -560,10 +646,11 @@ def start_encounter(
         EncounterGroup(
             id=session.allocator.allocate("group"),
             label=label,
+            label_plural=plural,
             monster_ids=[instance.id for instance in instances],
             distance_feet=distance_feet,
         )
-        for label, instances in groups
+        for label, plural, instances in groups
     ]
     state = EncounterState(
         kind=kind,
@@ -582,6 +669,7 @@ def start_encounter(
     events.append(
         EncounterStartedEvent(
             monster_name=group_models[0].label,
+            monster_name_plural=group_models[0].label_plural,
             count=sum(len(group.monster_ids) for group in group_models),
             distance_feet=distance_feet,
             party_surprised=party_surprised,
@@ -630,7 +718,7 @@ def start_encounter(
     return events
 
 
-def _join_encounter(session, *, label: str, instances: list, distance_feet: int) -> list[Event]:
+def _join_encounter(session, *, instances: list, distance_feet: int) -> list[Event]:
     """Add one group to the open encounter between rounds, without opening the encounter again.
 
     The group rolls no surprise and no reaction. It shares the encounter's stance and surprise, and
@@ -645,16 +733,22 @@ def _join_encounter(session, *, label: str, instances: list, distance_feet: int)
         and a [`MonsterFledEvent`][osrlib.crawl.events.MonsterFledEvent] when the group runs at once.
     """
     events = _attach_regeneration(session, instances)
+    label, plural = _group_labels(instances)
     group = EncounterGroup(
         id=session.allocator.allocate("group"),
         label=label,
+        label_plural=plural,
         monster_ids=[instance.id for instance in instances],
         distance_feet=distance_feet,
     )
     session.encounter.groups.append(group)
     events.append(
         EncounterGroupJoinedEvent(
-            group_id=group.id, label=label, count=len(group.monster_ids), distance_feet=distance_feet
+            group_id=group.id,
+            label=label,
+            label_plural=plural,
+            count=len(group.monster_ids),
+            distance_feet=distance_feet,
         )
     )
     if session.battle is not None:
