@@ -14,6 +14,7 @@ from osrlib.core.clock import TimeUnit
 from osrlib.core.effects import Condition
 from osrlib.core.items import Coins
 from osrlib.crawl.adventure import Adventure, TownSpec, validate_adventure
+from osrlib.crawl.content_pack import ContentPack, ContentPackEntry, PackSection, validate_content_pack
 from osrlib.crawl.dungeon import (
     AreaSpec,
     AreaTreasureSpec,
@@ -31,8 +32,6 @@ from osrlib.crawl.dungeon import (
 from osrlib.crawl.session import GameSession
 from osrlib.data import load_equipment, load_monsters
 from osrlib.errors import ContentValidationError
-
-pytestmark = pytest.mark.xfail(reason="chunk: content-validation")
 
 
 def corridor(areas=(), features=(), edges=None, width=3) -> LevelSpec:
@@ -85,6 +84,30 @@ def test_an_unknown_treasure_letter_is_refused():
 def test_known_treasure_letters_pass():
     vault = AreaSpec(id="vault", cells=((1, 0),), treasure=AreaTreasureSpec(letters=("A", "C")))
     check(adventure(corridor([vault])))
+
+
+def pack_with(entry: ContentPackEntry, monsters=()) -> ContentPack:
+    section = PackSection(id="level-1", label="Level 1", entries=(entry,))
+    return ContentPack(name="The gnawing dark", sections=(section,), monsters=tuple(monsters))
+
+
+def test_a_content_pack_entry_with_an_unknown_treasure_letter_is_a_finding():
+    entry = ContentPackEntry(id="vault", name="Vault", treasure=AreaTreasureSpec(letters=("A", "Z")))
+    findings = validate_content_pack(pack_with(entry), load_monsters(), load_equipment())
+    assert [(finding.code, finding.entry_id) for finding in findings] == [("pack.treasure.unknown_type", "vault")]
+    assert "'Z'" in findings[0].message
+
+
+def test_a_content_packs_bundled_monster_with_an_unknown_treasure_letter_is_a_finding():
+    orc = load_monsters().get("orc")
+    hoarder = orc.model_copy(
+        update={"id": "pack_hoarder", "treasure": orc.treasure.model_copy(update={"letters": ("Y",)})}
+    )
+    entry = ContentPackEntry(id="vault", name="Vault", treasure=AreaTreasureSpec(letters=("A",)))
+    findings = validate_content_pack(pack_with(entry, monsters=(hoarder,)), load_monsters(), load_equipment())
+    assert [(finding.code, finding.entry_id) for finding in findings] == [("pack.monster.unknown_treasure_type", None)]
+    assert "'Y'" in findings[0].message
+    assert "pack_hoarder" in findings[0].message
 
 
 # ---------------------------------------------------------------------- a trap's chute (item 3)
