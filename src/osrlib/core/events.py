@@ -1151,10 +1151,10 @@ class DeclarationFizzledEvent(Event):
     round, every party member declares an action in a
     [`BattleDeclaration`][osrlib.crawl.commands.BattleDeclaration]. A turning is a cleric's attempt to turn undead.
     Device uses and turnings resolve in the round's magic phase, the step in which the party's spells, item uses,
-    and turnings take effect. Just before each one resolves, the session checks it again. If a check the
-    declaration passed at the start of the round now fails, the declaration fizzles. Something earlier in the round
-    caused the failure. For example, the group a staff of striking was aimed at moved out of melee reach, or the
-    group a wand was aimed at left the battle.
+    and turnings take effect. A staff's strike is the exception, described below. Just before
+    each one resolves, the session checks it again. If a check the declaration passed at the start of the round
+    now fails, the declaration fizzles. Something earlier in the round caused the failure. For example, the group a
+    wand was aimed at left the battle.
 
     A melee attack fizzles when the party's melee step comes and the attack has nothing left to strike, or the
     member stands in the wrong place. The session judges a melee attack before the round starts, as if every move the
@@ -1165,6 +1165,14 @@ class DeclarationFizzledEvent(Event):
     back can no longer move. Then the attack fizzles with the code `battle.melee.fizzled`. A group that has started to
     flee is an exception to the position check: a member who stood within 5' of it when the round was accepted still
     gets the attack, if the group has a monster left to strike and hasn't run out of the battle.
+
+    A staff's strike for a charge, with the staff of power, striking, or wizardry, is a melee attack with a slow
+    weapon. So it doesn't resolve in the magic phase. It comes up after both sides have acted, as a slow attack
+    does, and it fizzles where a slow melee attack does. The session checks it when the party's melee step comes
+    and again when the strike comes up, with a melee attack's checks and reasons. A strike is still a device use,
+    so a strike that fizzles has the code `magic.device.fizzled`, with the staff in `item_id`. For example, the
+    strike's group ran out of the battle, or a quicker member killed the last monster in it that the member could
+    see.
 
     The event's `actor_id` is the member who declared the action, `item_id` is the device, `group_id` is the group a
     melee attack was aimed at, and `reason` is the rejection code of the check that failed.

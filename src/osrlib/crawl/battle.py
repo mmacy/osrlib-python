@@ -5065,7 +5065,9 @@ def _resolve_npc_cast(session, npc, group, ready: _Ready, disrupted: set) -> lis
         stream=session.streams.get(MAGIC_STREAM),
         effects_stream=session.streams.get(EFFECTS_STREAM),
     )
-    return list(result.events)
+    # What the session adds to a cast, as on the party's cast paths. A member's save against an NPC's *silence*
+    # leaves the stationary area in the party's cell (see the adaptations register).
+    return [*result.events, *_spells._cast_outcomes(session, spell, result, targets)]
 
 
 def _group_all_shaken(session, group) -> bool:

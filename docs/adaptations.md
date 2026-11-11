@@ -673,7 +673,8 @@ osrlib runs *silence 15' radius* for both outcomes of the target's save:
 
 - On a failed save, the target gains `silenced`, which the casting validator checks, and the silence moves with the creature.
 - On a passed save, RAW leaves a *stationary* area that the creature can step out of. Effects bound to a location anchor to cells, so the engine attaches a stationary silence effect to the target's cell, which osrlib takes to be the party's current cell, the encounter's abstract location. Creatures in that cell can't cast while they're there, in battle too.
-- The session leaves the stationary area however the spell is cast: from memory or from a scroll, in a battle or outside one.
+- The session leaves the stationary area however the spell is cast: from memory or from a scroll, in a battle or outside one, and by an NPC adventurer at a member who saves.
+- The area takes its radius from the spell's `radius_feet` param.
 - The session knows the spell by its data, not by its id. Its mode's effect gives the `silenced` condition, with `silence` as the `effect_kind` param. So a copy of the spell that an adventure bundles under another id leaves the same area.
 
 Locked by `test_casting.py::TestSilenceWebDispelFeeblemind`, `test_exploration.py::TestStationarySilence`, `test_battle.py::TestSilencedCellInBattle`, and `test_cast_outcomes.py`.
@@ -1633,7 +1634,7 @@ A cursed item reveals itself at the same moment and sticks. The engine refuses `
 
 *Remove curse* frees each member it targets from the cursed items they carry. The item stays cursed and identified, but the member can put it down, and the effects of item curses, like the ring of weakness's, end.
 
-- The session does this however the spell is cast: from memory or from a scroll, in a battle or outside one, and at the temple.
+- The session does this however the spell is cast: from memory or from a scroll, in a battle or outside one, by an NPC adventurer, and at the temple.
 - The reversed spell, *curse*, frees nothing.
 - The session knows *remove curse* by the ids of the two built-in spells, `remove_curse_c` and `remove_curse_mu`. No data marks the spell, because its mode is manual and has no effect. An adventure can't bundle a spell under a built-in id, so no bundled spell frees stuck items, whatever its id starts with.
 

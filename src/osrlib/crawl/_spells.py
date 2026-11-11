@@ -3,9 +3,9 @@
 The crawl adds two results to a cast that the spell kernel in `osrlib.core.spells` doesn't handle: a *silence 15'
 radius* whose target saves anchors to the party's cell, and *remove curse* lifts the curses on its target's items.
 `_cast_outcomes` adds both, and every cast in a session calls it once the kernel has resolved the cast: `CastSpell`,
-a scroll read outside a battle, a `cast` declaration and a scroll read in a battle, and the temple's services. The
-temple's healing and scroll reading also use `_cast_context`. Every level drain in a session runs through
-`_drain_character`, because a drain looks up each memorized spell.
+a scroll read outside a battle, a `cast` declaration and a scroll read in a battle, an NPC adventurer's cast, and the
+temple's services. The temple's healing and scroll reading also use `_cast_context`. Every level drain in a session
+runs through `_drain_character`, because a drain looks up each memorized spell.
 """
 
 from collections.abc import Callable, Sequence
@@ -21,6 +21,7 @@ from osrlib.core.spells import (
     CastContext,
     CastResult,
     SpellCatalog,
+    SpellEffect,
     SpellTemplate,
     add_spell_to_book,
     cast_spell,
@@ -161,7 +162,8 @@ def _cast_outcomes(session, spell: SpellTemplate, result: CastResult, targets) -
     """Add to a resolved cast what the session does and the spell kernel doesn't, and return the events.
 
     Every cast in a session calls this once the kernel has resolved it, from memory or from a scroll, in a battle or
-    outside one, so a spell does the same thing however it's cast. It adds two outcomes:
+    outside one, by a party member, an NPC adventurer, or the temple. So a spell does the same thing however it's
+    cast. It adds two outcomes:
 
     - A *silence 15' radius* whose target saves leaves a stationary silence in the party's cell (see
       `_stationary_silence`).
@@ -182,16 +184,17 @@ def _cast_outcomes(session, spell: SpellTemplate, result: CastResult, targets) -
     return events
 
 
-def _is_silence(spell: SpellTemplate, result: CastResult) -> bool:
-    """Return whether the mode the cast resolved is *silence 15' radius*'s, known by its data and not by its id.
+def _silence_effect(spell: SpellTemplate, result: CastResult) -> SpellEffect | None:
+    """Return the effect of the mode the cast resolved when it's *silence 15' radius*'s, or None when it isn't.
 
-    That's a mode whose effect puts the `silenced` condition on its target, with `silence` as the `effect_kind`
-    param. A spell an adventure bundles that copies the mode under another id is silence too.
+    The session knows silence by its data and not by its id: a mode whose effect puts the `silenced` condition on
+    its target, with `silence` as the `effect_kind` param. A spell an adventure bundles that copies the mode under
+    another id is silence too.
     """
     effect = spell.mode(result.mode, reversed=result.reversed).effect
-    return (
-        effect is not None and effect.condition is Condition.SILENCED and effect.params.get("effect_kind") == "silence"
-    )
+    if effect is None or effect.condition is not Condition.SILENCED or effect.params.get("effect_kind") != "silence":
+        return None
+    return effect
 
 
 def _stationary_silence(session, spell, result, targets) -> list[Event]:
@@ -200,10 +203,11 @@ def _stationary_silence(session, spell, result, targets) -> list[Event]:
     On a passed save RAW leaves a stationary area the creature can step out of. As
     a documented adaptation (see the adaptations register), the effect instead
     attaches to the party's cell (the encounter's abstract location), and
-    creatures in that cell cannot cast while it lasts. `_is_silence` decides
-    which casts are silence.
+    creatures in that cell cannot cast while it lasts. `_silence_effect` decides
+    which casts are silence, and the area takes the spell's `radius_feet` param.
     """
-    if _location(session).kind != "dungeon" or not _is_silence(spell, result):
+    effect = _silence_effect(spell, result)
+    if _location(session).kind != "dungeon" or effect is None:
         return []
     passed = {
         event.target_id
@@ -218,12 +222,18 @@ def _stationary_silence(session, spell, result, targets) -> list[Event]:
         duration_unit=spec.unit or TimeUnit.TURN,
         duration_amount=(spec.amount or 12),
         dispellable=True,
-        params={"radius_feet": 15, "stationary": True},
+        params={**_radius_param(effect), "stationary": True},
     )
     _, attach_events = session.ledger.attach(
         definition, _cell_ref(session), clock=session.clock, allocator=session.allocator, registry=session.registry()
     )
     return attach_events
+
+
+def _radius_param(effect: SpellEffect) -> dict[str, int]:
+    """The spell's `radius_feet` param, for the silence left in the cell, or nothing when the spell has none."""
+    radius = effect.params.get("radius_feet")
+    return {"radius_feet": radius} if isinstance(radius, int) and not isinstance(radius, bool) else {}
 
 
 def _lift_curses(session, member) -> list[Event]:
