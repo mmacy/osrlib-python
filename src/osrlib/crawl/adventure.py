@@ -456,6 +456,17 @@ def _effective_equipment(adventure: Adventure, base: EquipmentCatalog) -> tuple[
     return effective, conflicts
 
 
+def _unknown_treasure_types(letters: tuple[str, ...]) -> list[str]:
+    """Return each of `letters` that isn't the letter of a treasure type, in order.
+
+    Every place an author writes treasure type letters is checked with this function, in an
+    adventure and in a content pack. The letters are the `letter` of each table in
+    [`load_treasure_tables`][osrlib.data.load_treasure_tables]`().treasure_types`.
+    """
+    known = {table.letter for table in load_treasure_tables().treasure_types}
+    return [letter for letter in letters if letter not in known]
+
+
 def _area_has_boundary_door(area: AreaSpec, level: LevelSpec) -> bool:
     """Return whether any edge of any of `area`'s cells is a door.
 
@@ -599,6 +610,11 @@ def _validate_feature(
         errors.append(f"{subject} cell {feature.cell} is out of bounds")
     elif area is not None and feature.cell not in area.cells:
         errors.append(f"{subject} cell {feature.cell} is not a cell of area {area.id!r}")
+    elif area is not None and (holder := level.area_at(feature.cell)) is not None and holder is not area:
+        errors.append(
+            f"{subject} cell {feature.cell} belongs to area {holder.id!r}, "
+            f"which is listed before area {area.id!r}, so the party can't reach the feature"
+        )
     _validate_trap(feature.trap, level, subject, adventure, errors)
     for item_id in feature.item_ids:
         try:
@@ -847,7 +863,8 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
       the grid. The session reads an edge only under that key.
     - Area ids are unique, and every area cell is on the grid. An area is a keyed room or cave, an
       [`AreaSpec`][osrlib.crawl.dungeon.AreaSpec].
-    - No two areas share a cell.
+    - Each area has at least one cell of its own. A cell that two areas list belongs to the one
+      listed first, so an area whose cells all belong to earlier areas can never be entered.
     - Each treasure type letter in an area's `treasure` is the letter of a treasure type.
     - Feature ids are unique across the level, and none is `"pile"`, which is reserved for drop
       piles. A feature is something in the dungeon that the party can find and act on, like a
@@ -856,7 +873,8 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
       by area id and feature id in the same way, so it would confuse the two.
     - Every feature cell is on the grid, and every feature listed on the level itself, not on an
       area, has a cell.
-    - The cell of a feature listed on an area, when it has one, is one of the area's cells.
+    - The cell of a feature listed on an area, when it has one, is one of the area's cells, and
+      belongs to that area rather than to an area listed before it.
 
     It checks the ways in and out, where a transition is stairs, a trapdoor, a chute, or a passage
     (a [`TransitionSpec`][osrlib.crawl.dungeon.TransitionSpec]), and a gate is a condition on a door
@@ -958,15 +976,13 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
     """
     errors: list[str] = []
     magic = load_magic_items()
-    treasure_types = {table.letter for table in load_treasure_tables().treasure_types}
     effective, conflicts = _effective_monsters(adventure, monsters)
     errors.extend(conflicts.lines("monster"))
     effective_items, item_conflicts = _effective_equipment(adventure, equipment)
     errors.extend(item_conflicts.lines("item"))
     for template in adventure.monsters:
-        for letter in (*template.treasure.letters, *template.treasure.parenthetical):
-            if letter not in treasure_types:
-                errors.append(f"bundled monster {template.id!r} has unknown treasure type {letter!r}")
+        for letter in _unknown_treasure_types((*template.treasure.letters, *template.treasure.parenthetical)):
+            errors.append(f"bundled monster {template.id!r} has unknown treasure type {letter!r}")
     for dungeon_id in adventure.town.travel_turns:
         if not any(dungeon.id == dungeon_id for dungeon in adventure.dungeons):
             errors.append(f"town travel names unknown dungeon {dungeon_id!r}")
@@ -994,21 +1010,26 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
             for area_id in area_ids:
                 if area_id in feature_id_set:
                     errors.append(f"{owner}: id {area_id!r} names both an area and a feature")
-            claimed: dict[Position, str] = {}
+            claimed: dict[Position, AreaSpec] = {}
             for area in level.areas:
                 for cell in area.cells:
                     if not level.in_bounds(cell):
                         errors.append(f"{owner}: area {area.id!r} cell {cell} is out of bounds")
-                    first = claimed.setdefault(cell, area.id)
-                    if first != area.id:
-                        errors.append(f"{owner}: areas {first!r} and {area.id!r} share cell {cell}")
+                earlier = [claimed[cell] for cell in area.cells if cell in claimed and claimed[cell] is not area]
+                if len(earlier) == len(area.cells):
+                    names = ", ".join(dict.fromkeys(repr(other.id) for other in earlier))
+                    errors.append(
+                        f"{owner}: area {area.id!r} has no cell of its own, "
+                        f"because each of its cells belongs to an area listed before it: {names}"
+                    )
+                for cell in area.cells:
+                    claimed.setdefault(cell, area)
                 if area.trap is not None and area.trap.trigger == "open" and not _area_has_boundary_door(area, level):
                     errors.append(f"{owner}: area {area.id!r} has an open-trigger trap and no door on its boundary")
                 _validate_trap(area.trap, level, f"{owner}: area {area.id!r}", adventure, errors)
                 if area.treasure is not None:
-                    for letter in area.treasure.letters:
-                        if letter not in treasure_types:
-                            errors.append(f"{owner}: area {area.id!r} has unknown treasure type {letter!r}")
+                    for letter in _unknown_treasure_types(area.treasure.letters):
+                        errors.append(f"{owner}: area {area.id!r} has unknown treasure type {letter!r}")
                 if area.encounter is not None:
                     for keyed in area.encounter.monsters:
                         try:

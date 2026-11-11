@@ -1223,9 +1223,10 @@ class AreaSpec(BaseModel):
     cells: tuple[Position, ...] = Field(min_length=1)
     """The cells the area covers, at least one. They don't have to touch each other, though a room's
     cells usually do. Every cell has to be on the level's grid. The first cell is where the session
-    puts the encounter's lair hoard. A cell belongs to one area at most, and
-    [`validate_adventure`][osrlib.crawl.adventure.validate_adventure] reports two areas that share a
-    cell."""
+    puts the encounter's lair hoard. A cell that two areas list belongs to the one listed first in
+    the level's `areas`. Each area needs at least one cell that no earlier area lists, or the party
+    can never enter it, and [`validate_adventure`][osrlib.crawl.adventure.validate_adventure] reports
+    an area without one."""
     encounter: KeyedEncounter | None = None
     """The monsters waiting in the room, or `None` for a room without any. See
     [`KeyedEncounter`][osrlib.crawl.dungeon.KeyedEncounter]."""
@@ -1437,9 +1438,8 @@ class LevelSpec(BaseModel):
             position: The cell.
 
         Returns:
-            The area whose `cells` include the position, or `None` when the cell is corridor.
-            [`validate_adventure`][osrlib.crawl.adventure.validate_adventure] reports two areas that
-            share a cell, so at most one area in a valid level covers each cell.
+            The area the cell belongs to, or `None` when the cell is corridor. A cell that two
+            areas list belongs to the one listed first in `areas`.
 
         Examples:
             ```python
