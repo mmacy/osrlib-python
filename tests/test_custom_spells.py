@@ -38,8 +38,6 @@ from osrlib.data import load_classes, load_equipment, load_monsters, load_spells
 from osrlib.errors import ContentValidationError
 from osrlib.persistence import load_game, save_game
 
-pytestmark = pytest.mark.xfail(reason="chunk: custom-spells")
-
 
 def custom_spell(base_id: str, spell_id: str) -> SpellTemplate:
     """A spell of your own: a built-in spell under a new id and name."""
