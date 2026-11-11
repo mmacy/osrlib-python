@@ -229,6 +229,7 @@ from osrlib.crawl.events import (
     ListenedEvent,
     LocationEnteredEvent,
     PartyMovedEvent,
+    PartyReorderedEvent,
     ProvisionsEvent,
     RestedEvent,
     SearchCompletedEvent,
@@ -1858,7 +1859,7 @@ def _handle_reorder_party(session, command: ReorderParty) -> tuple[list[Rejectio
     if sorted(command.order) != sorted(by_id):
         return [Rejection(code="exploration.party.bad_order")], []
     session.party.reorder(command.order)
-    return [], []
+    return [], [PartyReorderedEvent(order=tuple(command.order))]
 
 
 def _handle_use_stairs(session, command: UseStairs) -> tuple[list[Rejection], list[Event]]:
@@ -2256,7 +2257,7 @@ def _handle_search(session, command: Search) -> tuple[list[Rejection], list[Even
     ]
     found: list[str] = []
     if check.passed:
-        found = _reveal(session, command.kind, events)
+        found = _reveal(session, member, command.kind, events)
     code = "exploration.search.found" if found else "exploration.search.nothing"
     events.append(SearchCompletedEvent(code=code, character_id=member.id, kind=command.kind, found=tuple(found)))
     turn_events, _ = _spend_turn(session)
@@ -2285,11 +2286,12 @@ def _refund_trap_search(session, dungeon_id: str, level_number: int, position: P
         session.dungeon_state.search_attempts.pop(f"{cell_ref(dungeon_id, level_number, cell)}:room_traps", None)
 
 
-def _reveal(session, kind: str, events: list[Event]) -> list[str]:
+def _reveal(session, member, kind: str, events: list[Event]) -> list[str]:
     """Reveal every hidden feature of one kind on the party's cell, and no other cell.
 
-    Appends the reveal events to `events` and returns the reference tokens for what turned up,
-    which are the tokens `_handle_search` puts in
+    `member` is the member who searched, and each reveal event has that member's id as its
+    `character_id`. Appends the reveal events to `events` and returns the reference tokens for what
+    turned up, which are the tokens `_handle_search` puts in
     [`SearchCompletedEvent.found`][osrlib.crawl.events.SearchCompletedEvent]. Discovering a secret
     door also clears the room-trap search attempts on both cells its edge joins, this one and the
     one across it, through `_refund_trap_search`.
@@ -2343,7 +2345,11 @@ def _reveal(session, kind: str, events: list[Event]) -> list[str]:
                 state.found_traps.append(trap_ref)
                 bearing = None if direction_found is None else direction_found.value
                 found.append(f"room_trap:{candidate.id}" + (f":{bearing}" if bearing is not None else ""))
-                events.append(TrapEvent(code="exploration.trap.found", trap_ref=trap_ref, direction=bearing))
+                events.append(
+                    TrapEvent(
+                        code="exploration.trap.found", trap_ref=trap_ref, character_id=member.id, direction=bearing
+                    )
+                )
     elif kind == "construction":
         for feature in _features_here(session):
             if feature.kind != "construction_trick":
@@ -2888,6 +2894,37 @@ def _distribute_haul(session, carriers, haul: DropPile) -> tuple[list[Event], Dr
     return events, leftovers, taken_cp, taken_valuables
 
 
+def _add_to_pile(session, goods: DropPile) -> tuple[str, ...]:
+    """Put goods in the drop pile on the party's cell, and return their ids the way events list them.
+
+    A stack of an item the pile already has adds to that stack. The ids are an instance id for each
+    magic item, then an instance id for each valuable, then a catalog id for each unit of mundane
+    gear, which is the form of `item_ids` on
+    [`ItemsLeftBehindEvent`][osrlib.crawl.events.ItemsLeftBehindEvent] and
+    [`LootDroppedEvent`][osrlib.crawl.events.LootDroppedEvent].
+    """
+    item_ids = [magic_item.instance_id for magic_item in goods.magic_items]
+    item_ids += [valuable.instance_id for valuable in goods.valuables]
+    for dropped in goods.items:
+        item_ids.extend([dropped.item_id] * dropped.quantity)
+    pile = session.dungeon_state.piles.setdefault(_cell_ref(session), DropPile())
+    for dropped in goods.items:
+        existing = next((entry for entry in pile.items if entry.item_id == dropped.item_id), None)
+        if existing is None:
+            pile.items.append(dropped)
+        else:
+            existing.quantity += dropped.quantity
+    pile.valuables.extend(goods.valuables)
+    pile.magic_items.extend(goods.magic_items)
+    pile.coins = Coins(
+        **{
+            denomination: getattr(pile.coins, denomination) + getattr(goods.coins, denomination)
+            for denomination in _DENOMINATIONS
+        }
+    )
+    return tuple(item_ids)
+
+
 def _leave_behind(session, leftovers: DropPile) -> list[Event]:
     """Put what the party could not carry in the drop pile at its feet.
 
@@ -2896,26 +2933,8 @@ def _leave_behind(session, leftovers: DropPile) -> list[Event]:
     """
     if not (leftovers.items or leftovers.valuables or leftovers.magic_items or leftovers.coins.total_coins):
         return []
-    pile = session.dungeon_state.piles.setdefault(_cell_ref(session), DropPile())
-    for dropped in leftovers.items:
-        existing = next((entry for entry in pile.items if entry.item_id == dropped.item_id), None)
-        if existing is None:
-            pile.items.append(dropped)
-        else:
-            existing.quantity += dropped.quantity
-    pile.valuables.extend(leftovers.valuables)
-    pile.magic_items.extend(leftovers.magic_items)
-    pile.coins = Coins(
-        **{
-            denomination: getattr(pile.coins, denomination) + getattr(leftovers.coins, denomination)
-            for denomination in _DENOMINATIONS
-        }
-    )
-    item_ids = [magic_item.instance_id for magic_item in leftovers.magic_items]
-    item_ids += [valuable.instance_id for valuable in leftovers.valuables]
-    for dropped in leftovers.items:
-        item_ids.extend([dropped.item_id] * dropped.quantity)
-    return [ItemsLeftBehindEvent(item_ids=tuple(item_ids), coins_gp_value=leftovers.coins.value_gp)]
+    item_ids = _add_to_pile(session, leftovers)
+    return [ItemsLeftBehindEvent(item_ids=item_ids, coins_gp_value=leftovers.coins.value_gp)]
 
 
 def _take_haul(session, carriers, haul: DropPile) -> list[Event]:
@@ -3062,41 +3081,31 @@ def _apply_give(session, giver, recipient, command: GiveItems) -> list[Event]:
 
 def _apply_drop(session, member, command: DropItems, *, to_pile: bool) -> list[Event]:
     """Remove the dropped goods, onto the cell's pile or scattered (pursuit bait)."""
-    pile = None
-    if to_pile:
-        pile = session.dungeon_state.piles.setdefault(_cell_ref(session), DropPile())
+    goods = DropPile(coins=command.coins)
     for item_id in command.item_ids:
         magic = member.inventory.magic_item(item_id)
         if magic is not None:
             _remove_instance(member, magic)
-            if pile is not None:
-                pile.magic_items.append(magic)
+            goods.magic_items.append(magic)
             continue
         valuable = next(
             (candidate for candidate in member.inventory.valuables if candidate.instance_id == item_id), None
         )
         if valuable is not None:
             member.inventory.valuables.remove(valuable)
-            if pile is not None:
-                pile.valuables.append(valuable)
+            goods.valuables.append(valuable)
             continue
         _consume_item(member, item_id)
-        if pile is not None:
-            existing = next((entry for entry in pile.items if entry.item_id == item_id), None)
-            if existing is None:
-                pile.items.append(DroppedItem(item_id=item_id, quantity=1))
-            else:
-                existing.quantity += 1
+        existing = next((entry for entry in goods.items if entry.item_id == item_id), None)
+        if existing is None:
+            goods.items.append(DroppedItem(item_id=item_id, quantity=1))
+        else:
+            existing.quantity += 1
     purse = member.inventory.purse
-    for denomination in ("pp", "gp", "ep", "sp", "cp"):
+    for denomination in _DENOMINATIONS:
         setattr(purse, denomination, getattr(purse, denomination) - getattr(command.coins, denomination))
-    if pile is not None:
-        pile.coins = Coins(
-            **{
-                denomination: getattr(pile.coins, denomination) + getattr(command.coins, denomination)
-                for denomination in ("pp", "gp", "ep", "sp", "cp")
-            }
-        )
+    if to_pile:
+        _add_to_pile(session, goods)
     return [
         ItemsDroppedEvent(
             character_id=member.id, item_ids=tuple(command.item_ids), coins_gp_value=command.coins.value_gp

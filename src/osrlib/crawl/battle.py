@@ -2158,8 +2158,9 @@ def start_battle(session, *, party_free_round: bool = False, monsters_free_round
     code that runs outside the session's commands, like a test of combat.
 
     The session needs an open encounter, because the battle uses that encounter's groups and their
-    distances. When this function returns, the session is in `battle` mode and `session.battle`
-    contains a [`BattleState`][osrlib.crawl.battle.BattleState]. From there, each round is one
+    distances, and it must not have a battle open already. When this function returns, the session
+    is in `battle` mode and `session.battle` contains a
+    [`BattleState`][osrlib.crawl.battle.BattleState]. From there, each round is one
     [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound] command.
 
     A group with a morale score of 2 never fights, so it flees as soon as the battle starts. That
@@ -2189,8 +2190,8 @@ def start_battle(session, *, party_free_round: bool = False, monsters_free_round
         battle.
 
     Raises:
-        ValueError: If no encounter is open on the session. The session is left as it was, with no
-            draws taken and no time passed.
+        ValueError: If no encounter is open on the session, or if a battle is already open on it. The
+            session is left as it was, with no draws taken and no time passed.
 
     Examples:
         ```python
@@ -2238,6 +2239,8 @@ def start_battle(session, *, party_free_round: bool = False, monsters_free_round
     """
     if session.encounter is None:
         raise ValueError("no encounter is open on the session")
+    if session.battle is not None:
+        raise ValueError("a battle is already open on the session")
     state = BattleState(started_round=session.clock.rounds, monsters_hold_rounds=1 if party_free_round else 0)
     session.battle = state
     session.mode = SessionMode.BATTLE
@@ -2287,7 +2290,6 @@ def _check_ends(session, *, party_retreating: bool) -> list[Event] | None:
     groups = session.encounter.groups
     done = all(group.fled or not _living_monsters(session, group) or _all_routed(session, group) for group in groups)
     if done:
-        session.battle = None
         return [BattleEndedEvent(code="battle.ended.victory"), *encounter_module.end_encounter(session, "victory")]
     if party_retreating:
         from osrlib.crawl.encounter import PursuitState

@@ -54,6 +54,8 @@ You follow the encounter through events from
   exhaust the party.
 - A [`MonsterDefeatedEvent`][osrlib.crawl.events.MonsterDefeatedEvent] for each slain or routed
   monster when the encounter closes.
+- A [`LootDroppedEvent`][osrlib.crawl.events.LootDroppedEvent] when the slain drop treasure or gear
+  in a pile on the party's cell.
 - An [`EncounterEndedEvent`][osrlib.crawl.events.EncounterEndedEvent] with the outcome.
 
 The reaction roll is reported as a
@@ -161,6 +163,8 @@ from osrlib.crawl.events import (
     EncounterStartedEvent,
     EvasionEvent,
     ExhaustionEvent,
+    ItemsDroppedEvent,
+    LootDroppedEvent,
     MonsterDefeatedEvent,
     PursuitEvent,
     StanceChangedEvent,
@@ -908,8 +912,6 @@ def _handle_evade(session, command: Evade) -> tuple[list[Rejection], list[Event]
         for member in session.party.living_members():
             purse = member.inventory.purse
             if purse.total_coins:
-                from osrlib.crawl.events import ItemsDroppedEvent
-
                 events.append(
                     ItemsDroppedEvent(
                         character_id=member.id,
@@ -918,13 +920,14 @@ def _handle_evade(session, command: Evade) -> tuple[list[Rejection], list[Event]
                 )
                 purse.pp = purse.gp = purse.ep = purse.sp = purse.cp = 0
     elif dropped_kind == "food":
-        from osrlib.crawl.events import ItemsDroppedEvent
-
         for member in session.party.living_members():
-            if exploration._consume_item(member, "rations_standard") or exploration._consume_item(
+            ration = exploration._consume_item(member, "rations_standard") or exploration._consume_item(
                 member, "rations_iron"
-            ):
-                events.append(ItemsDroppedEvent(character_id=member.id, item_ids=("rations",)))
+            )
+            if ration is not None:
+                events.append(
+                    ItemsDroppedEvent(character_id=member.id, item_ids=(exploration._consumed_item_id(ration),))
+                )
 
     pursuers = [group for group in state.groups if not group.fled and _group_can_pursue(session, group)]
     pursues = state.stance in (ReactionResult.ATTACKS.value, ReactionResult.HOSTILE.value) and pursuers
@@ -1173,13 +1176,13 @@ def _attach_exhaustion(session) -> list[Event]:
 
 
 def _drop_loot(session, state: EncounterState) -> list[Event]:
-    """Drop slain combatants' carried treasure at the party's cell.
+    """Drop slain combatants' carried treasure at the party's cell, with a `LootDroppedEvent` for it.
 
     The drop pile is how the party picks it up. Routed monsters flee with theirs,
     and a group whose members routed or fled keeps its shared bundle.
     """
     from osrlib.crawl import exploration
-    from osrlib.crawl.dungeon import DropPile
+    from osrlib.crawl.dungeon import DroppedItem, DropPile
 
     if session.dungeon_state.location.kind != "dungeon":
         return []
@@ -1211,39 +1214,28 @@ def _drop_loot(session, state: EncounterState) -> list[Event]:
             if all_defeated:
                 dropped.append(group.group_treasure)
                 group.group_treasure = None
-    if not dropped and not npc_spoils:
-        return []
-    ref = exploration._cell_ref(session)
-    pile = session.dungeon_state.piles.setdefault(ref, DropPile())
-    total = Coins()
+    loot = DropPile()
+    coins: list[Coins] = []
     for bundle in dropped:
-        total = Coins(
-            **{
-                denomination: getattr(total, denomination) + getattr(bundle.coins, denomination)
-                for denomination in ("pp", "gp", "ep", "sp", "cp")
-            }
-        )
-        pile.valuables.extend(bundle.valuables)
-        pile.magic_items.extend(bundle.magic_items)
+        coins.append(bundle.coins)
+        loot.valuables.extend(bundle.valuables)
+        loot.magic_items.extend(bundle.magic_items)
     for npc in npc_spoils:
         inventory = npc.inventory
         for instance in inventory.all_instances():
             if hasattr(instance, "instance_id"):
-                pile.magic_items.append(instance)
+                loot.magic_items.append(instance)
+                continue
+            existing = next((entry for entry in loot.items if entry.item_id == instance.template.id), None)
+            if existing is None:
+                loot.items.append(DroppedItem(item_id=instance.template.id, quantity=instance.quantity))
             else:
-                from osrlib.crawl.dungeon import DroppedItem
-
-                existing = next((entry for entry in pile.items if entry.item_id == instance.template.id), None)
-                if existing is None:
-                    pile.items.append(DroppedItem(item_id=instance.template.id, quantity=instance.quantity))
-                else:
-                    existing.quantity += instance.quantity
-        pile.valuables.extend(inventory.valuables)
-        total = Coins(
-            **{
-                denomination: getattr(total, denomination) + getattr(inventory.purse, denomination)
-                for denomination in ("pp", "gp", "ep", "sp", "cp")
-            }
+                existing.quantity += instance.quantity
+        loot.valuables.extend(inventory.valuables)
+        coins.append(
+            Coins(
+                **{denomination: getattr(inventory.purse, denomination) for denomination in exploration._DENOMINATIONS}
+            )
         )
         inventory.items = []
         inventory.wielded = []
@@ -1253,13 +1245,16 @@ def _drop_loot(session, state: EncounterState) -> list[Event]:
         inventory.shield = None
         purse = inventory.purse
         purse.pp = purse.gp = purse.ep = purse.sp = purse.cp = 0
-    pile.coins = Coins(
+    loot.coins = Coins(
         **{
-            denomination: getattr(pile.coins, denomination) + getattr(total, denomination)
-            for denomination in ("pp", "gp", "ep", "sp", "cp")
+            denomination: sum(getattr(lot, denomination) for lot in coins)
+            for denomination in exploration._DENOMINATIONS
         }
     )
-    return []
+    if not (loot.items or loot.valuables or loot.magic_items or loot.coins.total_coins):
+        return []
+    item_ids = exploration._add_to_pile(session, loot)
+    return [LootDroppedEvent(item_ids=item_ids, coins_gp_value=loot.coins.value_gp)]
 
 
 def end_encounter(session, outcome: str) -> list[Event]:
@@ -1277,6 +1272,10 @@ def end_encounter(session, outcome: str) -> list[Event]:
     returns, `session.encounter` is None. If the session was in `encounter` or `battle` mode, it's
     now in `exploring` mode.
 
+    A battle on the encounter ends with it, so when it returns, `session.battle` is None too. The
+    function emits no [`BattleEndedEvent`][osrlib.crawl.events.BattleEndedEvent] for that battle.
+    The [`EncounterEndedEvent`][osrlib.crawl.events.EncounterEndedEvent] reports the end of both.
+
     Every monster that ended slain or routed gets a
     [`MonsterDefeatedEvent`][osrlib.crawl.events.MonsterDefeatedEvent] and a record in
     `session.defeated_monsters` with its experience value. Routed covers three cases: a monster
@@ -1286,7 +1285,9 @@ def end_encounter(session, outcome: str) -> list[Event]:
     The treasure slain monsters carried drops in a pile on the party's cell, which
     [`PlayerView.piles`][osrlib.crawl.views.PlayerView.piles] shows and
     [`TakeTreasure`][osrlib.crawl.commands.TakeTreasure] picks up. A slain NPC adventurer drops all
-    its equipment, coins, and magic items too. Routed monsters take their treasure with them. Next,
+    its equipment, coins, and magic items too. A
+    [`LootDroppedEvent`][osrlib.crawl.events.LootDroppedEvent] lists what went into the pile. When
+    nothing drops, there's no `LootDroppedEvent`. Routed monsters take their treasure with them. Next,
     every effect still active on any of the encounter's monsters ends, because the encounter is
     over. That includes a slain troll's pending revival.
 
@@ -1316,7 +1317,8 @@ def end_encounter(session, outcome: str) -> list[Event]:
             `"departed"`. osrlib doesn't check the value, so you can pass any label.
 
     Returns:
-        The [`MonsterDefeatedEvent`][osrlib.crawl.events.MonsterDefeatedEvent]s, the events of
+        The [`MonsterDefeatedEvent`][osrlib.crawl.events.MonsterDefeatedEvent]s, the
+        [`LootDroppedEvent`][osrlib.crawl.events.LootDroppedEvent] when anything drops, the events of
         effects ending, the experience award when the ruleset awards it immediately, the
         [`EncounterEndedEvent`][osrlib.crawl.events.EncounterEndedEvent], and the events of the
         clock advance after it.
@@ -1376,6 +1378,7 @@ def end_encounter(session, outcome: str) -> list[Event]:
     state = session.encounter
     if state is None:
         raise ValueError("no encounter is open on the session")
+    session.battle = None
     events: list[Event] = []
     all_defeated = True
     for group in state.groups:

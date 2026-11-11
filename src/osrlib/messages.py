@@ -249,6 +249,7 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
     ),
     "exploration.party.moved": lambda event: f"The party moves to ({event.x}, {event.y}), facing {event.facing}.",
     "exploration.party.turned": lambda event: f"The party turns to face {event.facing}.",
+    "exploration.party.reordered": lambda event: f"The party's marching order is now {', '.join(event.order)}.",
     "exploration.location.entered": _entered,
     "exploration.door.opened": lambda event: f"The door {event.direction} of ({event.x}, {event.y}) opens.",
     "exploration.door.closed": lambda event: f"The door {event.direction} of ({event.x}, {event.y}) closes.",
@@ -372,6 +373,13 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
     "encounter.pursuit.caught": lambda event: f"Pursuit round {event.round}: the monsters catch the party!",
     "encounter.exhaustion.gained": lambda event: "The party is exhausted from running: -2 to attacks, damage, and AC.",
     "encounter.exhaustion.recovered": lambda event: "The party catches its breath — exhaustion fades.",
+    "encounter.loot.dropped": lambda event: (
+        "The fallen leave behind "
+        + (", ".join(event.item_ids) if event.item_ids else "")
+        + (" and " if event.item_ids and event.coins_gp_value else "")
+        + (f"{event.coins_gp_value} gp in coin" if event.coins_gp_value else "")
+        + "."
+    ),
     "encounter.ended": lambda event: f"The encounter ends ({event.outcome}).",
     "battle.started": lambda event: "Battle is joined!",
     "battle.round.started": lambda event: f"Battle round {event.round} begins.",
