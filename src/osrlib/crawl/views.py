@@ -522,7 +522,14 @@ class EncounterGroupView(BaseModel):
     members and members whose *protection from evil* bars it. A monster with a missile attack closes
     and uses it at 5' too, so the members behind this rank are out of a monster group's reach. NPC
     adventurers with missile weapons shoot from farther away, at the members in the first row of the
-    party's ranks toward their group."""
+    party's ranks toward their group.
+
+    In a round, at most
+    [`EncounterView.formation_width`][osrlib.crawl.views.EncounterView.formation_width] of the group's
+    monsters make melee attacks on these members, so six skeletons in a 10' corridor strike with two at
+    most. A monster that's asleep, paralysed, or turned to stone doesn't attack, and the next one
+    attacks in its place. `condition_counts` shows how many members have each of those conditions.
+    With the ruleset's `formation_width_limit` flag off, there's no limit."""
     lit: bool | None = None
     """Whether a light the party carries reaches this group, or `None` outside a battle.
 
@@ -638,7 +645,10 @@ class EncounterView(BaseModel):
     cell, so it's set in an encounter before a battle starts, and it stays the same for the whole
     fight. The ranks toward each group are rows this wide, so
     a group's [`front_rank`][osrlib.crawl.views.EncounterGroupView.front_rank] never holds more members
-    than this. Compare the two to show how many places are left in a group's front rank."""
+    than this. Compare the two to show how many places are left in a group's front rank.
+
+    The width limits the monsters too. In a round, at most this many monsters of each group make
+    melee attacks on the party."""
     party_free_round: bool = False
     """True in the round the party gets free after it surprised the monsters, while the monsters can't
     act. False in every other round, and outside a battle.

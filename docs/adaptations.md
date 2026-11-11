@@ -1299,10 +1299,29 @@ The Combat page gives monsters the same movement and melee rules as characters, 
 - When the group can see no member, it moves toward the party line and stops 5' from it.
 - When the group's stopping point would be behind the party line, the line moves back first (see [The range track and each member's place on it](#the-range-track-and-each-members-place-on-it)). So a group reaches the member it closes on in as many rounds as its rate needs.
 - A monster's melee attack resolves only on a member who stands in the group's front rank within 5' of it when the attack comes up, and the session skips a melee on anyone else. A formation retreat is the exception (see [A member who withdraws alone](#a-member-who-withdraws-alone)).
+- In a round, at most as many monsters of a group make melee attacks as the formation width allows (see [At most as many monsters of a group as the formation width attack in melee](#at-most-as-many-monsters-of-a-group-as-the-formation-width-attack-in-melee)).
 
 The Combat page's "Movement and attacking may be combined in the same round" doesn't limit the rule to one side, so osrlib applies it to monsters as it does to party members. When a group's move will bring a member within reach, the default policies follow each monster's `close` action with a `melee` action in the same round, aimed at a member of the front rank the move will produce. A policy that your game supplies can do the same, or close and attack in separate rounds.
 
 Locked by `test_monster_reach.py`, and the statue by `test_monster_tactics.py::TestStatues`.
+
+### At most as many monsters of a group as the formation width attack in melee
+
+The Other Combat Issues page says "The referee should judge the number of opponents that can attack a single combatant, bearing in mind the combatant's size and the available space around them. **10' passage:** Enough space for at most 2–3 characters to fight side-by-side." The formation width already limits how many party members fight a group hand to hand (see [Declarations and ranks](#declarations-and-ranks)). osrlib applies the same width to the monsters ([#214](https://github.com/mmacy/osrlib-python/issues/214)).
+
+- In a round, a group has as many places to fight the party hand to hand as the formation width allows, so at most that many of its monsters make melee attacks. That's two in a 10' corridor. Six skeletons there strike with two, and a thief who runs ahead of the party alone takes two skeletons' attacks, not six.
+- The width is the one the party fights under, from the space the party stands in. The limit is for each group, as the party's ranks are judged toward each group, so two groups in a corridor strike with two monsters each.
+- A monster takes a place with its first melee attack of the round, and keeps it for the rest of the round. The places go in the order the attacks come up. The default policies list a group's monsters in the group's order, so the first monsters of the group that can attack take the places.
+- A monster that's dead or can't act makes no melee attack, whatever its policy chose, so it takes no place, and the next one steps up. A monster whose melee the session skips, like one aimed at a member who died earlier in the round, takes no place either, and neither does a monster with no attack routine to roll, like a shrieker.
+- A monster that does something other than a melee attack takes no place: a breath weapon, a petrifying gaze, a `hold`, and an NPC adventurer's missile attack, spell, or potion. The party's back ranks shoot and cast past the front rank, and these monster actions don't need room beside the front rank either. A breath that hits one target still picks from the first row toward the group, and a gaze still reaches only the front rank within 5'.
+- A monster's missile attack takes a place, because osrlib resolves it at 5' as a melee attack (see [Monster missile attacks resolve at 5'](#monster-missile-attacks-resolve-at-5-and-npc-archers-shoot-at-the-first-row)).
+- NPC adventurers are a group of the other side like any other, so the same limit applies to their melee attacks. An NPC who heals, drinks, casts, or shoots takes no place, so an NPC fighter behind a caster still steps up to fight. NPCs choose their actions at the start of the round, so an NPC whom the party puts to sleep before the NPCs act makes no melee attack that round.
+- A confused monster that attacks the party takes a place too. Its attack comes before the group's other actions, so it takes its place first. When every place is taken, it attacks no one. A confused monster that attacks another monster of its group needs no place.
+- The session applies the limit after the group's policy has chosen, so a policy that your game supplies can't go past it. The policy decides which monsters fight by the order of its `melee` actions, and the session skips a `melee` by any other monster once every place is taken. That monster makes no draw for it. To plan for the limit, a policy reads the width from the player view's `EncounterView.formation_width`.
+- The player view doesn't say which monsters will attack, because their policy decides that. `EncounterView.formation_width` gives the most monsters of each group that can attack in a round, and each group's `condition_counts` shows how many of its monsters are asleep, paralysed, or turned to stone.
+- With `formation_width_limit` off, there's no limit, and every monster of a group can attack.
+
+Locked by `test_monster_frontage.py`.
 
 ### Monster missile attacks resolve at 5', and NPC archers shoot at the first row
 
@@ -1789,9 +1808,10 @@ With the flag on, the space around the party limits how many combatants fight si
 - The measured space stops at walls, at doors, and where the space changes. A doorway is a threshold, not room to fight side by side, and a room's open mouth never counts the corridor beyond it.
 - The width comes from the party's cell, which doesn't change during a battle, so it stays the same for the whole fight. The player view reports it in `EncounterView.formation_width`.
 - The ranks toward each group are rows this wide, so the width caps how many members can fight one group hand to hand.
+- The same width caps how many monsters of each group make melee attacks in a round (see [At most as many monsters of a group as the formation width attack in melee](#at-most-as-many-monsters-of-a-group-as-the-formation-width-attack-in-melee)).
 - The same limit bounds how much of an area effect's footprint a formation takes.
 
-With the flag off, there's no limit. Every member at the same distance from a group stands in one row, so every member within 5' of a group can fight it, and area footprints have no bound. Locked by `test_battle.py::TestFormationWidth` and `test_battle_player_view.py::TestThePositionsInThePlayerView`.
+With the flag off, there's no limit. Every member at the same distance from a group stands in one row, so every member within 5' of a group can fight it, every monster of a group can attack, and area footprints have no bound. Locked by `test_battle.py::TestFormationWidth`, `test_battle_player_view.py::TestThePositionsInThePlayerView`, and `test_monster_frontage.py`.
 
 ### `magic_item_death_save` (default on)
 

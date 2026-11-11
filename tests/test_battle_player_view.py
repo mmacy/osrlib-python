@@ -424,6 +424,8 @@ def _goblins_breaking(stage: str) -> GameSession:
         session = _battle(seed, (("goblin", 2), ("hobgoblin", 6)), distance=MELEE_RANGE_FEET)
         for _ in range(12):
             goblins = session.encounter.groups[0]
+            if not {FIGHTER, ELF} <= set(_encounter(session).declarers):
+                break  # the fighter or the elf is down, so this seed can't reach the stage
             attacks = [
                 BattleDeclaration(
                     character_id=member_id, action="attack", target_group_id=goblins.id, weapon_id="sword"
