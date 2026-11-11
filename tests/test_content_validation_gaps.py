@@ -3,7 +3,7 @@
 Each case here used to pass [`validate_adventure`][osrlib.crawl.adventure.validate_adventure] and then
 fail during play, some of them after the command had moved the party. The checks belong where the
 content is read, so [`GameSession.new`][osrlib.crawl.session.GameSession.new] never starts on an
-adventure with one of these faults. Item 14 of issue #162, overlapping areas, is here too.
+adventure with one of these faults. Item 14 of issue #162, an area hidden under another, is here too.
 """
 
 import pytest
@@ -202,13 +202,33 @@ def test_a_travel_time_of_zero_is_accepted():
 # ---------------------------------------------------------------------- overlapping areas (#162, item 14)
 
 
-def test_two_areas_that_share_a_cell_are_refused():
+def test_areas_that_share_a_cell_pass_when_each_has_a_cell_of_its_own():
+    """A shared cell belongs to the area listed first. osr-editor reports the overlap as a warning."""
+    hall = AreaSpec(id="hall", cells=((1, 0), (2, 0)))
+    shrine = AreaSpec(id="shrine", cells=((2, 0), (3, 0)))
+    level = corridor([hall, shrine], width=4)
+    check(adventure(level))
+    assert level.area_at((2, 0)).id == "hall"
+    assert level.area_at((3, 0)).id == "shrine"
+
+
+def test_an_area_with_no_cell_of_its_own_is_refused():
+    """Every cell of the shrine belongs to an earlier area, so the party can never enter it."""
     hall = AreaSpec(id="hall", cells=((1, 0), (2, 0)))
     shrine = AreaSpec(id="shrine", cells=((2, 0),))
     message = refused(adventure(corridor([hall, shrine])))
-    assert "hall" in message
     assert "shrine" in message
-    assert "(2, 0)" in message
+    assert "hall" in message
+
+
+def test_a_feature_in_a_cell_an_earlier_area_owns_is_refused():
+    """The chest's cell is listed by the shrine but belongs to the hall, so the chest can't be reached."""
+    chest = FeatureSpec(id="chest", kind="treasure_cache", cell=(2, 0), coins=Coins(gp=50))
+    hall = AreaSpec(id="hall", cells=((1, 0), (2, 0)))
+    shrine = AreaSpec(id="shrine", cells=((2, 0), (3, 0)), features=(chest,))
+    message = refused(adventure(corridor([hall, shrine], width=4)))
+    assert "chest" in message
+    assert "shrine" in message
 
 
 # ---------------------------------------------------------------------- a repeated id inside the bundle (#162)
@@ -241,5 +261,5 @@ def test_every_fault_is_reported_at_once():
         "hello": Edge(kind=EdgeKind.OPEN),
     }
     message = refused(adventure(corridor([vault, hall], edges=edges)))
-    for part in ("'Z'", "chest", "'hello'", "(1, 0)"):
+    for part in ("'Z'", "chest", "'hello'"):
         assert part in message
