@@ -2196,7 +2196,7 @@ def _handle_grant_item(session: GameSession, command: GrantItem) -> tuple[list[R
             load_magic_items().get(command.item_id)
         except ValueError:
             return [Rejection(code="session.command.unknown_item", params={"item": command.item_id})], []
-        from osrlib.crawl.exploration import _treasure_tier
+        from osrlib.crawl._treasure import _treasure_tier
 
         # A granted magic item is made exactly as a placed one is when its cache is
         # emptied: its rolls come off the treasure stream at the tier in force now.
@@ -2743,8 +2743,8 @@ def _handle_spawn_monsters(session: GameSession, command: SpawnMonsters) -> tupl
 
 def _handle_spawn_npc_party(session: GameSession, command: SpawnNpcParty) -> tuple[list[Rejection], list[Event]]:
     from osrlib.core.dice import roll
+    from osrlib.crawl import _treasure
     from osrlib.crawl import encounter as encounter_module
-    from osrlib.crawl import exploration
     from osrlib.data import load_encounter_tables
 
     if command.count_fixed is not None:
@@ -2756,7 +2756,7 @@ def _handle_spawn_npc_party(session: GameSession, command: SpawnNpcParty) -> tup
             if composition.kind == command.party_kind
         )
         count = max(1, roll(count_dice, session.streams.get(ENCOUNTER_STREAM)).total)
-    party, bundle, npc_events = exploration._field_npc_party(session, command.party_kind, count)
+    party, bundle, npc_events = _treasure._field_npc_party(session, command.party_kind, count)
     events: list[Event] = list(npc_events)
     events.extend(
         encounter_module._open_encounter(
@@ -2766,7 +2766,7 @@ def _handle_spawn_npc_party(session: GameSession, command: SpawnNpcParty) -> tup
             distance_feet=command.distance_feet,
         )
     )
-    exploration._assign_carried(session, [({}, bundle)])
+    _treasure._assign_carried(session, [({}, bundle)])
     return [], events
 
 
