@@ -155,3 +155,55 @@ def test_a_finding_states_its_facts_as_params():
 def test_a_finding_you_build_needs_no_params():
     finding = PackFinding(code="pack.encounter.unknown_monster", message="entry 'x' references unknown monster 'y'")
     assert dict(finding.params) == {}
+
+
+# ---------------------------------------------------------------------- the bag of holding (#166, item 30)
+
+
+def with_bags(coins: int, bags: int = 1):
+    from osrlib.core.items import CoinPurse, Inventory
+
+    inventory = Inventory(purse=CoinPurse(gp=coins))
+    for number in range(bags):
+        inventory.items.append(MagicItemInstance(instance_id=f"magic-item-900{number}", template_id="bag_of_holding"))
+    return inventory
+
+
+@pytest.mark.parametrize(
+    ("coins", "bags", "weight"),
+    [
+        (5000, 0, 5000),
+        (0, 1, 0),
+        (1, 1, 600),
+        (5000, 1, 600),
+        (10000, 1, 600),
+        (10500, 1, 1100),
+        (15000, 2, 1200),
+        (25000, 2, 6200),
+    ],
+    ids=[
+        "no bag",
+        "an empty bag",
+        "one coin in the bag",
+        "half a bag",
+        "a full bag",
+        "a full bag and 500 coins over",
+        "two bags",
+        "two full bags and 5,000 coins over",
+    ],
+)
+def test_a_bag_of_holding_takes_the_treasure_its_carrier_has(coins, bags, weight):
+    """The SRD: up to 10,000 coins of weight go in the bag, and a full bag weighs 600 coins."""
+    from osrlib.core.items import treasure_weight_coins
+
+    assert treasure_weight_coins(with_bags(coins, bags)) == weight
+
+
+def test_a_character_with_a_bag_of_holding_can_walk_out_with_the_hoard():
+    from osrlib.core.items import movement_rate_feet
+    from osrlib.core.ruleset import EncumbranceMode
+
+    for mode in (EncumbranceMode.BASIC, EncumbranceMode.DETAILED):
+        rules = Ruleset(encumbrance=mode)
+        assert movement_rate_feet(with_bags(5000, bags=0), rules) == 0, mode
+        assert movement_rate_feet(with_bags(5000), rules) > 0, mode
