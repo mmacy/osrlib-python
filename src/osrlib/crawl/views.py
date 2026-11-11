@@ -159,8 +159,7 @@ class MemberView(BaseModel):
     The numbers are the member's current ones, read from the live
     [`Character`][osrlib.core.character.Character]. They count what the member wears right now, like
     armour, a shield, or a ring of protection. They don't count a timed effect from a spell or a
-    potion, like the *shield* spell, and the Strength modifiers don't count an item that sets
-    Strength, like gauntlets of ogre power. [`PlayerView.effects`][osrlib.crawl.views.PlayerView.effects]
+    potion, like the *shield* spell. [`PlayerView.effects`][osrlib.crawl.views.PlayerView.effects]
     lists the timed effects on each member.
     """
 

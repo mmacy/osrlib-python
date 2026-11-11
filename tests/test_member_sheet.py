@@ -9,8 +9,6 @@ with the live [`Character`][osrlib.core.character.Character].
 
 import json
 
-import pytest
-
 from crawl_fixtures import _member, build_adventure, build_party
 from osrlib.core.character import Character
 from osrlib.core.classes import level_title
@@ -21,8 +19,6 @@ from osrlib.core.ruleset import EncumbranceMode, Ruleset
 from osrlib.crawl.commands import EquipItem, GrantItem
 from osrlib.crawl.party import Party
 from osrlib.crawl.session import GameSession
-
-pytestmark = pytest.mark.xfail(reason="chunk: member-sheet")
 
 FIGHTER, THIEF, CLERIC, MAGIC_USER = range(4)
 """The stock party's marching order."""
