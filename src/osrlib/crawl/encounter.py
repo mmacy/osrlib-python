@@ -1194,7 +1194,7 @@ def _drop_loot(session, state: EncounterState) -> list[Event]:
     The drop pile is how the party picks it up. Routed monsters flee with theirs,
     and a group whose members routed or fled keeps its shared bundle.
     """
-    from osrlib.crawl import exploration
+    from osrlib.crawl import _hauling
     from osrlib.crawl.dungeon import DroppedItem, DropPile
 
     if session.dungeon_state.location.kind != "dungeon":
@@ -1246,9 +1246,7 @@ def _drop_loot(session, state: EncounterState) -> list[Event]:
                 existing.quantity += instance.quantity
         loot.valuables.extend(inventory.valuables)
         coins.append(
-            Coins(
-                **{denomination: getattr(inventory.purse, denomination) for denomination in exploration._DENOMINATIONS}
-            )
+            Coins(**{denomination: getattr(inventory.purse, denomination) for denomination in _hauling._DENOMINATIONS})
         )
         inventory.items = []
         inventory.wielded = []
@@ -1259,14 +1257,11 @@ def _drop_loot(session, state: EncounterState) -> list[Event]:
         purse = inventory.purse
         purse.pp = purse.gp = purse.ep = purse.sp = purse.cp = 0
     loot.coins = Coins(
-        **{
-            denomination: sum(getattr(lot, denomination) for lot in coins)
-            for denomination in exploration._DENOMINATIONS
-        }
+        **{denomination: sum(getattr(lot, denomination) for lot in coins) for denomination in _hauling._DENOMINATIONS}
     )
     if not (loot.items or loot.valuables or loot.magic_items or loot.coins.total_coins):
         return []
-    item_ids = exploration._add_to_pile(session, loot)
+    item_ids = _hauling._add_to_pile(session, loot)
     return [LootDroppedEvent(item_ids=item_ids, coins_gp_value=loot.coins.value_gp)]
 
 
