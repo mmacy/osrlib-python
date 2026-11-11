@@ -22,7 +22,8 @@ commands in [`osrlib.crawl.commands`][osrlib.crawl.commands] take.
 
 The player view has a fixed list of fields, each one safe to show a player. It includes:
 
-- each party member's public sheet, and the party's location and facing
+- each party member's character sheet, with every number on a B/X character sheet, and the
+  party's location and facing
 - the mapped cells and their edges: the cells the party walked, the cells its light has
   shown it, and what its light shows right now, with an undiscovered secret door shown
   as wall
@@ -105,7 +106,9 @@ from copy import deepcopy
 
 from pydantic import BaseModel, ConfigDict, SerializeAsAny
 
+from osrlib.core.abilities import AbilityScore
 from osrlib.core.character import Character
+from osrlib.core.classes import level_title
 from osrlib.core.effects import Condition, EffectsLedger, has_condition
 from osrlib.core.events import Event
 from osrlib.core.items import MagicItemCategory, MagicItemInstance, magic_item_template
@@ -153,8 +156,12 @@ class MemberView(BaseModel):
     the sheet from it alone. The only thing missing is the identity of an unidentified magic item
     in the pack.
 
-    The numbers are the member's current ones. They include whatever is on the member right now,
-    like the armour they wear, a ring of protection, or a spell that changes an ability score.
+    The numbers are the member's current ones, read from the live
+    [`Character`][osrlib.core.character.Character]. They count what the member wears right now, like
+    armour, a shield, or a ring of protection. They don't count a timed effect from a spell or a
+    potion, like the *shield* spell, and the Strength modifiers don't count an item that sets
+    Strength, like gauntlets of ogre power. [`PlayerView.effects`][osrlib.crawl.views.PlayerView.effects]
+    lists the timed effects on each member.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -648,7 +655,7 @@ class PlayerView(BaseModel):
     town_services: tuple[str, ...]
     """The services the town offers, as text from the adventure for you to list."""
     party: tuple[MemberView, ...]
-    """The party's public sheets, in marching order, the dead included."""
+    """The party's character sheets, in marching order, the dead included."""
     location: PartyLocation
     """Where the party is: the town, or a dungeon cell with its facing."""
     clock_rounds: int
@@ -1027,21 +1034,7 @@ def build_player_view(session) -> PlayerView:
         assert "flags" not in player.model_dump()  # a player view never includes the session flags
         ```
     """
-    members = tuple(
-        MemberView(
-            id=member.id,
-            name=member.name,
-            class_id=member.class_id,
-            level=member.level,
-            current_hp=member.current_hp,
-            max_hp=member.max_hp,
-            conditions=tuple(active.condition.value for active in member.conditions),
-            inventory=_masked_inventory(member),
-            memorized_spells=tuple(copy.model_dump(mode="json") for copy in member.memorized_spells),
-            encounter_rate_feet=_encounter_rate_feet(session, member),
-        )
-        for member in session.party.members
-    )
+    members = tuple(_member_view(session, member) for member in session.party.members)
     member_ids = {member.id for member in session.party.members}
     effects = tuple(
         MemberEffectView(
@@ -1205,6 +1198,48 @@ def _canonical_edge(cell: Position, direction: Direction) -> str:
     from osrlib.crawl.dungeon import edge_key
 
     return edge_key(cell, direction)
+
+
+def _member_view(session, member) -> MemberView:
+    """One member's sheet, read from the live character."""
+    definition = member.definition
+    thief_skills = {}
+    if definition.thief_skills:
+        thief_skills = definition.thief_skills[member.level - 1].model_dump(exclude={"level"})
+    return MemberView(
+        id=member.id,
+        name=member.name,
+        class_id=member.class_id,
+        level=member.level,
+        current_hp=member.current_hp,
+        max_hp=member.max_hp,
+        conditions=tuple(active.condition.value for active in member.conditions),
+        inventory=_masked_inventory(member),
+        memorized_spells=tuple(copy.model_dump(mode="json") for copy in member.memorized_spells),
+        encounter_rate_feet=_encounter_rate_feet(session, member),
+        race=member.race,
+        alignment=member.alignment.value,
+        title=level_title(definition, member.level),
+        xp=member.xp,
+        xp_next_level=definition.row(member.level + 1).xp if member.level < definition.max_level else None,
+        scores={ability.value: member.scores[ability] for ability in AbilityScore},
+        melee_modifier=member.melee_modifier,
+        missile_modifier=member.missile_modifier,
+        initiative_modifier=member.initiative_modifier,
+        hit_point_modifier=member.hit_point_modifier,
+        magic_save_modifier=member.magic_save_modifier,
+        npc_reaction_modifier=member.npc_reaction_modifier,
+        open_doors_chance=member.open_doors_chance,
+        thac0=member.thac0,
+        attack_bonus=member.attack_bonus,
+        armour_class=member.armour_class,
+        armour_class_ascending=member.armour_class_ascending,
+        saves=member.saves.model_dump(),
+        movement_rate_feet=member.movement_rate(session.ruleset),
+        languages=member.languages,
+        spell_book=member.spell_book,
+        thief_skills=thief_skills,
+    )
 
 
 def _encounter_rate_feet(session, member) -> int:
