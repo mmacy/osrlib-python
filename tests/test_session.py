@@ -3,6 +3,7 @@
 import json
 
 import pytest
+from pydantic import ValidationError
 
 from crawl_fixtures import build_adventure, build_party
 from osrlib.core.clock import ROUNDS_PER_DAY, TimeUnit
@@ -34,7 +35,6 @@ from osrlib.crawl.commands import (
 from osrlib.crawl.dungeon import Direction, PartyLocation
 from osrlib.crawl.events import DiceRolledEvent, FlagSetEvent
 from osrlib.crawl.session import GameSession
-from osrlib.errors import ContentValidationError
 
 
 def make_session(seed: int = 11) -> GameSession:
@@ -335,7 +335,7 @@ class TestRollDice:
         before_streams = stream_states(session)
         before_log = len(session.command_log)
         before_events = len(session.event_log)
-        with pytest.raises(ContentValidationError):
+        with pytest.raises(ValidationError):
             RollDice(expression="garbage")
         assert stream_states(session) == before_streams
         assert len(session.command_log) == before_log
@@ -749,7 +749,7 @@ class TestTownGuards:
 
         result = session.execute(SpawnMonsters(template_id="goblin", count_fixed=2, distance_feet=30))
         assert not result.accepted
-        assert result.rejections[0].code == "session.command.not_in_dungeon"
+        assert result.rejections[0].code == "session.command.wrong_mode"
 
     def test_place_party_rejects_mid_encounter(self):
         session = make_session()
@@ -761,7 +761,7 @@ class TestTownGuards:
         assert session.encounter is not None
         result = session.execute(PlaceParty(location=PartyLocation(kind="town")))
         assert not result.accepted
-        assert result.rejections[0].code == "session.command.encounter_in_progress"
+        assert result.rejections[0].code == "session.command.wrong_mode"
 
 
 class TestAcquisitionOrigin:

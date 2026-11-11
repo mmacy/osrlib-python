@@ -2945,23 +2945,21 @@ def _validate_carried(member, item_ids: tuple[str, ...], coins: Coins) -> list[R
     The member must carry every named item and coin, and no revealed cursed item
     may leave its bearer.
 
-    A magic instance id identifies one instance, so a command that lists it twice
-    requests something the member doesn't carry: the whole instance leaves on the
-    first listing, and nothing is left for the second.
+    The instance id of a magic item or a valuable identifies one object, so a command
+    that lists it twice requests something the member doesn't carry: the object leaves
+    on the first listing, and nothing is left for the second.
     """
     counts: dict[str, int] = {}
-    named_magic: set[str] = set()
+    named_instances: set[str] = set()
     for item_id in item_ids:
         magic = member.inventory.magic_item(item_id)
-        if magic is not None:
-            if magic.cursed_revealed:
-                # A revealed cursed item stays with its bearer until *remove curse*.
-                return [Rejection(code="items.curse.stuck", params={"item": item_id})]
-            if item_id in named_magic:
+        if magic is not None and magic.cursed_revealed:
+            # A revealed cursed item stays with its bearer until *remove curse*.
+            return [Rejection(code="items.curse.stuck", params={"item": item_id})]
+        if magic is not None or any(valuable.instance_id == item_id for valuable in member.inventory.valuables):
+            if item_id in named_instances:
                 return [Rejection(code="exploration.item.not_carried", params={"item": item_id})]
-            named_magic.add(item_id)
-            continue
-        if any(valuable.instance_id == item_id for valuable in member.inventory.valuables):
+            named_instances.add(item_id)
             continue
         counts[item_id] = counts.get(item_id, 0) + 1
     for item_id, needed in counts.items():
@@ -4340,7 +4338,9 @@ def _handle_sell_treasure(session, command: SellTreasure) -> tuple[list[Rejectio
             if valuable is not None:
                 found = (member, valuable)
                 break
-        if found is None:
+        # A valuable's instance id identifies one gem or piece of jewellery, so an id listed
+        # twice has nothing left to sell the second time.
+        if found is None or any(sold is found[1] for _, sold in sales):
             return [Rejection(code="exploration.item.not_carried", params={"item": item_id})], []
         sales.append(found)
     events: list[Event] = []

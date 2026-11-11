@@ -437,9 +437,7 @@ class TestDrops:
         )
         session = played(with_triggers(trigger))
         session.execute(SetFlag(key="bell", value=True))  # in town: a spawn needs a dungeon cell
-        assert notes(session) == [
-            "trigger mixed: consequence 0 (spawn_monsters) dropped (session.command.not_in_dungeon)"
-        ]
+        assert notes(session) == ["trigger mixed: consequence 0 (spawn_monsters) dropped (session.command.wrong_mode)"]
         assert session.flags["after"] is True
         assert [entry.text for entry in session.journal] == ["The wiring ran to the end."]
 

@@ -22,7 +22,7 @@ session.register_listener(MoveCounter())
 [`GameSession.execute`][osrlib.crawl.session.GameSession.execute] runs every registered listener, in registration order, immediately after a command is accepted, applied, and logged. A rejected command never reaches a listener at all, because rejection mutates nothing and appends nothing to the log. Each listener's `handle` receives two things:
 
 - `events` - the accumulated events for that one command: the command handler's events, plus whatever any earlier-registered listener already returned. A listener registered second sees a first listener's authored events alongside the handler's.
-- `state` - the state that listener returned the last time `handle` ran, or `{}` the first time (and after a fresh registration). The session never inspects this dict. It's the listener's private bookkeeping.
+- `state` - the dict the session has saved under the listener's key: the state that listener returned the last time `handle` ran, or `{}` the first time (and after a fresh registration). The session never reads what's in this dict. It's the listener's private bookkeeping.
 
 `handle` returns a pair: a list of events to append to the command's result and to the session's event log, and the state to keep for next time.
 
@@ -30,11 +30,13 @@ That returned-events list is for events a listener **authors** directly. A liste
 
 Returning an empty list hides nothing from the caller. `execute` notes where the event log ends before it calls each listener, then adds everything logged while that listener ran to the result it returns. That's the nested commands' events, however deeply they nest, each exactly once and in log order, followed by whatever the listener authored. So the `CommandResult` from a player's `MoveParty` includes the events for the portcullis opening and the journal entry that recorded the opening, and your front end renders the whole chain from one result.
 
-The nested `execute` call has a second effect: it re-enters the entire dispatch pipeline, listener loop included. If a listener issues a command from inside `handle`, every registered listener, itself included, runs again against *that* command's events, with whatever `state` happens to be stored in `session.listener_state` at that moment. The outer `handle` call hasn't stored its state update yet: `execute` only writes `listener_state[key] = state` after `handle` returns, and the outer call is still running. A listener whose trigger condition could look "not yet handled" with that stale state needs a re-entrancy guard, or it repeats its reaction over and over. The fetch quest below includes that guard.
+The nested `execute` call has a second effect: it re-enters the entire dispatch pipeline, listener loop included. If a listener issues a command from inside `handle`, every registered listener, itself included, runs again against *that* command's events. The inner call gets the same `state` dict as the outer call, because the session saves the dict under the listener's key before the outer call starts. So a listener that executes commands updates `state` in place and returns it. Each call then sees what the calls before it wrote, and the session saves every update. Write what the reaction depends on before you execute the command, so the inner call sees it and doesn't react again.
+
+If an inner call returns a new dict instead, the session saves that one, and an outer call that then returns any other dict would overwrite it. `execute` raises `RuntimeError` rather than lose the update, and the message gives the listener's key. A listener that executes no commands, like the move counter in the complete program, may build and return a new dict. The fetch quest below updates its state in place.
 
 ## listener_state: what survives, what doesn't
 
-A listener's state dict is the only part of it a save file contains. `register_listener` reserves an empty entry for the listener's key on registration, and every save and load round-trips `listener_state` verbatim as plain JSON-compatible data. osrlib never serializes the listener *object*, because it's code and not data, so after loading a saved game you must call `register_listener` again, with the same listeners in the same order, before any of them will see another event. For more information about how loading and replay work, see [Determinism, saves, and replay](determinism-saves-replay.md).
+A listener's state dict is the only part of it a save file contains. `register_listener` reserves an empty entry for the listener's key on registration, and it raises `ValueError` for a key that another registered listener already has. Every save and load round-trips `listener_state` verbatim as plain JSON-compatible data. osrlib never serializes the listener *object*, because it's code and not data, so after loading a saved game you must call `register_listener` again, with the same listeners in the same order, before any of them will see another event. For more information about how loading and replay work, see [Determinism, saves, and replay](determinism-saves-replay.md).
 
 ## Flags: referee-only session state
 
@@ -68,9 +70,9 @@ session.register_listener(Interpreter(session))
 
 From then on it watches every command's events, matches them against the adventure's authored [triggers](gates-triggers-quests.md#scripting-the-dungeon-with-triggers) and its [`QuestSpec`][osrlib.crawl.quests.QuestSpec]s, and reacts the only way a listener may: by executing referee commands, each stamped `source="trigger:{id}"` or `source="quest:{id}"`. Three properties are worth copying into your own listeners:
 
-- **It returns no events.** Each event it causes comes from a command it executed, and `execute` adds those to the result from the log. `handle` returns `[], {}` unconditionally.
+- **It returns no events.** Each event it causes comes from a command it executed, and `execute` adds those to the result from the log. `handle` returns `[], state` unconditionally.
 - **It keeps no state.** Its `listener_state` entry exists, because `register_listener` creates one, and stays the empty dict for the life of the session. Trigger marks live in `session.fired_triggers`, journal entries in `session.journal`, and everything else in the world state the commands changed. That's what makes a triggered game replay exactly: a replay runs with no listeners at all, and re-executing the log rebuilds all of that state.
-- **It has no re-entrancy guard, on purpose.** The fetch quest below needs one because its trigger condition can look unsatisfied from inside its reaction. The interpreter instead marks the trigger fired *before* running its consequences, so the trigger is already marked when one of its consequences matches it again. When a consequence's events re-enter the interpreter, they can fire the next trigger, and a limit on depth, not a guard, stops a cascade. For more information, see [When a consequence fails](gates-triggers-quests.md#when-a-consequence-fails).
+- **It records before it acts.** The interpreter marks a trigger fired *before* running its consequences, so the trigger is already marked when one of its consequences matches it again. The fetch quest below does the same with its state: it records the quest complete before it executes the rewards. When a consequence's events re-enter the interpreter, they can fire the next trigger, and a limit on depth stops a cascade. For more information, see [When a consequence fails](gates-triggers-quests.md#when-a-consequence-fails).
 
 ## A fetch quest, worked
 
@@ -84,7 +86,6 @@ class FetchQuestListener:
 
     def __init__(self, session) -> None:
         self._session = session
-        self._reacting = False
 
     def _carrier(self):
         for member in self._session.party.members:
@@ -93,29 +94,22 @@ class FetchQuestListener:
         return None
 
     def handle(self, events: Sequence[Event], state: dict) -> tuple[list[Event], dict]:
-        if self._reacting:
-            return [], state
-        state = dict(state)
         acquired = any(isinstance(event, ItemAcquiredEvent) for event in events)
         if acquired and not state.get("recovered") and self._carrier() is not None:
             state["recovered"] = True
         home = any(isinstance(event, LocationEnteredEvent) and event.location_kind == "town" for event in events)
         if home and state.get("recovered") and not state.get("completed"):
             state["completed"] = True
-            self._reacting = True
-            try:
-                self._session.execute(SetFlag(key="quest.idol", value="recovered"))
-                for member in self._session.party.living_members():
-                    self._session.execute(AwardXP(character_id=member.id, amount=1200))
-            finally:
-                self._reacting = False
+            self._session.execute(SetFlag(key="quest.idol", value="recovered"))
+            for member in self._session.party.living_members():
+                self._session.execute(AwardXP(character_id=member.id, amount=1200))
         return [], state
 ```
 
 A few points about the listener above:
 
 - `state["recovered"]` and `state["completed"]` track the quest's objectives, and they live entirely inside `session.listener_state["fetch_quest"]`. The session never interprets these keys. It stores whatever dict `handle` returns.
-- `self._reacting` is the re-entrancy guard from the previous section. The commands this listener issues emit events too, and `AwardXP` on the last member would otherwise re-enter `handle` while the state entry still contained the value from before completion.
+- `handle` updates the `state` dict it receives in place, as the previous section describes for a listener that executes commands. It sets `state["completed"]` before it executes the flag and the awards. Each of those commands calls `handle` again with the same dict, and those calls find the quest already complete, so they do nothing.
 - The `handle` method returns `[], state` unconditionally. Every event this listener causes goes through `self._session.execute(...)`, which already logs it, so there's nothing left for the returned-events list to contain.
 - Nothing here reaches into party state to *change* it. The flag and the XP both arrive as ordinary commands, which is why a save, a load, and a replay all agree about what happened.
 
@@ -172,7 +166,6 @@ class FetchQuestListener:
 
     def __init__(self, session) -> None:
         self._session = session
-        self._reacting = False
 
     def _carrier(self):
         for member in self._session.party.members:
@@ -181,22 +174,15 @@ class FetchQuestListener:
         return None
 
     def handle(self, events: Sequence[Event], state: dict) -> tuple[list[Event], dict]:
-        if self._reacting:
-            return [], state
-        state = dict(state)
         acquired = any(isinstance(event, ItemAcquiredEvent) for event in events)
         if acquired and not state.get("recovered") and self._carrier() is not None:
             state["recovered"] = True
         home = any(isinstance(event, LocationEnteredEvent) and event.location_kind == "town" for event in events)
         if home and state.get("recovered") and not state.get("completed"):
             state["completed"] = True
-            self._reacting = True
-            try:
-                self._session.execute(SetFlag(key="quest.idol", value="recovered"))
-                for member in self._session.party.living_members():
-                    self._session.execute(AwardXP(character_id=member.id, amount=1200))
-            finally:
-                self._reacting = False
+            self._session.execute(SetFlag(key="quest.idol", value="recovered"))
+            for member in self._session.party.living_members():
+                self._session.execute(AwardXP(character_id=member.id, amount=1200))
         return [], state
 
 

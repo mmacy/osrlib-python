@@ -38,11 +38,14 @@ quest progress. Each one's summary starts with "Referee:". The session logs and 
 like any other command. Most referee commands are legal in every mode. These are the
 exceptions:
 
-- [`PlaceParty`][osrlib.crawl.commands.PlaceParty] is illegal in `victory`, because it would
+- [`PlaceParty`][osrlib.crawl.commands.PlaceParty] is legal only in `town`, `exploring`, and
+  `game_over`. It can't move the party out of an open encounter, and in `victory` it would
   restart play.
-- [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] and
-  [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] are illegal in `game_over` and
-  `victory`, for the same reason.
+- [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] is legal only in `exploring`,
+  `encounter`, and `battle`, because an encounter needs the party on a dungeon cell.
+  [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] is legal only in `exploring`, because
+  it opens a new encounter. Neither is legal once the session has ended, because it would
+  restart play.
 - [`EndEncounter`][osrlib.crawl.commands.EndEncounter] is legal only in `encounter` and
   `battle`, because it closes the open encounter.
 - [`AddMember`][osrlib.crawl.commands.AddMember] and
@@ -188,6 +191,7 @@ from osrlib.core.items import Coins
 from osrlib.core.spells import MemorizedSpell
 from osrlib.core.validation import Rejection
 from osrlib.crawl.dungeon import Direction, PartyLocation
+from osrlib.errors import ContentValidationError
 
 __all__ = [
     "ALL_COMMAND_CLASSES",
@@ -338,6 +342,21 @@ class SessionMode(StrEnum):
 
 _ALL_MODES = frozenset(SessionMode)
 _FIELD_MODES = frozenset({SessionMode.TOWN, SessionMode.EXPLORING})
+
+
+def _dice_that_parse(expression: str) -> str:
+    """Return a command's dice expression, or raise `ValueError` when it doesn't parse.
+
+    Pydantic turns a `ValueError` from a field validator into a `ValidationError`, so a web
+    framework that validates a request body returns a client error for a malformed expression.
+    [`parse`][osrlib.core.dice.parse] raises `ContentValidationError`, which pydantic would let
+    escape from validation.
+    """
+    try:
+        parse(expression)
+    except ContentValidationError as error:
+        raise ValueError(str(error)) from error
+    return expression
 
 
 class Command(BaseModel):
@@ -1252,8 +1271,9 @@ class DropItems(Command):
     item by its catalog id, like `torch` or `rope_hemp`. Name a magic item, a gem, or a piece
     of jewellery by the per-instance id it has in
     [`MemberView.inventory`][osrlib.crawl.views.MemberView.inventory]. The session refuses
-    the same magic item named twice with `exploration.item.not_carried`, because the whole item
-    leaves with the first entry. A cursed item whose curse has been revealed can't be dropped."""
+    the same magic item, gem, or piece of jewellery named twice with
+    `exploration.item.not_carried`, because the whole item leaves with the first entry. A cursed
+    item whose curse has been revealed can't be dropped."""
     coins: Coins = Coins()
     """Coins to drop with the items, by denomination. The default drops none. Coins dropped on
     the cell go into its pile with everything else, and the party can pick them back up with
@@ -1306,8 +1326,9 @@ class GiveItems(Command):
     """What changes hands, one unit per entry, so repeat an id to give more than one. Name items
     the same way as in [`DropItems.item_ids`][osrlib.crawl.commands.DropItems.item_ids]: a
     catalog id for a mundane item, and a per-instance id for a magic item, a gem, or a piece
-    of jewellery. A magic item that was equipped releases its effects and arrives unequipped
-    in the recipient's pack."""
+    of jewellery. As there, the session refuses a per-instance id named twice with
+    `exploration.item.not_carried`. A magic item that was equipped releases its effects and
+    arrives unequipped in the recipient's pack."""
     coins: Coins = Coins()
     """Coins to hand over, by denomination. The default hands over none. Coins move from the
     giver's purse to the recipient's, which is how a party evens out the weight after it takes
@@ -2137,7 +2158,7 @@ class SellTreasure(Command):
         - `town.sell.no_fixed_value` - an entry is a magic item, which has no fixed
           price.
         - `exploration.item.not_carried` - no member carries a valuable with that
-          instance id.
+          instance id, or `item_ids` lists the same instance id twice.
 
     Events:
         One [`TreasureSoldEvent`][osrlib.crawl.events.TreasureSoldEvent] for each member
@@ -2150,8 +2171,9 @@ class SellTreasure(Command):
     item_ids: tuple[str, ...] = Field(min_length=1)
     """The gems and jewellery to sell, by the per-instance ids they have in
     [`MemberView.inventory`][osrlib.crawl.views.MemberView.inventory]. The value of each one goes
-    to the member who carries it, so one command can pay several purses. Magic items have no
-    fixed price, and the session refuses them with `town.sell.no_fixed_value`."""
+    to the member who carries it, so one command can pay several purses. Name each valuable
+    once. Magic items have no fixed price, and the session refuses them with
+    `town.sell.no_fixed_value`."""
 
 
 HealingService = Literal[
@@ -3537,10 +3559,9 @@ class SpawnMonsters(Command):
     Use it for an encounter you decide on, like monsters an LLM referee brings in or
     a scripted ambush. Use it also for monsters that arrive during a fight, like the
     animals a lycanthrope summons. The party must be standing in a dungeon, because
-    encounters take place on the dungeon grid. The mode check accepts `town`, but the session
-    then refuses the command with `session.command.not_in_dungeon`. The command isn't legal
-    once the session has ended, because it would start new play. Set exactly one of `count_dice` and
-    `count_fixed`, or constructing the command fails validation.
+    encounters take place on the dungeon grid, so the command isn't legal in `town`. It isn't
+    legal once the session has ended either, because it would start new play. Set exactly one of
+    `count_dice` and `count_fixed`, or constructing the command fails validation.
 
     When no encounter is open, the command opens one with the monsters. When an encounter
     or a battle is open, the monsters join it as one new group at `distance_feet`:
@@ -3554,12 +3575,11 @@ class SpawnMonsters(Command):
       its slowest group, and a new group could change that pace.
 
     Modes:
-        `town`, `exploring`, `encounter`, `battle`
+        `exploring`, `encounter`, `battle`
 
     Rejections:
-        - `session.command.wrong_mode` - the session has ended.
+        - `session.command.wrong_mode` - the party is in town, or the session has ended.
         - `session.command.unknown_monster` - `template_id` matches no monster.
-        - `session.command.not_in_dungeon` - the party is not on a dungeon cell.
         - `encounter.spawn.mid_pursuit` - the monsters are pursuing the party, and no
           new group can join during a pursuit.
 
@@ -3583,8 +3603,8 @@ class SpawnMonsters(Command):
         monster with that score won't fight.
     """
 
-    allowed_modes: ClassVar[frozenset[SessionMode]] = _ALL_MODES - frozenset(
-        {SessionMode.GAME_OVER, SessionMode.VICTORY}
+    allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset(
+        {SessionMode.EXPLORING, SessionMode.ENCOUNTER, SessionMode.BATTLE}
     )
 
     command_type: Literal["spawn_monsters"] = "spawn_monsters"
@@ -3598,8 +3618,8 @@ class SpawnMonsters(Command):
     """How many to spawn, as a dice expression like `"2d6"`, rolled on the session's
     [`ENCOUNTER_STREAM`][osrlib.crawl.session.ENCOUNTER_STREAM]. Use it when the number should
     depend on the seed, and use `count_fixed` when it shouldn't. Set exactly one of the two. A
-    malformed expression raises when the command is constructed, so the session never sees
-    it. A roll below 1 counts as 1."""
+    malformed expression fails validation when the command is constructed, so the session never
+    sees it. A roll below 1 counts as 1."""
     count_fixed: int | None = Field(default=None, ge=1)
     """How many to spawn, as an exact number. Use it when the author chose the number. Set
     exactly one of this and `count_dice`."""
@@ -3613,9 +3633,7 @@ class SpawnMonsters(Command):
     @field_validator("count_dice")
     @classmethod
     def _dice_must_parse(cls, value: str | None) -> str | None:
-        if value is not None:
-            parse(value)
-        return value
+        return value if value is None else _dice_that_parse(value)
 
     @model_validator(mode="after")
     def _dice_or_fixed(self) -> SpawnMonsters:
@@ -3629,20 +3647,19 @@ class SpawnNpcParty(Command):
 
     An NPC adventurer is a character the engine generates, with a class, a level, and gear,
     rather than a monster from the catalog. The party must be standing in a dungeon with no
-    encounter already open. Like [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters], the
-    command isn't legal once the session has ended, because it would start new play.
+    encounter already open, so the command is legal only in `exploring`. Unlike
+    [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters], it can't add a group to an open
+    encounter.
 
     Set `count_fixed` for a band of an exact size, `count_dice` to roll the size, or neither
     to roll the B/X number for `party_kind`. Setting both fails validation.
 
     Modes:
-        `town`, `exploring`, `encounter`, `battle`
+        `exploring`
 
     Rejections:
-        - `session.command.wrong_mode` - the session has ended.
-        - `session.command.encounter_in_progress` - an encounter or battle is
-          already open.
-        - `session.command.not_in_dungeon` - the party is not on a dungeon cell.
+        - `session.command.wrong_mode` - the party is in town, an encounter or a battle is
+          open, or the session has ended.
 
     Events:
         [`NpcPartySpawnedEvent`][osrlib.crawl.events.NpcPartySpawnedEvent], which lists the
@@ -3650,9 +3667,7 @@ class SpawnNpcParty(Command):
         [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters].
     """
 
-    allowed_modes: ClassVar[frozenset[SessionMode]] = _ALL_MODES - frozenset(
-        {SessionMode.GAME_OVER, SessionMode.VICTORY}
-    )
+    allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.EXPLORING})
 
     command_type: Literal["spawn_npc_party"] = "spawn_npc_party"
     party_kind: Literal["basic", "expert"]
@@ -3661,9 +3676,9 @@ class SpawnNpcParty(Command):
     and the plural `"adventurers"`."""
     count_dice: str | None = None
     """How many adventurers, as a dice expression rolled on the session's
-    [`ENCOUNTER_STREAM`][osrlib.crawl.session.ENCOUNTER_STREAM]. A malformed expression raises
-    when the command is constructed. A roll below 1 counts as 1. Don't set it together with
-    `count_fixed`.
+    [`ENCOUNTER_STREAM`][osrlib.crawl.session.ENCOUNTER_STREAM]. A malformed expression fails
+    validation when the command is constructed. A roll below 1 counts as 1. Don't set it
+    together with `count_fixed`.
 
     When both this and `count_fixed` are `None`, the default, the engine rolls the B/X number
     for `party_kind`: 1d4+4 for `basic` and 1d6+3 for `expert`."""
@@ -3678,9 +3693,7 @@ class SpawnNpcParty(Command):
     @field_validator("count_dice")
     @classmethod
     def _dice_must_parse(cls, value: str | None) -> str | None:
-        if value is not None:
-            parse(value)
-        return value
+        return value if value is None else _dice_that_parse(value)
 
     @model_validator(mode="after")
     def _dice_or_fixed(self) -> SpawnNpcParty:
@@ -3812,7 +3825,9 @@ class PlaceParty(Command):
     """Referee: move the party straight to a dungeon cell or to town.
 
     Use it for an authored teleport, a trapdoor you handle yourself, or a rescue. The
-    party can't be moved out of an open encounter or battle. Placing the party in a dungeon
+    party can't be moved out of an open encounter or battle, so the command isn't legal in
+    `encounter` or `battle`. To move the party away from monsters, close the encounter first
+    with [`EndEncounter`][osrlib.crawl.commands.EndEncounter]. Placing the party in a dungeon
     marks the cell explored and switches the session to `exploring`. Placing it in town
     switches the session to `town`. The party arrives without the entry checks of a step, so
     no treasure roll, room trap, or encounter happens on the destination cell, and no game
@@ -3823,12 +3838,11 @@ class PlaceParty(Command):
     *raise dead* with [`PurchaseHealing`][osrlib.crawl.commands.PurchaseHealing].
 
     Modes:
-        `town`, `exploring`, `encounter`, `battle`, `game_over`
+        `town`, `exploring`, `game_over`
 
     Rejections:
-        - `session.command.wrong_mode` - the session is in `victory`.
-        - `session.command.encounter_in_progress` - an encounter or battle is
-          open.
+        - `session.command.wrong_mode` - an encounter or a battle is open, or the session
+          is in `victory`.
         - `session.command.unknown_location` - the location matches no dungeon, or no
           level in it.
         - `session.command.out_of_bounds` - the position is off the level's grid.
@@ -3839,7 +3853,9 @@ class PlaceParty(Command):
         shows that the referee moved the party rather than that it took the stairs.
     """
 
-    allowed_modes: ClassVar[frozenset[SessionMode]] = _ALL_MODES - frozenset({SessionMode.VICTORY})
+    allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset(
+        {SessionMode.TOWN, SessionMode.EXPLORING, SessionMode.GAME_OVER}
+    )
 
     command_type: Literal["place_party"] = "place_party"
     location: PartyLocation
@@ -3894,8 +3910,8 @@ class RollDice(Command):
     This command is legal in every mode, `game_over` and `victory` included. The session draws the roll
     from the separate
     [`ADJUDICATION_STREAM`][osrlib.crawl.session.ADJUDICATION_STREAM], so a referee's roll
-    never changes what any other stream draws. A malformed `expression` raises when the
-    command is constructed, as a malformed `count_dice` on
+    never changes what any other stream draws. A malformed `expression` fails validation with
+    pydantic's `ValidationError` when the command is constructed, as a malformed `count_dice` on
     [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] does, so it never reaches the
     session and makes no random roll.
 
@@ -3913,15 +3929,14 @@ class RollDice(Command):
     command_type: Literal["roll_dice"] = "roll_dice"
     expression: str
     """The roll, in the notation [`parse`][osrlib.core.dice.parse] accepts, like `"1d20"`,
-    `"3d6+2"`, or `"2d6+1x10"`. A malformed expression raises when the command is constructed
-    rather than coming back as a rejection, so it never reaches the session and draws
-    nothing."""
+    `"3d6+2"`, or `"2d6+1x10"`. A malformed expression fails validation when the command is
+    constructed rather than coming back as a rejection, so it never reaches the session and
+    draws nothing."""
 
     @field_validator("expression")
     @classmethod
     def _expression_must_parse(cls, value: str) -> str:
-        parse(value)
-        return value
+        return _dice_that_parse(value)
 
 
 class MarkTriggerFired(Command):
@@ -4493,8 +4508,6 @@ def parse_command(data: Mapping[str, object]) -> Command | None:
         assert parse_command({"command_type": "teleport_party"}) is None
         ```
     """
-    from osrlib.errors import ContentValidationError
-
     if data.get("command_type") not in _known_command_types():
         return None
     try:

@@ -439,10 +439,10 @@ class BattleState(BaseModel):
     reproduces the change. [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] adds a new
     monster group to the fight between rounds, and the group acts from the next round.
 
-    The session refuses [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] and
-    [`PlaceParty`][osrlib.crawl.commands.PlaceParty] with `session.command.encounter_in_progress`
-    while an encounter is open. So an NPC party can't join a fight, and you can't move the party
-    out of one.
+    [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] and
+    [`PlaceParty`][osrlib.crawl.commands.PlaceParty] aren't legal in `battle`, so the session refuses
+    them with `session.command.wrong_mode`. An NPC party can't join a fight, and you can't move the
+    party out of one.
     """
 
     model_config = ConfigDict(validate_assignment=True)
@@ -2188,6 +2188,10 @@ def start_battle(session, *, party_free_round: bool = False, monsters_free_round
         [`BattleEndedEvent`][osrlib.crawl.events.BattleEndedEvent] when the opening alone ends the
         battle.
 
+    Raises:
+        ValueError: If no encounter is open on the session. The session is left as it was, with no
+            draws taken and no time passed.
+
     Examples:
         ```python
         from osrlib.core.alignment import Alignment
@@ -2232,6 +2236,8 @@ def start_battle(session, *, party_free_round: bool = False, monsters_free_round
         assert session.battle.monsters_hold_rounds == 1
         ```
     """
+    if session.encounter is None:
+        raise ValueError("no encounter is open on the session")
     state = BattleState(started_round=session.clock.rounds, monsters_hold_rounds=1 if party_free_round else 0)
     session.battle = state
     session.mode = SessionMode.BATTLE

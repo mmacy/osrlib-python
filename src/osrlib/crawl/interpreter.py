@@ -222,10 +222,9 @@ class Interpreter:
     session.register_listener(Interpreter(session))
     ```
 
-    Registering it twice fires everything twice, as it would for any listener. Register it again
-    on a session restored from a save, because listeners are code and a save contains only data.
-    There's no state to restore: the interpreter's entry in `listener_state` is empty and stays
-    empty for the life of the session.
+    Register it again on a session restored from a save, because listeners are code and a save
+    contains only data. There's no state to restore: the interpreter's entry in `listener_state` is
+    empty and stays empty for the life of the session.
 
     For each accepted command, the interpreter goes through the command's events in the order
     they happened. For each event, it checks the adventure's triggers in the order the
@@ -404,8 +403,8 @@ class Interpreter:
             state: The interpreter's entry in `listener_state`, always an empty dict.
 
         Returns:
-            No events and the empty state. Everything the interpreter does is a command
-                it executed, and it stores nothing between commands.
+            No events and the `state` dict it was given, unchanged. Everything the interpreter
+                does is a command it executed, and it stores nothing between commands.
         """
         depth = self._depth
         for event in events:
@@ -420,7 +419,7 @@ class Interpreter:
                 self._fire(trigger, depth)
             for quest in self._quests:
                 self._advance(quest, event, depth)
-        return [], {}
+        return [], state
 
     def _would_fire(self, trigger: TriggerSpec, event: Event) -> bool:
         """Whether this trigger fires on this event: pattern, fired-state, conditions."""
