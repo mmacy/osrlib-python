@@ -2993,12 +2993,17 @@ def validate_unequip(inventory: Inventory, instance: ItemInstance | MagicItemIns
 
     Args:
         inventory: The inventory that contains the item.
-        instance: The equipped item.
+        instance: The equipped item, the object itself in one of the inventory's slots.
 
     Returns:
         The reasons it can't come off, as
         [`Rejection`][osrlib.core.validation.Rejection]s. Empty when it can. The only
         reason is `items.curse.stuck`.
+
+    Raises:
+        ValueError: If the item isn't equipped in this inventory, whatever curse it has. Only
+            an equipped item can be taken off, so asking about any other item is a mistake in
+            the call, not a move the rules refuse.
 
     Examples:
         ```python
@@ -3010,9 +3015,24 @@ def validate_unequip(inventory: Inventory, instance: ItemInstance | MagicItemIns
         # ['items.curse.stuck']
         ```
     """
+    if not any(existing is instance for existing in inventory.equipped_instances()):
+        raise ValueError("only an equipped instance can be unequipped, and this one is not equipped")
     if isinstance(instance, MagicItemInstance) and instance.cursed_revealed:
         return [Rejection(code="items.curse.stuck", params={"item": instance.instance_id})]
     return []
+
+
+def _remove_instance(collection: list, instance: object) -> None:
+    """Remove the instance itself, by identity, from a list of instances.
+
+    Two stacks of the same mundane item compare equal, so `list.remove` could take the wrong one
+    and leave the instance in two places.
+    """
+    for index, existing in enumerate(collection):
+        if existing is instance:
+            del collection[index]
+            return
+    raise ValueError("the instance isn't in the list")
 
 
 def validate_equip(
@@ -3176,7 +3196,7 @@ def equip(inventory: Inventory, definition: ClassDefinition, instance: ItemInsta
     rejections = validate_equip(definition, instance, inventory)
     if rejections:
         raise ValueError(f"illegal equip: {[rejection.code for rejection in rejections]}")
-    inventory.items.remove(instance)
+    _remove_instance(inventory.items, instance)
     if isinstance(instance, MagicItemInstance) and magic_item_template(instance).category is MagicItemCategory.RING:
         inventory.rings.append(instance)
     elif _is_shield_instance(instance):
@@ -3200,16 +3220,14 @@ def unequip(inventory: Inventory, instance: ItemInstance | MagicItemInstance) ->
     rather have a reason than an exception, since a revealed cursed item can't be taken off
     at all.
 
-    The curse check runs before the slot search, so for an item under a revealed curse, the
-    error reports the curse whether or not the item is equipped.
-
     Args:
         inventory: The inventory. Mutated.
-        instance: The equipped item, from whichever slot it's in.
+        instance: The equipped item, the object itself, from whichever slot it's in.
 
     Raises:
-        ValueError: If the item's curse has been revealed, and otherwise if the item isn't
-            equipped in this inventory.
+        ValueError: If the item isn't equipped in this inventory, whatever curse it has, or if
+            it's equipped and its curse has been revealed. The message for a revealed curse
+            includes `items.curse.stuck`.
 
     Examples:
         ```python
@@ -3233,9 +3251,7 @@ def unequip(inventory: Inventory, instance: ItemInstance | MagicItemInstance) ->
     elif inventory.shield is instance:
         inventory.shield = None
     elif any(existing is instance for existing in inventory.wielded):
-        inventory.wielded.remove(instance)
-    elif isinstance(instance, MagicItemInstance) and any(existing is instance for existing in inventory.rings):
-        inventory.rings.remove(instance)
+        _remove_instance(inventory.wielded, instance)
     else:
-        raise ValueError("instance is not equipped")
+        _remove_instance(inventory.rings, instance)
     inventory.items.append(instance)
