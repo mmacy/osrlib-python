@@ -842,6 +842,12 @@ def _entity_id(combatant: Any) -> str:
     return identifier if identifier is not None else getattr(combatant, "name", "unknown")
 
 
+def _absorbed(defender: Any, attacker: Any, source: DamageSource) -> DamageAbsorbedEvent:
+    """Report a hit the defender is immune to, listing the source's keys and then its element."""
+    keys = source.keys if source.element is None else (*source.keys, source.element)
+    return DamageAbsorbedEvent(target_id=_entity_id(defender), attacker_id=_entity_id(attacker), keys=keys)
+
+
 def alignments_differ(source: Creature, target: Creature) -> bool:
     """Return whether two creatures have different alignments, in the sense a ward against another alignment uses.
 
@@ -2311,9 +2317,7 @@ def resolve_attack(
         return AttackResult(attack_roll=rolled, damage=0, events=tuple(events))
     source = damage_source_for(attacker, attack, context)
     if check_immunity(defender, source, ruleset=ruleset, attacker=attacker):
-        events.append(
-            DamageAbsorbedEvent(target_id=_entity_id(defender), attacker_id=_entity_id(attacker), keys=source.keys)
-        )
+        events.append(_absorbed(defender, attacker, source))
         return AttackResult(attack_roll=rolled, absorbed=True, events=tuple(events))
     if has_condition(defender, Condition.ASLEEP) and _is_bladed(attack) and not _is_missile_use(attack, context):
         # The sleeping condition's dies-to-a-blade hook: "A single attack with a
@@ -3991,13 +3995,7 @@ def resolve_breath(
     save_or_die = params.get("outcome") == "death"
     for target in targets:
         if check_immunity(target, source, ruleset=ruleset, attacker=monster):
-            events.append(
-                DamageAbsorbedEvent(
-                    target_id=_entity_id(target),
-                    attacker_id=_entity_id(monster),
-                    keys=(element,) if element else (),
-                )
-            )
+            events.append(_absorbed(target, monster, source))
             continue
         save = saving_throw(target, SaveCategory.BREATH, element=element, stream=stream)
         events.extend(save.events)
