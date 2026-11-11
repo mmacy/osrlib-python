@@ -494,9 +494,16 @@ class Listener(Protocol):
     other listeners execute, because the session calls the listeners for each of those too. It
     sees an event another listener returned only when that listener was registered before it.
 
-    The session saves each listener's state under its `key` and passes it back on the next
-    call, so a listener needs no separate storage. A listener is code and isn't saved, so
-    register it again after [`load_game`][osrlib.persistence.load_game].
+    The session saves each listener's state under its `key`, and every call to `handle` gets the
+    dict saved there, so a listener needs no separate storage. A listener is code and isn't saved,
+    so register it again after [`load_game`][osrlib.persistence.load_game].
+
+    A listener that executes a command is called again, for that command's events, before the
+    first call returns. Both calls get the same dict. Update it in place and return it, and the session
+    saves every update. If the inner call returns a new dict instead, the session saves that one,
+    and the outer call has to return it too. An outer call that returns any other dict would
+    overwrite what the inner call saved, so the session raises `RuntimeError` instead. A listener
+    that executes no commands may return a new dict, as the example below does.
 
     Examples:
         ```python
@@ -545,7 +552,9 @@ class Listener(Protocol):
 
     key: str
     """The listener's name, unique within the session. Its state is saved and restored under this
-    key, so keep it stable across releases of your game."""
+    key, so keep it stable across releases of your game.
+    [`register_listener`][osrlib.crawl.session.GameSession.register_listener] refuses a second
+    listener with a key that's already registered."""
 
     def handle(self, events: Sequence[Event], state: dict) -> tuple[list[Event], dict]:
         """React to one command's events.
@@ -553,14 +562,17 @@ class Listener(Protocol):
         Args:
             events: The command's events, in the order they happened, followed by the events that
                 listeners registered before this one returned.
-            state: The state this listener returned last time, or the state a save restored. It's
-                an empty dict on the first call.
+            state: The dict the session has saved under this listener's key: the state this
+                listener returned last time, or the state a save restored. It's an empty dict on
+                the first call. A call made inside a command this listener executed gets the same
+                dict as the call that executed it.
 
         Returns:
             The events this listener built itself, which the session appends to the command's
                 result and to the event log, and the state for the session to save. Return an empty list when the
-                listener reacted by executing commands, because their events are already logged. The
-                state must be a JSON-serializable dict, because saves include it.
+                listener reacted by executing commands, because their events are already logged. A
+                listener that executes commands returns the `state` dict it was given, updated in
+                place. The state must be a JSON-serializable dict, because saves include it.
         """
         ...
 
@@ -1092,6 +1104,10 @@ class GameSession:
             ValueError: If the command class has no handler, which means it was defined outside
                 osrlib rather than built from
                 [`osrlib.crawl.commands`][osrlib.crawl.commands].
+            RuntimeError: If a listener that executed a command returns a state dict other than the
+                one the session saved for it during that call, which would lose an update. See
+                [`Listener`][osrlib.crawl.session.Listener]. By then the command has applied and is in
+                the command log.
             Exception: Whatever a registered listener's `handle` raises, unchanged. By then the
                 command has applied and is in the command log.
 
@@ -1164,7 +1180,17 @@ class GameSession:
         self._persist_sight()
         for listener in self.listeners:
             mark = len(self.event_log)
-            emitted, state = listener.handle(tuple(accumulated), self.listener_state.get(listener.key, {}))
+            # The dict goes under the key before the call, so a call made inside a command
+            # this listener executes gets the same dict, and an update in place reaches both.
+            given = self.listener_state.setdefault(listener.key, {})
+            emitted, state = listener.handle(tuple(accumulated), given)
+            saved = self.listener_state.get(listener.key)
+            if saved is not given and state is not saved:
+                raise RuntimeError(
+                    f"listener {listener.key!r} returned a state dict other than the one the session saved for it "
+                    "while it ran, so an update would be lost. Update the state dict that handle receives in place "
+                    "and return it."
+                )
             self.listener_state[listener.key] = state
             # Every event logged by the commands this listener executed while it ran,
             # their events and any deeper listener reactions, each already in the log
@@ -1214,9 +1240,20 @@ class GameSession:
         back under its key. A replay runs with no listeners registered, because the commands they
         executed are already in the log.
 
+        Every call to the listener's `handle` gets the state dict the session has saved under its
+        key. A listener that executes commands is called again inside each of them, with the same
+        dict, so it updates that dict in place and returns it. If it returns a different dict after
+        an inner call saved a new one, an update would be lost, and
+        [`execute`][osrlib.crawl.session.GameSession.execute] raises `RuntimeError`. A listener
+        that executes no commands may return a new dict, as the example below does.
+
         Args:
             listener: The listener to register. The session saves its state under its `key`, so
                 give each listener a different key, and keep it the same across releases of your game.
+
+        Raises:
+            ValueError: If a listener with the same `key` is already registered. The session
+                registers nothing.
 
         Examples:
             ```python
@@ -1266,6 +1303,8 @@ class GameSession:
             # {'commands': 2}
             ```
         """
+        if any(registered.key == listener.key for registered in self.listeners):
+            raise ValueError(f"a listener with key {listener.key!r} is already registered")
         self.listeners.append(listener)
         self.listener_state.setdefault(listener.key, {})
 
@@ -1455,7 +1494,7 @@ class GameSession:
                 [the monster id index](https://mmacy.github.io/osrlib-python/reference/content-ids/monsters/))
                 or one the adventure bundles. The catalog's `monsters` tuple lists every template, each with
                 its `id`.
-            count: How many to spawn.
+            count: How many to spawn. `0` spawns none.
             alignment: An alignment to give them instead of the template's, for keyed content
                 whose author wants, say, lawful goblins.
 
@@ -1463,7 +1502,8 @@ class GameSession:
             The new instances, in spawn order.
 
         Raises:
-            ValueError: If the catalog has no such template id.
+            ValueError: If the catalog has no such template id, or if `count` is negative. Either
+                way the method makes no draw and spawns nothing.
 
         Examples:
             ```python
@@ -1502,6 +1542,8 @@ class GameSession:
             ```
         """
         template = self.effective_monsters.get(template_id)
+        if count < 0:
+            raise ValueError(f"cannot spawn a negative number of monsters, got count={count}")
         spawned = []
         for _ in range(count):
             instance = spawn_monster(
@@ -1610,7 +1652,7 @@ class GameSession:
         instead, which the command log records.
 
         Args:
-            turns: How many turns to advance.
+            turns: How many turns to advance. `0` advances nothing.
             resting: True while the party is resting. Resting turns don't count toward the next
                 required rest. Resting alone doesn't change the wandering chance.
             hidden: True while the party hides, resting quietly in an out-of-the-way place. It
@@ -1624,6 +1666,10 @@ class GameSession:
         Returns:
             The events, and True when a wandering encounter interrupted the span before it ran
                 out.
+
+        Raises:
+            ValueError: If `turns` is negative. The clock never runs backwards, and the method
+                changes nothing.
 
         Examples:
             ```python
@@ -1660,6 +1706,8 @@ class GameSession:
         """
         from osrlib.crawl import exploration
 
+        if turns < 0:
+            raise ValueError(f"cannot advance the clock backwards, got turns={turns}")
         events: list[Event] = []
         for _ in range(turns):
             events.extend(self.advance_rounds(ROUNDS_PER_TURN - self.clock.rounds % ROUNDS_PER_TURN))
@@ -1923,17 +1971,22 @@ class GameSession:
         repeats.
 
         Args:
-            amount: The pool to divide. Zero or less awards nothing.
+            amount: The pool to divide. `0` awards nothing.
 
         Returns:
             Each survivor's award event and, where one gained a level, the level event. An empty
                 list when nobody is alive or the share rounds to zero.
+
+        Raises:
+            ValueError: If `amount` is negative. The method makes no draw and awards nothing.
         """
+        if amount < 0:
+            raise ValueError(f"cannot award a negative experience pool, got amount={amount}")
         survivors = self.party.living_members()
-        if not survivors or amount <= 0:
+        if not survivors:
             return []
         share = amount // len(survivors)
-        if share <= 0:
+        if share == 0:
             return []
         events: list[Event] = []
         for member in survivors:
@@ -2655,10 +2708,6 @@ def _handle_spawn_monsters(session: GameSession, command: SpawnMonsters) -> tupl
         session.effective_monsters.get(command.template_id)
     except ValueError:
         return [Rejection(code="session.command.unknown_monster", params={"template": command.template_id})], []
-    if session.dungeon_state.location.kind != "dungeon":
-        # Encounters live on the dungeon grid: the combat space, silence cells,
-        # and formation widths all need a party cell to stand on.
-        return [Rejection(code="session.command.not_in_dungeon")], []
     if session.encounter is not None and session.encounter.pursuit is not None:
         # A chase runs at the pace of its slowest group, so a group that joined it would
         # change who gets away.
@@ -2698,10 +2747,6 @@ def _handle_spawn_npc_party(session: GameSession, command: SpawnNpcParty) -> tup
     from osrlib.crawl import exploration
     from osrlib.data import load_encounter_tables
 
-    if session.encounter is not None or session.battle is not None:
-        return [Rejection(code="session.command.encounter_in_progress")], []
-    if session.dungeon_state.location.kind != "dungeon":
-        return [Rejection(code="session.command.not_in_dungeon")], []
     if command.count_fixed is not None:
         count = command.count_fixed
     else:
@@ -2785,8 +2830,6 @@ def _handle_set_door_state(session: GameSession, command: SetDoorState) -> tuple
 
 
 def _handle_place_party(session: GameSession, command: PlaceParty) -> tuple[list[Rejection], list[Event]]:
-    if session.encounter is not None or session.battle is not None:
-        return [Rejection(code="session.command.encounter_in_progress")], []
     location = command.location
     events: list[Event] = []
     if location.kind == "dungeon":

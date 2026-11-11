@@ -3,6 +3,7 @@
 import json
 
 import pytest
+from pydantic import ValidationError
 
 from osrlib.core.abilities import AbilityScore
 from osrlib.core.character import Character
@@ -48,14 +49,17 @@ REFEREE_COMMANDS = {
     "remove_member",
 }
 
-# The referee commands a terminal session withholds, each because it would resume
-# play: `PlaceParty` teleports the party into a play mode (and so stays legal in
-# `game_over`, where carrying the fallen to town is the first step of the revival
-# flow), and the two spawn commands open an encounter.
-RESUME_PLAY_CARVE_OUTS = {
-    "place_party": frozenset({SessionMode.VICTORY}),
-    "spawn_monsters": frozenset({SessionMode.GAME_OVER, SessionMode.VICTORY}),
-    "spawn_npc_party": frozenset({SessionMode.GAME_OVER, SessionMode.VICTORY}),
+# The referee commands that move the party or put monsters in front of it, each legal only
+# where the session can accept it. A terminal session withholds all three, because each
+# would resume play, except that `PlaceParty` stays legal in `game_over`, where carrying
+# the fallen to town is the first step of the revival flow. `PlaceParty` can't move the
+# party out of an open encounter. `SpawnMonsters` needs the party on a dungeon cell, and
+# `SpawnNpcParty` opens a new encounter, so it needs one with no encounter open.
+SPAWN_AND_PLACE_CARVE_OUTS = {
+    "place_party": frozenset(SessionMode) - frozenset({SessionMode.TOWN, SessionMode.EXPLORING, SessionMode.GAME_OVER}),
+    "spawn_monsters": frozenset(SessionMode)
+    - frozenset({SessionMode.EXPLORING, SessionMode.ENCOUNTER, SessionMode.BATTLE}),
+    "spawn_npc_party": frozenset(SessionMode) - frozenset({SessionMode.EXPLORING}),
 }
 
 # The referee commands that act on an open encounter, so only the two modes that have
@@ -75,7 +79,7 @@ ROSTER_CARVE_OUTS = {
 
 # Every referee command's withheld modes, keyed by command type. A referee command
 # missing from this map is legal in every mode.
-REFEREE_CARVE_OUTS = RESUME_PLAY_CARVE_OUTS | ENCOUNTER_BOUND_CARVE_OUTS | ROSTER_CARVE_OUTS
+REFEREE_CARVE_OUTS = SPAWN_AND_PLACE_CARVE_OUTS | ENCOUNTER_BOUND_CARVE_OUTS | ROSTER_CARVE_OUTS
 
 
 def _recruit() -> Character:
@@ -276,7 +280,7 @@ class TestSpawnMonstersValidation:
             SpawnMonsters(template_id="goblin", count_dice="2d4", count_fixed=3, distance_feet=60)
 
     def test_count_dice_must_parse(self):
-        with pytest.raises(ContentValidationError):
+        with pytest.raises(ValidationError):
             SpawnMonsters(template_id="goblin", count_dice="lots", distance_feet=60)
 
 

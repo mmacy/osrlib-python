@@ -508,6 +508,11 @@ def start_encounter(
           first round. When the gaze left nobody standing, a battle ends as it opens, and no round
           runs.
 
+    Raises:
+        ValueError: If an encounter is already open on the session. The session is left as it was,
+            with no draws taken and no time passed. To add monsters to the open encounter, execute
+            [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters].
+
     Examples:
         ```python
         from osrlib.core.alignment import Alignment
@@ -599,6 +604,8 @@ def _open_encounter(
     from osrlib.crawl import exploration
     from osrlib.crawl.session import ENCOUNTER_STREAM
 
+    if session.encounter is not None:
+        raise ValueError("an encounter is already open on the session")
     stream = session.streams.get(ENCOUNTER_STREAM)
     opened = [instance for _, _, instances in groups for instance in instances]
     events: list[Event] = _attach_regeneration(session, opened)

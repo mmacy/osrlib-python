@@ -1414,7 +1414,7 @@ Referee commands:
 - While an encounter or battle is already running, `SpawnMonsters` adds one group to that encounter instead. That's how a referee brings in the allies an SRD monster summons. The group rolls no surprise or reaction, and it shares the encounter's stance and surprise. The spawn costs no time, so the group first acts in the next round.
 - During a pursuit, the session refuses the spawn with `encounter.spawn.mid_pursuit`, because the chase runs at the pace of its slowest group.
 - `SpawnNpcParty` sets the size of the band in one of three ways. `count_fixed` gives an exact size and draws nothing. `count_dice` rolls the size on the encounter stream. With neither set, the session rolls the B/X number for the band's kind. Setting both `count_fixed` and `count_dice` fails validation, as it does on `SpawnMonsters` ([#167](https://github.com/mmacy/osrlib-python/issues/167)).
-- The session rejects `SpawnNpcParty` and `PlaceParty` while an encounter is running.
+- `SpawnNpcParty` and `PlaceParty` aren't legal while an encounter or a battle is running, so the session refuses them with `session.command.wrong_mode`.
 
 Locked by `test_session.py`, `test_crawl_properties.py`, `test_spawn_into_encounter.py`, and `test_rules_calls.py::TestSpawnNpcPartyTakesAFixedSize`.
 
