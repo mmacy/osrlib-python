@@ -2789,7 +2789,7 @@ def _validate_declaration(
         attack = combat_facet if combat_facet is not None else weapon
         return validate_attack(member, pool[0], attack, context, ruleset=session.ruleset)
     if declaration.action == "use_item":
-        from osrlib.crawl import exploration
+        from osrlib.crawl import _party_members
 
         magic = member.inventory.magic_item(declaration.item_id) if declaration.item_id else None
         if magic is not None:
@@ -2797,7 +2797,7 @@ def _validate_declaration(
         group = _group_by_id(session, declaration.target_group_id)
         if group is None or group.fled:
             return [Rejection(code="battle.declaration.unknown_group", params={"character": member.id})]
-        instance = exploration._find_item(member, declaration.item_id) if declaration.item_id else None
+        instance = _party_members._find_item(member, declaration.item_id) if declaration.item_id else None
         facet = getattr(instance.template, "combat", None) if instance is not None else None
         if instance is None or facet is None or WeaponQuality.SPLASH not in facet.qualities:
             # Only a splash weapon, like holy water or a flask of oil, is thrown. A torch is swung.
@@ -2823,7 +2823,7 @@ def _validate_declaration(
             spell = load_spells().get(declaration.spell_id)
         except ValueError:
             return [Rejection(code="magic.cast.unknown_spell", params={"spell": declaration.spell_id})]
-        from osrlib.crawl import _party_location, exploration
+        from osrlib.crawl import _party_location
 
         if session.ledger.active_on(_party_location._cell_ref(session), "silence"):
             return [Rejection(code="magic.cast.silenced_area", params={"caster": member.id})]
@@ -3159,12 +3159,12 @@ def _hand_over(session, declaration: BattleDeclaration, giver, placement: _Place
 
     The recipient is None when there are rejections. The call reads state and takes no draw.
     """
-    from osrlib.crawl import exploration
+    from osrlib.crawl import _party_members, exploration
 
     recipient_id = _sole_target(declaration) or ""
     if recipient_id == giver.id:
         return None, [Rejection(code="exploration.give.same_member", params={"character": giver.id})]
-    recipient, rejections = exploration._member_able(session, recipient_id)
+    recipient, rejections = _party_members._member_able(session, recipient_id)
     if recipient is None:
         return None, rejections
     rejections = exploration._validate_carried(giver, (declaration.item_id or "",), Coins())
@@ -3267,7 +3267,7 @@ def _resolve_scroll_cast(session, member, instance, template, declaration: Battl
     miscast is a failure of the scroll, not a refused declaration, so it emits no `magic.cast.fizzled` event.
     """
     from osrlib.core.spells import CastContext, cast_from_scroll
-    from osrlib.crawl import exploration
+    from osrlib.crawl import _party_members, exploration
     from osrlib.crawl.events import ItemUsedEvent
 
     remaining = tuple(str(spell) for spell in instance.state.get("spells", ()))
@@ -3286,7 +3286,7 @@ def _resolve_scroll_cast(session, member, instance, template, declaration: Battl
     if left:
         instance.state = {**instance.state, "spells": left}
     else:
-        exploration._remove_instance(member, instance)
+        _party_members._remove_instance(member, instance)
     events: list[Event] = []
     events.extend(exploration._identify_item_events(session, member, instance))
     events.append(ItemUsedEvent(code="items.scroll.read", character_id=member.id, instance_id=instance.instance_id))
@@ -4176,7 +4176,7 @@ def _break_party_wards(session, target) -> list[Event]:
 
 
 def _resolve_use_item(session, member, declaration, fire_damaged) -> list[Event]:
-    from osrlib.crawl import exploration
+    from osrlib.crawl import _party_members
 
     group = _group_by_id(session, declaration.target_group_id)
     if group is None or group.fled:
@@ -4186,7 +4186,7 @@ def _resolve_use_item(session, member, declaration, fire_damaged) -> list[Event]
         return []
     # One lookup removes the flask and returns it: the instance the attack
     # resolves from is the instance that left the pack.
-    instance = exploration._consume_item(member, declaration.item_id)
+    instance = _party_members._consume_item(member, declaration.item_id)
     if not isinstance(instance, ItemInstance) or not isinstance(instance.template, GearTemplate):
         # Unreachable: the declaration validator proved the item is splash gear
         # (holy water, a flask of burning oil) before the round ran.

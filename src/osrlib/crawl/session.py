@@ -2009,7 +2009,7 @@ class GameSession:
         Args:
             events: The just-executed command's events, in order.
         """
-        from osrlib.crawl import _party_location, exploration
+        from osrlib.crawl import _party_location, _party_members
         from osrlib.crawl.dungeon import DropPile
 
         if self.dungeon_state.location.kind != "dungeon":
@@ -2025,7 +2025,7 @@ class GameSession:
             for instance_id in event.saved_items:
                 instance = member.inventory.magic_item(instance_id)
                 if instance is not None:
-                    exploration._remove_instance(member, instance)
+                    _party_members._remove_instance(member, instance)
                     pile.magic_items.append(instance)
 
     def _record_deaths(self, events: Sequence[Event]) -> None:
@@ -2254,7 +2254,7 @@ def _removal_rejection(member: Character, item_id: str, quantity: int) -> Reject
 
 
 def _handle_remove_item(session: GameSession, command: RemoveItem) -> tuple[list[Rejection], list[Event]]:
-    from osrlib.crawl import exploration
+    from osrlib.crawl import _party_members, exploration
 
     try:
         member = session.member(command.character_id)
@@ -2271,7 +2271,7 @@ def _handle_remove_item(session: GameSession, command: RemoveItem) -> tuple[list
         # Removal releases the item's effects, as taking it off would. It skips the curse
         # check, because the referee takes the item and the bearer doesn't let go of it.
         events.extend(exploration._release_instance_effects(session, magic))
-        exploration._remove_instance(member, magic)
+        _party_members._remove_instance(member, magic)
         item_ids: tuple[str, ...] = (command.item_id,)
     elif valuable is not None:
         inventory.valuables.remove(valuable)
@@ -2287,7 +2287,7 @@ def _handle_remove_item(session: GameSession, command: RemoveItem) -> tuple[list
                 continue
             taken = min(remaining, instance.quantity)
             if taken == instance.quantity:
-                exploration._remove_instance(member, instance)
+                _party_members._remove_instance(member, instance)
             else:
                 instance.quantity -= taken
             remaining -= taken
@@ -2449,7 +2449,7 @@ def _hand_over_everything(session: GameSession, giver: Character, recipient: Cha
     leave it. Returns the releases and one `ItemsGivenEvent`, or no events when the member
     carried nothing.
     """
-    from osrlib.crawl import exploration
+    from osrlib.crawl import _party_members, exploration
 
     inventory = giver.inventory
     events: list[Event] = []
@@ -2461,7 +2461,7 @@ def _hand_over_everything(session: GameSession, giver: Character, recipient: Cha
             recipient.inventory.items.append(instance)
             item_ids.append(instance.instance_id)
         else:
-            exploration._grant_mundane(recipient, instance.template, instance.quantity)
+            _party_members._grant_mundane(recipient, instance.template, instance.quantity)
             item_ids.extend([instance.template.id] * instance.quantity)
     for valuable in inventory.valuables:
         recipient.inventory.valuables.append(valuable)

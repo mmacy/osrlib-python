@@ -866,7 +866,7 @@ def _handle_wait(session, command: Wait) -> tuple[list[Rejection], list[Event]]:
 
 
 def _handle_parley(session, command: Parley) -> tuple[list[Rejection], list[Event]]:
-    from osrlib.crawl import exploration
+    from osrlib.crawl import _party_members
     from osrlib.crawl.session import ENCOUNTER_STREAM
 
     state = session.encounter
@@ -874,7 +874,7 @@ def _handle_parley(session, command: Parley) -> tuple[list[Rejection], list[Even
         return [Rejection(code="encounter.none_active")], []
     if state.pursuit is not None:
         return [Rejection(code="encounter.parley.mid_pursuit")], []
-    member, rejections = exploration._member_able(session, command.character_id)
+    member, rejections = _party_members._member_able(session, command.character_id)
     if rejections:
         return rejections, []
     # Any number of re-rolls, each a fresh roll with the speaker's CHA. The rules as
@@ -897,7 +897,7 @@ def _handle_parley(session, command: Parley) -> tuple[list[Rejection], list[Even
 
 
 def _handle_evade(session, command: Evade) -> tuple[list[Rejection], list[Event]]:
-    from osrlib.crawl import exploration
+    from osrlib.crawl import _party_members
 
     state = session.encounter
     if state is None:
@@ -913,7 +913,8 @@ def _handle_evade(session, command: Evade) -> tuple[list[Rejection], list[Event]
         carriers = [
             member
             for member in session.party.living_members()
-            if exploration._find_item(member, "rations_standard") or exploration._find_item(member, "rations_iron")
+            if _party_members._find_item(member, "rations_standard")
+            or _party_members._find_item(member, "rations_iron")
         ]
         if not carriers:
             return [Rejection(code="encounter.evade.nothing_to_drop", params={"drop": "food"})], []
@@ -937,12 +938,12 @@ def _handle_evade(session, command: Evade) -> tuple[list[Rejection], list[Event]
                 purse.pp = purse.gp = purse.ep = purse.sp = purse.cp = 0
     elif dropped_kind == "food":
         for member in session.party.living_members():
-            ration = exploration._consume_item(member, "rations_standard") or exploration._consume_item(
+            ration = _party_members._consume_item(member, "rations_standard") or _party_members._consume_item(
                 member, "rations_iron"
             )
             if ration is not None:
                 events.append(
-                    ItemsDroppedEvent(character_id=member.id, item_ids=(exploration._consumed_item_id(ration),))
+                    ItemsDroppedEvent(character_id=member.id, item_ids=(_party_members._consumed_item_id(ration),))
                 )
 
     pursuers = [group for group in state.groups if not group.fled and _group_can_pursue(session, group)]
@@ -976,14 +977,14 @@ def _handle_engage_battle(session, command: EngageBattle) -> tuple[list[Rejectio
 
 
 def _handle_turn_undead(session, command: TurnUndead) -> tuple[list[Rejection], list[Event]]:
-    from osrlib.crawl import exploration
+    from osrlib.crawl import _party_members
 
     state = session.encounter
     if state is None:
         return [Rejection(code="encounter.none_active")], []
     if state.pursuit is not None:
         return [Rejection(code="encounter.turning.mid_pursuit")], []
-    member, rejections = exploration._member_able(session, command.character_id)
+    member, rejections = _party_members._member_able(session, command.character_id)
     if rejections:
         return rejections, []
     definition = member.definition
@@ -1028,12 +1029,12 @@ def _handle_turn_undead(session, command: TurnUndead) -> tuple[list[Rejection], 
 
 
 def _handle_drop_during_encounter(session, command: DropItems) -> tuple[list[Rejection], list[Event]]:
-    from osrlib.crawl import exploration
+    from osrlib.crawl import _party_members, exploration
 
     state = session.encounter
     if state is None:
         return [Rejection(code="encounter.none_active")], []
-    member, rejections = exploration._member_able(session, command.character_id)
+    member, rejections = _party_members._member_able(session, command.character_id)
     if rejections:
         return rejections, []
     rejections = exploration._validate_carried(member, command.item_ids, command.coins)
