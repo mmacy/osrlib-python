@@ -1171,7 +1171,8 @@ class ActiveEffect(_Model):
     attached_round: int = Field(ge=0)
     """The round the effect was attached on, counted from the start of the game clock. The effect ticks every
     `tick_interval_rounds` from this round. When several effects resolve in one round, they go in order of this
-    value first, then of `effect_id`."""
+    value first, then in the order they were attached, which is their order in
+    [`EffectsLedger.effects`][osrlib.core.effects.EffectsLedger.effects]."""
 
     expires_round: int | None = None
     """The round the effect expires on, counted from the start of the game clock, or `None` when it has no
@@ -1607,7 +1608,9 @@ class EffectsLedger(_Model):
         return clock.rounds + roll(definition.duration_dice, cast(RngStream, stream)).total * rounds_per_unit
 
     def _ordered(self) -> list[ActiveEffect]:
-        return sorted(self.effects, key=lambda effect: (effect.attached_round, effect.effect_id))
+        # `effects` is in the order the effects were attached, and the sort is stable, so effects attached in the
+        # same round keep that order. An effect id is text, and "effect-10000" sorts before "effect-9999".
+        return sorted(self.effects, key=lambda effect: effect.attached_round)
 
     def _suspended(self, effect: ActiveEffect, registry: Mapping[str, Any]) -> bool:
         target = registry.get(effect.target_ref)
@@ -1623,7 +1626,7 @@ class EffectsLedger(_Model):
     ) -> list[Event]:
         events: list[Event] = []
         # An invariant test asserts the round-resolution order: suspension, then
-        # expiry, then ticks, tie-broken by effect id within each phase. Changing it
+        # expiry, then ticks, in the order of `_ordered` within each phase. Changing it
         # is a rules decision, not a refactor.
         # Suspension first: a suspended effect neither expires nor ticks this round,
         # and pushing its expiry forward preserves the duration it has left.

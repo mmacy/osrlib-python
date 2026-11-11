@@ -1849,8 +1849,9 @@ class UseItem(Command):
           `magic.cast.caster_restrained`, and `magic.cast.anti_magic_shell`.
         - Devices: `items.device.inert` (no charges left),
           `items.use.target_required` (an area device used in an encounter needs a
-          `target_id`), `items.use.unknown_target`, and `items.use.battle_only` (a device
-          that strikes works only as a battle declaration).
+          `target_id`), `items.use.unknown_target`, `items.use.target_cannot_be_healed` (a
+          staff of healing used on a creature that's dead or turned to stone), and
+          `items.use.battle_only` (a device that strikes works only as a battle declaration).
 
     Events:
         [`ItemIdentifiedEvent`][osrlib.crawl.events.ItemIdentifiedEvent], and
@@ -1889,7 +1890,9 @@ class UseItem(Command):
 
     For a device, pass a party member's id for a device that heals by touch, or an encounter
     group's [`EncounterGroupView.id`][osrlib.crawl.views.EncounterGroupView.id] for a device that
-    covers an area. A healing device with `None` heals the member using it."""
+    covers an area. A healing device with `None` heals the member using it. The session refuses a
+    healing device on a creature that's dead or turned to stone with
+    `items.use.target_cannot_be_healed`."""
     spell_id: str | None = None
     """Which spell to read off a scroll that has more than one, from
     [`load_spells`][osrlib.data.load_spells] (see the

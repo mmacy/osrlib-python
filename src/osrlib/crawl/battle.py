@@ -900,7 +900,7 @@ class ScriptedPolicy:
                 actions = self.default.choose(session, group, stream)
                 targets = [session.member(action.target_id) for action in actions if action.kind == "melee"]
                 if targets:
-                    weakest = min(targets, key=lambda member: (member.current_hp, member.id))
+                    weakest = min(targets, key=lambda member: member.current_hp)
                     actions = [
                         action.model_copy(update={"target_id": weakest.id}) if action.kind == "melee" else action
                         for action in actions
@@ -991,8 +991,8 @@ class NpcPartyPolicy:
     the party your players control. Each living NPC takes the first of these actions that applies:
 
     1. A caster with a memorized healing spell heals the NPC group's most wounded member who is
-       below half their hit points: the one with the lowest ratio of current to maximum hit points,
-       with ties broken by id.
+       below half their hit points: the one with the lowest ratio of current to maximum hit points.
+       Of two with the same ratio, it heals the one that comes first in the group's order.
     2. An NPC below half their hit points, in a group with no healing spell left, drinks a healing
        potion they carry. This is the only item these tactics use.
     3. A caster with a memorized spell that deals damage, like *magic missile*, casts it at the
@@ -1119,7 +1119,8 @@ class NpcPartyPolicy:
             cure = _npc_cure_spell(npc, catalog)
             wounded = [member for member in living if member.current_hp * 2 < member.max_hp]
             if cure is not None and wounded:
-                target = min(wounded, key=lambda member: (member.current_hp / member.max_hp, member.id))
+                # `min` keeps the first of equal members, so a tie goes to the one first in the group's order.
+                target = min(wounded, key=lambda member: member.current_hp / member.max_hp)
                 spell, mode = cure
                 actions.append(
                     MonsterAction(
@@ -3147,39 +3148,28 @@ def _healing_touch(session, declaration: BattleDeclaration, member, placement: _
     The OSE SRD's staff "Has the power to heal those touched". The target is the creature whose id is the one
     id in `targets`, or the member using the staff when `targets` is empty. The checks come in this order:
 
-    1. `items.use.unknown_target` for an id that matches no creature, or a monster outside the encounter's groups
-       that haven't fled.
-    2. `items.use.target_cannot_be_healed` for a creature that's dead or turned to stone, with the staff's instance
-       id as `item` and the creature's id as `target`. The staff can't heal it, as a potion can't be given to a
-       member who can't drink (see `exploration._potion_drinker`).
+    1. The checks [`UseItem`][osrlib.crawl.commands.UseItem] makes (see `_magic_items._healing_target`):
+       `items.use.unknown_target` for an id that matches no creature, and `items.use.target_cannot_be_healed` for a
+       creature that's dead or turned to stone.
+    2. `items.use.unknown_target` for a monster outside the encounter's groups that haven't fled.
     3. Reach. Another member has to stand within 5' of the user in `placement` (see `_reach_rejection`). A touch on
        a monster takes the checks of `_touch_rejection`.
 
     The target is None when there are rejections. The call reads state and takes no draw.
     """
-    target_ref = _sole_target(declaration)
-    if target_ref is None or target_ref == member.id:
-        return member, []
-    target = session.registry().get(target_ref)
-    unknown = Rejection(code="items.use.unknown_target", params={"target": target_ref})
-    if target is None:
-        return None, [unknown]
-    on_member = any(other.id == target_ref for other in session.party.members)
-    group = (
-        None
-        if on_member
-        else next((group for group in session.encounter.groups if target_ref in group.monster_ids), None)
+    from osrlib.crawl import _magic_items
+
+    target, rejections = _magic_items._healing_target(
+        session, member, declaration.item_id or "", _sole_target(declaration)
     )
-    if not on_member and (group is None or group.fled):
-        return None, [unknown]
-    if not _stands(target):
-        cannot_heal = Rejection(
-            code="items.use.target_cannot_be_healed", params={"item": declaration.item_id or "", "target": target_ref}
-        )
-        return None, [cannot_heal]
-    if group is None:
-        refused = _reach_rejection(placement, member.id, target_ref)
+    if target is None or target is member:
+        return target, rejections
+    if any(other.id == target.id for other in session.party.members):
+        refused = _reach_rejection(placement, member.id, target.id)
     else:
+        group = next((group for group in session.encounter.groups if target.id in group.monster_ids), None)
+        if group is None or group.fled:
+            return None, [Rejection(code="items.use.unknown_target", params={"target": target.id})]
         refused = _touch_rejection(session, member.id, target, group, placement)
     return (None, [refused]) if refused is not None else (target, [])
 
