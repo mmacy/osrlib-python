@@ -114,6 +114,8 @@ _CODE_PATTERN = re.compile(r"[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+")
 def _rewrite_dead_treasure_triggers(payload: dict) -> None:
     """Rewrite a pre-3 payload's `treasure` traps with `trigger="enter"` to `"open"`, in place.
 
+    Pass it the copy that [`check_document`][osrlib.versioning.check_document] returns, never the caller's document.
+
     This does for a pack what the save migration `_migrate_2_to_3` does for a save. A treasure trap
     can be only on an entry's features, and the engine never read the `"enter"` value on one, so the
     rewrite loses nothing.
@@ -310,7 +312,7 @@ class ContentPack(BaseModel):
         schema 3, [`TrapSpec`][osrlib.crawl.dungeon.TrapSpec] refuses `trigger="enter"` on a treasure
         trap. When an older document has that combination, `from_document` reads the trap with
         `trigger="open"`, as [`load_game`][osrlib.persistence.load_game] does for a save. It ignores
-        payload fields this version doesn't recognize.
+        payload fields this version doesn't recognize, and it doesn't change `document`.
 
         Args:
             document: A document from

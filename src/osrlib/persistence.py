@@ -103,7 +103,9 @@ print(session_state(replayed) == session_state(session))
 ```
 """
 
+import copy
 from collections.abc import Callable, Mapping, Sequence
+from types import MappingProxyType
 from typing import cast
 
 from osrlib.core.character import Character
@@ -148,6 +150,7 @@ def _migrate_1_to_2(payload: dict) -> dict:
     """
     # osrlib never read the ledger back, so the migration drops the field instead of converting
     # it to a format that osrlib would never read.
+    payload = copy.deepcopy(payload)
     payload.pop("recovered_treasure", None)
     payload["npcs"] = []
     return payload
@@ -162,6 +165,7 @@ def _migrate_2_to_3(payload: dict) -> dict:
     the only part of a save with trap specs in it, and a treasure trap sits on a feature,
     either on an area or on a level.
     """
+    payload = copy.deepcopy(payload)
     for dungeon in payload.get("adventure", {}).get("dungeons", ()):
         for level in dungeon.get("levels", ()):
             feature_lists = [level.get("features", ())]
@@ -199,6 +203,7 @@ def _migrate_3_to_4(payload: dict) -> dict:
     [`MonsterFledEvent`][osrlib.crawl.events.MonsterFledEvent] no longer accepts the code, so an
     event with it fails to parse. No log contains one, because osrlib never set the field.
     """
+    payload = copy.deepcopy(payload)
     for entry in payload.get("command_log", ()):
         if entry.get("command_type") != "resolve_battle_round":
             continue
@@ -211,20 +216,21 @@ def _migrate_3_to_4(payload: dict) -> dict:
     return payload
 
 
-MIGRATIONS: dict[int, Callable[[dict], dict]] = {1: _migrate_1_to_2, 2: _migrate_2_to_3, 3: _migrate_3_to_4}
+MIGRATIONS: Mapping[int, Callable[[dict], dict]] = MappingProxyType(
+    {1: _migrate_1_to_2, 2: _migrate_2_to_3, 3: _migrate_3_to_4}
+)
 """The steps that upgrade an old save payload, one schema version at a time.
 
 Each key is a schema version `n`, and its value is a function that takes a payload written
-at version `n` and returns it in the format of version `n + 1`.
+at version `n` and returns a new payload in the format of version `n + 1`. A step doesn't
+change the payload you pass it.
 [`load_game`][osrlib.persistence.load_game] runs the steps for you, from the version the
 document was stamped with up to [`SCHEMA_VERSION`][osrlib.versioning.SCHEMA_VERSION], so a
 save from an older release loads without any code from you.
 
-Read it to check that saves at a version you still have can load. A version with no step here
-can't load: `load_game` raises
-[`ContentValidationError`][osrlib.errors.ContentValidationError], with the versions of the
-missing step in its message. `MIGRATIONS` isn't a hook. Adding an entry doesn't extend the library,
-because `load_game` runs the chain only up to [`SCHEMA_VERSION`][osrlib.versioning.SCHEMA_VERSION].
+Read it to see which versions a save can be upgraded from. It has a step for every schema
+version from 1 up to the one before `SCHEMA_VERSION`. The mapping is read-only, so assigning
+or deleting an entry raises `TypeError`.
 """
 
 
@@ -238,12 +244,8 @@ def session_state(session: GameSession, *, include_event_log: bool = True) -> di
     version stamps, so [`load_game`][osrlib.persistence.load_game] can't read it, and nobody
     can tell later which osrlib wrote it.
 
-    The call doesn't change the session. You can keep the result and serialize it whenever you
-    like. If you mean to edit it, copy it first with `copy.deepcopy` or a JSON round trip.
-    Some nested values in the result are objects the session also refers to, so an edit to
-    one of them changes the session too. These are the values inside a listener's
-    state and an event log entry that [`load_game`][osrlib.persistence.load_game] kept as a
-    dict.
+    The call doesn't change the session, and the result shares nothing with it. You can keep
+    the result, edit it, and serialize it whenever you like, and the session stays as it was.
 
     Args:
         session: The session to serialize, in any mode, including during an encounter or a
@@ -301,7 +303,7 @@ def session_state(session: GameSession, *, include_event_log: bool = True) -> di
         "fired_triggers": list(session.fired_triggers),
         "journal": [entry.model_dump(mode="json") for entry in session.journal],
         "quests": {quest_id: state.model_dump(mode="json") for quest_id, state in session.quests.items()},
-        "listener_state": {key: dict(value) for key, value in session.listener_state.items()},
+        "listener_state": {key: copy.deepcopy(value) for key, value in session.listener_state.items()},
         "death_records": {key: record.model_dump(mode="json") for key, record in session.death_records.items()},
         "defeated_monsters": [record.model_dump(mode="json") for record in session.defeated_monsters],
         "deprivation": {key: state.model_dump(mode="json") for key, state in session.deprivation.items()},
@@ -324,7 +326,8 @@ def session_state(session: GameSession, *, include_event_log: bool = True) -> di
     }
     if include_event_log:
         payload["event_log"] = [
-            entry if isinstance(entry, dict) else entry.model_dump(mode="json") for entry in session.event_log
+            copy.deepcopy(entry) if isinstance(entry, dict) else entry.model_dump(mode="json")
+            for entry in session.event_log
         ]
     return payload
 
@@ -430,10 +433,14 @@ def load_game(document: Mapping[str, object]) -> GameSession:
     under its key, and the restored session passes it to the listener on its next call.
 
     You don't need to do anything for an older save. The call checks the document, then
-    upgrades the payload through [`MIGRATIONS`][osrlib.persistence.MIGRATIONS], one schema
-    version at a time, before it rebuilds anything. The call keeps an event whose type this
-    osrlib doesn't define as a dict, and the next save writes it back out unchanged, so the log
-    loses no entries when an older osrlib loads it.
+    upgrades a copy of the payload through [`MIGRATIONS`][osrlib.persistence.MIGRATIONS], one
+    schema version at a time, before it rebuilds anything. The call doesn't change `document`,
+    and the restored session shares nothing with it.
+
+    A newer osrlib can add event types and message codes within the same schema version. The
+    call keeps an event as a dict when this osrlib doesn't define its type, or defines the type
+    but not its code. The next save writes the dict back out unchanged, so the log loses no
+    entries when an older osrlib loads it.
 
     Args:
         document: A document that [`save_game`][osrlib.persistence.save_game] produced,
@@ -444,9 +451,8 @@ def load_game(document: Mapping[str, object]) -> GameSession:
 
     Raises:
         ContentValidationError: If the document isn't a save, if the envelope or the payload
-            is malformed, if a logged command is of a type this osrlib doesn't define, or if no
-            migration step exists for the document's schema version. A retry with the same
-            document fails the same way.
+            is malformed, if its schema version is below 1, or if a logged command is of a type
+            this osrlib doesn't define. A retry with the same document fails the same way.
         osrlib.errors.SaveVersionError: If the document's schema version is newer than this osrlib
             reads. Tell the player to upgrade osrlib. The file itself is fine.
 
@@ -545,12 +551,16 @@ def load_game(document: Mapping[str, object]) -> GameSession:
         )
         session.command_log = []
         for entry in payload["command_log"]:
+            if not isinstance(entry, Mapping):
+                raise ContentValidationError(f"save command log has an entry that isn't a mapping: {entry!r}")
             command = parse_command(entry)
             if command is None:
                 raise ContentValidationError(f"save command log carries unknown command type {entry!r}")
             session.command_log.append(command)
         session.event_log = []
         for entry in payload.get("event_log", []):
+            if not isinstance(entry, Mapping):
+                raise ContentValidationError(f"save event log has an entry that isn't a mapping: {entry!r}")
             event = parse_any_event(entry)
             session.event_log.append(event if event is not None else dict(entry))
     except (KeyError, TypeError, ValueError) as error:
