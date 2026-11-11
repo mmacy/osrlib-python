@@ -72,6 +72,7 @@ from typing import TYPE_CHECKING, Annotated
 
 from pydantic import ConfigDict, Field, model_validator
 
+import osrlib.core
 from osrlib.core.abilities import MAX_SCORE, MIN_SCORE, AbilityScore
 from osrlib.core.dice import ALLOWED_SIDES
 from osrlib.core.effects import kill
@@ -79,9 +80,12 @@ from osrlib.core.events import Event, HitPointsReportedEvent, LevelDrainedEvent
 from osrlib.core.frozen import FrozenMap, _Model
 from osrlib.core.rng import RngStream
 
+# `osrlib.core.character` and `osrlib.core.spells` import this module, and so do modules that they need. So this
+# module can't import them, even at its end. The annotations read `Character` and `SpellCatalog` through
+# `osrlib.core`, which loads each module the first time something asks for a signature.
 if TYPE_CHECKING:
-    from osrlib.core.character import Character
-    from osrlib.core.spells import SpellCatalog
+    import osrlib.core.character
+    import osrlib.core.spells
 
 __all__ = [
     "PERCENTILE_THIEF_SKILLS",
@@ -836,13 +840,15 @@ def level_title(definition: ClassDefinition, level: int) -> str | None:
     return None
 
 
-def _check_definition(character: Character, definition: ClassDefinition) -> None:
+def _check_definition(character: osrlib.core.character.Character, definition: ClassDefinition) -> None:
     """Raise `ValueError` when `definition` isn't the character's class."""
     if definition.id != character.class_id:
         raise ValueError(f"class definition {definition.id!r} does not match character class {character.class_id!r}")
 
 
-def level_up(character: Character, definition: ClassDefinition, stream: RngStream) -> LevelUpResult:
+def level_up(
+    character: osrlib.core.character.Character, definition: ClassDefinition, stream: RngStream
+) -> LevelUpResult:
     """Raise a character one level and roll the hit points that come with it.
 
     In ordinary play, call [`apply_xp`][osrlib.core.classes.apply_xp] instead. It awards
@@ -980,7 +986,12 @@ class DetectionResult(_Model):
 
 
 def thief_skill_check(
-    character: Character, definition: ClassDefinition, skill: str, *, modifier_pct: int = 0, stream: RngStream
+    character: osrlib.core.character.Character,
+    definition: ClassDefinition,
+    skill: str,
+    *,
+    modifier_pct: int = 0,
+    stream: RngStream,
 ) -> SkillCheckResult:
     """Roll one of a thief's skills and return the result.
 
@@ -1117,7 +1128,7 @@ def _ability_chance(definition: ClassDefinition, tag: str) -> int | None:
     return None
 
 
-def detection_chance(character: Character, definition: ClassDefinition, kind: str) -> int:
+def detection_chance(character: osrlib.core.character.Character, definition: ClassDefinition, kind: str) -> int:
     """Return a character's chance in 6 at one kind of search.
 
     Call it before [`detection_check`][osrlib.core.classes.detection_check], and pass the number
@@ -1241,14 +1252,14 @@ class DrainResult(_Model):
 
 
 def drain_levels(
-    character: Character,
+    character: osrlib.core.character.Character,
     definition: ClassDefinition,
     *,
     levels: int = 1,
     xp_policy: str,
     stream: RngStream,
     spawn_consequence: str | None = None,
-    spell_catalog: SpellCatalog | None = None,
+    spell_catalog: osrlib.core.spells.SpellCatalog | None = None,
 ) -> DrainResult:
     """Take experience levels away from a character, reversing what [`level_up`][osrlib.core.classes.level_up] does.
 
@@ -1444,7 +1455,9 @@ def drain_levels(
     )
 
 
-def apply_xp(character: Character, definition: ClassDefinition, award: int, stream: RngStream) -> XpAwardResult:
+def apply_xp(
+    character: osrlib.core.character.Character, definition: ClassDefinition, award: int, stream: RngStream
+) -> XpAwardResult:
     """Give a character experience points, and raise their level when the new total reaches the next level.
 
     This is how characters advance. B/X divides the experience a party earns evenly among the

@@ -94,6 +94,7 @@ from typing import TYPE_CHECKING, Annotated, Any, Literal
 
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
+import osrlib.core
 from osrlib.core.classes import ArmourPolicyKind, ClassDefinition, WeaponPolicyKind
 from osrlib.core.dice import parse
 from osrlib.core.effects import ModifierSpec
@@ -103,8 +104,11 @@ from osrlib.core.ruleset import EncumbranceMode, Ruleset
 from osrlib.core.treasure import MagicItemType, TreasureEntry
 from osrlib.core.validation import Rejection
 
+# `osrlib.core.character` imports this module, and so do modules that `character` needs. So this module can't
+# import `character`, even at its end. The annotation of `sword_control_check` reads `Character` through
+# `osrlib.core`, which loads the module the first time something asks for the signature.
 if TYPE_CHECKING:
-    from osrlib.core.character import Character
+    import osrlib.core.character
 
 __all__ = [
     "AmmunitionTemplate",
@@ -2355,10 +2359,8 @@ class SwordControlResult(_Model):
     """True when the sword's total is higher and it takes charge. A tie goes to the wielder."""
 
 
-# The annotation stays quoted because `Character` is imported for type checking alone,
-# and this signature is read at runtime, where a bare forward reference can't resolve.
 def sword_control_check(
-    character: "Character",  # noqa: UP037
+    character: osrlib.core.character.Character,
     sword: MagicItemInstance,
     *,
     stream: RngStream,
