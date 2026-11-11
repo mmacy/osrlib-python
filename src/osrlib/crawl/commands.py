@@ -2534,7 +2534,7 @@ class BattleDeclaration(BaseModel):
       `fighting_withdrawal` or `retreat`, it's a formation move instead: the whole party moves
       as one body, and every group's distance changes.
     - `use_item` uses `item_id`. The member drinks a potion, reads a scroll, uses a wand,
-      staff, or rod, or throws a flask of oil or a similar item at `target_group_id`. A
+      staff, or rod, or throws a splash weapon, like a flask of oil, at `target_group_id`. A
       staff of striking is a melee weapon, so only a member in the group's `front_rank` can
       strike with it.
     - `turn_undead` uses nothing else. It reaches every living monster in the groups that
@@ -2594,7 +2594,8 @@ class BattleDeclaration(BaseModel):
     Name a mundane weapon by its catalog id, or a magic weapon by its per-instance id. The weapon
     has to be equipped already, so equip it with [`EquipItem`][osrlib.crawl.commands.EquipItem]
     before the fight. The session refuses a weapon that's only carried with
-    `battle.declaration.weapon_not_wielded`. Whether the attack is melee or missile depends on the
+    `battle.declaration.weapon_not_wielded`, and a wielded magic item with no weapon stats, like a
+    wand, with `battle.declaration.item_unusable`. Whether the attack is melee or missile depends on the
     weapon's qualities and the group's distance.
 
     With `None`, the member attacks with the wielded weapon that suits the attack. The member's
@@ -2771,9 +2772,10 @@ class BattleDeclaration(BaseModel):
     they are, and the two keep their places in the marching order."""
     item_id: str | None = None
     """Which item a `use_item` declaration uses: a magic item's per-instance id for a potion, a
-    scroll, a wand, a staff, or a rod, or a mundane item's catalog id for an item thrown at a
-    group, like a flask of oil. The session refuses a mundane item with no combat use, or a
-    magic item that can't be used in battle, with `battle.declaration.item_unusable`."""
+    scroll, a wand, a staff, or a rod, or a mundane item's catalog id for a splash weapon thrown
+    at a group, like a flask of oil or a vial of holy water. The session refuses any other
+    mundane item, like a torch or a rope, or a magic item that can't be used in battle, with
+    `battle.declaration.item_unusable`. To swing a torch, wield it and declare an `attack`."""
     gaze_defense: Literal["avert_eyes", "mirror"] | None = None
     """How this member guards against a petrifying gaze this round, or `None` for no guard.
 
@@ -2855,8 +2857,8 @@ class BattleDeclaration(BaseModel):
        That's every round of a battle the party didn't open by surprising the monsters, and
        every round after the free round.
     4. The checks of an ordinary attack on its group and weapon:
-       `battle.declaration.unknown_group`, `battle.declaration.no_target`, and
-       `battle.declaration.weapon_not_wielded`.
+       `battle.declaration.unknown_group`, `battle.declaration.no_target`,
+       `battle.declaration.weapon_not_wielded`, and `battle.declaration.item_unusable`.
     5. `battle.declaration.back_stab_not_melee`: the attack the session would resolve is a
        missile attack. That's a missile weapon like a bow, or a weapon that's both melee and
        missile, like a dagger, aimed at a group more than 5' from the member after their
@@ -2926,7 +2928,8 @@ class ResolveBattleRound(Command):
           named id as `replacement`.
         - Attack declarations: `battle.declaration.unknown_group`,
           `battle.declaration.no_target`, `battle.declaration.weapon_not_wielded`,
-          `battle.declaration.cannot_move` for an attack that sets `move="close"` by a member
+          `battle.declaration.item_unusable` for a wielded magic item with no weapon stats,
+          like a wand, `battle.declaration.cannot_move` for an attack that sets `move="close"` by a member
           who can't move, `battle.declaration.not_in_front_rank` for a melee attack by a
           member who won't stand in the group's front rank once the round's moves are made,
           and the checks of [`validate_attack`][osrlib.core.combat.validate_attack]:

@@ -705,7 +705,7 @@ def select_encounter_individuals(entry: MonsterEncounterEntry, count: int, strea
 
     Args:
         entry: The row's monster entry.
-        count: How many individuals appear.
+        count: How many individuals appear, 0 or more.
         stream: The stream to draw from, like
             `streams.get(`[`WANDERING_STREAM`][osrlib.crawl.session.WANDERING_STREAM]`)`. It
             advances once for each individual of an entry with several ids, once for the
@@ -714,6 +714,9 @@ def select_encounter_individuals(entry: MonsterEncounterEntry, count: int, strea
     Returns:
         One template id for each individual, in the order they were chosen. The list has
         exactly `count` ids.
+
+    Raises:
+        ValueError: If `count` is negative. The stream doesn't advance.
 
     Examples:
         ```python
@@ -728,6 +731,8 @@ def select_encounter_individuals(entry: MonsterEncounterEntry, count: int, strea
         assert select_encounter_individuals(acolytes, 3, stream) == ["acolyte", "acolyte", "acolyte"]
         ```
     """
+    if count < 0:
+        raise ValueError(f"count can't be negative, got {count}")
     # A list rather than the model's variadic tuple, so indexing doesn't depend on the type
     # checker narrowing the tuple's length. The entry model guarantees at least one id.
     ids = list(entry.monster_ids)

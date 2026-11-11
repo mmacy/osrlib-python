@@ -212,6 +212,9 @@ def npc_defeat_xp(level: int) -> int:
     Returns:
         The experience points for defeating the NPC.
 
+    Raises:
+        ValueError: If `level` is less than 1.
+
     Examples:
         ```python
         from osrlib.core.npc import npc_defeat_xp
@@ -220,6 +223,8 @@ def npc_defeat_xp(level: int) -> int:
         # 10 35 175
         ```
     """
+    if level < 1:
+        raise ValueError(f"an NPC's level must be positive, got {level}")
     label = xp_band_label(MonsterHitDice(count=level, die=8))
     return load_combat_tables().xp_row(label).base
 
@@ -376,8 +381,8 @@ def generate_npc_party(
     Args:
         kind: `"basic"` for a party of levels 1 to 3, or `"expert"` for a higher-level party,
             whose level dice depend on the class rolled.
-        count: How many adventurers appear. Roll it from the `count_dice` of the encounter table
-            row for the party.
+        count: How many adventurers appear, 1 or more. Roll it from the `count_dice` of the
+            encounter table row for the party.
         npc_stream: The stream for the members, usually
             `streams.get(`[`NPC_PARTY_STREAM`][osrlib.core.npc.NPC_PARTY_STREAM]`)`.
         treasure_stream: The stream for the magic items and the party's treasure, usually
@@ -389,6 +394,10 @@ def generate_npc_party(
 
     Returns:
         The party: its members, their shared alignment, and their treasure.
+
+    Raises:
+        ValueError: If `kind` is neither `"basic"` nor `"expert"`, or `count` is less than 1.
+            Neither stream advances, and the allocator assigns no id.
 
     Examples:
         ```python
@@ -415,6 +424,10 @@ def generate_npc_party(
         # 55
         ```
     """
+    if kind not in ("basic", "expert"):
+        raise ValueError(f"kind must be 'basic' or 'expert', got {kind!r}")
+    if count < 1:
+        raise ValueError(f"count must be positive, got {count}")
     tables = load_encounter_tables()
     classes = load_classes()
     alignment_roll = npc_stream.randbelow(6) + 1
@@ -449,9 +462,8 @@ def generate_npc_party(
         members.append(member)
     for member in members:
         _roll_expert_items(member, classes.get(member.class_id), kind, treasure_stream, allocator)
-    tier = "expert" if kind == "expert" else "basic"
-    bundle_u = generate_treasure("U", tier=tier, stream=treasure_stream, allocator=allocator)
-    bundle_v = generate_treasure("V", tier=tier, stream=treasure_stream, allocator=allocator)
+    bundle_u = generate_treasure("U", tier=kind, stream=treasure_stream, allocator=allocator)
+    bundle_v = generate_treasure("V", tier=kind, stream=treasure_stream, allocator=allocator)
     from osrlib.core.items import Coins
 
     combined = GeneratedTreasure(

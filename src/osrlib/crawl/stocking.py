@@ -191,8 +191,8 @@ def stock_area(
             [`load_monsters`][osrlib.data.load_monsters]`()` when the adventure bundles no monsters.
             When it does, pass the built-in catalog combined with the bundled templates, which is
             what [`GameSession.effective_monsters`][osrlib.crawl.session.GameSession.effective_monsters]
-            returns for a session. Because `stock_area` looks up every id, a stocked encounter refers only to
-            monsters that exist.
+            returns for a session. Before its first draw, `stock_area` looks up every monster id the
+            encounter table lists, so a stocked encounter refers only to monsters that exist.
         stream: The [`RngStream`][osrlib.core.rng.RngStream] that every draw advances. It's the only
             source of randomness in the call.
         table: An encounter table to roll on instead of the compiled one for the level, usually a
@@ -205,9 +205,10 @@ def stock_area(
         What the room contains. See [`StockedArea`][osrlib.crawl.stocking.StockedArea].
 
     Raises:
-        ValueError: If the encounter roll gives a monster id that `catalog` doesn't contain. Pass a
-            catalog that includes the adventure's bundled monsters, or fix the table. Spawning raises
-            the same error during play.
+        ValueError: If `level_number` is less than 1, or the encounter table lists a monster id that
+            `catalog` doesn't contain, whichever row the dice would pick. Pass a catalog that includes
+            the adventure's bundled monsters, or fix the table. Spawning raises the same error during
+            play. The function raises before its first draw, so the stream doesn't advance.
 
     Examples:
         ```python
@@ -225,11 +226,20 @@ def stock_area(
         # [('gecko', 3)]
         ```
     """
+    if level_number < 1:
+        raise ValueError(f"dungeon levels are 1-based, got {level_number}")
+    resolved_table = table if table is not None else load_encounter_tables().for_level(level_number)
+    # Look up every monster the table can give before the first draw, the way session.spawn
+    # would, so a refused call costs no draws and a stocked encounter has only real monsters.
+    for row in resolved_table.rows:
+        if row.entry.kind == "monster":
+            for template_id in row.entry.monster_ids:
+                catalog.get(template_id)
     result = roll_room_contents(stream)
     contents = result.row.contents
     treasure_present = result.treasure_present
     if contents == "monster":
-        return _stock_monster_room(level_number, catalog, stream, table, treasure_present)
+        return _stock_monster_room(resolved_table, stream, treasure_present)
     # An empty or trap room that rolled treasure gets unguarded treasure. A special room
     # never gets treasure, because its chance is zero, and no room except a monster room
     # has an encounter: the referee designs the special and the trap.
@@ -237,16 +247,9 @@ def stock_area(
     return StockedArea(contents=contents, treasure_present=treasure_present, treasure=treasure)
 
 
-def _stock_monster_room(
-    level_number: int,
-    catalog: MonsterCatalog,
-    stream: RngStream,
-    table: EncounterTable | None,
-    treasure_present: bool,
-) -> StockedArea:
+def _stock_monster_room(table: EncounterTable, stream: RngStream, treasure_present: bool) -> StockedArea:
     """Roll a monster room's d20 encounter and build its keyed lines, the way the crawl resolves one."""
-    resolved_table = table if table is not None else load_encounter_tables().for_level(level_number)
-    row = resolved_table.rows[stream.randbelow(20)]
+    row = table.rows[stream.randbelow(20)]
     if row.count_fixed is not None:
         count = row.count_fixed
     else:
@@ -263,10 +266,6 @@ def _stock_monster_room(
             npc_party=StockedNpcParty(kind=entry.party_kind, count=count),
         )
     template_ids = select_encounter_individuals(entry, count, stream)
-    # Resolve every distinct rolled id through the effective catalog exactly as
-    # session.spawn would, so a stocked encounter references only real monsters.
-    for template_id in dict.fromkeys(template_ids):
-        catalog.get(template_id)
     return StockedArea(
         contents="monster",
         treasure_present=treasure_present,

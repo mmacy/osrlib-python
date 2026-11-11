@@ -1685,6 +1685,23 @@ def check_immunity(
     return True
 
 
+def _check_damage_stats(attack: Attack, context: AttackContext) -> None:
+    """Raise `ValueError` when `damage_roll` couldn't roll damage for this attack and context.
+
+    An unarmed attack needs nothing. A monster attack with fixed damage options needs a
+    `fixed_damage_option` that indexes them. Any other attack needs combat stats.
+    """
+    if isinstance(attack, MonsterAttack):
+        options = attack.fixed_damage_options
+        if options and not 0 <= context.fixed_damage_option < len(options):
+            raise ValueError(
+                f"fixed_damage_option {context.fixed_damage_option} isn't an index into the attack's "
+                f"{len(options)} fixed damage options"
+            )
+    elif attack is not None and _facet(attack) is None:
+        raise ValueError(f"{_attack_name(attack)} has no combat stats to roll damage from")
+
+
 def damage_roll(
     attacker: Combatant,
     attack: Attack,
@@ -1733,7 +1750,8 @@ def damage_roll(
         attack: The [`Attack`][osrlib.core.combat.Attack], or `None` for unarmed.
         context: The attack's context. Step 5 reads its `braced`, `charging`,
             `behind_target`, and `target_unaware` fields. For a monster attack with more
-            than one fixed amount, its `fixed_damage_option` picks the amount.
+            than one fixed amount, its `fixed_damage_option` picks the amount, and it must be
+            an index into the attack's `fixed_damage_options`.
         ruleset: The ruleset in play.
         stream: The stream to draw the damage dice from, usually
             [`COMBAT_STREAM`][osrlib.core.combat.COMBAT_STREAM].
@@ -1750,7 +1768,9 @@ def damage_roll(
 
     Raises:
         ValueError: If the attack has no combat stats to roll damage from: a gear item like
-            a lantern, or a magic item with no base weapon, like Armour +1.
+            a lantern, or a magic item with no base weapon, like Armour +1. Also if the
+            context's `fixed_damage_option` isn't an index into a monster attack's
+            `fixed_damage_options`, counting from 0. The function raises before it draws.
 
     Examples:
         ```python
@@ -1775,6 +1795,7 @@ def damage_roll(
         assert rolled.total == 5  # a goblin adds no strength modifier
         ```
     """
+    _check_damage_stats(attack, context)
     rolls: tuple[int, ...] = ()
     girdle = _item_effect_params(attacker, "giant_strength")
     if isinstance(attack, MonsterAttack):
@@ -1798,9 +1819,8 @@ def damage_roll(
         result = roll(str(girdle["flat_damage_dice"]), stream)
         rolls, amount = result.rolls, result.total
     else:
-        facet = _facet(attack)
-        if facet is None:
-            raise ValueError("attack carries no combat facet to roll damage from")
+        # `_check_damage_stats` refused an attack with no facet.
+        facet = cast(WeaponTemplate | CombatFacet, _facet(attack))
         dice = facet.damage if ruleset.variable_weapon_damage else "1d6"
         result = roll(dice, stream)
         rolls, amount = result.rolls, result.total
@@ -1929,7 +1949,8 @@ def deal_damage(
             [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy. The function
             changes it in place. Its saving throws are what its magic items save against when a
             destructive source kills it.
-        amount: The damage rolled, before reductions.
+        amount: The damage rolled, before reductions. Zero or more. To give back hit points, call
+            [`apply_healing`][osrlib.core.combat.apply_healing].
         source: Where the damage comes from. Which reductions apply, whether the damage counts
             against regeneration, and whether a kill destroys equipment all depend on it.
         attacker_id: The attacker's entity id, for the event. `None` when there's no attacker.
@@ -1949,6 +1970,9 @@ def deal_damage(
         events of [`kill`][osrlib.core.effects.kill] when the damage kills the target, and
         last an [`EquipmentDestroyedEvent`][osrlib.core.events.EquipmentDestroyedEvent]
         when a destructive source killed a target that carried something.
+
+    Raises:
+        ValueError: If `amount` is negative. The target doesn't change.
 
     Examples:
         ```python
@@ -1970,6 +1994,8 @@ def deal_damage(
         assert goblin.current_hp == 0  # hit points floor at 0, they never go negative
         ```
     """
+    if amount < 0:
+        raise ValueError(f"damage can't be negative, got {amount}")
     template = getattr(target, "template", None)
     if template is not None:
         for reduction in template.defenses.reductions:
@@ -2236,6 +2262,12 @@ def resolve_attack(
         the hit points the defender has left. When the defender dies, the events of
         [`kill`][osrlib.core.effects.kill] come next.
 
+    Raises:
+        ValueError: If the attack can't deal damage: an attack with no combat stats, like a
+            lantern or a wand, or a context whose `fixed_damage_option` isn't an index into the
+            monster attack's `fixed_damage_options`. The function raises before the attack
+            roll, so the stream doesn't advance and the defender doesn't change.
+
     Examples:
         A 1st-level fighter swings a sword at a goblin. Every draw comes from a
         named, seeded stream, so the same seed always replays the same fight:
@@ -2271,6 +2303,7 @@ def resolve_attack(
         assert "combat.death.died" in [event.code for event in result.events]
         ```
     """
+    _check_damage_stats(attack, context)
     rolled = attack_roll(attacker, defender, attack, context=context, ruleset=ruleset, stream=stream)
     events = list(rolled.events)
     if not rolled.hit:
@@ -2440,7 +2473,8 @@ def resolve_splash_attack(
             both satisfy. The function changes it in place when damage lands.
         attack: The holy water or oil flask, as a
             [`GearTemplate`][osrlib.core.items.GearTemplate] from
-            [`load_equipment`][osrlib.data.load_equipment].
+            [`load_equipment`][osrlib.data.load_equipment]. It must be a splash weapon: its
+            combat stats have the [`SPLASH`][osrlib.core.items.WeaponQuality.SPLASH] quality.
         context: The attack's context. Oil does nothing unless `lit` is true.
         ruleset: The ruleset in play.
         stream: The stream every draw comes from, usually
@@ -2456,6 +2490,11 @@ def resolve_splash_attack(
     Returns:
         The attack's outcome. When the second damage was attached, the last event is its
         [`EffectAttachedEvent`][osrlib.core.events.EffectAttachedEvent].
+
+    Raises:
+        ValueError: If `attack` isn't a splash weapon, like a torch or a sword. Resolve those with
+            `resolve_attack`. The function raises before the attack roll, so the stream, the
+            defender, and the ledger don't change.
 
     Examples:
         ```python
@@ -2491,6 +2530,8 @@ def resolve_splash_attack(
         assert result.events[-1].code == "effects.effect.attached"  # the douse, due next round
         ```
     """
+    if WeaponQuality.SPLASH not in _qualities(attack):
+        raise ValueError(f"{_attack_name(attack)} isn't a splash weapon")
     result = resolve_attack(attacker, defender, attack, context=context, ruleset=ruleset, stream=stream, clock=clock)
     if result.attack_roll.hit and not result.absorbed and (result.damage or 0) > 0:
         source = damage_source_for(attacker, attack, context)
@@ -2600,6 +2641,10 @@ def roll_initiative(participants: Sequence[Participant], *, ruleset: Ruleset, st
     Returns:
         Every roll, re-rolls included, and the acting order of every participant.
 
+    Raises:
+        ValueError: If two participants have the same `key`, under either kind of initiative.
+            The function raises before it draws.
+
     Examples:
         ```python
         from osrlib.core.combat import COMBAT_STREAM, Participant, roll_initiative
@@ -2621,6 +2666,11 @@ def roll_initiative(participants: Sequence[Participant], *, ruleset: Ruleset, st
         assert [(entry.key, entry.total) for entry in result.entries] == [("party", 5), ("goblins", 3)]
         ```
     """
+    seen: set[str] = set()
+    for participant in participants:
+        if participant.key in seen:
+            raise ValueError(f"two participants have the key {participant.key!r}")
+        seen.add(participant.key)
     individual = ruleset.individual_initiative
     if individual:
         keys = [participant.key for participant in participants]
@@ -3360,7 +3410,7 @@ def drain_monster_hd(monster: MonsterInstance, *, levels: int = 1, stream: RngSt
     Args:
         monster: The drained [`MonsterInstance`][osrlib.core.monsters.MonsterInstance].
             The function changes it in place.
-        levels: How many Hit Dice the drain takes.
+        levels: How many Hit Dice the drain takes, 1 or more.
         stream: The stream the d8s for lost hit points come from, usually
             [`ADVANCEMENT_STREAM`][osrlib.core.character.ADVANCEMENT_STREAM]. One draw for
             each Hit Die taken, and none for the Hit Die that kills.
@@ -3373,6 +3423,9 @@ def drain_monster_hd(monster: MonsterInstance, *, levels: int = 1, stream: RngSt
         the drain kills, a `LevelDrainedEvent` with the code `combat.drain.slain`, then the
         events of [`kill`][osrlib.core.effects.kill], which end with a
         `HitPointsReportedEvent` that reports 0.
+
+    Raises:
+        ValueError: If `levels` is less than 1. Nothing changes and the stream doesn't advance.
 
     Examples:
         ```python
@@ -3395,6 +3448,8 @@ def drain_monster_hd(monster: MonsterInstance, *, levels: int = 1, stream: RngSt
     """
     from osrlib.core.events import LevelDrainedEvent
 
+    if levels < 1:
+        raise ValueError(f"levels must be positive, got {levels}")
     monster_id = _entity_id(monster)
     former = monster.hit_dice_count
     former_max_hp = monster.max_hp
@@ -3596,10 +3651,10 @@ def select_targets(
             [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] both satisfy.
         stream: The stream a rolled count draws from, usually
             [`COMBAT_STREAM`][osrlib.core.combat.COMBAT_STREAM]. Only `count_dice` draws.
-        count: The fixed N for `up_to_n`.
+        count: The fixed N for `up_to_n`, 1 or more.
         count_dice: The dice expression, like `1d4`, for a rolled N in `up_to_n`. When you
-            pass both, the function uses `count`.
-        hd_budget: The Hit Dice budget for `hd_budget`, which that mode requires.
+            pass both, the function uses `count`. The `up_to_n` mode requires one of the two.
+        hd_budget: The Hit Dice budget for `hd_budget`, 1 or more, which that mode requires.
 
     Returns:
         The selected targets, and a list with one
@@ -3608,8 +3663,10 @@ def select_targets(
         `hd_budget` is weakest first.
 
     Raises:
-        ValueError: If the mode is `hd_budget` and `hd_budget` is `None`, or if `mode`
-            isn't one of the targeting modes.
+        ValueError: If the mode is `up_to_n` and neither `count` nor `count_dice` is set, or
+            `count` is less than 1. Also if the mode is `hd_budget` and `hd_budget` is `None`
+            or less than 1, or if `mode` isn't one of the targeting modes. The function raises
+            before it draws.
 
     Examples:
         ```python
@@ -3638,13 +3695,22 @@ def select_targets(
     if mode in (TargetingMode.SELF, TargetingMode.SINGLE):
         selected = list(candidates[:1])
     elif mode is TargetingMode.UP_TO_N:
-        n = count if count is not None else roll(str(count_dice), stream).total
+        if count is not None:
+            if count < 1:
+                raise ValueError(f"count must be positive, got {count}")
+            n = count
+        elif count_dice is not None:
+            n = roll(count_dice, stream).total
+        else:
+            raise ValueError("up_to_n mode needs a count or count_dice")
         selected = list(candidates[:n])
     elif mode in (TargetingMode.AREA, TargetingMode.GAZE):
         selected = list(candidates)
     elif mode is TargetingMode.HD_BUDGET:
         if hd_budget is None:
             raise ValueError("hd_budget mode needs a budget")
+        if hd_budget < 1:
+            raise ValueError(f"hd_budget must be positive, got {hd_budget}")
         remaining = hd_budget
         ordered = sorted(enumerate(candidates), key=lambda pair: (effective_hd(pair[1]), pair[0]))
         selected = []
