@@ -23,8 +23,6 @@ from osrlib.errors import ContentValidationError
 from osrlib.persistence import MIGRATIONS, load_game, save_game, session_state
 from osrlib.versioning import check_document
 
-pytestmark = pytest.mark.xfail(reason="chunk: persistence-hygiene")
-
 
 def session() -> GameSession:
     game = GameSession.new(build_party(), build_adventure(wandering_chance=0), seed=7)
