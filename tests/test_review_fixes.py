@@ -24,9 +24,6 @@ from osrlib.crawl.dungeon import Direction, DungeonSpec, Edge, EdgeKind, LevelSp
 from osrlib.crawl.session import GameSession
 from osrlib.data import load_classes, load_monsters
 
-pytestmark = pytest.mark.xfail(reason="chunk: review-fixes")
-
-
 # ---------------------------------------------------------------------- a copy with an update is validated
 
 
