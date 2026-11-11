@@ -508,9 +508,13 @@ def test_the_player_view_never_leaks(seed, commands):
             assert set(group) == {
                 "id",
                 "label",
+                "label_plural",
+                "family_id",
+                "categories",
                 "count",
                 "distance_feet",
                 "visible_conditions",
+                "condition_counts",
                 "fled",
                 "member_distance_feet",
                 "front_rank",
