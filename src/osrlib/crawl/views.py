@@ -161,6 +161,11 @@ class MemberView(BaseModel):
     armour, a shield, or a ring of protection. They don't count a timed effect from a spell or a
     potion, like the *shield* spell. [`PlayerView.effects`][osrlib.crawl.views.PlayerView.effects]
     lists the timed effects on each member.
+
+    A STR that an item sets counts too. A member who wears gauntlets of ogre power has the numbers
+    for STR 18. Six rounds after a member puts on a ring of weakness, the ring's curse takes hold,
+    and the member has the numbers for STR 3. Either way, `melee_modifier` and `open_doors_chance`
+    change, and `scores` still shows the rolled STR.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -234,10 +239,21 @@ class MemberView(BaseModel):
     highest level of the class."""
     scores: dict[str, int] = {}
     """The six ability scores, keyed by [`AbilityScore`][osrlib.core.abilities.AbilityScore]
-    serialized value: `"str"`, `"int"`, `"wis"`, `"dex"`, `"con"`, and `"cha"`."""
+    serialized value: `"str"`, `"int"`, `"wis"`, `"dex"`, `"con"`, and `"cha"`.
+
+    They're the scores the character rolled, as in
+    [`Character.scores`][osrlib.core.character.Character.scores]. A STR that an item sets, like
+    the 18 of gauntlets of ogre power, changes `melee_modifier` and `open_doors_chance` but not
+    `"str"`."""
     melee_modifier: int = 0
     """The Strength modifier to melee attack rolls and melee damage, as
-    [`Character.melee_modifier`][osrlib.core.character.Character.melee_modifier]."""
+    [`Character.melee_modifier`][osrlib.core.character.Character.melee_modifier]. It's the
+    modifier combat adds.
+
+    When an item sets the member's STR, the modifier comes from that score and not from
+    `scores["str"]`. So a fighter with STR 11 who wears gauntlets of ogre power has +3 here. It
+    counts the gauntlets before the party identifies them, because combat does, while `inventory`
+    still shows them as `"a curious device"`."""
     missile_modifier: int = 0
     """The Dexterity modifier to missile attack rolls, as
     [`Character.missile_modifier`][osrlib.core.character.Character.missile_modifier]."""
@@ -256,7 +272,9 @@ class MemberView(BaseModel):
     [`Character.npc_reaction_modifier`][osrlib.core.character.Character.npc_reaction_modifier]."""
     open_doors_chance: int = 0
     """The chance in 6 of forcing a stuck door open, as
-    [`Character.open_doors_chance`][osrlib.core.character.Character.open_doors_chance]."""
+    [`Character.open_doors_chance`][osrlib.core.character.Character.open_doors_chance]. It's the
+    chance the session rolls against for a [`ForceDoor`][osrlib.crawl.commands.ForceDoor], and it
+    comes from the same STR score as `melee_modifier`."""
     thac0: int = 0
     """The d20 roll the member needs to hit armour class 0, as
     [`Character.thac0`][osrlib.core.character.Character.thac0]. Show it when your game uses

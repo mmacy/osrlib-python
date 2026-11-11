@@ -1043,24 +1043,6 @@ def _item_modifier_total(
     return total
 
 
-def _strength_set_value(combatant: Any) -> int | None:
-    """Return the operative `strength_set` value, or `None`.
-
-    Precedence: the first active stat modifier in attachment order wins (so the
-    Ring of Weakness's curse, an attached item effect, dominates worn gauntlets),
-    then the first equipped item's, in equipped order.
-    """
-    for modifier in getattr(combatant, "stat_modifiers", ()):
-        if modifier.kind == "strength_set":
-            return modifier.value
-    inventory = getattr(combatant, "inventory", None)
-    if inventory is not None:
-        for spec in equipped_item_modifiers(inventory):
-            if spec.kind == "strength_set":
-                return spec.value
-    return None
-
-
 def melee_modifier_for(combatant: Combatant) -> int:
     """Return the modifier a combatant adds to melee attack rolls and melee damage.
 
@@ -1069,9 +1051,11 @@ def melee_modifier_for(combatant: Combatant) -> int:
     attack. Call it to show a character's melee bonus or to preview a swing. Don't add it
     to the `situational_modifier` of an attack, or it counts twice.
 
-    A character's modifier comes from its STR score. A magic item that sets STR to a fixed
-    score, like the Gauntlets of Ogre Power (18) or the Ring of Weakness (3), replaces the
-    character's STR score for this. A monster has no STR score, so its modifier is 0.
+    It's the combatant's `melee_modifier`. A character's is
+    [`Character.melee_modifier`][osrlib.core.character.Character.melee_modifier], which comes
+    from STR. For a character who wears gauntlets of ogre power, it's the modifier for STR 18,
+    which is +3. Under the curse of a ring of weakness, it's the modifier for STR 3, which is
+    −3. A monster has no STR score, so its modifier is 0.
 
     Args:
         combatant: The attacking [`Combatant`][osrlib.core.creature.Combatant], which a
@@ -1105,12 +1089,7 @@ def melee_modifier_for(combatant: Combatant) -> int:
         assert melee_modifier_for(goblin) == 0
         ```
     """
-    strength = _strength_set_value(combatant)
-    if strength is not None and getattr(combatant, "definition", None) is not None:
-        from osrlib.data import load_ability_tables
-
-        return load_ability_tables().melee_modifier(strength)
-    return getattr(combatant, "melee_modifier", 0)
+    return combatant.melee_modifier
 
 
 def _qualities(attack: Attack) -> tuple[WeaponQuality, ...]:

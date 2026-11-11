@@ -2359,6 +2359,11 @@ def sword_control_check(
     their hit points. The sword takes charge when its total is higher than the wielder's. A
     tie goes to the wielder.
 
+    When an item sets the wielder's STR, the contest uses the set score, as
+    [`Character.melee_modifier`][osrlib.core.character.Character.melee_modifier] does. So a
+    wielder who wears gauntlets of ogre power adds 18 for strength, and one under the curse of
+    a ring of weakness adds 3.
+
     Args:
         character: The wielder. It must be a [`Character`][osrlib.core.character.Character],
             because the contest uses ability scores, which monsters don't have. It isn't
@@ -2410,8 +2415,7 @@ def sword_control_check(
     wielder_alignment = getattr(getattr(character, "alignment", None), "value", None)
     if wielder_alignment != sentience.alignment:
         sword_will += stream.randbelow(10) + 1
-    scores = character.scores
-    wielder_will = scores[AbilityScore.STR] + scores[AbilityScore.WIS]
+    wielder_will = character._strength + character.scores[AbilityScore.WIS]
     if character.current_hp < character.max_hp:
         if character.current_hp * 2 < character.max_hp:
             wielder_will -= stream.randbelow(4) + 1 + stream.randbelow(4) + 1

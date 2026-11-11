@@ -118,6 +118,24 @@ The reason is the gauntlets' page: "The character's ability to carry weight is i
 
 Basic encumbrance doesn't change. Its movement rates depend on armour, not weight, and its cap stays at 1,600 coins. Gauntlets that a character carries but doesn't wear add nothing. Locked by `test_item_rules.py::TestGauntletsOfOgrePower`.
 
+### An item that sets STR changes the rules that use STR in play
+
+A character who wears gauntlets of ogre power has STR 18. Six rounds after a character puts on a ring of weakness, the ring's curse takes hold, and the character has STR 3. When a character has both, the curse's 3 applies. osrlib uses the set score in the rules that resolve something during play:
+
+- The melee modifier, on attack rolls and on damage, unarmed attacks included.
+- The chance to force a stuck door.
+- The wielder's will in a sentient sword's control check.
+
+The rules for creating and advancing a character use the rolled score in `Character.scores` instead, and a set score never changes it:
+
+- A class's minimum scores.
+- The trade of ability points at creation.
+- The experience modifier for a prime requisite.
+
+The reason is the gauntlets' page: "A character who wears these gauntlets has a Strength score of 18. This grants all the usual bonuses". The SRD's Strength table gives two bonuses, to melee and to open doors, and the gauntlets' page adds that unarmed attacks "Deal 1d2+3 damage". The ring's page says "the wearer's STR is reduced to 3". A sword's control check takes "The sum of STR and WIS scores" when the sword tries to take charge, so it uses the score the wielder has at that moment. The experience modifier comes from the SRD's Prime Requisite table, not from the Strength table, so osrlib doesn't count it among the gauntlets' bonuses. A fighter who puts the gauntlets on doesn't earn experience faster.
+
+The player view's character sheet shows the melee modifier and the chance to force a door that combat and the session use, and its `scores` show the rolled STR. Carrying capacity follows the gauntlets' bullet about extra weight, in [the entry above](#gauntlets-of-ogre-power-raise-every-detailed-encumbrance-band). Locked by `test_operative_strength.py` and `test_magic_items.py::TestEnchantedArms::test_cursed_strength_set_dominates_worn_gauntlets`.
+
 ### Miscellaneous gear is a flat 80 coins under detailed encumbrance
 
 Under detailed encumbrance, a character who carries any miscellaneous gear adds a flat 80 coins of weight, once, however much gear it is.
