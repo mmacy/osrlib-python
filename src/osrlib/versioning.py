@@ -62,6 +62,7 @@ print(check_document(document, "note"))
 import copy
 from collections.abc import Mapping
 from importlib import metadata
+from typing import Final
 
 from osrlib.errors import ContentValidationError, SaveVersionError
 
@@ -72,7 +73,7 @@ __all__ = [
     "stamp_document",
 ]
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION: Final = 4
 """The schema version this library writes, and the highest it can read.
 
 Every document [`stamp_document`][osrlib.versioning.stamp_document] produces includes this
@@ -108,9 +109,6 @@ What each version changes in an older save:
   `"move"`, the action becomes `"hold"`.
 
 No step drops anything osrlib reads back.
-
-Don't assign to it. It describes the library instead of configuring it, and a new value
-changes the version your documents are stamped with without changing what's in them.
 """
 
 

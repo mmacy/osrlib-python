@@ -365,9 +365,23 @@ class PackFinding(BaseModel):
     is data, not an error, so a tool can list the findings beside the pack and let the author decide
     whether each gap matters. To refuse any pack with a gap, check whether the result is empty.
 
+    A finding states its facts in `params`, the way a [`Rejection`][osrlib.core.validation.Rejection]
+    does, so a tool can build its own sentence without parsing `message`. The keys for each code are:
+
+    - `pack.encounter.unknown_monster`: `monster`, the unknown monster id.
+    - `pack.wandering.unknown_monster`: `section`, the section's id, `roll`, the d20 result of the
+      table row, and `monster`, the unknown monster id.
+    - `pack.feature.unknown_item`: `feature`, the feature's id, and `item`, the unknown item id.
+    - `pack.feature.unknown_magic_item`: `feature`, the feature's id, and `item`, the unknown magic
+      item id.
+    - `pack.treasure.unknown_type`: `treasure_type`, the letter that isn't a treasure type.
+    - `pack.monster.unknown_treasure_type`: `monster`, the bundled monster's id, and `treasure_type`,
+      the letter that isn't a treasure type.
+
     Attributes:
         code: What kind of gap this is.
         message: The details, in English.
+        params: The facts behind the finding, keyed by name.
         entry_id: The entry the gap is on, or `None` for a gap in a section's wandering table or a
             bundled monster.
 
@@ -394,10 +408,15 @@ class PackFinding(BaseModel):
       treasure type. The finding's `entry_id` is `None`."""
     message: str
     """The details in English: which entry or section, which feature, and which id. It's written for
-    a person reading a list of findings."""
+    a person reading a list of findings. In your code, read `params` instead."""
+    params: dict[str, int | str | tuple[int | str, ...]] = {}
+    """The facts behind the finding, like the monster id that resolves nowhere.
+
+    Values are integers, strings, or tuples of either, as in a `Rejection`. The class docstring lists
+    the keys for each code. A finding you build yourself has no params unless you pass them."""
     entry_id: str | None = None
     """The id of the entry the gap is on, or `None` when the gap is in a section's wandering table or
-    a bundled monster rather than in an entry. For a wandering-table gap, `message` includes the
+    a bundled monster rather than in an entry. For a wandering-table gap, `params` includes the
     section's id, and for a bundled monster, the monster's id."""
 
     @field_validator("code")
@@ -460,8 +479,8 @@ def validate_content_pack(
         )
         pack = ContentPack(name="The gnawing dark", sections=(PackSection(id="level-1", entries=(entry,)),))
         for finding in validate_content_pack(pack, load_monsters(), load_equipment()):
-            print(finding.code, finding.entry_id, finding.message)
-        # pack.encounter.unknown_monster guard-post entry 'guard-post' references unknown monster 'grue'
+            print(finding.code, finding.entry_id, finding.params["monster"])
+        # pack.encounter.unknown_monster guard-post grue
         ```
     """
     known_monsters = {template.id for template in monsters.monsters}
@@ -474,6 +493,7 @@ def validate_content_pack(
                 PackFinding(
                     code="pack.monster.unknown_treasure_type",
                     message=f"bundled monster {template.id!r} has unknown treasure type {letter!r}",
+                    params={"monster": template.id, "treasure_type": letter},
                 )
             )
 
@@ -487,6 +507,7 @@ def validate_content_pack(
                         PackFinding(
                             code="pack.feature.unknown_item",
                             message=f"entry {entry_id!r} feature {feature.id!r} references unknown item {item_id!r}",
+                            params={"feature": feature.id, "item": item_id},
                             entry_id=entry_id,
                         )
                     )
@@ -500,6 +521,7 @@ def validate_content_pack(
                             message=(
                                 f"entry {entry_id!r} feature {feature.id!r} references unknown magic item {item_id!r}"
                             ),
+                            params={"feature": feature.id, "item": item_id},
                             entry_id=entry_id,
                         )
                     )
@@ -513,6 +535,7 @@ def validate_content_pack(
                             PackFinding(
                                 code="pack.encounter.unknown_monster",
                                 message=f"entry {entry.id!r} references unknown monster {keyed.template_id!r}",
+                                params={"monster": keyed.template_id},
                                 entry_id=entry.id,
                             )
                         )
@@ -522,6 +545,7 @@ def validate_content_pack(
                         PackFinding(
                             code="pack.treasure.unknown_type",
                             message=f"entry {entry.id!r} has unknown treasure type {letter!r}",
+                            params={"treasure_type": letter},
                             entry_id=entry.id,
                         )
                     )
@@ -539,6 +563,7 @@ def validate_content_pack(
                                     f"section {section.id!r} wandering row {row.name!r} "
                                     f"references unknown monster {monster_id!r}"
                                 ),
+                                params={"section": section.id, "roll": row.roll, "monster": monster_id},
                             )
                         )
     return tuple(findings)

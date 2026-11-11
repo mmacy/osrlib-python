@@ -2,7 +2,7 @@
 
 In osrlib, a game is a pure function of its seed and its command sequence. Every random draw comes from a named [`RngStream`][osrlib.core.rng.RngStream] forked from a session's master seed, so **the same seed, the same sequence of commands, and the same engine version always produce the same game.**
 
-You get three things out of that guarantee. A bug report needs only a seed and a short command log to reproduce a failure exactly. Golden tests can assert on exact game state instead of approximate behavior. A saved game loads byte-for-byte, or replays from scratch, and ends in the same state either way. Every snippet below comes from [the complete program](#the-complete-program) at the end, and running that program checks every claim made here.
+You get three things out of that guarantee. A bug report needs only a seed and a short command log to reproduce a failure exactly. Golden tests can assert on exact game state instead of approximate behavior. A saved game loads byte-for-byte, or replays from scratch. Either way it ends in the same state, apart from what listeners returned (see [Replay runs with no listeners](#replay-runs-with-no-listeners)). Every snippet below comes from [the complete program](#the-complete-program) at the end, and running that program checks every claim made here.
 
 ## The determinism contract
 
@@ -36,7 +36,7 @@ The event log is the one piece a save doesn't need. It's a record for a front en
 
 [`replay_game`][osrlib.persistence.replay_game] takes the same seed, the starting party, the adventure, and the accepted-command log, and re-executes every command from scratch through a fresh session, with no saved state at all. It raises [`ReplayVersionError`][osrlib.errors.ReplayVersionError] when the log's recorded engine version doesn't match the running engine. That check runs only when you pass the version a save recorded (through the `recorded_engine_version` argument). It raises [`ContentValidationError`][osrlib.errors.ContentValidationError] if a logged command is rejected on replay. That's a divergence, since the log contains only commands that were accepted the first time.
 
-Both paths are deterministic, so restoring a session from its save and replaying the same seed against the same command log produce the same state. osrlib's test suite asserts that equivalence. As a result, a bug report, an audit trail, or a spectator replay needs only the seed and the commands, not a full save file:
+Both paths are deterministic, so restoring a session from its save and replaying the same seed against the same command log produce the same state, apart from what listeners return (see [Replay runs with no listeners](#replay-runs-with-no-listeners)). osrlib's test suite asserts that equivalence. As a result, a bug report, an audit trail, or a spectator replay needs only the seed and the commands, not a full save file:
 
 ```{.python .no-run}
 # load(save) and replay(seed, commands) are two different paths to the identical state:
@@ -57,7 +57,12 @@ Pass `replay_game` the *pre-session* party document, the output [`party_to_docum
 
 ### Replay runs with no listeners
 
-`replay_game` builds its session with **no listeners registered**. Every reaction a listener issued during play, like the interpreter's trigger consequences or a game listener's awards, was an ordinary command that the session accepted and logged, so re-executing the log rebuilds every one of those effects.
+`replay_game` builds its session with **no listeners registered**. Every command a listener issued during play, like the interpreter's trigger consequences or a game listener's awards, is in the command log, so re-executing the log rebuilds what those commands changed.
+
+Two things a listener produces aren't commands: the state it returns, and the events it returns itself. A replay doesn't rebuild either one. The replayed session's `listener_state` is empty, and its `event_log` lacks those events. That's a limit of replay, not a defect, and the equivalence above holds for everything else. If your game needs that state, you have two choices:
+
+- To continue a game, load its save with [`load_game`][osrlib.persistence.load_game]. A load restores `listener_state` and the event log.
+- If a replay has to rebuild something a listener tracks, have the listener record it with a command, like [`SetFlag`][osrlib.crawl.commands.SetFlag]. The command log then contains it, and the replay sets it again. For more information about flags, see [Listeners and flags](listeners-and-flags.md).
 
 A load and a replay treat listeners differently. After [`load_game`][osrlib.persistence.load_game], re-register your listeners before you execute *new* commands, because a restored session has no listeners registered. `replay_game` gives you no such choice, because it builds the session itself and takes no listeners at all. The choice comes up only when you drive a replay by hand, building your own session and feeding it the log through `execute`, and then the answer depends on what the listener does. A listener that only observes, by accumulating `listener_state` and returning annotation events, can be registered and reproduces its state exactly. Don't register a listener that reacts by **issuing commands**, and in particular don't register the [`Interpreter`][osrlib.crawl.interpreter.Interpreter]. The log already contains every command that listener issued during play, so registering it would issue those commands a second time, and the replay would diverge from the recorded game.
 

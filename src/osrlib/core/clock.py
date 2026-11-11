@@ -57,6 +57,7 @@ assert clock.rounds == 370
 """
 
 from enum import StrEnum
+from typing import Final
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -78,16 +79,15 @@ screen, or pace an animation, without writing 10 into your own code. The B/X rul
 no unit finer than the round, so there's nothing below it to count.
 """
 
-ROUNDS_PER_TURN = 60
+ROUNDS_PER_TURN: Final = 60
 """How many rounds make up one exploration turn, which is ten minutes of story time.
 
 The round is the combat unit and the turn is the exploration unit, and this is the
 conversion between them. Use it to say how long something lasts in the other unit: a
 torch that burns for six turns burns for `6 * ROUNDS_PER_TURN` rounds.
 
-Every duration the SRD prints, in turns or in rounds, assumes this ratio, so don't
-reassign it. To work in a unit of your own, advance the clock by rounds and convert the
-result yourself.
+Every duration the SRD prints, in turns or in rounds, assumes this ratio. To work in a
+unit of your own, advance the clock by rounds and convert the result yourself.
 """
 
 TURNS_PER_DAY = 144

@@ -425,7 +425,11 @@ class DamageAbsorbedEvent(Event):
     """The entity id of the attacker, or `None` when there was no attacker."""
 
     keys: tuple[str, ...] = ()
-    """The keys of the attack that the target's defenses checked, like `silver` or `magic`."""
+    """What the target's defenses absorbed: the attack's keys, like `silver` or `magic`, then its element, like `fire`.
+
+    A torch and a dragon's fire breath both give `("fire",)`. A steel sword against a werewolf gives `()`, because
+    steel has no key.
+    """
 
 
 class SavingThrowRolledEvent(Event):

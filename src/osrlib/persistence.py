@@ -585,7 +585,7 @@ def replay_game(
     game a second time instead: it starts a new session on the same master seed, then
     executes every command in the log, in order. Each random draw comes from a seeded stream,
     so the rolls come out the same, and the session you get back matches a load of the same
-    save, apart from what listeners added.
+    save, apart from the state and the events that listeners returned.
 
     Use it to audit a game, to reproduce a player's bug report from their save, or to check
     that a rules change you made changed nothing it shouldn't have. Use `load_game` for
@@ -605,13 +605,18 @@ def replay_game(
     [`party_to_document`][osrlib.core.character.party_to_document] when you create the party,
     and keep it beside your saves.
 
-    The replayed session gets no listeners. The original session accepted and logged each
+    A replay runs with no listeners registered. The original session accepted and logged each
     command a listener executed, like an [`Interpreter`][osrlib.crawl.interpreter.Interpreter]
     running a trigger's consequences, so the replay executes it again from the log. A listener
     registered on a replay would execute those commands a second time, and the replay would no
-    longer match the original game. Two things a listener produces aren't
-    commands, so a replay doesn't rebuild them: the events it returns itself, and its state.
-    The replayed session's `event_log` lacks those events, and its `listener_state` is empty.
+    longer match the original game.
+
+    That's a limit of replay: the replayed session has no listener state and none of the
+    events a listener returned. Its `listener_state` is empty, and its `event_log` lacks those
+    events. If your game needs that state, load the save with `load_game`, which restores
+    `listener_state` and the event log. If a replay has to rebuild something a listener
+    tracks, have the listener record it with a command, like
+    [`SetFlag`][osrlib.crawl.commands.SetFlag], so the command log contains it.
 
     Args:
         seed: The master seed the original session ran under, from the save's `master_seed`.

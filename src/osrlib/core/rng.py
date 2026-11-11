@@ -378,8 +378,7 @@ class RngStream:
             ```
         """
         stream = cls.__new__(cls)
-        stream._state = snapshot.state
-        stream._inc = snapshot.inc
+        stream._wind_to(snapshot)
         return stream
 
     def export_state(self) -> RngStreamState:
@@ -408,6 +407,10 @@ class RngStream:
             ```
         """
         return RngStreamState(state=self._state, inc=self._inc)
+
+    def _wind_to(self, snapshot: RngStreamState) -> None:
+        self._state = snapshot.state
+        self._inc = snapshot.inc
 
     def _step(self) -> None:
         self._state = (self._state * _PCG_MULTIPLIER + self._inc) & _MASK128
@@ -615,11 +618,13 @@ class RngStreams:
     def restore_states(self, states: dict[str, RngStreamState]) -> None:
         """Put saved stream positions back, so each stream in a loaded game continues from where it stopped.
 
-        Call it on a container made with the master seed the game was saved under. Each
-        stream named in `states` is replaced with a new stream at the saved position. A
-        stream object you got from [`get`][osrlib.core.rng.RngStreams.get] before this call
-        stays at its old position, so call `get` again afterwards. A stream not named in
-        `states` is left as it is.
+        Call it on a container made with the master seed the game was saved under. The
+        container winds its streams back in place, so a stream you got from
+        [`get`][osrlib.core.rng.RngStreams.get] before this call is still the container's
+        stream, and you can keep drawing from it. Each stream named in `states` goes to its
+        saved position. Any other stream in the container goes back to the start of its
+        sequence, which is where a new container would start it. That includes a stream you
+        first asked for after the export.
 
         Args:
             states: Positions from
@@ -630,9 +635,14 @@ class RngStreams:
             from osrlib.core.rng import RngStreams
 
             streams = RngStreams(master_seed=42)
-            streams.get("combat").randbelow(20)
+            combat = streams.get("combat")
+            combat.randbelow(20)
             saved = streams.export_states()
-            expected = streams.get("combat").randbelow(20)
+            expected = combat.randbelow(20)
+
+            # The stream you already have goes back to the saved position.
+            streams.restore_states(saved)
+            assert combat.randbelow(20) == expected
 
             # A fresh container on the same seed picks up the next draw, not the first.
             loaded = RngStreams(master_seed=42)
@@ -640,5 +650,12 @@ class RngStreams:
             assert loaded.get("combat").randbelow(20) == expected
             ```
         """
+        for key, stream in self._streams.items():
+            if key not in states:
+                stream._wind_to(RngStream.from_seed_material(self._master_seed, key).export_state())
         for key, snapshot in states.items():
-            self._streams[key] = RngStream.restore(snapshot)
+            stream = self._streams.get(key)
+            if stream is None:
+                self._streams[key] = RngStream.restore(snapshot)
+            else:
+                stream._wind_to(snapshot)
