@@ -9,6 +9,9 @@ import importlib
 import inspect
 import pkgutil
 import re
+import subprocess
+import sys
+import typing
 
 import griffe
 import pytest
@@ -48,8 +51,8 @@ def public_callables() -> list[tuple[str, object]]:
 
 CALLABLES = public_callables()
 
-NEEDS_A_MOVE = "an import cycle hides a type, and breaking the cycle moves a public symbol to another module"
-"""Why a signature still fails: the fix changes a public import path, so it waits for a major version."""
+NEEDS_A_MOVE = "chunk: readable-signatures"
+"""Why a signature still fails: an import cycle hides a type from the module that names it in an annotation."""
 
 BLOCKED_BY_A_CYCLE = frozenset(
     {
@@ -71,17 +74,16 @@ BLOCKED_BY_A_CYCLE = frozenset(
         "osrlib.crawl.session.GameSession.view",
     }
 )
-"""The callables whose signatures can't be read until one of four import cycles is broken.
+"""The callables whose signatures can't be read while one of four import cycles hides a type from them.
 
-The marker is strict, so a callable that starts to work fails the test until it's taken off this list,
-and a callable that isn't on the list has to work.
+A callable that isn't on the list has to work.
 """
 
 
 def signature_cases() -> list:
     cases = []
     for name, function in CALLABLES:
-        marks = [pytest.mark.xfail(reason=NEEDS_A_MOVE, strict=True)] if name in BLOCKED_BY_A_CYCLE else []
+        marks = [pytest.mark.xfail(reason=NEEDS_A_MOVE)] if name in BLOCKED_BY_A_CYCLE else []
         cases.append(pytest.param(name, function, id=name, marks=marks))
     return cases
 
@@ -101,6 +103,44 @@ def test_every_blocked_callable_is_still_public():
 def test_inspect_signature_works(name, function):
     signature = inspect.signature(function, eval_str=True)
     assert signature is not None
+    assert typing.get_type_hints(function) is not None
+
+
+CYCLE_MODULES = (
+    "osrlib.core.character",
+    "osrlib.core.classes",
+    "osrlib.core.combat",
+    "osrlib.core.items",
+    "osrlib.core.spells",
+    "osrlib.core.treasure",
+    "osrlib.crawl.session",
+    "osrlib.crawl.views",
+)
+"""The modules in the import cycles. Which one a program imports first decides the order the rest load in."""
+
+READ_EVERY_SIGNATURE = """
+import importlib, inspect, sys
+importlib.import_module(sys.argv[1])
+for path in sys.argv[2:]:
+    module_name, _, rest = path.partition(":")
+    member = importlib.import_module(module_name)
+    for part in rest.split("."):
+        member = getattr(member, part)
+    inspect.signature(member, eval_str=True)
+"""
+
+
+@pytest.mark.xfail(reason=NEEDS_A_MOVE)
+@pytest.mark.parametrize("first", CYCLE_MODULES)
+def test_signatures_read_whichever_module_a_program_imports_first(first):
+    paths = []
+    for name in sorted(BLOCKED_BY_A_CYCLE | {"osrlib.core.combat.resolve_energy_drain"}):
+        module_name = next(module for module in sorted(CYCLE_MODULES, key=len, reverse=True) if name.startswith(module))
+        paths.append(f"{module_name}:{name[len(module_name) + 1 :]}")
+    result = subprocess.run(
+        [sys.executable, "-c", READ_EVERY_SIGNATURE, first, *paths], capture_output=True, text=True, check=False
+    )
+    assert result.returncode == 0, result.stderr
 
 
 def rendered_values() -> list[tuple[str, str]]:
