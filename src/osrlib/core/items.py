@@ -2445,11 +2445,16 @@ def treasure_weight_coins(inventory: Inventory) -> int:
 
     A stack of those magic items weighs its template's `weight_coins` times its quantity, so
     a spent stack, at quantity 0, weighs nothing. Rings and miscellaneous magic items weigh
-    nothing, because the OSE SRD gives them no weight. A bag of holding weighs 600 coins,
-    the weight its template gives for a full bag, while it contains anything. Enchanted
-    weapons and armour count as equipment, like the mundane kind, rather than as treasure.
-    That way basic encumbrance measures what the rules mean by it: how much loot is being
-    hauled out.
+    nothing, because the OSE SRD gives them no weight. Enchanted weapons and armour count as
+    equipment, like the mundane kind, rather than as treasure. That way basic encumbrance
+    measures what the rules mean by it: how much loot is being hauled out.
+
+    A character who has a bag of holding keeps their treasure in it. The bag takes up to
+    10,000 coins of weight, and a bag with anything in it weighs 600 coins, the weight the
+    SRD gives for a full bag. Treasure past the bag's capacity weighs what it weighs. With
+    two bags, the character fills one before starting the next, so 15,000 coins weigh
+    1,200. The [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/)
+    records this ruling.
 
     Call [`tracked_weight_coins`][osrlib.core.items.tracked_weight_coins] instead when you
     want whatever the ruleset in play tracks.
@@ -2472,7 +2477,23 @@ def treasure_weight_coins(inventory: Inventory) -> int:
         print(treasure_weight_coins(inventory))
         # 290
         ```
+
+        With a bag of holding, 5,000 gold pieces weigh what the full bag weighs:
+
+        ```python
+        from osrlib.core.items import CoinPurse, Inventory, MagicItemInstance, treasure_weight_coins
+
+        bag = MagicItemInstance(instance_id="magic-item-0001", template_id="bag_of_holding")
+        inventory = Inventory(purse=CoinPurse(gp=5000), items=[bag])
+        print(treasure_weight_coins(inventory))
+        # 600
+        ```
     """
+    return _packed_weight(_loose_treasure_coins(inventory), _bags_of_holding(inventory))
+
+
+def _loose_treasure_coins(inventory: Inventory) -> int:
+    """Return what the character's treasure weighs outside any bag of holding, in coins."""
     total = inventory.purse.total_coins
     total += sum(valuable.weight_coins for valuable in inventory.valuables)
     for instance in inventory.all_instances():
@@ -2486,9 +2507,71 @@ def treasure_weight_coins(inventory: Inventory) -> int:
                 MagicItemCategory.WAND,
             ):
                 total += template.weight_coins * instance.quantity
-            elif "loaded_weight_coins" in template.params and instance.state.get("holding"):
-                total += _int_param(template.params, "loaded_weight_coins")
     return total
+
+
+def _bags_of_holding(inventory: Inventory) -> list[tuple[int, int]]:
+    """Return the capacity and the loaded weight, in coins, of each bag of holding the character has.
+
+    A bag is a magic item whose template params have both `capacity_coins` and `loaded_weight_coins`.
+    The bags come in inventory order, which is the order the character fills them in.
+    """
+    bags: list[tuple[int, int]] = []
+    for instance in inventory.all_instances():
+        if isinstance(instance, MagicItemInstance):
+            params = magic_item_template(instance).params
+            if "capacity_coins" in params and "loaded_weight_coins" in params:
+                bag = (_int_param(params, "capacity_coins"), _int_param(params, "loaded_weight_coins"))
+                bags.extend([bag] * instance.quantity)
+    return bags
+
+
+def _packed_weight(loose: int, bags: list[tuple[int, int]]) -> int:
+    """Return what `loose` coins of treasure weigh once the character puts as much as fits in the bags."""
+    weight = 0
+    for capacity, loaded in bags:
+        if loose <= 0:
+            break
+        loose -= min(loose, capacity)
+        weight += loaded
+    return weight + loose
+
+
+def _treasure_room_coins(inventory: Inventory, mode: EncumbranceMode, wanted: int) -> int:
+    """Return how many more coins, up to `wanted`, the character can take and stay within the maximum load.
+
+    It isn't the maximum load minus the weight carried, because of a bag of holding. The first coin in an
+    empty bag adds the bag's loaded weight, and the coins after it add nothing until the bag is full. Adding
+    coins never makes the load lighter, so the function searches for the largest number that fits.
+
+    Args:
+        inventory: The inventory that takes the coins.
+        mode: The encumbrance mode in play. Under `none`, nothing is weighed and the answer is `wanted`.
+        wanted: The most coins on offer.
+
+    Returns:
+        The number of coins, from 0 to `wanted`.
+    """
+    if mode is EncumbranceMode.NONE:
+        return wanted
+    limit = _max_load_coins(inventory, mode)
+    equipment = equipment_weight_coins(inventory) if mode is EncumbranceMode.DETAILED else 0
+    loose = _loose_treasure_coins(inventory)
+    bags = _bags_of_holding(inventory)
+
+    def fits(coins: int) -> bool:
+        return equipment + _packed_weight(loose + coins, bags) <= limit
+
+    if not fits(0):
+        return 0
+    low, high = 0, wanted
+    while low < high:
+        middle = (low + high + 1) // 2
+        if fits(middle):
+            low = middle
+        else:
+            high = middle - 1
+    return low
 
 
 def equipment_weight_coins(inventory: Inventory) -> int:

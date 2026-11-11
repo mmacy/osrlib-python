@@ -599,7 +599,7 @@ def test_odometer_never_drifts_from_the_closed_form():
     rod=st.booleans(),
     staff=st.booleans(),
     ring=st.booleans(),
-    bag=st.sampled_from(["none", "empty", "holding"]),
+    bag=st.booleans(),
     sword=st.booleans(),
     armour=st.booleans(),
 )
@@ -607,7 +607,7 @@ def test_weights_match_the_closed_form_with_valuables_and_magic_items_aboard(
     gp, gems, jewellery, potions, scrolls, wands, rod, staff, ring, bag, sword, armour
 ):
     """The plan's closed form: treasure weight is purse + valuables + the five
-    priced magic categories (plus the bag's loaded figure while it holds), and
+    priced magic categories (all of it in the bag, at its loaded figure, when there is one), and
     enchanted arms weigh as equipment — base weight, armour halved."""
     from osrlib.core.items import (
         CoinPurse,
@@ -646,16 +646,17 @@ def test_weights_match_the_closed_form_with_valuables_and_magic_items_aboard(
         add("staff_of_healing")
     if ring:
         add("ring_of_protection")
-    if bag != "none":
-        add("bag_of_holding", state={"holding": True} if bag == "holding" else {})
+    if bag:
+        add("bag_of_holding")
     if sword:
         add("sword_plus_1", base_item_id="sword")
     if armour:
         add("armour_plus_1", base_item_id="chainmail")
 
     # The TreasureWeight rows, hard-coded: potion 10, scroll 1, wand 10, rod 20,
-    # staff 40; rings weigh zero; the bag's printed loaded weight is 600.
-    expected_treasure = (
+    # staff 40; rings weigh zero; the bag's printed loaded weight is 600, and the
+    # largest loose total here is far under its 10,000-coin capacity.
+    loose = (
         gp
         + gems * 1
         + jewellery * 10
@@ -664,8 +665,8 @@ def test_weights_match_the_closed_form_with_valuables_and_magic_items_aboard(
         + wands * 10
         + (20 if rod else 0)
         + (40 if staff else 0)
-        + (600 if bag == "holding" else 0)
     )
+    expected_treasure = (600 if loose else 0) if bag else loose
     assert treasure_weight_coins(inventory) == expected_treasure
     # Sword 60 as printed; chainmail 400 halved to 200 per RAW.
     assert equipment_weight_coins(inventory) == (60 if sword else 0) + (200 if armour else 0)

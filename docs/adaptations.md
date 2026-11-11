@@ -1553,11 +1553,29 @@ For maintainers: there's no separate record of recovered treasure. Schema versio
 
 - Those kinds are potion, scroll, rod, staff, and wand, and the table's rows are [`TreasureWeight`][osrlib.core.items.TreasureWeight].
 - Rings and miscellaneous items weigh nothing unless their page gives a figure.
-- The Bag of Holding's printed loaded weight of 600 coins counts while the bag contains anything.
+- A bag of holding takes the treasure, up to its capacity, as [the next entry](#treasure-goes-in-a-bag-of-holding-up-to-its-capacity) describes.
 - Enchanted weapons and armour count as equipment, alongside their mundane bases, not as treasure, so basic encumbrance's treasure tracking stays accurate. They weigh what the base weighs, except enchanted armour, which weighs half, as the SRD's armour page says. The base is the instance's `base_item_id`, or the template's when the instance has none.
 - A spent stack, which is a magic item at quantity 0, weighs nothing, because the character no longer carries it.
 
 A property test checks the weight against a direct formula. Locked by `test_items.py` and the closed-form property in `test_crawl_properties.py`.
+
+### Treasure goes in a bag of holding, up to its capacity
+
+The bag of holding's page says "Up to 10,000 coins of weight can be placed in the bag" and "When full: The bag weighs 600 coins." It doesn't say how treasure gets into the bag, and osrlib has no command for it. Without a ruling, the bag would do nothing. osrlib's ruling needs no command and no setting on the item:
+
+- A character who has a bag of holding has their treasure in it, up to the bag's capacity of 10,000 coins. The treasure is everything `treasure_weight_coins` counts: coins, gems, jewellery, and potions, scrolls, rods, staves, and wands.
+- A bag with anything in it weighs 600 coins, the weight the page gives for a full bag. An empty bag weighs nothing.
+- Treasure the bag can't take weighs what it weighs, so 10,500 coins and one bag weigh 1,100 coins.
+- Two bags take twice as much. A character with two bags fills one before starting the next, so 15,000 coins weigh 1,200 coins, and 25,000 coins weigh 6,200.
+
+When the engine spreads a recovered haul across the party, it counts each carrier's bags, so a carrier with a bag takes coins up to what the bag and the maximum load allow.
+
+The ruling leaves two things out:
+
+- Objects by size. The page also says "Objects of up to 10’×5’×3’ can fit inside the bag." osrlib puts only treasure in the bag, so weapons, armour, and gear weigh what they weigh.
+- The bag of devouring. Its page is in the catalog as text for the referee. osrlib doesn't model it, so it takes no treasure and destroys nothing.
+
+Locked by `test_loose_ends.py` and the closed-form property in `test_crawl_properties.py`.
 
 ### The magic item catalog: automated mechanics and manual prose
 

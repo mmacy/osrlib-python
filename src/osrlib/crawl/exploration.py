@@ -135,6 +135,7 @@ from osrlib.core.items import (
     MagicItemCategory,
     MagicItemInstance,
     _max_load_coins,
+    _treasure_room_coins,
     equip,
     magic_item_template,
     tracked_weight_coins,
@@ -2622,21 +2623,6 @@ def _within_max_load(member, ruleset) -> bool:
     return tracked_weight_coins(member.inventory, mode) <= _max_load_coins(member.inventory, mode)
 
 
-def _coin_headroom(member, ruleset, wanted: int) -> int:
-    """Return how many more coins of weight the member can take.
-
-    Args:
-        member: The carrier.
-        ruleset: The ruleset whose encumbrance mode governs.
-        wanted: The most that could possibly be handed over. Under the `none` mode,
-            which caps nothing, the function returns `wanted`.
-    """
-    if ruleset.encumbrance is EncumbranceMode.NONE:
-        return wanted
-    mode = ruleset.encumbrance
-    return max(0, _max_load_coins(member.inventory, mode) - tracked_weight_coins(member.inventory, mode))
-
-
 def _uncarry(collection: list, instance) -> None:
     """Remove exactly the object that was handed over, by identity rather than by equality.
 
@@ -2802,7 +2788,7 @@ def _spread_coins(carriers, ruleset, coins: Coins) -> tuple[list[dict[str, int]]
         total = getattr(coins, denomination)
         if not total:
             continue
-        headrooms = [_coin_headroom(member, ruleset, total) for member in carriers]
+        headrooms = [_treasure_room_coins(member.inventory, ruleset.encumbrance, total) for member in carriers]
         shares = _even_shares(headrooms, total)
         for index, share in enumerate(shares):
             if not share:
