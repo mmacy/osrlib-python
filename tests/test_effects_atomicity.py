@@ -21,8 +21,6 @@ from osrlib.core.ruleset import Ruleset
 from osrlib.core.spells import MAGIC_STREAM, MemorizedSpell, cast_spell, caster_profile, memorize_spells, validate_cast
 from osrlib.data import load_classes, load_monsters, load_spells
 
-pytestmark = pytest.mark.xfail(reason="chunk: effects-atomicity")
-
 
 def hero(class_id: str = "fighter", **choices):
     stream = RngStreams(master_seed=7).get(CHARACTER_CREATION_STREAM)
