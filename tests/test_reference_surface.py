@@ -51,11 +51,10 @@ def public_callables() -> list[tuple[str, object]]:
 
 CALLABLES = public_callables()
 
-NEEDS_A_MOVE = "chunk: readable-signatures"
-"""Why a signature still fails: an import cycle hides a type from the module that names it in an annotation."""
-
-BLOCKED_BY_A_CYCLE = frozenset(
+ACROSS_A_CYCLE = frozenset(
     {
+        # osrlib.core.combat and osrlib.core.spells
+        "osrlib.core.combat.resolve_energy_drain",
         # osrlib.core.classes and osrlib.core.character
         "osrlib.core.classes.apply_xp",
         "osrlib.core.classes.detection_chance",
@@ -74,18 +73,11 @@ BLOCKED_BY_A_CYCLE = frozenset(
         "osrlib.crawl.session.GameSession.view",
     }
 )
-"""The callables whose signatures can't be read while one of four import cycles hides a type from them.
+"""The callables whose annotations name a type from a module that imports their own.
 
-A callable that isn't on the list has to work.
+Their module can't import the type at its top, so the annotation reads it another way. That way has to work
+whichever module a program imports first.
 """
-
-
-def signature_cases() -> list:
-    cases = []
-    for name, function in CALLABLES:
-        marks = [pytest.mark.xfail(reason=NEEDS_A_MOVE)] if name in BLOCKED_BY_A_CYCLE else []
-        cases.append(pytest.param(name, function, id=name, marks=marks))
-    return cases
 
 
 def test_the_harness_finds_the_public_surface():
@@ -95,11 +87,11 @@ def test_the_harness_finds_the_public_surface():
     assert len(names) > 200
 
 
-def test_every_blocked_callable_is_still_public():
-    assert BLOCKED_BY_A_CYCLE <= {name for name, _ in CALLABLES}
+def test_every_callable_across_a_cycle_is_public():
+    assert ACROSS_A_CYCLE <= {name for name, _ in CALLABLES}
 
 
-@pytest.mark.parametrize(("name", "function"), signature_cases())
+@pytest.mark.parametrize(("name", "function"), CALLABLES, ids=[name for name, _ in CALLABLES])
 def test_inspect_signature_works(name, function):
     signature = inspect.signature(function, eval_str=True)
     assert signature is not None
@@ -130,11 +122,10 @@ for path in sys.argv[2:]:
 """
 
 
-@pytest.mark.xfail(reason=NEEDS_A_MOVE)
 @pytest.mark.parametrize("first", CYCLE_MODULES)
 def test_signatures_read_whichever_module_a_program_imports_first(first):
     paths = []
-    for name in sorted(BLOCKED_BY_A_CYCLE | {"osrlib.core.combat.resolve_energy_drain"}):
+    for name in sorted(ACROSS_A_CYCLE):
         module_name = next(module for module in sorted(CYCLE_MODULES, key=len, reverse=True) if name.startswith(module))
         paths.append(f"{module_name}:{name[len(module_name) + 1 :]}")
     result = subprocess.run(

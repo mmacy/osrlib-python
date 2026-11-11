@@ -58,7 +58,7 @@ def test_all_is_complete_and_reexport_free(path: Path):
     definitions = _public_definitions(tree)
     declared = _declared_all(tree)
     if declared is None:
-        # Docstring-only modules (the package inits) define nothing and declare nothing.
+        # A module with no `__all__` (the package inits) defines nothing public.
         assert definitions == set(), f"{_module_name(path)} has public definitions but no __all__"
         return
     missing = definitions - set(declared)
