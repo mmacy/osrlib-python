@@ -130,6 +130,7 @@ from osrlib.core.ruleset import Ruleset
 from osrlib.core.treasure import TREASURE_STREAM, instantiate_magic_item
 from osrlib.core.validation import Rejection
 from osrlib.crawl.adventure import Adventure, _effective_equipment, _effective_monsters, validate_adventure
+from osrlib.crawl.battle import BattleState
 from osrlib.crawl.commands import (
     ActivateQuest,
     AddJournalEntry,
@@ -159,6 +160,7 @@ from osrlib.crawl.commands import (
     SpawnNpcParty,
 )
 from osrlib.crawl.dungeon import DungeonState, edge_ref
+from osrlib.crawl.encounter import EncounterState
 from osrlib.crawl.events import (
     AdventureCompletedEvent,
     CharacterLeveledUpEvent,
@@ -193,8 +195,6 @@ from osrlib.errors import ContentValidationError
 from osrlib.versioning import SCHEMA_VERSION, engine_version
 
 if TYPE_CHECKING:
-    from osrlib.crawl.battle import BattleState
-    from osrlib.crawl.encounter import EncounterState
     from osrlib.crawl.views import PlayerView, RefereeView
 
 __all__ = [

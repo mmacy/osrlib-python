@@ -69,6 +69,7 @@ from typing import TYPE_CHECKING, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from osrlib.core.dice import parse, roll
+from osrlib.core.monsters import TreasureRef
 from osrlib.core.rng import RngStream, StreamName
 
 if TYPE_CHECKING:
@@ -80,7 +81,6 @@ if TYPE_CHECKING:
         SwordTableBand,
         ValuableInstance,
     )
-    from osrlib.core.monsters import TreasureRef
 
 __all__ = [
     "TREASURE_STREAM",
