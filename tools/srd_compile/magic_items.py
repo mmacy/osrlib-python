@@ -34,8 +34,9 @@ prose at play time.
 Base-item pins for enchanted arms (registered): `Axe` overlays `battle_axe` and
 `Bow` overlays `long_bow` — the SRD prints the bare nouns and the mundane list has
 two of each; the heavier form is the pinned reading. Every magic staff overlays the
-mundane `staff`, and the compiler reads a staff's bonus, its charged strike, and the
-classes the *Staves in Melee* rule lets wield it from the page text. Structured mechanics are
+mundane `staff`, and the compiler reads a staff's bonus, its charged strike, whether it
+has other powers, and the classes the *Staves in Melee* rule lets wield it from the page
+text. A device page's "No charges" line overrides the category's charges. Structured mechanics are
 hand-curated in `_MAGIC_ITEM_MECHANICS` (the `_SPELL_MECHANICS` precedent) for
 exactly the Phase 5 wired census; everything else ships `manual`-tagged prose.
 `Helm_of_Telepathy.md` is truncated mid-sentence in the SRD dump — its description
@@ -84,6 +85,8 @@ _STAFF_CASTERS = {
 _STAFF_BASE = "staff"
 _STAFF_BONUS = re.compile(r"Treated as a staff with a \+(\d+) magic bonus to attacks? and damage")
 _STAFF_STRIKE = re.compile(r"Expending one charge[,:] inflicts (\d*d\d+) damage on a successful hit", re.IGNORECASE)
+_STAFF_POWERS = re.compile(r"\bmay evoke\b.*\bmagical effects\b")
+_NO_CHARGES = re.compile(r"^No charges: Does not use charges\b")
 _LINKED_PAGE = re.compile(r"\]\(/srd/index\.php/([^ )]+)")
 
 # Ring table cell names → (id, source page or None for a section of Ring_of_Protection).
@@ -347,7 +350,6 @@ _MAGIC_ITEM_MECHANICS: dict[str, dict[str, object]] = {
         },
     },
     "staff_of_healing": {
-        "charges_dice": None,
         "effect": {"kind": "healing", "heal_dice": "1d6+1", "params": {"once_per_target_per_day": True}},
     },
     "sword_plus_1_wishes": {
@@ -717,11 +719,13 @@ def _staves_in_melee(page: str) -> dict[str, list[str]]:
 
 
 def _staff_fields(manual: list[str], melee_class_ids: list[str]) -> dict[str, object]:
-    """Return a magic staff's weapon fields: its base, its bonus, its charged strike, and who may wield it.
+    """Return a magic staff's weapon fields: its base, bonus, charged strike, other powers, and wielders.
 
     The bonus comes from the page's "Treated as a staff with a +1 magic bonus" line, and the strike from its
     "Expending one charge, inflicts 2d6 damage on a successful hit" line. The Staff of Striking page puts a
-    colon where the other two pages put a comma.
+    colon where the other two pages put a comma. A page that says the staff "may evoke" a number of "magical
+    effects", as the pages of the staves of power and wizardry do, gives the staff powers beyond its strike,
+    which the session leaves to the referee. The `manual_powers` param records that.
 
     Args:
         manual: The staff page's cleaned prose lines.
@@ -740,8 +744,13 @@ def _staff_fields(manual: list[str], melee_class_ids: list[str]) -> dict[str, ob
         fields["attack_bonus"] = fields["damage_bonus"] = bonuses[0]
     if strikes:
         fields["effect"] = {"kind": "striking", "damage_dice": strikes[0]}
+    params: dict[str, object] = {}
     if melee_class_ids:
-        fields["params"] = {"melee_class_ids": tuple(melee_class_ids)}
+        params["melee_class_ids"] = tuple(melee_class_ids)
+    if any(_STAFF_POWERS.search(line) for line in manual):
+        params["manual_powers"] = True
+    if params:
+        fields["params"] = params
     return fields
 
 
@@ -778,7 +787,9 @@ def _compile_devices(srd_dir: Path, weights: dict[str, int]) -> tuple[list[dict]
                 category,
                 manual=[*manual, *category_notes[category], *charge_notes],
                 weight_coins=weights[category],
-                charges_dice=_DEFAULT_CHARGES[category],
+                # "Unless noted", the category page's charges apply. The staves of healing and snakes note
+                # "No charges: Does not use charges".
+                charges_dice=None if any(_NO_CHARGES.search(line) for line in manual) else _DEFAULT_CHARGES[category],
                 usable_by=usable_by,
                 **fields,
             )

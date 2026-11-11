@@ -542,6 +542,23 @@ def _spend_device_charge(instance: MagicItemInstance, template) -> None:
         instance.charges_remaining -= 1
 
 
+def _left_to_referee(template, *, strikes_a_group: bool) -> bool:
+    """Return whether a use of a device is one the session leaves to the referee, with the device's `manual` text.
+
+    That's every use of a device with no effect the session resolves. It's also a use of a staff that strikes and
+    has other powers, like the staff of power, when the use doesn't strike a group: a `use_item` declaration that
+    has no `target_group_id`, or any use outside a battle. The template's `manual_powers` param marks such a staff.
+
+    Args:
+        template: The device's template.
+        strikes_a_group: Whether the use has a group to strike, a `use_item` declaration's `target_group_id`.
+    """
+    effect = template.effect
+    if effect is None:
+        return True
+    return effect.kind == "striking" and not strikes_a_group and bool(template.params.get("manual_powers"))
+
+
 def _use_device(session, member, instance: MagicItemInstance, template, command) -> tuple[list[Rejection], list]:
     from osrlib.core.combat import apply_healing
 
@@ -551,6 +568,7 @@ def _use_device(session, member, instance: MagicItemInstance, template, command)
     if template.charges_dice is not None and (instance.charges_remaining or 0) <= 0:
         return [Rejection(code="items.device.inert", params={"item": instance.instance_id})], []
     effect_spec = template.effect
+    referee = _left_to_referee(template, strikes_a_group=False)
     group = None
     if effect_spec is not None and effect_spec.kind in ("damage_area", "condition_area"):
         if session.encounter is not None:
@@ -559,7 +577,7 @@ def _use_device(session, member, instance: MagicItemInstance, template, command)
             group = next((entry for entry in session.encounter.groups if entry.id == command.target_id), None)
             if group is None or group.fled:
                 return [Rejection(code="items.use.unknown_target", params={"target": command.target_id or ""})], []
-    if effect_spec is not None and effect_spec.kind == "striking":
+    if effect_spec is not None and effect_spec.kind == "striking" and not referee:
         return [Rejection(code="items.use.battle_only", params={"item": instance.instance_id})], []
     target: Any = None
     if effect_spec is not None and effect_spec.kind == "healing":
@@ -575,7 +593,7 @@ def _use_device(session, member, instance: MagicItemInstance, template, command)
             code="items.device.activated",
             character_id=member.id,
             instance_id=instance.instance_id,
-            manual=template.manual if effect_spec is None else (),
+            manual=template.manual if referee else (),
         )
     )
     if effect_spec is not None and effect_spec.kind == "healing":

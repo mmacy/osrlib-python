@@ -4824,6 +4824,7 @@
       "name": "Staff of Power",
       "overrides_applied": [],
       "params": {
+        "manual_powers": true,
         "melee_class_ids": [
           "magic_user"
         ]
@@ -4845,7 +4846,7 @@
       "attack_bonus": 1,
       "base_item_id": "staff",
       "category": "staff",
-      "charges_dice": "3d10",
+      "charges_dice": null,
       "cursed": false,
       "curses": [],
       "damage_bonus": 1,
@@ -5022,6 +5023,7 @@
       "name": "Staff of Wizardry",
       "overrides_applied": [],
       "params": {
+        "manual_powers": true,
         "melee_class_ids": [
           "magic_user"
         ]

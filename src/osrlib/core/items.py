@@ -982,7 +982,7 @@ class MagicItemTemplate(_Model):
     """
     charges_dice: str | None = None
     """How many charges are in a new copy, as a dice expression, for a rod, staff, or wand. `None` for an item with no
-    charges.
+    charges, like the staves of healing and snakes, whose pages say "Does not use charges".
     """
     quantity_dice: str | None = None
     """How many arrive at once, as a dice expression, for enchanted ammunition."""
@@ -997,6 +997,8 @@ class MagicItemTemplate(_Model):
     params: Annotated[Mapping[str, int | str | bool | tuple[int | str, ...]], FrozenMap] = FrozenMap()
     """Per-item scalars, keyed by name, for behaviors that read them. On a staff, `melee_class_ids` lists the classes
     that may wield it whatever their weapon policy says: the magic-user, on the staves of power, striking, and wizardry.
+    `manual_powers` is true on a staff that strikes and has other powers, which the session leaves to the referee in
+    `manual`: the staves of power and wizardry. A use of such a staff that strikes no group is one of those powers.
     """
     manual: tuple[str, ...] = ()
     """The item's page text, for the parts you adjudicate yourself. Show these lines to the referee."""
