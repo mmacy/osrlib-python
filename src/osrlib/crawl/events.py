@@ -881,9 +881,13 @@ class EncounterStartedEvent(Event):
     visibility: Visibility = Visibility.PLAYER
     """Player visibility: this is the moment the players are told what they have met."""
     monster_name: str
-    """The label of the first group in the encounter, as the party would name it. An NPC
-    adventuring party appears under a label like `"Basic Adventurers"`, and its roster stays
-    hidden from the players."""
+    """The [`label`][osrlib.crawl.encounter.EncounterGroup.label] of the first group in the encounter:
+    what the party would call one of its members, like `"goblin"`. A party of NPC adventurers appears
+    as `"adventurer"`, and its roster stays hidden from the players."""
+    monster_name_plural: str = ""
+    """The first group's [`label_plural`][osrlib.crawl.encounter.EncounterGroup.label_plural], like
+    `"goblins"`, for a line like "3 goblins". An event loaded from a save that has no plural gets
+    `monster_name` with the regular English ending."""
     count: int
     """How many creatures there are across every group in the encounter."""
     distance_feet: int
@@ -920,7 +924,12 @@ class EncounterGroupJoinedEvent(Event):
     [`EncounterGroupView.id`][osrlib.crawl.views.EncounterGroupView.id] in the player view. To
     attack the group, put this id in a battle declaration's `target_group_id`."""
     label: str
-    """The group's label: the `template_id` from the `SpawnMonsters` command, like `"goblin"`."""
+    """The group's [`label`][osrlib.crawl.encounter.EncounterGroup.label]: what the party would call one
+    of its members, like `"goblin"`."""
+    label_plural: str = ""
+    """The group's [`label_plural`][osrlib.crawl.encounter.EncounterGroup.label_plural], like
+    `"goblins"`, for a line like "2 goblins". An event loaded from a save that has no plural gets `label`
+    with the regular English ending."""
     count: int
     """How many creatures are in the group."""
     distance_feet: int

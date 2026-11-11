@@ -206,12 +206,24 @@ class EncounterGroup(BaseModel):
     """The group's id, like `group-0001`. The session assigns it, and it's unique within the
     session. A battle declaration's `target_group_id` refers to this id."""
     label: str
-    """The group's display name. A keyed group gets the monster template's name, like
-    `"Goblin"`, and a wandering group gets the encounter table row's name. A group from
-    [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] gets the template id, like
-    `"goblin"`, and an NPC party is `"Basic Adventurers"` or `"Expert Adventurers"`. A group you
-    open with [`start_encounter`][osrlib.crawl.encounter.start_encounter] gets the label you
-    pass."""
+    """What to call one member of the group in a sentence, like `"goblin"` or `"giant centipede"`.
+
+    A group the session makes from monster templates gets their
+    [`display_name`][osrlib.core.monsters.MonsterTemplate.display_name]: a keyed group, a group from
+    [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters], and a wandering group. A wandering group
+    whose members come from more than one family gets the encounter table row's name instead. A party of
+    NPC adventurers is `"adventurer"`. A group you open with
+    [`start_encounter`][osrlib.crawl.encounter.start_encounter] gets the label you pass."""
+    label_plural: str = ""
+    """What to call two or more members of the group, like `"goblins"` or `"wolves"`.
+
+    It comes from where `label` comes from: the templates'
+    [`display_name_plural`][osrlib.core.monsters.MonsterTemplate.display_name_plural], or
+    `"adventurers"`. A label you pass to
+    [`start_encounter`][osrlib.crawl.encounter.start_encounter] gets the templates' plural when it's
+    their display name. Any other label, an encounter table row's name included, gets the regular English
+    ending that `display_name_plural` describes, and so does a group loaded from a save that has no
+    plural."""
     monster_ids: list[str] = Field(min_length=1)
     """The members' ids in the order they were spawned. Pass an id to
     [`GameSession.combatant`][osrlib.crawl.session.GameSession.combatant] to get the monster. Dead

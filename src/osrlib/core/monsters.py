@@ -787,7 +787,43 @@ class MonsterTemplate(BaseModel):
     """
 
     name: str
-    """The creature's name as the SRD prints it, for display."""
+    """The creature's name as the SRD prints it, like `"Centipede, Giant"` or `"Veteran (2)"`.
+
+    Many of the SRD's names are written for a rulebook's index. To name the creature to the players, use
+    `display_name`.
+    """
+
+    display_name: str = ""
+    """What to call one of these creatures in a sentence, like `"giant centipede"`.
+
+    It's lowercase unless a word is a proper noun, so capitalize the first letter where it starts a line. It
+    leaves out what the players can't see. `"Veteran (2)"`, a 2nd-level veteran, is `"veteran"`, and
+    `"Hellhound (5)"`, a hellhound with 5 Hit Dice, is `"hellhound"`. The session gives a group of these
+    creatures this name as its [`label`][osrlib.crawl.encounter.EncounterGroup.label].
+
+    A template you write that leaves it out gets its `name`.
+    """
+
+    display_name_plural: str = ""
+    """What to call two or more of these creatures, like `"giant centipedes"` or `"wolves"`.
+
+    A template you write that leaves it out gets `display_name` with the regular English ending: `s`, or `es`
+    after `s`, `x`, `z`, `ch`, or `sh`, or `ies` in place of a `y` that follows a consonant. Set it yourself
+    when the plural is irregular.
+    """
+
+    family_id: str = ""
+    """The id this template shares with the other forms of the same creature, like `"hellhound"`.
+
+    The SRD gives some creatures several stat blocks, and each one is a template. A veteran of each level is a
+    template, `veteran_1` to `veteran_3`, and the family of all three is `"veteran"`. The players see a
+    veteran and can't see its level, so the player view reports a group's family and not its template, in
+    [`EncounterGroupView.family_id`][osrlib.crawl.views.EncounterGroupView.family_id]. Pass a family id to
+    [`MonsterCatalog.family`][osrlib.core.monsters.MonsterCatalog.family] to get every form.
+
+    A creature with one form is a family of one, and its family id is its `id`. A template you write that
+    leaves this out gets its `id` too.
+    """
 
     page: str
     """The file name of the SRD page this template was compiled from, like `"Hydra.md"`.
@@ -989,6 +1025,40 @@ class MonsterCatalog(BaseModel):
             if template.id == monster_id:
                 return template
         raise ValueError(f"unknown monster id {monster_id!r}")
+
+    def family(self, family_id: str) -> tuple[MonsterTemplate, ...]:
+        """Return every form of one creature: the templates whose `family_id` is `family_id`.
+
+        Use it when you know what kind of creature a group is and not which form, as a client does that
+        reads [`EncounterGroupView.family_id`][osrlib.crawl.views.EncounterGroupView.family_id]. For
+        example, read the forms' Hit Dice to tell the players how dangerous a hellhound can be.
+
+        Args:
+            family_id: A template's [`family_id`][osrlib.core.monsters.MonsterTemplate.family_id], like
+                `"hellhound"` or `"goblin"`.
+
+        Returns:
+            The templates of that family, in the order of `monsters`. A creature with one form gives a
+            tuple of one template.
+
+        Raises:
+            ValueError: If no template has that family id. The message includes the id you passed.
+
+        Examples:
+            ```python
+            from osrlib.data import load_monsters
+
+            catalog = load_monsters()
+            hellhounds = catalog.family("hellhound")
+            print([template.id for template in hellhounds])
+            # ['hellhound_3', 'hellhound_4', 'hellhound_5', 'hellhound_6', 'hellhound_7']
+            print(hellhounds[0].display_name, hellhounds[0].display_name_plural)
+            # hellhound hellhounds
+            print([template.id for template in catalog.family("goblin")])
+            # ['goblin']
+            ```
+        """
+        raise NotImplementedError
 
 
 class MonsterInstance(BaseModel):

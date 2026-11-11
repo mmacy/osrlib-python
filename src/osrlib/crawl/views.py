@@ -405,9 +405,40 @@ class EncounterGroupView(BaseModel):
     declaration, so a remote client needs it to fight at all. It's a session id that counts up,
     not a secret, the same as a [`MemberView.id`][osrlib.crawl.views.MemberView.id]."""
     label: str
-    """What the group is called, for the line you show. It's the same as
-    [`EncounterGroup.label`][osrlib.crawl.encounter.EncounterGroup], which lists where each kind
-    of group gets its label."""
+    """What to call one member of the group in a sentence, like `"goblin"`. It's the same as
+    [`EncounterGroup.label`][osrlib.crawl.encounter.EncounterGroup.label], which lists where each kind
+    of group gets its label. It's display text, so don't match on its words. To tell what kind of
+    creature the group is, read `family_id` and `categories`."""
+    label_plural: str = ""
+    """What to call two or more members of the group, like `"goblins"` or `"wolves"`. It's the same as
+    [`EncounterGroup.label_plural`][osrlib.crawl.encounter.EncounterGroup.label_plural]."""
+    family_id: str | None = None
+    """What kind of monster the group is, as the
+    [`family_id`][osrlib.core.monsters.MonsterTemplate.family_id] its members' templates share, like
+    `"fire_beetle"` or `"hellhound"`. `None` for a party of NPC adventurers, and for a group whose
+    members come from more than one family.
+
+    The value is the same however the group came to be: from a keyed area, a wandering monster check, or
+    a [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters]. So match on it, not on the words in
+    `label`. Pass it to [`MonsterCatalog.family`][osrlib.core.monsters.MonsterCatalog.family] to read
+    what the players' rulebook says about the creature.
+
+    It reveals no more than the label does. A family is the creature the players see, and it's shared
+    by every form the players can't tell apart, so a group of hellhounds is `"hellhound"` whatever their
+    Hit Dice.
+
+    A group your code opens with [`start_encounter`][osrlib.crawl.encounter.start_encounter] under a
+    label of its own still reports its templates' family here. To show the players a creature under
+    another name, give it a template of its own in
+    [`Adventure.monsters`][osrlib.crawl.adventure.Adventure.monsters]. That template is its own
+    family."""
+    categories: tuple[str, ...] = ()
+    """The categories every member of the group has, like `("undead",)`, as in
+    [`MonsterTemplate.categories`][osrlib.core.monsters.MonsterTemplate.categories]. A party of NPC
+    adventurers is `("person",)`, because *hold person* and *charm person* affect any character.
+
+    Use it to offer what works only against one kind of creature. Turning and holy water affect a group
+    with `"undead"`, and *hold person* affects a group with `"person"`."""
     count: int
     """How many of the group are still alive."""
     distance_feet: int
@@ -415,7 +446,14 @@ class EncounterGroupView(BaseModel):
     visible_conditions: tuple[str, ...]
     """The conditions visible on the living members of the group, as
     [`Condition`][osrlib.core.effects.Condition] serialized values, sorted and deduplicated so
-    the same condition on six goblins appears once."""
+    the same condition on six goblins appears once. `condition_counts` says how many members have
+    each one."""
+    condition_counts: dict[str, int] = {}
+    """How many living members of the group have each visible condition, keyed by the condition's
+    serialized value. Its keys are the values in `visible_conditions`, in the same order.
+
+    When *sleep* takes 4 of 11 orcs, `count` is 11 and this is `{"asleep": 4}`, so you can show "4 of 11
+    orcs asleep" and tell whether a second *sleep* is worth casting."""
     fled: bool = False
     """True once the group has run away and left the battle, as in
     [`EncounterGroup.fled`][osrlib.crawl.encounter.EncounterGroup.fled].
