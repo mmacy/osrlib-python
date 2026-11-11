@@ -18,8 +18,6 @@ import pytest
 from osrlib.core.monsters import MonsterCatalog, MonsterTemplate
 from osrlib.data import load_monsters
 
-pytestmark = pytest.mark.xfail(reason="chunk: monster-names")
-
 ODD_DISPLAY_NAMES = {
     "air_elemental_greater": "air elemental",
     "air_elemental_intermediate": "air elemental",

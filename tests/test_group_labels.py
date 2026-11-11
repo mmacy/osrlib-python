@@ -38,8 +38,6 @@ from osrlib.crawl.session import GameSession
 from osrlib.messages import format_message
 from osrlib.persistence import load_game, save_game
 
-pytestmark = pytest.mark.xfail(reason="chunk: monster-names")
-
 FAR = 120
 """A distance no monster closes in one round, so a group is still there to read after it appears."""
 
@@ -323,7 +321,8 @@ def test_the_plural_survives_a_save():
 @pytest.mark.parametrize(
     ("template_id", "family_id", "categories"),
     [
-        ("goblin", "goblin", ()),
+        ("goblin", "goblin", ("person",)),
+        ("fire_beetle", "fire_beetle", ()),
         ("hellhound_5", "hellhound", ()),
         ("vampire_9", "vampire", ("undead",)),
         ("skeleton", "skeleton", ("undead",)),
