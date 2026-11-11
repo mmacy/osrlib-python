@@ -23,7 +23,6 @@ from osrlib.core.validation import Rejection
 from osrlib.crawl._party_location import _cell_ref, _location
 from osrlib.crawl._party_members import _member_able
 from osrlib.crawl.commands import CastSpell, LearnSpell, PrepareSpells
-from osrlib.data import load_spells
 
 
 def _handle_prepare_spells(session, command: PrepareSpells) -> tuple[list[Rejection], list[Event]]:
@@ -33,7 +32,7 @@ def _handle_prepare_spells(session, command: PrepareSpells) -> tuple[list[Reject
     if session.sleep_count == 0 or session.last_prepared_sleep.get(member.id, 0) >= session.sleep_count:
         return [Rejection(code="magic.memorize.needs_sleep", params={"character": member.id})], []
     definition = member.definition
-    result = memorize_spells(member, definition, load_spells(), command.selections)
+    result = memorize_spells(member, definition, session.effective_spells, command.selections)
     if result.rejections:
         return list(result.rejections), []
     session.last_prepared_sleep[member.id] = session.sleep_count
@@ -47,8 +46,14 @@ def _handle_learn_spell(session, command: LearnSpell) -> tuple[list[Rejection], 
     member, rejections = _member_able(session, command.character_id)
     if rejections:
         return rejections, []
-    definition = member.definition
-    result = add_spell_to_book(member, definition, load_spells(), command.spell_id)
+    catalog = session.effective_spells
+    known = {spell.id for spell in catalog.spells}
+    # The room left at a spell level depends on the level of each spell already in the book, so
+    # the session can't check a book with a spell its catalog doesn't have.
+    unknown = next((spell_id for spell_id in member.spell_book if spell_id not in known), None)
+    if unknown is not None:
+        return [Rejection(code="magic.book.unknown_spell", params={"spell": unknown})], []
+    result = add_spell_to_book(member, member.definition, catalog, command.spell_id)
     return list(result.rejections), list(result.events)
 
 
@@ -57,7 +62,7 @@ def _handle_cast_spell(session, command: CastSpell) -> tuple[list[Rejection], li
     if rejections:
         return rejections, []
     try:
-        spell = load_spells().get(command.spell_id)
+        spell = session.effective_spells.get(command.spell_id)
     except ValueError:
         return [Rejection(code="magic.cast.unknown_spell", params={"spell": command.spell_id})], []
     if _location(session).kind == "dungeon" and session.ledger.active_on(_cell_ref(session), "silence"):

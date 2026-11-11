@@ -23,7 +23,6 @@ from osrlib.crawl._spells import _cast_context, _stationary_silence
 from osrlib.crawl.commands import SessionMode, UseItem
 from osrlib.crawl.events import CurseRevealedEvent, ItemIdentifiedEvent, ItemUsedEvent, LightEvent
 from osrlib.crawl.party import _stands
-from osrlib.data import load_spells
 
 
 def _int_param(params: Mapping[str, Any], key: str, default: int = 0) -> int:
@@ -369,7 +368,7 @@ def _use_scroll(session, member, instance: MagicItemInstance, template, command)
         spell_id = command.spell_id or remaining[0]
         if spell_id not in remaining:
             return [Rejection(code="items.scroll.no_such_spell", params={"spell": spell_id})], []
-        spell = load_spells().get(spell_id)
+        spell = session.effective_spells.get(spell_id)
         definition = member.definition
         profile = caster_profile(definition)
         thief_params = _thief_scroll_use(definition)

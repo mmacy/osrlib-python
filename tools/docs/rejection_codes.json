@@ -109,7 +109,7 @@
   "magic.book.capacity_mismatch": "The number of starting spells chosen at a given spell level doesn't exactly equal the number of level-1 spell slots the class receives at that level.",
   "magic.book.duplicate": "The chosen spell already appears in the caster's spell book, whether it was picked twice among the starting choices or is already present from an earlier addition.",
   "magic.book.not_arcane": "The character's class is not an arcane spellcaster, so it cannot be given starting spells or have spells added to a spell book.",
-  "magic.book.unknown_spell": "The spell id supplied for a starting-spell choice or spell-book addition doesn't match any spell in the loaded spell catalog.",
+  "magic.book.unknown_spell": "The spell id supplied for a starting-spell choice or spell-book addition doesn't match any spell in the loaded spell catalog. In a session, a spell-book addition also gets this code while the caster's book already has a spell the session's catalog doesn't, and the rejection's spell is that one.",
   "magic.book.wrong_list": "The spell being chosen as a starting spell or added to a spell book belongs to a different spell list than the one the caster's class uses.",
   "magic.cast.anti_magic_shell": "An anti-magic shell effect is currently active on the caster, which blocks the caster from casting any spell while inside it.",
   "magic.cast.caster_incapacitated": "The caster is dead, petrified, paralysed, asleep, silenced, feebleminded, or weakened, any of which leaves it unable to cast spells.",

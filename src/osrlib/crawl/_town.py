@@ -24,7 +24,7 @@ from osrlib.crawl._party_members import _member_able
 from osrlib.crawl._spells import _cast_context, _lift_curses
 from osrlib.crawl.commands import PurchaseEquipment, PurchaseHealing, SellTreasure
 from osrlib.crawl.events import HealingPurchasedEvent, ItemAcquiredEvent, TreasureSoldEvent
-from osrlib.data import load_classes, load_equipment, load_spells
+from osrlib.data import load_classes, load_equipment
 
 
 def _handle_purchase_equipment(session, command: PurchaseEquipment) -> tuple[list[Rejection], list[Event]]:
@@ -138,7 +138,7 @@ def _handle_purchase_healing(session, command: PurchaseHealing) -> tuple[list[Re
     except ValueError:
         return [Rejection(code="session.command.unknown_member", params={"character": command.character_id})], []
     spell_id, standard_gp = HEALING_SERVICES[command.service]
-    spell = load_spells().get(spell_id)
+    spell = session.effective_spells.get(spell_id)
     lowest = minimum_caster_level(spell)
     highest = load_classes().get("cleric").max_level
     caster_level = lowest if command.caster_level is None else command.caster_level

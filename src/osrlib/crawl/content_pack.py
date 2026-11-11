@@ -27,7 +27,8 @@ that its encounters and wandering tables use and that the built-in catalog doesn
 bundled templates are the pack's *closure*: everything the pack's rooms need that osrlib doesn't
 already include. Item templates are outside the closure. An item you bundle in one adventure would
 be an unresolved reference in any other adventure, so a pack's features can use items from the
-built-in equipment catalog only.
+built-in equipment catalog only. Spell templates are outside it too, because nothing in a room
+refers to a spell by id.
 
 An authoring tool finds a section, an entry, or a bundled monster by its id. When you construct a
 pack, osrlib checks that section ids are unique, that entry ids are unique across the whole pack and

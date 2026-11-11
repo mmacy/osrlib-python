@@ -1605,7 +1605,8 @@ class PrepareSpells(Command):
         - `magic.memorize.needs_sleep` - the party hasn't slept since this caster's last
           preparation.
         - `magic.memorize.not_a_caster` - the member's class casts no spells.
-        - `magic.memorize.unknown_spell` - a selection matches no known spell.
+        - `magic.memorize.unknown_spell` - a selection matches no spell in the session's
+          catalog.
         - `magic.memorize.wrong_list` - a selection isn't on the caster's spell list.
         - `magic.memorize.divine_reverses_at_cast` - a selection for a divine caster is
           reversed. A divine caster chooses the reversed form when casting instead.
@@ -1656,7 +1657,8 @@ class LearnSpell(Command):
         - `session.command.unknown_member` - `character_id` matches no party member.
         - `session.command.member_incapacitated` - the member can't act.
         - `magic.book.not_arcane` - the member's class isn't an arcane caster.
-        - `magic.book.unknown_spell` - `spell_id` matches no spell.
+        - `magic.book.unknown_spell` - `spell_id`, or a spell already in the caster's
+          book, matches no spell in the session's catalog.
         - `magic.book.wrong_list` - the spell isn't on the caster's spell list.
         - `magic.book.duplicate` - the book already contains the spell.
         - `magic.book.capacity_exceeded` - the book is full at the spell's level.
@@ -1674,10 +1676,12 @@ class LearnSpell(Command):
     [`MemberView.id`][osrlib.crawl.views.MemberView.id]. The session refuses a member whose class
     isn't an arcane caster with `magic.book.not_arcane`."""
     spell_id: str
-    """The spell to write into the book, from [`load_spells`][osrlib.data.load_spells] (see the
-    [spell id index](https://mmacy.github.io/osrlib-python/reference/content-ids/spells/)). It
-    has to be on the spell list of the caster's class. At each spell level, no more spells fit in
-    the book than the caster has slots at that level."""
+    """The spell to write into the book, by its id in
+    [`GameSession.effective_spells`][osrlib.crawl.session.GameSession.effective_spells]: a
+    built-in spell (see the
+    [spell id index](https://mmacy.github.io/osrlib-python/reference/content-ids/spells/)) or one
+    the adventure bundles. It has to be on the spell list of the caster's class. At each spell
+    level, no more spells fit in the book than the caster has slots at that level."""
 
 
 class CastSpell(Command):
@@ -1699,7 +1703,7 @@ class CastSpell(Command):
           session has ended.
         - `session.command.unknown_member` - `character_id` matches no party member.
         - `session.command.member_incapacitated` - the member can't act.
-        - `magic.cast.unknown_spell` - `spell_id` matches no spell.
+        - `magic.cast.unknown_spell` - `spell_id` matches no spell in the session's catalog.
         - `magic.cast.silenced_area` - a *silence* effect covers the party's cell.
         - `magic.cast.unknown_target` - a target id matches no entity in the session.
         - `magic.cast.not_memorized` - the caster has no memorized copy. A member who
@@ -1773,10 +1777,12 @@ class CastSpell(Command):
     """The caster, by [`MemberView.id`][osrlib.crawl.views.MemberView.id]. The caster needs a
     memorized copy of the spell, and casting uses it up."""
     spell_id: str
-    """The spell to cast, from [`load_spells`][osrlib.data.load_spells] (see the
-    [spell id index](https://mmacy.github.io/osrlib-python/reference/content-ids/spells/)). The
-    session refuses a caster with no memorized copy with `magic.cast.not_memorized`, and refuses a
-    member who can't cast spells at all the same way."""
+    """The spell to cast, by its id in
+    [`GameSession.effective_spells`][osrlib.crawl.session.GameSession.effective_spells]: a
+    built-in spell (see the
+    [spell id index](https://mmacy.github.io/osrlib-python/reference/content-ids/spells/)) or one
+    the adventure bundles. The session refuses a caster with no memorized copy with
+    `magic.cast.not_memorized`, and refuses a member who can't cast spells at all the same way."""
     mode: str
     """Which of the spell's usages to cast, by that usage's
     [`SpellMode.key`][osrlib.core.spells.SpellMode] on the form you're casting. A spell with
@@ -1894,8 +1900,7 @@ class UseItem(Command):
     healing device on a creature that's dead or turned to stone with
     `items.use.target_cannot_be_healed`."""
     spell_id: str | None = None
-    """Which spell to read off a scroll that has more than one, from
-    [`load_spells`][osrlib.data.load_spells] (see the
+    """Which spell to read off a scroll that has more than one, by its id (see the
     [spell id index](https://mmacy.github.io/osrlib-python/reference/content-ids/spells/)).
     `None` reads the first spell left on the scroll. Leave it `None` for anything that isn't a
     scroll."""
@@ -2689,11 +2694,12 @@ class BattleDeclaration(_Model):
     `attack_name`: the weapon's name, `"improvised"` for a gear item like a torch, or
     `"unarmed"`."""
     spell_id: str | None = None
-    """Which spell a `cast` declaration casts, from [`load_spells`][osrlib.data.load_spells]
-    (see the
-    [spell id index](https://mmacy.github.io/osrlib-python/reference/content-ids/spells/)).
-    For a `use_item` that reads a scroll, it's which spell to read off the scroll, and `None`
-    reads the first one left. The session refuses a `cast` with no spell named
+    """Which spell a `cast` declaration casts, by its id in
+    [`GameSession.effective_spells`][osrlib.crawl.session.GameSession.effective_spells]: a
+    built-in spell (see the
+    [spell id index](https://mmacy.github.io/osrlib-python/reference/content-ids/spells/)) or one
+    the adventure bundles. For a `use_item` that reads a scroll, it's which spell to read off the
+    scroll, and `None` reads the first one left. The session refuses a `cast` with no spell named
     with `battle.declaration.missing_spell`."""
     spell_mode: str | None = None
     """Which of the spell's usages to cast, by that usage's
