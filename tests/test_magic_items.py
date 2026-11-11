@@ -509,7 +509,7 @@ class TestScrollsInPlay:
             second = natural_healing(member, stream(seed, "effects"), ledger=session.ledger)
             assert second and member.current_hp > 4
             # Remove curse releases it and healing returns to normal.
-            from osrlib.crawl.exploration import _lift_curses
+            from osrlib.crawl._spells import _lift_curses
 
             _lift_curses(session, member)
             assert not session.ledger.active_on(member.id, "cursed_slow_healing")

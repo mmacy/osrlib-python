@@ -4399,11 +4399,11 @@ def _party_magic(session, by_member, pending_casters, disrupted, acted, state) -
             effects_stream=session.streams.get(EFFECTS_STREAM),
         )
         events.extend(result.events)
-        from osrlib.crawl import exploration
+        from osrlib.crawl import _spells
 
         # The stationary *silence* form anchors in battle too: the battle's
         # location is the party's position (see the adaptations register).
-        events.extend(exploration._stationary_silence(session, spell, result, targets))
+        events.extend(_spells._stationary_silence(session, spell, result, targets))
         events.extend(_track_concentration(session, member.id, spell, result, state))
         acted.add(member.id)
     # Any declaration other than a cast or a hold releases the actor's concentration.
