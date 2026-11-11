@@ -61,12 +61,12 @@ assert restored == log
 """
 
 import re
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from enum import StrEnum
 from functools import cache
 from typing import Annotated, ClassVar, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 __all__ = [
     "AttackRolledEvent",
@@ -1469,7 +1469,7 @@ class instead of trying each in turn, and the JSON Schema it generates lists whi
 programs that read the schema.
 
 To read back a stored log, call [`parse_event`][osrlib.core.events.parse_event] instead. It validates the same
-way, but returns `None` for an event type your version of osrlib doesn't define, rather than raising. Annotate
+way, but returns `None` for an event type or a code your version of osrlib doesn't define, rather than raising. Annotate
 with [`Event`][osrlib.core.events.Event] instead where any event will do.
 
 ```python
@@ -1484,22 +1484,51 @@ assert isinstance(adapter.validate_python(payload), DamageDealtEvent)
 """
 
 
-@cache
-def _kernel_event_adapter() -> TypeAdapter:
-    return TypeAdapter(KernelEvent)
+def _classes_by_type(classes: Iterable[type[Event]]) -> dict[str, type[Event]]:
+    """Index event classes by their `event_type`."""
+    return {cls.model_fields["event_type"].default: cls for cls in classes}
 
 
 @cache
-def _known_event_types() -> frozenset[str]:
-    return frozenset(variant.model_fields["event_type"].default for variant in KERNEL_EVENT_CLASSES)
+def _kernel_classes_by_type() -> dict[str, type[Event]]:
+    return _classes_by_type(KERNEL_EVENT_CLASSES)
+
+
+def _parse_record(data: Mapping[str, object], classes: Mapping[str, type[Event]], label: str) -> Event | None:
+    """Validate one stored event against the class for its type, or return `None` for a type or code it doesn't know.
+
+    A well-formed code that the class doesn't declare comes from a newer osrlib, which can add codes within a
+    schema version, so it counts as unknown. A code in the wrong format, or any other field that doesn't fit the
+    class, is an error in the record.
+    """
+    from osrlib.errors import ContentValidationError
+
+    event_type = data.get("event_type")
+    cls = classes.get(event_type) if isinstance(event_type, str) else None
+    if cls is None:
+        return None
+    code = data.get("code")
+    if (
+        isinstance(code, str)
+        and cls.allowed_codes
+        and code not in cls.allowed_codes
+        and _CODE_PATTERN.fullmatch(code) is not None
+    ):
+        return None
+    try:
+        return cls.model_validate(data)
+    except ValidationError as error:
+        raise ContentValidationError(f"malformed {label}: {error}") from error
 
 
 def parse_event(data: Mapping[str, object]) -> Event | None:
-    """Turn one stored event back into its class, or return `None` if your version of osrlib doesn't define its type.
+    """Turn one stored event back into its class, or return `None` if your version of osrlib doesn't define it.
 
-    Use this to read a saved log, or events sent from another program. It returns `None` for an event it doesn't
-    recognize, so an older release can read a log a newer one wrote, except for the events the older one has no
-    class for. Leave out the `None` results and go on.
+    Use this to read a saved log, or events sent from another program. A newer osrlib can add event types, and
+    message codes on an existing type, within the same schema version. This function returns `None` for an event
+    whose type your version doesn't define, or whose type it defines without that code. So an older release can
+    read a log a newer one wrote, except for the events the older one has no class or code for. Leave out the
+    `None` results and go on.
 
     It reads only the core rules' events. To read a log that also has crawl events, call
     [`parse_any_event`][osrlib.crawl.events.parse_any_event], which reads both. Neither reads an event class you
@@ -1509,13 +1538,15 @@ def parse_event(data: Mapping[str, object]) -> Event | None:
         data: One event as a mapping, in the form `model_dump` produces.
 
     Returns:
-        The event as an instance of its class, or `None` when the mapping's `event_type` isn't one your version of
-        osrlib defines, or is missing.
+        The event as an instance of its class, or `None` when the mapping's `event_type` is missing or isn't one
+        your version of osrlib defines, or when its `code` is a well-formed code that the class doesn't list in
+        `allowed_codes`.
 
     Raises:
-        osrlib.errors.ContentValidationError: If osrlib defines the event type but the rest of the mapping doesn't
-            fit the class, like a required field that's missing. A broken event of a known type is an error in the
-            log, so `parse_event` raises rather than skipping it. The message includes pydantic's report.
+        osrlib.errors.ContentValidationError: If osrlib defines the event type and the code, but the rest of the
+            mapping doesn't fit the class, like a required field that's missing or a code in the wrong format. A
+            broken event of a known type is an error in the log, so `parse_event` raises rather than skipping it.
+            The message includes pydantic's report.
 
     Examples:
         ```python
@@ -1526,13 +1557,10 @@ def parse_event(data: Mapping[str, object]) -> Event | None:
 
         # An event type from a release this one predates is skipped, not an error.
         assert parse_event({"event_type": "something_newer", "code": "x.y", "visibility": "player"}) is None
+
+        # So is a code that a later release added to a type this one defines.
+        newer = {**event.model_dump(mode="json"), "code": "combat.damage.doubled"}
+        assert parse_event(newer) is None
         ```
     """
-    from osrlib.errors import ContentValidationError
-
-    if data.get("event_type") not in _known_event_types():
-        return None
-    try:
-        return _kernel_event_adapter().validate_python(data)
-    except ValidationError as error:
-        raise ContentValidationError(f"malformed kernel event: {error}") from error
+    return _parse_record(data, _kernel_classes_by_type(), "kernel event")
