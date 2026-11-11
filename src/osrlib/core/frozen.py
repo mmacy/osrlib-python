@@ -1,11 +1,14 @@
-"""The read-only mapping in the frozen rules content, like the numbers in a monster ability's `params`.
+"""The read-only mapping in the frozen content models, like the numbers in a monster ability's `params`.
 
 The class, monster, item, spell, and table models that [`osrlib.data`][osrlib.data] loads are
 frozen, and each loader returns one cached catalog that every caller in the process shares. A field
 of those models that maps names to values, like
 [`MonsterAbility.params`][osrlib.core.monsters.MonsterAbility.params], is a
 [`FrozenMap`][osrlib.core.frozen.FrozenMap], so nothing in a catalog can be changed at any depth. A
-change to the troll's regeneration would otherwise change every troll in every session.
+change to the troll's regeneration would otherwise change every troll in every session. An
+[`Adventure`][osrlib.crawl.adventure.Adventure] is shared the same way by every session you start
+from it, so its mapping fields, like a level's
+[`edges`][osrlib.crawl.dungeon.LevelSpec.edges], are `FrozenMap`s too.
 
 You read a `FrozenMap` the way you read a dict. When you build a model, you pass a dict for the
 field, and the model stores a `FrozenMap` of it. `model_dump` gives you a dict again. To change an
@@ -46,11 +49,13 @@ __all__ = [
 
 
 class FrozenMap[K, V](Mapping[K, V]):
-    """A mapping whose entries can't be changed, the type of each mapping field in the rules content models.
+    """A mapping whose entries can't be changed, the type of each mapping field in the content models.
 
-    The rules content models are the class, monster, item, spell, and table models that
-    [`osrlib.data`][osrlib.data] loads, and the [`EffectDefinition`][osrlib.core.effects.EffectDefinition]
-    that an effect runs from.
+    The content models are the class, monster, item, spell, and table models that
+    [`osrlib.data`][osrlib.data] loads, the [`EffectDefinition`][osrlib.core.effects.EffectDefinition]
+    that an effect runs from, and the models an [`Adventure`][osrlib.crawl.adventure.Adventure] or a
+    [`ContentPack`][osrlib.crawl.content_pack.ContentPack] contains. A session's state, like its
+    dungeon state and its flags, isn't content, and its mappings are dicts you can change.
 
     Read one the way you read a dict: index it, call `get`, iterate it, or test a key with `in`.
     Assigning or deleting an entry raises `TypeError`, and it has no `update`, `pop`, or `clear`.

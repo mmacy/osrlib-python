@@ -72,9 +72,9 @@ print(crypt.level(1).edge((0, 0), Direction.NORTH).kind)
 ```
 """
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from enum import StrEnum
-from typing import Any, Literal, Self
+from typing import Annotated, Any, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator, model_validator
 
@@ -82,6 +82,7 @@ from osrlib.core.alignment import Alignment
 from osrlib.core.clock import TimeUnit
 from osrlib.core.dice import parse
 from osrlib.core.effects import Condition
+from osrlib.core.frozen import FrozenMap
 from osrlib.core.items import Coins, MagicItemInstance, ValuableInstance
 from osrlib.core.spells import SaveSpec
 from osrlib.core.tables import EncounterTable, ReactionResult
@@ -1344,7 +1345,7 @@ class LevelSpec(BaseModel):
     """How many cells wide the grid is, west to east. `x` runs from `0` to `width - 1`."""
     height: int = Field(ge=1)
     """How many cells tall the grid is, north to south. `y` runs from `0` to `height - 1`."""
-    edges: dict[str, Edge] = {}
+    edges: Annotated[Mapping[str, Edge], FrozenMap] = FrozenMap()
     """Every edge on the grid that isn't a wall, as an [`Edge`][osrlib.crawl.dungeon.Edge]. Write
     each key with [`edge_key`][osrlib.crawl.dungeon.edge_key], like `"1,0:west"`, and only for an
     edge between two cells on the grid. [`validate_adventure`][osrlib.crawl.adventure.validate_adventure]
@@ -1352,7 +1353,13 @@ class LevelSpec(BaseModel):
     of `"1,0:west"`. An edge with no entry is a wall, and so is the level's boundary, so an empty
     map is a level of solid rock. Read an edge with
     [`edge`][osrlib.crawl.dungeon.LevelSpec.edge] instead of indexing the map, because it works out
-    the key and returns a wall for an edge with no entry."""
+    the key and returns a wall for an edge with no entry.
+
+    You pass a dict, and the level stores a read-only [`FrozenMap`][osrlib.core.frozen.FrozenMap] of
+    it, because every session started from the adventure reads the same level. To change an edge,
+    build a new level from a changed copy of the map:
+    `LevelSpec.model_validate({**level.model_dump(), "edges": edges})`, where `edges` is
+    `dict(level.edges)` with your changes."""
     areas: tuple[AreaSpec, ...] = ()
     """The level's keyed rooms and caves. Cells outside every area are corridor. Area ids have to be
     unique within the level, and every cell an area lists has to be on the grid."""
