@@ -23,7 +23,7 @@ referee_view = session.view(Visibility.REFEREE)
 
 [`PlayerView`][osrlib.crawl.views.PlayerView] is an explicit list of fields, built straight from session state and never from the event log, so it can't leak a referee-visibility event that happened to mention a hidden number.
 
-You get the adventure's and town's public names and descriptions, the town's list of services, the party's location and facing, the elapsed clock, and the session mode.
+You get the adventure's and town's public names and descriptions, the town's list of services, what the town's temple charges for each healing service, the party's location and facing, the elapsed clock, and the session mode.
 
 Each party member has a character sheet ([`MemberView`][osrlib.crawl.views.MemberView]), because a player always sees their characters in full. The sheet has every number on a B/X character sheet, so a client that has only the player view can draw one. It has the member's id, name, race, class, level and title, alignment, experience points and the total the next level needs, hit points, and conditions. It also has the six ability scores and their modifiers, THAC0 and attack bonus, both armour classes, the five saving throws, the movement rate, the languages, the inventory, the spell book and memorized spells, and a thief's skill chances. The numbers count what the member wears, like armour, a shield, or a ring of protection. A timed effect from a spell or a potion isn't in the numbers. It's in [`PlayerView.effects`][osrlib.crawl.views.PlayerView.effects].
 

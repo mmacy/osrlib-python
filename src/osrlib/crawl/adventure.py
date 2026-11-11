@@ -59,6 +59,7 @@ from osrlib.crawl.commands import (
     ConsequenceCommand,
     GrantCoins,
     GrantItem,
+    HealingService,
     PlaceParty,
     RemoveCoins,
     RemoveItem,
@@ -116,17 +117,24 @@ class TownSpec(BaseModel):
         description: Text describing the town.
         services: The services the town offers, to list for the player.
         travel_turns: The travel time from town to each dungeon.
+        healing_prices: The town's temple prices, for the services it doesn't charge the standard price for.
 
     Raises:
-        ValueError: If a travel time in `travel_turns` is negative.
+        ValueError: If a travel time in `travel_turns` is negative, or `healing_prices` has a
+            negative price or a name that isn't a temple service.
 
     Examples:
         ```python
         from osrlib.crawl.adventure import TownSpec
 
-        threshold = TownSpec(name="Threshold", services=("temple", "smith"), travel_turns={"crypt": 1})
-        print(threshold.travel_turns["crypt"])
-        # 1
+        threshold = TownSpec(
+            name="Threshold",
+            services=("temple", "smith"),
+            travel_turns={"crypt": 1},
+            healing_prices={"raise_dead": 1000},
+        )
+        print(threshold.travel_turns["crypt"], threshold.healing_prices["raise_dead"])
+        # 1 1000
         ```
     """
 
@@ -150,6 +158,18 @@ class TownSpec(BaseModel):
     time. Each value is 0 or more, and the model raises `ValueError` when you construct it with a
     negative one. Every key has to be the id of a dungeon in this adventure, and
     [`validate_adventure`][osrlib.crawl.adventure.validate_adventure] reports one that isn't."""
+    healing_prices: dict[HealingService, Annotated[int, Field(ge=0)]] = {}
+    """What this town's temple charges for a service, in gold pieces, keyed by the service's name, like
+    `{"raise_dead": 1000}`. [`PurchaseHealing`][osrlib.crawl.commands.PurchaseHealing] charges this
+    price, and a service you don't list costs the standard price from
+    [`HEALING_SERVICES`][osrlib.crawl.exploration.HEALING_SERVICES]. Each price is 0 or more, and a
+    price of 0 makes the service free. The model raises `ValueError` when you construct it with a
+    negative price or with a key that isn't a [`HealingService`][osrlib.crawl.commands.HealingService].
+
+    The prices are part of the adventure, so a save contains them and a replayed purchase charges
+    what it charged the first time. The session passes what the town charges for every service to
+    the player view as
+    [`PlayerView.town_healing_prices`][osrlib.crawl.views.PlayerView.town_healing_prices]."""
 
 
 class PartySpec(BaseModel):
