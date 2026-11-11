@@ -2,9 +2,13 @@
 
 The crawl adds two results to a cast that the spell kernel in `osrlib.core.spells` doesn't handle: a *silence 15'
 radius* whose target saves anchors to the party's cell, and *remove curse* lifts the curses on its target's items. The
-temple's healing and scroll reading also use `_cast_context`.
+temple's healing and scroll reading also use `_cast_context`. Every level drain in a session runs through
+`_drain_character`, because a drain looks up each memorized spell.
 """
 
+from collections.abc import Callable, Sequence
+
+from osrlib.core.character import Character
 from osrlib.core.clock import TimeUnit
 from osrlib.core.creature import Creature
 from osrlib.core.effects import EFFECTS_STREAM, EffectDefinition
@@ -13,6 +17,7 @@ from osrlib.core.items import MagicItemInstance
 from osrlib.core.spells import (
     MAGIC_STREAM,
     CastContext,
+    SpellCatalog,
     add_spell_to_book,
     cast_spell,
     caster_profile,
@@ -189,3 +194,30 @@ def _lift_curses(session, member) -> list[Event]:
         if effect.definition.kind in ("ring_of_weakness", "ring_of_weakness_onset", "cursed_slow_healing"):
             events.extend(session.ledger.release(effect.effect_id, session.registry()))
     return events
+
+
+def _drain_character(session, character: Character, drain: Callable[[SpellCatalog], Sequence[Event]]) -> list[Event]:
+    """Drain levels from a party member or an NPC adventurer, and return the drain's events.
+
+    `drain` calls `drain_levels` or `resolve_energy_drain` and passes the catalog it gets as `spell_catalog`. The
+    kernel refuses a memorized spell that isn't in that catalog, and the session leaves a spell its catalog doesn't
+    have on the character (see `GameSession.effective_spells`). So `drain` runs with those copies set aside, and
+    they take no slot. Afterwards each one is back in its place among the copies the drain kept.
+    """
+    catalog = session.effective_spells
+    known = {spell.id for spell in catalog.spells}
+    held = character.memorized_spells
+    character.memorized_spells = tuple(copy for copy in held if copy.spell_id in known)
+    try:
+        return list(drain(catalog))
+    finally:
+        # The drain forgets the last of equal copies first, so matching from the front puts each kept copy back
+        # where it was.
+        kept = list(character.memorized_spells)
+        restored = []
+        for copy in held:
+            if copy.spell_id not in known:
+                restored.append(copy)
+            elif kept and kept[0] == copy:
+                restored.append(kept.pop(0))
+        character.memorized_spells = tuple(restored)

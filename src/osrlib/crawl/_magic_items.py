@@ -19,7 +19,7 @@ from osrlib.core.spells import MAGIC_STREAM, cast_from_scroll, caster_profile, v
 from osrlib.core.validation import Rejection
 from osrlib.crawl._light import _requires_light
 from osrlib.crawl._party_members import _member_able, _remove_instance
-from osrlib.crawl._spells import _cast_context, _stationary_silence
+from osrlib.crawl._spells import _cast_context, _drain_character, _stationary_silence
 from osrlib.crawl.commands import SessionMode, UseItem
 from osrlib.crawl.events import CurseRevealedEvent, ItemIdentifiedEvent, ItemUsedEvent, LightEvent
 from osrlib.crawl.party import _stands
@@ -313,14 +313,23 @@ def _use_scroll(session, member, instance: MagicItemInstance, template, command)
             from osrlib.core.character import ADVANCEMENT_STREAM
             from osrlib.core.classes import drain_levels
 
-            result = drain_levels(
-                member,
-                member.definition,
-                levels=1,
-                xp_policy="halfway",
-                stream=session.streams.get(ADVANCEMENT_STREAM),
+            stream = session.streams.get(ADVANCEMENT_STREAM)
+            events.extend(
+                _drain_character(
+                    session,
+                    member,
+                    lambda spells: (
+                        drain_levels(
+                            member,
+                            member.definition,
+                            levels=1,
+                            xp_policy="halfway",
+                            stream=stream,
+                            spell_catalog=spells,
+                        ).events
+                    ),
+                )
             )
-            events.extend(result.events)
         elif curse.id == "slow_healing":
             # Not a disease: the curse halves healing spells where *cause
             # disease* voids them, so DISEASED (the magical-healing block)

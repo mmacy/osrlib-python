@@ -1068,8 +1068,9 @@ class GameSession:
 
         It's the built-in catalog plus whatever spells the adventure bundles. Every part of the
         session that turns a spell id into a spell reads it: preparing, learning, and casting a
-        spell, a `cast` declaration in a battle, reading a scroll, an NPC adventurer's casting, and
-        the temple. Use it to show the name of a spell whose id is in a view, like an entry in
+        spell, a `cast` declaration in a battle, reading a scroll, an NPC adventurer's casting, the
+        temple, and a level drain, which forgets the memorized spells a lower level has no slot for.
+        Use it to show the name of a spell whose id is in a view, like an entry in
         [`MemberView.spell_book`][osrlib.crawl.views.MemberView.spell_book], or to list the spells a
         caster can choose with [`SpellCatalog.by_list`][osrlib.core.spells.SpellCatalog.by_list].
         [`load_spells`][osrlib.data.load_spells] doesn't have the spells the adventure bundles.
@@ -1081,7 +1082,9 @@ class GameSession:
         declaration in a battle that names it, with the command's `unknown_spell` code. It refuses
         a [`LearnSpell`][osrlib.crawl.commands.LearnSpell] while the caster's book has the spell,
         with `magic.book.unknown_spell`, because the room left in a book depends on the level of
-        each spell in it.
+        each spell in it. A level drain, like a wight's touch, can't tell the level of a memorized
+        copy of the spell either, so the copy takes no slot. The drain doesn't forget it, and it
+        stays in its place in the character's `memorized_spells`.
 
         Returns:
             The catalog. For an adventure that bundles no spells, it's the built-in catalog.

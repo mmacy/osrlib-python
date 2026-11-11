@@ -4131,14 +4131,16 @@ def _on_hit_drain(session, weapon: MagicItemInstance, target) -> list[Event]:
         return drain_monster_hd(target, levels=levels, stream=stream)
     from osrlib.core.classes import drain_levels
 
-    result = drain_levels(
+    xp_policy = str(template.effect.params.get("xp_policy", "level_minimum"))
+    return _spells._drain_character(
+        session,
         target,
-        target.definition,
-        levels=levels,
-        xp_policy=str(template.effect.params.get("xp_policy", "level_minimum")),
-        stream=stream,
+        lambda spells: (
+            drain_levels(
+                target, target.definition, levels=levels, xp_policy=xp_policy, stream=stream, spell_catalog=spells
+            ).events
+        ),
     )
-    return list(result.events)
 
 
 def _party_wards(session) -> list:
@@ -5301,7 +5303,14 @@ def _apply_hit_effect(session, monster, target, kind: str, params: Mapping[str, 
     energy drain from the advancement stream.
     """
     if kind == "energy_drain":
-        return resolve_energy_drain(monster, target, stream=session.streams.get(ADVANCEMENT_STREAM))
+        stream = session.streams.get(ADVANCEMENT_STREAM)
+        if isinstance(target, MonsterInstance):
+            return resolve_energy_drain(monster, target, stream=stream)
+        return _spells._drain_character(
+            session,
+            target,
+            lambda spells: resolve_energy_drain(monster, target, stream=stream, spell_catalog=spells),
+        )
     if kind == "disease":
         disease = EffectDefinition(
             kind=str(params.get("kind", "disease")),
