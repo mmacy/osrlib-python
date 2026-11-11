@@ -23,8 +23,6 @@ from osrlib.crawl.dungeon import FeatureSpec, KeyedEncounter, KeyedMonster
 from osrlib.crawl.session import GameSession
 from osrlib.data import load_equipment, load_monsters
 
-pytestmark = pytest.mark.xfail(reason="chunk: loose-ends")
-
 
 def monster(template_id: str, monster_id: str = "monster-0001"):
     stream = RngStreams(master_seed=3).get(MONSTER_SPAWN_STREAM)
@@ -207,3 +205,49 @@ def test_a_character_with_a_bag_of_holding_can_walk_out_with_the_hoard():
         rules = Ruleset(encumbrance=mode)
         assert movement_rate_feet(with_bags(5000, bags=0), rules) == 0, mode
         assert movement_rate_feet(with_bags(5000), rules) > 0, mode
+
+
+def test_a_haul_fills_the_bag_without_overloading_its_carrier():
+    """The first coin in an empty bag adds the bag's 600 coins, so a share is sized by the weight it makes."""
+    from crawl_fixtures import _member
+    from osrlib.core.items import Coins
+    from osrlib.core.ruleset import EncumbranceMode
+    from osrlib.crawl.adventure import Adventure, TownSpec
+    from osrlib.crawl.commands import EnterDungeon, TakeTreasure
+    from osrlib.crawl.dungeon import DungeonSpec, LevelSpec
+    from osrlib.crawl.party import Party
+
+    hoard = FeatureSpec(id="hoard", kind="treasure_cache", cell=(0, 0), coins=Coins(gp=20000))
+    level = LevelSpec(number=1, width=1, height=1, entrance=(0, 0), features=(hoard,))
+    crypt = DungeonSpec(id="crypt", name="Crypt", levels=(level,))
+    adventure = Adventure(name="A", town=TownSpec(name="Threshold", travel_turns={"crypt": 1}), dungeons=(crypt,))
+    rules = Ruleset(encumbrance=EncumbranceMode.DETAILED)
+    game = GameSession.new(Party(members=[_member("Brakk", "fighter")]), adventure, seed=7, ruleset=rules)
+    brakk = game.party.members[0]
+    for item_id in ("plate_mail", "shield", "sword"):
+        assert game.execute(GrantItem(character_id=brakk.id, item_id=item_id)).accepted
+        assert game.execute(EquipItem(character_id=brakk.id, item_id=item_id)).accepted
+    assert game.execute(GrantItem(character_id=brakk.id, item_id="bag_of_holding")).accepted
+    assert game.execute(EnterDungeon(dungeon_id="crypt")).accepted
+
+    assert game.execute(TakeTreasure(feature_id="hoard")).accepted
+    assert brakk.inventory.purse.gp >= 10000, "the bag takes its 10,000 coins"
+    assert brakk.movement_rate(rules) > 0, "and its carrier can still walk"
+    pile = next(iter(game.dungeon_state.piles.values()), None)
+    left = pile.coins.gp if pile is not None else 0
+    assert brakk.inventory.purse.gp + left == 20000, "the rest stays on the floor"
+
+
+def test_equipping_one_of_two_equal_items_moves_that_one():
+    from osrlib.core.items import Inventory, ItemInstance, equip
+    from osrlib.data import load_classes
+
+    dagger = load_equipment().get("dagger")
+    inventory = Inventory(items=[ItemInstance(template=dagger, quantity=1), ItemInstance(template=dagger, quantity=1)])
+    first, second = inventory.items
+    equip(inventory, load_classes().get("fighter"), second)
+    assert [item is second for item in inventory.wielded] == [True]
+    assert [item is first for item in inventory.items] == [True]
+    unequip(inventory, second)
+    assert inventory.wielded == []
+    assert sorted(id(item) for item in inventory.items) == sorted((id(first), id(second)))

@@ -2,7 +2,7 @@
 
 In osrlib, a game is a pure function of its seed and its command sequence. Every random draw comes from a named [`RngStream`][osrlib.core.rng.RngStream] forked from a session's master seed, so **the same seed, the same sequence of commands, and the same engine version always produce the same game.**
 
-You get three things out of that guarantee. A bug report needs only a seed and a short command log to reproduce a failure exactly. Golden tests can assert on exact game state instead of approximate behavior. A saved game loads byte-for-byte, or replays from scratch, and ends in the same state either way. Every snippet below comes from [the complete program](#the-complete-program) at the end, and running that program checks every claim made here.
+You get three things out of that guarantee. A bug report needs only a seed and a short command log to reproduce a failure exactly. Golden tests can assert on exact game state instead of approximate behavior. A saved game loads byte-for-byte, or replays from scratch. Either way it ends in the same state, apart from what listeners returned (see [Replay runs with no listeners](#replay-runs-with-no-listeners)). Every snippet below comes from [the complete program](#the-complete-program) at the end, and running that program checks every claim made here.
 
 ## The determinism contract
 
