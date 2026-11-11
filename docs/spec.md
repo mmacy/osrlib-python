@@ -241,9 +241,9 @@ A save file contains the full game state (including registered listener state an
 
 Schema versioning: saves, commands, and events share a single monotonically increasing integer `schema_version`, independent of the package version.
 
-- Within a version, changes are additive only: new event types, new optional fields, and new values of serialized enums — an older artifact never contains the new value, and a newer artifact failing on an older reader is the same accepted risk as a new event type. Renames, removals, semantic changes, and changes to existing wire values bump the version.
+- Within a version, changes are additive only: new event types, new message codes on an existing event type, new optional fields, and new values of serialized enums — an older artifact never contains the new value, and a newer artifact failing on an older reader is the same accepted risk as a new event type. Renames, removals, semantic changes, and changes to existing wire values bump the version.
 - Loading an older save runs ordered migrations (chained n → n+1). Loading a save newer than the library understands fails fast with a clear error.
-- Consumers must ignore unknown event types and fields, so additive growth never breaks a front end or narrator built against an older schema.
+- Consumers must ignore unknown event types, unknown message codes, and unknown fields, so additive growth never breaks a front end or narrator built against an older schema. A load keeps an event it can't type, whether for its type or for its code, as the raw record, and the next save writes it back.
 - Session metadata exposes the library's `schema_version`, so a front end can handshake and detect a mismatch it can't tolerate.
 
 ## SRD data pipeline

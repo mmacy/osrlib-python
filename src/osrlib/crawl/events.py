@@ -81,9 +81,9 @@ from collections.abc import Mapping
 from functools import cache
 from typing import Annotated, ClassVar, Literal, Union
 
-from pydantic import Field, TypeAdapter, ValidationError, ValidationInfo, field_validator
+from pydantic import Field, ValidationInfo, field_validator
 
-from osrlib.core.events import KERNEL_EVENT_CLASSES, Event, Visibility
+from osrlib.core.events import KERNEL_EVENT_CLASSES, Event, Visibility, _classes_by_type, _parse_record
 from osrlib.core.monsters import _regular_plural
 
 __all__ = [
@@ -2379,8 +2379,8 @@ AnyEvent = Annotated[
 Use it to type a value that can be an event of any class, and hand it to a
 [`TypeAdapter`][pydantic.type_adapter.TypeAdapter] to get a tagged-union JSON Schema for a client
 in another language. To parse one record, call
-[`parse_any_event`][osrlib.crawl.events.parse_any_event] instead: it skips an event type this
-version has no class for rather than raising on it.
+[`parse_any_event`][osrlib.crawl.events.parse_any_event] instead. It returns `None` for an event
+type or a code this version doesn't define, rather than raising on it.
 
 ```python
 from pydantic import TypeAdapter
@@ -2395,26 +2395,23 @@ print(schema["discriminator"]["propertyName"])
 
 
 @cache
-def _any_event_adapter() -> TypeAdapter:
-    return TypeAdapter(AnyEvent)
-
-
-@cache
-def _known_event_types() -> frozenset[str]:
-    return frozenset(variant.model_fields["event_type"].default for variant in ALL_EVENT_CLASSES)
+def _all_classes_by_type() -> dict[str, type[Event]]:
+    return _classes_by_type(ALL_EVENT_CLASSES)
 
 
 def parse_any_event(data: Mapping[str, object]) -> Event | None:
-    """Rebuild one serialized event, kernel or crawl, skipping types this version has no class for.
+    """Rebuild one serialized event, kernel or crawl, skipping types and codes this version doesn't define.
 
     Call it on records that came out of an event's `model_dump` or out of a save's event log, like
     a log you are replaying, a stream you received over a network, or a file you are analyzing.
     [`load_game`][osrlib.persistence.load_game] calls it for each entry in a save's event log, and
     keeps the raw record for an entry that returns `None`.
 
-    For an `event_type` this version has no class for, it returns `None` rather than raising, so a
-    log that has event types added in a newer osrlib still loads. Fields the class doesn't define are
-    ignored. What you get back is an instance of the matching class, which you can pass to
+    A newer osrlib can add event types, and message codes on an existing type, within the same
+    schema version. For an `event_type` this version has no class for, or a well-formed `code` that
+    the type's class doesn't list in `allowed_codes`, it returns `None` rather than raising, so a log
+    from a newer osrlib still loads. Fields the class doesn't define are ignored. What you get
+    back is an instance of the matching class, which you can pass to
     [`format_message`][osrlib.messages.format_message] like any other event.
 
     Args:
@@ -2423,11 +2420,13 @@ def parse_any_event(data: Mapping[str, object]) -> Event | None:
 
     Returns:
         The event, or `None` when its `event_type` belongs to no class in
-        [`ALL_EVENT_CLASSES`][osrlib.crawl.events.ALL_EVENT_CLASSES].
+        [`ALL_EVENT_CLASSES`][osrlib.crawl.events.ALL_EVENT_CLASSES], or when its class doesn't
+        define its `code`.
 
     Raises:
-        osrlib.errors.ContentValidationError: If the event type is known but the payload doesn't fit it, like
-            a record missing a required field. The message includes pydantic's report.
+        osrlib.errors.ContentValidationError: If the event type and code are known but the payload doesn't
+            fit the class, like a record missing a required field or a code in the wrong format. The message
+            includes pydantic's report.
 
     Examples:
         ```python
@@ -2440,13 +2439,9 @@ def parse_any_event(data: Mapping[str, object]) -> Event | None:
 
         print(parse_any_event({"event_type": "teleported", "code": "exploration.party.teleported"}))
         # None
+
+        print(parse_any_event({**record, "code": "exploration.party.teleported"}))
+        # None
         ```
     """
-    from osrlib.errors import ContentValidationError
-
-    if data.get("event_type") not in _known_event_types():
-        return None
-    try:
-        return _any_event_adapter().validate_python(data)
-    except ValidationError as error:
-        raise ContentValidationError(f"malformed event: {error}") from error
+    return _parse_record(data, _all_classes_by_type(), "event")

@@ -59,6 +59,7 @@ print(check_document(document, "note"))
 ```
 """
 
+import copy
 from collections.abc import Mapping
 from importlib import metadata
 
@@ -218,13 +219,14 @@ def check_document(document: Mapping[str, object], expected_kind: str) -> dict[s
             save.
 
     Returns:
-        A new dict with the document's payload, copied one level deep, still at whatever
-            schema version the document was written under.
+        A deep copy of the document's payload, still at whatever schema version the document
+            was written under. It shares nothing with `document`, so you can change it without
+            changing the document.
 
     Raises:
         ContentValidationError: If the document is not a mapping, is missing `kind`,
-            `schema_version`, or `payload`, has a non-integer `schema_version` or a
-            non-mapping payload, or is of a kind other than `expected_kind`.
+            `schema_version`, or `payload`, has a `schema_version` that isn't an integer of 1
+            or higher, has a non-mapping payload, or is of a kind other than `expected_kind`.
         SaveVersionError: If the document's `schema_version` is higher than
             [`SCHEMA_VERSION`][osrlib.versioning.SCHEMA_VERSION], meaning a newer osrlib
             wrote it.
@@ -256,9 +258,11 @@ def check_document(document: Mapping[str, object], expected_kind: str) -> dict[s
     schema_version = document["schema_version"]
     if not isinstance(schema_version, int) or isinstance(schema_version, bool):
         raise ContentValidationError(f"schema_version must be an integer, got {schema_version!r}")
+    if schema_version < 1:
+        raise ContentValidationError(f"schema_version must be 1 or higher, got {schema_version}")
     if schema_version > SCHEMA_VERSION:
         raise SaveVersionError(f"document schema_version {schema_version} is newer than the supported {SCHEMA_VERSION}")
     payload = document["payload"]
     if not isinstance(payload, Mapping):
         raise ContentValidationError(f"document payload must be a mapping, got {type(payload).__name__}")
-    return dict(payload)
+    return copy.deepcopy(dict(payload))

@@ -51,8 +51,9 @@ to a JSON file in an installed copy is lost at the next upgrade. To add content 
 construct the model yourself, like a [`MonsterTemplate`][osrlib.core.monsters.MonsterTemplate],
 and pass it to the same functions you pass the included entries to. To use your own monster or
 item template in a session, bundle it with the [`Adventure`][osrlib.crawl.adventure.Adventure]
-that uses it. If a data file is missing, has no JSON object at its top level, or fails validation, the loader
-raises [`ContentValidationError`][osrlib.errors.ContentValidationError] instead of returning a
+that uses it. If a data file is missing, isn't valid JSON, has no JSON object at its top level,
+or fails validation, the loader raises
+[`ContentValidationError`][osrlib.errors.ContentValidationError] instead of returning a
 partial catalog.
 
 The compiled data is Open Game Content under the Open Game License 1.0a. The license text
@@ -205,7 +206,12 @@ def _read(filename: str) -> dict[str, object]:
         text = resource.read_text(encoding="utf-8")
     except FileNotFoundError as error:
         raise ContentValidationError(f"missing generated data file {filename!r}") from error
-    data = json.loads(text)
+    except UnicodeDecodeError as error:
+        raise ContentValidationError(f"{filename} isn't valid UTF-8 text: {error}") from error
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError as error:
+        raise ContentValidationError(f"{filename} isn't valid JSON: {error}") from error
     if not isinstance(data, dict):
         raise ContentValidationError(f"{filename} must contain a JSON object at the top level")
     data.pop("_meta", None)
@@ -233,7 +239,7 @@ def load_ability_tables() -> AbilityTables:
             the same object.
 
     Raises:
-        ContentValidationError: If the generated data is missing or fails validation.
+        ContentValidationError: If the generated data is missing, isn't valid JSON, or fails validation.
 
     Examples:
         ```python
@@ -276,7 +282,7 @@ def load_classes() -> ClassCatalog:
             lists the same ids.
 
     Raises:
-        ContentValidationError: If the generated data is missing or fails validation.
+        ContentValidationError: If the generated data is missing, isn't valid JSON, or fails validation.
 
     Examples:
         ```python
@@ -320,7 +326,7 @@ def load_equipment() -> EquipmentCatalog:
             lists the same ids.
 
     Raises:
-        ContentValidationError: If the generated data is missing or fails validation.
+        ContentValidationError: If the generated data is missing, isn't valid JSON, or fails validation.
 
     Examples:
         ```python
@@ -360,7 +366,7 @@ def load_monsters() -> MonsterCatalog:
             lists the same ids.
 
     Raises:
-        ContentValidationError: If the generated data is missing or fails validation.
+        ContentValidationError: If the generated data is missing, isn't valid JSON, or fails validation.
 
     Examples:
         ```python
@@ -400,7 +406,7 @@ def load_combat_tables() -> CombatTables:
             returns the same object.
 
     Raises:
-        ContentValidationError: If the generated data is missing or fails validation.
+        ContentValidationError: If the generated data is missing, isn't valid JSON, or fails validation.
 
     Examples:
         ```python
@@ -440,7 +446,7 @@ def load_encounter_tables() -> EncounterTables:
             returns the same object.
 
     Raises:
-        ContentValidationError: If the generated data is missing or fails validation.
+        ContentValidationError: If the generated data is missing, isn't valid JSON, or fails validation.
 
     Examples:
         ```python
@@ -483,7 +489,7 @@ def load_spells() -> SpellCatalog:
             lists the same ids.
 
     Raises:
-        ContentValidationError: If the generated data is missing or fails validation.
+        ContentValidationError: If the generated data is missing, isn't valid JSON, or fails validation.
 
     Examples:
         ```python
@@ -524,7 +530,7 @@ def load_magic_items() -> MagicItemCatalog:
             lists the same ids.
 
     Raises:
-        ContentValidationError: If the generated data is missing or fails validation.
+        ContentValidationError: If the generated data is missing, isn't valid JSON, or fails validation.
 
     Examples:
         ```python
@@ -567,7 +573,7 @@ def load_treasure_tables() -> TreasureTables:
             lists the same letters.
 
     Raises:
-        ContentValidationError: If the generated data is missing or fails validation.
+        ContentValidationError: If the generated data is missing, isn't valid JSON, or fails validation.
 
     Examples:
         ```python
@@ -605,7 +611,7 @@ def load_languages() -> LanguageCatalog:
             lists the same ids.
 
     Raises:
-        ContentValidationError: If the generated data is missing or fails validation.
+        ContentValidationError: If the generated data is missing, isn't valid JSON, or fails validation.
 
     Examples:
         ```python
