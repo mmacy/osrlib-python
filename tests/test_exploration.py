@@ -23,7 +23,7 @@ from osrlib.core.events import Visibility
 from osrlib.core.items import Coins, ItemInstance, MagicItemInstance, ValuableInstance
 from osrlib.core.rng import RngStream
 from osrlib.core.ruleset import EncumbranceMode, Ruleset
-from osrlib.crawl import exploration
+from osrlib.crawl import _arrival, exploration
 from osrlib.crawl.commands import (
     AdvanceTime,
     CloseDoor,
@@ -801,7 +801,7 @@ def resolve_trap(trap: TrapSpec, seed: int = 2):
     session = quiet_session(seed=seed)
     entered(session)
     member = session.party.living_members()[0]
-    events = exploration._resolve_trap(session, trap, triggerer=member)
+    events = _arrival._resolve_trap(session, trap, triggerer=member)
     return session, member, events
 
 
