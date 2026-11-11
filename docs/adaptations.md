@@ -1043,7 +1043,7 @@ Locked by `test_member_positions.py`, the line's move by `test_member_positions.
 - The ranks toward a group are the living members sorted by their distance to it, nearest first, and cut into rows of the formation width. A row never mixes distances, so two members at 5' and one at 25' make two rows. Among members at the same distance, the member who got there in an earlier round stands in front, and marching order settles a tie. A member who hasn't moved has stood on the line since round zero, so before anyone moves, the ranks are the marching-order ranks. The SRD leaves who stands in front to "The referee should judge the number of opponents that can attack a single combatant, bearing in mind the combatant's size and the available space around them". This order is osrlib's reading: a member already fighting keeps their place, and newcomers fill the places left.
 - The distance that ranks, reach, and ranges measure is how far apart a member and a group stand, whichever side of the group the member is on, so a member the group passed by 5' is within its reach. `member_distance_feet` and `MemberMovedEvent` report the signed value, which is negative for such a member.
 - Melee reaches only the members of the front rank toward a group who stand within 5' of it, in both directions. `group_front_rank` and the player view's `EncounterGroupView.front_rank` list them. The session refuses a melee attack by a member farther than 5' from the group with `combat.attack.out_of_reach`, and by a member within 5' outside the front rank with `battle.declaration.not_in_front_rank`, in that order. With `formation_width_limit` off, a row holds every member at its distance, so every member within 5' of a group can fight it. There's no penalty for firing into melee, because the SRD has none.
-- A party melee attack hits the first living, visible monster of the group's reachable rank, with no draw. Monsters pick their targets with equal chance, on the monster-action stream (see [Monsters pass over statues](#monsters-pass-over-statues-and-ghouls-and-thouls-turn-from-the-members-they-paralyse)).
+- A party melee attack hits the first living, visible monster of the group's front rank, its first living monsters as many as the formation width allows, with no draw (see [A monster group fights in a front rank as wide as the formation](#a-monster-group-fights-in-a-front-rank-as-wide-as-the-formation)). Monsters pick their targets with equal chance, on the monster-action stream (see [Monsters pass over statues](#monsters-pass-over-statues-and-ghouls-and-thouls-turn-from-the-members-they-paralyse)).
 - A staff of striking is "Used as a magical melee weapon", so only a member who stands in a group's front rank within 5' of it may use one on that group. The session judges that against the ranks the round's declared moves produce, as it does a melee attack, and refuses any other member's use with the same two codes.
 - Under individual initiative, the session still resolves each side as a block, all of one side's actions and then all of the other's. It orders the blocks by each side's best individual total, because the SRD's phase sequence is per side.
 
@@ -1262,7 +1262,7 @@ Battle reads these spells and conditions on each combatant:
 - Confusion replaces the bearer's declaration with the result of its 2d6 behaviour roll, on the combat stream, because it's a roll the rules require, not a choice a policy makes. Its re-saves draw on the magic stream, per its params. The session makes both rolls itself each round, not as ticks of the effect, so effects still draw at the times that [The `magic` RNG stream](#the-magic-rng-stream-and-the-attach-timetick-time-split) describes.
 - `entangled` stops a member's declared moves and a monster's moves from its policy, while an entangled member in the front rank still fights.
 - A `weakened` creature can't attack or cast. The kernel's validators refuse those actions, and the session reports the refusals.
-- *Protection from evil*'s melee ban: a monster whose template has a warded category can't start a melee with a warded target of a different alignment. So the default policy's target pick skips that target, while missiles and breath still land. The ban breaks for a target who has engaged the barred creature in melee, and the ±1 modifiers stay, as RAW's clause says.
+- *Protection from evil*'s melee ban: a monster whose template has a warded category can't start a melee with a warded target of a different alignment. So the default policy's target pick skips that target, and the session skips a melee on that target that any policy chooses, while missiles and breath still land. A scroll of protection's ward bars the monsters it names in the same way. An NPC adventurer is a person, which neither protection bars. The ban breaks for a target who has engaged the barred creature in melee, and the ±1 modifiers stay, as RAW's clause says.
 
 Locked by `test_battle.py::TestEffectConsumption`.
 
@@ -1299,10 +1299,35 @@ The Combat page gives monsters the same movement and melee rules as characters, 
 - When the group can see no member, it moves toward the party line and stops 5' from it.
 - When the group's stopping point would be behind the party line, the line moves back first (see [The range track and each member's place on it](#the-range-track-and-each-members-place-on-it)). So a group reaches the member it closes on in as many rounds as its rate needs.
 - A monster's melee attack resolves only on a member who stands in the group's front rank within 5' of it when the attack comes up, and the session skips a melee on anyone else. A formation retreat is the exception (see [A member who withdraws alone](#a-member-who-withdraws-alone)).
+- Only the group's first living monsters, as many as the formation width allows, make melee attacks (see [A monster group fights in a front rank as wide as the formation](#a-monster-group-fights-in-a-front-rank-as-wide-as-the-formation)).
 
 The Combat page's "Movement and attacking may be combined in the same round" doesn't limit the rule to one side, so osrlib applies it to monsters as it does to party members. When a group's move will bring a member within reach, the default policies follow each monster's `close` action with a `melee` action in the same round, aimed at a member of the front rank the move will produce. A policy that your game supplies can do the same, or close and attack in separate rounds.
 
 Locked by `test_monster_reach.py`, and the statue by `test_monster_tactics.py::TestStatues`.
+
+### A monster group fights in a front rank as wide as the formation
+
+The Other Combat Issues page says "The referee should judge the number of opponents that can attack a single combatant, bearing in mind the combatant's size and the available space around them. **10' passage:** Enough space for at most 2–3 characters to fight side-by-side." The formation width already limits how many party members fight a group hand to hand (see [Declarations and ranks](#declarations-and-ranks)). osrlib applies the same width to the monsters, so the two sides play by one rule ([#214](https://github.com/mmacy/osrlib-python/issues/214)).
+
+- A group's front rank is its first living monsters in the group's order, as many as the formation width allows. That's two in a 10' corridor. Only the monsters in the front rank make melee attacks on the party. Six skeletons there strike with two, and a thief who runs ahead of the party alone takes two skeletons' attacks, not six.
+- The monsters that can strike are the ones the party can strike. A party member's melee attack on the group reaches only its front rank, and hits the first living monster there that the member can see.
+- A monster keeps its place in the front rank while it lives, whatever it does that round: it holds, breathes, or lies asleep or paralysed. A paralysed party member keeps their place in the party's front rank in the same way, and the member behind can't fight past them. When a front monster dies, it leaves the front rank, and the next living monster in the group's order steps up.
+- The width is the one the party fights under, from the space the party stands in. The front rank is for each group, as the party's ranks are judged toward each group, so two groups in a corridor strike with two monsters each.
+- Only melee needs a place in the front rank. Any monster of the group can use a breath weapon or a petrifying gaze, and any NPC adventurer can shoot, cast, or drink a potion, as the party's back ranks shoot and cast past their front rank. A breath that hits one target still picks from the first row toward the group, and a gaze still reaches only the party's front rank within 5'.
+- A monster's missile attack needs a place in the front rank, because osrlib resolves it at 5' as a melee attack (see [Monster missile attacks resolve at 5'](#monster-missile-attacks-resolve-at-5-and-npc-archers-shoot-at-the-first-row)).
+- NPC adventurers are a group of the other side like any other. Their first living members, as many as the width, fight hand to hand, and the rest can shoot, cast, and heal from behind.
+- A confused monster in the front rank can attack the party. A confused monster behind it that rolls an attack on the party can't reach the party, so it attacks no one. An attack on another monster of the group needs no place in the front rank.
+- The session applies the front rank after the group's policy has chosen, so a policy that your game supplies can't change who stands in front, whatever order it returns its actions in. The session skips a `melee` by any monster behind the front rank, and that monster makes no draw for it.
+- With `formation_width_limit` off, every living monster of a group is in its front rank, and every one can attack.
+
+Two rules apply to every action a policy chooses, not only to melee:
+
+- A monster or NPC adventurer that can't act when its action comes up doesn't act, whatever its policy chose. NPC adventurers choose their actions at the start of the round, so an NPC whom the party puts to sleep before the NPCs act makes no attack, shot, cast, or drink that round. A confused member who can't act makes no behaviour roll, as a confused party member makes none.
+- A scroll of protection's ward and *protection from evil* bar a monster from melee whatever its policy chose (see [Spell effect consumption in battle](#spell-effect-consumption-in-battle)).
+
+The player view shows how many monsters of a group can strike at most, the smaller of `EncounterGroupView.count` and `EncounterView.formation_width`. It doesn't say which monsters stand in front, and `condition_counts` counts conditions across the whole group, so a front end can't tell whether a sleeping monster is one of those in front.
+
+Locked by `test_monster_frontage.py`.
 
 ### Monster missile attacks resolve at 5', and NPC archers shoot at the first row
 
@@ -1789,9 +1814,10 @@ With the flag on, the space around the party limits how many combatants fight si
 - The measured space stops at walls, at doors, and where the space changes. A doorway is a threshold, not room to fight side by side, and a room's open mouth never counts the corridor beyond it.
 - The width comes from the party's cell, which doesn't change during a battle, so it stays the same for the whole fight. The player view reports it in `EncounterView.formation_width`.
 - The ranks toward each group are rows this wide, so the width caps how many members can fight one group hand to hand.
+- Each monster group's front rank is as wide, and only its monsters make melee attacks (see [A monster group fights in a front rank as wide as the formation](#a-monster-group-fights-in-a-front-rank-as-wide-as-the-formation)).
 - The same limit bounds how much of an area effect's footprint a formation takes.
 
-With the flag off, there's no limit. Every member at the same distance from a group stands in one row, so every member within 5' of a group can fight it, and area footprints have no bound. Locked by `test_battle.py::TestFormationWidth` and `test_battle_player_view.py::TestThePositionsInThePlayerView`.
+With the flag off, there's no limit. Every member at the same distance from a group stands in one row, so every member within 5' of a group can fight it, every monster of a group can attack, and area footprints have no bound. Locked by `test_battle.py::TestFormationWidth`, `test_battle_player_view.py::TestThePositionsInThePlayerView`, and `test_monster_frontage.py`.
 
 ### `magic_item_death_save` (default on)
 

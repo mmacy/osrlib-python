@@ -1,6 +1,6 @@
 {
   "checkpoints": {
-    "end": 123,
+    "end": 125,
     "mid_battle": 44,
     "mid_exploration": 34
   },
@@ -867,6 +867,168 @@
           "targets": [
             "character-0005"
           ],
+          "weapon_id": null
+        }
+      ],
+      "source": null
+    },
+    {
+      "command_type": "resolve_battle_round",
+      "declarations": [
+        {
+          "action": "move",
+          "back_stab": false,
+          "character_id": "character-0005",
+          "gaze_defense": null,
+          "item_id": null,
+          "move": "close",
+          "replacement_id": null,
+          "reversed": false,
+          "spell_id": null,
+          "spell_mode": null,
+          "target_group_id": "group-0003",
+          "targets": [],
+          "weapon_id": null
+        },
+        {
+          "action": "move",
+          "back_stab": false,
+          "character_id": "character-0001",
+          "gaze_defense": null,
+          "item_id": null,
+          "move": "close",
+          "replacement_id": null,
+          "reversed": false,
+          "spell_id": null,
+          "spell_mode": null,
+          "target_group_id": "group-0003",
+          "targets": [],
+          "weapon_id": null
+        },
+        {
+          "action": "move",
+          "back_stab": false,
+          "character_id": "character-0002",
+          "gaze_defense": null,
+          "item_id": null,
+          "move": "close",
+          "replacement_id": null,
+          "reversed": false,
+          "spell_id": null,
+          "spell_mode": null,
+          "target_group_id": "group-0003",
+          "targets": [],
+          "weapon_id": null
+        },
+        {
+          "action": "move",
+          "back_stab": false,
+          "character_id": "character-0003",
+          "gaze_defense": null,
+          "item_id": null,
+          "move": "close",
+          "replacement_id": null,
+          "reversed": false,
+          "spell_id": null,
+          "spell_mode": null,
+          "target_group_id": "group-0003",
+          "targets": [],
+          "weapon_id": null
+        },
+        {
+          "action": "move",
+          "back_stab": false,
+          "character_id": "character-0004",
+          "gaze_defense": null,
+          "item_id": null,
+          "move": "close",
+          "replacement_id": null,
+          "reversed": false,
+          "spell_id": null,
+          "spell_mode": null,
+          "target_group_id": "group-0003",
+          "targets": [],
+          "weapon_id": null
+        }
+      ],
+      "source": null
+    },
+    {
+      "command_type": "resolve_battle_round",
+      "declarations": [
+        {
+          "action": "move",
+          "back_stab": false,
+          "character_id": "character-0005",
+          "gaze_defense": null,
+          "item_id": null,
+          "move": "close",
+          "replacement_id": null,
+          "reversed": false,
+          "spell_id": null,
+          "spell_mode": null,
+          "target_group_id": "group-0003",
+          "targets": [],
+          "weapon_id": null
+        },
+        {
+          "action": "move",
+          "back_stab": false,
+          "character_id": "character-0001",
+          "gaze_defense": null,
+          "item_id": null,
+          "move": "close",
+          "replacement_id": null,
+          "reversed": false,
+          "spell_id": null,
+          "spell_mode": null,
+          "target_group_id": "group-0003",
+          "targets": [],
+          "weapon_id": null
+        },
+        {
+          "action": "move",
+          "back_stab": false,
+          "character_id": "character-0002",
+          "gaze_defense": null,
+          "item_id": null,
+          "move": "close",
+          "replacement_id": null,
+          "reversed": false,
+          "spell_id": null,
+          "spell_mode": null,
+          "target_group_id": "group-0003",
+          "targets": [],
+          "weapon_id": null
+        },
+        {
+          "action": "move",
+          "back_stab": false,
+          "character_id": "character-0003",
+          "gaze_defense": null,
+          "item_id": null,
+          "move": "close",
+          "replacement_id": null,
+          "reversed": false,
+          "spell_id": null,
+          "spell_mode": null,
+          "target_group_id": "group-0003",
+          "targets": [],
+          "weapon_id": null
+        },
+        {
+          "action": "move",
+          "back_stab": false,
+          "character_id": "character-0004",
+          "gaze_defense": null,
+          "item_id": null,
+          "move": "close",
+          "replacement_id": null,
+          "reversed": false,
+          "spell_id": null,
+          "spell_mode": null,
+          "target_group_id": "group-0003",
+          "targets": [],
           "weapon_id": null
         }
       ],
@@ -3196,57 +3358,6 @@
       "visibility": "player"
     },
     {
-      "attack_name": "weapon",
-      "attacker_id": "monster-0017",
-      "back_stab": false,
-      "code": "combat.attack.missed",
-      "defender_ac": 9,
-      "defender_id": "character-0005",
-      "event_type": "attack_rolled",
-      "modifier": 0,
-      "natural": null,
-      "required": 10,
-      "roll": 3,
-      "total": 3,
-      "visibility": "player"
-    },
-    {
-      "attack_name": "weapon",
-      "attacker_id": "monster-0018",
-      "back_stab": false,
-      "code": "combat.attack.hit",
-      "defender_ac": 9,
-      "defender_id": "character-0005",
-      "event_type": "attack_rolled",
-      "modifier": 0,
-      "natural": null,
-      "required": 10,
-      "roll": 17,
-      "total": 17,
-      "visibility": "player"
-    },
-    {
-      "amount": 4,
-      "attacker_id": "monster-0018",
-      "code": "combat.damage.dealt",
-      "event_type": "damage_dealt",
-      "keys": [],
-      "non_regenerable": false,
-      "rolls": [
-        4
-      ],
-      "target_id": "character-0005",
-      "visibility": "player"
-    },
-    {
-      "code": "combat.state.hit_points",
-      "current_hp": 5,
-      "event_type": "hit_points_reported",
-      "max_hp": 9,
-      "target_id": "character-0005",
-      "visibility": "referee"
-    },
-    {
       "code": "battle.round.started",
       "event_type": "battle_round",
       "round": 2,
@@ -3267,19 +3378,17 @@
           "key": "party",
           "modifier": 0,
           "rolls": [
-            6,
-            4
+            1
           ],
-          "total": 4
+          "total": 1
         },
         {
           "key": "monsters",
           "modifier": 0,
           "rolls": [
-            6,
-            6
+            5
           ],
-          "total": 6
+          "total": 5
         }
       ],
       "event_type": "initiative_rolled",
@@ -3305,19 +3414,19 @@
       "modifier": 0,
       "natural": null,
       "required": 10,
-      "roll": 13,
-      "total": 13,
+      "roll": 14,
+      "total": 14,
       "visibility": "player"
     },
     {
-      "amount": 2,
+      "amount": 6,
       "attacker_id": "monster-0015",
       "code": "combat.damage.dealt",
       "event_type": "damage_dealt",
       "keys": [],
       "non_regenerable": false,
       "rolls": [
-        2
+        6
       ],
       "target_id": "character-0005",
       "visibility": "player"
@@ -3341,59 +3450,8 @@
       "modifier": 0,
       "natural": null,
       "required": 16,
-      "roll": 11,
-      "total": 11,
-      "visibility": "player"
-    },
-    {
-      "attack_name": "weapon",
-      "attacker_id": "monster-0017",
-      "back_stab": false,
-      "code": "combat.attack.hit",
-      "defender_ac": 9,
-      "defender_id": "character-0005",
-      "event_type": "attack_rolled",
-      "modifier": 0,
-      "natural": null,
-      "required": 10,
-      "roll": 13,
-      "total": 13,
-      "visibility": "player"
-    },
-    {
-      "amount": 2,
-      "attacker_id": "monster-0017",
-      "code": "combat.damage.dealt",
-      "event_type": "damage_dealt",
-      "keys": [],
-      "non_regenerable": false,
-      "rolls": [
-        2
-      ],
-      "target_id": "character-0005",
-      "visibility": "player"
-    },
-    {
-      "code": "combat.state.hit_points",
-      "current_hp": 1,
-      "event_type": "hit_points_reported",
-      "max_hp": 9,
-      "target_id": "character-0005",
-      "visibility": "referee"
-    },
-    {
-      "attack_name": "weapon",
-      "attacker_id": "monster-0018",
-      "back_stab": false,
-      "code": "combat.attack.missed",
-      "defender_ac": 3,
-      "defender_id": "character-0001",
-      "event_type": "attack_rolled",
-      "modifier": 0,
-      "natural": null,
-      "required": 16,
-      "roll": 11,
-      "total": 11,
+      "roll": 14,
+      "total": 14,
       "visibility": "player"
     },
     {
@@ -3506,26 +3564,26 @@
       "modifier": 0,
       "natural": null,
       "required": 12,
-      "roll": 17,
-      "total": 17,
+      "roll": 13,
+      "total": 13,
       "visibility": "player"
     },
     {
-      "amount": 4,
+      "amount": 2,
       "attacker_id": "character-0001",
       "code": "combat.damage.dealt",
       "event_type": "damage_dealt",
       "keys": [],
       "non_regenerable": false,
       "rolls": [
-        4
+        2
       ],
       "target_id": "monster-0015",
       "visibility": "player"
     },
     {
       "code": "combat.state.hit_points",
-      "current_hp": 3,
+      "current_hp": 5,
       "event_type": "hit_points_reported",
       "max_hp": 7,
       "target_id": "monster-0015",
@@ -3560,17 +3618,17 @@
           "key": "party",
           "modifier": 0,
           "rolls": [
-            2
+            3
           ],
-          "total": 2
+          "total": 3
         },
         {
           "key": "monsters",
           "modifier": 0,
           "rolls": [
-            3
+            4
           ],
-          "total": 3
+          "total": 4
         }
       ],
       "event_type": "initiative_rolled",
@@ -3622,29 +3680,7 @@
     },
     {
       "code": "combat.state.hit_points",
-      "current_hp": 0,
-      "event_type": "hit_points_reported",
-      "max_hp": 7,
-      "target_id": "monster-0015",
-      "visibility": "referee"
-    },
-    {
-      "code": "effects.condition.gained",
-      "condition": "dead",
-      "effect_id": null,
-      "event_type": "condition_gained",
-      "target_id": "monster-0015",
-      "visibility": "player"
-    },
-    {
-      "code": "combat.death.died",
-      "event_type": "death",
-      "target_id": "monster-0015",
-      "visibility": "player"
-    },
-    {
-      "code": "combat.state.hit_points",
-      "current_hp": 0,
+      "current_hp": 2,
       "event_type": "hit_points_reported",
       "max_hp": 7,
       "target_id": "monster-0015",
@@ -3673,7 +3709,7 @@
     },
     {
       "code": "combat.state.hit_points",
-      "current_hp": 5,
+      "current_hp": 7,
       "event_type": "hit_points_reported",
       "max_hp": 9,
       "target_id": "character-0005",
@@ -3685,7 +3721,7 @@
       "back_stab": false,
       "code": "combat.attack.missed",
       "defender_ac": 7,
-      "defender_id": "monster-0016",
+      "defender_id": "monster-0015",
       "event_type": "attack_rolled",
       "modifier": 0,
       "natural": null,
@@ -3707,9 +3743,199 @@
           "key": "party",
           "modifier": 0,
           "rolls": [
-            1
+            6
           ],
-          "total": 1
+          "total": 6
+        },
+        {
+          "key": "monsters",
+          "modifier": 0,
+          "rolls": [
+            3
+          ],
+          "total": 3
+        }
+      ],
+      "event_type": "initiative_rolled",
+      "mode": "side",
+      "order": [
+        "character-0005",
+        "character-0001",
+        "character-0002",
+        "character-0003",
+        "character-0004",
+        "group-0003"
+      ],
+      "visibility": "player"
+    },
+    {
+      "advance_feet": 40,
+      "character_id": "character-0005",
+      "code": "battle.member.moved",
+      "distance_feet": 25,
+      "event_type": "member_moved",
+      "group_id": "group-0003",
+      "move": "close",
+      "visibility": "player"
+    },
+    {
+      "advance_feet": 20,
+      "character_id": "character-0001",
+      "code": "battle.member.moved",
+      "distance_feet": 45,
+      "event_type": "member_moved",
+      "group_id": "group-0003",
+      "move": "close",
+      "visibility": "player"
+    },
+    {
+      "advance_feet": 20,
+      "character_id": "character-0002",
+      "code": "battle.member.moved",
+      "distance_feet": 45,
+      "event_type": "member_moved",
+      "group_id": "group-0003",
+      "move": "close",
+      "visibility": "player"
+    },
+    {
+      "advance_feet": 30,
+      "character_id": "character-0003",
+      "code": "battle.member.moved",
+      "distance_feet": 35,
+      "event_type": "member_moved",
+      "group_id": "group-0003",
+      "move": "close",
+      "visibility": "player"
+    },
+    {
+      "advance_feet": 20,
+      "character_id": "character-0004",
+      "code": "battle.member.moved",
+      "distance_feet": 45,
+      "event_type": "member_moved",
+      "group_id": "group-0003",
+      "move": "close",
+      "visibility": "player"
+    },
+    {
+      "code": "battle.group.moved",
+      "distance_feet": 125,
+      "event_type": "group_moved",
+      "group_id": "group-0003",
+      "visibility": "player"
+    },
+    {
+      "code": "battle.round.started",
+      "event_type": "battle_round",
+      "round": 5,
+      "visibility": "player"
+    },
+    {
+      "code": "combat.initiative.rolled",
+      "entries": [
+        {
+          "key": "party",
+          "modifier": 0,
+          "rolls": [
+            5
+          ],
+          "total": 5
+        },
+        {
+          "key": "monsters",
+          "modifier": 0,
+          "rolls": [
+            4
+          ],
+          "total": 4
+        }
+      ],
+      "event_type": "initiative_rolled",
+      "mode": "side",
+      "order": [
+        "character-0005",
+        "character-0001",
+        "character-0002",
+        "character-0003",
+        "character-0004",
+        "group-0003"
+      ],
+      "visibility": "player"
+    },
+    {
+      "advance_feet": 80,
+      "character_id": "character-0005",
+      "code": "battle.member.moved",
+      "distance_feet": 45,
+      "event_type": "member_moved",
+      "group_id": "group-0003",
+      "move": "close",
+      "visibility": "player"
+    },
+    {
+      "advance_feet": 40,
+      "character_id": "character-0001",
+      "code": "battle.member.moved",
+      "distance_feet": 85,
+      "event_type": "member_moved",
+      "group_id": "group-0003",
+      "move": "close",
+      "visibility": "player"
+    },
+    {
+      "advance_feet": 40,
+      "character_id": "character-0002",
+      "code": "battle.member.moved",
+      "distance_feet": 85,
+      "event_type": "member_moved",
+      "group_id": "group-0003",
+      "move": "close",
+      "visibility": "player"
+    },
+    {
+      "advance_feet": 60,
+      "character_id": "character-0003",
+      "code": "battle.member.moved",
+      "distance_feet": 65,
+      "event_type": "member_moved",
+      "group_id": "group-0003",
+      "move": "close",
+      "visibility": "player"
+    },
+    {
+      "advance_feet": 40,
+      "character_id": "character-0004",
+      "code": "battle.member.moved",
+      "distance_feet": 85,
+      "event_type": "member_moved",
+      "group_id": "group-0003",
+      "move": "close",
+      "visibility": "player"
+    },
+    {
+      "code": "battle.group.moved",
+      "distance_feet": 185,
+      "event_type": "group_moved",
+      "group_id": "group-0003",
+      "visibility": "player"
+    },
+    {
+      "code": "battle.round.started",
+      "event_type": "battle_round",
+      "round": 6,
+      "visibility": "player"
+    },
+    {
+      "code": "combat.initiative.rolled",
+      "entries": [
+        {
+          "key": "party",
+          "modifier": 0,
+          "rolls": [
+            2
+          ],
+          "total": 2
         },
         {
           "key": "monsters",
@@ -3734,7 +3960,7 @@
     },
     {
       "code": "battle.group.moved",
-      "distance_feet": 125,
+      "distance_feet": 245,
       "event_type": "group_moved",
       "group_id": "group-0003",
       "visibility": "player"
@@ -3748,7 +3974,7 @@
       "code": "battle.monster.defeated",
       "event_type": "monster_defeated",
       "monster_id": "monster-0015",
-      "outcome": "slain",
+      "outcome": "routed",
       "template_id": "skeleton",
       "visibility": "player",
       "xp": 10
@@ -5084,7 +5310,7 @@
     },
     "combat": {
       "inc": 159344246211932510829509303919493217123,
-      "state": 266092290009948186413498475371547777123
+      "state": 312993153009647081887000961850872333342
     },
     "effects": {
       "inc": 298377397402987849268447613059820517369,
@@ -5571,21 +5797,13 @@
     "group-0003 is now 5' away.",
     "monster-0015 misses character-0001 with weapon: rolled 13+0 = 13, needing 16.",
     "monster-0016 misses character-0001 with weapon: rolled 8+0 = 8, needing 16.",
-    "monster-0017 misses character-0005 with weapon: rolled 3+0 = 3, needing 10.",
-    "monster-0018 hits character-0005 with weapon: rolled 17+0 = 17, needing 10.",
-    "character-0005 takes 4 damage from monster-0018.",
-    "character-0005 is at 5/9 hit points.",
     "Battle round 2 begins.",
     "character-0005 begins casting magic_missile.",
-    "Initiative (side): party 4, monsters 6. Order: group-0003, character-0005, character-0001, character-0002, character-0003, character-0004.",
-    "monster-0015 hits character-0005 with weapon: rolled 13+0 = 13, needing 10.",
-    "character-0005 takes 2 damage from monster-0015.",
+    "Initiative (side): party 1, monsters 5. Order: group-0003, character-0005, character-0001, character-0002, character-0003, character-0004.",
+    "monster-0015 hits character-0005 with weapon: rolled 14+0 = 14, needing 10.",
+    "character-0005 takes 6 damage from monster-0015.",
     "character-0005 is at 3/9 hit points.",
-    "monster-0016 misses character-0001 with weapon: rolled 11+0 = 11, needing 16.",
-    "monster-0017 hits character-0005 with weapon: rolled 13+0 = 13, needing 10.",
-    "character-0005 takes 2 damage from monster-0017.",
-    "character-0005 is at 1/9 hit points.",
-    "monster-0018 misses character-0001 with weapon: rolled 11+0 = 11, needing 16.",
+    "monster-0016 misses character-0001 with weapon: rolled 14+0 = 14, needing 16.",
     "character-0005's casting of magic_missile is disrupted — the spell is lost.",
     "character-0004 presents the holy symbol (rolled 12, 7 HD affected) — the undead are turned.",
     "Effect effect-0002 (turned) attached to monster-0015.",
@@ -5596,29 +5814,42 @@
     "monster-0017 is turned.",
     "Effect effect-0005 (turned) attached to monster-0018.",
     "monster-0018 is turned.",
-    "character-0001 hits monster-0015 with Sword: rolled 17+0 = 17, needing 12.",
-    "monster-0015 takes 4 damage from character-0001.",
-    "monster-0015 is at 3/7 hit points.",
+    "character-0001 hits monster-0015 with Sword: rolled 13+0 = 13, needing 12.",
+    "monster-0015 takes 2 damage from character-0001.",
+    "monster-0015 is at 5/7 hit points.",
     "Battle round 3 begins.",
     "character-0005 begins casting magic_missile.",
     "character-0004 begins casting cure_light_wounds.",
-    "Initiative (side): party 2, monsters 3. Order: group-0003, character-0005, character-0001, character-0002, character-0003, character-0004.",
+    "Initiative (side): party 3, monsters 4. Order: group-0003, character-0005, character-0001, character-0002, character-0003, character-0004.",
     "group-0003 is now 65' away.",
     "character-0005 casts magic_missile [missiles] at monster-0015.",
     "monster-0015 takes 3 damage from character-0005.",
-    "monster-0015 is at 0/7 hit points.",
-    "monster-0015 is dead.",
-    "monster-0015 is killed.",
-    "monster-0015 is at 0/7 hit points.",
+    "monster-0015 is at 2/7 hit points.",
     "character-0004 casts cure_light_wounds [heal] at character-0005.",
     "character-0005 regains 4 hit points (magical).",
-    "character-0005 is at 5/9 hit points.",
-    "character-0001 misses monster-0016 with Sword: rolled 5+0 = 5, needing 12.",
+    "character-0005 is at 7/9 hit points.",
+    "character-0001 misses monster-0015 with Sword: rolled 5+0 = 5, needing 12.",
     "Battle round 4 begins.",
-    "Initiative (side): party 1, monsters 3. Order: group-0003, character-0005, character-0001, character-0002, character-0003, character-0004.",
+    "Initiative (side): party 6, monsters 3. Order: character-0005, character-0001, character-0002, character-0003, character-0004, group-0003.",
+    "character-0005 closes to 25' from group-0003.",
+    "character-0001 closes to 45' from group-0003.",
+    "character-0002 closes to 45' from group-0003.",
+    "character-0003 closes to 35' from group-0003.",
+    "character-0004 closes to 45' from group-0003.",
     "group-0003 is now 125' away.",
+    "Battle round 5 begins.",
+    "Initiative (side): party 5, monsters 4. Order: character-0005, character-0001, character-0002, character-0003, character-0004, group-0003.",
+    "character-0005 closes to 45' from group-0003.",
+    "character-0001 closes to 85' from group-0003.",
+    "character-0002 closes to 85' from group-0003.",
+    "character-0003 closes to 65' from group-0003.",
+    "character-0004 closes to 85' from group-0003.",
+    "group-0003 is now 185' away.",
+    "Battle round 6 begins.",
+    "Initiative (side): party 2, monsters 3. Order: group-0003, character-0005, character-0001, character-0002, character-0003, character-0004.",
+    "group-0003 is now 245' away.",
     "The battle is won.",
-    "monster-0015 (skeleton) is slain.",
+    "monster-0015 (skeleton) is routed.",
     "monster-0016 (skeleton) is routed.",
     "monster-0017 (skeleton) is routed.",
     "monster-0018 (skeleton) is routed.",
