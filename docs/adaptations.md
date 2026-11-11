@@ -1610,7 +1610,7 @@ Locked by `test_loose_ends.py` and the closed-form property in `test_crawl_prope
 The compiler builds every item on the printed sub-tables, with both the B and X probability columns. The sparse basic column compiles as printed.
 
 - Items with automated mechanics get them from the hand-curated `_MAGIC_ITEM_MECHANICS`, as spells do from `_SPELL_MECHANICS`. Every other item compiles as prose tagged `manual`, for the referee.
-- A staff's weapon fields come from its page instead: its base, its bonus, its strike for a charge, and the classes that may wield it (see [Every magic staff is a staff](#every-magic-staff-is-a-staff)).
+- A staff's weapon fields come from its page instead: its base, its bonus, its strike for a charge, whether it has other powers, and the classes that may wield it. A device page that says "Does not use charges" gives the device no charges (see [Every magic staff is a staff](#every-magic-staff-is-a-staff)).
 - A "versus" clause compiles to structured references to categories and tags, never to matched prose. Lycanthropes and undead are category tags. Spell users and regenerating creatures are sets of templates worked out from their abilities.
 - The girdle of giant strength is the one automated item whose mechanics depend on a `Ruleset` flag, `variable_weapon_damage`, and the tests name it as such.
 - The ring of regeneration works only `while_alive`, and the displacer cloak penalizes only melee attackers.
@@ -1695,13 +1695,29 @@ The Rods, Staves, Wands page gives every staff the same "Dimensions: 2” thick,
 - The magic-user is the exception. The Rods, Staves, Wands page says "Although magic-users are generally only allowed to use daggers in combat, they are able to use the *staff of power*, *staff of striking*, and *staff of wizardry* in melee." The compiler reads that sentence into the `melee_class_ids` param of those three staves, and `validate_equip` lets a class the param lists wield the staff whatever its weapon policy says. A magic-user who equips any other staff gets `items.equip.weapon_not_allowed`, as a magic-user who equips a plain staff does.
 - Who can use a staff's powers is still its `usable_by`, from the usage bullet on its page.
 - The staves of power and wizardry strike for a charge, as the staff of striking does. The Staff of Striking page says "Expending one charge: Inflicts 2d6 damage on a successful hit". The Staff of Power page says "Melee: Expending one charge, inflicts 2d6 damage on a successful hit", and the Staff of Wizardry page says "Striking: Expending one charge, inflicts 2d6 damage on a successful hit". The compiler reads each line into the same `striking` effect, and the same code resolves all three.
-- A `use_item` declaration of a striking staff is the strike. It's a melee attack roll that takes the staff's attack bonus, so the staff of wizardry's +1 applies. A hit deals the printed 2d6, with no damage bonus and no Strength. The strike resolves in the magic phase, as every device use does. An `attack` declaration swings the staff without spending a charge. Outside a battle, `UseItem` refuses a striking staff with `items.use.battle_only`.
-- A `use_item` of the staff of power or the staff of wizardry always strikes. Their other powers, like the cone of cold and the spells, are in the template's `manual` text for the referee, and the session doesn't resolve them.
+- A `use_item` declaration of a striking staff with a group in `target_group_id` is the strike. It's a melee attack roll that takes the staff's attack bonus, so the staff of wizardry's +1 applies. A hit deals the printed 2d6, with no damage bonus and no Strength. The strike resolves in the magic phase, as every device use does, and its `items.device.activated` event has no `manual` text. An `attack` declaration swings the staff without spending a charge.
+- The staves of power and wizardry have other powers too. The Staff of Power page says the staff "may evoke five different magical effects", and the Staff of Wizardry page says it "may evoke a dozen different magical effects". The compiler reads that sentence into the `manual_powers` param of the two staves. A `use_item` declaration of either one with no `target_group_id` is one of those powers: it spends a charge, makes no attack roll, and the `items.device.activated` event has the staff's `manual` text for the referee to rule on. Outside a battle, every `UseItem` of either staff is one of those powers, the same way.
+- The staff of striking has no other power. Outside a battle, `UseItem` refuses it with `items.use.battle_only`, and a `use_item` declaration of it with no `target_group_id` gets `battle.declaration.unknown_group`.
+- The Staff of Healing and Staff of Snakes pages both say "No charges: Does not use charges". The category page's 3d10 charges apply "Unless noted", so the compiler reads that line, and those two staves have no charges. Every other staff has 3d10.
 - A magic staff weighs as treasure, at the 40 coins the encumbrance table gives a staff. `equipment_weight_coins` doesn't count it again as the mundane staff underneath.
 - An attack with a magic staff is a use of it, so the first attack roll identifies the staff, as the first attack roll with an enchanted weapon identifies the weapon. A magic staff counts as magical against a monster that only magic harms, as every magic item used as a weapon does.
 - The player view shows every unidentified magic staff as "a staff", with the mundane staff's `qualities`. "A staff" is the name of the weapon underneath, and the qualities are the same for all seven, so a player can't tell one staff from another by either one.
 
-Locked by `test_magic_staves.py`, `test_battle.py::TestEveryUnidentifiedStaffShowsTheStaffsQualities`, and the weight property in `test_crawl_properties.py`.
+The session leaves these powers to the referee, in each template's `manual` text:
+
+| Staff | Powers the session resolves | Powers left to the referee |
+| --- | --- | --- |
+| Commanding | None | Commanding animals, humans, and plants |
+| Healing | Healing by touch | None |
+| Power | The strike | Cone of cold, *continual light*, *fire ball*, *lightning bolt*, and *telekinesis* |
+| Snakes | The +1 swing | The snake that coils around a creature the staff hits |
+| Striking | The strike | None |
+| Withering | None | Aging a creature the staff hits |
+| Wizardry | The +1 swing and the strike | Cone of cold, paralysation, eight spells, the whirlwind, and the sacrifice |
+
+A game runs one of those powers with a use the session doesn't resolve. That's any use of the staff of commanding, and for the staves of power and wizardry, a `UseItem` outside a battle or a `use_item` declaration with no `target_group_id`. The session spends a charge, takes the member's action for the round, and puts the staff's text in the `manual` of the `items.device.activated` event. The referee, or the game, applies the power the player chose. The staves of snakes and withering set off their powers when they hit, so the referee applies the power when an `attack` with the staff hits. A use of either staff reports its text the same way, and spends a charge only from the staff of withering, because the staff of snakes has none.
+
+Locked by `test_magic_staves.py`, `test_battle.py::TestEveryUnidentifiedStaffShowsTheStaffsQualities`, the charges census in `test_treasure_data.py`, and the weight property in `test_crawl_properties.py`.
 
 ### Rings cap at two, worn on hands
 
