@@ -2188,9 +2188,10 @@ HealingService = Literal[
 [`PurchaseHealing.service`][osrlib.crawl.commands.PurchaseHealing] accepts.
 
 The set is closed: constructing a `PurchaseHealing` with any other name fails validation.
-[`HEALING_SERVICES`][osrlib.crawl.exploration.HEALING_SERVICES] uses this same type for the
-keys of its price list, so the services you offer from that list are always the names the
-command accepts. Annotate a service parameter in your code with this type, and your type
+[`HEALING_SERVICES`][osrlib.crawl.exploration.HEALING_SERVICES] and
+[`TownSpec.healing_prices`][osrlib.crawl.adventure.TownSpec.healing_prices] use this same type
+for the keys of their price lists, so the services you offer from either list are always the
+names the command accepts. Annotate a service parameter in your code with this type, and your type
 checker catches a wrong name."""
 
 
@@ -2259,7 +2260,7 @@ class PurchaseHealing(Command):
     """Which service to buy. Each works as the matching spell, cast by the temple cleric.
     `remove_curse` also frees the member from cursed items whose curse has been revealed, so they
     can take them off."""
-    caster_level: int | None = Field(default=None, exclude_if=lambda level: level is None)
+    caster_level: int | None = None
     """The level of the temple cleric who casts the service, or `None` for the lowest level that
     can cast it, like level 2 for `cure_light_wounds` and level 7 for `raise_dead`.
 
@@ -2267,7 +2268,7 @@ class PurchaseHealing(Command):
     above 7th. A level 7 cleric raises only a member who died less than a day ago, and a level 9
     cleric raises a member dead up to 8 days. The session refuses a level below the lowest that can
     cast the service, or above 14, the highest level a cleric can reach. The price is the same at
-    every level. A command with no level is serialized without this field."""
+    every level."""
 
 
 class Parley(Command):
