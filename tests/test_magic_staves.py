@@ -259,3 +259,34 @@ def test_the_staff_of_striking_needs_a_group_to_strike():
     refused = pf.round_(game, pf.declare(priest, "use_item", item_id=staff.instance_id))
     assert [rejection.code for rejection in refused.rejections] == ["battle.declaration.unknown_group"]
     assert staff.charges_remaining == 5
+
+
+# ---------------------------------------------------------------------- the strike is a blow with a slow weapon
+
+# The staff of striking is "Used as a magical melee weapon", and a staff is slow, so its strike comes last.
+
+
+@pytest.mark.parametrize(
+    ("roster", "staff_id"), [((PRIEST, pf.HILD), "staff_of_striking"), ((MAGE, pf.HILD), "staff_of_power")]
+)
+def test_a_strike_comes_after_a_quicker_members_attack(roster, staff_id):
+    game, wielder, staff = armed(roster, staff_id, identified=True)
+    hild = game.party.members[1].id
+    strike = pf.declare(wielder, "use_item", item_id=staff.instance_id, target_group_id=pf.group_id(game))
+    events = pf.play(game, strike, pf.strike(game, hild))
+    assert [roll.attacker_id for roll in events if isinstance(roll, AttackRolledEvent)] == [hild, wielder]
+
+
+def test_a_strike_comes_after_the_monsters_attacks():
+    """Whoever wins initiative, in every one of the first ten battles in which the goblins attack."""
+    checked = 0
+    seed = 0
+    while checked < 10:
+        game, priest, staff = armed((PRIEST, pf.HILD), "staff_of_striking", identified=True, first_seed=seed)
+        seed = game.master_seed + 1
+        pf.release_monsters(game)
+        strike = pf.declare(priest, "use_item", item_id=staff.instance_id, target_group_id=pf.group_id(game))
+        rolls = [roll for roll in pf.play(game, strike) if isinstance(roll, AttackRolledEvent)]
+        if len(rolls) > 1:
+            assert rolls[-1].attacker_id == priest, f"seed {game.master_seed}"
+            checked += 1

@@ -21,7 +21,7 @@ from osrlib.core.spells import (
 )
 from osrlib.core.validation import Rejection
 from osrlib.crawl._party_members import _member_able
-from osrlib.crawl._spells import _cast_context, _lift_curses
+from osrlib.crawl._spells import _cast_context, _cast_outcomes
 from osrlib.crawl.commands import PurchaseEquipment, PurchaseHealing, SellTreasure
 from osrlib.crawl.events import HealingPurchasedEvent, ItemAcquiredEvent, TreasureSoldEvent
 from osrlib.data import load_classes, load_equipment
@@ -200,8 +200,7 @@ def _handle_purchase_healing(session, command: PurchaseHealing) -> tuple[list[Re
         effects_stream=session.streams.get(EFFECTS_STREAM),
     )
     events.extend(result.events)
-    if command.service == "remove_curse":
-        events.extend(_lift_curses(session, member))
+    events.extend(_cast_outcomes(session, spell, result, [member]))
     return [], events
 
 

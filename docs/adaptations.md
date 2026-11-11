@@ -673,8 +673,11 @@ osrlib runs *silence 15' radius* for both outcomes of the target's save:
 
 - On a failed save, the target gains `silenced`, which the casting validator checks, and the silence moves with the creature.
 - On a passed save, RAW leaves a *stationary* area that the creature can step out of. Effects bound to a location anchor to cells, so the engine attaches a stationary silence effect to the target's cell, which osrlib takes to be the party's current cell, the encounter's abstract location. Creatures in that cell can't cast while they're there, in battle too.
+- The session leaves the stationary area however the spell is cast: from memory or from a scroll, in a battle or outside one, and by an NPC adventurer at a member who saves.
+- The area takes its radius from the spell's `radius_feet` param.
+- The session knows the spell by its data, not by its id. Its mode's effect gives the `silenced` condition, with `silence` as the `effect_kind` param. So a copy of the spell that an adventure bundles under another id leaves the same area.
 
-Locked by `test_casting.py::TestSilenceWebDispelFeeblemind`, `test_exploration.py::TestStationarySilence`, and `test_battle.py::TestSilencedCellInBattle`.
+Locked by `test_casting.py::TestSilenceWebDispelFeeblemind`, `test_exploration.py::TestStationarySilence`, `test_battle.py::TestSilencedCellInBattle`, and `test_cast_outcomes.py`.
 
 ### Web escape tiers depend on STR, with the augmented and giant tiers caller-asserted
 
@@ -1133,7 +1136,7 @@ The session judges a melee attack before the round starts, but the round can cha
 - Otherwise the attack fizzles. The member makes no attack roll, and the session reports a player-visible `DeclarationFizzledEvent` with the code `battle.melee.fizzled`. Its `group_id` is the group. Its `reason` is `combat.attack.out_of_reach` when the member is farther than 5' from the group, or `battle.declaration.not_in_front_rank` when the member is within 5' but not in its front rank.
 - That happens when a member the round expected to step back can no longer move and still stands in the place. It also happens when the monsters win initiative and the group runs before the member's close.
 - An attack that closes from beyond 5' to within 5' stays a melee attack wherever the member ends up. When the close falls short, the attack fizzles instead of turning a dagger's stab into a throw the player never declared.
-- A slow melee attack faces the same check again when it resolves at the end of the round.
+- A slow melee attack faces the same check again when it resolves at the end of the round. A staff's strike for a charge takes the same checks at the same two points, and fizzles as a device use does (see [Every magic staff is a staff](#every-magic-staff-is-a-staff)).
 - Against a group that runs, what decides it is where the member stood when the round was accepted: a member who already stood within 5' of the group still strikes it, wherever it has run since, and a member who was closing on it fizzles. A group that runs out of the battle altogether leaves nothing to strike, so even a member who stood within 5' of it fizzles with `combat.attack.out_of_reach`. The SRD gives the opponent its attack against a retreating combatant, and osrlib reads only a member already within 5' as that opponent.
 - An attack whose group has no living monster the member can see left to strike fizzles too, with the reason `battle.declaration.no_target`. That's the code the session refuses such an attack with at the start of the round. It happens when the party's missiles or spells, or an earlier member's melee, kill every monster in the group. The session checks for a target before it checks the member's position, as it does at the start of the round, so the member gets `no_target` whether or not they closed, and wherever they stand.
 
@@ -1184,9 +1187,8 @@ A cast or scroll read that the re-check refuses isn't cast, and it never raises 
 
 A wand, staff, or rod use and a turning get the same re-check ([#145](https://github.com/mmacy/osrlib-python/issues/145)):
 
-- A staff of striking aimed at a group that ran out of melee reach fizzles with `combat.attack.out_of_reach`.
 - A wand aimed at a group that fled the battle fizzles with `battle.declaration.unknown_group`.
-- A staff of striking in the hands of a member named in a `replacement_id`, whose trade didn't happen, fizzles with `battle.declaration.not_in_front_rank`, because the re-check reads the ranks as they stand.
+- A staff's strike for a charge doesn't resolve in the magic phase. It's a blow with a slow weapon, so it faces a melee attack's checks instead (see [Every magic staff is a staff](#every-magic-staff-is-a-staff)). A staff of striking in the hands of a member named in a `replacement_id`, whose trade didn't happen, fizzles with `battle.declaration.not_in_front_rank`, because those checks read the ranks as they stand.
 - A turning fizzles with `battle.declaration.no_target` when no living monster is left in any group that hasn't fled, because the missile phase or an earlier declaration in the magic phase killed the monsters or drove them off. That check asks whether any monster is left, not whether any undead is, so it tells the player nothing about which monsters are undead.
 
 A potion given to another member to drink and a hand-over are checked again too, where the members stand then (see [One member reaches another](#one-member-reaches-another)).
@@ -1630,6 +1632,14 @@ A magic item shows a generic name until it's identified: an enchanted weapon or 
 
 A cursed item reveals itself at the same moment and sticks. The engine refuses `UnequipItem` for a cursed sword, weapon, armour, shield, or ring alike, with `items.curse.stuck`, until *remove curse*. A cursed ring reveals itself the moment it's equipped, because its onset is automatic.
 
+*Remove curse* frees each member it targets from the cursed items they carry. The item stays cursed and identified, but the member can put it down, and the effects of item curses, like the ring of weakness's, end.
+
+- The session does this however the spell is cast: from memory or from a scroll, in a battle or outside one, by an NPC adventurer, and at the temple.
+- The reversed spell, *curse*, frees nothing.
+- The session knows *remove curse* by the ids of the two built-in spells, `remove_curse_c` and `remove_curse_mu`. No data marks the spell, because its mode is manual and has no effect. An adventure can't bundle a spell under a built-in id, so no bundled spell frees stuck items, whatever its id starts with.
+
+Locked by `test_cast_outcomes.py`.
+
 Charges are rolled when the item is created, and only the referee ever sees them (RAW "undiscoverable"). The player view never shows a charge count, a potion's remaining duration, an item's internal state, sentience, or a hoard the party hasn't found. Locked by `test_magic_items.py`, `test_exploration.py`, and the leak property test.
 
 ### Item bonuses use a separate channel, outside the cumulative caps
@@ -1677,7 +1687,7 @@ Locked by `test_casting.py`, `test_exploration.py`, and `test_battle.py`.
 
 Using a wand, staff, or rod spends one charge and the user's action for the round.
 
-- The use resolves in the magic phase, through the kernel's damage and save rules, with the item's printed area shape under [the area footprint](#the-area-footprint) rule.
+- The use resolves in the magic phase, through the kernel's damage and save rules, with the item's printed area shape under [the area footprint](#the-area-footprint) rule. A staff's strike for a charge is the exception, because it's a blow with a slow weapon (see [Every magic staff is a staff](#every-magic-staff-is-a-staff)).
 - Device areas are destructive, like *lightning bolt*: a kill destroys the victim's equipment.
 - An exhausted device goes inert, and the session refuses any further use with `items.device.inert`, rather than silently doing nothing.
 - Devices never recharge and never show their charges.
@@ -1695,7 +1705,11 @@ The Rods, Staves, Wands page gives every staff the same "Dimensions: 2” thick,
 - The magic-user is the exception. The Rods, Staves, Wands page says "Although magic-users are generally only allowed to use daggers in combat, they are able to use the *staff of power*, *staff of striking*, and *staff of wizardry* in melee." The compiler reads that sentence into the `melee_class_ids` param of those three staves, and `validate_equip` lets a class the param lists wield the staff whatever its weapon policy says. A magic-user who equips any other staff gets `items.equip.weapon_not_allowed`, as a magic-user who equips a plain staff does.
 - Who can use a staff's powers is still its `usable_by`, from the usage bullet on its page.
 - The staves of power and wizardry strike for a charge, as the staff of striking does. The Staff of Striking page says "Expending one charge: Inflicts 2d6 damage on a successful hit". The Staff of Power page says "Melee: Expending one charge, inflicts 2d6 damage on a successful hit", and the Staff of Wizardry page says "Striking: Expending one charge, inflicts 2d6 damage on a successful hit". The compiler reads each line into the same `striking` effect, and the same code resolves all three.
-- A `use_item` declaration of a striking staff with a group in `target_group_id` is the strike. It's a melee attack roll that takes the staff's attack bonus, so the staff of wizardry's +1 applies. A hit deals the printed 2d6, with no damage bonus and no Strength. The strike resolves in the magic phase, as every device use does, and its `items.device.activated` event has no `manual` text. An `attack` declaration swings the staff without spending a charge.
+- A `use_item` declaration of a striking staff with a group in `target_group_id` is the strike. It's a melee attack roll that takes the staff's attack bonus, so the staff of wizardry's +1 applies. A hit deals the printed 2d6, with no damage bonus and no Strength. Its `items.device.activated` event has no `manual` text. An `attack` declaration swings the staff without spending a charge.
+- The strike is a blow with a slow weapon. The Staff of Striking page says "Used as a magical melee weapon", and the weapons table gives the staff "Blunt, Melee, Slow, Two-handed". So the strike resolves where a slow `attack` with the same staff would, after both sides' blocks, and not in the magic phase with the other device uses (see [Slow actors act after all non-slow actors](#slow-actors-act-after-all-non-slow-actors)). The session counts the strike slow when it rolls initiative, as it does the swing.
+- The strike takes what a melee attack takes. It gets +2 against a group that's fleeing. It counts as melee with the monster it's aimed at, for *protection from evil*, and it breaks a protection ward that bars that monster.
+- The identification, the `items.device.activated` event, the charge, and the end of the member's invisibility all come when the strike resolves.
+- A member who can't strike by then is treated as a member whose slow `attack` can't. A member who is dead or helpless makes no strike, and nothing reports it. The strike faces the melee step's checks when that step comes and again when it resolves (see [A melee attack that position stops fizzles](#a-melee-attack-that-position-stops-fizzles)). So a member who stood within 5' of a group when the round was accepted still strikes it after it runs, unless it has run out of the battle. A strike that fails the checks fizzles as a device use does, with `magic.device.fizzled` and the staff's instance id, and the same reason a melee attack would get. The staff keeps its charge and isn't identified.
 - The staves of power and wizardry have other powers too. The Staff of Power page says the staff "may evoke five different magical effects", and the Staff of Wizardry page says it "may evoke a dozen different magical effects". The compiler reads that sentence into the `manual_powers` param of the two staves. A `use_item` declaration of either one with no `target_group_id` is one of those powers: it spends a charge, makes no attack roll, and the `items.device.activated` event has the staff's `manual` text for the referee to rule on. Outside a battle, every `UseItem` of either staff is one of those powers, the same way.
 - The staff of striking has no other power. Outside a battle, `UseItem` refuses it with `items.use.battle_only`, and a `use_item` declaration of it with no `target_group_id` gets `battle.declaration.unknown_group`.
 - The Staff of Healing and Staff of Snakes pages both say "No charges: Does not use charges". The category page's 3d10 charges apply "Unless noted", so the compiler reads that line, and those two staves have no charges. Every other staff has 3d10.
