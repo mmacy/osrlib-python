@@ -98,3 +98,55 @@ def test_the_xp_modifier_still_reads_the_rolled_score():
     before = xp_modifier_pct(fighter.definition, fighter.scores)
     give(game, "gauntlets_of_ogre_power", worn=True)
     assert xp_modifier_pct(fighter.definition, fighter.scores) == before == 0
+
+
+# ---------------------------------------------------------------------- the score in effect, by name
+
+
+def test_the_character_states_its_strength_in_effect():
+    game = session()
+    fighter = game.party.members[0]
+    assert fighter.effective_strength == 11
+    give(game, "gauntlets_of_ogre_power", worn=True)
+    assert fighter.effective_strength == 18
+    fighter.stat_modifiers = (WEAKNESS,)
+    assert fighter.effective_strength == 3
+    assert fighter.scores[AbilityScore.STR] == 11
+
+
+def test_the_player_view_states_the_strength_in_effect():
+    game = session()
+    assert game.view(Visibility.PLAYER).party[0].effective_strength == 11
+    give(game, "gauntlets_of_ogre_power", worn=True)
+    sheet = game.view(Visibility.PLAYER).party[0]
+    assert (sheet.effective_strength, sheet.scores["str"]) == (18, 11)
+
+
+def test_an_intelligent_swords_contest_uses_the_strength_in_effect():
+    """The SRD's control check compares the sword's will with "the sum of STR and WIS scores"."""
+    from osrlib.core.items import SwordSentience, sword_control_check
+    from osrlib.core.rng import RngStreams
+
+    def wielder_will(game: GameSession) -> int:
+        fighter = game.party.members[0]
+        sentience = SwordSentience(
+            intelligence=12,
+            ego=12,
+            communication="speech",
+            reading=True,
+            alignment=fighter.alignment.value,
+            extraordinary_powers=("telekinesis",),
+        )
+        sword = MagicItemInstance(
+            instance_id="magic-item-9001", template_id="sword_plus_1", base_item_id="sword", sentience=sentience
+        )
+        assert fighter.current_hp == fighter.max_hp, "an unhurt wielder loses nothing from their will"
+        return sword_control_check(fighter, sword, stream=RngStreams(master_seed=47).get("magic")).wielder_will
+
+    plain = session()
+    assert wielder_will(plain) == 11 + 11
+    gauntleted = session()
+    give(gauntleted, "gauntlets_of_ogre_power", worn=True)
+    assert wielder_will(gauntleted) == 18 + 11
+    gauntleted.party.members[0].stat_modifiers = (WEAKNESS,)
+    assert wielder_will(gauntleted) == 3 + 11
