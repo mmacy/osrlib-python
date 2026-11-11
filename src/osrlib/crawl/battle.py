@@ -143,7 +143,8 @@ each member their choices, read the player view's
 from each member, who can reach each group in melee, and which groups each member can see. Two
 members reach each other when their advances differ by 5' or less. A member has to reach another to
 hand them an item, to give them a potion to drink, or to touch them with a staff of healing or a
-touch spell.
+touch spell. A touch on a monster follows the rule for melee: the member has to stand in the party's
+front rank toward the monster's group, and the monster in its group's front rank.
 
 During a round, the session also applies these rules without a command for them:
 
@@ -2737,7 +2738,8 @@ def _validate_declaration(
     will produce. Without `placement`, as in the magic phase, the checks read the battle as it stands. A
     melee attack and a staff of striking take the checks of `_melee_rejection`:
     `combat.attack.out_of_reach` for a member farther than 5' from the group, and
-    `battle.declaration.not_in_front_rank` for a member within 5' who isn't in its front rank.
+    `battle.declaration.not_in_front_rank` for a member within 5' who isn't in its front rank. A touch
+    on a monster, with a touch spell or a staff of healing, takes the checks of `_touch_rejection`.
 
     A potion given to another member, a staff of healing used on another member, and a `give_item` need
     the two members within reach of each other where `placement` puts them (see `_reach_rejection`).
@@ -2888,6 +2890,9 @@ def _cast_targets(
     of the round's declared moves, and the magic phase the battle as it stands. A caster can't move in the
     round they cast, and neither a trade nor a move of the party line changes a distance, so the caster's
     distance to a group is the same in both. A declaration with only cell references gives no distance.
+
+    A touch spell on a monster within 5' of the caster takes the checks of `_touch_rejection`. A touch spell on a
+    monster farther away is left to the spell's range check, which refuses it with `magic.cast.out_of_range`.
     """
     try:
         mode = spell.mode(declaration.spell_mode, reversed=declaration.reversed)
@@ -2915,6 +2920,7 @@ def _cast_targets(
         return candidates, placement.distance(declaration.character_id, group), []
     registry = session.registry()
     party_ids = {member.id for member in session.party.members}
+    touch = spell.range_spec.kind == "touch"
     targets: list = []
     distance: int | None = None
     for target_ref in declaration.targets:
@@ -2933,7 +2939,13 @@ def _cast_targets(
             continue
         for group in session.encounter.groups:
             if target_ref in group.monster_ids:
-                distance = max(distance or 0, placement.distance(declaration.character_id, group))
+                reach = placement.distance(declaration.character_id, group)
+                distance = max(distance or 0, reach)
+                # A touch beyond 5' fails the spell's range check in `validate_cast`, with `magic.cast.out_of_range`.
+                if touch and reach <= MELEE_RANGE_FEET:
+                    refused = _touch_rejection(session, declaration.character_id, entity, group, placement)
+                    if refused is not None:
+                        return [], None, [refused]
     return targets, distance, []
 
 
@@ -3133,28 +3145,63 @@ def _healing_touch(session, declaration: BattleDeclaration, member, placement: _
     """Return whom a declared staff of healing touches, with every reason it can't, as a `(target, rejections)` pair.
 
     The OSE SRD's staff "Has the power to heal those touched". The target is the creature whose id is the one
-    id in `targets`, or the member using the staff when `targets` is empty. An id that matches no creature,
-    or a monster outside the encounter's groups that haven't fled, gets `items.use.unknown_target`. Another
-    member has to stand within 5' of the user in `placement` (see `_reach_rejection`). A monster's group has
-    to stand within 5' of the user too, or the use gets `combat.attack.out_of_reach` with that distance as
-    `distance_feet`. The target is None when there are rejections. The call reads state and takes no draw.
+    id in `targets`, or the member using the staff when `targets` is empty. The checks come in this order:
+
+    1. `items.use.unknown_target` for an id that matches no creature, or a monster outside the encounter's groups
+       that haven't fled.
+    2. `items.use.target_cannot_be_healed` for a creature that's dead or turned to stone, with the staff's instance
+       id as `item` and the creature's id as `target`. The staff can't heal it, as a potion can't be given to a
+       member who can't drink (see `exploration._potion_drinker`).
+    3. Reach. Another member has to stand within 5' of the user in `placement` (see `_reach_rejection`). A touch on
+       a monster takes the checks of `_touch_rejection`.
+
+    The target is None when there are rejections. The call reads state and takes no draw.
     """
     target_ref = _sole_target(declaration)
     if target_ref is None or target_ref == member.id:
         return member, []
     target = session.registry().get(target_ref)
+    unknown = Rejection(code="items.use.unknown_target", params={"target": target_ref})
     if target is None:
-        return None, [Rejection(code="items.use.unknown_target", params={"target": target_ref})]
-    if any(other.id == target_ref for other in session.party.members):
-        out_of_reach = _reach_rejection(placement, member.id, target_ref)
-        return (None, [out_of_reach]) if out_of_reach is not None else (target, [])
-    group = next((group for group in session.encounter.groups if target_ref in group.monster_ids), None)
-    if group is None or group.fled:
-        return None, [Rejection(code="items.use.unknown_target", params={"target": target_ref})]
-    distance = placement.distance(member.id, group)
-    if distance > MELEE_RANGE_FEET:
-        return None, [Rejection(code="combat.attack.out_of_reach", params={"distance_feet": distance})]
-    return target, []
+        return None, [unknown]
+    on_member = any(other.id == target_ref for other in session.party.members)
+    group = (
+        None
+        if on_member
+        else next((group for group in session.encounter.groups if target_ref in group.monster_ids), None)
+    )
+    if not on_member and (group is None or group.fled):
+        return None, [unknown]
+    if not _stands(target):
+        cannot_heal = Rejection(
+            code="items.use.target_cannot_be_healed", params={"item": declaration.item_id or "", "target": target_ref}
+        )
+        return None, [cannot_heal]
+    if group is None:
+        refused = _reach_rejection(placement, member.id, target_ref)
+    else:
+        refused = _touch_rejection(session, member.id, target, group, placement)
+    return (None, [refused]) if refused is not None else (target, [])
+
+
+def _touch_rejection(session, member_id: str, monster, group, placement: _Placement) -> Rejection | None:
+    """Return why a member can't touch one of a group's monsters where `placement` puts them, or None when they can.
+
+    A touch on a monster follows the rule for melee, because the OSE SRD's touch spells say "In combat, a melee
+    attack roll is required". A touch spell and a staff of healing on a monster take this check. The member takes
+    the checks of `_melee_rejection` first: `combat.attack.out_of_reach` for a member farther than 5' from the group,
+    and `battle.declaration.not_in_front_rank` for a member within 5' who isn't in the party's front rank toward it.
+    Then a monster that isn't in its group's front rank (see `_in_front_rank`) gets `combat.attack.out_of_reach`,
+    with the member's distance to the group as `distance_feet` and the monster's id as `target`. The monster can be
+    an NPC adventurer. The call reads state and takes no draw.
+    """
+    refused = _melee_rejection(member_id, group, placement)
+    if refused is not None:
+        return refused
+    if not _in_front_rank(session, monster, group):
+        distance = placement.distance(member_id, group)
+        return Rejection(code="combat.attack.out_of_reach", params={"distance_feet": distance, "target": monster.id})
+    return None
 
 
 def _hand_over(session, declaration: BattleDeclaration, giver, placement: _Placement):
