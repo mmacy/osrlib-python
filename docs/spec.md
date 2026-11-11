@@ -72,8 +72,11 @@ osrlib/
 │   ├── adventure.py     # adventure container: dungeons, base town, scenario metadata
 │   ├── dungeon.py       # multi-level grid model: cells, walls, doors, stairs,
 │   │                    # keyed areas, traps, features, explored flags, Direction
-│   ├── exploration.py   # exploration turn loop: movement, light, rest, searching,
-│   │                    # wandering monster checks
+│   ├── exploration.py   # exploration turn loop: wandering monster checks, fatigue,
+│   │                    # rest, provisions, and the exploring commands' handler table
+│   ├── _movement.py …   # the exploring and town command handlers, one private module
+│   │                    # per concern: movement, doors, searching, light, items,
+│   │                    # spells, town, and the helpers they share
 │   ├── encounter.py     # encounter procedure: surprise, distance, reaction,
 │   │                    # evasion & pursuit
 │   ├── battle.py        # combat state machine: side initiative, round sequence,

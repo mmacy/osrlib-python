@@ -23,7 +23,7 @@ from osrlib.core.events import Visibility
 from osrlib.core.items import Coins, ItemInstance, MagicItemInstance, ValuableInstance
 from osrlib.core.rng import RngStream
 from osrlib.core.ruleset import EncumbranceMode, Ruleset
-from osrlib.crawl import exploration
+from osrlib.crawl import _arrival, _doors, exploration
 from osrlib.crawl.commands import (
     AdvanceTime,
     CloseDoor,
@@ -801,7 +801,7 @@ def resolve_trap(trap: TrapSpec, seed: int = 2):
     session = quiet_session(seed=seed)
     entered(session)
     member = session.party.living_members()[0]
-    events = exploration._resolve_trap(session, trap, triggerer=member)
+    events = _arrival._resolve_trap(session, trap, triggerer=member)
     return session, member, events
 
 
@@ -1062,7 +1062,7 @@ class TestDoorTraps:
 
     def test_a_discovered_secret_door_gives_up_its_trap(self):
         session = self.build_before_the_door(seed=SEED_SEARCH_PASSES)
-        exploration._materialize_door(session, Direction.SOUTH).discovered = True
+        _doors._materialize_door(session, Direction.SOUTH).discovered = True
         result = session.execute(Search(character_id="character-0001", kind="room_traps"))
         completed = next(event for event in result.events if event.code == "exploration.search.found")
         assert set(completed.found) == {"room_trap:blade_room:east", "room_trap:vault:south"}

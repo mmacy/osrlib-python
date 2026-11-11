@@ -152,10 +152,10 @@ class TestImmediateTiming:
         before = [m.xp for m in session.party.members]
         # The fixture's chest holds 200 gp behind a treasure trap; force the door
         # path aside and grab through the referee surface instead: place a pile.
-        from osrlib.crawl import exploration
+        from osrlib.crawl import _party_location
         from osrlib.crawl.dungeon import DropPile
 
-        ref = exploration._cell_ref(session)
+        ref = _party_location._cell_ref(session)
         session.dungeon_state.piles[ref] = DropPile(coins=Coins(gp=200))
         result = session.execute(TakeTreasure(feature_id="pile"))
         assert result.accepted
@@ -172,10 +172,10 @@ class TestImmediateTiming:
         ruleset = Ruleset(xp_award_timing=XpAwardTiming.IMMEDIATE)
         session = build_session(seed=9, ruleset=ruleset)
         session.execute(EnterDungeon(dungeon_id="delve"))
-        from osrlib.crawl import exploration
+        from osrlib.crawl import _party_location
         from osrlib.crawl.dungeon import DropPile
 
-        ref = exploration._cell_ref(session)
+        ref = _party_location._cell_ref(session)
         session.dungeon_state.piles[ref] = DropPile(coins=Coins(gp=4800))
         result = session.execute(TakeTreasure(feature_id="pile"))
         assert result.accepted
@@ -200,10 +200,10 @@ class TestImmediateTiming:
         # on_return: the same 200 gp taken and returned awards once, at return.
         session = build_session(seed=9)
         session.execute(EnterDungeon(dungeon_id="delve"))
-        from osrlib.crawl import exploration
+        from osrlib.crawl import _party_location
         from osrlib.crawl.dungeon import DropPile
 
-        ref = exploration._cell_ref(session)
+        ref = _party_location._cell_ref(session)
         session.dungeon_state.piles[ref] = DropPile(coins=Coins(gp=200))
         before = [m.xp for m in session.party.members]
         session.execute(TakeTreasure(feature_id="pile"))

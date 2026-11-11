@@ -129,6 +129,8 @@ from osrlib.core.rng import RngStreams, StreamName
 from osrlib.core.ruleset import Ruleset
 from osrlib.core.treasure import TREASURE_STREAM, instantiate_magic_item
 from osrlib.core.validation import Rejection
+from osrlib.crawl import _party_location, _party_members, _treasure
+from osrlib.crawl._treasure import _treasure_tier
 from osrlib.crawl.adventure import Adventure, _effective_equipment, _effective_monsters, validate_adventure
 from osrlib.crawl.battle import BattleState
 from osrlib.crawl.commands import (
@@ -893,9 +895,9 @@ class GameSession:
 
     @dungeon_state.setter
     def dungeon_state(self, state: DungeonState) -> None:
-        from osrlib.crawl import exploration
+        from osrlib.crawl import _doors
 
-        state._start_doors_from(lambda ref: exploration._new_door_state(self.adventure, ref))
+        state._start_doors_from(lambda ref: _doors._new_door_state(self.adventure, ref))
         self._dungeon_state = state
 
     @property
@@ -1219,7 +1221,7 @@ class GameSession:
         afterwards would read the light from the destination and lose the cells seen where the move
         ended, while a replay, running the same commands with no listeners, marks both in order.
         """
-        from osrlib.crawl.exploration import _light_reveal
+        from osrlib.crawl._light import _light_reveal
 
         key, cells = _light_reveal(self)
         if key is None or not cells:
@@ -2009,7 +2011,6 @@ class GameSession:
         Args:
             events: The just-executed command's events, in order.
         """
-        from osrlib.crawl import exploration
         from osrlib.crawl.dungeon import DropPile
 
         if self.dungeon_state.location.kind != "dungeon":
@@ -2021,11 +2022,11 @@ class GameSession:
             member = members.get(event.target_id)
             if member is None:
                 continue
-            pile = self.dungeon_state.piles.setdefault(exploration._cell_ref(self), DropPile())
+            pile = self.dungeon_state.piles.setdefault(_party_location._cell_ref(self), DropPile())
             for instance_id in event.saved_items:
                 instance = member.inventory.magic_item(instance_id)
                 if instance is not None:
-                    exploration._remove_instance(member, instance)
+                    _party_members._remove_instance(member, instance)
                     pile.magic_items.append(instance)
 
     def _record_deaths(self, events: Sequence[Event]) -> None:
@@ -2196,8 +2197,6 @@ def _handle_grant_item(session: GameSession, command: GrantItem) -> tuple[list[R
             load_magic_items().get(command.item_id)
         except ValueError:
             return [Rejection(code="session.command.unknown_item", params={"item": command.item_id})], []
-        from osrlib.crawl.exploration import _treasure_tier
-
         # A granted magic item is made exactly as a placed one is when its cache is
         # emptied: its rolls come off the treasure stream at the tier in force now.
         tier = _treasure_tier(session)
@@ -2254,7 +2253,7 @@ def _removal_rejection(member: Character, item_id: str, quantity: int) -> Reject
 
 
 def _handle_remove_item(session: GameSession, command: RemoveItem) -> tuple[list[Rejection], list[Event]]:
-    from osrlib.crawl import exploration
+    from osrlib.crawl import _magic_items
 
     try:
         member = session.member(command.character_id)
@@ -2270,8 +2269,8 @@ def _handle_remove_item(session: GameSession, command: RemoveItem) -> tuple[list
     if magic is not None:
         # Removal releases the item's effects, as taking it off would. It skips the curse
         # check, because the referee takes the item and the bearer doesn't let go of it.
-        events.extend(exploration._release_instance_effects(session, magic))
-        exploration._remove_instance(member, magic)
+        events.extend(_magic_items._release_instance_effects(session, magic))
+        _party_members._remove_instance(member, magic)
         item_ids: tuple[str, ...] = (command.item_id,)
     elif valuable is not None:
         inventory.valuables.remove(valuable)
@@ -2287,7 +2286,7 @@ def _handle_remove_item(session: GameSession, command: RemoveItem) -> tuple[list
                 continue
             taken = min(remaining, instance.quantity)
             if taken == instance.quantity:
-                exploration._remove_instance(member, instance)
+                _party_members._remove_instance(member, instance)
             else:
                 instance.quantity -= taken
             remaining -= taken
@@ -2449,19 +2448,19 @@ def _hand_over_everything(session: GameSession, giver: Character, recipient: Cha
     leave it. Returns the releases and one `ItemsGivenEvent`, or no events when the member
     carried nothing.
     """
-    from osrlib.crawl import exploration
+    from osrlib.crawl import _magic_items
 
     inventory = giver.inventory
     events: list[Event] = []
     item_ids: list[str] = []
     for instance in inventory.all_instances():
         if isinstance(instance, MagicItemInstance):
-            events.extend(exploration._release_instance_effects(session, instance))
+            events.extend(_magic_items._release_instance_effects(session, instance))
             instance.cursed_revealed = False
             recipient.inventory.items.append(instance)
             item_ids.append(instance.instance_id)
         else:
-            exploration._grant_mundane(recipient, instance.template, instance.quantity)
+            _party_members._grant_mundane(recipient, instance.template, instance.quantity)
             item_ids.extend([instance.template.id] * instance.quantity)
     for valuable in inventory.valuables:
         recipient.inventory.valuables.append(valuable)
@@ -2744,7 +2743,6 @@ def _handle_spawn_monsters(session: GameSession, command: SpawnMonsters) -> tupl
 def _handle_spawn_npc_party(session: GameSession, command: SpawnNpcParty) -> tuple[list[Rejection], list[Event]]:
     from osrlib.core.dice import roll
     from osrlib.crawl import encounter as encounter_module
-    from osrlib.crawl import exploration
     from osrlib.data import load_encounter_tables
 
     if command.count_fixed is not None:
@@ -2756,7 +2754,7 @@ def _handle_spawn_npc_party(session: GameSession, command: SpawnNpcParty) -> tup
             if composition.kind == command.party_kind
         )
         count = max(1, roll(count_dice, session.streams.get(ENCOUNTER_STREAM)).total)
-    party, bundle, npc_events = exploration._field_npc_party(session, command.party_kind, count)
+    party, bundle, npc_events = _treasure._field_npc_party(session, command.party_kind, count)
     events: list[Event] = list(npc_events)
     events.extend(
         encounter_module._open_encounter(
@@ -2766,12 +2764,12 @@ def _handle_spawn_npc_party(session: GameSession, command: SpawnNpcParty) -> tup
             distance_feet=command.distance_feet,
         )
     )
-    exploration._assign_carried(session, [({}, bundle)])
+    _treasure._assign_carried(session, [({}, bundle)])
     return [], events
 
 
 def _handle_identify_item(session: GameSession, command: IdentifyItem) -> tuple[list[Rejection], list[Event]]:
-    from osrlib.crawl import exploration
+    from osrlib.crawl import _magic_items
 
     try:
         member = session.member(command.character_id)
@@ -2780,7 +2778,7 @@ def _handle_identify_item(session: GameSession, command: IdentifyItem) -> tuple[
     instance = member.inventory.magic_item(command.item_id)
     if instance is None:
         return [Rejection(code="session.command.unknown_item", params={"item": command.item_id})], []
-    return [], exploration._identify_item_events(session, member, instance)
+    return [], _magic_items._identify_item_events(session, member, instance)
 
 
 def _handle_set_door_state(session: GameSession, command: SetDoorState) -> tuple[list[Rejection], list[Event]]:
@@ -2789,7 +2787,7 @@ def _handle_set_door_state(session: GameSession, command: SetDoorState) -> tuple
         level = dungeon.level(command.level_number)
     except ValueError:
         return [Rejection(code="session.command.unknown_location", params={"dungeon": command.dungeon_id})], []
-    from osrlib.crawl import exploration
+    from osrlib.crawl import _doors, _search
     from osrlib.crawl.dungeon import EdgeKind
 
     edge = level.edge((command.x, command.y), command.direction)
@@ -2802,7 +2800,7 @@ def _handle_set_door_state(session: GameSession, command: SetDoorState) -> tuple
     ref = edge_ref(command.dungeon_id, command.level_number, (command.x, command.y), command.direction)
     # The referee writes through the same seeded materializer the play handlers
     # use, so a first write to an authored-open door does not store it shut.
-    state = exploration._store_door_state(session, edge, ref)
+    state = _doors._store_door_state(session, edge, ref)
     events: list[Event] = []
     if command.open is not None and command.open != state.open:
         state.open = command.open
@@ -2821,7 +2819,7 @@ def _handle_set_door_state(session: GameSession, command: SetDoorState) -> tuple
         discovering = secret and command.discovered and not state.discovered
         state.discovered = command.discovered
         if discovering:
-            exploration._refund_trap_search(
+            _search._refund_trap_search(
                 session, command.dungeon_id, command.level_number, (command.x, command.y), command.direction
             )
     if command.unlocked is not None:

@@ -151,7 +151,7 @@ class TestRejectionPurity:
         assert session.dungeon_state.doors == {}
 
     def test_the_secret_door_discovery_write_does_materialize(self):
-        from osrlib.crawl import exploration
+        from osrlib.crawl import _doors
         from osrlib.crawl.dungeon import edge_ref
 
         session = make_session()
@@ -162,7 +162,7 @@ class TestRejectionPurity:
                 )
             )
         )
-        exploration._materialize_door(session, Direction.EAST).discovered = True
+        _doors._materialize_door(session, Direction.EAST).discovered = True
         ref = edge_ref("delve", 1, (3, 1), Direction.EAST)
         assert session.dungeon_state.doors[ref].discovered
 
