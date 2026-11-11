@@ -1281,20 +1281,29 @@ class DropItems(Command):
 
 
 class GiveItems(Command):
-    """Hand items and coins from one party member to another (takes no game time).
+    """Hand items and coins from one party member to another.
 
     Use it to spread the load across the party, or to put an item in the hands of the
     member who can use it. `character_id` is the giver, and `recipient_id` is the member
     who takes the goods. A magic item that was equipped releases its effects and arrives
-    unequipped in the recipient's pack. It's legal in town and while exploring, but not
-    during an encounter or a battle. Both members must be alive and able to act.
+    unequipped in the recipient's pack. Both members must be alive and able to act.
+
+    It's legal in town, while exploring, and during an encounter. In town and while
+    exploring, it takes no game time. During an encounter, it uses up the encounter round,
+    and the monsters then act on their reaction to the party, as for a
+    [`Wait`][osrlib.crawl.commands.Wait]. While monsters pursue the party, that round is a
+    round of the pursuit. The party stands together outside a battle, so any member can
+    reach any other.
+
+    In a battle, a member hands over one item as their declaration for the round: a
+    [`BattleDeclaration`][osrlib.crawl.commands.BattleDeclaration] with
+    `action="give_item"`. The session refuses this command in battle.
 
     Modes:
-        `town`, `exploring`
+        `town`, `exploring`, `encounter`
 
     Rejections:
-        - `session.command.wrong_mode` - an encounter or battle is underway, or the
-          session has ended.
+        - `session.command.wrong_mode` - a battle is underway, or the session has ended.
         - `session.command.unknown_member` - `character_id` or `recipient_id` matches
           no party member.
         - `session.command.member_incapacitated` - the giver or the recipient can't
@@ -1309,9 +1318,13 @@ class GiveItems(Command):
         [`EffectReleasedEvent`][osrlib.core.events.EffectReleasedEvent]s for the effects of
         an equipped magic item, then an
         [`ItemsGivenEvent`][osrlib.crawl.events.ItemsGivenEvent] with what changed hands.
+        In an encounter, the encounter round's events follow. During a pursuit, a
+        [`PursuitEvent`][osrlib.crawl.events.PursuitEvent] round follows instead.
     """
 
-    allowed_modes: ClassVar[frozenset[SessionMode]] = _FIELD_MODES
+    allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset(
+        {SessionMode.TOWN, SessionMode.EXPLORING, SessionMode.ENCOUNTER}
+    )
 
     command_type: Literal["give_items"] = "give_items"
     character_id: str
@@ -1796,10 +1809,14 @@ class UseItem(Command):
     any curse. A magic sword that can light up when its wielder says so turns its light on or off.
 
     A device is a wand, a staff, or a rod. `target_id` is the id of whoever the item is used on:
-    a party member for a staff of healing's touch, or an encounter group for a device that covers
-    an area. When the member reads a scroll with several spells on it, choose the spell and its
-    targets with `spell_id`, `mode`, and `targets`. They work like the same fields of
-    [`CastSpell`][osrlib.crawl.commands.CastSpell].
+    the party member who drinks a potion, a party member for a staff of healing's touch, or an
+    encounter group for a device that covers an area. When the member reads a scroll with several
+    spells on it, choose the spell and its targets with `spell_id`, `mode`, and `targets`. They
+    work like the same fields of [`CastSpell`][osrlib.crawl.commands.CastSpell].
+
+    A member can give a potion they carry to another member to drink. The use is the carrier's,
+    and so is the round it takes. The potion's effect lands on the drinker. Outside a battle the
+    party stands together, so any member can reach any other.
 
     A scroll casts its spell at the lowest level that can cast it, whatever the reader's level.
     The session checks the read at that level. For example, a *magic missile* scroll fires one
@@ -1823,8 +1840,9 @@ class UseItem(Command):
 
         By kind of item:
 
-        - Potions: `items.use.target_not_allowed` when `target_id` is set to someone other
-          than the member who drinks the potion.
+        - Potions: `items.use.target_not_allowed` when `target_id` isn't a party member's
+          id, and `items.use.target_cannot_drink` when it's the id of a member who is dead or
+          turned to stone. A member who is asleep or paralysed can be given a potion to drink.
         - Scrolls: `exploration.action.requires_light` (reading needs light, and
           infravision isn't enough), `items.scroll.spent`, `items.scroll.no_such_spell`,
           and `items.scroll.wrong_caster`. A read also gets the checks of a cast, at the
@@ -1847,7 +1865,8 @@ class UseItem(Command):
         damage, effects attached, and a scroll's
         [`SpellCastEvent`][osrlib.core.events.SpellCastEvent], each a separate event. While
         exploring, one round passes. During an encounter, the encounter round's events
-        follow instead.
+        follow instead. During a pursuit, a [`PursuitEvent`][osrlib.crawl.events.PursuitEvent]
+        round follows, because the party keeps running.
     """
 
     allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.EXPLORING, SessionMode.ENCOUNTER})
@@ -1863,15 +1882,17 @@ class UseItem(Command):
     used with this command, so the session refuses a mundane item's id with
     `exploration.item.not_carried`."""
     target_id: str | None = None
-    """Who the item is used on, for a device: a wand, a staff, or a rod.
+    """Who the item is used on, for a potion or a device: a wand, a staff, or a rod.
 
-    Pass a party member's id for a device that heals by touch, or an encounter group's
-    [`EncounterGroupView.id`][osrlib.crawl.views.EncounterGroupView.id] for a device that covers
-    an area. A healing device with `None` heals the member using it.
+    For a potion, pass the id of the party member who drinks it. The member in `character_id`
+    gives it to them, and the potion's effect lands on them. Leave it `None`, or pass
+    `character_id`, and the member who uses the potion drinks it. The session refuses an id that
+    isn't a party member's with `items.use.target_not_allowed`, and a member who is dead or turned
+    to stone with `items.use.target_cannot_drink`.
 
-    Leave it `None` for a potion, because the member who uses a potion drinks it. The session
-    also accepts the drinker's own id, the same as `character_id`. It refuses any other id with
-    `items.use.target_not_allowed`."""
+    For a device, pass a party member's id for a device that heals by touch, or an encounter
+    group's [`EncounterGroupView.id`][osrlib.crawl.views.EncounterGroupView.id] for a device that
+    covers an area. A healing device with `None` heals the member using it."""
     spell_id: str | None = None
     """Which spell to read off a scroll that has more than one, from
     [`load_spells`][osrlib.data.load_spells] (see the
@@ -2541,6 +2562,11 @@ class BattleDeclaration(BaseModel):
       when their distance to it is at most that rate plus 5'.
     - `immobile` and `reloading` on the encounter view: who can't move, and who can't fire a
       reloading weapon this round.
+    - [`advance_feet`][osrlib.crawl.views.EncounterView.advance_feet] on the encounter view,
+      each member's place on the range track. Two members reach each other when their advances
+      differ by 5' or less. A member needs to reach another to hand them an item, to give them a
+      potion to drink, or to touch them with a staff of healing or a touch spell, like *cure
+      light wounds*.
 
     To check one member's choice against the choices already made for the round, call
     [`preview_battle_round`][osrlib.crawl.battle.preview_battle_round] with them.
@@ -2565,7 +2591,16 @@ class BattleDeclaration(BaseModel):
     - `use_item` uses `item_id`. The member drinks a potion, reads a scroll, uses a wand,
       staff, or rod, or throws a splash weapon, like a flask of oil, at `target_group_id`. A
       staff of striking is a melee weapon, so only a member in the group's `front_rank` can
-      strike with it.
+      strike with it. To give a potion to another member to drink, or to touch another member
+      with a staff of healing, name that member as the one id in `targets`. The two members have
+      to reach each other once the round's moves are made. It's the action of the member who
+      carries the item, and the potion's effect lands on the drinker.
+    - `give_item` uses `item_id` and `targets`. The member hands one item, or one unit of a
+      stack, to the member named as the one id in `targets`. It's the giver's action for the
+      round, and it resolves in the party's magic phase with the round's other item uses. The
+      session checks it as [`GiveItems`][osrlib.crawl.commands.GiveItems] is checked, and the
+      two members have to reach each other once the round's moves are made. The session refuses
+      the `GiveItems` command in a battle.
     - `turn_undead` uses nothing else. It reaches every living monster in the groups that
       haven't fled when it resolves. Turning resolves with the spells in the round. A hit
       can't disrupt it, because it's a class ability, not a spell.
@@ -2573,8 +2608,8 @@ class BattleDeclaration(BaseModel):
       in `declarers` needs a declaration.
 
     Only `attack` and `move` take a `move`. The session refuses a `cast` that sets one with
-    `battle.declaration.cast_cannot_move`, and a `turn_undead`, `use_item`, or `hold` that sets
-    one with `battle.declaration.move_not_combinable`.
+    `battle.declaration.cast_cannot_move`, and a `turn_undead`, `use_item`, `give_item`, or
+    `hold` that sets one with `battle.declaration.move_not_combinable`.
 
     `gaze_defense` goes with any action. It guards the member against a petrifying gaze, like
     a basilisk's or a medusa's, for this round only. Its values are `avert_eyes` and `mirror`.
@@ -2590,12 +2625,12 @@ class BattleDeclaration(BaseModel):
     [`MemberView.id`][osrlib.crawl.views.MemberView.id]. It has to be one of the ids in
     [`EncounterView.declarers`][osrlib.crawl.views.EncounterView.declarers], and each of those
     members needs a separate declaration in the same round."""
-    action: Literal["attack", "cast", "turn_undead", "move", "use_item", "hold"]
+    action: Literal["attack", "cast", "turn_undead", "move", "use_item", "give_item", "hold"]
     """What this member does. `attack` strikes or shoots at a group, after a `close` when the
     declaration sets one, `cast` casts a spell, `turn_undead` presents a holy symbol, `move` moves
     the member toward the monsters or away from them, `use_item` uses a magic item or throws an
-    item, and `hold` does nothing. This field determines which other fields apply, and `hold`
-    needs none of them."""
+    item, `give_item` hands an item to another member, and `hold` does nothing. This field
+    determines which other fields apply, and `hold` needs none of them."""
     target_group_id: str | None = None
     """Which monster group the action is aimed at, by
     [`EncounterGroupView.id`][osrlib.crawl.views.EncounterGroupView.id] from
@@ -2681,7 +2716,33 @@ class BattleDeclaration(BaseModel):
     [`target_group_id`][osrlib.crawl.commands.BattleDeclaration.target_group_id] describes. When
     you set both fields, the session uses this one.
 
-    The session refuses an invisible target with `battle.declaration.invisible_target`."""
+    The session refuses an invisible target with `battle.declaration.invisible_target`. It checks
+    a spell's range against the distance from the caster to each target: to the group of a
+    targeted monster, or to a targeted member, where that member stands once the round's moves
+    are made. A touch spell, like *cure light wounds*, reaches 5', so the session refuses it at a
+    member who moves away from the caster this round with `magic.cast.out_of_range`.
+
+    Three other declarations read one id from this field:
+
+    - For a `use_item` of a potion, it's the id of the member who drinks it. Leave it empty, or
+      give the carrier's id, and the carrier drinks. The session refuses an id that isn't a party member's, or
+      more than one id, with `items.use.target_not_allowed`, a member who is dead or turned to
+      stone with `items.use.target_cannot_drink`, and a member out of reach with
+      `battle.declaration.member_out_of_reach`. A member who is asleep or paralysed can be given
+      a potion to drink.
+    - For a `use_item` of a staff of healing, it's the id of the creature the staff touches.
+      Leave it empty, and the member using it is healed. The session refuses an id that matches no
+      creature, or more than one id, with `items.use.unknown_target`, and another member out of reach with
+      `battle.declaration.member_out_of_reach`. A monster's group has to stand within 5' of the
+      member, or the use gets `combat.attack.out_of_reach`.
+    - For a `give_item`, it's the id of the member who takes the item. The session refuses the giver with
+      `exploration.give.same_member`, an id that isn't a party member's, an empty field, or more
+      than one id with `session.command.unknown_member`, a member who can't act with
+      `session.command.member_incapacitated`, and a member out of reach with
+      `battle.declaration.member_out_of_reach`.
+
+    `battle.declaration.member_out_of_reach` has the declaring member's id as its `character`
+    param and the named member's id as `target`."""
     move: Literal["close", "fighting_withdrawal", "retreat"] | None = None
     """Which movement this member makes this round, with a `move` action or, for `close` only, with an
     `attack`.
@@ -2765,10 +2826,10 @@ class BattleDeclaration(BaseModel):
     `battle.declaration.cannot_move`. An `attack` takes only `close`, and gets
     `battle.declaration.move_not_combinable` with a `fighting_withdrawal` or a `retreat`. A `cast`
     that sets any move gets `battle.declaration.cast_cannot_move`, because the OSE SRD says "The
-    spell caster cannot move and cast a spell in the same round". A `turn_undead`, a `use_item`, or
-    a `hold` that sets any move gets `battle.declaration.move_not_combinable`. Each of these two
-    codes has the member's id as its `character` param. The session checks for them after the
-    back-stab checks and before the action's own checks.
+    spell caster cannot move and cast a spell in the same round". A `turn_undead`, a `use_item`, a
+    `give_item`, or a `hold` that sets any move gets `battle.declaration.move_not_combinable`. Each
+    of these two codes has the member's id as its `character` param. The session checks for them
+    after the back-stab checks and before the action's own checks.
     [The adaptations register](https://mmacy.github.io/osrlib-python/adaptations/)
     describes these rules in full."""
     replacement_id: str | None = None
@@ -2804,7 +2865,14 @@ class BattleDeclaration(BaseModel):
     scroll, a wand, a staff, or a rod, or a mundane item's catalog id for a splash weapon thrown
     at a group, like a flask of oil or a vial of holy water. The session refuses any other
     mundane item, like a torch or a rope, or a magic item that can't be used in battle, with
-    `battle.declaration.item_unusable`. To swing a torch, wield it and declare an `attack`."""
+    `battle.declaration.item_unusable`. To swing a torch, wield it and declare an `attack`.
+
+    For a `give_item` declaration, it's the item to hand over, named as in
+    [`GiveItems.item_ids`][osrlib.crawl.commands.GiveItems.item_ids]: a mundane item's catalog id,
+    which hands over one unit of the stack, or a per-instance id for a magic item, a gem, or a piece
+    of jewellery. The session refuses an item the giver doesn't carry, or no item, with
+    `exploration.item.not_carried`, and a magic item whose curse has been revealed with
+    `items.curse.stuck`."""
     gaze_defense: Literal["avert_eyes", "mirror"] | None = None
     """How this member guards against a petrifying gaze this round, or `None` for no guard.
 
@@ -2945,8 +3013,8 @@ class ResolveBattleRound(Command):
           `battle.declaration.unknown_group`, and `battle.declaration.cannot_move`.
         - A `move` set on an action that can't take it: `battle.declaration.cast_cannot_move`
           on a `cast`, and `battle.declaration.move_not_combinable` on a `turn_undead`, a
-          `use_item`, or a `hold`, and on an `attack` with a `fighting_withdrawal` or a
-          `retreat`. Each has the member's id as its `character` param. The session checks
+          `use_item`, a `give_item`, or a `hold`, and on an `attack` with a `fighting_withdrawal`
+          or a `retreat`. Each has the member's id as its `character` param. The session checks
           for them after the back-stab checks and before the action's own checks.
         - `battle.declaration.replacement_unavailable` when a member who makes a
           `fighting_withdrawal` or a `retreat` alone names a member in `replacement_id` who
@@ -2984,7 +3052,9 @@ class ResolveBattleRound(Command):
           `magic.cast.not_memorized`, `magic.cast.caster_incapacitated`,
           `magic.cast.caster_restrained`, `magic.cast.anti_magic_shell`,
           `magic.cast.not_reversible`, `magic.cast.target_count`,
-          `magic.cast.target_must_be_creature`, `magic.cast.out_of_range`.
+          `magic.cast.target_must_be_creature`, `magic.cast.out_of_range`. The range is measured
+          from the caster to each target's group, or to each target member where they'll stand
+          once the round's moves are made, and a touch spell reaches 5'.
         - Turn-undead declarations: `magic.turning.not_a_turner` and
           `magic.turning.caster_incapacitated`. A turning also gets
           `battle.declaration.no_target` when no living monster is left in any group that
@@ -3003,8 +3073,16 @@ class ResolveBattleRound(Command):
           `battle.declaration.invisible_target`, `magic.cast.target_count`,
           `magic.cast.target_must_be_creature`, `magic.cast.out_of_range`,
           `magic.cast.caster_incapacitated`, `magic.cast.caster_restrained`,
-          `magic.cast.anti_magic_shell`). A thrown item
-          can also get the `validate_attack` checks listed for attack declarations.
+          `magic.cast.anti_magic_shell`). A thrown item can also get the `validate_attack` checks
+          listed for attack declarations. A potion given to another member to drink gets
+          `items.use.target_not_allowed`, `items.use.target_cannot_drink`, and
+          `battle.declaration.member_out_of_reach`. A staff of healing's touch gets
+          `items.use.unknown_target`, and `battle.declaration.member_out_of_reach` on another
+          member.
+        - Hand-over declarations, `give_item`: `exploration.give.same_member`,
+          `session.command.unknown_member`, `session.command.member_incapacitated`,
+          `items.curse.stuck`, `exploration.item.not_carried`, and
+          `battle.declaration.member_out_of_reach`, in that order.
 
     Events:
         Opening the round:
@@ -3051,7 +3129,10 @@ class ResolveBattleRound(Command):
         [`ConditionRemovedEvent`][osrlib.core.events.ConditionRemovedEvent],
         [`HealingAppliedEvent`][osrlib.core.events.HealingAppliedEvent]).
 
-        Items: [`ItemUsedEvent`][osrlib.crawl.events.ItemUsedEvent], with
+        Items: [`ItemsGivenEvent`][osrlib.crawl.events.ItemsGivenEvent] for a hand-over,
+        after an [`EffectReleasedEvent`][osrlib.core.events.EffectReleasedEvent] for each effect
+        of an equipped magic item handed over, and
+        [`ItemUsedEvent`][osrlib.crawl.events.ItemUsedEvent], with
         [`ItemIdentifiedEvent`][osrlib.crawl.events.ItemIdentifiedEvent] and
         [`CurseRevealedEvent`][osrlib.crawl.events.CurseRevealedEvent] the first time an
         item is used.

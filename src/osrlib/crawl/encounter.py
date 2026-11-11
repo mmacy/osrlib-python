@@ -837,6 +837,25 @@ def _end_of_round(session, *, party_lost_beat: bool = False) -> list[Event]:
     return events
 
 
+def _pass_round(session, *, bait: str | None = None) -> list[Event]:
+    """Spend the round a party command took in an encounter: a pursuit round in a pursuit, an encounter round otherwise.
+
+    [`Wait`][osrlib.crawl.commands.Wait], [`DropItems`][osrlib.crawl.commands.DropItems],
+    [`GiveItems`][osrlib.crawl.commands.GiveItems], and [`UseItem`][osrlib.crawl.commands.UseItem] each take one
+    round in an encounter. While monsters pursue the party, that round is a round of the chase, so the party keeps
+    running and the gap changes as `_pursuit_round` works it out. When the command closed the encounter, no round
+    is left to spend, and the call returns no events.
+
+    Args:
+        session (osrlib.crawl.session.GameSession): The running session, in `encounter` mode.
+        bait: What a drop scattered for the pursuers, `"treasure"` or `"food"`, or None. It matters only during
+            a pursuit.
+    """
+    if session.encounter is not None and session.encounter.pursuit is not None:
+        return _pursuit_round(session, dropped_kind=bait)
+    return _end_of_round(session)
+
+
 # ---------------------------------------------------------------------- command handlers
 
 
@@ -844,9 +863,7 @@ def _handle_wait(session, command: Wait) -> tuple[list[Rejection], list[Event]]:
     state = session.encounter
     if state is None:
         return [Rejection(code="encounter.none_active")], []
-    if state.pursuit is not None:
-        return [], _pursuit_round(session)
-    return [], _end_of_round(session)
+    return [], _pass_round(session)
 
 
 def _handle_parley(session, command: Parley) -> tuple[list[Rejection], list[Event]]:
@@ -1023,19 +1040,15 @@ def _handle_drop_during_encounter(session, command: DropItems) -> tuple[list[Rej
     rejections = exploration._validate_carried(member, command.item_ids, command.coins)
     if rejections:
         return rejections, []
-    in_pursuit = state.pursuit is not None
     # During a chase, dropped goods scatter behind the running party and form
     # no pile. Otherwise they land on the party's cell like any other drop.
-    events = exploration._apply_drop(session, member, command, to_pile=not in_pursuit)
-    if in_pursuit:
-        dropped_kind = None
-        if command.coins.total_coins > 0:
-            dropped_kind = "treasure"
-        elif any(item_id in ("rations_standard", "rations_iron") for item_id in command.item_ids):
-            dropped_kind = "food"
-        events.extend(_pursuit_round(session, dropped_kind=dropped_kind))
-    else:
-        events.extend(_end_of_round(session))
+    events = exploration._apply_drop(session, member, command, to_pile=state.pursuit is None)
+    bait = None
+    if command.coins.total_coins > 0:
+        bait = "treasure"
+    elif any(item_id in ("rations_standard", "rations_iron") for item_id in command.item_ids):
+        bait = "food"
+    events.extend(_pass_round(session, bait=bait))
     return [], events
 
 

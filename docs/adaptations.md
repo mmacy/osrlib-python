@@ -782,7 +782,7 @@ Every exploration command has a fixed cost in game time. A round is 10 seconds a
 | `TurnParty`, `ReorderParty`, `OpenDoor`, `CloseDoor`, `WedgeDoor` | None |
 | `ForceDoor` | None. Forcing takes a moment, and its cost is the noise. |
 | `ListenAtDoor` | None. The limit of once per door is what holds it back. |
-| Equipping and unequipping, `DropItems`, `ExtinguishSource` | None |
+| Equipping and unequipping, `DropItems`, `GiveItems`, `ExtinguishSource` | None |
 | `PurchaseEquipment` | None, because time in town is abstract. |
 | Every referee command | None |
 | `CastSpell` and `TurnUndead` outside battle | One round |
@@ -989,18 +989,19 @@ When the party evades, the engine compares the two sides' speeds, and a pursuit 
 
 - The party's speed is its slowest member's running rate, in full feet per round. The pursuers' speed is their slowest base ground movement: the mode with no descriptor, or else the first one printed, so a flying mode doesn't count. Taking the slowest pursuer mirrors taking the slowest member, and the engine doesn't model a pack that strings out.
 - The party can drop bait. `Evade(drop="treasure")` scatters every living member's coins, and `"food"` drops one ration per member (osrlib's reading). During the pursuit, `DropItems` drops new bait each round.
+- `Wait`, `DropItems`, `UseItem`, and `GiveItems` each take the encounter round, and during a pursuit that round is a pursuit round. So the party keeps running while a member drinks a potion or hands something over, and the gap changes as it does in any round of the chase.
 - Bait distracts the pursuers on 3-in-6 when it matches what they want. Monsters whose treasure type has letters want treasure, because osrlib uses the treasure type as a stand-in for intelligence, and an override can correct that for an encounter. Every other monster wants food.
 - One distraction roll stops the whole side, because the pursuers act as a pack.
 - The pursuit ends when bait distracts the pursuers, when they reach melee (a gap of 5' or less, which starts a battle at 5'), or after 30 rounds, when both sides are spent and the monsters give up. In a pursuit the party is no faster than the pursuers, so the gap never grows, and osrlib needs no distance at which the monsters lose sight of the party. So the 30-round limit is what ends every other pursuit.
 - Running exhaustion gives −2 to attacks, damage, and AC until the party rests for three turns. The engine applies the AC penalty as +2 to attackers' rolls, through `attack_penalty_of_attackers`.
 
-Locked by `test_encounter.py::TestEvasionAndPursuit`.
+Locked by `test_encounter.py::TestEvasionAndPursuit`, and the item commands' round by `test_member_reach.py::test_give_items_works_in_an_encounter_and_takes_a_round`.
 
 ### The battle round
 
 A battle runs in rounds. Each round, the party sends one command with one declaration for each living, able member, and each monster group acts through its policy. On this page, "the session" runs the battle, and the battle module is part of it.
 
-A declaration is a `BattleDeclaration`. Its `action` field says what the member does: `attack`, `cast`, `turn_undead`, `move`, `use_item`, or `hold`. Its `move` field says how the member moves, and takes `close`, `fighting_withdrawal`, or `retreat`. The combinations that move a member are these:
+A declaration is a `BattleDeclaration`. Its `action` field says what the member does: `attack`, `cast`, `turn_undead`, `move`, `use_item`, `give_item`, or `hold`. Its `move` field says how the member moves, and takes `close`, `fighting_withdrawal`, or `retreat`. The combinations that move a member are these:
 
 - `action="move"` with `move="close"` closes on the group in `target_group_id`, and does nothing else.
 - `action="attack"` with `move="close"` closes on the group in `target_group_id` and attacks it in the same round.
@@ -1118,7 +1119,7 @@ Some actions can't combine with a move:
 
 - A caster can't move. The Combat page says "No movement: The spell caster cannot move and cast a spell in the same round." The session refuses `action="cast"` with any `move` with `battle.declaration.cast_cannot_move`.
 - `action="attack"` takes only `move="close"`. The session refuses `action="attack"` with `move="fighting_withdrawal"` or `move="retreat"` with `battle.declaration.move_not_combinable`. For a retreat, that's the SRD as written: "the retreating combatant may not attack". The SRD forbids attacking only for a retreat. It takes nothing away from a fighting withdrawal, and the SRD as written would allow a missile attack after the move. osrlib doesn't represent that, because a member declares one thing per round and the fighting withdrawal is that thing. This is osrlib's reading. An `action="move"` declaration with `move="fighting_withdrawal"` or `move="retreat"` makes no attack, even when it also sets a `weapon_id` or a `target_group_id`.
-- `action="turn_undead"`, `action="use_item"`, or `action="hold"` with any `move` gets `battle.declaration.move_not_combinable`. Turning and using an item are each a member's whole action for the round, which is osrlib's reading.
+- `action="turn_undead"`, `action="use_item"`, `action="give_item"`, or `action="hold"` with any `move` gets `battle.declaration.move_not_combinable`. Turning, using an item, and handing one over are each a member's whole action for the round, which is osrlib's reading.
 - `action="attack"` with `move="close"`, from a member who can't move, gets `battle.declaration.cannot_move`.
 
 The session checks for `battle.declaration.cast_cannot_move` and `battle.declaration.move_not_combinable` after the back-stab checks and before the checks for the action, and each has the member's id as its `character` param. It checks for `battle.declaration.cannot_move` on an attack after the attack's group and weapon checks.
@@ -1188,9 +1189,52 @@ A wand, staff, or rod use and a turning get the same re-check ([#145](https://gi
 - A staff of striking in the hands of a member named in a `replacement_id`, whose trade didn't happen, fizzles with `battle.declaration.not_in_front_rank`, because the re-check reads the ranks as they stand.
 - A turning fizzles with `battle.declaration.no_target` when no living monster is left in any group that hasn't fled, because the missile phase or an earlier declaration in the magic phase killed the monsters or drove them off. That check asks whether any monster is left, not whether any undead is, so it tells the player nothing about which monsters are undead.
 
+A potion given to another member to drink and a hand-over are checked again too, where the members stand then (see [One member reaches another](#one-member-reaches-another)).
+
 `DeclarationFizzledEvent` reports a device use or a turning that fizzles, with the code `magic.device.fizzled` or `magic.turning.fizzled` and the same `reason` field. `SpellDisruptedEvent` stays for spells and scrolls, so its `spell_id` always identifies a spell. A fizzled device use costs what a `hold` costs: the device was never used, so it keeps its charge, isn't identified, and breaks no invisibility. A fizzled turning draws nothing and costs nothing.
 
 Each battle round advances the clock one round through the ledger. Locked by `test_battle.py`, the formation moves by `test_battle.py::TestAFormationMoveNeedsEveryDeclarer`, a member's withdrawal alone by `test_member_positions.py` and `test_single_withdrawal.py`, and the re-check by `test_battle.py::TestTheMagicPhaseRechecksADeclaration` and, for devices and turnings, `test_weapon_default_and_device_recheck.py` and `test_turning_and_staff.py`.
+
+#### One member reaches another
+
+The SRD doesn't say whether one character can hand an item to another in a fight, or give a potion to another to drink. Its Potions page says "Drinking a full dose of a potion takes one round", and doesn't say the drinker has to be the character who carries the potion. Its Combat page says "Players must inform the referee if they intend to cast a spell or move when in melee. Other actions need not be declared", so the rules expect other actions in a round without listing them. Where no rule applies, the Referee's Role page says "When a player wishes to do something not covered by a standard rule, the referee must consider how to determine the outcome", and the Time, Weight, Movement page says "The referee must adjudicate what may be accomplished in a given period of time." These are osrlib's rulings ([#224](https://github.com/mmacy/osrlib-python/issues/224), [#225](https://github.com/mmacy/osrlib-python/issues/225)).
+
+Reach:
+
+- Outside a battle, the party stands together, so any member reaches any other.
+- In a battle, two members reach each other when they stand within 5' of each other on the range track. That's the Combat page's distance for melee, which is "possible when opponents are 5' or less from each other". The session judges it where the two members will stand once the round's declared moves are made, with the projection it uses for an attack that closes. So a member who closes 20' toward a group this round is out of reach of a member who stays on the line.
+- The session refuses an action on a member out of reach with `battle.declaration.member_out_of_reach`. Its `character` param is the member who acts, and its `target` param is the other member.
+- `EncounterView.advance_feet` gives each member's place on the track, so a front end can tell who reaches whom before the round. `preview_battle_round` reports the refusal for a planned round, after the moves planned so far.
+
+A potion for someone else:
+
+- `UseItem.target_id`, or the one id in a `use_item` declaration's `targets`, is the id of the member who drinks. With no target, the carrier drinks.
+- The use and the round it takes are the carrier's. The potion's effect lands on the drinker, and so do the sickness of mixed potions and the weekly limit of a potion of invulnerability.
+- A member who is dead or turned to stone can't drink, and the session refuses the use with `items.use.target_cannot_drink`. A member who is asleep or paralysed can be given a potion to drink, which is osrlib's reading of what a carrier can do for a helpless companion.
+- A target that isn't a party member gets `items.use.target_not_allowed`.
+- `ItemUsedEvent.target_id` is the drinker's id when the carrier gave the potion to another member.
+
+Handing an item over:
+
+- `GiveItems` is legal during an encounter, where it takes the encounter round, as `DropItems` and `UseItem` do. In town and while exploring, it takes no time.
+- In a battle, a hand-over is a declaration: `action="give_item"`, with the item in `item_id` and the recipient as the one id in `targets`. It moves one item, or one unit of a stack. It's the giver's whole action for the round. It resolves in the party's magic phase, with the party's other item uses, and reports an `ItemsGivenEvent`.
+- The declaration gets the checks `GiveItems` makes, in the same order: the recipient is another member, who is able to act, a magic item whose curse has been revealed can't leave its bearer, and the giver carries the item. Reach comes last.
+- The session refuses the `GiveItems` command in a battle, because a battle round is one command with a declaration for each member.
+
+Touch:
+
+- Most touch spells give their range as "The caster or a creature touched". osrlib reads touch as melee reach, 5', so `validate_cast` refuses a touch spell at a `CastContext.distance_feet` beyond 5' with `magic.cast.out_of_range` ([#166](https://github.com/mmacy/osrlib-python/issues/166)).
+- In a battle, the session passes the distance from the caster to each target. For a member target, that's the distance between the two members after the round's declared moves, as for reach. For a monster target, it's the caster's distance to the monster's group, as for a ranged spell. So a cleric's *cure light wounds* reaches a member who stands beside them, and not one who has closed 20' ahead.
+- The NPC adventurers of a group stand together, so an NPC cleric's cure spell reaches any member of its group.
+- The Staff of Healing page says the staff "Has the power to heal those touched", so a staff of healing takes the same reach in a battle. Another member has to stand within 5' of its user, or the use gets `battle.declaration.member_out_of_reach`. A monster's group has to stand within 5' of the user, or the use gets `combat.attack.out_of_reach`. A target id that matches no creature gets `items.use.unknown_target`.
+
+When the step comes:
+
+- A potion given to another member, a hand-over, and a staff of healing's touch are checked again in the magic phase, where the members stand then. The members' moves come earlier in the party's block, but a member who can no longer move when the movement step comes stays where they were, so two members can end up farther apart than the round expected.
+- A potion or a hand-over that fails the check doesn't happen, and the item stays with the member who carries it. That happens when the drinker died or turned to stone, the recipient can no longer act, or the two members no longer reach each other. Nothing reports it, as nothing reports an attack by a member who can no longer act.
+- A staff of healing that fails the check fizzles with `magic.device.fizzled`, like any other device use.
+
+Locked by `test_member_reach.py` and `test_potion_target.py`.
 
 ### A back-stab needs monsters the party surprised
 
@@ -1555,8 +1599,9 @@ For maintainers: `strength_set`, `ac_bonus`, and the damage-multiplier kinds are
 - A potion lasts 1d6 + 6 turns, rolled on the effects stream and hidden from the player.
 - Drinking a potion while another one runs cancels both, and stops potions from working for 3 turns. Instantaneous and permanent forms are exceptions.
 - A character who uses a potion of invulnerability more than once in a week gets −2 instead of +2. The engine counts the week by the game clock's days, for each character.
+- A character can give a potion to another party member to drink, and the drinker gets its effect (see [One member reaches another](#one-member-reaches-another)).
 
-Locked by `test_exploration.py::TestUseItem`.
+Locked by `test_exploration.py::TestUseItem`, and a potion given to another member by `test_member_reach.py`.
 
 ### Scrolls: per-spell burn, minimum caster level, the thief fizzle, wards, and curses
 
@@ -1588,6 +1633,7 @@ Using a wand, staff, or rod spends one charge and the user's action for the roun
 - Device areas are destructive, like *lightning bolt*: a kill destroys the victim's equipment.
 - An exhausted device goes inert, and the session refuses any further use with `items.device.inert`, rather than silently doing nothing.
 - Devices never recharge and never show their charges.
+- A staff of healing heals by touch. In a battle its target has to be within 5' of its user (see [One member reaches another](#one-member-reaches-another)).
 
 Locked by `test_battle.py` and `test_exploration.py`.
 

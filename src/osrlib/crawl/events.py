@@ -686,7 +686,9 @@ class ItemsLeftBehindEvent(Event):
 class ItemsGivenEvent(Event):
     """Items or coins passed from one party member to another.
 
-    Emitted by [`GiveItems`][osrlib.crawl.commands.GiveItems]. Update both members'
+    Emitted by [`GiveItems`][osrlib.crawl.commands.GiveItems], and by
+    [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound] for a `give_item`
+    declaration, which hands over one item in the party's magic phase. Update both members'
     inventories on screen when it arrives. Nothing enters or leaves the party, so
     the party's total is unchanged.
     """
@@ -1573,7 +1575,8 @@ class ItemUsedEvent(Event):
 
     Emitted by [`UseItem`][osrlib.crawl.commands.UseItem] outside battle and by
     [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound] for an item used
-    in a battle. Whatever the item does follows in the same result as kernel events.
+    in a battle. Whatever the item does follows in the same result as kernel events. A member
+    can give a potion to another member to drink, and `target_id` is then the drinker's id.
 
     Using an item for the first time identifies it, so an
     [`ItemIdentifiedEvent`][osrlib.crawl.events.ItemIdentifiedEvent], and a
@@ -1603,7 +1606,7 @@ class ItemUsedEvent(Event):
     visibility: Visibility = Visibility.PLAYER
     """Player visibility: the party watched it happen."""
     character_id: str
-    """The member who used the item."""
+    """The member who used the item. For a potion, that's the member who carried it, whoever drank it."""
     instance_id: str
     """The session-scoped id of the item used, never its catalog id, so an event about an item the
     party hasn't identified doesn't reveal what the item is."""
@@ -1612,6 +1615,14 @@ class ItemUsedEvent(Event):
     map, or the curse's text for a cursed scroll whose curse the engine doesn't apply. Empty when
     the engine resolved the effect itself. Show these lines to the players and rule on them
     yourself."""
+    target_id: str | None = None
+    """The member who drank the potion, on `items.potion.drunk` and `items.potion.mixed`, when the
+    member in `character_id` gave it to another member to drink. The potion's effect, and the sickness
+    of mixed potions, land on this member.
+
+    It's `None` when the member who used the potion drank it, and on every other code. Name the drinker
+    in [`UseItem.target_id`][osrlib.crawl.commands.UseItem.target_id], or in the one id of a `use_item`
+    declaration's [`targets`][osrlib.crawl.commands.BattleDeclaration.targets]."""
 
 
 class ItemIdentifiedEvent(Event):
