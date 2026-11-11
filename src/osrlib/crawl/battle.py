@@ -551,8 +551,8 @@ class MonsterAction(_Model):
     `model_copy(update=...)`. The session doesn't check a policy's actions in advance. When an action
     comes up, the session skips it if it can't carry it out, and doesn't raise. That covers an action
     that's no longer possible, like a melee attack on a target that died earlier in the round, and one
-    that never was, like a `"breath"` by a monster with no breath weapon. Each field below says when the
-    session skips an action for it.
+    that never was, like a `"breath"` by a monster with no breath weapon. The entry for each field below
+    gives the cases where the session skips an action for that field.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -609,15 +609,15 @@ class MonsterAction(_Model):
     target. None for an area spell, whose targets depend on the area's size and the party's ranks.
 
     The session skips a `"melee"` or an `"npc_shoot"` whose target isn't a living party member, and an
-    `"npc_cast"` of a spell with one target whose target isn't a living creature. An area spell
-    ignores the field."""
+    `"npc_cast"` of a spell with one target whose target isn't a living creature. For an area spell,
+    the session ignores the field."""
     spell_id: str | None = None
     """The spell to cast, for `"npc_cast"`. The session skips the cast when the NPC has no memorized
     copy of the spell, in its normal form, or when the NPC's class casts no spells."""
     spell_mode: str | None = None
     """Which mode of that spell to use, for `"npc_cast"`. The session skips the cast when the spell's
-    normal form has no mode with this key. Whether the rules allow the cast, like its range, is
-    checked when the cast resolves, and a cast they don't allow does nothing."""
+    normal form has no mode with this key. The session checks whether the rules allow the cast, like
+    its range, when the cast resolves, and a cast they don't allow does nothing."""
     item_id: str | None = None
     """The instance id of the potion to drink, for `"npc_drink"`. The session skips the drink unless the
     NPC carries a potion with this id."""
@@ -661,8 +661,8 @@ class ActionPolicy(Protocol):
     [`MONSTER_ACTION_STREAM`][osrlib.crawl.session.MONSTER_ACTION_STREAM]. Take every random choice
     from that stream. The attack and damage rolls come from other streams, so your policy doesn't
     change them, and the fight stays reproducible from the same seed. Return whatever actions your
-    tactics call for. The session skips an action it can't carry out, and doesn't raise.
-    [`MonsterAction`][osrlib.crawl.battle.MonsterAction] says when, field by field.
+    tactics call for. The session skips an action it can't carry out, and doesn't raise. The
+    [`MonsterAction`][osrlib.crawl.battle.MonsterAction] reference lists the cases, field by field.
 
     Whatever your policy returns, only the monsters' front rank makes melee attacks: the group's
     first living monsters in the group's order, as many as the formation width allows (see
@@ -4622,12 +4622,13 @@ class _Ready(NamedTuple):
     actor: Any
     """The monster or NPC adventurer that acts."""
     target: Any = None
-    """The member a `melee` or an `npc_shoot` attacks, the potion an `npc_drink` drinks, or the creature an
-    `npc_cast` names. None for the other kinds, and for an `npc_cast` of an area spell or with no `target_id`."""
+    """The member a `melee` or an `npc_shoot` attacks, the potion an `npc_drink` drinks, or the creature in an
+    `npc_cast`'s `target_id`. None for the other kinds, and for an `npc_cast` of an area spell or with no
+    `target_id`."""
     spell: Any = None
     """The spell template an `npc_cast` casts."""
     mode: Any = None
-    """The mode of that spell that the `npc_cast` names."""
+    """The mode of that spell, from the `npc_cast`'s `spell_mode`."""
     profile: Any = None
     """The NPC's `CasterProfile`, for an `npc_cast`."""
 
@@ -4715,10 +4716,10 @@ def _ready(
 def _npc_cast_ready(session, npc, action: MonsterAction) -> _Ready | None:
     """Return what the session needs to carry out an NPC adventurer's `npc_cast`, or None when it can't.
 
-    The action names a `spell_id` the NPC has memorized in its normal form, because a disrupted cast spends a
-    memorized copy (see `disrupt_casting`). It names a `spell_mode` of that form, and the NPC's class casts spells.
-    When the mode isn't an area mode, a `target_id` it names is a living creature. Whether the rules allow the cast
-    is decided later, by `validate_cast` in `_resolve_npc_cast`.
+    The NPC has a memorized copy of the action's `spell_id` in its normal form, because a disrupted cast spends a
+    memorized copy (see `disrupt_casting`). The `spell_mode` is a mode of that form, and the NPC's class casts
+    spells. When the mode isn't an area mode, the `target_id`, if the action has one, is a living creature.
+    `_resolve_npc_cast` checks whether the rules allow the cast, with `validate_cast`.
     """
     from osrlib.core.spells import caster_profile
 
@@ -4916,8 +4917,8 @@ def _resolve_npc_attack(session, npc, target, group, *, missile: bool, retreatin
 def _resolve_npc_cast(session, npc, group, ready: _Ready, disrupted: set) -> list[Event]:
     """Resolve (or disrupt) an NPC's declared cast through the character kernel.
 
-    `ready` is what `_npc_cast_ready` found for the cast: the spell, its mode, the creature it names, and the NPC's
-    caster profile. An area
+    `ready` is what `_npc_cast_ready` found for the cast: the spell, its mode, the creature in its `target_id`, and
+    the NPC's caster profile. An area
     spell covers the ranks toward the NPC's group by the footprint rule (see `_area_rows`). The spell's range is
     checked against the target member's own distance to the group, or against the nearest member's distance for an
     area spell. A spell on one of the group's NPCs is checked at 0', because the NPCs of a group stand together on
