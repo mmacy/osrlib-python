@@ -155,6 +155,7 @@ from osrlib.core.monsters import MonsterInstance, _regular_plural
 from osrlib.core.spells import MAGIC_STREAM, turn_undead, validate_turn_undead
 from osrlib.core.tables import ReactionResult
 from osrlib.core.validation import Rejection
+from osrlib.crawl import _party_members
 from osrlib.crawl.commands import DropItems, EngageBattle, Evade, Parley, SessionMode, TurnUndead, Wait
 from osrlib.crawl.dungeon import TreasureBundle
 from osrlib.crawl.events import (
@@ -866,7 +867,6 @@ def _handle_wait(session, command: Wait) -> tuple[list[Rejection], list[Event]]:
 
 
 def _handle_parley(session, command: Parley) -> tuple[list[Rejection], list[Event]]:
-    from osrlib.crawl import _party_members
     from osrlib.crawl.session import ENCOUNTER_STREAM
 
     state = session.encounter
@@ -897,8 +897,6 @@ def _handle_parley(session, command: Parley) -> tuple[list[Rejection], list[Even
 
 
 def _handle_evade(session, command: Evade) -> tuple[list[Rejection], list[Event]]:
-    from osrlib.crawl import _party_members
-
     state = session.encounter
     if state is None:
         return [Rejection(code="encounter.none_active")], []
@@ -977,8 +975,6 @@ def _handle_engage_battle(session, command: EngageBattle) -> tuple[list[Rejectio
 
 
 def _handle_turn_undead(session, command: TurnUndead) -> tuple[list[Rejection], list[Event]]:
-    from osrlib.crawl import _party_members
-
     state = session.encounter
     if state is None:
         return [Rejection(code="encounter.none_active")], []
@@ -1029,7 +1025,7 @@ def _handle_turn_undead(session, command: TurnUndead) -> tuple[list[Rejection], 
 
 
 def _handle_drop_during_encounter(session, command: DropItems) -> tuple[list[Rejection], list[Event]]:
-    from osrlib.crawl import _items, _party_members
+    from osrlib.crawl import _items
 
     state = session.encounter
     if state is None:

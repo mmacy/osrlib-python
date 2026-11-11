@@ -129,6 +129,8 @@ from osrlib.core.rng import RngStreams, StreamName
 from osrlib.core.ruleset import Ruleset
 from osrlib.core.treasure import TREASURE_STREAM, instantiate_magic_item
 from osrlib.core.validation import Rejection
+from osrlib.crawl import _party_location, _party_members, _treasure
+from osrlib.crawl._treasure import _treasure_tier
 from osrlib.crawl.adventure import Adventure, _effective_equipment, _effective_monsters, validate_adventure
 from osrlib.crawl.battle import BattleState
 from osrlib.crawl.commands import (
@@ -2009,7 +2011,6 @@ class GameSession:
         Args:
             events: The just-executed command's events, in order.
         """
-        from osrlib.crawl import _party_location, _party_members
         from osrlib.crawl.dungeon import DropPile
 
         if self.dungeon_state.location.kind != "dungeon":
@@ -2196,8 +2197,6 @@ def _handle_grant_item(session: GameSession, command: GrantItem) -> tuple[list[R
             load_magic_items().get(command.item_id)
         except ValueError:
             return [Rejection(code="session.command.unknown_item", params={"item": command.item_id})], []
-        from osrlib.crawl._treasure import _treasure_tier
-
         # A granted magic item is made exactly as a placed one is when its cache is
         # emptied: its rolls come off the treasure stream at the tier in force now.
         tier = _treasure_tier(session)
@@ -2254,7 +2253,7 @@ def _removal_rejection(member: Character, item_id: str, quantity: int) -> Reject
 
 
 def _handle_remove_item(session: GameSession, command: RemoveItem) -> tuple[list[Rejection], list[Event]]:
-    from osrlib.crawl import _magic_items, _party_members
+    from osrlib.crawl import _magic_items
 
     try:
         member = session.member(command.character_id)
@@ -2449,7 +2448,7 @@ def _hand_over_everything(session: GameSession, giver: Character, recipient: Cha
     leave it. Returns the releases and one `ItemsGivenEvent`, or no events when the member
     carried nothing.
     """
-    from osrlib.crawl import _magic_items, _party_members
+    from osrlib.crawl import _magic_items
 
     inventory = giver.inventory
     events: list[Event] = []
@@ -2743,7 +2742,6 @@ def _handle_spawn_monsters(session: GameSession, command: SpawnMonsters) -> tupl
 
 def _handle_spawn_npc_party(session: GameSession, command: SpawnNpcParty) -> tuple[list[Rejection], list[Event]]:
     from osrlib.core.dice import roll
-    from osrlib.crawl import _treasure
     from osrlib.crawl import encounter as encounter_module
     from osrlib.data import load_encounter_tables
 

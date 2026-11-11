@@ -371,6 +371,7 @@ from osrlib.core.spells import (
     validate_turn_undead,
 )
 from osrlib.core.validation import Rejection
+from osrlib.crawl import _party_location, _party_members, _spells
 from osrlib.crawl.commands import BattleDeclaration, ResolveBattleRound, SessionMode
 from osrlib.crawl.dungeon import Direction, EdgeKind, Position
 from osrlib.crawl.events import (
@@ -1392,7 +1393,7 @@ def _formation_width(session) -> int | None:
     """
     if not session.ruleset.formation_width_limit:
         return None
-    from osrlib.crawl import _light, _party_location
+    from osrlib.crawl import _light
 
     level = _party_location._level(session)
     frontage_feet = _frontage_cells(level, _party_location._position(session)) * _light._CELL_FEET
@@ -2789,8 +2790,6 @@ def _validate_declaration(
         attack = combat_facet if combat_facet is not None else weapon
         return validate_attack(member, pool[0], attack, context, ruleset=session.ruleset)
     if declaration.action == "use_item":
-        from osrlib.crawl import _party_members
-
         magic = member.inventory.magic_item(declaration.item_id) if declaration.item_id else None
         if magic is not None:
             return _validate_magic_item_declaration(session, declaration, member, magic, placement=placement)
@@ -2823,8 +2822,6 @@ def _validate_declaration(
             spell = load_spells().get(declaration.spell_id)
         except ValueError:
             return [Rejection(code="magic.cast.unknown_spell", params={"spell": declaration.spell_id})]
-        from osrlib.crawl import _party_location
-
         if session.ledger.active_on(_party_location._cell_ref(session), "silence"):
             return [Rejection(code="magic.cast.silenced_area", params={"caster": member.id})]
         targets, distance, rejections = _cast_targets(session, declaration, spell, placement or _placement(session))
@@ -3159,7 +3156,7 @@ def _hand_over(session, declaration: BattleDeclaration, giver, placement: _Place
 
     The recipient is None when there are rejections. The call reads state and takes no draw.
     """
-    from osrlib.crawl import _items, _party_members
+    from osrlib.crawl import _items
 
     recipient_id = _sole_target(declaration) or ""
     if recipient_id == giver.id:
@@ -3267,7 +3264,7 @@ def _resolve_scroll_cast(session, member, instance, template, declaration: Battl
     miscast is a failure of the scroll, not a refused declaration, so it emits no `magic.cast.fizzled` event.
     """
     from osrlib.core.spells import CastContext, cast_from_scroll
-    from osrlib.crawl import _magic_items, _party_members
+    from osrlib.crawl import _magic_items
     from osrlib.crawl.events import ItemUsedEvent
 
     remaining = tuple(str(spell) for spell in instance.state.get("spells", ()))
@@ -4176,8 +4173,6 @@ def _break_party_wards(session, target) -> list[Event]:
 
 
 def _resolve_use_item(session, member, declaration, fire_damaged) -> list[Event]:
-    from osrlib.crawl import _party_members
-
     group = _group_by_id(session, declaration.target_group_id)
     if group is None or group.fled:
         return []
@@ -4399,8 +4394,6 @@ def _party_magic(session, by_member, pending_casters, disrupted, acted, state) -
             effects_stream=session.streams.get(EFFECTS_STREAM),
         )
         events.extend(result.events)
-        from osrlib.crawl import _spells
-
         # The stationary *silence* form anchors in battle too: the battle's
         # location is the party's position (see the adaptations register).
         events.extend(_spells._stationary_silence(session, spell, result, targets))
