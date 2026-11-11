@@ -2789,7 +2789,7 @@ def _handle_set_door_state(session: GameSession, command: SetDoorState) -> tuple
         level = dungeon.level(command.level_number)
     except ValueError:
         return [Rejection(code="session.command.unknown_location", params={"dungeon": command.dungeon_id})], []
-    from osrlib.crawl import _doors, exploration
+    from osrlib.crawl import _doors, _search
     from osrlib.crawl.dungeon import EdgeKind
 
     edge = level.edge((command.x, command.y), command.direction)
@@ -2821,7 +2821,7 @@ def _handle_set_door_state(session: GameSession, command: SetDoorState) -> tuple
         discovering = secret and command.discovered and not state.discovered
         state.discovered = command.discovered
         if discovering:
-            exploration._refund_trap_search(
+            _search._refund_trap_search(
                 session, command.dungeon_id, command.level_number, (command.x, command.y), command.direction
             )
     if command.unlocked is not None:
