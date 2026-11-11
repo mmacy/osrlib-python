@@ -497,7 +497,7 @@ print(BOG_TROLL.ability("regeneration").params["per_round"], troll.ability("rege
 # 5 3
 ```
 
-Bundle the variant with an adventure like any template of your own. To change only top-level fields, like the id and the name, `model_copy(update=...)` also works. It doesn't validate what you pass, so use it only for values you know are valid:
+Bundle the variant with an adventure like any template of your own. To change only top-level fields, like the id and the name, `model_copy(update=...)` also works. It validates the copy the way `model_validate` does, so a value the template refuses raises pydantic's `ValidationError`, and a dict you pass for a mapping field becomes a `FrozenMap`:
 
 ```python
 from osrlib.data import load_monsters

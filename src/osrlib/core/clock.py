@@ -59,7 +59,9 @@ assert clock.rounds == 370
 from enum import StrEnum
 from typing import Final
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ConfigDict, Field
+
+from osrlib.core.frozen import _Model
 
 __all__ = [
     "ROUNDS_PER_DAY",
@@ -143,7 +145,7 @@ _ROUNDS_PER_UNIT: dict[TimeUnit, int] = {
 }
 
 
-class BoundaryCrossing(BaseModel):
+class BoundaryCrossing(_Model):
     """One turn or day boundary that the clock passed during an advance.
 
     [`advance`][osrlib.core.clock.GameClock.advance] returns a list of these, earliest
@@ -192,7 +194,7 @@ class BoundaryCrossing(BaseModel):
     """
 
 
-class GameClock(BaseModel):
+class GameClock(_Model):
     """How much time has passed in the game, as a count of rounds.
 
     Call `GameClock()` to start a game at time zero, or `GameClock(rounds=n)` to resume

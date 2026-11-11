@@ -12,7 +12,10 @@ from it, so its mapping fields, like a level's
 
 You read a `FrozenMap` the way you read a dict. When you build a model, you pass a dict for the
 field, and the model stores a `FrozenMap` of it. `model_dump` gives you a dict again. To change an
-entry, build a new model: dump the one you have, change the dump, and validate it.
+entry, build a new model. Either dump the one you have, change the dump, and validate it, or copy
+it with `model_copy(update=...)`. Every osrlib model validates a copy that has an update, so the
+copy stores a `FrozenMap` of a dict you pass, and it raises `pydantic.ValidationError` for a value
+that building the model would refuse.
 
 Typical usage:
 
@@ -34,13 +37,19 @@ bog_troll = MonsterTemplate.model_validate(
 )
 print(bog_troll.ability("regeneration").params["per_round"], troll.ability("regeneration").params["per_round"])
 # 5 3
+
+# The same change to the ability alone, as a copy.
+regeneration = troll.ability("regeneration")
+faster = regeneration.model_copy(update={"params": {**regeneration.params, "per_round": 5}})
+print(faster.params["per_round"], type(faster.params).__name__)
+# 5 FrozenMap
 ```
 """
 
 from collections.abc import ItemsView, Iterable, Iterator, KeysView, Mapping, ValuesView
 from typing import Any, Self, get_args, get_origin, overload
 
-from pydantic import GetCoreSchemaHandler
+from pydantic import BaseModel, GetCoreSchemaHandler
 from pydantic_core import CoreSchema, core_schema
 
 __all__ = [
@@ -63,7 +72,8 @@ class FrozenMap[K, V](Mapping[K, V]):
     True. It's hashable when its values are, and `copy.deepcopy` and `pickle` copy it.
 
     You rarely build one yourself. A model field annotated `Annotated[Mapping[K, V], FrozenMap]`
-    accepts any mapping, like a dict, and stores a `FrozenMap` of it. The type checker reads the
+    accepts any mapping, like a dict, and stores a `FrozenMap` of it, both when you build the model
+    and when you copy it with `model_copy(update=...)`. The type checker reads the
     field as a `Mapping`, which has no methods that change it. The field's `model_dump` value is a
     new dict, which you can change and pass to `model_validate` to build a new model. For a dict
     you can change without building a model, call `dict()` on the mapping.
@@ -193,5 +203,45 @@ class FrozenMap[K, V](Mapping[K, V]):
 
 
 def _as_dict(value: Mapping[Any, Any]) -> dict[Any, Any]:
-    """Return the entries the serializer dumps. A field that `model_copy(update=...)` set can contain a plain dict."""
+    """Return the entries the serializer dumps. A model that `model_construct` built can contain a plain dict."""
     return value._entries if isinstance(value, FrozenMap) else dict(value)
+
+
+class _Model(BaseModel):
+    """The base class of every osrlib model. It validates a copy made with `model_copy(update=...)`.
+
+    Pydantic's `model_copy` sets the fields in `update` without validating them. Every osrlib model is frozen or
+    validates each assignment, so a copy that skipped validation could break a rule that building the model or
+    assigning a field enforces.
+    """
+
+    def model_copy(self, *, update: Mapping[str, Any] | None = None, deep: bool = False) -> Self:
+        """Return a copy of the model, with the fields in `update` changed.
+
+        A copy with an update is validated the way building the model is. It raises the `ValidationError` that
+        building a model with the same fields would raise, and a dict you pass for a read-only mapping field becomes a
+        [`FrozenMap`][osrlib.core.frozen.FrozenMap]. Validation reuses the models nested in the copy, so a copy costs
+        about as much as building the model with its top-level fields. A copy with no update isn't validated again.
+
+        Args:
+            update: The fields to change, by name, with their new values. Leave it out for a copy with the same
+                fields.
+            deep: Whether to copy the values of the fields too, as `copy.deepcopy` does. The values in `update`
+                aren't copied.
+
+        Returns:
+            The copy. The model you copied doesn't change.
+
+        Raises:
+            pydantic.ValidationError: If building the model with the copy's fields would raise it.
+        """
+        copied = super().model_copy(update=update, deep=deep)
+        if not update:
+            return copied
+        validated = type(self).model_validate(copied.__dict__)
+        # Pydantic's copy marks the original's set fields and the updated ones as set. Its private state comes from
+        # the class's __copy__, which can clear a hook that mustn't reach a copy.
+        fields_set = {name for name in copied.__pydantic_fields_set__ if name in type(self).model_fields}
+        object.__setattr__(validated, "__pydantic_fields_set__", fields_set)
+        object.__setattr__(validated, "__pydantic_private__", copied.__pydantic_private__)
+        return validated

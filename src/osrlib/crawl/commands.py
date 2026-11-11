@@ -181,12 +181,13 @@ from enum import StrEnum
 from functools import cache
 from typing import Annotated, ClassVar, Literal, Union
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError, field_validator, model_validator
+from pydantic import ConfigDict, Field, TypeAdapter, ValidationError, field_validator, model_validator
 
 from osrlib.core.character import Character
 from osrlib.core.clock import TimeUnit
 from osrlib.core.dice import parse
 from osrlib.core.events import Event
+from osrlib.core.frozen import _Model
 from osrlib.core.items import Coins
 from osrlib.core.spells import MemorizedSpell
 from osrlib.core.validation import Rejection
@@ -355,7 +356,7 @@ def _dice_that_parse(expression: str) -> str:
     return expression
 
 
-class Command(BaseModel):
+class Command(_Model):
     """The base class of every command.
 
     You don't construct this class. Construct one of the command classes, which all inherit
@@ -424,7 +425,7 @@ class Command(BaseModel):
             raise TypeError(f"{cls.__name__} must stay frozen: accepted commands are logged verbatim")
 
 
-class CommandResult(BaseModel):
+class CommandResult(_Model):
     """The outcome of one command: accepted with its events, or refused with its rejections.
 
     [`GameSession.execute`][osrlib.crawl.session.GameSession.execute] returns one for each
@@ -2538,7 +2539,7 @@ class TurnUndead(Command):
     class can't turn undead with `magic.turning.not_a_turner`."""
 
 
-class BattleDeclaration(BaseModel):
+class BattleDeclaration(_Model):
     """One party member's declared action for a battle round.
 
     You construct these yourself, one for each member who has to declare, and pass them all

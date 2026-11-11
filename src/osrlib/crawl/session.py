@@ -105,7 +105,7 @@ import re
 from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any, Literal, Protocol
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ConfigDict, Field
 
 from osrlib.core.alignment import Alignment
 from osrlib.core.character import ADVANCEMENT_STREAM, Character
@@ -123,6 +123,7 @@ from osrlib.core.events import (
     SavingThrowRolledEvent,
     Visibility,
 )
+from osrlib.core.frozen import _Model
 from osrlib.core.items import EquipmentCatalog, Inventory, ItemInstance, MagicItemInstance
 from osrlib.core.monsters import MONSTER_SPAWN_STREAM, IdAllocator, MonsterCatalog, MonsterInstance, spawn_monster
 from osrlib.core.rng import RngStreams, StreamName
@@ -280,7 +281,7 @@ radius covers a whole marching party. An effect whose params set `blocks_infravi
 """
 
 
-class DeathRecord(BaseModel):
+class DeathRecord(_Model):
     """When and how one party member died, recorded for the spells that bring the dead back.
 
     The session writes one into
@@ -305,7 +306,7 @@ class DeathRecord(BaseModel):
     *neutralize poison* treats `"poison"` differently from the other causes."""
 
 
-class JournalEntry(BaseModel):
+class JournalEntry(_Model):
     """One entry in the party's journal: a line of the adventure's story, with the time it was written.
 
     [`AddJournalEntry`][osrlib.crawl.commands.AddJournalEntry] writes entries. So do the quest
@@ -328,7 +329,7 @@ class JournalEntry(BaseModel):
     """Where the clock stood when the entry was appended, in rounds since the session began."""
 
 
-class ObjectiveState(BaseModel):
+class ObjectiveState(_Model):
     """One objective's state in play: whether the party may see it, and whether it's done.
 
     The session creates one for each objective in the adventure and stores them in
@@ -351,7 +352,7 @@ class ObjectiveState(BaseModel):
     turns it on, and turns `revealed` on with it."""
 
 
-class QuestState(BaseModel):
+class QuestState(_Model):
     """One quest's state in play: where it stands, and where each of its objectives stands.
 
     The session creates one for each quest in the adventure and stores them in
@@ -378,7 +379,7 @@ class QuestState(BaseModel):
     in [`QuestSpec.objectives`][osrlib.crawl.quests.QuestSpec.objectives]."""
 
 
-class DefeatedMonsterRecord(BaseModel):
+class DefeatedMonsterRecord(_Model):
     """One defeated creature, kept until the session awards its experience.
 
     When an encounter ends, the session appends one for each defeated creature to
@@ -404,7 +405,7 @@ class DefeatedMonsterRecord(BaseModel):
     """What it's worth in experience points."""
 
 
-class DeprivationState(BaseModel):
+class DeprivationState(_Model):
     """How long one member has gone without food and without water.
 
     The session stores these in

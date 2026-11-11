@@ -49,8 +49,9 @@ progress to track. To follow a quest from start to finish in an adventure docume
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import ConfigDict, Field, model_validator
 
+from osrlib.core.frozen import _Model
 from osrlib.crawl.commands import ConsequenceCommand
 from osrlib.crawl.gates import ConditionSpec
 from osrlib.crawl.narrative import NarrativeBlock
@@ -63,7 +64,7 @@ __all__ = [
 ]
 
 
-class TriggerClause(BaseModel):
+class TriggerClause(_Model):
     """A pattern to match, and the conditions that must hold when an event matches it.
 
     A quest has clauses in three places, and they work the same way in all three: the
@@ -116,7 +117,7 @@ class TriggerClause(BaseModel):
         return self
 
 
-class ObjectiveSpec(BaseModel):
+class ObjectiveSpec(_Model):
     """One objective: what it is called, how it completes, whether it starts hidden, and its text.
 
     Put your objectives in the `objectives` tuple of a
@@ -183,7 +184,7 @@ class ObjectiveSpec(BaseModel):
         return self
 
 
-class QuestSpec(BaseModel):
+class QuestSpec(_Model):
     """One authored quest: when it starts, what it asks for, and what it pays.
 
     Put your quests in the `quests` tuple of an

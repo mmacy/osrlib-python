@@ -161,7 +161,7 @@ assert aldis.memorized_spells == ()  # the cast spent the copy
 from collections.abc import Mapping, Sequence
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import ConfigDict, Field, field_validator, model_validator
 
 from osrlib.core.abilities import AbilityScore
 from osrlib.core.alignment import Alignment
@@ -210,7 +210,7 @@ from osrlib.core.events import (
     TurningTypeOutcome,
     UndeadTurnedEvent,
 )
-from osrlib.core.frozen import FrozenMap
+from osrlib.core.frozen import FrozenMap, _Model
 from osrlib.core.monsters import MonsterInstance, MonsterTemplate
 from osrlib.core.rng import RngStream, StreamName
 from osrlib.core.ruleset import Ruleset
@@ -293,7 +293,7 @@ osrlib's resolution code, so a new kind needs a change to osrlib, not only new d
 """
 
 
-class DurationSpec(BaseModel):
+class DurationSpec(_Model):
     """How long a spell lasts, parsed out of the printed duration line.
 
     Read one from [`SpellTemplate.duration_spec`][osrlib.core.spells.SpellTemplate.duration_spec],
@@ -392,7 +392,7 @@ class DurationSpec(BaseModel):
         return self
 
 
-class RangeSpec(BaseModel):
+class RangeSpec(_Model):
     """How far a spell reaches, parsed out of the printed range line.
 
     Read one from [`SpellTemplate.range_spec`][osrlib.core.spells.SpellTemplate.range_spec].
@@ -448,7 +448,7 @@ class RangeSpec(BaseModel):
     """
 
 
-class TargetingSpec(BaseModel):
+class TargetingSpec(_Model):
     """Who one castable usage of a spell can hit, and how many of them.
 
     Read one from [`SpellMode.targeting`][osrlib.core.spells.SpellMode.targeting] to find out how
@@ -565,7 +565,7 @@ class TargetingSpec(BaseModel):
         return self
 
 
-class SaveSpec(BaseModel):
+class SaveSpec(_Model):
     """The saving throw one castable usage of a spell allows its targets, and what passing it does.
 
     Read one from [`SpellMode.save`][osrlib.core.spells.SpellMode.save], which is `None` when the
@@ -609,7 +609,7 @@ class SaveSpec(BaseModel):
     """
 
 
-class SpellEffect(BaseModel):
+class SpellEffect(_Model):
     """What one castable usage of a spell does to its targets.
 
     Read one from [`SpellMode.effect`][osrlib.core.spells.SpellMode.effect]. Casting runs it for
@@ -689,7 +689,7 @@ class SpellEffect(BaseModel):
         return value
 
 
-class SpellMode(BaseModel):
+class SpellMode(_Model):
     """One castable usage of a spell: what it targets, what it allows, and what it does.
 
     Many SRD spell pages print more than one numbered usage. *Cure light wounds* heals or lifts
@@ -782,7 +782,7 @@ class SpellMode(BaseModel):
         return self
 
 
-class ReversedForm(BaseModel):
+class ReversedForm(_Model):
     """The reverse of a reversible spell, stored on the spell's entry.
 
     *Cure light wounds* reverses into *cause light wounds*, and *light* into *darkness*. The reverse
@@ -842,7 +842,7 @@ class ReversedForm(BaseModel):
     """
 
 
-class SpellTemplate(BaseModel):
+class SpellTemplate(_Model):
     """One spell, compiled from its SRD page: the data that casting it uses.
 
     Get one by id from [`SpellCatalog.get`][osrlib.core.spells.SpellCatalog.get], or a class's
@@ -1017,7 +1017,7 @@ class SpellTemplate(BaseModel):
         raise ValueError(f"{self.id} has no {form} mode {key!r}")
 
 
-class SpellCatalog(BaseModel):
+class SpellCatalog(_Model):
     """A set of spell templates, with lookup by id and by class list.
 
     [`load_spells`][osrlib.data.load_spells] returns the built-in catalog. It validates the data on
@@ -1141,7 +1141,7 @@ class SpellCatalog(BaseModel):
         )
 
 
-class MemorizedSpell(BaseModel):
+class MemorizedSpell(_Model):
     """One spell a caster has ready to cast: which spell, and in which form.
 
     Construct one for each slot you want filled, and pass them to
@@ -1183,7 +1183,7 @@ class MemorizedSpell(BaseModel):
     """
 
 
-class CasterProfile(BaseModel):
+class CasterProfile(_Model):
     """What kind of caster a class is, and which spell list it draws on.
 
     Get one from [`caster_profile`][osrlib.core.spells.caster_profile], which reads it from a class
@@ -1268,7 +1268,7 @@ def _target_ref(target: Any) -> str:
     return target if isinstance(target, str) else _entity_id(target)
 
 
-class MemorizationResult(BaseModel):
+class MemorizationResult(_Model):
     """What came of a call to [`memorize_spells`][osrlib.core.spells.memorize_spells].
 
     One of the two fields is always empty. When the preparation was legal, the caster's memorized
@@ -1436,7 +1436,7 @@ def memorize_spells(
     return MemorizationResult(events=(event,))
 
 
-class SpellBookResult(BaseModel):
+class SpellBookResult(_Model):
     """What came of a call to [`add_spell_to_book`][osrlib.core.spells.add_spell_to_book].
 
     One of the two fields is always empty. Either the spell went into the book and `events` reports
@@ -1746,7 +1746,7 @@ def forget_excess_memorized(caster: Caster, definition: ClassDefinition, catalog
     return events
 
 
-class CastContext(BaseModel):
+class CastContext(_Model):
     """Facts about a cast's situation that osrlib can't work out, which you state for the rules to use.
 
     Construct one and pass it to [`validate_cast`][osrlib.core.spells.validate_cast],
@@ -2119,7 +2119,7 @@ def validate_cast(
     return rejections
 
 
-class CastResult(BaseModel):
+class CastResult(_Model):
     """What a cast did: which copy was spent, who it reached, and everything that happened.
 
     [`cast_spell`][osrlib.core.spells.cast_spell] and
@@ -3700,7 +3700,7 @@ def pop_mirror_image(
     return events
 
 
-class TurnUndeadResult(BaseModel):
+class TurnUndeadResult(_Model):
     """What came of a turning attempt: the dice, the result for each kind of undead, and who fled.
 
     [`turn_undead`][osrlib.core.spells.turn_undead] returns one. For an illegal attempt, it raises

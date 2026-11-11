@@ -307,7 +307,7 @@ import math
 from collections.abc import Collection, Iterable, Mapping, Sequence
 from typing import Any, NamedTuple, Protocol
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import ConfigDict
 
 from osrlib.core.character import ADVANCEMENT_STREAM
 from osrlib.core.clock import TimeUnit
@@ -351,6 +351,7 @@ from osrlib.core.events import (
     SavingThrowRolledEvent,
     SpellDisruptedEvent,
 )
+from osrlib.core.frozen import _Model
 from osrlib.core.items import (
     Coins,
     GearTemplate,
@@ -445,7 +446,7 @@ counts as gone for ending the battle once it stands farther than this from every
 """
 
 
-class BattleState(BaseModel):
+class BattleState(_Model):
     """A battle in progress: the round count and what the session tracks from one round to the next.
 
     You get this from `session.battle`, which is None whenever no battle is running. A battle
@@ -541,7 +542,7 @@ class BattleState(BaseModel):
     already fighting keeps their place in the front rank when others arrive beside them."""
 
 
-class MonsterAction(BaseModel):
+class MonsterAction(_Model):
     """One monster's or NPC adventurer's action for a round, as an action policy chooses it.
 
     An [`ActionPolicy`][osrlib.crawl.battle.ActionPolicy] returns a list of these, and the session
@@ -2131,7 +2132,7 @@ def group_front_rank(session, group_id: str) -> tuple[str, ...]:
     return tuple(_reachable_front_rank(group, _placement(session)))
 
 
-class BattleRoundPreview(BaseModel):
+class BattleRoundPreview(_Model):
     """What a battle round would do with the declarations planned so far, worked out without playing it.
 
     [`preview_battle_round`][osrlib.crawl.battle.preview_battle_round] returns one. Read `rejections`

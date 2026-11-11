@@ -132,7 +132,7 @@ from collections.abc import Mapping, Sequence
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any, cast
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import ConfigDict
 
 from osrlib.core.classes import SavingThrows
 from osrlib.core.clock import GameClock, TimeUnit
@@ -165,6 +165,7 @@ from osrlib.core.events import (
     SavingThrowRolledEvent,
     TargetsSelectedEvent,
 )
+from osrlib.core.frozen import _Model
 from osrlib.core.items import (
     CombatFacet,
     GearTemplate,
@@ -325,7 +326,7 @@ Examples:
 """
 
 
-class AttackContext(BaseModel):
+class AttackContext(_Model):
     """The situation an attack happens in, as you state it.
 
     Build one and pass it as the `context` of
@@ -451,7 +452,7 @@ class AttackContext(BaseModel):
     """
 
 
-class DamageSource(BaseModel):
+class DamageSource(_Model):
     """The properties of one source of damage that the defender's defenses are checked against.
 
     osrlib checks it against the defender's defenses to decide whether the damage harms the
@@ -534,7 +535,7 @@ class DamageSource(BaseModel):
     """
 
 
-class AttackRollResult(BaseModel):
+class AttackRollResult(_Model):
     """An attack roll's outcome: whether it hit, and the numbers behind it.
 
     [`attack_roll`][osrlib.core.combat.attack_roll] returns one, and an
@@ -585,7 +586,7 @@ class AttackRollResult(BaseModel):
     """The roll's [`AttackRolledEvent`][osrlib.core.events.AttackRolledEvent], ready to append to your log."""
 
 
-class AttackResult(BaseModel):
+class AttackResult(_Model):
     """The outcome of one whole attack: the roll, whether the defender's defenses stopped it, and the damage.
 
     [`resolve_attack`][osrlib.core.combat.resolve_attack] and
@@ -623,7 +624,7 @@ class AttackResult(BaseModel):
     """Every event the attack produced, in order, ready to append to your log."""
 
 
-class SaveResult(BaseModel):
+class SaveResult(_Model):
     """A saving throw's outcome: whether it passed, and the numbers behind it.
 
     [`saving_throw`][osrlib.core.combat.saving_throw] returns one. Read `passed` to decide
@@ -657,7 +658,7 @@ class SaveResult(BaseModel):
     """The save's [`SavingThrowRolledEvent`][osrlib.core.events.SavingThrowRolledEvent], ready to append to your log."""
 
 
-class MoraleResult(BaseModel):
+class MoraleResult(_Model):
     """A morale check's outcome: whether the side keeps fighting.
 
     [`check_morale`][osrlib.core.combat.check_morale] and
@@ -696,7 +697,7 @@ class MoraleResult(BaseModel):
     """
 
 
-class Participant(BaseModel):
+class Participant(_Model):
     """One combatant in an initiative roll: its key, its side, and what changes its place in the order.
 
     Build one for each combatant and pass the list to
@@ -735,7 +736,7 @@ class Participant(BaseModel):
     """
 
 
-class InitiativeResult(BaseModel):
+class InitiativeResult(_Model):
     """The outcome of an initiative roll: every roll, re-rolls included, and the acting order.
 
     [`roll_initiative`][osrlib.core.combat.roll_initiative] returns one. Go through `order`
@@ -2771,7 +2772,7 @@ def check_morale(subject: str, score: int, *, modifier: int = 0, stream: RngStre
     return MoraleResult(held=held, roll=rolled, modifier=modifier, events=(event,))
 
 
-class ReactionRollResult(BaseModel):
+class ReactionRollResult(_Model):
     """A reaction roll's outcome: the 2d6, the modifier, and how the monsters react.
 
     [`roll_reaction`][osrlib.core.combat.roll_reaction] returns one. What the monsters do
@@ -2855,7 +2856,7 @@ def roll_reaction(*, modifier: int = 0, stream: RngStream) -> ReactionRollResult
     return ReactionRollResult(result=result, roll=rolled, modifier=modifier, total=total, events=(event,))
 
 
-class MoraleTracker(BaseModel):
+class MoraleTracker(_Model):
     """Counts morale checks through one encounter, so a side that holds twice stops checking.
 
     Build one for each encounter and check morale through it instead of calling

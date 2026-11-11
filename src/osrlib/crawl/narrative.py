@@ -41,14 +41,16 @@ a rejection. The conditions, flags, and guidance that produced it stay in refere
 the adventure document.
 """
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import ConfigDict
+
+from osrlib.core.frozen import _Model
 
 __all__ = [
     "NarrativeBlock",
 ]
 
 
-class NarrativeBlock(BaseModel):
+class NarrativeBlock(_Model):
     """The authored beats for one gate, trigger, quest, or objective.
 
     Construct one and pass it as the `narrative` of the object it belongs to. Every field is free

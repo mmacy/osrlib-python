@@ -48,7 +48,9 @@ assert rejections[0].params == {"ability": "wis", "score": 9, "amount": 2}
 
 import re
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import ConfigDict, field_validator
+
+from osrlib.core.frozen import _Model
 
 __all__ = [
     "Rejection",
@@ -57,7 +59,7 @@ __all__ = [
 _CODE_PATTERN = re.compile(r"[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+")
 
 
-class Rejection(BaseModel):
+class Rejection(_Model):
     """One reason a validator refused an input, as a code plus the facts behind it.
 
     A validator returns these. Match on `code` to decide what to tell the player, and read

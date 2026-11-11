@@ -71,7 +71,9 @@ assert roll("1d20", RngStreams(master_seed=42).get(StreamName.COMBAT)).total == 
 import hashlib
 from enum import StrEnum
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import ConfigDict, Field, field_validator
+
+from osrlib.core.frozen import _Model
 
 __all__ = [
     "RngStream",
@@ -217,7 +219,7 @@ def derive_init_pair(master_seed: int, key: str) -> tuple[int, int]:
     return initstate, initseq
 
 
-class RngStreamState(BaseModel):
+class RngStreamState(_Model):
     """A stream's position in its sequence, as a frozen model you can write to disk.
 
     [`RngStream.export_state`][osrlib.core.rng.RngStream.export_state] returns one and

@@ -92,12 +92,12 @@ from collections.abc import Mapping
 from enum import StrEnum
 from typing import TYPE_CHECKING, Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import ConfigDict, Field, field_validator, model_validator
 
 from osrlib.core.classes import ArmourPolicyKind, ClassDefinition, WeaponPolicyKind
 from osrlib.core.dice import parse
 from osrlib.core.effects import ModifierSpec
-from osrlib.core.frozen import FrozenMap
+from osrlib.core.frozen import FrozenMap, _Model
 from osrlib.core.rng import RngStream
 from osrlib.core.ruleset import EncumbranceMode, Ruleset
 from osrlib.core.treasure import MagicItemType, TreasureEntry
@@ -301,7 +301,7 @@ class ArmourCategory(StrEnum):
     """Chainmail and plate mail. 60' unencumbered, 30' carrying treasure."""
 
 
-class RangeBand(BaseModel):
+class RangeBand(_Model):
     """One missile range band in feet, as the SRD prints it (`5'–80'`).
 
     Three of these make up a weapon's [`MissileRanges`][osrlib.core.items.MissileRanges],
@@ -328,7 +328,7 @@ class RangeBand(BaseModel):
         return self
 
 
-class MissileRanges(BaseModel):
+class MissileRanges(_Model):
     """A missile weapon's three range bands, near to far.
 
     Attack resolution measures the distance to the target, finds the band it falls in, and
@@ -357,7 +357,7 @@ def _check_missile_ranges(qualities: tuple[WeaponQuality, ...], missile_ranges: 
         raise ValueError("missile ranges are present exactly when the missile quality is")
 
 
-class WeaponTemplate(BaseModel):
+class WeaponTemplate(_Model):
     """A mundane weapon, from the SRD's weapon table.
 
     One of the four kinds of equipment template. Get one from the compiled catalog with
@@ -412,7 +412,7 @@ class WeaponTemplate(BaseModel):
         return self
 
 
-class ArmourTemplate(BaseModel):
+class ArmourTemplate(_Model):
     """A suit of body armour or the shield, from the SRD's armour table.
 
     Body armour sets a wearer's armour class outright and a shield adds a bonus to it, so
@@ -486,7 +486,7 @@ class ArmourTemplate(BaseModel):
         return self.ac_bonus is not None
 
 
-class CombatFacet(BaseModel):
+class CombatFacet(_Model):
     """The combat statistics of a piece of gear that can also be used as a weapon.
 
     Torch, holy water, and burning oil are printed on both the SRD's weapon table and its
@@ -522,7 +522,7 @@ class CombatFacet(BaseModel):
         return self
 
 
-class GearTemplate(BaseModel):
+class GearTemplate(_Model):
     """A piece of adventuring gear: a torch, a rope, a backpack, a flask of oil.
 
     Every item on the equipment list that isn't a weapon, armour, or ammunition is gear. Get
@@ -573,7 +573,7 @@ class GearTemplate(BaseModel):
     """
 
 
-class AmmunitionTemplate(BaseModel):
+class AmmunitionTemplate(_Model):
     """Ammunition for a missile weapon: arrows, quarrels, sling stones.
 
     Bought like gear, in lots: one purchase at the listed price delivers `lot_size`
@@ -631,7 +631,7 @@ ammunition have a weight. Only gear and ammunition have a lot size.
 """
 
 
-class TreasureWeight(BaseModel):
+class TreasureWeight(_Model):
     """What one unit of a kind of treasure weighs, from the SRD's encumbrance table.
 
     Each row gives a weight in coins: `coin` and `gem` weigh 1 each, `jewellery` 10, and
@@ -654,7 +654,7 @@ class TreasureWeight(BaseModel):
     """The weight of one of them, in coins."""
 
 
-class EquipmentCatalog(BaseModel):
+class EquipmentCatalog(_Model):
     """The whole mundane equipment list, which is what a shop sells and what a character can buy.
 
     Call [`load_equipment`][osrlib.data.load_equipment] to get the compiled catalog. It's
@@ -768,7 +768,7 @@ class MagicItemCategory(StrEnum):
     """Every other enchanted weapon, and enchanted ammunition."""
 
 
-class VersusBonus(BaseModel):
+class VersusBonus(_Model):
     """A magic weapon's bonus against particular enemies, as in `+2 vs Lycanthropes`.
 
     When the target matches, this bonus replaces the item's ordinary attack and damage
@@ -805,7 +805,7 @@ class VersusBonus(BaseModel):
         return self
 
 
-class UsableBy(BaseModel):
+class UsableBy(_Model):
     """Which characters a magic item works for.
 
     [`usable_by_class`][osrlib.core.items.usable_by_class] checks a class against this
@@ -842,7 +842,7 @@ class UsableBy(BaseModel):
         return self
 
 
-class MagicItemEffect(BaseModel):
+class MagicItemEffect(_Model):
     """The part of a magic item's behavior the engine resolves for you.
 
     An item whose page describes something the engine can execute has one of these. The rest
@@ -901,7 +901,7 @@ class MagicItemEffect(BaseModel):
         return value
 
 
-class ScrollCurse(BaseModel):
+class ScrollCurse(_Model):
     """One of the cursed scroll's example curses.
 
     The SRD lists example curses a cursed scroll can have and leaves the choice to the
@@ -927,7 +927,7 @@ class ScrollCurse(BaseModel):
     """
 
 
-class MagicItemTemplate(BaseModel):
+class MagicItemTemplate(_Model):
     """A magic item, compiled from the generation tables and the per-item pages.
 
     Get one from [`MagicItemCatalog.get`][osrlib.core.items.MagicItemCatalog.get], or from
@@ -1024,7 +1024,7 @@ class MagicItemTemplate(BaseModel):
         return value
 
 
-class MagicSubTableRow(BaseModel):
+class MagicSubTableRow(_Model):
     """One outcome of a magic item generation sub-table, with the item it yields and the rolls that select it.
 
     The rules print two probability columns for every generation table, B for Basic play and
@@ -1062,7 +1062,7 @@ class MagicSubTableRow(BaseModel):
     """
 
 
-class MagicSubTable(BaseModel):
+class MagicSubTable(_Model):
     """One magic item type's generation table, with everything that type can produce and the rolls that produce it.
 
     There's one of these for each type of the master *Magic Item Type* table. Get the one
@@ -1167,7 +1167,7 @@ class MagicSubTable(BaseModel):
         raise ValueError(f"{self.category} expert roll must be 1-100, got {roll}")
 
 
-class ArmourTypeRow(BaseModel):
+class ArmourTypeRow(_Model):
     """One band of the *Magic Armour Type* table, which gives the mundane armour a generated suit is made of.
 
     The bands are in [`MagicArmourTypeTable.rows`][osrlib.core.items.MagicArmourTypeTable].
@@ -1187,7 +1187,7 @@ class ArmourTypeRow(BaseModel):
     index](https://mmacy.github.io/osrlib-python/reference/content-ids/equipment/)."""
 
 
-class MagicArmourTypeTable(BaseModel):
+class MagicArmourTypeTable(_Model):
     """The *Magic Armour Type* table, which gives the mundane armour a generated suit of `Armour +N` is made of.
 
     An `Armour +N` template has no mundane base item, so
@@ -1242,7 +1242,7 @@ class MagicArmourTypeTable(BaseModel):
         raise ValueError(f"armour type roll must be 1-8, got {roll}")
 
 
-class ScrollSpellLevelRow(BaseModel):
+class ScrollSpellLevelRow(_Model):
     """One row of the *Random Scroll Spell Level* table, with the rolls that select it and the spell level it gives.
 
     The B column here is bands of a d6 rather than single faces, and its bounds are `None`
@@ -1267,7 +1267,7 @@ class ScrollSpellLevelRow(BaseModel):
     """
 
 
-class ScrollSpellLevelTable(BaseModel):
+class ScrollSpellLevelTable(_Model):
     """The *Random Scroll Spell Level* table, which gives the level of each spell on a generated scroll.
 
     [`instantiate_magic_item`][osrlib.core.treasure.instantiate_magic_item] rolls this once
@@ -1363,7 +1363,7 @@ class ScrollSpellLevelTable(BaseModel):
         raise ValueError(f"scroll spell level roll must be 1-100, got {roll}")
 
 
-class SwordCommunicationRow(BaseModel):
+class SwordCommunicationRow(_Model):
     """How a sentient sword of a given intelligence communicates, from the *Communication* table.
 
     There's one row per intelligence score, in
@@ -1386,7 +1386,7 @@ class SwordCommunicationRow(BaseModel):
     """
 
 
-class SwordPowersRow(BaseModel):
+class SwordPowersRow(_Model):
     """How many powers a sentient sword of a given intelligence has, from the *Powers* table.
 
     There's one row per intelligence score, in
@@ -1407,7 +1407,7 @@ class SwordPowersRow(BaseModel):
     one."""
 
 
-class SwordTableBand(BaseModel):
+class SwordTableBand(_Model):
     """One band of a sentient sword roll table, whose result is either an outcome or an instruction to roll again.
 
     The sentient sword roll tables share this structure: a roll range and a result. The result is usually
@@ -1430,7 +1430,7 @@ class SwordTableBand(BaseModel):
     """What the band yields: an alignment, a language count, a power id, or one of the instructions above."""
 
 
-class SwordPower(BaseModel):
+class SwordPower(_Model):
     """One power a sentient sword can have.
 
     Each power is text for you to adjudicate. osrlib rolls which powers a sword has and
@@ -1455,7 +1455,7 @@ class SwordPower(BaseModel):
     """True when rolling the same power twice means something, so the roll stands instead of being re-rolled."""
 
 
-class SentientSwordTables(BaseModel):
+class SentientSwordTables(_Model):
     """Every table that goes into rolling up a sentient sword.
 
     [`instantiate_magic_item`][osrlib.core.treasure.instantiate_magic_item] runs these for
@@ -1528,7 +1528,7 @@ class SentientSwordTables(BaseModel):
         raise ValueError(f"unknown sword power {power_id!r}")
 
 
-class MagicItemCatalog(BaseModel):
+class MagicItemCatalog(_Model):
     """The whole magic item list, with the tables that generate from it.
 
     Call [`load_magic_items`][osrlib.data.load_magic_items] to get the compiled catalog. It's
@@ -1647,7 +1647,7 @@ class MagicItemCatalog(BaseModel):
         raise ValueError(f"no sub-table for category {category!r}")
 
 
-class SwordSentience(BaseModel):
+class SwordSentience(_Model):
     """A sentient sword's mind, alignment, and powers.
 
     [`instantiate_magic_item`][osrlib.core.treasure.instantiate_magic_item] rolls it once when it creates the
@@ -1687,7 +1687,7 @@ class SwordSentience(BaseModel):
     """
 
 
-class MagicItemInstance(BaseModel):
+class MagicItemInstance(_Model):
     """One magic item a character has, with everything that differs from copy to copy.
 
     Templates are shared and frozen. This is the copy in play, and it's mutable. Treasure
@@ -1754,7 +1754,7 @@ class MagicItemInstance(BaseModel):
     """
 
 
-class ItemInstance(BaseModel):
+class ItemInstance(_Model):
     """A stack of mundane items a character has.
 
     [`purchase`][osrlib.core.items.purchase] makes one. Construct one yourself to give a
@@ -1779,7 +1779,7 @@ class ItemInstance(BaseModel):
     """
 
 
-class Coins(BaseModel):
+class Coins(_Model):
     """A fixed pile of coins, like generated treasure, the contents of a chest, or a pile dropped on the floor.
 
     Frozen, unlike the [`CoinPurse`][osrlib.core.items.CoinPurse] a character carries.
@@ -1836,7 +1836,7 @@ class Coins(BaseModel):
         return self.value_cp // 100
 
 
-class ValuableInstance(BaseModel):
+class ValuableInstance(_Model):
     """One gem or piece of jewellery a character carries.
 
     Treasure generation rolls the value once, when the piece is created, and it never
@@ -1869,7 +1869,7 @@ class ValuableInstance(BaseModel):
     """
 
 
-class GeneratedTreasure(BaseModel):
+class GeneratedTreasure(_Model):
     """Everything one roll of a treasure table produced.
 
     [`generate_treasure`][osrlib.core.treasure.generate_treasure],
@@ -1893,7 +1893,7 @@ class GeneratedTreasure(BaseModel):
     """
 
 
-class CoinPurse(BaseModel):
+class CoinPurse(_Model):
     """The coins a character is carrying, by denomination.
 
     Every [`Inventory`][osrlib.core.items.Inventory] has one. Unlike
@@ -2042,7 +2042,7 @@ instance id. A mundane one is identified by its template.
 """
 
 
-class Inventory(BaseModel):
+class Inventory(_Model):
     """Everything one character carries, including items, coins, valuables, and what is in hand or worn.
 
     Every [`Character`][osrlib.core.character.Character] has one. Build it up with
@@ -2329,7 +2329,7 @@ def equipped_item_modifiers(inventory: Inventory) -> list[ModifierSpec]:
     return modifiers
 
 
-class SwordControlResult(BaseModel):
+class SwordControlResult(_Model):
     """The totals and the winner of one contest of wills between a sentient sword and its wielder.
 
     Returned by

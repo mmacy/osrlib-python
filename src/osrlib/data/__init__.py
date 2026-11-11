@@ -82,10 +82,11 @@ import json
 from functools import cache
 from importlib import resources
 
-from pydantic import BaseModel, ConfigDict, ValidationError, model_validator
+from pydantic import ConfigDict, ValidationError, model_validator
 
 from osrlib.core.abilities import AbilityTables
 from osrlib.core.classes import ClassCatalog
+from osrlib.core.frozen import _Model
 from osrlib.core.items import EquipmentCatalog, MagicItemCatalog
 from osrlib.core.monsters import MonsterCatalog
 from osrlib.core.spells import SpellCatalog
@@ -109,7 +110,7 @@ __all__ = [
 ]
 
 
-class Language(BaseModel):
+class Language(_Model):
     """One spoken language from the language catalog.
 
     You get one from [`LanguageCatalog.get`][osrlib.data.LanguageCatalog.get], or from
@@ -140,7 +141,7 @@ class Language(BaseModel):
     """
 
 
-class LanguageCatalog(BaseModel):
+class LanguageCatalog(_Model):
     """The whole language list, with lookup by id.
 
     [`load_languages`][osrlib.data.load_languages] returns this catalog, and

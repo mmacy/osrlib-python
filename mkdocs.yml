@@ -127,9 +127,11 @@ plugins:
             - https://docs.python.org/3/objects.inv
           options:
             # Undocumented attribute overrides, like each command's `command_type`, get
-            # their parent's docstring instead of rendering as bare names.
+            # their parent's docstring instead of rendering as bare names. A model lists
+            # pydantic's BaseModel as its base, not osrlib's private base class.
             extensions:
               - tools/docs/griffe_inherit_docstrings.py:InheritAttributeDocstrings
+              - tools/docs/griffe_public_bases.py:ShowPublicBases
             docstring_style: google
             # A Returns or Yields section is one value written as prose, so its wrapped lines
             # stay one entry instead of rendering as a separate return value per line.

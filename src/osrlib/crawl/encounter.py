@@ -145,11 +145,12 @@ assert session.encounter.round == 1
 ```
 """
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
+from pydantic import ConfigDict, Field, ValidationInfo, field_validator
 
 from osrlib.core.combat import cannot_move, roll_reaction
 from osrlib.core.effects import Condition, has_condition, regeneration_definition
 from osrlib.core.events import Event
+from osrlib.core.frozen import _Model
 from osrlib.core.items import Coins
 from osrlib.core.monsters import MonsterInstance, _regular_plural
 from osrlib.core.spells import MAGIC_STREAM, turn_undead, validate_turn_undead
@@ -199,7 +200,7 @@ The cap isn't a ruleset setting, so every chase uses the same cap. To end a chas
 """
 
 
-class EncounterGroup(BaseModel):
+class EncounterGroup(_Model):
     """One monster group in an encounter: its members, its distance, and the treasure it carries.
 
     You get these from `session.encounter.groups`. The session creates them when an encounter
@@ -276,7 +277,7 @@ class EncounterGroup(BaseModel):
         return value or _regular_plural(info.data.get("label", ""))
 
 
-class PursuitState(BaseModel):
+class PursuitState(_Model):
     """A chase in progress: the gap between the running party and its pursuers, updated each round.
 
     Read it from `session.encounter.pursuit`. It's None until a chase starts. A chase starts when the
@@ -303,7 +304,7 @@ class PursuitState(BaseModel):
     less, the pursuers catch the party, and a battle starts."""
 
 
-class EncounterState(BaseModel):
+class EncounterState(_Model):
     """An open encounter: the monster groups, the stance, the surprise result, and any chase.
 
     You get this from `session.encounter`, which is None whenever no encounter is open. A save
