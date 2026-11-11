@@ -149,8 +149,12 @@ class MemberView(BaseModel):
 
     You get these from [`PlayerView.party`][osrlib.crawl.views.PlayerView.party], in marching
     order, and every party member has one, living or dead. The players know everything about
-    their characters, so the sheet is complete. The only thing missing is the identity of an
-    unidentified magic item in the pack.
+    their characters, so the view has every number on a B/X character sheet, and a client can draw
+    the sheet from it alone. The only thing missing is the identity of an unidentified magic item
+    in the pack.
+
+    The numbers are the member's current ones. They include whatever is on the member right now,
+    like the armour they wear, a ring of protection, or a spell that changes an ability score.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -207,6 +211,86 @@ class MemberView(BaseModel):
     It doesn't account for conditions. A member who can't move this round, like one held by a web,
     still has a rate here, and
     [`EncounterView.immobile`][osrlib.crawl.views.EncounterView.immobile] lists them."""
+    race: str = ""
+    """The character's race id, like `"human"` or `"dwarf"`, as in
+    [`Character.race`][osrlib.core.character.Character.race]."""
+    alignment: str = ""
+    """The character's alignment, as an [`Alignment`][osrlib.core.alignment.Alignment] serialized
+    value: `"lawful"`, `"neutral"`, or `"chaotic"`."""
+    title: str | None = None
+    """The level title, like `"Veteran"` for a 1st-level fighter, as
+    [`level_title`][osrlib.core.classes.level_title] returns it. `None` past the last title the
+    class has, so show the class name instead."""
+    xp: int = 0
+    """The experience points the character has."""
+    xp_next_level: int | None = None
+    """The experience points the next level needs, or `None` when the character has reached the
+    highest level of the class."""
+    scores: dict[str, int] = {}
+    """The six ability scores, keyed by [`AbilityScore`][osrlib.core.abilities.AbilityScore]
+    serialized value: `"str"`, `"int"`, `"wis"`, `"dex"`, `"con"`, and `"cha"`."""
+    melee_modifier: int = 0
+    """The Strength modifier to melee attack rolls and melee damage, as
+    [`Character.melee_modifier`][osrlib.core.character.Character.melee_modifier]."""
+    missile_modifier: int = 0
+    """The Dexterity modifier to missile attack rolls, as
+    [`Character.missile_modifier`][osrlib.core.character.Character.missile_modifier]."""
+    initiative_modifier: int = 0
+    """The Dexterity modifier to the member's initiative roll, as
+    [`Character.initiative_modifier`][osrlib.core.character.Character.initiative_modifier]. The
+    session uses it only under individual initiative."""
+    hit_point_modifier: int = 0
+    """The Constitution modifier to each Hit Die rolled, as
+    [`Character.hit_point_modifier`][osrlib.core.character.Character.hit_point_modifier]."""
+    magic_save_modifier: int = 0
+    """The Wisdom modifier to saving throws against magic, as
+    [`Character.magic_save_modifier`][osrlib.core.character.Character.magic_save_modifier]."""
+    npc_reaction_modifier: int = 0
+    """The Charisma modifier to reaction rolls, as
+    [`Character.npc_reaction_modifier`][osrlib.core.character.Character.npc_reaction_modifier]."""
+    open_doors_chance: int = 0
+    """The chance in 6 of forcing a stuck door open, as
+    [`Character.open_doors_chance`][osrlib.core.character.Character.open_doors_chance]."""
+    thac0: int = 0
+    """The d20 roll the member needs to hit armour class 0, as
+    [`Character.thac0`][osrlib.core.character.Character.thac0]. Show it when your game uses
+    descending armour class."""
+    attack_bonus: int = 0
+    """The bonus the member adds to an attack roll against ascending armour class, as
+    [`Character.attack_bonus`][osrlib.core.character.Character.attack_bonus]."""
+    armour_class: int = 0
+    """The member's descending armour class, where lower is better, as
+    [`Character.armour_class`][osrlib.core.character.Character.armour_class].
+
+    It counts everything the member wears, unidentified magic items included, because it's the armour
+    class the monsters roll against. So the armour class can show that a shield is better than a plain
+    one while `inventory` still calls it `"a shield with a faint aura"`."""
+    armour_class_ascending: int = 0
+    """The member's ascending armour class, where higher is better, as
+    [`Character.armour_class_ascending`][osrlib.core.character.Character.armour_class_ascending]. It
+    counts the same items as `armour_class`."""
+    saves: dict[str, int] = {}
+    """The five saving throws, keyed by the field names of
+    [`SavingThrows`][osrlib.core.classes.SavingThrows]: `"death"`, `"wands"`, `"paralysis"`, `"breath"`,
+    and `"spells"`. Each value is the d20 roll the member needs, as
+    [`Character.saves`][osrlib.core.character.Character.saves] gives it."""
+    movement_rate_feet: int = 0
+    """How far the member moves in one exploration turn, in feet, as
+    [`Character.movement_rate`][osrlib.core.character.Character.movement_rate] returns it under the
+    session's ruleset. The party moves at the rate of its slowest living member."""
+    languages: tuple[str, ...] = ()
+    """The ids of the languages the member speaks, as
+    [`Character.languages`][osrlib.core.character.Character.languages] lists them."""
+    spell_book: tuple[str, ...] = ()
+    """The ids of the spells in the member's spell book, as in
+    [`Character.spell_book`][osrlib.core.character.Character.spell_book]. They're the spells the member
+    can choose from in a [`PrepareSpells`][osrlib.crawl.commands.PrepareSpells]. Empty for a class that
+    has no spell book."""
+    thief_skills: dict[str, int] = {}
+    """The member's chance at each thief skill at their level, keyed by the skill field names of
+    [`ThiefSkillRow`][osrlib.core.classes.ThiefSkillRow], like `"open_locks"` and `"move_silently"`.
+    `"hear_noise"` is a chance in 6, and every other skill is a percentage. Empty for a class that has no
+    thief skills."""
 
 
 class MemberEffectView(BaseModel):
