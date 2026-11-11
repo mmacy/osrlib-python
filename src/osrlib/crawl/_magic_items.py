@@ -19,7 +19,7 @@ from osrlib.core.spells import MAGIC_STREAM, cast_from_scroll, caster_profile, v
 from osrlib.core.validation import Rejection
 from osrlib.crawl._light import _requires_light
 from osrlib.crawl._party_members import _member_able, _remove_instance
-from osrlib.crawl._spells import _cast_context, _drain_character, _stationary_silence
+from osrlib.crawl._spells import _cast_context, _cast_outcomes, _drain_character
 from osrlib.crawl.commands import SessionMode, UseItem
 from osrlib.crawl.events import CurseRevealedEvent, ItemIdentifiedEvent, ItemUsedEvent, LightEvent
 from osrlib.crawl.party import _stands
@@ -448,7 +448,7 @@ def _use_scroll(session, member, instance: MagicItemInstance, template, command)
             effects_stream=session.streams.get(EFFECTS_STREAM),
         )
         events.extend(result.events)
-        events.extend(_stationary_silence(session, spell, result, targets))
+        events.extend(_cast_outcomes(session, spell, result, targets))
         return [], events
     # The engine resolves no other scroll, like protection from magic or a treasure
     # map. Reading one is allowed, and the event includes its `manual` text for the

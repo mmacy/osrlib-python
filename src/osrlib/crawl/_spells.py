@@ -1,7 +1,9 @@
 """The spell commands outside battle: `PrepareSpells`, `LearnSpell`, and `CastSpell`.
 
 The crawl adds two results to a cast that the spell kernel in `osrlib.core.spells` doesn't handle: a *silence 15'
-radius* whose target saves anchors to the party's cell, and *remove curse* lifts the curses on its target's items. The
+radius* whose target saves anchors to the party's cell, and *remove curse* lifts the curses on its target's items.
+`_cast_outcomes` adds both, and every cast in a session calls it once the kernel has resolved the cast: `CastSpell`,
+a scroll read outside a battle, a `cast` declaration and a scroll read in a battle, and the temple's services. The
 temple's healing and scroll reading also use `_cast_context`. Every level drain in a session runs through
 `_drain_character`, because a drain looks up each memorized spell.
 """
@@ -11,13 +13,15 @@ from collections.abc import Callable, Sequence
 from osrlib.core.character import Character
 from osrlib.core.clock import TimeUnit
 from osrlib.core.creature import Creature
-from osrlib.core.effects import EFFECTS_STREAM, EffectDefinition
+from osrlib.core.effects import EFFECTS_STREAM, Condition, EffectDefinition
 from osrlib.core.events import Event, SavingThrowRolledEvent
 from osrlib.core.items import MagicItemInstance
 from osrlib.core.spells import (
     MAGIC_STREAM,
     CastContext,
+    CastResult,
     SpellCatalog,
+    SpellTemplate,
     add_spell_to_book,
     cast_spell,
     caster_profile,
@@ -117,11 +121,7 @@ def _handle_cast_spell(session, command: CastSpell) -> tuple[list[Rejection], li
         effects_stream=session.streams.get(EFFECTS_STREAM),
     )
     events = list(result.events)
-    events.extend(_stationary_silence(session, spell, result, targets))
-    if spell.id.startswith("remove_curse") and not command.reversed:
-        for target in targets:
-            if getattr(target, "definition", None) is not None:
-                events.extend(_lift_curses(session, target))
+    events.extend(_cast_outcomes(session, spell, result, targets))
     events.extend(session.advance_rounds(1))
     return [], events
 
@@ -148,15 +148,62 @@ def _cast_context(session, targets, *, in_combat: bool, distance_feet: int | Non
     )
 
 
+_REMOVE_CURSE_SPELL_IDS = frozenset({"remove_curse_c", "remove_curse_mu"})
+"""The ids of the built-in *remove curse* spells, the cleric's and the magic-user's.
+
+The session knows *remove curse* by these ids alone. Its mode is manual and has no effect, so no data marks it. An
+adventure can't bundle a spell under a built-in id, so a bundled spell is never one of these, whatever its id starts
+with.
+"""
+
+
+def _cast_outcomes(session, spell: SpellTemplate, result: CastResult, targets) -> list[Event]:
+    """Add to a resolved cast what the session does and the spell kernel doesn't, and return the events.
+
+    Every cast in a session calls this once the kernel has resolved it, from memory or from a scroll, in a battle or
+    outside one, so a spell does the same thing however it's cast. It adds two outcomes:
+
+    - A *silence 15' radius* whose target saves leaves a stationary silence in the party's cell (see
+      `_stationary_silence`).
+    - *Remove curse* frees each member it targets from the cursed items they carry (see `_lift_curses`). The reversed
+      spell, *curse*, frees nothing. `result.reversed` says which form the kernel cast.
+
+    Args:
+        session: The session the cast happened in.
+        spell: The spell that was cast.
+        result: The kernel's result for the cast.
+        targets: The targets the cast was given, creatures and cell references.
+    """
+    events = _stationary_silence(session, spell, result, targets)
+    if spell.id in _REMOVE_CURSE_SPELL_IDS and not result.reversed:
+        for target in targets:
+            if getattr(target, "definition", None) is not None:
+                events.extend(_lift_curses(session, target))
+    return events
+
+
+def _is_silence(spell: SpellTemplate, result: CastResult) -> bool:
+    """Return whether the mode the cast resolved is *silence 15' radius*'s, known by its data and not by its id.
+
+    That's a mode whose effect puts the `silenced` condition on its target, with `silence` as the `effect_kind`
+    param. A spell an adventure bundles that copies the mode under another id is silence too.
+    """
+    effect = spell.mode(result.mode, reversed=result.reversed).effect
+    return (
+        effect is not None and effect.condition is Condition.SILENCED and effect.params.get("effect_kind") == "silence"
+    )
+
+
 def _stationary_silence(session, spell, result, targets) -> list[Event]:
     """*Silence 15' radius*'s save-passed outcome: the area anchors to a cell.
 
     On a passed save RAW leaves a stationary area the creature can step out of. As
     a documented adaptation (see the adaptations register), the effect instead
     attaches to the party's cell (the encounter's abstract location), and
-    creatures in that cell cannot cast while it lasts.
+    creatures in that cell cannot cast while it lasts. `_is_silence` decides
+    which casts are silence.
     """
-    if spell.id != "silence_15_radius" or result.manual or _location(session).kind != "dungeon":
+    if _location(session).kind != "dungeon" or not _is_silence(spell, result):
         return []
     passed = {
         event.target_id

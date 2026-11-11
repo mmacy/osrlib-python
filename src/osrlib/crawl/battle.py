@@ -3388,6 +3388,7 @@ def _resolve_scroll_cast(session, member, instance, template, declaration: Battl
         effects_stream=session.streams.get(EFFECTS_STREAM),
     )
     events.extend(result.events)
+    events.extend(_spells._cast_outcomes(session, spell, result, targets))
     return events
 
 
@@ -4473,9 +4474,10 @@ def _party_magic(session, by_member, pending_casters, disrupted, acted, state) -
             effects_stream=session.streams.get(EFFECTS_STREAM),
         )
         events.extend(result.events)
-        # The stationary *silence* form anchors in battle too: the battle's
-        # location is the party's position (see the adaptations register).
-        events.extend(_spells._stationary_silence(session, spell, result, targets))
+        # What the session adds to a cast, as on every other path a cast takes. The stationary
+        # *silence* form anchors in battle too: the battle's location is the party's position
+        # (see the adaptations register).
+        events.extend(_spells._cast_outcomes(session, spell, result, targets))
         events.extend(_track_concentration(session, member.id, spell, result, state))
         acted.add(member.id)
     # Any declaration other than a cast or a hold releases the actor's concentration.
