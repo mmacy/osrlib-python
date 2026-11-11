@@ -896,6 +896,7 @@ def _stat_line_template(name: str, page: str, intro: str, cells: dict[str, str])
     return {
         "id": slugify(name),
         "name": name,
+        **monsters.names(name, slugify(name)),
         "page": page,
         "intro": intro,
         **monsters._parse_ac(cells["AC"]),

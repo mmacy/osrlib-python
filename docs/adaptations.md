@@ -409,6 +409,8 @@ The SRD compiler turns the SRD's monster pages into monster templates, with thes
 - An AC of `No hit roll required` means attacks hit automatically.
 - `Varies` morale compiles to no morale score.
 - A page that packs several variants into one stat block expands to a separate entry for each, under numbered ids like `vampire_7`, because each frozen template has to be spawnable.
+- The entries one packed stat block expands to are the forms of one creature, and they share a `family_id`, like `vampire` for `vampire_7` to `vampire_9`. Every other entry is a family of one, and its family id is its id.
+- An entry's `display_name` is its printed name rewritten for a sentence. A trailing parenthesis goes (`Veteran (2)`, `Dwarf (Monster)`), the word after a comma moves to the front (`Centipede, Giant` becomes "giant centipede"), a leading `Normal` goes (`Normal Wolf`), and every word is lowercase but the proper noun "Neanderthal". The plural takes the regular English ending, except for the irregular plurals the compiler lists, like "wolves", "cyclopes", and "giant squid".
 - The `undead` tag comes automatically from the standard bullet the SRD prints on undead pages. The shadow is excluded, because its page says "incorporeal (but not undead)".
 - The `person` tag comes from the `General.md` §Persons list, the SRD's default for a rule otherwise left to the referee's judgment.
 - The `enchanted` tag is curated by hand in the overrides, with a reason for each entry.
@@ -416,7 +418,7 @@ The SRD compiler turns the SRD's monster pages into monster templates, with thes
 - A compound alignment compiles to a model of the options.
 - A leader's or chieftain's XP compiles to structured notes, and the leader's stats stay as prose.
 
-Locked by `test_monster_data.py`.
+Locked by `test_monster_data.py`, and the names and families by `test_monster_names.py`.
 
 Every attack routine has a `use` label, which the default policy reads (see [The default action policy and morale](#the-default-action-policy-and-morale)):
 

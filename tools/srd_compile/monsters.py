@@ -33,11 +33,18 @@ Printed XP is authoritative and ships as data; the compiler cross-validates ever
 entry against the XP-awards table (base by HD row plus asterisks × bonus, both
 inflated by 250 per HD above 21) and fails the build on mismatch unless the entry's
 overrides record an `xp` correction with a reason.
+
+Every entry gets the name a game shows the players. The `display_name` function rewrites
+the printed name for a sentence. The plural is the regular English plural unless
+`_IRREGULAR_PLURALS` lists the name. The entries one packed stat block expands into share a
+`family_id`.
 """
 
 import re
 from pathlib import Path
 from urllib.parse import quote
+
+from osrlib.core.monsters import _regular_plural
 
 from .pipetable import parse_int, parse_tables, slugify, strip_emphasis, strip_links
 
@@ -301,8 +308,78 @@ _ROUTINE_USES: dict[str, dict[str, str]] = {
 }
 
 
+# The words of a display name that stay capitalized, because they're proper nouns.
+_PROPER_NOUNS = frozenset({"Neanderthal"})
+
+# The plural of every display name that doesn't take the regular English ending. The build
+# fails when a key isn't the display name of a compiled monster, so a renamed monster can't
+# leave an entry behind.
+_IRREGULAR_PLURALS = {
+    "cyclops": "cyclopes",
+    "devil swine": "devil swine",
+    "dire wolf": "dire wolves",
+    "djinni": "djinn",
+    "dwarf": "dwarves",
+    "efreeti": "efreet",
+    "elf": "elves",
+    "giant bass": "giant bass",
+    "giant catfish": "giant catfish",
+    "giant rockfish": "giant rockfish",
+    "giant squid": "giant squid",
+    "giant sturgeon": "giant sturgeon",
+    "lizard man": "lizard men",
+    "merman": "mermen",
+    "pegasus": "pegasi",
+    "triceratops": "triceratops",
+    "werewolf": "werewolves",
+    "wolf": "wolves",
+}
+
+
+def display_name(printed_name: str) -> str:
+    """Return what to call one creature in a sentence, from the name its stat block prints.
+
+    The SRD writes many names for an index, so the compiler rewrites them in three steps:
+
+    - A trailing parenthesis goes, because it states what the players can't see or what the
+      index needs to tell two pages apart: `Veteran (2)` and `Dwarf (Monster)`.
+    - The word after a comma moves to the front: `Centipede, Giant` becomes `Giant Centipede`.
+    - A leading `Normal` goes, because the players see a wolf, not a normal wolf: `Normal Wolf`.
+
+    Every word is then lowercase, except a word in `_PROPER_NOUNS`.
+
+    Args:
+        printed_name: The entry's `name`, like `"Centipede, Giant"`.
+
+    Returns:
+        The display name, like `"giant centipede"`.
+    """
+    name = re.sub(r"\s*\([^)]*\)$", "", printed_name)
+    head, comma, modifier = name.partition(", ")
+    if comma:
+        name = f"{modifier} {head}"
+    name = name.removeprefix("Normal ")
+    return " ".join(word if word in _PROPER_NOUNS else word.lower() for word in name.split())
+
+
+def names(printed_name: str, family_id: str) -> dict[str, str]:
+    """Return an entry's `display_name`, `display_name_plural`, and `family_id` fields.
+
+    Args:
+        printed_name: The entry's `name`.
+        family_id: The id the entry shares with the other forms of its creature, or the entry's
+            own id when it has one form.
+    """
+    singular = display_name(printed_name)
+    return {
+        "display_name": singular,
+        "display_name_plural": _IRREGULAR_PLURALS.get(singular, _regular_plural(singular)),
+        "family_id": family_id,
+    }
+
+
 def manifest(srd_dir: Path) -> list[tuple[str, str]]:
-    """Return the monster page inventory: `(display name, filename)` pairs.
+    """Return the monster page inventory: `(index link text, filename)` pairs.
 
     The manifest is `Monster_Descriptions.md`'s A–Z index; link targets map to
     on-disk filenames by URL-encoding (`Dwarf_(Monster)` → `Dwarf_%28Monster%29.md`,
@@ -1088,9 +1165,13 @@ def compile_monsters(srd_dir: Path) -> dict[str, object]:
                 thac0_match = _THAC0.fullmatch(_normalize(resolved["THAC0"]))
                 if thac0_match is None:
                     raise ValueError(f"unparseable THAC0 {resolved['THAC0']!r} on {filename}")
+                # The entries one packed stat block expands into are the forms of one creature.
+                family_id = slugify(base_name)
+                name = f"{base_name} ({suffix.replace('_', ' ').title()})" if suffix else base_name
                 entry: dict[str, object] = {
-                    "id": slugify(base_name) + (f"_{suffix}" if suffix else ""),
-                    "name": f"{base_name} ({suffix.replace('_', ' ').title()})" if suffix else base_name,
+                    "id": f"{family_id}_{suffix}" if suffix else family_id,
+                    "name": name,
+                    **names(name, family_id),
                     "page": filename,
                     "intro": intro,
                     **_parse_ac(resolved["Armour Class"]),
@@ -1111,6 +1192,9 @@ def compile_monsters(srd_dir: Path) -> dict[str, object]:
                 }
                 monsters.append(entry)
     monsters.sort(key=lambda entry: entry["id"])
+    unused = sorted(set(_IRREGULAR_PLURALS) - {entry["display_name"] for entry in monsters})
+    if unused:
+        raise ValueError(f"no monster has these display names from _IRREGULAR_PLURALS: {unused}")
     return {"monsters": monsters}
 
 

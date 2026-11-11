@@ -195,6 +195,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "acolyte",
+      "display_name_plural": "acolytes",
+      "family_id": "acolyte",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 4,
@@ -323,6 +326,9 @@
         ],
         "reductions": []
       },
+      "display_name": "air elemental",
+      "display_name_plural": "air elementals",
+      "family_id": "air_elemental",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 72,
@@ -451,6 +457,9 @@
         ],
         "reductions": []
       },
+      "display_name": "air elemental",
+      "display_name_plural": "air elementals",
+      "family_id": "air_elemental",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 54,
@@ -579,6 +588,9 @@
         ],
         "reductions": []
       },
+      "display_name": "air elemental",
+      "display_name_plural": "air elementals",
+      "family_id": "air_elemental",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 36,
@@ -740,6 +752,9 @@
         ],
         "reductions": []
       },
+      "display_name": "amber golem",
+      "display_name_plural": "amber golems",
+      "family_id": "amber_golem",
       "hit_dice": {
         "asterisks": 2,
         "average_hp": 45,
@@ -858,6 +873,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "white ape",
+      "display_name_plural": "white apes",
+      "family_id": "ape_white",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 18,
@@ -976,6 +994,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "bandit",
+      "display_name_plural": "bandits",
+      "family_id": "bandit",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 4,
@@ -1129,6 +1150,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "basilisk",
+      "display_name_plural": "basilisks",
+      "family_id": "basilisk",
       "hit_dice": {
         "asterisks": 2,
         "average_hp": 28,
@@ -1241,6 +1265,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "berserker",
+      "display_name_plural": "berserkers",
+      "family_id": "berserker",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 5,
@@ -1370,6 +1397,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "black bear",
+      "display_name_plural": "black bears",
+      "family_id": "black_bear",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 18,
@@ -1576,6 +1606,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "black dragon",
+      "display_name_plural": "black dragons",
+      "family_id": "black_dragon",
       "hit_dice": {
         "asterisks": 2,
         "average_hp": 31,
@@ -1714,6 +1747,9 @@
         ],
         "reductions": []
       },
+      "display_name": "black pudding",
+      "display_name_plural": "black puddings",
+      "family_id": "black_pudding",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 45,
@@ -1828,6 +1864,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "black widow",
+      "display_name_plural": "black widows",
+      "family_id": "black_widow",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 13,
@@ -1950,6 +1989,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "blink dog",
+      "display_name_plural": "blink dogs",
+      "family_id": "blink_dog",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 18,
@@ -2156,6 +2198,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "blue dragon",
+      "display_name_plural": "blue dragons",
+      "family_id": "blue_dragon",
       "hit_dice": {
         "asterisks": 2,
         "average_hp": 40,
@@ -2256,6 +2301,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "boar",
+      "display_name_plural": "boars",
+      "family_id": "boar",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 13,
@@ -2439,6 +2487,9 @@
         ],
         "reductions": []
       },
+      "display_name": "bone golem",
+      "display_name_plural": "bone golems",
+      "family_id": "bone_golem",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 36,
@@ -2584,6 +2635,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "brigand",
+      "display_name_plural": "brigands",
+      "family_id": "brigand",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 4,
@@ -2741,6 +2795,9 @@
         ],
         "reductions": []
       },
+      "display_name": "bronze golem",
+      "display_name_plural": "bronze golems",
+      "family_id": "bronze_golem",
       "hit_dice": {
         "asterisks": 2,
         "average_hp": 90,
@@ -2887,6 +2944,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "buccaneer",
+      "display_name_plural": "buccaneers",
+      "family_id": "buccaneer",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 4,
@@ -2992,6 +3052,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "bugbear",
+      "display_name_plural": "bugbears",
+      "family_id": "bugbear",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 14,
@@ -3126,6 +3189,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "bull shark",
+      "display_name_plural": "bull sharks",
+      "family_id": "bull_shark",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 9,
@@ -3227,6 +3293,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "caecilia",
+      "display_name_plural": "caecilias",
+      "family_id": "caecilia",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 27,
@@ -3368,6 +3437,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "camel",
+      "display_name_plural": "camels",
+      "family_id": "camel",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 9,
@@ -3481,6 +3553,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "carcass crawler",
+      "display_name_plural": "carcass crawlers",
+      "family_id": "carcass_crawler",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 14,
@@ -3601,6 +3676,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "cave bear",
+      "display_name_plural": "cave bears",
+      "family_id": "cave_bear",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 31,
@@ -3766,6 +3844,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "cave locust",
+      "display_name_plural": "cave locusts",
+      "family_id": "cave_locust",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 9,
@@ -3896,6 +3977,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "centaur",
+      "display_name_plural": "centaurs",
+      "family_id": "centaur",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 18,
@@ -4001,6 +4085,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "giant centipede",
+      "display_name_plural": "giant centipedes",
+      "family_id": "centipede_giant",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 2,
@@ -4171,6 +4258,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "chimera",
+      "display_name_plural": "chimeras",
+      "family_id": "chimera",
       "hit_dice": {
         "asterisks": 2,
         "average_hp": 40,
@@ -4322,6 +4412,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "cloud giant",
+      "display_name_plural": "cloud giants",
+      "family_id": "cloud_giant",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 57,
@@ -4429,6 +4522,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "cockatrice",
+      "display_name_plural": "cockatrices",
+      "family_id": "cockatrice",
       "hit_dice": {
         "asterisks": 2,
         "average_hp": 22,
@@ -4537,6 +4633,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "giant crab",
+      "display_name_plural": "giant crabs",
+      "family_id": "crab_giant",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 13,
@@ -4666,6 +4765,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "crab spider",
+      "display_name_plural": "crab spiders",
+      "family_id": "crab_spider",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 9,
@@ -4787,6 +4889,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "crystal living statue",
+      "display_name_plural": "crystal living statues",
+      "family_id": "crystal_living_statue",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 13,
@@ -4926,6 +5031,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "cyclops",
+      "display_name_plural": "cyclopes",
+      "family_id": "cyclops",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 58,
@@ -5072,6 +5180,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "dervish",
+      "display_name_plural": "dervishes",
+      "family_id": "dervish",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 4,
@@ -5300,6 +5411,9 @@
         ],
         "reductions": []
       },
+      "display_name": "devil swine",
+      "display_name_plural": "devil swine",
+      "family_id": "devil_swine",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 40,
@@ -5415,6 +5529,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "dire wolf",
+      "display_name_plural": "dire wolves",
+      "family_id": "dire_wolf",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 19,
@@ -5551,6 +5668,9 @@
         ],
         "reductions": []
       },
+      "display_name": "djinni",
+      "display_name_plural": "djinn",
+      "family_id": "djinni_lesser",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 32,
@@ -5683,6 +5803,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "doppelgänger",
+      "display_name_plural": "doppelgängers",
+      "family_id": "doppelganger",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 18,
@@ -5778,6 +5901,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "draco",
+      "display_name_plural": "dracos",
+      "family_id": "draco",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 20,
@@ -5884,6 +6010,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "draft horse",
+      "display_name_plural": "draft horses",
+      "family_id": "draft_horse",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 13,
@@ -6041,6 +6170,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "dragon turtle",
+      "display_name_plural": "dragon turtles",
+      "family_id": "dragon_turtle",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 135,
@@ -6163,6 +6295,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "driver ant",
+      "display_name_plural": "driver ants",
+      "family_id": "driver_ant",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 18,
@@ -6303,6 +6438,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "dryad",
+      "display_name_plural": "dryads",
+      "family_id": "dryad",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 9,
@@ -6416,6 +6554,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "dwarf",
+      "display_name_plural": "dwarves",
+      "family_id": "dwarf_monster",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 4,
@@ -6549,6 +6690,9 @@
         ],
         "reductions": []
       },
+      "display_name": "earth elemental",
+      "display_name_plural": "earth elementals",
+      "family_id": "earth_elemental",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 72,
@@ -6677,6 +6821,9 @@
         ],
         "reductions": []
       },
+      "display_name": "earth elemental",
+      "display_name_plural": "earth elementals",
+      "family_id": "earth_elemental",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 54,
@@ -6805,6 +6952,9 @@
         ],
         "reductions": []
       },
+      "display_name": "earth elemental",
+      "display_name_plural": "earth elementals",
+      "family_id": "earth_elemental",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 36,
@@ -6957,6 +7107,9 @@
         ],
         "reductions": []
       },
+      "display_name": "efreeti",
+      "display_name_plural": "efreet",
+      "family_id": "efreeti_lesser",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 45,
@@ -7094,6 +7247,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "elephant",
+      "display_name_plural": "elephants",
+      "family_id": "elephant",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 40,
@@ -7206,6 +7362,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "elf",
+      "display_name_plural": "elves",
+      "family_id": "elf_monster",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 5,
@@ -7314,6 +7473,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "giant ferret",
+      "display_name_plural": "giant ferrets",
+      "family_id": "ferret_giant",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 5,
@@ -7415,6 +7577,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "fire beetle",
+      "display_name_plural": "fire beetles",
+      "family_id": "fire_beetle",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 6,
@@ -7548,6 +7713,9 @@
         ],
         "reductions": []
       },
+      "display_name": "fire elemental",
+      "display_name_plural": "fire elementals",
+      "family_id": "fire_elemental",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 72,
@@ -7683,6 +7851,9 @@
         ],
         "reductions": []
       },
+      "display_name": "fire elemental",
+      "display_name_plural": "fire elementals",
+      "family_id": "fire_elemental",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 54,
@@ -7818,6 +7989,9 @@
         ],
         "reductions": []
       },
+      "display_name": "fire elemental",
+      "display_name_plural": "fire elementals",
+      "family_id": "fire_elemental",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 36,
@@ -7969,6 +8143,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "fire giant",
+      "display_name_plural": "fire giants",
+      "family_id": "fire_giant",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 51,
@@ -8127,6 +8304,9 @@
         ],
         "reductions": []
       },
+      "display_name": "flame salamander",
+      "display_name_plural": "flame salamanders",
+      "family_id": "flame_salamander",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 36,
@@ -8268,6 +8448,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "freshwater termite",
+      "display_name_plural": "freshwater termites",
+      "family_id": "freshwater_termite",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 10,
@@ -8410,6 +8593,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "frost giant",
+      "display_name_plural": "frost giants",
+      "family_id": "frost_giant",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 46,
@@ -8561,6 +8747,9 @@
         ],
         "reductions": []
       },
+      "display_name": "frost salamander",
+      "display_name_plural": "frost salamanders",
+      "family_id": "frost_salamander",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 54,
@@ -8712,6 +8901,9 @@
         ],
         "reductions": []
       },
+      "display_name": "gargoyle",
+      "display_name_plural": "gargoyles",
+      "family_id": "gargoyle",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 18,
@@ -8822,6 +9014,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "gecko",
+      "display_name_plural": "geckos",
+      "family_id": "gecko",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 14,
@@ -8960,6 +9155,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "gelatinous cube",
+      "display_name_plural": "gelatinous cubes",
+      "family_id": "gelatinous_cube",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 18,
@@ -9098,6 +9296,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "ghoul",
+      "display_name_plural": "ghouls",
+      "family_id": "ghoul",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 9,
@@ -9193,6 +9394,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "giant bass",
+      "display_name_plural": "giant bass",
+      "family_id": "giant_bass",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 9,
@@ -9294,6 +9498,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "giant bat",
+      "display_name_plural": "giant bats",
+      "family_id": "giant_bat",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 9,
@@ -9402,6 +9609,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "giant catfish",
+      "display_name_plural": "giant catfish",
+      "family_id": "giant_catfish",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 39,
@@ -9503,6 +9713,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "giant crocodile",
+      "display_name_plural": "giant crocodiles",
+      "family_id": "giant_crocodile",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 67,
@@ -9623,6 +9836,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "giant hawk",
+      "display_name_plural": "giant hawks",
+      "family_id": "giant_hawk",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 16,
@@ -9731,6 +9947,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "giant piranha",
+      "display_name_plural": "giant piranhas",
+      "family_id": "giant_piranha",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 16,
@@ -9848,6 +10067,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "giant rat",
+      "display_name_plural": "giant rats",
+      "family_id": "giant_rat",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 2,
@@ -9976,6 +10198,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "giant rattler",
+      "display_name_plural": "giant rattlers",
+      "family_id": "giant_rattler",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 18,
@@ -10110,6 +10335,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "giant roc",
+      "display_name_plural": "giant rocs",
+      "family_id": "giant_roc",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 162,
@@ -10241,6 +10469,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "giant rockfish",
+      "display_name_plural": "giant rockfish",
+      "family_id": "giant_rockfish",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 27,
@@ -10342,6 +10573,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "giant sturgeon",
+      "display_name_plural": "giant sturgeon",
+      "family_id": "giant_sturgeon",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 47,
@@ -10459,6 +10693,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "giant vampire bat",
+      "display_name_plural": "giant vampire bats",
+      "family_id": "giant_vampire_bat",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 9,
@@ -10567,6 +10804,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "gnoll",
+      "display_name_plural": "gnolls",
+      "family_id": "gnoll",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 9,
@@ -10713,6 +10953,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "gnome",
+      "display_name_plural": "gnomes",
+      "family_id": "gnome",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 4,
@@ -10871,6 +11114,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "goblin",
+      "display_name_plural": "goblins",
+      "family_id": "goblin",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 3,
@@ -11113,6 +11359,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "gold dragon",
+      "display_name_plural": "gold dragons",
+      "family_id": "gold_dragon",
       "hit_dice": {
         "asterisks": 2,
         "average_hp": 49,
@@ -11247,6 +11496,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "gorgon",
+      "display_name_plural": "gorgons",
+      "family_id": "gorgon",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 36,
@@ -11357,6 +11609,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "great white shark",
+      "display_name_plural": "great white sharks",
+      "family_id": "great_white_shark",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 36,
@@ -11562,6 +11817,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "green dragon",
+      "display_name_plural": "green dragons",
+      "family_id": "green_dragon",
       "hit_dice": {
         "asterisks": 2,
         "average_hp": 36,
@@ -11703,6 +11961,9 @@
         ],
         "reductions": []
       },
+      "display_name": "green slime",
+      "display_name_plural": "green slimes",
+      "family_id": "green_slime",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 9,
@@ -11827,6 +12088,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "grey ooze",
+      "display_name_plural": "grey oozes",
+      "family_id": "grey_ooze",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 13,
@@ -11952,6 +12216,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "griffon",
+      "display_name_plural": "griffons",
+      "family_id": "griffon",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 31,
@@ -12070,6 +12337,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "grizzly bear",
+      "display_name_plural": "grizzly bears",
+      "family_id": "grizzly_bear",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 22,
@@ -12182,6 +12452,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "halfling",
+      "display_name_plural": "halflings",
+      "family_id": "halfling_monster",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 3,
@@ -12321,6 +12594,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "harpy",
+      "display_name_plural": "harpies",
+      "family_id": "harpy",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 13,
@@ -12484,6 +12760,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "hellhound",
+      "display_name_plural": "hellhounds",
+      "family_id": "hellhound",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 13,
@@ -12642,6 +12921,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "hellhound",
+      "display_name_plural": "hellhounds",
+      "family_id": "hellhound",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 18,
@@ -12800,6 +13082,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "hellhound",
+      "display_name_plural": "hellhounds",
+      "family_id": "hellhound",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 22,
@@ -12958,6 +13243,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "hellhound",
+      "display_name_plural": "hellhounds",
+      "family_id": "hellhound",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 27,
@@ -13116,6 +13404,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "hellhound",
+      "display_name_plural": "hellhounds",
+      "family_id": "hellhound",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 31,
@@ -13219,6 +13510,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "hill giant",
+      "display_name_plural": "hill giants",
+      "family_id": "hill_giant",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 36,
@@ -13346,6 +13640,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "hippogriff",
+      "display_name_plural": "hippogriffs",
+      "family_id": "hippogriff",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 14,
@@ -13454,6 +13751,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "hobgoblin",
+      "display_name_plural": "hobgoblins",
+      "family_id": "hobgoblin",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 5,
@@ -13607,6 +13907,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "horned chameleon",
+      "display_name_plural": "horned chameleons",
+      "family_id": "horned_chameleon",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 22,
@@ -13724,6 +14027,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "hydra",
+      "display_name_plural": "hydras",
+      "family_id": "hydra",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": null,
@@ -13841,6 +14147,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "hydra",
+      "display_name_plural": "hydras",
+      "family_id": "hydra",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": null,
@@ -13958,6 +14267,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "hydra",
+      "display_name_plural": "hydras",
+      "family_id": "hydra",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": null,
@@ -14075,6 +14387,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "hydra",
+      "display_name_plural": "hydras",
+      "family_id": "hydra",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": null,
@@ -14192,6 +14507,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "hydra",
+      "display_name_plural": "hydras",
+      "family_id": "hydra",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": null,
@@ -14309,6 +14627,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "hydra",
+      "display_name_plural": "hydras",
+      "family_id": "hydra",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": null,
@@ -14426,6 +14747,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "hydra",
+      "display_name_plural": "hydras",
+      "family_id": "hydra",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": null,
@@ -14543,6 +14867,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "hydra",
+      "display_name_plural": "hydras",
+      "family_id": "hydra",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": null,
@@ -14701,6 +15028,9 @@
         ],
         "reductions": []
       },
+      "display_name": "insect swarm",
+      "display_name_plural": "insect swarms",
+      "family_id": "insect_swarm",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 9,
@@ -14862,6 +15192,9 @@
         ],
         "reductions": []
       },
+      "display_name": "insect swarm",
+      "display_name_plural": "insect swarms",
+      "family_id": "insect_swarm",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 13,
@@ -15023,6 +15356,9 @@
         ],
         "reductions": []
       },
+      "display_name": "insect swarm",
+      "display_name_plural": "insect swarms",
+      "family_id": "insect_swarm",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 18,
@@ -15145,6 +15481,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "invisible stalker",
+      "display_name_plural": "invisible stalkers",
+      "family_id": "invisible_stalker_monster",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 36,
@@ -15273,6 +15612,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "iron living statue",
+      "display_name_plural": "iron living statues",
+      "family_id": "iron_living_statue",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 18,
@@ -15423,6 +15765,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "killer bee",
+      "display_name_plural": "killer bees",
+      "family_id": "killer_bee",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 2,
@@ -15535,6 +15880,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "killer whale",
+      "display_name_plural": "killer whales",
+      "family_id": "killer_whale",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 27,
@@ -15668,6 +16016,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "kobold",
+      "display_name_plural": "kobolds",
+      "family_id": "kobold",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 2,
@@ -15787,6 +16138,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "large crocodile",
+      "display_name_plural": "large crocodiles",
+      "family_id": "large_crocodile",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 27,
@@ -15907,6 +16261,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "large herd animal",
+      "display_name_plural": "large herd animals",
+      "family_id": "large_herd_animal",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 18,
@@ -16039,6 +16396,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "large roc",
+      "display_name_plural": "large rocs",
+      "family_id": "large_roc",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 54,
@@ -16168,6 +16528,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "giant leech",
+      "display_name_plural": "giant leeches",
+      "family_id": "leech_giant",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 27,
@@ -16293,6 +16656,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "lion",
+      "display_name_plural": "lions",
+      "family_id": "lion",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 22,
@@ -16405,6 +16771,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "lizard man",
+      "display_name_plural": "lizard men",
+      "family_id": "lizard_man",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 10,
@@ -16527,6 +16896,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "mako shark",
+      "display_name_plural": "mako sharks",
+      "family_id": "mako_shark",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 18,
@@ -16660,6 +17032,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "manticore",
+      "display_name_plural": "manticores",
+      "family_id": "manticore",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 28,
@@ -16797,6 +17172,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "mastodon",
+      "display_name_plural": "mastodons",
+      "family_id": "mastodon",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 67,
@@ -16926,6 +17304,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "medium",
+      "display_name_plural": "mediums",
+      "family_id": "medium",
       "hit_dice": {
         "asterisks": 2,
         "average_hp": 4,
@@ -17043,6 +17424,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "medium herd animal",
+      "display_name_plural": "medium herd animals",
+      "family_id": "medium_herd_animal",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 13,
@@ -17187,6 +17571,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "medusa",
+      "display_name_plural": "medusas",
+      "family_id": "medusa",
       "hit_dice": {
         "asterisks": 2,
         "average_hp": 18,
@@ -17341,6 +17728,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "merchant",
+      "display_name_plural": "merchants",
+      "family_id": "merchant",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 4,
@@ -17467,6 +17857,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "merman",
+      "display_name_plural": "mermen",
+      "family_id": "merman",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 4,
@@ -17611,6 +18004,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "minotaur",
+      "display_name_plural": "minotaurs",
+      "family_id": "minotaur",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 27,
@@ -17740,6 +18136,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "mountain lion",
+      "display_name_plural": "mountain lions",
+      "family_id": "mountain_lion",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 15,
@@ -17872,6 +18271,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "mule",
+      "display_name_plural": "mules",
+      "family_id": "mule",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 9,
@@ -18012,6 +18414,9 @@
           }
         ]
       },
+      "display_name": "mummy",
+      "display_name_plural": "mummies",
+      "family_id": "mummy",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 23,
@@ -18125,6 +18530,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "narwhal",
+      "display_name_plural": "narwhals",
+      "family_id": "narwhal",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 54,
@@ -18251,6 +18659,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "Neanderthal",
+      "display_name_plural": "Neanderthals",
+      "family_id": "neanderthal_caveman",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 9,
@@ -18401,6 +18812,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "nixie",
+      "display_name_plural": "nixies",
+      "family_id": "nixie",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 4,
@@ -18515,6 +18929,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "noble",
+      "display_name_plural": "nobles",
+      "family_id": "noble",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 13,
@@ -18677,6 +19094,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "nomad",
+      "display_name_plural": "nomads",
+      "family_id": "nomad",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 4,
@@ -18803,6 +19223,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "bat",
+      "display_name_plural": "bats",
+      "family_id": "normal_bat",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": null,
@@ -18909,6 +19332,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "crocodile",
+      "display_name_plural": "crocodiles",
+      "family_id": "normal_crocodile",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 9,
@@ -19022,6 +19448,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "hawk",
+      "display_name_plural": "hawks",
+      "family_id": "normal_hawk",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 2,
@@ -19127,6 +19556,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "human",
+      "display_name_plural": "humans",
+      "family_id": "normal_human",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 2,
@@ -19260,6 +19692,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "rat",
+      "display_name_plural": "rats",
+      "family_id": "normal_rat",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": null,
@@ -19390,6 +19825,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "rhinoceros",
+      "display_name_plural": "rhinoceroses",
+      "family_id": "normal_rhinoceros",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 27,
@@ -19498,6 +19936,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "wolf",
+      "display_name_plural": "wolves",
+      "family_id": "normal_wolf",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 11,
@@ -19628,6 +20069,9 @@
         ],
         "reductions": []
       },
+      "display_name": "ochre jelly",
+      "display_name_plural": "ochre jellies",
+      "family_id": "ochre_jelly",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 22,
@@ -19755,6 +20199,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "giant octopus",
+      "display_name_plural": "giant octopuses",
+      "family_id": "octopus_giant",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 36,
@@ -19865,6 +20312,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "ogre",
+      "display_name_plural": "ogres",
+      "family_id": "ogre",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 19,
@@ -19980,6 +20430,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "oil beetle",
+      "display_name_plural": "oil beetles",
+      "family_id": "oil_beetle",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 9,
@@ -20132,6 +20585,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "orc",
+      "display_name_plural": "orcs",
+      "family_id": "orc",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 4,
@@ -20259,6 +20715,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "owl bear",
+      "display_name_plural": "owl bears",
+      "family_id": "owl_bear",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 22,
@@ -20386,6 +20845,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "panther",
+      "display_name_plural": "panthers",
+      "family_id": "panther",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 18,
@@ -20503,6 +20965,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "pegasus",
+      "display_name_plural": "pegasi",
+      "family_id": "pegasus",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 11,
@@ -20666,6 +21131,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "pirate",
+      "display_name_plural": "pirates",
+      "family_id": "pirate",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 4,
@@ -20787,6 +21255,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "pit viper",
+      "display_name_plural": "pit vipers",
+      "family_id": "pit_viper",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 9,
@@ -20904,6 +21375,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "pixie",
+      "display_name_plural": "pixies",
+      "family_id": "pixie",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 4,
@@ -21037,6 +21511,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "polar bear",
+      "display_name_plural": "polar bears",
+      "family_id": "polar_bear",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 27,
@@ -21132,6 +21609,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "pteranodon",
+      "display_name_plural": "pteranodons",
+      "family_id": "pteranodon",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 22,
@@ -21227,6 +21707,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "pterodactyl",
+      "display_name_plural": "pterodactyls",
+      "family_id": "pterodactyl",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 4,
@@ -21356,6 +21839,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "purple worm",
+      "display_name_plural": "purple worms",
+      "family_id": "purple_worm",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 67,
@@ -21570,6 +22056,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "red dragon",
+      "display_name_plural": "red dragons",
+      "family_id": "red_dragon",
       "hit_dice": {
         "asterisks": 2,
         "average_hp": 45,
@@ -21704,6 +22193,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "rhagodessa",
+      "display_name_plural": "rhagodessas",
+      "family_id": "rhagodessa",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 20,
@@ -21814,6 +22306,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "riding horse",
+      "display_name_plural": "riding horses",
+      "family_id": "riding_horse",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 9,
@@ -21929,6 +22424,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "robber fly",
+      "display_name_plural": "robber flies",
+      "family_id": "robber_fly",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 9,
@@ -22047,6 +22545,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "rock baboon",
+      "display_name_plural": "rock baboons",
+      "family_id": "rock_baboon",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 9,
@@ -22161,6 +22662,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "rock living statue",
+      "display_name_plural": "rock living statues",
+      "family_id": "rock_living_statue",
       "hit_dice": {
         "asterisks": 2,
         "average_hp": 22,
@@ -22266,6 +22770,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "rock python",
+      "display_name_plural": "rock pythons",
+      "family_id": "rock_python",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 22,
@@ -22378,6 +22885,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "rust monster",
+      "display_name_plural": "rust monsters",
+      "family_id": "rust_monster",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 22,
@@ -22503,6 +23013,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "sabre-toothed tiger",
+      "display_name_plural": "sabre-toothed tigers",
+      "family_id": "sabre_toothed_tiger",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 36,
@@ -22644,6 +23157,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "saltwater termite",
+      "display_name_plural": "saltwater termites",
+      "family_id": "saltwater_termite",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 18,
@@ -22773,6 +23289,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "giant scorpion",
+      "display_name_plural": "giant scorpions",
+      "family_id": "scorpion_giant",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 18,
@@ -22976,6 +23495,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "sea dragon",
+      "display_name_plural": "sea dragons",
+      "family_id": "sea_dragon",
       "hit_dice": {
         "asterisks": 2,
         "average_hp": 36,
@@ -23108,6 +23630,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "sea serpent",
+      "display_name_plural": "sea serpents",
+      "family_id": "sea_serpent_lesser",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 27,
@@ -23227,6 +23752,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "sea snake",
+      "display_name_plural": "sea snakes",
+      "family_id": "sea_snake",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 13,
@@ -23356,6 +23884,9 @@
         ],
         "reductions": []
       },
+      "display_name": "shadow",
+      "display_name_plural": "shadows",
+      "family_id": "shadow",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 11,
@@ -23487,6 +24018,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "giant shrew",
+      "display_name_plural": "giant shrews",
+      "family_id": "shrew_giant",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 4,
@@ -23572,6 +24106,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "shrieker",
+      "display_name_plural": "shriekers",
+      "family_id": "shrieker",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 13,
@@ -23679,6 +24216,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "skeleton",
+      "display_name_plural": "skeletons",
+      "family_id": "skeleton",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 4,
@@ -23794,6 +24334,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "small herd animal",
+      "display_name_plural": "small herd animals",
+      "family_id": "small_herd_animal",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 4,
@@ -23909,6 +24452,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "small herd animal",
+      "display_name_plural": "small herd animals",
+      "family_id": "small_herd_animal",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 9,
@@ -24041,6 +24587,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "small roc",
+      "display_name_plural": "small rocs",
+      "family_id": "small_roc",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 27,
@@ -24181,6 +24730,9 @@
         ],
         "reductions": []
       },
+      "display_name": "spectre",
+      "display_name_plural": "spectres",
+      "family_id": "spectre",
       "hit_dice": {
         "asterisks": 2,
         "average_hp": 27,
@@ -24313,6 +24865,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "sperm whale",
+      "display_name_plural": "sperm whales",
+      "family_id": "sperm_whale",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 162,
@@ -24446,6 +25001,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "spitting cobra",
+      "display_name_plural": "spitting cobras",
+      "family_id": "spitting_cobra",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 4,
@@ -24558,6 +25116,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "sprite",
+      "display_name_plural": "sprites",
+      "family_id": "sprite",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 2,
@@ -24728,6 +25289,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "giant squid",
+      "display_name_plural": "giant squid",
+      "family_id": "squid_giant",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 27,
@@ -24846,6 +25410,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "stegosaurus",
+      "display_name_plural": "stegosauruses",
+      "family_id": "stegosaurus",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 49,
@@ -24963,6 +25530,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "stirge",
+      "display_name_plural": "stirges",
+      "family_id": "stirge",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 4,
@@ -25100,6 +25670,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "stone giant",
+      "display_name_plural": "stone giants",
+      "family_id": "stone_giant",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 40,
@@ -25246,6 +25819,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "storm giant",
+      "display_name_plural": "storm giants",
+      "family_id": "storm_giant",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 67,
@@ -25387,6 +25963,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "swamp termite",
+      "display_name_plural": "swamp termites",
+      "family_id": "swamp_termite",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 5,
@@ -25504,6 +26083,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "tarantella",
+      "display_name_plural": "tarantellas",
+      "family_id": "tarantella",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 18,
@@ -25643,6 +26225,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "thoul",
+      "display_name_plural": "thouls",
+      "family_id": "thoul",
       "hit_dice": {
         "asterisks": 2,
         "average_hp": 13,
@@ -25777,6 +26362,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "tiger",
+      "display_name_plural": "tigers",
+      "family_id": "tiger",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 27,
@@ -25872,6 +26460,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "tiger beetle",
+      "display_name_plural": "tiger beetles",
+      "family_id": "tiger_beetle",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 14,
@@ -25997,6 +26588,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "titanothere",
+      "display_name_plural": "titanotheres",
+      "family_id": "titanothere",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 54,
@@ -26112,6 +26706,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "giant toad",
+      "display_name_plural": "giant toads",
+      "family_id": "toad_giant",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 11,
@@ -26224,6 +26821,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "trader",
+      "display_name_plural": "traders",
+      "family_id": "trader",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 4,
@@ -26342,6 +26942,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "treant",
+      "display_name_plural": "treants",
+      "family_id": "treant",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 36,
@@ -26474,6 +27077,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "triceratops",
+      "display_name_plural": "triceratops",
+      "family_id": "triceratops",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 49,
@@ -26601,6 +27207,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "troglodyte",
+      "display_name_plural": "troglodytes",
+      "family_id": "troglodyte",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 9,
@@ -26743,6 +27352,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "troll",
+      "display_name_plural": "trolls",
+      "family_id": "troll",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 30,
@@ -26861,6 +27473,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "tuatara",
+      "display_name_plural": "tuataras",
+      "family_id": "tuatara",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 27,
@@ -26964,6 +27579,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "tyrannosaurus rex",
+      "display_name_plural": "tyrannosaurus rexes",
+      "family_id": "tyrannosaurus_rex",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 90,
@@ -27084,6 +27702,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "unicorn",
+      "display_name_plural": "unicorns",
+      "family_id": "unicorn",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 18,
@@ -27289,6 +27910,9 @@
         ],
         "reductions": []
       },
+      "display_name": "vampire",
+      "display_name_plural": "vampires",
+      "family_id": "vampire",
       "hit_dice": {
         "asterisks": 2,
         "average_hp": 31,
@@ -27496,6 +28120,9 @@
         ],
         "reductions": []
       },
+      "display_name": "vampire",
+      "display_name_plural": "vampires",
+      "family_id": "vampire",
       "hit_dice": {
         "asterisks": 2,
         "average_hp": 36,
@@ -27703,6 +28330,9 @@
         ],
         "reductions": []
       },
+      "display_name": "vampire",
+      "display_name_plural": "vampires",
+      "family_id": "vampire",
       "hit_dice": {
         "asterisks": 2,
         "average_hp": 40,
@@ -27810,6 +28440,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "veteran",
+      "display_name_plural": "veterans",
+      "family_id": "veteran",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 4,
@@ -27917,6 +28550,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "veteran",
+      "display_name_plural": "veterans",
+      "family_id": "veteran",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 9,
@@ -28024,6 +28660,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "veteran",
+      "display_name_plural": "veterans",
+      "family_id": "veteran",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 13,
@@ -28148,6 +28787,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "war horse",
+      "display_name_plural": "war horses",
+      "family_id": "war_horse",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 13,
@@ -28263,6 +28905,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "warp beast",
+      "display_name_plural": "warp beasts",
+      "family_id": "warp_beast",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 27,
@@ -28391,6 +29036,9 @@
         ],
         "reductions": []
       },
+      "display_name": "water elemental",
+      "display_name_plural": "water elementals",
+      "family_id": "water_elemental",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 72,
@@ -28524,6 +29172,9 @@
         ],
         "reductions": []
       },
+      "display_name": "water elemental",
+      "display_name_plural": "water elementals",
+      "family_id": "water_elemental",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 54,
@@ -28657,6 +29308,9 @@
         ],
         "reductions": []
       },
+      "display_name": "water elemental",
+      "display_name_plural": "water elementals",
+      "family_id": "water_elemental",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 36,
@@ -28795,6 +29449,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "giant weasel",
+      "display_name_plural": "giant weasels",
+      "family_id": "weasel_giant",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 22,
@@ -28987,6 +29644,9 @@
         ],
         "reductions": []
       },
+      "display_name": "werebear",
+      "display_name_plural": "werebears",
+      "family_id": "werebear",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 27,
@@ -29162,6 +29822,9 @@
         ],
         "reductions": []
       },
+      "display_name": "wereboar",
+      "display_name_plural": "wereboars",
+      "family_id": "wereboar",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 19,
@@ -29359,6 +30022,9 @@
         ],
         "reductions": []
       },
+      "display_name": "wererat",
+      "display_name_plural": "wererats",
+      "family_id": "wererat",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 13,
@@ -29544,6 +30210,9 @@
         ],
         "reductions": []
       },
+      "display_name": "weretiger",
+      "display_name_plural": "weretigers",
+      "family_id": "weretiger",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 22,
@@ -29719,6 +30388,9 @@
         ],
         "reductions": []
       },
+      "display_name": "werewolf",
+      "display_name_plural": "werewolves",
+      "family_id": "werewolf",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 18,
@@ -29931,6 +30603,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "white dragon",
+      "display_name_plural": "white dragons",
+      "family_id": "white_dragon",
       "hit_dice": {
         "asterisks": 2,
         "average_hp": 27,
@@ -30067,6 +30742,9 @@
         ],
         "reductions": []
       },
+      "display_name": "wight",
+      "display_name_plural": "wights",
+      "family_id": "wight",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 13,
@@ -30177,6 +30855,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "wild horse",
+      "display_name_plural": "wild horses",
+      "family_id": "wild_horse",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 9,
@@ -30326,6 +31007,9 @@
         ],
         "reductions": []
       },
+      "display_name": "wood golem",
+      "display_name_plural": "wood golems",
+      "family_id": "wood_golem",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 11,
@@ -30451,6 +31135,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "woolly rhinoceros",
+      "display_name_plural": "woolly rhinoceroses",
+      "family_id": "woolly_rhinoceros",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 36,
@@ -30594,6 +31281,9 @@
           }
         ]
       },
+      "display_name": "wraith",
+      "display_name_plural": "wraiths",
+      "family_id": "wraith",
       "hit_dice": {
         "asterisks": 2,
         "average_hp": 18,
@@ -30716,6 +31406,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "wyvern",
+      "display_name_plural": "wyverns",
+      "family_id": "wyvern",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 31,
@@ -30856,6 +31549,9 @@
         ],
         "reductions": []
       },
+      "display_name": "yellow mould",
+      "display_name_plural": "yellow moulds",
+      "family_id": "yellow_mould",
       "hit_dice": {
         "asterisks": 1,
         "average_hp": 9,
@@ -30977,6 +31673,9 @@
         "harmed_only_by": [],
         "reductions": []
       },
+      "display_name": "zombie",
+      "display_name_plural": "zombies",
+      "family_id": "zombie",
       "hit_dice": {
         "asterisks": 0,
         "average_hp": 9,
