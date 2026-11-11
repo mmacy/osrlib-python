@@ -17,8 +17,6 @@ from osrlib.crawl.encounter import start_encounter
 from osrlib.crawl.session import GameSession
 from osrlib.data import load_classes, load_spells
 
-pytestmark = pytest.mark.xfail(reason="chunk: member-reach")
-
 OUT_OF_REACH = "battle.declaration.member_out_of_reach"
 CANNOT_DRINK = "items.use.target_cannot_drink"
 HURT = 100
@@ -318,3 +316,33 @@ def test_a_touch_spell_follows_the_rounds_moves():
     wound(game, "Hild")
     rejections = pf.refused(game, pf.close(game, pf.named(game, "Hild")), cure(game))
     assert codes(rejections) == ["magic.cast.out_of_range"]
+
+
+# ---------------------------------------------------------------------- a staff of healing heals by touch
+
+
+def heal_with_staff(game: GameSession, staff: str, *targets: str):
+    return pf.declare(pf.named(game, "Tam"), "use_item", item_id=staff, targets=targets)
+
+
+def test_a_staff_of_healing_heals_a_member_beside_its_user():
+    game = fight()
+    staff = grant(game, "Tam", "staff_of_healing")
+    wound(game, "Hild")
+    pf.play(game, heal_with_staff(game, staff, pf.named(game, "Hild")))
+    assert hit_points(game, "Hild") > HURT
+
+
+def test_a_staff_of_healing_cant_reach_a_member_who_has_moved_away():
+    game = fight()
+    staff = grant(game, "Tam", "staff_of_healing")
+    wound(game, "Hild")
+    advance_hild(game)
+    assert codes(pf.refused(game, heal_with_staff(game, staff, pf.named(game, "Hild")))) == [OUT_OF_REACH]
+    assert hit_points(game, "Hild") == HURT
+
+
+def test_a_staff_of_healing_aimed_at_nobody_is_refused():
+    game = fight()
+    staff = grant(game, "Tam", "staff_of_healing")
+    assert codes(pf.refused(game, heal_with_staff(game, staff, "character-9999"))) == ["items.use.unknown_target"]
