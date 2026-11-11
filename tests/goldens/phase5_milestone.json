@@ -3563,6 +3563,7 @@
           "class_id": "fighter",
           "conditions": [],
           "current_hp": 9,
+          "custom_class": null,
           "extra_languages": [],
           "id": null,
           "inventory": {
@@ -3653,6 +3654,7 @@
           "class_id": "cleric",
           "conditions": [],
           "current_hp": 6,
+          "custom_class": null,
           "extra_languages": [],
           "id": null,
           "inventory": {
@@ -3729,6 +3731,7 @@
           "class_id": "thief",
           "conditions": [],
           "current_hp": 4,
+          "custom_class": null,
           "extra_languages": [],
           "id": null,
           "inventory": {
@@ -3804,6 +3807,7 @@
           "class_id": "magic_user",
           "conditions": [],
           "current_hp": 4,
+          "custom_class": null,
           "extra_languages": [],
           "id": null,
           "inventory": {

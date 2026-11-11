@@ -461,7 +461,7 @@ def generate_npc_party(
         _roll_spells(member, definition, npc_stream)
         members.append(member)
     for member in members:
-        _roll_expert_items(member, classes.get(member.class_id), kind, treasure_stream, allocator)
+        _roll_expert_items(member, member.definition, kind, treasure_stream, allocator)
     bundle_u = generate_treasure("U", tier=kind, stream=treasure_stream, allocator=allocator)
     bundle_v = generate_treasure("V", tier=kind, stream=treasure_stream, allocator=allocator)
     from osrlib.core.items import Coins

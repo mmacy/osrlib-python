@@ -2160,7 +2160,7 @@ def _handle_listen_at_door(session, command: ListenAtDoor) -> tuple[list[Rejecti
     from osrlib.crawl.session import EXPLORATION_STREAM
 
     attempts.append(member.id)
-    definition = load_classes().get(member.class_id)
+    definition = member.definition
     chance = detection_chance(member, definition, "listening")
     check = detection_check(chance, stream=session.streams.get(EXPLORATION_STREAM))
     events: list[Event] = [
@@ -2189,7 +2189,7 @@ def _handle_pick_lock(session, command: PickLock) -> tuple[list[Rejection], list
     member, rejections = _member_able(session, command.character_id)
     if rejections:
         return rejections, []
-    definition = load_classes().get(member.class_id)
+    definition = member.definition
     if not definition.thief_skills:
         return [Rejection(code="exploration.lock.not_a_thief", params={"character": member.id})], []
     if _find_item(member, "thieves_tools") is None:
@@ -2247,7 +2247,7 @@ def _handle_search(session, command: Search) -> tuple[list[Rejection], list[Even
     from osrlib.crawl.session import EXPLORATION_STREAM
 
     attempts.append(member.id)
-    definition = load_classes().get(member.class_id)
+    definition = member.definition
     chance = detection_chance(member, definition, command.kind)
     check = detection_check(chance, stream=session.streams.get(EXPLORATION_STREAM))
     events: list[Event] = [
@@ -2381,7 +2381,7 @@ def _handle_inspect_treasure(session, command: InspectTreasure) -> tuple[list[Re
     member, rejections = _member_able(session, command.character_id)
     if rejections:
         return rejections, []
-    definition = load_classes().get(member.class_id)
+    definition = member.definition
     if not definition.thief_skills:
         return [Rejection(code="exploration.trap.not_a_thief", params={"character": member.id})], []
     feature = next((f for f in _features_here(session) if f.id == command.feature_id), None)
@@ -2431,7 +2431,7 @@ def _handle_remove_treasure_trap(session, command: RemoveTreasureTrap) -> tuple[
     member, rejections = _member_able(session, command.character_id)
     if rejections:
         return rejections, []
-    definition = load_classes().get(member.class_id)
+    definition = member.definition
     if not definition.thief_skills:
         return [Rejection(code="exploration.trap.not_a_thief", params={"character": member.id})], []
     feature = next((f for f in _features_here(session) if f.id == command.feature_id), None)
@@ -3240,7 +3240,7 @@ def _handle_equip_item(session, command: EquipItem) -> tuple[list[Rejection], li
     )
     if instance is None:
         return [Rejection(code="exploration.item.not_carried", params={"item": command.item_id})], []
-    definition = load_classes().get(member.class_id)
+    definition = member.definition
     equip_rejections = validate_equip(definition, instance, member.inventory)
     if equip_rejections:
         return equip_rejections, []
@@ -3350,7 +3350,7 @@ def _handle_prepare_spells(session, command: PrepareSpells) -> tuple[list[Reject
         return rejections, []
     if session.sleep_count == 0 or session.last_prepared_sleep.get(member.id, 0) >= session.sleep_count:
         return [Rejection(code="magic.memorize.needs_sleep", params={"character": member.id})], []
-    definition = load_classes().get(member.class_id)
+    definition = member.definition
     result = memorize_spells(member, definition, load_spells(), command.selections)
     if result.rejections:
         return list(result.rejections), []
@@ -3365,7 +3365,7 @@ def _handle_learn_spell(session, command: LearnSpell) -> tuple[list[Rejection], 
     member, rejections = _member_able(session, command.character_id)
     if rejections:
         return rejections, []
-    definition = load_classes().get(member.class_id)
+    definition = member.definition
     result = add_spell_to_book(member, definition, load_spells(), command.spell_id)
     return list(result.rejections), list(result.events)
 
@@ -3977,7 +3977,7 @@ def _use_scroll(session, member, instance: MagicItemInstance, template, command)
 
             result = drain_levels(
                 member,
-                load_classes().get(member.class_id),
+                member.definition,
                 levels=1,
                 xp_policy="halfway",
                 stream=session.streams.get(ADVANCEMENT_STREAM),
@@ -4031,7 +4031,7 @@ def _use_scroll(session, member, instance: MagicItemInstance, template, command)
         if spell_id not in remaining:
             return [Rejection(code="items.scroll.no_such_spell", params={"spell": spell_id})], []
         spell = load_spells().get(spell_id)
-        definition = load_classes().get(member.class_id)
+        definition = member.definition
         profile = caster_profile(definition)
         thief_params = _thief_scroll_use(definition)
         divine_scroll = instance.state.get("spell_list") == "cleric"
@@ -4198,7 +4198,7 @@ def _spend_device_charge(instance: MagicItemInstance, template) -> None:
 def _use_device(session, member, instance: MagicItemInstance, template, command) -> tuple[list[Rejection], list]:
     from osrlib.core.combat import apply_healing
 
-    definition = load_classes().get(member.class_id)
+    definition = member.definition
     if not usable_by_class(template, definition):
         return [Rejection(code="items.use.not_usable", params={"item": instance.instance_id})], []
     if template.charges_dice is not None and (instance.charges_remaining or 0) <= 0:

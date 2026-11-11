@@ -171,7 +171,6 @@ from osrlib.crawl.events import (
     SurpriseRolledEvent,
 )
 from osrlib.crawl.party import _anyone_standing
-from osrlib.data import load_classes
 
 __all__ = [
     "EncounterGroup",
@@ -987,7 +986,7 @@ def _handle_turn_undead(session, command: TurnUndead) -> tuple[list[Rejection], 
     member, rejections = exploration._member_able(session, command.character_id)
     if rejections:
         return rejections, []
-    definition = load_classes().get(member.class_id)
+    definition = member.definition
     turning_rejections = validate_turn_undead(member, definition)
     if turning_rejections:
         return turning_rejections, []

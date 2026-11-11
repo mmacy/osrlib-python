@@ -385,7 +385,7 @@ from osrlib.crawl.events import (
     SpellDeclaredEvent,
 )
 from osrlib.crawl.party import _anyone_standing, _stands
-from osrlib.data import load_classes, load_spells
+from osrlib.data import load_spells
 
 __all__ = [
     "ActionPolicy",
@@ -2810,7 +2810,7 @@ def _validate_declaration(
     if declaration.action == "give_item":
         return _hand_over(session, declaration, member, placement or _placement(session))[1]
     if declaration.action == "turn_undead":
-        rejections = validate_turn_undead(member, load_classes().get(member.class_id))
+        rejections = validate_turn_undead(member, member.definition)
         if rejections:
             return rejections
         if not _turning_candidates(session):
@@ -3038,7 +3038,7 @@ def _validate_magic_item_declaration(
         spell_id = declaration.spell_id or remaining[0]
         if spell_id not in remaining:
             return [Rejection(code="items.scroll.no_such_spell", params={"spell": spell_id})]
-        definition = load_classes().get(member.class_id)
+        definition = member.definition
         from osrlib.core.spells import caster_profile
 
         profile = caster_profile(definition)
@@ -3072,7 +3072,7 @@ def _validate_magic_item_declaration(
     if category in (MagicItemCategory.ROD, MagicItemCategory.STAFF, MagicItemCategory.WAND):
         from osrlib.core.items import usable_by_class
 
-        definition = load_classes().get(member.class_id)
+        definition = member.definition
         if not usable_by_class(template, definition):
             return [Rejection(code="items.use.not_usable", params={"item": instance.instance_id})]
         if template.charges_dice is not None and (instance.charges_remaining or 0) <= 0:
@@ -3296,7 +3296,7 @@ def _resolve_scroll_cast(session, member, instance, template, declaration: Battl
     targets, distance, _ = _cast_targets(
         session, declaration.model_copy(update={"spell_id": spell_id, "spell_mode": mode}), spell, _placement(session)
     )
-    definition = load_classes().get(member.class_id)
+    definition = member.definition
     from osrlib.core.spells import caster_profile
 
     profile = caster_profile(definition)
@@ -4074,20 +4074,20 @@ def _on_hit_drain(session, weapon: MagicItemInstance, target) -> list[Event]:
 
     stream = session.streams.get(ADVANCEMENT_STREAM)
     levels = _int_param(template.effect.params, "levels", 1)
-    if getattr(target, "definition", None) is not None:
-        from osrlib.core.classes import drain_levels
+    if isinstance(target, MonsterInstance):
+        from osrlib.core.combat import drain_monster_hd
 
-        result = drain_levels(
-            target,
-            load_classes().get(target.class_id),
-            levels=levels,
-            xp_policy=str(template.effect.params.get("xp_policy", "level_minimum")),
-            stream=stream,
-        )
-        return list(result.events)
-    from osrlib.core.combat import drain_monster_hd
+        return drain_monster_hd(target, levels=levels, stream=stream)
+    from osrlib.core.classes import drain_levels
 
-    return drain_monster_hd(target, levels=levels, stream=stream)
+    result = drain_levels(
+        target,
+        target.definition,
+        levels=levels,
+        xp_policy=str(template.effect.params.get("xp_policy", "level_minimum")),
+        stream=stream,
+    )
+    return list(result.events)
 
 
 def _party_wards(session) -> list:
@@ -4339,7 +4339,7 @@ def _party_magic(session, by_member, pending_casters, disrupted, acted, state) -
                 continue
             result = turn_undead(
                 member,
-                load_classes().get(member.class_id),
+                member.definition,
                 _turning_candidates(session),
                 ledger=session.ledger,
                 clock=session.clock,

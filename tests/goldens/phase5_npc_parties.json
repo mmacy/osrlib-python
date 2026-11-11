@@ -9,6 +9,7 @@
         "class_id": "halfling",
         "conditions": [],
         "current_hp": 3,
+        "custom_class": null,
         "extra_languages": [],
         "id": "npc-0001",
         "inventory": {
@@ -205,6 +206,7 @@
         "class_id": "dwarf",
         "conditions": [],
         "current_hp": 10,
+        "custom_class": null,
         "extra_languages": [],
         "id": "npc-0002",
         "inventory": {
@@ -358,6 +360,7 @@
         "class_id": "thief",
         "conditions": [],
         "current_hp": 5,
+        "custom_class": null,
         "extra_languages": [],
         "id": "npc-0003",
         "inventory": {
@@ -510,6 +513,7 @@
         "class_id": "dwarf",
         "conditions": [],
         "current_hp": 2,
+        "custom_class": null,
         "extra_languages": [],
         "id": "npc-0004",
         "inventory": {
@@ -663,6 +667,7 @@
         "class_id": "elf",
         "conditions": [],
         "current_hp": 12,
+        "custom_class": null,
         "extra_languages": [],
         "id": "npc-0005",
         "inventory": {
@@ -890,6 +895,7 @@
         "class_id": "fighter",
         "conditions": [],
         "current_hp": 44,
+        "custom_class": null,
         "extra_languages": [],
         "id": "npc-0006",
         "inventory": {
@@ -1088,6 +1094,7 @@
         "class_id": "halfling",
         "conditions": [],
         "current_hp": 19,
+        "custom_class": null,
         "extra_languages": [],
         "id": "npc-0007",
         "inventory": {
@@ -1308,6 +1315,7 @@
         "class_id": "halfling",
         "conditions": [],
         "current_hp": 37,
+        "custom_class": null,
         "extra_languages": [],
         "id": "npc-0008",
         "inventory": {
@@ -1544,6 +1552,7 @@
         "class_id": "thief",
         "conditions": [],
         "current_hp": 15,
+        "custom_class": null,
         "extra_languages": [],
         "id": "npc-0009",
         "inventory": {
@@ -1696,6 +1705,7 @@
         "class_id": "fighter",
         "conditions": [],
         "current_hp": 43,
+        "custom_class": null,
         "extra_languages": [],
         "id": "npc-0010",
         "inventory": {
@@ -1882,6 +1892,7 @@
         "class_id": "thief",
         "conditions": [],
         "current_hp": 16,
+        "custom_class": null,
         "extra_languages": [],
         "id": "npc-0011",
         "inventory": {
@@ -2046,6 +2057,7 @@
         "class_id": "fighter",
         "conditions": [],
         "current_hp": 7,
+        "custom_class": null,
         "extra_languages": [],
         "id": "npc-0012",
         "inventory": {
