@@ -64,7 +64,7 @@ print(hoard.coins.value_gp, len(hoard.valuables), len(hoard.magic_items))
 
 from collections.abc import Mapping, Sequence
 from enum import StrEnum
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any, Literal
 
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
@@ -72,16 +72,6 @@ from osrlib.core.dice import parse, roll
 from osrlib.core.frozen import _Model
 from osrlib.core.monsters import TreasureRef
 from osrlib.core.rng import RngStream, StreamName
-
-if TYPE_CHECKING:
-    from osrlib.core.items import (
-        GeneratedTreasure,
-        MagicItemInstance,
-        SentientSwordTables,
-        SwordSentience,
-        SwordTableBand,
-        ValuableInstance,
-    )
 
 __all__ = [
     "TREASURE_STREAM",
@@ -907,9 +897,10 @@ def _int_param(params: Mapping[str, Any], key: str, default: int = 0) -> int:
     return int(params.get(key, default))
 
 
-def _generate_valuable(kind: Literal["gem", "jewellery"], *, stream: RngStream, allocator: Any) -> ValuableInstance:
+def _generate_valuable(
+    kind: Literal["gem", "jewellery"], *, stream: RngStream, allocator: Any
+) -> osrlib.core.items.ValuableInstance:
     """Roll one gem's or one piece of jewellery's value and return it as an owned instance."""
-    from osrlib.core.items import ValuableInstance
     from osrlib.data import load_equipment, load_treasure_tables
 
     weights = {row.id: row.weight_coins for row in load_equipment().treasure_weights}
@@ -919,7 +910,7 @@ def _generate_valuable(kind: Literal["gem", "jewellery"], *, stream: RngStream, 
     else:
         value = roll(load_treasure_tables().gems.jewellery_dice, stream).total
         name = "Jewellery"
-    return ValuableInstance(
+    return osrlib.core.items.ValuableInstance(
         instance_id=allocator.allocate("valuable"),
         kind=kind,
         name=name,
@@ -928,7 +919,7 @@ def _generate_valuable(kind: Literal["gem", "jewellery"], *, stream: RngStream, 
     )
 
 
-def _generate_sentience(*, stream: RngStream) -> SwordSentience | None:
+def _generate_sentience(*, stream: RngStream) -> osrlib.core.items.SwordSentience | None:
     """Roll a magic sword's sentience in the order of the SRD procedure.
 
     The special-purpose 1-in-20 rolls first for each magic sword. A special sword is always
@@ -938,7 +929,6 @@ def _generate_sentience(*, stream: RngStream) -> SwordSentience | None:
     duplicates re-rolled with draws consumed, extraordinary duplicates re-rolled unless the
     power allows them), and Ego 1d12.
     """
-    from osrlib.core.items import SwordSentience
     from osrlib.data import load_magic_items
 
     tables = load_magic_items().sentient_swords
@@ -965,7 +955,7 @@ def _generate_sentience(*, stream: RngStream) -> SwordSentience | None:
     _roll_powers(tables, powers_row.sensory, sensory, extraordinary, stream, extraordinary_table=False)
     _roll_powers(tables, powers_row.extraordinary, sensory, extraordinary, stream, extraordinary_table=True)
     ego = 12 if special_purpose is not None else stream.randbelow(12) + 1
-    return SwordSentience(
+    return osrlib.core.items.SwordSentience(
         intelligence=intelligence,
         ego=ego,
         communication=communication_row.communication,
@@ -978,7 +968,7 @@ def _generate_sentience(*, stream: RngStream) -> SwordSentience | None:
     )
 
 
-def _roll_language_count(bands: Sequence[SwordTableBand], stream: RngStream) -> int:
+def _roll_language_count(bands: Sequence[osrlib.core.items.SwordTableBand], stream: RngStream) -> int:
     """Roll how many languages a speaking sword knows, resolving the roll-twice instruction."""
     total = 0
     pending = 1
@@ -994,7 +984,7 @@ def _roll_language_count(bands: Sequence[SwordTableBand], stream: RngStream) -> 
 
 
 def _roll_powers(
-    tables: SentientSwordTables,
+    tables: osrlib.core.items.SentientSwordTables,
     count: int,
     sensory: list[str],
     extraordinary: list[str],
@@ -1075,7 +1065,7 @@ def instantiate_magic_item(
     stream: RngStream,
     allocator: Any,
     params: Mapping[str, Any] | None = None,
-) -> MagicItemInstance:
+) -> osrlib.core.items.MagicItemInstance:
     """Create one copy of a magic item you have already chosen, rolling the details that differ between copies.
 
     This is how a hand-placed magic item becomes something a character can carry. An
@@ -1129,19 +1119,18 @@ def instantiate_magic_item(
         # magic-item-0001 18 False
         ```
     """
-    from osrlib.core.items import MagicItemCategory, MagicItemInstance
     from osrlib.data import load_magic_items
 
     _require_tier(tier)
     row_params: Mapping[str, Any] = params if params is not None else {}
     catalog = load_magic_items()
     template = catalog.get(item_id)
-    instance = MagicItemInstance(
+    instance = osrlib.core.items.MagicItemInstance(
         instance_id=allocator.allocate("magic-item"),
         template_id=item_id,
         base_item_id=template.base_item_id,
     )
-    if template.category is MagicItemCategory.ARMOUR and template.base_item_id is None:
+    if template.category is osrlib.core.items.MagicItemCategory.ARMOUR and template.base_item_id is None:
         instance.base_item_id = catalog.armour_type.base_for_roll(stream.randbelow(8) + 1)
     if template.charges_dice is not None:
         instance.charges_remaining = roll(template.charges_dice, stream).total
@@ -1159,7 +1148,7 @@ def instantiate_magic_item(
     if template.effect is not None and template.effect.kind == "on_hit_drain":
         drains = roll(str(template.effect.params["total_drains_dice"]), stream).total
         instance.state = {**instance.state, "drains_remaining": drains}
-    if template.category is MagicItemCategory.SWORD:
+    if template.category is osrlib.core.items.MagicItemCategory.SWORD:
         instance.sentience = _generate_sentience(stream=stream)
     return instance
 
@@ -1171,7 +1160,7 @@ def generate_magic_item(
     stream: RngStream,
     allocator: Any,
     exclude: tuple[MagicItemType, ...] = (),
-) -> list[MagicItemInstance]:
+) -> list[osrlib.core.items.MagicItemInstance]:
     """Roll one magic item at random: which kind, which item, and all its details.
 
     It does three steps in one call. When `category` is `None`, it rolls the master *Magic Item Type*
@@ -1257,7 +1246,7 @@ def generate_treasure_entries(
     tier: str,
     stream: RngStream,
     allocator: Any,
-) -> GeneratedTreasure:
+) -> osrlib.core.items.GeneratedTreasure:
     """Generate treasure from a list of printed entries.
 
     [`generate_treasure`][osrlib.core.treasure.generate_treasure] and
@@ -1306,8 +1295,6 @@ def generate_treasure_entries(
         # ['mace_plus_1']
         ```
     """
-    from osrlib.core.items import Coins, GeneratedTreasure
-
     _require_tier(tier)
     coin_totals: dict[str, int] = {}
     valuables = []
@@ -1345,7 +1332,9 @@ def generate_treasure_entries(
                             picked, tier=tier, stream=stream, allocator=allocator, exclude=allotment.exclude
                         )
                     )
-    return GeneratedTreasure(coins=Coins(**coin_totals), valuables=tuple(valuables), magic_items=tuple(magic_items))
+    return osrlib.core.items.GeneratedTreasure(
+        coins=osrlib.core.items.Coins(**coin_totals), valuables=tuple(valuables), magic_items=tuple(magic_items)
+    )
 
 
 def generate_treasure(
@@ -1354,7 +1343,7 @@ def generate_treasure(
     tier: str,
     stream: RngStream,
     allocator: Any,
-) -> GeneratedTreasure:
+) -> osrlib.core.items.GeneratedTreasure:
     """Generate one treasure type's contents.
 
     Use it for a monster's treasure. A stat block gives a letter, and this rolls everything
@@ -1420,7 +1409,7 @@ def generate_unguarded_treasure(
     tier: str,
     stream: RngStream,
     allocator: Any,
-) -> GeneratedTreasure:
+) -> osrlib.core.items.GeneratedTreasure:
     """Generate an unguarded cache of treasure for a dungeon level.
 
     Use it instead of [`generate_treasure`][osrlib.core.treasure.generate_treasure] when the
@@ -1466,3 +1455,9 @@ def generate_unguarded_treasure(
 
     band = load_treasure_tables().unguarded.band_for_level(dungeon_level)
     return generate_treasure_entries(band.entries, tier=tier, stream=stream, allocator=allocator)
+
+
+# `osrlib.core.items` imports this module, so this module imports it last, once every name here exists. The
+# functions build item models through it when they run. Their annotations read the models through it when
+# something asks for a signature.
+import osrlib.core.items  # noqa: E402

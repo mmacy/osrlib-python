@@ -103,7 +103,7 @@ print(restored.view(Visibility.PLAYER) == view)
 
 import re
 from collections.abc import Mapping, Sequence
-from typing import TYPE_CHECKING, Any, Literal, Protocol
+from typing import Any, Literal, Protocol
 
 from pydantic import ConfigDict, Field
 
@@ -203,9 +203,6 @@ from osrlib.crawl.triggers import ItemAcquiredPattern, TriggerPattern
 from osrlib.data import load_equipment, load_magic_items, load_monsters, load_spells
 from osrlib.errors import ContentValidationError
 from osrlib.versioning import SCHEMA_VERSION, engine_version
-
-if TYPE_CHECKING:
-    from osrlib.crawl.views import PlayerView, RefereeView
 
 __all__ = [
     "ADJUDICATION_STREAM",
@@ -2191,7 +2188,7 @@ class GameSession:
 
     # ------------------------------------------------------------------ views
 
-    def view(self, visibility: Visibility) -> PlayerView | RefereeView:
+    def view(self, visibility: Visibility) -> osrlib.crawl.views.PlayerView | osrlib.crawl.views.RefereeView:
         """Return a snapshot of the session for one audience: the players or the referee.
 
         Draw from a view rather than from the session's attributes. The player view has a fixed
@@ -2258,11 +2255,9 @@ class GameSession:
             # False
             ```
         """
-        from osrlib.crawl.views import build_player_view, build_referee_view
-
         if visibility is Visibility.PLAYER:
-            return build_player_view(self)
-        return build_referee_view(self)
+            return osrlib.crawl.views.build_player_view(self)
+        return osrlib.crawl.views.build_referee_view(self)
 
 
 # ---------------------------------------------------------------------- referee handlers
@@ -3004,3 +2999,9 @@ _REFEREE_HANDLERS = {
     AddMember: _handle_add_member,
     RemoveMember: _handle_remove_member,
 }
+
+
+# `osrlib.crawl.views` imports this module, so this module imports it last, once every name here exists.
+# `GameSession.view` builds a view through it when it runs. Its annotation reads the view types through it when
+# something asks for the signature.
+import osrlib.crawl.views  # noqa: E402

@@ -94,3 +94,23 @@ assert clock.rounds == 60
 assert [(crossing.unit, crossing.index) for crossing in crossings] == [(TimeUnit.TURN, 1)]
 ```
 """
+
+import importlib
+from types import ModuleType
+
+_LOADED_ON_FIRST_USE = frozenset({"character", "spells"})
+"""The kernel modules that an annotation reads as an attribute of this package.
+
+`osrlib.core.classes` names `Character` and `SpellCatalog` in its signatures, and `osrlib.core.items` names
+`Character`. Both modules load early, inside the modules that `character` and `spells` need. So neither can import
+`character` or `spells`, even at its end. That import would run while a module that `character` or `spells` needs is
+half loaded. The annotations read the types through this package instead. The package loads the module the first
+time something asks for a signature.
+"""
+
+
+def __getattr__(name: str) -> ModuleType:
+    """Load one of the modules in `_LOADED_ON_FIRST_USE` when it's read as an attribute before anything imports it."""
+    if name in _LOADED_ON_FIRST_USE:
+        return importlib.import_module(f"{__name__}.{name}")
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
