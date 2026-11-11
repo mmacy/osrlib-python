@@ -23,6 +23,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
     - If your game shows the label at the start of a line, capitalize its first letter, because a display name is lowercase unless a word is a proper noun.
 - The default message lines for a group now give its count and its singular or plural name (#162). [`format_message`][osrlib.messages.format_message] renders `encounter.started` as "Encounter: 3 giant centipedes at 60'", with the surprise clauses after it as before, and `encounter.group.joined` as "More monsters join the encounter: 2 wolves at 30'." A count of 1 uses the singular, as in "1 ogre". Before, the lines read "Encounter: 3 × Centipede, Giant at 60'". If your game parses these lines, read the event's fields instead.
 
+### Changed
+
+- [`MIGRATIONS`][osrlib.persistence.MIGRATIONS] is now a read-only mapping, so assigning, deleting, or clearing an entry raises an error (#162). Before, it was a plain dict, and a change to an entry changed every later [`load_game`][osrlib.persistence.load_game] in the process. Each step now returns a new payload and leaves the one you pass it unchanged.
+- [`check_document`][osrlib.versioning.check_document] now raises [`ContentValidationError`][osrlib.errors.ContentValidationError] for a `schema_version` below 1 (#166). Before, it accepted the document, and `load_game` then failed with `no migration from schema version 0 to 1`.
+
+### Fixed
+
+- The dict that [`session_state`][osrlib.persistence.session_state] returns now shares nothing with the session, so you can edit it without changing the game (#162). Before, a listener's state was copied only one level deep, and an event that `load_game` had kept as a dict was the session's own object, so an edit to either one changed the session.
+- [`load_game`][osrlib.persistence.load_game] and [`ContentPack.from_document`][osrlib.crawl.content_pack.ContentPack.from_document] no longer change the document you pass them (#162). Before, migrating an older save or content pack rewrote nested values in your document. For example, a schema 3 save that logged a `move` declaration with `withdraw` had that declaration changed to `hold` in your document. [`check_document`][osrlib.versioning.check_document] now returns a deep copy of the payload, so a restored session or pack also shares nothing with the document.
+- A save from a newer osrlib that adds a message code to an event type this release defines now loads (#166). [`parse_any_event`][osrlib.crawl.events.parse_any_event] and [`parse_event`][osrlib.core.events.parse_event] return `None` for an event with a well-formed code that its class doesn't list, as they do for an unknown event type, and `load_game` keeps the record as a dict that the next save writes back. Before, both parsers raised `ContentValidationError`, and the save didn't load. An event of a known type that's malformed in any other way still raises.
+- A data file that isn't valid JSON now makes its loader, like [`load_classes`][osrlib.data.load_classes], raise [`ContentValidationError`][osrlib.errors.ContentValidationError] with the file's name in the message (#166). Before, the loader raised `json.JSONDecodeError`.
+
 ## [2.4.0] - 2026-11-09
 
 ### Added
