@@ -2594,12 +2594,14 @@ class BattleDeclaration(_Model):
       `fighting_withdrawal` or `retreat`, it's a formation move instead: the whole party moves
       as one body, and every group's distance changes.
     - `use_item` uses `item_id`. The member drinks a potion, reads a scroll, uses a wand,
-      staff, or rod, or throws a splash weapon, like a flask of oil, at `target_group_id`. A
-      staff of striking is a melee weapon, so only a member in the group's `front_rank` can
-      strike with it. To give a potion to another member to drink, or to touch another member
-      with a staff of healing, name that member as the one id in `targets`. The two members have
-      to reach each other once the round's moves are made. It's the action of the member who
-      carries the item, and the potion's effect lands on the drinker.
+      staff, or rod, or throws a splash weapon, like a flask of oil, at `target_group_id`. The
+      staves of power, striking, and wizardry strike for a charge, and a strike is a melee
+      attack, so only a member in the group's `front_rank` can strike with one. To swing a
+      staff without spending a charge, declare an `attack` with it. To give a potion to another
+      member to drink, or to touch another member with a staff of healing, name that member as
+      the one id in `targets`. The two members have to reach each other once the round's moves
+      are made. It's the action of the member who carries the item, and the potion's effect
+      lands on the drinker.
     - `give_item` uses `item_id` and `targets`. The member hands one item, or one unit of a
       stack, to the member named as the one id in `targets`. It's the giver's action for the
       round, and it resolves in the party's magic phase with the round's other item uses. The
@@ -2664,7 +2666,8 @@ class BattleDeclaration(_Model):
     has to be equipped already, so equip it with [`EquipItem`][osrlib.crawl.commands.EquipItem]
     before the fight. The session refuses a weapon that's only carried with
     `battle.declaration.weapon_not_wielded`, and a wielded magic item with no weapon stats, like a
-    wand, with `battle.declaration.item_unusable`. Whether the attack is melee or missile depends on the
+    wand, with `battle.declaration.item_unusable`. Every magic staff is a staff, so a member who
+    wields one can attack with it. Whether the attack is melee or missile depends on the
     weapon's qualities and the group's distance.
 
     With `None`, the member attacks with the wielded weapon that suits the attack. The member's
@@ -3083,8 +3086,8 @@ class ResolveBattleRound(Command):
           `battle.declaration.unknown_group`, `battle.declaration.no_target`,
           `items.use.not_usable`, `items.device.inert`, `items.scroll.spent`,
           `items.scroll.no_such_spell`, `items.scroll.wrong_caster`,
-          `exploration.action.requires_light`, and `combat.attack.out_of_reach`. A staff of
-          striking is a melee weapon, so its use also gets
+          `exploration.action.requires_light`, and `combat.attack.out_of_reach`. A staff's
+          strike for a charge is a melee attack, so it also gets
           `battle.declaration.not_in_front_rank` when the member won't stand in the group's
           front rank once the round's moves are made. A scroll read can also get the cast
           checks on its spell and targets (`magic.cast.unknown_mode`, `magic.cast.unknown_target`,

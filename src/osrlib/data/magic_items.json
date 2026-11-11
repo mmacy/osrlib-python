@@ -4680,7 +4680,7 @@
       "ac_set_ascending": null,
       "always_active": false,
       "attack_bonus": 0,
-      "base_item_id": null,
+      "base_item_id": "staff",
       "category": "staff",
       "charges_dice": "3d10",
       "cursed": false,
@@ -4729,7 +4729,7 @@
       "ac_set_ascending": null,
       "always_active": false,
       "attack_bonus": 0,
-      "base_item_id": null,
+      "base_item_id": "staff",
       "category": "staff",
       "charges_dice": null,
       "cursed": false,
@@ -4785,13 +4785,29 @@
       "ac_set_ascending": null,
       "always_active": false,
       "attack_bonus": 0,
-      "base_item_id": null,
+      "base_item_id": "staff",
       "category": "staff",
       "charges_dice": "3d10",
       "cursed": false,
       "curses": [],
       "damage_bonus": 0,
-      "effect": null,
+      "effect": {
+        "condition": null,
+        "damage_dice": "2d6",
+        "dimensions": {},
+        "duration_amount": null,
+        "duration_dice": null,
+        "duration_unit": null,
+        "element": null,
+        "heal_dice": null,
+        "kind": "striking",
+        "modifiers": [],
+        "params": {},
+        "range_feet": null,
+        "save_category": null,
+        "save_on": null,
+        "shape": null
+      },
       "hoard_recipe": [],
       "id": "staff_of_power",
       "manual": [
@@ -4807,7 +4823,11 @@
       ],
       "name": "Staff of Power",
       "overrides_applied": [],
-      "params": {},
+      "params": {
+        "melee_class_ids": [
+          "magic_user"
+        ]
+      },
       "quantity_dice": null,
       "usable_by": {
         "caster": "arcane",
@@ -4822,13 +4842,13 @@
       "ac_set": null,
       "ac_set_ascending": null,
       "always_active": false,
-      "attack_bonus": 0,
-      "base_item_id": null,
+      "attack_bonus": 1,
+      "base_item_id": "staff",
       "category": "staff",
       "charges_dice": "3d10",
       "cursed": false,
       "curses": [],
-      "damage_bonus": 0,
+      "damage_bonus": 1,
       "effect": null,
       "hoard_recipe": [],
       "id": "staff_of_snakes",
@@ -4901,7 +4921,11 @@
       ],
       "name": "Staff of Striking",
       "overrides_applied": [],
-      "params": {},
+      "params": {
+        "melee_class_ids": [
+          "magic_user"
+        ]
+      },
       "quantity_dice": null,
       "usable_by": {
         "caster": "any",
@@ -4917,7 +4941,7 @@
       "ac_set_ascending": null,
       "always_active": false,
       "attack_bonus": 0,
-      "base_item_id": null,
+      "base_item_id": "staff",
       "category": "staff",
       "charges_dice": "3d10",
       "cursed": false,
@@ -4954,14 +4978,30 @@
       "ac_set": null,
       "ac_set_ascending": null,
       "always_active": false,
-      "attack_bonus": 0,
-      "base_item_id": null,
+      "attack_bonus": 1,
+      "base_item_id": "staff",
       "category": "staff",
       "charges_dice": "3d10",
       "cursed": false,
       "curses": [],
-      "damage_bonus": 0,
-      "effect": null,
+      "damage_bonus": 1,
+      "effect": {
+        "condition": null,
+        "damage_dice": "2d6",
+        "dimensions": {},
+        "duration_amount": null,
+        "duration_dice": null,
+        "duration_unit": null,
+        "element": null,
+        "heal_dice": null,
+        "kind": "striking",
+        "modifiers": [],
+        "params": {},
+        "range_feet": null,
+        "save_category": null,
+        "save_on": null,
+        "shape": null
+      },
       "hoard_recipe": [],
       "id": "staff_of_wizardry",
       "manual": [
@@ -4981,7 +5021,11 @@
       ],
       "name": "Staff of Wizardry",
       "overrides_applied": [],
-      "params": {},
+      "params": {
+        "melee_class_ids": [
+          "magic_user"
+        ]
+      },
       "quantity_dice": null,
       "usable_by": {
         "caster": "arcane",

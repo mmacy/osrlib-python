@@ -757,7 +757,8 @@ class MagicItemCategory(StrEnum):
     ROD = "rod"
     """Rods. Wielded, with charges rolled when the rod is created."""
     STAFF = "staff"
-    """Staves. Wielded. Most have charges, rolled when the staff is created."""
+    """Staves. Each one is also a mundane staff, wielded as a two-handed weapon. Most have charges, rolled when the
+    staff is created."""
     WAND = "wand"
     """Wands. Wielded, with charges rolled when the wand is created, and usable only by arcane casters."""
     SCROLL = "scroll"
@@ -809,12 +810,14 @@ class UsableBy(_Model):
     """Which characters a magic item works for.
 
     [`usable_by_class`][osrlib.core.items.usable_by_class] checks a class against this
-    model, and [`validate_equip`][osrlib.core.items.validate_equip] applies it to devices
+    model, and [`validate_equip`][osrlib.core.items.validate_equip] applies it to rods, wands,
     and miscellaneous items, rejecting with `items.equip.not_usable`.
 
     Enchanted swords, weapons, and armour stay at the default `all`: their pages print "per
     normal class restrictions", and those restrictions are the class's armour and weapon
-    policies, applied to the mundane item underneath rather than here.
+    policies, applied to the mundane item underneath rather than here. A magic staff's
+    usability decides who can use its powers. Who can wield it follows the class's weapon
+    policy for the mundane staff, as [`validate_equip`][osrlib.core.items.validate_equip] says.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -953,14 +956,14 @@ class MagicItemTemplate(_Model):
     category: MagicItemCategory
     """What kind of item it is. See [`MagicItemCategory`][osrlib.core.items.MagicItemCategory]."""
     base_item_id: str | None = None
-    """The mundane equipment id the enchantment overlays, for an enchanted sword, weapon, ammunition, or shield. Look
-    it up with [`load_equipment`][osrlib.data.load_equipment] (ids listed in [the equipment id
-    index](https://mmacy.github.io/osrlib-python/reference/content-ids/equipment/)). `None` for everything else,
-    including generic enchanted armour, whose base is rolled for each copy on the *Magic Armour Type* table and recorded
-    on the instance's `base_item_id`.
+    """The mundane equipment id the enchantment overlays, for an enchanted sword, weapon, ammunition, or shield, and
+    `"staff"` for every magic staff. Look it up with [`load_equipment`][osrlib.data.load_equipment] (ids listed in [the
+    equipment id index](https://mmacy.github.io/osrlib-python/reference/content-ids/equipment/)). `None` for everything
+    else, including generic enchanted armour, whose base is rolled for each copy on the *Magic Armour Type* table and
+    recorded on the instance's `base_item_id`.
     """
     attack_bonus: int = 0
-    """What the item adds to an attack roll. Negative when cursed."""
+    """What the item adds to an attack roll. Negative when cursed. The staves of wizardry and snakes add 1."""
     damage_bonus: int = 0
     """What it adds to damage. Negative when cursed."""
     ac_bonus: int = 0
@@ -992,7 +995,9 @@ class MagicItemTemplate(_Model):
     item whose behavior is left to you, which has `manual` prose instead.
     """
     params: Annotated[Mapping[str, int | str | bool | tuple[int | str, ...]], FrozenMap] = FrozenMap()
-    """Per-item scalars, keyed by name, for behaviors that read them."""
+    """Per-item scalars, keyed by name, for behaviors that read them. On a staff, `melee_class_ids` lists the classes
+    that may wield it whatever their weapon policy says: the magic-user, on the staves of power, striking, and wizardry.
+    """
     manual: tuple[str, ...] = ()
     """The item's page text, for the parts you adjudicate yourself. Show these lines to the referee."""
     weight_coins: int = Field(default=0, ge=0)
@@ -1738,7 +1743,7 @@ class MagicItemInstance(_Model):
     *remove curse* spell lifts the curse, which sets this back to False.
     """
     base_item_id: str | None = None
-    """The mundane item underneath an enchanted weapon, arrow, or suit of armour. Look it up with
+    """The mundane item underneath an enchanted weapon, arrow, suit of armour, or staff. Look it up with
     [`load_equipment`][osrlib.data.load_equipment] (ids listed in [the equipment id
     index](https://mmacy.github.io/osrlib-python/reference/content-ids/equipment/)). For generic enchanted armour, this
     is what the *Magic Armour Type* roll chose.
@@ -2499,15 +2504,21 @@ def _loose_treasure_coins(inventory: Inventory) -> int:
     for instance in inventory.all_instances():
         if isinstance(instance, MagicItemInstance):
             template = magic_item_template(instance)
-            if template.category in (
-                MagicItemCategory.POTION,
-                MagicItemCategory.SCROLL,
-                MagicItemCategory.ROD,
-                MagicItemCategory.STAFF,
-                MagicItemCategory.WAND,
-            ):
+            if template.category in _TREASURE_CATEGORIES:
                 total += template.weight_coins * instance.quantity
     return total
+
+
+_TREASURE_CATEGORIES = frozenset(
+    {
+        MagicItemCategory.POTION,
+        MagicItemCategory.SCROLL,
+        MagicItemCategory.ROD,
+        MagicItemCategory.STAFF,
+        MagicItemCategory.WAND,
+    }
+)
+"""The magic item categories that weigh as treasure, from the SRD's encumbrance table, and never as equipment."""
 
 
 def _bags_of_holding(inventory: Inventory) -> list[tuple[int, int]]:
@@ -2588,7 +2599,8 @@ def equipment_weight_coins(inventory: Inventory) -> int:
     An enchanted weapon weighs what its mundane base item weighs. Enchanted armour or an
     enchanted shield weighs half of what its base item weighs, rounded down, because the
     rules make enchanted armour lighter than the mundane kind. The base item is the one in
-    the instance's `base_item_id`, or in the template's when the instance has none.
+    the instance's `base_item_id`, or in the template's when the instance has none. A magic
+    staff has the mundane staff as its base, but it weighs as treasure, so it adds nothing here.
 
     Args:
         inventory: The inventory to weigh.
@@ -2618,12 +2630,12 @@ def equipment_weight_coins(inventory: Inventory) -> int:
     has_gear = False
     for instance in inventory.all_instances():
         if isinstance(instance, MagicItemInstance):
+            template = magic_item_template(instance)
             base_id = _magic_base_item_id(instance)
-            if base_id is None:
+            if base_id is None or template.category in _TREASURE_CATEGORIES:
                 continue
             base = load_equipment().get(base_id)
             weight = getattr(base, "weight_coins", 0)
-            template = magic_item_template(instance)
             if template.category is MagicItemCategory.ARMOUR:
                 weight //= 2
             total += weight
@@ -2686,6 +2698,12 @@ _DETAILED_RATES: tuple[tuple[int, int], ...] = ((400, 120), (600, 90), (800, 60)
 def _int_param(params: Mapping[str, Any], key: str, default: int = 0) -> int:
     """Read an integer param from schema-validated data the type checker can't narrow by key."""
     return int(params.get(key, default))
+
+
+def _tuple_param(params: Mapping[str, Any], key: str) -> tuple[int | str, ...]:
+    """Read a tuple param from schema-validated data, or an empty tuple when the key is absent."""
+    value = params.get(key, ())
+    return value if isinstance(value, tuple) else ()
 
 
 def _magic_base_item_id(instance: MagicItemInstance) -> str | None:
@@ -2990,12 +3008,13 @@ def usable_by_class(template: MagicItemTemplate, definition: ClassDefinition) ->
 
     The rules restrict some items to particular classes or to spell casters, and this function
     checks a class against those restrictions.
-    [`validate_equip`][osrlib.core.items.validate_equip] applies it to devices and
-    miscellaneous items. Call it directly when you decide which magic items to offer a
-    player.
+    [`validate_equip`][osrlib.core.items.validate_equip] applies it to rods, wands, and
+    miscellaneous items. A session applies it when a character uses a staff's powers. Call it
+    directly when you decide which magic items to offer a player.
 
     Enchanted swords, weapons, and armour aren't restricted here: their pages defer to the
     class's ordinary armour and weapon policies, which apply to the mundane item underneath.
+    Neither is wielding a magic staff, which follows the weapon policy for the mundane staff.
 
     Args:
         template: The magic item template.
@@ -3035,11 +3054,12 @@ def _validate_equip_magic(
 ) -> list[Rejection]:
     """Validate equipping a magic item against the base item's policies and the item's usability.
 
-    Enchanted arms resolve through the base item's armour and weapon policies exactly like
-    their mundane counterparts. Rings cap at two (`items.ring.hands_full`, the slot cap
-    standing in for the rule that more than two rings make none of them work). Devices and
-    miscellaneous items are checked against the item's `usable_by`. Potions, scrolls, and ammunition are
-    not equippable.
+    Enchanted arms and magic staves resolve through the base item's armour and weapon policies exactly like
+    their mundane counterparts, so a magic staff takes the rules of the mundane staff. The one exception is a
+    class that a staff's `melee_class_ids` param lists, which wields that staff whatever its weapon policy
+    says, though the staff is still two-handed. Rings cap at two (`items.ring.hands_full`, the slot cap
+    standing in for the rule that more than two rings make none of them work). Rods, wands, and miscellaneous
+    items are checked against the item's `usable_by`. Potions, scrolls, and ammunition are not equippable.
     """
     from osrlib.data import load_equipment
 
@@ -3050,19 +3070,41 @@ def _validate_equip_magic(
         return []
     if template.category in (MagicItemCategory.POTION, MagicItemCategory.SCROLL):
         return [Rejection(code="items.equip.not_equippable", params={"item": instance.instance_id})]
-    if template.category in (MagicItemCategory.SWORD, MagicItemCategory.WEAPON, MagicItemCategory.ARMOUR):
+    if template.category in _ARMS_CATEGORIES:
         base_id = _magic_base_item_id(instance)
         if base_id is None:
             return [Rejection(code="items.equip.not_equippable", params={"item": instance.instance_id})]
         base = load_equipment().get(base_id)
         if isinstance(base, AmmunitionTemplate):
             return [Rejection(code="items.equip.not_equippable", params={"item": instance.instance_id})]
+        if isinstance(base, WeaponTemplate) and definition.id in _tuple_param(template.params, "melee_class_ids"):
+            return _two_handed_rejections(base, inventory)
         return validate_equip(definition, ItemInstance(template=base), inventory)
-    # Devices and miscellaneous items: the item's usability governs. Class weapon
-    # policies don't apply, because the SRD lets magic-users fight in melee with
-    # some magic staves (Rods, Staves, Wands: Staves in Melee).
     if not usable_by_class(template, definition):
         return [Rejection(code="items.equip.not_usable", params={"item": instance.instance_id})]
+    return []
+
+
+_ARMS_CATEGORIES = frozenset(
+    {MagicItemCategory.SWORD, MagicItemCategory.WEAPON, MagicItemCategory.ARMOUR, MagicItemCategory.STAFF}
+)
+"""The magic item categories whose items equip as the mundane item underneath them."""
+
+
+def _weapon_policy_rejections(definition: ClassDefinition, template: WeaponTemplate) -> list[Rejection]:
+    """Return the rejection of a weapon the class's weapon policy doesn't allow, or nothing when it does."""
+    policy = definition.weapons
+    if policy.kind is WeaponPolicyKind.ALLOWED and template.id not in policy.weapon_ids:
+        return [Rejection(code="items.equip.weapon_not_allowed", params={"class": definition.id, "item": template.id})]
+    if policy.kind is WeaponPolicyKind.FORBIDDEN and template.id in policy.weapon_ids:
+        return [Rejection(code="items.equip.weapon_forbidden", params={"class": definition.id, "item": template.id})]
+    return []
+
+
+def _two_handed_rejections(template: WeaponTemplate, inventory: Inventory | None) -> list[Rejection]:
+    """Return the rejection of a two-handed weapon while a shield is worn, or nothing when there's no clash."""
+    if WeaponQuality.TWO_HANDED in template.qualities and inventory is not None and inventory.shield is not None:
+        return [Rejection(code="items.equip.two_handed_with_shield", params={"item": template.id})]
     return []
 
 
@@ -3138,11 +3180,18 @@ def validate_equip(
     - Two-handed weapons and shields, which can't be used together. Whichever of the pair
       comes second is rejected, so this check reads what is already equipped: pass
       `inventory` whenever you have one.
-    - For magic items: enchanted arms resolve through the policies of the mundane item
-      underneath, rings against the two-ring cap, and devices and miscellaneous items
-      against the usability of the item. See
+    - For magic items: enchanted arms and magic staves resolve through the policies of the
+      mundane item underneath, rings against the two-ring cap, and rods, wands, and
+      miscellaneous items against the usability of the item. See
       [`usable_by_class`][osrlib.core.items.usable_by_class]. Potions and scrolls aren't
       equipment.
+    - A magic staff is a mundane staff underneath, so a class that may wield a staff wields
+      every magic staff, whoever may use its powers. A class that a staff's `melee_class_ids`
+      param lists wields that staff whatever its weapon policy says. In the built-in catalog
+      that's the magic-user, who may use only daggers otherwise, and the staves of power,
+      striking, and wizardry, because the OSE SRD says a magic-user can "use the *staff of
+      power*, *staff of striking*, and *staff of wizardry* in melee". A staff is two-handed
+      either way.
 
     Args:
         definition: The character's class definition, from
@@ -3197,24 +3246,7 @@ def validate_equip(
             ]
         return []
     if isinstance(template, WeaponTemplate):
-        policy = definition.weapons
-        if policy.kind is WeaponPolicyKind.ALLOWED and template.id not in policy.weapon_ids:
-            return [
-                Rejection(
-                    code="items.equip.weapon_not_allowed",
-                    params={"class": definition.id, "item": template.id},
-                )
-            ]
-        if policy.kind is WeaponPolicyKind.FORBIDDEN and template.id in policy.weapon_ids:
-            return [
-                Rejection(
-                    code="items.equip.weapon_forbidden",
-                    params={"class": definition.id, "item": template.id},
-                )
-            ]
-        if WeaponQuality.TWO_HANDED in template.qualities and inventory is not None and inventory.shield is not None:
-            return [Rejection(code="items.equip.two_handed_with_shield", params={"item": template.id})]
-        return []
+        return _weapon_policy_rejections(definition, template) or _two_handed_rejections(template, inventory)
     if isinstance(template, GearTemplate) and template.combat is not None:
         return []
     return [Rejection(code="items.equip.not_equippable", params={"item": template.id})]

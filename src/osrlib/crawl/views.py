@@ -204,9 +204,10 @@ class MemberView(_Model):
     weapon. When the display name refers to a weapon, the entry also has the `qualities` of that
     plain weapon, as an identified one does, so you can tell a melee attack from a missile
     attack without revealing the weapon's bonus or curse. It has a `missile_ranges` key only
-    when the rules give the weapon ranges, so on a sword the key is absent rather than empty. An
-    item whose display name comes from its category, like `"a staff"`, has neither key, even
-    when it's a weapon, because its display name doesn't refer to the weapon. An identified item
+    when the rules give the weapon ranges, so on a sword the key is absent rather than empty.
+    Every magic staff displays as `"a staff"` and has the staff's `qualities`. Any other item
+    whose display name comes from its category, like `"a wand"`, has neither key, because its
+    display name doesn't refer to a weapon. An identified item
     shows its `name`, its `template_id`, and whether a curse has been revealed. Charges never
     appear."""
     memorized_spells: tuple[dict, ...]
@@ -985,11 +986,11 @@ def _masked_magic_item(instance: MagicItemInstance) -> dict:
     so the unidentified item also shows the `qualities` of the mundane weapon underneath
     it, exactly as an identified one does, and its `missile_ranges` when the rules give that
     weapon ranges. A weapon with no printed ranges, a sword among them, gets the `qualities` key
-    and no `missile_ranges` key at all. A staff, wand, or other item whose display comes from
-    its category instead shows neither field, even when it resolves to a weapon, because the
-    display never included that weapon's name and the fields would single the item out among the
-    items that show the same string. A `staff_of_striking` reads "a staff", and so does every
-    other staff.
+    and no `missile_ranges` key at all. Every magic staff reads "a staff", and every one is a
+    mundane staff underneath, so the display is the name of the weapon and every staff shows the
+    staff's `qualities`. A wand or other item whose display comes from its category shows
+    neither field, because the display isn't the name of a weapon and the fields would single
+    the item out among the items that show the same string.
 
     Both fields are rulebook facts about the weapon the display string already includes,
     not facts about the enchantment, and they let you tell a melee declaration from a missile
@@ -1021,10 +1022,10 @@ def _masked_magic_item(instance: MagicItemInstance) -> dict:
             base_id = instance.base_item_id or template.base_item_id
             base_name = load_equipment().get(base_id).name.lower() if base_id is not None else "arm"
             display = f"a {base_name} with a faint aura"
-        else:
+        elif template.category is not MagicItemCategory.STAFF:
             # The display came from the category table, not the base weapon, so
             # attaching weapon facts here would single this one item out among the items in its
-            # category that show the same string.
+            # category that show the same string. "A staff" is the name of the weapon under every staff.
             facet = None
         payload = {
             "instance_type": "magic_item",
