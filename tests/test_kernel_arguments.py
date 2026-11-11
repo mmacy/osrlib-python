@@ -39,8 +39,6 @@ from osrlib.core.treasure import TREASURE_STREAM, MagicItemType, generate_magic_
 from osrlib.crawl.stocking import stock_area
 from osrlib.data import load_classes, load_encounter_tables, load_equipment, load_monsters, load_spells
 
-pytestmark = pytest.mark.xfail(reason="chunk: kernel-arguments")
-
 
 def stream_for(key: str, seed: int = 1) -> RngStream:
     return RngStreams(master_seed=seed).get(key)
