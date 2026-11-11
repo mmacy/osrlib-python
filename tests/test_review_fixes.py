@@ -15,9 +15,10 @@ from crawl_fixtures import build_milestone_adventure, build_party
 from osrlib.core.abilities import AbilityScore
 from osrlib.core.character import Character
 from osrlib.core.classes import ClassDefinition
-from osrlib.core.events import Event
+from osrlib.core.events import Event, Visibility
 from osrlib.core.frozen import FrozenMap
 from osrlib.crawl.adventure import Adventure, TownSpec
+from osrlib.crawl.battle import MonsterAction
 from osrlib.crawl.commands import EnterDungeon, MoveParty, SetFlag
 from osrlib.crawl.dungeon import Direction, DungeonSpec, Edge, EdgeKind, LevelSpec, WanderingSpec
 from osrlib.crawl.session import GameSession
@@ -198,3 +199,111 @@ def test_a_listener_that_updates_in_place_at_both_depths_loses_nothing():
     game.register_listener(ReactsInPlace(game))
     assert game.execute(MoveParty(direction=Direction.EAST)).accepted
     assert game.listener_state == {"counter": {"outer": 1, "inner": 1}}
+
+
+# ---------------------------------------------------------------------- battles
+
+
+def goblins(count: int = 2, **battle_args) -> GameSession:
+    import positions_fixtures as pf
+
+    return pf.battle(template_id="goblin", count=count, distance=5, adventure=pf.corridor(), **battle_args)
+
+
+IMPOSSIBLE = {
+    "a melee by a monster that doesn't exist": lambda game, group: [
+        MonsterAction(monster_id="monster-9999", kind="melee", target_id=game.party.members[0].id)
+    ],
+    "a melee by a party member": lambda game, group: [
+        MonsterAction(monster_id=game.party.members[1].id, kind="melee", target_id=game.party.members[0].id)
+    ],
+    "a potion for a goblin": lambda game, group: [
+        MonsterAction(monster_id=group.monster_ids[0], kind="npc_drink", item_id="potion_of_healing")
+    ],
+    "a shot by a goblin": lambda game, group: [
+        MonsterAction(monster_id=group.monster_ids[0], kind="npc_shoot", target_id=game.party.members[0].id)
+    ],
+    "a spell from a goblin": lambda game, group: [
+        MonsterAction(
+            monster_id=group.monster_ids[0],
+            kind="npc_cast",
+            spell_id="magic_missile",
+            target_id=game.party.members[0].id,
+        )
+    ],
+    "a goblin's breath": lambda game, group: [MonsterAction(monster_id=group.monster_ids[0], kind="breath")],
+    "a melee on a fellow goblin": lambda game, group: [
+        MonsterAction(monster_id=group.monster_ids[0], kind="melee", target_id=group.monster_ids[1])
+    ],
+}
+
+
+@pytest.mark.parametrize("build", IMPOSSIBLE.values(), ids=IMPOSSIBLE.keys())
+def test_the_session_skips_an_action_it_cant_carry_out(build):
+    """`ActionPolicy` promises that the session skips an action that isn't possible and doesn't raise."""
+    import positions_fixtures as pf
+
+    class Impossible:
+        def choose(self, session, group, stream):
+            return build(session, group)
+
+    game = goblins()
+    game.action_policies[pf.group_id(game)] = Impossible()
+    result = pf.round_(game)
+    assert result.accepted
+    assert pf.monster_attacks(game, result.events) == []
+
+
+@pytest.mark.parametrize("fate", ["dead", "stone"])
+def test_a_staff_of_healing_cant_be_used_on_a_member_it_cant_heal(fate):
+    import positions_fixtures as pf
+    from osrlib.core.effects import Condition, grant_condition, kill
+    from osrlib.core.items import MagicItemInstance
+    from osrlib.crawl.commands import GrantItem
+
+    game = goblins()
+    pf.hold_monsters(game)
+    tam, hild = pf.named(game, "Tam"), pf.named(game, "Hild")
+    assert game.execute(GrantItem(character_id=tam, item_id="staff_of_healing")).accepted
+    staff = next(item for item in game.member(tam).inventory.items if isinstance(item, MagicItemInstance))
+    if fate == "dead":
+        kill(game.member(hild))
+    else:
+        grant_condition(game.member(hild), Condition.PETRIFIED, None)
+    rejections = pf.refused(game, pf.declare(tam, "use_item", item_id=staff.instance_id, targets=(hild,)))
+    assert [code for code, _ in rejections] == ["items.use.target_cannot_be_healed"]
+    assert not staff.identified
+
+
+def harm(game: GameSession, caster: str, monster_id: str):
+    import positions_fixtures as pf
+
+    return pf.declare(
+        caster, "cast", spell_id="cure_light_wounds", spell_mode="harm", reversed=True, targets=(monster_id,)
+    )
+
+
+def test_a_touch_attack_needs_its_caster_in_the_front_rank():
+    """A touch spell on a monster is a melee attack, so the rule for melee decides who can make it."""
+    import positions_fixtures as pf
+
+    game = goblins(count=6, spells={"Tam": ("cure_light_wounds",)})
+    pf.hold_monsters(game)
+    tam = pf.named(game, "Tam")
+    front = game.encounter.groups[0].monster_ids[0]
+    assert tam not in game.view(Visibility.PLAYER).encounter.groups[0].front_rank
+    assert [code for code, _ in pf.refused(game, harm(game, tam, front))] == ["battle.declaration.not_in_front_rank"]
+
+
+def test_a_touch_attack_reaches_only_the_monsters_in_front():
+    import positions_fixtures as pf
+
+    roster = (pf.TAM, pf.HILD, pf.OSRIC, pf.NIM, pf.AELIN, pf.WREN)
+    game = goblins(count=6, roster=roster, spells={"Tam": ("cure_light_wounds", "cure_light_wounds")})
+    pf.hold_monsters(game)
+    tam = pf.named(game, "Tam")
+    assert tam in game.view(Visibility.PLAYER).encounter.groups[0].front_rank
+    monsters = game.encounter.groups[0].monster_ids
+    assert [code for code, _ in pf.refused(game, harm(game, tam, monsters[-1]))] == ["combat.attack.out_of_reach"]
+    events = pf.play(game, harm(game, tam, monsters[0]))
+    assert [event.defender_id for event in pf.attacks_by(events, tam)] == [monsters[0]]
