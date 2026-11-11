@@ -1412,6 +1412,7 @@ def create_character(
     custom_class: ClassDefinition | None = None,
     adjustment: AbilityAdjustment | None = None,
     starting_spell_ids: Sequence[str] = (),
+    spell_catalog: SpellCatalog | None = None,
     extra_languages: Sequence[str] = (),
     purchases: Sequence[tuple[str, int]] = (),
     equip_ids: Sequence[str] = (),
@@ -1467,10 +1468,15 @@ def create_character(
             [`AbilityAdjustment`][osrlib.core.abilities.AbilityAdjustment]. It lowers one or more
             of STR, INT, and WIS to raise a prime requisite, which earns the character a larger
             experience bonus. With `None`, the scores stay as rolled.
-        starting_spell_ids: The spells in an arcane caster's starting spell book, from
-            [`load_spells`][osrlib.data.load_spells] and listed in [the spell id
-            index](https://mmacy.github.io/osrlib-python/reference/content-ids/spells/). The magic-user and the elf must
-            have exactly one first-level spell here. Leave it empty for every other class.
+        starting_spell_ids: The spells in an arcane caster's starting spell book, by their ids in
+            `spell_catalog`. [The spell id index](https://mmacy.github.io/osrlib-python/reference/content-ids/spells/)
+            lists the built-in ids. The magic-user and the elf must have exactly one first-level spell here. Leave
+            it empty for every other class.
+        spell_catalog: The spells a new caster can start with, or `None` for the built-in catalog from
+            [`load_spells`][osrlib.data.load_spells]. To start a caster with a spell you wrote, pass a catalog that
+            has it, like `SpellCatalog(spells=(*load_spells().spells, *adventure.spells))` for the spells an
+            [`Adventure`][osrlib.crawl.adventure.Adventure] bundles. The function looks up only
+            `starting_spell_ids` in it.
         extra_languages: The extra languages a high INT allows, from
             [`load_languages`][osrlib.data.load_languages] and listed in
             [the language id index](https://mmacy.github.io/osrlib-python/reference/content-ids/languages/). An INT of
@@ -1532,7 +1538,8 @@ def create_character(
     if not name:
         raise ValueError("a character's name must not be empty")
     definition = _class_definition(class_id, custom_class)
-    spell_rejections = validate_starting_spells(definition, load_spells(), starting_spell_ids)
+    catalog = load_spells() if spell_catalog is None else spell_catalog
+    spell_rejections = validate_starting_spells(definition, catalog, starting_spell_ids)
     if spell_rejections:
         raise ValueError(f"illegal starting spells: {[rejection.code for rejection in spell_rejections]}")
     if adjustment is not None:

@@ -81,6 +81,7 @@ from osrlib.core.rng import RngStream
 
 if TYPE_CHECKING:
     from osrlib.core.character import Character
+    from osrlib.core.spells import SpellCatalog
 
 __all__ = [
     "PERCENTILE_THIEF_SKILLS",
@@ -1247,6 +1248,7 @@ def drain_levels(
     xp_policy: str,
     stream: RngStream,
     spawn_consequence: str | None = None,
+    spell_catalog: SpellCatalog | None = None,
 ) -> DrainResult:
     """Take experience levels away from a character, reversing what [`level_up`][osrlib.core.classes.level_up] does.
 
@@ -1270,7 +1272,8 @@ def drain_levels(
     The result's `slain` is then True, its `new_level` is 0, and its events include the death. The
     character's `level` stays at 1, because the model doesn't allow a level below 1, and their
     experience becomes 0. A character who survives forgets memorized spells that no longer fit the
-    lower level's spell slots, the most recently memorized first.
+    lower level's spell slots, the most recently memorized first. The function looks up the level of
+    each memorized spell in `spell_catalog`.
 
     Experience points change once, after every level is taken. Under `"halfway"`, the character is
     left with the point halfway between the threshold of the level they had and the threshold of
@@ -1291,14 +1294,20 @@ def drain_levels(
             this function copies it onto the `combat.drain.slain` event for you to show. osrlib
             doesn't act on it. When the character survives, the function doesn't copy it, because
             the character hasn't become anything. `None` leaves it off.
+        spell_catalog: The spells the character's memorized copies come from, or `None` for the
+            built-in catalog from [`load_spells`][osrlib.data.load_spells]. Pass the catalog the
+            character memorized from, like
+            [`GameSession.effective_spells`][osrlib.crawl.session.GameSession.effective_spells] for a
+            spell an adventure bundles.
 
     Returns:
         What the character lost, and the events that describe it.
 
     Raises:
-        ValueError: If `definition` isn't the character's class, `levels` is less than 1, or
-            `xp_policy` isn't one of the two values above. Nothing changes and the stream doesn't
-            advance.
+        ValueError: If `definition` isn't the character's class, `levels` is less than 1,
+            `xp_policy` isn't one of the two values above, or the character has a memorized spell
+            that isn't in `spell_catalog`. The message for a spell includes its id. Nothing changes
+            and the stream doesn't advance.
 
     Examples:
         ```python
@@ -1342,6 +1351,16 @@ def drain_levels(
         raise ValueError(f"levels must be positive, got {levels}")
     if xp_policy not in ("halfway", "level_minimum"):
         raise ValueError(f"unknown xp policy {xp_policy!r}")
+    # The imports are here rather than at the top because spells imports combat, which imports
+    # this module.
+    from osrlib.core.spells import forget_excess_memorized
+    from osrlib.data import load_spells
+
+    catalog = load_spells() if spell_catalog is None else spell_catalog
+    known = {spell.id for spell in catalog.spells}
+    for copy in character.memorized_spells:
+        if copy.spell_id not in known:
+            raise ValueError(f"memorized spell {copy.spell_id!r} isn't in the spell catalog")
     former_level = character.level
     former_max_hp = character.max_hp
     hp_rolls: list[int] = []
@@ -1412,14 +1431,9 @@ def drain_levels(
             target_id=character.id or character.name, current_hp=character.current_hp, max_hp=character.max_hp
         )
     )
-    if getattr(character, "memorized_spells", ()):
+    if character.memorized_spells:
         # Memorized spells beyond what the smaller slots can fit are forgotten, newest first.
-        # The imports are here rather than at the top because spells imports combat, which
-        # imports this module.
-        from osrlib.core.spells import forget_excess_memorized
-        from osrlib.data import load_spells
-
-        events.extend(forget_excess_memorized(character, definition, load_spells()))
+        events.extend(forget_excess_memorized(character, definition, catalog))
     return DrainResult(
         levels_lost=former_level - character.level,
         new_level=character.level,

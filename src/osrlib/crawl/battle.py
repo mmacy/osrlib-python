@@ -388,7 +388,6 @@ from osrlib.crawl.events import (
     SpellDeclaredEvent,
 )
 from osrlib.crawl.party import _anyone_standing, _stands
-from osrlib.data import load_spells
 
 __all__ = [
     "ActionPolicy",
@@ -1102,8 +1101,6 @@ class NpcPartyPolicy:
             when the group's move will bring a member within reach. Incapacitated and confused
             members get none.
         """
-        from osrlib.data import load_spells
-
         actions: list[MonsterAction] = []
         living = _living_monsters(session, group)
         placement = _placement(session)
@@ -1111,7 +1108,7 @@ class NpcPartyPolicy:
         first_row = _first_row_seen(session, group, placement)
         pool = _seen(session, _reachable_front_rank(group, placement))
         arrival: list | None = None  # the targets once the group's close is made, worked out at its first close
-        catalog = load_spells()
+        catalog = session.effective_spells
         cure_available = any(_npc_cure_spell(member, catalog) is not None for member in living)
         for npc in living:
             if incapacitated(npc) or has_condition(npc, Condition.CONFUSED):
@@ -2841,7 +2838,7 @@ def _validate_declaration(
         if declaration.spell_id is None or declaration.spell_mode is None:
             return [Rejection(code="battle.declaration.missing_spell", params={"character": member.id})]
         try:
-            spell = load_spells().get(declaration.spell_id)
+            spell = session.effective_spells.get(declaration.spell_id)
         except ValueError:
             return [Rejection(code="magic.cast.unknown_spell", params={"spell": declaration.spell_id})]
         if session.ledger.active_on(_party_location._cell_ref(session), "silence"):
@@ -3079,7 +3076,7 @@ def _validate_magic_item_declaration(
             thief_params = _magic_items._thief_scroll_use(definition)
             if thief_params is None or member.level < int(thief_params.get("min_level", 10)):
                 return [Rejection(code="items.scroll.wrong_caster", params={"item": instance.instance_id})]
-        spell = load_spells().get(spell_id)
+        spell = session.effective_spells.get(spell_id)
         mode = declaration.spell_mode or spell.modes[0].key
         targets, distance, rejections = _cast_targets(
             session, declaration.model_copy(update={"spell_id": spell_id, "spell_mode": mode}), spell, placement
@@ -3328,7 +3325,7 @@ def _resolve_scroll_cast(session, member, instance, template, declaration: Battl
     if not remaining:
         return []
     spell_id = declaration.spell_id or remaining[0]
-    spell = load_spells().get(spell_id)
+    spell = session.effective_spells.get(spell_id)
     mode = declaration.spell_mode or spell.modes[0].key
     # The declaration is judged again, with the checks it passed at the top of the round,
     # because the phases before this one can change what those checks read (see the
@@ -4134,14 +4131,16 @@ def _on_hit_drain(session, weapon: MagicItemInstance, target) -> list[Event]:
         return drain_monster_hd(target, levels=levels, stream=stream)
     from osrlib.core.classes import drain_levels
 
-    result = drain_levels(
+    xp_policy = str(template.effect.params.get("xp_policy", "level_minimum"))
+    return _spells._drain_character(
+        session,
         target,
-        target.definition,
-        levels=levels,
-        xp_policy=str(template.effect.params.get("xp_policy", "level_minimum")),
-        stream=stream,
+        lambda spells: (
+            drain_levels(
+                target, target.definition, levels=levels, xp_policy=xp_policy, stream=stream, spell_catalog=spells
+            ).events
+        ),
     )
-    return list(result.events)
 
 
 def _party_wards(session) -> list:
@@ -4429,7 +4428,7 @@ def _party_magic(session, by_member, pending_casters, disrupted, acted, state) -
             )
             acted.add(member.id)
             continue
-        spell = load_spells().get(declaration.spell_id)
+        spell = session.effective_spells.get(declaration.spell_id)
         targets, distance, _ = _cast_targets(session, declaration, spell, _placement(session))
         from osrlib.core.spells import CastContext, caster_profile
 
@@ -4718,7 +4717,7 @@ def _npc_cast_ready(session, npc, action: MonsterAction) -> _Ready | None:
         return None
     if not any(copy.spell_id == action.spell_id and not copy.reversed for copy in npc.memorized_spells):
         return None
-    spell = load_spells().get(action.spell_id)
+    spell = session.effective_spells.get(action.spell_id)
     mode = next((mode for mode in spell.modes if mode.key == action.spell_mode), None)
     if mode is None:
         return None
@@ -5304,7 +5303,14 @@ def _apply_hit_effect(session, monster, target, kind: str, params: Mapping[str, 
     energy drain from the advancement stream.
     """
     if kind == "energy_drain":
-        return resolve_energy_drain(monster, target, stream=session.streams.get(ADVANCEMENT_STREAM))
+        stream = session.streams.get(ADVANCEMENT_STREAM)
+        if isinstance(target, MonsterInstance):
+            return resolve_energy_drain(monster, target, stream=stream)
+        return _spells._drain_character(
+            session,
+            target,
+            lambda spells: resolve_energy_drain(monster, target, stream=stream, spell_catalog=spells),
+        )
     if kind == "disease":
         disease = EffectDefinition(
             kind=str(params.get("kind", "disease")),

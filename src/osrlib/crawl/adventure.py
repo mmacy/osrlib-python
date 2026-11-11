@@ -13,7 +13,7 @@ The members, in the order you use them:
 - [`PartySpec`][osrlib.crawl.adventure.PartySpec]: the levels and number of characters the
   adventure is written for. osrlib doesn't read it.
 - [`Adventure`][osrlib.crawl.adventure.Adventure]: the town, the dungeons, and the monsters, items,
-  triggers, and quests the adventure adds.
+  spells, triggers, and quests the adventure adds.
 - [`validate_adventure`][osrlib.crawl.adventure.validate_adventure]: takes an adventure and the
   built-in catalogs, and raises [`ContentValidationError`][osrlib.errors.ContentValidationError]
   with a list of every problem it finds.
@@ -24,8 +24,8 @@ wrote stays apart from what happened, and a save contains both. Names and descri
 models, not in events. An event contains ids, so to show a player the text, you look each id up in
 the adventure.
 
-Besides its dungeons, an adventure can add content and behavior. `monsters` and `items` bundle
-templates that join the built-in catalogs in the sessions that play this adventure. `triggers`
+Besides its dungeons, an adventure can add content and behavior. `monsters`, `items`, and `spells`
+bundle templates that join the built-in catalogs in the sessions that play this adventure. `triggers`
 ([`TriggerSpec`][osrlib.crawl.triggers.TriggerSpec]) define what happens when something happens
 in play, and `quests` ([`QuestSpec`][osrlib.crawl.quests.QuestSpec]) define what the party is trying
 to do. Gates ([`GateSpec`][osrlib.crawl.gates.GateSpec]) go on the doors and transitions of the levels.
@@ -56,6 +56,7 @@ from osrlib.core.items import (
     WeaponTemplate,
 )
 from osrlib.core.monsters import MonsterCatalog, MonsterTemplate
+from osrlib.core.spells import SpellCatalog, SpellTemplate
 from osrlib.crawl.commands import (
     AwardXP,
     ConsequenceCommand,
@@ -95,7 +96,7 @@ from osrlib.crawl.triggers import (
     TriggerPattern,
     TriggerSpec,
 )
-from osrlib.data import load_magic_items, load_treasure_tables
+from osrlib.data import load_magic_items, load_spells, load_treasure_tables
 from osrlib.errors import ContentValidationError
 
 __all__ = [
@@ -252,6 +253,7 @@ class Adventure(_Model):
         dungeons: The dungeons, at least one.
         monsters: Monster templates the adventure adds.
         items: Item templates the adventure adds.
+        spells: Spell templates the adventure adds.
         triggers: What happens when something happens in play.
         quests: What the party is trying to do.
 
@@ -322,6 +324,27 @@ class Adventure(_Model):
     A bundled id can't be the same as an id in the equipment catalog, the magic-item catalog, or
     another bundled item, because one item id has to mean one thing in a session. The town shop
     doesn't sell bundled items. It sells only the built-in equipment."""
+    spells: tuple[SpellTemplate, ...] = ()
+    """[`SpellTemplate`][osrlib.core.spells.SpellTemplate]s the adventure adds to the built-in spell
+    catalog. In the sessions that play this adventure, they work everywhere a spell id does:
+    [`PrepareSpells`][osrlib.crawl.commands.PrepareSpells],
+    [`LearnSpell`][osrlib.crawl.commands.LearnSpell], [`CastSpell`][osrlib.crawl.commands.CastSpell],
+    and a `cast` declaration in a battle. A caster can prepare and cast a bundled spell when the
+    spell's `spell_list` is the list of the caster's class, as for a built-in spell.
+    [`GameSession.effective_spells`][osrlib.crawl.session.GameSession.effective_spells] is the catalog
+    the session looks them up in.
+
+    A bundled id can't be the same as a built-in spell id or another bundled id, because a spell id
+    on a character and in a session's events has to refer to one spell.
+    [`validate_adventure`][osrlib.crawl.adventure.validate_adventure] reports a repeated id instead of
+    letting one template replace the other.
+
+    To give a new caster a bundled spell in their first spell book, pass a catalog with the same
+    spells to [`create_character`][osrlib.core.character.create_character] as `spell_catalog`. The
+    spells on a scroll that treasure rolls, and the spells of an NPC adventurer, come from the
+    built-in catalog only. The guide
+    [Authoring custom classes, spells, monsters, and items](https://mmacy.github.io/osrlib-python/guides/authoring-custom-content/)
+    covers writing a spell and bundling it."""
     triggers: tuple[TriggerSpec, ...] = ()
     """The adventure's [`TriggerSpec`][osrlib.crawl.triggers.TriggerSpec]s: what happens when
     something happens in play. Triggers that match the same event fire in the order of this tuple.
@@ -398,13 +421,13 @@ class _BundleConflicts(NamedTuple):
     """Each bundled id that an earlier entry of the same bundle already has, once."""
 
     def lines(self, kind: str) -> list[str]:
-        """Return one error line per skipped id, where `kind` is `"monster"` or `"item"`."""
+        """Return one error line per skipped id, where `kind` is `"monster"`, `"item"`, or `"spell"`."""
         return [f"bundled {kind} id {bundled_id!r} collides with the catalog" for bundled_id in self.built_in] + [
             f"bundled {kind} id {bundled_id!r} appears more than once in the bundle" for bundled_id in self.repeated
         ]
 
 
-def _sort_bundle[Template: MonsterTemplate | ItemTemplate](
+def _sort_bundle[Template: MonsterTemplate | ItemTemplate | SpellTemplate](
     bundle: tuple[Template, ...], built_in: set[str]
 ) -> tuple[list[Template], _BundleConflicts]:
     """Split a bundle into the templates a session uses and the ids it skips.
@@ -480,6 +503,18 @@ def _effective_equipment(adventure: Adventure, base: EquipmentCatalog) -> tuple[
         treasure_weights=base.treasure_weights,
     )
     return effective, conflicts
+
+
+def _effective_spells(adventure: Adventure, base: SpellCatalog) -> tuple[SpellCatalog, _BundleConflicts]:
+    """Compose the base spell catalog with the adventure's bundled templates, first occurrence winning.
+
+    Works like `_effective_monsters`: the bundled spells follow the base catalog's, in bundle order, and
+    an empty bundle returns the base catalog object itself.
+    """
+    if not adventure.spells:
+        return base, _BundleConflicts()
+    accepted, conflicts = _sort_bundle(adventure.spells, {template.id for template in base.spells})
+    return SpellCatalog(spells=(*base.spells, *accepted)), conflicts
 
 
 def _unknown_treasure_types(letters: tuple[str, ...]) -> list[str]:
@@ -875,8 +910,9 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
 
     - Bundled monster ids are unique and aren't in `monsters`.
     - Bundled item ids are unique and aren't in `equipment` or the built-in magic-item catalog.
-      For a bundled monster or item, the message says whether its id repeats within the bundle or
-      is already a built-in id.
+    - Bundled spell ids are unique and aren't in the built-in spell catalog.
+      For a bundled monster, item, or spell, the message says whether its id repeats within the
+      bundle or is already a built-in id.
     - Each treasure type letter in a bundled monster's `treasure` is the letter of a treasure type
       in [`load_treasure_tables`][osrlib.data.load_treasure_tables]`()`.
     - Each dungeon id in the town's `travel_turns` is a dungeon of the adventure.
@@ -954,7 +990,9 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
     document.
 
     You don't pass a magic-item catalog. You can't bundle magic items in an adventure, so the function
-    loads the built-in one with [`load_magic_items`][osrlib.data.load_magic_items].
+    loads the built-in one with [`load_magic_items`][osrlib.data.load_magic_items]. You don't pass a
+    spell catalog either. The function checks the bundled spells against the built-in catalog from
+    [`load_spells`][osrlib.data.load_spells], and nothing else in an adventure refers to a spell id.
 
     It checks quest ids and trigger ids separately, so a quest can have the same id as a trigger.
 
@@ -1006,6 +1044,8 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
     errors.extend(conflicts.lines("monster"))
     effective_items, item_conflicts = _effective_equipment(adventure, equipment)
     errors.extend(item_conflicts.lines("item"))
+    _, spell_conflicts = _effective_spells(adventure, load_spells())
+    errors.extend(spell_conflicts.lines("spell"))
     for template in adventure.monsters:
         for letter in _unknown_treasure_types((*template.treasure.letters, *template.treasure.parenthetical)):
             errors.append(f"bundled monster {template.id!r} has unknown treasure type {letter!r}")

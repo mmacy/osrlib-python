@@ -3492,7 +3492,13 @@ def drain_monster_hd(monster: MonsterInstance, *, levels: int = 1, stream: RngSt
     return events
 
 
-def resolve_energy_drain(attacker: MonsterInstance, target: Creature, *, stream: RngStream) -> list[Event]:
+def resolve_energy_drain(
+    attacker: MonsterInstance,
+    target: Creature,
+    *,
+    stream: RngStream,
+    spell_catalog: osrlib.core.spells.SpellCatalog | None = None,
+) -> list[Event]:
     """Drain levels or Hit Dice from the target of an undead creature's hit.
 
     Call this after a wight, wraith, spectre, or vampire hits.
@@ -3513,6 +3519,10 @@ def resolve_energy_drain(attacker: MonsterInstance, target: Creature, *, stream:
             decides whether levels or Hit Dice come off. The function changes it in place.
         stream: The stream the dice for lost hit points come from, usually
             [`ADVANCEMENT_STREAM`][osrlib.core.character.ADVANCEMENT_STREAM].
+        spell_catalog: The spells a drained character's memorized copies come from, or `None` for
+            the built-in catalog from [`load_spells`][osrlib.data.load_spells]. The function passes it
+            to `drain_levels`, which looks up the level of each memorized spell in it. A monster
+            target doesn't use it.
 
     Returns:
         The events in order. The first is a
@@ -3526,8 +3536,9 @@ def resolve_energy_drain(attacker: MonsterInstance, target: Creature, *, stream:
         [`kill`][osrlib.core.effects.kill] follow it.
 
     Raises:
-        ValueError: If the attacker has no `energy_drain` ability, so it doesn't drain.
-            The function changes nothing first.
+        ValueError: If the attacker has no `energy_drain` ability, so it doesn't drain, or a
+            character target has a memorized spell that isn't in `spell_catalog`. The message for
+            a spell includes its id. The function changes nothing first.
 
     Examples:
         ```python
@@ -3570,6 +3581,7 @@ def resolve_energy_drain(attacker: MonsterInstance, target: Creature, *, stream:
             xp_policy=str(params.get("xp_policy", "level_minimum")),
             stream=stream,
             spawn_consequence=ability.prose,
+            spell_catalog=spell_catalog,
         )
         return list(result.events)
     return drain_monster_hd(cast(MonsterInstance, target), levels=levels, stream=stream)
@@ -4027,3 +4039,8 @@ def resolve_breath(
             )
         )
     return events
+
+
+# `osrlib.core.spells` imports this module, so this module imports it last, once every name here exists. The
+# annotation of `resolve_energy_drain` reads `SpellCatalog` through it when something asks for the signature.
+import osrlib.core.spells  # noqa: E402

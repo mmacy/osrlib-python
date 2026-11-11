@@ -2,9 +2,13 @@
 
 The crawl adds two results to a cast that the spell kernel in `osrlib.core.spells` doesn't handle: a *silence 15'
 radius* whose target saves anchors to the party's cell, and *remove curse* lifts the curses on its target's items. The
-temple's healing and scroll reading also use `_cast_context`.
+temple's healing and scroll reading also use `_cast_context`. Every level drain in a session runs through
+`_drain_character`, because a drain looks up each memorized spell.
 """
 
+from collections.abc import Callable, Sequence
+
+from osrlib.core.character import Character
 from osrlib.core.clock import TimeUnit
 from osrlib.core.creature import Creature
 from osrlib.core.effects import EFFECTS_STREAM, EffectDefinition
@@ -13,6 +17,7 @@ from osrlib.core.items import MagicItemInstance
 from osrlib.core.spells import (
     MAGIC_STREAM,
     CastContext,
+    SpellCatalog,
     add_spell_to_book,
     cast_spell,
     caster_profile,
@@ -23,7 +28,6 @@ from osrlib.core.validation import Rejection
 from osrlib.crawl._party_location import _cell_ref, _location
 from osrlib.crawl._party_members import _member_able
 from osrlib.crawl.commands import CastSpell, LearnSpell, PrepareSpells
-from osrlib.data import load_spells
 
 
 def _handle_prepare_spells(session, command: PrepareSpells) -> tuple[list[Rejection], list[Event]]:
@@ -33,7 +37,7 @@ def _handle_prepare_spells(session, command: PrepareSpells) -> tuple[list[Reject
     if session.sleep_count == 0 or session.last_prepared_sleep.get(member.id, 0) >= session.sleep_count:
         return [Rejection(code="magic.memorize.needs_sleep", params={"character": member.id})], []
     definition = member.definition
-    result = memorize_spells(member, definition, load_spells(), command.selections)
+    result = memorize_spells(member, definition, session.effective_spells, command.selections)
     if result.rejections:
         return list(result.rejections), []
     session.last_prepared_sleep[member.id] = session.sleep_count
@@ -47,8 +51,14 @@ def _handle_learn_spell(session, command: LearnSpell) -> tuple[list[Rejection], 
     member, rejections = _member_able(session, command.character_id)
     if rejections:
         return rejections, []
-    definition = member.definition
-    result = add_spell_to_book(member, definition, load_spells(), command.spell_id)
+    catalog = session.effective_spells
+    known = {spell.id for spell in catalog.spells}
+    # The room left at a spell level depends on the level of each spell already in the book, so
+    # the session can't check a book with a spell its catalog doesn't have.
+    unknown = next((spell_id for spell_id in member.spell_book if spell_id not in known), None)
+    if unknown is not None:
+        return [Rejection(code="magic.book.unknown_spell", params={"spell": unknown})], []
+    result = add_spell_to_book(member, member.definition, catalog, command.spell_id)
     return list(result.rejections), list(result.events)
 
 
@@ -57,7 +67,7 @@ def _handle_cast_spell(session, command: CastSpell) -> tuple[list[Rejection], li
     if rejections:
         return rejections, []
     try:
-        spell = load_spells().get(command.spell_id)
+        spell = session.effective_spells.get(command.spell_id)
     except ValueError:
         return [Rejection(code="magic.cast.unknown_spell", params={"spell": command.spell_id})], []
     if _location(session).kind == "dungeon" and session.ledger.active_on(_cell_ref(session), "silence"):
@@ -184,3 +194,30 @@ def _lift_curses(session, member) -> list[Event]:
         if effect.definition.kind in ("ring_of_weakness", "ring_of_weakness_onset", "cursed_slow_healing"):
             events.extend(session.ledger.release(effect.effect_id, session.registry()))
     return events
+
+
+def _drain_character(session, character: Character, drain: Callable[[SpellCatalog], Sequence[Event]]) -> list[Event]:
+    """Drain levels from a party member or an NPC adventurer, and return the drain's events.
+
+    `drain` calls `drain_levels` or `resolve_energy_drain` and passes the catalog it gets as `spell_catalog`. The
+    kernel refuses a memorized spell that isn't in that catalog, and the session leaves a spell its catalog doesn't
+    have on the character (see `GameSession.effective_spells`). So `drain` runs with those copies set aside, and
+    they take no slot. Afterwards each one is back in its place among the copies the drain kept.
+    """
+    catalog = session.effective_spells
+    known = {spell.id for spell in catalog.spells}
+    held = character.memorized_spells
+    character.memorized_spells = tuple(copy for copy in held if copy.spell_id in known)
+    try:
+        return list(drain(catalog))
+    finally:
+        # The drain forgets the last of equal copies first, so matching from the front puts each kept copy back
+        # where it was.
+        kept = list(character.memorized_spells)
+        restored = []
+        for copy in held:
+            if copy.spell_id not in known:
+                restored.append(copy)
+            elif kept and kept[0] == copy:
+                restored.append(kept.pop(0))
+        character.memorized_spells = tuple(restored)

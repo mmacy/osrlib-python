@@ -128,11 +128,18 @@ from osrlib.core.items import EquipmentCatalog, Inventory, ItemInstance, MagicIt
 from osrlib.core.monsters import MONSTER_SPAWN_STREAM, IdAllocator, MonsterCatalog, MonsterInstance, spawn_monster
 from osrlib.core.rng import RngStreams, StreamName
 from osrlib.core.ruleset import Ruleset
+from osrlib.core.spells import SpellCatalog
 from osrlib.core.treasure import TREASURE_STREAM, instantiate_magic_item
 from osrlib.core.validation import Rejection
 from osrlib.crawl import _party_location, _party_members, _treasure
 from osrlib.crawl._treasure import _treasure_tier
-from osrlib.crawl.adventure import Adventure, _effective_equipment, _effective_monsters, validate_adventure
+from osrlib.crawl.adventure import (
+    Adventure,
+    _effective_equipment,
+    _effective_monsters,
+    _effective_spells,
+    validate_adventure,
+)
 from osrlib.crawl.battle import BattleState
 from osrlib.crawl.commands import (
     ActivateQuest,
@@ -193,7 +200,7 @@ from osrlib.crawl.gates import ConditionSpec, HasItemCondition
 from osrlib.crawl.party import Party, _anyone_standing, _stands
 from osrlib.crawl.quests import ObjectiveSpec, QuestSpec
 from osrlib.crawl.triggers import ItemAcquiredPattern, TriggerPattern
-from osrlib.data import load_equipment, load_magic_items, load_monsters
+from osrlib.data import load_equipment, load_magic_items, load_monsters, load_spells
 from osrlib.errors import ContentValidationError
 from osrlib.versioning import SCHEMA_VERSION, engine_version
 
@@ -637,9 +644,9 @@ class GameSession:
             master_seed: The seed those streams came from, kept so that `load_game` can rebuild them.
 
         Raises:
-            ContentValidationError: If the adventure bundles monster or item ids that collide with
-                the built-in catalogs or with each other. This check still runs for `load_game`,
-                which doesn't validate the rest of a saved adventure.
+            ContentValidationError: If the adventure bundles monster, item, or spell ids that
+                collide with the built-in catalogs or with each other. This check still runs for
+                `load_game`, which doesn't validate the rest of a saved adventure.
         """
         self.party = party
         """The party, in marching order. The order determines who is in the front rank in a fight.
@@ -660,6 +667,10 @@ class GameSession:
         if lines := item_conflicts.lines("item"):
             raise ContentValidationError("adventure bundles colliding item ids:\n" + "\n".join(lines))
         self._equipment_catalog = equipment
+        spells, spell_conflicts = _effective_spells(adventure, load_spells())
+        if lines := spell_conflicts.lines("spell"):
+            raise ContentValidationError("adventure bundles colliding spell ids:\n" + "\n".join(lines))
+        self._spell_catalog = spells
         self.ruleset = ruleset
         """The ruleset in play. Its options settle the rules that B/X leaves open, like when
         experience is awarded. See
@@ -839,8 +850,8 @@ class GameSession:
         Raises:
             ContentValidationError: If the adventure refers to something that doesn't exist, like
                 an unknown monster or item id or a transition with no destination, or if it
-                bundles a monster or item whose id is already a built-in id or another bundled
-                entry's id. The message lists every problem found, and no member has been given
+                bundles a monster, item, or spell whose id is already a built-in id or another
+                bundled entry's id. The message lists every problem found, and no member has been given
                 an id. Fix the adventure and call again. The same adventure fails the same way
                 every time.
 
@@ -1050,6 +1061,75 @@ class GameSession:
             ```
         """
         return self._equipment_catalog
+
+    @property
+    def effective_spells(self) -> SpellCatalog:
+        """Return the spell catalog this session looks spell ids up in.
+
+        It's the built-in catalog plus whatever spells the adventure bundles. Every part of the
+        session that turns a spell id into a spell reads it: preparing, learning, and casting a
+        spell, a `cast` declaration in a battle, reading a scroll, an NPC adventurer's casting, the
+        temple, and a level drain, which forgets the memorized spells a lower level has no slot for.
+        Use it to show the name of a spell whose id is in a view, like an entry in
+        [`MemberView.spell_book`][osrlib.crawl.views.MemberView.spell_book], or to list the spells a
+        caster can choose with [`SpellCatalog.by_list`][osrlib.core.spells.SpellCatalog.by_list].
+        [`load_spells`][osrlib.data.load_spells] doesn't have the spells the adventure bundles.
+
+        A character can have a spell in their spell book or memorized that this catalog doesn't
+        have, like a caster from a party made for another adventure. The session leaves the id on
+        the character. It refuses a [`PrepareSpells`][osrlib.crawl.commands.PrepareSpells] or a
+        [`CastSpell`][osrlib.crawl.commands.CastSpell] that names the spell, and a `cast`
+        declaration in a battle that names it, with the command's `unknown_spell` code. It refuses
+        a [`LearnSpell`][osrlib.crawl.commands.LearnSpell] while the caster's book has the spell,
+        with `magic.book.unknown_spell`, because the room left in a book depends on the level of
+        each spell in it. A level drain, like a wight's touch, can't tell the level of a memorized
+        copy of the spell either, so the copy takes no slot. The drain doesn't forget it, and it
+        stays in its place in the character's `memorized_spells`.
+
+        Returns:
+            The catalog. For an adventure that bundles no spells, it's the built-in catalog.
+
+        Examples:
+            ```python
+            from osrlib.core.alignment import Alignment
+            from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character
+            from osrlib.core.rng import RngStreams
+            from osrlib.core.ruleset import Ruleset
+            from osrlib.core.spells import SpellTemplate
+            from osrlib.crawl.adventure import Adventure, TownSpec
+            from osrlib.crawl.dungeon import DungeonSpec, LevelSpec
+            from osrlib.crawl.party import Party
+            from osrlib.crawl.session import GameSession
+            from osrlib.data import load_spells
+
+            rules = Ruleset()
+            stream = RngStreams(master_seed=7).get(CHARACTER_CREATION_STREAM)
+            hero = create_character(
+                name="Hild",
+                class_id="fighter",
+                alignment=Alignment.LAWFUL,
+                ruleset=rules,
+                stream=stream,
+            ).character
+            level = LevelSpec(number=1, width=1, height=1, entrance=(0, 0))
+            crypt = DungeonSpec(id="crypt", name="The Old Crypt", levels=(level,))
+
+            # The adventure bundles a spell made from the shield spell's entry.
+            shield = load_spells().get("shield")
+            glimmer = SpellTemplate.model_validate({**shield.model_dump(), "id": "glimmer", "name": "Glimmer"})
+            adventure = Adventure(
+                name="A First Delve",
+                town=TownSpec(name="Threshold"),
+                dungeons=(crypt,),
+                spells=(glimmer,),
+            )
+            session = GameSession.new(Party(members=[hero]), adventure, seed=7)
+
+            print(session.effective_spells.get("glimmer").name, session.effective_spells.get("shield").name)
+            # Glimmer Shield
+            ```
+        """
+        return self._spell_catalog
 
     # ------------------------------------------------------------------ dispatch
 
