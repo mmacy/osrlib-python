@@ -11,11 +11,27 @@ import positions_fixtures as pf
 from osrlib.core.abilities import AbilityScore
 from osrlib.core.alignment import Alignment
 from osrlib.core.character import CHARACTER_CREATION_STREAM, Character, create_character
+from osrlib.core.classes import drain_levels
+from osrlib.core.combat import resolve_energy_drain
+from osrlib.core.events import SpellForgottenEvent
+from osrlib.core.items import MagicItemInstance
+from osrlib.core.monsters import spawn_monster
 from osrlib.core.rng import RngStreams
 from osrlib.core.ruleset import Ruleset
 from osrlib.core.spells import MemorizedSpell, SpellCatalog, SpellTemplate
 from osrlib.crawl.adventure import Adventure, validate_adventure
-from osrlib.crawl.commands import CastSpell, EngageBattle, EnterDungeon, PrepareSpells, Rest, SessionMode, SpawnMonsters
+from osrlib.crawl.commands import (
+    CastSpell,
+    EngageBattle,
+    EnterDungeon,
+    GrantItem,
+    LightSource,
+    PrepareSpells,
+    Rest,
+    SessionMode,
+    SpawnMonsters,
+    UseItem,
+)
 from osrlib.crawl.party import Party
 from osrlib.crawl.session import GameSession
 from osrlib.data import load_classes, load_equipment, load_monsters, load_spells
@@ -186,3 +202,114 @@ def test_create_character_still_refuses_a_spell_no_catalog_has():
             starting_spell_ids=["glimmer"],
         )
     assert stream.export_state() == before
+
+
+# ---------------------------------------------------------------------- a level drain
+
+# A magic-user has a second-level slot at level 3 and none at level 2, so a drain from 3 to 2 forgets the
+# second-level copy. `MIRE` is a second-level spell of the game's own.
+MIRE = custom_spell("web", "mire")
+WITH_MIRE = SpellCatalog(spells=(*load_spells().spells, MIRE))
+
+
+class OneDie:
+    """A stream with one hit die to give. A second draw fails the test."""
+
+    def __init__(self, *values: int):
+        self.values = list(values)
+
+    def randbelow(self, n: int) -> int:
+        return self.values.pop(0) % n
+
+
+def drained_wizard(*memorized: str) -> Character:
+    wren = wizard(*memorized)
+    wren.id = "character-0001"
+    wren.memorized_spells = tuple(MemorizedSpell(spell_id=spell_id) for spell_id in memorized)
+    return wren
+
+
+def copies(character: Character) -> list[str]:
+    return [copy.spell_id for copy in character.memorized_spells]
+
+
+def test_drain_levels_looks_a_memorized_spell_up_in_the_catalog_you_pass():
+    wren = drained_wizard("magic_missile", "mire")
+    result = drain_levels(
+        wren, wren.definition, levels=1, xp_policy="halfway", stream=OneDie(2), spell_catalog=WITH_MIRE
+    )
+    assert wren.level == 2
+    assert copies(wren) == ["magic_missile"]
+    assert [event.spell_id for event in result.events if isinstance(event, SpellForgottenEvent)] == ["mire"]
+
+
+def test_drain_levels_refuses_a_memorized_spell_its_catalog_doesnt_have_before_anything_changes():
+    wren = drained_wizard("magic_missile", "mire")
+    before = wren.model_dump()
+    with pytest.raises(ValueError, match="mire"):
+        drain_levels(wren, wren.definition, levels=1, xp_policy="halfway", stream=OneDie())
+    assert wren.model_dump() == before
+
+
+def test_a_monsters_energy_drain_takes_the_catalog_too():
+    stream = RngStreams(master_seed=9).get("monster_spawn")
+    wight = spawn_monster(load_monsters().get("wight"), id="monster-0001", stream=stream)
+    wren = drained_wizard("magic_missile", "mire")
+    events = resolve_energy_drain(wight, wren, stream=OneDie(2), spell_catalog=WITH_MIRE)
+    assert wren.level == 2
+    assert copies(wren) == ["magic_missile"]
+    assert [event.spell_id for event in events if isinstance(event, SpellForgottenEvent)] == ["mire"]
+
+    unknown = drained_wizard("magic_missile", "mire")
+    before = unknown.model_dump()
+    with pytest.raises(ValueError, match="mire"):
+        resolve_energy_drain(wight, unknown, stream=OneDie())
+    assert unknown.model_dump() == before
+
+
+def touched_by_a_wight(*spells: SpellTemplate, memorized: tuple[str, ...]) -> Character:
+    """Wren, at level 3 with `memorized` prepared, after a wight's first touch in a session's battle."""
+    game = pf.battle((("Wren", "magic_user"),), template_id="wight", count=1, distance=5, adventure=adventure(*spells))
+    wren = game.party.members[0]
+    assert wren.level == 3, "precondition: a level with a second-level slot"
+    wren.memorized_spells = tuple(MemorizedSpell(spell_id=spell_id) for spell_id in memorized)
+    for _ in range(40):
+        events = pf.play(game, pf.declare(wren.id, "hold"))
+        if any(event.code == "combat.drain.drained" for event in events):
+            assert wren.level == 2
+            return wren
+    raise AssertionError("precondition: the wight never hit")
+
+
+def test_a_wights_touch_drains_a_caster_who_memorized_a_bundled_spell():
+    wren = touched_by_a_wight(MIRE, memorized=("magic_missile", "mire"))
+    assert copies(wren) == ["magic_missile"]
+
+
+def test_a_drain_leaves_a_memorized_spell_the_session_doesnt_have():
+    """The session can't tell the level of `mire`, so the copy takes no slot and stays where it was."""
+    wren = touched_by_a_wight(memorized=("mire", "magic_missile", "web", "sleep"))
+    assert copies(wren) == ["mire", "magic_missile", "sleep"]
+
+
+def test_a_cursed_scrolls_drain_reads_the_sessions_catalog():
+    for seed in range(1, 200):
+        party = Party(members=[drained_wizard("magic_missile", "mire")])
+        party.members[0].id = None
+        game = GameSession.new(party, adventure(MIRE), seed=seed)
+        wren = game.party.members[0]
+        scroll = MagicItemInstance(instance_id="magic-item-9001", template_id="cursed_scroll")
+        wren.inventory.items.append(scroll)
+        assert game.execute(GrantItem(character_id=wren.id, item_id="torch", quantity=6)).accepted
+        assert game.execute(GrantItem(character_id=wren.id, item_id="tinder_box")).accepted
+        assert game.execute(EnterDungeon(dungeon_id="crypt")).accepted
+        for _ in range(20):
+            if game.party_light()[0]:
+                break
+            game.execute(LightSource(character_id=wren.id, item_id="torch"))
+        result = game.execute(UseItem(character_id=wren.id, item_id=scroll.instance_id))
+        assert result.accepted, [rejection.code for rejection in result.rejections]
+        if wren.level == 2:
+            assert copies(wren) == ["magic_missile"]
+            return
+    raise AssertionError("precondition: no seed rolled the energy drain curse")
