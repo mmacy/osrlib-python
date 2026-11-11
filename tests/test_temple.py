@@ -23,8 +23,6 @@ from osrlib.crawl.exploration import HEALING_SERVICES
 from osrlib.crawl.session import DeathRecord, GameSession
 from osrlib.persistence import load_game, save_game
 
-pytestmark = pytest.mark.xfail(reason="chunk: temple")
-
 STANDARD = {
     "cure_light_wounds": 25,
     "cure_serious_wounds": 100,
