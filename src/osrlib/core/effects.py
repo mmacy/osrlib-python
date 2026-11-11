@@ -599,7 +599,9 @@ In the list below, the bearer is the creature the modifier is on. What each kind
 - `damage_multiplier` multiplies the bearer's weapon damage, and `melee_damage_multiplier` its melee damage,
   after the flat bonuses are added. A value of 1 or less changes nothing.
 - `weapon_damage_dice_bonus` adds the modifier's `dice` to the bearer's weapon damage.
-- `strength_set` replaces the strength score that the bearer's melee modifier comes from. That's how
+- `strength_set` replaces the strength score that the bearer's melee modifier, chance to force a stuck door,
+  and will in a sentient sword's contest come from, as
+  [`Character.effective_strength`][osrlib.core.character.Character.effective_strength] reports it. That's how
   Gauntlets of Ogre Power give a fixed 18 and a Ring of Weakness a fixed 3.
 - `counts_as_magical` makes the bearer's attacks count as magical, so they can harm a monster that only magic
   can hurt. `missile_immunity_nonmagical` makes the bearer immune to non-magical missiles.
