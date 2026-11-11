@@ -2604,9 +2604,11 @@ class BattleDeclaration(_Model):
       staff, or rod, or throws a splash weapon, like a flask of oil, at `target_group_id`. The
       staves of power, striking, and wizardry strike the group in `target_group_id` for a
       charge, and a strike is a melee attack, so only a member in the group's `front_rank` can
-      strike with one. A use of the staff of power or wizardry with no `target_group_id` is one
-      of their other powers instead, like the cone of cold: it spends a charge, and its
-      `ItemUsedEvent` has the staff's text in `manual` for the referee to rule on. The staff of
+      strike with one. A staff is slow, so the strike comes after both sides' blocks, as an
+      `attack` with the staff does, and it spends the charge then. A use of the staff of power
+      or wizardry with no `target_group_id` is one of their other powers instead, like the cone
+      of cold: it spends a charge, and its `ItemUsedEvent` has the staff's text in `manual` for
+      the referee to rule on. The staff of
       striking has no other power, so the session refuses a use of it with no `target_group_id`,
       and the code is `battle.declaration.unknown_group`. To swing a staff without spending a
       charge, declare an `attack` with it. To give a potion to another member to drink, or to

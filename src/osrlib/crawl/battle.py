@@ -121,7 +121,8 @@ A round follows the OSE SRD's combat sequence:
    see, and its monsters can attack in the same round. A monster's melee attack resolves only when
    the monster stands in the monsters' front rank, and only against a member in the party's front
    rank toward the group who stands within 5' of it.
-6. An attack with a weapon that has the `slow` quality comes last, after both sides have acted.
+6. An attack with a weapon that has the `slow` quality comes last, after both sides have acted. So does a
+   staff's strike for a charge, because a staff is slow.
 
 Every rule is a function in
 [`osrlib.core.combat`][osrlib.core.combat] or [`osrlib.core.spells`][osrlib.core.spells], like
@@ -2723,8 +2724,10 @@ def _validate_declaration(
 
     This runs in the validation pre-phase, where a rejection refuses the whole command. It runs again
     in the magic phase, just before a `cast`, a `turn_undead`, a `use_item` of a magic item, or a
-    `give_item` resolves, because the phases in between can change what these checks read. It reads
-    state and takes no draw, so the second run costs nothing and changes nothing.
+    `give_item` resolves, because the phases in between can change what these checks read. A staff's strike
+    for a charge isn't judged again here, because it resolves after both sides' blocks with a melee attack's
+    checks (see `_party_attacks`). It reads state and takes no draw, so the second run costs nothing and
+    changes nothing.
 
     `_handle_resolve_battle_round` fills in a missing `weapon_id` with `_with_default_weapon` before it
     calls this.
@@ -3030,14 +3033,16 @@ def _validate_magic_item_declaration(
     A potion is drunk by the member whose id is the one id in `targets`, or by the member who carries it when
     `targets` is empty, with the checks of `_drinker`. Wands, staves, and rods target a group and
     resolve in the magic phase alongside casts, because they unleash magical
-    effects and resolving them there keeps the missile and melee ordering clean.
+    effects and resolving them there keeps the missile and melee ordering clean. A staff's strike for a
+    charge is the exception, because it's a blow with a slow weapon (see `_resolve_strike`).
     A staff of healing touches the creature in `targets`, or its user, with the checks of
     `_healing_touch`. A scroll read resolves in the magic phase too, through the declaration's
     spell fields.
 
     Its checks run twice, like a `cast`'s: in the validation pre-phase, and again in the magic phase just
-    before the drink, the read, or the use resolves. A potion's second run is `_drinker`'s. The checks take
-    no draw, so the second run costs nothing.
+    before the drink, the read, or the use resolves. A potion's second run is `_drinker`'s. A strike's second
+    run is the melee step's instead (see `_party_attacks`). The checks take no draw, so the second run costs
+    nothing.
 
     A staff whose effect is of kind `striking`, the staff of power, striking, or wizardry, strikes the group in
     `target_group_id` for a charge. A staff with other powers has the `manual_powers` param, as the staves of
@@ -3049,9 +3054,7 @@ def _validate_magic_item_declaration(
     The staff of striking is "Used as a magical melee weapon", so the strike takes a melee attack's checks of
     `_melee_rejection` against `placement`, after the fled-group check and before the target check. The
     pre-phase passes the projection of the round's declared moves, so a member who
-    steps into a front rank another member leaves can strike. Without `placement`, as in the magic phase,
-    the checks read the battle as it stands, so a member whose place in the front rank didn't open fizzles
-    with `battle.declaration.not_in_front_rank`.
+    steps into a front rank another member leaves can strike.
     """
     from osrlib.crawl import _light, _magic_items
 
@@ -3263,7 +3266,8 @@ def _resolve_magic_item_use(session, member, declaration: BattleDeclaration, sta
 
     A device use spends a charge and emits `items.device.activated`. A use the session leaves to the referee
     (see `_magic_items._left_to_referee`) has the device's `manual` text on that event and resolves nothing else.
-    That's a device with no effect the session resolves, and a staff of power or wizardry used with no group.
+    That's a device with no effect the session resolves, and a staff of power or wizardry used with no group. A
+    staff's charged strike never comes here, because it's a blow with a slow weapon (see `_resolve_strike`).
     """
     from osrlib.crawl import _magic_items
 
@@ -3302,8 +3306,6 @@ def _resolve_magic_item_use(session, member, declaration: BattleDeclaration, sta
         )
         if referee:
             pass  # The session resolves nothing more. The referee runs the power from the manual text.
-        elif effect_spec is not None and effect_spec.kind == "striking":
-            events.extend(_resolve_striking(session, member, instance, declaration))
         elif effect_spec is not None and effect_spec.kind == "healing":
             events.extend(_resolve_device_healing(session, member, instance, template, declaration))
         elif effect_spec is not None and effect_spec.kind in ("damage_area", "condition_area"):
@@ -3392,28 +3394,63 @@ def _resolve_scroll_cast(session, member, instance, template, declaration: Battl
     return events
 
 
-def _resolve_striking(session, member, instance, declaration: BattleDeclaration) -> list[Event]:
-    """A staff's charged strike: a melee attack spending one charge for the effect's damage, 2d6 (RAW).
+def _strike_staff(member, declaration: BattleDeclaration) -> MagicItemInstance | None:
+    """Return the staff a declaration strikes its group with for a charge, or None when it isn't such a strike.
 
-    The staves of power, striking, and wizardry strike this way. The attack roll takes the staff's attack bonus, so
-    the staff of wizardry's +1 applies. The damage is the printed 2d6 alone, with no damage bonus and no Strength.
+    A strike is a `use_item` declaration of a staff whose effect is of kind `striking`, the staff of power,
+    striking, or wizardry, with a group in `target_group_id`. A use of the staff of power or wizardry with no group
+    is one of the staff's other powers, and resolves in the magic phase (see `_magic_items._left_to_referee`).
+    """
+    if declaration.action != "use_item" or declaration.target_group_id is None:
+        return None
+    instance = member.inventory.magic_item(declaration.item_id or "")
+    if instance is None:
+        return None
+    effect = magic_item_template(instance).effect
+    return instance if effect is not None and effect.kind == "striking" else None
+
+
+def _resolve_strike(session, member, declaration: BattleDeclaration) -> list[Event]:
+    """Resolve a staff's charged strike when it comes up: a melee attack that spends one charge for 2d6 (RAW).
+
+    The staves of power, striking, and wizardry strike this way. The SRD's staff of striking is "Used as a magical
+    melee weapon", and a staff is slow, so the strike is a blow with a slow weapon. It comes up where a slow
+    `attack` with the staff would, after both sides' blocks, once the melee step's checks have passed again (see
+    `_party_attacks`).
+
+    The strike is the moment the staff is used. So the identification, the `items.device.activated` event with no
+    `manual` text, and the charge all come here, and the strike ends the member's invisibility, as every attack
+    does. The attack roll takes the staff's attack bonus, so the staff of wizardry's +1 applies. The damage is the
+    printed 2d6 alone, with no damage bonus and no Strength. Like any party melee attack, the strike gets +2
+    against a group that's fleeing, counts as melee with the monster it hits or misses for *protection from evil*,
+    and breaks a protection ward that bars that monster. A member who no longer carries the staff makes no strike,
+    and nothing is spent.
     """
     from osrlib.core.combat import DamageSource, attack_roll, deal_damage
+    from osrlib.crawl import _magic_items
+    from osrlib.crawl.events import ItemUsedEvent
 
+    instance = member.inventory.magic_item(declaration.item_id or "")
     group = _group_by_id(session, declaration.target_group_id)
-    if group is None or group.fled:
+    if instance is None or group is None or group.fled:
         return []
     pool = _monster_pool(session, group)
     if not pool:
         return []
     target = pool[0]
     template = magic_item_template(instance)
+    events = list(_magic_items._identify_item_events(session, member, instance))
+    events.append(
+        ItemUsedEvent(code="items.device.activated", character_id=member.id, instance_id=instance.instance_id)
+    )
     stream = session.streams.get(COMBAT_STREAM)
     context = AttackContext(
-        distance_feet=MELEE_RANGE_FEET, situational_modifier=_gaze_stance_modifier(member, declaration)
+        distance_feet=MELEE_RANGE_FEET,
+        situational_modifier=_gaze_stance_modifier(member, declaration),
+        defender_retreating=group.fleeing,
     )
     rolled = attack_roll(member, target, instance, context=context, ruleset=session.ruleset, stream=stream)
-    events = list(rolled.events)
+    events.extend(rolled.events)
     if rolled.hit and template.effect is not None:
         result = roll(str(template.effect.damage_dice), stream)
         source = DamageSource(keys=("magic",), magical=True, kind="device")
@@ -3429,6 +3466,13 @@ def _resolve_striking(session, member, instance, declaration: BattleDeclaration)
                 stream=stream,
             )
         )
+    # Melee breaks the *protection from evil* ban against the creature fought, and a ward that bars it (RAW).
+    engagements = session.battle.melee_engagements.setdefault(member.id, [])
+    if target.id not in engagements:
+        engagements.append(target.id)
+    events.extend(_break_party_wards(session, target))
+    _magic_items._spend_device_charge(instance, template)
+    events.extend(_break_invisibility(session, member))
     return events
 
 
@@ -3607,7 +3651,12 @@ def _handle_resolve_battle_round(session, command: ResolveBattleRound) -> tuple[
     # Initiative: side blocks, party versus the monster side.
     participants = []
     for member, declaration in by_member.values():
-        weapon = _find_wielded(member, declaration.weapon_id) if declaration.action == "attack" else None
+        # A staff's charged strike is a blow with the staff, so the staff's qualities decide whether it's slow.
+        weapon = (
+            _find_wielded(member, declaration.weapon_id)
+            if declaration.action == "attack"
+            else _strike_staff(member, declaration)
+        )
         facet = _declaration_facet(weapon)
         slow = facet is not None and WeaponQuality.SLOW in getattr(facet, "qualities", ())
         from osrlib.core.combat import participant_modifier
@@ -3633,7 +3682,8 @@ def _handle_resolve_battle_round(session, command: ResolveBattleRound) -> tuple[
     )
     engaged = _engaged_at_acceptance(session, by_member, standing)
     closing = _closing_melee(session, by_member, standing, judgement.projected)
-    # Each slow attack, with whether it's a missile attack. The party's attack steps fill it.
+    # Each slow attack and each staff's charged strike, with whether it's a missile attack. The party's attack
+    # steps fill it.
     slow_attacks: list[tuple[Creature, BattleDeclaration, bool]] = []
 
     def party_block() -> list[Event]:
@@ -3697,15 +3747,26 @@ def _handle_resolve_battle_round(session, command: ResolveBattleRound) -> tuple[
             events.extend(end)
             break
 
-    # Slow-weapon actors act last, after both sides' blocks (see the adaptations register).
+    # Slow-weapon actors act last, after both sides' blocks (see the adaptations register). A member who can't
+    # act by then doesn't, and nothing reports it.
     if session.battle is not None:
         for member, declaration, missile in slow_attacks:
             if incapacitated(member):
                 continue
-            # A slow melee attack faces the melee step's check again, where the member stands now.
+            # A slow melee attack faces the melee step's check again, where the member stands now. So does a
+            # staff's charged strike, the one `use_item` declaration that comes here.
+            strike = declaration.action == "use_item"
             group = _group_by_id(session, declaration.target_group_id)
             fizzled = (
-                None if missile or group is None else _melee_fizzle(session, declaration.character_id, group, engaged)
+                None
+                if missile or group is None
+                else _melee_fizzle(
+                    session,
+                    declaration.character_id,
+                    group,
+                    engaged,
+                    device_id=declaration.item_id if strike else None,
+                )
             )
             if fizzled is not None:
                 events.append(fizzled)
@@ -3752,16 +3813,17 @@ def _retreating_members(session, declarations: Sequence[BattleDeclaration], form
 
 
 def _engaged_at_acceptance(session, by_member, placement: _Placement) -> frozenset[str]:
-    """The members whose `attack` aims at a group within 5' of them when the round is accepted.
+    """The members whose `attack` or staff's strike aims at a group within 5' of them when the round is accepted.
 
     `placement` is the battle as it stands at acceptance, before any of the round's moves.
 
     The melee step lets such a member strike a group that runs, wherever it has run since, because the
-    SRD gives the attack against a retreating combatant to the opponent it was fighting.
+    SRD gives the attack against a retreating combatant to the opponent it was fighting. A staff's strike is a
+    melee attack with the staff, so it counts the same way.
     """
     engaged = []
     for member, declaration in by_member.values():
-        if declaration.action != "attack":
+        if declaration.action != "attack" and _strike_staff(member, declaration) is None:
             continue
         group = _group_by_id(session, declaration.target_group_id)
         if group is not None and placement.distance(member.id, group) <= MELEE_RANGE_FEET:
@@ -4000,14 +4062,20 @@ def _party_attacks(
     At the end of the round, a slow melee attack faces the same checks again where the member then stands.
     An attack is slow when the weapon underneath it is, so a magic staff or an enchanted battle axe is as slow as
     the mundane one, as it is for initiative.
+
+    A staff's charged strike (see `_strike_staff`) is a melee attack with the staff, so the melee step takes it
+    with the same checks. It fizzles as a device use does, at `magic.device.fizzled` with the staff's instance id,
+    so the player learns that the staff keeps its charge. Every staff is slow, so a strike that passes goes into
+    `slow_attacks`, and `_resolve_strike` resolves it at the end of the round.
     """
     events: list[Event] = []
     for member, declaration in by_member.values():
-        if declaration.action != "attack" and not (declaration.action == "use_item" and missile):
+        staff = _strike_staff(member, declaration)
+        if declaration.action != "attack" and staff is None and not (declaration.action == "use_item" and missile):
             continue
         if incapacitated(member) or has_condition(member, Condition.CONFUSED):
             continue
-        if declaration.action == "use_item":
+        if declaration.action == "use_item" and staff is None:
             if member.inventory.magic_item(declaration.item_id or "") is not None:
                 continue  # magic items resolve in the magic phase (see the adaptations register)
             events.extend(_resolve_use_item(session, member, declaration, fire_damaged))
@@ -4015,13 +4083,17 @@ def _party_attacks(
         group = _group_by_id(session, declaration.target_group_id)
         if group is None:
             continue
-        weapon = _find_wielded(member, declaration.weapon_id)
+        weapon = staff or _find_wielded(member, declaration.weapon_id)
         is_missile = member.id not in closing and _is_missile_declaration(
             weapon, _member_distance(session, member.id, group)
         )
         if is_missile != missile:
             continue
-        fizzled = None if is_missile else _melee_fizzle(session, member.id, group, engaged)
+        fizzled = (
+            None
+            if is_missile
+            else _melee_fizzle(session, member.id, group, engaged, device_id=declaration.item_id if staff else None)
+        )
         if fizzled is not None:
             events.append(fizzled)
             continue
@@ -4032,11 +4104,15 @@ def _party_attacks(
     return events
 
 
-def _melee_fizzle(session, member_id: str, group, engaged: Collection[str]) -> DeclarationFizzledEvent | None:
+def _melee_fizzle(
+    session, member_id: str, group, engaged: Collection[str], *, device_id: str | None = None
+) -> DeclarationFizzledEvent | None:
     """Return the fizzle of a declared melee attack that can't resolve where the member stands now, or None.
 
     The fizzle is a player-visible `DeclarationFizzledEvent` at `battle.melee.fizzled`, with the group's id
-    and a reason. The checks come in the order the pre-phase makes them:
+    and a reason. With `device_id`, the attack is a staff's charged strike, and the fizzle is a device use's,
+    at `magic.device.fizzled` with `device_id` as its `item_id` and the same reason. The checks come in the order
+    the pre-phase makes them:
 
     - `battle.declaration.no_target` when the group has no living, visible monster left in its reachable
       rank, the same test the pre-phase refuses an attack with. The member gets it wherever they stand.
@@ -4060,10 +4136,21 @@ def _melee_fizzle(session, member_id: str, group, engaged: Collection[str]) -> D
         if stopped is None:
             return None
         reason = stopped.code
+    if device_id is not None:
+        return DeclarationFizzledEvent(
+            code="magic.device.fizzled", actor_id=member_id, item_id=device_id, reason=reason
+        )
     return DeclarationFizzledEvent(code="battle.melee.fizzled", actor_id=member_id, reason=reason, group_id=group.id)
 
 
 def _resolve_party_attack(session, member, declaration, fired, fire_damaged) -> list[Event]:
+    """Resolve a party member's attack when it comes up, once the step's checks have passed.
+
+    That's an `attack` declaration, or a `use_item` declaration that strikes with a staff for a charge, which
+    `_resolve_strike` resolves.
+    """
+    if declaration.action == "use_item":
+        return _resolve_strike(session, member, declaration)
     state = session.battle
     group = _group_by_id(session, declaration.target_group_id)
     if group is None or group.fled:
@@ -4362,6 +4449,9 @@ def _party_magic(session, by_member, pending_casters, disrupted, acted, state) -
     A turning reaches only `_turning_candidates`, so a dead monster, or one in a fled group, never
     appears in the event's `types`. When the phases before it leave no candidate, the turning fizzles
     with `battle.declaration.no_target`.
+
+    A staff's strike for a charge doesn't resolve here, because it's a blow with a slow weapon (see
+    `_resolve_strike`).
     """
     events: list[Event] = []
     for member, declaration in by_member.values():
@@ -4376,6 +4466,8 @@ def _party_magic(session, by_member, pending_casters, disrupted, acted, state) -
         if declaration.action == "use_item":
             if member.inventory.magic_item(declaration.item_id or "") is None:
                 continue  # thrown splash gear resolved in the missile phase
+            if _strike_staff(member, declaration) is not None:
+                continue  # a staff's charged strike is a blow with a slow weapon (see `_resolve_strike`)
             instance = member.inventory.magic_item(declaration.item_id)
             category = magic_item_template(instance).category
             if category in (MagicItemCategory.ROD, MagicItemCategory.STAFF, MagicItemCategory.WAND):

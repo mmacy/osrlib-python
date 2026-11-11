@@ -431,10 +431,10 @@ def staff_battle(seed: int, *, identified: bool = False, invisible: bool = False
     """Goblins at melee range that are already fleeing, and a cleric with a staff of striking aimed at them.
 
     The cleric leads the marching order, so they stand in the front rank, because the staff is "Used as a magical
-    melee weapon" and only the front rank can melee. The declaration passes at the top of the round. When the
-    monsters win initiative, the group runs 60 feet before the party's magic phase, out of the staff's melee reach.
-    When the party wins, the staff resolves at 5 feet. The group is still inside 120 feet either way, so it hasn't
-    fled and the battle goes on.
+    melee weapon" and only the front rank can melee. The declaration passes at the top of the round. The staff is
+    slow, so its strike comes after the group runs 60 feet, whichever side wins initiative. The cleric stood within
+    5 feet of the group when the round was accepted, so the strike still reaches it, as a slow swing would. The
+    group is still inside 120 feet, so it hasn't fled and the battle goes on.
     """
     session = GameSession.new(build_party(), build_adventure(wandering_chance=0), seed=seed)
     _light_and_enter(session)
@@ -546,56 +546,50 @@ class TestADeviceUseIsJudgedAgainInTheMagicPhase:
     """A wand, staff, or rod declaration is judged again just before it resolves. One that now fails fizzles
     with `magic.device.fizzled`, keeps its charge, and costs what a `hold` costs."""
 
-    def test_a_staff_of_striking_whose_group_ran_out_of_reach_fizzles(self):
-        fizzled_seeds, resolved_seeds = [], []
+    def test_a_staff_of_striking_whose_group_ran_still_strikes_it(self):
+        """The strike is a blow with a slow weapon, so it isn't judged again in the magic phase. It comes after the
+        group runs, whoever wins initiative, and reaches it as a slow swing of the same staff does."""
+        orders = set()
         for seed in SCAN_SEEDS:
             session, group, staff = staff_battle(seed)
             result = session.execute(
                 ResolveBattleRound(declarations=declarations(session, use_staff(session, group, staff)))
             )
             assert result.accepted, [rejection.code for rejection in result.rejections]
-            if monsters_first(result, group.id):
-                assert group.distance_feet > MELEE_RANGE_FEET and not group.fled, "the group ran but stayed"
-                found = fizzles(result.events, CLERIC, "magic.device.fizzled")
-                assert len(found) == 1, [event.code for event in result.events]
-                assert_device_fizzle(
-                    found[0],
-                    actor_id=CLERIC,
-                    instance_id=staff.instance_id,
-                    template_id="staff_of_striking",
-                    reason="combat.attack.out_of_reach",
-                )
-                assert not activations(result.events, staff.instance_id)
-                assert not attack_names(result.events, CLERIC)
-                assert staff.charges_remaining == 5
-                assert staff.identified is False
-                fizzled_seeds.append(seed)
-            else:
-                assert not fizzles(result.events, CLERIC, "magic.device.fizzled")
-                assert activations(result.events, staff.instance_id)
-                assert attack_names(result.events, CLERIC)
-                assert staff.charges_remaining == 4
-                resolved_seeds.append(seed)
-        assert fizzled_seeds, "no seed let the monsters act first"
-        assert resolved_seeds, "no seed let the party act first"
+            assert group.distance_feet > MELEE_RANGE_FEET and not group.fled, "the group ran but stayed"
+            codes = [event.code for event in result.events]
+            assert not fizzles(result.events, CLERIC, "magic.device.fizzled")
+            assert codes.index("battle.group.moved") < codes.index("items.device.activated"), codes
+            assert attack_names(result.events, CLERIC)
+            assert staff.charges_remaining == 4
+            assert staff.identified is True
+            orders.add(monsters_first(result, group.id))
+        assert orders == {True, False}, "the scan didn't meet both initiative outcomes"
 
     def test_a_fizzled_device_use_costs_what_a_hold_costs(self):
-        seed = first_seed_where_monsters_act_first(lambda seed: self._staff_round(seed, use=True)[1:3])
-        used_session, used_result, _, staff = self._staff_round(seed, use=True)
-        held_session, held_result, _, held_staff = self._staff_round(seed, use=False)
-        assert len(fizzles(used_result.events, CLERIC, "magic.device.fizzled")) == 1
+        seed = first_seed_where_monsters_act_first(lambda seed: self._wand_round(seed, use=True)[1:3])
+        used_session, used_result, _, wand = self._wand_round(seed, use=True)
+        held_session, held_result, _, held_wand = self._wand_round(seed, use=False)
+        assert len(fizzles(used_result.events, MAGIC_USER, "magic.device.fizzled")) == 1
         assert outcome(used_session, used_result, drop=is_fizzle) == outcome(held_session, held_result)
-        assert staff.model_dump(mode="json") == held_staff.model_dump(mode="json")
-        assert has_condition(used_session.member(CLERIC), Condition.INVISIBLE), "the unused staff broke invisibility"
+        assert wand.model_dump(mode="json") == held_wand.model_dump(mode="json")
+        assert has_condition(used_session.member(MAGIC_USER), Condition.INVISIBLE), "the unused wand broke invisibility"
 
     @staticmethod
-    def _staff_round(seed: int, *, use: bool):
-        session, group, staff = staff_battle(seed, invisible=True)
-        assert has_condition(session.member(CLERIC), Condition.INVISIBLE)
-        extra = (use_staff(session, group, staff),) if use else ()
+    def _wand_round(seed: int, *, use: bool):
+        session, fleeing, wand, declaration = wand_battle(seed)
+        session.ledger.attach(
+            EffectDefinition(kind="invisibility", condition=Condition.INVISIBLE),
+            MAGIC_USER,
+            clock=session.clock,
+            allocator=session.allocator,
+            registry=session.registry(),
+        )
+        assert has_condition(session.member(MAGIC_USER), Condition.INVISIBLE)
+        extra = (declaration,) if use else ()
         result = session.execute(ResolveBattleRound(declarations=declarations(session, *extra)))
         assert result.accepted, [rejection.code for rejection in result.rejections]
-        return session, result, group, staff
+        return session, result, fleeing, wand
 
     def test_an_area_wand_aimed_at_a_group_that_left_the_battle_fizzles(self):
         fizzled_seeds, resolved_seeds = [], []
@@ -629,16 +623,14 @@ class TestADeviceUseIsJudgedAgainInTheMagicPhase:
 
     def test_a_fizzled_device_round_replays_identically(self):
         def play(seed):
-            session, group, staff = staff_battle(seed)
-            result = session.execute(
-                ResolveBattleRound(declarations=declarations(session, use_staff(session, group, staff)))
-            )
-            return session, result, group
+            session, fleeing, _, declaration = wand_battle(seed)
+            result = session.execute(ResolveBattleRound(declarations=declarations(session, declaration)))
+            return session, result, fleeing
 
         seed = first_seed_where_monsters_act_first(lambda seed: play(seed)[1:])
         first_session, first_result, _ = play(seed)
         second_session, second_result, _ = play(seed)
-        assert len(fizzles(first_result.events, CLERIC, "magic.device.fizzled")) == 1
+        assert len(fizzles(first_result.events, MAGIC_USER, "magic.device.fizzled")) == 1
         assert outcome(first_session, first_result) == outcome(second_session, second_result)
 
 
@@ -727,6 +719,7 @@ class TestATurningIsJudgedAgainInTheMagicPhase:
 STAFF_SEED_0_CODES = [
     "battle.round.started",
     "combat.initiative.rolled",
+    "battle.group.moved",
     "items.item.identified",
     "items.device.activated",
     "combat.attack.hit",
@@ -735,12 +728,17 @@ STAFF_SEED_0_CODES = [
     "effects.condition.gained",
     "combat.death.died",
     "combat.state.hit_points",
-    "battle.group.moved",
 ]
-"""The staff round under seed 0, captured before the chunk: the party acts first and the staff strikes at 5 feet."""
+"""The staff round under seed 0: the party acts first, and the slow strike comes after the fleeing group runs.
 
-STAFF_SEED_0_ROLL = (16, 16, 13)
-"""The cleric's attack roll under seed 0 as `(roll, total, required)`, captured before the chunk."""
+Captured before the chunk, and re-captured when the strike became a blow with a slow weapon, which moved it after
+the group's move."""
+
+STAFF_SEED_0_ROLL = (16, 18, 13)
+"""The cleric's attack roll under seed 0 as `(roll, total, required)`.
+
+Captured before the chunk, and re-captured when the strike took a melee attack's +2 against a fleeing group. The
+roll itself is the same draw."""
 
 STAFF_SEED_0_DAMAGE = (5, (1, 4))
 """The staff's 2d6 under seed 0 as `(amount, rolls)`, captured before the chunk."""
