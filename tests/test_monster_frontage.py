@@ -13,12 +13,11 @@ The monsters here are skeletons, which never check morale, so every one of them 
 import pytest
 
 import positions_fixtures as pf
-from osrlib.core.effects import Condition, EffectDefinition, grant_condition, has_condition, kill
+from osrlib.core.clock import TimeUnit
+from osrlib.core.effects import Condition, EffectDefinition, ModifierSpec, grant_condition, has_condition, kill
 from osrlib.core.events import Visibility
 from osrlib.core.ruleset import Ruleset
 from osrlib.crawl.battle import MonsterAction, NpcPartyPolicy, ScriptedPolicy
-
-pytestmark = pytest.mark.xfail(reason="chunk: monster-frontage")
 
 HORDE = 6
 
@@ -66,7 +65,18 @@ def test_a_monster_that_cant_act_keeps_its_place():
     first, second = monsters(game)[:2]
     grant_condition(game.combatant(first), Condition.PARALYSED, None)
     assert attackers(game, pf.play(game)) == [second]
-    grant_condition(game.combatant(second), Condition.ASLEEP, None)
+    grant_condition(game.combatant(second), Condition.PARALYSED, None)
+    assert attackers(game, pf.play(game)) == []
+
+
+def test_sleeping_monsters_in_front_block_the_ones_behind():
+    """Goblins this time, because a skeleton can't be put to sleep."""
+    game = pf.battle(template_id="goblin", count=HORDE, distance=5, adventure=pf.corridor())
+    pf.hold_monsters(game)
+    for goblin in monsters(game)[:2]:
+        grant_condition(game.combatant(goblin), Condition.ASLEEP, None)
+        assert has_condition(game.combatant(goblin), Condition.ASLEEP)
+    pf.release_monsters(game)
     assert attackers(game, pf.play(game)) == []
 
 
@@ -204,3 +214,57 @@ def test_a_member_who_runs_ahead_alone_faces_only_the_monsters_that_fit():
     rolls = pf.monster_attacks(game, events)
     assert {roll.defender_id for roll in rolls} == {nim}
     assert attackers(game, events) == monsters(game)[:2]
+
+
+# ---------------------------------------------------------------------- wards and a policy of a game's own
+
+UNDEAD_WARD = EffectDefinition(
+    kind="protection_ward",
+    duration_unit=TimeUnit.TURN,
+    duration_amount=6,
+    params={"party_wide": True, "bars_categories": ("undead",), "targets": "undead", "all_affected": True},
+)
+"""A scroll of protection from undead, which bars every undead monster from melee with the party."""
+
+PROTECTION_FROM_EVIL = EffectDefinition(
+    kind="protection_from_evil",
+    modifiers=(
+        ModifierSpec(kind="save_bonus", value=1, versus_other_alignment=True),
+        ModifierSpec(kind="attack_penalty_of_attackers", value=-1, versus_other_alignment=True),
+    ),
+    params={"bars_melee_from": ("enchanted", "constructed", "summoned")},
+)
+"""*Protection from evil* on one member, whom enchanted monsters can't attack in melee."""
+
+
+class StrikeFirstMember:
+    """A policy of a game's own: every monster swings at one member, whatever protects them."""
+
+    def __init__(self, target_id: str) -> None:
+        self.target_id = target_id
+
+    def choose(self, session, group, stream):
+        return [
+            MonsterAction(monster_id=monster, kind="melee", target_id=self.target_id) for monster in group.monster_ids
+        ]
+
+
+@pytest.mark.parametrize(
+    ("template_id", "protection"),
+    [("skeleton", UNDEAD_WARD), ("gargoyle", PROTECTION_FROM_EVIL)],
+    ids=["a scroll's ward against the undead", "protection from evil against an enchanted monster"],
+)
+def test_a_policy_of_your_own_cant_strike_through_a_protection(template_id, protection):
+    game = pf.battle(template_id=template_id, count=2, distance=5, adventure=pf.corridor())
+    hild = pf.named(game, "Hild")
+    pf.attach(game, protection, hild)
+    game.action_policies[pf.group_id(game)] = StrikeFirstMember(hild)
+    events = pf.play(game)
+    assert [roll.attacker_id for roll in pf.monster_attacks(game, events) if roll.defender_id == hild] == []
+
+
+@pytest.mark.parametrize("protection", [UNDEAD_WARD, PROTECTION_FROM_EVIL], ids=["a ward", "protection from evil"])
+def test_npc_adventurers_fight_a_protected_party_without_stopping_the_round(protection):
+    game = pf.battle(npc_party=True, distance=5, adventure=pf.corridor())
+    pf.attach(game, protection, pf.named(game, "Hild"))
+    assert pf.round_(game).accepted
