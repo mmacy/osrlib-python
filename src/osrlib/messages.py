@@ -412,9 +412,13 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
         + f": {event.coins_gp_value} gp in coin, {len(event.valuable_ids)} valuable(s), "
         + f"{len(event.magic_item_ids)} magic item(s)."
     ),
-    "items.potion.drunk": lambda event: f"{event.character_id} drinks {event.instance_id}.",
+    "items.potion.drunk": lambda event: (
+        f"{event.character_id} gives {event.target_id} {event.instance_id} to drink."
+        if event.target_id
+        else f"{event.character_id} drinks {event.instance_id}."
+    ),
     "items.potion.mixed": lambda event: (
-        f"{event.character_id} mixes potions — both effects cancel and sickness takes hold!"
+        f"{event.target_id or event.character_id} mixes potions — both effects cancel and sickness takes hold!"
     ),
     "items.scroll.read": lambda event: f"{event.character_id} reads {event.instance_id} — the words disappear.",
     "items.scroll.cursed": lambda event: f"{event.character_id} looks upon {event.instance_id} — a curse takes hold!",

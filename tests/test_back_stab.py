@@ -426,7 +426,7 @@ class TestAnAcceptedBackStab:
 class TestTheRefusals:
     """Each back-stab code, in its place in the order, refusing the round before it costs anything."""
 
-    @pytest.mark.parametrize("action", ["hold", "cast", "turn_undead", "use_item", "move"])
+    @pytest.mark.parametrize("action", ["hold", "cast", "turn_undead", "use_item", "give_item", "move"])
     def test_a_back_stab_on_any_other_action_is_refused_before_the_actions_own_checks(self, action):
         game = _battle()
         sable = _sable(game)
@@ -435,6 +435,7 @@ class TestTheRefusals:
             "cast": {"spell_id": "sleep", "spell_mode": "hd_budget", "target_group_id": _group_id(game)},
             "turn_undead": {},
             "use_item": {"item_id": "flask_of_oil", "target_group_id": _group_id(game)},
+            "give_item": {"item_id": "flask_of_oil", "targets": (_brakk(game),)},
             "move": {"move": "close", "target_group_id": _group_id(game)},
         }[action]
 

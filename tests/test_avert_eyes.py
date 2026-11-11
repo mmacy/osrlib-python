@@ -251,7 +251,7 @@ class TestTheField:
 
     @pytest.mark.parametrize("stance", ["avert_eyes", "mirror"])
     def test_it_takes_either_stance_with_any_action(self, stance):
-        for action in ("attack", "cast", "turn_undead", "move", "use_item", "hold"):
+        for action in ("attack", "cast", "turn_undead", "move", "use_item", "give_item", "hold"):
             assert _declare("character-0001", action, stance).gaze_defense == stance
 
     def test_it_refuses_anything_else_when_the_declaration_is_built(self):
@@ -326,7 +326,7 @@ class TestAStanceSparesTheGaze:
         assert _gaze_saves(exposed, brakk.id) == 1, "precondition: the gaze ran in the next round"
         assert _gaze_saves(exposed, hild.id) == 1, "with no stance declared, the member meets the gaze again"
 
-    @pytest.mark.parametrize("action", ["attack", "cast", "use_item", "turn_undead", "hold", "move"])
+    @pytest.mark.parametrize("action", ["attack", "cast", "use_item", "give_item", "turn_undead", "hold", "move"])
     def test_the_stance_goes_with_every_action(self, action):
         hild = _character("Hild", "cleric", memorized_spells=(MemorizedSpell(spell_id="cure_light_wounds"),))
         for seed in SEEDS:
@@ -338,6 +338,10 @@ class TestAStanceSparesTheGaze:
                 "attack": {"target_group_id": _group_id(game)},
                 "cast": {"spell_id": "cure_light_wounds", "spell_mode": "heal", "targets": (hild_id,)},
                 "use_item": {"item_id": game.party.members[0].inventory.carried_item("potion_of_healing").instance_id},
+                "give_item": {
+                    "item_id": game.party.members[0].inventory.carried_item("potion_of_healing").instance_id,
+                    "targets": (brakk_id,),
+                },
                 "turn_undead": {},
                 "hold": {},
                 "move": {"move": "fighting_withdrawal"},

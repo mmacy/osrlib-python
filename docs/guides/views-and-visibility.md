@@ -45,7 +45,7 @@ The view also reports what the table knows about the current round, in three fie
 
 In a battle, each member stands at a separate place on the range track, the measure of distance a battle uses, so the view reports where everyone stands:
 
-- [`EncounterView.advance_feet`][osrlib.crawl.views.EncounterView.advance_feet] gives each member's place, in feet forward of the party line, where the party stood when the encounter opened.
+- [`EncounterView.advance_feet`][osrlib.crawl.views.EncounterView.advance_feet] gives each member's place, in feet forward of the party line, where the party stood when the encounter opened. Two members reach each other when their places differ by 5' or less. A member has to reach another to hand them an item, to give them a potion to drink, or to touch them with a staff of healing or a touch spell like *cure light wounds*.
 - Each group's [`member_distance_feet`][osrlib.crawl.views.EncounterGroupView.member_distance_feet] gives every member's distance to that group.
 - Each group's [`front_rank`][osrlib.crawl.views.EncounterGroupView.front_rank] lists the members who can attack that group in melee this round without moving. They're also the only members the group's melee reaches. To decide who can attack a group hand to hand, read this field, not `EncounterView.front_rank`, which is the first row toward the nearest group, however far away it stands.
 - [`EncounterView.formation_width`][osrlib.crawl.views.EncounterView.formation_width] gives how many members can fight side by side, so you can show how many places are left in a group's front rank.

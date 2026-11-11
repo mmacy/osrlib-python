@@ -1,14 +1,15 @@
-"""`UseItem` and a potion's `target_id` (issue #174).
+"""`UseItem` and a potion's `target_id` (issues #174 and #224).
 
-A potion is drunk by whoever carries it, so a `target_id` that names someone else can't be honoured.
-The session refuses it with `items.use.target_not_allowed` instead of accepting the command and letting
-the carrier drink. A refused command follows the command contract: no draw, no clock time, no state change,
-no log entry. A `target_id` that is the user, or `None`, still works as before, and a device that takes a
-target (the staff of healing) still takes another member.
+A potion's `target_id` is the id of the party member who drinks it, and the carrier gives it to them. A
+`target_id` that matches nobody in the party can't be honoured, so the session refuses it with
+`items.use.target_not_allowed` instead of accepting the command and letting the carrier drink. A refused
+command follows the command contract: no draw, no clock time, no state change, no log entry. A `target_id`
+that is the user, or `None`, still has the carrier drink, and a device that takes a target (the staff of
+healing) still takes another member.
 
 `UseItem` is legal only while exploring and during an encounter. In town and in battle the session refuses
 it for its mode, whatever `target_id` says. In battle a potion is drunk through a `use_item`
-`BattleDeclaration`, which has no member-target field, so nothing there can name another drinker.
+`BattleDeclaration`, whose `targets` can give another drinker (see `test_member_reach.py`).
 """
 
 import copy
@@ -89,7 +90,7 @@ def town_session(template_id: str = "potion_of_healing") -> GameSession:
 
 def drunk_by(result) -> list[str]:
     """The ids of the members who drank a potion in `result`, in event order."""
-    return [event.character_id for event in result.events if event.code == "items.potion.drunk"]
+    return [event.target_id or event.character_id for event in result.events if event.code == "items.potion.drunk"]
 
 
 def carries(session: GameSession, member_id: str) -> bool:
@@ -102,32 +103,47 @@ MODE_BUILDERS = [
 ]
 
 
-class TestAPotionRefusesAnotherTarget:
-    """A potion used on someone other than the user is refused, and the refusal costs nothing."""
+class TestAPotionGoesToAnotherMember:
+    """A potion used on another party member is theirs to drink, and the carrier gives it to them."""
 
     @pytest.mark.parametrize("build", MODE_BUILDERS)
-    def test_another_member_is_refused(self, build):
+    def test_another_member_drinks_it(self, build):
         session = build()
+        carrier = session.member(CARRIER_ID)
+        other = session.member(OTHER_ID)
+        carrier.current_hp = 1
+        other.current_hp = 1
         result = session.execute(UseItem(character_id=CARRIER_ID, item_id=POTION_ID, target_id=OTHER_ID))
-        assert not result.accepted
-        assert [rejection.code for rejection in result.rejections] == [NOT_ALLOWED]
-        assert result.events == ()
-        assert drunk_by(result) == []
+        assert result.accepted, [rejection.code for rejection in result.rejections]
+        assert drunk_by(result) == [OTHER_ID]
+        assert not carries(session, CARRIER_ID)
+        assert not carries(session, OTHER_ID)
+        assert other.current_hp > 1
+        assert carrier.current_hp == 1
+
+    def test_the_comparison_is_to_the_user_not_to_the_first_member(self):
+        # The carrier here is not the first member, so a fix that compares `target_id` to the first
+        # member, or to the party leader, instead of to the user, has the wrong member drink.
+        session = exploring_session(carrier_id=CLERIC_ID)
+        first = session.member(CARRIER_ID)
+        first.current_hp = 1
+        result = session.execute(UseItem(character_id=CLERIC_ID, item_id=POTION_ID, target_id=CARRIER_ID))
+        assert result.accepted, [rejection.code for rejection in result.rejections]
+        assert drunk_by(result) == [CARRIER_ID]
+        assert first.current_hp > 1
+
+
+class TestAPotionRefusesATargetOutsideTheParty:
+    """A potion used on an id that matches no party member is refused, and the refusal costs nothing."""
 
     @pytest.mark.parametrize("build", MODE_BUILDERS)
-    def test_an_id_that_matches_nobody_is_refused_the_same_way(self, build):
+    def test_an_id_that_matches_nobody_is_refused(self, build):
         session = build()
         result = session.execute(UseItem(character_id=CARRIER_ID, item_id=POTION_ID, target_id="bogus"))
         assert not result.accepted
         assert [rejection.code for rejection in result.rejections] == [NOT_ALLOWED]
-
-    def test_the_comparison_is_to_the_user_not_to_the_first_member(self):
-        # The carrier here is not the first member, so a fix that compares `target_id` to the first
-        # member, or to the party leader, instead of to the user, still fails.
-        session = exploring_session(carrier_id=CLERIC_ID)
-        result = session.execute(UseItem(character_id=CLERIC_ID, item_id=POTION_ID, target_id=CARRIER_ID))
-        assert not result.accepted
-        assert [rejection.code for rejection in result.rejections] == [NOT_ALLOWED]
+        assert result.events == ()
+        assert drunk_by(result) == []
 
     @pytest.mark.parametrize("build", MODE_BUILDERS)
     def test_a_refused_use_costs_no_draw_no_time_and_no_state(self, build):
@@ -135,7 +151,7 @@ class TestAPotionRefusesAnotherTarget:
         before = copy.deepcopy(session_state(session))
         rounds = session.clock.rounds
         logged = len(session.command_log)
-        result = session.execute(UseItem(character_id=CARRIER_ID, item_id=POTION_ID, target_id=OTHER_ID))
+        result = session.execute(UseItem(character_id=CARRIER_ID, item_id=POTION_ID, target_id="bogus"))
         assert not result.accepted
         assert result.rejections[0].code == NOT_ALLOWED
         # The whole saved state is unchanged: RNG streams, clock, ledger, inventories, and both logs.
@@ -150,7 +166,7 @@ class TestAPotionRefusesAnotherTarget:
         session = exploring_session()
         carrier = session.member(CARRIER_ID)
         carrier.current_hp = 1
-        refused = session.execute(UseItem(character_id=CARRIER_ID, item_id=POTION_ID, target_id=OTHER_ID))
+        refused = session.execute(UseItem(character_id=CARRIER_ID, item_id=POTION_ID, target_id="bogus"))
         assert not refused.accepted
         accepted = session.execute(UseItem(character_id=CARRIER_ID, item_id=POTION_ID))
         assert accepted.accepted

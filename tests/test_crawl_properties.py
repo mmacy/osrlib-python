@@ -237,13 +237,14 @@ def command_strategy(*, include_pending: bool = False):
             declaration = st.builds(
                 BattleDeclaration,
                 character_id=st.sampled_from(CHARACTER_IDS),
-                action=st.sampled_from(["attack", "cast", "turn_undead", "move", "use_item", "hold"]),
+                action=st.sampled_from(["attack", "cast", "turn_undead", "move", "use_item", "give_item", "hold"]),
                 target_group_id=st.sampled_from([None, "group-0001", "group-9999"]),
                 weapon_id=st.sampled_from([None, "sword", "crossbow"]),
                 spell_id=st.sampled_from([None, "sleep", "fire_ball"]),
                 spell_mode=st.sampled_from([None, "hd_budget", "damage"]),
                 move=st.sampled_from([None, "close", "fighting_withdrawal", "retreat"]),
                 item_id=st.sampled_from([None, "holy_water"]),
+                targets=st.sampled_from([(), ("character-0002",), ("character-9999",)]),
                 back_stab=st.booleans(),
             )
             samples.append(st.builds(command_class, declarations=st.tuples(declaration)))

@@ -12,7 +12,7 @@ Each round is one [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRoun
 one [`BattleDeclaration`][osrlib.crawl.commands.BattleDeclaration] for each living party member who
 can act. A declaration's
 [`action`][osrlib.crawl.commands.BattleDeclaration.action] is `attack`, `cast`, `turn_undead`,
-`move`, `use_item`, or `hold`.
+`move`, `use_item`, `give_item`, or `hold`.
 
 The battle reference uses these terms:
 
@@ -134,7 +134,10 @@ monsters off the members behind them. To check a round's declarations before you
 [`preview_battle_round`][osrlib.crawl.battle.preview_battle_round]. To draw the battle and offer
 each member their choices, read the player view's
 [`EncounterView`][osrlib.crawl.views.EncounterView]: each member's advance, each group's distance
-from each member, who can reach each group in melee, and which groups each member can see.
+from each member, who can reach each group in melee, and which groups each member can see. Two
+members reach each other when their advances differ by 5' or less. A member has to reach another to
+hand them an item, to give them a potion to drink, or to touch them with a staff of healing or a
+touch spell.
 
 During a round, the session also applies these rules without a command for them:
 
@@ -332,6 +335,7 @@ from osrlib.core.events import (
     SpellDisruptedEvent,
 )
 from osrlib.core.items import (
+    Coins,
     GearTemplate,
     ItemInstance,
     MagicItemCategory,
@@ -1537,6 +1541,28 @@ class _Placement(NamedTuple):
         """
         return abs(group.distance_feet + self.group_offset_feet - self.advance_feet.get(member_id, 0))
 
+    def between(self, member_id: str, other_id: str) -> int:
+        """How far apart two members stand, in feet: the difference between their advances.
+
+        A move of the party line changes every advance by the same amount, so it never changes this distance.
+        """
+        return abs(self.advance_feet.get(member_id, 0) - self.advance_feet.get(other_id, 0))
+
+
+def _reach_rejection(placement: _Placement, member_id: str, other_id: str) -> Rejection | None:
+    """Return why one member can't reach another where `placement` puts them, or None when they can.
+
+    Two members reach each other when they stand within 5' of each other on the range track, the distance at which
+    a member and a group can fight in melee. A member always reaches themselves. Outside a battle every member
+    stands on the party line, so any member reaches any other. A potion given to another member, a hand-over, and a
+    staff of healing's touch on another member take this check. A member out of reach gets
+    `battle.declaration.member_out_of_reach`, with the acting member's id as `character` and the other member's id
+    as `target`. The call reads state and takes no draw.
+    """
+    if placement.between(member_id, other_id) <= MELEE_RANGE_FEET:
+        return None
+    return Rejection(code="battle.declaration.member_out_of_reach", params={"character": member_id, "target": other_id})
+
 
 def _placement(session) -> _Placement:
     """Read where the party stands now. The call reads state and takes no draw.
@@ -2083,6 +2109,12 @@ def preview_battle_round(session, declarations: Sequence[BattleDeclaration]) -> 
     attack. When the plan is complete, send it in a
     [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound].
 
+    A declaration that acts on another member is judged where the two would stand too. That's a
+    potion given to another member to drink, a `give_item`, a staff of healing's touch, and a spell
+    cast at a member. So once Hild has planned to close 20' toward the goblins, the preview refuses a
+    potion the cleric beside her planned to give her with `battle.declaration.member_out_of_reach`, and
+    a *cure light wounds* on her with `magic.cast.out_of_range`.
+
     The preview runs the checks `ResolveBattleRound` runs before it plays a round, over the same
     projection of the round's declared moves, so the two agree. When `declarations` has one declaration
     for each member in [`EncounterView.declarers`][osrlib.crawl.views.EncounterView.declarers] and every
@@ -2425,6 +2457,18 @@ def _group_by_id(session, group_id: str | None):
     return None
 
 
+def _sole_target(declaration: BattleDeclaration) -> str | None:
+    """The one id in `targets` that a potion, a healing device, or a hand-over acts on.
+
+    It's None when `targets` is empty. It's an empty string when `targets` has more than one id, because such
+    a declaration has no single target, and the empty string matches no member or creature. So the checks
+    refuse the declaration as one with an unknown target.
+    """
+    if not declaration.targets:
+        return None
+    return declaration.targets[0] if len(declaration.targets) == 1 else ""
+
+
 _DEFENSIVE_MOVES = ("fighting_withdrawal", "retreat")
 """The SRD's two ways out of melee, which a member makes either with the formation or alone.
 
@@ -2463,9 +2507,9 @@ def _combination_rejection(declaration: BattleDeclaration) -> Rejection | None:
 
     A `move` action takes any move, and an `attack` takes a `close`. A `cast` that sets any move gets
     `battle.declaration.cast_cannot_move`, because the OSE SRD says "The spell caster cannot move and cast a
-    spell in the same round". A `turn_undead`, a `use_item`, or a `hold` that sets any move, and an `attack`
-    with a `fighting_withdrawal` or a `retreat`, get `battle.declaration.move_not_combinable`. Both have the
-    member's id as `character`. The call takes no draw.
+    spell in the same round". A `turn_undead`, a `use_item`, a `give_item`, or a `hold` that sets any move, and
+    an `attack` with a `fighting_withdrawal` or a `retreat`, get `battle.declaration.move_not_combinable`. Both
+    have the member's id as `character`. The call takes no draw.
     """
     if declaration.move is None or declaration.action == "move":
         return None
@@ -2594,9 +2638,9 @@ def _validate_declaration(
     """Judge one declaration against the state it refers to, and return every reason it cannot stand.
 
     This runs in the validation pre-phase, where a rejection refuses the whole command. It runs again
-    in the magic phase, just before a `cast`, a `turn_undead`, or a device or scroll `use_item`
-    resolves, because the phases in between can change what these checks read. It reads state and
-    takes no draw, so the second run costs nothing and changes nothing.
+    in the magic phase, just before a `cast`, a `turn_undead`, a `use_item` of a magic item, or a
+    `give_item` resolves, because the phases in between can change what these checks read. It reads
+    state and takes no draw, so the second run costs nothing and changes nothing.
 
     `_handle_resolve_battle_round` fills in a missing `weapon_id` with `_with_default_weapon` before it
     calls this.
@@ -2609,6 +2653,10 @@ def _validate_declaration(
     melee attack and a staff of striking take the checks of `_melee_rejection`:
     `combat.attack.out_of_reach` for a member farther than 5' from the group, and
     `battle.declaration.not_in_front_rank` for a member within 5' who isn't in its front rank.
+
+    A potion given to another member, a staff of healing used on another member, and a `give_item` need
+    the two members within reach of each other where `placement` puts them (see `_reach_rejection`).
+    A `cast` at a member measures the distance between the caster and that member the same way.
 
     A declaration that sets a `move` its action can't take gets the rejection of
     `_combination_rejection`, after the back-stab checks and before the action's own checks. An attack
@@ -2694,6 +2742,8 @@ def _validate_declaration(
             return [Rejection(code="battle.declaration.no_target", params={"group": group.id})]
         context = AttackContext(distance_feet=_member_distance(session, member.id, group), lit=True)
         return validate_attack(member, pool[0], instance.template, context, ruleset=session.ruleset)
+    if declaration.action == "give_item":
+        return _hand_over(session, declaration, member, placement or _placement(session))[1]
     if declaration.action == "turn_undead":
         rejections = validate_turn_undead(member, load_classes().get(member.class_id))
         if rejections:
@@ -2712,7 +2762,7 @@ def _validate_declaration(
 
         if session.ledger.active_on(exploration._cell_ref(session), "silence"):
             return [Rejection(code="magic.cast.silenced_area", params={"caster": member.id})]
-        targets, distance, rejections = _cast_targets(session, declaration, spell)
+        targets, distance, rejections = _cast_targets(session, declaration, spell, placement or _placement(session))
         if rejections:
             return rejections
         from osrlib.core.spells import CastContext, caster_profile
@@ -2736,7 +2786,9 @@ def _validate_declaration(
     return [Rejection(code="battle.declaration.unknown_action", params={"action": declaration.action})]
 
 
-def _cast_targets(session, declaration: BattleDeclaration, spell) -> tuple[list, int | None, list[Rejection]]:
+def _cast_targets(
+    session, declaration: BattleDeclaration, spell, placement: _Placement
+) -> tuple[list, int | None, list[Rejection]]:
     """Resolve a cast declaration's targets: explicit ids, the area footprint, or a group's living members.
 
     An `area` mode takes the group's living members that fit the area footprint, measured from the
@@ -2748,10 +2800,13 @@ def _cast_targets(session, declaration: BattleDeclaration, spell) -> tuple[list,
     it's the members the footprint takes. When both fields are set, the cast uses `targets`. A group
     that isn't in the encounter, or has fled, gets `battle.declaration.unknown_group`.
 
-    The distance it returns, which the spell's range is checked against, is the caster's own distance to
-    the group, or to the farthest group a targeted monster belongs to, in the battle as it stands. That's
-    also the distance the pre-phase's projection gives, because a caster can't move in the round they
-    cast, and neither a trade nor a move of the party line changes a member's distance to a group.
+    The distance it returns, which the spell's range is checked against, is measured in `placement`. It's
+    the caster's own distance to the group, or the largest distance from the caster to a target: to the
+    group a targeted monster or NPC adventurer belongs to, or to a targeted member. So a touch spell on a
+    member who closes away from the caster this round is out of range. The pre-phase passes the projection
+    of the round's declared moves, and the magic phase the battle as it stands. A caster can't move in the
+    round they cast, and neither a trade nor a move of the party line changes a distance, so the caster's
+    distance to a group is the same in both. A declaration with only cell references gives no distance.
     """
     try:
         mode = spell.mode(declaration.spell_mode, reversed=declaration.reversed)
@@ -2776,8 +2831,9 @@ def _cast_targets(session, declaration: BattleDeclaration, spell) -> tuple[list,
             )
         else:
             candidates = _living_monsters(session, group)
-        return candidates, _member_distance(session, declaration.character_id, group), []
+        return candidates, placement.distance(declaration.character_id, group), []
     registry = session.registry()
+    party_ids = {member.id for member in session.party.members}
     targets: list = []
     distance: int | None = None
     for target_ref in declaration.targets:
@@ -2791,10 +2847,12 @@ def _cast_targets(session, declaration: BattleDeclaration, spell) -> tuple[list,
             # The player already knows the target is invisible, so this rejection reveals nothing.
             return [], None, [Rejection(code="battle.declaration.invisible_target", params={"target": target_ref})]
         targets.append(entity)
-        if isinstance(entity, MonsterInstance):
-            for group in session.encounter.groups:
-                if target_ref in group.monster_ids:
-                    distance = max(distance or 0, _member_distance(session, declaration.character_id, group))
+        if target_ref in party_ids:
+            distance = max(distance or 0, placement.between(declaration.character_id, target_ref))
+            continue
+        for group in session.encounter.groups:
+            if target_ref in group.monster_ids:
+                distance = max(distance or 0, placement.distance(declaration.character_id, group))
     return targets, distance, []
 
 
@@ -2877,15 +2935,17 @@ def _validate_magic_item_declaration(
 ) -> list[Rejection]:
     """The `use_item` declaration widened: potions, scrolls, and devices (magic phase).
 
-    A potion targets the drinker. Wands, staves, and rods target a group and
+    A potion is drunk by the member whose id is the one id in `targets`, or by the member who carries it when
+    `targets` is empty, with the checks of `_drinker`. Wands, staves, and rods target a group and
     resolve in the magic phase alongside casts, because they unleash magical
     effects and resolving them there keeps the missile and melee ordering clean.
-    A scroll read resolves in the magic phase too, through the declaration's
+    A staff of healing touches the creature in `targets`, or its user, with the checks of
+    `_healing_touch`. A scroll read resolves in the magic phase too, through the declaration's
     spell fields.
 
-    For a scroll or a device this runs twice, like a `cast`: in the validation pre-phase, and again in
-    the magic phase just before the read or the use resolves. It takes no draw, so the second run
-    costs nothing.
+    Its checks run twice, like a `cast`'s: in the validation pre-phase, and again in the magic phase just
+    before the drink, the read, or the use resolves. A potion's second run is `_drinker`'s. The checks take
+    no draw, so the second run costs nothing.
 
     A staff of striking (an effect of kind `striking`) is "Used as a magical melee weapon", so it takes a
     melee attack's checks of `_melee_rejection` against `placement`, after the fled-group check and before
@@ -2898,8 +2958,9 @@ def _validate_magic_item_declaration(
 
     template = magic_item_template(instance)
     category = template.category
+    placement = placement or _placement(session)
     if category is MagicItemCategory.POTION:
-        return []
+        return _drinker(session, declaration, member, instance, placement)[1]
     if category is MagicItemCategory.SCROLL:
         light_rejections = exploration._requires_light(session, member, infravision_suffices=False)
         if light_rejections:
@@ -2927,7 +2988,7 @@ def _validate_magic_item_declaration(
         spell = load_spells().get(spell_id)
         mode = declaration.spell_mode or spell.modes[0].key
         targets, distance, rejections = _cast_targets(
-            session, declaration.model_copy(update={"spell_id": spell_id, "spell_mode": mode}), spell
+            session, declaration.model_copy(update={"spell_id": spell_id, "spell_mode": mode}), spell, placement
         )
         if rejections:
             return rejections
@@ -2957,17 +3018,123 @@ def _validate_magic_item_declaration(
             if group is None or group.fled:
                 return [Rejection(code="battle.declaration.unknown_group", params={"character": member.id})]
             if effect_spec.kind == "striking":
-                out_of_place = _melee_rejection(member.id, group, placement or _placement(session))
+                out_of_place = _melee_rejection(member.id, group, placement)
                 if out_of_place is not None:
                     return [out_of_place]
                 if not _monster_pool(session, group):
                     return [Rejection(code="battle.declaration.no_target", params={"group": group.id})]
+        if effect_spec is not None and effect_spec.kind == "healing":
+            return _healing_touch(session, declaration, member, placement)[1]
         return []
     return [Rejection(code="battle.declaration.item_unusable", params={"item": instance.instance_id})]
 
 
+def _drinker(session, declaration: BattleDeclaration, carrier, instance, placement: _Placement):
+    """Return who drinks a declared potion, with every reason they can't, as a `(drinker, rejections)` pair.
+
+    The drinker is the member whose id is the one id in `targets`, or the carrier when `targets` is empty. The
+    checks are those of [`UseItem`][osrlib.crawl.commands.UseItem] (see `exploration._potion_drinker`), then
+    reach: another member has to stand within 5' of the carrier in `placement` (see `_reach_rejection`). The
+    drinker is None when there are rejections. The call reads state and takes no draw.
+    """
+    from osrlib.crawl import exploration
+
+    drinker, rejections = exploration._potion_drinker(session, carrier, instance, _sole_target(declaration))
+    if drinker is None:
+        return None, rejections
+    out_of_reach = _reach_rejection(placement, carrier.id, drinker.id)
+    if out_of_reach is not None:
+        return None, [out_of_reach]
+    return drinker, []
+
+
+def _healing_touch(session, declaration: BattleDeclaration, member, placement: _Placement):
+    """Return whom a declared staff of healing touches, with every reason it can't, as a `(target, rejections)` pair.
+
+    The OSE SRD's staff "Has the power to heal those touched". The target is the creature whose id is the one
+    id in `targets`, or the member using the staff when `targets` is empty. An id that matches no creature,
+    or a monster outside the encounter's groups that haven't fled, gets `items.use.unknown_target`. Another
+    member has to stand within 5' of the user in `placement` (see `_reach_rejection`). A monster's group has
+    to stand within 5' of the user too, or the use gets `combat.attack.out_of_reach` with that distance as
+    `distance_feet`. The target is None when there are rejections. The call reads state and takes no draw.
+    """
+    target_ref = _sole_target(declaration)
+    if target_ref is None or target_ref == member.id:
+        return member, []
+    target = session.registry().get(target_ref)
+    if target is None:
+        return None, [Rejection(code="items.use.unknown_target", params={"target": target_ref})]
+    if any(other.id == target_ref for other in session.party.members):
+        out_of_reach = _reach_rejection(placement, member.id, target_ref)
+        return (None, [out_of_reach]) if out_of_reach is not None else (target, [])
+    group = next((group for group in session.encounter.groups if target_ref in group.monster_ids), None)
+    if group is None or group.fled:
+        return None, [Rejection(code="items.use.unknown_target", params={"target": target_ref})]
+    distance = placement.distance(member.id, group)
+    if distance > MELEE_RANGE_FEET:
+        return None, [Rejection(code="combat.attack.out_of_reach", params={"distance_feet": distance})]
+    return target, []
+
+
+def _hand_over(session, declaration: BattleDeclaration, giver, placement: _Placement):
+    """Return who takes a declared hand-over, with every reason they can't, as a `(recipient, rejections)` pair.
+
+    A `give_item` declaration moves one item, or one unit of a stack, from the giver to the member whose id
+    is the one id in `targets`. It gets the checks of [`GiveItems`][osrlib.crawl.commands.GiveItems], in that
+    command's order, and then reach:
+
+    1. `exploration.give.same_member` when the recipient is the giver.
+    2. `session.command.unknown_member` when the recipient isn't a party member, including a declaration
+       whose `targets` is empty or has more than one id. Then `session.command.member_incapacitated` when
+       the recipient can't act.
+    3. `items.curse.stuck` for a magic item whose curse has been revealed, and `exploration.item.not_carried`
+       for an item the giver doesn't carry, or a declaration with no `item_id`.
+    4. `battle.declaration.member_out_of_reach` when the two members stand farther than 5' apart in
+       `placement` (see `_reach_rejection`).
+
+    The recipient is None when there are rejections. The call reads state and takes no draw.
+    """
+    from osrlib.crawl import exploration
+
+    recipient_id = _sole_target(declaration) or ""
+    if recipient_id == giver.id:
+        return None, [Rejection(code="exploration.give.same_member", params={"character": giver.id})]
+    recipient, rejections = exploration._member_able(session, recipient_id)
+    if recipient is None:
+        return None, rejections
+    rejections = exploration._validate_carried(giver, (declaration.item_id or "",), Coins())
+    if rejections:
+        return None, rejections
+    out_of_reach = _reach_rejection(placement, giver.id, recipient.id)
+    if out_of_reach is not None:
+        return None, [out_of_reach]
+    return recipient, []
+
+
+def _resolve_hand_over(session, giver, declaration: BattleDeclaration) -> list[Event]:
+    """Resolve a `give_item` declaration in the magic phase, with the party's other item uses.
+
+    The declaration is judged again first, where the members stand now. When the recipient can no longer act,
+    the item has left the giver, or the two members now stand out of reach of each other, nothing changes hands
+    and nothing is reported, as with any other action a member can't take when its step comes. Otherwise the
+    item moves as [`GiveItems`][osrlib.crawl.commands.GiveItems] moves it, with an `ItemsGivenEvent`. The hand-over
+    takes no draw.
+    """
+    from osrlib.crawl import exploration
+
+    recipient, _ = _hand_over(session, declaration, giver, _placement(session))
+    if recipient is None or declaration.item_id is None:
+        return []
+    return exploration._apply_give(session, giver, recipient, (declaration.item_id,), Coins())
+
+
 def _resolve_magic_item_use(session, member, declaration: BattleDeclaration, state) -> list[Event]:
-    """Resolve a magic-phase item declaration: drink, read, or activate."""
+    """Resolve a magic-phase item declaration: drink, read, or activate.
+
+    A potion is judged again first, where the members stand now (see `_drinker`). When the drinker is dead or
+    turned to stone, or now stands out of the carrier's reach, the potion isn't used. It stays with the carrier,
+    and nothing is reported, as with any other action a member can't take when its step comes.
+    """
     from osrlib.crawl import exploration
 
     instance = member.inventory.magic_item(declaration.item_id)
@@ -2977,8 +3144,10 @@ def _resolve_magic_item_use(session, member, declaration: BattleDeclaration, sta
     category = template.category
     events: list[Event] = []
     if category is MagicItemCategory.POTION:
-        _, events = exploration._use_potion(session, member, instance, template)
-        return events
+        drinker, _ = _drinker(session, declaration, member, instance, _placement(session))
+        if drinker is None:
+            return []
+        return exploration._use_potion(session, member, drinker, instance, template)
     if category is MagicItemCategory.SCROLL:
         if template.cursed or template.effect is not None or "spell_count" not in template.params:
             command_like = _ScrollFields(
@@ -3060,7 +3229,7 @@ def _resolve_scroll_cast(session, member, instance, template, declaration: Battl
         events.append(_fizzle_event(member.id, spell_id, reversed=declaration.reversed, reason=rejections[0].code))
         return events
     targets, distance, _ = _cast_targets(
-        session, declaration.model_copy(update={"spell_id": spell_id, "spell_mode": mode}), spell
+        session, declaration.model_copy(update={"spell_id": spell_id, "spell_mode": mode}), spell, _placement(session)
     )
     definition = load_classes().get(member.class_id)
     from osrlib.core.spells import caster_profile
@@ -3126,13 +3295,17 @@ def _resolve_striking(session, member, instance, declaration: BattleDeclaration)
 
 
 def _resolve_device_healing(session, member, instance, template, declaration: BattleDeclaration) -> list[Event]:
+    """Heal the creature a staff of healing touches, once a day for each creature, as the OSE SRD's usage limit says.
+
+    The magic phase's re-check has already judged the touch (see `_healing_touch`), so the target is the one
+    the round accepted, measured where the members stand now.
+    """
     from osrlib.core.combat import apply_healing
 
-    target_ref = declaration.targets[0] if declaration.targets else member.id
-    target = session.registry().get(target_ref)
+    target, _ = _healing_touch(session, declaration, member, _placement(session))
     if target is None:
         return []
-    day_key = f"healed:{target_ref}"
+    day_key = f"healed:{target.id}"
     today = session.clock.days
     if template.effect.params.get("once_per_target_per_day") and instance.state.get(day_key) == today:
         return []
@@ -4013,7 +4186,7 @@ def _fizzle_cast(session, member, spell_id: str, *, reversed: bool, reason: str,
 
 
 def _party_magic(session, by_member, pending_casters, disrupted, acted, state) -> list[Event]:
-    """Resolve the party's magic phase: item uses, turning, and casts, in the order the declarations arrived.
+    """Resolve the party's magic phase: item uses, hand-overs, turning, and casts, in the order they were declared.
 
     A caster the round already disrupted reports `magic.cast.disrupted` and takes no further part. That
     check comes before the re-check below, so a caster who was both hit and silenced reports the
@@ -4022,7 +4195,9 @@ def _party_magic(session, by_member, pending_casters, disrupted, acted, state) -
     A cast, a scroll read in `_resolve_scroll_cast`, a device use (a wand, staff, or rod), and a turning
     are each checked again just before they resolve, with the checks they passed at the top of the round.
     One that now fails fizzles instead of resolving. The re-check takes no draw, so a declaration that
-    passes it resolves with the same draws as before. A potion has no check to fail.
+    passes it resolves with the same draws as before. A potion and a `give_item` are checked again too,
+    where the members stand now. One that fails doesn't happen, and nothing reports it, as with an attack
+    by a member who can no longer act (see `_resolve_magic_item_use` and `_resolve_hand_over`).
 
     - A fizzled cast or scroll read reports a `SpellDisruptedEvent` at `magic.cast.fizzled`. The caster
       loses the memorized copy, or the scroll loses its spell, as with a disruption.
@@ -4042,9 +4217,13 @@ def _party_magic(session, by_member, pending_casters, disrupted, acted, state) -
     """
     events: list[Event] = []
     for member, declaration in by_member.values():
-        if declaration.action not in ("cast", "turn_undead", "use_item"):
+        if declaration.action not in ("cast", "turn_undead", "use_item", "give_item"):
             continue
         if incapacitated(member) or has_condition(member, Condition.CONFUSED):
+            continue
+        if declaration.action == "give_item":
+            events.extend(_resolve_hand_over(session, member, declaration))
+            acted.add(member.id)
             continue
         if declaration.action == "use_item":
             if member.inventory.magic_item(declaration.item_id or "") is None:
@@ -4124,7 +4303,7 @@ def _party_magic(session, by_member, pending_casters, disrupted, acted, state) -
             acted.add(member.id)
             continue
         spell = load_spells().get(declaration.spell_id)
-        targets, distance, _ = _cast_targets(session, declaration, spell)
+        targets, distance, _ = _cast_targets(session, declaration, spell, _placement(session))
         from osrlib.core.spells import CastContext, caster_profile
 
         profile = caster_profile(member.definition)
@@ -4403,8 +4582,9 @@ def _monster_block(
 
                 instance = monster.inventory.magic_item(action.item_id) if action.item_id else None
                 if instance is not None:
-                    _, drink_events = exploration._use_potion(session, monster, instance, magic_item_template(instance))
-                    events.extend(drink_events)
+                    events.extend(
+                        exploration._use_potion(session, monster, monster, instance, magic_item_template(instance))
+                    )
     return events
 
 
@@ -4469,7 +4649,8 @@ def _resolve_npc_cast(session, npc, group, action: MonsterAction, disrupted: set
 
     An area spell covers the ranks toward the NPC's group by the footprint rule (see `_area_rows`). The spell's
     range is checked against the target member's own distance to the group, or against the nearest member's
-    distance for an area spell or a spell on one of the NPCs.
+    distance for an area spell. A spell on one of the group's NPCs is checked at 0', because the NPCs of a group
+    stand together on the range track, so a cure spell, which works by touch, reaches any of them.
     """
     from osrlib.core.spells import CastContext, cast_spell, caster_profile, validate_cast
 
@@ -4495,6 +4676,8 @@ def _resolve_npc_cast(session, npc, group, action: MonsterAction, disrupted: set
         targets = [target]
         if target.id in placement.order:
             distance = placement.distance(target.id, group)
+        elif target.id in group.monster_ids:
+            distance = 0
     else:
         targets = []
     context = CastContext(in_combat=True, distance_feet=distance)

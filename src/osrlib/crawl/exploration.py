@@ -237,6 +237,7 @@ from osrlib.crawl.events import (
     TreasureSoldEvent,
     WanderingCheckEvent,
 )
+from osrlib.crawl.party import _stands
 from osrlib.data import load_classes, load_encounter_tables, load_equipment, load_spells
 
 if TYPE_CHECKING:
@@ -3013,7 +3014,11 @@ def _handle_give_items(session, command: GiveItems) -> tuple[list[Rejection], li
     rejections = _validate_carried(giver, command.item_ids, command.coins)
     if rejections:
         return rejections, []
-    events = _apply_give(session, giver, recipient, command)
+    events = _apply_give(session, giver, recipient, command.item_ids, command.coins)
+    if session.mode is SessionMode.ENCOUNTER:
+        from osrlib.crawl import encounter as encounter_module
+
+        events.extend(encounter_module._pass_round(session))
     return [], events
 
 
@@ -3033,15 +3038,16 @@ def _grant_mundane(member, template: ItemTemplate, quantity: int = 1) -> None:
         member.inventory.items.append(ItemInstance(template=template, quantity=quantity))
 
 
-def _apply_give(session, giver, recipient, command: GiveItems) -> list[Event]:
-    """Move the named goods and coins from giver to recipient (zero time).
+def _apply_give(session, giver, recipient, item_ids: tuple[str, ...], coins: Coins) -> list[Event]:
+    """Move the named goods and coins from giver to recipient, and take no time.
 
-    A given magic item releases any worn effects first, then arrives unequipped in
-    the recipient's pack. Mundane items merge into a like stack, and coins move
-    purse to purse.
+    [`GiveItems`][osrlib.crawl.commands.GiveItems] and a battle's `give_item` declaration both hand
+    goods over through this, after their checks have passed. A given magic item releases any worn
+    effects first, then arrives unequipped in the recipient's pack. Mundane items merge into a like
+    stack, and coins move purse to purse.
     """
     events: list[Event] = []
-    for item_id in command.item_ids:
+    for item_id in item_ids:
         magic = giver.inventory.magic_item(item_id)
         if magic is not None:
             events.extend(_release_instance_effects(session, magic))
@@ -3065,15 +3071,15 @@ def _apply_give(session, giver, recipient, command: GiveItems) -> list[Event]:
     giver_purse = giver.inventory.purse
     recipient_purse = recipient.inventory.purse
     for denomination in ("pp", "gp", "ep", "sp", "cp"):
-        moved = getattr(command.coins, denomination)
+        moved = getattr(coins, denomination)
         setattr(giver_purse, denomination, getattr(giver_purse, denomination) - moved)
         setattr(recipient_purse, denomination, getattr(recipient_purse, denomination) + moved)
     events.append(
         ItemsGivenEvent(
             character_id=giver.id,
             recipient_id=recipient.id,
-            item_ids=tuple(command.item_ids),
-            coins_gp_value=command.coins.value_gp,
+            item_ids=tuple(item_ids),
+            coins_gp_value=coins.value_gp,
         )
     )
     return events
@@ -3824,26 +3830,62 @@ def _potion_effect_definition(template, instance) -> EffectDefinition:
     )
 
 
-def _use_potion(session, member, instance: MagicItemInstance, template) -> tuple[list[Rejection], list]:
+def _potion_drinker(session, carrier, instance: MagicItemInstance, target_id: str | None):
+    """Return who drinks a potion the carrier uses, with every reason they can't, as a `(drinker, rejections)` pair.
+
+    With no `target_id`, or the carrier's own id, the carrier drinks. Any other id has to be a party member's,
+    or the use gets `items.use.target_not_allowed`. A member who is dead or turned to stone can't drink, and the
+    use gets `items.use.target_cannot_drink`. A member who is asleep or paralysed can be given a potion to drink.
+    Both rejections have the potion's instance id as `item` and the id as `target`. The drinker is None when
+    there are rejections. A battle adds a check of reach (see `battle._drinker`). The call reads state and takes
+    no draw.
+    """
+    if target_id is None or target_id == carrier.id:
+        return carrier, []
+    drinker = next((member for member in session.party.members if member.id == target_id), None)
+    if drinker is None:
+        return None, [
+            Rejection(code="items.use.target_not_allowed", params={"item": instance.instance_id, "target": target_id})
+        ]
+    if not _stands(drinker):
+        return None, [
+            Rejection(code="items.use.target_cannot_drink", params={"item": instance.instance_id, "target": target_id})
+        ]
+    return drinker, []
+
+
+def _use_potion(session, carrier, drinker, instance: MagicItemInstance, template) -> list[Event]:
+    """Use up a potion the carrier carries, and apply its effect to the drinker, who can be the carrier.
+
+    The potion leaves the carrier's pack, and the carrier's use identifies it. The drinker gets the potion's
+    effect, its mixing with another potion still in effect on them, and its weekly limit. Its events report
+    the carrier in `character_id`, and the drinker in `target_id` when the drinker is another member.
+    """
     from osrlib.core.combat import apply_healing
 
     stream = session.streams.get(MAGIC_STREAM)
     events: list[Event] = []
     effect_spec = template.effect
     instantaneous = effect_spec is not None and bool(effect_spec.params.get("instantaneous"))
+    fed_to = drinker.id if drinker is not carrier else None
     active_potions = [
         effect
         for effect in session.ledger.effects
-        if effect.target_ref == member.id and effect.definition.params.get("item_source") == "potion"
+        if effect.target_ref == drinker.id and effect.definition.params.get("item_source") == "potion"
     ]
-    _remove_instance(member, instance)
-    events.extend(_identify_item_events(session, member, instance))
+    _remove_instance(carrier, instance)
+    events.extend(_identify_item_events(session, carrier, instance))
     if active_potions and not instantaneous and effect_spec is not None:
         # Mixing applies both printed consequences: both effects cancel and the
         # drinker is disabled for 3 turns. Neither applies to an instantaneous or
         # permanent potion.
         events.append(
-            ItemUsedEvent(code="items.potion.mixed", character_id=member.id, instance_id=instance.instance_id)
+            ItemUsedEvent(
+                code="items.potion.mixed",
+                character_id=carrier.id,
+                instance_id=instance.instance_id,
+                target_id=fed_to,
+            )
         )
         for effect in active_potions:
             events.extend(session.ledger.release(effect.effect_id, session.registry()))
@@ -3855,24 +3897,25 @@ def _use_potion(session, member, instance: MagicItemInstance, template) -> tuple
             params={"item_source": "potion_sickness"},
         )
         _, attach_events = session.ledger.attach(
-            sickness, member.id, clock=session.clock, allocator=session.allocator, registry=session.registry()
+            sickness, drinker.id, clock=session.clock, allocator=session.allocator, registry=session.registry()
         )
         events.extend(attach_events)
-        return [], events
+        return events
     events.append(
         ItemUsedEvent(
             code="items.potion.drunk",
-            character_id=member.id,
+            character_id=carrier.id,
             instance_id=instance.instance_id,
             manual=template.manual if effect_spec is None else (),
+            target_id=fed_to,
         )
     )
     if effect_spec is None:
-        return [], events
+        return events
     if effect_spec.kind == "healing":
         paralysing = [
             effect
-            for effect in session.ledger.active_on(member.id)
+            for effect in session.ledger.active_on(drinker.id)
             if effect.definition.condition is Condition.PARALYSED
         ]
         if paralysing:
@@ -3881,21 +3924,21 @@ def _use_potion(session, member, instance: MagicItemInstance, template) -> tuple
                 events.extend(session.ledger.release(effect.effect_id, session.registry()))
         else:
             amount = roll(str(effect_spec.heal_dice), stream).total
-            events.extend(apply_healing(member, amount, source="magical"))
-        return [], events
+            events.extend(apply_healing(drinker, amount, source="magical"))
+        return events
     if effect_spec.kind == "save_or_die":
-        save = saving_throw(member, SaveCategory(str(effect_spec.save_category)), magical=True, stream=stream)
+        save = saving_throw(drinker, SaveCategory(str(effect_spec.save_category)), magical=True, stream=stream)
         events.extend(save.events)
         if not save.passed:
             from osrlib.core.effects import kill
 
-            events.extend(kill(member))
-        return [], events
+            events.extend(kill(drinker))
+        return events
     definition = _potion_effect_definition(template, instance)
     if effect_spec.params.get("weekly_inversion"):
         # More than one in a week inverts the benefits. The week runs per character
         # on the clock's day, tracked as a ledger marker so it serializes.
-        cooldown_active = bool(session.ledger.active_on(member.id, "invulnerability_cooldown"))
+        cooldown_active = bool(session.ledger.active_on(drinker.id, "invulnerability_cooldown"))
         if cooldown_active:
             inverted = tuple(spec.model_copy(update={"value": -spec.value}) for spec in definition.modifiers)
             definition = definition.model_copy(update={"modifiers": inverted})
@@ -3903,19 +3946,19 @@ def _use_potion(session, member, instance: MagicItemInstance, template) -> tuple
             kind="invulnerability_cooldown", duration_unit=TimeUnit.DAY, duration_amount=7, stacking="refresh"
         )
         _, marker_events = session.ledger.attach(
-            marker, member.id, clock=session.clock, allocator=session.allocator, registry=session.registry()
+            marker, drinker.id, clock=session.clock, allocator=session.allocator, registry=session.registry()
         )
         events.extend(marker_events)
     _, attach_events = session.ledger.attach(
         definition,
-        member.id,
+        drinker.id,
         clock=session.clock,
         allocator=session.allocator,
         registry=session.registry(),
         stream=session.streams.get(EFFECTS_STREAM),
     )
     events.extend(attach_events)
-    return [], events
+    return events
 
 
 def _thief_scroll_use(definition) -> dict | None:
@@ -4260,14 +4303,8 @@ def _handle_use_item(session, command: UseItem) -> tuple[list[Rejection], list[E
         return [Rejection(code="exploration.item.not_carried", params={"item": command.item_id})], []
     template = magic_item_template(instance)
     if template.category is MagicItemCategory.POTION:
-        if command.target_id is not None and command.target_id != member.id:
-            return [
-                Rejection(
-                    code="items.use.target_not_allowed",
-                    params={"item": instance.instance_id, "target": command.target_id},
-                )
-            ], []
-        rejections, events = _use_potion(session, member, instance, template)
+        drinker, rejections = _potion_drinker(session, member, instance, command.target_id)
+        events = [] if drinker is None else _use_potion(session, member, drinker, instance, template)
     elif template.category is MagicItemCategory.SCROLL:
         rejections, events = _use_scroll(session, member, instance, template, command)
     elif template.category in (MagicItemCategory.ROD, MagicItemCategory.STAFF, MagicItemCategory.WAND):
@@ -4281,7 +4318,7 @@ def _handle_use_item(session, command: UseItem) -> tuple[list[Rejection], list[E
     if session.mode is SessionMode.ENCOUNTER:
         from osrlib.crawl import encounter as encounter_module
 
-        events.extend(encounter_module._end_of_round(session))
+        events.extend(encounter_module._pass_round(session))
     else:
         events.extend(session.advance_rounds(1))
     return [], events
