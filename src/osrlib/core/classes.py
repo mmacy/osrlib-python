@@ -786,10 +786,14 @@ def level_title(definition: ClassDefinition, level: int) -> str | None:
 
     Args:
         definition: The character's class.
-        level: The level to name, 1 or higher.
+        level: The level to name, from 1 to the class's `max_level`.
 
     Returns:
         The title, or `None` when the class's `level_titles` don't reach that level.
+
+    Raises:
+        ValueError: If `level` is below 1 or above the class's `max_level`, because a character
+            of the class can't have that level.
 
     Examples:
         ```python
@@ -803,9 +807,17 @@ def level_title(definition: ClassDefinition, level: int) -> str | None:
         # None
         ```
     """
-    if 1 <= level <= len(definition.level_titles):
+    if not 1 <= level <= definition.max_level:
+        raise ValueError(f"{definition.id} levels run from 1 to {definition.max_level}, got {level}")
+    if level <= len(definition.level_titles):
         return definition.level_titles[level - 1]
     return None
+
+
+def _check_definition(character: Character, definition: ClassDefinition) -> None:
+    """Raise `ValueError` when `definition` isn't the character's class."""
+    if definition.id != character.class_id:
+        raise ValueError(f"class definition {definition.id!r} does not match character class {character.class_id!r}")
 
 
 def level_up(character: Character, definition: ClassDefinition, stream: RngStream) -> LevelUpResult:
@@ -877,8 +889,7 @@ def level_up(character: Character, definition: ClassDefinition, stream: RngStrea
         # 2 10 19
         ```
     """
-    if definition.id != character.class_id:
-        raise ValueError(f"class definition {definition.id!r} does not match character class {character.class_id!r}")
+    _check_definition(character, definition)
     if character.level >= definition.max_level:
         raise ValueError(f"{character.class_id} is capped at level {definition.max_level}")
     old_dice = definition.row(character.level).hit_dice
@@ -968,7 +979,8 @@ def thief_skill_check(
 
     Args:
         character: The thief making the attempt. The check uses the skill row for their level.
-        definition: The character's class. It must have `thief_skills`, as the thief does.
+        definition: The character's class. Its `id` must match the character's `class_id`, and
+            it must have `thief_skills`, as the thief does.
         skill: One of the names in
             [`PERCENTILE_THIEF_SKILLS`][osrlib.core.classes.PERCENTILE_THIEF_SKILLS], or
             `"hear_noise"`.
@@ -982,8 +994,9 @@ def thief_skill_check(
         The roll, the chance it was checked against, and whether it succeeded.
 
     Raises:
-        ValueError: If the class has no thief skills, or `skill` isn't one of the names above.
-            The check takes no draw. Deciding who may try a skill is up to you, before you call.
+        ValueError: If `definition` isn't the character's class, the class has no thief skills,
+            or `skill` isn't one of the names above. The check takes no draw. Deciding who may
+            try a skill is up to you, before you call.
 
     Examples:
         ```python
@@ -1012,14 +1025,15 @@ def thief_skill_check(
         # 100 20 False True
         ```
     """
+    _check_definition(character, definition)
     if not definition.thief_skills:
         raise ValueError(f"{definition.id} has no thief skill table")
+    if skill != "hear_noise" and skill not in PERCENTILE_THIEF_SKILLS:
+        raise ValueError(f"unknown thief skill {skill!r}")
     row = definition.thief_skills[character.level - 1]
     if skill == "hear_noise":
         roll = stream.randbelow(6) + 1
         return SkillCheckResult(skill=skill, roll=roll, chance=row.hear_noise, passed=roll <= row.hear_noise)
-    if skill not in PERCENTILE_THIEF_SKILLS:
-        raise ValueError(f"unknown thief skill {skill!r}")
     chance = getattr(row, skill) + modifier_pct
     if skill == "pick_pockets":
         chance = min(99, chance)
@@ -1102,7 +1116,7 @@ def detection_chance(character: Character, definition: ClassDefinition, kind: st
     Args:
         character: The character searching. For a thief, the function reads the skill row for
             their level.
-        definition: The character's class.
+        definition: The character's class. Its `id` must match the character's `class_id`.
         kind: What the character is searching for: `"listening"`, `"secret_doors"`,
             `"room_traps"`, or `"construction"`.
 
@@ -1111,7 +1125,8 @@ def detection_chance(character: Character, definition: ClassDefinition, kind: st
         [`detection_check`][osrlib.core.classes.detection_check] fails it without a roll.
 
     Raises:
-        ValueError: If `kind` isn't one of the four names above.
+        ValueError: If `definition` isn't the character's class, or `kind` isn't one of the
+            four names above.
 
     Examples:
         ```python
@@ -1136,6 +1151,7 @@ def detection_chance(character: Character, definition: ClassDefinition, kind: st
         # 1
         ```
     """
+    _check_definition(character, definition)
     if kind == "listening":
         if definition.thief_skills:
             return definition.thief_skills[character.level - 1].hear_noise
@@ -1300,8 +1316,7 @@ def drain_levels(
         # 1 1000 1
         ```
     """
-    if definition.id != character.class_id:
-        raise ValueError(f"class definition {definition.id!r} does not match character class {character.class_id!r}")
+    _check_definition(character, definition)
     if levels < 1:
         raise ValueError(f"levels must be positive, got {levels}")
     if xp_policy not in ("halfway", "level_minimum"):
@@ -1459,8 +1474,7 @@ def apply_xp(character: Character, definition: ClassDefinition, award: int, stre
         # 10000 3999 2 True
         ```
     """
-    if definition.id != character.class_id:
-        raise ValueError(f"class definition {definition.id!r} does not match character class {character.class_id!r}")
+    _check_definition(character, definition)
     if award < 0:
         raise ValueError(f"XP award must be non-negative, got {award}")
     pct = xp_modifier_pct(definition, character.scores)

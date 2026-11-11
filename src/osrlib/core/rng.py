@@ -458,13 +458,15 @@ class RngStream:
         times you called. `randbelow(1)` returns 0 and still uses a draw.
 
         Args:
-            n: The bound, which the result stays below. Must be positive.
+            n: The bound, which the result stays below. Must be from 1 to 2**64, the range of
+                one raw draw.
 
         Returns:
             A number from 0 up to but not including `n`.
 
         Raises:
-            ValueError: If `n` is zero or negative.
+            ValueError: If `n` is zero or negative, or more than 2**64. The stream doesn't
+                advance.
 
         Examples:
             ```python
@@ -478,6 +480,8 @@ class RngStream:
         """
         if n <= 0:
             raise ValueError(f"n must be positive, got {n}")
+        if n > _MASK64 + 1:
+            raise ValueError(f"n must be at most 2**64, the range of one raw draw, got {n}")
         k = (n - 1).bit_length()
         shift = 64 - k
         while True:

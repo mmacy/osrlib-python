@@ -990,7 +990,9 @@ def validate_adjustment(
       or raised above [`MAX_SCORE`][osrlib.core.abilities.MAX_SCORE].
 
     Args:
-        scores: The rolled scores, with all six abilities present.
+        scores: The rolled scores, with all six abilities present, each from
+            [`MIN_SCORE`][osrlib.core.abilities.MIN_SCORE] to
+            [`MAX_SCORE`][osrlib.core.abilities.MAX_SCORE].
         adjustment: The trade the player proposed.
         prime_requisites: The chosen class's prime requisites, from
             [`ClassDefinition`][osrlib.core.classes.ClassDefinition].
@@ -1001,6 +1003,11 @@ def validate_adjustment(
         One [`Rejection`][osrlib.core.validation.Rejection] per rule broken, empty when the
         trade is legal. A single proposal can break several rules at once, so expect more
         than one.
+
+    Raises:
+        ValueError: If `scores` is missing an ability, or has a score below 3 or above 18. No
+            character can roll such scores, so there's no trade to judge. The message includes
+            the ability.
 
     Examples:
         ```python
@@ -1029,6 +1036,31 @@ def validate_adjustment(
         ]
         ```
     """
+    _check_scores(scores)
+    return _adjustment_rejections(adjustment, prime_requisites, may_not_lower, scores)
+
+
+def _check_scores(scores: dict[AbilityScore, int]) -> None:
+    """Raise `ValueError` unless `scores` has all six abilities, each from `MIN_SCORE` to `MAX_SCORE`."""
+    missing = [ability.value for ability in AbilityScore if ability not in scores]
+    if missing:
+        raise ValueError(f"scores must include all six abilities; missing {missing}")
+    for ability, score in scores.items():
+        if not MIN_SCORE <= score <= MAX_SCORE:
+            raise ValueError(f"{ability} must be in {MIN_SCORE}-{MAX_SCORE}, got {score}")
+
+
+def _adjustment_rejections(
+    adjustment: AbilityAdjustment,
+    prime_requisites: tuple[AbilityScore, ...],
+    may_not_lower: tuple[AbilityScore, ...],
+    scores: dict[AbilityScore, int] | None,
+) -> list[Rejection]:
+    """Return the rules a trade breaks, in the order `validate_adjustment` documents.
+
+    With `scores` of `None`, it skips the floor and the cap, the two rules that read a score, so
+    `create_character` can judge the rest of a trade before it rolls.
+    """
     rejections: list[Rejection] = []
     for ability, amount in adjustment.lowered.items():
         if ability not in _LOWERABLE:
@@ -1043,7 +1075,7 @@ def validate_adjustment(
             rejections.append(
                 Rejection(code="creation.adjustment.reduction_not_even", params={"ability": ability, "amount": amount})
             )
-        if scores[ability] - amount < ADJUSTMENT_FLOOR:
+        if scores is not None and scores[ability] - amount < ADJUSTMENT_FLOOR:
             rejections.append(
                 Rejection(
                     code="creation.adjustment.below_floor",
@@ -1055,7 +1087,7 @@ def validate_adjustment(
             rejections.append(
                 Rejection(code="creation.adjustment.raise_not_prime_requisite", params={"ability": ability})
             )
-        elif scores[ability] + amount > MAX_SCORE:
+        elif scores is not None and scores[ability] + amount > MAX_SCORE:
             rejections.append(
                 Rejection(
                     code="creation.adjustment.above_cap",
@@ -1093,8 +1125,8 @@ def apply_adjustment(
     `AbilityAdjustment` as its `adjustment` argument and applies it for you.
 
     Args:
-        scores: The rolled scores, with all six abilities present. This dictionary isn't
-            changed. The adjusted scores come back in a new one.
+        scores: The rolled scores, with all six abilities present, each from 3 to 18. This
+            dictionary isn't changed. The adjusted scores come back in a new one.
         adjustment: The trade to apply.
         prime_requisites: The chosen class's prime requisites.
         may_not_lower: Abilities this class forbids lowering.
@@ -1106,7 +1138,8 @@ def apply_adjustment(
     Raises:
         ValueError: If the trade breaks any rule
             [`validate_adjustment`][osrlib.core.abilities.validate_adjustment] checks. The
-            message includes the rejection codes.
+            message includes the rejection codes. Also if `scores` is missing an ability, or
+            has a score below 3 or above 18, as `validate_adjustment` raises.
 
     Examples:
         ```python

@@ -89,18 +89,27 @@ from collections.abc import Mapping, Sequence
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from osrlib.core.abilities import (
-    MAX_SCORE,
-    MIN_SCORE,
     AbilityAdjustment,
     AbilityScore,
     AbilityTables,
+    _adjustment_rejections,
+    _check_scores,
     apply_adjustment,
 )
 from osrlib.core.alignment import Alignment
-from osrlib.core.classes import ClassDefinition, SavingThrows
+from osrlib.core.classes import ClassDefinition, SavingThrows, _check_definition
 from osrlib.core.dice import RollResult, roll
 from osrlib.core.effects import ActiveCondition, ActiveModifier
-from osrlib.core.items import Inventory, ItemInstance, equip, movement_rate_feet, purchase, validate_purchase
+from osrlib.core.items import (
+    CoinPurse,
+    Inventory,
+    ItemInstance,
+    ItemTemplate,
+    equip,
+    movement_rate_feet,
+    purchase,
+    validate_purchase,
+)
 from osrlib.core.rng import RngStream, StreamName
 from osrlib.core.ruleset import Ruleset
 from osrlib.core.spells import MemorizedSpell, SpellCatalog, caster_profile
@@ -342,12 +351,7 @@ class Character(BaseModel):
     @field_validator("scores")
     @classmethod
     def _all_six_scores_in_range(cls, value: dict[AbilityScore, int]) -> dict[AbilityScore, int]:
-        missing = [ability for ability in AbilityScore if ability not in value]
-        if missing:
-            raise ValueError(f"scores must include all six abilities; missing {missing}")
-        for ability, score in value.items():
-            if not MIN_SCORE <= score <= MAX_SCORE:
-                raise ValueError(f"{ability} must be in {MIN_SCORE}-{MAX_SCORE}, got {score}")
+        _check_scores(value)
         return value
 
     @model_validator(mode="after")
@@ -1072,6 +1076,12 @@ def validate_extra_languages(definition: ClassDefinition, int_score: int, choice
         rejections.append(
             Rejection(code="creation.languages.too_many", params={"allowed": allowed, "chosen": len(choices)})
         )
+    return rejections + _language_choice_rejections(definition, choices)
+
+
+def _language_choice_rejections(definition: ClassDefinition, choices: Sequence[str]) -> list[Rejection]:
+    """Return the rejections of `validate_extra_languages` that don't depend on the INT score."""
+    rejections: list[Rejection] = []
     catalog = load_languages()
     choosable = {language.id for language in catalog.languages if language.choosable}
     seen: set[str] = set()
@@ -1190,7 +1200,7 @@ def choose_starting_spells(
 
     Args:
         character: The character to write to. Changed in place when the choice is legal.
-        definition: The character's class.
+        definition: The character's class. Its `id` must match the character's `class_id`.
         catalog: The spell catalog from [`load_spells`][osrlib.data.load_spells].
         spell_ids: The chosen spell ids, from `catalog` and listed in [the spell id
             index](https://mmacy.github.io/osrlib-python/reference/content-ids/spells/).
@@ -1198,6 +1208,9 @@ def choose_starting_spells(
     Returns:
         One [`Rejection`][osrlib.core.validation.Rejection] for each problem, or an empty list
         when the book was written.
+
+    Raises:
+        ValueError: If `definition` isn't the character's class. Nothing changes.
 
     Examples:
         ```python
@@ -1228,6 +1241,7 @@ def choose_starting_spells(
         # ('sleep',)
         ```
     """
+    _check_definition(character, definition)
     if character.spell_book:
         return [Rejection(code="magic.book.already_chosen", params={"character": character.name})]
     rejections = validate_starting_spells(definition, catalog, spell_ids)
@@ -1300,13 +1314,19 @@ def create_character(
     [`Rejection`][osrlib.core.validation.Rejection] records you can show the player. This function
     raises `ValueError` on the first illegal choice and reports nothing more.
 
-    The steps run in the SRD's order: roll the six scores, check them against the class's
-    requirements, apply the ability adjustment, check the spell book, roll hit points, check the
-    extra languages, roll starting gold, then buy and equip. The stream advances in that order, so
-    the scores are always rolled first and the gold last. The checks take no draws. The scores are
-    rolled before they're checked against the class, so scores that miss the requirements raise
-    after the stream has advanced. Call again with the same stream to roll new scores, or choose
-    another class.
+    Before the first roll, it checks every choice that doesn't depend on a rolled score: the name,
+    the spell book, the rules of the ability trade that read no score, the extra languages, and the
+    purchases and the items to equip, all but their price. When one of these choices is illegal,
+    the call raises and the stream stays where it was.
+
+    Then the steps run in the SRD's order: roll the six scores, check them against the class's
+    requirements, apply the ability adjustment, roll hit points, check how many extra languages the
+    INT allows, roll starting gold, then buy and equip. The stream advances in that order, so the
+    scores are always rolled first and the gold last. The checks take no draws. The checks in these
+    steps need a rolled score or the rolled gold, so they raise after the stream has advanced:
+    scores that miss the class's requirements, a trade that would take a score below 9 or above 18,
+    more languages than the INT allows, and purchases the gold can't cover. Call again with the
+    same stream to roll new scores, or choose another class.
 
     Args:
         name: The character's name.
@@ -1342,13 +1362,14 @@ def create_character(
         The new character, and the dice rolled to create it.
 
     Raises:
-        ValueError: On the first illegal choice. Illegal choices are an unknown class, spell,
-            language, or item id, scores that miss the class's requirements, an adjustment the
-            rules forbid, and a spell book of the wrong size. So are more languages than the INT
-            allows, a purchase the starting gold can't cover, an item in `equip_ids` that wasn't
-            bought, and an item the class can't equip. The message includes the choice that
-            failed. To find out every choice that fails and why, call the step-by-step functions
-            instead.
+        ValueError: On the first illegal choice. Illegal choices are an empty name, an unknown
+            class, spell, language, or item id, scores that miss the class's requirements, an
+            adjustment the rules forbid, and a spell book of the wrong size. So are more
+            languages than the INT allows, a purchase of fewer than one lot, a purchase the
+            starting gold can't cover, an item in `equip_ids` that wasn't bought, and an item the
+            class can't equip. The message includes the choice that failed. A choice that doesn't
+            depend on a rolled score raises before the first draw, so the stream doesn't advance.
+            To find out every choice that fails and why, call the step-by-step functions instead.
 
     Examples:
         ```python
@@ -1382,7 +1403,28 @@ def create_character(
         # 90
         ```
     """
+    if not name:
+        raise ValueError("a character's name must not be empty")
     definition = load_classes().get(class_id)
+    spell_rejections = validate_starting_spells(definition, load_spells(), starting_spell_ids)
+    if spell_rejections:
+        raise ValueError(f"illegal starting spells: {[rejection.code for rejection in spell_rejections]}")
+    if adjustment is not None:
+        trade_rejections = _adjustment_rejections(
+            adjustment, definition.prime_requisites, definition.may_not_lower, None
+        )
+        if trade_rejections:
+            raise ValueError(f"illegal ability adjustment: {[rejection.code for rejection in trade_rejections]}")
+    language_rejections = _language_choice_rejections(definition, extra_languages)
+    if language_rejections:
+        raise ValueError(f"illegal language choices: {[rejection.code for rejection in language_rejections]}")
+    equipment = load_equipment()
+    bought = [(equipment.get(item_id), lots) for item_id, lots in purchases]
+    # Buy and equip once with a purse that covers every purchase, so each fault but the price raises
+    # before the first roll. A purchase of fewer than one lot adds nothing to the purse, and
+    # `validate_purchase` refuses it.
+    covered = sum(template.cost_gp * lots for template, lots in bought if lots > 0)
+    _outfit(Inventory(purse=CoinPurse(gp=covered)), definition, bought, equip_ids)
     ability_rolls = roll_ability_scores(stream)
     choice_rejections = validate_class_choice(ability_rolls.scores, definition)
     if choice_rejections:
@@ -1390,11 +1432,6 @@ def create_character(
     scores = dict(ability_rolls.scores)
     if adjustment is not None:
         scores = apply_adjustment(scores, adjustment, definition.prime_requisites, definition.may_not_lower)
-    profile = caster_profile(definition)
-    if starting_spell_ids or (profile is not None and profile.kind == "arcane"):
-        spell_rejections = validate_starting_spells(definition, load_spells(), starting_spell_ids)
-        if spell_rejections:
-            raise ValueError(f"illegal starting spells: {[rejection.code for rejection in spell_rejections]}")
     con_modifier = load_ability_tables().hit_point_modifier(scores[AbilityScore.CON])
     hit_point_roll = roll_hit_points(definition, con_modifier, ruleset, stream)
     language_rejections = validate_extra_languages(definition, scores[AbilityScore.INT], extra_languages)
@@ -1403,25 +1440,7 @@ def create_character(
     gold_roll = roll_starting_gold(stream)
     inventory = Inventory()
     inventory.purse.gp = gold_roll.total
-    equipment = load_equipment()
-    for item_id, lots in purchases:
-        template = equipment.get(item_id)
-        purchase_rejections = validate_purchase(inventory.purse, template, lots)
-        if purchase_rejections:
-            raise ValueError(f"illegal purchase: {[rejection.code for rejection in purchase_rejections]}")
-        purchase(inventory, template, lots)
-    for item_id in equip_ids:
-        instance = next(
-            (
-                candidate
-                for candidate in inventory.items
-                if isinstance(candidate, ItemInstance) and candidate.template.id == item_id
-            ),
-            None,
-        )
-        if instance is None:
-            raise ValueError(f"cannot equip {item_id!r}: no such item in the inventory")
-        equip(inventory, definition, instance)
+    _outfit(inventory, definition, bought, equip_ids)
     character = Character(
         name=name,
         class_id=definition.id,
@@ -1442,3 +1461,33 @@ def create_character(
         hit_point_roll=hit_point_roll,
         gold_roll=gold_roll,
     )
+
+
+def _outfit(
+    inventory: Inventory,
+    definition: ClassDefinition,
+    bought: Sequence[tuple[ItemTemplate, int]],
+    equip_ids: Sequence[str],
+) -> None:
+    """Buy each `(template, lots)` pair with the inventory's purse, then equip `equip_ids` in order.
+
+    Raises:
+        ValueError: On the first purchase or equip that fails.
+    """
+    for template, lots in bought:
+        purchase_rejections = validate_purchase(inventory.purse, template, lots)
+        if purchase_rejections:
+            raise ValueError(f"illegal purchase: {[rejection.code for rejection in purchase_rejections]}")
+        purchase(inventory, template, lots)
+    for item_id in equip_ids:
+        instance = next(
+            (
+                candidate
+                for candidate in inventory.items
+                if isinstance(candidate, ItemInstance) and candidate.template.id == item_id
+            ),
+            None,
+        )
+        if instance is None:
+            raise ValueError(f"cannot equip {item_id!r}: no such item in the inventory")
+        equip(inventory, definition, instance)

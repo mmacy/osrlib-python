@@ -1192,15 +1192,17 @@ def generate_magic_item(
         allocator: The id source for the new instances, which take the `magic-item` prefix.
             An [`IdAllocator`][osrlib.core.monsters.IdAllocator].
         exclude: Kinds to re-roll when the kind is being rolled. Excluded rolls consume
-            draws, as re-rolling at the table does.
+            draws, as re-rolling at the table does. When `category` is `None`, leave at least
+            one kind that the tier's column of the master table can roll.
 
     Returns:
         The new instances, unidentified. Usually one. Two when the table's row is a suit of
         armour that comes with a shield.
 
     Raises:
-        ValueError: If `tier` is neither `"basic"` nor `"expert"`, or `category` is one of
-            the kinds you excluded.
+        ValueError: If `tier` is neither `"basic"` nor `"expert"`, `category` is one of the
+            kinds you excluded, or `category` is `None` and `exclude` covers every kind the
+            tier's column can roll. The function raises before it draws.
 
     Examples:
         ```python
@@ -1221,6 +1223,13 @@ def generate_magic_item(
     tables = load_treasure_tables()
     catalog = load_magic_items()
     if category is None:
+        rollable = {
+            row.category
+            for row in tables.magic_item_types.rows
+            if getattr(row, f"{tier}_min") <= getattr(row, f"{tier}_max")
+        }
+        if rollable <= set(exclude):
+            raise ValueError(f"exclude leaves no kind of magic item that the {tier} table can roll")
         while True:
             category = tables.magic_item_types.category_for_roll(stream.randbelow(100) + 1, tier=tier)
             if category not in exclude:

@@ -2649,8 +2649,12 @@ def _validate_declaration(
         if not pool:
             return [Rejection(code="battle.declaration.no_target", params={"group": group.id})]
         weapon = _find_wielded(member, declaration.weapon_id)
-        if declaration.weapon_id is not None and weapon is None:
-            return [Rejection(code="battle.declaration.weapon_not_wielded", params={"item": declaration.weapon_id})]
+        if declaration.weapon_id is not None:
+            if weapon is None:
+                return [Rejection(code="battle.declaration.weapon_not_wielded", params={"item": declaration.weapon_id})]
+            if _declaration_facet(weapon) is None:
+                # A wielded wand, or another magic item with no base weapon, has no damage to roll.
+                return [Rejection(code="battle.declaration.item_unusable", params={"item": declaration.weapon_id})]
         if declaration.move == "close" and cannot_move(member):
             return [Rejection(code="battle.declaration.cannot_move", params={"character": member.id})]
         placement = placement or _placement(session)
@@ -2679,7 +2683,9 @@ def _validate_declaration(
         if group is None or group.fled:
             return [Rejection(code="battle.declaration.unknown_group", params={"character": member.id})]
         instance = exploration._find_item(member, declaration.item_id) if declaration.item_id else None
-        if instance is None or getattr(instance.template, "combat", None) is None:
+        facet = getattr(instance.template, "combat", None) if instance is not None else None
+        if instance is None or facet is None or WeaponQuality.SPLASH not in facet.qualities:
+            # Only a splash weapon, like holy water or a flask of oil, is thrown. A torch is swung.
             return [Rejection(code="battle.declaration.item_unusable", params={"item": declaration.item_id or ""})]
         pool = _monster_pool(session, group)
         if not pool:
@@ -3934,8 +3940,8 @@ def _resolve_use_item(session, member, declaration, fire_damaged) -> list[Event]
     # resolves from is the instance that left the pack.
     instance = exploration._consume_item(member, declaration.item_id)
     if not isinstance(instance, ItemInstance) or not isinstance(instance.template, GearTemplate):
-        # Unreachable: the declaration validator proved the item is gear with a
-        # combat facet (holy water, a flask of burning oil) before the round ran.
+        # Unreachable: the declaration validator proved the item is splash gear
+        # (holy water, a flask of burning oil) before the round ran.
         return []
     template = instance.template
     context = AttackContext(
