@@ -168,6 +168,7 @@ from osrlib.core.alignment import Alignment
 from osrlib.core.classes import ClassDefinition
 from osrlib.core.clock import ROUNDS_PER_DAY, GameClock, TimeUnit
 from osrlib.core.combat import (
+    MELEE_REACH_FEET,
     AttackContext,
     DamageSource,
     SaveCategory,
@@ -422,7 +423,9 @@ class RangeSpec(BaseModel):
     """Which kind of range this is.
 
     - `caster`: the spell affects only the caster.
-    - `touch`: the spell affects a creature the caster touches, which can be the caster.
+    - `touch`: the spell affects a creature the caster touches, which can be the caster. It reaches 5', as far
+      as a melee attack ([`MELEE_REACH_FEET`][osrlib.core.combat.MELEE_REACH_FEET]), so `validate_cast` refuses
+      a touch spell at a `distance_feet` beyond that with `magic.cast.out_of_range`.
     - `feet` and `yards`: a fixed distance, in `feet`.
     - `per_level`: a distance that grows with caster level.
     - `special`: the printed line has no structure osrlib can read.
@@ -1765,7 +1768,8 @@ class CastContext(BaseModel):
 
     Setting it turns on the range check in validation. Validation rejects the cast when the distance is
     more than the spell's [`RangeSpec`][osrlib.core.spells.RangeSpec] reaches at the caster level
-    in use. Leave it unset, and no range check happens.
+    in use. A touch spell reaches 5', so a touch spell at more than 5' is rejected too. Leave it unset,
+    and no range check happens.
     """
 
     bound: bool = False
@@ -1830,7 +1834,13 @@ def _missile_count(effect: SpellEffect, caster_level: int) -> int:
 
 
 def _max_range_feet(spell: SpellTemplate, caster_level: int) -> int | None:
+    """How far the spell reaches at the caster level, in feet, or None when its range has no distance to check.
+
+    A touch spell reaches as far as a melee attack, `MELEE_REACH_FEET`, because the caster has to touch the target.
+    """
     spec = spell.range_spec
+    if spec.kind == "touch":
+        return MELEE_REACH_FEET
     if spec.kind in ("feet", "yards"):
         return spec.feet
     if spec.kind == "per_level":
