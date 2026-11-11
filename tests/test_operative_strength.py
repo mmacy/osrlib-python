@@ -6,8 +6,6 @@ character's melee modifier and chance to force a door come from the score in eff
 character itself, and the session and the player view report the same numbers combat uses.
 """
 
-import pytest
-
 from crawl_fixtures import build_adventure, build_party
 from osrlib.core.abilities import AbilityScore
 from osrlib.core.combat import melee_modifier_for
@@ -16,8 +14,6 @@ from osrlib.core.events import Visibility
 from osrlib.core.items import MagicItemInstance
 from osrlib.crawl.commands import EquipItem, GrantItem, UnequipItem
 from osrlib.crawl.session import GameSession
-
-pytestmark = pytest.mark.xfail(reason="chunk: operative-strength")
 
 WEAKNESS = ActiveModifier(kind="strength_set", value=3, from_item=True, effect_id="effect-9001")
 """What the ring of weakness's curse puts on its wearer once its onset ends."""
