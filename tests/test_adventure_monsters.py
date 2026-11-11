@@ -164,7 +164,7 @@ class TestValidation:
         adventure = bundled_adventure(monsters=(wretch(), wretch()))
         with pytest.raises(ContentValidationError, match="adventure validation failed") as excinfo:
             validate_adventure(adventure, load_monsters(), load_equipment())
-        assert f"bundled monster id {CUSTOM_ID!r} collides with the catalog" in str(excinfo.value)
+        assert f"bundled monster id {CUSTOM_ID!r} appears more than once in the bundle" in str(excinfo.value)
 
     def test_a_base_catalog_collision_names_every_colliding_id(self):
         adventure = bundled_adventure(monsters=(wretch("goblin"), wretch("skeleton")))
