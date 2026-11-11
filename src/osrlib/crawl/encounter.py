@@ -1029,7 +1029,7 @@ def _handle_turn_undead(session, command: TurnUndead) -> tuple[list[Rejection], 
 
 
 def _handle_drop_during_encounter(session, command: DropItems) -> tuple[list[Rejection], list[Event]]:
-    from osrlib.crawl import _party_members, exploration
+    from osrlib.crawl import _items, _party_members
 
     state = session.encounter
     if state is None:
@@ -1037,12 +1037,12 @@ def _handle_drop_during_encounter(session, command: DropItems) -> tuple[list[Rej
     member, rejections = _party_members._member_able(session, command.character_id)
     if rejections:
         return rejections, []
-    rejections = exploration._validate_carried(member, command.item_ids, command.coins)
+    rejections = _items._validate_carried(member, command.item_ids, command.coins)
     if rejections:
         return rejections, []
     # During a chase, dropped goods scatter behind the running party and form
     # no pile. Otherwise they land on the party's cell like any other drop.
-    events = exploration._apply_drop(session, member, command, to_pile=state.pursuit is None)
+    events = _items._apply_drop(session, member, command, to_pile=state.pursuit is None)
     bait = None
     if command.coins.total_coins > 0:
         bait = "treasure"

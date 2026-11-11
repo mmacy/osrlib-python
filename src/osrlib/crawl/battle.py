@@ -3159,7 +3159,7 @@ def _hand_over(session, declaration: BattleDeclaration, giver, placement: _Place
 
     The recipient is None when there are rejections. The call reads state and takes no draw.
     """
-    from osrlib.crawl import _party_members, exploration
+    from osrlib.crawl import _items, _party_members
 
     recipient_id = _sole_target(declaration) or ""
     if recipient_id == giver.id:
@@ -3167,7 +3167,7 @@ def _hand_over(session, declaration: BattleDeclaration, giver, placement: _Place
     recipient, rejections = _party_members._member_able(session, recipient_id)
     if recipient is None:
         return None, rejections
-    rejections = exploration._validate_carried(giver, (declaration.item_id or "",), Coins())
+    rejections = _items._validate_carried(giver, (declaration.item_id or "",), Coins())
     if rejections:
         return None, rejections
     out_of_reach = _reach_rejection(placement, giver.id, recipient.id)
@@ -3185,12 +3185,12 @@ def _resolve_hand_over(session, giver, declaration: BattleDeclaration) -> list[E
     item moves as [`GiveItems`][osrlib.crawl.commands.GiveItems] moves it, with an `ItemsGivenEvent`. The hand-over
     takes no draw.
     """
-    from osrlib.crawl import exploration
+    from osrlib.crawl import _items
 
     recipient, _ = _hand_over(session, declaration, giver, _placement(session))
     if recipient is None or declaration.item_id is None:
         return []
-    return exploration._apply_give(session, giver, recipient, (declaration.item_id,), Coins())
+    return _items._apply_give(session, giver, recipient, (declaration.item_id,), Coins())
 
 
 def _resolve_magic_item_use(session, member, declaration: BattleDeclaration, state) -> list[Event]:
