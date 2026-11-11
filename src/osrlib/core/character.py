@@ -85,6 +85,7 @@ print(party.members[0].name, party.members[0].max_hp, party.members[0].armour_cl
 """
 
 from collections.abc import Mapping, Sequence
+from typing import Final
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -169,7 +170,7 @@ creation rules can change how many draws creation takes. Because the streams are
 change doesn't change the advancement rolls in a save you've already made.
 """
 
-ABILITY_ROLL_ORDER = (
+ABILITY_ROLL_ORDER: Final = (
     AbilityScore.STR,
     AbilityScore.INT,
     AbilityScore.WIS,
@@ -180,8 +181,8 @@ ABILITY_ROLL_ORDER = (
 """The order in which [`roll_ability_scores`][osrlib.core.character.roll_ability_scores] rolls the six abilities.
 
 The order is STR, INT, WIS, DEX, CON, CHA, as the SRD lists them. Read it to show rolled scores in
-the order the dice came up, or to match recorded rolls to their abilities by hand. The same stream
-always gives the same six scores because the order never changes, so don't reassign this name.
+the order the dice came up, or to match recorded rolls to their abilities by hand. The order never
+changes, so the same stream always gives the same six scores.
 """
 
 
