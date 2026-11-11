@@ -47,7 +47,7 @@ Each entry also cites the source files and test names that lock it. Those citati
 - **Purse** - A character's coins, a [`CoinPurse`][osrlib.core.items.CoinPurse].
 - **Hoard** - A pile of treasure the engine generates, like the treasure in a monster's lair.
 - **Compiler** - The build step in `tools/srd_compile/` that turns the SRD's pages into osrlib's data files.
-- **Replay** - Running a saved command log again from the same seed, as [`replay_game`][osrlib.persistence.replay_game] does, which reaches the same state.
+- **Replay** - Running a saved command log again from the same seed, as [`replay_game`][osrlib.persistence.replay_game] does, which reaches the same state, apart from the state and the events that listeners return.
 - **Clamp** - To keep a value inside a range: a value below the range becomes the lowest value, and one above it becomes the highest.
 
 ## Interpretations
