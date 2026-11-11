@@ -15,8 +15,6 @@ import pytest
 
 import osrlib
 
-pytestmark = pytest.mark.xfail(reason="chunk: reference-signatures")
-
 PRIVATE_NAME = re.compile(r"(?<![\w.])_[A-Za-z]\w*")
 """An identifier that starts with one underscore, as a name of its own and not as an attribute."""
 
@@ -50,6 +48,43 @@ def public_callables() -> list[tuple[str, object]]:
 
 CALLABLES = public_callables()
 
+NEEDS_A_MOVE = "an import cycle hides a type, and breaking the cycle moves a public symbol to another module"
+"""Why a signature still fails: the fix changes a public import path, so it waits for a major version."""
+
+BLOCKED_BY_A_CYCLE = frozenset(
+    {
+        # osrlib.core.classes and osrlib.core.character
+        "osrlib.core.classes.apply_xp",
+        "osrlib.core.classes.detection_chance",
+        "osrlib.core.classes.drain_levels",
+        "osrlib.core.classes.level_up",
+        "osrlib.core.classes.thief_skill_check",
+        # osrlib.core.items and osrlib.core.character
+        "osrlib.core.items.sword_control_check",
+        # osrlib.core.items and osrlib.core.treasure
+        "osrlib.core.treasure.generate_magic_item",
+        "osrlib.core.treasure.generate_treasure",
+        "osrlib.core.treasure.generate_treasure_entries",
+        "osrlib.core.treasure.generate_unguarded_treasure",
+        "osrlib.core.treasure.instantiate_magic_item",
+        # osrlib.crawl.session and osrlib.crawl.views
+        "osrlib.crawl.session.GameSession.view",
+    }
+)
+"""The callables whose signatures can't be read until one of four import cycles is broken.
+
+The marker is strict, so a callable that starts to work fails the test until it's taken off this list,
+and a callable that isn't on the list has to work.
+"""
+
+
+def signature_cases() -> list:
+    cases = []
+    for name, function in CALLABLES:
+        marks = [pytest.mark.xfail(reason=NEEDS_A_MOVE, strict=True)] if name in BLOCKED_BY_A_CYCLE else []
+        cases.append(pytest.param(name, function, id=name, marks=marks))
+    return cases
+
 
 def test_the_harness_finds_the_public_surface():
     names = [name for name, _ in CALLABLES]
@@ -58,7 +93,11 @@ def test_the_harness_finds_the_public_surface():
     assert len(names) > 200
 
 
-@pytest.mark.parametrize(("name", "function"), CALLABLES, ids=[name for name, _ in CALLABLES])
+def test_every_blocked_callable_is_still_public():
+    assert BLOCKED_BY_A_CYCLE <= {name for name, _ in CALLABLES}
+
+
+@pytest.mark.parametrize(("name", "function"), signature_cases())
 def test_inspect_signature_works(name, function):
     signature = inspect.signature(function, eval_str=True)
     assert signature is not None
