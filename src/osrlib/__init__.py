@@ -26,6 +26,7 @@ Kernel modules never import from `osrlib.crawl`, so you can use them without it.
 | [`osrlib.core.clock`][] | Count game time in rounds, and report each turn and day that passes. |
 | [`osrlib.core.alignment`][] | The three alignments that characters and monsters share. |
 | [`osrlib.core.validation`][] | The refusal a rules check returns instead of raising an exception. |
+| [`osrlib.core.frozen`][] | The read-only mapping in frozen content, like an ability's numbers or a level's edges. |
 | [`osrlib.core.abilities`][] | Look up the modifier or chance an ability score gives, and make ability checks. |
 | [`osrlib.core.classes`][] | Read a class's titles and level table, and award experience points (XP). |
 | [`osrlib.core.monsters`][] | Read monster templates, and spawn a monster with rolled hit points. |

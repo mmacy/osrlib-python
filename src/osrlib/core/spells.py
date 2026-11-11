@@ -159,7 +159,7 @@ assert aldis.memorized_spells == ()  # the cast spent the copy
 # satisfies, and character.py imports MemorizedSpell from here, never the reverse.
 
 from collections.abc import Mapping, Sequence
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -183,7 +183,7 @@ from osrlib.core.combat import (
     select_targets,
 )
 from osrlib.core.creature import Caster, Creature
-from osrlib.core.dice import parse, roll
+from osrlib.core.dice import _lowest_total, parse, roll
 from osrlib.core.effects import (
     ActiveCondition,
     ActiveModifier,
@@ -210,6 +210,7 @@ from osrlib.core.events import (
     TurningTypeOutcome,
     UndeadTurnedEvent,
 )
+from osrlib.core.frozen import FrozenMap
 from osrlib.core.monsters import MonsterInstance, MonsterTemplate
 from osrlib.core.rng import RngStream, StreamName
 from osrlib.core.ruleset import Ruleset
@@ -464,7 +465,16 @@ class TargetingSpec(BaseModel):
     still spent.
 
     Constructing one raises `pydantic.ValidationError` when `count_dice` or `hd_budget_dice` isn't
-    a valid dice expression.
+    a valid dice expression, and when the targeting could pick nobody:
+
+    - `count` is below 1.
+    - The mode is `up_to_n`, and `count_dice` can roll a total below 1.
+    - The mode is `hd_budget`, and `hd_budget_dice` is `None` or can roll a total below 1.
+
+    `up_to_n` targeting with neither `count` nor `count_dice` builds, because *magic missile*'s
+    targeting has neither: the caster's level sets how many missiles it shoots.
+    [`SpellMode`][osrlib.core.spells.SpellMode] refuses that targeting in an automated mode whose
+    effect has no `missiles_base` param.
 
     Examples:
         ```python
@@ -495,17 +505,19 @@ class TargetingSpec(BaseModel):
     - `gaze`: every candidate you pass, for a gaze that reaches everyone engaged with the gazer.
     """
 
-    count: int | None = None
-    """The fixed size of an `up_to_n` group, when the page prints a number rather than dice."""
+    count: int | None = Field(default=None, ge=1)
+    """The fixed size of an `up_to_n` group, when the page prints a number rather than dice. At least 1."""
 
     count_dice: str | None = None
     """The dice rolled when the spell is cast to size an `up_to_n` group, on the magic stream.
 
-    *Hold person*'s group mode is `"1d4"` and *charm monster*'s is `"3d6"`.
+    *Hold person*'s group mode is `"1d4"` and *charm monster*'s is `"3d6"`. In the `up_to_n` mode, the
+    lowest total the dice can roll is at least 1.
     """
 
     hd_budget_dice: str | None = None
-    """The dice rolled to size an `hd_budget` pool, like `"2d8"` for *sleep*.
+    """The dice rolled to size an `hd_budget` pool, like `"2d8"` for *sleep*. The `hd_budget` mode needs them, and the
+    lowest total they can roll is at least 1.
 
     The spell affects creatures in order of Hit Dice, fewest first, until the pool can't pay for
     the next one. The rest of the pool is lost rather than spent on anyone else.
@@ -526,7 +538,7 @@ class TargetingSpec(BaseModel):
     shape: str | None = None
     """The name of the area an `area` mode covers, like `"sphere"`. `None` on every other mode."""
 
-    dimensions: dict[str, int] = {}
+    dimensions: Annotated[Mapping[str, int], FrozenMap] = FrozenMap()
     """The area's measurements in feet, keyed by name. *Fire ball*'s sphere is `{"radius_feet": 20}`.
 
     osrlib doesn't work out which creatures are inside the area. You decide who is caught and pass
@@ -539,6 +551,18 @@ class TargetingSpec(BaseModel):
         if value is not None:
             parse(value)
         return value
+
+    @model_validator(mode="after")
+    def _must_pick_someone(self) -> TargetingSpec:
+        if self.mode is TargetingMode.UP_TO_N and self.count_dice is not None:
+            if _lowest_total(parse(self.count_dice)) < 1:
+                raise ValueError(f"an up_to_n group's count_dice {self.count_dice!r} can roll a total below 1")
+        if self.mode is TargetingMode.HD_BUDGET:
+            if self.hd_budget_dice is None:
+                raise ValueError("hd_budget targeting needs hd_budget_dice")
+            if _lowest_total(parse(self.hd_budget_dice)) < 1:
+                raise ValueError(f"hd_budget_dice {self.hd_budget_dice!r} can roll a total below 1")
+        return self
 
 
 class SaveSpec(BaseModel):
@@ -649,7 +673,7 @@ class SpellEffect(BaseModel):
     when it ends.
     """
 
-    params: dict[str, int | str | bool | tuple[int | str, ...]] = {}
+    params: Annotated[Mapping[str, int | str | bool | tuple[int | str, ...]], FrozenMap] = FrozenMap()
     """The numbers and options for this spell that casting reads for `kind`, keyed by name.
 
     They include damage dice, per-level scaling, which creatures are eligible, how long after death
@@ -685,7 +709,9 @@ class SpellMode(BaseModel):
     promise a player an outcome.
 
     Constructing one raises `pydantic.ValidationError` when `manual` is False and `targeting` or
-    `effect` is `None`.
+    `effect` is `None`. It raises the same error for an automated `up_to_n` mode that can't size its
+    group: its targeting has neither `count` nor `count_dice`, and its effect has no
+    `missiles_base` param, which *magic missile* uses to count its missiles.
 
     Examples:
         ```python
@@ -739,8 +765,20 @@ class SpellMode(BaseModel):
 
     @model_validator(mode="after")
     def _automated_modes_carry_structure(self) -> SpellMode:
-        if not self.manual and (self.effect is None or self.targeting is None):
+        if self.manual:
+            return self
+        if self.effect is None or self.targeting is None:
             raise ValueError(f"mode {self.key!r} is automated but lacks targeting or an effect")
+        targeting = self.targeting
+        if (
+            targeting.mode is TargetingMode.UP_TO_N
+            and targeting.count is None
+            and targeting.count_dice is None
+            and "missiles_base" not in self.effect.params
+        ):
+            raise ValueError(
+                f"mode {self.key!r} targets an up_to_n group but has no count, count_dice, or missiles_base"
+            )
         return self
 
 
@@ -1187,8 +1225,9 @@ def caster_profile(definition: ClassDefinition) -> CasterProfile | None:
     for a class with no profile.
 
     The answer comes from the class's ability tags, not from a list of built-in classes. A class you
-    write casts when it has a `divine_magic` or `arcane_magic` ability whose `params` has a
-    `spell_list`.
+    write casts when it has a `divine_magic` or `arcane_magic` ability. A
+    [`ClassDefinition`][osrlib.core.classes.ClassDefinition] refuses such an ability without a
+    `spell_list` in its `params`, and the profile's `spell_list` is that value.
 
     Args:
         definition: The class, as a [`ClassDefinition`][osrlib.core.classes.ClassDefinition] from

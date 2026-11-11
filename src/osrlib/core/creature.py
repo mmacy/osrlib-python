@@ -54,7 +54,9 @@ print(hurt(hero), hurt(goblin), needs_attack_roll(hero), needs_attack_roll(gobli
 ```
 """
 
-from typing import TYPE_CHECKING, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+
+from pydantic import BaseModel, ValidationError
 
 from osrlib.core.alignment import Alignment
 
@@ -68,6 +70,22 @@ __all__ = [
     "Combatant",
     "Creature",
 ]
+
+
+def _assign_or_restore(model: BaseModel, name: str, value: Any) -> None:
+    """Assign a field of a model that validates on assignment, and put every field back when validation refuses it.
+
+    Pydantic sets the field before it runs a model validator, so without this the field would still have the refused
+    value after the `ValidationError`. `Character` and `MonsterInstance` use it as their `__setattr__`.
+    """
+    fields = model.__dict__.copy()
+    fields_set = model.__pydantic_fields_set__.copy()
+    try:
+        BaseModel.__setattr__(model, name, value)
+    except ValidationError:
+        object.__setattr__(model, "__dict__", fields)
+        object.__setattr__(model, "__pydantic_fields_set__", fields_set)
+        raise
 
 
 @runtime_checkable

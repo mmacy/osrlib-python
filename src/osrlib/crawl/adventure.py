@@ -40,10 +40,12 @@ The guide
 walks through a complete program you can run.
 """
 
+from collections.abc import Mapping
 from typing import Annotated, NamedTuple
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from osrlib.core.frozen import FrozenMap
 from osrlib.core.items import (
     AmmunitionTemplate,
     ArmourTemplate,
@@ -149,7 +151,7 @@ class TownSpec(BaseModel):
     read them: the shop and temple commands work in any town. The session passes them to the player view as
     [`PlayerView.town_services`][osrlib.crawl.views.PlayerView.town_services], so you can list them on
     a town screen."""
-    travel_turns: dict[str, Annotated[int, Field(ge=0)]] = {}
+    travel_turns: Annotated[Mapping[str, Annotated[int, Field(ge=0)]], FrozenMap] = FrozenMap()
     """How long the trip from town to each dungeon's entrance takes, in exploration turns, keyed by
     dungeon id. [`EnterDungeon`][osrlib.crawl.commands.EnterDungeon] and
     [`TravelToTown`][osrlib.crawl.commands.TravelToTown] each advance the clock by this many turns,
@@ -157,8 +159,12 @@ class TownSpec(BaseModel):
     party's rations at each day boundary. A trip to a dungeon with no entry here, or with 0, takes no
     time. Each value is 0 or more, and the model raises `ValueError` when you construct it with a
     negative one. Every key has to be the id of a dungeon in this adventure, and
-    [`validate_adventure`][osrlib.crawl.adventure.validate_adventure] reports one that isn't."""
-    healing_prices: dict[HealingService, Annotated[int, Field(ge=0)]] = {}
+    [`validate_adventure`][osrlib.crawl.adventure.validate_adventure] reports one that isn't.
+
+    You pass a dict, and the town stores a read-only [`FrozenMap`][osrlib.core.frozen.FrozenMap] of
+    it, as it does for `healing_prices`, because every session started from the adventure reads the
+    same town."""
+    healing_prices: Annotated[Mapping[HealingService, Annotated[int, Field(ge=0)]], FrozenMap] = FrozenMap()
     """What this town's temple charges for a service, in gold pieces, keyed by the service's name, like
     `{"raise_dead": 1000}`. [`PurchaseHealing`][osrlib.crawl.commands.PurchaseHealing] charges this
     price, and a service you don't list costs the standard price from

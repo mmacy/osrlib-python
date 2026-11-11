@@ -52,13 +52,15 @@ above 20.
 # these models and doesn't define them. The tables are compiled from the SRD's Markdown pages into
 # combat_tables.json and encounter_tables.json at build time.
 
+from collections.abc import Mapping
 from enum import StrEnum
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from osrlib.core.classes import SavingThrows
-from osrlib.core.dice import parse, roll
+from osrlib.core.dice import _lowest_total, parse, roll
+from osrlib.core.frozen import FrozenMap
 from osrlib.core.monsters import MonsterHitDice
 from osrlib.core.rng import RngStream
 
@@ -149,7 +151,7 @@ class AttackMatrixRow(BaseModel):
     attack_bonus: int = Field(ge=-1)
     """The attacker's bonus for ascending armour class, which is 19 minus `thac0`."""
 
-    by_ac: dict[int, int]
+    by_ac: Annotated[Mapping[int, int], FrozenMap]
     """The roll needed against each descending armour class from −3 to 9, keyed by armour class, as printed.
 
     Every value is `thac0` minus the armour class, limited to 2 to 20.
@@ -254,7 +256,7 @@ class TurningRow(BaseModel):
     label: str
     """The cleric level the row is for: `"1"` to `"10"`, or `"11+"` for level 11 and higher."""
 
-    cells: dict[str, str]
+    cells: Annotated[Mapping[str, str], FrozenMap]
     """The row's cells, keyed by the column labels in [`TURNING_COLUMNS`][osrlib.core.tables.TURNING_COLUMNS].
 
     Each value is what the SRD prints: an em dash (`"—"`) when the cleric can't turn the
@@ -682,12 +684,6 @@ class EncounterTable(BaseModel):
         return self
 
 
-def _dice_minimum(expression: str) -> int:
-    """Return the lowest total a dice expression can roll, which is the offset of a variant row's first id."""
-    parsed = parse(expression)
-    return parsed.count + parsed.modifier
-
-
 def select_encounter_individuals(entry: MonsterEncounterEntry, count: int, stream: RngStream) -> list[str]:
     """Return one monster template id for each individual that appears from an encounter table row.
 
@@ -738,7 +734,8 @@ def select_encounter_individuals(entry: MonsterEncounterEntry, count: int, strea
     ids = list(entry.monster_ids)
     if entry.variant_dice is not None:
         total = roll(entry.variant_dice, stream).total
-        return [ids[total - _dice_minimum(entry.variant_dice)]] * count
+        # The lowest total the variant dice can roll selects the first id.
+        return [ids[total - _lowest_total(parse(entry.variant_dice))]] * count
     if len(ids) > 1:
         return [ids[stream.randbelow(len(ids))] for _ in range(count)]
     return [ids[0]] * count

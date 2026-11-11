@@ -32,7 +32,7 @@ WARDEN = ClassDefinition.model_validate(
 
 ## Caster tags and the progression table
 
-`abilities` is a tuple of [`ClassAbility`][osrlib.core.classes.ClassAbility] tags: a `tag` string, a display `name`, referee-facing `prose`, and a `params` dict of the numbers the engine uses. The built-in procedures read some of those tags by name. [`detection_chance`][osrlib.core.classes.detection_chance] reads `listening_at_doors`, `detect_secret_doors`, `detect_room_traps`, and `detect_construction_tricks`, all of which take a `chance_in_six` param. [`caster_profile`][osrlib.core.spells.caster_profile] reads `divine_magic` and `arcane_magic`, which take a `spell_list` param. The engine ignores an unrecognized tag, and your front end can still display it.
+`abilities` is a tuple of [`ClassAbility`][osrlib.core.classes.ClassAbility] tags: a `tag` string, a display `name`, referee-facing `prose`, and `params`, the numbers the engine uses. You write `params` as a dict, and the definition stores it as a read-only [`FrozenMap`][osrlib.core.frozen.FrozenMap]. The built-in procedures read some of those tags by name. [`detection_chance`][osrlib.core.classes.detection_chance] reads `listening_at_doors`, `detect_secret_doors`, `detect_room_traps`, and `detect_construction_tricks`, all of which take a `chance_in_six` param. [`caster_profile`][osrlib.core.spells.caster_profile] reads `divine_magic` and `arcane_magic`, which need a `spell_list` param. `ClassDefinition` refuses a casting tag without one. The engine ignores an unrecognized tag, and your front end can still display it.
 
 A class with a `divine_magic` or `arcane_magic` tag is a caster. `caster_profile` reads the tag straight off the definition and returns a [`CasterProfile`][osrlib.core.spells.CasterProfile] with its `kind` and its `spell_list`, the id your spells match against. Divine casters choose the reversed form at cast time, and arcane casters fix it when memorizing, from a spell book:
 
@@ -440,6 +440,37 @@ assert session.effective_monsters.get("bone_warden") is BONE_WARDEN
 guards = session.spawn("bone_warden", 2)
 assert [guard.template.id for guard in guards] == ["bone_warden", "bone_warden"]
 assert all(guard.max_hp >= 3 for guard in guards)  # 2d8+1 rolls at least 3
+```
+
+### Make a variant of a built-in monster
+
+You can't change a built-in template. It's frozen, and so is every mapping in it, like an ability's `params`, so assigning to an entry raises `TypeError`. Every session in the process shares the built-in catalog, so a change would reach every troll in every game. To make a variant, dump the built-in template with `model_dump`, change the dump, and validate it with `model_validate` under an id of its own. The dump contains plain dicts, which you can change. Give the variant its own `display_name` and `family_id` too, unless the players shouldn't be able to tell it from the built-in creature:
+
+```python
+from osrlib.core.monsters import MonsterTemplate
+from osrlib.data import load_monsters
+
+troll = load_monsters().get("troll")
+document = troll.model_dump()
+for ability in document["abilities"]:
+    if ability["tag"] == "regeneration":
+        ability["params"]["per_round"] = 5
+
+BOG_TROLL = MonsterTemplate.model_validate(
+    {**document, "id": "bog_troll", "name": "Bog Troll", "display_name": "bog troll", "family_id": "bog_troll"}
+)
+print(BOG_TROLL.ability("regeneration").params["per_round"], troll.ability("regeneration").params["per_round"])
+# 5 3
+```
+
+Bundle the variant with an adventure like any template of your own. To change only top-level fields, like the id and the name, `model_copy(update=...)` also works. It doesn't validate what you pass, so use it only for values you know are valid:
+
+```python
+from osrlib.data import load_monsters
+
+cave_goblin = load_monsters().get("goblin").model_copy(update={"id": "cave_goblin", "name": "Cave Goblin"})
+print(cave_goblin.id, cave_goblin.hit_dice.count)
+# cave_goblin 1
 ```
 
 An adventure document can't bundle classes or spells. For those, extend the catalogs as shown above.

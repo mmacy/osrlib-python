@@ -98,6 +98,7 @@ from osrlib.core.abilities import (
 )
 from osrlib.core.alignment import Alignment
 from osrlib.core.classes import ClassDefinition, SavingThrows, _check_definition
+from osrlib.core.creature import _assign_or_restore
 from osrlib.core.dice import RollResult, roll
 from osrlib.core.effects import ActiveCondition, ActiveModifier
 from osrlib.core.items import (
@@ -200,7 +201,8 @@ class Character(BaseModel):
     attributes, so the combat functions take either.
 
     The model is mutable and validates on assignment. Setting a field to a value that breaks a rule
-    raises a pydantic `ValidationError`. Validation is structural only. It checks that the six scores
+    raises a pydantic `ValidationError`, and every field still has the value it had before the
+    assignment. Validation is structural only. It checks that the six scores
     are present and in range, that `class_id` is the id of a class in
     [`load_classes`][osrlib.data.load_classes], that the level is within the class's maximum, and
     that current hit points don't exceed maximum hit points. It doesn't check that the character was
@@ -234,6 +236,8 @@ class Character(BaseModel):
     """
 
     model_config = ConfigDict(validate_assignment=True, extra="ignore")
+
+    __setattr__ = _assign_or_restore
 
     id: str | None = None
     """The character's id within a game, like `"character-0001"`, or `None` before a session assigns one.

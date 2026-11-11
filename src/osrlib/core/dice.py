@@ -238,6 +238,11 @@ def parse(expression: str) -> DiceExpression:
     return DiceExpression(count=count, sides=sides, modifier=modifier, multiplier=multiplier)
 
 
+def _lowest_total(expression: DiceExpression) -> int:
+    """Return the lowest total `expression` can roll, with every die showing 1."""
+    return (expression.count + expression.modifier) * expression.multiplier
+
+
 def roll(expression: str | DiceExpression, stream: RngStream) -> RollResult:
     """Roll a dice expression, drawing from the stream you pass.
 

@@ -233,7 +233,8 @@ class MagicAllotment(BaseModel):
       in "a magic sword, suit of armour, or weapon".
 
     Exactly one of `count` and `count_dice` is set, and it gives the number of items. Only an `any` clause has
-    exclusions, because a clause that specifies its type has nothing to exclude.
+    exclusions, because a clause that specifies its type has nothing to exclude. An `any` clause can't exclude every
+    type, because generation would then have no type to roll.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -249,7 +250,7 @@ class MagicAllotment(BaseModel):
     count_dice: str | None = None
     """The number of items as a dice expression, or `None` when it's fixed."""
     exclude: tuple[MagicItemType, ...] = ()
-    """Types an `any` clause re-rolls. Empty on the other kinds."""
+    """Types an `any` clause re-rolls. Empty on the other kinds, and never every type."""
 
     @field_validator("count_dice")
     @classmethod
@@ -270,6 +271,8 @@ class MagicAllotment(BaseModel):
             raise ValueError("a 'pool' allotment names at least two categories")
         if self.kind != "any" and self.exclude:
             raise ValueError("only an 'any' allotment carries exclusions")
+        if set(MagicItemType) <= set(self.exclude):
+            raise ValueError("an 'any' allotment can't exclude every kind of magic item")
         return self
 
 

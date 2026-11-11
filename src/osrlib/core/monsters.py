@@ -39,7 +39,8 @@ The members, in the order you use them:
   [`EnergyDefense`][osrlib.core.monsters.EnergyDefense].
 
 Every model here except `MonsterInstance` and `IdAllocator` is frozen: assigning to one of its
-fields raises `pydantic.ValidationError`.
+fields raises `pydantic.ValidationError`. Their mapping fields, like an ability's `params`, are
+read-only [`FrozenMap`][osrlib.core.frozen.FrozenMap]s, so a template can't be changed at any depth.
 
 A monster instance is a combatant. Pass it to the functions in
 [`osrlib.core.combat`][osrlib.core.combat], which take a
@@ -89,15 +90,18 @@ print(template.xp, template.ability("regeneration").params["per_round"])
 ```
 """
 
+from collections.abc import Mapping
 from enum import StrEnum
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
 
 from osrlib.core.alignment import Alignment
 from osrlib.core.classes import SavingThrows
+from osrlib.core.creature import _assign_or_restore
 from osrlib.core.dice import parse
 from osrlib.core.effects import ActiveCondition, ActiveModifier, Condition
+from osrlib.core.frozen import FrozenMap
 from osrlib.core.rng import RngStream, StreamName
 
 __all__ = [
@@ -291,7 +295,7 @@ class Defenses(BaseModel):
     [`DamageReduction`][osrlib.core.monsters.DamageReduction].
     """
 
-    energy: dict[Element, EnergyDefense] = {}
+    energy: Annotated[Mapping[Element, EnergyDefense], FrozenMap] = FrozenMap()
     """How the creature resists each kind of energy, keyed by element. See
     [`EnergyDefense`][osrlib.core.monsters.EnergyDefense]. An element with no entry hurts it as usual.
     """
@@ -743,7 +747,7 @@ class MonsterAbility(BaseModel):
     manual: bool = False
     """True when osrlib doesn't act on this ability, so the referee applies it from the description."""
 
-    params: dict[str, int | str | bool | tuple[int | str, ...]] = {}
+    params: Annotated[Mapping[str, int | str | bool | tuple[int | str, ...]], FrozenMap] = FrozenMap()
     """The numbers and options the SRD gives for the ability, keyed by name.
 
     A troll's regeneration has `delay_rounds` 3 and `per_round` 3, and a wight's energy drain has
@@ -1115,11 +1119,14 @@ class MonsterInstance(BaseModel):
     [`thac0`][osrlib.core.monsters.MonsterInstance.thac0] and
     [`saves`][osrlib.core.monsters.MonsterInstance.saves], rather than the template's fields.
 
-    An instance isn't frozen. Each assignment to a field is validated, and a value that breaks a
-    field's constraint, like a negative `current_hp`, raises `pydantic.ValidationError`.
+    An instance isn't frozen. Each assignment to a field is validated. A value that breaks a rule, like
+    a negative `current_hp` or a `current_hp` above `max_hp`, raises `pydantic.ValidationError`, and
+    every field still has the value it had before the assignment.
     """
 
     model_config = ConfigDict(validate_assignment=True)
+
+    __setattr__ = _assign_or_restore
 
     id: str
     """The entity id, usually from [`IdAllocator.allocate`][osrlib.core.monsters.IdAllocator.allocate]. Events refer
@@ -1133,7 +1140,7 @@ class MonsterInstance(BaseModel):
     """The hit points it was spawned with, 1 or more."""
 
     current_hp: int = Field(ge=0)
-    """The hit points it has left.
+    """The hit points it has left, from 0 up to `max_hp`.
 
     [`deal_damage`][osrlib.core.combat.deal_damage] stops it at 0 and applies the `dead` condition
     through [`kill`][osrlib.core.effects.kill]. Healing stops it at `max_hp`.
@@ -1178,6 +1185,12 @@ class MonsterInstance(BaseModel):
     """How many Hit Dice have been drained from it, which [`drain_monster_hd`][osrlib.core.combat.drain_monster_hd]
     adds to. Its THAC0, attack bonus, and saving throws follow the Hit Dice it has left.
     """
+
+    @model_validator(mode="after")
+    def _hit_points_within_maximum(self) -> MonsterInstance:
+        if self.current_hp > self.max_hp:
+            raise ValueError(f"current hp {self.current_hp} exceeds max hp {self.max_hp}")
+        return self
 
     @property
     def name(self) -> str:

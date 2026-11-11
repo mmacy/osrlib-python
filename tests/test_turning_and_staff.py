@@ -673,7 +673,7 @@ class TestHpLostIsTheDropInMaximumHitPoints:
 
     def test_a_monster_drain_stopped_at_one_reports_the_drop(self):
         ogre = spawn("ogre", "m-o")
-        ogre.max_hp = ogre.current_hp = 3
+        ogre.current_hp = ogre.max_hp = 3
         events = drain_monster_hd(ogre, stream=FixedStream([5]))
         assert ogre.max_hp == 1, "precondition: the floor of 1 stopped the loss"
         assert drain_event(events).hp_lost == 2

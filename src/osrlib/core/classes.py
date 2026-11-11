@@ -65,8 +65,10 @@ print(level_title(fighter, character.level), character.thac0, character.saves.de
 ```
 """
 
+import re
+from collections.abc import Mapping
 from enum import StrEnum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -74,6 +76,7 @@ from osrlib.core.abilities import MAX_SCORE, MIN_SCORE, AbilityScore
 from osrlib.core.dice import ALLOWED_SIDES
 from osrlib.core.effects import kill
 from osrlib.core.events import Event, HitPointsReportedEvent, LevelDrainedEvent
+from osrlib.core.frozen import FrozenMap
 from osrlib.core.rng import RngStream
 
 if TYPE_CHECKING:
@@ -107,6 +110,11 @@ __all__ = [
     "thief_skill_check",
     "xp_modifier_pct",
 ]
+
+_CASTING_TAGS = ("arcane_magic", "divine_magic")
+
+# The pattern of `SpellTemplate.spell_list`, which a class's spell list has to match for the class to cast a spell.
+_SPELL_LIST_PATTERN = re.compile(r"[a-z][a-z0-9_]*")
 
 PERCENTILE_THIEF_SKILLS = (
     "climb_sheer_surfaces",
@@ -251,7 +259,7 @@ class XpTier(BaseModel):
     modifier_pct: int
     """The adjustment as a percentage, like `10` for a tenth more experience or `-20` for a fifth less."""
 
-    minimums: dict[AbilityScore, int]
+    minimums: Annotated[Mapping[AbilityScore, int], FrozenMap]
     """The lowest score in each ability that earns this tier, keyed by ability. The character must meet every entry for
     the tier to apply. There's at least one entry.
     """
@@ -437,9 +445,12 @@ class ClassAbility(BaseModel):
     manual: bool = False
     """True when osrlib doesn't apply this ability, and the referee applies it from `prose`."""
 
-    params: dict[str, int | str] = {}
+    params: Annotated[Mapping[str, int | str], FrozenMap] = FrozenMap()
     """The values the rules functions read, like `{"range_feet": 60}` for infravision or `{"chance_in_six": 2}` for a
     detection ability. Empty when the ability has none.
+
+    A `divine_magic` or `arcane_magic` ability has a `spell_list`, the id of the spell list the class casts from, like
+    `"magic_user"`. [`ClassDefinition`][osrlib.core.classes.ClassDefinition] refuses a casting ability without one.
     """
 
 
@@ -456,7 +467,9 @@ class ClassDefinition(BaseModel):
     A definition is frozen and shared by every character of the class. What changes in play, like
     the level and the hit points, is stored on the character. The built-in definitions are compiled
     from the SRD's class pages. To write a class of your own, build a `ClassDefinition` with
-    `model_validate`, which checks it with the same rules as the built-in classes.
+    `model_validate`, which checks it with the same rules as the built-in classes. One of those rules
+    is that a `divine_magic` or `arcane_magic` ability has a `spell_list` param, so
+    [`caster_profile`][osrlib.core.spells.caster_profile] always finds the list a casting class uses.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -473,7 +486,7 @@ class ClassDefinition(BaseModel):
     Creation copies it onto the character. No rules function reads it. What a race can do comes from `abilities`.
     """
 
-    requirements: dict[AbilityScore, int] = {}
+    requirements: Annotated[Mapping[AbilityScore, int], FrozenMap] = FrozenMap()
     """The lowest ability score a character needs in each listed ability to take this class.
 
     [`validate_class_choice`][osrlib.core.character.validate_class_choice] checks them. Empty for the human classes.
@@ -568,6 +581,14 @@ class ClassDefinition(BaseModel):
             skill_levels = [row.level for row in self.thief_skills]
             if skill_levels != list(range(1, self.max_level + 1)):
                 raise ValueError(f"thief skill rows must cover levels 1-{self.max_level} in order")
+        for ability in self.abilities:
+            if ability.tag in _CASTING_TAGS:
+                spell_list = ability.params.get("spell_list")
+                if not isinstance(spell_list, str) or _SPELL_LIST_PATTERN.fullmatch(spell_list) is None:
+                    raise ValueError(
+                        f"the {ability.tag} ability needs a spell_list param that is a spell list id, "
+                        f"like 'magic_user', got {spell_list!r}"
+                    )
         return self
 
     def row(self, level: int) -> ProgressionRow:

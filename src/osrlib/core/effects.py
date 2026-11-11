@@ -102,7 +102,7 @@ assert ledger.effects == []
 
 from collections.abc import Mapping
 from enum import StrEnum
-from typing import Any, Literal, cast
+from typing import Annotated, Any, Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -122,6 +122,7 @@ from osrlib.core.events import (
     HitPointsReportedEvent,
     MonsterRevivedEvent,
 )
+from osrlib.core.frozen import FrozenMap
 from osrlib.core.rng import RngStream, StreamName
 
 __all__ = [
@@ -1101,7 +1102,7 @@ class EffectDefinition(BaseModel):
     [`cast_spell`][osrlib.core.spells.cast_spell] attaches is dispellable, permanent effects included. What a
     monster inflicts isn't."""
 
-    params: dict[str, int | str | bool | tuple[int | str, ...]] = {}
+    params: Annotated[Mapping[str, int | str | bool | tuple[int | str, ...]], FrozenMap] = FrozenMap()
     """Any other values the effect's tick, its expiry outcome, or other code that reads the effect needs. The keys
     osrlib reads include these:
 
