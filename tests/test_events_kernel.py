@@ -86,6 +86,7 @@ def sample_event(event_class, code):
             caster_id="pc-1", released_effect_ids=("effect-0001",), surviving_effect_ids=("effect-0002",)
         ),
         "PartyMovedEvent": dict(x=3, y=4, facing="north"),
+        "PartyReorderedEvent": dict(order=("pc-2", "pc-1")),
         "LocationEnteredEvent": dict(location_kind="area", location_id="room-3", level_number=1),
         "DoorEvent": dict(x=3, y=4, direction="north", character_id="pc-1"),
         "ListenedEvent": dict(character_id="pc-1", direction="north"),
@@ -113,6 +114,7 @@ def sample_event(event_class, code):
         "EvasionEvent": dict(),
         "PursuitEvent": dict(round=3, gap_feet=40),
         "ExhaustionEvent": dict(),
+        "LootDroppedEvent": dict(item_ids=("torch", "torch", "magic-item-0001"), coins_gp_value=12),
         "EncounterEndedEvent": dict(outcome="evaded"),
         "BattleStartedEvent": dict(),
         "BattleRoundEvent": dict(round=2),

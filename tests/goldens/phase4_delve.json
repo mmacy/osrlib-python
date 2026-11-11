@@ -2169,6 +2169,13 @@
       "xp": 5
     },
     {
+      "code": "encounter.loot.dropped",
+      "coins_gp_value": 3,
+      "event_type": "loot_dropped",
+      "item_ids": [],
+      "visibility": "player"
+    },
+    {
       "code": "encounter.ended",
       "event_type": "encounter_ended",
       "outcome": "victory",
@@ -2987,9 +2994,31 @@
       "xp": 10
     },
     {
+      "code": "encounter.loot.dropped",
+      "coins_gp_value": 0,
+      "event_type": "loot_dropped",
+      "item_ids": [
+        "valuable-0001",
+        "valuable-0002"
+      ],
+      "visibility": "player"
+    },
+    {
       "code": "encounter.ended",
       "event_type": "encounter_ended",
       "outcome": "victory",
+      "visibility": "player"
+    },
+    {
+      "code": "exploration.party.reordered",
+      "event_type": "party_reordered",
+      "order": [
+        "character-0005",
+        "character-0001",
+        "character-0002",
+        "character-0003",
+        "character-0004"
+      ],
       "visibility": "player"
     },
     {
@@ -5437,6 +5466,7 @@
     "monster-0004 (goblin) is routed.",
     "monster-0005 (goblin) is routed.",
     "monster-0006 (goblin) is routed.",
+    "The fallen leave behind 3 gp in coin.",
     "The encounter ends (victory).",
     "The party moves to (4, 1), facing east.",
     "character-0001 acquires 80 gp in coin.",
@@ -5520,7 +5550,9 @@
     "monster-0012 (trader) is slain.",
     "monster-0013 (trader) is slain.",
     "monster-0014 (trader) is slain.",
+    "The fallen leave behind valuable-0001, valuable-0002.",
     "The encounter ends (victory).",
+    "The party's marching order is now character-0005, character-0001, character-0002, character-0003, character-0004.",
     "The door east of (4, 1) opens.",
     "character-0001 uses up iron_spikes.",
     "An iron spike wedges the door east of (4, 1).",

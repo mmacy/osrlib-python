@@ -607,9 +607,9 @@ class ReorderParty(Command):
           members, each once.
 
     Events:
-        None. Read the new order from
-        [`PlayerView.party`][osrlib.crawl.views.PlayerView.party], which lists the members in
-        marching order.
+        A [`PartyReorderedEvent`][osrlib.crawl.events.PartyReorderedEvent] with the new order.
+        [`PlayerView.party`][osrlib.crawl.views.PlayerView.party] lists the members in the same
+        order.
     """
 
     allowed_modes: ClassVar[frozenset[SessionMode]] = _FIELD_MODES
@@ -964,7 +964,7 @@ class Search(Command):
     Events:
         [`DetectionRolledEvent`][osrlib.crawl.events.DetectionRolledEvent] with the
         roll, a [`TrapEvent`][osrlib.crawl.events.TrapEvent] for each room trap
-        found, then
+        found, with the searcher's id in its `character_id`, then
         [`SearchCompletedEvent`][osrlib.crawl.events.SearchCompletedEvent] listing
         what turned up. For a trap found through a door, the events record that door
         twice: in the trap event's `direction`, and as a third part of the token in
@@ -2335,8 +2335,10 @@ class Evade(Command):
           `treasure`) or rations (for `food`) to scatter.
 
     Events:
-        [`ItemsDroppedEvent`][osrlib.crawl.events.ItemsDroppedEvent]s for the scattered
-        bait, then an [`EvasionEvent`][osrlib.crawl.events.EvasionEvent] with code
+        An [`ItemsDroppedEvent`][osrlib.crawl.events.ItemsDroppedEvent] for each member who
+        scatters bait. For `food`, its `item_ids` has the catalog id of the ration the member
+        dropped, `rations_standard` or `rations_iron`. Then an
+        [`EvasionEvent`][osrlib.crawl.events.EvasionEvent] with code
         `encounter.evasion.succeeded`, which ends the encounter, or
         `encounter.evasion.pursuit`, which starts a pursuit, and the pursuit's first
         [`PursuitEvent`][osrlib.crawl.events.PursuitEvent] round. A pursuit ends when the
@@ -2350,7 +2352,9 @@ class Evade(Command):
         When the encounter ends, the session emits an
         [`EncounterEndedEvent`][osrlib.crawl.events.EncounterEndedEvent], a
         [`MonsterDefeatedEvent`][osrlib.crawl.events.MonsterDefeatedEvent] for each
-        monster killed or driven off,
+        monster killed or driven off, a
+        [`LootDroppedEvent`][osrlib.crawl.events.LootDroppedEvent] when the slain leave
+        anything on the floor,
         [`EffectReleasedEvent`][osrlib.core.events.EffectReleasedEvent]s for the
         effects that end with it, and, under the immediate XP timing,
         [`XpAwardedEvent`][osrlib.crawl.events.XpAwardedEvent] and
@@ -2440,7 +2444,9 @@ class Wait(Command):
         When the encounter ends, the session emits
         [`EncounterEndedEvent`][osrlib.crawl.events.EncounterEndedEvent], a
         [`MonsterDefeatedEvent`][osrlib.crawl.events.MonsterDefeatedEvent] for each
-        monster killed or driven off,
+        monster killed or driven off, a
+        [`LootDroppedEvent`][osrlib.crawl.events.LootDroppedEvent] when the slain leave
+        anything on the floor,
         [`EffectReleasedEvent`][osrlib.core.events.EffectReleasedEvent]s, and, under
         the immediate XP timing,
         [`XpAwardedEvent`][osrlib.crawl.events.XpAwardedEvent] and
@@ -2493,7 +2499,9 @@ class TurnUndead(Command):
         [`UndeadTurnedEvent`][osrlib.core.events.UndeadTurnedEvent] with the roll
         and the affected monsters, with each condition it causes as a separate event.
         One round passes. When every monster is turned or destroyed, the encounter ends
-        ([`EncounterEndedEvent`][osrlib.crawl.events.EncounterEndedEvent]). Otherwise a
+        ([`EncounterEndedEvent`][osrlib.crawl.events.EncounterEndedEvent]), after a
+        [`LootDroppedEvent`][osrlib.crawl.events.LootDroppedEvent] when the destroyed
+        undead leave anything on the floor. Otherwise a
         [`StanceChangedEvent`][osrlib.crawl.events.StanceChangedEvent] to `attacks`
         comes before the round, and battle starts after it
         ([`BattleStartedEvent`][osrlib.crawl.events.BattleStartedEvent]). A
@@ -3062,8 +3070,9 @@ class ResolveBattleRound(Command):
         [`BattleEndedEvent`][osrlib.crawl.events.BattleEndedEvent] and the events of the
         encounter's end
         ([`EncounterEndedEvent`][osrlib.crawl.events.EncounterEndedEvent],
-        [`MonsterDefeatedEvent`][osrlib.crawl.events.MonsterDefeatedEvent]s, and,
-        under the immediate XP timing,
+        [`MonsterDefeatedEvent`][osrlib.crawl.events.MonsterDefeatedEvent]s, a
+        [`LootDroppedEvent`][osrlib.crawl.events.LootDroppedEvent] when the slain leave
+        anything on the floor, and, under the immediate XP timing,
         [`XpAwardedEvent`][osrlib.crawl.events.XpAwardedEvent] and
         [`CharacterLeveledUpEvent`][osrlib.crawl.events.CharacterLeveledUpEvent]),
         or [`GameOverEvent`][osrlib.crawl.events.GameOverEvent] when every party member is
@@ -3732,14 +3741,14 @@ class EndEncounter(Command):
 
     - Monsters that were slain earlier in the encounter, or that fled, are still fleeing, or
       were turned, count as defeated and are worth experience.
-    - Slain monsters drop their treasure. Monsters that fled or were turned take theirs with
-      them.
+    - Slain monsters drop their treasure in a pile on the party's cell. Monsters that fled or
+      were turned take theirs with them.
     - Monsters still standing aren't defeated and are worth no experience.
     - Effects on the encounter's monsters end.
     - The clock advances, so the encounter costs at least one turn.
 
-    In `battle`, the command closes the battle too. It emits no
-    [`BattleEndedEvent`][osrlib.crawl.events.BattleEndedEvent], because the
+    In `battle`, the command closes the battle too, so `session.battle` is `None` afterward. It
+    emits no [`BattleEndedEvent`][osrlib.crawl.events.BattleEndedEvent], because the
     `EncounterEndedEvent` closes both. To know the fight is over, check the session's mode.
 
     The monsters keyed to an area of the adventure come back each time the party walks into
@@ -3763,7 +3772,8 @@ class EndEncounter(Command):
 
     Events:
         A [`MonsterDefeatedEvent`][osrlib.crawl.events.MonsterDefeatedEvent] for each monster
-        that counts as defeated, the events of effects ending on the
+        that counts as defeated, a [`LootDroppedEvent`][osrlib.crawl.events.LootDroppedEvent]
+        when the slain leave anything on the floor, the events of effects ending on the
         encounter's monsters, and the experience award when the ruleset awards it immediately.
         Then the [`EncounterEndedEvent`][osrlib.crawl.events.EncounterEndedEvent] with the
         command's `outcome`, and the events of the clock advance.

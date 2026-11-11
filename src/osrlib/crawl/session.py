@@ -2887,9 +2887,6 @@ def _handle_end_encounter(session: GameSession, command: EndEncounter) -> tuple[
     if state is None:  # unreachable: the mode gate admits only encounter and battle, which have one open
         raise ValueError("EndEncounter reached the handler with no open encounter")
     area_ref = state.area_ref
-    # The battle closes first, as it does when the session ends the encounter of a won
-    # battle. The encounter's closing event reports the end of both.
-    session.battle = None
     events = encounter_module.end_encounter(session, command.outcome)
     if command.resolve_area and area_ref is not None and area_ref not in session.dungeon_state.resolved_encounters:
         session.dungeon_state.resolved_encounters.append(area_ref)

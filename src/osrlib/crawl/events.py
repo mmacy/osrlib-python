@@ -123,6 +123,7 @@ __all__ = [
     "LightEvent",
     "ListenedEvent",
     "LocationEnteredEvent",
+    "LootDroppedEvent",
     "MemberAddedEvent",
     "MemberMovedEvent",
     "MemberRemovedEvent",
@@ -136,6 +137,7 @@ __all__ = [
     "ObjectiveCompletedEvent",
     "ObjectiveRevealedEvent",
     "PartyMovedEvent",
+    "PartyReorderedEvent",
     "ProvisionsEvent",
     "PursuitEvent",
     "QuestActivatedEvent",
@@ -203,6 +205,29 @@ class PartyMovedEvent(Event):
     [`LocationEnteredEvent`][osrlib.crawl.events.LocationEnteredEvent] instead.
     [`format_message`][osrlib.messages.format_message] adds it after the line it builds from the
     code."""
+
+
+class PartyReorderedEvent(Event):
+    """The party has a new marching order.
+
+    Emitted by [`ReorderParty`][osrlib.crawl.commands.ReorderParty]. Marching order is the order
+    the members walk in, front first, so redraw the party on screen in this order when the event
+    arrives. A member who withdraws or retreats in a battle also changes the order, and that change
+    arrives as a [`MemberWithdrewEvent`][osrlib.crawl.events.MemberWithdrewEvent] instead.
+    """
+
+    allowed_codes: ClassVar[frozenset[str]] = frozenset({"exploration.party.reordered"})
+    """The only message code this event uses."""
+
+    event_type: Literal["party_reordered"] = "party_reordered"
+    """The event type, `party_reordered`, which identifies this class in serialized form."""
+    code: str = "exploration.party.reordered"
+    """The message code, always `exploration.party.reordered`."""
+    visibility: Visibility = Visibility.PLAYER
+    """Player visibility: the players chose the order."""
+    order: tuple[str, ...]
+    """Every member's id in the new marching order, front first, the same list the command
+    gave."""
 
 
 class LocationEnteredEvent(Event):
@@ -519,7 +544,8 @@ class TrapEvent(Event):
     marching order. It's set even when the trap hits the whole party. For
     `exploration.trap.removed` and `exploration.trap.removal_failed`, and for a treasure trap
     found with [`InspectTreasure`][osrlib.crawl.commands.InspectTreasure], it's the thief who
-    tried."""
+    tried. For a room trap found with [`Search`][osrlib.crawl.commands.Search], it's the member
+    who searched."""
     direction: str | None = None
     """The direction of the door a room trap was found through, from the searched cell, as a
     [`Direction`][osrlib.crawl.dungeon.Direction] value. Set for that find alone: it is `None` on a
@@ -1092,6 +1118,43 @@ class ExhaustionEvent(Event):
     """Player visibility: the penalty is on the party's character sheets."""
 
 
+class LootDroppedEvent(Event):
+    """What the slain left behind went into the drop pile on the party's cell as the encounter ended.
+
+    Emitted by whatever ends the encounter, through
+    [`end_encounter`][osrlib.crawl.encounter.end_encounter]: a won battle, an
+    [`EndEncounter`][osrlib.crawl.commands.EndEncounter], an evasion, an escape from a chase, or a
+    turning. It comes after the
+    [`MonsterDefeatedEvent`][osrlib.crawl.events.MonsterDefeatedEvent]s and before the
+    [`EncounterEndedEvent`][osrlib.crawl.events.EncounterEndedEvent].
+
+    The loot is the treasure each slain monster carried, the shared treasure of a group whose
+    members were all slain, and everything a slain NPC adventurer had: gear, coins, valuables, and
+    magic items. Routed monsters take their treasure with them. An encounter where nothing drops
+    emits no `LootDroppedEvent`.
+
+    The goods join any pile already on the cell. Show the pile on screen when this event arrives.
+    [`PlayerView.piles`][osrlib.crawl.views.PlayerView.piles] has everything in it, and
+    [`TakeTreasure`][osrlib.crawl.commands.TakeTreasure] with `feature_id="pile"` picks it up.
+    """
+
+    allowed_codes: ClassVar[frozenset[str]] = frozenset({"encounter.loot.dropped"})
+    """The only message code this event uses."""
+
+    event_type: Literal["loot_dropped"] = "loot_dropped"
+    """The event type, `loot_dropped`, which identifies this class in serialized form."""
+    code: str = "encounter.loot.dropped"
+    """The message code, always `encounter.loot.dropped`."""
+    visibility: Visibility = Visibility.PLAYER
+    """Player visibility: the party sees what the fallen left on the floor."""
+    item_ids: tuple[str, ...] = ()
+    """What went into the pile, as a catalog id for each unit of mundane gear and an instance id for
+    each valuable and each magic item. An unidentified magic item has its instance id, so its true
+    nature stays hidden."""
+    coins_gp_value: int = 0
+    """The coins that went into the pile, as their value in gold pieces."""
+
+
 class EncounterEndedEvent(Event):
     """The encounter is over, however it went.
 
@@ -1099,7 +1162,8 @@ class EncounterEndedEvent(Event):
     The session goes back to `exploring`. The session then advances the clock to the start
     of the next turn, and to at least one full turn after the encounter opened, so time
     passes after this event even when the fight was short. The
-    [`MonsterDefeatedEvent`][osrlib.crawl.events.MonsterDefeatedEvent]s come just before it.
+    [`MonsterDefeatedEvent`][osrlib.crawl.events.MonsterDefeatedEvent]s and the
+    [`LootDroppedEvent`][osrlib.crawl.events.LootDroppedEvent] come before it.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"encounter.ended"})
@@ -2293,6 +2357,7 @@ class MemberRemovedEvent(Event):
 
 CRAWL_EVENT_CLASSES: tuple[type[Event], ...] = (
     PartyMovedEvent,
+    PartyReorderedEvent,
     LocationEnteredEvent,
     DoorEvent,
     ListenedEvent,
@@ -2316,6 +2381,7 @@ CRAWL_EVENT_CLASSES: tuple[type[Event], ...] = (
     EvasionEvent,
     PursuitEvent,
     ExhaustionEvent,
+    LootDroppedEvent,
     EncounterEndedEvent,
     BattleStartedEvent,
     BattleRoundEvent,
