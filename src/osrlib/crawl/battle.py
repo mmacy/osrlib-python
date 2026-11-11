@@ -36,9 +36,13 @@ The battle reference uses these terms:
   [`Ruleset`][osrlib.core.ruleset.Ruleset] option `formation_width_limit`, which is on by
   default, a rank is as wide as the space the party stands in, divided by
   [`FIGHTER_FRONTAGE_FEET`][osrlib.crawl.battle.FIGHTER_FRONTAGE_FEET]. That's two members side by
-  side in a ten-foot corridor, and in a room, as many as the room's shorter side allows. The same
-  width limits how many monsters of each group make melee attacks in a round. With the option
-  off, every member at the same distance stands in one rank, and every monster can attack.
+  side in a ten-foot corridor, and in a room, as many as the room's shorter side allows. With the
+  option off, every member at the same distance stands in one rank.
+- The **monsters' front rank** in a group is its first living monsters in the group's order, as
+  many as the same width allows. Only those monsters make melee attacks on the party, and the
+  party's melee attacks on the group reach only them. A monster keeps its place while it lives,
+  even when it can't act, as a party member does in the party's front rank. With
+  `formation_width_limit` off, every living monster of the group is in it.
 - The **formation** is the party moving as one body. A `fighting_withdrawal` or a `retreat` that
   every declarer makes is a formation move. Every other move is the declaring member's alone.
 - A **declarer** is a party member who has to declare an action this round. Every living member
@@ -114,9 +118,9 @@ A round follows the OSE SRD's combat sequence:
    or if the group is running and the member was within 5' of it when the round was accepted.
 5. On the monsters' turn, the session checks each group's morale, then resolves the actions each
    group's policy chose, in order. A group that closes stops within 5' of the nearest member it can
-   see, and its monsters can attack in the same round. A monster's melee attack resolves only
-   against a member in its group's front rank within 5' of the group. In each group, at most as
-   many monsters as the formation width make melee attacks, as the list below describes.
+   see, and its monsters can attack in the same round. A monster's melee attack resolves only when
+   the monster stands in the monsters' front rank, and only against a member in the party's front
+   rank toward the group who stands within 5' of it.
 6. An attack with a weapon that has the `slow` quality comes last, after both sides have acted.
 
 Every rule is a function in
@@ -150,14 +154,15 @@ During a round, the session also applies these rules without a command for them:
   `battle.melee.fizzled`. That happens when its group has no living monster left to strike, or when
   the member stands out of reach or out of the group's front rank.
 - Each monster group checks morale when the OSE SRD calls for it.
-- In a round, a group has as many places to fight the party hand to hand as the formation width
-  allows, so at most that many of its monsters make melee attacks. A monster takes a place with
-  its first melee attack of the round. The places go in the order the attacks come up: first a
-  confused monster's attack on the party, then the group's actions in the order its policy
-  returned them. A monster that's dead, that can't act, or that does something else takes no
-  place, so the next one steps up. A monster's missile attack takes a place, because the session
-  resolves it at 5' like a melee attack. A breath weapon, a gaze, and an NPC adventurer's missile
-  attack or spell take none, as the party's back ranks can still shoot and cast.
+- Only the monsters' front rank makes melee attacks on the party, whatever the group's policy
+  chose, so at most as many monsters of a group as the formation width attack in melee in a
+  round. The session skips a `melee` by any other monster, and a confused monster behind the front
+  rank doesn't attack the party. A monster's missile attack counts as melee, because the session
+  resolves it at 5'. Any monster or NPC adventurer of the group can breathe, gaze, shoot, cast, or
+  drink a potion, as the party's back ranks can shoot and cast.
+- A monster or NPC adventurer that can't act when its action comes up doesn't act, whatever its
+  policy chose. That happens to an NPC adventurer put to sleep after the NPCs chose their actions
+  at the start of the round.
 - When a monster's attack hits, the session applies the effects the attack lists: paralysis,
   poison, mummy rot, energy drain, petrification, and the spitting cobra's blindness. Each effect
   gets the saving throw the OSE SRD gives for it, if any. The adaptations register lists the
@@ -179,7 +184,9 @@ During a round, the session also applies these rules without a command for them:
 - Each attack on a target protected by *mirror image* removes one image instead, and no attack
   roll is made.
 - A scroll of protection keeps some monsters from attacking the party in melee. Its protection
-  ends when a party member attacks in melee a monster that it keeps out.
+  ends when a party member attacks in melee a monster that it keeps out. The session applies it,
+  and *protection from evil*'s melee ban, to every `melee` a policy chooses, so a policy of your
+  own can't get past either one.
 - A caster maintains one concentration spell at a time. Its effects end when the caster declares
   anything other than `cast` or `hold`, when the caster's next spell is disrupted or fizzles, or
   when the caster casts another concentration spell. A `turn_undead` declaration ends them even
@@ -573,13 +580,15 @@ class MonsterAction(BaseModel):
       can then be struck all round, wherever the party has moved, because the OSE SRD gives the
       opponent its attack against a retreating combatant.
 
-      The session also skips a `"melee"` when the group has no place left to fight from. A group
-      has as many places as the formation width
-      ([`EncounterView.formation_width`][osrlib.crawl.views.EncounterView.formation_width]), and a
-      monster takes one when its first `"melee"` of the round resolves. So when a policy
-      gives each of six skeletons in a 10' corridor a `"melee"`, the first two to come up attack,
-      and the session skips the other four. With the ruleset's `formation_width_limit` flag off,
-      there's no limit.
+      The session also resolves a `"melee"` only by a monster in the monsters' front rank: the
+      group's first living monsters in the group's order, as many as the formation width
+      ([`EncounterView.formation_width`][osrlib.crawl.views.EncounterView.formation_width]). A
+      monster keeps its place there while it lives, even when it's asleep or paralysed. So when a
+      policy gives each of six skeletons in a 10' corridor a `"melee"`, the first two skeletons
+      attack and the session skips the other four, in whatever order the policy returned them.
+      With the ruleset's `formation_width_limit` flag off, every living monster is in the front
+      rank. The session also skips a `"melee"` on a member whom a scroll of protection's ward or
+      *protection from evil* keeps the monster from.
     - `"breath"` uses the monster's breath weapon on the party.
     - `"hold"` does nothing.
     - `"npc_shoot"`, `"npc_cast"`, and `"npc_drink"` are for NPC adventurers only. They make a
@@ -635,12 +644,13 @@ class ActionPolicy(Protocol):
     change them, and the fight stays reproducible from the same seed. Return whatever actions your
     tactics call for. The session skips an action that's no longer possible, and doesn't raise.
 
-    Whatever your policy returns, the session lets at most as many of the group's monsters make
-    melee attacks in a round as the formation width allows. The first monsters whose `melee`
-    actions come up, in the order you return them, take the group's places, and the session skips
-    a `melee` by any other monster. A monster you give another action, like `"breath"` or
-    `"hold"`, takes no place. So the order of your actions decides which monsters fight hand to
-    hand. To plan for the limit, read the width from the player view's
+    Whatever your policy returns, only the monsters' front rank makes melee attacks: the group's
+    first living monsters in the group's order, as many as the formation width allows (see
+    [`MonsterAction.kind`][osrlib.crawl.battle.MonsterAction.kind]). Your policy can't change who
+    stands in front, and the session skips a `melee` by any other monster. The session also skips
+    every action of a monster that can't act when the action comes up, and a `melee` on a member
+    whom a ward or *protection from evil* keeps the monster from. To plan for the front rank, take
+    the group's first living `monster_ids`, as many as the player view's
     [`EncounterView.formation_width`][osrlib.crawl.views.EncounterView.formation_width].
 
     To keep the default tactics and change one thing, wrap a
@@ -747,8 +757,8 @@ class ActionPolicy(Protocol):
         Returns:
             The actions to resolve, in the order they resolve. Return an empty list for a group that
             does nothing. Leave out members that are dead, incapacitated, or confused, as the built-in
-            policies do. The session skips an action for a dead, confused, or turned member, and a
-            `melee` for a member who can't act. It resolves confusion itself.
+            policies do. The session skips an action for a member who is dead, can't act, is
+            confused, or is turned. It resolves confusion itself.
         """
         ...
 
@@ -781,9 +791,10 @@ class ScriptedPolicy:
     members, and members whose *protection from evil* bars that monster. When no target is left, the
     monster takes a `hold` action and does nothing that round. The members behind the front rank are
     out of the group's reach. Every monster with a target gets a `melee` action, but the session
-    resolves only as many of them as the formation width allows, the first ones in the group's
-    order (see [`MonsterAction.kind`][osrlib.crawl.battle.MonsterAction.kind]). The rest make no
-    attack that round.
+    resolves only those of the monsters' front rank, the group's first living monsters, as many as
+    the formation width allows (see
+    [`MonsterAction.kind`][osrlib.crawl.battle.MonsterAction.kind]). The rest make no attack that
+    round.
 
     Among the targets left, the monster prefers members who can still fight:
 
@@ -982,15 +993,17 @@ class NpcPartyPolicy:
        that isn't stone is in reach. Unlike a ghoul or a thoul, it doesn't pass over a paralysed
        member.
 
-    The session limits the NPC group's melee attacks as it limits a monster group's: in a round, at
-    most as many NPCs as the formation width attack in melee, the first ones in the group's order
-    (see [`MonsterAction.kind`][osrlib.crawl.battle.MonsterAction.kind]). An NPC who heals, drinks,
-    casts, or shoots takes no place, so an NPC fighter behind a caster still steps up to fight.
+    The NPC group has a front rank as a monster group does: its first living NPCs in the group's
+    order, as many as the formation width allows (see
+    [`MonsterAction.kind`][osrlib.crawl.battle.MonsterAction.kind]). Only those NPCs make melee
+    attacks, and the party's melee reaches only them. Every NPC can heal, drink, cast, or shoot from
+    wherever it stands, as the party's back ranks can.
 
     NPCs declare their spells at the start of the round. An attack that hits or a failed saving
     throw can disrupt an NPC's spell, as it can a player character's, because the OSE SRD's rule
-    applies to both sides. Every random choice comes from the
-    [`MONSTER_ACTION_STREAM`][osrlib.crawl.session.MONSTER_ACTION_STREAM].
+    applies to both sides. NPCs choose all their actions then, so an NPC whom the party puts to sleep,
+    paralyses, or turns to stone before the NPCs act does nothing that round. Every random choice
+    comes from the [`MONSTER_ACTION_STREAM`][osrlib.crawl.session.MONSTER_ACTION_STREAM].
 
     Examples:
         ```python
@@ -1284,8 +1297,8 @@ Each rank of the party is as wide as the space it stands in, divided by this, so
 a ten-foot corridor, and a room fits as many as its shorter side allows. The session rejects a
 melee attack declared by a member within reach of a group but outside its front rank with
 `battle.declaration.not_in_front_rank`. The rank check doesn't apply to missile attacks, so the back
-ranks can still shoot. The same width limits how many monsters of each group make melee attacks in a
-round, as [`MonsterAction.kind`][osrlib.crawl.battle.MonsterAction.kind] describes.
+ranks can still shoot. Each monster group's front rank is as wide, and only the monsters in it make
+melee attacks, as [`MonsterAction.kind`][osrlib.crawl.battle.MonsterAction.kind] describes.
 
 The SRD gives one number for this and leaves the rest to the referee: "The referee should judge
 the number of opponents that can attack a single combatant, bearing in mind the combatant's size
@@ -1294,8 +1307,8 @@ fight side-by-side." osrlib uses the low end of that range, two in ten feet, or 
 and applies it to the space the party is standing in.
 
 To play without a width limit, turn off the ruleset's `formation_width_limit` flag, which puts every
-living member at the same distance from a group in one rank and lets every monster of a group make
-melee attacks. Changing this constant instead would
+living member at the same distance from a group in one rank and every living monster of a group in
+its front rank. Changing this constant instead would
 change the width of every space in the game.
 """
 
@@ -1449,11 +1462,14 @@ def _ally_protection_bonus(session, defender, group=None) -> int:
 
 
 def _reachable_targets(session, monster: MonsterInstance, pool: list) -> list:
-    """Filter the pool by the *protection from evil* melee ban.
+    """Filter the pool down to the members a monster or NPC adventurer may start a melee with.
 
-    A monster whose template bears a warded category may not initiate melee
-    against a warded target of differing alignment. The ban breaks for a target
-    who has engaged the barred creature in melee, as the rules as written say.
+    A scroll of protection's ward bars the monsters it names from melee with the whole party (see
+    `_ward_bars_monster`). *Protection from evil* bars a monster with one of the categories it lists from
+    starting a melee with the warded member, when the two differ in alignment. That ban breaks for a target
+    who has engaged the barred creature in melee, as the rules as written say. The default policies pick
+    their targets from what this returns, and the monster block checks each melee attack with it again, so
+    a policy that a game supplies can't get past either protection.
     """
     state = session.battle
     if _ward_bars_monster(session, monster):
@@ -1465,7 +1481,7 @@ def _reachable_targets(session, monster: MonsterInstance, pool: list) -> list:
             bars = effect.definition.params.get("bars_melee_from")
             if not bars:
                 continue
-            categories = set(monster.template.categories)
+            categories = set(_categories(monster))
             if categories & {str(entry) for entry in bars} and alignments_differ(monster, member):
                 if monster.id not in state.melee_engagements.get(member.id, []):
                     barred = True
@@ -1476,8 +1492,12 @@ def _reachable_targets(session, monster: MonsterInstance, pool: list) -> list:
 
 
 def _identify_worn_items(session, target) -> list[Event]:
-    """Identify the worn enchanted armour, shields, and rings of a combatant attacked in battle."""
-    if getattr(target, "definition", None) is None:
+    """Identify the worn enchanted armour, shields, and rings of a party member attacked in battle.
+
+    Only a party member's items are identified, so an NPC adventurer that a confused fellow attacks identifies
+    nothing.
+    """
+    if target.id not in {member.id for member in session.party.members}:
         return []
     from osrlib.crawl import exploration
 
@@ -1494,7 +1514,13 @@ def _identify_worn_items(session, target) -> list[Event]:
 
 
 def _group_front_rank(session, group) -> list[MonsterInstance]:
-    """The group's reachable rank: its first `width` living members, in spawn order."""
+    """The group's front rank: its first living members in the group's order, as many as the formation width.
+
+    A member who can't act keeps its place while it lives, as a party member does in the party's front rank. Only
+    these monsters, or NPC adventurers, make melee attacks on the party (see `_in_front_rank`), and the party's
+    melee attacks on the group reach only these, so the monsters that can strike are the ones the party can strike.
+    With the ruleset's `formation_width_limit` flag off, it's every living member.
+    """
     width = _formation_width(session)
     living = _living_monsters(session, group)
     return living if width is None else living[:width]
@@ -2055,8 +2081,9 @@ def group_front_rank(session, group_id: str) -> tuple[str, ...]:
     These are the members in the party's front rank toward the group who stand within
     [`MELEE_RANGE_FEET`][osrlib.crawl.battle.MELEE_RANGE_FEET] of it. Only they can declare a melee
     attack on the group, or strike it with a staff of striking, without a `close` first. Only they can
-    be struck by the group's melee, and the group's petrifying gaze reaches only them. In a round, at
-    most as many of the group's monsters as the formation width strike them.
+    be struck by the group's melee, and the group's petrifying gaze reaches only them. Only the
+    monsters' front rank strikes them: the group's first living monsters, as many as the formation
+    width allows.
 
     The ranks toward a group are the party's living members sorted by their distance to it, nearest
     first, and cut into rows as wide as the formation allows
@@ -4083,18 +4110,13 @@ def _ward_bars_monster(session, monster) -> bool:
     wards = _party_wards(session)
     if not wards:
         return False
-    template = monster.template
     for ward in wards:
         params = ward.definition.params
-        matches = template.id in params.get("bars_template_ids", ()) or set(template.categories) & set(
-            params.get("bars_categories", ())
-        )
-        if not matches:
+        if not _ward_matches(monster, params):
             continue
         if params.get("all_affected"):
             return True
-        hd = monster.hit_dice_count
-        band_key = "affected_1_3" if hd <= 3 else ("affected_4_5" if hd <= 5 else "affected_6_plus")
+        band_key = _hd_band(monster)
         count = int(params.get(band_key, 0))
         if count <= 0:
             continue
@@ -4108,15 +4130,28 @@ def _ward_bars_monster(session, monster) -> bool:
     return False
 
 
-def _ward_matches(monster, params) -> bool:
-    template = monster.template
-    return template.id in params.get("bars_template_ids", ()) or bool(
-        set(template.categories) & set(params.get("bars_categories", ()))
+def _ward_matches(creature, params) -> bool:
+    """Whether a protection ward names the creature, by its template id or by one of its categories.
+
+    An NPC adventurer has no template, and its one category is `person` (see `_categories`), so the wards of
+    osrlib's scrolls never bar one.
+    """
+    template_id = getattr(getattr(creature, "template", None), "id", None)
+    return template_id in params.get("bars_template_ids", ()) or bool(
+        set(_categories(creature)) & set(params.get("bars_categories", ()))
     )
 
 
-def _hd_band(monster) -> str:
-    hd = monster.hit_dice_count
+def _categories(creature) -> tuple[str, ...]:
+    """The creature's categories, as a ward and *protection from evil* read them. An NPC adventurer is a person."""
+    from osrlib.crawl.encounter import _member_kind
+
+    return _member_kind(creature)[1]
+
+
+def _hd_band(creature) -> str:
+    """The scroll's Hit Dice band the creature counts in. A character counts their level as their Hit Dice."""
+    hd = creature.hit_dice_count if isinstance(creature, MonsterInstance) else creature.level
     return "affected_1_3" if hd <= 3 else ("affected_4_5" if hd <= 5 else "affected_6_plus")
 
 
@@ -4428,9 +4463,7 @@ def _confused_party_overrides(session, by_member, fire_damaged) -> list[Event]:
             continue
         effect = confusion_effects[0]
         params = effect.definition.params
-        if member.level >= int(params.get("resave_hd_min_count", 3)):
-            from osrlib.core.combat import saving_throw
-
+        if _confusion_resaves(member, params):
             save = saving_throw(
                 member,
                 SaveCategory(str(params.get("resave_category", "spells"))),
@@ -4500,40 +4533,25 @@ def _policy_for(session, group) -> ActionPolicy:
     return ScriptedPolicy()
 
 
-class _MeleePlaces:
-    """The places from which one group's monsters can fight the party hand to hand in one round.
+def _in_front_rank(session, combatant, group) -> bool:
+    """Whether the monster or NPC adventurer stands in its group's front rank, as `_group_front_rank` gives it.
 
-    A group has as many places as the formation width, the same width the party's ranks have, or no limit when the
-    ruleset's `formation_width_limit` flag is off. A monster takes a place with its first melee attack on a party
-    member in the round, and keeps it for the rest of the round. Once every place is taken, the monster
-    block skips a melee attack by any other monster of the group, so that monster makes no draw for it.
-
-    Places go in the order the attacks come up: first the attacks of confused monsters, then the group's actions in
-    the order its policy returned them. A monster that does something else, or whose melee action the session skips,
-    takes no place, so the next monster steps up.
+    Only the front rank fights the party hand to hand, so the monster block checks this before each melee attack
+    on a member, and the party's melee attacks on the group reach the same monsters. The call reads state and
+    takes no draw.
     """
+    return any(member.id == combatant.id for member in _group_front_rank(session, group))
 
-    def __init__(self, width: int | None) -> None:
-        self.width = width
-        self.taken: set[str] = set()
 
-    def admit(self, attacker, routine: int | None = None) -> bool:
-        """Return whether the attacker's melee attack on a party member goes ahead, taking a place if it needs one.
+def _resolve_melee(session, attacker, target, group, *, retreating: bool, routine: int | None = None) -> list[Event]:
+    """Resolve a melee attack by a monster or an NPC adventurer of `group`, the way each one fights.
 
-        An attacker who can't act makes no attack, whatever its policy chose. That covers an NPC adventurer whose
-        action was chosen at the start of the round and who has been put to sleep since. Otherwise an NPC
-        adventurer always makes an attack. A monster makes one only when the routine has an attack the session
-        rolls (see `_rolled_attacks`), and a routine that makes none needs no place, because the monster does nothing.
-        """
-        if incapacitated(attacker):
-            return False
-        makes_attack = getattr(attacker, "definition", None) is not None or bool(_rolled_attacks(attacker, routine))
-        if attacker.id in self.taken or not makes_attack:
-            return True
-        if self.width is not None and len(self.taken) >= self.width:
-            return False
-        self.taken.add(attacker.id)
-        return True
+    An NPC adventurer attacks with its wielded weapon (see `_resolve_npc_attack`) and ignores `routine`. A monster
+    attacks with one of its attack routines (see `_resolve_monster_melee`).
+    """
+    if getattr(attacker, "definition", None) is not None:
+        return _resolve_npc_attack(session, attacker, target, group, missile=False, retreating=retreating)
+    return _resolve_monster_melee(session, attacker, target, group, retreating=retreating, routine=routine)
 
 
 def _monster_block(
@@ -4556,9 +4574,10 @@ def _monster_block(
     `_place_closing_group` places it and reports the move. A `melee` resolves only on a target in
     the group's front rank within 5' of it when the action comes up (see `_reachable_front_rank`), so a
     member who stepped out of reach earlier in the round, or whom the group's close fell short of, isn't
-    struck. A formation retreat is the exception, through `retreat_reach`. A `melee` also needs one of the
-    group's places for the round (see `_MeleePlaces`), which a confused monster's attack on the party takes
-    first.
+    struck. A formation retreat is the exception, through `retreat_reach`. A `melee` also needs the monster to
+    stand in the monsters' front rank (see `_in_front_rank`), and it's skipped when a ward or *protection from
+    evil* bars the monster from the target (see `_reachable_targets`). A monster or NPC that can't act when its
+    action comes up doesn't act, whatever its policy chose.
 
     The keyword arguments contain party member ids:
 
@@ -4603,13 +4622,12 @@ def _monster_block(
             actions = npc_actions[group.id]
         else:
             actions = _policy_for(session, group).choose(session, group, session.streams.get(MONSTER_ACTION_STREAM))
-        places = _MeleePlaces(_formation_width(session))
-        events.extend(_confused_overrides(session, group, places, retreating=retreating))
+        events.extend(_confused_overrides(session, group, retreating=retreating))
         moved = False
         for action in actions:
             monster = session.combatant(action.monster_id)
-            if has_condition(monster, Condition.DEAD) or has_condition(monster, Condition.CONFUSED):
-                continue
+            if incapacitated(monster) or has_condition(monster, Condition.CONFUSED):
+                continue  # a monster that can't act doesn't, and a confused one acts by its behaviour roll instead
             if has_condition(monster, Condition.TURNED):
                 continue  # a turned monster harms no one, whatever its policy chose
             if action.kind == "close" and not moved:
@@ -4625,22 +4643,23 @@ def _monster_block(
                 target = session.registry().get(action.target_id)
                 if target is None or has_condition(target, Condition.DEAD):
                     continue
+                if not _in_front_rank(session, monster, group):
+                    continue  # only the monsters' front rank fights hand to hand
                 reach = _reachable_front_rank(group, _placement(session))
                 if action.target_id not in reach and action.target_id not in retreat_reach.get(group.id, ()):
                     continue  # the target stands out of the group's reach
-                if not places.admit(monster, action.routine):
-                    continue  # the monster can't act, or the group's places are all taken
-                exposed = action.target_id in retreating
-                if getattr(monster, "definition", None) is not None:
-                    events.extend(
-                        _resolve_npc_attack(session, monster, target, group, missile=False, retreating=exposed)
+                if not _reachable_targets(session, monster, [target]):
+                    continue  # a ward or *protection from evil* keeps the monster from this target
+                events.extend(
+                    _resolve_melee(
+                        session,
+                        monster,
+                        target,
+                        group,
+                        retreating=action.target_id in retreating,
+                        routine=action.routine,
                     )
-                else:
-                    events.extend(
-                        _resolve_monster_melee(
-                            session, monster, target, group, retreating=exposed, routine=action.routine
-                        )
-                    )
+                )
                 _watch_disruption(events, pending_casters, disrupted, acted)
             elif action.kind == "npc_shoot":
                 target = session.registry().get(action.target_id)
@@ -4923,24 +4942,24 @@ def _group_morale(session, group, fire_damaged) -> list[Event]:
     return events
 
 
-def _confused_overrides(
-    session, group, places: _MeleePlaces, *, retreating: Collection[str] = frozenset()
-) -> list[Event]:
+def _confused_overrides(session, group, *, retreating: Collection[str] = frozenset()) -> list[Event]:
     """The confusion check the round handler runs each round: re-save, then the 2d6 behavior roll.
 
-    Whether a monster re-saves depends on the Hit Dice it has left, so a drained monster can lose the
-    re-save. The re-save runs on the magic stream, and the behavior roll and its pick of a
+    The group's members can be monsters or NPC adventurers, and `_confusion_resaves` decides who re-saves.
+    The re-save runs on the magic stream, and the behavior roll and its pick of a
     target in its group run on the combat stream. The round handler makes these rolls,
     distinct from the ledger's tick-time effects. A confused monster's attack on a party member in
     `retreating` gets the retreat's +2 and ignores the shield, as every attack on that member does.
 
-    A confused monster that attacks the party takes one of the group's `places`, as any melee attack on a
-    member does. These attacks come before the group's other actions, so they take places first. When every
-    place is taken, the monster attacks no one and makes no pick. An attack on another monster of the group
-    needs no place.
+    A confused member who can't act makes no roll, as a confused party member makes none. Only a confused
+    member in the group's front rank can attack the party (see `_in_front_rank`). One behind it that rolls
+    an attack on the party makes no pick and attacks no one. An attack on another member of the group
+    needs no place in the front rank.
     """
     events: list[Event] = []
     for monster in _living_monsters(session, group):
+        if incapacitated(monster):
+            continue
         confusion_effects = [
             effect
             for effect in session.ledger.active_on(monster.id)
@@ -4950,14 +4969,7 @@ def _confused_overrides(
             continue
         effect = confusion_effects[0]
         params = effect.definition.params
-        hd_count = monster.hit_dice_count
-        resave_min = int(params.get("resave_hd_min_count", 3))
-        qualifies = hd_count >= resave_min or (
-            bool(params.get("resave_at_hd_count_2_with_bonus"))
-            and hd_count == 2
-            and monster.template.hit_dice.modifier > 0
-        )
-        if qualifies:
+        if _confusion_resaves(monster, params):
             save = saving_throw(
                 monster,
                 SaveCategory(str(params.get("resave_category", "spells"))),
@@ -4971,20 +4983,37 @@ def _confused_overrides(
         behaviour = roll(str(params.get("behaviour_dice", "2d6")), session.streams.get(COMBAT_STREAM)).total
         outcome = _behaviour_outcome(params, behaviour)
         if outcome == "attack_caster_group":
+            if not _in_front_rank(session, monster, group):
+                continue  # behind the front rank, it can't reach the party
             pool = _seen(session, _reachable_front_rank(group, _placement(session)))
             targets = _reachable_targets(session, monster, pool)
-            if targets and places.admit(monster):
+            if targets:
                 target = targets[session.streams.get(COMBAT_STREAM).randbelow(len(targets))]
-                events.extend(
-                    _resolve_monster_melee(session, monster, target, group, retreating=target.id in retreating)
-                )
+                events.extend(_resolve_melee(session, monster, target, group, retreating=target.id in retreating))
         elif outcome == "attack_own_group":
             fellows = [other for other in _living_monsters(session, group) if other.id != monster.id]
             if fellows:
                 target = fellows[session.streams.get(COMBAT_STREAM).randbelow(len(fellows))]
-                events.extend(_resolve_monster_melee(session, monster, target, group, retreating=False))
+                events.extend(_resolve_melee(session, monster, target, group, retreating=False))
         # no_action: the confused creature babbles.
     return events
+
+
+def _confusion_resaves(confused, params: Mapping[str, Any]) -> bool:
+    """Whether a confused creature gets a saving throw this round to shake off the confusion.
+
+    A monster qualifies by the Hit Dice it has left, so a drained monster can lose the re-save. A monster of 2 HD
+    with a bonus to its Hit Dice qualifies too when the params say so. A character, a party member or an NPC
+    adventurer, counts their level as their Hit Dice.
+    """
+    resave_min = int(params.get("resave_hd_min_count", 3))
+    template = getattr(confused, "template", None)
+    if template is None:
+        return confused.level >= resave_min
+    hd_count = confused.hit_dice_count
+    return hd_count >= resave_min or (
+        bool(params.get("resave_at_hd_count_2_with_bonus")) and hd_count == 2 and template.hit_dice.modifier > 0
+    )
 
 
 def _behaviour_outcome(params, total: int) -> str:
@@ -5004,31 +5033,24 @@ weapon. The referee handles any other gaze or breath.
 """
 
 
-def _rolled_attacks(monster, routine: int | None) -> list[MonsterAttack]:
-    """The attacks battle rolls when the monster fights with one of its attack routines, in the routine's order.
-
-    `routine` is an index into the template's `attacks`, and None means the first routine, as a confused monster's
-    attack uses. An index out of range, negative included, gives none, and so does a `SPECIAL` routine. The list
-    leaves out an attack in `_UNROLLED_ATTACK_NAMES`.
-    """
-    routines = monster.template.attacks
-    index = 0 if routine is None else routine
-    if not 0 <= index < len(routines) or routines[index].use is RoutineUse.SPECIAL:
-        return []
-    return [attack for attack in routines[index].attacks if attack.name not in _UNROLLED_ATTACK_NAMES]
-
-
 def _resolve_monster_melee(
     session, monster, target, group, *, retreating: bool, routine: int | None = None
 ) -> list[Event]:
     """Resolve one of a monster's attack routines against one target, with what each hit does beyond damage.
 
     `group` is the monster's group, which decides the target's rank-mates for a ring of protection (see
-    `_ally_protection_bonus`). `routine` is an index into the template's `attacks`, and the attacks it resolves
-    are the ones `_rolled_attacks` lists for it.
+    `_ally_protection_bonus`). `routine` is an index into the template's `attacks`. None resolves the first
+    routine, as a confused monster's attack does. An index out of range, negative included, resolves nothing, and
+    so does a `SPECIAL` routine. An attack in `_UNROLLED_ATTACK_NAMES` takes no attack roll.
     """
     events: list[Event] = []
-    for attack in _rolled_attacks(monster, routine):
+    routines = monster.template.attacks
+    index = 0 if routine is None else routine
+    if not 0 <= index < len(routines) or routines[index].use is RoutineUse.SPECIAL:
+        return []
+    for attack in routines[index].attacks:
+        if attack.name in _UNROLLED_ATTACK_NAMES:
+            continue
         for _ in range(attack.count):
             if has_condition(target, Condition.DEAD):
                 return events

@@ -524,12 +524,14 @@ class EncounterGroupView(BaseModel):
     adventurers with missile weapons shoot from farther away, at the members in the first row of the
     party's ranks toward their group.
 
-    In a round, at most
-    [`EncounterView.formation_width`][osrlib.crawl.views.EncounterView.formation_width] of the group's
-    monsters make melee attacks on these members, so six skeletons in a 10' corridor strike with two at
-    most. A monster that's asleep, paralysed, or turned to stone doesn't attack, and the next one
-    attacks in its place. `condition_counts` shows how many members have each of those conditions.
-    With the ruleset's `formation_width_limit` flag off, there's no limit."""
+    Only the monsters' front rank makes melee attacks on these members: the group's first living
+    monsters, as many as
+    [`EncounterView.formation_width`][osrlib.crawl.views.EncounterView.formation_width]. So six
+    skeletons in a 10' corridor strike with two at most, the smaller of `count` and the width. A
+    monster in front that's asleep, paralysed, or turned to stone keeps its place and doesn't attack,
+    so fewer can strike. `condition_counts` counts those conditions across the whole group, so it
+    doesn't say whether they fall on the monsters in front. With the ruleset's
+    `formation_width_limit` flag off, every living monster can attack."""
     lit: bool | None = None
     """Whether a light the party carries reaches this group, or `None` outside a battle.
 
@@ -647,8 +649,8 @@ class EncounterView(BaseModel):
     a group's [`front_rank`][osrlib.crawl.views.EncounterGroupView.front_rank] never holds more members
     than this. Compare the two to show how many places are left in a group's front rank.
 
-    The width limits the monsters too. In a round, at most this many monsters of each group make
-    melee attacks on the party."""
+    The width limits the monsters too. Each group's front rank of monsters is its first living
+    monsters, as many as this, and only they make melee attacks on the party."""
     party_free_round: bool = False
     """True in the round the party gets free after it surprised the monsters, while the monsters can't
     act. False in every other round, and outside a battle.
