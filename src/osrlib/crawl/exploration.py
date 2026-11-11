@@ -108,8 +108,9 @@ print(exploration_rate(session))
 
 from collections.abc import Mapping
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any, Literal
 
+from osrlib.core.character import Character
 from osrlib.core.classes import detection_chance, detection_check, thief_skill_check
 from osrlib.core.clock import ROUNDS_PER_TURN, TimeUnit
 from osrlib.core.combat import (
@@ -240,9 +241,6 @@ from osrlib.crawl.events import (
 )
 from osrlib.crawl.party import _stands
 from osrlib.data import load_classes, load_encounter_tables, load_equipment, load_spells
-
-if TYPE_CHECKING:
-    from osrlib.core.character import Character
 
 __all__ = [
     "DEPRIVATION_KIND",
@@ -4548,7 +4546,6 @@ def _temple_cleric(spell: SpellTemplate, level: int) -> Character:
     """
     from osrlib.core.abilities import AbilityScore
     from osrlib.core.alignment import Alignment
-    from osrlib.core.character import Character
     from osrlib.core.spells import MemorizedSpell
 
     return Character(

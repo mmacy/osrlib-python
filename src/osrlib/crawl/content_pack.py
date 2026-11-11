@@ -117,7 +117,7 @@ def _rewrite_dead_treasure_triggers(payload: dict) -> None:
 
     Pass it the copy that [`check_document`][osrlib.versioning.check_document] returns, never the caller's document.
 
-    This does for a pack what the save migration `_migrate_2_to_3` does for a save. A treasure trap
+    This does for a pack what the save migration `migrate_2_to_3` does for a save. A treasure trap
     can be only on an entry's features, and the engine never read the `"enter"` value on one, so the
     rewrite loses nothing.
     """

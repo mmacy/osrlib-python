@@ -340,10 +340,6 @@ class SessionMode(StrEnum):
         return self in (SessionMode.GAME_OVER, SessionMode.VICTORY)
 
 
-_ALL_MODES = frozenset(SessionMode)
-_FIELD_MODES = frozenset({SessionMode.TOWN, SessionMode.EXPLORING})
-
-
 def _dice_that_parse(expression: str) -> str:
     """Return a command's dice expression, or raise `ValueError` when it doesn't parse.
 
@@ -398,7 +394,7 @@ class Command(BaseModel):
     `None` when there's nothing to record. An empty string fails validation when the command
     is constructed."""
 
-    allowed_modes: ClassVar[frozenset[SessionMode]] = _ALL_MODES
+    allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset(SessionMode)
     """The session modes that accept this command.
 
     Read it from the class, like `MoveParty.allowed_modes`, and compare it with
@@ -612,7 +608,7 @@ class ReorderParty(Command):
         order.
     """
 
-    allowed_modes: ClassVar[frozenset[SessionMode]] = _FIELD_MODES
+    allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.TOWN, SessionMode.EXPLORING})
 
     command_type: Literal["reorder_party"] = "reorder_party"
     order: tuple[str, ...] = Field(min_length=1)
@@ -1380,7 +1376,7 @@ class LightSource(Command):
         code `exploration.light.failed`. One round passes either way.
     """
 
-    allowed_modes: ClassVar[frozenset[SessionMode]] = _FIELD_MODES
+    allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.TOWN, SessionMode.EXPLORING})
 
     command_type: Literal["light_source"] = "light_source"
     character_id: str
@@ -1421,7 +1417,7 @@ class ExtinguishSource(Command):
         `exploration.light.extinguished`.
     """
 
-    allowed_modes: ClassVar[frozenset[SessionMode]] = _FIELD_MODES
+    allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.TOWN, SessionMode.EXPLORING})
 
     command_type: Literal["extinguish_source"] = "extinguish_source"
     character_id: str
@@ -1468,7 +1464,7 @@ class EquipItem(Command):
         [`CurseRevealedEvent`][osrlib.crawl.events.CurseRevealedEvent]).
     """
 
-    allowed_modes: ClassVar[frozenset[SessionMode]] = _FIELD_MODES
+    allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.TOWN, SessionMode.EXPLORING})
 
     command_type: Literal["equip_item"] = "equip_item"
     character_id: str
@@ -1506,7 +1502,7 @@ class UnequipItem(Command):
         ([`EffectReleasedEvent`][osrlib.core.events.EffectReleasedEvent]).
     """
 
-    allowed_modes: ClassVar[frozenset[SessionMode]] = _FIELD_MODES
+    allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.TOWN, SessionMode.EXPLORING})
 
     command_type: Literal["unequip_item"] = "unequip_item"
     character_id: str
@@ -1561,7 +1557,7 @@ class Rest(Command):
         for each member it heals.
     """
 
-    allowed_modes: ClassVar[frozenset[SessionMode]] = _FIELD_MODES
+    allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.TOWN, SessionMode.EXPLORING})
 
     command_type: Literal["rest"] = "rest"
     kind: Literal["turn", "night", "day"]
@@ -1624,7 +1620,7 @@ class PrepareSpells(Command):
         memorized list. Six turns pass, with each turn's usual events.
     """
 
-    allowed_modes: ClassVar[frozenset[SessionMode]] = _FIELD_MODES
+    allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.TOWN, SessionMode.EXPLORING})
 
     command_type: Literal["prepare_spells"] = "prepare_spells"
     character_id: str
@@ -1669,7 +1665,7 @@ class LearnSpell(Command):
         the added spell.
     """
 
-    allowed_modes: ClassVar[frozenset[SessionMode]] = _FIELD_MODES
+    allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.TOWN, SessionMode.EXPLORING})
 
     command_type: Literal["learn_spell"] = "learn_spell"
     character_id: str
@@ -1769,7 +1765,7 @@ class CastSpell(Command):
         ```
     """
 
-    allowed_modes: ClassVar[frozenset[SessionMode]] = _FIELD_MODES
+    allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.TOWN, SessionMode.EXPLORING})
 
     command_type: Literal["cast_spell"] = "cast_spell"
     character_id: str
@@ -3484,7 +3480,7 @@ class AddMember(Command):
         name, class, and level.
     """
 
-    allowed_modes: ClassVar[frozenset[SessionMode]] = _FIELD_MODES
+    allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.TOWN, SessionMode.EXPLORING})
 
     command_type: Literal["add_member"] = "add_member"
     character: Character
@@ -3589,7 +3585,7 @@ class RemoveMember(Command):
         with the member's id and name.
     """
 
-    allowed_modes: ClassVar[frozenset[SessionMode]] = _FIELD_MODES
+    allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.TOWN, SessionMode.EXPLORING})
 
     command_type: Literal["remove_member"] = "remove_member"
     character_id: str

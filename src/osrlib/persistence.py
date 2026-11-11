@@ -135,18 +135,30 @@ from osrlib.versioning import SCHEMA_VERSION, check_document, engine_version, st
 __all__ = [
     "MIGRATIONS",
     "load_game",
+    "migrate_1_to_2",
+    "migrate_2_to_3",
+    "migrate_3_to_4",
     "replay_game",
     "save_game",
     "session_state",
 ]
 
 
-def _migrate_1_to_2(payload: dict) -> dict:
+def migrate_1_to_2(payload: dict) -> dict:
     """Migrate a schema 1 payload to schema 2 by dropping the recovered-treasure ledger.
 
     The session works out the end-of-adventure award from the valuation it records when the
     party leaves town, so a version-1 save drops the ledger field. A version-1 save has no NPC
     adventurers, which arrived with version 2, so the NPC list starts empty.
+
+    [`load_game`][osrlib.persistence.load_game] runs this step for you through
+    [`MIGRATIONS`][osrlib.persistence.MIGRATIONS].
+
+    Args:
+        payload: The `payload` of a save document stamped with schema version 1. It isn't changed.
+
+    Returns:
+        A new payload in the schema 2 format.
     """
     # osrlib never read the ledger back, so the migration drops the field instead of converting
     # it to a format that osrlib would never read.
@@ -156,7 +168,7 @@ def _migrate_1_to_2(payload: dict) -> dict:
     return payload
 
 
-def _migrate_2_to_3(payload: dict) -> dict:
+def migrate_2_to_3(payload: dict) -> dict:
     """Migrate a schema 2 payload to schema 3 by rewriting a treasure trap's trigger to `"open"`.
 
     In schema 3, [`TrapSpec`][osrlib.crawl.dungeon.TrapSpec] rejects `trigger="enter"` on
@@ -164,6 +176,15 @@ def _migrate_2_to_3(payload: dict) -> dict:
     `"open"`, the one action that springs a cache, loses nothing. The embedded adventure is
     the only part of a save with trap specs in it, and a treasure trap sits on a feature,
     either on an area or on a level.
+
+    [`load_game`][osrlib.persistence.load_game] runs this step for you through
+    [`MIGRATIONS`][osrlib.persistence.MIGRATIONS].
+
+    Args:
+        payload: The `payload` of a save document stamped with schema version 2. It isn't changed.
+
+    Returns:
+        A new payload in the schema 3 format.
     """
     payload = copy.deepcopy(payload)
     for dungeon in payload.get("adventure", {}).get("dungeons", ()):
@@ -178,7 +199,7 @@ def _migrate_2_to_3(payload: dict) -> dict:
     return payload
 
 
-def _migrate_3_to_4(payload: dict) -> dict:
+def migrate_3_to_4(payload: dict) -> dict:
     """Migrate a schema 3 payload to schema 4 by clearing a logged `withdraw` off every declaration.
 
     Schema 4 drops `"withdraw"` from
@@ -202,6 +223,15 @@ def _migrate_3_to_4(payload: dict) -> dict:
     `EncounterGroup` field, is gone too.
     [`MonsterFledEvent`][osrlib.crawl.events.MonsterFledEvent] no longer accepts the code, so an
     event with it fails to parse. No log contains one, because osrlib never set the field.
+
+    [`load_game`][osrlib.persistence.load_game] runs this step for you through
+    [`MIGRATIONS`][osrlib.persistence.MIGRATIONS].
+
+    Args:
+        payload: The `payload` of a save document stamped with schema version 3. It isn't changed.
+
+    Returns:
+        A new payload in the schema 4 format.
     """
     payload = copy.deepcopy(payload)
     for entry in payload.get("command_log", ()):
@@ -217,13 +247,14 @@ def _migrate_3_to_4(payload: dict) -> dict:
 
 
 MIGRATIONS: Mapping[int, Callable[[dict], dict]] = MappingProxyType(
-    {1: _migrate_1_to_2, 2: _migrate_2_to_3, 3: _migrate_3_to_4}
+    {1: migrate_1_to_2, 2: migrate_2_to_3, 3: migrate_3_to_4}
 )
 """The steps that upgrade an old save payload, one schema version at a time.
 
 Each key is a schema version `n`, and its value is a function that takes a payload written
 at version `n` and returns a new payload in the format of version `n + 1`. A step doesn't
-change the payload you pass it.
+change the payload you pass it. Each step is a function of this module too, like
+[`migrate_3_to_4`][osrlib.persistence.migrate_3_to_4], and its entry says what the step changes.
 [`load_game`][osrlib.persistence.load_game] runs the steps for you, from the version the
 document was stamped with up to [`SCHEMA_VERSION`][osrlib.versioning.SCHEMA_VERSION], so a
 save from an older release loads without any code from you.
