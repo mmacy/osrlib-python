@@ -5,8 +5,6 @@ from memory or from a scroll, in a battle or outside one. And it has to know the
 by the letters its id starts with, now that an adventure can bundle a spell under any id.
 """
 
-import pytest
-
 import positions_fixtures as pf
 from osrlib.core.items import MagicItemInstance
 from osrlib.core.spells import MemorizedSpell, SpellTemplate
@@ -16,8 +14,6 @@ from osrlib.crawl.battle import MonsterAction
 from osrlib.crawl.commands import CastSpell, UseItem
 from osrlib.crawl.session import GameSession
 from osrlib.data import load_classes, load_spells
-
-pytestmark = pytest.mark.xfail(reason="chunk: review-fixes-two")
 
 ROSTER = (pf.HILD, pf.TAM, pf.WREN)
 LEVELS = {"Tam": 6, "Wren": 7}

@@ -263,11 +263,9 @@ def test_the_staff_of_striking_needs_a_group_to_strike():
 
 # ---------------------------------------------------------------------- the strike is a blow with a slow weapon
 
-SLOW_STRIKE = pytest.mark.xfail(reason="chunk: review-fixes-two")
-"""The staff of striking is "Used as a magical melee weapon", and a staff is slow, so its strike comes last."""
+# The staff of striking is "Used as a magical melee weapon", and a staff is slow, so its strike comes last.
 
 
-@SLOW_STRIKE
 @pytest.mark.parametrize(
     ("roster", "staff_id"), [((PRIEST, pf.HILD), "staff_of_striking"), ((MAGE, pf.HILD), "staff_of_power")]
 )
@@ -279,7 +277,6 @@ def test_a_strike_comes_after_a_quicker_members_attack(roster, staff_id):
     assert [roll.attacker_id for roll in events if isinstance(roll, AttackRolledEvent)] == [hild, wielder]
 
 
-@SLOW_STRIKE
 def test_a_strike_comes_after_the_monsters_attacks():
     """Whoever wins initiative, in every one of the first ten battles in which the goblins attack."""
     checked = 0

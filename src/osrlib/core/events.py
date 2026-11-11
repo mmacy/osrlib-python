@@ -1218,9 +1218,9 @@ class DeclarationFizzledEvent(Event):
     Any check the declaration passed at the start of the round can fail, so read the code and don't assume a
     cause. Some codes you may see:
 
-    - `combat.attack.out_of_reach`: the group a staff of striking was aimed at moved out of reach, or the member
-      who declared a melee attack is farther than 5' from its group when the attack comes up. A melee attack gets
-      it too when its group ran out of the battle, wherever the member stood.
+    - `combat.attack.out_of_reach`: the member who declared a melee attack, or a strike with a staff, is farther
+      than 5' from its group when the blow comes up. Either one gets it too when its group ran out of the battle,
+      wherever the member stood.
     - `battle.declaration.not_in_front_rank`: the member who declared a melee attack is within 5' of its group
       but not in its front rank when the attack comes up. A melee attack gets this code only when the member is
       within 5', and `combat.attack.out_of_reach` otherwise.
