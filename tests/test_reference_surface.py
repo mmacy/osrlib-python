@@ -1,0 +1,105 @@
+"""The public surface reads cleanly from outside (issues #161 and #166, items 39 and 40).
+
+`inspect.signature` works on every public callable, so `help()` and the reference pages can show its
+parameters. No public value renders a private name in the reference: the pages are built by griffe,
+which prints a default or a constant as its source expression.
+"""
+
+import importlib
+import inspect
+import pkgutil
+import re
+
+import griffe
+import pytest
+
+import osrlib
+
+pytestmark = pytest.mark.xfail(reason="chunk: reference-signatures")
+
+PRIVATE_NAME = re.compile(r"(?<![\w.])_[A-Za-z]\w*")
+"""An identifier that starts with one underscore, as a name of its own and not as an attribute."""
+
+
+def public_modules() -> list[str]:
+    names = ["osrlib"]
+    for module in pkgutil.walk_packages(osrlib.__path__, prefix="osrlib."):
+        if not any(part.startswith("_") for part in module.name.split(".")):
+            names.append(module.name)
+    return sorted(names)
+
+
+def public_callables() -> list[tuple[str, object]]:
+    """Every callable a module exports in `__all__`, and every public method of an exported class."""
+    found: dict[str, object] = {}
+    for module_name in public_modules():
+        module = importlib.import_module(module_name)
+        for name in getattr(module, "__all__", ()):
+            exported = getattr(module, name)
+            if inspect.isclass(exported):
+                for attribute, value in vars(exported).items():
+                    if attribute.startswith("_"):
+                        continue
+                    member = value.__func__ if isinstance(value, (classmethod, staticmethod)) else value
+                    if inspect.isfunction(member) and member.__module__.startswith("osrlib"):
+                        found[f"{exported.__module__}.{exported.__qualname__}.{attribute}"] = member
+            elif inspect.isfunction(exported):
+                found[f"{exported.__module__}.{exported.__qualname__}"] = exported
+    return sorted(found.items())
+
+
+CALLABLES = public_callables()
+
+
+def test_the_harness_finds_the_public_surface():
+    names = [name for name, _ in CALLABLES]
+    assert "osrlib.core.treasure.plan_treasure_ref" in names
+    assert "osrlib.crawl.session.GameSession.view" in names
+    assert len(names) > 200
+
+
+@pytest.mark.parametrize(("name", "function"), CALLABLES, ids=[name for name, _ in CALLABLES])
+def test_inspect_signature_works(name, function):
+    signature = inspect.signature(function, eval_str=True)
+    assert signature is not None
+
+
+def rendered_values() -> list[tuple[str, str]]:
+    """The source expression griffe renders for every public attribute and every parameter default."""
+    package = griffe.load("osrlib", search_paths=["src"])
+    found: list[tuple[str, str]] = []
+
+    def walk(node) -> None:
+        for name, member in node.members.items():
+            if name.startswith("_") or member.is_alias:
+                continue
+            if member.is_attribute and member.value is not None:
+                found.append((member.path, str(member.value)))
+            elif member.is_function:
+                for parameter in member.parameters:
+                    if parameter.default is not None:
+                        found.append((f"{member.path}({parameter.name})", str(parameter.default)))
+            if member.is_module or member.is_class:
+                walk(member)
+
+    walk(package)
+    return found
+
+
+def test_no_public_value_renders_a_private_name():
+    offenders = [(path, value) for path, value in rendered_values() if PRIVATE_NAME.search(value)]
+    assert offenders == []
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "osrlib.persistence.MIGRATIONS",
+        "osrlib.core.rng.RngStreamState.state",
+        "osrlib.crawl.commands.GiveItems.allowed_modes",
+        "osrlib.crawl.commands.SpawnMonsters.allowed_modes",
+    ],
+)
+def test_the_values_the_issues_name_are_checked(path):
+    """Guards the walk above: it has to reach the values the issues reported."""
+    assert path in [found for found, _ in rendered_values()]
