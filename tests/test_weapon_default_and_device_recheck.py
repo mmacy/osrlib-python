@@ -427,7 +427,7 @@ class TestExplicitAndUnarmedAttacksStayAsTheyAre:
 # ---------------------------------------------------------------------- the device and turning re-check
 
 
-def staff_battle(seed: int, *, identified: bool = False, invisible: bool = False):
+def staff_battle(seed: int):
     """Goblins at melee range that are already fleeing, and a cleric with a staff of striking aimed at them.
 
     The cleric leads the marching order, so they stand in the front rank, because the staff is "Used as a magical
@@ -453,18 +453,8 @@ def staff_battle(seed: int, *, identified: bool = False, invisible: bool = False
     assert CLERIC in session.view(Visibility.PLAYER).encounter.front_rank
     group = session.encounter.groups[0]
     group.fleeing = True
-    staff = MagicItemInstance(
-        instance_id="magic-item-9003", template_id="staff_of_striking", identified=identified, charges_remaining=5
-    )
+    staff = MagicItemInstance(instance_id="magic-item-9003", template_id="staff_of_striking", charges_remaining=5)
     session.member(CLERIC).inventory.items.append(staff)
-    if invisible:
-        session.ledger.attach(
-            EffectDefinition(kind="invisibility", condition=Condition.INVISIBLE),
-            CLERIC,
-            clock=session.clock,
-            allocator=session.allocator,
-            registry=session.registry(),
-        )
     return session, group, staff
 
 

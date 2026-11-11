@@ -511,7 +511,7 @@ class TestTheStaffOfStrikingIsAMeleeWeapon:
         assert stream_states(session) == streams
         assert session.battle.round == 0
 
-    def test_a_named_member_whose_trade_did_not_happen_fizzles_in_the_magic_phase(self, monkeypatch):
+    def test_a_named_member_whose_trade_did_not_happen_fizzles_when_the_strike_comes_up(self, monkeypatch):
         playing: list[GameSession] = []
         paralyse_the_fighter_before_the_move(monkeypatch, playing)
         checked = []

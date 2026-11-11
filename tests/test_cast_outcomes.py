@@ -12,9 +12,10 @@ from osrlib.core.items import MagicItemInstance
 from osrlib.core.spells import MemorizedSpell, SpellTemplate
 from osrlib.crawl._party_location import _cell_ref
 from osrlib.crawl.adventure import Adventure
+from osrlib.crawl.battle import MonsterAction
 from osrlib.crawl.commands import CastSpell, UseItem
 from osrlib.crawl.session import GameSession
-from osrlib.data import load_spells
+from osrlib.data import load_classes, load_spells
 
 pytestmark = pytest.mark.xfail(reason="chunk: review-fixes-two")
 
@@ -154,3 +155,52 @@ def test_a_bundled_silence_stays_in_the_cell_too():
     """`hush` is *silence 15' radius* under another id, so it does what that spell does."""
     game = silence_that_was_saved_against("hush", custom_spell("silence_15_radius", "hush"))
     assert game.ledger.active_on(_cell_ref(game), "silence")
+
+
+def test_the_silence_in_the_cell_has_the_spells_radius():
+    document = custom_spell("silence_15_radius", "great_hush").model_dump()
+    document["modes"][0]["effect"]["params"]["radius_feet"] = 30
+    game = silence_that_was_saved_against("great_hush", SpellTemplate.model_validate(document))
+    (silence,) = game.ledger.active_on(_cell_ref(game), "silence")
+    assert silence.definition.params["radius_feet"] == 30
+
+
+class CastSilenceAt:
+    """A policy that has one NPC adventurer cast *silence 15' radius* at one member, and nothing else."""
+
+    def __init__(self, npc_id: str, target_id: str) -> None:
+        self.npc_id = npc_id
+        self.target_id = target_id
+
+    def choose(self, session, group, stream) -> list[MonsterAction]:
+        return [
+            MonsterAction(
+                monster_id=self.npc_id,
+                kind="npc_cast",
+                target_id=self.target_id,
+                spell_id="silence_15_radius",
+                spell_mode="creature",
+            )
+        ]
+
+
+def test_an_npc_adventurers_silence_that_a_member_saves_against_stays_in_the_cell():
+    roster = (pf.HILD, pf.OSRIC)
+    for seed in pf.seeds(roster=roster, npc_party=True):
+        game = pf.battle(roster, npc_party=True, first_seed=seed)
+        group = game.encounter.groups[0]
+        adventurers = [game.combatant(npc_id) for npc_id in group.monster_ids]
+        cleric = next((npc for npc in adventurers if getattr(npc, "class_id", None) == "cleric"), None)
+        if cleric is None:
+            continue
+        cleric.level = 6
+        cleric.xp = load_classes().get("cleric").row(6).xp
+        cleric.memorized_spells = (MemorizedSpell(spell_id="silence_15_radius"),)
+        game.action_policies[group.id] = CastSilenceAt(cleric.id, pf.named(game, "Hild"))
+        events = pf.play(game, *(pf.declare(member.id, "hold") for member in game.party.members))
+        if any(event.code == "combat.save.passed" for event in events):
+            assert game.ledger.active_on(_cell_ref(game), "silence")
+            return
+        if seed > 150:
+            break
+    raise AssertionError("precondition: no member made the save")
