@@ -22,8 +22,6 @@ from osrlib.core.spells import TargetingMode, TargetingSpec
 from osrlib.core.treasure import MagicAllotment, MagicItemType
 from osrlib.data import load_classes, load_equipment, load_monsters
 
-pytestmark = pytest.mark.xfail(reason="chunk: model-validation")
-
 LOADERS = sorted(name for name in osrlib.data.__all__ if name.startswith("load_"))
 
 
