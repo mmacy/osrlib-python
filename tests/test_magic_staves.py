@@ -16,8 +16,6 @@ from osrlib.crawl.commands import EquipItem, GrantItem, SpawnMonsters, UseItem
 from osrlib.crawl.session import GameSession
 from osrlib.data import load_magic_items
 
-pytestmark = pytest.mark.xfail(reason="chunk: magic-staves")
-
 STAVES = (
     "staff_of_commanding",
     "staff_of_healing",
