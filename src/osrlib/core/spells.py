@@ -1230,9 +1230,9 @@ def caster_profile(definition: ClassDefinition) -> CasterProfile | None:
     `spell_list` in its `params`, and the profile's `spell_list` is that value.
 
     Args:
-        definition: The class, as a [`ClassDefinition`][osrlib.core.classes.ClassDefinition] from
-            [`load_classes`][osrlib.data.load_classes]`().get(class_id)`, where `class_id` is the
-            character's `class_id`.
+        definition: The class, as a [`ClassDefinition`][osrlib.core.classes.ClassDefinition]. For a
+            character's class, pass [`Character.definition`][osrlib.core.character.Character.definition],
+            which is the built-in class or the character's `custom_class`.
 
     Returns:
         The [`CasterProfile`][osrlib.core.spells.CasterProfile], or `None` when the class has

@@ -177,7 +177,10 @@ class MemberView(BaseModel):
     name: str
     """The character's name, as the player wrote it."""
     class_id: str
-    """The character class id, like `"fighter"`, from the class catalog."""
+    """The character class id, like `"fighter"`, as in
+    [`Character.class_id`][osrlib.core.character.Character.class_id]. For a class your game wrote, it's
+    the id of the character's [`custom_class`][osrlib.core.character.Character.custom_class], so look
+    the class's name up in your own definitions."""
     level: int
     """The character's experience level."""
     current_hp: int

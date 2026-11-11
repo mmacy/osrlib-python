@@ -112,16 +112,15 @@ assert [rejection.code for rejection in rejections] == ["creation.class.requirem
 
 [`level_up`][osrlib.core.classes.level_up], [`memorize_spells`][osrlib.core.spells.memorize_spells], [`cast_spell`][osrlib.core.spells.cast_spell], and the `validate_class_choice` call above all take `WARDEN` (or a [`CasterProfile`][osrlib.core.spells.CasterProfile] built from it) as a plain argument. None of them needs the definition to be in the built-in catalog.
 
-The one place an id alone has to resolve to a definition is [`Character`][osrlib.core.character.Character] itself. [`Character.definition`][osrlib.core.character.Character.definition] looks its `class_id` up through `load_classes()`, and the validation in `Character` calls `.definition` on every construction, every field assignment (the model validates on assignment), and every document load. `osrlib.core.character` imports `load_classes` by name, and that name is what `.definition` calls, so reassigning the module attribute to a loader that returns your extended catalog is the only way to construct (or revalidate, or load) a character of a custom class:
+A [`Character`][osrlib.core.character.Character] takes the definition too. Set `class_id` to your class's id, and pass the definition as [`custom_class`][osrlib.core.character.Character.custom_class]. [`Character.definition`][osrlib.core.character.Character.definition] returns it, so the character's THAC0, saving throws, and level cap come from your progression table:
 
 ```{.python .no-run}
-character_module.load_classes = lambda: classes
-
 scores = {ability: 11 for ability in AbilityScore} | {AbilityScore.WIS: 13, AbilityScore.CON: 13}
 warden = Character(
     id="pc-warden",
     name="Halda",
     class_id="warden",
+    custom_class=WARDEN,
     race="human",
     level=1,
     xp=0,
@@ -130,18 +129,43 @@ warden = Character(
     max_hp=6,
     current_hp=6,
 )
+assert warden.definition is WARDEN
 assert warden.thac0 == 19
 assert warden.saves.spells == 14
 ```
 
-If you want characters of a custom class, do the reassignment once, at startup, before you build or load any character, rather than once per character. `race` needs no such setup. Both `ClassDefinition` and `Character` validate it only against a slug pattern, and no procedure looks it up, so any race string that the class definition and the character agree on already works.
+`Character` refuses a `custom_class` whose `id` isn't `class_id`. It also refuses a `custom_class` whose `id` is the id of a built-in class, because a class id refers to one class. To make a variant of a built-in class, give the variant a different id, the way you would for [a variant of a built-in monster](#make-a-variant-of-a-built-in-monster).
 
-## Advancing and casting
+The definition is part of the character. [`to_document`][osrlib.core.character.Character.to_document], [`party_to_document`][osrlib.core.character.party_to_document], and [`save_game`][osrlib.persistence.save_game] include it, and loading the document gives it back, so your code doesn't supply `WARDEN` again to load a warden:
 
-With the catalogs extended and the loader pointed at them, the rest of the lifecycle is the same kernel calls a built-in class goes through. `level_up` reads next level's row straight off `WARDEN`. `memorize_spells` checks the caster's list and slot capacity against the extended spell catalog. Casting consumes the memorized copy and resolves the mode's effect, which here heals a wounded ally by touch:
+```{.python .no-run}
+assert Character.from_document(warden.to_document()).definition == WARDEN
+```
+
+[`create_character`][osrlib.core.character.create_character] takes the definition the same way. Pass your class's id as `class_id` and the definition as `custom_class`, and it rolls a first-level character of your class:
 
 ```{.python .no-run}
 streams = RngStreams(master_seed=2026)
+oswin = create_character(
+    name="Oswin",
+    class_id="warden",
+    custom_class=WARDEN,
+    alignment=Alignment.LAWFUL,
+    ruleset=Ruleset(),
+    stream=streams.get(CHARACTER_CREATION_STREAM),
+).character
+assert oswin.definition is WARDEN
+```
+
+A [`GameSession`][osrlib.crawl.session.GameSession] reads each member's class from `Character.definition`, so the session plays a warden in the party under your class. However, a session reads spells only from the built-in spell catalog, so it can't prepare or cast a spell you wrote. [What's not supported](#whats-not-supported) lists the commands that refuse one.
+
+`race` needs no setup. Both `ClassDefinition` and `Character` validate it only against a slug pattern, and no procedure looks it up, so any race string that the class definition and the character agree on already works.
+
+## Advancing and casting
+
+With the spell catalog extended and the warden built, the rest of the lifecycle is the same kernel calls a built-in class goes through. `level_up` reads next level's row straight off `WARDEN`. `memorize_spells` checks the caster's list and slot capacity against the extended spell catalog. Casting consumes the memorized copy and resolves the mode's effect, which here heals a wounded ally by touch:
+
+```{.python .no-run}
 level_up(warden, WARDEN, streams.get("advancement"))
 assert warden.level == 2
 assert WARDEN.row(warden.level).spell_slots == (2,)
@@ -175,10 +199,9 @@ assert wounded.current_hp > 2
 ```python
 import json
 
-from osrlib.core import character as character_module
 from osrlib.core.abilities import AbilityScore
 from osrlib.core.alignment import Alignment
-from osrlib.core.character import Character, validate_class_choice
+from osrlib.core.character import CHARACTER_CREATION_STREAM, Character, create_character, validate_class_choice
 from osrlib.core.classes import ClassCatalog, ClassDefinition, level_up
 from osrlib.core.clock import GameClock
 from osrlib.core.effects import EffectsLedger
@@ -291,15 +314,13 @@ low_scores = {ability: 11 for ability in AbilityScore} | {AbilityScore.WIS: 8}
 rejections = validate_class_choice(low_scores, WARDEN)
 assert [rejection.code for rejection in rejections] == ["creation.class.requirements_not_met"]
 
-# The one seam: Character.definition resolves load_classes() from this module's
-# namespace, so a game holding custom definitions reassigns it once, up front.
-character_module.load_classes = lambda: classes
-
+# A character of your class contains the definition, and a document of the character includes it.
 scores = {ability: 11 for ability in AbilityScore} | {AbilityScore.WIS: 13, AbilityScore.CON: 13}
 warden = Character(
     id="pc-warden",
     name="Halda",
     class_id="warden",
+    custom_class=WARDEN,
     race="human",
     level=1,
     xp=0,
@@ -308,10 +329,23 @@ warden = Character(
     max_hp=6,
     current_hp=6,
 )
+assert warden.definition is WARDEN
 assert warden.thac0 == 19
 assert warden.saves.spells == 14
+assert Character.from_document(warden.to_document()).definition == WARDEN
 
+# create_character rolls a first-level warden the way it rolls a fighter.
 streams = RngStreams(master_seed=2026)
+oswin = create_character(
+    name="Oswin",
+    class_id="warden",
+    custom_class=WARDEN,
+    alignment=Alignment.LAWFUL,
+    ruleset=Ruleset(),
+    stream=streams.get(CHARACTER_CREATION_STREAM),
+).character
+assert oswin.definition is WARDEN
+
 level_up(warden, WARDEN, streams.get("advancement"))
 assert warden.level == 2
 assert WARDEN.row(warden.level).spell_slots == (2,)
@@ -473,7 +507,7 @@ print(cave_goblin.id, cave_goblin.hit_dice.count)
 # cave_goblin 1
 ```
 
-An adventure document can't bundle classes or spells. For those, extend the catalogs as shown above.
+An adventure document can't bundle classes or spells. A character of a class you wrote contains the class, as [Characters of a custom class](#characters-of-a-custom-class) shows. For a spell, extend the spell catalog as shown above.
 
 ## Bundling custom items with an adventure
 
@@ -584,9 +618,10 @@ Third, some class policies are written as id lists. A class whose [`WeaponPolicy
 
 There's no merge path into the built-in content. `load_classes` and `load_spells` are cached loaders that read the generated `classes.json` and `spells.json` files inside the package. There's no append or register call, so an extended catalog is always a value your code builds and keeps: `classes` and `spells` above, never something you pass back to the loaders. `load_monsters` and `load_equipment` don't accept additions either. Bundling ([monsters](#bundling-custom-monsters-with-an-adventure), [items](#bundling-custom-items-with-an-adventure)) combines your templates with the built-in catalog for each session through the adventure document that contains them, and the built-in catalog objects never change.
 
-[`create_character`][osrlib.core.character.create_character], the one-call wrapper used in [the quickstart](../getting-started/quickstart.md), resolves its `class_id` argument through `load_classes().get(class_id)`. That's the same module attribute `Character.definition` reads, so [the reassignment above](#characters-of-a-custom-class) covers the wrapper too: reassign `load_classes` and `create_character(class_id="warden", ...)` rolls a warden. Leave the assignment alone and the wrapper finds built-in ids only. None of the stepwise creation functions resolves a class by id, so none of them needs the reassignment: [`roll_ability_scores`][osrlib.core.character.roll_ability_scores], `validate_class_choice`, [`roll_hit_points`][osrlib.core.character.roll_hit_points], [`validate_extra_languages`][osrlib.core.character.validate_extra_languages], [`roll_starting_gold`][osrlib.core.character.roll_starting_gold], and [`choose_starting_spells`][osrlib.core.character.choose_starting_spells] take a `ClassDefinition` object or nothing but a stream, and they run the same procedure `create_character` combines.
+A spell you write works with the kernel functions that take a spell catalog, like `memorize_spells` and [`choose_starting_spells`][osrlib.core.character.choose_starting_spells], and with `cast_spell`, which takes the spell itself. A session and `create_character` look a spell id up in `load_spells()` instead, so neither finds a spell you wrote:
 
-The `load_classes` reassignment above is a plain module attribute, not a supported extension API with a dedicated function or parameter. There's nothing to call. You reassign the name, and osrlib doesn't check whether you set it back. If your game has custom classes, reassign it once at startup and use your extended catalog as the only `load_classes` your characters see for the life of the process, the same way the [complete program](#the-complete-program) above does. Spells need no equivalent reassignment. osrlib never resolves a spell by id from a character the way `Character.definition` resolves a class, so `SpellCatalog.get` and `SpellCatalog.by_list` calls against your own extended catalog are all a caster needs.
+- In a session, [`PrepareSpells`][osrlib.crawl.commands.PrepareSpells] refuses it with `magic.memorize.unknown_spell`, [`LearnSpell`][osrlib.crawl.commands.LearnSpell] with `magic.book.unknown_spell`, and [`CastSpell`][osrlib.crawl.commands.CastSpell] and a battle declaration that casts it with `magic.cast.unknown_spell`.
+- [`create_character`][osrlib.core.character.create_character] checks `starting_spell_ids` against `load_spells()`, so it raises `ValueError` for a spell you wrote. That means it can't create a character of an arcane class whose spell list has no built-in spells, because the built-in catalog has no spell to put in the character's first spell book. Build that character step by step instead, and write the book with `choose_starting_spells` and your catalog.
 
 For the ids the built-in catalogs already use, see [the class id index][classes-index] and [the spell id index][spells-index]. For every model and function this page named, see [the API reference](../reference/api/index.md).
 
