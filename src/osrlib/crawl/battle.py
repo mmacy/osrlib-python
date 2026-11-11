@@ -306,7 +306,7 @@ assert "combat.initiative.rolled" in [event.code for event in result.events]
 
 import math
 from collections.abc import Collection, Iterable, Mapping, Sequence
-from typing import Any, NamedTuple, Protocol
+from typing import Any, NamedTuple, Protocol, cast
 
 from pydantic import ConfigDict
 
@@ -3251,9 +3251,10 @@ def _resolve_hand_over(session, giver, declaration: BattleDeclaration) -> list[E
     from osrlib.crawl import _items
 
     recipient, _ = _hand_over(session, declaration, giver, _placement(session))
-    if recipient is None or declaration.item_id is None:
+    if recipient is None:
         return []
-    return _items._apply_give(session, giver, recipient, (declaration.item_id,), Coins())
+    # A declaration with no `item_id` has no recipient, because `_hand_over` finds no such item carried.
+    return _items._apply_give(session, giver, recipient, (cast(str, declaration.item_id),), Coins())
 
 
 def _resolve_magic_item_use(session, member, declaration: BattleDeclaration, state) -> list[Event]:
@@ -4166,9 +4167,10 @@ def _ward_bars_monster(session, monster) -> bool:
     """Whether a protection-scroll ward bars a monster from initiating melee.
 
     A ward bars matching monsters up to its rolled per-HD-band count (the 1-3,
-    4-5, and 6+ HD bands), counted in spawn order among the encounter's matching
-    monsters. A monster's band follows the Hit Dice it has left, so a drained monster counts in a lower band.
-    The scroll of protection from elementals bars every elemental it matches, with no count.
+    4-5, and 6+ HD bands), counted among the encounter's matching monsters in the encounter's order: its groups
+    in order, and each group's monsters in order (see `_encounter_monsters`). A monster's band follows the Hit Dice
+    it has left, so a drained monster counts in a lower band. The scroll of protection from elementals bars every
+    elemental it matches, with no count.
     """
     wards = _party_wards(session)
     if not wards:
@@ -4183,11 +4185,11 @@ def _ward_bars_monster(session, monster) -> bool:
         count = int(params.get(band_key, 0))
         if count <= 0:
             continue
-        matching_ids = sorted(
+        matching_ids = [
             candidate.id
             for candidate in _encounter_monsters(session)
             if _ward_matches(candidate, params) and _hd_band(candidate) == band_key
-        )
+        ]
         if monster.id in matching_ids[:count]:
             return True
     return False
@@ -4219,6 +4221,7 @@ def _hd_band(creature) -> str:
 
 
 def _encounter_monsters(session) -> list[MonsterInstance]:
+    """The encounter's monsters, not its NPC adventurers, in the encounter's order: groups in order, then monsters."""
     if session.encounter is None:
         return []
     return [

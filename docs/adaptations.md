@@ -1667,6 +1667,7 @@ Protection scrolls:
 
 - A protection scroll attaches one ward to the reader that covers the whole party, with a count for each HD band in structured params (`affected_1_3`, `affected_4_5`, and `affected_6_plus`).
 - The ward bars the listed creatures from melee, through the same rules as *protection from evil*. It breaks for the whole party when any member attacks a barred monster in melee.
+- The Scrolls and Maps page gives a number of creatures for each band, like "1–3 HD: 2d12 undead affected", and doesn't say which creatures the ward bars when more of them are present. The ward bars the first ones in the encounter's order: its groups in the order they joined the encounter, and each group's monsters in the order the group lists them.
 
 Locked by `test_casting.py`, `test_exploration.py`, and `test_battle.py`.
 
