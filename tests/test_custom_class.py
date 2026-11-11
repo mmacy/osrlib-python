@@ -38,8 +38,6 @@ from osrlib.crawl.session import GameSession
 from osrlib.data import load_classes
 from osrlib.persistence import load_game, save_game
 
-pytestmark = pytest.mark.xfail(reason="chunk: custom-class")
-
 
 def custom(base_id: str, class_id: str, **changes) -> ClassDefinition:
     """A class of your own: a built-in class under a new id and name, with `changes` applied."""
