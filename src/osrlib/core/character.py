@@ -34,7 +34,8 @@ in the order the SRD gives for creating a character:
 
 Then construct the [`Character`][osrlib.core.character.Character] from the results. Pass the
 scores as `scores`, the hit points as both `max_hp` and `current_hp`, `level=1`, `xp=0`, the class
-definition's `race`, and the name, class id, alignment, and extra languages. To use scores a player
+definition's `race`, and the name, class id, alignment, and extra languages. For a class you
+wrote, pass its definition as `custom_class` too. To use scores a player
 chose instead of rolled ones, skip step 1 and pass those scores. Write the spell
 book with [`choose_starting_spells`][osrlib.core.character.choose_starting_spells], and buy and
 equip gear with [`validate_purchase`][osrlib.core.items.validate_purchase],
@@ -186,6 +187,25 @@ changes, so the same stream always gives the same six scores.
 """
 
 
+def _class_definition(class_id: str, custom_class: ClassDefinition | None) -> ClassDefinition:
+    """Return the class of a character with `class_id` and `custom_class`.
+
+    Raises:
+        ValueError: If `custom_class` is `None` and `class_id` isn't the id of a built-in class, if
+            `custom_class` has an id other than `class_id`, or if its id is the id of a built-in class.
+    """
+    built_in = next((definition for definition in load_classes().classes if definition.id == class_id), None)
+    if custom_class is None:
+        if built_in is None:
+            raise ValueError(f"unknown class id {class_id!r}: pass the definition of a class you wrote as custom_class")
+        return built_in
+    if custom_class.id != class_id:
+        raise ValueError(f"custom class {custom_class.id!r} does not match class id {class_id!r}")
+    if built_in is not None:
+        raise ValueError(f"custom class id {class_id!r} is the id of a built-in class")
+    return custom_class
+
+
 class Character(BaseModel):
     """A player character: the stored state of one character, and the values derived from it.
 
@@ -205,9 +225,11 @@ class Character(BaseModel):
     raises a pydantic `ValidationError`, and every field still has the value it had before the
     assignment. Validation is structural only. It checks that the six scores
     are present and in range, that `class_id` is the id of a class in
-    [`load_classes`][osrlib.data.load_classes], that the level is within the class's maximum, and
-    that current hit points don't exceed maximum hit points. It doesn't check that the character was
-    created legally, because a finished character has no record of how it was created.
+    [`load_classes`][osrlib.data.load_classes] or of the definition in
+    [`custom_class`][osrlib.core.character.Character.custom_class], that the level is within the
+    class's maximum, and that current hit points don't exceed maximum hit points. It doesn't check
+    that the character was created legally, because a finished character has no record of how it was
+    created.
 
     Nothing derived is stored. THAC0, attack bonus, saving throws, ability modifiers, both armour
     classes, and the language list are properties recomputed from the stored fields each time you
@@ -255,9 +277,26 @@ class Character(BaseModel):
     class_id: str
     """The id of the character's class, like `"fighter"`.
 
-    Valid ids come from [`load_classes`][osrlib.data.load_classes] and are listed in
-    [the class id index](https://mmacy.github.io/osrlib-python/reference/content-ids/classes/). Read
+    For a class osrlib includes, the id comes from [`load_classes`][osrlib.data.load_classes] and is listed in
+    [the class id index](https://mmacy.github.io/osrlib-python/reference/content-ids/classes/). For a class you wrote,
+    it's the `id` of the definition in [`custom_class`][osrlib.core.character.Character.custom_class]. Read
     [`definition`][osrlib.core.character.Character.definition] for the class itself.
+    """
+
+    custom_class: ClassDefinition | None = None
+    """The definition of the character's class when it's a class you wrote, or `None` for a class osrlib includes.
+
+    Set it to your [`ClassDefinition`][osrlib.core.classes.ClassDefinition], and set `class_id` to the definition's
+    `id`. [`definition`][osrlib.core.character.Character.definition] returns it, so the kernel functions and a
+    [`GameSession`][osrlib.crawl.session.GameSession] play the character under your class.
+    [`create_character`][osrlib.core.character.create_character] sets it when you pass `custom_class`.
+
+    The model refuses a definition whose `id` isn't `class_id`. It also refuses a definition whose `id` is the id of a
+    built-in class, because a class id refers to one class. Give a variant of a built-in class a different id.
+
+    The definition is part of the character, so [`to_document`][osrlib.core.character.Character.to_document],
+    [`party_to_document`][osrlib.core.character.party_to_document], and [`save_game`][osrlib.persistence.save_game]
+    include it, and loading the document gives it back. Your game doesn't supply the class again to load one.
     """
 
     race: str = Field(pattern=r"^[a-z][a-z0-9_]*$")
@@ -366,7 +405,7 @@ class Character(BaseModel):
 
     @model_validator(mode="after")
     def _structurally_consistent(self) -> Character:
-        definition = self.definition
+        definition = _class_definition(self.class_id, self.custom_class)
         if self.level > definition.max_level:
             raise ValueError(f"{self.class_id} is capped at level {definition.max_level}, got {self.level}")
         if self.current_hp > self.max_hp:
@@ -375,14 +414,20 @@ class Character(BaseModel):
 
     @property
     def definition(self) -> ClassDefinition:
-        """The character's class, looked up by `class_id` in [`load_classes`][osrlib.data.load_classes].
+        """The character's class: [`custom_class`][osrlib.core.character.Character.custom_class] when it's set.
+
+        When `custom_class` is `None`, it's the built-in class whose id is `class_id`, from
+        [`load_classes`][osrlib.data.load_classes].
 
         Read it for anything that depends on the class: the progression table, the armour and weapon
         policies, the class abilities, and the level titles. Pass it as the `definition` argument of the
-        functions in [`osrlib.core.classes`][osrlib.core.classes].
+        functions in [`osrlib.core.classes`][osrlib.core.classes]. A
+        [`GameSession`][osrlib.crawl.session.GameSession] reads it for each member too.
         [`load_classes`][osrlib.data.load_classes] loads the catalog once and caches it, so
         reading this property again costs almost nothing.
         """
+        if self.custom_class is not None:
+            return self.custom_class
         return load_classes().get(self.class_id)
 
     @property
@@ -1363,6 +1408,7 @@ def create_character(
     alignment: Alignment,
     ruleset: Ruleset,
     stream: RngStream,
+    custom_class: ClassDefinition | None = None,
     adjustment: AbilityAdjustment | None = None,
     starting_spell_ids: Sequence[str] = (),
     extra_languages: Sequence[str] = (),
@@ -1389,9 +1435,9 @@ def create_character(
     raises `ValueError` on the first illegal choice and reports nothing more.
 
     Before the first roll, it checks every choice that doesn't depend on a rolled score: the name,
-    the spell book, the rules of the ability trade that read no score, the extra languages, and the
-    purchases and the items to equip, all but their price. When one of these choices is illegal,
-    the call raises and the stream stays where it was.
+    the class, the spell book, the rules of the ability trade that read no score, the extra
+    languages, and the purchases and the items to equip, all but their price. When one of these
+    choices is illegal, the call raises and the stream stays where it was.
 
     Then the steps run in the SRD's order: roll the six scores, check them against the class's
     requirements, apply the ability adjustment, roll hit points, check how many extra languages the
@@ -1406,12 +1452,16 @@ def create_character(
         name: The character's name.
         class_id: The class to play, like `"fighter"`, from
             [`load_classes`][osrlib.data.load_classes] and listed in [the class id
-            index](https://mmacy.github.io/osrlib-python/reference/content-ids/classes/).
+            index](https://mmacy.github.io/osrlib-python/reference/content-ids/classes/). For a class
+            you wrote, it's the `id` of `custom_class`.
         alignment: Lawful, neutral, or chaotic.
         ruleset: The ruleset in play. When its `hp_reroll_at_first_level` flag is on, a hit die
             showing 1 or 2 is thrown again.
         stream: The stream for the creation draws, usually
             `streams.get(`[`CHARACTER_CREATION_STREAM`][osrlib.core.character.CHARACTER_CREATION_STREAM]`)`.
+        custom_class: The definition of a class you wrote, or `None` to play a class osrlib
+            includes. Its `id` must be `class_id`, and it can't be the id of a built-in class. The
+            new character's [`custom_class`][osrlib.core.character.Character.custom_class] is set to it.
         adjustment: A trade of ability points, as an
             [`AbilityAdjustment`][osrlib.core.abilities.AbilityAdjustment]. It lowers one or more
             of STR, INT, and WIS to raise a prime requisite, which earns the character a larger
@@ -1437,7 +1487,8 @@ def create_character(
 
     Raises:
         ValueError: On the first illegal choice. Illegal choices are an empty name, an unknown
-            class, spell, language, or item id, scores that miss the class's requirements, an
+            class, spell, language, or item id, a `custom_class` whose id isn't `class_id` or is
+            the id of a built-in class, scores that miss the class's requirements, an
             adjustment the rules forbid, and a spell book of the wrong size. So are more
             languages than the INT allows, a purchase of fewer than one lot, a purchase the
             starting gold can't cover, an item in `equip_ids` that wasn't bought, and an item the
@@ -1479,7 +1530,7 @@ def create_character(
     """
     if not name:
         raise ValueError("a character's name must not be empty")
-    definition = load_classes().get(class_id)
+    definition = _class_definition(class_id, custom_class)
     spell_rejections = validate_starting_spells(definition, load_spells(), starting_spell_ids)
     if spell_rejections:
         raise ValueError(f"illegal starting spells: {[rejection.code for rejection in spell_rejections]}")
@@ -1518,6 +1569,7 @@ def create_character(
     character = Character(
         name=name,
         class_id=definition.id,
+        custom_class=custom_class,
         race=definition.race,
         level=1,
         xp=0,

@@ -9,6 +9,7 @@
         "class_id": "cleric",
         "conditions": [],
         "current_hp": 2,
+        "custom_class": null,
         "extra_languages": [],
         "id": null,
         "inventory": {
@@ -111,6 +112,7 @@
         "class_id": "dwarf",
         "conditions": [],
         "current_hp": 2,
+        "custom_class": null,
         "extra_languages": [],
         "id": null,
         "inventory": {
@@ -230,6 +232,7 @@
         "class_id": "elf",
         "conditions": [],
         "current_hp": 5,
+        "custom_class": null,
         "extra_languages": [],
         "id": null,
         "inventory": {
@@ -307,6 +310,7 @@
         "class_id": "fighter",
         "conditions": [],
         "current_hp": 4,
+        "custom_class": null,
         "extra_languages": [],
         "id": null,
         "inventory": {
@@ -382,6 +386,7 @@
         "class_id": "halfling",
         "conditions": [],
         "current_hp": 2,
+        "custom_class": null,
         "extra_languages": [
           "dragon",
           "gnoll"
@@ -506,6 +511,7 @@
         "class_id": "magic_user",
         "conditions": [],
         "current_hp": 3,
+        "custom_class": null,
         "extra_languages": [],
         "id": null,
         "inventory": {
@@ -679,6 +685,7 @@
         "class_id": "thief",
         "conditions": [],
         "current_hp": 1,
+        "custom_class": null,
         "extra_languages": [
           "kobold"
         ],

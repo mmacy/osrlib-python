@@ -19,12 +19,9 @@ identical path the shipped loaders apply), then drive the stepwise kernel functi
 with the definitions in hand — is the path a real Advanced catalog takes through the
 SRD pipeline, and seeds the Phase 7 authoring guide.
 
-The one declared seam: `Character` resolves the shipped catalog through the
-module-level `load_classes` binding in `core/character.py` (via `Character.definition`)
-on every construction, revalidation, and document load. The `fixture_classes` fixture
-monkeypatches exactly that binding with a loader returning the shipped catalog extended
-by the fixtures. This is a test seam, not a shipped surface — catalog content ships
-through the SRD pipeline.
+A character of a fixture class states that class in `Character.custom_class`, so
+`build_character` passes the fixture definition there, and the shipped catalog stays
+as the SRD pipeline builds it.
 """
 
 import json
@@ -229,19 +226,6 @@ def extended_spell_catalog() -> SpellCatalog:
     return SpellCatalog(spells=(*load_spells().spells, build_mend_wounds()))
 
 
-@pytest.fixture
-def fixture_classes(monkeypatch):
-    """The one declared seam: `core/character.py`'s `load_classes` binding, patched.
-
-    `Character.definition` reads this binding on every construction, every
-    revalidation triggered by field assignment, and every document load — one patch
-    covers the whole lifecycle.
-    """
-    catalog = extended_class_catalog()
-    monkeypatch.setattr("osrlib.core.character.load_classes", lambda: catalog)
-    return catalog
-
-
 def base_scores(**overrides: int) -> dict[AbilityScore, int]:
     scores = {ability: 11 for ability in AbilityScore}
     scores.update({AbilityScore(key): value for key, value in overrides.items()})
@@ -253,6 +237,7 @@ def build_character(definition: ClassDefinition, *, level: int = 1, scores=None,
         id=f"pc-{name or definition.id}",
         name=name or f"Fixture {definition.name}",
         class_id=definition.id,
+        custom_class=None if definition in load_classes().classes else definition,
         race=definition.race,
         level=level,
         xp=definition.row(level).xp,
@@ -372,13 +357,13 @@ class TestWardenCreation:
         rejections = validate_starting_spells(warden, catalog, ("mend_wounds",))
         assert [rejection.code for rejection in rejections] == ["magic.book.not_arcane"]
 
-    def test_character_constructs_under_the_seam(self, fixture_classes):
+    def test_character_constructs_with_the_fixture_class(self):
         character = build_character(build_warden())
         assert character.definition.id == "warden"
         assert character.thac0 == 19 and character.attack_bonus == 0
         assert character.saves.death == 10 and character.saves.spells == 14
 
-    def test_equip_legality_under_the_fixture_policies(self, fixture_classes):
+    def test_equip_legality_under_the_fixture_policies(self):
         warden = build_warden()
         character = build_character(warden)
         character.inventory.purse.gp = 200
@@ -397,7 +382,7 @@ class TestWardenCreation:
 class TestWardenAdvancement:
     """Leveling, drain, and the derived values off the fixture progression rows."""
 
-    def test_level_up_reveals_slots_and_drain_reverses(self, fixture_classes):
+    def test_level_up_reveals_slots_and_drain_reverses(self):
         warden = build_warden()
         character = build_character(warden)
         streams = RngStreams(master_seed=MASTER_SEED)
@@ -411,13 +396,13 @@ class TestWardenAdvancement:
         assert character.xp == (warden.row(2).xp + warden.row(1).xp) // 2
         assert warden.row(character.level).spell_slots == (1,)
 
-    def test_saves_and_attack_values_read_the_fixture_rows(self, fixture_classes):
+    def test_saves_and_attack_values_read_the_fixture_rows(self):
         warden = build_warden()
         character = build_character(warden, level=5)
         assert character.thac0 == 17 and character.attack_bonus == 2
         assert character.saves.death == 8 and character.saves.breath == 13
 
-    def test_level_cap_is_the_fixture_maximum(self, fixture_classes):
+    def test_level_cap_is_the_fixture_maximum(self):
         warden = build_warden()
         character = build_character(warden, level=6)
         streams = RngStreams(master_seed=MASTER_SEED)
@@ -428,7 +413,7 @@ class TestWardenAdvancement:
 class TestWardenMagic:
     """Memorization and the re-keyed divine choose-reversal-at-cast freedom."""
 
-    def test_memorization_legality_on_the_warden_list(self, fixture_classes):
+    def test_memorization_legality_on_the_warden_list(self):
         warden = build_warden()
         catalog = extended_spell_catalog()
         character = build_character(warden)
@@ -442,7 +427,7 @@ class TestWardenMagic:
         assert result.accepted
         assert [copy.spell_id for copy in character.memorized_spells] == ["mend_wounds"]
 
-    def test_memorized_unreversed_casts_reversed(self, fixture_classes):
+    def test_memorized_unreversed_casts_reversed(self):
         """The lock: divine reversal-at-cast works on a non-cleric list.
 
         The pre-opening key branched on the literal `"cleric"` list name and would
@@ -466,7 +451,7 @@ class TestWardenMagic:
         assert gnome.id in result.affected_ids
         assert gnome.current_hp < gnome.max_hp
 
-    def test_arcane_form_matching_is_unchanged(self, fixture_classes):
+    def test_arcane_form_matching_is_unchanged(self):
         magic_user_def = load_classes().get("magic_user")
         magic_user = build_character(magic_user_def, level=3, name="arcanist")
         magic_user.spell_book = ("light_mu",)
@@ -503,7 +488,7 @@ class TestClericReversalRegression:
 class TestGnomeFixture:
     """The opened race field and the Classic-census tag consumers."""
 
-    def test_tags_feed_the_shipped_consumers(self, fixture_classes):
+    def test_tags_feed_the_shipped_consumers(self):
         gnome_def = build_gnome()
         gnome = build_character(gnome_def)
         assert detection_chance(gnome, gnome_def, "room_traps") == 2
@@ -512,7 +497,7 @@ class TestGnomeFixture:
         infravision = next(ability for ability in gnome_def.abilities if ability.tag == "infravision")
         assert infravision.params["range_feet"] == 60
 
-    def test_demi_human_saves_and_level_cap(self, fixture_classes):
+    def test_demi_human_saves_and_level_cap(self):
         gnome_def = build_gnome()
         veteran = build_character(gnome_def, level=8)
         assert veteran.saves.death == 4 and veteran.saves.breath == 7
@@ -520,7 +505,7 @@ class TestGnomeFixture:
         with pytest.raises(ValueError, match="capped at level 8"):
             level_up(veteran, gnome_def, streams.get("advancement"))
 
-    def test_document_round_trip_carries_the_open_fields(self, fixture_classes):
+    def test_document_round_trip_carries_the_open_fields(self):
         gnome = build_character(build_gnome(), name="scout")
         wandering_warden = build_character(build_warden(), name="wanderer")
         # An Advanced-shaped pairing on one sheet: class id `warden`, race `gnome`.
