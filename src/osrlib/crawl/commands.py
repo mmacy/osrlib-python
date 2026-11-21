@@ -190,6 +190,7 @@ from osrlib.core.events import Event
 from osrlib.core.frozen import _Model
 from osrlib.core.items import Coins
 from osrlib.core.spells import MemorizedSpell
+from osrlib.core.tables import _spawn_count_dice
 from osrlib.core.validation import Rejection
 from osrlib.crawl.dungeon import Direction, PartyLocation
 from osrlib.errors import ContentValidationError
@@ -341,12 +342,6 @@ class SessionMode(_StrEnum):
         return self in (SessionMode.GAME_OVER, SessionMode.VICTORY)
 
 
-_SPAWN_LIMIT = 100
-"""The most monsters or adventurers one spawn command creates. 100 is the largest number in
-the B/X monster data, for normal bats and for wild horses in a lair. The `count_fixed` fields
-state it as a literal `le=100`, because the reference pages render a field's value and must
-not show a private name."""
-
 _ADVANCE_DAYS_LIMIT = 28
 """The most days one `AdvanceTime` advances. 28 days is the longest time limit on raising the
 dead, for a 14th-level cleric."""
@@ -356,20 +351,6 @@ _ROUNDS_PER_UNIT: dict[TimeUnit, int] = {
     TimeUnit.TURN: ROUNDS_PER_TURN,
     TimeUnit.DAY: ROUNDS_PER_DAY,
 }
-
-
-def _count_dice(expression: str) -> str:
-    """Return a spawn command's `count_dice`, or raise `ValueError` when it can't be used.
-
-    The expression must parse, and its largest possible total, with every die showing its
-    highest face, must be at most `_SPAWN_LIMIT`.
-    """
-    _dice_that_parse(expression)
-    dice = parse(expression)
-    highest = (dice.count * dice.sides + dice.modifier) * dice.multiplier
-    if highest > _SPAWN_LIMIT:
-        raise ValueError(f"{expression!r} can roll {highest}, and a spawn creates at most {_SPAWN_LIMIT}")
-    return expression
 
 
 def _dice_that_parse(expression: str) -> str:
@@ -3823,7 +3804,7 @@ class SpawnMonsters(Command):
     @field_validator("count_dice")
     @classmethod
     def _dice_must_parse(cls, value: str | None) -> str | None:
-        return value if value is None else _count_dice(value)
+        return value if value is None else _spawn_count_dice(_dice_that_parse(value))
 
     @model_validator(mode="after")
     def _dice_or_fixed(self) -> SpawnMonsters:
@@ -3886,7 +3867,7 @@ class SpawnNpcParty(Command):
     @field_validator("count_dice")
     @classmethod
     def _dice_must_parse(cls, value: str | None) -> str | None:
-        return value if value is None else _count_dice(value)
+        return value if value is None else _spawn_count_dice(_dice_that_parse(value))
 
     @model_validator(mode="after")
     def _dice_or_fixed(self) -> SpawnNpcParty:

@@ -244,6 +244,11 @@ def _lowest_total(expression: DiceExpression) -> int:
     return (expression.count + expression.modifier) * expression.multiplier
 
 
+def _highest_total(expression: DiceExpression) -> int:
+    """Return the highest total `expression` can roll, with every die showing its highest face."""
+    return (expression.count * expression.sides + expression.modifier) * expression.multiplier
+
+
 def roll(expression: str | DiceExpression, stream: RngStream) -> RollResult:
     """Roll a dice expression, drawing from the stream you pass.
 

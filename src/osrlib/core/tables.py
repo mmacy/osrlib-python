@@ -59,7 +59,7 @@ from pydantic import ConfigDict, Field, field_validator, model_validator
 
 from osrlib.core._descriptions import _StrEnum
 from osrlib.core.classes import SavingThrows
-from osrlib.core.dice import _lowest_total, parse, roll
+from osrlib.core.dice import _highest_total, _lowest_total, parse, roll
 from osrlib.core.frozen import FrozenMap, _Model
 from osrlib.core.monsters import MonsterHitDice
 from osrlib.core.rng import RngStream
@@ -594,6 +594,29 @@ assert isinstance(entry, MonsterEncounterEntry)
 """
 
 
+_SPAWN_LIMIT = 100
+"""The most monsters or adventurers one count creates: a spawn command's count, a keyed
+encounter's lines together, or a wandering monster table row's count. 100 is the largest number
+in the B/X monster data, for normal bats and for wild horses in a lair. It lives here because
+`osrlib.core` can't import `osrlib.crawl`, and the crawl models and commands that share it import
+it from here. The `count_fixed` fields state it as a literal `le=100`, because the reference
+pages render a field's value and must not show a private name."""
+
+
+def _spawn_count_dice(expression: str) -> str:
+    """Return a `count_dice` expression, or raise `ValueError` when it can roll past `_SPAWN_LIMIT`.
+
+    The highest total, with every die showing its highest face, must be at most `_SPAWN_LIMIT`.
+    An expression that doesn't parse raises
+    [`ContentValidationError`][osrlib.errors.ContentValidationError] from
+    [`parse`][osrlib.core.dice.parse].
+    """
+    highest = _highest_total(parse(expression))
+    if highest > _SPAWN_LIMIT:
+        raise ValueError(f"{expression!r} can roll {highest}, and a spawn creates at most {_SPAWN_LIMIT}")
+    return expression
+
+
 class EncounterTableRow(_Model):
     """One d20 result on a wandering monster table: what appears, and how many.
 
@@ -603,6 +626,15 @@ class EncounterTableRow(_Model):
     [`select_encounter_individuals`][osrlib.core.tables.select_encounter_individuals]. For an
     [`NpcPartyEncounterEntry`][osrlib.core.tables.NpcPartyEncounterEntry], pass them to
     [`generate_npc_party`][osrlib.core.npc.generate_npc_party].
+
+    A row creates at most 100 monsters or adventurers, so an adventure's own wandering monster
+    table can't spawn more at once than a
+    [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] command can.
+
+    Raises:
+        ContentValidationError: If `count_dice` is not a valid dice expression.
+        ValueError: If both `count_dice` and `count_fixed` are given, or neither, if `count_fixed`
+            is outside 1 to 100, or if `count_dice` can roll more than 100.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -620,11 +652,12 @@ class EncounterTableRow(_Model):
     """A dice expression for how many appear, like `"1d6"`, or `None` when the row has a fixed number.
 
     Roll it with [`roll`][osrlib.core.dice.roll]. Use this count rather than the number appearing in the monster's
-    description, as the SRD's note on the dungeon tables says. Exactly one of this and `count_fixed` is set.
+    description, as the SRD's note on the dungeon tables says. Exactly one of this and `count_fixed` is set. The
+    expression's highest total must be at most 100, so `"1d100"` is legal and `"1d100+1"` isn't.
     """
 
-    count_fixed: int | None = None
-    """A fixed number of individuals, or `None` when the row has a dice expression instead.
+    count_fixed: int | None = Field(default=None, ge=1, le=100)
+    """A fixed number of individuals from 1 to 100, or `None` when the row has a dice expression instead.
 
     Exactly one of this and `count_dice` is set.
     """
@@ -632,9 +665,7 @@ class EncounterTableRow(_Model):
     @field_validator("count_dice")
     @classmethod
     def _dice_must_parse(cls, value: str | None) -> str | None:
-        if value is not None:
-            parse(value)
-        return value
+        return value if value is None else _spawn_count_dice(value)
 
     @model_validator(mode="after")
     def _dice_or_fixed(self) -> EncounterTableRow:
