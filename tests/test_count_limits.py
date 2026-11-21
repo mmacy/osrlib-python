@@ -4,7 +4,8 @@ A referee command whose count has no upper limit lets one command run for minute
 the save document by hundreds of megabytes, and every later save and load pays for it. The
 command models refuse a count larger than any game needs when they are constructed, the
 way [`parse`][osrlib.core.dice.parse] refuses more than 999 dice, so the session never sees
-the command. The limits:
+the command. [`parse_command`][osrlib.crawl.commands.parse_command] reports the refusal as
+[`ContentValidationError`][osrlib.errors.ContentValidationError], as it does for any malformed payload. The limits:
 
 - `SpawnMonsters` and `SpawnNpcParty` create at most 100 monsters or adventurers, whether
   the count is `count_fixed` or the largest total `count_dice` can roll. 100 is the largest
@@ -29,6 +30,7 @@ from osrlib.crawl.commands import (
     parse_command,
 )
 from osrlib.crawl.session import GameSession
+from osrlib.errors import ContentValidationError
 
 CHUNK = pytest.mark.xfail(reason="chunk: count-limits")
 
@@ -73,7 +75,7 @@ def test_spawn_monsters_refuses_dice_that_can_roll_past_the_limit(dice: str) -> 
 @CHUNK
 def test_spawn_monsters_document_over_the_limit_fails_to_parse() -> None:
     document = {"command_type": "spawn_monsters", "template_id": "goblin", "count_fixed": 10_000, "distance_feet": 30}
-    with pytest.raises(ValidationError):
+    with pytest.raises(ContentValidationError):
         parse_command(document)
 
 
@@ -140,7 +142,7 @@ def test_grant_item_refuses_a_quantity_over_the_limit() -> None:
 @CHUNK
 def test_grant_item_document_over_the_limit_fails_to_parse() -> None:
     document = {"command_type": "grant_item", "character_id": LEAD, "item_id": "torch", "quantity": 1_000_000}
-    with pytest.raises(ValidationError):
+    with pytest.raises(ContentValidationError):
         parse_command(document)
 
 
@@ -183,7 +185,7 @@ def test_advance_time_refuses_more_than_the_limit(n: int, unit: TimeUnit) -> Non
 
 @CHUNK
 def test_advance_time_document_over_the_limit_fails_to_parse() -> None:
-    with pytest.raises(ValidationError):
+    with pytest.raises(ContentValidationError):
         parse_command({"command_type": "advance_time", "n": 100_000, "unit": "turn"})
 
 
