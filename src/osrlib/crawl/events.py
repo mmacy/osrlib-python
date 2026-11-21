@@ -2457,9 +2457,9 @@ AnyEvent = Annotated[
 
 Use it to type a value that can be an event of any class, and hand it to a
 [`TypeAdapter`][pydantic.type_adapter.TypeAdapter] to get a tagged-union JSON Schema for a client
-in another language. To parse one record, call
-[`parse_any_event`][osrlib.crawl.events.parse_any_event] instead. It returns `None` for an event
-type or a code this version doesn't define, rather than raising on it.
+in another language. Each property's `description` in the schema is the docstring of its field.
+To parse one record, call [`parse_any_event`][osrlib.crawl.events.parse_any_event] instead. It
+returns `None` for an event type or a code this version doesn't define, rather than raising on it.
 
 ```python
 from pydantic import TypeAdapter

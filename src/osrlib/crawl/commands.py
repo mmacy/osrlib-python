@@ -4527,7 +4527,8 @@ The union's members, in order, are
 [`ALL_COMMAND_CLASSES`][osrlib.crawl.commands.ALL_COMMAND_CLASSES]. The union's JSON
 Schema is published as
 [`commands.json`](https://mmacy.github.io/osrlib-python/reference/commands/commands.json),
-which an agent framework can load as tool definitions."""
+which an agent framework can load as tool definitions. `TypeAdapter(AnyCommand).json_schema()`
+returns the same schema, in which each property's `description` is the docstring of its field."""
 
 CONSEQUENCE_COMMAND_CLASSES: tuple[type[Command], ...] = (
     GrantItem,

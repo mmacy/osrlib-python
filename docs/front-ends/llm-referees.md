@@ -21,6 +21,8 @@ assert len(observations["oneOf"]) == len(ALL_EVENT_CLASSES)
 assert json.loads(json.dumps(tools)) == tools  # plain JSON Schema, ready for a tool registry
 ```
 
+Each property in these schemas has a `description`, which is the docstring of its field, so the model reads what each field means from the tool definition. A cross-reference in a docstring appears as its label alone, like `` `MoveParty` ``. `commands.json` and `events.json` contain the same schemas that `TypeAdapter(AnyCommand).json_schema()` and `TypeAdapter(AnyEvent).json_schema()` return.
+
 The whole command surface and the whole event surface have one discriminator field each. An agent framework that accepts JSON Schema tool definitions can load the command union as-is and let the model emit any command in the game, and [`parse_command`][osrlib.crawl.commands.parse_command] validates each one. The loop such an agent runs is short (this is a sketch, not a framework):
 
 ```{.python .no-run}
