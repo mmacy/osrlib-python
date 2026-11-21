@@ -3805,12 +3805,14 @@ class SpawnMonsters(Command):
     depend on the seed, and use `count_fixed` when it shouldn't. Set exactly one of the two. A
     malformed expression fails validation when the command is constructed, so the session never
     sees it, and so does an expression that can roll more than 100, like `"1d100+1"` or
-    `"11d10"`. A roll below 1 counts as 1. For more than 100 monsters, send the command again,
-    and the second group joins the encounter the first one opened."""
+    `"11d10"`. A roll below 1 counts as 1. For more than 100 monsters, send the command again
+    while the encounter is open, and the new group joins it. The session refuses that second
+    command during a pursuit."""
     count_fixed: int | None = Field(default=None, ge=1, le=100)
     """How many to spawn, as an exact number from 1 to 100. Use it when the author chose the
     number. Set exactly one of this and `count_dice`. For more than 100 monsters, send the
-    command again, and the second group joins the encounter the first one opened."""
+    command again while the encounter is open, and the new group joins it. The session refuses
+    that second command during a pursuit."""
     distance_feet: int = Field(ge=0)
     """How far away the monsters appear, in feet. A new encounter opens at this distance, and
     a group that joins an open encounter starts at it. The distance determines whether
@@ -3874,8 +3876,9 @@ class SpawnNpcParty(Command):
     count_fixed: int | None = Field(default=None, ge=1, le=100)
     """How many adventurers, as an exact number from 1 to 100. Use it when the adventure's
     author chose the size of the band. The session rolls nothing for the size. Don't set it
-    together with `count_dice`. The command can't add adventurers to an open encounter, so 100
-    is the largest band it makes."""
+    together with `count_dice`. A band has at most 100 adventurers, whether you set this or
+    `count_dice`. The command can't add adventurers to an open encounter, so a larger band
+    isn't possible."""
     distance_feet: int = Field(ge=0)
     """How far away the NPC party appears, in feet, on the same terms as
     [`SpawnMonsters.distance_feet`][osrlib.crawl.commands.SpawnMonsters.distance_feet]."""
