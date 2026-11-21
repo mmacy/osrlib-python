@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- In 2.5.0, a description in a JSON Schema had a stray double backtick wherever the docstring links a name and continues it with code, like ``[`load_classes`][osrlib.data.load_classes]`().get(class_id)` `` in the docstring of `ClassDefinition`. The description had ``` `load_classes``().get(class_id)` ```, which a Markdown reader shows with the two backticks in it. It now has `` `load_classes().get(class_id)` ``, one code span, as the documentation site shows it. The fix applies to model, field, and enum descriptions, from `model_json_schema()` and `TypeAdapter(...).json_schema()` alike, so it also corrects the descriptions in the published `commands.json` that have such a link. A linked name followed by a space and then code, like ``[`load_spells`][osrlib.data.load_spells] `()` ``, still gives two code spans. Models serialize as before.
+
 ## [2.5.0] - 2026-11-20
 
 ### Added

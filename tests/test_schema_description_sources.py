@@ -2,14 +2,16 @@
 
 `test_schema_descriptions.py` checks the schemas of the osrlib models against their source. These tests cover an
 installation that has no source, a model defined outside osrlib, a nested model, fields with aliases, each kind of
-cross-reference label, an osrlib enum under a schema root that isn't a model, the base class of every osrlib enum, the
-definitions in the schema of every osrlib model, and the OpenAPI document of a FastAPI application. They check
-descriptions against the cross-reference rule of `test_schema_descriptions.py`.
+cross-reference label, a code label that touches a code span in a model's description and in an enum's, an osrlib enum
+under a schema root that isn't a model, the base class of every osrlib enum, the definitions in the schema of every
+osrlib model, and the OpenAPI document of a FastAPI application. They check descriptions against the cross-reference
+rule of `test_schema_descriptions.py`.
 """
 
 import compileall
 import inspect
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -208,6 +210,105 @@ def test_each_kind_of_label_follows_the_rule_for_a_cross_reference() -> None:
     assert schema["properties"]["text_then_code"]["description"] == "Send a `MoveParty` command."
     assert schema["properties"]["code_then_text"]["description"] == "Use `North` or south here."
     assert "Send a `MoveParty` command.\nUse `North` or south here." in schema["description"]
+
+
+class Touching(_Model):
+    """Call [`load_classes`][osrlib.data.load_classes]`().get(class_id)`.
+    Read `catalog.`[`spells`][osrlib.core.spells.SpellCatalog.spells].
+    Pass [`North`][package.North][`South`][package.South].
+    Use [`load_spells`][osrlib.data.load_spells] `()` twice.
+    Send [a `MoveParty`][package.MoveParty]`(direction)`.
+    Both `a` and `b` stay two spans.
+    """
+
+    call: int
+    """Call [`load_classes`][osrlib.data.load_classes]`().get(class_id)`."""
+    attribute: int
+    """Read `catalog.`[`spells`][osrlib.core.spells.SpellCatalog.spells]."""
+
+
+class TouchingKind(_StrEnum):
+    """Call [`load_classes`][osrlib.data.load_classes]`().get(class_id)`.
+    Read `catalog.`[`spells`][osrlib.core.spells.SpellCatalog.spells].
+    Pass [`North`][package.North][`South`][package.South].
+    Use [`load_spells`][osrlib.data.load_spells] `()` twice.
+    Send [a `MoveParty`][package.MoveParty]`(direction)`.
+    Both `a` and `b` stay two spans.
+    """
+
+    NEAR = "near"
+
+
+class Touches(_Model):
+    """A model with a field of the enum."""
+
+    kind: TouchingKind
+    """The kind."""
+
+
+# What the docstrings of `Touching` and `TouchingKind` become in a description.
+_TOUCHING = """Call `load_classes().get(class_id)`.
+Read `catalog.spells`.
+Pass `NorthSouth`.
+Use `load_spells` `()` twice.
+Send a `MoveParty(direction)`.
+Both `a` and `b` stay two spans."""
+
+
+def test_a_code_label_that_touches_a_code_span_joins_it_in_a_model_description() -> None:
+    schema = Touching.model_json_schema()
+
+    assert schema["description"] == _without_references(inspect.cleandoc(Touching.__doc__ or "")) == _TOUCHING
+    assert schema["properties"]["call"]["description"] == "Call `load_classes().get(class_id)`."
+    assert schema["properties"]["attribute"]["description"] == "Read `catalog.spells`."
+
+
+def test_a_code_label_that_touches_a_code_span_joins_it_in_an_enum_description() -> None:
+    description = Touches.model_json_schema()["$defs"]["TouchingKind"]["description"]
+
+    assert description == _without_references(inspect.cleandoc(TouchingKind.__doc__ or "")) == _TOUCHING
+    assert TypeAdapter(TouchingKind).json_schema()["description"] == _TOUCHING
+
+
+# A span in single backticks with a double backtick inside it, between two characters that aren't spaces, like
+# `load_classes``().get(class_id)`. That's what a code label and the code span it touches became before the rule
+# joined them. A span in double backticks, like ``[`Name`][package.Name]``, doesn't match.
+_JOINED_BY_A_LINK = re.compile(r"(?<!`)`[^`\s][^`\n]*?``(?=[^`\s])")
+
+# A fenced code block, where a double backtick is code.
+_FENCE = re.compile(r"```.*?```|~~~.*?~~~", re.DOTALL)
+
+
+def _spans_joined_by_a_link(text: str) -> list[str]:
+    """Return each code span that still has the double backtick a reduced link left in it."""
+    return _JOINED_BY_A_LINK.findall(_FENCE.sub("", text))
+
+
+@pytest.mark.parametrize(
+    ("text", "found"),
+    [
+        ("Get one from `load_classes``().get(class_id)`.", ["`load_classes``"]),
+        ("Read `catalog.``spells`.", ["`catalog.``"]),
+        ("Get one from `load_classes().get(class_id)`.", []),
+        ("Write ``[`Name`][package.Name]`` to link.", []),
+        ("Write ``code``.", []),
+        ("Both `a` and `b` stay two spans.", []),
+        ("```python\nx = `a``b`\n```", []),
+    ],
+)
+def test_the_check_for_a_span_joined_by_a_link(text: str, found: list[str]) -> None:
+    assert _spans_joined_by_a_link(text) == found
+
+
+@pytest.mark.parametrize("mode", ["validation", "serialization"])
+def test_no_osrlib_schema_has_a_span_joined_by_a_link(mode: Any) -> None:
+    offenders = {
+        f"{cls.__module__}.{cls.__qualname__}{path}": found
+        for cls in _MODELS
+        for path, text in _descriptions(TypeAdapter(cls).json_schema(mode=mode))
+        if (found := _spans_joined_by_a_link(text))
+    }
+    assert offenders == {}
 
 
 class Heading(_Model):
