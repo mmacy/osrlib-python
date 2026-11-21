@@ -15,6 +15,7 @@ from pathlib import Path
 
 import pytest
 
+from test_schema_description_sources import _spans_joined_by_a_link
 from test_schema_descriptions import _descriptions, _without_references
 
 REPO = Path(__file__).resolve().parent.parent
@@ -92,6 +93,15 @@ class TestSchemaProse:
             path for path, text in _descriptions(_schema_document(site, artifact)) if _without_references(text) != text
         ]
         assert offenders == []
+
+    @pytest.mark.parametrize("artifact", ["commands/commands.json", "events/events.json"])
+    def test_descriptions_have_no_span_joined_by_a_link(self, site: Path, artifact: str):
+        offenders = {
+            path: found
+            for path, text in _descriptions(_schema_document(site, artifact))
+            if (found := _spans_joined_by_a_link(text))
+        }
+        assert offenders == {}
 
     def test_every_property_is_described(self, site: Path):
         missing = []

@@ -13,8 +13,10 @@ enum's schema.
 
 A description reaches its reader as raw text, outside the documentation site, so `_describe` and `_StrEnum` reduce each
 mkdocstrings cross-reference, like ``[`MoveParty`][osrlib.crawl.commands.MoveParty]``, to its label, `` `MoveParty` ``.
-Markdown doesn't treat anything inside code as a link, so brackets in code, like `inventory["purse"]["gp"]`, stay as
-they are.
+A label that is code and a code span that touches it become one code span, so
+``[`load_classes`][osrlib.data.load_classes]`().get(class_id)` `` becomes `` `load_classes().get(class_id)` ``, the
+run of code that the documentation site shows. Markdown doesn't treat anything inside code as a link, so brackets in
+code, like `inventory["purse"]["gp"]`, stay as they are.
 """
 
 import ast
@@ -41,13 +43,31 @@ _LITERAL = re.compile(r"(```.*?```|~~~.*?~~~|``.+?``)", re.DOTALL)
 _SPAN_OR_REFERENCE = re.compile(r"(`[^`\n]+`)|\[((?:[^\[\]`]|`[^`\n]+`)+)\]\[[^\]\s]+\]")
 
 
+# Marks each end of a reduced label while `_plain` works: a NUL character, which Markdown prose doesn't contain.
+_EDGE = "\x00"
+
+# The end of one code span and the start of the next, with only the ends of reduced labels between them.
+_JOIN = re.compile(f"`{_EDGE}+`")
+
+
 def _plain(text: str) -> str:
-    """Return Markdown with each mkdocstrings cross-reference reduced to its label, and code left as it is."""
+    """Return Markdown with each mkdocstrings cross-reference reduced to its label, and code left as it is.
+
+    A label that is code can touch a code span, like ``[`load_classes`][osrlib.data.load_classes]`()` ``, which the
+    documentation site shows as one run of code with a link on its first part. `_plain` joins the two into one code
+    span, `` `load_classes()` ``. With a space between them, like ``[`load_spells`][osrlib.data.load_spells] `()` ``,
+    they stay two spans.
+    """
     if "][" not in text:
         return text
     parts = _LITERAL.split(text)
-    parts[::2] = [_SPAN_OR_REFERENCE.sub(lambda match: match.group(1) or match.group(2), part) for part in parts[::2]]
+    parts[::2] = [_JOIN.sub("", _SPAN_OR_REFERENCE.sub(_mark_label, part)).replace(_EDGE, "") for part in parts[::2]]
     return "".join(parts)
+
+
+def _mark_label(match: re.Match[str]) -> str:
+    """Return a code span as it is, or a cross-reference's label with each end marked."""
+    return match.group(1) or f"{_EDGE}{match.group(2)}{_EDGE}"
 
 
 @cache
