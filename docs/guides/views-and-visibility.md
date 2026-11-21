@@ -1,65 +1,19 @@
 # Views and visibility
 
-B/X hides information from players by design. A fighter doesn't know the goblin has 4 hit points left, only that it's bleeding. The referee alone sees the monsters' morale roll and the reaction roll that decides whether they attack or flee. osrlib builds that asymmetry into the API instead of trusting the front end to enforce it.
+B/X hides monster hit points, morale and reaction rolls, undiscovered secret doors, and quest triggers from players. osrlib separates player-visible data from referee data in two places: whole-session snapshots returned by [`GameSession.view`][osrlib.crawl.session.GameSession.view] and the [`Visibility`][osrlib.core.events.Visibility] field on individual events.
 
-Visibility shows up in two places: on individual events, and on the two whole-state projections a [`GameSession`][osrlib.crawl.session.GameSession] can build. Over a network that split becomes a boundary you enforce on the server, because a client must never see more than the player is meant to. [The complete example](#the-complete-example) is at the end of the page, and every snippet along the way comes from it.
+## Build player and referee views
 
-## Visibility on events
-
-Every [`Event`][osrlib.core.events.Event] has a [`Visibility`][osrlib.core.events.Visibility]: `PLAYER` or `REFEREE`. Most events default to `PLAYER`, like a party move, a door opening, or damage dealt. A specific set default to `REFEREE` because B/X keeps them behind the screen: morale checks, reaction rolls, wandering-monster checks, detection rolls, and the event that reports a creature's current and maximum hit points ([`HitPointsReportedEvent`][osrlib.core.events.HitPointsReportedEvent]). If your front end streams or narrates the raw event log as it happens, like an LLM referee doing turn-by-turn narration, check `.visibility` yourself before you show an event to a player.
-
-Authored content splits the same way. A journal entry is written for the table, so [`JournalEntryAddedEvent`][osrlib.crawl.events.JournalEntryAddedEvent] is player-visible and includes the authored text as content data in a structured field, alongside the event's message code. The text isn't English the engine wrote. The setup that produced the entry is referee-only. A fired trigger ([`TriggerFiredEvent`][osrlib.crawl.events.TriggerFiredEvent]) and a referee note ([`NoteRecordedEvent`][osrlib.crawl.events.NoteRecordedEvent]) are referee-only, like a flag write, because the players aren't meant to see the connection between what the party does and what that action sets off. Player-visible events and the player view are two of the three ways authored text reaches a player. The third is a gate's `refusal` text, which the engine returns in an ordinary rejection. Render it like any other refusal (see [Gates, triggers, and quests](gates-triggers-quests.md)).
-
-Most front ends don't filter by hand, because osrlib also provides two projections of the *whole session*, one per audience, each already filtered for that audience.
-
-## The two views
-
-Pass a `Visibility` to [`GameSession.view`][osrlib.crawl.session.GameSession.view] and you get the matching projection:
+Pass `Visibility.PLAYER` or `Visibility.REFEREE` to [`GameSession.view`][osrlib.crawl.session.GameSession.view] after any state change to build a frozen snapshot for that audience:
 
 ```{.python .no-run}
+session.execute(SpawnMonsters(template_id="goblin", count_fixed=1, distance_feet=30))
+
 player_view = session.view(Visibility.PLAYER)
 referee_view = session.view(Visibility.REFEREE)
 ```
 
-[`PlayerView`][osrlib.crawl.views.PlayerView] is an explicit list of fields, built straight from session state and never from the event log, so it can't leak a referee-visibility event that happened to mention a hidden number.
-
-You get the adventure's and town's public names and descriptions, the town's list of services, what the town's temple charges for each healing service, the party's location and facing, the elapsed clock, and the session mode.
-
-Each party member has a character sheet ([`MemberView`][osrlib.crawl.views.MemberView]), because a player always sees their characters in full. The sheet has every number on a B/X character sheet, so a client that has only the player view can draw one. It has the member's id, name, race, class, level and title, alignment, experience points and the total the next level needs, hit points, and conditions. It also has the six ability scores and their modifiers, THAC0 and attack bonus, both armour classes, the five saving throws, the movement rate, the languages, the inventory, the spell book and memorized spells, and a thief's skill chances. The numbers count what the member wears, like armour, a shield, or a ring of protection. A timed effect from a spell or a potion isn't in the numbers. It's in [`PlayerView.effects`][osrlib.crawl.views.PlayerView.effects].
-
-Unidentified magic items are masked to a category-level description rather than their true name (see [`MagicItemCategory`][osrlib.core.items.MagicItemCategory]), so even in a character's inventory, the view shows an item's name only after the party identifies it. An unidentified weapon is the one exception to "name only": when its display string includes the name of the weapon underneath, the view also includes that weapon's `qualities` and `missile_ranges`, which are enough for a front end to tell a melee declaration from a missile one. That's an enchanted arm, whose display string is built from the base weapon ("a sword with a faint aura"), and a magic staff, which displays as "a staff" and is a mundane staff underneath. Every magic staff shows the same qualities, so they don't set one staff apart from the others. The bonus, any curse, and the template id stay hidden until identification. Any other item whose display string comes from its category, like "a wand", includes neither field.
-
-The armour class on the sheet counts an unidentified magic item the member wears, because it's the armour class the monsters roll against. So an unarmoured fighter who takes up an unidentified shield +1 goes from armour class 9 to 7, one better than a plain shield gives, while the inventory still calls the item "a shield with a faint aura".
-
-A STR that an item sets doesn't change the STR in the sheet's `scores`. The sheet has it as [`effective_strength`][osrlib.crawl.views.MemberView.effective_strength], the STR the rules use during play, and the melee modifier and the chance to force a door come from it. A member who wears gauntlets of ogre power has STR 18 there, and a member under the curse of a ring of weakness has STR 3. So a fighter who rolled STR 11 and puts on the gauntlets shows STR 11 in `scores`, 18 as `effective_strength`, a melee modifier of +3, and a 5 in 6 chance to force a door. To show a player what the gauntlets did, show both STR numbers. Combat and the session's roll to force a door use the same numbers. Like the armour class, these numbers count the gauntlets before the party identifies them.
-
-For the map, you get the mapped cells with their edges ([`ExploredLevelView`][osrlib.crawl.views.ExploredLevelView] and [`EdgeView`][osrlib.crawl.views.EdgeView]): every cell the party has walked, every cell the party's light has shown, and whatever that light reveals from where the party stands right now. The cells the light has shown persist as map memory in [`DungeonState.seen`][osrlib.crawl.dungeon.DungeonState.seen], so the automap you draw can still show a torchlit room after the party walks on. The view shows an undiscovered secret door as a plain wall. Known dropped piles and emptied treasure caches in that explored space are in the view too.
-
-Active effects on party members come with their remaining duration, except a potion's: by the rules as written, the referee tracks a potion's duration secretly, so the view reports it as unknown. The view also reports fatigue, exhaustion, and deprivation status, and the session journal as written ([`JournalEntry`][osrlib.crawl.session.JournalEntry]): the entries in order of discovery, each with the clock position when it was added. The view doesn't include the records of which triggers fired to add those entries.
-
-The quests in play appear as [`QuestView`][osrlib.crawl.views.QuestView] values with an id, a name, the offer text and its speaker, and the revealed objectives with their ids, display names, and states. When an encounter or battle is running, the view also contains its public state ([`EncounterView`][osrlib.crawl.views.EncounterView] and [`EncounterGroupView`][osrlib.crawl.views.EncounterGroupView]). For each monster group, that's its id, its living count, its distance, its visible conditions and how many members have each, and whether it has fled, but never its hit points.
-
-A group also has what to call its members and what kind of creature they are. Show [`label`][osrlib.crawl.views.EncounterGroupView.label] for one member, like "goblin", and [`label_plural`][osrlib.crawl.views.EncounterGroupView.label_plural] for more, like "goblins". The label is text for the players, and a group your code opens can have any label, so to decide what a group is, read [`family_id`][osrlib.crawl.views.EncounterGroupView.family_id] and [`categories`][osrlib.crawl.views.EncounterGroupView.categories] instead. A group of hellhounds has the family id `"hellhound"` whatever their Hit Dice, and a group of skeletons has the category `"undead"`.
-
-The view also reports what the table knows about the current round, in three fields of `EncounterView`: who must declare (`declarers`), who is held fast (`immobile`), and who is still reloading (`reloading`).
-
-In a battle, each member stands at a separate place on the range track, the measure of distance a battle uses, so the view reports where everyone stands:
-
-- [`EncounterView.advance_feet`][osrlib.crawl.views.EncounterView.advance_feet] gives each member's place, in feet forward of the party line, where the party stood when the encounter opened. Two members reach each other when their places differ by 5' or less. A member has to reach another to hand them an item, to give them a potion to drink, or to touch them with a staff of healing or a touch spell like *cure light wounds*.
-- Each group's [`member_distance_feet`][osrlib.crawl.views.EncounterGroupView.member_distance_feet] gives every member's distance to that group.
-- Each group's [`front_rank`][osrlib.crawl.views.EncounterGroupView.front_rank] lists the members who can attack that group in melee this round without moving. They're also the only members the group's melee reaches. To decide who can attack a group hand to hand, read this field, not `EncounterView.front_rank`, which is the first row toward the nearest group, however far away it stands.
-- [`EncounterView.formation_width`][osrlib.crawl.views.EncounterView.formation_width] gives how many members can fight side by side, so you can show how many places are left in a group's front rank. The monsters of each group fight in a front rank as wide, made of the group's first living monsters, and only those monsters make melee attacks. So the most monsters of a group that can strike is the smaller of its `count` and this width.
-- [`MemberView.encounter_rate_feet`][osrlib.crawl.views.MemberView.encounter_rate_feet] gives how far a member can move in a round. A member can close on a group and attack it in the same round when their distance to it is at most that rate plus 5'.
-- [`EncounterView.party_free_round`][osrlib.crawl.views.EncounterView.party_free_round] marks the round in which a thief's back-stab is legal.
-- Each group's [`lit`][osrlib.crawl.views.EncounterGroupView.lit] and [`seen_by`][osrlib.crawl.views.EncounterGroupView.seen_by] say whether the party's light reaches it and which members can see it.
-
-To check a member's choice against the choices already made for the round, call [`preview_battle_round`][osrlib.crawl.battle.preview_battle_round] with the declarations planned so far. It judges them the way [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound] would, and returns each declaration's rejections, where each member would stand, and each group's front rank, without playing the round. A battle screen can call it after each choice and grey out the choices `ResolveBattleRound` would refuse.
-
-[`RefereeView`][osrlib.crawl.views.RefereeView] is the opposite: everything except the RNG stream states and the master seed. It has one field for each group that [`session_state`][osrlib.persistence.session_state] writes for a save, and each field uses the session's model, so `view.monsters` contains full [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] values with real hit points, and `view.flags`, `view.npcs`, `view.exploration`, and `view.event_log` are the flag store, the NPC roster, the session counters, and the complete event log with referee-visibility events in it. Dumping the view to JSON gives that save payload back without the two withheld keys. Use it for LLM referees and tools that need the truth rather than a player's approximation of it. Never send it to a client over the network.
-
-## The split in practice
-
-A spawned monster shows the split. The referee view contains the monster's live hit points. The player-facing encounter group contains only what the party could plausibly perceive: what the monster is, how many are still standing, how far away they are, and what conditions show.
+[`PlayerView`][osrlib.crawl.views.PlayerView] builds its fields directly from current session state rather than from `session.event_log`, so referee-only events cannot leak hidden numbers into the snapshot. [`RefereeView`][osrlib.crawl.views.RefereeView] exposes the full state that [`session_state`][osrlib.persistence.session_state] serializes into a save (including [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] objects with current hit points, `flags`, `npcs`, `exploration` counters, and the unfiltered `event_log`), omitting only the master seed and RNG stream states. Use `RefereeView` for LLM referees, test assertions, or debugging tools, and never send it to a player client:
 
 ```{.python .no-run}
 # The referee sees the goblin's hit points; the player view never contains them.
@@ -72,33 +26,72 @@ assert player_group.count == 1
 assert "current_hp" not in player_group.model_dump()
 ```
 
-Authored content shows the same split from the other side. The player view contains the whole journal and none of the triggers behind its entries.
+## Read character sheets and masked magic items
+
+`PlayerView` includes the adventure and town names and descriptions, available town services and temple healing prices, the party's position and facing, the elapsed clock, fatigue and deprivation status, and the current `SessionMode`.
+
+Each party member appears in `PlayerView.party` as a [`MemberView`][osrlib.crawl.views.MemberView] containing every stat needed to render a B/X character sheet: ID, name, race, class, level, title, alignment, XP and next-level XP threshold, current and maximum hit points, conditions, ability scores and modifiers, THAC0 and attack bonus, descending and ascending AC, saving throws, movement rate, languages, inventory, spell book, memorized spells, and thief skill chances.
+
+Derived combat and exploration stats include bonuses from worn equipment (such as armour, a shield, or a ring of protection), even before the party identifies a magic item:
+
+- **Armour class**: `armour_class` and `armour_class_ascending` reflect worn magic armour or shields immediately, because monsters roll against that AC, while `inventory` still displays a masked description such as `"a shield with a faint aura"`.
+- **Strength overrides**: Items that set Strength (such as gauntlets of ogre power setting STR 18, or a cursed ring of weakness setting STR 3) update [`effective_strength`][osrlib.crawl.views.MemberView.effective_strength], `melee_modifier`, and `open_doors_chance`, while `scores["str"]` preserves the rolled score. Display both `scores["str"]` and `effective_strength` if you want players to see the item's effect.
+- **Timed effects**: Temporary spell and potion modifiers appear in [`PlayerView.effects`][osrlib.crawl.views.PlayerView.effects] rather than in `MemberView` stat totals. Each entry includes its remaining duration, except for potions, whose duration a B/X referee tracks secretly, so `PlayerView` reports it as unknown.
+
+In `MemberView.inventory`, unidentified magic items use a category description from [`MagicItemCategory`][osrlib.core.items.MagicItemCategory] instead of their true name, bonus, curse state, or template ID. When an unidentified item's display string names a weapon, such as an enchanted blade (`"a sword with a faint aura"`) or a magic staff (`"a staff"`), its inventory dict also includes the base weapon's `qualities` and (when applicable) `missile_ranges` so your UI can distinguish melee from missile attacks without revealing the enchantment. Non-weapon categories, such as `"a wand"`, omit both keys.
+
+## Render maps, encounters, and battle positions
+
+`PlayerView` exposes explored dungeon geometry through [`ExploredLevelView`][osrlib.crawl.views.ExploredLevelView] and [`EdgeView`][osrlib.crawl.views.EdgeView]: every cell the party has visited, every cell previously illuminated by the party's light (stored in [`DungeonState.seen`][osrlib.crawl.dungeon.DungeonState.seen] for automapping), and cells currently lit from the party's position. Undiscovered secret doors appear as plain walls. Explored cells also list known dropped item piles and emptied treasure caches.
+
+During an active encounter or battle, `PlayerView.encounter` provides an [`EncounterView`][osrlib.crawl.views.EncounterView] with [`EncounterGroupView`][osrlib.crawl.views.EncounterGroupView] entries for each monster group:
+
+- **Group identity and status**: Each group includes its ID, living `count`, distance, visible conditions with counts, and whether it has fled, without exposing hit points. Display [`label`][osrlib.crawl.views.EncounterGroupView.label] for one creature (such as `"goblin"`) and [`label_plural`][osrlib.crawl.views.EncounterGroupView.label_plural] for multiple creatures (`"goblins"`). Because custom encounters can set arbitrary display labels, branch on [`family_id`][osrlib.crawl.views.EncounterGroupView.family_id] (for example, `"hellhound"` across Hit Dice variants) and [`categories`][osrlib.crawl.views.EncounterGroupView.categories] (for example, `"undead"`) in code rather than matching display text.
+- **Round eligibility**: `EncounterView` lists which party members must submit declarations (`declarers`), which members cannot move (`immobile`), and which members are reloading (`reloading`). [`party_free_round`][osrlib.crawl.views.EncounterView.party_free_round] indicates whether a thief's back-stab is allowed on the current round.
+- **Melee reach and range track**: Check [`EncounterGroupView.front_rank`][osrlib.crawl.views.EncounterGroupView.front_rank] to see which party members can melee that group on the current round without moving (do not use `EncounterView.front_rank` for melee eligibility, because `EncounterView.front_rank` lists the party's leading row toward the nearest group regardless of distance). On each group, [`member_distance_feet`][osrlib.crawl.views.EncounterGroupView.member_distance_feet] gives every member's distance to that group, while [`EncounterView.advance_feet`][osrlib.crawl.views.EncounterView.advance_feet] gives each member's distance forward of the starting party line. Two members must be within 5 feet of each other on `advance_feet` to hand over items, administer a potion, or use a touch spell or staff of healing.
+- **Movement, frontage, and sight**: A member can close in and make a melee attack in the same round when their distance to the group is at most [`MemberView.encounter_rate_feet`][osrlib.crawl.views.MemberView.encounter_rate_feet] plus 5 feet. [`formation_width`][osrlib.crawl.views.EncounterView.formation_width] caps how many combatants fit side by side in a front rank (limiting a monster group's melee attackers to the smaller of `count` and `formation_width`). Each group's [`lit`][osrlib.crawl.views.EncounterGroupView.lit] and [`seen_by`][osrlib.crawl.views.EncounterGroupView.seen_by] fields report whether the party's light reaches the group and which members can see it.
+
+To validate battle choices interactively as a player builds a round's orders, pass the declarations chosen so far to [`preview_battle_round`][osrlib.crawl.battle.preview_battle_round]. It runs the same checks as [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound] without advancing combat, returning per-declaration rejections, projected member positions, and updated `front_rank` lists so your UI can disable invalid actions.
+
+## Filter events, quests, and the journal
+
+If your front end streams or narrates events from `CommandResult.events` or `session.event_log`, filter on `event.visibility == Visibility.PLAYER` before showing anything to players. Most events (such as movement, opening doors, and attack damage) use `Visibility.PLAYER`. Referee-only rolls (such as morale checks, reaction rolls, wandering-monster checks, secret detection rolls, and [`HitPointsReportedEvent`][osrlib.core.events.HitPointsReportedEvent]) use `Visibility.REFEREE`.
+
+Authored triggers, notes, and quests follow the same visibility boundary:
+
+- **Journal vs. triggers and notes**: [`JournalEntryAddedEvent`][osrlib.crawl.events.JournalEntryAddedEvent] uses `Visibility.PLAYER` and appends to `PlayerView.journal` ([`JournalEntry`][osrlib.crawl.session.JournalEntry] items ordered by discovery with their clock timestamps). [`TriggerFiredEvent`][osrlib.crawl.events.TriggerFiredEvent], [`NoteRecordedEvent`][osrlib.crawl.events.NoteRecordedEvent], and flag updates use `Visibility.REFEREE` and appear only on `RefereeView`:
 
 ```{.python .no-run}
-# The beat is for the table; the trigger that produced it is referee-only setup.
+session.execute(MarkTriggerFired(trigger_id="lever-east"))
+session.execute(AddJournalEntry(text="The lever grinds.", source="trigger:lever-east"))
+session.execute(RecordNote(text="The east lever is the only one that answers."))
+
+# Views are frozen snapshots, so call view() again to read the updated state.
+journal_view = session.view(Visibility.PLAYER)
+referee_after = session.view(Visibility.REFEREE)
+
 assert [entry.text for entry in journal_view.journal][-1] == "The lever grinds."
 assert "lever-east" not in journal_view.model_dump_json()
 assert referee_after.fired_triggers == ("lever-east",)
 ```
 
-Quests split the same way, in more detail. `PlayerView.quests` contains the **active** quests only, in document order. A quest the party hasn't been given yet is absent, because the clause that activates it is hidden from the players, the same as a trigger's logic. A finished quest is no longer in `PlayerView.quests`, because its record is the journal. Under each quest, only the **revealed** objectives appear. A hidden objective's id is not in the projection at all until its `reveal_when` clause fires or the objective completes, which is why `ObjectiveView.state` needs only `"incomplete"` and `"complete"`. The player view contains nothing else about a quest: no clause, no pattern, no condition, no reward, and no `guidance` from any narrative block or level.
+- **Gate refusals**: When a gated door or transition blocks the party, `CommandResult.rejections` includes the authored `refusal` text in `params` (see [Gates, triggers, and quests](gates-triggers-quests.md)).
+- **Quests**: `PlayerView.quests` includes [`QuestView`][osrlib.crawl.views.QuestView] entries only for **active** quests in document order, omitting inactive quests (whose activation conditions remain hidden) and completed quests (whose history remains in `PlayerView.journal`). Within an active quest, only **revealed** objectives appear, with `ObjectiveView.state` set to `"incomplete"` or `"complete"`. Hidden objectives, trigger clauses, rewards, and narrator `guidance` fields never appear in `PlayerView`:
 
 ```{.python .no-run}
 # Active quests only, revealed objectives only, and none of the setup behind them.
-quest_view = player_view.quests[0]
+quest_view = journal_view.quests[0]
 assert (quest_view.id, quest_view.speaker) == ("the-lamps", "Sister Halda")
 assert [entry.id for entry in quest_view.objectives] == ["find-the-lever"]
-assert quest_view.objectives[0].name == "Find the lever"  # the authored name, or the id when unauthored
-assert "name-the-dead" not in player_view.model_dump_json()
+assert quest_view.objectives[0].name == "Find the lever"  # falls back to id when name is omitted
+assert "name-the-dead" not in journal_view.model_dump_json()
 ```
 
-## How a client knows the journal grew
+When a quest activates, reveals an objective, completes an objective, or finishes, the session appends that beat to `session.journal` and reports it on the quest lifecycle event without emitting a separate [`JournalEntryAddedEvent`][osrlib.crawl.events.JournalEntryAddedEvent]. If you update a journal panel incrementally from events, watch `session.journal.entry_added`, `session.quest.activated`, `session.quest.objective_revealed`, `session.quest.objective_completed`, and `session.quest.completed`. Otherwise, render `PlayerView.journal` directly after each command.
 
-[`JournalEntryAddedEvent`][osrlib.crawl.events.JournalEntryAddedEvent] is not the only event the engine emits when the journal grows. A quest's journal entry *is* the line that the quest's lifecycle event already reports, so the engine emits no journal event after it. Emitting both would show the table one line twice. If you render the journal incrementally, watch these codes rather than one: `session.journal.entry_added`, `session.quest.activated`, `session.quest.objective_revealed`, `session.quest.objective_completed`, and `session.quest.completed`. If you'd rather not track any of them, read `PlayerView.journal`, which is always the whole record.
+## Enforce visibility on the server
 
-## Never trust the client
-
-The moment a game goes over a network, this split becomes a security boundary. Keep the session, with its full referee-visible state, on the server. A client never runs `execute` itself and never receives the referee view. Each request sends a command, the server calls `session.execute(command)`, and the response sends back only `session.view(Visibility.PLAYER)`, or a rendering of the accepted result's events filtered the same way. A client that could see the referee view, or run commands against a local copy of the session, could read monster hit points straight off the wire or replay commands the server never accepted. B/X reserves that information and control for the person running the table. [The FastAPI pattern](../front-ends/fastapi-pattern.md) walks through this boundary end to end. You keep one session per game on the server and pass every response through the player view before it leaves the process.
+In a networked game, treat the player/referee split as an authority boundary. Keep `GameSession` and `RefereeView` on the server: accept a command per request, call `session.execute(command)` on the server, and return only `session.view(Visibility.PLAYER)` along with events filtered to `Visibility.PLAYER`. Sending `RefereeView` or running `GameSession` on an untrusted client exposes monster hit points, unexplored rooms, and unaccepted state changes. See [The FastAPI pattern](../front-ends/fastapi-pattern.md) for a reference HTTP server layout.
 
 ## The complete example
 
@@ -150,6 +143,7 @@ errand = QuestSpec(
     objectives=(
         ObjectiveSpec(
             id="find-the-lever",
+            name="Find the lever",
             when=TriggerClause(pattern=FlagSetPattern(key="crypt.lever")),
             narrative=NarrativeBlock(progress="The lamps come up one by one."),
         ),
@@ -204,7 +198,9 @@ assert quest_view.speaker == "Sister Halda"
 assert journal_view.journal[0].text == quest_view.narrative
 
 # Only the revealed objective is projected, and none of the setup behind it.
-assert [(entry.id, entry.state) for entry in quest_view.objectives] == [("find-the-lever", "incomplete")]
+assert [(entry.id, entry.name, entry.state) for entry in quest_view.objectives] == [
+    ("find-the-lever", "Find the lever", "incomplete")
+]
 blob = journal_view.model_dump_json()
 assert "name-the-dead" not in blob  # a hidden objective has no view at all
 assert "pattern_type" not in blob and "crypt.lever" not in blob
@@ -224,8 +220,8 @@ assert session.quests["the-lamps"].status == "active"  # the hidden objective is
 
 ## Where next
 
-- [Sessions, commands, and events](sessions-commands-events.md) - the command loop that produces the state these views project.
-- [Listeners and flags](listeners-and-flags.md) - the flag store and listener state the player view leaves out, and where each one lives.
-- [Gates, triggers, and quests](gates-triggers-quests.md) - the authored layer behind the journal, the quest projections, and a gate's refusal text.
-- [The FastAPI pattern](../front-ends/fastapi-pattern.md) - the player view as the contract for what the server sends, end to end.
-- [LLM referees](../front-ends/llm-referees.md) - a narrator built on the referee view and the raw event log.
+- [Sessions, commands, and events](sessions-commands-events.md) - executing commands and reading `CommandResult`.
+- [Listeners and flags](listeners-and-flags.md) - referee-only flags and listener state.
+- [Gates, triggers, and quests](gates-triggers-quests.md) - authoring journal beats, quest objectives, and gate refusal messages.
+- [The FastAPI pattern](../front-ends/fastapi-pattern.md) - serving `PlayerView` over HTTP while keeping `GameSession` on the server.
+- [LLM referees](../front-ends/llm-referees.md) - driving narration from `RefereeView` and the full event log.

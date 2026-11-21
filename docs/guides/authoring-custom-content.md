@@ -1,12 +1,17 @@
 # Authoring custom classes, spells, monsters, and items
 
-A build pipeline compiles the OSE SRD into the package's data files: the classes, the spell list, the monster catalog, and the equipment lists that come with osrlib. You can't add your own content to that pipeline. Instead, you write your own class, spell, monster, and item definitions in code, validate them with the same checks the built-in catalogs pass, and run them through the same kernel that runs a fighter or a goblin: creation, advancement, memorization, casting, and (for monsters) creation, combat, XP, and treasure. A class's `race` and a spell's `spell_list` are both open, validated string ids for this reason. Nothing in the kernel restricts them to the values the built-in classes use.
+osrlib compiles its built-in classes, spells, monsters, and equipment from the OSE SRD into frozen package data. Rather than mutating those cached catalogs, you define custom models in code, validate them with the same Pydantic models as the built-in data, and attach them where the engine looks them up (for authored gates, triggers, and quests, see [Gates, triggers, and quests](gates-triggers-quests.md)):
 
-Start with one small custom class and one custom spell for it, and then [bundle the spell with an adventure](#bundling-custom-spells-with-an-adventure) so a session can play it. The [complete program](#the-complete-program) runs every step shown along the way. After that come [bundling custom monsters with an adventure](#bundling-custom-monsters-with-an-adventure) and [bundling custom items with an adventure](#bundling-custom-items-with-an-adventure), both for the crawl layer. The scope here is the content catalogs, the *things* a game and its adventures can contain. Authored *behavior* is a separate topic: the gated door, the trigger, and the quest are covered in [Gates, triggers, and quests](gates-triggers-quests.md).
+| Custom content | Model | Where to pass or bundle it |
+| --- | --- | --- |
+| Character class | [`ClassDefinition`][osrlib.core.classes.ClassDefinition] | `Character.custom_class` / `create_character(..., custom_class=...)` (or pass directly to kernel functions) |
+| Spell | [`SpellTemplate`][osrlib.core.spells.SpellTemplate] | `Adventure.spells` for sessions, or `SpellCatalog` for `create_character` and standalone calls |
+| Monster | [`MonsterTemplate`][osrlib.core.monsters.MonsterTemplate] | [Bundle on `Adventure.monsters`](#bundling-custom-monsters-with-an-adventure) or pass directly to `spawn_monster` |
+| Equipment | `WeaponTemplate`, `ArmourTemplate`, `GearTemplate`, `AmmunitionTemplate` | [Bundle on `Adventure.items`](#bundling-custom-items-with-an-adventure) |
 
-## The structure of a class definition
+## Define a custom class
 
-A [`ClassDefinition`][osrlib.core.classes.ClassDefinition] is a frozen model you build with `model_validate`. There's no separate builder API, just the fields the built-in classes use. `requirements` are the minimum ability scores checked at class choice. `prime_requisites` lists the abilities used in the ability-score adjustment step (a prime requisite can never be lowered there). They're usually the abilities your `xp_tiers` depend on, though [`xp_modifier_pct`][osrlib.core.classes.xp_modifier_pct] evaluates the tiers without reference to that list. `xp_tiers` are ordered best-first: the first tier whose minimums all hold sets the class's XP-modifier percentage, and a score set matching no tier gets zero, never a penalty. That's why the multi-prime-requisite classes have no penalty rows. `hit_die` is the class's base die size:
+Construct a [`ClassDefinition`][osrlib.core.classes.ClassDefinition] with `model_validate` (`race` accepts any valid slug string rather than restricting you to built-in races):
 
 ```{.python .no-run}
 WARDEN = ClassDefinition.model_validate(
@@ -26,17 +31,6 @@ WARDEN = ClassDefinition.model_validate(
         "weapons": {"kind": "allowed", "weapon_ids": ("mace", "sling", "staff")},
         "languages": ("common",),
         "may_not_lower": ("wis",),
-```
-
-`armour` and `weapons` are structured policies, not prose. An [`ArmourPolicy`][osrlib.core.classes.ArmourPolicy] specifies the allowed armour kind (`any`, `leather_only`, or `none`) and whether shields are allowed. A [`WeaponPolicy`][osrlib.core.classes.WeaponPolicy] is either `any` with no id list, or `allowed`/`forbidden` with an explicit `weapon_ids` list. Its `manual_notes` field contains rules text about stature that the referee judges and the engine can't automate, as the dwarf and halfling pages state it. `languages` are the tongues every member of the class speaks natively. `may_not_lower` adds class-specific floors to the adjustment step on top of the prime-requisite rule: the warden above protects its casting stat the way the built-in thief class protects STR.
-
-## Caster tags and the progression table
-
-`abilities` is a tuple of [`ClassAbility`][osrlib.core.classes.ClassAbility] tags: a `tag` string, a display `name`, referee-facing `prose`, and `params`, the numbers the engine uses. You write `params` as a dict, and the definition stores it as a read-only [`FrozenMap`][osrlib.core.frozen.FrozenMap]. The built-in procedures read some of those tags by name. [`detection_chance`][osrlib.core.classes.detection_chance] reads `listening_at_doors`, `detect_secret_doors`, `detect_room_traps`, and `detect_construction_tricks`, all of which take a `chance_in_six` param. [`caster_profile`][osrlib.core.spells.caster_profile] reads `divine_magic` and `arcane_magic`, which need a `spell_list` param. `ClassDefinition` refuses a casting tag without one. The engine ignores an unrecognized tag, and your front end can still display it.
-
-A class with a `divine_magic` or `arcane_magic` tag is a caster. `caster_profile` reads the tag straight off the definition and returns a [`CasterProfile`][osrlib.core.spells.CasterProfile] with its `kind` and its `spell_list`, the id your spells match against. Divine casters choose the reversed form at cast time, and arcane casters fix it when memorizing, from a spell book:
-
-```{.python .no-run}
         "abilities": (
             {
                 "tag": "divine_magic",
@@ -56,15 +50,48 @@ A class with a `divine_magic` or `arcane_magic` tag is a caster. `caster_profile
                 "saves": {"death": 10, "wands": 11, "paralysis": 13, "breath": 15, "spells": 14},
                 "spell_slots": (1,),
             },
+            {
+                "level": 2,
+                "xp": 2000,
+                "hit_dice": {"count": 2, "die": 6},
+                "thac0": 19,
+                "attack_bonus": 0,
+                "saves": {"death": 10, "wands": 11, "paralysis": 13, "breath": 15, "spells": 14},
+                "spell_slots": (2,),
+            },
+            {
+                "level": 3,
+                "xp": 4000,
+                "hit_dice": {"count": 3, "die": 6},
+                "thac0": 17,
+                "attack_bonus": 2,
+                "saves": {"death": 8, "wands": 9, "paralysis": 11, "breath": 13, "spells": 12},
+                "spell_slots": (2, 1),
+            },
+        ),
+    }
+)
 ```
 
-`level_titles[i]` is the title at level `i + 1`, and the tuple may run shorter than `progression` because the SRD's title lists stop at name level. `progression` is one [`ProgressionRow`][osrlib.core.classes.ProgressionRow] per level, and it's the *only* place saves, THAC0, attack bonus, and spell slots live. [`ClassDefinition.row`][osrlib.core.classes.ClassDefinition.row] looks a level up fresh every time, so leveling and energy drain change which row applies to a character rather than updating a stored value. `hit_dice` on a row is a [`HitDice`][osrlib.core.classes.HitDice]: `count`, `die`, a flat `bonus` for the rows above name level, and `con_applies` for the SRD's asterisked "CON no longer applies" rows. `saves` is a [`SavingThrows`][osrlib.core.classes.SavingThrows] with the five save categories. `spell_slots[i]` is how many level-`i + 1` spells the row's caster can memorize, and it's empty for non-casters.
+Each field controls a step of character creation, equipment validation, or XP calculation:
 
-## The structure of a spell
+- **`requirements` and `prime_requisites`**: `requirements` sets minimum ability scores checked during class selection. `prime_requisites` lists abilities that cannot be lowered during ability-score adjustment. [`xp_modifier_pct`][osrlib.core.classes.xp_modifier_pct] evaluates `xp_tiers` directly in best-first order, returning the first matching `modifier_pct` (or `0` when none match, which is why multi-prime-requisite classes omit penalty tiers).
+- **`may_not_lower`**: protects additional ability scores from being lowered during score adjustment (matching how the built-in thief protects STR).
+- **`armour` and `weapons`**: [`ArmourPolicy`][osrlib.core.classes.ArmourPolicy] sets `kind` (`"any"`, `"leather_only"`, or `"none"`) and `shields_allowed`. [`WeaponPolicy`][osrlib.core.classes.WeaponPolicy] sets `kind` to `"any"` (with no `weapon_ids`) or `"allowed"` / `"forbidden"` (with an explicit `weapon_ids` tuple), plus optional `manual_notes` for stature restrictions the engine does not automate.
+- **`hit_die`, `max_level`, and `languages`**: set the class's base Hit Die size, level cap, and starting language IDs.
 
-A [`SpellTemplate`][osrlib.core.spells.SpellTemplate] pairs presentation strings (`duration`, `range`) with the parsed, structured forms the kernel resolves (`duration_spec`, a [`DurationSpec`][osrlib.core.spells.DurationSpec], and `range_spec`, a [`RangeSpec`][osrlib.core.spells.RangeSpec]). `spell_list` is the same kind of open, validated string id as a class's `race`. The kernel's only use of it is matching it against a caster's `CasterProfile.spell_list`. `modes` is a tuple of [`SpellMode`][osrlib.core.spells.SpellMode]: a stable `key` you cast by, a `targeting` spec, an optional `save`, and either an `effect` (one of the kernel's automated effect kinds, like `heal` or `damage`, plus its dice and parameters) or `manual=True` with SRD-style `prose` for a mode the kernel doesn't automate. Casting a manual mode still spends the memorized copy and emits the cast event, and your game narrates the rest.
+### Configure class abilities and level progression
 
-A reversible spell has a [`ReversedForm`][osrlib.core.spells.ReversedForm] with a separate name and modes, which a divine caster can choose freely at cast time and an arcane caster must fix at memorization. The example below doesn't use a reversed form, but a custom spell can add one the same way `cure_light_wounds` does:
+On `abilities`, each [`ClassAbility`][osrlib.core.classes.ClassAbility] entry specifies `tag`, `name`, `prose`, and a `params` dict (stored as a read-only [`FrozenMap`][osrlib.core.frozen.FrozenMap]). Built-in rules inspect known ability tags by name while ignoring custom tags (which your front end can still display):
+
+- **Detection skills**: [`detection_chance`][osrlib.core.classes.detection_chance] reads `listening_at_doors`, `detect_secret_doors`, `detect_room_traps`, and `detect_construction_tricks`, each expecting a `chance_in_six` integer in `params`.
+- **Spellcasting**: [`caster_profile`][osrlib.core.spells.caster_profile] reads `divine_magic` and `arcane_magic` (both require a `spell_list` string in `params`) and returns a [`CasterProfile`][osrlib.core.spells.CasterProfile]. Divine casters choose between normal and reversed forms when casting, whereas arcane casters choose when memorizing spells from their spell book.
+
+`level_titles[i]` gives the title at level `i + 1` (and can contain fewer entries than `progression` when titles stop at name level). `progression` defines one [`ProgressionRow`][osrlib.core.classes.ProgressionRow] per level. [`ClassDefinition.row`][osrlib.core.classes.ClassDefinition.row] looks up THAC0, `attack_bonus`, [`SavingThrows`][osrlib.core.classes.SavingThrows] (`saves`), [`HitDice`][osrlib.core.classes.HitDice] (`count`, `die`, post-name-level `bonus`, and `con_applies`), and `spell_slots` (`spell_slots[i]` slots for spell level `i + 1`) dynamically for the character's current level.
+
+## Define a custom spell
+
+Construct a [`SpellTemplate`][osrlib.core.spells.SpellTemplate] with display strings (`duration` and `range`), structured specs ([`DurationSpec`][osrlib.core.spells.DurationSpec] and [`RangeSpec`][osrlib.core.spells.RangeSpec]), a `spell_list` slug matching `CasterProfile.spell_list`, and one or more [`SpellMode`][osrlib.core.spells.SpellMode] entries:
 
 ```{.python .no-run}
 MEND_WOUNDS = SpellTemplate.model_validate(
@@ -89,9 +116,11 @@ MEND_WOUNDS = SpellTemplate.model_validate(
 )
 ```
 
-## Validate the way the built-in catalogs validate
+Each `SpellMode` defines a castable `key`, a `targeting` spec, an optional `save`, and either an automated `effect` (such as `"heal"` or `"damage"` with `params`) or `manual=True` with `prose` (which expends the memorized spell and emits the cast event so your front end can resolve the effect). Reversible spells also accept an optional [`ReversedForm`][osrlib.core.spells.ReversedForm] with its reversed name and modes, matching built-in spells such as `cure_light_wounds`.
 
-[`ClassCatalog`][osrlib.core.classes.ClassCatalog] and [`SpellCatalog`][osrlib.core.spells.SpellCatalog] are the same models [`load_classes`][osrlib.data.load_classes] and [`load_spells`][osrlib.data.load_spells] validate their generated JSON into. Build one from your own definitions, and it's validated with the same checks the built-in data has to pass: unique ids, and every per-definition rule above. A round trip through JSON shows this, because it follows the same path the loaders do (a dict goes in and a model comes out):
+## Validate custom class and spell catalogs
+
+Combine your definitions with [`load_classes`][osrlib.data.load_classes] and [`load_spells`][osrlib.data.load_spells] inside [`ClassCatalog`][osrlib.core.classes.ClassCatalog] and [`SpellCatalog`][osrlib.core.spells.SpellCatalog] to enforce unique IDs and schema validation without mutating the cached built-in catalogs:
 
 ```{.python .no-run}
 classes = ClassCatalog(classes=(*load_classes().classes, WARDEN))
@@ -106,13 +135,11 @@ rejections = validate_class_choice(low_scores, WARDEN)
 assert [rejection.code for rejection in rejections] == ["creation.class.requirements_not_met"]
 ```
 
-`classes` and `spells` here are *your* catalogs, extending a copy of the built-in ones. osrlib doesn't write them back into `load_classes()` or `load_spells()`, which stay cached, frozen, and SRD-only. [`validate_class_choice`][osrlib.core.character.validate_class_choice] above takes the `WARDEN` definition directly, the same way it takes any built-in one. Most of this page follows that pattern: a kernel function accepts the `ClassDefinition` (or `SpellCatalog`) you hand it, custom or built-in, with no registration step.
+Kernel functions such as [`validate_class_choice`][osrlib.core.character.validate_class_choice] accept `WARDEN` or `spells` directly as arguments.
 
-## Characters of a custom class
+## Create, advance, and cast with a custom class
 
-[`level_up`][osrlib.core.classes.level_up], [`memorize_spells`][osrlib.core.spells.memorize_spells], [`cast_spell`][osrlib.core.spells.cast_spell], and the `validate_class_choice` call above all take `WARDEN` (or a [`CasterProfile`][osrlib.core.spells.CasterProfile] built from it) as a plain argument. None of them needs the definition to be in the built-in catalog.
-
-A [`Character`][osrlib.core.character.Character] takes the definition too. Set `class_id` to your class's id, and pass the definition as [`custom_class`][osrlib.core.character.Character.custom_class]. [`Character.definition`][osrlib.core.character.Character.definition] returns it, so the character's THAC0, saving throws, and level cap come from your progression table:
+Pass `class_id` and [`custom_class`][osrlib.core.character.Character.custom_class] when constructing a [`Character`][osrlib.core.character.Character] or calling [`create_character`][osrlib.core.character.create_character]. `Character` raises `ValueError` if `custom_class.id` does not match `class_id` or collides with a built-in class ID (give variants of built-in classes a distinct `id`, as you do when [making a variant of a built-in monster](#make-a-variant-of-a-built-in-monster)). `race` accepts any valid slug string shared by the class and character:
 
 ```{.python .no-run}
 scores = {ability: 11 for ability in AbilityScore} | {AbilityScore.WIS: 13, AbilityScore.CON: 13}
@@ -134,15 +161,13 @@ assert warden.thac0 == 19
 assert warden.saves.spells == 14
 ```
 
-`Character` refuses a `custom_class` whose `id` isn't `class_id`. It also refuses a `custom_class` whose `id` is the id of a built-in class, because a class id refers to one class. To make a variant of a built-in class, give the variant a different id, the way you would for [a variant of a built-in monster](#make-a-variant-of-a-built-in-monster).
-
-The definition is part of the character. [`to_document`][osrlib.core.character.Character.to_document], [`party_to_document`][osrlib.core.character.party_to_document], and [`save_game`][osrlib.persistence.save_game] include it, and loading the document gives it back, so your code doesn't supply `WARDEN` again to load a warden:
+[`Character.definition`][osrlib.core.character.Character.definition] returns `WARDEN`, and [`Character.to_document`][osrlib.core.character.Character.to_document], [`party_to_document`][osrlib.core.character.party_to_document], and [`save_game`][osrlib.persistence.save_game] embed `custom_class` automatically so [`Character.from_document`][osrlib.core.character.Character.from_document] and `load_game` restore the character without external class lookups:
 
 ```{.python .no-run}
 assert Character.from_document(warden.to_document()).definition == WARDEN
 ```
 
-[`create_character`][osrlib.core.character.create_character] takes the definition the same way. Pass your class's id as `class_id` and the definition as `custom_class`, and it rolls a first-level character of your class:
+Roll a 1st-level custom-class character with `create_character` the same way:
 
 ```{.python .no-run}
 streams = RngStreams(master_seed=2026)
@@ -157,13 +182,7 @@ oswin = create_character(
 assert oswin.definition is WARDEN
 ```
 
-A [`GameSession`][osrlib.crawl.session.GameSession] reads each member's class from `Character.definition`, so the session plays a warden in the party under your class. To prepare and cast a spell you wrote in a session, bundle the spell with the adventure, as [Bundling custom spells with an adventure](#bundling-custom-spells-with-an-adventure) shows.
-
-`race` needs no setup. Both `ClassDefinition` and `Character` validate it only against a slug pattern, and no procedure looks it up, so any race string that the class definition and the character agree on already works.
-
-## Advancing and casting
-
-With the spell catalog extended and the warden built, the rest of the lifecycle is the same kernel calls a built-in class goes through. `level_up` reads next level's row straight off `WARDEN`. `memorize_spells` checks the caster's list and slot capacity against the extended spell catalog. Casting consumes the memorized copy and resolves the mode's effect, which here heals a wounded ally by touch:
+Outside a session, pass `WARDEN` and your extended `SpellCatalog` to [`level_up`][osrlib.core.classes.level_up], [`memorize_spells`][osrlib.core.spells.memorize_spells], and [`cast_spell`][osrlib.core.spells.cast_spell]. `cast_spell` takes candidate creatures in `targets` and a dict of all live combatants by ID in `registry` (used when resolving effects that touch creatures beyond `targets`), along with an [`EffectsLedger`][osrlib.core.effects.EffectsLedger], [`GameClock`][osrlib.core.clock.GameClock], and `IdAllocator`:
 
 ```{.python .no-run}
 level_up(warden, WARDEN, streams.get("advancement"))
@@ -172,11 +191,19 @@ assert WARDEN.row(warden.level).spell_slots == (2,)
 
 memorized = memorize_spells(warden, WARDEN, spells, (MemorizedSpell(spell_id="mend_wounds"),))
 assert memorized.accepted
-```
 
-`cast_spell` needs the same objects as any spell cast outside a session: an [`EffectsLedger`][osrlib.core.effects.EffectsLedger] for attached durations, a [`GameClock`][osrlib.core.clock.GameClock], an id allocator, and a registry of live combatants by id. None of it differs for a custom spell:
-
-```{.python .no-run}
+wounded = Character(
+    id="pc-wounded",
+    name="Tam",
+    class_id="fighter",
+    race="human",
+    level=1,
+    xp=0,
+    scores={ability: 11 for ability in AbilityScore},
+    alignment=Alignment.LAWFUL,
+    max_hp=8,
+    current_hp=2,
+)
 cast_result = cast_spell(
     warden,
     spells.get("mend_wounds"),
@@ -196,7 +223,7 @@ assert wounded.current_hp > 2
 
 ## Bundling custom spells with an adventure
 
-A session looks each spell id up in [`GameSession.effective_spells`][osrlib.crawl.session.GameSession.effective_spells]: the built-in spells plus the spells the adventure bundles. To play a spell you wrote in a session, put it in [`Adventure.spells`][osrlib.crawl.adventure.Adventure.spells]. A variant of a built-in spell works the same way as [a variant of a built-in monster](#make-a-variant-of-a-built-in-monster): dump the built-in template, change the dump, and validate it under a new id. [`validate_adventure`][osrlib.crawl.adventure.validate_adventure] rejects a bundled spell whose id is a built-in id or repeats in the bundle, and its message says which:
+[`GameSession`][osrlib.crawl.session.GameSession] reads custom classes directly from each party member's `Character.definition`, and resolves spells through [`GameSession.effective_spells`][osrlib.crawl.session.GameSession.effective_spells] (the union of `load_spells()` and [`Adventure.spells`][osrlib.crawl.adventure.Adventure.spells]). Add custom or variant spells to `Adventure.spells`. [`validate_adventure`][osrlib.crawl.adventure.validate_adventure] rejects duplicate IDs or collisions with built-in spell IDs:
 
 ```{.python .no-run}
 # A magic-user spell of your own, made from magic missile's entry.
@@ -214,7 +241,7 @@ adventure = Adventure(
 validate_adventure(adventure, load_monsters(), load_equipment())
 ```
 
-[`create_character`][osrlib.core.character.create_character] looks a starting spell up in the built-in catalog, unless you pass it a catalog as `spell_catalog`. You create the party before the session exists, so build the catalog from the built-in spells and the adventure's:
+To place a bundled spell in a new character's starting spell book before creating the session, pass a combined `SpellCatalog` to `create_character(..., spell_catalog=...)`:
 
 ```{.python .no-run}
 miri = create_character(
@@ -229,7 +256,7 @@ miri = create_character(
 assert miri.spell_book == ("frost_dart",)
 ```
 
-In a session that plays the adventure, a caster prepares, learns, and casts a bundled spell with the same commands as a built-in one: [`PrepareSpells`][osrlib.crawl.commands.PrepareSpells], [`LearnSpell`][osrlib.crawl.commands.LearnSpell], [`CastSpell`][osrlib.crawl.commands.CastSpell], and a `cast` declaration in a battle. Here the warden prays for *mend wounds* after a night's rest and heals a wounded fighter in town:
+Once the session starts, [`PrepareSpells`][osrlib.crawl.commands.PrepareSpells], [`LearnSpell`][osrlib.crawl.commands.LearnSpell], [`CastSpell`][osrlib.crawl.commands.CastSpell], and battle `cast` declarations resolve bundled spells alongside built-in spells. Because [`MemberView`][osrlib.crawl.views.MemberView] lists `spell_book` and `memorized_spells` by spell ID (such as `"frost_dart"`), look up display names in `session.effective_spells` rather than `load_spells()`:
 
 ```{.python .no-run}
 bran = Character(
@@ -254,9 +281,7 @@ assert healed.accepted
 assert bran.current_hp > 2
 ```
 
-A [`MemberView`][osrlib.crawl.views.MemberView] lists the spells in the member's book and the copies they've memorized by id, like `"frost_dart"`. To show a spell's name, look the id up in `session.effective_spells`, because [`load_spells`][osrlib.data.load_spells] doesn't have the spells an adventure bundles.
-
-## The complete program
+## Complete class and spell example
 
 ```python
 import json
@@ -504,11 +529,12 @@ assert oswin.memorized_spells == ()
 
 ## Bundling custom monsters with an adventure
 
-You add monsters a different way than classes, because the crawl layer already has a document that contains content: the adventure. `Adventure.monsters` contains your own [`MonsterTemplate`][osrlib.core.monsters.MonsterTemplate]s, so the templates are part of the adventure document. Every session running that adventure resolves them everywhere it resolves a built-in template id: keyed encounters, [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters], inline wandering tables, listen checks, and [`GameSession.spawn`][osrlib.crawl.session.GameSession.spawn]. You don't reassign a loader or register anything. The document contains the content, and [`GameSession.effective_monsters`][osrlib.crawl.session.GameSession.effective_monsters] is the built-in catalog plus the bundle. After creation, nothing is different for a bundled monster. A created [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] embeds its full template, so combat, morale, XP, treasure, saves, and replay never look the id up again.
+Add custom [`MonsterTemplate`][osrlib.core.monsters.MonsterTemplate] instances to `Adventure.monsters` so [`GameSession.effective_monsters`][osrlib.crawl.session.GameSession.effective_monsters] resolves them everywhere monster template IDs appear: keyed encounters, [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters], custom wandering tables, listen checks, and [`GameSession.spawn`][osrlib.crawl.session.GameSession.spawn]. Once spawned, each [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] embeds its `MonsterTemplate`, so combat, morale, XP, treasure, saves, and replay never look up the template ID again.
 
-A template is a frozen model you build with `model_validate`, like the class and spell above. Three table helpers derive the stat-block numbers the SRD would print, so your monster matches the attack matrix, the monster save bands, and the XP awards table: [`thac0_for_hd`][osrlib.core.tables.thac0_for_hd], [`monster_save_band_label`][osrlib.core.tables.monster_save_band_label], and [`monster_xp`][osrlib.core.tables.monster_xp]. Two rules apply. The first is the collision rule: a bundled id must not collide with the built-in catalog or another bundled id. [`validate_adventure`][osrlib.crawl.adventure.validate_adventure] rejects a collision and never overrides a built-in template, so give a variant orc a different id. Its message says whether the id is already built in or repeats within the bundle. The second rule is that each letter in the template's `treasure` has to be a treasure type from [the treasure type index][treasure-types-index], and `validate_adventure` reports one that isn't. [The monster id index][monsters-index] documents the built-in catalog only. Bundled ids live in the adventure that includes them:
+Build a `MonsterTemplate` with `model_validate`, using [`thac0_for_hd`][osrlib.core.tables.thac0_for_hd], [`monster_save_band_label`][osrlib.core.tables.monster_save_band_label], and [`monster_xp`][osrlib.core.tables.monster_xp] to compute B/X attack numbers, save bands, and XP values from Hit Dice. Configure naming and validation fields as follows:
 
-Give the template a [`display_name`][osrlib.core.monsters.MonsterTemplate.display_name], what to call one of the creatures in a sentence, like "bone warden". The session labels a group of your monsters with it, and the default message lines use it. A template that leaves it out gets its `name`, capital letters included. The plural is the display name with the regular English ending, "bone wardens" here, unless you set [`display_name_plural`][osrlib.core.monsters.MonsterTemplate.display_name_plural] for an irregular one. Each template is a creature of its own, a family of one, unless you give several templates the same [`family_id`][osrlib.core.monsters.MonsterTemplate.family_id], the way the built-in hellhound forms share `"hellhound"`. The player view reports a group's family, so give forms the players can't tell apart the same display name and family id:
+- **Unique IDs and treasure types**: [`validate_adventure`][osrlib.crawl.adventure.validate_adventure] rejects bundled monster IDs that duplicate another bundled ID or collide with [`load_monsters`][osrlib.data.load_monsters] ([the monster id index][monsters-index]), and verifies that every letter in `treasure` appears in [the treasure type index][treasure-types-index].
+- **Display names and families**: Set [`display_name`][osrlib.core.monsters.MonsterTemplate.display_name] (for example, `"bone warden"`) for lowercase group labels and message formatting. Omitting it defaults to `name` with its capitalization, and regular plurals are formed automatically unless you override [`display_name_plural`][osrlib.core.monsters.MonsterTemplate.display_name_plural]. Each template defaults `family_id` to its `id`, though Hit Dice variants that look identical to players can share a [`family_id`][osrlib.core.monsters.MonsterTemplate.family_id] and `display_name` (matching how built-in hellhound variants share `"hellhound"`):
 
 ```python
 from osrlib.core.alignment import Alignment
@@ -518,7 +544,7 @@ from osrlib.core.rng import RngStreams
 from osrlib.core.ruleset import Ruleset
 from osrlib.core.tables import monster_save_band_label, monster_xp, thac0_for_hd
 from osrlib.crawl.adventure import Adventure, TownSpec, validate_adventure
-from osrlib.crawl.dungeon import AreaSpec, DungeonSpec, KeyedEncounter, KeyedMonster, LevelSpec
+from osrlib.crawl.dungeon import AreaSpec, DungeonSpec, Edge, EdgeKind, KeyedEncounter, KeyedMonster, LevelSpec
 from osrlib.crawl.party import Party
 from osrlib.crawl.session import GameSession
 from osrlib.data import load_combat_tables, load_equipment, load_monsters
@@ -561,6 +587,7 @@ level = LevelSpec(
     width=2,
     height=1,
     entrance=(0, 0),
+    edges={"1,0:west": Edge(kind=EdgeKind.OPEN)},
     areas=(
         AreaSpec(
             id="ossuary",
@@ -595,7 +622,7 @@ assert all(guard.max_hp >= 3 for guard in guards)  # 2d8+1 rolls at least 3
 
 ### Make a variant of a built-in monster
 
-You can't change a built-in template. It's frozen, and so is every mapping in it, like an ability's `params`, so assigning to an entry raises `TypeError`. Every session in the process shares the built-in catalog, so a change would reach every troll in every game. To make a variant, dump the built-in template with `model_dump`, change the dump, and validate it with `model_validate` under an id of its own. The dump contains plain dicts, which you can change. Give the variant its own `display_name` and `family_id` too, unless the players shouldn't be able to tell it from the built-in creature:
+Built-in templates and their nested `FrozenMap` fields are immutable (`TypeError` on item assignment) and shared across all sessions in the process. To modify nested fields (such as an ability's `params`), call `model_dump()` to obtain mutable dicts, edit the dump, and call `model_validate` with a distinct `id` (plus updated `display_name` and `family_id` unless players should treat the variant as indistinguishable from the base creature):
 
 ```python
 from osrlib.core.monsters import MonsterTemplate
@@ -614,7 +641,7 @@ print(BOG_TROLL.ability("regeneration").params["per_round"], troll.ability("rege
 # 5 3
 ```
 
-Bundle the variant with an adventure like any template of your own. To change only top-level fields, like the id and the name, `model_copy(update=...)` also works. It validates the copy the way `model_validate` does, so a value the template refuses raises pydantic's `ValidationError`, and a dict you pass for a mapping field becomes a `FrozenMap`:
+When you only need to override top-level fields (such as `id` and `name`), call `model_copy(update=...)`, which re-validates the updated fields and converts mapping values to `FrozenMap`:
 
 ```python
 from osrlib.data import load_monsters
@@ -624,13 +651,13 @@ print(cave_goblin.id, cave_goblin.hit_dice.count)
 # cave_goblin 1
 ```
 
-An adventure document can't bundle classes. A character of a class you wrote contains the class, as [Characters of a custom class](#characters-of-a-custom-class) shows. An adventure bundles spells in `Adventure.spells`, as [Bundling custom spells with an adventure](#bundling-custom-spells-with-an-adventure) shows.
+Unlike spells, monsters, and items, custom classes are stored on each character (`Character.custom_class`, see [Create, advance, and cast with a custom class](#create-advance-and-cast-with-a-custom-class)) rather than on `Adventure`.
 
 ## Bundling custom items with an adventure
 
-You bundle items with an adventure the same way as monsters. `Adventure.items` contains your own [`WeaponTemplate`][osrlib.core.items.WeaponTemplate], [`ArmourTemplate`][osrlib.core.items.ArmourTemplate], [`GearTemplate`][osrlib.core.items.GearTemplate], and [`AmmunitionTemplate`][osrlib.core.items.AmmunitionTemplate]s, the same models the built-in equipment lists are made of, discriminated by the `item_type` field each one already has. Every session running that adventure resolves them everywhere it resolves a built-in equipment id: a treasure cache's `item_ids`, [`GrantItem`][osrlib.crawl.commands.GrantItem], and the drop pile a party recovers goods from. [`GameSession.effective_equipment`][osrlib.crawl.session.GameSession.effective_equipment] is the built-in catalog plus the bundle. After acquisition, nothing differs: an [`ItemInstance`][osrlib.core.items.ItemInstance] embeds its whole template, so equipping, encumbrance, combat, handing items between members, dropping, saving, and replay never look the id up again.
+Add custom [`WeaponTemplate`][osrlib.core.items.WeaponTemplate], [`ArmourTemplate`][osrlib.core.items.ArmourTemplate], [`GearTemplate`][osrlib.core.items.GearTemplate], and [`AmmunitionTemplate`][osrlib.core.items.AmmunitionTemplate] instances (discriminated by `item_type`) to `Adventure.items`. [`GameSession.effective_equipment`][osrlib.crawl.session.GameSession.effective_equipment] unions `load_equipment()` with `Adventure.items`, resolving bundled IDs in treasure caches (`FeatureSpec.item_ids`), [`GrantItem`][osrlib.crawl.commands.GrantItem], and dropped item piles. Once acquired, [`ItemInstance`][osrlib.core.items.ItemInstance] embeds its template for equipping, encumbrance, combat, item transfers, saves, and replay.
 
-The one rule is the collision rule, and for items it's three-way: a bundled id must collide with neither the equipment catalog, nor the magic-item catalog, nor another bundled id, because an item id must refer to exactly one thing in a session. [`validate_adventure`][osrlib.crawl.adventure.validate_adventure] rejects a collision and never overrides a built-in item, so give a brighter torch a different id. The rule doesn't apply to the ids of the treasure-weight rows (`coin`, `gem`, `jewellery`, …), because those rows are an encumbrance table, not items. As with monsters, [the equipment id index][equipment-index] documents the built-in catalog only. Bundled ids live in the adventure that includes them:
+[`validate_adventure`][osrlib.crawl.adventure.validate_adventure] requires every bundled item ID to be unique across `Adventure.items`, the built-in equipment catalog ([the equipment id index][equipment-index]), and the built-in magic-item catalog (treasure encumbrance row IDs such as `coin`, `gem`, and `jewellery` do not count as item IDs):
 
 ```python
 from osrlib.core.alignment import Alignment
@@ -640,7 +667,7 @@ from osrlib.core.rng import RngStreams
 from osrlib.core.ruleset import Ruleset
 from osrlib.crawl.adventure import Adventure, TownSpec, validate_adventure
 from osrlib.crawl.commands import GrantItem, PurchaseEquipment
-from osrlib.crawl.dungeon import AreaSpec, DungeonSpec, FeatureSpec, LevelSpec
+from osrlib.crawl.dungeon import AreaSpec, DungeonSpec, Edge, EdgeKind, FeatureSpec, LevelSpec
 from osrlib.crawl.party import Party
 from osrlib.crawl.session import GameSession
 from osrlib.data import load_equipment, load_monsters
@@ -685,6 +712,7 @@ level = LevelSpec(
     width=2,
     height=1,
     entrance=(0, 0),
+    edges={"1,0:west": Edge(kind=EdgeKind.OPEN)},
     areas=(
         AreaSpec(
             id="shrine",
@@ -727,23 +755,23 @@ refused = session.execute(PurchaseEquipment(character_id=hero.character.id, item
 assert refused.rejections[0].code == "items.purchase.not_stocked"
 ```
 
-Bundling has three boundaries. First, the town shop stocks the built-in equipment lists only, so a bundled item is never for sale: the session rejects a [`PurchaseEquipment`][osrlib.crawl.commands.PurchaseEquipment] for it with `items.purchase.not_stocked`. That code is distinct from `session.command.unknown_item`, which means no such id exists at all, so your front end can say "the trader doesn't stock that" rather than "no such thing". Second, [`create_character`][osrlib.core.character.create_character]'s `purchases` run before any session exists and resolve ids straight through `load_equipment()`, so a bundled id passed there raises `ValueError`. Equip a character with built-in gear at creation, and give them the adventure's items during play.
+Item bundling has specific scope rules:
 
-Third, some class policies are written as id lists. A class whose [`WeaponPolicy`][osrlib.core.classes.WeaponPolicy] is `allowed` lists by id every weapon it may wield: the cleric's five blunt weapons, the magic-user's dagger. A bundled id appears in no built-in class's list, so a cleric carrying the drowned blade can never equip it and gets the same `items.equip.weapon_not_allowed` an off-list built-in weapon does. Classes whose weapons are `any` or a `forbidden` list (fighter, elf, thief, dwarf, halfling) wield bundled weapons with no extra step. Armour behaves the same way where the policy names an id: the thief's `leather_only` allows only the id `leather`, so a thief can't wear bundled body armour whatever its category, while a class with `any` armour wears the saint's scale exactly as it wears plate. None of that is specific to bundling. It comes from the built-in classes' policies, and a custom class can list your bundled ids in its `weapon_ids`.
+- **Town shop stock**: [`PurchaseEquipment`][osrlib.crawl.commands.PurchaseEquipment] sells only built-in equipment and rejects bundled IDs with `items.purchase.not_stocked` (distinct from `session.command.unknown_item`, so your UI can distinguish unstocked items from nonexistent IDs).
+- **Character creation**: [`create_character`][osrlib.core.character.create_character] resolves `purchases` against `load_equipment()` before any session exists, raising `ValueError` for bundled IDs. Purchase built-in starting gear at creation and grant or place bundled items during play.
+- **Class weapon and armour allowlists**: Built-in classes whose [`WeaponPolicy`][osrlib.core.classes.WeaponPolicy] uses `kind="allowed"` (such as cleric and magic-user) permit only the specific built-in IDs in `weapon_ids`, rejecting bundled weapons with `items.equip.weapon_not_allowed`, whereas classes with `kind="any"` or `kind="forbidden"` (fighter, elf, thief, dwarf, halfling) can wield bundled weapons. Similarly, `ArmourPolicy(kind="leather_only")` permits only the built-in `"leather"` ID, whereas `kind="any"` accepts custom armour such as `saints_scale`. Custom classes can list your bundled weapon IDs directly in `weapon_ids`.
 
-## What's not supported
+## Scope and cross-adventure limits
 
-There's no merge path into the built-in content. `load_classes` and `load_spells` are cached loaders that read the generated `classes.json` and `spells.json` files inside the package. There's no append or register call, so an extended catalog is always a value your code builds and keeps: `classes` and `spells` above, never something you pass back to the loaders. `load_monsters` and `load_equipment` don't accept additions either. Bundling ([spells](#bundling-custom-spells-with-an-adventure), [monsters](#bundling-custom-monsters-with-an-adventure), [items](#bundling-custom-items-with-an-adventure)) combines your templates with the built-in catalog for each session through the adventure document that contains them, and the built-in catalog objects never change.
+- **Read-only built-in loaders**: `load_classes`, `load_spells`, `load_monsters`, and `load_equipment` return cached, immutable SRD catalogs and provide no global registration or mutation API. Pass extended catalogs explicitly to kernel functions or bundle custom spells, monsters, and items on `Adventure`.
+- **Generated scrolls and NPC casters**: Randomly rolled treasure scrolls and NPC party spell lists draw exclusively from the built-in `load_spells()` catalog, never from `Adventure.spells`.
+- **Cross-adventure spell books**: If a character enters a session with a spell ID from another adventure that is absent from `session.effective_spells`, the session rejects [`PrepareSpells`][osrlib.crawl.commands.PrepareSpells] (`magic.memorize.unknown_spell`), [`CastSpell`][osrlib.crawl.commands.CastSpell] (`magic.cast.unknown_spell`), and battle `cast` declarations for that spell. While any unknown spell remains in the character's `spell_book`, the session also rejects [`LearnSpell`][osrlib.crawl.commands.LearnSpell] (`magic.book.unknown_spell`) because remaining spell-book capacity depends on every known spell's level. Energy drain cannot determine the level of an unknown memorized spell, so it leaves that entry untouched in `memorized_spells`.
 
-The session never rolls a bundled spell. The spells on a scroll that treasure rolls, and the spells an NPC adventurer has memorized, come from the built-in catalog only.
-
-A session refuses a spell that its catalog doesn't have, like a spell in the book of a caster from a party made for another adventure. It refuses a [`PrepareSpells`][osrlib.crawl.commands.PrepareSpells] that selects the spell with `magic.memorize.unknown_spell`, and a [`CastSpell`][osrlib.crawl.commands.CastSpell] or a battle declaration that casts it with `magic.cast.unknown_spell`. While the caster's book has such a spell, the session refuses every [`LearnSpell`][osrlib.crawl.commands.LearnSpell] for the caster with `magic.book.unknown_spell` and the id of the spell it doesn't have, because the room left in a book depends on the level of each spell in it. A level drain, like a wight's touch, can't tell the level of a memorized copy of such a spell either. The copy takes no slot, so the drain doesn't forget it, and the copy stays in its place in the caster's `memorized_spells`.
-
-For the ids the built-in catalogs already use, see [the class id index][classes-index] and [the spell id index][spells-index]. For every model and function this page named, see [the API reference](../reference/api/index.md).
+See [the class id index][classes-index] and [the spell id index][spells-index] for built-in IDs, and [the API reference](../reference/api/index.md) for full model definitions.
 
 ## Where next
 
-- [Building an adventure](../getting-started/building-an-adventure.md) - the dungeon geometry and keyed content the bundled monsters and items above attach to.
-- [Gates, triggers, and quests](gates-triggers-quests.md) - authored behavior: the gate that a bundled key opens, the trigger that matches a bundled id, the quest that ends the adventure.
-- [Sessions, commands, and events](sessions-commands-events.md) - running a character, custom class or not, through an actual session once it exists.
-- [The API reference](../reference/api/index.md) - the full model and function reference for everything named on this page.
+- [Building an adventure](../getting-started/building-an-adventure.md) - placing bundled monsters and items into dungeon levels and keyed areas.
+- [Gates, triggers, and quests](gates-triggers-quests.md) - gating doors and matching triggers or quests on bundled item and monster IDs.
+- [Sessions, commands, and events](sessions-commands-events.md) - running custom-class characters and bundled content through `GameSession`.
+- [The API reference](../reference/api/index.md) - full reference for class, spell, monster, and item models.
