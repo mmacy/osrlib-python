@@ -19,14 +19,14 @@ Alignment is in a separate module so that the character models and the monster m
 can both import it without importing each other.
 """
 
-from enum import StrEnum
+from osrlib.core._descriptions import _StrEnum
 
 __all__ = [
     "Alignment",
 ]
 
 
-class Alignment(StrEnum):
+class Alignment(_StrEnum):
     """The cosmic principle a creature follows: law, neutrality, or chaos.
 
     Use a member by name (`Alignment.LAWFUL`) when you write the value yourself, and call

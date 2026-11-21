@@ -6,6 +6,7 @@ JSON Schemas they publish carry prose a tool definition can use. These tests bui
 once into a temporary directory and look.
 """
 
+import html
 import json
 import re
 import subprocess
@@ -14,14 +15,20 @@ from pathlib import Path
 
 import pytest
 
+from test_schema_descriptions import _descriptions, _without_references
+
 REPO = Path(__file__).resolve().parent.parent
 
-_CROSSREF = re.compile(r"\]\[[^\]\s]+\]")
+# The page's content, without the navigation, the search, and the scripts around it.
+_ARTICLE = re.compile(r"<article\b[^>]*>(.*?)</article>", re.DOTALL)
 
-# A JSON Schema `pattern` is an anchored regular expression, and a character class such as
-# `^[a-z][a-z0-9_]*$` looks like cross-reference markup to `_CROSSREF`. The catalog page
-# check drops these string literals from the rendered page before it searches.
-_SCHEMA_PATTERN = re.compile(r"&quot;\^[^&]*?\$&quot;")
+# A code block, which on a catalog page is the JSON Schema.
+_PRE = re.compile(r"<pre\b[^>]*>(.*?)</pre>", re.DOTALL)
+
+# A code span in the page's prose.
+_CODE = re.compile(r"<code\b[^>]*>(.*?)</code>", re.DOTALL)
+
+_TAG = re.compile(r"<[^>]+>")
 
 
 @pytest.fixture(scope="module")
@@ -35,9 +42,26 @@ def site(tmp_path_factory: pytest.TempPathFactory) -> Path:
     return site_dir
 
 
+def _schema_document(site: Path, artifact: str) -> dict:
+    return json.loads((site / "reference" / artifact).read_text(encoding="utf-8"))
+
+
 def _schema_definitions(site: Path, artifact: str) -> dict:
-    document = json.loads((site / "reference" / artifact).read_text(encoding="utf-8"))
+    document = _schema_document(site, artifact)
     return document.get("$defs") or document.get("definitions") or {}
+
+
+def _text(fragment: str) -> str:
+    return html.unescape(_TAG.sub("", fragment))
+
+
+def _page_parts(page: Path) -> tuple[str, list[dict]]:
+    """Return a rendered page's prose, as Markdown with its code spans in backticks, and its JSON Schemas."""
+    article = _ARTICLE.search(page.read_text(encoding="utf-8"))
+    assert article, f"{page} has no article"
+    schemas = [json.loads(_text(block)) for block in _PRE.findall(article.group(1))]
+    prose = _CODE.sub(lambda span: f"`{_text(span.group(1))}`", _PRE.sub("", article.group(1)))
+    return _text(prose), schemas
 
 
 class TestLayerFrontPages:
@@ -64,13 +88,9 @@ class TestSchemaProse:
 
     @pytest.mark.parametrize("artifact", ["commands/commands.json", "events/events.json"])
     def test_descriptions_carry_no_crossref_markup(self, site: Path, artifact: str):
-        offenders = []
-        for name, definition in _schema_definitions(site, artifact).items():
-            if _CROSSREF.search(definition.get("description", "")):
-                offenders.append(name)
-            for field, spec in definition.get("properties", {}).items():
-                if _CROSSREF.search(spec.get("description", "")):
-                    offenders.append(f"{name}.{field}")
+        offenders = [
+            path for path, text in _descriptions(_schema_document(site, artifact)) if _without_references(text) != text
+        ]
         assert offenders == []
 
     def test_every_property_is_described(self, site: Path):
@@ -84,8 +104,18 @@ class TestSchemaProse:
 
     def test_the_catalog_pages_render_no_crossref_markup(self, site: Path):
         offenders = []
+        schemas_found = 0
         for catalog in ("commands", "events"):
             for page in sorted((site / "reference" / catalog).glob("*/index.html")):
-                if _CROSSREF.search(_SCHEMA_PATTERN.sub("", page.read_text(encoding="utf-8"))):
+                prose, schemas = _page_parts(page)
+                schemas_found += len(schemas)
+                if _without_references(prose) != prose:
                     offenders.append(f"{catalog}/{page.parent.name}")
+                for schema in schemas:
+                    offenders.extend(
+                        f"{catalog}/{page.parent.name}{path}"
+                        for path, text in _descriptions(schema)
+                        if _without_references(text) != text
+                    )
+        assert schemas_found, "the catalog pages contain JSON Schemas"
         assert offenders == []

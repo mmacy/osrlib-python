@@ -129,11 +129,11 @@ assert not morale.held  # 2d6 showed 9 against the orc's morale score of 6
 """
 
 from collections.abc import Mapping, Sequence
-from enum import StrEnum
 from typing import TYPE_CHECKING, Any, cast
 
 from pydantic import ConfigDict
 
+from osrlib.core._descriptions import _StrEnum
 from osrlib.core.classes import SavingThrows
 from osrlib.core.clock import GameClock, TimeUnit
 from osrlib.core.creature import Combatant, Creature
@@ -767,7 +767,7 @@ class InitiativeResult(_Model):
     """The roll's [`InitiativeRolledEvent`][osrlib.core.events.InitiativeRolledEvent], ready to append to your log."""
 
 
-class SaveCategory(StrEnum):
+class SaveCategory(_StrEnum):
     """The B/X saving throw categories.
 
     Pass one to [`saving_throw`][osrlib.core.combat.saving_throw]. The category depends
@@ -797,7 +797,7 @@ class SaveCategory(StrEnum):
     """Spells, rods, and staves."""
 
 
-class TargetingMode(StrEnum):
+class TargetingMode(_StrEnum):
     """The ways [`select_targets`][osrlib.core.combat.select_targets] chooses targets from a list of candidates.
 
     Pass one to `select_targets` with the candidates it chooses from. A spell that targets

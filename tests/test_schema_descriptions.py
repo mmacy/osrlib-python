@@ -34,29 +34,21 @@ from osrlib.crawl.commands import AnyCommand
 from osrlib.crawl.events import AnyEvent
 from osrlib.crawl.views import PlayerView, RefereeView
 
-pytestmark = pytest.mark.xfail(reason="chunk: schema-descriptions")
-
 # A fenced code block or a span in two or more backticks. Markdown reads nothing inside one as a link, so
 # `inventory["purse"]["gp"]` in an example stays as it is.
 _LITERAL = re.compile(r"(```.*?```|~~~.*?~~~|``.+?``)", re.DOTALL)
 
-# A span in single backticks.
-_CODE_SPAN = re.compile(r"(`[^`\n]+`)")
-
-# A cross-reference whose label is a code span, like [`MoveParty`][osrlib.crawl.commands.MoveParty].
-_CODE_REFERENCE = re.compile(r"\[(`[^`\n]+`)\]\[[^\]\s]+\]")
-
-# A cross-reference whose label is text, like [the rejection code reference][rejection-codes].
-_TEXT_REFERENCE = re.compile(r"\[([^\[\]`]+)\]\[[^\]\s]+\]")
+# A span in single backticks, or a cross-reference: a label in brackets, then a target in brackets. The label is
+# text, code spans, or both, like [`MoveParty`][osrlib.crawl.commands.MoveParty] or
+# [the rejection code reference][rejection-codes]. A span that starts first is matched first, so brackets inside
+# code are never read as a cross-reference.
+_SPAN_OR_REFERENCE = re.compile(r"(`[^`\n]+`)|\[((?:[^\[\]`]|`[^`\n]+`)+)\]\[[^\]\s]+\]")
 
 
 def _without_references(text: str) -> str:
     """Return Markdown with each mkdocstrings cross-reference reduced to its label, and code left as it is."""
     parts = _LITERAL.split(text)
-    for index in range(0, len(parts), 2):
-        spans = _CODE_SPAN.split(_CODE_REFERENCE.sub(r"\1", parts[index]))
-        spans[::2] = [_TEXT_REFERENCE.sub(r"\1", span) for span in spans[::2]]
-        parts[index] = "".join(spans)
+    parts[::2] = [_SPAN_OR_REFERENCE.sub(lambda match: match.group(1) or match.group(2), part) for part in parts[::2]]
     return "".join(parts)
 
 
@@ -195,6 +187,9 @@ def test_a_published_schema_describes_every_property_in_plain_text(root: str, mo
     [
         ("Send [`MoveParty`][osrlib.crawl.commands.MoveParty] next.", "Send `MoveParty` next."),
         ("See [the rejection code reference][rejection-codes].", "See the rejection code reference."),
+        ("Send [a `MoveParty` command][osrlib.crawl.commands.MoveParty].", "Send a `MoveParty` command."),
+        ("Use [`North` or south][osrlib.crawl.dungeon.Direction] here.", "Use `North` or south here."),
+        ("See [the rejection\ncode reference][rejection-codes].", "See the rejection\ncode reference."),
         ('Read `inventory["purse"]["gp"]` for the gold.', 'Read `inventory["purse"]["gp"]` for the gold.'),
         ("An id matches `[a-z][a-z0-9_]*`.", "An id matches `[a-z][a-z0-9_]*`."),
         (
@@ -205,7 +200,7 @@ def test_a_published_schema_describes_every_property_in_plain_text(root: str, mo
     ],
 )
 def test_the_rule_for_a_cross_reference(markdown: str, plain: str) -> None:
-    # This test passes before the chunk does: it pins the rule the other tests hold the schema to.
+    # The rule that the other tests check each description against.
     assert _without_references(markdown) == plain
 
 

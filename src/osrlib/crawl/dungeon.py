@@ -73,11 +73,11 @@ print(crypt.level(1).edge((0, 0), Direction.NORTH).kind)
 """
 
 from collections.abc import Callable, Iterable, Mapping
-from enum import StrEnum
 from typing import Annotated, Any, Literal, Self
 
 from pydantic import ConfigDict, Field, PrivateAttr, field_validator, model_validator
 
+from osrlib.core._descriptions import _StrEnum
 from osrlib.core.alignment import Alignment
 from osrlib.core.clock import TimeUnit
 from osrlib.core.dice import parse
@@ -130,7 +130,7 @@ malformed: call [`LevelSpec.in_bounds`][osrlib.crawl.dungeon.LevelSpec.in_bounds
 is off its level's grid."""
 
 
-class Direction(StrEnum):
+class Direction(_StrEnum):
     """The four grid directions the party faces and moves in.
 
     You use these for the way [`MoveParty`][osrlib.crawl.commands.MoveParty] steps, the side of a
@@ -313,7 +313,7 @@ def edge_ref(dungeon_id: str, level_number: int, position: Position, direction: 
     return f"{dungeon_id}:{level_number}:{edge_key(position, direction)}"
 
 
-class EdgeKind(StrEnum):
+class EdgeKind(_StrEnum):
     """What stands on an edge between two cells: nothing, a wall, or a door.
 
     It is the `kind` of an [`Edge`][osrlib.crawl.dungeon.Edge], and it sets whether the party can

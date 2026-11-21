@@ -67,12 +67,12 @@ print(level_title(fighter, character.level), character.thac0, character.saves.de
 
 import re
 from collections.abc import Mapping
-from enum import StrEnum
 from typing import TYPE_CHECKING, Annotated
 
 from pydantic import ConfigDict, Field, model_validator
 
 import osrlib.core
+from osrlib.core._descriptions import _StrEnum
 from osrlib.core.abilities import MAX_SCORE, MIN_SCORE, AbilityScore
 from osrlib.core.dice import ALLOWED_SIDES
 from osrlib.core.effects import kill
@@ -279,7 +279,7 @@ class XpTier(_Model):
         return self
 
 
-class ArmourPolicyKind(StrEnum):
+class ArmourPolicyKind(_StrEnum):
     """Which armour a class may wear.
 
     Read it from [`ArmourPolicy.kind`][osrlib.core.classes.ArmourPolicy.kind].
@@ -321,7 +321,7 @@ class ArmourPolicy(_Model):
         return self
 
 
-class WeaponPolicyKind(StrEnum):
+class WeaponPolicyKind(_StrEnum):
     """Whether a class's weapon list contains the weapons it may use or the weapons it may not.
 
     Read it from [`WeaponPolicy.kind`][osrlib.core.classes.WeaponPolicy.kind]. With `"any"` the list

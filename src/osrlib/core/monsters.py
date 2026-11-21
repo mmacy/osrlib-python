@@ -91,11 +91,11 @@ print(template.xp, template.ability("regeneration").params["per_round"])
 """
 
 from collections.abc import Mapping
-from enum import StrEnum
 from typing import Annotated, Literal
 
 from pydantic import ConfigDict, Field, ValidationInfo, field_validator, model_validator
 
+from osrlib.core._descriptions import _StrEnum
 from osrlib.core.alignment import Alignment
 from osrlib.core.classes import SavingThrows
 from osrlib.core.creature import _assign_or_restore
@@ -158,7 +158,7 @@ def _regular_plural(name: str) -> str:
     return name + "s"
 
 
-class DamageKey(StrEnum):
+class DamageKey(_StrEnum):
     """A kind of damage source that a monster's defenses can list.
 
     For a monster that only certain kinds of attack can hurt,
@@ -190,7 +190,7 @@ class DamageKey(StrEnum):
     """Holy water, which harms undead whatever else they resist."""
 
 
-class Element(StrEnum):
+class Element(_StrEnum):
     """A kind of energy that a breath weapon, an attack, or a spell can deal, and a monster can resist.
 
     A dragon's breath has one of these elements, and so does each entry in
@@ -415,7 +415,7 @@ class MonsterAttack(_Model):
         return value
 
 
-class RoutineUse(StrEnum):
+class RoutineUse(_StrEnum):
     """When a monster may use one of its attack routines, taken from the monster's OSE SRD entry.
 
     Each [`AttackRoutine`][osrlib.core.monsters.AttackRoutine] has one of these values in its

@@ -63,11 +63,11 @@ print(hoard.coins.value_gp, len(hoard.valuables), len(hoard.magic_items))
 # loaders, so a model defined in crawl would make core import crawl by way of data.
 
 from collections.abc import Mapping, Sequence
-from enum import StrEnum
 from typing import Any, Literal
 
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
+from osrlib.core._descriptions import _StrEnum
 from osrlib.core.dice import parse, roll
 from osrlib.core.frozen import _Model
 from osrlib.core.monsters import TreasureRef
@@ -116,7 +116,7 @@ use it too unless you have a reason not to.
 """
 
 
-class TreasureSection(StrEnum):
+class TreasureSection(_StrEnum):
     """Which section of the treasure tables a letter belongs to, which sets when you generate it.
 
     A monster's stat block lists treasure types by letter, and when you generate a letter
@@ -136,7 +136,7 @@ class TreasureSection(StrEnum):
     """Types U and V: what a group carries between them, generated once for the group."""
 
 
-class CoinDenomination(StrEnum):
+class CoinDenomination(_StrEnum):
     """The five coin denominations, as the treasure tables print them.
 
     A coin entry gives one of these, and generation adds the rolled amount to the matching
@@ -156,7 +156,7 @@ class CoinDenomination(StrEnum):
     """Copper, a hundred to the gold piece."""
 
 
-class MagicItemType(StrEnum):
+class MagicItemType(_StrEnum):
     """The types of the master *Magic Item Type* table, which is the first roll in generating a magic item.
 
     Roll the master table to get one of these, then roll that type's table for the item:
