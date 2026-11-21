@@ -184,7 +184,7 @@ from pydantic import ConfigDict, Field, TypeAdapter, ValidationError, field_vali
 
 from osrlib.core._descriptions import _StrEnum
 from osrlib.core.character import Character
-from osrlib.core.clock import TimeUnit
+from osrlib.core.clock import ROUNDS_PER_DAY, ROUNDS_PER_TURN, TimeUnit
 from osrlib.core.dice import parse
 from osrlib.core.events import Event
 from osrlib.core.frozen import _Model
@@ -339,6 +339,37 @@ class SessionMode(_StrEnum):
     def terminal(self) -> bool:
         """Whether the session has ended, which is True in `game_over` and `victory`."""
         return self in (SessionMode.GAME_OVER, SessionMode.VICTORY)
+
+
+_SPAWN_LIMIT = 100
+"""The most monsters or adventurers one spawn command creates. 100 is the largest number in
+the B/X monster data, for normal bats and for wild horses in a lair. The `count_fixed` fields
+state it as a literal `le=100`, because the reference pages render a field's value and must
+not show a private name."""
+
+_ADVANCE_DAYS_LIMIT = 28
+"""The most days one `AdvanceTime` advances. 28 days is the longest time limit on raising the
+dead, for a 14th-level cleric."""
+
+_ROUNDS_PER_UNIT: dict[TimeUnit, int] = {
+    TimeUnit.ROUND: 1,
+    TimeUnit.TURN: ROUNDS_PER_TURN,
+    TimeUnit.DAY: ROUNDS_PER_DAY,
+}
+
+
+def _count_dice(expression: str) -> str:
+    """Return a spawn command's `count_dice`, or raise `ValueError` when it can't be used.
+
+    The expression must parse, and its largest possible total, with every die showing its
+    highest face, must be at most `_SPAWN_LIMIT`.
+    """
+    _dice_that_parse(expression)
+    dice = parse(expression)
+    highest = (dice.count * dice.sides + dice.modifier) * dice.multiplier
+    if highest > _SPAWN_LIMIT:
+        raise ValueError(f"{expression!r} can roll {highest}, and a spawn creates at most {_SPAWN_LIMIT}")
+    return expression
 
 
 def _dice_that_parse(expression: str) -> str:
@@ -3333,12 +3364,13 @@ class GrantItem(Command):
     and the ids the adventure bundles. Then it looks in the magic item catalog from
     [`load_magic_items`][osrlib.data.load_magic_items] (see the
     [magic item id index](https://mmacy.github.io/osrlib-python/reference/content-ids/magic-items/))."""
-    quantity: int = Field(default=1, ge=1)
-    """How many to place, counted as single items rather than as purchase lots.
+    quantity: int = Field(default=1, ge=1, le=1_000)
+    """How many to place, from 1 to 1,000, counted as single items rather than as purchase lots.
     `quantity=6` grants six torches, the same number one lot of torches from
     [`PurchaseEquipment`][osrlib.crawl.commands.PurchaseEquipment] delivers. For a magic
     item, it's the number of separate magic items to create, each with its own instance id
-    and its own rolls. `quantity=2` of a bundle of arrows +1 grants two bundles."""
+    and its own rolls. `quantity=2` of a bundle of arrows +1 grants two bundles. To grant more
+    than 1,000, send the command again."""
 
 
 class GrantCoins(Command):
@@ -3772,10 +3804,13 @@ class SpawnMonsters(Command):
     [`ENCOUNTER_STREAM`][osrlib.crawl.session.ENCOUNTER_STREAM]. Use it when the number should
     depend on the seed, and use `count_fixed` when it shouldn't. Set exactly one of the two. A
     malformed expression fails validation when the command is constructed, so the session never
-    sees it. A roll below 1 counts as 1."""
-    count_fixed: int | None = Field(default=None, ge=1)
-    """How many to spawn, as an exact number. Use it when the author chose the number. Set
-    exactly one of this and `count_dice`."""
+    sees it, and so does an expression that can roll more than 100, like `"1d100+1"` or
+    `"11d10"`. A roll below 1 counts as 1. For more than 100 monsters, send the command again,
+    and the second group joins the encounter the first one opened."""
+    count_fixed: int | None = Field(default=None, ge=1, le=100)
+    """How many to spawn, as an exact number from 1 to 100. Use it when the author chose the
+    number. Set exactly one of this and `count_dice`. For more than 100 monsters, send the
+    command again, and the second group joins the encounter the first one opened."""
     distance_feet: int = Field(ge=0)
     """How far away the monsters appear, in feet. A new encounter opens at this distance, and
     a group that joins an open encounter starts at it. The distance determines whether
@@ -3786,7 +3821,7 @@ class SpawnMonsters(Command):
     @field_validator("count_dice")
     @classmethod
     def _dice_must_parse(cls, value: str | None) -> str | None:
-        return value if value is None else _dice_that_parse(value)
+        return value if value is None else _count_dice(value)
 
     @model_validator(mode="after")
     def _dice_or_fixed(self) -> SpawnMonsters:
@@ -3830,15 +3865,17 @@ class SpawnNpcParty(Command):
     count_dice: str | None = None
     """How many adventurers, as a dice expression rolled on the session's
     [`ENCOUNTER_STREAM`][osrlib.crawl.session.ENCOUNTER_STREAM]. A malformed expression fails
-    validation when the command is constructed. A roll below 1 counts as 1. Don't set it
-    together with `count_fixed`.
+    validation when the command is constructed, and so does an expression that can roll more
+    than 100, like `"1d100+1"`. A roll below 1 counts as 1. Don't set it together with
+    `count_fixed`.
 
     When both this and `count_fixed` are `None`, the default, the engine rolls the B/X number
     for `party_kind`: 1d4+4 for `basic` and 1d6+3 for `expert`."""
-    count_fixed: int | None = Field(default=None, ge=1)
-    """How many adventurers, as an exact number. Use it when the adventure's author chose the
-    size of the band. The session rolls nothing for the size. Don't set it together with
-    `count_dice`."""
+    count_fixed: int | None = Field(default=None, ge=1, le=100)
+    """How many adventurers, as an exact number from 1 to 100. Use it when the adventure's
+    author chose the size of the band. The session rolls nothing for the size. Don't set it
+    together with `count_dice`. The command can't add adventurers to an open encounter, so 100
+    is the largest band it makes."""
     distance_feet: int = Field(ge=0)
     """How far away the NPC party appears, in feet, on the same terms as
     [`SpawnMonsters.distance_feet`][osrlib.crawl.commands.SpawnMonsters.distance_feet]."""
@@ -3846,7 +3883,7 @@ class SpawnNpcParty(Command):
     @field_validator("count_dice")
     @classmethod
     def _dice_must_parse(cls, value: str | None) -> str | None:
-        return value if value is None else _dice_that_parse(value)
+        return value if value is None else _count_dice(value)
 
     @model_validator(mode="after")
     def _dice_or_fixed(self) -> SpawnNpcParty:
@@ -4047,12 +4084,20 @@ class AdvanceTime(Command):
 
     command_type: Literal["advance_time"] = "advance_time"
     n: int = Field(ge=0)
-    """How many of `unit` to advance. `0` is legal, advances nothing, and still emits the
-    `TimeAdvancedEvent`."""
+    """How many of `unit` to advance, up to 28 days of game time: 28 days, 4,032 turns, or
+    241,920 rounds. A larger `n` for its `unit` fails validation when the command is
+    constructed, so the session never sees it. For more time, send the command again. `0` is
+    legal, advances nothing, and still emits the `TimeAdvancedEvent`."""
     unit: TimeUnit
     """Which unit `n` counts: rounds, turns, or days. A B/X turn is 10 minutes, or 60 rounds,
     and a day is 144 turns. Effects expire across the whole time whichever unit you pick, and
     the party eats provisions at each day boundary the time crosses."""
+
+    @model_validator(mode="after")
+    def _within_limit(self) -> AdvanceTime:
+        if self.n * _ROUNDS_PER_UNIT[self.unit] > _ADVANCE_DAYS_LIMIT * ROUNDS_PER_DAY:
+            raise ValueError(f"advance at most {_ADVANCE_DAYS_LIMIT} days of game time in one command")
+        return self
 
 
 class RollDice(Command):

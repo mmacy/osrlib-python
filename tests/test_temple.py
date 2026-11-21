@@ -56,8 +56,10 @@ def slay(game: GameSession, days_ago: int = 0):
     victim = game.party.members[1]
     kill(victim)
     game.death_records[victim.id] = DeathRecord(round=game.clock.rounds, cause="damage")
-    if days_ago:
-        assert game.execute(AdvanceTime(n=days_ago, unit=TimeUnit.DAY)).accepted
+    while days_ago:
+        days = min(days_ago, 28)
+        assert game.execute(AdvanceTime(n=days, unit=TimeUnit.DAY)).accepted
+        days_ago -= days
     return victim
 
 
