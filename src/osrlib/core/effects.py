@@ -101,11 +101,11 @@ assert ledger.effects == []
 """
 
 from collections.abc import Mapping
-from enum import StrEnum
 from typing import Annotated, Any, Literal, cast
 
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
+from osrlib.core._descriptions import _StrEnum
 from osrlib.core.clock import ROUNDS_PER_DAY, ROUNDS_PER_TURN, GameClock, TimeUnit
 from osrlib.core.creature import Creature
 from osrlib.core.dice import parse, roll
@@ -163,7 +163,7 @@ _ROUNDS_PER_UNIT: dict[TimeUnit, int] = {
 }
 
 
-class Condition(StrEnum):
+class Condition(_StrEnum):
     """The closed set of named states a creature can be in, like asleep, charmed, or dead.
 
     Check whether a creature has a condition with [`has_condition`][osrlib.core.effects.has_condition]. To put

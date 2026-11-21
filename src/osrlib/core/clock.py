@@ -56,11 +56,11 @@ assert clock.rounds == 370
 ```
 """
 
-from enum import StrEnum
 from typing import Final
 
 from pydantic import ConfigDict, Field
 
+from osrlib.core._descriptions import _StrEnum
 from osrlib.core.frozen import _Model
 
 __all__ = [
@@ -108,7 +108,7 @@ disagree with [`ROUNDS_PER_TURN`][osrlib.core.clock.ROUNDS_PER_TURN] or
 """
 
 
-class TimeUnit(StrEnum):
+class TimeUnit(_StrEnum):
     """The unit an amount of game time is counted in.
 
     Pass one to [`advance`][osrlib.core.clock.GameClock.advance] to say what your number

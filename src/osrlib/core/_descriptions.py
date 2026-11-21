@@ -7,34 +7,38 @@ the docstring of its field. To read the docstrings, `_describe` parses the sourc
 model and its base classes. It parses a module only when pydantic builds a schema, and only once, so importing osrlib
 parses nothing.
 
-A description reaches its reader as raw text, outside the documentation site, so `_describe` reduces each mkdocstrings
-cross-reference, like ``[`MoveParty`][osrlib.crawl.commands.MoveParty]``, to its label, `` `MoveParty` ``. Markdown
-doesn't treat anything inside code as a link, so brackets in code, like `inventory["purse"]["gp"]`, stay as they are.
+Pydantic writes an enum's docstring as the description of the enum's schema. Every osrlib enum subclasses `_StrEnum`,
+whose `__get_pydantic_json_schema__` reduces the cross-references in that description each time pydantic builds the
+enum's schema.
+
+A description reaches its reader as raw text, outside the documentation site, so `_describe` and `_StrEnum` reduce each
+mkdocstrings cross-reference, like ``[`MoveParty`][osrlib.crawl.commands.MoveParty]``, to its label, `` `MoveParty` ``.
+Markdown doesn't treat anything inside code as a link, so brackets in code, like `inventory["purse"]["gp"]`, stay as
+they are.
 """
 
 import ast
 import inspect
 import re
 import sys
-from collections.abc import Iterator
+from enum import StrEnum
 from functools import cache
 from itertools import pairwise
 from typing import Any
 
-from pydantic import BaseModel, GetJsonSchemaHandler
-from pydantic.json_schema import JsonSchemaValue
+from pydantic import AliasChoices, BaseModel, GetJsonSchemaHandler
+from pydantic.fields import FieldInfo
+from pydantic.json_schema import JsonSchemaMode, JsonSchemaValue
+from pydantic_core import CoreSchema
 
 # A fenced code block or a span in two or more backticks.
 _LITERAL = re.compile(r"(```.*?```|~~~.*?~~~|``.+?``)", re.DOTALL)
 
-# A span in single backticks.
-_CODE_SPAN = re.compile(r"(`[^`\n]+`)")
-
-# A cross-reference whose label is a code span, like [`MoveParty`][osrlib.crawl.commands.MoveParty].
-_CODE_REFERENCE = re.compile(r"\[(`[^`\n]+`)\]\[[^\]\s]+\]")
-
-# A cross-reference whose label is text, like [the rejection code reference][rejection-codes].
-_TEXT_REFERENCE = re.compile(r"\[([^\[\]`]+)\]\[[^\]\s]+\]")
+# A span in single backticks, or a cross-reference: a label in brackets, then a target in brackets. The label is text,
+# code spans, or both, like [`MoveParty`][osrlib.crawl.commands.MoveParty], [the rejection code
+# reference][rejection-codes], or [a `MoveParty` command][osrlib.crawl.commands.MoveParty]. The expression matches the
+# span or the cross-reference that starts first, so it never reads brackets inside code as a cross-reference.
+_SPAN_OR_REFERENCE = re.compile(r"(`[^`\n]+`)|\[((?:[^\[\]`]|`[^`\n]+`)+)\]\[[^\]\s]+\]")
 
 
 def _plain(text: str) -> str:
@@ -42,10 +46,7 @@ def _plain(text: str) -> str:
     if "][" not in text:
         return text
     parts = _LITERAL.split(text)
-    for index in range(0, len(parts), 2):
-        spans = _CODE_SPAN.split(_CODE_REFERENCE.sub(r"\1", parts[index]))
-        spans[::2] = [_TEXT_REFERENCE.sub(r"\1", span) for span in spans[::2]]
-        parts[index] = "".join(spans)
+    parts[::2] = [_SPAN_OR_REFERENCE.sub(lambda match: match.group(1) or match.group(2), part) for part in parts[::2]]
     return "".join(parts)
 
 
@@ -53,7 +54,9 @@ def _plain(text: str) -> str:
 def _module_docstrings(module_name: str) -> dict[str, dict[str, str]]:
     """Map the qualified name of each class in a module to the plain docstrings of the fields it declares.
 
-    For a module whose source can't be read, like one installed as bytecode alone, the mapping is empty.
+    For a module whose source can't be read, like one installed as bytecode alone, the mapping is empty. The cache lasts
+    as long as the process, so after `importlib.reload` reloads a module, its schemas still have the docstrings from
+    before the reload.
     """
     try:
         tree = ast.parse(inspect.getsource(sys.modules[module_name]))
@@ -88,32 +91,38 @@ def _field_docstrings(cls: type[BaseModel]) -> dict[str, str]:
     return docstrings
 
 
-def _references(value: Any) -> Iterator[str]:
-    """Yield each `$ref` in a JSON Schema, at any depth."""
-    pending = [value]
-    while pending:
-        item = pending.pop()
-        if isinstance(item, dict):
-            if isinstance(reference := item.get("$ref"), str):
-                yield reference
-            pending.extend(item.values())
-        elif isinstance(item, list):
-            pending.extend(item)
-
-
 def _reduce(schema: dict[str, Any]) -> None:
     """Reduce the cross-references in a schema's top-level `description`."""
     if isinstance(description := schema.get("description"), str):
         schema["description"] = _plain(description)
 
 
+def _property_name(name: str, info: FieldInfo, mode: JsonSchemaMode) -> str:
+    """Return the name of a field's property in a schema that uses aliases, as pydantic chooses it.
+
+    The alias for the mode is a name, an `AliasPath`, or an `AliasChoices`. For an `AliasChoices`, pydantic uses the
+    first choice that's a path of one name, like `"flat"` in `AliasChoices(AliasPath("outer", "inner"), "flat")`. For
+    an `AliasPath` alone, even a path of one name, and for an `AliasChoices` with no such choice, it uses the field's
+    name.
+    """
+    alias = info.validation_alias if mode == "validation" else info.serialization_alias
+    if alias is None:
+        alias = info.alias
+    if isinstance(alias, str):
+        return alias
+    if isinstance(alias, AliasChoices):
+        for path in alias.convert_to_aliases():
+            if len(path) == 1 and isinstance(path[0], str):
+                return path[0]
+    return name
+
+
 def _describe(cls: type[BaseModel], json_schema: JsonSchemaValue, handler: GetJsonSchemaHandler) -> None:
     """Give a model's JSON Schema the docstring of each field, and reduce the cross-references in its descriptions.
 
     A field declared with `Field(description=...)` has that description in the schema instead, with its cross-references
-    reduced. `_describe` also reduces the descriptions of the definitions that the fields refer to, directly or
-    through another definition, so an enum's docstring in the schema has its cross-references reduced too.
-    `_reduce_definitions` states the one case where an enum's description still has its cross-references.
+    reduced. A property can be named for the field or for its alias, so the schema is described both when it uses
+    aliases and when it doesn't.
 
     Args:
         cls: The model.
@@ -123,11 +132,9 @@ def _describe(cls: type[BaseModel], json_schema: JsonSchemaValue, handler: GetJs
     """
     schema = handler.resolve_ref_schema(json_schema)
     _reduce(schema)
-    fields: dict[str, str] = {}
-    for name, info in cls.model_fields.items():
-        for key in (name, info.alias, info.validation_alias, info.serialization_alias):
-            if isinstance(key, str):
-                fields[key] = name
+    fields = {name: name for name in cls.model_fields}
+    # A property named for a field's alias belongs to that field, even when another field has the same name.
+    fields.update({_property_name(name, info, handler.mode): name for name, info in cls.model_fields.items()})
     docstrings = _field_docstrings(cls)
     properties: dict[str, Any] = schema.get("properties", {})
     for key, prop in properties.items():
@@ -136,25 +143,19 @@ def _describe(cls: type[BaseModel], json_schema: JsonSchemaValue, handler: GetJs
             prop["description"] = docstrings[name]
         else:
             _reduce(prop)
-    _reduce_definitions(properties, handler, set())
 
 
-def _reduce_definitions(value: Any, handler: GetJsonSchemaHandler, seen: set[str]) -> None:
-    """Reduce the description of each definition that a JSON Schema refers to, directly or through another definition.
+class _StrEnum(StrEnum):
+    """The base class of every osrlib enum. It reduces the cross-references in the description of the enum's schema."""
 
-    An enum's description still has its cross-references when the root of the schema isn't a model and every model in
-    it is a shared definition, like `TypeAdapter(tuple[Pair, Pair])` for a model `Pair` with two fields of the same
-    enum, because pydantic builds no model's schema after the enum's.
-    """
-    for reference in _references(value):
-        if reference in seen:
-            continue
-        seen.add(reference)
-        try:
-            definition = handler.resolve_ref_schema({"$ref": reference})
-        except LookupError:
-            # Pydantic hasn't built this definition yet. When pydantic builds the schema of a later model, like the
-            # root of the schema, `_describe` reaches the definition again.
-            continue
-        _reduce(definition)
-        _reduce_definitions(definition, handler, seen)
+    @classmethod
+    def __get_pydantic_json_schema__(cls, schema: CoreSchema, handler: GetJsonSchemaHandler, /) -> JsonSchemaValue:
+        """Return the enum's JSON Schema, with each cross-reference in its description reduced to its label.
+
+        Pydantic calls this each time it builds the enum's schema, after it writes the enum's docstring as the
+        description. The call reads and changes only the enum's schema, so it doesn't depend on the order in which
+        pydantic builds the definitions of a larger schema.
+        """
+        json_schema = handler(schema)
+        _reduce(handler.resolve_ref_schema(json_schema))
+        return json_schema

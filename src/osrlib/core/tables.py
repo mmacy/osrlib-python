@@ -53,11 +53,11 @@ above 20.
 # combat_tables.json and encounter_tables.json at build time.
 
 from collections.abc import Mapping
-from enum import StrEnum
 from typing import Annotated, Literal
 
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
+from osrlib.core._descriptions import _StrEnum
 from osrlib.core.classes import SavingThrows
 from osrlib.core.dice import _lowest_total, parse, roll
 from osrlib.core.frozen import FrozenMap, _Model
@@ -372,7 +372,7 @@ class XpAwardRow(_Model):
     """The extra experience points for each special ability, shown as an asterisk in a stat block, as in 3*."""
 
 
-class ReactionResult(StrEnum):
+class ReactionResult(_StrEnum):
     """How monsters respond to the party when they meet, from the SRD's monster reaction table.
 
     [`reaction_result`][osrlib.core.tables.reaction_result] returns one from a 2d6 total.

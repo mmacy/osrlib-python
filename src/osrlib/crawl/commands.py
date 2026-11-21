@@ -177,12 +177,12 @@ assert parse_command({"command_type": "fly_party"}) is None
 """
 
 from collections.abc import Mapping
-from enum import StrEnum
 from functools import cache
 from typing import Annotated, ClassVar, Literal, Union
 
 from pydantic import ConfigDict, Field, TypeAdapter, ValidationError, field_validator, model_validator
 
+from osrlib.core._descriptions import _StrEnum
 from osrlib.core.character import Character
 from osrlib.core.clock import TimeUnit
 from osrlib.core.dice import parse
@@ -267,7 +267,7 @@ __all__ = [
 ]
 
 
-class SessionMode(StrEnum):
+class SessionMode(_StrEnum):
     """Where the party is in play, which determines the commands the session accepts.
 
     Read the current mode from

@@ -63,10 +63,9 @@ assert (check.roll, check.success) == (18, False)
 ```
 """
 
-from enum import StrEnum
-
 from pydantic import ConfigDict, Field, model_validator
 
+from osrlib.core._descriptions import _StrEnum
 from osrlib.core.frozen import _Model
 from osrlib.core.rng import RngStream
 from osrlib.core.validation import Rejection
@@ -122,7 +121,7 @@ rolled below 9 is legal, and the trade can't lower it further.
 """
 
 
-class AbilityScore(StrEnum):
+class AbilityScore(_StrEnum):
     """Which of the six abilities a score belongs to.
 
     Use these as the keys of a score dictionary, which is how every function here and in
@@ -153,7 +152,7 @@ class AbilityScore(StrEnum):
     """Charisma: how monsters and NPCs react, and how many retainers the character can keep, and how loyal they are."""
 
 
-class Literacy(StrEnum):
+class Literacy(_StrEnum):
     """How well a character reads and writes, which their intelligence score sets.
 
     Read it off [`AbilityTables.literacy`][osrlib.core.abilities.AbilityTables.literacy], passing the

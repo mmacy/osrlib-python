@@ -89,12 +89,12 @@ print(torches.quantity, inventory.purse.gp, movement_rate_feet(inventory, Rulese
 """
 
 from collections.abc import Mapping
-from enum import StrEnum
 from typing import TYPE_CHECKING, Annotated, Any, Literal
 
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
 import osrlib.core
+from osrlib.core._descriptions import _StrEnum
 from osrlib.core.classes import ArmourPolicyKind, ClassDefinition, WeaponPolicyKind
 from osrlib.core.dice import parse
 from osrlib.core.effects import ModifierSpec
@@ -226,7 +226,7 @@ The experience award for treasure is 1 XP per gold piece of value.
 """
 
 
-class WeaponQuality(StrEnum):
+class WeaponQuality(_StrEnum):
     """What a weapon can do in combat, as the SRD's weapon table prints it.
 
     Every [`WeaponTemplate`][osrlib.core.items.WeaponTemplate] and every gear
@@ -266,7 +266,7 @@ class WeaponQuality(StrEnum):
     """Occupies both hands, so it can't be wielded with a shield equipped."""
 
 
-class Material(StrEnum):
+class Material(_StrEnum):
     """What a weapon or piece of ammunition is made of, where the rules care.
 
     Some monsters are hurt only by silver or magical weapons. The `material` field of
@@ -285,7 +285,7 @@ class Material(StrEnum):
     """Silver or silver-tipped, so it harms a monster that only silver or magic can hurt."""
 
 
-class ArmourCategory(StrEnum):
+class ArmourCategory(_StrEnum):
     """How bulky a suit of body armour is, for the basic encumbrance rates.
 
     Under basic encumbrance, a character's movement rate depends on the armour they wear
@@ -733,7 +733,7 @@ class EquipmentCatalog(_Model):
         raise ValueError(f"unknown item id {item_id!r}")
 
 
-class MagicItemCategory(StrEnum):
+class MagicItemCategory(_StrEnum):
     """What kind of magic item a template is, in the magic item catalog.
 
     Every [`MagicItemTemplate`][osrlib.core.items.MagicItemTemplate] has one. The category

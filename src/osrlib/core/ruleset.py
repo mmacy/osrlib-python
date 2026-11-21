@@ -44,10 +44,9 @@ assert house_rules.variable_weapon_damage is True
 # Code reads every flag here. Don't add a flag before the code that reads it exists.
 # Adding a flag with a default doesn't require a schema_version bump.
 
-from enum import StrEnum
-
 from pydantic import ConfigDict
 
+from osrlib.core._descriptions import _StrEnum
 from osrlib.core.frozen import _Model
 
 __all__ = [
@@ -57,7 +56,7 @@ __all__ = [
 ]
 
 
-class XpAwardTiming(StrEnum):
+class XpAwardTiming(_StrEnum):
     """When a party receives the experience points it has earned.
 
     Set it on [`Ruleset.xp_award_timing`][osrlib.core.ruleset.Ruleset]. The choice affects
@@ -85,7 +84,7 @@ class XpAwardTiming(StrEnum):
     """
 
 
-class EncumbranceMode(StrEnum):
+class EncumbranceMode(_StrEnum):
     """Which system osrlib uses to track what the party carries, and how much it slows them down.
 
     Set it on [`Ruleset.encumbrance`][osrlib.core.ruleset.Ruleset]. The weights and the

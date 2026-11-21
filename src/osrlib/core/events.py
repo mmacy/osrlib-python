@@ -62,12 +62,12 @@ assert restored == log
 
 import re
 from collections.abc import Iterable, Mapping
-from enum import StrEnum
 from functools import cache
 from typing import Annotated, ClassVar, Literal
 
 from pydantic import ConfigDict, Field, ValidationError, field_validator, model_validator
 
+from osrlib.core._descriptions import _StrEnum
 from osrlib.core.frozen import _Model
 
 __all__ = [
@@ -112,7 +112,7 @@ __all__ = [
 _CODE_PATTERN = re.compile(r"[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+")
 
 
-class Visibility(StrEnum):
+class Visibility(_StrEnum):
     """Who may see an event: the players, or only the referee.
 
     Every event has one of these values, because in B/X the referee makes some rolls behind a screen. Filter

@@ -69,10 +69,10 @@ assert roll("1d20", RngStreams(master_seed=42).get(StreamName.COMBAT)).total == 
 """
 
 import hashlib
-from enum import StrEnum
 
 from pydantic import ConfigDict, Field, field_validator
 
+from osrlib.core._descriptions import _StrEnum
 from osrlib.core.frozen import _Model
 
 __all__ = [
@@ -93,7 +93,7 @@ _SEED_BYTES = 16
 _SEED_BOUND = 1 << 128
 
 
-class StreamName(StrEnum):
+class StreamName(_StrEnum):
     """Every stream name a running session draws from.
 
     Each member is a string, so [`RngStreams.get`][osrlib.core.rng.RngStreams.get] returns the same
