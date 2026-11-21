@@ -34,8 +34,6 @@ from osrlib.crawl.commands import AnyCommand
 from osrlib.crawl.events import AnyEvent
 from osrlib.crawl.views import PlayerView, RefereeView
 
-pytestmark = pytest.mark.xfail(reason="chunk: schema-descriptions")
-
 # A fenced code block or a span in two or more backticks. Markdown reads nothing inside one as a link, so
 # `inventory["purse"]["gp"]` in an example stays as it is.
 _LITERAL = re.compile(r"(```.*?```|~~~.*?~~~|``.+?``)", re.DOTALL)
@@ -202,7 +200,7 @@ def test_a_published_schema_describes_every_property_in_plain_text(root: str, mo
     ],
 )
 def test_the_rule_for_a_cross_reference(markdown: str, plain: str) -> None:
-    # This test passes before the chunk does: it pins the rule the other tests hold the schema to.
+    # The rule that the other tests check each description against.
     assert _without_references(markdown) == plain
 
 
