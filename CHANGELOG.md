@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [2.5.0] - 2026-11-20
+
 ### Added
 
 - Each party member's [`MemberView`][osrlib.crawl.views.MemberView] in the player view now has every number on a B/X character sheet, so a client that has only the player view can draw the sheet (#227, #231). The new fields are `race`, `alignment`, `title`, `xp`, `xp_next_level`, `scores`, `melee_modifier`, `missile_modifier`, `initiative_modifier`, `hit_point_modifier`, `magic_save_modifier`, `npc_reaction_modifier`, `open_doors_chance`, `thac0`, `attack_bonus`, `armour_class`, `armour_class_ascending`, `saves`, `movement_rate_feet`, `languages`, `spell_book`, and `thief_skills`. The session fills them from the live character for every member, living or dead. Each new field has a default, so a client that ignores it keeps working.
@@ -625,7 +627,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The documentation site: quickstart, guides, front-end walk-throughs, and a full reference for every command, event, rejection code, message code, RNG stream, and content id.
 - The typed surface: complete type hints under `py.typed`, checked in CI.
 
-[Unreleased]: https://github.com/mmacy/osrlib-python/compare/v2.4.0...HEAD
+[Unreleased]: https://github.com/mmacy/osrlib-python/compare/v2.5.0...HEAD
+[2.5.0]: https://github.com/mmacy/osrlib-python/compare/v2.4.0...v2.5.0
 [2.4.0]: https://github.com/mmacy/osrlib-python/compare/v2.3.0...v2.4.0
 [2.3.0]: https://github.com/mmacy/osrlib-python/compare/v2.2.0...v2.3.0
 [2.2.0]: https://github.com/mmacy/osrlib-python/compare/v2.1.0...v2.2.0

@@ -4,8 +4,9 @@ Run this with a fresh venv's interpreter after installing the wheel by path into
 venv — never against the repository checkout, and it imports nothing from `tests/` or
 `tools/`. It asserts the import resolves under site-packages rather than a shadowing
 checkout, that installed metadata and `engine_version()` report the expected version,
-that the shipped data loads, that the quickstart path runs end-to-end, and that the
-OGL license text ships readable inside the package.
+that the shipped data loads, that the quickstart path runs end-to-end, that the OGL
+license text ships readable inside the package, and that a model's JSON Schema has its
+field docstrings.
 
 Usage:
     <fresh-venv-python> tools/release/install_smoke.py EXPECTED_VERSION
@@ -95,6 +96,16 @@ def check_ogl_text() -> None:
     print("ok: the shipped OGL text is readable and carries the Section 15 notice")
 
 
+def check_schema_descriptions() -> None:
+    """Assert a model's JSON Schema has its field docstrings, which osrlib reads from the installed source files."""
+    from osrlib.crawl.commands import MoveParty
+
+    properties = MoveParty.model_json_schema()["properties"]
+    for name in ("command_type", "direction"):
+        assert properties[name].get("description"), f"MoveParty.{name} has no description in the installed package"
+    print("ok: a model's JSON Schema has its field docstrings")
+
+
 def main() -> int:
     """Run every smoke check in order.
 
@@ -109,6 +120,7 @@ def main() -> int:
     check_data_ships()
     check_quickstart()
     check_ogl_text()
+    check_schema_descriptions()
     print(f"install smoke passed: osrlib {args.version}")
     return 0
 
