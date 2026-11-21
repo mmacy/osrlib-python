@@ -1,9 +1,9 @@
 """Where a model's JSON Schema gets its descriptions, in the cases the acceptance tests don't cover.
 
 `test_schema_descriptions.py` checks the schemas of the osrlib models against their source. These tests cover an
-installation that has no source, a model defined outside osrlib, an enum that pydantic reaches only through a shared
-definition, the enums in the schema of every osrlib model, and the OpenAPI document of a FastAPI application. They
-hold descriptions to the cross-reference rule of `test_schema_descriptions.py`.
+installation that has no source, a model defined outside osrlib, a nested model, an enum that pydantic reaches only
+through a shared definition, the definitions in the schema of every osrlib model, and the OpenAPI document of a FastAPI
+application. They check descriptions against the cross-reference rule of `test_schema_descriptions.py`.
 """
 
 import compileall
@@ -176,7 +176,8 @@ def test_an_openapi_document_describes_every_osrlib_property() -> None:
 
     document = app.openapi()
     schemas: dict[str, Any] = document["components"]["schemas"]
-    # Pydantic names a model's schema `Name-Input` or `Name-Output` when the two modes differ.
+    # Pydantic names a model's schema `Name-Input` or `Name-Output` when its validation and serialization schemas
+    # differ.
     names = {key: key.removesuffix("-Input").removesuffix("-Output") for key in schemas}
     assert set(names.values()) - _osrlib_names() <= _FASTAPI_SCHEMAS
     undescribed = [

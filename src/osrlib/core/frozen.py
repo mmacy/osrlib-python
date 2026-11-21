@@ -217,8 +217,8 @@ class _Model(BaseModel):
     validates each assignment, so a copy that skipped validation could break a rule that building the model or
     assigning a field enforces.
 
-    It also gives the model's JSON Schema a description for each field: the field's docstring, or the docstring of the
-    nearest base class that documents the field.
+    The class also gives each model's JSON Schema a description for each field: the field's docstring, from the
+    class or from the nearest base class that documents the field.
     """
 
     def model_copy(self, *, update: Mapping[str, Any] | None = None, deep: bool = False) -> Self:
@@ -257,8 +257,10 @@ class _Model(BaseModel):
         """Return the model's JSON Schema, with each field's docstring as its description.
 
         Pydantic calls this each time it builds the model's JSON Schema, for `model_json_schema()` and for a
-        `TypeAdapter`. Each mkdocstrings cross-reference in a description is reduced to its label. A field of a model
-        whose module has no readable source, like one installed as bytecode alone, has no description.
+        `TypeAdapter`. It reduces each mkdocstrings cross-reference in a description to its label. When the model's
+        module has no readable source, like one installed as bytecode alone, the schema doesn't have the field
+        docstrings. It still has the descriptions that pydantic writes itself, like the model's docstring, a computed
+        field's docstring, and a `Field(description=...)`.
         """
         json_schema = handler(schema)
         _describe(cls, json_schema, handler)

@@ -8,8 +8,8 @@ API consumer loads directly.
 
 Each schema is the one the library returns, from `model_json_schema()` or
 `TypeAdapter(...).json_schema()`. osrlib gives every property the docstring of its field, and
-reduces each mkdocstrings cross-reference in a description to its label, so the schemas here
-are the ones a program that uses osrlib publishes.
+reduces each mkdocstrings cross-reference in a description to its label, so the site publishes
+the same schemas that a program using osrlib gets from those calls.
 """
 
 import json

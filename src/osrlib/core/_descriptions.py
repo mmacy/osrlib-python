@@ -1,13 +1,15 @@
 """The descriptions in the JSON Schema of an osrlib model: each field's docstring, as plain Markdown.
 
-osrlib documents a field with a string on the line after it, and pydantic doesn't read that string. Each time
-pydantic builds the JSON Schema of a model, `_Model.__get_pydantic_json_schema__` calls `_describe`, which gives each
-property the docstring of its field. To read the docstrings, `_describe` parses the source of the model's module. It
-parses each module once, the first time a schema needs it, so importing osrlib parses nothing.
+osrlib documents a field with a string on the line after it. osrlib's models don't turn on pydantic's
+`use_attribute_docstrings`, so pydantic doesn't read that string. Each time pydantic builds the JSON Schema of a model,
+`_Model.__get_pydantic_json_schema__` calls `_describe`, which gives each property without a `Field(description=...)`
+the docstring of its field. To read the docstrings, `_describe` parses the source of the modules that define the
+model and its base classes. It parses a module only when pydantic builds a schema, and only once, so importing osrlib
+parses nothing.
 
 A description reaches its reader as raw text, outside the documentation site, so `_describe` reduces each mkdocstrings
 cross-reference, like ``[`MoveParty`][osrlib.crawl.commands.MoveParty]``, to its label, `` `MoveParty` ``. Markdown
-reads nothing inside code as a link, so brackets in code, like `inventory["purse"]["gp"]`, stay as they are.
+doesn't treat anything inside code as a link, so brackets in code, like `inventory["purse"]["gp"]`, stay as they are.
 """
 
 import ast
@@ -51,7 +53,7 @@ def _plain(text: str) -> str:
 def _module_docstrings(module_name: str) -> dict[str, dict[str, str]]:
     """Map the qualified name of each class in a module to the plain docstrings of the fields it declares.
 
-    A module whose source can't be read, like one installed as bytecode alone, maps to no classes.
+    For a module whose source can't be read, like one installed as bytecode alone, the mapping is empty.
     """
     try:
         tree = ast.parse(inspect.getsource(sys.modules[module_name]))
@@ -100,7 +102,7 @@ def _references(value: Any) -> Iterator[str]:
 
 
 def _reduce(schema: dict[str, Any]) -> None:
-    """Reduce the cross-references in a schema's own description."""
+    """Reduce the cross-references in a schema's top-level `description`."""
     if isinstance(description := schema.get("description"), str):
         schema["description"] = _plain(description)
 
@@ -108,13 +110,14 @@ def _reduce(schema: dict[str, Any]) -> None:
 def _describe(cls: type[BaseModel], json_schema: JsonSchemaValue, handler: GetJsonSchemaHandler) -> None:
     """Give a model's JSON Schema the docstring of each field, and reduce the cross-references in its descriptions.
 
-    A field whose `Field(description=...)` is set keeps that description. This also reduces the descriptions of the
-    definitions that the fields refer to, directly or through another definition, so an enum's docstring reaches the
-    schema as plain text.
+    A field declared with `Field(description=...)` has that description in the schema instead, with its cross-references
+    reduced. `_describe` also reduces the descriptions of the definitions that the fields refer to, directly or
+    through another definition, so an enum's docstring in the schema has its cross-references reduced too.
+    `_reduce_definitions` states the one case where an enum's description still has its cross-references.
 
     Args:
         cls: The model.
-        json_schema: The model's JSON Schema, or a reference to it, which this changes in place.
+        json_schema: The model's JSON Schema, or a reference to it. `_describe` changes the schema in place.
         handler: The handler pydantic passed to the model's `__get_pydantic_json_schema__`, which resolves a
             reference to its definition.
     """
@@ -137,11 +140,11 @@ def _describe(cls: type[BaseModel], json_schema: JsonSchemaValue, handler: GetJs
 
 
 def _reduce_definitions(value: Any, handler: GetJsonSchemaHandler, seen: set[str]) -> None:
-    """Reduce the description of each definition that a JSON Schema refers to, directly or through another one.
+    """Reduce the description of each definition that a JSON Schema refers to, directly or through another definition.
 
-    An enum keeps the cross-references in its description when the root of the schema isn't a model and every model
-    in it is a shared definition, like `TypeAdapter(tuple[Pair, Pair])` for a model `Pair` with an enum field,
-    because no model's schema is built after the enum's.
+    An enum's description still has its cross-references when the root of the schema isn't a model and every model in
+    it is a shared definition, like `TypeAdapter(tuple[Pair, Pair])` for a model `Pair` with two fields of the same
+    enum, because pydantic builds no model's schema after the enum's.
     """
     for reference in _references(value):
         if reference in seen:
@@ -150,8 +153,8 @@ def _reduce_definitions(value: Any, handler: GetJsonSchemaHandler, seen: set[str
         try:
             definition = handler.resolve_ref_schema({"$ref": reference})
         except LookupError:
-            # Pydantic hasn't built this definition yet. A model whose schema pydantic builds later, like the root
-            # of the schema, reaches the definition again.
+            # Pydantic hasn't built this definition yet. When pydantic builds the schema of a later model, like the
+            # root of the schema, `_describe` reaches the definition again.
             continue
         _reduce(definition)
         _reduce_definitions(definition, handler, seen)
