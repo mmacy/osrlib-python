@@ -137,7 +137,12 @@ def _describe(cls: type[BaseModel], json_schema: JsonSchemaValue, handler: GetJs
 
 
 def _reduce_definitions(value: Any, handler: GetJsonSchemaHandler, seen: set[str]) -> None:
-    """Reduce the description of each definition that a JSON Schema refers to, directly or through another one."""
+    """Reduce the description of each definition that a JSON Schema refers to, directly or through another one.
+
+    An enum keeps the cross-references in its description when the root of the schema isn't a model and every model
+    in it is a shared definition, like `TypeAdapter(tuple[Pair, Pair])` for a model `Pair` with an enum field,
+    because no model's schema is built after the enum's.
+    """
     for reference in _references(value):
         if reference in seen:
             continue

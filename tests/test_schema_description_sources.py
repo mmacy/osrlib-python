@@ -2,34 +2,35 @@
 
 `test_schema_descriptions.py` checks the schemas of the osrlib models against their source. These tests cover an
 installation that has no source, a model defined outside osrlib, an enum that pydantic reaches only through a shared
-definition, and the enums in the schema of every osrlib model.
+definition, the enums in the schema of every osrlib model, and the OpenAPI document of a FastAPI application. They
+hold descriptions to the cross-reference rule of `test_schema_descriptions.py`.
 """
 
 import compileall
-import importlib
+import inspect
 import json
-import pkgutil
 import shutil
 import subprocess
 import sys
-from enum import StrEnum
+from enum import Enum, StrEnum
 from pathlib import Path
 from typing import Any
 
 import pytest
-from pydantic import BaseModel, Field, TypeAdapter
+from fastapi import FastAPI
+from pydantic import Field, TypeAdapter
 
-import osrlib
-from osrlib.core._descriptions import _plain
 from osrlib.core.frozen import _Model
+from osrlib.crawl.commands import AnyCommand, MoveParty
+from osrlib.crawl.views import PlayerView
+from test_schema_descriptions import _MODELS, _descriptions, _without_references
 
 SOURCE = Path(__file__).resolve().parent.parent / "src" / "osrlib"
 
 _WITHOUT_SOURCE = """
-import inspect, json
+import json
 from pydantic import TypeAdapter
 import osrlib
-from osrlib.core._descriptions import _plain
 from osrlib.crawl.commands import AnyCommand, MoveParty
 
 schema = TypeAdapter(AnyCommand).json_schema()
@@ -42,7 +43,6 @@ print(json.dumps({
         if "description" in prop
     ],
     "description": MoveParty.model_json_schema()["description"],
-    "expected": _plain(inspect.cleandoc(MoveParty.__doc__)),
 }))
 """
 
@@ -63,7 +63,7 @@ def test_a_schema_from_an_installation_without_source_has_no_field_descriptions(
     assert found["file"] == str(package / "__init__.pyc")
     assert found["described"] == []
     # The class docstring is in the bytecode, so the model still has its description.
-    assert found["description"] == found["expected"]
+    assert found["description"] == _without_references(inspect.cleandoc(MoveParty.__doc__ or ""))
 
 
 class Lantern(_Model):
@@ -137,39 +137,55 @@ def test_an_enum_that_a_shared_definition_refers_to_is_plain() -> None:
     assert schema["$defs"]["Pair"]["properties"]["first"]["description"] == "The first shade."
 
 
-def _osrlib_models() -> list[type[BaseModel]]:
-    for module in pkgutil.walk_packages(osrlib.__path__, "osrlib."):
-        importlib.import_module(module.name)
-    found: list[type[BaseModel]] = []
-    pending = list(BaseModel.__subclasses__())
-    while pending:
-        cls = pending.pop()
-        pending.extend(cls.__subclasses__())
-        if cls.__module__.startswith("osrlib.") and cls.__pydantic_generic_metadata__["origin"] is None:
-            found.append(cls)
-    return sorted(found, key=lambda cls: (cls.__module__, cls.__qualname__))
-
-
-def _with_references(value: Any) -> list[str]:
-    found: list[str] = []
-    if isinstance(value, dict):
-        for key, item in value.items():
-            if key == "description" and isinstance(item, str):
-                if _plain(item) != item:
-                    found.append(item[:60])
-            else:
-                found.extend(_with_references(item))
-    elif isinstance(value, list):
-        for item in value:
-            found.extend(_with_references(item))
-    return found
+def _with_references(schema: dict[str, Any]) -> list[str]:
+    return [path for path, text in _descriptions(schema) if _without_references(text) != text]
 
 
 @pytest.mark.parametrize("mode", ["validation", "serialization"])
 def test_no_osrlib_schema_has_a_cross_reference_in_a_definition(mode: Any) -> None:
     offenders = {
         f"{cls.__module__}.{cls.__qualname__}": found
-        for cls in _osrlib_models()
+        for cls in _MODELS
         if (found := _with_references(TypeAdapter(cls).json_schema(mode=mode)))
     }
     assert offenders == {}
+
+
+# The schemas FastAPI adds to every application that validates a request body.
+_FASTAPI_SCHEMAS = {"HTTPValidationError", "ValidationError"}
+
+
+def _osrlib_names() -> set[str]:
+    enums = {
+        value.__name__
+        for name, module in sys.modules.items()
+        if name.startswith("osrlib.")
+        for value in vars(module).values()
+        if isinstance(value, type) and issubclass(value, Enum) and value.__module__.startswith("osrlib.")
+    }
+    return enums | {cls.__name__ for cls in _MODELS}
+
+
+def test_an_openapi_document_describes_every_osrlib_property() -> None:
+    app = FastAPI()
+
+    @app.post("/commands")
+    def execute(command: AnyCommand) -> PlayerView:
+        """Run a command and return what the players see."""
+        raise NotImplementedError
+
+    document = app.openapi()
+    schemas: dict[str, Any] = document["components"]["schemas"]
+    # Pydantic names a model's schema `Name-Input` or `Name-Output` when the two modes differ.
+    names = {key: key.removesuffix("-Input").removesuffix("-Output") for key in schemas}
+    assert set(names.values()) - _osrlib_names() <= _FASTAPI_SCHEMAS
+    undescribed = [
+        f"{key}.{property_name}"
+        for key, schema in schemas.items()
+        if names[key] not in _FASTAPI_SCHEMAS
+        for property_name, property_schema in schema.get("properties", {}).items()
+        if not property_schema.get("description")
+    ]
+    assert len(schemas) > len(_FASTAPI_SCHEMAS)
+    assert undescribed == []
+    assert _with_references(document) == []
