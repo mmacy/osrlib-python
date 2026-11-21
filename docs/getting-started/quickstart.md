@@ -1,12 +1,12 @@
 # Quickstart
 
-Install [osrlib from PyPI](https://pypi.org/project/osrlib/). osrlib requires Python 3.14 or later.
+osrlib requires Python 3.14 or later. Install [osrlib from PyPI](https://pypi.org/project/osrlib/) with `uv`:
 
 ```sh
 uv add osrlib
 ```
 
-or, with pip:
+Or install with `pip`:
 
 ```sh
 pip install osrlib
@@ -14,7 +14,7 @@ pip install osrlib
 
 ## Roll the party
 
-[`create_character`][osrlib.core.character.create_character] runs the B/X procedure: ability scores, class, hit points, starting gold. Every random draw comes from a named stream forked from a master seed, so the same seed gives the same rolls.
+Call [`create_character`][osrlib.core.character.create_character] with a `class_id` from [`load_classes`][osrlib.data.load_classes] (see [the class id index][classes-index]) and a named stream from [`RngStreams`][osrlib.core.rng.RngStreams], so using the same master seed reproduces the same rolls. `create_character` rolls 1st-level ability scores, verifies that they meet the class requirements, rolls hit points and starting gold, and returns a [`CharacterCreationResult`][osrlib.core.character.CharacterCreationResult] whose `.character` attribute you pass to [`Party`][osrlib.crawl.party.Party]:
 
 ```{.python .no-run}
 # Roll two 1st-level characters; every random draw comes from a named, seeded stream.
@@ -25,11 +25,9 @@ cleric = create_character(name="Osric", class_id="cleric", alignment=Alignment.L
 party = Party(members=[fighter.character, cleric.character])
 ```
 
-`class_id` takes any id from [`load_classes`][osrlib.data.load_classes]. The result contains the character and its rolls. Pass `fighter.character` to the party.
-
 ## Build the adventure
 
-An [`Adventure`][osrlib.crawl.adventure.Adventure] is a town plus dungeons. This one is a two-cell corridor.
+Combine a [`TownSpec`][osrlib.crawl.adventure.TownSpec] and one or more [`DungeonSpec`][osrlib.crawl.dungeon.DungeonSpec] instances into an [`Adventure`][osrlib.crawl.adventure.Adventure]. In [`LevelSpec`][osrlib.crawl.dungeon.LevelSpec], cell boundaries default to solid walls unless listed in `edges`: setting `"1,0:west"` to `Edge(kind=EdgeKind.OPEN)` opens the west boundary of cell `(1, 0)`, connecting `entrance=(0, 0)` to `(1, 0)` (see [Building an adventure](building-an-adventure.md)):
 
 ```{.python .no-run}
 # The smallest adventure: a town and a one-corridor dungeon, two cells joined west-east.
@@ -42,11 +40,9 @@ town = TownSpec(name="Threshold", travel_turns={"crypt": 1})
 adventure = Adventure(name="A First Delve", town=town, dungeons=(crypt,))
 ```
 
-The key `"1,0:west"` is the west side of cell `(1, 0)`. See [Building an adventure](building-an-adventure.md) for the full geometry.
-
 ## Start the session and move
 
-A [`GameSession`][osrlib.crawl.session.GameSession] starts in town. [`EnterDungeon`][osrlib.crawl.commands.EnterDungeon] places the party at the entrance and switches the session to `exploring`.
+Call [`GameSession.new`][osrlib.crawl.session.GameSession.new] with your party, adventure, and a master seed to start a [`GameSession`][osrlib.crawl.session.GameSession] in `town`. Execute [`EnterDungeon`][osrlib.crawl.commands.EnterDungeon] to travel to the dungeon entrance and switch `session.mode` to `SessionMode.EXPLORING`:
 
 ```{.python .no-run}
 # A session starts in town; entering the dungeon switches it to exploring.
@@ -55,7 +51,7 @@ session.execute(EnterDungeon(dungeon_id="crypt"))
 assert session.mode is SessionMode.EXPLORING
 ```
 
-Each command you execute changes the game state, and the session returns typed events for it:
+Advance play by passing commands to [`GameSession.execute`][osrlib.crawl.session.GameSession.execute]. When a command is legal, `result.accepted` is `True`, the session updates state, and `result.events` lists the typed events for that action:
 
 ```{.python .no-run}
 # Commands in, events out: every rules resolution is a typed event with a message code.
@@ -65,11 +61,11 @@ lines = [format_message(event) for event in result.events]
 assert lines  # every event formats to a default English line
 ```
 
-A rejected command changes nothing. Events contain structured fields and a message code, not English text. [`format_message`][osrlib.messages.format_message] renders the default English line, and your front end can render different text instead.
+If a rule blocks the command (such as moving into a wall), `result.accepted` is `False`, `result.rejections` lists the structured [`Rejection`][osrlib.core.validation.Rejection] codes, and session state, RNG streams, and the clock remain unchanged. Events contain structured fields and a message `code` rather than English prose. Call [`format_message`][osrlib.messages.format_message] for a default English sentence, or render the event fields directly in your UI (filter to `Visibility.PLAYER` before showing events to players, as shown in [Views and visibility](../guides/views-and-visibility.md)).
 
 ## Save and load
 
-[`save_game`][osrlib.persistence.save_game] serializes the session to a JSON-compatible dict, and [`load_game`][osrlib.persistence.load_game] restores the session from that dict alone:
+Call [`save_game`][osrlib.persistence.save_game] to serialize the session (including the adventure, party, explored dungeon state, and RNG stream positions) to a JSON-compatible dict, and call [`load_game`][osrlib.persistence.load_game] to restore a running session from that dict:
 
 ```{.python .no-run}
 # The whole session round-trips through JSON: same seed, same commands, same game.
@@ -78,7 +74,7 @@ restored = load_game(document)
 assert save_game(restored) == document
 ```
 
-For replay, which rebuilds the same session by re-executing the command log, see [Determinism, saves, and replay](../guides/determinism-saves-replay.md).
+To rebuild a session from scratch by re-executing `session.command_log` from the master seed, call [`replay_game`][osrlib.persistence.replay_game] (see [Determinism, saves, and replay](../guides/determinism-saves-replay.md)).
 
 ## The complete program
 
@@ -130,8 +126,8 @@ assert save_game(restored) == document
 
 ## Where next
 
-- [Building an adventure](building-an-adventure.md) - the dungeon grid, edges, keyed areas, and content.
-- [Gates, triggers, and quests](../guides/gates-triggers-quests.md) - keyed doors, levers, quests.
-- [Sessions, commands, and events](../guides/sessions-commands-events.md) - the command loop: modes, rejections, the event log.
-- [Determinism, saves, and replay](../guides/determinism-saves-replay.md) - the seed guarantee and how saves and replay agree.
-- [The TUI crawler](../front-ends/tui-crawler.md) - a complete game built on osrlib.
+- [Building an adventure](building-an-adventure.md) - laying out dungeon grids, edges, doors, keyed areas, traps, and treasure.
+- [Gates, triggers, and quests](../guides/gates-triggers-quests.md) - gating doors and stairs, reacting to events with triggers, and defining quests.
+- [Sessions, commands, and events](../guides/sessions-commands-events.md) - handling session modes, command rejections, JSON parsing, and the event log.
+- [Determinism, saves, and replay](../guides/determinism-saves-replay.md) - saving sessions, migrating older saves, and replaying command logs from a seed.
+- [The TUI crawler](../front-ends/tui-crawler.md) - walking through a complete terminal dungeon crawler built on osrlib.
